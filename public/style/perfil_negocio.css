@@ -256,7 +256,7 @@ body::before {
 }
 
 .biz-name {
-  font-family: 'Syne', sans-serif;
+  font-family:  sans-serif;
   font-size: clamp(1.4rem, 5vw, 2.1rem);
   font-weight: 800;
   letter-spacing: -.03em;
@@ -677,7 +677,7 @@ body::before {
 
 .promo-head h2 {
   margin-top: 5px;
-  font-family: 'Syne', sans-serif;
+  font-family: sans-serif;
   font-size: 1.2rem;
   font-weight: 800;
   color: white;
@@ -878,7 +878,7 @@ body::before {
 }
 
 .discover-banner h3 {
-  font-family: 'Syne', sans-serif;
+  font-family:  sans-serif;
   font-size: clamp(1.45rem, 4.5vw, 2.05rem);
   line-height: 1.14;
   font-weight: 800;

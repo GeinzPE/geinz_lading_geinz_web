@@ -1,542 +1,1080 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
     <title>Salud y Seguridad | Geinz</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+
     <style>
         :root {
             --primary: #8800F2;
-            --primary-glow: rgba(136, 0, 242, 0.3);
+            --primary-glow: rgba(136, 0, 242, .35);
             --bg: #050505;
             --card-bg: #111111;
-            --border: rgba(255, 255, 255, 0.08);
-            --text-white: #ffffff;
-            --text-gray: #a1a1a6;
-            --call-color: #007aff;
-            --wssp-color: #25d366;
-            --shimmer-light: rgba(255, 255, 255, 0.03);
-            --shimmer-dark: rgba(255, 255, 255, 0.01);
+            --border: rgba(255, 255, 255, .07);
+            --text: #ffffff;
+            --gray: #9c9ca5;
+            --call: #007aff;
+            --wssp: #25d366;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
 
         body {
-            background-color: var(--bg);
-            color: var(--text-white);
-            background-image: radial-gradient(circle at 50% -20%, rgba(136, 0, 242, 0.15), transparent 60%);
+            background:
+                radial-gradient(circle at top, rgba(136, 0, 242, .14), transparent 45%),
+                #050505;
+            color: var(--text);
             min-height: 100vh;
-            padding-bottom: 50px;
             overflow-x: hidden;
         }
 
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        /* ─────────────────────────────
+   GLOBAL SKELETON
+───────────────────────────── */
 
-        header { text-align: center; padding: 60px 0 40px; }
-        header h1 { 
-            font-size: 3rem; 
-            font-weight: 800; 
-            margin-bottom: 15px; 
+        body.loading-page {
+            overflow: hidden;
+        }
+
+        .page-skeleton {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            overflow: auto;
+            background:
+                radial-gradient(circle at top, rgba(136, 0, 242, .12), transparent 45%),
+                #050505;
+            animation: fadeIn .25s ease;
+        }
+
+        .page-skeleton.hide {
+            opacity: 0;
+            visibility: hidden;
+            transition: .45s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .sk-shimmer {
+            position: relative;
+            overflow: hidden;
+            background: #171717;
+        }
+
+        .sk-shimmer::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(90deg,
+                    transparent 0%,
+                    rgba(136, 0, 242, .08) 35%,
+                    rgba(255, 255, 255, .04) 50%,
+                    rgba(136, 0, 242, .08) 65%,
+                    transparent 100%);
+            transform: translateX(-100%);
+            animation: shimmer 1.3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .sk-header {
+            padding: 70px 20px 35px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .sk-title {
+            width: min(400px, 80%);
+            height: 54px;
+            border-radius: 18px;
+            margin-bottom: 18px;
+        }
+
+        .sk-subtitle {
+            width: min(550px, 92%);
+            height: 18px;
+            border-radius: 12px;
+        }
+
+        .sk-controls {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 18px 20px 24px;
+            background: rgba(5, 5, 5, .82);
+            backdrop-filter: blur(22px);
+            border-bottom: 1px solid rgba(255, 255, 255, .05);
+        }
+
+        .sk-search {
+            max-width: 700px;
+            height: 58px;
+            border-radius: 22px;
+            margin: auto auto 16px;
+        }
+
+        .sk-filters {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .sk-filter {
+            width: 120px;
+            height: 40px;
+            border-radius: 999px;
+        }
+
+        .sk-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: auto;
+            padding: 30px 20px 60px;
+        }
+
+        .sk-card {
+            background: #111111;
+            border: 1px solid rgba(255, 255, 255, .05);
+            border-radius: 30px;
+            padding: 24px;
+        }
+
+        .sk-card-header {
+            display: flex;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .sk-logo {
+            width: 82px;
+            height: 82px;
+            border-radius: 22px;
+            flex-shrink: 0;
+        }
+
+        .sk-info {
+            flex: 1;
+        }
+
+        .sk-tag {
+            width: 90px;
+            height: 22px;
+            border-radius: 999px;
+            margin-bottom: 12px;
+        }
+
+        .sk-name {
+            width: 75%;
+            height: 24px;
+            border-radius: 10px;
+        }
+
+        .sk-line {
+            height: 16px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+        }
+
+        .sk-line.l1 {
+            width: 100%;
+        }
+
+        .sk-line.l2 {
+            width: 82%;
+        }
+
+        .sk-line.l3 {
+            width: 92%;
+        }
+
+        .sk-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 52px;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .sk-btn {
+            height: 48px;
+            border-radius: 16px;
+        }
+
+        /* ─────────────────────────────
+   REAL CONTENT
+───────────────────────────── */
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 0 20px 60px;
+            opacity: 0;
+            transform: translateY(16px);
+            transition: .5s ease;
+        }
+
+        .container.loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 0 38px;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 15px;
             letter-spacing: -1.5px;
-            background: linear-gradient(135deg, #FFFFFF 0%, #C084FC 100%);
-            background-clip: text;
+            background: linear-gradient(135deg, #fff 0%, #C084FC 100%);
             -webkit-background-clip: text;
             color: transparent;
         }
-        header p { color: var(--text-gray); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
 
-        .controls { 
-            position: sticky; 
-            top: 0; 
-            z-index: 1000; 
-            margin-bottom: 40px;
-            padding: 20px 0;
-            background: rgba(5, 5, 5, 0.75);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        header p {
+            color: var(--gray);
+            max-width: 650px;
+            margin: auto;
+            line-height: 1.7;
+        }
+
+        /* ─────────────────────────────
+   CONTROLS IMPROVED
+───────────────────────────── */
+
+        .controls {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 16px 0 22px;
+            margin-bottom: 30px;
+            transition:
+                padding .35s ease,
+                background .35s ease,
+                border-color .35s ease,
+                transform .35s ease,
+                backdrop-filter .35s ease;
+        }
+
+        .controls.scrolled {
+            padding: 10px 0 14px;
+            background: rgba(5, 5, 5, .78);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
         }
 
         .search-wrapper {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 5px 20px;
+            max-width: 700px;
+            margin: auto auto 16px;
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 24px;
             display: flex;
             align-items: center;
-            max-width: 700px;
-            margin: 0 auto 15px;
-            transition: all 0.3s ease;
+            padding: 5px 20px;
+            transition: .3s ease;
         }
-        .search-wrapper:focus-within { 
-            border-color: var(--primary); 
-            background: rgba(136, 0, 242, 0.08);
-            box-shadow: 0 0 30px var(--primary-glow); 
-        }
-        .search-wrapper input {
-            background: transparent; 
-            border: none; 
-            color: white; 
-            flex: 1; 
-            padding: 12px; 
-            font-size: 1rem; 
-            outline: none;
-        }
-        .search-wrapper input::placeholder { color: var(--text-gray); }
-        .search-wrapper i { color: var(--primary); font-size: 1.2rem; }
 
-        .filter-group { 
-            display: flex; 
-            justify-content: center; 
-            gap: 12px; 
-            flex-wrap: wrap; 
-        }
-        .filter-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-white);
-            padding: 8px 24px;
-            border-radius: 100px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        .filter-btn i { margin-right: 6px; }
-        .filter-btn.active { 
-            background: var(--primary); 
+        .search-wrapper:focus-within {
             border-color: var(--primary);
-            box-shadow: 0 4px 15px var(--primary-glow);
+            background: rgba(136, 0, 242, .08);
+            box-shadow: 0 0 35px rgba(136, 0, 242, .18);
+            transform: translateY(-1px);
         }
-        .filter-btn:active { transform: scale(0.95); }
+
+        .search-wrapper i {
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .search-wrapper input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            padding: 14px 12px;
+            font-size: 1rem;
+        }
+
+        .search-wrapper input::placeholder {
+            color: #85858e;
+        }
+
+        .filter-group {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 10px 22px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid rgba(255, 255, 255, .07);
+            color: white;
+            font-weight: 700;
+            transition: .28s ease;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, .08);
+        }
+
+        .filter-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow:
+                0 10px 30px rgba(136, 0, 242, .25),
+                inset 0 1px 0 rgba(255, 255, 255, .15);
+        }
+
+        .filter-btn:active {
+            transform: scale(.95);
+        }
+
+        /* ─────────────────────────────
+   GRID
+───────────────────────────── */
 
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 25px;
+            gap: 24px;
         }
 
-        /* Estilos de las tarjetas reales */
+        /* ─────────────────────────────
+   CARD
+───────────────────────────── */
+
         .card {
-            background: var(--card-bg);
+            background:
+                linear-gradient(180deg,
+                    rgba(255, 255, 255, .02),
+                    rgba(255, 255, 255, .01));
             border: 1px solid var(--border);
             border-radius: 30px;
             padding: 24px;
-            transition: all 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
-            animation: fadeInUp 0.5s ease backwards;
+            position: relative;
+            overflow: hidden;
+            transition: .45s cubic-bezier(.2, .9, .4, 1);
+            opacity: 0;
+            transform: translateY(40px);
         }
-        .card:hover { 
-            transform: translateY(-8px); 
-            border-color: var(--primary);
-            box-shadow: 0 20px 35px -15px rgba(0,0,0,0.5);
+
+        .card.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
-        .card-header { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; }
-        .card-logo { 
-            width: 80px; 
-            height: 80px; 
-            border-radius: 20px; 
-            object-fit: cover; 
-            background: #1a1a2e;
+
+        .card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at top right,
+                    rgba(136, 0, 242, .12),
+                    transparent 35%);
+            opacity: 0;
+            transition: .4s ease;
         }
-        
+
+        .card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(136, 0, 242, .35);
+            box-shadow:
+                0 20px 45px rgba(0, 0, 0, .45),
+                0 0 0 1px rgba(136, 0, 242, .06);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-header {
+            display: flex;
+            gap: 18px;
+            align-items: center;
+            margin-bottom: 22px;
+        }
+
+        .card-logo {
+            width: 82px;
+            height: 82px;
+            border-radius: 22px;
+            object-fit: cover;
+            background: #1d1d1d;
+            border: 1px solid rgba(255, 255, 255, .06);
+        }
+
         .tag-category {
-            background: rgba(136, 0, 242, 0.12);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            background: rgba(136, 0, 242, .12);
+            color: #c084fc;
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: .5px;
+        }
+
+        .card h3 {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            line-height: 1.3;
+        }
+
+        .card-info div {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 14px;
+            color: var(--gray);
+            line-height: 1.6;
+            font-size: .92rem;
+        }
+
+        .card-info i {
+            width: 18px;
             color: var(--primary);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            display: inline-block;
+            margin-top: 3px;
         }
 
-        .card-info div { 
-            display: flex; 
-            align-items: flex-start; 
-            gap: 12px; 
-            margin-bottom: 12px; 
-            color: var(--text-gray); 
-            font-size: 0.88rem; 
-            line-height: 1.4;
-        }
-        .card-info i { color: var(--primary); width: 18px; text-align: center; margin-top: 2px; }
+        /* actions */
 
-        .card-actions { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr 50px; 
-            gap: 10px; 
-            margin-top: 25px; 
+        .card-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 54px;
+            gap: 10px;
+            margin-top: 26px;
         }
-        
+
         .btn {
-            height: 48px;
-            border-radius: 16px;
+            height: 50px;
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-decoration: none;
-            font-weight: 700;
             gap: 8px;
-            transition: all 0.2s ease;
+            text-decoration: none;
             color: white;
-            font-size: 0.85rem;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn-call { background: var(--call-color); }
-        .btn-wssp { background: var(--wssp-color); }
-        .btn-map { background: var(--primary); font-size: 1.1rem; }
-
-        /* SKELETON LOADER MODERNO - Effect Shimmer */
-        .skeleton-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 30px;
-            padding: 24px;
-            position: relative;
-            overflow: hidden;
-        }
-        .skeleton-header {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .skeleton-logo {
-            width: 80px;
-            height: 80px;
-            border-radius: 20px;
-            background: #1E1E2E;
-        }
-        .skeleton-text {
-            flex: 1;
-        }
-        .skeleton-tag {
-            width: 80px;
-            height: 22px;
-            background: #1E1E2E;
-            border-radius: 20px;
-            margin-bottom: 10px;
-        }
-        .skeleton-title {
-            width: 140px;
-            height: 24px;
-            background: #1E1E2E;
-            border-radius: 8px;
-        }
-        .skeleton-info {
-            margin-top: 15px;
-        }
-        .skeleton-line {
-            height: 18px;
-            background: #1E1E2E;
-            border-radius: 8px;
-            margin-bottom: 12px;
-        }
-        .skeleton-line.short { width: 70%; }
-        .skeleton-line.medium { width: 85%; }
-        .skeleton-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr 50px;
-            gap: 10px;
-            margin-top: 25px;
-        }
-        .skeleton-btn {
-            height: 48px;
-            background: #1E1E2E;
-            border-radius: 16px;
-        }
-        
-        /* Efecto shimmer animado */
-        .shimmer {
-            position: relative;
-            overflow: hidden;
-        }
-        .shimmer::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(136, 0, 242, 0.08),
-                rgba(255, 255, 255, 0.03),
-                transparent
-            );
-            animation: shimmerMove 1.2s infinite;
-        }
-        @keyframes shimmerMove {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+            font-weight: 700;
+            font-size: .86rem;
+            transition: .25s ease;
+            border: none;
         }
 
-        .skeleton-card.shimmer {
-            animation: pulseOpacity 1.5s ease-in-out infinite;
-        }
-        @keyframes pulseOpacity {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        .btn:hover {
+            transform: translateY(-2px);
         }
 
-        /* Animación de entrada para tarjetas */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(25px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .btn:active {
+            transform: scale(.96);
         }
 
-        /* Estado vacío */
-        .empty-state {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 60px 20px;
-            background: rgba(17, 17, 17, 0.8);
-            border-radius: 40px;
-            border: 1px dashed var(--primary);
+        .btn-call {
+            background: var(--call);
         }
-        .empty-state i {
-            font-size: 3rem;
-            color: var(--primary);
-            margin-bottom: 15px;
-            opacity: 0.7;
+
+        .btn-wssp {
+            background: var(--wssp);
         }
-        .empty-state p {
-            color: var(--text-gray);
+
+        .btn-map {
+            background: var(--primary);
             font-size: 1rem;
         }
 
-        @media (max-width: 600px) {
-            header h1 { font-size: 2rem; }
-            header { padding: 40px 0 25px; }
-            .grid { grid-template-columns: 1fr; gap: 18px; }
-            .card-actions { gap: 8px; }
-            .btn { font-size: 0.75rem; gap: 5px; }
-            .filter-btn { padding: 6px 18px; font-size: 0.8rem; }
+        .btn[disabled] {
+            opacity: 1;
+            /* <- importante: evita que desaparezca */
+            filter: grayscale(1);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* empty */
+
+        .empty-state {
+            grid-column: 1/-1;
+            text-align: center;
+            padding: 80px 20px;
+            border-radius: 40px;
+            border: 1px dashed rgba(136, 0, 242, .4);
+            background: rgba(255, 255, 255, .02);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 18px;
+            color: var(--primary);
+        }
+
+        .empty-state p {
+            color: var(--gray);
+        }
+
+        /* mobile */
+
+        @media(max-width:700px) {
+
+            header h1 {
+                font-size: 2rem;
+            }
+
+            header {
+                padding: 42px 0 28px;
+            }
+
+            .grid,
+            .sk-grid {
+                grid-template-columns: 1fr;
+                gap: 18px;
+            }
+
+            .card {
+                border-radius: 26px;
+                padding: 20px;
+            }
+
+            .card-actions {
+                gap: 8px;
+            }
+
+            .btn {
+                font-size: .76rem;
+            }
+
+            .filter-btn {
+                padding: 8px 18px;
+                font-size: .82rem;
+            }
+
+            .search-wrapper {
+                border-radius: 20px;
+            }
         }
     </style>
 </head>
-<body>
 
-<div class="container">
-    <header>
-        <h1>Salud y Seguridad</h1>
-        <p>Directorio centralizado de servicios de emergencia en Barranca.</p>
-    </header>
+<body class="loading-page">
 
-    <div class="controls">
-        <div class="search-wrapper">
-            <i class="fas fa-shield-virus"></i>
-            <input type="text" placeholder="Busca por servicio, emergencia, policía, clínica..." id="searchInput">
+    <!-- SKELETON GLOBAL -->
+
+    <div class="page-skeleton" id="pageSkeleton">
+
+        <div class="sk-header">
+            <div class="sk-title sk-shimmer"></div>
+            <div class="sk-subtitle sk-shimmer"></div>
         </div>
-        <div class="filter-group">
-            <button class="filter-btn active" data-filter="todos"><i class="fas fa-th-large"></i> Todos</button>
-            <button class="filter-btn" data-filter="seguridad"><i class="fas fa-shield-alt"></i> Seguridad</button>
-            <button class="filter-btn" data-filter="salud"><i class="fas fa-heartbeat"></i> Salud</button>
+
+        <div class="sk-controls">
+
+            <div class="sk-search sk-shimmer"></div>
+
+            <div class="sk-filters">
+                <div class="sk-filter sk-shimmer"></div>
+                <div class="sk-filter sk-shimmer"></div>
+                <div class="sk-filter sk-shimmer"></div>
+            </div>
+
         </div>
+
+        <div class="sk-grid">
+
+            <!-- repeat -->
+            <div class="sk-card">
+                <div class="sk-card-header">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-info">
+                        <div class="sk-tag sk-shimmer"></div>
+                        <div class="sk-name sk-shimmer"></div>
+                    </div>
+                </div>
+
+                <div class="sk-line l1 sk-shimmer"></div>
+                <div class="sk-line l2 sk-shimmer"></div>
+                <div class="sk-line l3 sk-shimmer"></div>
+
+                <div class="sk-actions">
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                </div>
+            </div>
+
+            <div class="sk-card">
+                <div class="sk-card-header">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-info">
+                        <div class="sk-tag sk-shimmer"></div>
+                        <div class="sk-name sk-shimmer"></div>
+                    </div>
+                </div>
+
+                <div class="sk-line l1 sk-shimmer"></div>
+                <div class="sk-line l2 sk-shimmer"></div>
+                <div class="sk-line l3 sk-shimmer"></div>
+
+                <div class="sk-actions">
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                </div>
+            </div>
+
+            <div class="sk-card">
+                <div class="sk-card-header">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-info">
+                        <div class="sk-tag sk-shimmer"></div>
+                        <div class="sk-name sk-shimmer"></div>
+                    </div>
+                </div>
+
+                <div class="sk-line l1 sk-shimmer"></div>
+                <div class="sk-line l2 sk-shimmer"></div>
+                <div class="sk-line l3 sk-shimmer"></div>
+
+                <div class="sk-actions">
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                </div>
+            </div>
+
+        </div>
+
     </div>
 
-    <!-- Grid container -->
-    <div class="grid" id="containerGrid"></div>
-</div>
+    <!-- REAL CONTENT -->
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { 
-        getFirestore, 
-        collection, 
-        getDocs 
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    <div class="container">
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-        authDomain: "geinzworkapp.firebaseapp.com",
-        databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-        projectId: "geinzworkapp",
-        storageBucket: "geinzworkapp.appspot.com",
-        messagingSenderId: "921389328767",
-        appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-        measurementId: "G-38J7RJP8HK"
-    };
+        <header>
+            <h1>Salud y Seguridad por Geinz</h1>
+            <p>
+                Directorio centralizado de servicios de emergencia en Barranca.
+            </p>
+        </header>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+        <div class="controls" id="controls">
 
-    let listadoEmergencias = [];
+            <div class="search-wrapper">
+                <i class="fas fa-shield-virus"></i>
 
-    // Renderiza skeletons de carga modernos
-    function renderSkeletons() {
-        const grid = document.getElementById('containerGrid');
-        const skeletonCount = 6;
-        let skeletonsHTML = '';
-        
-        for (let i = 0; i < skeletonCount; i++) {
-            skeletonsHTML += `
-                <div class="skeleton-card shimmer">
-                    <div class="skeleton-header">
-                        <div class="skeleton-logo"></div>
-                        <div class="skeleton-text">
-                            <div class="skeleton-tag"></div>
-                            <div class="skeleton-title"></div>
-                        </div>
-                    </div>
-                    <div class="skeleton-info">
-                        <div class="skeleton-line medium"></div>
-                        <div class="skeleton-line short"></div>
-                        <div class="skeleton-line" style="width: 90%;"></div>
-                    </div>
-                    <div class="skeleton-actions">
-                        <div class="skeleton-btn"></div>
-                        <div class="skeleton-btn"></div>
-                        <div class="skeleton-btn"></div>
-                    </div>
-                </div>
-            `;
+                <input type="text" id="searchInput" placeholder="Busca por servicio, emergencia, policía, clínica..." />
+            </div>
+
+            <div class="filter-group">
+
+                <button class="filter-btn active" data-filter="todos">
+                    <i class="fas fa-th-large"></i>
+                    Todos
+                </button>
+
+                <button class="filter-btn" data-filter="seguridad">
+                    <i class="fas fa-shield-alt"></i>
+                    Seguridad
+                </button>
+
+                <button class="filter-btn" data-filter="salud">
+                    <i class="fas fa-heartbeat"></i>
+                    Salud
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="grid" id="containerGrid"></div>
+
+    </div>
+
+    <script type="module">
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+        import {
+            getFirestore,
+            collection,
+            getDocs
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.appspot.com",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const grid = document.getElementById("containerGrid");
+
+        let listadoEmergencias = [];
+
+        /* controls effect */
+
+        const controls = document.getElementById("controls");
+
+        window.addEventListener("scroll", () => {
+
+            if (window.scrollY > 80) {
+                controls.classList.add("scrolled");
+            } else {
+                controls.classList.remove("scrolled");
+            }
+
+        });
+
+        /* fetch */
+
+        async function fetchDatabase() {
+
+            try {
+
+                const colRef = collection(
+                    db,
+                    "Tiendas",
+                    "salud_seguridad",
+                    "barranca"
+                );
+
+                const snapshot = await getDocs(colRef);
+
+                listadoEmergencias = snapshot.docs.map(doc => {
+
+                    const d = doc.data();
+
+                    return {
+
+                        nombre: d.nombre || "Entidad",
+                        categoria: d.categoria || "seguridad",
+                        img: d.img || "",
+                        direccion: d.ubicacion?.direccion || "Sin dirección",
+                        referencia: d.ubicacion?.referencia || "Sin referencia",
+                        lat: d.ubicacion?.latitud || -10.7539,
+                        lng: d.ubicacion?.longitud || -77.7640,
+                        llamada: d.numeros_contactos?.llamada?.[0] || "",
+                        whatsapp: d.numeros_contactos?.whatsapp?.[0] || "",
+                        tags: d.tag_eventos_emerge || []
+
+                    };
+
+                });
+
+                renderCards(listadoEmergencias);
+
+            } catch (error) {
+
+                console.error(error);
+
+                grid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-triangle-exclamation"></i>
+                <p>Error cargando información.</p>
+            </div>
+        `;
+
+            }
+
+            /* hide skeleton */
+
+            setTimeout(() => {
+
+                document.getElementById("pageSkeleton")
+                    .classList.add("hide");
+
+                document.body.classList.remove("loading-page");
+
+                document.querySelector(".container")
+                    .classList.add("loaded");
+
+            }, 700);
+
         }
-        grid.innerHTML = skeletonsHTML;
-    }
 
-    async function fetchDatabase() {
-        const grid = document.getElementById('containerGrid');
-        
-        // Mostrar skeletons elegantes
-        renderSkeletons();
-        
-        try {
-            const colRef = collection(db, "Tiendas", "salud_seguridad", "barranca");
-            const querySnapshot = await getDocs(colRef);
-            
-            if (querySnapshot.empty) {
-                grid.innerHTML = `<div class="empty-state"><i class="fas fa-database"></i><p>No hay datos disponibles en esta categoría.</p></div>`;
+        function renderCards(data) {
+
+            if (!data.length) {
+
+                grid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <p>No se encontraron resultados.</p>
+            </div>
+        `;
+
                 return;
             }
-            
-            listadoEmergencias = querySnapshot.docs.map(doc => {
-                const d = doc.data();
-                // Limpieza de números de contacto
-                let phoneNumber = d.numeros_contactos?.llamada?.[0] || "";
-                let whatsappNumber = d.numeros_contactos?.whatsapp?.[0] || "";
-                
-                // Remover espacios y caracteres no numéricos excepto +
-                phoneNumber = phoneNumber.replace(/\s/g, '');
-                whatsappNumber = whatsappNumber.replace(/\s/g, '');
-                
-                return {
-                    id: doc.id,
-                    nombre: d.nombre || "Entidad de Emergencia",
-                    categoria: d.categoria || "seguridad",
-                    img: d.img || "",
-                    direccion: d.ubicacion?.direccion || "Dirección no especificada",
-                    referencia: d.ubicacion?.referencia || "Sin referencia adicional",
-                    lat: d.ubicacion?.latitud || -10.7539,
-                    lng: d.ubicacion?.longitud || -77.7640,
-                    llamada: phoneNumber,
-                    whatsapp: whatsappNumber,
-                    tags: d.tag_eventos_emerge || []
-                };
+
+            grid.innerHTML = data.map(item => {
+
+                const hasCall = item.llamada !== "";
+                const hasWhatsapp = item.whatsapp !== "";
+
+                const mapUrl =
+                    `https://www.google.com/maps?q=${item.lat},${item.lng}`;
+
+                const img =
+                    item.img ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(item.nombre.charAt(0))}&background=8800F2&color=fff`;
+
+                return `
+
+        <div class="card reveal-card">
+
+            <div class="card-header">
+
+                <img
+                    class="card-logo"
+                    src="${img}"
+                    alt="${item.nombre}"
+                    loading="lazy"
+                />
+
+                <div>
+
+                    <span class="tag-category">
+                        <i class="fas ${item.categoria === "salud"
+                        ? "fa-heartbeat"
+                        : "fa-shield-alt"
+                    }"></i>
+
+                        ${item.categoria === "salud"
+                        ? "SALUD"
+                        : "SEGURIDAD"
+                    }
+
+                    </span>
+
+                    <h3>${item.nombre}</h3>
+
+                </div>
+
+            </div>
+
+            <div class="card-info">
+
+                <div>
+                    <i class="fas fa-location-dot"></i>
+                    <span>${item.direccion}</span>
+                </div>
+
+                <div>
+                    <i class="fas fa-circle-info"></i>
+                    <span>${item.referencia}</span>
+                </div>
+
+            </div>
+
+            <div class="card-actions">
+
+                ${hasCall
+                        ?
+                        `
+                    <a href="tel:${item.llamada}" class="btn btn-call">
+                        <i class="fas fa-phone"></i>
+                        Llamar
+                    </a>
+                    `
+                        :
+                        `
+               <button class="btn btn-call" disabled>
+    <i class="fas fa-ban"></i>
+    No disponible
+</button>
+                    `
+                    }
+
+                ${hasWhatsapp
+                        ?
+                        `
+                    <a
+                        href="https://wa.me/${item.whatsapp.replace(/[^0-9]/g, '')}"
+                        target="_blank"
+                        class="btn btn-wssp"
+                    >
+                        <i class="fab fa-whatsapp"></i>
+                        WhatsApp
+                    </a>
+                    `
+                        :
+                        `
+                    <button class="btn btn-wssp" disabled>
+                        No disponible
+                    </button>
+                    `
+                    }
+
+                <a
+                    href="${mapUrl}"
+                    target="_blank"
+                    class="btn btn-map"
+                >
+                    <i class="fas fa-location-arrow"></i>
+                </a>
+
+            </div>
+
+        </div>
+
+        `;
+
+            }).join("");
+
+            revealCards();
+        }
+
+        /* reveal animation */
+
+        function revealCards() {
+
+            const cards = document.querySelectorAll(".reveal-card");
+
+            const observer = new IntersectionObserver((entries) => {
+
+                entries.forEach(entry => {
+
+                    if (entry.isIntersecting) {
+
+                        entry.target.classList.add("visible");
+
+                    }
+
+                });
+
+            }, {
+                threshold: .12
             });
 
-            renderCards(listadoEmergencias);
-            
-        } catch (error) {
-            console.error("Error Firestore:", error);
-            grid.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>⚠️ Error al cargar los datos. Verifica tu conexión.</p></div>`;
+            cards.forEach(card => observer.observe(card));
         }
-    }
 
-    function renderCards(data) {
-        const grid = document.getElementById('containerGrid');
-        
-        if (!data.length) {
-            grid.innerHTML = `<div class="empty-state"><i class="fas fa-search"></i><p>No se encontraron resultados para tu búsqueda.</p></div>`;
-            return;
+        /* filters */
+
+        function filterData() {
+
+            const term =
+                document.getElementById("searchInput")
+                    .value
+                    .toLowerCase()
+                    .trim();
+
+            const active =
+                document.querySelector(".filter-btn.active")
+                    .dataset
+                    .filter;
+
+            const filtered = listadoEmergencias.filter(item => {
+
+                const matchSearch =
+                    term === "" ||
+                    item.nombre.toLowerCase().includes(term) ||
+                    item.tags.some(tag =>
+                        tag.toLowerCase().includes(term)
+                    );
+
+                const matchCategory =
+                    active === "todos" ||
+                    item.categoria === active;
+
+                return matchSearch && matchCategory;
+
+            });
+
+            renderCards(filtered);
+
         }
-        
-        grid.innerHTML = data.map((item, idx) => {
-            // Manejar teléfono y whatsapp vacíos
-            const callNumber = item.llamada ? item.llamada : "#";
-            const whatsappNumber = item.whatsapp ? item.whatsapp : "";
-            const hasCall = item.llamada && item.llamada !== "";
-            const hasWhatsapp = item.whatsapp && item.whatsapp !== "";
-            const mapUrl = `https://www.google.com/maps?q=${item.lat},${item.lng}`;
-            
-            // Imagen fallback
-            const imgSrc = item.img || "https://ui-avatars.com/api/?name=" + encodeURIComponent(item.nombre.charAt(0)) + "&background=8800F2&color=fff&size=80&rounded=20";
-            
-            // Iconos por categoría
-            const categoryIcon = item.categoria === "salud" ? "fa-heartbeat" : "fa-shield-alt";
-            
-            return `
-                <div class="card" style="animation-delay: ${Math.min(idx * 0.03, 0.3)}s">
-                    <div class="card-header">
-                        <img src="${imgSrc}" class="card-logo" alt="${item.nombre}" loading="lazy" 
-                             onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(item.nombre.charAt(0))}&background=8800F2&color=fff&size=80&rounded=20'">
-                        <div>
-                            <span class="tag-category"><i class="${categoryIcon}" style="font-size:0.65rem; margin-right:4px;"></i> ${item.categoria === "salud" ? "SALUD" : "SEGURIDAD"}</span>
-                            <h3 style="margin-top:8px; font-size:1.2rem;">${item.nombre}</h3>
-                        </div>
-                    </div>
-                    <div class="card-info">
-                        <div><i class="fas fa-map-marker-alt"></i> <span>${item.direccion}</span></div>
-                        <div><i class="fas fa-info-circle"></i> <span>${item.referencia}</span></div>
-                    </div>
-                    <div class="card-actions">
-                        ${hasCall ? `<a href="tel:${callNumber}" class="btn btn-call"><i class="fas fa-phone-alt"></i> Llamar</a>` : `<button class="btn btn-call" disabled style="opacity:0.4; cursor:not-allowed;"><i class="fas fa-phone-alt"></i> No disponible</button>`}
-                        ${hasWhatsapp ? `<a href="https://wa.me/${whatsappNumber.replace(/[^0-9+]/g, '')}" target="_blank" class="btn btn-wssp"><i class="fab fa-whatsapp"></i> WhatsApp</a>` : `<button class="btn btn-wssp" disabled style="opacity:0.4; cursor:not-allowed;"><i class="fab fa-whatsapp"></i> No disponible</button>`}
-                        <a href="${mapUrl}" target="_blank" class="btn btn-map"><i class="fas fa-location-arrow"></i></a>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
 
-    // Filtro combinado: búsqueda + categoría
-    function filterData() {
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-        const activeCategory = document.querySelector('.filter-btn.active').dataset.filter;
+        /* search */
 
-        let filtered = listadoEmergencias.filter(item => {
-            // Coincidencia por búsqueda: nombre o tags
-            const matchesSearch = searchTerm === "" || 
-                                 item.nombre.toLowerCase().includes(searchTerm) || 
-                                 (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
-            // Coincidencia por categoría
-            const matchesCategory = activeCategory === 'todos' || item.categoria === activeCategory;
-            return matchesSearch && matchesCategory;
-        });
+        let debounce;
 
-        renderCards(filtered);
-    }
+        document
+            .getElementById("searchInput")
+            .addEventListener("input", () => {
 
-    // Debounce para búsqueda más fluida
-    let debounceTimeout;
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-        clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(() => {
-            filterData();
-        }, 250);
-    });
+                clearTimeout(debounce);
 
-    // Eventos de filtros con categoría
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            filterData();
-        });
-    });
+                debounce = setTimeout(() => {
 
-    // Iniciar carga
-    fetchDatabase();
-</script>
+                    filterData();
+
+                }, 220);
+
+            });
+
+        /* filters */
+
+        document
+            .querySelectorAll(".filter-btn")
+            .forEach(btn => {
+
+                btn.addEventListener("click", () => {
+
+                    document
+                        .querySelectorAll(".filter-btn")
+                        .forEach(b => b.classList.remove("active"));
+
+                    btn.classList.add("active");
+
+                    filterData();
+
+                });
+
+            });
+
+        fetchDatabase();
+
+    </script>
+
 </body>
+
 </html>

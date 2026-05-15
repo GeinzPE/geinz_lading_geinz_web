@@ -246,7 +246,7 @@ function getParams() {
   return {
     localidad: data.localidad || "barranca",
     subcol: data.subcol || "barranca",
-    id: data.id || "qg8dpSHXI9P1KIzwLO4V",
+    id: data.id || "fW7W8RsgkkQ3IYfxKHGR",
     promoIndex: data.promoIndex || null,
   };
 }
@@ -907,16 +907,26 @@ function renderPromoGallery(promos, nombreNegocio, contactos) {
   const carousel = document.getElementById("promoCarousel");
   section.style.display = "";
 
-  document.getElementById("promoTitle").textContent =
-    `Promos de ${nombreNegocio}`;
+  document.getElementById("promoTitle").textContent = `Promos de ${nombreNegocio}`;
 
   const wa = contactos.find((c) => c.tipo === "whatsapp");
   const waNum = wa ? wa.valor.replace(/\D/g, "") : "";
 
+  // Construir la categoría con + en lugar de espacios
+  const catFormatted = (_params.subcol || "")
+    .toLowerCase()
+    .replace(/\s+/g, "+");
+
   promos.forEach((promo) => {
-    const waText = encodeURIComponent("Hola, vi esta promoción en Geinz");
-    const waLink = `https://wa.me/51${waNum}?text=${waText}`;
-    const shareUrl = window.location.href;
+    // URL base del perfil compartible
+    const shareBase = `https://geinzworkapp.web.app/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+
+    // WhatsApp: texto + URL (sin encodeURIComponent en la URL, wa.me lo maneja)
+    const waText = `Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`;
+    const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(waText)}`;
+
+    // Compartir: texto descriptivo + URL
+    const shareText = `Mira lo que encontre en ${nombreNegocio} 👀🔥\n${shareBase}`;
 
     const card = document.createElement("div");
     card.className = "promo-card";
@@ -927,27 +937,34 @@ function renderPromoGallery(promos, nombreNegocio, contactos) {
           <a class="promo-btn-wa" href="${waLink}" target="_blank">
             <img src="./img/whatsapp_icon.png" alt="WhatsApp"> WhatsApp
           </a>
-          <button class="promo-btn-share" data-url="${shareUrl}">Compartir</button>
+          <button class="promo-btn-share"
+            data-share-url="${shareBase}"
+            data-share-text="${shareText}">
+            Compartir
+          </button>
         </div>
       </div>`;
 
     carousel.appendChild(card);
   });
 
-  carousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const url = btn.dataset.url;
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: nombreNegocio, url });
-        } catch {}
-      } else {
-        copyToClipboard(url);
-      }
-    });
-  });
-}
+carousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const url = btn.dataset.shareUrl;
+    const fullText = `Mira lo que encontre en ${nombreNegocio} 👀🔥\n${url}`;
 
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          text: fullText   // ← todo en text, sin title ni url separados
+        });
+      } catch {}
+    } else {
+      copyToClipboard(fullText);
+    }
+  });
+});
+}
 /* ════════════════════════════════
    RENDER PRINCIPAL
    ════════════════════════════════ */
@@ -993,20 +1010,20 @@ function render(raw) {
   const shareBtn = document.getElementById("shareBtn");
 
   if (shareBtn) {
-    shareBtn.onclick = () => {
-      const cat = (raw.categoria_tienda || "")
-        .toLowerCase()
-        .replace(/\s+/g, "+");
-      const shareUrl = `https://geinzworkapp.web.app/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
-      if (navigator.share) {
-        navigator
-          .share({ title: nombre, url: shareUrl })
-          .catch(() => copyToClipboard(shareUrl));
-      } else {
-        copyToClipboard(shareUrl);
-      }
-    };
-  }
+  shareBtn.onclick = () => {
+    const cat = (raw.categoria_tienda || "")
+      .toLowerCase()
+      .replace(/\s+/g, "+");
+    const shareUrl = `https://geinzworkapp.web.app/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
+    const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
+
+    if (navigator.share) {
+      navigator.share({ text: fullText }).catch(() => copyToClipboard(fullText));
+    } else {
+      copyToClipboard(fullText);
+    }
+  };
+}
 
   document.getElementById("refText").textContent = ubicacion.referencia || "—";
 

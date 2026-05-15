@@ -326,11 +326,14 @@ function copyToClipboard(text) {
 function openInGoogleMaps() {
   const lat = placeData?.ubicacion?.latitud;
   const lng = placeData?.ubicacion?.longitud;
-  const titulo = placeData?.titulo || "Lugar";
 
   if (lat && lng) {
-    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}(${encodeURIComponent(titulo)})`;
+
+    // Navegación directa
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+
     window.open(mapsUrl, "_blank");
+
   } else {
     showToast("Coordenadas no disponibles");
   }
@@ -583,6 +586,17 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+function actualizarBanner(nombreLugar) {
+
+    const title = document.getElementById("discoverTitle");
+
+    if (!title) return;
+
+    title.innerHTML = `
+        Obtén los lugares cercanos de <span>${nombreLugar}</span>
+        descargando Geinz
+    `;
+}
 /* ════════════════════════════════
    INIT
    ════════════════════════════════ */
