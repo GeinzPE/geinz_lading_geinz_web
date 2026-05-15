@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cargando... | Silicon Experience</title>
+    
+    <!-- Open Graph para compartir en redes -->
+    <meta property="og:title" content="Cumbre del Sol">
+    <meta property="og:description" content="Descubre refugios exclusivos diseñados para la desconexión total.">
+    <meta property="og:image" content="">
+    <meta property="og:url" content="">
+    <meta property="og:type" content="website">
+    
+    <link rel="stylesheet" href="style/turimos.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Loading State -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loader"></div>
+        <p>Cargando experiencia...</p>
+    </div>
+
+    <!-- NAV -->
+
+
+    <!-- HERO SECTION -->
+    <section class="hero" id="heroSection">
+        <div class="hero-image-container">
+            <!-- Carrusel de imágenes -->
+            <div class="hero-slider" id="heroSlider">
+                <div class="slide active">
+                    <img src="" alt="Hero" id="heroImage">
+                </div>
+            </div>
+            
+            <!-- Indicadores de slide -->
+            <div class="slide-indicators" id="slideIndicators"></div>
+            
+           
+            
+            <div class="hero-overlay"></div>
+        </div>
+
+        <div class="hero-content">
+            <div class="badges-container" id="badgesContainer">
+                <!-- Se llena dinámicamente -->
+            </div>
+            <h1 class="title" id="placeTitle">Cargando...</h1>
+            <p class="description" id="placeDescription">Obteniendo información del lugar...</p>
+
+            <div class="button-group">
+                <button class="btn-primary" id="viewOnMap">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    Ver en el mapa
+                </button>
+                <button class="btn-secondary" id="shareBtnMain">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                    Compartir lugar
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- DETALLES -->
+    <section class="section-container" id="detailsSection">
+        <h2 class="section-title">Detalles del lugar</h2>
+        
+        <div class="details-grid">
+            <!-- Dirección -->
+            <div class="detail-card" id="addressCard">
+                <div class="detail-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                </div>
+                <div class="detail-content">
+                    <h4>Dirección</h4>
+                    <p id="placeAddress">Cargando...</p>
+                </div>
+            </div>
+            
+            <!-- Coordenadas -->
+            <div class="detail-card" id="coordsCard">
+                <div class="detail-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                </div>
+                <div class="detail-content">
+                    <h4>Coordenadas</h4>
+                    <p id="placeCoords">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GALERÍA -->
+    <section class="section-container" id="gallerySection" style="display: none;">
+        <h2 class="section-title">Galería</h2>
+        <div class="gallery-grid" id="galleryGrid">
+            <!-- Se llena dinámicamente -->
+        </div>
+    </section>
+
+    <!-- LUGARES CERCANOS (placeholder para futura expansión) -->
+    <section class="section-container" style="display: none;">
+        <h2 class="section-title">Lugares Cercanos</h2>
+        <div class="bento-grid" id="nearbyGrid">
+            <!-- Se llenará con datos de Firebase -->
+        </div>
+    </section>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast">✓ Enlace copiado al portapapeles</div>
+
+    <script type="module" src="js/turismo.js"></script>
+</body>
+
+</html>

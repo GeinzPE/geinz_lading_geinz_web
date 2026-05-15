@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfil del Negocio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style/perfil_negocio.css">
+  <script type="module" src="js/perfil_negocio.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.css" />
+
+  <script type="module">
+    import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js';
+    window.PhotoSwipeLightbox = PhotoSwipeLightbox;
+  </script>
+
+  <script>
+    // ── SCROLL REVEAL ──
+    document.addEventListener('DOMContentLoaded', () => {
+      const targets = document.querySelectorAll(
+        '.section, .header-card, .promo-card, .discover-banner, .promo-section'
+      );
+      targets.forEach((el, i) => {
+        el.classList.add('reveal');
+        el.style.setProperty('--reveal-delay', (i * 0.06) + 's');
+      });
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('revealed');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+      targets.forEach(el => io.observe(el));
+    });
+  </script>
+
+  <script>
+    // ── PARALLAX ──
+    window.addEventListener('scroll', () => {
+      const gallery = document.querySelector('.gallery');
+      const track = document.getElementById('track');
+      const scrollY = window.scrollY;
+      if (track) {
+        track.style.transform = `translateY(${scrollY * 0.38}px)`;
+      }
+      if (gallery) {
+        gallery.querySelector('.gallery-overlay').style.opacity = Math.min(1, 0.92 + scrollY * 0.001);
+      }
+    }, { passive: true });
+  </script>
+</head>
+
+<body>
+
+  <!-- GALLERY -->
+  <section class="gallery" id="gallery">
+    <div class="gallery-track" id="track"></div>
+    <div class="gallery-overlay"></div>
+    <div class="gallery-dots" id="dots"></div>
+    <div class="gallery-scroll-hint">
+      <span></span>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <div class="wrapper">
+
+    <!-- HEADER CARD -->
+    <div class="header-card" id="headerCard">
+
+      <!-- LOGO CIRCULAR — el JS debe insertar la img aquí -->
+      <div class="biz-logo-wrap" id="bizLogoWrap">
+        <div class="biz-logo-ring"></div>
+        <img class="biz-logo" id="bizLogo" src="" alt="Logo" />
+        <div class="biz-logo-placeholder" id="bizLogoPlaceholder">🏪</div>
+      </div>
+
+      <h1 class="biz-name" id="bizName">— Cargando —</h1>
+      <div class="cats" id="cats"></div>
+      <div class="status-row">
+        <div class="status-badge closed" id="statusBadge">
+          <span class="status-dot"></span>
+          <span id="statusText">Calculando…</span>
+        </div>
+
+        <div class="status-actions">
+          <button class="route-btn" id="routeBtn" aria-label="Cómo llegar">
+            📍
+          </button>
+          <button class="route-btn" id="shareBtn" aria-label="Compartir">
+            🔗
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARRUSEL PRODUCTOS & SERVICIOS -->
+    <div class="prod-carousel-wrap reveal" id="prodCarouselWrap" style="display:none;">
+      <div class="prod-carousel-header">
+        <span class="prod-carousel-label">Productos &amp; Servicios</span>
+        <div class="prod-carousel-nav">
+          <button class="prod-nav-btn" id="prodPrev" aria-label="Anterior">&#8592;</button>
+          <button class="prod-nav-btn" id="prodNext" aria-label="Siguiente">&#8594;</button>
+        </div>
+      </div>
+      <div class="prod-carousel-track-outer">
+        <div class="prod-carousel-track" id="prodTrack"></div>
+      </div>
+      <div class="prod-carousel-dots" id="prodDots"></div>
+    </div>
+
+    <!-- DESCRIPCIÓN -->
+    <div class="section" id="secDesc" data-delay=".1">
+      <div class="section-header">
+        <span class="section-title"><span class="section-icon">📋</span> Descripción</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <p class="desc-text" id="descText">—</p>
+      </div>
+    </div>
+
+    <!-- DIRECCIÓN Y REFERENCIA -->
+    <div class="section" id="secAddr">
+      <div class="section-header">
+        <span class="section-title"><span class="section-icon">📍</span> Dirección y Referencia</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="addr-block" id="addrBlock">
+          <p class="label">Dirección</p>
+          <p id="addrText">—</p>
+          <p class="label">Referencia</p>
+          <p id="refText">—</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- HORARIO -->
+    <div class="section" id="secSchedule">
+      <div class="section-header">
+        <span class="section-title"><span class="section-icon">🕐</span> Horario de Atención</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="schedule-grid" id="schedGrid"></div>
+      </div>
+    </div>
+
+    <!-- MÉTODOS DE CONTACTO -->
+    <div class="section" id="secContact">
+      <div class="section-header">
+        <span class="section-title"><span class="section-icon">📞</span> Métodos de Contacto</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <div id="contactDetail"></div>
+      </div>
+    </div>
+
+    <!-- MÉTODOS DE PAGO -->
+    <div class="section" id="secPay">
+      <div class="section-header">
+        <span class="section-title"><span class="section-icon">💳</span> Métodos de Pago</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="payment-grid" id="payGrid"></div>
+      </div>
+    </div>
+
+  </div><!-- /wrapper -->
+
+  <!-- PROMOCIONES -->
+  <section class="promo-section" id="secPromos" style="display:none;">
+    <div class="promo-head">
+      <div>
+        <span class="promo-mini">Promociones activas en el perfil</span>
+        <h2 id="promoTitle">Promos del negocio</h2>
+      </div>
+    </div>
+    <div class="promo-carousel" id="promoCarousel"></div>
+  </section>
+
+  <!-- GEINZ DISCOVER BANNER -->
+  <section class="discover-banner">
+    <div class="discover-glow"></div>
+    <div class="discover-content">
+      <span class="discover-mini">Explora más negocios</span>
+      <h3>Descubre nuevas tiendas, servicios y promociones en Geinz</h3>
+      <p>Encuentra negocios verificados cerca de ti con una experiencia más completa desde la app.</p>
+      <a href="TU_LINK_PLAYSTORE" target="_blank" class="discover-btn">Abrir Geinz</a>
+    </div>
+    <img src="./img/Diseño sin título (23)-Photoroom.png" alt="Geinz" class="discover-side-image" />
+  </section>
+
+</body>
+
+</html>

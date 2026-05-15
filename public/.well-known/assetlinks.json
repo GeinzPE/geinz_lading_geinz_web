@@ -1,0 +1,16 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.geinzz.geinzwork",
+      "sha256_cert_fingerprints": [
+        "A3:34:7D:F6:5D:68:28:6B:FC:B8:40:A2:F8:79:62:FE:57:D2:B8:D8:E2:55:A2:47:60:74:71:9A:6F:BE:8A:37",
+        "0F:E7:14:00:2F:BB:9F:0D:29:C1:EA:65:63:9D:98:EE:0D:E9:D9:5E:E0:91:73:1D:42:81:49:C5:03:73:99:D1",
+        "C2:26:8F:99:C9:09:FE:C3:3F:EB:63:6C:24:26:AF:70:91:92:27:84:5C:C5:D4:A3:CF:01:04:53:FB:B9:9E:FE",
+        "5D:3C:B3:94:2C:8C:F7:51:26:54:CA:47:B7:63:73:5A:EC:C3:10:DC:F7:9D:A6:BA:DE:CD:7B:9B:45:27:CA:F2"
+    
+      ]
+    }
+  }
+]

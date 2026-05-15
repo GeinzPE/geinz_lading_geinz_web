@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Turismo Premium | Geinz</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #8800F2;
+            --bg: #000000;
+            --card-bg: #0a0a0a;
+            --text-white: #ffffff;
+            --text-gray: #888888;
+            --accent-green: #00ff88;
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* --- STICKY HEADER GLASS --- */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(25px) saturate(200%);
+            -webkit-backdrop-filter: blur(25px) saturate(200%);
+            padding: 25px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .top-nav h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -1.5px; background: linear-gradient(to right, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .location-btn { 
+            background: var(--glass); border: 1px solid var(--border);
+            width: 48px; height: 48px; border-radius: 16px; 
+            display: flex; align-items: center; justify-content: center;
+            color: var(--primary); font-size: 1.2rem; cursor: pointer; transition: 0.3s;
+        }
+        .location-btn:hover { background: var(--primary); color: white; transform: rotate(-15deg); }
+
+        .hero-desc { color: var(--text-gray); font-size: 1rem; max-width: 550px; margin-bottom: 25px; line-height: 1.6; }
+
+        /* --- FILTROS --- */
+        .filter-scroll {
+            display: flex; gap: 10px; overflow-x: auto; padding: 5px 0; scrollbar-width: none;
+        }
+        .filter-scroll::-webkit-scrollbar { display: none; }
+
+        .filter-btn {
+            background: var(--glass); border: 1px solid var(--border);
+            color: var(--text-gray); padding: 12px 24px; border-radius: 14px;
+            white-space: nowrap; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .filter-btn:hover { border-color: var(--primary); color: white; }
+        .filter-btn.active { background: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 10px 25px rgba(136, 0, 242, 0.3); }
+
+        /* --- GRID & CARDS --- */
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px; padding: 40px 0; opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .grid.loaded { opacity: 1; transform: translateY(0); }
+
+        .card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 32px; overflow: hidden; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+        .card:hover { transform: translateY(-12px); border-color: var(--primary); }
+
+        /* Contenedor de imagen con transición suave */
+        .img-wrapper { 
+            width: 100%; 
+            aspect-ratio: 4 / 5; 
+            position: relative; 
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e, #0a0a15);
+        }
+        
+        .img-wrapper img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            transition: transform 0.8s cubic-bezier(0.2, 0.9, 0.4, 1.1), opacity 0.5s ease-in-out;
+            opacity: 0;
+            transform: scale(1.02);
+        }
+        
+        /* Cuando la imagen está cargada */
+        .img-wrapper img.loaded {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .card:hover .img-wrapper img.loaded { 
+            transform: scale(1.08); 
+        }
+
+        /* Placeholder sutil mientras carga */
+        .img-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(136, 0, 242, 0.1), transparent);
+            animation: placeholderShimmer 1.2s infinite;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .img-wrapper.loading::before {
+            opacity: 1;
+        }
+        
+        @keyframes placeholderShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .card-body { padding: 20px; }
+        .card-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .status-badge { 
+            display: inline-flex; align-items: center; gap: 6px;
+            color: var(--accent-green); font-size: 0.8rem; font-weight: 700; 
+            margin-bottom: 15px; background: rgba(0, 255, 136, 0.05); padding: 4px 10px; border-radius: 8px;
+        }
+
+        .tag-container { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag {
+            background: rgba(255, 255, 255, 0.05); color: #bbb;
+            padding: 6px 14px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+            transition: 0.2s;
+        }
+
+        /* --- SKELETON ANIMATION MEJORADA --- */
+        .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 30px; padding: 40px 0; }
+        .skeleton-card { 
+            background: var(--card-bg); 
+            border-radius: 32px; 
+            height: 450px; 
+            overflow: hidden; 
+            position: relative; 
+            border: 1px solid var(--border);
+        }
+        .skeleton-img { 
+            width: 100%; 
+            height: 70%; 
+            background: linear-gradient(145deg, #14141f, #0c0c16);
+            position: relative;
+            overflow: hidden;
+        }
+        .skeleton-text { 
+            margin: 20px; 
+            height: 20px; 
+            background: #1a1a1a; 
+            border-radius: 10px; 
+            width: 60%;
+            position: relative;
+            overflow: hidden;
+        }
+        .skeleton-text.short { width: 30%; height: 15px; }
+
+        .shimmer {
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(136, 0, 242, 0.08), rgba(255,255,255,0.03), transparent);
+            animation: shimmerMove 1.2s infinite;
+        }
+        
+        @keyframes shimmerMove { 
+            0% { transform: translateX(-100%); } 
+            100% { transform: translateX(100%); } 
+        }
+
+        /* Animación de entrada para las tarjetas */
+        @keyframes cardFadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .card {
+            animation: cardFadeUp 0.5s cubic-bezier(0.2, 0.9, 0.4, 1.1) backwards;
+        }
+        
+        /* Stagger animation para las cards */
+        .card:nth-child(1) { animation-delay: 0.02s; }
+        .card:nth-child(2) { animation-delay: 0.05s; }
+        .card:nth-child(3) { animation-delay: 0.08s; }
+        .card:nth-child(4) { animation-delay: 0.11s; }
+        .card:nth-child(5) { animation-delay: 0.14s; }
+        .card:nth-child(6) { animation-delay: 0.17s; }
+
+        @media (max-width: 600px) {
+            .top-nav h1 { font-size: 1.8rem; }
+            .grid { grid-template-columns: 1fr; gap: 20px; }
+            .filter-btn { padding: 8px 18px; font-size: 0.8rem; }
+            .hero-desc { font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="sticky-header">
+    <div class="container">
+        <div class="top-nav">
+            <h1>Lugares OP de Barranca</h1>
+            <div class="location-btn"><i class="fas fa-paper-plane"></i></div>
+        </div>
+        <p class="hero-desc">Descubre tesoros ocultos, desde monumentos históricos hasta playas vírgenes en el corazón de la costa peruana.</p>
+        
+        <div class="filter-scroll" id="filterContainer">
+            <button class="filter-btn active" data-filter="todos">Explorar Todos</button>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+    <!-- Skeleton Loader Inicial -->
+    <div id="skeleton" class="skeleton-grid">
+        <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="shimmer"></div></div>
+    </div>
+
+    <div class="grid" id="placesGrid"></div>
+</main>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+        authDomain: "geinzworkapp.firebaseapp.com",
+        projectId: "geinzworkapp",
+        storageBucket: "geinzworkapp.appspot.com",
+        messagingSenderId: "921389328767",
+        appId: "1:921389328767:web:dc6fffc43a51444f5b524a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allPlaces = [];
+
+    // Función para precargar imágenes con promesa y efecto suave
+    function preloadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(src);
+            img.onerror = () => reject(src);
+            img.src = src;
+        });
+    }
+
+    // Render con carga suave de imágenes
+    async function renderWithSmoothImages(data) {
+        const grid = document.getElementById('placesGrid');
+        
+        if (data.length === 0) {
+            grid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 50px;">No se encontraron lugares en esta categoría.</p>`;
+            return;
+        }
+
+        // Crear el HTML base con imágenes que se cargarán progresivamente
+        grid.innerHTML = data.map((item, idx) => {
+            const imgUrl = item.img?.principal || item.img || 'https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz+Tour';
+            return `
+                <div class="card" data-id="${item.id}" style="animation-delay: ${Math.min(idx * 0.04, 0.5)}s">
+                    <div class="img-wrapper loading" id="img-wrapper-${item.id}">
+                        <img data-src="${imgUrl}" alt="${item.titulo || 'Lugar turístico'}" id="img-${item.id}">
+                    </div>
+                    <div class="card-body">
+                        <div class="status-badge"><i class="fas fa-clock"></i> Abierto 24 h</div>
+                        <h3 class="card-title">${item.titulo || 'Lugar sin título'}</h3>
+                        <div class="tag-container">
+                            ${(Array.isArray(item.categoria) ? item.categoria : [item.categoria]).filter(c => c).map(c => `
+                                <span class="tag">${c}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Cargar cada imagen individualmente con efecto suave
+        for (const item of data) {
+            const imgElement = document.getElementById(`img-${item.id}`);
+            const wrapperElement = document.getElementById(`img-wrapper-${item.id}`);
+            const imgUrl = item.img?.principal || item.img || 'https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz+Tour';
+            
+            if (imgElement) {
+                // Si ya hay una imagen en el atributo data-src, la cargamos
+                const sourceUrl = imgElement.getAttribute('data-src') || imgUrl;
+                
+                // Crear nueva imagen para precarga
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    imgElement.src = sourceUrl;
+                    imgElement.classList.add('loaded');
+                    if (wrapperElement) {
+                        wrapperElement.classList.remove('loading');
+                    }
+                };
+                tempImg.onerror = () => {
+                    // Fallback a placeholder
+                    imgElement.src = 'https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz';
+                    imgElement.classList.add('loaded');
+                    if (wrapperElement) {
+                        wrapperElement.classList.remove('loading');
+                    }
+                };
+                tempImg.src = sourceUrl;
+            }
+        }
+    }
+
+    async function startApp() {
+        try {
+            // Ejecutamos ambas consultas en paralelo
+            const [filterSnap, placesSnap] = await Promise.all([
+                getDoc(doc(db, "Tiendas", "categorias", "categorias", "turismo")),
+                getDocs(collection(db, "Tiendas", "barranca", "lugares_turisticos"))
+            ]);
+
+            // 1. Cargar Botones de Filtro dinámicamente
+            if (filterSnap.exists()) {
+                const subcats = filterSnap.data().subcategorias || [];
+                const container = document.getElementById('filterContainer');
+                
+                subcats.forEach(cat => {
+                    const btn = document.createElement('button');
+                    btn.className = 'filter-btn';
+                    btn.textContent = cat;
+                    btn.setAttribute('data-filter', cat.toLowerCase());
+                    btn.onclick = (e) => filterAction(e.target);
+                    container.appendChild(btn);
+                });
+            }
+
+            // 2. Guardar los datos originales
+            allPlaces = placesSnap.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data() 
+            }));
+
+            // 3. Ocultar skeleton y mostrar grid con carga suave
+            document.getElementById('skeleton').style.display = 'none';
+            const grid = document.getElementById('placesGrid');
+            grid.classList.add('loaded');
+            
+            // Render inicial con efecto suave en imágenes
+            await renderWithSmoothImages(allPlaces);
+
+            // Configurar el botón "Explorar Todos"
+            const btnAll = document.querySelector('[data-filter="todos"]');
+            if(btnAll) btnAll.onclick = (e) => filterAction(e.target);
+
+        } catch (error) {
+            console.error("Error en Geinz Turismo:", error);
+            const skeletonDiv = document.getElementById('skeleton');
+            if (skeletonDiv) {
+                skeletonDiv.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px; background:#0a0a0a; border-radius:30px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#8800F2; margin-bottom:15px; display:block;"></i>
+                    <p style="color:#ff8888;">Error de conexión: ${error.message}</p>
+                    <button onclick="location.reload()" style="margin-top:20px; background:#8800F2; border:none; padding:10px 25px; border-radius:30px; color:white; cursor:pointer;">Reintentar</button>
+                </div>`;
+            }
+        }
+    }
+
+    // Función de filtro con transición suave
+    async function filterAction(btn) {
+        // Estética: Cambiar clase activa
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const filterValue = btn.getAttribute('data-filter');
+
+        // Mostrar skeleton momentáneo mientras se filtra (mejora percepción)
+        const grid = document.getElementById('placesGrid');
+        const skeletonDiv = document.getElementById('skeleton');
+        
+        // Fade out sutil
+        grid.style.opacity = '0';
+        
+        setTimeout(async () => {
+            let filteredData;
+            if (filterValue === 'todos') {
+                filteredData = allPlaces;
+            } else {
+                filteredData = allPlaces.filter(p => {
+                    if (!p.categoria) return false;
+                    const categories = Array.isArray(p.categoria) 
+                        ? p.categoria.map(c => c.toLowerCase()) 
+                        : [p.categoria.toLowerCase()];
+                    return categories.includes(filterValue);
+                });
+            }
+            
+            await renderWithSmoothImages(filteredData);
+            grid.style.opacity = '1';
+        }, 150);
+        
+        // Scroll suave hacia arriba
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Iniciar la aplicación
+    startApp();
+    
+    // Agregar observer para lazy loading adicional cuando las cards entren en viewport
+    if ('IntersectionObserver' in window) {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    const src = img.getAttribute('data-src');
+                    if (src && !img.src) {
+                        img.src = src;
+                        img.classList.add('loaded');
+                        const wrapper = img.closest('.img-wrapper');
+                        if (wrapper) wrapper.classList.remove('loading');
+                    }
+                    observer.unobserve(img);
+                }
+            });
+        }, { rootMargin: '100px' });
+        
+        // Función para observar nuevas imágenes después de cada render
+        window.observeNewImages = () => {
+            const images = document.querySelectorAll('.img-wrapper img[data-src]:not([src])');
+            images.forEach(img => imageObserver.observe(img));
+        };
+    }
+</script>
+</body>
+</html>
