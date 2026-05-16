@@ -688,11 +688,17 @@ async function openPhotoSwipe(index) {
   const PhotoSwipeModule = await import('https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js');
   const PhotoSwipeLightboxModule = await import('https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js');
 
-  const dataSource = galleryImages.map((src) => ({
-    src: src,
-    w: 1600,
-    h: 1200,
-  }));
+  // Cargar dimensiones reales de cada imagen
+  const dataSource = await Promise.all(
+    galleryImages.map((src) =>
+      new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ src, w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve({ src, w: 1600, h: 1200 }); // fallback si falla
+        img.src = src;
+      })
+    )
+  );
 
   const pswp = new PhotoSwipeModule.default({
     dataSource: dataSource,
