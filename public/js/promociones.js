@@ -578,23 +578,22 @@ function setupGallery(images) {
 
   // Si solo hay 1 imagen, solo permitir zoom al hacer clic
   if (images.length <= 1) {
-    imgWrap.style.cursor = 'zoom-in'; // 👈 Cursor de lupa al hacer hover
-    
+    imgWrap.style.cursor = 'zoom-in';
+
     img.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       openPhotoSwipe(0);
     });
-    
-    // 👇 Restaurar cursor cuando PhotoSwipe se cierra
+
     img.addEventListener('mouseleave', () => {
       imgWrap.style.cursor = 'zoom-in';
     });
-    
+
     return;
   }
 
-  // 👇 Cursor normal para galerías múltiples (las flechas manejan la navegación)
+  // Cursor normal para galerías múltiples
   imgWrap.style.cursor = 'default';
 
   // Contador
@@ -632,13 +631,11 @@ function setupGallery(images) {
     currentImgIndex = index;
     img.src = images[index];
     counter.textContent = `${index + 1} / ${images.length}`;
-    
-    // Dots
+
     dots.querySelectorAll('.img-dot').forEach((d, i) => {
       d.classList.toggle('active', i === index);
     });
 
-    // Flechas
     prevBtn.classList.toggle('hidden', index === 0);
     nextBtn.classList.toggle('hidden', index === images.length - 1);
   }
@@ -672,7 +669,7 @@ function setupGallery(images) {
   imgWrap.addEventListener('touchend', (e) => {
     touchEndX = e.changedTouches[0].screenX;
     const diff = touchStartX - touchEndX;
-    
+
     if (Math.abs(diff) > 50) {
       if (diff > 0 && currentImgIndex < images.length - 1) {
         updateView(currentImgIndex + 1);
@@ -688,24 +685,19 @@ function setupGallery(images) {
 async function openPhotoSwipe(index) {
   if (!galleryImages.length) return;
 
-  // 1. Importar los módulos necesarios de PhotoSwipe 5
   const PhotoSwipeModule = await import('https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js');
   const PhotoSwipeLightboxModule = await import('https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js');
 
-  // 2. Preparar los datos (DataSource)
   const dataSource = galleryImages.map((src) => ({
     src: src,
-    // Dimensiones sugeridas para que el zoom funcione (PhotoSwipe las necesita)
-    w: 1600, 
+    w: 1600,
     h: 1200,
   }));
 
-  // 3. Configurar e inicializar PhotoSwipe
   const pswp = new PhotoSwipeModule.default({
     dataSource: dataSource,
-    index: index, // Empezar en la imagen clickeada
+    index: index,
     pswpModule: PhotoSwipeModule,
-    // Configuraciones de visualización
     bgOpacity: 0.98,
     showHideAnimationType: 'zoom',
     allowPanToNext: true,
@@ -768,42 +760,41 @@ function render(data) {
 
   /* ── DÍAS RESTANTES ── */
   const daysRow = document.querySelector(".days-row");
-if (daysRow) {
-  const days = calcDaysLeft(datos);
-  if (days === null) {
-    daysRow.style.display = "none";
-  } else if (days === 0) {
-    // Último día - ROJO
-    daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;"></div> ¡Último día!`;
-    daysRow.style.background = "rgba(239,68,68,.15)";
-    daysRow.style.border = "1px solid rgba(239,68,68,.35)";
-    daysRow.style.color = "#fca5a5";
-  } else if (days <= 2) {
-    // 1-2 días - ROJO (urgencia)
-    daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;animation:blink 1s ease-in-out infinite;"></div> ${days} día${days !== 1 ? "s" : ""} restante${days !== 1 ? "s" : ""}`;
-    daysRow.style.background = "rgba(239,68,68,.12)";
-    daysRow.style.border = "1px solid rgba(239,68,68,.3)";
-    daysRow.style.color = "#fca5a5";
-  } else if (days <= 5) {
-    // 3-5 días - NARANJA (precaución)
-    daysRow.innerHTML = `<div class="days-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div> ${days} días restantes`;
-    daysRow.style.background = "rgba(245,158,11,.12)";
-    daysRow.style.border = "1px solid rgba(245,158,11,.3)";
-    daysRow.style.color = "#fcd34d";
-  } else {
-    // 6+ días - VERDE (tranquilidad)
-    daysRow.innerHTML = `<div class="days-dot" style="background:#10b981;box-shadow:0 0 6px #10b981;"></div> ${days} días restantes`;
-    daysRow.style.background = "rgba(16,185,129,.1)";
-    daysRow.style.border = "1px solid rgba(16,185,129,.25)";
-    daysRow.style.color = "#6ee7b7";
+  if (daysRow) {
+    const days = calcDaysLeft(datos);
+    if (days === null) {
+      daysRow.style.display = "none";
+    } else if (days === 0) {
+      daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;"></div> ¡Último día!`;
+      daysRow.style.background = "rgba(239,68,68,.15)";
+      daysRow.style.border = "1px solid rgba(239,68,68,.35)";
+      daysRow.style.color = "#fca5a5";
+    } else if (days <= 2) {
+      daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;animation:blink 1s ease-in-out infinite;"></div> ${days} día${days !== 1 ? "s" : ""} restante${days !== 1 ? "s" : ""}`;
+      daysRow.style.background = "rgba(239,68,68,.12)";
+      daysRow.style.border = "1px solid rgba(239,68,68,.3)";
+      daysRow.style.color = "#fca5a5";
+    } else if (days <= 5) {
+      daysRow.innerHTML = `<div class="days-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div> ${days} días restantes`;
+      daysRow.style.background = "rgba(245,158,11,.12)";
+      daysRow.style.border = "1px solid rgba(245,158,11,.3)";
+      daysRow.style.color = "#fcd34d";
+    } else {
+      daysRow.innerHTML = `<div class="days-dot" style="background:#10b981;box-shadow:0 0 6px #10b981;"></div> ${days} días restantes`;
+      daysRow.style.background = "rgba(16,185,129,.1)";
+      daysRow.style.border = "1px solid rgba(16,185,129,.25)";
+      daysRow.style.color = "#6ee7b7";
+    }
   }
-}
+
   /* ── BOTÓN WHATSAPP ── */
   const btnWa = document.querySelector(".btn-wa");
   if (btnWa) {
     const numero = info.numero?.replace(/\D/g, "");
     const msjeWa = msgs.whatsapp?.msje_predermindo || "Hola, quiero esta oferta que vi en Geinz:";
-    const texto = encodeURIComponent(`${msjeWa} ${info.titulo || ""}`);
+    // URL de contacto: usa la localidad completa (ej: "barranca")
+    const linkWa = `https://geinzworkapp.web.app/share?t=prms&l=${window._localidad}&pi=${data.id}`;
+    const texto = encodeURIComponent(`${msjeWa} ${linkWa}`);
 
     if (info.contactar && numero) {
       btnWa.href = `https://wa.me/51${numero}?text=${texto}`;
@@ -813,35 +804,81 @@ if (daysRow) {
     }
   }
 
-  /* ── BOTÓN COMPARTIR (ambos) ── */
-  const shareTitle = msgs.compartir?.msje_predermindo || "Mira esta promo en Geinz ❤️‍🔥";
-  window._shareTitle = shareTitle; // usado por handleShare()
+  /* ── BOTÓN COMPARTIR ── */
+const shareText =
+  msgs.compartir?.msje_predermindo ||
+  "Mira esta promo en Geinz ❤️‍🔥";
 
-  if (!info.compartir) {
-    document.querySelectorAll(".btn-share, .icon-btn").forEach((b) => (b.style.display = "none"));
-  }
+console.log("════════════════════════════");
+console.log("🚀 CONFIG SHARE PROMO");
+console.log("📝 shareText =", shareText);
 
-  /* ── TÍTULO DE PÁGINA ── */
-  document.title = `${info.nombre_tienda || "Promo"} — Geinz`;
+// URL de compartir: usa "ba" como localidad corta
+
+  const shareLink = `https://geinzworkapp.web.app/share?t=prms&l=${window._localidad}&pi=${data.id}`;
+
+
+console.log("🔗 shareLink =", shareLink);
+console.log("🆔 promoId =", data.id);
+
+window._shareTitle = shareText;
+window._shareUrl = shareLink;
+
+console.log("💾 window._shareTitle =", window._shareTitle);
+console.log("💾 window._shareUrl =", window._shareUrl);
+
+console.log("📤 info.compartir =", info.compartir);
+
+if (!info.compartir) {
+
+  console.log("⛔ Compartir desactivado → ocultando botones");
+
+  document
+    .querySelectorAll(".btn-share, .icon-btn, .btn-share-pill")
+    .forEach((b, index) => {
+
+      console.log(`🙈 Ocultando botón share #${index}`);
+
+      b.style.display = "none";
+    });
+
+} else {
+
+  console.log("✅ Compartir habilitado");
+}
+
+/* ── TÍTULO DE PÁGINA ── */
+
+document.title =
+  `${info.nombre_tienda || "Promo"} — Geinz`;
+
+console.log("📄 document.title =", document.title);
+console.log("🏪 nombre_tienda =", info.nombre_tienda);
+console.log("════════════════════════════");
 }
 
 /* ════════════════════════════════
    SHARE  (expuesto globalmente para el onclick del HTML)
    ════════════════════════════════ */
 function handleShare() {
-  const url = window.location.href;
+  const url  = window._shareUrl  || window.location.href;
   const text = window._shareTitle || "Mira esta promo en Geinz ❤️‍🔥";
+
   if (navigator.share) {
-    navigator.share({ title: text, url }).catch(() => copy(url));
+    navigator.share({ 
+      // ✅ Combinar texto + url en "text", no en "title"
+      text: `${text}\n${url}`
+    }).catch(() => copy(`${text}\n${url}`));
   } else {
-    copy(url);
+    copy(`${text}\n${url}`);
   }
 }
 
 function copy(txt) {
-  navigator.clipboard.writeText(txt).then(showToast).catch(() => {
+  const contenido = txt || `${window._shareTitle}\n${window._shareUrl}`;
+  navigator.clipboard.writeText(contenido).then(showToast).catch(() => {
     const t = document.createElement("textarea");
-    t.value = txt;
+    t.value = contenido;
     t.style.cssText = "position:fixed;opacity:0";
     document.body.appendChild(t);
     t.select();
@@ -850,7 +887,6 @@ function copy(txt) {
     showToast();
   });
 }
-
 function showToast() {
   const el = document.getElementById("toast");
   if (!el) return;
@@ -865,11 +901,8 @@ window.handleShare = handleShare;
    VERIFICAR VENCIMIENTO
    ════════════════════════════════ */
 function isExpired(data) {
-  /* estado explícito */
   if (data.estado === 'vencido' || data.estado === 'expirado') return true;
-  /* activo=false */
   if (data.datos_hora_fecha?.activo === false) return true;
-  /* timestamp_fin en el pasado */
   const tsf = data.datos_hora_fecha?.timestamp_fin;
   if (tsf) {
     const fin = tsf?.toDate ? tsf.toDate() : new Date(tsf);
@@ -913,6 +946,7 @@ function isDeleted(data) {
     }
 
     /* ── DISPONIBLE ── */
+    window._localidad = params.localidad; // ← disponible en render()
     render(promo);
     hideLoading();
 

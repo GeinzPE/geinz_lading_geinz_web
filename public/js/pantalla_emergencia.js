@@ -1,0 +1,281 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+import {
+  getFirestore,
+  collection,
+  getDocs,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+  authDomain: "geinzworkapp.firebaseapp.com",
+  projectId: "geinzworkapp",
+  storageBucket: "geinzworkapp.appspot.com",
+  messagingSenderId: "921389328767",
+  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const grid = document.getElementById("containerGrid");
+
+let listadoEmergencias = [];
+
+/* controls effect */
+
+const controls = document.getElementById("controls");
+
+window.addEventListener("scroll", () => {
+  if (window.scrollY > 80) {
+    controls.classList.add("scrolled");
+  } else {
+    controls.classList.remove("scrolled");
+  }
+});
+
+/* fetch */
+
+async function fetchDatabase() {
+  try {
+    const colRef = collection(db, "Tiendas", "salud_seguridad", "barranca");
+
+    const snapshot = await getDocs(colRef);
+
+    listadoEmergencias = snapshot.docs.map((doc) => {
+      const d = doc.data();
+
+      return {
+        nombre: d.nombre || "Entidad",
+        categoria: d.categoria || "seguridad",
+        img: d.img || "",
+        direccion: d.ubicacion?.direccion || "Sin dirección",
+        referencia: d.ubicacion?.referencia || "Sin referencia",
+        lat: d.ubicacion?.latitud || -10.7539,
+        lng: d.ubicacion?.longitud || -77.764,
+        llamada: d.numeros_contactos?.llamada?.[0] || "",
+        whatsapp: d.numeros_contactos?.whatsapp?.[0] || "",
+        tags: d.tag_eventos_emerge || [],
+      };
+    });
+
+    renderCards(listadoEmergencias);
+  } catch (error) {
+    console.error(error);
+
+    grid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-triangle-exclamation"></i>
+                <p>Error cargando información.</p>
+            </div>
+        `;
+  }
+
+  /* hide skeleton */
+
+  setTimeout(() => {
+    document.getElementById("pageSkeleton").classList.add("hide");
+
+    document.body.classList.remove("loading-page");
+
+    document.querySelector(".container").classList.add("loaded");
+  }, 700);
+}
+
+function renderCards(data) {
+  if (!data.length) {
+    grid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <p>No se encontraron resultados.</p>
+            </div>
+        `;
+
+    return;
+  }
+
+  grid.innerHTML = data
+    .map((item) => {
+      const hasCall = item.llamada !== "";
+      const hasWhatsapp = item.whatsapp !== "";
+
+      const mapUrl = `https://www.google.com/maps?q=${item.lat},${item.lng}`;
+
+      const img =
+        item.img ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(item.nombre.charAt(0))}&background=8800F2&color=fff`;
+
+      return `
+
+        <div class="card reveal-card">
+
+            <div class="card-header">
+
+                <img
+                    class="card-logo"
+                    src="${img}"
+                    alt="${item.nombre}"
+                    loading="lazy"
+                />
+
+                <div>
+
+                    <span class="tag-category">
+                        <i class="fas ${
+                          item.categoria === "salud"
+                            ? "fa-heartbeat"
+                            : "fa-shield-alt"
+                        }"></i>
+
+                        ${item.categoria === "salud" ? "SALUD" : "SEGURIDAD"}
+
+                    </span>
+
+                    <h3>${item.nombre}</h3>
+
+                </div>
+
+            </div>
+
+            <div class="card-info">
+
+                <div>
+                    <i class="fas fa-location-dot"></i>
+                    <span>${item.direccion}</span>
+                </div>
+
+                <div>
+                    <i class="fas fa-circle-info"></i>
+                    <span>${item.referencia}</span>
+                </div>
+
+            </div>
+
+            <div class="card-actions">
+
+                ${
+                  hasCall
+                    ? `
+                    <a href="tel:${item.llamada}" class="btn btn-call">
+                        <i class="fas fa-phone"></i>
+                        Llamar
+                    </a>
+                    `
+                    : `
+               <button class="btn btn-call" disabled>
+    <i class="fas fa-ban"></i>
+    No disponible
+</button>
+                    `
+                }
+
+                ${
+                  hasWhatsapp
+                    ? `
+                    <a
+                        href="https://wa.me/${item.whatsapp.replace(/[^0-9]/g, "")}"
+                        target="_blank"
+                        class="btn btn-wssp"
+                    >
+                        <i class="fab fa-whatsapp"></i>
+                        WhatsApp
+                    </a>
+                    `
+                    : `
+                    <button class="btn btn-wssp" disabled>
+                        No disponible
+                    </button>
+                    `
+                }
+
+                <a
+                    href="${mapUrl}"
+                    target="_blank"
+                    class="btn btn-map"
+                >
+                    <i class="fas fa-location-arrow"></i>
+                </a>
+
+            </div>
+
+        </div>
+
+        `;
+    })
+    .join("");
+
+  revealCards();
+}
+
+/* reveal animation */
+
+function revealCards() {
+  const cards = document.querySelectorAll(".reveal-card");
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+        }
+      });
+    },
+    {
+      threshold: 0.12,
+    },
+  );
+
+  cards.forEach((card) => observer.observe(card));
+}
+
+/* filters */
+
+function filterData() {
+  const term = document
+    .getElementById("searchInput")
+    .value.toLowerCase()
+    .trim();
+
+  const active = document.querySelector(".filter-btn.active").dataset.filter;
+
+  const filtered = listadoEmergencias.filter((item) => {
+    const matchSearch =
+      term === "" ||
+      item.nombre.toLowerCase().includes(term) ||
+      item.tags.some((tag) => tag.toLowerCase().includes(term));
+
+    const matchCategory = active === "todos" || item.categoria === active;
+
+    return matchSearch && matchCategory;
+  });
+
+  renderCards(filtered);
+}
+
+/* search */
+
+let debounce;
+
+document.getElementById("searchInput").addEventListener("input", () => {
+  clearTimeout(debounce);
+
+  debounce = setTimeout(() => {
+    filterData();
+  }, 220);
+});
+
+/* filters */
+
+document.querySelectorAll(".filter-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document
+      .querySelectorAll(".filter-btn")
+      .forEach((b) => b.classList.remove("active"));
+
+    btn.classList.add("active");
+
+    filterData();
+  });
+});
+
+fetchDatabase();
