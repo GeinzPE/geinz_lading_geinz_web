@@ -392,7 +392,7 @@ const STATE_CSS = `
 `;
 
 function injectCSS(css) {
-  const s = document.createElement('style');
+  const s = document.createElement("style");
   s.textContent = css;
   document.head.appendChild(s);
 }
@@ -402,15 +402,15 @@ function showLoading() {
   injectCSS(STATE_CSS);
 
   /* Logo GEINZ flotante */
-  const logo = document.createElement('div');
-  logo.className = 'loading-logo';
-  logo.textContent = 'GEINZ';
+  const logo = document.createElement("div");
+  logo.className = "loading-logo";
+  logo.textContent = "GEINZ";
   document.body.appendChild(logo);
 
   /* Shimmer skeleton */
-  const screen = document.createElement('div');
-  screen.className = 'state-screen loading';
-  screen.id = 'stateScreen';
+  const screen = document.createElement("div");
+  screen.className = "state-screen loading";
+  screen.id = "stateScreen";
   screen.innerHTML = `
     <div class="shimmer-wrap">
       <div class="shimmer-img"></div>
@@ -440,28 +440,31 @@ function showLoading() {
 
 function hideLoading() {
   /* quitar logo */
-  const logo = document.querySelector('.loading-logo');
+  const logo = document.querySelector(".loading-logo");
   if (logo) logo.remove();
   /* fade out skeleton */
-  const screen = document.getElementById('stateScreen');
+  const screen = document.getElementById("stateScreen");
   if (screen) {
-    screen.style.transition = 'opacity .4s ease';
-    screen.style.opacity = '0';
+    screen.style.transition = "opacity .4s ease";
+    screen.style.opacity = "0";
     setTimeout(() => screen.remove(), 400);
   }
   /* revelar contenido */
-  setTimeout(() => document.querySelector('.shell')?.classList.add('revealed'), 350);
+  setTimeout(
+    () => document.querySelector(".shell")?.classList.add("revealed"),
+    350,
+  );
 }
 
 /* ── ESTADO VENCIDO ── */
 function showExpired() {
-  const screen = document.getElementById('stateScreen');
+  const screen = document.getElementById("stateScreen");
   if (screen) screen.remove();
-  const logo = document.querySelector('.loading-logo');
+  const logo = document.querySelector(".loading-logo");
   if (logo) logo.remove();
 
-  const s = document.createElement('div');
-  s.className = 'state-screen';
+  const s = document.createElement("div");
+  s.className = "state-screen";
   s.innerHTML = `
     <div class="state-icon expired">⏰</div>
     <div class="state-badge expired">Promoción vencida</div>
@@ -476,20 +479,22 @@ function showExpired() {
 
 /* ── ESTADO ELIMINADO / NO EXISTE ── */
 function showDeleted(isDeleted = false) {
-  const screen = document.getElementById('stateScreen');
+  const screen = document.getElementById("stateScreen");
   if (screen) screen.remove();
-  const logo = document.querySelector('.loading-logo');
+  const logo = document.querySelector(".loading-logo");
   if (logo) logo.remove();
 
-  const s = document.createElement('div');
-  s.className = 'state-screen';
+  const s = document.createElement("div");
+  s.className = "state-screen";
   s.innerHTML = `
-    <div class="state-icon deleted">${isDeleted ? '🗑️' : '🔍'}</div>
-    <div class="state-badge deleted">${isDeleted ? 'Eliminada' : 'No encontrada'}</div>
+    <div class="state-icon deleted">${isDeleted ? "🗑️" : "🔍"}</div>
+    <div class="state-badge deleted">${isDeleted ? "Eliminada" : "No encontrada"}</div>
     <div class="state-title">Esta promo ya no existe</div>
-    <div class="state-sub">${isDeleted
-      ? 'El negocio ha eliminado esta promoción.'
-      : 'No encontramos esta promoción en nuestro sistema.'}<br>Busca otras ofertas en Geinz.</div>
+    <div class="state-sub">${
+      isDeleted
+        ? "El negocio ha eliminado esta promoción."
+        : "No encontramos esta promoción en nuestro sistema."
+    }<br>Busca otras ofertas en Geinz.</div>
     <button class="state-back-btn" onclick="history.back()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       Volver
@@ -529,15 +534,9 @@ function getParams() {
   const p = new URLSearchParams(window.location.search);
 
   return {
-    localidad:
-      p.get("localidad") ||
-      p.get("l") ||
-      "barranca",
+    localidad: p.get("localidad") || p.get("l") || "barranca",
 
-    id:
-      p.get("id") ||
-      p.get("pi") ||
-      "gPjdfCe26YTHphbCUfCU",
+    id: p.get("id") || p.get("pi") || "gPjdfCe26YTHphbCUfCU",
   };
 }
 
@@ -546,10 +545,9 @@ function getParams() {
    ════════════════════════════════ */
 function calcDaysLeft(datos) {
   if (!datos?.timestamp_fin) return null;
-  const fin =
-    datos.timestamp_fin?.toDate
-      ? datos.timestamp_fin.toDate()
-      : new Date(datos.timestamp_fin);
+  const fin = datos.timestamp_fin?.toDate
+    ? datos.timestamp_fin.toDate()
+    : new Date(datos.timestamp_fin);
   const diff = Math.ceil((fin - Date.now()) / 86_400_000);
   return diff > 0 ? diff : 0;
 }
@@ -562,68 +560,68 @@ let galleryImages = [];
 
 function setupGallery(images) {
   galleryImages = images;
-  const imgWrap = document.querySelector('.promo-img-wrap');
+  const imgWrap = document.querySelector(".promo-img-wrap");
   if (!imgWrap || !images.length) return;
 
   // Limpiar contenido previo
-  imgWrap.innerHTML = '';
+  imgWrap.innerHTML = "";
 
   // Crear imagen principal
-  const img = document.createElement('img');
-  img.className = 'promo-img';
+  const img = document.createElement("img");
+  img.className = "promo-img";
   img.src = images[0];
-  img.alt = 'Promoción';
-  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+  img.alt = "Promoción";
+  img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
   imgWrap.appendChild(img);
 
   // Si solo hay 1 imagen, solo permitir zoom al hacer clic
   if (images.length <= 1) {
-    imgWrap.style.cursor = 'zoom-in';
+    imgWrap.style.cursor = "zoom-in";
 
-    img.addEventListener('click', (e) => {
+    img.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       openPhotoSwipe(0);
     });
 
-    img.addEventListener('mouseleave', () => {
-      imgWrap.style.cursor = 'zoom-in';
+    img.addEventListener("mouseleave", () => {
+      imgWrap.style.cursor = "zoom-in";
     });
 
     return;
   }
 
   // Cursor normal para galerías múltiples
-  imgWrap.style.cursor = 'default';
+  imgWrap.style.cursor = "default";
 
   // Contador
-  const counter = document.createElement('div');
-  counter.className = 'img-counter';
+  const counter = document.createElement("div");
+  counter.className = "img-counter";
   counter.textContent = `1 / ${images.length}`;
   imgWrap.appendChild(counter);
 
   // Dots
-  const dots = document.createElement('div');
-  dots.className = 'img-dots';
+  const dots = document.createElement("div");
+  dots.className = "img-dots";
   images.forEach((_, i) => {
-    const dot = document.createElement('div');
-    dot.className = `img-dot${i === 0 ? ' active' : ''}`;
+    const dot = document.createElement("div");
+    dot.className = `img-dot${i === 0 ? " active" : ""}`;
     dot.dataset.index = i;
     dots.appendChild(dot);
   });
   imgWrap.appendChild(dots);
 
   // Flechas
-  const prevBtn = document.createElement('button');
-  prevBtn.className = 'img-nav prev';
-  prevBtn.innerHTML = '‹';
-  prevBtn.setAttribute('aria-label', 'Anterior');
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "img-nav prev";
+  prevBtn.innerHTML = "‹";
+  prevBtn.setAttribute("aria-label", "Anterior");
   imgWrap.appendChild(prevBtn);
 
-  const nextBtn = document.createElement('button');
-  nextBtn.className = 'img-nav next';
-  nextBtn.innerHTML = '›';
-  nextBtn.setAttribute('aria-label', 'Siguiente');
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "img-nav next";
+  nextBtn.innerHTML = "›";
+  nextBtn.setAttribute("aria-label", "Siguiente");
   imgWrap.appendChild(nextBtn);
 
   // Actualizar vista
@@ -632,27 +630,27 @@ function setupGallery(images) {
     img.src = images[index];
     counter.textContent = `${index + 1} / ${images.length}`;
 
-    dots.querySelectorAll('.img-dot').forEach((d, i) => {
-      d.classList.toggle('active', i === index);
+    dots.querySelectorAll(".img-dot").forEach((d, i) => {
+      d.classList.toggle("active", i === index);
     });
 
-    prevBtn.classList.toggle('hidden', index === 0);
-    nextBtn.classList.toggle('hidden', index === images.length - 1);
+    prevBtn.classList.toggle("hidden", index === 0);
+    nextBtn.classList.toggle("hidden", index === images.length - 1);
   }
 
   // Eventos de flechas
-  prevBtn.addEventListener('click', (e) => {
+  prevBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (currentImgIndex > 0) updateView(currentImgIndex - 1);
   });
 
-  nextBtn.addEventListener('click', (e) => {
+  nextBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (currentImgIndex < images.length - 1) updateView(currentImgIndex + 1);
   });
 
   // Click en imagen abre PhotoSwipe en la posición actual
-  img.addEventListener('click', (e) => {
+  img.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     openPhotoSwipe(currentImgIndex);
@@ -662,11 +660,15 @@ function setupGallery(images) {
   let touchStartX = 0;
   let touchEndX = 0;
 
-  imgWrap.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-  }, { passive: true });
+  imgWrap.addEventListener(
+    "touchstart",
+    (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    },
+    { passive: true },
+  );
 
-  imgWrap.addEventListener('touchend', (e) => {
+  imgWrap.addEventListener("touchend", (e) => {
     touchEndX = e.changedTouches[0].screenX;
     const diff = touchStartX - touchEndX;
 
@@ -685,19 +687,23 @@ function setupGallery(images) {
 async function openPhotoSwipe(index) {
   if (!galleryImages.length) return;
 
-  const PhotoSwipeModule = await import('https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js');
-  const PhotoSwipeLightboxModule = await import('https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js');
+  const PhotoSwipeModule =
+    await import("https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js");
+  const PhotoSwipeLightboxModule =
+    await import("https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js");
 
   // Cargar dimensiones reales de cada imagen
   const dataSource = await Promise.all(
-    galleryImages.map((src) =>
-      new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve({ src, w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => resolve({ src, w: 1600, h: 1200 }); // fallback si falla
-        img.src = src;
-      })
-    )
+    galleryImages.map(
+      (src) =>
+        new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () =>
+            resolve({ src, w: img.naturalWidth, h: img.naturalHeight });
+          img.onerror = () => resolve({ src, w: 1600, h: 1200 }); // fallback si falla
+          img.src = src;
+        }),
+    ),
   );
 
   const pswp = new PhotoSwipeModule.default({
@@ -705,7 +711,7 @@ async function openPhotoSwipe(index) {
     index: index,
     pswpModule: PhotoSwipeModule,
     bgOpacity: 0.98,
-    showHideAnimationType: 'zoom',
+    showHideAnimationType: "zoom",
     allowPanToNext: true,
   });
 
@@ -741,7 +747,8 @@ function render(data) {
     const logoEl = document.createElement("img");
     logoEl.src = img.logo_img;
     logoEl.alt = info.nombre_tienda || "";
-    logoEl.style.cssText = "width:100%;height:100%;object-fit:cover;border-radius:inherit;";
+    logoEl.style.cssText =
+      "width:100%;height:100%;object-fit:cover;border-radius:inherit;";
     avatar.textContent = "";
     avatar.appendChild(logoEl);
   } else if (avatar) {
@@ -754,7 +761,8 @@ function render(data) {
 
   /* ── META ── */
   const bizMeta = document.querySelector(".biz-meta");
-  if (bizMeta) bizMeta.textContent = `Solo publicaciones de ${info.nombre_tienda || "este negocio"}`;
+  if (bizMeta)
+    bizMeta.textContent = `Solo publicaciones de ${info.nombre_tienda || "este negocio"}`;
 
   /* ── TÍTULO ── */
   const title = document.querySelector(".promo-title");
@@ -797,7 +805,9 @@ function render(data) {
   const btnWa = document.querySelector(".btn-wa");
   if (btnWa) {
     const numero = info.numero?.replace(/\D/g, "");
-    const msjeWa = msgs.whatsapp?.msje_predermindo || "Hola, quiero esta oferta que vi en Geinz:";
+    const msjeWa =
+      msgs.whatsapp?.msje_predermindo ||
+      "Hola, quiero esta oferta que vi en Geinz:";
     // URL de contacto: usa la localidad completa (ej: "barranca")
     const linkWa = `https://geinzworkapp.web.app/share?t=prms&l=${window._localidad}&pi=${data.id}`;
     const texto = encodeURIComponent(`${msjeWa} ${linkWa}`);
@@ -811,70 +821,104 @@ function render(data) {
   }
 
   /* ── BOTÓN COMPARTIR ── */
-const shareText =
-  msgs.compartir?.msje_predermindo ||
-  "Mira esta promo en Geinz ❤️‍🔥";
+  const shareText =
+    msgs.compartir?.msje_predermindo || "Mira esta promo en Geinz ❤️‍🔥";
 
-console.log("════════════════════════════");
-console.log("🚀 CONFIG SHARE PROMO");
-console.log("📝 shareText =", shareText);
+  console.log("════════════════════════════");
+  console.log("🚀 CONFIG SHARE PROMO");
+  console.log("📝 shareText =", shareText);
 
-// URL de compartir: usa "ba" como localidad corta
+  // URL de compartir: usa "ba" como localidad corta
 
   const shareLink = `https://geinzworkapp.web.app/share?t=prms&l=${window._localidad}&pi=${data.id}`;
 
+  console.log("🔗 shareLink =", shareLink);
+  console.log("🆔 promoId =", data.id);
 
-console.log("🔗 shareLink =", shareLink);
-console.log("🆔 promoId =", data.id);
+  window._shareTitle = shareText;
+  window._shareUrl = shareLink;
 
-window._shareTitle = shareText;
-window._shareUrl = shareLink;
+  console.log("💾 window._shareTitle =", window._shareTitle);
+  console.log("💾 window._shareUrl =", window._shareUrl);
 
-console.log("💾 window._shareTitle =", window._shareTitle);
-console.log("💾 window._shareUrl =", window._shareUrl);
+  console.log("📤 info.compartir =", info.compartir);
 
-console.log("📤 info.compartir =", info.compartir);
+  if (!info.compartir) {
+    console.log("⛔ Compartir desactivado → ocultando botones");
 
-if (!info.compartir) {
+    document
+      .querySelectorAll(".btn-share, .icon-btn, .btn-share-pill")
+      .forEach((b, index) => {
+        console.log(`🙈 Ocultando botón share #${index}`);
 
-  console.log("⛔ Compartir desactivado → ocultando botones");
+        b.style.display = "none";
+      });
+  } else {
+    console.log("✅ Compartir habilitado");
+  }
 
-  document
-    .querySelectorAll(".btn-share, .icon-btn, .btn-share-pill")
-    .forEach((b, index) => {
+  /* ── TÍTULO DE PÁGINA ── */
 
-      console.log(`🙈 Ocultando botón share #${index}`);
+  document.title = `${info.nombre_tienda || "Promo"} — Geinz`;
 
-      b.style.display = "none";
+  console.log("📄 document.title =", document.title);
+  console.log("🏪 nombre_tienda =", info.nombre_tienda);
+  console.log("════════════════════════════");
+
+  /* ── PERFIL NEGOCIO CLICK ── */
+  const bizWrap =
+    document.querySelector(".biz") ||
+    document.querySelector(".biz-row") ||
+    document.querySelector(".biz-info-wrap");
+
+  // 👇 ID tienda
+  const idTienda =
+    info.id_tienda || data.id_tienda || info.id || data.id_negocio || "";
+
+  // 👇 categoría tienda
+  const categoriaTienda =
+    info.categoria || info.cat || data.categoria || data.cat || "general";
+
+  // 👇 localidad
+  const localidadTienda = window._localidad || "barranca";
+
+  // 👇 convertir espacios a +
+  const categoriaFinal = encodeURIComponent(categoriaTienda).replace(
+    /%20/g,
+    "+",
+  );
+
+  // 👇 URL PERFIL
+  const perfilUrl = `https://geinzworkapp.web.app/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
+
+  console.log("🏪 PERFIL URL:", perfilUrl);
+
+  // 👇 hacer clickeable
+  if (bizWrap && idTienda) {
+    bizWrap.style.cursor = "pointer";
+
+    bizWrap.addEventListener("click", () => {
+      console.log("🚀 Abriendo perfil tienda");
+
+      window.location.href = perfilUrl;
     });
-
-} else {
-
-  console.log("✅ Compartir habilitado");
-}
-
-/* ── TÍTULO DE PÁGINA ── */
-
-document.title =
-  `${info.nombre_tienda || "Promo"} — Geinz`;
-
-console.log("📄 document.title =", document.title);
-console.log("🏪 nombre_tienda =", info.nombre_tienda);
-console.log("════════════════════════════");
+  }
 }
 
 /* ════════════════════════════════
    SHARE  (expuesto globalmente para el onclick del HTML)
    ════════════════════════════════ */
 function handleShare() {
-  const url  = window._shareUrl  || window.location.href;
+  const url = window._shareUrl || window.location.href;
   const text = window._shareTitle || "Mira esta promo en Geinz ❤️‍🔥";
 
   if (navigator.share) {
-    navigator.share({ 
-      // ✅ Combinar texto + url en "text", no en "title"
-      text: `${text}\n${url}`
-    }).catch(() => copy(`${text}\n${url}`));
+    navigator
+      .share({
+        // ✅ Combinar texto + url en "text", no en "title"
+        text: `${text}\n${url}`,
+      })
+      .catch(() => copy(`${text}\n${url}`));
   } else {
     copy(`${text}\n${url}`);
   }
@@ -882,16 +926,19 @@ function handleShare() {
 
 function copy(txt) {
   const contenido = txt || `${window._shareTitle}\n${window._shareUrl}`;
-  navigator.clipboard.writeText(contenido).then(showToast).catch(() => {
-    const t = document.createElement("textarea");
-    t.value = contenido;
-    t.style.cssText = "position:fixed;opacity:0";
-    document.body.appendChild(t);
-    t.select();
-    document.execCommand("copy");
-    document.body.removeChild(t);
-    showToast();
-  });
+  navigator.clipboard
+    .writeText(contenido)
+    .then(showToast)
+    .catch(() => {
+      const t = document.createElement("textarea");
+      t.value = contenido;
+      t.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand("copy");
+      document.body.removeChild(t);
+      showToast();
+    });
 }
 function showToast() {
   const el = document.getElementById("toast");
@@ -907,7 +954,7 @@ window.handleShare = handleShare;
    VERIFICAR VENCIMIENTO
    ════════════════════════════════ */
 function isExpired(data) {
-  if (data.estado === 'vencido' || data.estado === 'expirado') return true;
+  if (data.estado === "vencido" || data.estado === "expirado") return true;
   if (data.datos_hora_fecha?.activo === false) return true;
   const tsf = data.datos_hora_fecha?.timestamp_fin;
   if (tsf) {
@@ -918,7 +965,7 @@ function isExpired(data) {
 }
 
 function isDeleted(data) {
-  return data.estado === 'eliminado' || data.eliminado === true;
+  return data.estado === "eliminado" || data.eliminado === true;
 }
 
 /* ════════════════════════════════
@@ -928,7 +975,13 @@ function isDeleted(data) {
   showLoading();
   const params = getParams();
   try {
-    const snap_ref = doc(db, "Tiendas", params.localidad, "promos_ofertas", params.id);
+    const snap_ref = doc(
+      db,
+      "Tiendas",
+      params.localidad,
+      "promos_ofertas",
+      params.id,
+    );
     const snap = await getDoc(snap_ref);
 
     /* ── NO EXISTE ── */
@@ -955,7 +1008,6 @@ function isDeleted(data) {
     window._localidad = params.localidad; // ← disponible en render()
     render(promo);
     hideLoading();
-
   } catch (err) {
     console.error("Error cargando promo:", err);
     showDeleted(false);
