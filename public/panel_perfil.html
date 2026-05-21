@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Panel de Negocio</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style/panel_perfil.css">
+</head>
+
+<body>
+
+    <div class="app">
+         <title>GEINZ Panel</title>
+
+        <!-- ===== SIDEBAR (solo PC) ===== -->
+        <aside class="sidebar">
+            <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebarToggle">◀</button>
+            <div class="sidebar-brand">
+                <div class="sidebar-logo">🏪</div>
+                <div class="sidebar-brand-text">
+                    <div class="sidebar-brand-name" id="sidebarName">Mi Negocio</div>
+                    <div class="sidebar-brand-badge">Activo</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-btn active" id="sbb-perfil" onclick="showSection('perfil',this,'sidebar')">
+                    <span class="sbb-icon">🏪</span><span class="sbb-label">Perfil</span>
+                </button>
+                <button class="sidebar-btn" id="sbb-fotos" onclick="showSection('fotos',this,'sidebar')">
+                    <span class="sbb-icon">📸</span><span class="sbb-label">Fotos</span>
+                </button>
+                <button class="sidebar-btn" id="sbb-datos" onclick="showSection('datos',this,'sidebar')">
+                    <span class="sbb-icon">📊</span><span class="sbb-label">Datos</span>
+                </button>
+
+
+            </nav>
+            <div class="sidebar-save-wrap">
+                <button class="sidebar-save-btn" id="sidebarSaveBtn" onclick="saveChanges()">✓ Guardar cambios</button>
+            </div>
+        </aside>
+
+
+        <!-- ===== MAIN PANEL ===== -->
+        <div class="main">
+
+            <!-- HEADER MOBILE 
+            <div class="header">
+                <div class="header-top">
+                    <div class="header-title">Mi Negocio</div>
+                    <div class="header-badge">Activo</div>
+                </div>
+                <div class="nav" id="mainNav">
+                    <button class="nav-tab active" onclick="showSection('perfil',this,'tab')">Perfil</button>
+                    <button class="nav-tab" onclick="showSection('fotos',this,'tab')">Fotos</button>
+                    <button class="nav-tab" onclick="showSection('datos',this,'tab')">Datos</button>
+                    <button class="nav-tab" onclick="showSection('contacto',this,'tab')">Contacto</button>
+                    <button class="nav-tab" onclick="showSection('pagos',this,'tab')">Pagos</button>
+                </div>
+            </div>-->
+               
+
+
+            <!-- CONTENT -->
+            <div class="content">
+
+                <!-- ===== PERFIL ===== -->
+                <div class="section active" id="sec-perfil">
+                    <div class="profile-hero">
+                        <div class="profile-row">
+                            <div class="profile-avatar" onclick="openModal('modalFotoPerfil')" id="avatarEl">
+
+                                <!-- Skeleton -->
+                                <div class="avatar-skeleton" id="avatarSkeleton"></div>
+
+                                <!-- Imagen -->
+                                <img id="avatarImg" class="avatar-img" alt="Logo negocio">
+                                <!-- Placeholder -->
+                                <div class="profile-avatar-placeholder" id="avatarPlaceholder"> 🏪
+                                </div>
+
+                            </div>
+                            <div class="profile-info">
+                                <div class="profile-name" id="heroName" onclick="focusField('businessName')">Mi Negocio
+                                </div>
+                                <div class="profile-category-tag" id="heroCat"
+                                    onclick="showSection('datos',null,'auto');setTimeout(()=>openExpandable('expCategoria'),300)">
+                                    📂 Sin categoría ›
+                                </div>
+                                <div class="profile-desc" id="heroDesc" onclick="focusField('businessDesc')">
+                                    Toca aquí para agregar una descripción atractiva de tu negocio...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sec-label">Información básica</div>
+                    <div class="card">
+                        <div class="field-row">
+                            <div class="field-icon">🏷️</div>
+                            <div class="field-label">Nombre</div>
+                            <input class="field-value" id="businessName" type="text" placeholder="Nombre del negocio"
+                                oninput="updateName(this.value)">
+                            <div class="field-arrow">›</div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-icon">📝</div>
+                            <div class="field-label">Descripción</div>
+                            <input class="field-value" id="businessDesc" type="text"
+                                placeholder="¿Qué ofrece tu negocio?" oninput="updateDesc(this.value)">
+                            <div class="field-arrow">›</div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-icon">👥</div>
+                            <div class="field-label">Aforo máx.</div>
+                            <input class="field-value" id="fieldAforo" type="number" placeholder="Ej: 50">
+                            <div class="field-arrow">›</div>
+                        </div>
+
+
+                    </div>
+
+
+                    <div>
+                        <div class="sec-label">Contacto y Redes</div>
+                        <div class="card">
+                            <!-- WhatsApp -->
+
+                            <div class="contact-item">
+                                <div class="contact-icon-wrap ci-wa">📱</div>
+                                <div class="contact-text">
+                                    <div class="contact-name">Teléfono</div>
+                                    <input class="contact-val" id="fieldTelefono" type="tel"
+                                        placeholder="+51 999 999 999">
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" data-contact="llamada"
+                                        onchange="toggleContactMethod('llamada', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+
+                            <div class="contact-item">
+                                <div class="contact-icon-wrap ci-wa">💬</div>
+                                <div class="contact-text">
+                                    <div class="contact-name">WhatsApp</div>
+                                    <input class="contact-val" id="fieldWhatsapp" type="tel"
+                                        placeholder="+51 999 999 999">
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" data-contact="whatsapp"
+                                        onchange="toggleContactMethod('whatsapp', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- Instagram -->
+                            <div class="contact-item">
+                                <div class="contact-icon-wrap ci-ig">📸</div>
+                                <div class="contact-text">
+                                    <div class="contact-name">Instagram</div>
+                                    <input class="contact-val" id="fieldInstagram" type="text"
+                                        placeholder="@mi_negocio">
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" data-contact="instagram"
+                                        onchange="toggleContactMethod('instagram', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- Facebook -->
+                            <div class="contact-item">
+                                <div class="contact-icon-wrap ci-fb">👥</div>
+                                <div class="contact-text">
+                                    <div class="contact-name">Facebook</div>
+                                    <input class="contact-val" id="fieldFacebook" type="text"
+                                        placeholder="facebook.com/minegocio">
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" data-contact="facebook"
+                                        onchange="toggleContactMethod('facebook', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- TikTok -->
+                            <div class="contact-item">
+                                <div class="contact-icon-wrap ci-tk">🎵</div>
+                                <div class="contact-text">
+                                    <div class="contact-name">TikTok</div>
+                                    <input class="contact-val" id="fieldTiktok" type="text" placeholder="@mi_negocio">
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" data-contact="tiktok"
+                                        onchange="toggleContactMethod('tiktok', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- Sitio web -->
+                            <div class="contact-item">
+                                <div class="contact-icon-wrap ci-web">🌐</div>
+                                <div class="contact-text">
+                                    <div class="contact-name">Sitio web</div>
+                                    <input class="contact-val" id="fieldWeb" type="url" placeholder="www.minegocio.com">
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" data-contact="sitio_web"
+                                        onchange="toggleContactMethod('sitio_web', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div>
+                        <div class="sec-label">Otros métodos</div>
+                        <div class="card">
+                            <div class="pay-methods">
+
+                                <div class="pay-method">
+                                    <div class="pay-icon pay-yape">YAPE</div>
+                                    <div class="pay-info">
+                                        <div class="pay-name">Yape</div>
+                                    </div>
+
+                                    <label class="switch">
+                                        <input type="checkbox" data-method="yape"
+                                            onchange="togglePayMethod('yape', this.checked)"> <span
+                                            class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="pay-method">
+                                    <div class="pay-icon pay-plin">PLIN</div>
+                                    <div class="pay-info">
+                                        <div class="pay-name">Plin</div>
+                                    </div>
+
+                                    <label class="switch">
+                                        <input type="checkbox" data-method="plin"
+                                            onchange="togglePayMethod('plin', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="pay-method">
+                                    <div class="pay-icon pay-agora">SIP / ÁGORA</div>
+                                    <div class="pay-info">
+                                        <div class="pay-name">Agora</div>
+                                    </div>
+
+                                    <label class="switch">
+                                        <input type="checkbox" data-method="agora"
+                                            onchange="togglePayMethod('agora', this.checked)"> <span
+                                            class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="pay-method">
+                                    <div class="pay-icon pay-cash">💵</div>
+                                    <div class="pay-info">
+                                        <div class="pay-name">Efectivo</div>
+                                    </div>
+
+                                    <label class="switch">
+                                        <input type="checkbox" data-method="efectivo"
+                                            onchange="togglePayMethod('efectivo', this.checked)"> <span
+                                            class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="pay-method">
+                                    <div class="pay-icon pay-visa">VISA</div>
+                                    <div class="pay-info">
+                                        <div class="pay-name">Visa / Mastercard</div>
+                                    </div>
+
+                                    <label class="switch">
+                                        <input type="checkbox" data-method="visa_mastercard"
+                                            onchange="togglePayMethod('visa_mastercard', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== FOTOS ===== -->
+                <div class="section" id="sec-fotos">
+                    <div class="sec-label">Fotos de ambiente</div>
+                    <div class="photo-grid-wrap">
+                        <div class="photo-grid" id="ambienteGrid">
+                            <!-- Poblado dinámicamente por JS -->
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sec-label">Fotos de productos</div>
+                    <div class="photo-grid-wrap">
+                        <div class="photo-grid" id="productosGrid">
+                            <!-- Poblado dinámicamente por JS -->
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sec-label">Promociones recientes</div>
+                    <div class="photo-grid-wrap">
+                        <div class="photo-grid" id="promocionesGrid">
+                            <!-- Poblado dinámicamente por JS -->
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
+                                <span>📷</span><span>Agregar</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== DATOS ===== -->
+                <div class="section" id="sec-datos">
+
+                    <div class="saldo-hero">
+                        <div class="saldo-label">Saldo disponible</div>
+                        <div class="saldo-amount"><sup>S/</sup> 1,240<span style="font-size:22px;opacity:0.5">.00</span>
+                        </div>
+
+                    </div>
+
+                    <!-- Categoría -->
+                    <div class="expand-section" id="expCategoria">
+                        <div class="expand-header" onclick="toggleExpand(this)">
+                            <div class="expand-header-icon icon-orange">📂</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Categoría y subcategoría</div>
+                                <div class="expand-header-sub" id="catDisplay">Sin seleccionar</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+                        <div class="expand-body">
+                            <div class="cat-selector" id="catMain">
+                                <div class="cat-chip" onclick="selectCat(this,'Restaurante')">🍽️ Restaurante</div>
+                                <div class="cat-chip" onclick="selectCat(this,'Tienda')">🛍️ Tienda</div>
+                                <div class="cat-chip" onclick="selectCat(this,'Servicios')">🔧 Servicios</div>
+                                <div class="cat-chip" onclick="selectCat(this,'Belleza')">💄 Belleza</div>
+                                <div class="cat-chip" onclick="selectCat(this,'Salud')">🏥 Salud</div>
+                                <div class="cat-chip" onclick="selectCat(this,'Educación')">📚 Educación</div>
+                                <div class="cat-chip" onclick="selectCat(this,'Tecnología')">💻 Tecnología</div>
+                                <div class="cat-chip" onclick="selectCat(this,'Otro')">📦 Otro</div>
+                            </div>
+                            <div class="subcat-label">Subcategoría</div>
+                            <div class="cat-selector" id="catSub">
+                                <div class="cat-chip" onclick="selectSubcat(this,'Comida rápida')">🍔 Comida rápida
+                                </div>
+                                <div class="cat-chip" onclick="selectSubcat(this,'Delivery')">🛵 Delivery</div>
+                                <div class="cat-chip" onclick="selectSubcat(this,'Para llevar')">📦 Para llevar</div>
+                                <div class="cat-chip" onclick="selectSubcat(this,'En local')">🪑 En local</div>
+                                <div class="cat-chip" onclick="selectSubcat(this,'Dulcería')">🍰 Dulcería</div>
+                                <div class="cat-chip" onclick="selectSubcat(this,'Bebidas')">🥤 Bebidas</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ubicación -->
+                    <div class="expand-section">
+                        <div class="expand-header" onclick="toggleExpand(this)">
+                            <div class="expand-header-icon icon-blue">📍</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Ubicación</div>
+                                <div class="expand-header-sub">Dirección y referencia</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+                        <div class="expand-body">
+                            <div class="map-placeholder" onclick="showToast('Abrir mapa para seleccionar ubicación')">
+                                <div class="map-icon">🗺️</div>
+                                <span>Toca para seleccionar en mapa</span>
+                            </div>
+                            <div class="card" style="margin:0;box-shadow:none;border:1px solid var(--border-light);">
+                                <div class="field-row" style="padding-top:0">
+                                    <div class="field-icon">🏠</div>
+                                    <div class="field-label">Dirección</div>
+                                    <input class="field-value" id="fieldDireccion" type="text"
+                                        placeholder="Av. Principal 123, Piso 2">
+                                </div>
+                                <div class="field-row">
+                                    <div class="field-icon">📌</div>
+                                    <div class="field-label">Referencia</div>
+                                    <input class="field-value" id="fieldReferencia" type="text"
+                                        placeholder="Frente al parque central">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Horario -->
+                    <div class="expand-section">
+                        <div class="expand-header" onclick="toggleExpand(this)">
+                            <div class="expand-header-icon icon-green">🕐</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Horario de atención</div>
+                                <div class="expand-header-sub">Configura tus días y horas</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+                        <div class="expand-body" id="scheduleBody"></div>
+                    </div>
+
+                    <div class="section-spacing"></div>
+                </div>
+
+                <!-- ===== CONTACTO ===== -->
+
+
+                <!-- ===== PAGOS ===== -->
+                <div class="section" id="sec-pagos">
+                    <div class="pagos-two-col">
+
+
+                    </div>
+                    <div class="section-spacing"></div>
+                </div>
+
+            </div><!-- /content -->
+
+            <!-- SAVE FAB (mobile) -->
+            <button class="save-fab" id="saveFab" onclick="saveChanges()">✓ Guardar cambios</button>
+
+            <!-- BOTTOM BAR (mobile) -->
+            <div class="bottom-bar">
+                <button class="bar-btn active" id="bb-perfil" onclick="showSection('perfil',this,'bar')">
+                    <div class="bar-icon">🏪</div>
+                    <div class="bar-label">Perfil</div>
+                </button>
+                <button class="bar-btn" id="bb-fotos" onclick="showSection('fotos',this,'bar')">
+                    <div class="bar-icon">📸</div>
+                    <div class="bar-label">Fotos</div>
+                </button>
+                <button class="bar-btn" id="bb-datos" onclick="showSection('datos',this,'bar')">
+                    <div class="bar-icon">📊</div>
+                    <div class="bar-label">Datos</div>
+                </button>
+
+
+            </div>
+
+        </div><!-- /main -->
+    </div><!-- /app -->
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+    <!-- MODAL - Foto perfil -->
+    <div class="modal-overlay" id="modalFotoPerfil" onclick="closeModal('modalFotoPerfil')"></div>
+    <div class="modal-sheet" id="sheetFotoPerfil">
+        <div class="modal-handle"></div>
+        <div class="modal-title">📸 Foto de perfil</div>
+        <div class="modal-content">
+            <div class="modal-field">
+                <div class="modal-label">URL de imagen</div>
+                <input class="modal-input" type="url" id="profileImgUrl" placeholder="https://...imagen.jpg">
+            </div>
+            <button class="modal-btn" onclick="applyProfileImg()">Aplicar foto</button>
+        </div>
+    </div>
+
+    <!-- MODAL - Foto Ambiente -->
+    <div class="modal-overlay" id="modalFotoAmbiente" onclick="closeModal('modalFotoAmbiente')"></div>
+    <div class="modal-sheet" id="sheetFotoAmbiente">
+        <div class="modal-handle"></div>
+        <div class="modal-title">🏞️ Foto de ambiente</div>
+        <div class="modal-content">
+            <div class="modal-field">
+                <div class="modal-label">URL de imagen</div>
+                <input class="modal-input" type="url" id="ambImgUrl" placeholder="https://...imagen.jpg">
+            </div>
+            <button class="modal-btn" onclick="applyAmbienteImg()">Agregar foto</button>
+        </div>
+    </div>
+
+    <!-- MODAL - Producto -->
+    <div class="modal-overlay" id="modalProducto" onclick="closeModal('modalProducto')"></div>
+    <div class="modal-sheet" id="sheetProducto">
+        <div class="modal-handle"></div>
+        <div class="modal-title">📦 Agregar producto</div>
+        <div class="modal-content">
+            <div class="modal-field">
+                <div class="modal-label">Nombre</div>
+                <input class="modal-input" type="text" id="prodName" placeholder="Ej: Hamburguesa especial">
+            </div>
+            <div class="modal-field">
+                <div class="modal-label">Descripción</div>
+                <textarea class="modal-input" rows="2" id="prodDesc"
+                    placeholder="Descripción breve del producto"></textarea>
+            </div>
+            <div class="modal-field">
+                <div class="modal-label">Precio (S/)</div>
+                <input class="modal-input" type="number" id="prodPrice" placeholder="0.00" step="0.50">
+            </div>
+            <button class="modal-btn" onclick="addProduct()">Agregar producto</button>
+        </div>
+    </div>
+
+    <!-- MODAL - Promo -->
+    <div class="modal-overlay" id="modalPromo" onclick="closeModal('modalPromo')"></div>
+    <div class="modal-sheet" id="sheetPromo">
+        <div class="modal-handle"></div>
+        <div class="modal-title">🎉 Agregar promoción</div>
+        <div class="modal-content">
+            <div class="modal-field">
+                <div class="modal-label">Título</div>
+                <input class="modal-input" type="text" id="promoTitle" placeholder="Ej: 2x1 en todo">
+            </div>
+            <div class="modal-field">
+                <div class="modal-label">Descripción</div>
+                <textarea class="modal-input" rows="2" id="promoDesc" placeholder="Detalles de la promo"></textarea>
+            </div>
+            <div class="modal-field">
+                <div class="modal-label">Descuento</div>
+                <input class="modal-input" type="text" id="promoDiscount" placeholder="Ej: -30% o 2x1">
+            </div>
+            <button class="modal-btn" onclick="addPromo()">Agregar promoción</button>
+        </div>
+    </div>
+
+    <script type="module" src="js/panel_perfil.js"></script>
+</body>
+
+</html>
