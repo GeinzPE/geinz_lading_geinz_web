@@ -35,33 +35,35 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-html,
-body {
+html {
     height: 100%;
+    overflow: hidden;
 }
 
 body {
     font-family: 'DM Sans', sans-serif;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* =============================================
-   LAYOUT SHELL — PC: sidebar + main | Mobile: stack
+   LAYOUT SHELL
    ============================================= */
 
 .app {
     display: flex;
-    min-height: 100vh;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* =============================================
-   SIDEBAR — visible only on PC (≥ 768px)
+   SIDEBAR
    ============================================= */
 
 .sidebar {
-    position: sticky;
+    display: none;
     transition: width 0.3s ease, min-width 0.3s ease;
 }
 
@@ -104,14 +106,6 @@ body {
     box-shadow: 0 2px 8px rgba(124, 58, 237, 0.5);
 }
 
-.sidebar {
-
-    display: none;
-    /* hidden on mobile */
-    transition: width 0.3s ease, min-width 0.3s ease;
-
-}
-
 @media (min-width: 768px) {
     .sidebar-toggle {
         display: flex;
@@ -119,19 +113,18 @@ body {
 
     .sidebar {
         position: relative;
-        /* ← agregar esto */
         display: flex;
         flex-direction: column;
         width: var(--sidebar-w);
         min-width: var(--sidebar-w);
         background: var(--surface);
         border-right: 1px solid var(--border);
-
         top: 0;
         height: 100vh;
         overflow-y: auto;
         z-index: 50;
         padding: 28px 0 20px;
+        overscroll-behavior: contain;
     }
 }
 
@@ -266,11 +259,12 @@ body {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    position: relative;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* =============================================
-   HEADER — mobile only (hidden on PC)
+   HEADER — mobile only
    ============================================= */
 
 .header {
@@ -340,7 +334,7 @@ body {
     }
 }
 
-/* NAV TABS (mobile) */
+/* NAV TABS — mobile */
 .nav {
     display: flex;
     gap: 4px;
@@ -387,13 +381,15 @@ body {
     flex: 1;
     padding: 0 0 110px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 @media (min-width: 768px) {
     .content {
         padding: 0 0 40px;
-        max-height: 100vh;
         overflow-y: auto;
+        overscroll-behavior: contain;
     }
 }
 
@@ -423,7 +419,7 @@ body {
    ============================================= */
 
 .sec-label {
-    font-size: 11px;
+    font-size: .8em;
     font-weight: 700;
     color: var(--text3);
     letter-spacing: 0.1em;
@@ -497,111 +493,135 @@ body {
 }
 
 /* =============================================
-   PROFILE HERO
+   PROFILE HERO + AVATAR — bloque único
    ============================================= */
 
 .profile-hero {
-    background: linear-gradient(135deg, #0A0712 0%, #130D24 60%, #1A0F35 100%);
-    padding: 24px 20px 28px;
-    margin: 50px 20px 28px;
-    position: relative;
+    padding: 0;
+    margin: 0 0 16px;
+    border-radius: 0;
     overflow: hidden;
-    border-radius: var(--r-lg); /* o puedes usar un valor específico como 24px */
-}
-
-@media (min-width: 768px) {
-    .profile-hero {
-        padding: 32px 28px 36px;
-    }
-}
-
-.profile-hero::before {
-    content: '';
-    position: absolute;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(124, 58, 237, 0.35) 0%, transparent 70%);
-    top: -60px;
-    right: -40px;
-    border-radius: 50%;
-}
-
-.profile-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+    background: transparent;
     position: relative;
-    z-index: 1;
-}
-
-@media (min-width: 768px) {
-    .profile-row {
-        gap: 20px;
-    }
 }
 
 .profile-avatar-wrap {
+    width: 100%;
     position: relative;
-    flex-shrink: 0;
 }
 
+/* Banner full-width, 35vh de alto, siempre */
 .profile-avatar {
-    width: 76px;
-    height: 76px;
-    border-radius: 20px;
-    background: #1C1630;
+    width: 100%;
+    height: 35vh;
+    position: relative;
     overflow: hidden;
-    border: 3px solid rgba(124, 58, 237, 0.4);
+    background: #181028;
     cursor: pointer;
-    transition: transform 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
+    /* ← importante, no flex ni inline */
 }
 
-@media (min-width: 768px) {
-    .profile-avatar {
-        width: 88px;
-        height: 88px;
-        border-radius: 22px;
-    }
+
+/* Gradiente oscuro abajo */
+.profile-avatar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    background: linear-gradient(to bottom,
+            transparent 30%,
+            rgba(14, 11, 20, 0.88) 100%);
+    pointer-events: none;
 }
 
-.profile-avatar:active {
-    transform: scale(0.96);
-}
-
-.profile-avatar img {
+/* Imagen */
+.avatar-img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center center;
+    /* ← centra en la parte superior del logo */
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    z-index: 2;
+    display: block;
 }
 
+.avatar-img.loaded {
+    opacity: 1;
+}
+
+/* Skeleton */
+.avatar-skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(90deg,
+            #1a1030 0%, #2e1a50 40%, #1a1030 100%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.2s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 100% 0;
+    }
+
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+/* Placeholder emoji */
 .profile-avatar-placeholder {
-    font-size: 28px;
-    opacity: 0.7;
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 52px;
+    background: #181028;
 }
 
+/* Botón editar */
 .avatar-edit {
     position: absolute;
-    bottom: -4px;
-    right: -4px;
-    width: 22px;
-    height: 22px;
+    bottom: 12px;
+    right: 12px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
     background: var(--accent);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 13px;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    border: 2px solid #0A0712;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Info debajo del banner */
+.profile-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .profile-info {
-    flex: 1;
-    min-width: 0;
+    padding: 16px 20px 12px;
+    background: linear-gradient(135deg, #0A0712 0%, #130D24 60%, #1A0F35 100%);
+}
+
+@media (min-width: 768px) {
+    .profile-info {
+        padding: 22px 28px 20px;
+    }
 }
 
 .profile-name {
@@ -648,7 +668,7 @@ body {
 
 .field-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
     padding: 10px 0;
     border-bottom: 1px solid var(--border-light);
@@ -667,7 +687,13 @@ body {
     font-size: 12px;
     color: var(--text3);
     font-weight: 500;
-    min-width: 80px;
+    width: 80px;
+    /* fijo en vez de min-width */
+    flex-shrink: 0;
+    /* nunca se encoge */
+    margin-top: 10px;
+    line-height: 1.4;
+    /* si el label mismo es largo, respira */
 }
 
 .field-value {
@@ -691,17 +717,36 @@ body {
     cursor: text;
 }
 
+/* Textarea específico */
+textarea.field-value {
+    resize: none;
+    overflow: hidden;
+    line-height: 1.5;
+    padding: 8px 0;
+    min-height: 36px;
+    flex: 1;
+    /* ocupa todo el espacio restante */
+}
+
+.field-icon,
+.field-arrow {
+    flex-shrink: 0;
+    margin-top: 10px;
+}
+
 .field-icon {
     font-size: 16px;
     width: 22px;
     text-align: center;
     flex-shrink: 0;
+    margin-top: 10px;
 }
 
 .field-arrow {
     font-size: 13px;
     color: var(--text3);
     flex-shrink: 0;
+    margin-top: 10px;
 }
 
 /* =============================================
@@ -1006,35 +1051,11 @@ body {
 }
 
 /* =============================================
-   SALDO HERO
+   SALDO
    ============================================= */
 
 .saldo-hero {
-    background: linear-gradient(135deg, #0A0712 0%, #130D24 60%, #1E1040 100%);
-    margin: 24px 14px 14px;
-    border-radius: var(--r-lg);
-    padding: 22px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
-}
-
-@media (min-width: 768px) {
-    .saldo-hero {
-        margin: 24px 24px 16px;
-        padding: 26px 28px;
-    }
-}
-
-.saldo-hero::before {
-    content: '';
-    position: absolute;
-    width: 160px;
-    height: 160px;
-    background: radial-gradient(circle, rgba(124, 58, 237, 0.4) 0%, transparent 70%);
-    top: -40px;
-    right: -30px;
-    border-radius: 50%;
+    margin-top: 30px;
 }
 
 .saldo-label {
@@ -1102,12 +1123,12 @@ body {
    ============================================= */
 
 .expand-section {
-    margin: 0 14px 10px;
+    margin: 27px 14px 10px;
 }
 
 @media (min-width: 768px) {
     .expand-section {
-        margin: 0 24px 12px;
+        margin: 27px 24px 12px;
     }
 }
 
@@ -1117,7 +1138,7 @@ body {
     gap: 12px;
     padding: 16px 18px;
     background: var(--surface);
-    border-radius: var(--r);
+    border-radius: var(--r) var(--r) 0 0;
     border: 1px solid var(--border-light);
     cursor: pointer;
     box-shadow: var(--shadow-sm);
@@ -1377,25 +1398,8 @@ body {
 }
 
 /* =============================================
-   CONTACT — 2-col on PC
+   CONTACT
    ============================================= */
-
-.contact-two-col {
-    padding: 0 14px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-@media (min-width: 768px) {
-    .contact-two-col {
-        padding: 0 24px 0;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        align-items: start;
-    }
-}
 
 .contact-item {
     display: flex;
@@ -1479,6 +1483,44 @@ body {
 }
 
 /* =============================================
+   CONTACT + PAGOS — 2 columnas en PC
+   ============================================= */
+
+.contact-pagos-row {
+    display: block;
+}
+
+.contact-methods-wrapper .sec-label,
+.pay-methods-wrapper .sec-label {
+    padding: 20px 20px 8px;
+}
+
+.contact-methods-wrapper .card,
+.pay-methods-wrapper .card {
+    margin: 0 14px 10px;
+}
+
+@media (min-width: 768px) {
+    .contact-pagos-row {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 20px !important;
+        align-items: start !important;
+        padding: 33px 24px !important;
+    }
+
+    .contact-methods-wrapper .sec-label,
+    .pay-methods-wrapper .sec-label {
+        padding: 24px 0 10px 0 !important;
+    }
+
+    .contact-methods-wrapper .card,
+    .pay-methods-wrapper .card {
+        margin: 0 !important;
+    }
+}
+
+/* =============================================
    LOGOS
    ============================================= */
 
@@ -1523,25 +1565,8 @@ body {
 }
 
 /* =============================================
-   PAGOS — 2-col on PC
+   PAGOS
    ============================================= */
-
-.pagos-two-col {
-    padding: 0 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-@media (min-width: 768px) {
-    .pagos-two-col {
-        padding: 0 24px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        align-items: start;
-    }
-}
 
 .pay-methods {
     display: flex;
@@ -1893,6 +1918,10 @@ body {
     overflow-y: auto;
 }
 
+.modal-sheet.open {
+    transform: translateX(-50%) translateY(0);
+}
+
 @media (min-width: 768px) {
     .modal-sheet {
         bottom: auto;
@@ -1909,16 +1938,6 @@ body {
     .modal-sheet.open {
         transform: translate(-50%, -50%) scale(1);
         opacity: 1;
-    }
-}
-
-.modal-sheet.open {
-    transform: translateX(-50%) translateY(0);
-}
-
-@media (min-width: 768px) {
-    .modal-sheet.open {
-        transform: translate(-50%, -50%) scale(1);
     }
 }
 
@@ -2012,6 +2031,200 @@ body {
 }
 
 /* =============================================
+   SWITCH TOGGLE
+   ============================================= */
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: #333;
+    transition: .3s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+.form-section {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--r);
+    padding: 18px;
+    margin: 0 14px 12px;
+}
+
+@media (min-width: 768px) {
+    .form-section {
+        margin: 0 24px 14px;
+        padding: 20px 22px;
+    }
+}
+
+.form-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 16px;
+}
+
+.form-field {
+    margin-bottom: 14px;
+}
+
+.form-field:last-child {
+    margin-bottom: 0;
+}
+
+.form-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+}
+
+.form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 12px 14px;
+    font-size: 15px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    box-sizing: border-box;
+    caret-color: var(--accent);
+}
+
+.form-input:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.form-input::placeholder {
+    color: var(--text3);
+}
+
+textarea.form-input {
+    resize: none;
+    overflow: hidden;
+    /* ← esto es lo que corta el texto visualmente */
+    line-height: 1.5;
+    min-height: 44px;
+    height: auto;
+    /* ← agrega esto */
+}
+
+input:checked+.slider {
+    background-color: #9F67F5;
+}
+
+input:checked+.slider:before {
+    transform: translateX(18px);
+}
+
+/* =============================================
+   SKELETON / SHIMMER GLOBALES
+   ============================================= */
+
+
+/* ── Iconos de contacto con imagen ── */
+.contact-icon-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 6px;
+    border-radius: 11px;
+}
+
+/* ── Iconos de pago con imagen ── */
+.pay-icon-img {
+    width: 48px;
+    height: 36px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pay-icon-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 5px;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.app.loading-data .profile-name,
+.app.loading-data .profile-desc,
+.app.loading-data .profile-category-tag {
+    color: transparent;
+    background: linear-gradient(90deg,
+            rgba(255, 255, 255, 0.04) 0%,
+            rgba(255, 255, 255, 0.10) 40%,
+            rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.app.loading-data input.field-value,
+.app.loading-data input.contact-val {
+    color: transparent;
+    background: linear-gradient(90deg,
+            rgba(255, 255, 255, 0.03) 0%,
+            rgba(255, 255, 255, 0.07) 50%,
+            rgba(255, 255, 255, 0.03) 100%) !important;
+    background-size: 200% 100% !important;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+}
+
+/* =============================================
    MISC
    ============================================= */
 
@@ -2019,7 +2232,6 @@ body {
     height: 8px;
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
@@ -2038,144 +2250,275 @@ body {
     background: var(--text3);
 }
 
+
+.profile-top-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-top-row .profile-avatar {
+    width: 100%;
+    height: 35vh;
+    border-radius: 0;
+    flex-shrink: 0;
+}
+
+.profile-top-row .form-section {
+    margin-top: 0;
+ border-radius: var(--r);
+}
+
+@media (min-width: 768px) {
+    .profile-top-row .profile-avatar .avatar-img {
+        object-fit: cover;
+        object-position: center center;
+        /* ← centra y cropea en ambos ejes */
+    }
+
+    .profile-top-row {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 0;
+        margin: 24px 24px 0;
+        border-radius: var(--r);
+        overflow: hidden;
+        border: 1px solid var(--border-light);
+        box-shadow: var(--shadow);
+    }
+
+    /* En PC: avatar ocupa la mitad izquierda, misma altura que el form */
+    .profile-top-row .profile-avatar {
+        width: 50%;
+        height: auto;
+        /* se estira al alto del form */
+        min-height: 260px;
+        border-radius: 0;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+
+    .profile-top-row .form-section {
+        flex: 1;
+        margin: 0;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        border-left: 1px solid var(--border-light);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .profile-top-row .form-section {
+        order: 1;
+    }
+
+    .profile-top-row .profile-avatar {
+        order: 2;
+    }
+}
+
+
 /* =============================================
-   AVATAR — pega esto AL FINAL de panel_perfil.css
-   reemplazando CUALQUIER bloque previo de
-   .profile-avatar, .avatar-img, .avatar-skeleton
+   SKELETON SCREEN — full screen loader
    ============================================= */
 
-/* Contenedor */
-.profile-avatar {
-    position: relative;
-    width: 88px;
-    height: 88px;
-    min-width: 88px;
-    border-radius: 22px;
+.skeleton-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: var(--bg);
+    display: flex;
     overflow: hidden;
-    background: #181028;
-    cursor: pointer;
-    border: 2px solid rgba(124,58,237,0.35);
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.skeleton-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Barra lateral skeleton (solo PC) */
+.sk-sidebar {
+    display: none;
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 16px 20px;
+    flex-direction: column;
+    gap: 20px;
+}
+
+@media (min-width: 768px) {
+    .sk-sidebar {
+        display: flex;
+    }
+}
+
+.sk-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.sk-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Piezas base */
+.sk-block {
+    background: linear-gradient(90deg,
+            var(--surface) 0%,
+            var(--surface2) 40%,
+            var(--surface) 100%);
+    background-size: 400% 100%;
+    animation: sk-shine 1.4s ease infinite;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+@keyframes sk-shine {
+    0% {
+        background-position: 100% 0;
+    }
+
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+/* Círculo / avatar pequeño */
+.sk-circle {
+    border-radius: 50%;
+}
+
+/* Área de imagen grande (banner) */
+.sk-banner {
+    width: 100%;
+    height: 35vh;
+    border-radius: 0;
     flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
-    .profile-avatar {
-        width: 110px;
-        height: 110px;
-        min-width: 110px;
-        border-radius: 26px;
+    .sk-banner {
+        width: 50%;
+        height: auto;
+        min-height: 260px;
     }
 }
 
-/* Skeleton shimmer */
-.avatar-skeleton {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: linear-gradient(
-        90deg,
-        #1a1030 0%,
-        #2e1a50 40%,
-        #1a1030 100%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-loading 1.2s infinite;
+/* Contenedor de líneas de texto */
+.sk-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+    flex: 1;
 }
 
-@keyframes skeleton-loading {
-    0%   { background-position:  100% 0; }
-    100% { background-position: -100% 0; }
+.sk-line {
+    height: 14px;
 }
 
-/* Imagen real */
-.avatar-img{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-    opacity:0;
-    transition:opacity .35s ease;
+/* Fila top del skeleton en mobile */
+.sk-top-row {
+    display: flex;
+    flex-direction: column;
 }
 
-/* Placeholder cuando no hay imagen */
-.profile-avatar-placeholder {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
+@media (min-width: 768px) {
+    .sk-top-row {
+        flex-direction: row;
+        margin: 24px 24px 0;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--border-light);
+    }
+}
+
+/* Filas de campos debajo */
+.sk-form-area {
+    margin: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+@media (min-width: 768px) {
+    .sk-form-area {
+        margin: 20px 24px;
+    }
+}
+
+.sk-expand {
+    height: 56px;
+    border-radius: 16px;
+}
+
+/* Fila de contacto/pagos */
+.sk-two-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 20px 14px;
+}
+
+@media (min-width: 768px) {
+    .sk-two-col {
+        flex-direction: row;
+        margin: 20px 24px;
+    }
+}
+
+.sk-card {
+    flex: 1;
+    border-radius: 16px;
+    border: 1px solid var(--border-light);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--surface);
+}
+
+.sk-card-row {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 34px;
-    background: #181028;
+    gap: 12px;
 }
 
-/* ── Skeleton screens globales ── */
-@keyframes shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position:  200% 0; }
+/* Bottom bar skeleton (mobile) */
+.sk-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: rgba(14, 11, 20, 0.97);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 20px;
 }
 
-/* Photo grid – skeleton por foto */
-.photo-item { position: relative; }
-
-/* App en estado cargando */
-.app.loading-data .profile-name,
-.app.loading-data .profile-desc,
-.app.loading-data .profile-category-tag {
-    color: transparent;
-    background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.10) 40%, rgba(255,255,255,0.04) 100%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-    border-radius: 8px;
-    pointer-events: none;
+@media (min-width: 768px) {
+    .sk-bottom-bar {
+        display: none;
+    }
 }
 
-.app.loading-data input.field-value,
-.app.loading-data input.contact-val {
-    color: transparent;
-    background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 100%) !important;
-    background-size: 200% 100% !important;
-    animation: shimmer 1.4s infinite;
-    border-radius: 6px;
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 42px;
-  height: 24px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #333;
-  transition: .3s;
-  border-radius: 34px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s;
-  border-radius: 50%;
-}
-
-input:checked + .slider {
-  background-color: #9F67F5;
-}
-
-input:checked + .slider:before {
-  transform: translateX(18px);
+.sk-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
 }
