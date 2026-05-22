@@ -9,6 +9,11 @@
         href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style/panel_perfil.css">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+    <script type="module" src="js/panel_perfil.js"></script>
+    <script type="module" src="js/horario_perfil.js"></script>
 </head>
 
 <body>
@@ -18,26 +23,46 @@
 
         <!-- ===== SIDEBAR (solo PC) ===== -->
         <aside class="sidebar">
-            <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebarToggle">◀</button>
+
             <div class="sidebar-brand">
-                <div class="sidebar-logo">🏪</div>
+
+                <img class="sidebar-logo-img" src="img/Diseño sin título (2).png" alt="Geinz">
+
                 <div class="sidebar-brand-text">
-                    <div class="sidebar-brand-name" id="sidebarName">Mi Negocio</div>
-                    <div class="sidebar-brand-badge">Activo</div>
+                    <div class="sidebar-brand-name">Geinz Web</div>
                 </div>
+
             </div>
             <nav class="sidebar-nav">
-                <button class="sidebar-btn active" id="sbb-perfil" onclick="showSection('perfil',this,'sidebar')">
-                    <span class="sbb-icon">🏪</span><span class="sbb-label">Perfil</span>
-                </button>
-                <button class="sidebar-btn" id="sbb-fotos" onclick="showSection('fotos',this,'sidebar')">
-                    <span class="sbb-icon">📸</span><span class="sbb-label">Fotos</span>
+                <button class="sidebar-btn active" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
+                    <span class="sbb-icon">🏪</span>
+                    <span class="sbb-label">Perfil</span>
                 </button>
 
+                <button class="sidebar-btn" onclick="PanelPerfil.loadPublicidad()">
+                    <span class="sbb-icon">📢</span>
+                    <span class="sbb-label">Publicidad</span>
+                </button>
 
+                <button class="sidebar-btn" id="sbb-fotos" onclick="PanelPerfil.showSection('fotos')">
+                    <span class="sbb-icon">📸</span>
+                    <span class="sbb-label">Fotos</span>
+                </button>
+
+                <button class="sidebar-btn" id="sbb-fotos" onclick="PanelPerfil.showSection('fotos')">
+                    <span class="sbb-icon">📸</span>
+                    <span class="sbb-label">Recargas</span>
+                </button>
             </nav>
             <div class="sidebar-save-wrap">
-                <button class="sidebar-save-btn" id="sidebarSaveBtn" onclick="saveChanges()">✓ Guardar cambios</button>
+                <button class="sidebar-save-btn" id="sidebarSaveBtn" onclick="PanelPerfil.saveChanges()">✓ Guardar
+                    cambios</button>
+                <button class="sidebar-toggle" onclick="PanelPerfil.toggleSidebar()" id="sidebarToggle">
+
+                    ◀
+
+                </button>
+
             </div>
         </aside>
 
@@ -45,36 +70,15 @@
         <!-- ===== MAIN PANEL ===== -->
         <div class="main">
 
-            <!-- HEADER MOBILE 
-            <div class="header">
-                <div class="header-top">
-                    <div class="header-title">Mi Negocio</div>
-                    <div class="header-badge">Activo</div>
-                </div>
-                <div class="nav" id="mainNav">
-                    <button class="nav-tab active" onclick="showSection('perfil',this,'tab')">Perfil</button>
-                    <button class="nav-tab" onclick="showSection('fotos',this,'tab')">Fotos</button>
-                    <button class="nav-tab" onclick="showSection('datos',this,'tab')">Datos</button>
-                    <button class="nav-tab" onclick="showSection('contacto',this,'tab')">Contacto</button>
-                    <button class="nav-tab" onclick="showSection('pagos',this,'tab')">Pagos</button>
-                </div>
-            </div>-->
-
-
-
             <!-- CONTENT -->
             <div class="content">
 
                 <!-- ===== PERFIL ===== -->
                 <div class="section active" id="sec-perfil">
-                    <!-- =====
-                    <div class="profile-hero">
- ===== -->
+
                     <div class="profile-top-row">
 
-
-
-                        <div class="profile-avatar" onclick="openModal('modalFotoPerfil')" id="avatarEl">
+                        <div class="profile-avatar" onclick="PanelPerfil.openModal('modalFotoPerfil')" id="avatarEl">
 
                             <!-- Skeleton -->
                             <div class="avatar-skeleton" id="avatarSkeleton"></div>
@@ -93,14 +97,14 @@
                                 <label class="form-label" for="businessName">Nombre del negocio</label>
                                 <textarea class="form-input" id="businessName" rows="1"
                                     placeholder="Ej: Cafetería El Rincón"
-                                    oninput="updateName(this.value); autoResize(this)"></textarea>
+                                    oninput="PanelPerfil.updateName(this.value); PanelPerfil.autoResize(this)"></textarea>
                             </div>
 
                             <div class="form-field">
                                 <label class="form-label" for="businessDesc">Descripción</label>
                                 <textarea class="form-input" id="businessDesc" rows="2"
                                     placeholder="¿Qué ofrece tu negocio?"
-                                    oninput="updateDesc(this.value); autoResize(this)"></textarea>
+                                    oninput="PanelPerfil.updateDesc(this.value); PanelPerfil.autoResize(this)"></textarea>
                             </div>
 
                             <div class="form-field">
@@ -111,62 +115,139 @@
                     </div>
 
 
-                    <!-- ===== 
-                        <div class="profile-info">
-                            <div class="profile-name" id="heroName" onclick="focusField('businessName')">Mi Negocio
-                            </div>
-                            <div class="profile-category-tag" id="heroCat"
-                                onclick="showSection('datos',null,'auto');setTimeout(()=>openExpandable('expCategoria'),300)">
-                                📂 Sin categoría ›
-                            </div>
-                            <div class="profile-desc" id="heroDesc" onclick="focusField('businessDesc')">
-                                Toca aquí para agregar una descripción atractiva de tu negocio...
+                    <div class="wrapper">
+                        <div class="cards-stack">
+                            <!-- ÚNICA TARJETA PRINCIPAL -->
+                            <div class="exp-card" id="card-account">
+                                <!-- HEADER (resumen colapsable) -->
+                                <div class="exp-header" onclick="toggle('card-account')">
+                                    <div class="exp-header-left">
+                                        <div class="exp-icon purple">✦</div>
+                                        <div>
+                                            <div class="exp-title">Cuenta</div>
+                                            <div class="exp-subtitle" id="ph-summary">cargando información...</div>
+                                        </div>
+                                    </div>
+                                    <div class="exp-right">
+                                        <span class="exp-badge purple" id="badge-plan">—</span>
+                                        <div class="chevron">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"
+                                                stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- CUERPO EXPANDIBLE (todo el contenido) -->
+                                <div class="exp-body">
+                                    <div class="exp-divider"></div>
+                                    <div class="exp-content">
+                                        <!-- ===== SECCIÓN PLAN ===== -->
+                                        <div class="field">
+                                            <span class="field-label">Plan activo</span>
+                                            <span class="field-value purple" id="plan-type-full">—</span>
+                                        </div>
+                                        <div class="field">
+                                            <span class="field-label">Estado</span>
+                                            <span class="field-value">
+                                                <span class="dot-pulse"></span>
+                                                <span class="status-text">Activo</span>
+                                            </span>
+                                        </div>
+
+                                        <!-- ===== SECCIÓN ID & FECHAS ===== -->
+                                        <div class="field" style="margin-top: 16px;">
+                                            <span class="field-label">ID de usuario</span>
+                                            <span class="field-value">
+                                                <span class="field-id-row">
+                                                    <span id="user-id">—</span>
+                                                    <button class="copy-btn" onclick="copyId(event)" title="Copiar ID">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                            stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round">
+                                                            <rect x="9" y="9" width="13" height="13" rx="2" />
+                                                            <path
+                                                                d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                                        </svg>
+                                                    </button>
+                                                </span>
+                                            </span>
+                                        </div>
+
+                                        <div class="field">
+                                            <span class="field-label">Inicio</span>
+                                            <span class="field-value" id="start-date">—</span>
+                                        </div>
+                                        <div class="field">
+                                            <span class="field-label">Finalización</span>
+                                            <span class="field-value" id="end-date">—</span>
+                                        </div>
+
+                                        <!-- ===== SECCIÓN SALDO ===== -->
+                                        <div class="balance-big" style="margin-top: 16px;">
+                                            <span class="balance-num" id="balance-full">—</span>
+                                            <span class="balance-coin">🪙</span>
+                                        </div>
+
+                                        <div class="renewal-row">
+                                            <div class="renewal-icon-wrap">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="#f5a623" stroke-width="2.5" stroke-linecap="round"
+                                                    stroke-linejoin="round">
+                                                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                                                    <path d="M21 3v5h-5" />
+                                                </svg>
+                                            </div>
+                                            <span class="renewal-label" id="renewal-text">— días para la
+                                                renovación</span>
+                                            <span class="renewal-days-num" id="renewal-days">—</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-PERFIL ===== -->
-                    <!-- =====
                     </div>
-
- ===== -->
 
 
                     <!-- Categoría -->
                     <div class="expand-section" id="expCategoria">
-                        <div class="expand-header" onclick="toggleExpand(this)">
+
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
                             <div class="expand-header-icon icon-orange">📂</div>
+
                             <div class="expand-header-text">
-                                <div class="expand-header-title">Categoría y subcategoría</div>
-                                <div class="expand-header-sub" id="catDisplay">Sin seleccionar</div>
+                                <div class="expand-header-title">
+                                    Categoría y subcategoría
+                                </div>
+
+                                <div class="expand-header-sub" id="catDisplay">
+                                    Sin seleccionar
+                                </div>
                             </div>
+
                             <div class="expand-arrow">▼</div>
                         </div>
+
                         <div class="expand-body">
-                            <div class="cat-selector" id="catMain">
-                                <div class="cat-chip" onclick="selectCat(this,'Restaurante')">🍽️ Restaurante</div>
-                                <div class="cat-chip" onclick="selectCat(this,'Tienda')">🛍️ Tienda</div>
-                                <div class="cat-chip" onclick="selectCat(this,'Servicios')">🔧 Servicios</div>
-                                <div class="cat-chip" onclick="selectCat(this,'Belleza')">💄 Belleza</div>
-                                <div class="cat-chip" onclick="selectCat(this,'Salud')">🏥 Salud</div>
-                                <div class="cat-chip" onclick="selectCat(this,'Educación')">📚 Educación</div>
-                                <div class="cat-chip" onclick="selectCat(this,'Tecnología')">💻 Tecnología</div>
-                                <div class="cat-chip" onclick="selectCat(this,'Otro')">📦 Otro</div>
+
+                            <!-- Categorías -->
+                            <div class="cat-selector" id="catMain"></div>
+
+                            <!-- Subcategorías -->
+                            <div class="subcat-label">
+                                Subcategorías
                             </div>
-                            <div class="subcat-label">Subcategoría</div>
-                            <div class="cat-selector" id="catSub">
-                                <div class="cat-chip" onclick="selectSubcat(this,'Comida rápida')">🍔 Comida rápida
-                                </div>
-                                <div class="cat-chip" onclick="selectSubcat(this,'Delivery')">🛵 Delivery</div>
-                                <div class="cat-chip" onclick="selectSubcat(this,'Para llevar')">📦 Para llevar</div>
-                                <div class="cat-chip" onclick="selectSubcat(this,'En local')">🪑 En local</div>
-                                <div class="cat-chip" onclick="selectSubcat(this,'Dulcería')">🍰 Dulcería</div>
-                                <div class="cat-chip" onclick="selectSubcat(this,'Bebidas')">🥤 Bebidas</div>
-                            </div>
+
+                            <div class="cat-selector" id="catSub"></div>
+
                         </div>
+
                     </div>
 
                     <!-- Ubicación -->
                     <div class="expand-section">
-                        <div class="expand-header" onclick="toggleExpand(this)">
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
                             <div class="expand-header-icon icon-blue">📍</div>
                             <div class="expand-header-text">
                                 <div class="expand-header-title">Ubicación</div>
@@ -175,9 +256,16 @@ PERFIL ===== -->
                             <div class="expand-arrow">▼</div>
                         </div>
                         <div class="expand-body">
-                            <div class="map-placeholder" onclick="showToast('Abrir mapa para seleccionar ubicación')">
-                                <div class="map-icon">🗺️</div>
-                                <span>Toca para seleccionar en mapa</span>
+                            <div class="map-wrapper">
+
+                                <div id="mapBoxPerfil"></div>
+
+                                <button class="map-current-btn" onclick="PanelPerfil.getCurrentLocation()">
+
+                                    📍 Mi ubicación
+
+                                </button>
+
                             </div>
                             <div class="form-section" style="margin:0; box-shadow:none;">
                                 <div class="form-field">
@@ -195,390 +283,527 @@ PERFIL ===== -->
                     </div>
 
                     <!-- Horario -->
+                    <!-- Horario -->
                     <div class="expand-section">
-                        <div class="expand-header" onclick="toggleExpand(this)">
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
                             <div class="expand-header-icon icon-green">🕐</div>
                             <div class="expand-header-text">
                                 <div class="expand-header-title">Horario de atención</div>
-                                <div class="expand-header-sub">Configura tus días y horas</div>
+                                <div class="expand-header-sub">Configura tus días y horas (formato 24h → 12h)</div>
                             </div>
                             <div class="expand-arrow">▼</div>
                         </div>
-                        <div class="expand-body" id="scheduleBody"></div>
+                        <div class="expand-body">
+                            <div class="schedule-wrapper" id="scheduleBody"></div>
+                        </div>
                     </div>
 
+                    <!-- ===== FOTOS ===== -->
+                    <!-- ===== CONTACTO Y REDES ===== -->
+                    <div class="expand-section">
 
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
 
+                            <div class="expand-header-icon icon-pink">📱</div>
 
-                    <!-- ===== CONTACTO Y REDES + OTROS MÉTODOS (2 columnas en PC) ===== -->
-                    <div class="contact-pagos-row">
-                        <div class="contact-methods-wrapper">
-                            <div class="sec-label">Contacto y Redes</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">
+                                    Contacto y Redes
+                                </div>
+
+                                <div class="expand-header-sub">
+                                    WhatsApp, Instagram, Facebook y más
+                                </div>
+                            </div>
+
+                            <div class="expand-arrow">▼</div>
+
+                        </div>
+
+                        <div class="expand-body">
+
                             <div class="card">
-                                <!-- WhatsApp -->
+
+                                <!-- Teléfono -->
                                 <div class="contact-item">
+
                                     <div class="contact-icon-wrap ci-phone">
-                                        <img src="img/llamada_icon.png" Teléfono">
+                                        <img src="img/llamada_icon.png" alt="Teléfono">
                                     </div>
+
                                     <div class="contact-text">
                                         <div class="contact-name">Teléfono</div>
+
                                         <input class="contact-val" id="fieldTelefono" type="tel"
                                             placeholder="+51 999 999 999">
                                     </div>
+
                                     <label class="switch">
                                         <input type="checkbox" data-contact="llamada"
-                                            onchange="toggleContactMethod('llamada', this.checked)">
+                                            onchange="PanelPerfil.toggleContactMethod('llamada', this.checked)">
                                         <span class="slider"></span>
                                     </label>
+
                                 </div>
 
+                                <!-- WhatsApp -->
                                 <div class="contact-item">
+
                                     <div class="contact-icon-wrap ci-wa">
                                         <img src="img/whatsapp_icon.png" alt="WhatsApp">
                                     </div>
+
                                     <div class="contact-text">
                                         <div class="contact-name">WhatsApp</div>
+
                                         <input class="contact-val" id="fieldWhatsapp" type="tel"
                                             placeholder="+51 999 999 999">
                                     </div>
+
                                     <label class="switch">
                                         <input type="checkbox" data-contact="whatsapp"
-                                            onchange="toggleContactMethod('whatsapp', this.checked)">
+                                            onchange="PanelPerfil.toggleContactMethod('whatsapp', this.checked)">
                                         <span class="slider"></span>
                                     </label>
+
                                 </div>
+
                                 <!-- Instagram -->
                                 <div class="contact-item">
+
                                     <div class="contact-icon-wrap ci-ig">
                                         <img src="img/instagram_icon.webp" alt="Instagram">
                                     </div>
+
                                     <div class="contact-text">
                                         <div class="contact-name">Instagram</div>
+
                                         <input class="contact-val" id="fieldInstagram" type="text"
                                             placeholder="@mi_negocio">
                                     </div>
+
                                     <label class="switch">
                                         <input type="checkbox" data-contact="instagram"
-                                            onchange="toggleContactMethod('instagram', this.checked)">
+                                            onchange="PanelPerfil.toggleContactMethod('instagram', this.checked)">
                                         <span class="slider"></span>
                                     </label>
+
                                 </div>
 
                                 <!-- Facebook -->
                                 <div class="contact-item">
+
                                     <div class="contact-icon-wrap ci-fb">
                                         <img src="img/facebook_icon.webp" alt="Facebook">
                                     </div>
+
                                     <div class="contact-text">
                                         <div class="contact-name">Facebook</div>
+
                                         <input class="contact-val" id="fieldFacebook" type="text"
                                             placeholder="facebook.com/minegocio">
                                     </div>
+
                                     <label class="switch">
                                         <input type="checkbox" data-contact="facebook"
-                                            onchange="toggleContactMethod('facebook', this.checked)">
+                                            onchange="PanelPerfil.toggleContactMethod('facebook', this.checked)">
                                         <span class="slider"></span>
                                     </label>
+
                                 </div>
 
                                 <!-- TikTok -->
                                 <div class="contact-item">
+
                                     <div class="contact-icon-wrap ci-tk">
                                         <img src="img/tik_tok_icon.webp" alt="TikTok">
                                     </div>
+
                                     <div class="contact-text">
                                         <div class="contact-name">TikTok</div>
+
                                         <input class="contact-val" id="fieldTiktok" type="text"
                                             placeholder="@mi_negocio">
                                     </div>
+
                                     <label class="switch">
                                         <input type="checkbox" data-contact="tiktok"
-                                            onchange="toggleContactMethod('tiktok', this.checked)">
+                                            onchange="PanelPerfil.toggleContactMethod('tiktok', this.checked)">
                                         <span class="slider"></span>
                                     </label>
+
                                 </div>
 
                                 <!-- Sitio web -->
                                 <div class="contact-item">
-                                    <div class="contact-icon-wrap ci-web">🌐</div>
+
+                                    <div class="contact-icon-wrap ci-web">
+                                        🌐
+                                    </div>
+
                                     <div class="contact-text">
                                         <div class="contact-name">Sitio web</div>
+
                                         <input class="contact-val" id="fieldWeb" type="url"
                                             placeholder="www.minegocio.com">
                                     </div>
+
                                     <label class="switch">
                                         <input type="checkbox" data-contact="sitio_web"
-                                            onchange="toggleContactMethod('sitio_web', this.checked)">
+                                            onchange="PanelPerfil.toggleContactMethod('sitio_web', this.checked)">
                                         <span class="slider"></span>
                                     </label>
+
                                 </div>
+
                             </div>
+
                         </div>
 
-                        <div class="pay-methods-wrapper">
-                            <div class="sec-label">Otros métodos</div>
+                    </div>
+
+                    <!-- ===== OTROS MÉTODOS ===== -->
+                    <div class="expand-section">
+
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+
+                            <div class="expand-header-icon icon-green">💳</div>
+
+                            <div class="expand-header-text">
+
+                                <div class="expand-header-title">
+                                    Otros métodos
+                                </div>
+
+                                <div class="expand-header-sub">
+                                    Métodos de pago disponibles
+                                </div>
+
+                            </div>
+
+                            <div class="expand-arrow">▼</div>
+
+                        </div>
+
+                        <div class="expand-body">
+
                             <div class="card">
+
                                 <div class="pay-methods">
+
+                                    <!-- Yape -->
                                     <div class="pay-method">
+
                                         <div class="pay-icon-img">
                                             <img src="img/yape_logo.webp" alt="Yape">
                                         </div>
+
                                         <div class="pay-info">
                                             <div class="pay-name">Yape</div>
                                         </div>
+
                                         <label class="switch">
                                             <input type="checkbox" data-method="yape"
-                                                onchange="togglePayMethod('yape', this.checked)">
+                                                onchange="PanelPerfil.togglePayMethod('yape', this.checked)">
                                             <span class="slider"></span>
                                         </label>
+
                                     </div>
 
+                                    <!-- Plin -->
                                     <div class="pay-method">
+
                                         <div class="pay-icon-img">
                                             <img src="img/logo_plin.webp" alt="Plin">
                                         </div>
+
                                         <div class="pay-info">
                                             <div class="pay-name">Plin</div>
                                         </div>
+
                                         <label class="switch">
                                             <input type="checkbox" data-method="plin"
-                                                onchange="togglePayMethod('plin', this.checked)">
+                                                onchange="PanelPerfil.togglePayMethod('plin', this.checked)">
                                             <span class="slider"></span>
                                         </label>
+
                                     </div>
 
+                                    <!-- Agora -->
                                     <div class="pay-method">
+
                                         <div class="pay-icon-img">
                                             <img src="img/logo_agora.webp" alt="Agora">
                                         </div>
+
                                         <div class="pay-info">
                                             <div class="pay-name">Agora / SIP</div>
                                         </div>
+
                                         <label class="switch">
                                             <input type="checkbox" data-method="agora"
-                                                onchange="togglePayMethod('agora', this.checked)">
+                                                onchange="PanelPerfil.togglePayMethod('agora', this.checked)">
                                             <span class="slider"></span>
                                         </label>
+
                                     </div>
 
-
+                                    <!-- Efectivo -->
                                     <div class="pay-method">
+
                                         <div class="pay-icon-img">
                                             <img src="img/efectivo_logo.webp" alt="Efectivo">
                                         </div>
+
                                         <div class="pay-info">
                                             <div class="pay-name">Efectivo</div>
                                         </div>
+
                                         <label class="switch">
                                             <input type="checkbox" data-method="efectivo"
-                                                onchange="togglePayMethod('efectivo', this.checked)">
+                                                onchange="PanelPerfil.togglePayMethod('efectivo', this.checked)">
                                             <span class="slider"></span>
                                         </label>
+
                                     </div>
 
+                                    <!-- Visa -->
                                     <div class="pay-method">
+
                                         <div class="pay-icon-img">
                                             <img src="img/visa_logo.webp" alt="Visa">
                                         </div>
+
                                         <div class="pay-info">
                                             <div class="pay-name">Visa / Mastercard</div>
                                         </div>
+
                                         <label class="switch">
                                             <input type="checkbox" data-method="visa_mastercard"
-                                                onchange="togglePayMethod('visa_mastercard', this.checked)">
+                                                onchange="PanelPerfil.togglePayMethod('visa_mastercard', this.checked)">
                                             <span class="slider"></span>
                                         </label>
+
                                     </div>
+
                                 </div>
+
                             </div>
+
                         </div>
+
                     </div>
 
-                    <!-- ESTILOS RESPONSIVE (agregar al final del CSS o dentro de <style>) -->
+
+                    <!-- ===== CONTACTO Y REDES + OTROS MÉTODOS (2 columnas en PC) ===== -->
 
                 </div>
 
-                <!-- ===== FOTOS ===== -->
-                <div class="section" id="sec-fotos">
-                    <div class="sec-label">Fotos de ambiente</div>
-                    <div class="photo-grid-wrap">
-                        <div class="photo-grid" id="ambienteGrid">
-                            <!-- Poblado dinámicamente por JS -->
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                        </div>
+
+                <div class="section" id="sec-publicidad">
+                    <div id="publicidadContainer" style="
+            width:100%;
+            height:100%;
+            min-height:100vh;
+            position:relative;
+        ">
                     </div>
-
-                    <div class="sec-label">Fotos de productos</div>
-                    <div class="photo-grid-wrap">
-                        <div class="photo-grid" id="productosGrid">
-                            <!-- Poblado dinámicamente por JS -->
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="sec-label">Promociones recientes</div>
-                    <div class="photo-grid-wrap">
-                        <div class="photo-grid" id="promocionesGrid">
-                            <!-- Poblado dinámicamente por JS -->
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                            <div class="photo-item photo-item-add" onclick="openModal('modalFotoAmbiente')">
-                                <span>📷</span><span>Agregar</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ===== DATOS ===== -->
-                <div class="section" id="sec-datos">
-
-
-
-
-
-                    <div class="section-spacing"></div>
-                </div>
-
-                <!-- ===== CONTACTO ===== -->
-
-
-                <!-- ===== PAGOS ===== -->
-                <div class="section" id="sec-pagos">
-                    <div class="pagos-two-col">
-
-
-                    </div>
-                    <div class="section-spacing"></div>
                 </div>
 
             </div><!-- /content -->
 
             <!-- SAVE FAB (mobile) -->
-            <button class="save-fab" id="saveFab" onclick="saveChanges()">✓ Guardar cambios</button>
+            <button class="save-fab" id="saveFab" onclick="PanelPerfil.saveChanges()">✓ Guardar cambios</button>
 
-            <!-- BOTTOM BAR (mobile) -->
-            <div class="bottom-bar">
-                <button class="bar-btn active" id="bb-perfil" onclick="showSection('perfil',this,'bar')">
-                    <div class="bar-icon">🏪</div>
-                    <div class="bar-label">Perfil</div>
-                </button>
-                <button class="bar-btn" id="bb-fotos" onclick="showSection('fotos',this,'bar')">
-                    <div class="bar-icon">📸</div>
-                    <div class="bar-label">Fotos</div>
-                </button>
+
+            <!-- BOTON MENU MOBILE -->
+            <button class="mobile-menu-btn" onclick="PanelPerfil.toggleMobileMenu()">
+                ☰
+            </button>
+
+            <!-- OVERLAY -->
+            <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="PanelPerfil.toggleMobileMenu()"></div>
+
+            <!-- MENU MOBILE -->
+            <div class="mobile-menu" id="mobileMenu">
+
+                <div class="mobile-menu-header">
+
+                    <img class="mobile-menu-logo" src="img/Diseño sin título (2).png" alt="Geinz">
+
+                    <div>
+                        <div class="mobile-menu-title">Geinz Web</div>
+                        <div class="mobile-menu-sub">
+                            Panel de negocio
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="mobile-menu-items">
+
+                    <button class="mobile-menu-item active"
+                        onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
+
+                        <span>🏪</span>
+                        <span>Perfil</span>
+
+                    </button>
+
+                    <button class="mobile-menu-item"
+                        onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
+
+                        <span>📢</span>
+                        <span>Publicidad</span>
+
+                    </button>
+
+                    <button class="mobile-menu-item"
+                        onclick="PanelPerfil.showSection('fotos'); PanelPerfil.toggleMobileMenu()">
+
+                        <span>📸</span>
+                        <span>Fotos</span>
+
+                    </button>
+
+                    <button class="mobile-menu-item"
+                        onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
+
+                        <span>⚡</span>
+                        <span>Recargas</span>
+
+                    </button>
+
+                </div>
 
             </div>
 
+            <!-- BOTTOM BAR (mobile)
+            <div class="bottom-bar">
+                <button class="bar-btn active" id="bb-perfil" onclick="PanelPerfil.showSection('perfil')">
+                    <div class="bar-icon">🏪</div>
+                    <div class="bar-label">Perfil</div>
+                </button>
+                <button class="bar-btn" id="bb-publicidad" onclick="PanelPerfil.loadPublicidad()">
+                    <div class="bar-icon">📢</div>
+                    <div class="bar-label">Publicidad</div>
+                </button>
+
+                <button class="bar-btn" id="bb-fotos" onclick="PanelPerfil.showSection('fotos')">
+                    <div class="bar-icon">📸</div>
+                    <div class="bar-label">Fotos</div>
+                </button>
+                <button class="sidebar-btn" id="sbb-fotos" onclick="PanelPerfil.showSection('fotos')">
+                    <span class="sbb-icon">📸</span>
+                    <span class="sbb-label">Recargas</span>
+                </button>
+            </div>
+ -->
         </div><!-- /main -->
     </div>
 
     <!-- ===== SKELETON SCREEN ===== -->
-<div class="skeleton-overlay" id="skeletonOverlay">
+    <div class="skeleton-overlay" id="skeletonOverlay">
 
-    <!-- Sidebar skeleton (PC) -->
-    <div class="sk-sidebar">
-        <div class="sk-sidebar-brand">
-            <div class="sk-block sk-circle" style="width:42px;height:42px;flex-shrink:0"></div>
-            <div style="flex:1;display:flex;flex-direction:column;gap:8px">
-                <div class="sk-block" style="height:13px;width:70%"></div>
-                <div class="sk-block" style="height:11px;width:40%"></div>
+        <!-- Sidebar skeleton (PC) -->
+        <div class="sk-sidebar">
+            <div class="sk-sidebar-brand">
+                <div class="sk-block sk-circle" style="width:42px;height:42px;flex-shrink:0"></div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                    <div class="sk-block" style="height:13px;width:70%"></div>
+                    <div class="sk-block" style="height:11px;width:40%"></div>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:0 4px">
+                <div class="sk-block" style="height:42px;border-radius:12px"></div>
+                <div class="sk-block" style="height:42px;border-radius:12px;opacity:.6"></div>
             </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;padding:0 4px">
-            <div class="sk-block" style="height:42px;border-radius:12px"></div>
-            <div class="sk-block" style="height:42px;border-radius:12px;opacity:.6"></div>
+
+        <!-- Main skeleton -->
+        <div class="sk-main">
+
+            <!-- Banner + form -->
+            <div class="sk-top-row">
+                <div class="sk-block sk-banner"></div>
+                <div class="sk-lines">
+                    <div class="sk-block sk-line" style="width:40%;height:11px"></div>
+                    <div class="sk-block sk-line" style="width:75%"></div>
+                    <div class="sk-block sk-line" style="width:60%"></div>
+                    <div class="sk-block" style="height:11px;width:40%;margin-top:10px"></div>
+                    <div class="sk-block sk-line" style="width:85%"></div>
+                    <div class="sk-block sk-line" style="width:55%"></div>
+                    <div class="sk-block" style="height:11px;width:40%;margin-top:10px"></div>
+                    <div class="sk-block sk-line" style="width:40%"></div>
+                </div>
+            </div>
+
+            <!-- Expand sections -->
+            <div class="sk-form-area">
+                <div class="sk-block sk-expand"></div>
+                <div class="sk-block sk-expand" style="opacity:.75"></div>
+                <div class="sk-block sk-expand" style="opacity:.55"></div>
+            </div>
+
+            <!-- Contacto + pagos -->
+            <div class="sk-two-col">
+                <div class="sk-card">
+                    <div class="sk-block" style="height:11px;width:40%"></div>
+                    <div class="sk-card-row">
+                        <div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                            <div class="sk-block" style="height:12px;width:50%"></div>
+                            <div class="sk-block" style="height:11px;width:70%"></div>
+                        </div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                            <div class="sk-block" style="height:12px;width:40%"></div>
+                            <div class="sk-block" style="height:11px;width:65%"></div>
+                        </div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                            <div class="sk-block" style="height:12px;width:45%"></div>
+                            <div class="sk-block" style="height:11px;width:55%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sk-card">
+                    <div class="sk-block" style="height:11px;width:40%"></div>
+                    <div class="sk-card-row">
+                        <div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div>
+                        <div class="sk-block" style="height:13px;flex:1"></div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div>
+                        <div class="sk-block" style="height:13px;flex:1"></div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div>
+                        <div class="sk-block" style="height:13px;flex:1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom bar mobile -->
+            <div class="sk-bottom-bar">
+                <div class="sk-nav-item">
+                    <div class="sk-block sk-circle" style="width:24px;height:24px"></div>
+                    <div class="sk-block" style="width:28px;height:9px;border-radius:4px"></div>
+                </div>
+                <div class="sk-nav-item">
+                    <div class="sk-block sk-circle" style="width:24px;height:24px;opacity:.6"></div>
+                    <div class="sk-block" style="width:28px;height:9px;border-radius:4px;opacity:.6"></div>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <!-- Main skeleton -->
-    <div class="sk-main">
 
-        <!-- Banner + form -->
-        <div class="sk-top-row">
-            <div class="sk-block sk-banner"></div>
-            <div class="sk-lines">
-                <div class="sk-block sk-line" style="width:40%;height:11px"></div>
-                <div class="sk-block sk-line" style="width:75%"></div>
-                <div class="sk-block sk-line" style="width:60%"></div>
-                <div class="sk-block" style="height:11px;width:40%;margin-top:10px"></div>
-                <div class="sk-block sk-line" style="width:85%"></div>
-                <div class="sk-block sk-line" style="width:55%"></div>
-                <div class="sk-block" style="height:11px;width:40%;margin-top:10px"></div>
-                <div class="sk-block sk-line" style="width:40%"></div>
-            </div>
-        </div>
-
-        <!-- Expand sections -->
-        <div class="sk-form-area">
-            <div class="sk-block sk-expand"></div>
-            <div class="sk-block sk-expand" style="opacity:.75"></div>
-            <div class="sk-block sk-expand" style="opacity:.55"></div>
-        </div>
-
-        <!-- Contacto + pagos -->
-        <div class="sk-two-col">
-            <div class="sk-card">
-                <div class="sk-block" style="height:11px;width:40%"></div>
-                <div class="sk-card-row"><div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="sk-block" style="height:12px;width:50%"></div><div class="sk-block" style="height:11px;width:70%"></div></div></div>
-                <div class="sk-card-row"><div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="sk-block" style="height:12px;width:40%"></div><div class="sk-block" style="height:11px;width:65%"></div></div></div>
-                <div class="sk-card-row"><div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="sk-block" style="height:12px;width:45%"></div><div class="sk-block" style="height:11px;width:55%"></div></div></div>
-            </div>
-            <div class="sk-card">
-                <div class="sk-block" style="height:11px;width:40%"></div>
-                <div class="sk-card-row"><div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div><div class="sk-block" style="height:13px;flex:1"></div></div>
-                <div class="sk-card-row"><div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div><div class="sk-block" style="height:13px;flex:1"></div></div>
-                <div class="sk-card-row"><div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div><div class="sk-block" style="height:13px;flex:1"></div></div>
-            </div>
-        </div>
-
-        <!-- Bottom bar mobile -->
-        <div class="sk-bottom-bar">
-            <div class="sk-nav-item"><div class="sk-block sk-circle" style="width:24px;height:24px"></div><div class="sk-block" style="width:28px;height:9px;border-radius:4px"></div></div>
-            <div class="sk-nav-item"><div class="sk-block sk-circle" style="width:24px;height:24px;opacity:.6"></div><div class="sk-block" style="width:28px;height:9px;border-radius:4px;opacity:.6"></div></div>
-        </div>
-
-    </div>
-</div>
-
-    <script type="module" src="js/panel_perfil.js"></script>
 </body>
 
 </html>

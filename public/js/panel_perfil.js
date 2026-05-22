@@ -1,769 +1,1075 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-  updateDoc,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// ═══════════════════════════════════════════════════════════
+//  NAMESPACE: PanelPerfil
+//  Aisla el panel de perfil para evitar conflictos
+//  cuando se carga publicaciones.html dinámicamente
+// ═══════════════════════════════════════════════════════════
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.firebasestorage.app",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
+window.PanelPerfil = {
+  // ── Estado interno ──
+  activeSection: "perfil",
+  currentData: {},
+  saveTimer: null,
+  _saveTimeout: null,
+  _firstLoad: true,
+  selectedCat: "",
+  selectedSubcat: "",
+  publicidadLoaded: false,
+  prodCount: 2,
+  emojis: ["🍕", "🍔", "🥗", "🍰", "☕", "🍜", "🛍️", "💎", "✨", "🎁"],
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+  // ── IDs ──
+  TIENDA_ID: "fW7W8RsgkkQ3IYfxKHGR",
+  TIENDA_REF: null,
+  db: null,
+  doc: null,
+  onSnapshot: null,
+  updateDoc: null,
 
-const TIENDA_ID = "fW7W8RsgkkQ3IYfxKHGR";
-const TIENDA_REF = doc(db, "Tiendas", "barranca", "barranca", TIENDA_ID);
+  // ═══════════════════════════════════════════
+  //  INICIALIZACIÓN
+  // ═══════════════════════════════════════════
+  init: function () {
+    const self = this;
 
-let currentData = {};
-let saveTimer, _saveTimeout;
-let _firstLoad = true;
-let selectedCat = "",
-  selectedSubcat = "";
+    // Cargar Firebase dinámicamente
+    import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js")
+      .then((m) =>
+        import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(
+          (m2) => ({ app: m.initializeApp, firestore: m2 }),
+        ),
+      )
+      .then(({ app: initializeApp, firestore }) => {
+        const firebaseConfig = {
+          apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+          authDomain: "geinzworkapp.firebaseapp.com",
+          projectId: "geinzworkapp",
+          storageBucket: "geinzworkapp.firebasestorage.app",
+          messagingSenderId: "921389328767",
+          appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+        };
 
-// ─────────────────────────────────────────────
-//  FIRESTORE TIEMPO REAL
-// ─────────────────────────────────────────────
-function initRealtime() {
-  document.querySelector(".app").classList.add("loading-data");
+        const app = initializeApp(firebaseConfig);
+        self.db = firestore.getFirestore(app);
+        self.doc = firestore.doc;
+        self.onSnapshot = firestore.onSnapshot;
+        self.updateDoc = firestore.updateDoc;
 
-  onSnapshot(
-    TIENDA_REF,
-    (snap) => {
-      if (!snap.exists()) {
-        showToast("⚠️ Documento no encontrado");
+        self.TIENDA_REF = self.doc(
+          self.db,
+          "Tiendas",
+          "barranca",
+          "barranca",
+          self.TIENDA_ID,
+        );
+
+        // Iniciar Firestore en tiempo real
+        self._initRealtime();
+      })
+      .catch((err) => {
+        console.error("Error cargando Firebase:", err);
+        self.showToast("Error al conectar con Firebase");
+      });
+
+    // Bindear eventos
+    this._bindEvents();
+  },
+
+  selectedSubcats: [],
+  categoriasDB: {},
+  map: null,
+  mapMarker: null,
+
+  initMapbox: function () {
+    mapboxgl.accessToken =
+      "pk.eyJ1IjoiYmVuamFtaW5sb3BleiIsImEiOiJjbWZrajJ2NHIxOXBkMmtvZW1kMTA5NWNoIn0.7s_234BN9y0pkTIgtF6ikw";
+
+    var self = this;
+
+    var lat = self.currentData?.ubicacion?.latitud || -10.7594699;
+
+    var lng = self.currentData?.ubicacion?.longitud || -77.7608478;
+
+    self.map = new mapboxgl.Map({
+      container: "mapBoxPerfil",
+
+      style: "mapbox://styles/benjaminlopez/cmm9c0hlt003901s54utw9p30",
+      center: [lng, lat],
+
+      zoom: 15,
+    });
+
+    self.map.addControl(new mapboxgl.NavigationControl());
+
+    self.mapMarker = new mapboxgl.Marker({
+      color: "#7c4dff",
+      draggable: true,
+    })
+      .setLngLat([lng, lat])
+      .addTo(self.map);
+
+    /* mover marker */
+    self.mapMarker.on("dragend", function () {
+      var pos = self.mapMarker.getLngLat();
+
+      self.updateLocationInputs(pos.lat, pos.lng);
+    });
+
+    /* click mapa */
+    self.map.on("click", function (e) {
+      var lat = e.lngLat.lat;
+      var lng = e.lngLat.lng;
+
+      self.mapMarker.setLngLat([lng, lat]);
+
+      self.updateLocationInputs(lat, lng);
+    });
+  },
+  updateLocationInputs: async function (lat, lng) {
+    var self = this;
+
+    try {
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`,
+      );
+
+      const data = await res.json();
+
+      const place = data.features?.[0];
+
+      if (place) {
+        document.getElementById("fieldDireccion").value = place.place_name;
+      }
+
+      self.currentData.ubicacion = {
+        ...self.currentData.ubicacion,
+
+        latitud: lat,
+        longitud: lng,
+      };
+
+      self.showSaveFab();
+
+      self.queueSave();
+    } catch (e) {
+      console.error(e);
+    }
+  },
+  loadCategorias: async function () {
+    var self = this;
+    try {
+      const { getDocs, collection } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const colRef = collection(self.db, "Tiendas", "categorias", "categorias");
+      const snap = await getDocs(colRef);
+      if (snap.empty) {
+        console.warn("No se encontraron categorías");
         return;
       }
-      currentData = snap.data();
-      populateUI(currentData);
-      if (_firstLoad) {
-        _firstLoad = false;
-        document.querySelector(".app").classList.remove("loading-data");
-        const sk = document.getElementById("skeletonOverlay");
-        if (sk) {
-          sk.classList.add("hidden");
-          setTimeout(() => sk.remove(), 450);
-        }
+      self.categoriasDB = {};
+      snap.forEach(function (docSnap) {
+        self.categoriasDB[docSnap.id] = docSnap.data();
+      });
+      console.log("✅ Categorías cargadas:", Object.keys(self.categoriasDB));
+      self.renderCategorias();
+      self.renderSubcategorias();
+      self.updateCatDisplay();
+    } catch (e) {
+      console.error("Error loadCategorias:", e);
+    }
+  },
+  toggleMobileMenu() {
+    const menu = document.getElementById("mobileMenu");
+    const overlay = document.getElementById("mobileMenuOverlay");
+
+    menu.classList.toggle("open");
+    overlay.classList.toggle("show");
+  },
+  askChangeCategoria: function (newCat) {
+    var self = this;
+
+    var ok = confirm(
+      "Cambiar categoría reiniciará las subcategorías.\n\n¿Continuar?",
+    );
+
+    if (!ok) return;
+
+    self.selectedCat = newCat;
+
+    self.selectedSubcats = [];
+
+    self.renderCategorias();
+
+    self.renderSubcategorias();
+
+    self.updateCatDisplay();
+
+    self.showSaveFab();
+
+    self.queueSave();
+  },
+
+  renderCategorias: function () {
+    var self = this;
+    var main = document.getElementById("catMain");
+    if (!main) return;
+
+    main.innerHTML = "";
+
+    if (!self.selectedCat) {
+      var empty = document.createElement("div");
+      empty.className = "cat-chip cat-locked selected";
+      empty.textContent = "Sin categoría asignada";
+      main.appendChild(empty);
+      return;
+    }
+
+    // Solo mostrar la categoría del negocio, sin más opciones
+    var div = document.createElement("div");
+    div.className = "cat-chip cat-locked selected";
+    div.textContent = self.selectedCat;
+    main.appendChild(div);
+  },
+  renderSubcategorias: function () {
+    var self = this;
+
+    var sub = document.getElementById("catSub");
+
+    if (!sub) return;
+
+    sub.innerHTML = "";
+
+    if (!self.selectedCat) return;
+
+    var lista = self.categoriasDB[self.selectedCat]?.subcategorias || [];
+
+    lista.forEach(function (item) {
+      var div = document.createElement("div");
+
+      div.className = "cat-chip";
+
+      div.textContent = item;
+
+      if (self.selectedSubcats.includes(item.toLowerCase())) {
+        div.classList.add("selected");
       }
-      console.log("📦 Todos los campos:", Object.keys(currentData));
-      console.log("🖼️ logo_tienda:", currentData.logo_tienda);
-      console.log("📍 Path:", TIENDA_REF.path);
-    },
-    (err) => {
-      console.error(err);
-      showToast("Error al conectar con Firestore");
-      document.querySelector(".app").classList.remove("loading-data");
-    },
-  );
-}
 
-// ─────────────────────────────────────────────
-//  FUNCIONES PARA SWITCHES (CORREGIDAS)
-// ─────────────────────────────────────────────
-function setSwitchAuto(switchId, isEnabled) {
-  const switchElement = document.querySelector(
-    `input[data-method="${switchId}"]`,
-  );
-  if (switchElement) {
-    switchElement.checked = isEnabled === true;
-  }
-}
+      div.onclick = function () {
+        self.toggleSubcat(item, div);
+      };
 
-async function togglePayMethod(method, enabled) {
-  try {
-    await updateDoc(TIENDA_REF, {
-      [`metodos_pago.${method}.enable`]: enabled,
+      sub.appendChild(div);
     });
-    showToast(
-      `${method.toUpperCase()} ${enabled ? "activado" : "desactivado"}`,
-    );
-    showSaveFab();
-  } catch (e) {
-    console.error("Error togglePayMethod:", e);
-    showToast("Error al actualizar método de pago");
-  }
-}
+  },
+  // ═══════════════════════════════════════════
+  //  BINDEAR EVENTOS (SOLO PERFIL)
+  // ═══════════════════════════════════════════
+  _bindEvents: function () {
+    const self = this;
 
-// ─────────────────────────────────────────────
-//  POBLAR UI
-// ─────────────────────────────────────────────
-function populateUI(data) {
-  setField("businessName", data.nombre_tienda || "");
-  updateNameSilent(data.nombre_tienda || "");
+    // Inputs dentro de la sección perfil
+    const profileSection = document.getElementById("sec-perfil");
+    if (profileSection) {
+      profileSection.addEventListener("input", function (e) {
+        if (self.activeSection !== "perfil") return;
+        if (e.target.closest("#sec-publicidad")) return;
 
-  setField("businessDesc", data.descripcion || "");
-  updateDescSilent(data.descripcion || "");
-
-  loadAvatar(data.img_tienda?.logo_tienda || "");
-  console.log(data.logo_tienda);
-
-  // Categoría
-  if (data.categoria_tienda) {
-    selectedCat = data.categoria_tienda;
-    document
-      .querySelectorAll("#catMain .cat-chip")
-      .forEach((c) =>
-        c.classList.toggle(
-          "selected",
-          c.textContent.toLowerCase().includes(selectedCat.toLowerCase()),
-        ),
-      );
-  }
-  if (Array.isArray(data.subcategoria) && data.subcategoria.length) {
-    selectedSubcat = data.subcategoria[0];
-    document
-      .querySelectorAll("#catSub .cat-chip")
-      .forEach((c) =>
-        c.classList.toggle(
-          "selected",
-          c.textContent.toLowerCase().includes(selectedSubcat.toLowerCase()),
-        ),
-      );
-  }
-  updateCatDisplay();
-
-  // Ubicación
-  if (data.ubicacion) {
-    setField("fieldDireccion", data.ubicacion["dirección"] || "");
-    setField("fieldReferencia", data.ubicacion.referencia || "");
-  }
-
-  // Horario
-  if (data.horario_atencion) populateSchedule(data.horario_atencion);
-
-  // Contacto
-  // Contacto - switches
-  // Contacto - switches
-  // Contacto - switches
-  if (data.metodo_contacto) {
-    const mc = data.metodo_contacto;
-    setField("fieldTelefono", mc.llamada?.numero || "");
-    setField("fieldWhatsapp", mc.whatsapp?.numero || "");
-    setField(
-      "fieldInstagram",
-      mc.instagram?.nombre
-        ? mc.instagram.nombre.startsWith("@")
-          ? mc.instagram.nombre
-          : "@" + mc.instagram.nombre
-        : "",
-    );
-    setField("fieldFacebook", mc.facebook?.url || "");
-    setField("fieldTiktok", mc.tiktok?.url || "");
-    setField("fieldWeb", mc.sitio_web?.url || "");
-    setField("fieldEmail", mc.email || "");
-
-    // Setear los switches de contacto
-    setContactSwitch("llamada", mc.llamada?.estado); // ← añade esta línea
-    setContactSwitch("whatsapp", mc.whatsapp?.estado);
-    setContactSwitch("instagram", mc.instagram?.estado);
-    setContactSwitch("facebook", mc.facebook?.estado);
-    setContactSwitch("tiktok", mc.tiktok?.estado);
-    setContactSwitch("sitio_web", mc.sitio_web?.estado);
-  }
-  // Pagos - CORREGIDO
-  if (data.metodos_pago) {
-    const mp = data.metodos_pago;
-
-    // Usar setSwitchAuto con los IDs correctos
-    setSwitchAuto("yape", mp.yape?.enable);
-    setSwitchAuto("plin", mp.plin?.enable);
-    setSwitchAuto("agora", mp.agora?.enable);
-    setSwitchAuto("efectivo", mp.efectivo?.enable);
-    setSwitchAuto("visa_mastercard", mp.visa_mastercard?.enable);
-
-    // Setear los campos de titular y número para Yape y Plin
-    if (mp.yape) {
-      setField("fieldYapeTitular", mp.yape.nombre || "");
-      setField("fieldYapeAlias", mp.yape.numero || "");
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
+          self.showSaveFab();
+          self.queueSave();
+        }
+      });
     }
-    if (mp.plin) {
-      setField("fieldPlinTitular", mp.plin.nombre || "");
-      setField("fieldPlinAlias", mp.plin.numero || "");
+
+    // Switches de métodos de pago
+    document
+      .querySelectorAll('.pay-methods-wrapper input[type="checkbox"]')
+      .forEach((cb) => {
+        cb.addEventListener("change", function () {
+          if (self.activeSection !== "perfil") return;
+          const method = this.dataset.method;
+          if (method) self.togglePayMethod(method, this.checked);
+        });
+      });
+
+    // Switches de contacto
+    document
+      .querySelectorAll('.contact-methods-wrapper input[type="checkbox"]')
+      .forEach((cb) => {
+        cb.addEventListener("change", function () {
+          if (self.activeSection !== "perfil") return;
+          const contact = this.dataset.contact;
+          if (contact) self.toggleContactMethod(contact, this.checked);
+        });
+      });
+
+    // Auto-resize para textareas
+    document.querySelectorAll("textarea.form-input").forEach(function (el) {
+      self.autoResize(el);
+    });
+  },
+
+  // ═══════════════════════════════════════════
+  //  FIRESTORE TIEMPO REAL
+  // ═══════════════════════════════════════════
+  _initRealtime: function () {
+    const self = this;
+    document.querySelector(".app").classList.add("loading-data");
+
+    this.onSnapshot(
+      this.TIENDA_REF,
+      function (snap) {
+        if (!snap.exists()) {
+          self.showToast("⚠️ Documento no encontrado");
+          return;
+        }
+        self.currentData = snap.data();
+        self.populateUI(self.currentData);
+
+        if (self._firstLoad) {
+          self._firstLoad = false;
+          self.loadCategorias(); // ← AGREGADO
+          document.querySelector(".app").classList.remove("loading-data");
+          var sk = document.getElementById("skeletonOverlay");
+          if (sk) {
+            sk.classList.add("hidden");
+            setTimeout(function () {
+              sk.remove();
+            }, 450);
+          }
+        }
+        console.log("📦 Todos los campos:", Object.keys(self.currentData));
+        console.log("🖼️ logo_tienda:", self.currentData.logo_tienda);
+        console.log("📍 Path:", self.TIENDA_REF.path);
+      },
+      function (err) {
+        console.error(err);
+        self.showToast("Error al conectar con Firestore");
+        document.querySelector(".app").classList.remove("loading-data");
+      },
+    );
+  },
+
+  // ═══════════════════════════════════════════
+  //  POBLAR UI
+  // ═══════════════════════════════════════════
+  populateUI: function (data) {
+    var self = this;
+
+    self.setField("businessName", data.nombre_tienda || "");
+    self._updateNameSilent(data.nombre_tienda || "");
+
+    self.setField("businessDesc", data.descripcion || "");
+    self._updateDescSilent(data.descripcion || "");
+
+    self.loadAvatar(data.img_tienda?.logo_tienda || data.logo_tienda || "");
+    console.log(data.logo_tienda);
+
+    // Categoría
+    if (data.categoria_tienda) {
+      self.selectedCat = data.categoria_tienda;
     }
-  }
+    if (Array.isArray(data.subcategoria) && data.subcategoria.length) {
+      self.selectedSubcats = data.subcategoria.map(function (s) {
+        return s.toLowerCase();
+      });
+    }
+    self.updateCatDisplay();
 
-  // Fotos
-  const imgs = data.img_tienda?.lista_img;
-  if (imgs?.ambientales) populatePhotoGrid("ambienteGrid", imgs.ambientales, 6);
-  if (imgs?.servicios_productos)
-    populatePhotoGrid("productosGrid", imgs.servicios_productos, 6);
-  if (imgs?.promociones)
-    populatePhotoGrid("promocionesGrid", Object.values(imgs.promociones), 3);
+    // Ubicación
+    if (data.ubicacion) {
+      self.setField("fieldDireccion", data.ubicacion["dirección"] || "");
+      self.setField("fieldReferencia", data.ubicacion.referencia || "");
+    }
 
-  // Aforo
-  if (data.aforo_max !== undefined) setField("fieldAforo", data.aforo_max);
-}
+    // Contacto
+    if (data.metodo_contacto) {
+      var mc = data.metodo_contacto;
+      self.setField("fieldTelefono", mc.llamada?.numero || "");
+      self.setField("fieldWhatsapp", mc.whatsapp?.numero || "");
+      self.setField(
+        "fieldInstagram",
+        mc.instagram?.nombre
+          ? mc.instagram.nombre.startsWith("@")
+            ? mc.instagram.nombre
+            : "@" + mc.instagram.nombre
+          : "",
+      );
+      self.setField("fieldFacebook", mc.facebook?.url || "");
+      self.setField("fieldTiktok", mc.tiktok?.url || "");
+      self.setField("fieldWeb", mc.sitio_web?.url || "");
+      self.setField("fieldEmail", mc.email || "");
 
-// ─────────────────────────────────────────────
-//  AVATAR (lógica completamente reescrita)
-// ─────────────────────────────────────────────
-function loadAvatar(url) {
-  const img = document.getElementById("avatarImg");
-  const skeleton = document.getElementById("avatarSkeleton");
-  const placeholder = document.getElementById("avatarPlaceholder");
+      self._setContactSwitch("llamada", mc.llamada?.estado);
+      self._setContactSwitch("whatsapp", mc.whatsapp?.estado);
+      self._setContactSwitch("instagram", mc.instagram?.estado);
+      self._setContactSwitch("facebook", mc.facebook?.estado);
+      self._setContactSwitch("tiktok", mc.tiktok?.estado);
+      self._setContactSwitch("sitio_web", mc.sitio_web?.estado);
+    }
 
-  if (!img || !skeleton || !placeholder) return;
+    // Métodos de pago
+    if (data.metodos_pago) {
+      var mp = data.metodos_pago;
+      self._setSwitchAuto("yape", mp.yape?.enable);
+      self._setSwitchAuto("plin", mp.plin?.enable);
+      self._setSwitchAuto("agora", mp.agora?.enable);
+      self._setSwitchAuto("efectivo", mp.efectivo?.enable);
+      self._setSwitchAuto("visa_mastercard", mp.visa_mastercard?.enable);
 
-  // Resetear estado
-  skeleton.style.display = "block";
-  placeholder.style.display = "none";
-  img.classList.remove("loaded");
+      if (mp.yape) {
+        self.setField("fieldYapeTitular", mp.yape.nombre || "");
+        self.setField("fieldYapeAlias", mp.yape.numero || "");
+      }
+      if (mp.plin) {
+        self.setField("fieldPlinTitular", mp.plin.nombre || "");
+        self.setField("fieldPlinAlias", mp.plin.numero || "");
+      }
+    }
 
-  if (!url) {
-    skeleton.style.display = "none";
-    placeholder.style.display = "flex";
-    return;
-  }
+    // Fotos
+    var imgs = data.img_tienda?.lista_img;
+    if (imgs?.ambientales)
+      self.populatePhotoGrid("ambienteGrid", imgs.ambientales, 6);
+    if (imgs?.servicios_productos)
+      self.populatePhotoGrid("productosGrid", imgs.servicios_productos, 6);
+    if (imgs?.promociones)
+      self.populatePhotoGrid(
+        "promocionesGrid",
+        Object.values(imgs.promociones),
+        3,
+      );
 
-  img.src = ""; // fuerza reload
-  img.src = url;
+    // Aforo
+    if (data.aforo_max !== undefined)
+      self.setField("fieldAforo", data.aforo_max);
+    if (!this.map) {
+      setTimeout(() => {
+        this.initMapbox();
+      }, 400);
+    }
+  },
 
-  img.onload = () => {
-    skeleton.style.display = "none";
+  // ═══════════════════════════════════════════
+  //  AVATAR
+  // ═══════════════════════════════════════════
+  loadAvatar: function (url) {
+    var img = document.getElementById("avatarImg");
+    var skeleton = document.getElementById("avatarSkeleton");
+    var placeholder = document.getElementById("avatarPlaceholder");
+
+    if (!img || !skeleton || !placeholder) return;
+
+    skeleton.style.display = "block";
     placeholder.style.display = "none";
-    img.classList.add("loaded"); // ← dispara opacity: 1
-  };
+    img.classList.remove("loaded");
 
-  img.onerror = () => {
-    skeleton.style.display = "none";
-    placeholder.style.display = "flex";
-  };
-}
-
-// ─────────────────────────────────────────────
-//  PHOTO GRID CON SKELETON
-// ─────────────────────────────────────────────
-function populatePhotoGrid(gridId, urls, maxSlots) {
-  const grid = document.getElementById(gridId);
-  if (!grid) return;
-  grid.innerHTML = "";
-
-  if (urls && urls.length > 0) {
-    urls.forEach((url) => {
-      const wrap = document.createElement("div");
-      wrap.className = "photo-item";
-      wrap.style.position = "relative";
-
-      // skeleton interno
-      const sk = document.createElement("div");
-      sk.style.cssText =
-        "position:absolute;inset:0;background:linear-gradient(90deg,#1a1030 0%,#2a1850 50%,#1a1030 100%);background-size:200% 100%;animation:skeleton-loading 1.2s infinite;z-index:1;border-radius:16px;";
-      wrap.appendChild(sk);
-
-      const img = document.createElement("img");
-      img.style.cssText =
-        "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
-
-      img.onload = () => {
-        sk.style.display = "none";
-        setTimeout(() => {
-          img.style.opacity = "1";
-        }, 50);
-      };
-      img.onerror = () => {
-        sk.style.display = "none";
-        wrap.innerHTML = `<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>`;
-      };
-      img.src = url;
-      wrap.appendChild(img);
-      grid.appendChild(wrap);
-    });
-  }
-
-  // Agregar slots vacíos
-  const currentLength = urls ? urls.length : 0;
-  for (let i = currentLength; i < maxSlots; i++) {
-    const div = document.createElement("div");
-    div.className = "photo-item photo-item-add";
-    div.innerHTML = `<span>📷</span><span>Agregar</span>`;
-    div.onclick = () => openModal("modalFotoAmbiente");
-    grid.appendChild(div);
-  }
-}
-
-// ─────────────────────────────────────────────
-//  HELPERS
-// ─────────────────────────────────────────────
-function setField(id, val) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
-    el.value = val || "";
-    if (el.tagName === "TEXTAREA") {
-      el.style.height = "auto";
-      el.style.height = el.scrollHeight + "px";
+    if (!url) {
+      skeleton.style.display = "none";
+      placeholder.style.display = "flex";
+      return;
     }
-  }
-}
 
-function updateNameSilent(val) {
-  const h = document.getElementById("heroName");
-  const s = document.getElementById("sidebarName");
-  if (h) h.textContent = val || "Mi Negocio";
-  if (s) s.textContent = val || "Mi Negocio";
-}
+    img.src = "";
+    img.src = url;
 
-function updateDescSilent(val) {
-  const el = document.getElementById("heroDesc");
-  if (el)
-    el.textContent =
-      val ||
-      "Toca aquí para agregar una descripción atractiva de tu negocio...";
-}
+    img.onload = function () {
+      skeleton.style.display = "none";
+      placeholder.style.display = "none";
+      img.classList.add("loaded");
+    };
 
-// ─────────────────────────────────────────────
-//  HORARIO
-// ─────────────────────────────────────────────
-function populateSchedule(horario) {
-  const body = document.getElementById("scheduleBody");
-  if (!body) return;
-  const keys = [
-    "lunes",
-    "martes",
-    "miércoles",
-    "jueves",
-    "viernes",
-    "sábado",
-    "domingo",
-  ];
-  const labels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-  let html = '<div class="schedule-grid">';
-  keys.forEach((key, i) => {
-    const bloque = (horario[key]?.bloques || [])[0] || {};
-    const cerrado = bloque.cerrado === true;
-    const apertura = bloque.h_apertura || "08:00";
-    const cierre = bloque.h_cierre || "18:00";
+    img.onerror = function () {
+      skeleton.style.display = "none";
+      placeholder.style.display = "flex";
+    };
+  },
 
-    html += `
-        <div class="schedule-day">
-          <label class="day-toggle">
-            <input type="checkbox" ${!cerrado ? "checked" : ""} onchange="toggleDay(this,${i})">
-            <span class="day-slider"></span>
-          </label>
-          <span class="day-name${cerrado ? " closed" : ""}" id="dn${i}">${labels[i]}</span>
-          <div class="day-hours" id="dh${i}"${cerrado ? ' style="display:none"' : ""}>
-            <input class="time-input" type="time" value="${apertura}" onchange="onScheduleChange()">
-            <span class="time-sep">—</span>
-            <input class="time-input" type="time" value="${cierre}" onchange="onScheduleChange()">
-          </div>
-          <span class="day-closed-text" id="dc${i}"${!cerrado ? ' style="display:none"' : ""}>Cerrado</span>
-        </div>`;
-  });
-  html += "</div>";
-  body.innerHTML = html;
-}
+  // ═══════════════════════════════════════════
+  //  PHOTO GRID
+  // ═══════════════════════════════════════════
+  populatePhotoGrid: function (gridId, urls, maxSlots) {
+    var grid = document.getElementById(gridId);
+    if (!grid) return;
+    var self = this;
+    grid.innerHTML = "";
 
-function onScheduleChange() {
-  showSaveFab();
-  queueSave();
-}
+    if (urls && urls.length > 0) {
+      urls.forEach(function (url) {
+        var wrap = document.createElement("div");
+        wrap.className = "photo-item";
+        wrap.style.position = "relative";
 
-function toggleDay(checkbox, idx) {
-  const open = checkbox.checked;
-  const hoursDiv = document.getElementById("dh" + idx);
-  const closedText = document.getElementById("dc" + idx);
-  const dayName = document.getElementById("dn" + idx);
+        var sk = document.createElement("div");
+        sk.style.cssText =
+          "position:absolute;inset:0;background:linear-gradient(90deg,#1a1030 0%,#2a1850 50%,#1a1030 100%);background-size:200% 100%;animation:skeleton-loading 1.2s infinite;z-index:1;border-radius:16px;";
+        wrap.appendChild(sk);
 
-  if (hoursDiv) hoursDiv.style.display = open ? "flex" : "none";
-  if (closedText) closedText.style.display = open ? "none" : "";
-  if (dayName) dayName.classList.toggle("closed", !open);
+        var img = document.createElement("img");
+        img.style.cssText =
+          "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
 
-  showSaveFab();
-  queueSave();
-}
+        img.onload = function () {
+          sk.style.display = "none";
+          setTimeout(function () {
+            img.style.opacity = "1";
+          }, 50);
+        };
+        img.onerror = function () {
+          sk.style.display = "none";
+          wrap.innerHTML =
+            '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
+        };
+        img.src = url;
+        wrap.appendChild(img);
+        grid.appendChild(wrap);
+      });
+    }
 
-// ─────────────────────────────────────────────
-//  AUTO-SAVE
-// ─────────────────────────────────────────────
-function queueSave() {
-  clearTimeout(_saveTimeout);
-  _saveTimeout = setTimeout(collectAndSave, 2000);
-}
+    var currentLength = urls ? urls.length : 0;
+    for (var i = currentLength; i < maxSlots; i++) {
+      var div = document.createElement("div");
+      div.className = "photo-item photo-item-add";
+      div.innerHTML = "<span>📷</span><span>Agregar</span>";
+      div.onclick = function () {
+        self.openModal("modalFotoAmbiente");
+      };
+      grid.appendChild(div);
+    }
+  },
 
-async function collectAndSave() {
-  const g = (id) => document.getElementById(id)?.value;
-  const updates = {};
+  // ═══════════════════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════════════════
+  setField: function (id, val) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+      el.value = val || "";
+      if (el.tagName === "TEXTAREA") {
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+      }
+    }
+  },
 
-  const nombre = g("businessName")?.trim();
-  if (nombre) {
-    updates["nombre_tienda"] = nombre;
-    updates["nombre_lower"] = nombre.toLowerCase();
-  }
+  _updateNameSilent: function (val) {
+    var h = document.getElementById("heroName");
+    var s = document.getElementById("sidebarName");
+    if (h) h.textContent = val || "Mi Negocio";
+    if (s) s.textContent = val || "Mi Negocio";
+  },
 
-  const desc = g("businessDesc");
-  if (desc !== undefined) updates["descripcion"] = desc;
-  if (selectedCat) updates["categoria_tienda"] = selectedCat;
+  _updateDescSilent: function (val) {
+    var el = document.getElementById("heroDesc");
+    if (el)
+      el.textContent =
+        val ||
+        "Toca aquí para agregar una descripción atractiva de tu negocio...";
+  },
 
-  updates["ubicacion.dirección"] = g("fieldDireccion") || "";
-  updates["ubicacion.referencia"] = g("fieldReferencia") || "";
-  updates["metodo_contacto.llamada.numero"] = g("fieldTelefono") || "";
-  updates["metodo_contacto.whatsapp.numero"] = g("fieldWhatsapp") || "";
-  updates["metodo_contacto.instagram.nombre"] = (
-    g("fieldInstagram") || ""
-  ).replace("@", "");
-  updates["metodo_contacto.facebook.url"] = g("fieldFacebook") || "";
-  updates["metodo_contacto.tiktok.url"] = g("fieldTiktok") || "";
-  updates["metodo_contacto.sitio_web.url"] = g("fieldWeb") || "";
-  updates["metodo_contacto.email"] = g("fieldEmail") || "";
-
-  // Actualizar datos de Yape y Plin
-  const yapeTitular = g("fieldYapeTitular");
-  const yapeNumero = g("fieldYapeAlias");
-  if (yapeTitular) updates["metodos_pago.yape.nombre"] = yapeTitular;
-  if (yapeNumero) updates["metodos_pago.yape.numero"] = yapeNumero;
-
-  const plinTitular = g("fieldPlinTitular");
-  const plinNumero = g("fieldPlinAlias");
-  if (plinTitular) updates["metodos_pago.plin.nombre"] = plinTitular;
-  if (plinNumero) updates["metodos_pago.plin.numero"] = plinNumero;
-
-  const aforo = parseInt(g("fieldAforo"));
-  if (!isNaN(aforo)) updates["aforo_max"] = aforo;
-
-  try {
-    await updateDoc(TIENDA_REF, updates);
-    showToast("✓ Guardado");
-    document.getElementById("saveFab")?.classList.remove("visible");
-    document.getElementById("sidebarSaveBtn")?.classList.remove("visible");
-  } catch (err) {
-    console.error(err);
-    showToast("❌ Error al guardar");
-  }
-}
-
-// ─────────────────────────────────────────────
-//  TABS
-// ─────────────────────────────────────────────
-function showSection(name, element, source) {
-  document
-    .querySelectorAll(".section")
-    .forEach((s) => s.classList.remove("active"));
-  document.getElementById("sec-" + name)?.classList.add("active");
-
-  const tabMap = { perfil: 0, fotos: 1, datos: 2, contacto: 3, pagos: 4 };
-  document
-    .querySelectorAll(".nav-tab")
-    .forEach((t) => t.classList.remove("active"));
-  const tabs = document.querySelectorAll(".nav-tab");
-  if (tabs[tabMap[name]]) tabs[tabMap[name]].classList.add("active");
-
-  document
-    .querySelectorAll(".bar-btn")
-    .forEach((b) => b.classList.remove("active"));
-  const barBtn = document.getElementById("bb-" + name);
-  if (barBtn) barBtn.classList.add("active");
-
-  document
-    .querySelectorAll(".sidebar-btn")
-    .forEach((b) => b.classList.remove("active"));
-  const sideBtn = document.getElementById("sbb-" + name);
-  if (sideBtn) sideBtn.classList.add("active");
-}
-
-function toggleExpand(header) {
-  const body = header.nextElementSibling;
-  const open = header.classList.contains("open");
-  header.classList.toggle("open", !open);
-  if (body) body.classList.toggle("open", !open);
-}
-
-function openExpandable(id) {
-  const sec = document.getElementById(id);
-  if (!sec) return;
-  const h = sec.querySelector(".expand-header");
-  const b = sec.querySelector(".expand-body");
-  if (h && !h.classList.contains("open")) {
-    h.classList.add("open");
-    if (b) b.classList.add("open");
-  }
-  sec.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function updateName(val) {
-  updateNameSilent(val);
-  showSaveFab();
-  queueSave();
-}
-
-function updateDesc(val) {
-  updateDescSilent(val);
-  showSaveFab();
-  queueSave();
-}
-
-function focusField(id) {
-  document.getElementById(id)?.focus();
-}
-
-function selectCat(el, val) {
-  document
-    .querySelectorAll("#catMain .cat-chip")
-    .forEach((c) => c.classList.remove("selected"));
-  el.classList.add("selected");
-  selectedCat = val;
-  updateCatDisplay();
-  showSaveFab();
-  queueSave();
-}
-
-function selectSubcat(el, val) {
-  document
-    .querySelectorAll("#catSub .cat-chip")
-    .forEach((c) => c.classList.remove("selected"));
-  el.classList.add("selected");
-  selectedSubcat = val;
-  updateCatDisplay();
-  showSaveFab();
-  queueSave();
-}
-
-function updateCatDisplay() {
-  const text =
-    [selectedCat, selectedSubcat].filter(Boolean).join(" › ") ||
-    "Sin seleccionar";
-  const d = document.getElementById("catDisplay");
-  if (d) d.textContent = text;
-  const h = document.getElementById("heroCat");
-  if (h)
-    h.textContent = selectedCat ? "📂 " + text + " ›" : "📂 Sin categoría ›";
-}
-
-// ─────────────────────────────────────────────
-//  MODALS
-// ─────────────────────────────────────────────
-function openModal(id) {
-  const modal = document.getElementById(id);
-  const sheet = document.getElementById("sheet" + id.replace("modal", ""));
-  if (modal) modal.classList.add("open");
-  if (sheet) sheet.classList.add("open");
-}
-
-function closeModal(id) {
-  const modal = document.getElementById(id);
-  const sheet = document.getElementById("sheet" + id.replace("modal", ""));
-  if (modal) modal.classList.remove("open");
-  if (sheet) sheet.classList.remove("open");
-}
-
-async function applyProfileImg() {
-  const url = document.getElementById("profileImgUrl").value.trim();
-  if (!url) {
-    showToast("Ingresa una URL válida");
-    return;
-  }
-  try {
-    await updateDoc(TIENDA_REF, { logo_tienda: url });
-    loadAvatar(url);
-    closeModal("modalFotoPerfil");
-    showToast("Logo actualizado ✓");
-    showSaveFab();
-    queueSave();
-  } catch (e) {
-    console.error(e);
-    showToast("Error al actualizar");
-  }
-}
-
-function applyAmbienteImg() {
-  const url = document.getElementById("ambImgUrl").value.trim();
-  if (!url) {
-    showToast("Ingresa una URL válida");
-    return;
-  }
-  showToast("Foto agregada ✓");
-  showSaveFab();
-  queueSave();
-  closeModal("modalFotoAmbiente");
-  document.getElementById("ambImgUrl").value = "";
-}
-
-const emojis = ["🍕", "🍔", "🥗", "🍰", "☕", "🍜", "🛍️", "💎", "✨", "🎁"];
-let prodCount = 2;
-
-function addProduct() {
-  const name = document.getElementById("prodName").value.trim();
-  if (!name) {
-    showToast("Ingresa un nombre");
-    return;
-  }
-  const desc = document.getElementById("prodDesc").value.trim();
-  const price = document.getElementById("prodPrice").value;
-  const list = document.getElementById("productosList");
-  if (list) {
-    const card = document.createElement("div");
-    card.className = "promo-card";
-    card.innerHTML = `<div class="promo-img">${emojis[prodCount % emojis.length]}</div>
-          <div class="promo-info"><div class="promo-name">${name}</div><div class="promo-desc">${desc || "Sin descripción"}</div>
-          <div class="promo-badges"><span class="badge badge-blue">Disponible</span></div></div>
-          <div><div class="promo-price">${price ? "S/ " + parseFloat(price).toFixed(2) : ""}</div></div>`;
-    list.appendChild(card);
-    prodCount++;
-  }
-  ["prodName", "prodDesc", "prodPrice"].forEach(
-    (id) => (document.getElementById(id).value = ""),
-  );
-  closeModal("modalProducto");
-  showToast("Producto agregado ✓");
-  showSaveFab();
-  queueSave();
-}
-
-function addPromo() {
-  const title = document.getElementById("promoTitle").value.trim();
-  if (!title) {
-    showToast("Ingresa un título");
-    return;
-  }
-  const desc = document.getElementById("promoDesc").value.trim();
-  const discount = document.getElementById("promoDiscount").value.trim();
-  const list = document.getElementById("promosList");
-  if (list) {
-    const card = document.createElement("div");
-    card.className = "promo-card";
-    card.innerHTML = `<div class="promo-img" style="background:linear-gradient(135deg,#1E1040,#2A1050)">🎉</div>
-          <div class="promo-info"><div class="promo-name">${title}</div><div class="promo-desc">${desc}</div>
-          <div class="promo-badges"><span class="badge badge-red">Hoy</span></div></div>
-          <div><div class="promo-price">${discount}</div></div>`;
-    list.appendChild(card);
-  }
-  ["promoTitle", "promoDesc", "promoDiscount"].forEach(
-    (id) => (document.getElementById(id).value = ""),
-  );
-  closeModal("modalPromo");
-  showToast("Promo agregada ✓");
-  showSaveFab();
-  queueSave();
-}
-
-// ─────────────────────────────────────────────
-//  SAVE FAB / TOAST / SIDEBAR
-// ─────────────────────────────────────────────
-function showSaveFab() {
-  const saveFab = document.getElementById("saveFab");
-  const sidebarSave = document.getElementById("sidebarSaveBtn");
-  if (saveFab) saveFab.classList.add("visible");
-  if (sidebarSave) sidebarSave.classList.add("visible");
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    if (saveFab) saveFab.classList.remove("visible");
-    if (sidebarSave) sidebarSave.classList.remove("visible");
-  }, 6000);
-}
-
-function saveChanges() {
-  clearTimeout(_saveTimeout);
-  collectAndSave();
-}
-
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById("toast");
-  if (!t) return;
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 2500);
-}
-
-function toggleSidebar() {
-  const sb = document.querySelector(".sidebar");
-  const btn = document.getElementById("sidebarToggle");
-  if (sb) sb.classList.toggle("collapsed");
-  if (btn) btn.textContent = sb?.classList.contains("collapsed") ? "▶" : "◀";
-}
-
-// Event Listeners
-document.addEventListener("input", (e) => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
-    showSaveFab();
-    queueSave();
-  }
-});
-
-document.addEventListener("DOMContentLoaded", initRealtime);
-
-function setContactSwitch(contactId, isEnabled) {
-  const switchElement = document.querySelector(
-    `input[data-contact="${contactId}"]`,
-  );
-  if (switchElement) {
-    switchElement.checked = isEnabled === true;
-  }
-}
-
-async function toggleContactMethod(method, enabled) {
-  try {
-    await updateDoc(TIENDA_REF, {
-      [`metodo_contacto.${method}.estado`]: enabled,
-    });
-    showToast(
-      `${getContactName(method)} ${enabled ? "activado" : "desactivado"}`,
+  _setSwitchAuto: function (switchId, isEnabled) {
+    var switchElement = document.querySelector(
+      'input[data-method="' + switchId + '"]',
     );
-    showSaveFab();
-  } catch (e) {
-    console.error("Error toggleContactMethod:", e);
-    showToast("Error al actualizar");
-  }
-}
+    if (switchElement) switchElement.checked = isEnabled === true;
+  },
 
-function getContactName(method) {
-  const names = {
-    llamada: "Teléfono",
-    whatsapp: "WhatsApp",
-    instagram: "Instagram",
-    facebook: "Facebook",
-    tiktok: "TikTok",
-    sitio_web: "Sitio web",
-  };
-  return names[method] || method;
-}
-// Función específica para teléfono/llamada
-async function toggleLlamadaMethod(enabled) {
-  try {
-    await updateDoc(TIENDA_REF, {
-      [`metodo_contacto.llamada.estado`]: enabled,
+  _setContactSwitch: function (contactId, isEnabled) {
+    var switchElement = document.querySelector(
+      'input[data-contact="' + contactId + '"]',
+    );
+    if (switchElement) switchElement.checked = isEnabled === true;
+  },
+
+  // ═══════════════════════════════════════════
+  //  AUTO-SAVE
+  // ═══════════════════════════════════════════
+  queueSave: function () {
+    var self = this;
+    clearTimeout(self._saveTimeout);
+    self._saveTimeout = setTimeout(function () {
+      self.collectAndSave();
+    }, 2000);
+  },
+
+  collectAndSave: async function () {
+    var self = this;
+    var g = function (id) {
+      return document.getElementById(id)?.value;
+    };
+    var updates = {};
+
+    var nombre = g("businessName")?.trim();
+    if (nombre) {
+      updates["nombre_tienda"] = nombre;
+      updates["nombre_lower"] = nombre.toLowerCase();
+    }
+
+    var desc = g("businessDesc");
+    if (desc !== undefined) updates["descripcion"] = desc;
+    if (self.selectedCat) updates["categoria_tienda"] = self.selectedCat;
+
+    updates["ubicacion.dirección"] = g("fieldDireccion") || "";
+    updates["ubicacion.referencia"] = g("fieldReferencia") || "";
+    updates["metodo_contacto.llamada.numero"] = g("fieldTelefono") || "";
+    updates["metodo_contacto.whatsapp.numero"] = g("fieldWhatsapp") || "";
+    updates["metodo_contacto.instagram.nombre"] = (
+      g("fieldInstagram") || ""
+    ).replace("@", "");
+    updates["metodo_contacto.facebook.url"] = g("fieldFacebook") || "";
+    updates["metodo_contacto.tiktok.url"] = g("fieldTiktok") || "";
+    updates["metodo_contacto.sitio_web.url"] = g("fieldWeb") || "";
+    updates["metodo_contacto.email"] = g("fieldEmail") || "";
+
+    var yapeTitular = g("fieldYapeTitular");
+    var yapeNumero = g("fieldYapeAlias");
+    if (yapeTitular) updates["metodos_pago.yape.nombre"] = yapeTitular;
+    if (yapeNumero) updates["metodos_pago.yape.numero"] = yapeNumero;
+
+    var plinTitular = g("fieldPlinTitular");
+    var plinNumero = g("fieldPlinAlias");
+    if (plinTitular) updates["metodos_pago.plin.nombre"] = plinTitular;
+    if (plinNumero) updates["metodos_pago.plin.numero"] = plinNumero;
+
+    var aforo = parseInt(g("fieldAforo"));
+    if (!isNaN(aforo)) updates["aforo_max"] = aforo;
+    if (self.selectedSubcats.length) {
+      updates["subcategoria"] = self.selectedSubcats;
+    }
+    try {
+      await self.updateDoc(self.TIENDA_REF, updates);
+      self.showToast("✓ Guardado");
+      document.getElementById("saveFab")?.classList.remove("visible");
+      document.getElementById("sidebarSaveBtn")?.classList.remove("visible");
+    } catch (err) {
+      console.error(err);
+      self.showToast("❌ Error al guardar");
+    }
+  },
+
+  // ═══════════════════════════════════════════
+  //  SECCIONES
+  // ═══════════════════════════════════════════
+  showSection: function (name) {
+    this.activeSection = name;
+
+    var saveFab = document.getElementById("saveFab");
+    var sidebarSave = document.getElementById("sidebarSaveBtn");
+
+    if (name !== "perfil") {
+      if (saveFab) saveFab.classList.remove("visible");
+      if (sidebarSave) sidebarSave.classList.remove("visible");
+    }
+
+    document.querySelectorAll(".section").forEach(function (s) {
+      s.classList.remove("active");
     });
-    showToast(`Teléfono ${enabled ? "activado" : "desactivado"}`);
-    showSaveFab();
-  } catch (e) {
-    console.error("Error toggleLlamadaMethod:", e);
-    showToast("Error al actualizar");
-  }
-}
-function autoResize(el) {
-  el.style.height = "auto"; // resetea primero
-  el.style.height = el.scrollHeight + "px"; // luego expande
-}
-document.querySelectorAll("textarea.form-input").forEach(autoResize);
+    var sec = document.getElementById("sec-" + name);
+    if (sec) sec.classList.add("active");
 
-// Globals para onclick en HTML
-Object.assign(window, {
-  showSection,
-  toggleExpand,
-  openExpandable,
-  toggleDay,
-  updateName,
-  updateDesc,
-  focusField,
-  selectCat,
-  selectSubcat,
-  openModal,
-  closeModal,
-  applyProfileImg,
-  applyAmbienteImg,
-  addProduct,
-  addPromo,
-  saveChanges,
-  showToast,
-  toggleSidebar,
-  onScheduleChange,
-  togglePayMethod,
-  toggleContactMethod,
-  toggleLlamadaMethod, // ← añade toggleLlamadaMethod
+    var tabMap = { perfil: 0, fotos: 1, datos: 2, contacto: 3, pagos: 4 };
+    document.querySelectorAll(".nav-tab").forEach(function (t) {
+      t.classList.remove("active");
+    });
+    var tabs = document.querySelectorAll(".nav-tab");
+    if (tabs[tabMap[name]]) tabs[tabMap[name]].classList.add("active");
+
+    document.querySelectorAll(".bar-btn").forEach(function (b) {
+      b.classList.remove("active");
+    });
+    var barBtn = document.getElementById("bb-" + name);
+    if (barBtn) barBtn.classList.add("active");
+
+    document.querySelectorAll(".sidebar-btn").forEach(function (b) {
+      b.classList.remove("active");
+    });
+    var sideBtn = document.getElementById("sbb-" + name);
+    if (sideBtn) sideBtn.classList.add("active");
+  },
+
+  // ═══════════════════════════════════════════
+  //  CATEGORÍAS
+  // ═══════════════════════════════════════════
+  selectCat: function (cat) {
+    this.selectedCat = cat;
+
+    this.renderCategorias();
+
+    this.renderSubcategorias();
+
+    this.updateCatDisplay();
+
+    this.showSaveFab();
+
+    this.queueSave();
+  },
+
+  toggleSubcat: function (sub, el) {
+    var value = sub.toLowerCase();
+
+    var index = this.selectedSubcats.indexOf(value);
+
+    if (index >= 0) {
+      this.selectedSubcats.splice(index, 1);
+
+      el.classList.remove("selected");
+    } else {
+      this.selectedSubcats.push(value);
+
+      el.classList.add("selected");
+    }
+
+    this.updateCatDisplay();
+
+    this.showSaveFab();
+
+    this.queueSave();
+  },
+
+  updateCatDisplay: function () {
+    var text = this.selectedCat || "Sin seleccionar";
+
+    if (this.selectedSubcats.length) {
+      text += " • " + this.selectedSubcats.length + " subcategorías";
+    }
+
+    var d = document.getElementById("catDisplay");
+
+    if (d) d.textContent = text;
+  },
+
+  // ═══════════════════════════════════════════
+  //  SWITCHES ACCIONES
+  // ═══════════════════════════════════════════
+  togglePayMethod: async function (method, enabled) {
+    var self = this;
+    try {
+      await self.updateDoc(self.TIENDA_REF, {
+        ["metodos_pago." + method + ".enable"]: enabled,
+      });
+      self.showToast(
+        method.toUpperCase() + " " + (enabled ? "activado" : "desactivado"),
+      );
+      self.showSaveFab();
+    } catch (e) {
+      console.error("Error togglePayMethod:", e);
+      self.showToast("Error al actualizar método de pago");
+    }
+  },
+
+  toggleContactMethod: async function (method, enabled) {
+    var self = this;
+    try {
+      await self.updateDoc(self.TIENDA_REF, {
+        ["metodo_contacto." + method + ".estado"]: enabled,
+      });
+      self.showToast(
+        self._getContactName(method) +
+          " " +
+          (enabled ? "activado" : "desactivado"),
+      );
+      self.showSaveFab();
+    } catch (e) {
+      console.error("Error toggleContactMethod:", e);
+      self.showToast("Error al actualizar");
+    }
+  },
+
+  toggleLlamadaMethod: async function (enabled) {
+    var self = this;
+    try {
+      await self.updateDoc(self.TIENDA_REF, {
+        "metodo_contacto.llamada.estado": enabled,
+      });
+      self.showToast("Teléfono " + (enabled ? "activado" : "desactivado"));
+      self.showSaveFab();
+    } catch (e) {
+      console.error("Error toggleLlamadaMethod:", e);
+      self.showToast("Error al actualizar");
+    }
+  },
+
+  _getContactName: function (method) {
+    var names = {
+      llamada: "Teléfono",
+      whatsapp: "WhatsApp",
+      instagram: "Instagram",
+      facebook: "Facebook",
+      tiktok: "TikTok",
+      sitio_web: "Sitio web",
+    };
+    return names[method] || method;
+  },
+
+  // ═══════════════════════════════════════════
+  //  TOAST & SAVE FAB
+  // ═══════════════════════════════════════════
+  showSaveFab: function () {
+    var saveFab = document.getElementById("saveFab");
+    var sidebarSave = document.getElementById("sidebarSaveBtn");
+    if (this.activeSection === "perfil") {
+      if (saveFab) saveFab.classList.add("visible");
+      if (sidebarSave) sidebarSave.classList.add("visible");
+    }
+    var self = this;
+    clearTimeout(self.saveTimer);
+    self.saveTimer = setTimeout(function () {
+      if (saveFab) saveFab.classList.remove("visible");
+      if (sidebarSave) sidebarSave.classList.remove("visible");
+    }, 6000);
+  },
+
+  saveChanges: function () {
+    clearTimeout(this._saveTimeout);
+    this.collectAndSave();
+  },
+
+  showToast: function (msg) {
+    var t = document.getElementById("toast");
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(this._toastTimer);
+    var self = this;
+    this._toastTimer = setTimeout(function () {
+      t.classList.remove("show");
+    }, 2500);
+  },
+
+  // ═══════════════════════════════════════════
+  //  MODALS
+  // ═══════════════════════════════════════════
+  openModal: function (id) {
+    var modal = document.getElementById(id);
+    var sheet = document.getElementById("sheet" + id.replace("modal", ""));
+    if (modal) modal.classList.add("open");
+    if (sheet) sheet.classList.add("open");
+  },
+
+  closeModal: function (id) {
+    var modal = document.getElementById(id);
+    var sheet = document.getElementById("sheet" + id.replace("modal", ""));
+    if (modal) modal.classList.remove("open");
+    if (sheet) sheet.classList.remove("open");
+  },
+
+  applyProfileImg: async function () {
+    var self = this;
+    var url = document.getElementById("profileImgUrl").value.trim();
+    if (!url) {
+      self.showToast("Ingresa una URL válida");
+      return;
+    }
+    try {
+      await self.updateDoc(self.TIENDA_REF, { logo_tienda: url });
+      self.loadAvatar(url);
+      self.closeModal("modalFotoPerfil");
+      self.showToast("Logo actualizado ✓");
+      self.showSaveFab();
+      self.queueSave();
+    } catch (e) {
+      console.error(e);
+      self.showToast("Error al actualizar");
+    }
+  },
+
+  applyAmbienteImg: function () {
+    var self = this;
+    var url = document.getElementById("ambImgUrl").value.trim();
+    if (!url) {
+      self.showToast("Ingresa una URL válida");
+      return;
+    }
+    self.showToast("Foto agregada ✓");
+    self.showSaveFab();
+    self.queueSave();
+    self.closeModal("modalFotoAmbiente");
+    document.getElementById("ambImgUrl").value = "";
+  },
+
+  // ═══════════════════════════════════════════
+  //  PRODUCTOS Y PROMOS
+  // ═══════════════════════════════════════════
+  addProduct: function () {
+    var self = this;
+    var name = document.getElementById("prodName").value.trim();
+    if (!name) {
+      self.showToast("Ingresa un nombre");
+      return;
+    }
+    var desc = document.getElementById("prodDesc").value.trim();
+    var price = document.getElementById("prodPrice").value;
+    var list = document.getElementById("productosList");
+    if (list) {
+      var card = document.createElement("div");
+      card.className = "promo-card";
+      card.innerHTML =
+        '<div class="promo-img">' +
+        self.emojis[self.prodCount % self.emojis.length] +
+        "</div>" +
+        '<div class="promo-info"><div class="promo-name">' +
+        name +
+        '</div><div class="promo-desc">' +
+        (desc || "Sin descripción") +
+        "</div>" +
+        '<div class="promo-badges"><span class="badge badge-blue">Disponible</span></div></div>' +
+        '<div><div class="promo-price">' +
+        (price ? "S/ " + parseFloat(price).toFixed(2) : "") +
+        "</div></div>";
+      list.appendChild(card);
+      self.prodCount++;
+    }
+    ["prodName", "prodDesc", "prodPrice"].forEach(function (id) {
+      document.getElementById(id).value = "";
+    });
+    self.closeModal("modalProducto");
+    self.showToast("Producto agregado ✓");
+    self.showSaveFab();
+    self.queueSave();
+  },
+
+  addPromo: function () {
+    var self = this;
+    var title = document.getElementById("promoTitle").value.trim();
+    if (!title) {
+      self.showToast("Ingresa un título");
+      return;
+    }
+    var desc = document.getElementById("promoDesc").value.trim();
+    var discount = document.getElementById("promoDiscount").value.trim();
+    var list = document.getElementById("promosList");
+    if (list) {
+      var card = document.createElement("div");
+      card.className = "promo-card";
+      card.innerHTML =
+        '<div class="promo-img" style="background:linear-gradient(135deg,#1E1040,#2A1050)">🎉</div>' +
+        '<div class="promo-info"><div class="promo-name">' +
+        title +
+        '</div><div class="promo-desc">' +
+        desc +
+        "</div>" +
+        '<div class="promo-badges"><span class="badge badge-red">Hoy</span></div></div>' +
+        '<div><div class="promo-price">' +
+        discount +
+        "</div></div>";
+      list.appendChild(card);
+    }
+    ["promoTitle", "promoDesc", "promoDiscount"].forEach(function (id) {
+      document.getElementById(id).value = "";
+    });
+    self.closeModal("modalPromo");
+    self.showToast("Promo agregada ✓");
+    self.showSaveFab();
+    self.queueSave();
+  },
+
+  // ═══════════════════════════════════════════
+  //  UTILIDADES
+  // ═══════════════════════════════════════════
+  toggleExpand: function (header) {
+    var body = header.nextElementSibling;
+    var open = header.classList.contains("open");
+    header.classList.toggle("open", !open);
+    if (body) body.classList.toggle("open", !open);
+  },
+
+  openExpandable: function (id) {
+    var sec = document.getElementById(id);
+    if (!sec) return;
+    var h = sec.querySelector(".expand-header");
+    var b = sec.querySelector(".expand-body");
+    if (h && !h.classList.contains("open")) {
+      h.classList.add("open");
+      if (b) b.classList.add("open");
+    }
+    sec.scrollIntoView({ behavior: "smooth", block: "start" });
+  },
+
+  updateName: function (val) {
+    this._updateNameSilent(val);
+    this.showSaveFab();
+    this.queueSave();
+  },
+
+  updateDesc: function (val) {
+    this._updateDescSilent(val);
+    this.showSaveFab();
+    this.queueSave();
+  },
+
+  focusField: function (id) {
+    document.getElementById(id)?.focus();
+  },
+
+  autoResize: function (el) {
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  },
+
+  toggleSidebar: function () {
+    var sb = document.querySelector(".sidebar");
+    var btn = document.getElementById("sidebarToggle");
+    if (sb) sb.classList.toggle("collapsed");
+    if (btn) btn.textContent = sb?.classList.contains("collapsed") ? "▶" : "◀";
+  },
+
+  // ═══════════════════════════════════════════
+  //  PUBLICIDAD
+  // ═══════════════════════════════════════════
+  loadPublicidad: async function () {
+    var self = this;
+    self.showSection("publicidad");
+
+    var container = document.getElementById("publicidadContainer");
+    if (!container) return;
+
+    if (self.publicidadLoaded) return;
+    self.publicidadLoaded = true;
+
+    container.innerHTML =
+      '<div style="padding:20px;display:flex;flex-direction:column;gap:16px;">' +
+      '<div class="sk-block" style="height:70px;border-radius:18px"></div>' +
+      '<div class="sk-block" style="height:200px;border-radius:18px"></div>' +
+      '<div class="sk-block" style="height:200px;border-radius:18px"></div>' +
+      "</div>";
+
+    try {
+      var response = await fetch("publicaicones.html");
+      var html = await response.text();
+
+      container.innerHTML = html;
+
+      var scripts = container.querySelectorAll("script");
+
+      scripts.forEach(function (oldScript) {
+        var newScript = document.createElement("script");
+
+        if (oldScript.src) {
+          newScript.src = oldScript.src;
+          newScript.type = oldScript.type || "text/javascript";
+        } else {
+          newScript.textContent = oldScript.textContent;
+        }
+
+        document.body.appendChild(newScript);
+        oldScript.remove();
+      });
+    } catch (e) {
+      console.error(e);
+
+      container.innerHTML =
+        '<div style="padding:40px;text-align:center;color:white;font-size:15px;">' +
+        "❌ Error cargando publicaciones.html" +
+        "</div>";
+    }
+  },
+};
+
+// ═══════════════════════════════════════════
+//  INICIAR AL CARGAR EL DOM
+// ═══════════════════════════════════════════
+document.addEventListener("DOMContentLoaded", function () {
+  PanelPerfil.init();
 });
+
+

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Sistemas de Automatización WhatsApp - Geinz Empresas</title>
+    <style>
+        /* ==========================================================================
+           SISTEMA DE DISEÑO: DEEP OLED & QUANTUM GLOW
+           ========================================================================== */
+        :root {
+            --bg-pure-black: #050507;
+            
+            /* Paleta de Luces de Neón */
+            --ai-neon-purple: #9333ea;
+            --ai-neon-cyan: #06b6d4;
+            --ai-neon-gold: #f59e0b; /* Color exclusivo para resaltar la oferta */
+            --ai-core-glow: rgba(6, 182, 212, 0.25);
+            
+            /* Superficies Cristalinas Avanzadas */
+            --glass-surface: rgba(255, 255, 255, 0.015);
+            --glass-border: rgba(255, 255, 255, 0.04);
+            --glass-border-hover: rgba(255, 255, 255, 0.12);
+            
+            /* Tipografía */
+            --font-premium: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            
+            /* Curva de Animación Cinemática (Ease-in-out refinado) */
+            --kernel-transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Reset de Estructura de Alta Precisión */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        html, body {
+            background-color: var(--bg-pure-black);
+            font-family: var(--font-premium);
+            color: var(--text-primary);
+            min-height: 100vh;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        /* ==========================================================================
+           CONTENEDOR MAESTRO HERO RESPONSIVO
+           ========================================================================== */
+        .premium-hero-viewport {
+            position: relative;
+            min-height: 100vh;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            padding: 0 max(5vw, 24px);
+            max-width: 1440px;
+            margin: 0 auto;
+            align-items: center;
+            gap: clamp(40px, 6vw, 100px);
+            z-index: 2;
+        }
+
+        /* Atmósfera Lumínica de Fondo */
+        .atmospheric-background {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        /* Cuadrícula Digital */
+        .atmospheric-background::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.008) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.008) 1px, transparent 1px);
+            background-size: 50px 50px;
+            mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 80%);
+            -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 80%);
+        }
+
+        /* Nebulosas Estilizadas */
+        .nebula-purple {
+            position: absolute;
+            top: -10%;
+            right: -10%;
+            width: min(700px, 90vw);
+            height: min(700px, 90vw);
+            background: radial-gradient(circle, rgba(147, 51, 234, 0.12) 0%, transparent 70%);
+            filter: blur(90px);
+            animation: orbitalNebula 20s linear infinite;
+        }
+
+        .nebula-cyan {
+            position: absolute;
+            bottom: -5%;
+            left: -5%;
+            width: min(550px, 80vw);
+            height: min(550px, 80vw);
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.1) 0%, transparent 65%);
+            filter: blur(80px);
+            animation: orbitalNebula 15s linear infinite reverse;
+        }
+
+        @keyframes orbitalNebula {
+            0% { transform: rotate(0deg) translate(0, 0) scale(1); }
+            50% { transform: rotate(180deg) translate(20px, -20px) scale(1.08); }
+            100% { transform: rotate(360deg) translate(0, 0) scale(1); }
+        }
+
+        /* ==========================================================================
+           BLOQUE IZQUIERDO: ARQUITECTURA DE CONTENIDO
+           ========================================================================== */
+        .content-cluster {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 0;
+        }
+
+        /* Insignia Micro-Cápsula */
+        .badge-micro {
+            align-self: flex-start;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border-radius: 99px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .badge-pulse-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--ai-neon-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--ai-neon-cyan);
+            animation: quantumPulse 2s infinite;
+        }
+
+        @keyframes quantumPulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.3); opacity: 1; }
+        }
+
+        /* Tipografía Fluida Hiper-Escalada */
+        .title-display {
+            font-size: clamp(34px, 4.5vw, 60px);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.04em;
+            margin-bottom: 24px;
+            background: linear-gradient(180deg, #ffffff 30%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-display span {
+            background: linear-gradient(90deg, var(--ai-neon-cyan), var(--ai-neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .paragraph-lead {
+            font-size: clamp(16px, 1.3vw, 18px);
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 36px;
+            max-width: 600px;
+        }
+
+        /* ==========================================================================
+           TARJETAS DE BENEFICIOS INMERSIVAS (3D GLASSMORPHISM)
+           ========================================================================== */
+        .matrix-cards-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 36px;
+        }
+
+        .glass-card-feature {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: var(--glass-surface);
+            border: 1px solid var(--glass-border);
+            padding: 18px 24px;
+            border-radius: 18px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            transition: var(--kernel-transition);
+        }
+
+        .glass-card-feature:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: var(--glass-border-hover);
+            transform: translateX(4px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .icon-box-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: var(--ai-neon-cyan);
+            flex-shrink: 0;
+            transition: var(--kernel-transition);
+        }
+
+        /* Variación Dorada: Descuento exclusivo para socios Geinz */
+        .glass-card-feature.premium-benefit-discount {
+            border-color: rgba(245, 158, 11, 0.15);
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.01) 0%, rgba(255,255,255,0.01) 100%);
+        }
+
+        .glass-card-feature.premium-benefit-discount .icon-box-container {
+            color: var(--ai-neon-gold);
+            border-color: rgba(245, 158, 11, 0.25);
+            background: rgba(245, 158, 11, 0.05);
+        }
+        
+        .glass-card-feature.premium-benefit-discount:hover {
+            border-color: rgba(245, 158, 11, 0.4);
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.05);
+        }
+
+        .glass-card-feature:hover .icon-box-container {
+            color: var(--ai-neon-purple);
+            border-color: rgba(147, 51, 234, 0.3);
+            box-shadow: 0 0 15px rgba(147, 51, 234, 0.15);
+        }
+
+        .card-text-content {
+            font-size: clamp(14px, 1.2vw, 15px);
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+
+        .card-text-content strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        .geinz-badge-text {
+            color: var(--ai-neon-gold);
+            font-weight: 700;
+            background: rgba(245, 158, 11, 0.1);
+            padding: 2px 6px;
+            border-radius: 6px;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        /* ==========================================================================
+           CONTENEDOR DE CHIPS INTELIGENTES
+           ========================================================================== */
+        .dynamic-chips-deck {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .interactive-tag {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid var(--glass-border);
+            color: #d4d4d8;
+            font-size: clamp(12px, 1.1vw, 13px);
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 99px;
+            transition: var(--kernel-transition);
+        }
+
+        /* ==========================================================================
+           BOTÓN DE ACCIÓN ACCELERATED CTA
+           ========================================================================== */
+        .action-cta-button {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            align-self: flex-start;
+            background: #ffffff;
+            color: #000000;
+            font-size: clamp(14px, 1.2vw, 15px);
+            font-weight: 600;
+            padding: 16px 36px;
+            border-radius: 99px;
+            cursor: pointer;
+            text-decoration: none;
+            gap: 12px;
+            transition: var(--kernel-transition);
+            box-shadow: 0 4px 24px rgba(255, 255, 255, 0.08);
+        }
+
+        .action-cta-button:hover {
+            background: #f4f4f5;
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+        }
+
+        .action-cta-button svg {
+            width: 18px;
+            height: 18px;
+            transition: var(--kernel-transition);
+        }
+
+        .action-cta-button:hover svg {
+            transform: translateX(4px);
+        }
+
+        /* ==========================================================================
+           BLOQUE DERECHO: CONTENEDOR PARA LA IMAGEN DEL LOGO/MOCKUP
+           ========================================================================== */
+        .graphics-cluster {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+
+        .hologram-stage-viewport {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 460px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 30px;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.01) 0%, transparent 75%);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 
+                inset 0 0 40px rgba(255,255,255,0.01),
+                0 20px 50px rgba(0,0,0,0.6);
+            overflow: hidden;
+            padding: 40px;
+        }
+
+        .logo-backlight {
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .daniel-image-wrapper {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: elegantFloat 6s ease-in-out infinite;
+        }
+
+        .daniel-image-wrapper img {
+            width: 100%;
+            max-width: 340px;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.7));
+        }
+
+        @keyframes elegantFloat {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .hologram-data-card {
+            position: absolute;
+            bottom: 24px;
+            background: rgba(0, 0, 0, 0.75);
+            border: 1px solid var(--glass-border);
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            z-index: 3;
+        }
+
+        .live-status-indicator {
+            width: 6px;
+            height: 6px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+        }
+
+        /* ==========================================================================
+           REGLAS DE DISEÑO RESPONSIVO FLUIDO
+           ========================================================================== */
+        @media (max-width: 992px) {
+            .premium-hero-viewport {
+                grid-template-columns: 1fr;
+                padding: 70px 24px 40px 24px;
+                gap: 36px;
+            }
+
+            .content-cluster { padding: 0; }
+            .matrix-cards-stack { order: 1; }
+            .dynamic-chips-deck { order: 2; margin-bottom: 28px; }
+            .graphics-cluster { order: 3; margin-bottom: 32px; }
+
+            .hologram-stage-viewport {
+                max-width: 100%;
+                height: 340px;
+                aspect-ratio: auto;
+                padding: 30px;
+            }
+
+            .daniel-image-wrapper img { max-width: 240px; }
+
+            .action-cta-button {
+                order: 4;
+                width: 100%;
+                align-self: stretch;
+                padding: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CAPA METAFÍSICA DE FONDO -->
+    <div class="atmospheric-background">
+        <div class="nebula-purple"></div>
+        <div class="nebula-cyan"></div>
+    </div>
+
+    <!-- VIEWPORT CENTRAL -->
+    <main class="premium-hero-viewport">
+        
+        <!-- PANEL DE CONTROL E INFORMACIÓN (IZQUIERDA) -->
+        <div class="content-cluster">
+            <div class="badge-micro">
+                <span class="badge-pulse-dot"></span>
+                Beneficio Exclusivo para Negocios Aliados
+            </div>
+            
+            <h1 class="title-display">Consigue tu propio <span>asistente de WhatsApp</span> integrado con IA</h1>
+            <p class="paragraph-lead">Automatiza el flujo completo de tu negocio. Deja que un agente inteligente reciba pedidos, agende citas y responda clientes al instante sin que tengas que mover un solo dedo.</p>
+            
+            <!-- Bloques de Características Premium en Tarjetas Glass -->
+            <div class="matrix-cards-stack">
+                <div class="glass-card-feature">
+                    <div class="icon-box-container">
+                        <!-- SVG: Zap -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    </div>
+                    <div class="card-text-content">
+                        <strong>Conversión Inmediata 24/7:</strong> Cierra pedidos, gestiona reservas y procesa solicitudes en tiempo real sin retrasos, manteniendo tu negocio activo incluso de madrugada.
+                    </div>
+                </div>
+
+                <div class="glass-card-feature">
+                    <div class="icon-box-container">
+                        <!-- SVG: Lock -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div class="card-text-content">
+                        <strong>Privacidad Blindada:</strong> Separa tu vida personal de la comercial. Tus clientes se comunican con el perfil de tu marca, resguardando tu número privado y tu tranquilidad.
+                    </div>
+                </div>
+
+                <!-- TARJETA DESTACADA: Descuento por estar en Geinz -->
+                <div class="glass-card-feature premium-benefit-discount">
+                    <div class="icon-box-container">
+                        <!-- SVG: Percent / Star -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+                    </div>
+                    <div class="card-text-content">
+                        <strong>Descuento de Creación Especial:</strong> Por ser un negocio verificado dentro de la plataforma, obtienes un <span class="geinz-badge-text">Descuento Exclusivo</span> directo en el diseño y despliegue de tu asistente virtual.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags del Ecosistema Comercial -->
+            <div class="dynamic-chips-deck">
+                <span class="interactive-tag">Pollerías</span>
+                <span class="interactive-tag">Chifas</span>
+                <span class="interactive-tag">Clínicas</span>
+                <span class="interactive-tag">Inmobiliarias</span>
+                <span class="interactive-tag">Tiendas Ropa</span>
+                <span class="interactive-tag">Restobares</span>
+            </div>
+
+            <!-- CTA Premium de Alto Tráfico -->
+            <a href="#" class="action-cta-button">
+                <span>Solicitar mi Asistente con Descuento</span>
+                <!-- SVG: Arrow-Right -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+        </div>
+
+        <!-- ESCENARIO GRÁFICO: CONTENEDOR PARA IMAGEN REPRESENTATIVA -->
+        <div class="graphics-cluster">
+            <div class="hologram-stage-viewport">
+                
+                <div class="logo-backlight"></div>
+
+                <!-- CONTENEDOR DE LA IMAGEN DE LA PROPUESTA -->
+                <div class="daniel-image-wrapper">
+                    <!-- REEMPLAZA ESTA RUTA CON LA IMAGEN DE TU LOGO CORPORATIVO O VECTOR DE ASISTENTE -->
+                    <img src="daniel-logo.png" alt="WhatsApp AI Integration Setup">
+                </div>
+
+                <div class="hologram-data-card">
+                    <span class="live-status-indicator"></span>
+                    <span>Módulo de IA listo para vinculación</span>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+</body>
+</html>

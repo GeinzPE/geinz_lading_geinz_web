@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style/publicaciones.css">
+    <script type="module" src="js/publicaciones.js"></script>
+</head>
+
+<body>
+    <div class="wrap">
+
+       
+
+        <div class="hdr">
+            <h1>Promociones <i class="ti ti-sparkles hdr-icon" aria-hidden="true"></i></h1>
+            <p>Selecciona hasta 5 imágenes que quieras mostrar en tu publicación </p>
+        </div>
+
+        <div class="card">
+            <div class="grid">
+
+                <!-- IZQUIERDA -->
+                <div class="col">
+
+                    <!-- Upload -->
+                    <!-- Upload -->
+                    <div class="ig" style="overflow: hidden;">
+                        <label class="lbl">Selecciona hasta 5 imágenes</label>
+
+                        <!-- Grid de selectores de imagen -->
+                        <div class="image-grid-selector" id="imageGridSelector">
+                            <div class="image-slot" data-index="0" onclick="selectImage(0)">
+                                <div class="image-slot-content">
+                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                    <span>Añadir imagen</span>
+                                </div>
+                                <img class="image-slot-preview" style="display:none;">
+                                <button class="image-slot-remove"
+                                    onclick="event.stopPropagation(); removeImage(0)">✕</button>
+                            </div>
+                            <div class="image-slot" data-index="1" onclick="selectImage(1)">
+                                <div class="image-slot-content">
+                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                    <span>Añadir imagen</span>
+                                </div>
+                                <img class="image-slot-preview" style="display:none;">
+                                <button class="image-slot-remove"
+                                    onclick="event.stopPropagation(); removeImage(1)">✕</button>
+                            </div>
+                            <div class="image-slot" data-index="2" onclick="selectImage(2)">
+                                <div class="image-slot-content">
+                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                    <span>Añadir imagen</span>
+                                </div>
+                                <img class="image-slot-preview" style="display:none;">
+                                <button class="image-slot-remove"
+                                    onclick="event.stopPropagation(); removeImage(2)">✕</button>
+                            </div>
+                            <div class="image-slot" data-index="3" onclick="selectImage(3)">
+                                <div class="image-slot-content">
+                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                    <span>Añadir imagen</span>
+                                </div>
+                                <img class="image-slot-preview" style="display:none;">
+                                <button class="image-slot-remove"
+                                    onclick="event.stopPropagation(); removeImage(3)">✕</button>
+                            </div>
+                            <div class="image-slot" data-index="4" onclick="selectImage(4)">
+                                <div class="image-slot-content">
+                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                    <span>Añadir imagen</span>
+                                </div>
+                                <img class="image-slot-preview" style="display:none;">
+                                <button class="image-slot-remove"
+                                    onclick="event.stopPropagation(); removeImage(4)">✕</button>
+                            </div>
+                        </div>
+
+                        <input type="file" id="imageInput" accept="image/*" style="display:none;"
+                            onchange="handleFiles(this)">
+                        <!-- Botón Generar imagen + texto AQUÍ -->
+                        <div class="img-ai-zone">
+                            <button class="ai-btn-full" id="btnImagenIA" style="position:relative;">
+                                <i class="ti ti-photo-ai btn-icon" aria-hidden="true"></i>
+                                <span class="btn-label" id="btnImagenIALabel">Generar imagen + texto con IA</span>
+                                <span class="btn-price" id="precioImagenIA">+0</span>
+                                <span class="loading-dots" id="loadingImagenIA" style="display:none; margin-left:8px;">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Título -->
+                    <div class="ig">
+                        <label class="lbl">Título</label>
+                        <input type="text" id="tituloInput" placeholder="Título de la publicación">
+                    </div>
+
+                    <!-- Descripción -->
+                    <div class="ig">
+                        <label class="lbl">Descripción</label>
+                        <textarea id="descripcionInput" placeholder="Descripción de publicación"></textarea>
+                        <div class="ai-zone">
+                            <button class="ai-btn" id="btnDescripcionIA">
+                                <i class="ti ti-wand btn-icon" aria-hidden="true"></i>
+                                <span class="btn-label">Mejorar texto x3</span>
+                                <span class="btn-price" id="precioDescripcionIA">+0</span>
+                            </button>
+                            <div id="resultadoIAContainer" class="ia-results"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- DERECHA -->
+                <div class="col">
+
+                    <div>
+                        <h3 class="sec-title">Parámetros de publicación</h3>
+                        <p class="sec-sub">Personaliza tu publicación y mejora sus resultados.</p>
+                    </div>
+
+                    <div class="param-list">
+
+                        <!-- WhatsApp -->
+                        <!-- WhatsApp -->
+                        <div class="param-box">
+                            <div class="param-row">
+                                <div class="param-info">
+                                    <img src="img/whatsapp_icon.png" alt="icono"
+                                        style="width: 23px; height: 23px; margin-left: 6px;">
+                                    <h4>WhatsApp</h4>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" onchange="toggle('wp',this)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="sub-panel" id="wp">
+                                <p class="sec-sub">Tu Numero de contato</p>
+                                <input type="text" placeholder="Número">
+                                <p class="sec-sub">Mensaje predeterminado</p>
+                                <input type="text" id="mensajeWpInput" value="Hola, quiero esta oferta que vi en Geinz">
+                                <div class="ai-zone">
+                                    <button class="ai-btn" id="btnMensajeWpIA">
+                                        <i class="ti ti-message-chatbot btn-icon" aria-hidden="true"></i>
+                                        <span class="btn-label">Mejorar mensaje WhatsApp</span>
+                                        <span class="btn-price" id="precioMensajeWpIA">+0</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Compartir -->
+                        <div class="param-box">
+                            <div class="param-row">
+                                <div class="param-info">
+                                    <img src="img/compartir_icon_rojo.webp" alt="icono"
+                                        style="width: 23px; height: 23px; margin-left: 6px;">
+                                    <h4>Compartir</h4>
+                                </div>
+                                <label class="switch"><input type="checkbox" onchange="toggle('share',this)"><span
+                                        class="slider"></span></label>
+                            </div>
+                            <div class="sub-panel" id="share">
+                                <p class="sec-sub">Mensaje predeterminado</p>
+                                <input type="text" id="mensajeShareInput" value="Mira esta promo en Geinz 🎁">
+                                <div class="ai-zone">
+                                    <button class="ai-btn-full" id="btnMensajeShareIA" style="margin-top:4px;">
+                                        <i class="ti ti-sparkles btn-icon" aria-hidden="true"></i>
+                                        <span class="btn-label">Mejorar mensaje para compartir</span>
+                                        <span class="btn-price" id="precioShareIA">+0</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cercanía -->
+                        <div class="param-box">
+                            <div class="param-row">
+                                <div class="param-info">
+                                    <img src="img/google_maps_icono.webp" alt="icono"
+                                        style="width: 23px; height: 23px; margin-left: 6px;">
+                                    <h4>Cercanía</h4>
+                                </div>
+                                <label class="switch"><input type="checkbox" onchange="toggle('geo',this)"><span
+                                        class="slider"></span></label>
+                            </div>
+                            <div class="sub-panel" id="geo">
+                                <p class="sec-sub">Permite que tu publicacion se muestre a usuarios que activen el
+                                    filtro de cercanía y se encuentren cerca de tu negocio físico.</p>
+                                <input type="text" value="Jr. Manco Capac, Barranca" readonly>
+                                <input type="text" value="Jr. Manco Capac, Barranca" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Precio -->
+                        <div class="param-box">
+                            <div class="param-row">
+                                <div class="param-info">
+                                    <img src="img/efectivo_logo.webp" alt="icono"
+                                        style="width: 23px; height: 23px; margin-left: 6px;">
+                                    <h4>Precio</h4>
+                                </div>
+
+                                <label class="switch"><input type="checkbox" onchange="toggle('price',this)"><span
+                                        class="slider"></span></label>
+                            </div>
+                            <div class="sub-panel" id="price">
+                                <p class="sec-sub">El precio se detecta automáticamente para mejorar la visibilidad de
+                                    tu publicación. Si no se detecta, puedes ingresarlo manualmente.</p>
+                                <input type="text" id="precioInput" placeholder="20">
+                            </div>
+                        </div>
+
+                        <!-- Horario -->
+                        <div class="param-box">
+                            <div class="param-row">
+                                <div class="param-info">
+                                    <img src="img/reloj_icon_hora_3d.webp" alt="icono"
+                                        style="width: 23px; height: 23px; margin-left: 6px;">
+                                    <h4>Horario</h4>
+                                </div>
+                                <label class="switch"><input type="checkbox" onchange="toggle('hours',this)"><span
+                                        class="slider"></span></label>
+                            </div>
+                            <div class="sub-panel" id="hours">
+                                <p class="sec-sub">Elige en qué horario quieres que tu publicación sea visible para los
+                                    compradores: mañana, tarde, noche o todos los turnos según tu preferencia.
+                                </p>
+                                <select>
+                                    <option>Todo el día</option>
+                                    <option>Mañana</option>
+                                    <option>Tarde</option>
+                                    <option>Noche</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Pagos -->
+                        <div class="param-box">
+                            <div class="param-row">
+                                <div class="param-info">
+                                    <img src="img/yape_logo.webp" alt="icono"
+                                        style="width: 23px; height: 23px; margin-left: 6px;">
+                                    <h4>Métodos de pago</h4>
+                                </div>
+                                <label class="switch"><input type="checkbox" onchange="toggle('payments',this)"><span
+                                        class="slider"></span></label>
+                            </div>
+                            <div class="sub-panel" id="payments">
+                                <p class="sec-sub">Selecciona el método de pago para que tu publicación esté mejor
+                                    segmentada y llegue al público correcto.
+                                </p>
+                                <div class="pay-grid">
+                                    <div class="pay-item">
+                                        <span class="pay-lbl">
+                                            <img src="img/yape_logo.webp" alt="Yape"
+                                                style="width: 24px; height: 24px; border-radius: 8px;">
+                                            Yape
+                                        </span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="pay-item">
+                                        <span class="pay-lbl">
+                                            <img src="img/logo_plin.webp" alt="Plin"
+                                                style="width: 24px; height: 24px; border-radius: 8px;">
+                                            Plin
+                                        </span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="pay-item">
+                                        <span class="pay-lbl">
+                                            <img src="img/logo_agora.webp" alt="Agora"
+                                                style="width: 24px; height: 24px; border-radius: 8px;">
+                                            Agora
+                                        </span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="pay-item">
+                                        <span class="pay-lbl">
+                                            <img src="img/efectivo_logo.webp" alt="Efectivo"
+                                                style="width: 24px; height: 24px; border-radius: 8px;">
+                                            Efectivo
+                                        </span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="pay-item">
+                                        <span class="pay-lbl">
+                                            <img src="img/visa_logo.webp" alt="Visa"
+                                                style="width: 24px; height: 24px; border-radius: 8px;">
+                                            Visa
+                                        </span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="pay-item">
+                                        <span class="pay-lbl">
+                                            <img src="img/master_car_logo.webp" alt="Mastercard"
+                                                style="width: 24px; height: 24px; border-radius: 8px;">
+                                            Mastercard
+                                        </span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Plazo -->
+                    <div class="plazo">
+                        <h3 class="sec-title">Plazo de publicación</h3>
+                        <p class="sec-sub">Selecciona cuánto tiempo estará activa.</p>
+
+                        <div class="plazo-sel">
+
+                            <label class="radio">
+                                <input type="radio" name="plazo" value="horas" onchange="tipoPlazo()">
+
+                                <img src="img/reloj_icon_hora_3d.webp"
+                                    style="width:20px;height:20px;object-fit:contain;margin:0 4px;">
+
+                                Horas
+                            </label>
+
+                            <label class="radio">
+                                <input type="radio" name="plazo" value="dias" checked onchange="tipoPlazo()">
+
+                                <img src="img/por_dias_icon_3d.webp"
+                                    style="width:20px;height:20px;object-fit:contain;margin:0 4px;">
+
+                                Días
+                            </label>
+
+                        </div>
+
+                        <div id="boxHoras" style="display:none">
+                            <div class="ig">
+                                <label class="lbl">Cantidad de horas (1–20)</label>
+
+                                <input type="number" id="inputHoras" min="1" max="20" value="1">
+                            </div>
+
+                            <div id="duracionHorasContainer" style="display:none;"></div>
+                        </div>
+
+                        <div id="boxFechas">
+
+                            <div class="date-grid">
+
+                                <div class="ig">
+                                    <label class="lbl">Fecha inicial</label>
+
+                                    <input type="date" id="fechaInicio" readonly>
+                                </div>
+
+                                <div class="ig">
+                                    <label class="lbl">Fecha final</label>
+
+                                    <input type="date" id="fechaFin">
+                                </div>
+
+                            </div>
+
+                            <div id="duracionDiasContainer" style="display:none;"></div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="footer">
+                <button class="btn btn-cancel">Cancelar</button>
+                <button class="btn btn-submit"><i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i>
+                    Publicar
+                    promoción</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
