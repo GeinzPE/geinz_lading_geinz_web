@@ -90,6 +90,8 @@
                             </div>
 
                         </div>
+                        <!-- MODAL FOTO PERFIL -->
+
                         <div class="form-section">
                             <div class="form-section-title">Información básica</div>
 
@@ -125,11 +127,11 @@
                                         <div class="exp-icon purple">✦</div>
                                         <div>
                                             <div class="exp-title">Cuenta</div>
-                                            <div class="exp-subtitle" id="ph-summary">cargando información...</div>
+                                            <span class="renewal-label" id="renewal-text">— días para la
+                                                renovación</span>
                                         </div>
                                     </div>
                                     <div class="exp-right">
-                                        <span class="exp-badge purple" id="badge-plan">—</span>
                                         <div class="chevron">
                                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"
                                                 stroke-linecap="round" stroke-linejoin="round">
@@ -157,7 +159,7 @@
                                         </div>
 
                                         <!-- ===== SECCIÓN ID & FECHAS ===== -->
-                                        <div class="field" style="margin-top: 16px;">
+                                        <div class="field">
                                             <span class="field-label">ID de usuario</span>
                                             <span class="field-value">
                                                 <span class="field-id-row">
@@ -185,24 +187,14 @@
                                         </div>
 
                                         <!-- ===== SECCIÓN SALDO ===== -->
-                                        <div class="balance-big" style="margin-top: 16px;">
+                                        <h1 class="balance-title">Saldo restante</h1>
+                                        <div class="balance-big">
                                             <span class="balance-num" id="balance-full">—</span>
-                                            <span class="balance-coin">🪙</span>
+                                            <img src="img/icon_monedas_3d.webp" class="balance-img" alt="Saldo"
+                                                width="40" height="40">
                                         </div>
 
-                                        <div class="renewal-row">
-                                            <div class="renewal-icon-wrap">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                                    stroke="#f5a623" stroke-width="2.5" stroke-linecap="round"
-                                                    stroke-linejoin="round">
-                                                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                                                    <path d="M21 3v5h-5" />
-                                                </svg>
-                                            </div>
-                                            <span class="renewal-label" id="renewal-text">— días para la
-                                                renovación</span>
-                                            <span class="renewal-days-num" id="renewal-days">—</span>
-                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -472,7 +464,7 @@
                             <div class="expand-header-text">
 
                                 <div class="expand-header-title">
-                                    Otros métodos
+                                   Metodos de pago
                                 </div>
 
                                 <div class="expand-header-sub">
@@ -600,85 +592,133 @@
                 </div>
 
 
-                <div class="section" id="sec-publicidad">
-                    <div id="publicidadContainer" style="
-            width:100%;
-            height:100%;
-            min-height:100vh;
-            position:relative;
-        ">
+                <!-- ===== FOTOS ===== -->
+                <div class="section" id="sec-fotos">
+
+                    <div class="expand-section">
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                            <div class="expand-header-icon icon-blue">🏠</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Fotos de ambiente</div>
+                                <div class="expand-header-sub">Hasta 6 fotos del local</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+                        <div class="expand-body">
+                            <div class="photo-grid" id="ambienteGrid"></div>
+                        </div>
                     </div>
-                </div>
 
-            </div><!-- /content -->
+                    <div class="expand-section">
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                            <div class="expand-header-icon icon-orange">🛍️</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Servicios y productos</div>
+                                <div class="expand-header-sub">Hasta 6 fotos</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+                        <div class="expand-body">
+                            <div class="photo-grid" id="productosGrid"></div>
+                        </div>
+                    </div>
 
-            <!-- SAVE FAB (mobile) -->
-            <button class="save-fab" id="saveFab" onclick="PanelPerfil.saveChanges()">✓ Guardar cambios</button>
-
-
-            <!-- BOTON MENU MOBILE -->
-            <button class="mobile-menu-btn" onclick="PanelPerfil.toggleMobileMenu()">
-                ☰
-            </button>
-
-            <!-- OVERLAY -->
-            <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="PanelPerfil.toggleMobileMenu()"></div>
-
-            <!-- MENU MOBILE -->
-            <div class="mobile-menu" id="mobileMenu">
-
-                <div class="mobile-menu-header">
-
-                    <img class="mobile-menu-logo" src="img/Diseño sin título (2).png" alt="Geinz">
-
-                    <div>
-                        <div class="mobile-menu-title">Geinz Web</div>
-                        <div class="mobile-menu-sub">
-                            Panel de negocio
+                    <div class="expand-section">
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                            <div class="expand-header-icon icon-pink">🎉</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Promociones</div>
+                                <div class="expand-header-sub">Hasta 3 fotos</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+                        <div class="expand-body">
+                            <div class="photo-grid" id="promocionesGrid"></div>
                         </div>
                     </div>
 
                 </div>
 
-                <div class="mobile-menu-items">
+            </div><!-- /content -->
 
-                    <button class="mobile-menu-item active"
-                        onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
+            <div class="section" id="sec-publicidad">
+                <div id="publicidadContainer" style="
+            width:100%;
+            height:100%;
+            min-height:100vh;
+            position:relative;
+        ">
+                </div>
+            </div>
 
-                        <span>🏪</span>
-                        <span>Perfil</span>
+        </div><!-- /content -->
 
-                    </button>
+        <!-- SAVE FAB (mobile) -->
+        <button class="save-fab" id="saveFab" onclick="PanelPerfil.saveChanges()">✓ Guardar cambios</button>
 
-                    <button class="mobile-menu-item"
-                        onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
 
-                        <span>📢</span>
-                        <span>Publicidad</span>
+        <!-- BOTON MENU MOBILE -->
+        <button class="mobile-menu-btn" onclick="PanelPerfil.toggleMobileMenu()">
+            ☰
+        </button>
 
-                    </button>
+        <!-- OVERLAY -->
+        <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="PanelPerfil.toggleMobileMenu()"></div>
 
-                    <button class="mobile-menu-item"
-                        onclick="PanelPerfil.showSection('fotos'); PanelPerfil.toggleMobileMenu()">
+        <!-- MENU MOBILE -->
+        <div class="mobile-menu" id="mobileMenu">
 
-                        <span>📸</span>
-                        <span>Fotos</span>
+            <div class="mobile-menu-header">
 
-                    </button>
+                <img class="mobile-menu-logo" src="img/Diseño sin título (2).png" alt="Geinz">
 
-                    <button class="mobile-menu-item"
-                        onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
-
-                        <span>⚡</span>
-                        <span>Recargas</span>
-
-                    </button>
-
+                <div>
+                    <div class="mobile-menu-title">Geinz Web</div>
+                    <div class="mobile-menu-sub">
+                        Panel de negocio
+                    </div>
                 </div>
 
             </div>
 
-            <!-- BOTTOM BAR (mobile)
+            <div class="mobile-menu-items">
+
+                <button class="mobile-menu-item active"
+                    onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
+
+                    <span>🏪</span>
+                    <span>Perfil</span>
+
+                </button>
+
+                <button class="mobile-menu-item" onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
+
+                    <span>📢</span>
+                    <span>Publicidad</span>
+
+                </button>
+
+                <button class="mobile-menu-item"
+                    onclick="PanelPerfil.showSection('fotos'); PanelPerfil.toggleMobileMenu()">
+
+                    <span>📸</span>
+                    <span>Fotos</span>
+
+                </button>
+
+                <button class="mobile-menu-item"
+                    onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
+
+                    <span>⚡</span>
+                    <span>Recargas</span>
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- BOTTOM BAR (mobile)
             <div class="bottom-bar">
                 <button class="bar-btn active" id="bb-perfil" onclick="PanelPerfil.showSection('perfil')">
                     <div class="bar-icon">🏪</div>
@@ -699,9 +739,64 @@
                 </button>
             </div>
  -->
-        </div><!-- /main -->
+    </div><!-- /main -->
     </div>
+    <div class="modal-overlay" id="modalFotoPerfil"
+        style="display:flex !important; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:flex-end; justify-content:center;">
+        <div class="modal-sheet" style="padding:24px;">
 
+            <!-- Header -->
+            <div class="modal-header">
+                <h3 class="modal-title">📷 Foto de perfil</h3>
+                <button class="modal-close" onclick="PanelPerfil.closeModal('modalFotoPerfil')">✕</button>
+            </div>
+
+            <!-- Preview circular -->
+            <div style="display:flex;justify-content:center;padding:20px 0 8px;">
+                <div style="position:relative;width:120px;height:120px;">
+
+                    <img id="avatarModalPreview" style="display:none;width:120px;height:120px;border-radius:50%;
+                    object-fit:cover;border:3px solid var(--primary);
+                    box-shadow:0 0 24px rgba(124,77,255,0.35);
+                    position:absolute;top:0;left:0;" alt="preview">
+
+                    <div id="avatarModalPlaceholder" style="width:120px;height:120px;border-radius:50%;
+                    background:#1a1040;border:3px dashed #7c4dff;
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:36px;">
+                        🏪
+                    </div>
+
+                </div>
+            </div>
+
+            <p style="text-align:center;font-size:12px;color:#888;margin:0 0 20px;">
+                La imagen se recortará en círculo
+            </p>
+
+            <!-- Botón elegir -->
+            <!-- DESPUÉS — label + input hidden, funciona en todos los dispositivos -->
+            <label id="btnPickAvatarImg" for="avatarFileInputHtml" style="width:100%;padding:14px;border-radius:14px;
+              border:1.5px solid #7c4dff;background:transparent;
+              color:#7c4dff;font-size:14px;font-weight:600;
+              cursor:pointer;margin-bottom:10px;box-sizing:border-box;
+              display:flex;align-items:center;justify-content:center;gap:8px;">
+                📁 Elegir foto de galería
+                <input type="file" id="avatarFileInputHtml" accept="image/*" style="display:none;">
+            </label>
+
+            <!-- Botón guardar — display:none con !important para que el JS lo pueda mostrar -->
+            <button id="btnSaveAvatarImg" style="width:100%;padding:14px;border-radius:14px;
+                   border:none;background:#7c4dff;
+                   color:#fff;font-size:14px;font-weight:700;
+                   cursor:pointer;
+                   align-items:center;justify-content:center;gap:8px;
+                   display:none;">
+                ✓ Guardar foto
+            </button>
+
+        </div>
+    </div>
     <!-- ===== SKELETON SCREEN ===== -->
     <div class="skeleton-overlay" id="skeletonOverlay">
 

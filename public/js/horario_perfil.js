@@ -27,7 +27,7 @@
         apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
         authDomain: "geinzworkapp.firebaseapp.com",
         projectId: "geinzworkapp",
-        storageBucket: "geinzworkapp.firebasestorage.app",
+        storageBucket: "geinzworkapp.appspot.com",
         messagingSenderId: "921389328767",
         appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
       };

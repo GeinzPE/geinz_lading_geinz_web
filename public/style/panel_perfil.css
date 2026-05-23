@@ -3330,8 +3330,13 @@ input:checked+.slider:before {
 
 /* Evitar que el texto del ID se rompa de forma extraña */
 #user-id {
+    font-size: 11px;
+    letter-spacing: 0;
     white-space: nowrap;
-    font-family: var(--font-m);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+    display: inline-block;
 }
 /* Asegura que el valor del campo se alinee a la derecha y use Flexbox */
 .field-value {
@@ -3343,6 +3348,32 @@ input:checked+.slider:before {
 }
 
 
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 12px 0;
+}
+
+.photo-item {
+    aspect-ratio: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #1a1030;
+    position: relative;
+}
+
+.photo-item-add {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 2px dashed #7c4dff44;
+    color: #7c4dff88;
+    font-size: 13px;
+    cursor: pointer;
+}
 
 
 
@@ -3376,7 +3407,7 @@ input:checked+.slider:before {
     border-radius: var(--r);
     overflow: hidden;
     transition: border-color .3s;
-    margin: 37px 24px 0px;
+    margin: 32px 15px 0px;
 }
 
 .exp-card:hover {
@@ -3498,9 +3529,7 @@ input:checked+.slider:before {
     background: var(--surface3)
 }
 
-.exp-card.open .chevron svg {
-    stroke: var(--text1)
-}
+
 
 /* ─── BODY ─── */
 .exp-body {
@@ -3600,13 +3629,23 @@ input:checked+.slider:before {
 }
 
 /* Balance big */
-.balance-big {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 1rem 0 0.5rem;
+.balance-big{
+    display:flex;
+    align-items:center;
+    gap:10px;
 }
 
+.balance-num,
+.balance-img{
+    vertical-align:middle;
+}
+    .balance-title{
+    font-size: 14px;
+    font-weight: 500;
+    color: #b3b3b3;
+    margin-bottom: 6px;
+    margin-top: 20px;
+}
 .balance-num {
     font-family: var(--font-m);
     font-size: 42px;
@@ -3626,7 +3665,7 @@ input:checked+.slider:before {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--accent2);
+    background: green;
     display: inline-block;
     animation: pulse 2s infinite;
 }
@@ -3759,4 +3798,11 @@ input:checked+.slider:before {
 .renewal-days-num.warning,
 .renewal-label.warning {
     color: #FF4D6A !important;
+}
+.modal-overlay {
+  display: none;  /* o visibility:hidden */
+}
+
+.modal-overlay.open {
+  display: flex;  /* esto lo muestra */
 }
