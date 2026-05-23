@@ -462,7 +462,7 @@ body {
 
 .content {
     flex: 1;
-    padding: 0 0 20px;
+
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -470,7 +470,7 @@ body {
 
 @media (min-width: 768px) {
     .content {
-        padding: 0 0 40px;
+
         overflow-y: auto;
         overscroll-behavior: contain;
         scroll-margin-top: 72px;
@@ -479,7 +479,7 @@ body {
     }
 
     .expand-section:first-of-type {
-        margin-top: 0;
+        margin-top: 50px;
     }
 }
 
@@ -530,16 +530,15 @@ body {
 .card {
     background: var(--surface);
     border-radius: var(--r);
-
     padding: 18px;
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border-light);
     transition: box-shadow 0.2s;
+
 }
 
 @media (min-width: 768px) {
     .card {
-
         padding: 20px 22px;
     }
 }
@@ -1242,6 +1241,10 @@ textarea.field-value {
     }
 }
 
+.bottom_pagos {
+    margin-bottom: 30px;
+}
+
 .expand-header {
 
     display: flex;
@@ -1343,23 +1346,26 @@ textarea.field-value {
 }
 
 .expand-body.open {
-
     opacity: 1;
-
     max-height: max-content;
     padding-top: 5px;
     padding-bottom: 15px;
-    padding-left: 10px;
-    padding-right: 10px;
-
+    padding-left: 15px;
+    /* ← 0 */
+    padding-right: 15px;
+    /* ← 0 */
     border-left: 1px solid var(--border-light);
-
     border-right: 1px solid var(--border-light);
-
     border-bottom: 1px solid var(--border-light);
+    border-radius: 0 0 var(--r) var(--r);
+}
 
-    border-radius:
-        0 0 var(--r) var(--r);
+/* El formulario de dirección y referencia necesita su propio margen lateral */
+.expand-body.open .form-section {
+    margin-left: 14px;
+    margin-right: 14px;
+    margin-bottom: 0;
+    /* ya tiene margin-bottom de 12px por defecto, ajusta si quieres */
 }
 
 /* =============================================
@@ -2132,11 +2138,7 @@ textarea.field-value {
     padding: 16px 20px 40px;
 }
 
-@media (min-width: 768px) {
-    .modal-content {
-        padding: 18px 24px 28px;
-    }
-}
+
 
 .modal-field {
     margin-bottom: 16px;
@@ -2696,7 +2698,7 @@ input:checked+.slider:before {
 .schedule-wrapper {
     background: var(--surface, #18181f);
     border-radius: 24px;
-    border: 1px solid var(--border, #2e2e3e);
+
     overflow: hidden;
     margin-top: 4px;
 }
@@ -3132,19 +3134,47 @@ input:checked+.slider:before {
 .map-wrapper {
     position: relative;
     width: 100%;
-    height: 280px;
     border-radius: 22px;
     overflow: hidden;
     border: 1px solid #2e2e3e;
     background: #16161d;
     margin-bottom: 20px;
+
+    /* 🔥 Esto es lo importante: que ocupe todo el alto disponible */
+    display: flex;
+    flex-direction: column;
+    min-height: 280px;
+    /* altura mínima en móvil */
 }
 
+@media (min-width: 768px) {
+    .map-wrapper {
+        min-height: 400px;
+        height: auto;
+        flex: 1 1 auto;
+    }
+
+    /* Si el expand-body tiene flex, el mapa puede ocupar todo */
+    .expand-body {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .expand-body .map-wrapper {
+        flex: 1;
+        margin-bottom: 16px;
+    }
+}
+
+/* El div interno del mapa debe ocupar todo el espacio del wrapper */
 #mapBoxPerfil {
     width: 100%;
-    height: 100%;
-
+    flex: 1;
+    /* ← se estira para llenar el wrapper */
+    min-height: 250px;
+    /* evita que colapse */
 }
+
 
 .map-current-btn {
     position: absolute;
@@ -3174,22 +3204,32 @@ input:checked+.slider:before {
 
 .mobile-menu-btn {
     position: fixed;
-    top: 18px;
-    left: 18px;
-    width: 52px;
-    height: 52px;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(10, 10, 10, 0.92);
+
+    bottom: 20px;
+    right: 20px;
+
+    top: auto;
+    left: auto;
+
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+
+    border: 1px solid rgba(255, 255, 255, .08);
+    background: rgba(10, 10, 10, .92);
+
     backdrop-filter: blur(20px);
+
     color: white;
     font-size: 24px;
+
     z-index: 4000;
+
     display: none;
     align-items: center;
     justify-content: center;
-    box-shadow:
-        0 10px 30px rgba(0, 0, 0, 0.45);
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
 }
 
 /* =========================
@@ -3338,11 +3378,13 @@ input:checked+.slider:before {
     max-width: 140px;
     display: inline-block;
 }
+
 /* Asegura que el valor del campo se alinee a la derecha y use Flexbox */
 .field-value {
     display: flex;
     align-items: center;
-    justify-content: flex-end; /* Esto empuja el punto y el texto a la esquina derecha */
+    justify-content: flex-end;
+    /* Esto empuja el punto y el texto a la esquina derecha */
     gap: 6px;
     text-align: right;
 }
@@ -3535,11 +3577,14 @@ input:checked+.slider:before {
 .exp-body {
     max-height: 0;
     overflow: hidden;
-    transition: max-height .45s cubic-bezier(.4, 0, .2, 1);
+    opacity: 0;
+    transition: all 0.3s ease;
 }
 
 .exp-card.open .exp-body {
-    max-height: 600px;
+    max-height: 1000px;
+    /* o auto no sirve en animación */
+    opacity: 1;
 }
 
 .exp-divider {
@@ -3568,7 +3613,6 @@ input:checked+.slider:before {
 .field-label {
     font-size: 15px;
     color: white;
-    font-family: var(--font-m);
     white-space: nowrap;
 }
 
@@ -3629,25 +3673,27 @@ input:checked+.slider:before {
 }
 
 /* Balance big */
-.balance-big{
-    display:flex;
-    align-items:center;
-    gap:10px;
+.balance-big {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .balance-num,
-.balance-img{
-    vertical-align:middle;
+.balance-img {
+    vertical-align: middle;
 }
-    .balance-title{
+
+.balance-title {
     font-size: 14px;
     font-weight: 500;
     color: #b3b3b3;
     margin-bottom: 6px;
     margin-top: 20px;
 }
+
 .balance-num {
-    font-family: var(--font-m);
+
     font-size: 42px;
     font-weight: 700;
     color: white;
@@ -3799,10 +3845,209 @@ input:checked+.slider:before {
 .renewal-label.warning {
     color: #FF4D6A !important;
 }
+
+
+
+/* ── Modal base (ambos modales) ── */
 .modal-overlay {
-  display: none;  /* o visibility:hidden */
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
 }
 
 .modal-overlay.open {
-  display: flex;  /* esto lo muestra */
+    display: flex;
+}
+
+/* ── Modal renovación ── */
+#modal-renovacion .modal-content {
+    background: #0f0f12;
+    border: 1px solid #2a2a35;
+    width: 90%;
+    max-width: 400px;
+    padding: 24px;
+    border-radius: 28px;
+    color: white;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+.selector-planes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.plan-item {
+    background: #1a1a20;
+    border: 2px solid #2a2a35;
+    padding: 16px;
+    border-radius: 16px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.plan-item:hover {
+    border-color: #7d5fff;
+    background: #21212b;
+    transform: translateY(-2px);
+}
+
+.plan-item.selected {
+    border-color: #7d5fff;
+    background: rgba(125, 95, 255, 0.15);
+}
+
+.plan-item strong {
+    color: #fff;
+    font-size: 16px;
+}
+
+.badge-desc {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #2a2a35;
+    color: #a78bfa;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    align-self: flex-start;
+}
+
+.resumen-pago p {
+    margin: 8px 0;
+    overflow: hidden; /* Esto es clave para limpiar los floats */
+    color: #888;
+    line-height: 24px;
+    font-family: sans-serif;
+}
+
+.label-text {
+    float: left; /* Texto a la izquierda */
+}
+
+.valor-container {
+    float: right; /* Precio y moneda a la derecha */
+    color: white;
+    font-weight: 600;
+}
+
+.coin-icon {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+    margin-left: 4px; /* Separación pequeña entre número y moneda */
+    display: inline-block;
+}
+.acciones {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.acciones button {
+    padding: 12px 24px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s;
+}
+
+.acciones button:first-child {
+    background: #1a1a20;
+    color: #888;
+}
+
+#btn-continuar {
+    background: linear-gradient(135deg, #7d5fff, #5b3ce0);
+    color: white;
+    box-shadow: 0 4px 12px rgba(125, 95, 255, 0.3);
+}
+
+#btn-continuar:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: #333;
+}
+/* ── Ajustes para 100% Responsividad ── */
+
+/* 1. Modal que se adapta al espacio */
+#modal-renovacion .modal-content {
+    width: 90%;
+    max-width: 450px; /* Un poco más amplio en PC */
+    margin: 20px;
+    max-height: 90vh; /* Evita que el modal se salga de la pantalla */
+    overflow-y: auto; /* Scroll si el contenido es muy largo */
+}
+
+/* 2. Grid inteligente (1 columna en móvil, 2 en PC) */
+.selector-planes {
+    display: grid;
+    /* En móvil (por defecto) 1 columna, en tablets/PC 2 columnas */
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+/* Media Query para pantallas grandes */
+@media (min-width: 480px) {
+    .selector-planes {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 3. Botones responsivos */
+.acciones {
+    flex-direction: row; /* Mantener horizontal */
+    width: 100%;
+}
+
+.acciones button {
+    flex: 1; /* Ambos botones ocupan el mismo ancho */
+    padding: 14px; /* Un poco más grande para facilitar el toque en móvil */
+}
+
+/* 4. Ajustes táctiles para móvil */
+@media (max-width: 480px) {
+    .plan-item {
+        padding: 14px;
+    }
+    
+    .acciones {
+        flex-direction: column-reverse; /* En móvil, el botón principal queda arriba */
+    }
+    
+    .acciones button {
+        width: 100%;
+    }
+}
+
+
+.precio-container {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px; /* Esto controla qué tan cerca está la moneda del número */
+    font-weight: 700;
+}
+
+.coin-icon {
+    width: 18px !important;
+    height: 18px !important;
+    display: inline-block !important;
+    vertical-align: middle;
+    margin: 0 !important; /* Elimina cualquier margen residual */
+    padding: 0 !important;
 }

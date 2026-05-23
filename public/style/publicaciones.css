@@ -62,6 +62,8 @@
     .hdr p {
         display: none;
     }
+
+   
 }
 
 
@@ -73,11 +75,14 @@ body {
 
 .wrap {
     max-width: 1100px;
-    margin: auto;
+margin: auto;
+
     padding: 28px 9px;
 }
 
 .hdr {
+    margin-left: 15px;
+    margin-right: 6px;
     margin-top: 30px;
     margin-bottom: 22px;
 }

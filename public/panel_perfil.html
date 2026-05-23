@@ -14,6 +14,9 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
     <script type="module" src="js/panel_perfil.js"></script>
     <script type="module" src="js/horario_perfil.js"></script>
+    <script type="module" src="js/horario_real_time.js"></script>
+    <script type="module" src="js/cambios_horario.js"></script>
+
 </head>
 
 <body>
@@ -34,26 +37,44 @@
 
             </div>
             <nav class="sidebar-nav">
+
                 <button class="sidebar-btn active" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
+
                     <span class="sbb-icon">🏪</span>
                     <span class="sbb-label">Perfil</span>
+
                 </button>
 
-                <button class="sidebar-btn" onclick="PanelPerfil.loadPublicidad()">
+                <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
                     <span class="sbb-icon">📢</span>
                     <span class="sbb-label">Publicidad</span>
+
+                </button>
+
+                <button class="sidebar-btn" id="sbb-daniel" onclick="PanelPerfil.showSection('daniel')">
+                    <span class="sbb-icon">🤖</span>
+                    <span class="sbb-label">Asistente Daniel</span>
+
                 </button>
 
                 <button class="sidebar-btn" id="sbb-fotos" onclick="PanelPerfil.showSection('fotos')">
+
                     <span class="sbb-icon">📸</span>
                     <span class="sbb-label">Fotos</span>
+
                 </button>
 
-                <button class="sidebar-btn" id="sbb-fotos" onclick="PanelPerfil.showSection('fotos')">
-                    <span class="sbb-icon">📸</span>
+                <button class="sidebar-btn" id="sbb-recargas" onclick="PanelPerfil.showSection('recargas')">
+
+                    <span class="sbb-icon">⚡</span>
                     <span class="sbb-label">Recargas</span>
+
                 </button>
+
+
+
             </nav>
+            <!-- =====
             <div class="sidebar-save-wrap">
                 <button class="sidebar-save-btn" id="sidebarSaveBtn" onclick="PanelPerfil.saveChanges()">✓ Guardar
                     cambios</button>
@@ -64,6 +85,7 @@
                 </button>
 
             </div>
+             ===== -->
         </aside>
 
 
@@ -113,7 +135,11 @@
                                 <label class="form-label" for="fieldAforo">Aforo máximo</label>
                                 <input class="form-input" id="fieldAforo" type="number" placeholder="Ej: 50">
                             </div>
+
+                            <div id="horario-estado"></div>
+
                         </div>
+
                     </div>
 
 
@@ -122,7 +148,7 @@
                             <!-- ÚNICA TARJETA PRINCIPAL -->
                             <div class="exp-card" id="card-account">
                                 <!-- HEADER (resumen colapsable) -->
-                                <div class="exp-header" onclick="toggle('card-account')">
+                                <div class="exp-header" onclick="toggle(this)">
                                     <div class="exp-header-left">
                                         <div class="exp-icon purple">✦</div>
                                         <div>
@@ -193,7 +219,11 @@
                                             <img src="img/icon_monedas_3d.webp" class="balance-img" alt="Saldo"
                                                 width="40" height="40">
                                         </div>
-
+                                        <div class="action-container">
+                                            <button class="btn-renovar" onclick="PanelPerfil.abrirModalRenovacion()">
+                                                Renovar plan
+                                            </button>
+                                        </div>
 
                                     </div>
                                 </div>
@@ -251,13 +281,13 @@
                             <div class="map-wrapper">
 
                                 <div id="mapBoxPerfil"></div>
-
+                                <!--
                                 <button class="map-current-btn" onclick="PanelPerfil.getCurrentLocation()">
 
                                     📍 Mi ubicación
 
                                 </button>
-
+ -->
                             </div>
                             <div class="form-section" style="margin:0; box-shadow:none;">
                                 <div class="form-field">
@@ -455,6 +485,7 @@
                     </div>
 
                     <!-- ===== OTROS MÉTODOS ===== -->
+
                     <div class="expand-section">
 
                         <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
@@ -464,7 +495,7 @@
                             <div class="expand-header-text">
 
                                 <div class="expand-header-title">
-                                   Metodos de pago
+                                    Metodos de pago
                                 </div>
 
                                 <div class="expand-header-sub">
@@ -587,6 +618,7 @@
                     </div>
 
 
+
                     <!-- ===== CONTACTO Y REDES + OTROS MÉTODOS (2 columnas en PC) ===== -->
 
                 </div>
@@ -639,107 +671,128 @@
 
                 </div>
 
+
+                <!-- ===== RECARGAS ===== -->
+                <div class="section" id="sec-recargas">
+
+                    <iframe src="recargas.html" style="
+                        width:100%;
+                        height:100vh;
+                        border:none;
+                        display:block;
+                        overflow:hidden;
+                        background:#fff;
+                    ">
+                    </iframe>
+
+                </div>
+
+
+                <div class="section" id="sec-daniel">
+
+                    <iframe src="lading_daniel.html" style="
+                        width:100%;
+                        height:100vh;
+                        border:none;
+                        display:block;
+                        overflow:hidden;
+                        background:#fff;
+                    ">
+                    </iframe>
+
+                </div>
+
+
+                <!-- ===== PUBLICIDAD ===== -->
+                <div class="section" id="sec-publicidad">
+
+                    <div id="publicidadContainer" style="
+                        width:100%;
+                        height:100%;
+                        min-height:100vh;
+                        position:relative;
+                    ">
+                    </div>
+
+                </div>
+
             </div><!-- /content -->
 
-            <div class="section" id="sec-publicidad">
-                <div id="publicidadContainer" style="
-            width:100%;
-            height:100%;
-            min-height:100vh;
-            position:relative;
-        ">
-                </div>
-            </div>
+            <!-- SAVE FAB (mobile) 
+             
+            <button class="save-fab" id="saveFab" onclick="PanelPerfil.saveChanges()">✓ Guardar cambios</button>
+-->
 
-        </div><!-- /content -->
+            <!-- BOTON MENU MOBILE -->
+            <button class="mobile-menu-btn" onclick="PanelPerfil.toggleMobileMenu()">
+                ☰
+            </button>
 
-        <!-- SAVE FAB (mobile) -->
-        <button class="save-fab" id="saveFab" onclick="PanelPerfil.saveChanges()">✓ Guardar cambios</button>
+            <!-- OVERLAY -->
+            <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="PanelPerfil.toggleMobileMenu()"></div>
 
+            <!-- MENU MOBILE -->
+            <div class="mobile-menu" id="mobileMenu">
 
-        <!-- BOTON MENU MOBILE -->
-        <button class="mobile-menu-btn" onclick="PanelPerfil.toggleMobileMenu()">
-            ☰
-        </button>
+                <div class="mobile-menu-header">
 
-        <!-- OVERLAY -->
-        <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="PanelPerfil.toggleMobileMenu()"></div>
+                    <img class="mobile-menu-logo" src="img/Diseño sin título (2).png" alt="Geinz">
 
-        <!-- MENU MOBILE -->
-        <div class="mobile-menu" id="mobileMenu">
-
-            <div class="mobile-menu-header">
-
-                <img class="mobile-menu-logo" src="img/Diseño sin título (2).png" alt="Geinz">
-
-                <div>
-                    <div class="mobile-menu-title">Geinz Web</div>
-                    <div class="mobile-menu-sub">
-                        Panel de negocio
+                    <div>
+                        <div class="mobile-menu-title">Geinz Web</div>
+                        <div class="mobile-menu-sub">
+                            Panel de negocio
+                        </div>
                     </div>
+
                 </div>
 
+                <div class="mobile-menu-items">
+
+                    <button class="mobile-menu-item active" id="mmb-perfil"
+                        onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
+
+                        <span>🏪</span>
+                        <span>Perfil</span>
+
+                    </button>
+
+                    <button class="mobile-menu-item" id="mmb-publicidad"
+                        onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
+
+                        <span>📢</span>
+                        <span>Publicidad</span>
+
+                    </button>
+
+                    <button class="sidebar-btn" id="sbb-daniel" onclick="PanelPerfil.showSection('daniel')">
+                        <span class="sbb-icon">🤖</span>
+                        <span class="sbb-label">Asistente Daniel</span>
+
+                    </button>
+
+                    <button class="mobile-menu-item" id="mmb-fotos"
+                        onclick="PanelPerfil.showSection('fotos'); PanelPerfil.toggleMobileMenu()">
+
+                        <span>📸</span>
+                        <span>Fotos</span>
+
+                    </button>
+
+                    <button class="mobile-menu-item" id="mmb-recargas"
+                        onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
+
+                        <span>⚡</span>
+                        <span>Recargas</span>
+
+                    </button>
+
+
+
+                </div>
             </div>
 
-            <div class="mobile-menu-items">
-
-                <button class="mobile-menu-item active"
-                    onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
-
-                    <span>🏪</span>
-                    <span>Perfil</span>
-
-                </button>
-
-                <button class="mobile-menu-item" onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
-
-                    <span>📢</span>
-                    <span>Publicidad</span>
-
-                </button>
-
-                <button class="mobile-menu-item"
-                    onclick="PanelPerfil.showSection('fotos'); PanelPerfil.toggleMobileMenu()">
-
-                    <span>📸</span>
-                    <span>Fotos</span>
-
-                </button>
-
-                <button class="mobile-menu-item"
-                    onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
-
-                    <span>⚡</span>
-                    <span>Recargas</span>
-
-                </button>
-
-            </div>
-
-        </div>
-
-        <!-- BOTTOM BAR (mobile)
-            <div class="bottom-bar">
-                <button class="bar-btn active" id="bb-perfil" onclick="PanelPerfil.showSection('perfil')">
-                    <div class="bar-icon">🏪</div>
-                    <div class="bar-label">Perfil</div>
-                </button>
-                <button class="bar-btn" id="bb-publicidad" onclick="PanelPerfil.loadPublicidad()">
-                    <div class="bar-icon">📢</div>
-                    <div class="bar-label">Publicidad</div>
-                </button>
-
-                <button class="bar-btn" id="bb-fotos" onclick="PanelPerfil.showSection('fotos')">
-                    <div class="bar-icon">📸</div>
-                    <div class="bar-label">Fotos</div>
-                </button>
-                <button class="sidebar-btn" id="sbb-fotos" onclick="PanelPerfil.showSection('fotos')">
-                    <span class="sbb-icon">📸</span>
-                    <span class="sbb-label">Recargas</span>
-                </button>
-            </div>
- -->
-    </div><!-- /main -->
+        </div><!-- /main -->
     </div>
     <div class="modal-overlay" id="modalFotoPerfil"
         style="display:flex !important; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:flex-end; justify-content:center;">
@@ -795,6 +848,40 @@
                 ✓ Guardar foto
             </button>
 
+        </div>
+    </div>
+
+    <div id="modal-renovacion" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Renueva tu plan</h3>
+            <p>Selecciona plazo a renovar</p>
+
+            <div id="selector-planes" class="selector-planes"></div>
+
+            <div class="resumen-pago">
+                <p>Saldo actual:
+                    <span id="saldo-actual">0</span>
+                    <img src="img/icon_monedas_3d.webp" class="coin-icon">
+                </p>
+                <div id="detalle-descuento"></div>
+                <p>
+                    <span class="label-text">Saldo disponible restante:</span>
+                    <span class="valor-container">
+                        <span id="saldo-restante">0</span>
+                        <img src="img/icon_monedas_3d.webp" class="coin-icon">
+                    </span>
+                </p>
+                <hr>
+                <p>Total:
+                    <span id="total-a-pagar">0</span>
+                    <img src="img/icon_monedas_3d.webp" class="coin-icon">
+                </p>
+            </div>
+
+            <div class="acciones">
+                <button onclick="cerrarModal()">Cancelar</button>
+                <button id="btn-continuar" onclick="procesarPago()">Continuar</button>
+            </div>
         </div>
     </div>
     <!-- ===== SKELETON SCREEN ===== -->

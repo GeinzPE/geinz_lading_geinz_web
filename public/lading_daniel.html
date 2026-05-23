@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control Inteligente - Geinz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ==========================================
+           SISTEMA DE VARIABLES DE COLOR (PREMIUM DARK)
+           ========================================== */
+        :root {
+            --bg-pure-black: #000000;
+            --bg-card: #070a0e;
+            --bg-input: #0f131a;
+            --border-glow: #1a2332;
+            --border-focus: #3b82f6;
+
+            --text-primary: #ffffff;
+            --text-secondary: #8e9aa8;
+            --text-muted: #64748b;
+
+            --wa-green: #22c55e;
+            --wa-green-alpha: rgba(34, 197, 94, 0.1);
+            --wa-bg: #0b141a;
+            --wa-bubble: #111b21;
+            --wa-text: #e9edef;
+            --wa-link: #53bdeb;
+            --wa-time: #8696a0;
+
+            --coin-gold: #eab308;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Estilos para navegadores Webkit (Chrome, Safari, Edge, Opera) */
+        ::-webkit-scrollbar {
+            width: 6px;
+            /* Ancho vertical */
+            height: 6px;
+            /* Alto horizontal */
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000000;
+            /* Fondo del área del scroll */
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+            /* Color de la barrita */
+            border-radius: 10px;
+            /* Bordes redondeados */
+            border: 1px solid #1a1a1a;
+            /* Un pequeño borde para que resalte */
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555555;
+            /* Color más claro al pasar el mouse */
+        }
+
+        /* Opcional: Para Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #333333 #000000;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-pure-black);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* HEADER */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-glow);
+        }
+
+        .header-left h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .header-left p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 2px;
+        }
+
+        .status-badge {
+            background-color: var(--wa-green-alpha);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            padding: 6px 14px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--wa-green);
+        }
+
+        /* ==========================================
+           GRID RESPONSIVE INTELIGENTE
+           ========================================== */
+        .main-workspace-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        /* Asignación de áreas base */
+        .seo-section {
+            grid-area: seo;
+        }
+
+        .config-section {
+            grid-area: config;
+        }
+
+        .preview-section {
+            grid-area: preview;
+        }
+
+        .card-premium {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 1.75rem;
+            height: auto;
+        }
+
+        .card-heading {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* DESCRIPCIÓN SEO */
+        .seo-body-wrapper {
+            transition: var(--transition);
+        }
+
+        .input-block-container {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .custom-textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: none;
+            min-height: 85px;
+            outline: none;
+        }
+
+        .btn-ia-action {
+            width: 100%;
+            background: linear-gradient(90deg, #2563eb, #6d28d9);
+            color: var(--text-primary);
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 1rem;
+        }
+
+        .arrow-icon {
+            display: none;
+            font-size: 0.75rem;
+            transition: var(--transition);
+            color: var(--text-secondary);
+        }
+
+        /* ==========================================
+           BURBUJA DE WHATSAPP (CORREGIDA AL 100%)
+           ========================================== */
+        .sticky-preview-box {
+            position: sticky;
+            top: 2rem;
+        }
+
+        .wa-preview-wrapper {
+            background-color: var(--wa-bg);
+            border-radius: 12px;
+            padding: 12px;
+            border-left: 3px solid var(--wa-green);
+        }
+
+        /* CORRECCIÓN: Ocupa todo el ancho disponible de la tarjeta sin deformarse */
+        .wa-media-header {
+            width: 100%;
+            aspect-ratio: 16 / 12;
+            object-fit: cover;
+            object-position: center;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .wa-message-body {
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--wa-text);
+            white-space: pre-wrap;
+        }
+
+        .wa-message-body strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .wa-message-body a {
+            color: var(--wa-link);
+            text-decoration: none;
+        }
+
+        .wa-meta-time {
+            float: right;
+            font-size: 10px;
+            color: var(--wa-time);
+            margin-top: 6px;
+        }
+
+        .wa-interactive-buttons {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 8px;
+        }
+
+        .wa-action-link-btn {
+            background-color: var(--wa-bubble);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            color: #3992f3;
+            text-align: center;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            text-decoration: none;
+            display: block;
+        }
+
+        /* PLANES STACK */
+        .plans-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .plan-row-card {
+            border: 1px solid var(--border-glow);
+            background-color: var(--bg-input);
+            border-radius: 12px;
+            padding: 1.25rem;
+            cursor: pointer;
+            position: relative;
+            transition: var(--transition);
+        }
+
+        .plan-row-card.selected {
+            border-color: var(--wa-green);
+            background-color: rgba(34, 197, 94, 0.01);
+        }
+
+        .plan-row-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .plan-row-cost {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .plan-features-matrix {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            font-size: 11px;
+        }
+
+        .matrix-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #cbd5e1;
+        }
+
+        .matrix-item.disabled {
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+
+        /* FORMULARIOS ADICIONALES PRO */
+        .pro-toggle-section {
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border-glow);
+            display: none;
+        }
+
+        .pro-toggle-section.active-view {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-control-dark {
+            width: 100%;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-glow);
+            border-radius: 10px;
+            padding: 12px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .btn-submit-main {
+            width: 100%;
+            background-color: var(--wa-green);
+            color: #000000;
+            font-weight: 700;
+            font-size: 13px;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-top: 1.5rem;
+        }
+
+        /* ==========================================
+           MEDIA QUERIES - CONTROL DE BORDES Y RESPONSIVE
+           ========================================== */
+        @media (min-width: 901px) {
+            .main-workspace-grid {
+                grid-template-areas:
+                    "seo config"
+                    "preview config";
+                grid-template-columns: 1.2fr 1fr;
+            }
+
+            .preview-section {
+                grid-area: config;
+            }
+
+            .config-section {
+                grid-area: seo;
+                grid-row: 2;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .main-workspace-grid {
+                grid-template-areas:
+                    "seo"
+                    "preview"
+                    "config";
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            /* Redondeado fluido perfecto en móviles */
+            .seo-section {
+                border-radius: 16px;
+                margin-bottom: 1.25rem;
+            }
+
+            .preview-section {
+                grid-area: preview;
+                background-color: var(--bg-card);
+                border: 1px solid var(--border-glow);
+                padding: 1.25rem;
+                border-top-left-radius: 16px;
+                border-top-right-radius: 16px;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                border-bottom: none;
+            }
+
+            .config-section {
+                grid-area: config;
+                background-color: var(--bg-card);
+                border: 1px solid var(--border-glow);
+                padding: 1.25rem;
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                border-bottom-left-radius: 16px;
+                border-bottom-right-radius: 16px;
+                border-top: none;
+                padding-top: 0.5rem;
+            }
+
+            /* Control de acordeón colapsable */
+            .card-heading.expandible-mobile {
+                cursor: pointer;
+            }
+
+            .arrow-icon {
+                display: inline-block;
+            }
+
+            .arrow-icon.rotated {
+                transform: rotate(180deg);
+            }
+
+            .seo-body-wrapper {
+                max-height: 0;
+                opacity: 0;
+                overflow: hidden;
+            }
+
+            .seo-body-wrapper.expanded {
+                max-height: 400px;
+                opacity: 1;
+                margin-top: 1rem;
+            }
+
+            .preview-section .card-heading {
+                display: none;
+            }
+
+            .sticky-preview-box {
+                position: static;
+            }
+
+            .wa-preview-wrapper {
+                margin-bottom: 0.5rem;
+            }
+
+            .plan-features-matrix {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ================= SKELETON LOADER ================= */
+
+        #skeleton-loader {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .skeleton-container {
+            width: 100%;
+            max-width: 1100px;
+            padding: 2rem;
+        }
+
+        .skeleton-header {
+            width: 40%;
+            height: 22px;
+            background: #111;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .skeleton-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .skeleton-card {
+            height: 180px;
+            background: #111;
+            border-radius: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .skeleton-card.large {
+            height: 260px;
+        }
+
+        /* shimmer */
+        .skeleton-header::after,
+        .skeleton-card::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 150%;
+            height: 100%;
+            background: linear-gradient(90deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.06),
+                    transparent);
+            animation: shimmer 1.2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                left: -150%;
+            }
+
+            100% {
+                left: 150%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <header class="app-header">
+            <div class="header-left">
+                <h1>Asistente Daniel</h1>
+                <p>Configuración del Bot de WhatsApp — Geinz</p>
+            </div>
+            <div class="status-badge">Activo (Pro)</div>
+        </header>
+
+        <div class="main-workspace-grid">
+
+            <section class="card-premium seo-section">
+                <div class="card-heading expandible-mobile" onclick="toggleSeoAccordion()">
+                    <span>📝 Descripción SEO del Negocio</span>
+                    <span class="arrow-icon" id="seo-arrow-indicator">▼</span>
+                </div>
+
+                <div class="seo-body-wrapper" id="seo-collapsible-container">
+                    <div class="input-block-container">
+                        <label>Contenido informativo del local</label>
+                        <textarea id="seo-global-input" class="custom-textarea"
+                            maxlength="200">Disfruta deliciosas hamburguesas, parrillas, ahumados, pollo broaster y helados. Aceptamos Yape, Plin, efectivo. Con Wifi, enchufes, seguridad y amplia zona de estacionamiento.</textarea>
+                    </div>
+                    <button class="btn-ia-action">Generar descripción con IA ✨</button>
+                </div>
+            </section>
+
+            <div class="preview-section sticky-preview-box">
+                <section class="card-premium" style="background-color: transparent; border: none; padding: 0;">
+                    <div class="card-heading">
+                        <span>👁️ Vista Previa en Tiempo Real</span>
+                    </div>
+
+                    <div class="wa-preview-wrapper">
+                        <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80"
+                            class="wa-media-header" id="wa-card-image">
+                        <div class="wa-message-body" id="wa-text-renderer">
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <section class="card-premium config-section">
+                <div class="card-heading" style="margin-bottom: 1rem;">
+                    <span>📋 Formato de Plantilla</span>
+                </div>
+
+                <div class="plans-stack">
+                    <div class="plan-row-card" id="plan-free-card" onclick="changeActivePlan('free')">
+                        <div class="plan-row-title">Plan gratis</div>
+                        <div class="plan-row-cost">Sin costos operativos</div>
+                        <div class="plan-features-matrix">
+                            <div class="matrix-item"><span>✓</span> Nombre del negocio</div>
+                            <div class="matrix-item"><span>✓</span> Estado de actividad</div>
+                            <div class="matrix-item"><span>✓</span> Métodos de pago</div>
+                            <div class="matrix-item"><span>✓</span> Redirección de link externo</div>
+                            <div class="matrix-item disabled"><span>✕</span> Banner publicitario</div>
+                            <div class="matrix-item disabled"><span>✕</span> Botonera interactiva</div>
+                        </div>
+                    </div>
+
+                    <div class="plan-row-card selected" id="plan-pro-card" onclick="changeActivePlan('pro')">
+                        <div class="plan-row-title">Plan Pro</div>
+                        <div class="plan-row-cost">10 🪙 o 1 recomendación efectuada</div>
+                        <div class="plan-features-matrix">
+                            <div class="matrix-item"><span>✓</span> Todo lo del plan gratis</div>
+                            <div class="matrix-item"><span>✓</span> Banner interactivo dinámico</div>
+                            <div class="matrix-item"><span>✓</span> Estructuración Pro AI</div>
+                            <div class="matrix-item"><span>✓</span> Botón de contacto directo</div>
+                            <div class="matrix-item"><span>✓</span> Enlace optimizado WhatsApp</div>
+                            <div class="matrix-item"><span>✓</span> Estado automatizado</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pro-toggle-section active-view" id="pro-form-fields">
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label>Tu número de WhatsApp</label>
+                        <input type="text" class="form-control-dark" value="937659216">
+                    </div>
+                    <div class="form-group">
+                        <label>Mensaje predeterminado de entrada</label>
+                        <input type="text" class="form-control-dark"
+                            value="hola vi tu negocio en geinz y quiero mas informacion sobre los productos que vendes">
+                    </div>
+                </div>
+
+                <button class="btn-submit-main" id="btn-action-submit">Guardar Cambios Plan Pro</button>
+            </section>
+
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // CONFIG FIREBASE (usa la tuya real)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.appspot.com",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+        };
+
+
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // ===============================
+        // OBTENER PARAMETROS URL
+        // ===============================
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id") || "fW7W8RsgkkQ3IYfxKHGR";
+        const localidad = params.get("localidad") || "barranca";
+
+        // referencias UI
+        const waCardImage = document.getElementById("wa-card-image");
+        const waTextRenderer = document.getElementById("wa-text-renderer");
+        // ===============================
+        // DATOS GLOBALES
+        // ===============================
+        let tiendaData = null;
+        let lugarData = null;
+
+        function ocultarSkeleton() {
+            document.getElementById("skeleton-loader").style.display = "none";
+        }
+        window.toggleSeoAccordion = function () {
+            const container = document.getElementById("seo-collapsible-container");
+            const arrow = document.getElementById("seo-arrow-indicator");
+
+            if (!container || !arrow) return;
+
+            container.classList.toggle("expanded");
+            arrow.classList.toggle("rotated");
+        };
+        // ===============================
+        // FETCH TIENDA
+        // ===============================
+        async function cargarTienda() {
+            try {
+                if (!id || !localidad) {
+                    console.error("Faltan parámetros id o localidad");
+                    ocultarSkeleton();
+                    return;
+                }
+
+                const refTienda = doc(db, "Tiendas", localidad, localidad, id);
+                const refLugar = doc(db, "lugares", id);
+
+                // 🔥 carga en paralelo (más rápido)
+                const [snapTienda, snapLugar] = await Promise.all([
+                    getDoc(refTienda),
+                    getDoc(refLugar)
+                ]);
+
+                if (snapTienda.exists()) {
+                    tiendaData = snapTienda.data();
+                    aplicarTienda();
+                }
+
+                if (snapLugar.exists()) {
+                    lugarData = snapLugar.data();
+                    aplicarLugar();
+                }
+
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+            } finally {
+                // 🔥 SIEMPRE ocultar loader
+                ocultarSkeleton();
+            }
+        }
+        // ===============================
+        // APLICAR TIENDA
+        // ===============================
+        function aplicarTienda() {
+
+            // IMAGEN BOT
+            if (tiendaData?.img_tienda?.lista_img?.ambientales?.[0]) {
+                waCardImage.src = tiendaData.img_tienda.lista_img.ambientales[0];
+            }
+
+            // PLAN PRO
+            if (tiendaData.bot_plan_pro === true) {
+                console.log("Plan PRO activo");
+            }
+
+            // PLANTILLA
+            if (tiendaData.plantilla === true) {
+                console.log("Plantilla activa PRO BOT");
+            }
+
+            // WhatsApp preview
+            waTextRenderer.innerHTML = `
+        <strong>${tiendaData.nombre_tienda}</strong><br><br>
+        ${tiendaData.descripcion || ""}<br><br>
+        <span>📍 ${tiendaData.ubicacion?.dirección || ""}</span>
+    `;
+        }
+
+        // ===============================
+        // APLICAR LUGAR (BOT PRO)
+        // ===============================
+        function aplicarLugar() {
+
+            if (!lugarData) return;
+
+            // si plantilla true usa imagen_bot
+            if (lugarData.plantilla === true && lugarData.imagen_bot) {
+                waCardImage.src = lugarData.imagen_bot;
+            }
+
+            // override mensaje pro
+            if (lugarData.plantilla === true) {
+                waTextRenderer.innerHTML = `
+            <strong>${lugarData.nombre}</strong><br><br>
+            ${lugarData.descripcion}<br><br>
+            📲 WhatsApp: ${lugarData.whatsapp || ""}<br>
+            🏷️ ${lugarData.categoria || ""}
+        `;
+            }
+        }
+
+        // ===============================
+        // CAMBIAR IMAGEN AL HACER CLICK
+        // ===============================
+        waCardImage.addEventListener("click", () => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "image/*";
+
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+
+                reader.onload = () => {
+                    waCardImage.src = reader.result;
+
+                    // aquí luego puedes subir a Firebase Storage si quieres
+                    console.log("Imagen seleccionada lista para upload");
+                };
+
+                reader.readAsDataURL(file);
+            };
+
+            input.click();
+        });
+
+        // iniciar
+        cargarTienda();
+    </script>
+</body>
+<!-- ================= SKELETON LOADER ================= -->
+<div id="skeleton-loader">
+    <div class="skeleton-container">
+
+        <div class="skeleton-header"></div>
+
+        <div class="skeleton-grid">
+
+            <div class="skeleton-card large"></div>
+            <div class="skeleton-card"></div>
+
+            <div class="skeleton-card large"></div>
+            <div class="skeleton-card"></div>
+
+        </div>
+
+    </div>
+</div>
+
+</html>
