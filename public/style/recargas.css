@@ -129,7 +129,7 @@
         }
 
         .culqi-img {
-            max-width: 160px;
+            max-width: 260px;
             height: auto;
             object-fit: contain;
         }
@@ -327,7 +327,7 @@
             }
 
             .culqi-img {
-                max-width: 140px;
+                max-width: 240px;
             }
 
             .planes-container {

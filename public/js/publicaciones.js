@@ -35,6 +35,57 @@ let imgsCount = 0;
 let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
 let precioYaSeteado = false;
+
+
+let tipoTextoIA = "venta";
+let tipoImagenIA = "venta";
+
+const BULLETS = {
+  venta: [
+    "Lenguaje persuasivo orientado a conversión",
+    "Llamados a la acción claros",
+    "Genera urgencia moderada",
+    "Ideal para ventas rápidas",
+  ],
+  llamado: [
+    "Ganchos creativos y llamativos",
+    "Preguntas que despiertan curiosidad",
+    "Mayor visibilidad en el feed",
+    "Ideal para atraer nuevos clientes",
+  ],
+  informativo: [
+    "Tono profesional y confiable",
+    "Explica claramente el valor",
+    "Evita exageraciones",
+    "Ideal para rubros técnicos o formales",
+  ],
+};
+
+function renderBullets(tipo) {
+  const container = document.getElementById("iaBullets");
+  if (!container) return;
+  container.innerHTML = BULLETS[tipo]
+    .map(b => `
+      <div class="ia-bullet">
+        <div class="ia-bullet-icon"><i class="ti ti-check" style="font-size:10px"></i></div>
+        <span>${b}</span>
+      </div>`)
+    .join("");
+}
+
+window.selectTipoTexto = function (el) {
+  document.querySelectorAll("#iaZonaTexto .ia-tipo-chip").forEach(c => c.classList.remove("active"));
+  el.classList.add("active");
+  tipoTextoIA = el.dataset.tipo;
+  renderBullets(tipoTextoIA);
+};
+
+window.selectTipoImagen = function (el) {
+  document.querySelectorAll("#iaZonaImagen .ia-tipo-chip").forEach(c => c.classList.remove("active"));
+  el.classList.add("active");
+  tipoImagenIA = el.dataset.tipo;
+};
+
 // ── Auth anónimo ───────────────────────────────────────
 signInAnonymously(auth).catch((e) => console.error("Auth error:", e));
 
@@ -366,11 +417,23 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const titulo = tituloInput.value.trim();
     const desc = descripcionInput.value.trim();
     aplicarPrecioDetectado(detectarPrecioTexto(`${titulo} ${desc}`));
+
+    // zona IA imagen
+    const zonaImg = document.getElementById("iaZonaImagen");
+    if (zonaImg) zonaImg.style.display = imgsCount > 0 ? "flex" : "none";
+
+    // zona IA texto
+    const zonaTxt = document.getElementById("iaZonaTexto");
+    if (zonaTxt) {
+      const mostrar = desc.length >= 10;
+      zonaTxt.style.display = mostrar ? "flex" : "none";
+      if (mostrar) renderBullets(tipoTextoIA);
+    }
+
+    // wp / share
     const tieneContenido = titulo.length >= 4 && desc.length >= 15;
-    showBtn(btnDescripcionIA, desc.length >= 15);
     showBtn(btnMensajeWpIA, tieneContenido);
     showBtn(btnMensajeShareIA, tieneContenido);
-    showBtn(btnImagenIA, imgsCount > 0);
   }
 
   /* ══════════════════════════════════════════
@@ -390,12 +453,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
   function setLoadingImagen(on) {
     if (!btnImagenIA) return;
-    btnImagenIA.classList.toggle("loading", on);
     btnImagenIA.disabled = on;
+    btnImagenIA.classList.toggle("loading", on);
     loadingImagenIA.style.display = on ? "inline-flex" : "none";
-    btnImagenIALabel.textContent = on
-      ? "Generando…"
-      : "Generar imagen + texto con IA";
+    btnImagenIALabel.textContent = on ? "Generando…" : "Generar imagen + texto con IA";
     if (precioImagenIA) precioImagenIA.style.display = on ? "none" : "inline";
   }
 
@@ -438,7 +499,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     setBtnLoading(btnDescripcionIA, true);
     try {
       const result = await callFirebaseFunction(CLOUD_FN_TEXT_URL, {
-        tipo: "VENTA",
+        tipo: tipoTextoIA.toUpperCase(),   // "VENTA" | "LLAMADO" | "INFORMATIVO"
         tituloUsuario: titulo,
         descripcionUsuario: descripcion,
       });
@@ -560,7 +621,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       const result = await callFirebaseFunction(CLOUD_FN_URL, {
         imageBase64: dataURL.split(",")[1],
         mimeType: "image/jpeg",
-        tipo: "publicación de venta",
+        tipo: tipoImagenIA,   // "venta" | "llamado" | "informativo"
       });
       if (!result?.ok) throw new Error("IA inválida");
       if (result.titulo) tituloInput.value = result.titulo;
@@ -962,13 +1023,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         ...(sw_pagos
           ? pagos
           : {
-              yape: false,
-              plin: false,
-              agora: false,
-              efectivo: false,
-              visa: false,
-              mastercard: false,
-            }),
+            yape: false,
+            plin: false,
+            agora: false,
+            efectivo: false,
+            visa: false,
+            mastercard: false,
+          }),
         numero,
         mensaje_whatsapp: mensajeWpInput.value || "",
         mensaje_compartir: mensajeShareInput.value || "",
@@ -991,8 +1052,9 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       console.log("✅ RESULTADO:", result);
 
       ocultarSkeleton();
+
       limpiarFormulario();
-      mostrarToast("¡Promoción publicada! 🎉", "success");
+      mostrarModalExito(id_promocion, localidad);
     } catch (err) {
       console.error("❌ ERROR:", err);
       ocultarSkeleton();
@@ -1011,34 +1073,155 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     sk.id = "skeletonPublicando";
     sk.className = "sk-overlay";
     sk.innerHTML = `
-    <div class="sk-modal">
-      <div class="sk-logo-badge">Geinz</div>
-      <div class="sk-spinner" id="skSpinner"></div>
-      <p class="sk-title" id="skTitle">Publicando tu promoción...</p>
+  <div class="sk-modal">
+    <div class="sk-badge">GEINZ</div>
+    <div class="sk-ring">
+      <svg viewBox="0 0 56 56" width="56" height="56">
+        <defs>
+          <linearGradient id="skRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#6d28d9"/>
+            <stop offset="100%" stop-color="#a855f7"/>
+          </linearGradient>
+        </defs>
+        <circle class="sk-ring-bg" cx="28" cy="28" r="22"/>
+        <circle class="sk-ring-fill" cx="28" cy="28" r="22"/>
+      </svg>
+    </div>
+    <div class="sk-titles">
+      <p class="sk-title" id="skTitle">Publicando tu promocion...</p>
       <p class="sk-subtitle" id="skSubtitle">Esto solo tarda unos segundos</p>
-      <div class="sk-bar-wrap"><div class="sk-bar" id="skBar"></div></div>
-      <div class="sk-steps" id="skSteps">
-        <div class="sk-step done" id="sk-step1">
-          <div class="sk-step-icon"><i class="ti ti-check"></i></div>
-          <span class="sk-step-label">Validando datos</span>
-        </div>
-        <div class="sk-step active" id="sk-step2">
-          <div class="sk-step-icon"><i class="ti ti-cpu"></i></div>
-          <span class="sk-step-label">Analizando con IA</span>
-        </div>
-        <div class="sk-step pending" id="sk-step3">
-          <div class="sk-step-icon"><i class="ti ti-photo"></i></div>
-          <span class="sk-step-label">Subiendo imágenes</span>
-        </div>
-        <div class="sk-step pending" id="sk-step4">
-          <div class="sk-step-icon"><i class="ti ti-world"></i></div>
-          <span class="sk-step-label">Publicando en Geinz</span>
+    </div>
+    <div class="sk-bar-wrap"><div class="sk-bar" id="skBar" style="width:15%"></div></div>
+    <div class="sk-steps" id="skSteps">
+      <div class="sk-step done" id="sk-step1">
+        <div class="sk-step-icon"><i class="ti ti-check"></i></div>
+        <div class="sk-step-text">
+          <div class="sk-step-label">Validando datos</div>
+          <div class="sk-step-status" id="sk-status1">Completado</div>
         </div>
       </div>
-    </div>`;
+      <div class="sk-step active" id="sk-step2">
+        <div class="sk-step-icon"><i class="ti ti-cpu"></i></div>
+        <div class="sk-step-text">
+          <div class="sk-step-label">Analizando con IA</div>
+          <div class="sk-step-status" id="sk-status2">En progreso...</div>
+        </div>
+      </div>
+      <div class="sk-step pending" id="sk-step3">
+        <div class="sk-step-icon"><i class="ti ti-photo"></i></div>
+        <div class="sk-step-text">
+          <div class="sk-step-label">Subiendo imagenes</div>
+          <div class="sk-step-status" id="sk-status3">Pendiente</div>
+        </div>
+      </div>
+      <div class="sk-step pending" id="sk-step4">
+        <div class="sk-step-icon"><i class="ti ti-world"></i></div>
+        <div class="sk-step-text">
+          <div class="sk-step-label">Publicando en Geinz</div>
+          <div class="sk-step-status" id="sk-status4">Pendiente</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
     document.body.appendChild(sk);
   }
 
+  function skSetStep(stepNum, titleText, subtitleText, barPct) {
+    const icons = ["ti-check", "ti-cpu", "ti-photo", "ti-world"];
+    ["sk-step1", "sk-step2", "sk-step3", "sk-step4"].forEach((id, idx) => {
+      const el = document.getElementById(id);
+      const st = document.getElementById(`sk-status${idx + 1}`);
+      if (!el) return;
+      if (idx < stepNum) {
+        el.className = "sk-step done";
+        el.querySelector(".sk-step-icon").innerHTML = '<i class="ti ti-check"></i>';
+        if (st) st.textContent = "Completado";
+      } else if (idx === stepNum) {
+        el.className = "sk-step active";
+        el.querySelector(".sk-step-icon").innerHTML = `<i class="ti ${icons[idx]}"></i>`;
+        if (st) st.textContent = "En progreso...";
+      } else {
+        el.className = "sk-step pending";
+        el.querySelector(".sk-step-icon").innerHTML = `<i class="ti ${icons[idx]}"></i>`;
+        if (st) st.textContent = "Pendiente";
+      }
+    });
+    const t = document.getElementById("skTitle");
+    const s = document.getElementById("skSubtitle");
+    const b = document.getElementById("skBar");
+    if (t) t.textContent = titleText;
+    if (s) s.textContent = subtitleText;
+    if (b) b.style.width = barPct + "%";
+  }
+
+  function ocultarSkeleton() {
+    const sk = document.getElementById("skeletonPublicando");
+    if (sk) sk.remove();
+  }
+
+
+  function mostrarModalExito(id_promocion, localidad) {
+    const localidadMap = { barranca: "ba", lima: "li", callao: "ca" };
+    const l = localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
+    const url = `https://geinzworkapp.web.app/share?t=prms&l=${l}&pi=${id_promocion}`;
+    const urlCorta = url.length > 52 ? url.slice(0, 52) + "..." : url;
+
+    const modal = document.createElement("div");
+    modal.id = "modalExitoPromo";
+    modal.className = "sk-overlay";
+    modal.innerHTML = `
+  <div class="sk-modal sk-modal-success">
+    <div class="sk-check-wrap"><i class="ti ti-check"></i></div>
+    <div class="sk-titles">
+      <p class="sk-title">Publicacion exitosa</p>
+      <p class="sk-subtitle">Tu promocion ya esta visible en Geinz para todos los usuarios de ${localidad || "tu ciudad"}.</p>
+    </div>
+    <div class="sk-url-box">
+      <i class="ti ti-link" style="font-size:14px;color:#52525b;flex-shrink:0"></i>
+      <span class="sk-url-text" title="${url}">${urlCorta}</span>
+      <button class="sk-copy-btn" id="btnCopyUrl"><i class="ti ti-copy" style="font-size:13px"></i> Copiar</button>
+    </div>
+    <div class="sk-share-row">
+      <button class="sk-share-btn sk-share-wp" id="btnShareWp"><i class="ti ti-brand-whatsapp" style="font-size:15px"></i> WhatsApp</button>
+      <button class="sk-share-btn" id="btnShareNative"><i class="ti ti-share" style="font-size:15px"></i> Compartir</button>
+      <button class="sk-share-btn" id="btnVerPromo"><i class="ti ti-external-link" style="font-size:15px"></i> Ver</button>
+    </div>
+    <button class="sk-close-btn" id="btnCerrarExito">Listo</button>
+  </div>`;
+    document.body.appendChild(modal);
+
+    document.getElementById("btnCopyUrl").addEventListener("click", () => {
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById("btnCopyUrl");
+        if (btn) { btn.innerHTML = '<i class="ti ti-check" style="font-size:13px"></i> Copiado'; }
+        setTimeout(() => {
+          const b = document.getElementById("btnCopyUrl");
+          if (b) b.innerHTML = '<i class="ti ti-copy" style="font-size:13px"></i> Copiar';
+        }, 2000);
+      });
+    });
+
+    document.getElementById("btnShareWp").addEventListener("click", () => {
+      window.open(`https://wa.me/?text=${encodeURIComponent("Mira esta promo en Geinz: " + url)}`, "_blank");
+    });
+
+    document.getElementById("btnShareNative").addEventListener("click", () => {
+      if (navigator.share) {
+        navigator.share({ title: "Promo en Geinz", url });
+      } else {
+        navigator.clipboard.writeText(url);
+        mostrarToast("Enlace copiado al portapapeles");
+      }
+    });
+
+    document.getElementById("btnVerPromo").addEventListener("click", () => {
+      window.open(url, "_blank");
+    });
+
+    document.getElementById("btnCerrarExito").addEventListener("click", () => {
+      modal.remove();
+    });
+  }
   function ocultarSkeleton() {
     const sk = document.getElementById("skeletonPublicando");
     if (!sk) return;

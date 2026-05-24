@@ -12,7 +12,7 @@
 <body>
     <div class="wrap">
 
-       
+
 
         <div class="hdr">
             <h1>Promociones <i class="ti ti-sparkles hdr-icon" aria-hidden="true"></i></h1>
@@ -30,7 +30,6 @@
                     <div class="ig" style="overflow: hidden;">
                         <label class="lbl">Selecciona hasta 5 imágenes</label>
 
-                        <!-- Grid de selectores de imagen -->
                         <div class="image-grid-selector" id="imageGridSelector">
                             <div class="image-slot" data-index="0" onclick="selectImage(0)">
                                 <div class="image-slot-content">
@@ -81,20 +80,35 @@
 
                         <input type="file" id="imageInput" accept="image/*" style="display:none;"
                             onchange="handleFiles(this)">
-                        <!-- Botón Generar imagen + texto AQUÍ -->
-                        <div class="img-ai-zone">
-                            <button class="ai-btn-full" id="btnImagenIA" style="position:relative;">
-                                <i class="ti ti-photo-ai btn-icon" aria-hidden="true"></i>
-                                <span class="btn-label" id="btnImagenIALabel">Generar imagen + texto con IA</span>
-                                <span class="btn-price" id="precioImagenIA">+0</span>
-                                <span class="loading-dots" id="loadingImagenIA" style="display:none; margin-left:8px;">
-                                    <span class="dot"></span>
-                                    <span class="dot"></span>
-                                    <span class="dot"></span>
+
+                        <!-- ↓ ZONA IA IMAGEN — aquí, justo debajo del grid ↓ -->
+                        <div class="ia-zona-imagen" id="iaZonaImagen" style="display:none">
+                            <p class="ia-zona-hint">Evita escribir título y descripción y haz que la IA de Geinz lo
+                                escriba
+                                por ti (la IA de Geinz solo utilizará la imagen número 1)</p>
+                            <div class="ia-tipo-row">
+                                <button class="ia-tipo-chip active" data-tipo="venta" onclick="selectTipoImagen(this)">
+                                    Venta
+                                </button>
+                                <button class="ia-tipo-chip" data-tipo="llamado" onclick="selectTipoImagen(this)">
+                                    Llamado de atención
+                                </button>
+                                <button class="ia-tipo-chip" data-tipo="informativo" onclick="selectTipoImagen(this)">
+                                    Informativo
+                                </button>
+                            </div>
+                            <button class="ia-zona-btn" id="btnImagenIA">
+                                <span id="loadingImagenIA" class="loading-dots" style="display:none">
+                                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
                                 </span>
+                                <span id="btnImagenIALabel">Generar contenido</span>
+                                <span class="ia-zona-btn-price" id="precioImagenIA">80</span>
                             </button>
                         </div>
+                        <!-- ↑ fin zona IA imagen ↑ -->
+
                     </div>
+
 
                     <!-- Título -->
                     <div class="ig">
@@ -106,15 +120,37 @@
                     <div class="ig">
                         <label class="lbl">Descripción</label>
                         <textarea id="descripcionInput" placeholder="Descripción de publicación"></textarea>
-                        <div class="ai-zone">
-                            <button class="ai-btn" id="btnDescripcionIA">
-                                <i class="ti ti-wand btn-icon" aria-hidden="true"></i>
-                                <span class="btn-label">Mejorar texto x3</span>
-                                <span class="btn-price" id="precioDescripcionIA">+0</span>
-                            </button>
-                            <div id="resultadoIAContainer" class="ia-results"></div>
-                        </div>
                     </div>
+
+                    <!-- ZONA IA TEXTO -->
+                    <!-- ZONA IA TEXTO -->
+                    <div class="ia-zona-texto" id="iaZonaTexto" style="display:none">
+                        <div class="ia-zona-header">
+                            <p class="ia-zona-title">Potencia tus publicaciones con la IA de Geinz</p>
+                            <p class="ia-zona-sub">Deja que la IA de Geinz mejore tu contenido de forma rápida y
+                                profesional</p>
+                        </div>
+                        <p class="ia-zona-label">Selecciona el tipo de contenido que quieres generar</p>
+                        <div class="ia-tipo-row">
+                            <button class="ia-tipo-chip active" data-tipo="venta" onclick="selectTipoTexto(this)">
+                                Venta
+                            </button>
+                            <button class="ia-tipo-chip" data-tipo="llamado" onclick="selectTipoTexto(this)">
+                                Llamado de atención
+                            </button>
+                            <button class="ia-tipo-chip" data-tipo="informativo" onclick="selectTipoTexto(this)">
+                                Informativo
+                            </button>
+                        </div>
+                        <div class="ia-bullets" id="iaBullets"></div>
+                        <button class="ia-zona-btn" id="btnDescripcionIA">
+                            Mejorar título y descripción con IA
+                            <span class="ia-zona-btn-price">50</span>
+                        </button>
+                        <div id="resultadoIAContainer" class="ia-results"></div>
+                    </div>
+
+                   
 
                 </div>
 
