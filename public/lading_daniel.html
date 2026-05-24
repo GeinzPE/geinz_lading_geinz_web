@@ -10,9 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        /* ==========================================
-           SISTEMA DE VARIABLES DE COLOR (PREMIUM DARK)
-           ========================================== */
         :root {
             --bg-pure-black: #000000;
             --bg-card: #070a0e;
@@ -34,46 +31,20 @@
 
             --coin-gold: #eab308;
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+            --save-btn-bg: rgba(234, 179, 8, 0.12);
+            --save-btn-border: rgba(234, 179, 8, 0.35);
+            --save-btn-text: #eab308;
+            --save-btn-hover: rgba(234, 179, 8, 0.2);
         }
 
-        /* Estilos para navegadores Webkit (Chrome, Safari, Edge, Opera) */
-        ::-webkit-scrollbar {
-            width: 6px;
-            /* Ancho vertical */
-            height: 6px;
-            /* Alto horizontal */
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #333333; border-radius: 10px; border: 1px solid #1a1a1a; }
+        ::-webkit-scrollbar-thumb:hover { background: #555555; }
+        * { scrollbar-width: thin; scrollbar-color: #333333 #000000; }
 
-        ::-webkit-scrollbar-track {
-            background: #000000;
-            /* Fondo del área del scroll */
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #333333;
-            /* Color de la barrita */
-            border-radius: 10px;
-            /* Bordes redondeados */
-            border: 1px solid #1a1a1a;
-            /* Un pequeño borde para que resalte */
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555555;
-            /* Color más claro al pasar el mouse */
-        }
-
-        /* Opcional: Para Firefox */
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: #333333 #000000;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             background-color: var(--bg-pure-black);
@@ -93,7 +64,6 @@
             gap: 1.5rem;
         }
 
-        /* HEADER */
         .app-header {
             display: flex;
             justify-content: space-between;
@@ -102,16 +72,8 @@
             border-bottom: 1px solid var(--border-glow);
         }
 
-        .header-left h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-        }
-
-        .header-left p {
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-            margin-top: 2px;
-        }
+        .header-left h1 { font-size: 1.25rem; font-weight: 700; }
+        .header-left p { color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
 
         .status-badge {
             background-color: var(--wa-green-alpha);
@@ -123,9 +85,6 @@
             color: var(--wa-green);
         }
 
-        /* ==========================================
-           GRID RESPONSIVE INTELIGENTE
-           ========================================== */
         .main-workspace-grid {
             display: grid;
             grid-template-columns: 1.2fr 1fr;
@@ -133,18 +92,9 @@
             align-items: start;
         }
 
-        /* Asignación de áreas base */
-        .seo-section {
-            grid-area: seo;
-        }
-
-        .config-section {
-            grid-area: config;
-        }
-
-        .preview-section {
-            grid-area: preview;
-        }
+        .seo-section { grid-area: seo; }
+        .config-section { grid-area: config; }
+        .preview-section { grid-area: preview; }
 
         .card-premium {
             background-color: var(--bg-card);
@@ -163,16 +113,14 @@
             justify-content: space-between;
         }
 
-        /* DESCRIPCIÓN SEO */
-        .seo-body-wrapper {
-            transition: var(--transition);
-        }
+        .seo-body-wrapper { transition: var(--transition); }
 
         .input-block-container {
             background-color: var(--bg-input);
             border: 1px solid var(--border-glow);
             border-radius: 12px;
             padding: 1rem;
+            position: relative;
         }
 
         .custom-textarea {
@@ -186,6 +134,107 @@
             resize: none;
             min-height: 85px;
             outline: none;
+        }
+
+        /* ==========================================
+           BOTÓN GUARDAR CAMBIOS (INLINE / FLOTANTE)
+           ========================================== */
+        .field-save-wrapper {
+            position: relative;
+        }
+
+        .field-char-counter {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-align: right;
+            margin-top: 6px;
+            padding: 0 2px;
+        }
+
+        .field-char-counter.near-limit { color: #f59e0b; }
+        .field-char-counter.at-limit { color: #ef4444; }
+
+        .btn-save-field {
+            display: none; /* oculto por defecto */
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--save-btn-border);
+            background: var(--save-btn-bg);
+            color: var(--save-btn-text);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            letter-spacing: 0.02em;
+            animation: slideInBtn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        .btn-save-field:hover {
+            background: var(--save-btn-hover);
+            border-color: rgba(234, 179, 8, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .btn-save-field:active {
+            transform: translateY(0);
+        }
+
+        .btn-save-field.visible {
+            display: flex;
+        }
+
+        .btn-save-field.saving {
+            opacity: 0.7;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .btn-save-field.saved {
+            border-color: rgba(34, 197, 94, 0.4);
+            background: rgba(34, 197, 94, 0.08);
+            color: var(--wa-green);
+        }
+
+        @keyframes slideInBtn {
+            from { opacity: 0; transform: translateY(6px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Toast de confirmación */
+        .toast-confirm {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #0f1a12;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: var(--wa-green);
+            padding: 12px 22px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 9999;
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+            opacity: 0;
+            white-space: nowrap;
+        }
+
+        .toast-confirm.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* Toast de error */
+        .toast-confirm.error {
+            background: #1a0f0f;
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
         }
 
         .btn-ia-action {
@@ -212,9 +261,6 @@
             color: var(--text-secondary);
         }
 
-        /* ==========================================
-           BURBUJA DE WHATSAPP (CORREGIDA AL 100%)
-           ========================================== */
         .sticky-preview-box {
             position: sticky;
             top: 2rem;
@@ -227,7 +273,6 @@
             border-left: 3px solid var(--wa-green);
         }
 
-        /* CORRECCIÓN: Ocupa todo el ancho disponible de la tarjeta sin deformarse */
         .wa-media-header {
             width: 100%;
             aspect-ratio: 16 / 12;
@@ -245,15 +290,8 @@
             white-space: pre-wrap;
         }
 
-        .wa-message-body strong {
-            color: #ffffff;
-            font-weight: 600;
-        }
-
-        .wa-message-body a {
-            color: var(--wa-link);
-            text-decoration: none;
-        }
+        .wa-message-body strong { color: #ffffff; font-weight: 600; }
+        .wa-message-body a { color: var(--wa-link); text-decoration: none; }
 
         .wa-meta-time {
             float: right;
@@ -283,12 +321,7 @@
             display: block;
         }
 
-        /* PLANES STACK */
-        .plans-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 0.85rem;
-        }
+        .plans-stack { display: flex; flex-direction: column; gap: 0.85rem; }
 
         .plan-row-card {
             border: 1px solid var(--border-glow);
@@ -305,17 +338,8 @@
             background-color: rgba(34, 197, 94, 0.01);
         }
 
-        .plan-row-title {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 2px;
-        }
-
-        .plan-row-cost {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-bottom: 0.75rem;
-        }
+        .plan-row-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+        .plan-row-cost { font-size: 12px; color: var(--text-secondary); margin-bottom: 0.75rem; }
 
         .plan-features-matrix {
             display: grid;
@@ -324,19 +348,9 @@
             font-size: 11px;
         }
 
-        .matrix-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #cbd5e1;
-        }
+        .matrix-item { display: flex; align-items: center; gap: 6px; color: #cbd5e1; }
+        .matrix-item.disabled { color: var(--text-muted); text-decoration: line-through; }
 
-        .matrix-item.disabled {
-            color: var(--text-muted);
-            text-decoration: line-through;
-        }
-
-        /* FORMULARIOS ADICIONALES PRO */
         .pro-toggle-section {
             margin-top: 1.25rem;
             padding-top: 1.25rem;
@@ -344,13 +358,9 @@
             display: none;
         }
 
-        .pro-toggle-section.active-view {
-            display: block;
-        }
+        .pro-toggle-section.active-view { display: block; }
 
-        .form-group {
-            margin-bottom: 1rem;
-        }
+        .form-group { margin-bottom: 1rem; }
 
         .form-group label {
             display: block;
@@ -369,6 +379,11 @@
             font-family: inherit;
             font-size: 13px;
             outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-control-dark:focus {
+            border-color: var(--border-focus);
         }
 
         .btn-submit-main {
@@ -384,9 +399,21 @@
             margin-top: 1.5rem;
         }
 
-        /* ==========================================
-           MEDIA QUERIES - CONTROL DE BORDES Y RESPONSIVE
-           ========================================== */
+        /* Indicador de campo modificado */
+        .field-modified-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #eab308;
+            margin-left: 6px;
+            vertical-align: middle;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .field-modified-dot.visible { opacity: 1; }
+
         @media (min-width: 901px) {
             .main-workspace-grid {
                 grid-template-areas:
@@ -394,33 +421,17 @@
                     "preview config";
                 grid-template-columns: 1.2fr 1fr;
             }
-
-            .preview-section {
-                grid-area: config;
-            }
-
-            .config-section {
-                grid-area: seo;
-                grid-row: 2;
-            }
+            .preview-section { grid-area: config; }
+            .config-section { grid-area: seo; grid-row: 2; }
         }
 
         @media (max-width: 900px) {
             .main-workspace-grid {
-                grid-template-areas:
-                    "seo"
-                    "preview"
-                    "config";
+                grid-template-areas: "seo" "preview" "config";
                 grid-template-columns: 1fr;
                 gap: 0;
             }
-
-            /* Redondeado fluido perfecto en móviles */
-            .seo-section {
-                border-radius: 16px;
-                margin-bottom: 1.25rem;
-            }
-
+            .seo-section { border-radius: 16px; margin-bottom: 1.25rem; }
             .preview-section {
                 grid-area: preview;
                 background-color: var(--bg-card);
@@ -432,7 +443,6 @@
                 border-bottom-right-radius: 0;
                 border-bottom: none;
             }
-
             .config-section {
                 grid-area: config;
                 background-color: var(--bg-card);
@@ -445,51 +455,18 @@
                 border-top: none;
                 padding-top: 0.5rem;
             }
-
-            /* Control de acordeón colapsable */
-            .card-heading.expandible-mobile {
-                cursor: pointer;
-            }
-
-            .arrow-icon {
-                display: inline-block;
-            }
-
-            .arrow-icon.rotated {
-                transform: rotate(180deg);
-            }
-
-            .seo-body-wrapper {
-                max-height: 0;
-                opacity: 0;
-                overflow: hidden;
-            }
-
-            .seo-body-wrapper.expanded {
-                max-height: 400px;
-                opacity: 1;
-                margin-top: 1rem;
-            }
-
-            .preview-section .card-heading {
-                display: none;
-            }
-
-            .sticky-preview-box {
-                position: static;
-            }
-
-            .wa-preview-wrapper {
-                margin-bottom: 0.5rem;
-            }
-
-            .plan-features-matrix {
-                grid-template-columns: 1fr;
-            }
+            .card-heading.expandible-mobile { cursor: pointer; }
+            .arrow-icon { display: inline-block; }
+            .arrow-icon.rotated { transform: rotate(180deg); }
+            .seo-body-wrapper { max-height: 0; opacity: 0; overflow: hidden; }
+            .seo-body-wrapper.expanded { max-height: 600px; opacity: 1; margin-top: 1rem; }
+            .preview-section .card-heading { display: none; }
+            .sticky-preview-box { position: static; }
+            .wa-preview-wrapper { margin-bottom: 0.5rem; }
+            .plan-features-matrix { grid-template-columns: 1fr; }
         }
 
-        /* ================= SKELETON LOADER ================= */
-
+        /* SKELETON */
         #skeleton-loader {
             position: fixed;
             inset: 0;
@@ -500,41 +477,12 @@
             align-items: center;
         }
 
-        .skeleton-container {
-            width: 100%;
-            max-width: 1100px;
-            padding: 2rem;
-        }
+        .skeleton-container { width: 100%; max-width: 1100px; padding: 2rem; }
+        .skeleton-header { width: 40%; height: 22px; background: #111; border-radius: 8px; margin-bottom: 2rem; overflow: hidden; position: relative; }
+        .skeleton-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; }
+        .skeleton-card { height: 180px; background: #111; border-radius: 14px; position: relative; overflow: hidden; }
+        .skeleton-card.large { height: 260px; }
 
-        .skeleton-header {
-            width: 40%;
-            height: 22px;
-            background: #111;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .skeleton-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 1.5rem;
-        }
-
-        .skeleton-card {
-            height: 180px;
-            background: #111;
-            border-radius: 14px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .skeleton-card.large {
-            height: 260px;
-        }
-
-        /* shimmer */
         .skeleton-header::after,
         .skeleton-card::after {
             content: "";
@@ -543,21 +491,13 @@
             left: -150%;
             width: 150%;
             height: 100%;
-            background: linear-gradient(90deg,
-                    transparent,
-                    rgba(255, 255, 255, 0.06),
-                    transparent);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
             animation: shimmer 1.2s infinite;
         }
 
         @keyframes shimmer {
-            0% {
-                left: -150%;
-            }
-
-            100% {
-                left: 150%;
-            }
+            0%   { left: -150%; }
+            100% { left: 150%; }
         }
     </style>
 </head>
@@ -576,6 +516,7 @@
 
         <div class="main-workspace-grid">
 
+            <!-- SEO SECTION -->
             <section class="card-premium seo-section">
                 <div class="card-heading expandible-mobile" onclick="toggleSeoAccordion()">
                     <span>📝 Descripción SEO del Negocio</span>
@@ -583,30 +524,38 @@
                 </div>
 
                 <div class="seo-body-wrapper" id="seo-collapsible-container">
-                    <div class="input-block-container">
-                        <label>Contenido informativo del local</label>
-                        <textarea id="seo-global-input" class="custom-textarea"
-                            maxlength="200">Disfruta deliciosas hamburguesas, parrillas, ahumados, pollo broaster y helados. Aceptamos Yape, Plin, efectivo. Con Wifi, enchufes, seguridad y amplia zona de estacionamiento.</textarea>
+                    <div class="field-save-wrapper">
+                        <div class="input-block-container">
+                            <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:8px;">
+                                Contenido informativo del local
+                                <span class="field-modified-dot" id="dot-descripcion"></span>
+                            </label>
+                            <textarea id="seo-global-input" class="custom-textarea" maxlength="200"></textarea>
+                        </div>
+                        <div class="field-char-counter" id="counter-descripcion">0 / 200</div>
+                        <button class="btn-save-field" id="btn-save-descripcion" onclick="guardarCampo('descripcion')">
+                            💾 Guardar descripción
+                        </button>
                     </div>
                     <button class="btn-ia-action">Generar descripción con IA ✨</button>
                 </div>
             </section>
 
+            <!-- PREVIEW SECTION -->
             <div class="preview-section sticky-preview-box">
                 <section class="card-premium" style="background-color: transparent; border: none; padding: 0;">
                     <div class="card-heading">
                         <span>👁️ Vista Previa en Tiempo Real</span>
                     </div>
-
                     <div class="wa-preview-wrapper">
                         <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80"
                             class="wa-media-header" id="wa-card-image">
-                        <div class="wa-message-body" id="wa-text-renderer">
-                        </div>
+                        <div class="wa-message-body" id="wa-text-renderer"></div>
                     </div>
                 </section>
             </div>
 
+            <!-- CONFIG SECTION -->
             <section class="card-premium config-section">
                 <div class="card-heading" style="margin-bottom: 1rem;">
                     <span>📋 Formato de Plantilla</span>
@@ -641,15 +590,39 @@
                 </div>
 
                 <div class="pro-toggle-section active-view" id="pro-form-fields">
+
+                    <!-- CAMPO WHATSAPP -->
                     <div class="form-group" style="margin-top: 1rem;">
-                        <label>Tu número de WhatsApp</label>
-                        <input type="text" class="form-control-dark" value="937659216">
+                        <label>
+                            Tu número de WhatsApp
+                            <span class="field-modified-dot" id="dot-whatsapp"></span>
+                        </label>
+                        <div class="field-save-wrapper">
+                            <input type="tel" id="input-whatsapp" class="form-control-dark"
+                                placeholder="Ej: 937659216" maxlength="20">
+                            <div class="field-char-counter" id="counter-whatsapp" style="display:none;"></div>
+                            <button class="btn-save-field" id="btn-save-whatsapp" onclick="guardarCampo('whatsapp')">
+                                💾 Guardar número
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- CAMPO MENSAJE WHATSAPP -->
                     <div class="form-group">
-                        <label>Mensaje predeterminado de entrada</label>
-                        <input type="text" class="form-control-dark"
-                            value="hola vi tu negocio en geinz y quiero mas informacion sobre los productos que vendes">
+                        <label>
+                            Mensaje predeterminado de entrada
+                            <span class="field-modified-dot" id="dot-msje"></span>
+                        </label>
+                        <div class="field-save-wrapper">
+                            <input type="text" id="input-msje" class="form-control-dark"
+                                placeholder="Mensaje que envía el cliente al contactarte" maxlength="200">
+                            <div class="field-char-counter" id="counter-msje">0 / 200</div>
+                            <button class="btn-save-field" id="btn-save-msje" onclick="guardarCampo('msje_whatsapp')">
+                                💾 Guardar mensaje
+                            </button>
+                        </div>
                     </div>
+
                 </div>
 
                 <button class="btn-submit-main" id="btn-action-submit">Guardar Cambios Plan Pro</button>
@@ -658,11 +631,13 @@
         </div>
     </div>
 
+    <!-- Toast global -->
+    <div class="toast-confirm" id="global-toast"></div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // CONFIG FIREBASE (usa la tuya real)
         const firebaseConfig = {
             apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
             authDomain: "geinzworkapp.firebaseapp.com",
@@ -672,46 +647,229 @@
             appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
         };
 
-
-
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // ===============================
-        // OBTENER PARAMETROS URL
-        // ===============================
         const params = new URLSearchParams(window.location.search);
         const id = params.get("id") || "fW7W8RsgkkQ3IYfxKHGR";
         const localidad = params.get("localidad") || "barranca";
 
-        // referencias UI
         const waCardImage = document.getElementById("wa-card-image");
         const waTextRenderer = document.getElementById("wa-text-renderer");
-        // ===============================
-        // DATOS GLOBALES
-        // ===============================
-        let tiendaData = null;
-        let lugarData = null;
 
+        // Valores originales (cargados desde Firestore)
+        const originalValues = {
+            descripcion: "",
+            whatsapp: "",
+            msje_whatsapp: ""
+        };
+
+        // ==============================
+        // TOAST HELPER
+        // ==============================
+        function showToast(msg, isError = false) {
+            const t = document.getElementById("global-toast");
+            t.textContent = msg;
+            t.className = "toast-confirm" + (isError ? " error" : "");
+            t.classList.add("show");
+            setTimeout(() => t.classList.remove("show"), 3000);
+        }
+
+        // ==============================
+        // COUNTER HELPER
+        // ==============================
+        function updateCounter(counterId, current, max) {
+            const el = document.getElementById(counterId);
+            if (!el) return;
+            el.textContent = `${current} / ${max}`;
+            el.className = "field-char-counter";
+            if (current >= max) el.classList.add("at-limit");
+            else if (current >= max * 0.85) el.classList.add("near-limit");
+        }
+
+        // ==============================
+        // MOSTRAR / OCULTAR BOTÓN GUARDAR
+        // ==============================
+        function checkFieldChanged(campo, currentValue) {
+            const btn = document.getElementById(`btn-save-${campo}`);
+            const dot = document.getElementById(`dot-${campo === 'msje_whatsapp' ? 'msje' : campo}`);
+            if (!btn) return;
+
+            const changed = currentValue.trim() !== originalValues[campo].trim();
+            if (changed) {
+                btn.classList.add("visible");
+                btn.classList.remove("saved");
+                btn.textContent = campo === 'descripcion' ? '💾 Guardar descripción'
+                    : campo === 'whatsapp' ? '💾 Guardar número'
+                    : '💾 Guardar mensaje';
+                if (dot) dot.classList.add("visible");
+            } else {
+                btn.classList.remove("visible");
+                if (dot) dot.classList.remove("visible");
+            }
+        }
+
+        // ==============================
+        // GUARDAR EN FIRESTORE
+        // ==============================
+        window.guardarCampo = async function(campo) {
+            const btn = document.getElementById(
+                campo === 'msje_whatsapp' ? 'btn-save-msje'
+                : campo === 'whatsapp' ? 'btn-save-whatsapp'
+                : 'btn-save-descripcion'
+            );
+
+            let value;
+            if (campo === 'descripcion') {
+                value = document.getElementById("seo-global-input").value.trim();
+            } else if (campo === 'whatsapp') {
+                value = document.getElementById("input-whatsapp").value.trim();
+            } else if (campo === 'msje_whatsapp') {
+                value = document.getElementById("input-msje").value.trim();
+            }
+
+            if (!value) {
+                showToast("⚠️ El campo no puede estar vacío", true);
+                return;
+            }
+
+            // UI de cargando
+            btn.classList.add("saving");
+            btn.textContent = "Guardando...";
+
+            try {
+                const refLugar = doc(db, "lugares", id);
+
+                // Preparar datos según campo
+                let updateData = {};
+                if (campo === 'descripcion') {
+                    updateData = { descripcion: value };
+                } else if (campo === 'whatsapp') {
+                    // Guardar como número entero
+                    const numWhatsapp = parseInt(value.replace(/\D/g, ''), 10);
+                    if (isNaN(numWhatsapp)) {
+                        showToast("⚠️ Ingresa un número válido", true);
+                        btn.classList.remove("saving");
+                        btn.textContent = "💾 Guardar número";
+                        return;
+                    }
+                    updateData = { whatsapp: numWhatsapp };
+                } else if (campo === 'msje_whatsapp') {
+                    updateData = { msje_whatsapp: value };
+                }
+
+                await updateDoc(refLugar, updateData);
+
+                // Actualizar valor original
+                originalValues[campo] = value;
+
+                // UI de éxito
+                btn.classList.remove("saving");
+                btn.classList.add("saved");
+                btn.textContent = "✅ Guardado";
+
+                const dot = document.getElementById(
+                    campo === 'msje_whatsapp' ? 'dot-msje'
+                    : campo === 'whatsapp' ? 'dot-whatsapp'
+                    : 'dot-descripcion'
+                );
+                if (dot) dot.classList.remove("visible");
+
+                showToast(`✅ ${campo === 'descripcion' ? 'Descripción' : campo === 'whatsapp' ? 'Número' : 'Mensaje'} guardado correctamente`);
+
+                // Ocultar botón después de 2 segundos
+                setTimeout(() => {
+                    btn.classList.remove("visible", "saved");
+                }, 2000);
+
+                // Actualizar preview si fue descripción
+                if (campo === 'descripcion') actualizarPreview();
+
+            } catch (error) {
+                console.error("Error guardando:", error);
+                btn.classList.remove("saving");
+                btn.textContent = "💾 Reintentar";
+                showToast("❌ Error al guardar. Intenta de nuevo.", true);
+            }
+        };
+
+        // ==============================
+        // PREVIEW LIVE
+        // ==============================
+        function actualizarPreview() {
+            const desc = document.getElementById("seo-global-input").value;
+            // mantiene el nombre del negocio si ya estaba cargado
+            const nombre = waTextRenderer.dataset.nombre || "Negocio";
+            const dir = waTextRenderer.dataset.dir || "";
+            waTextRenderer.innerHTML = `
+                <strong>${nombre}</strong><br><br>
+                ${desc}<br><br>
+                <span>📍 ${dir}</span>
+            `;
+        }
+
+        // ==============================
+        // EVENTOS: DESCRIPCION
+        // ==============================
+        const seoInput = document.getElementById("seo-global-input");
+        seoInput.addEventListener("input", () => {
+            const val = seoInput.value;
+            updateCounter("counter-descripcion", val.length, 200);
+            checkFieldChanged('descripcion', val);
+            actualizarPreview();
+        });
+
+        // ==============================
+        // EVENTOS: WHATSAPP
+        // ==============================
+        const waInput = document.getElementById("input-whatsapp");
+        waInput.addEventListener("input", () => {
+            checkFieldChanged('whatsapp', waInput.value);
+        });
+
+        // ==============================
+        // EVENTOS: MENSAJE
+        // ==============================
+        const msjeInput = document.getElementById("input-msje");
+        msjeInput.addEventListener("input", () => {
+            const val = msjeInput.value;
+            updateCounter("counter-msje", val.length, 200);
+            checkFieldChanged('msje_whatsapp', val);
+        });
+
+        // ==============================
+        // OCULTAR SKELETON
+        // ==============================
         function ocultarSkeleton() {
             document.getElementById("skeleton-loader").style.display = "none";
         }
-        window.toggleSeoAccordion = function () {
+
+        // ==============================
+        // ACORDEÓN MÓVIL
+        // ==============================
+        window.toggleSeoAccordion = function() {
             const container = document.getElementById("seo-collapsible-container");
             const arrow = document.getElementById("seo-arrow-indicator");
-
             if (!container || !arrow) return;
-
             container.classList.toggle("expanded");
             arrow.classList.toggle("rotated");
         };
-        // ===============================
-        // FETCH TIENDA
-        // ===============================
+
+        // ==============================
+        // CAMBIAR PLAN
+        // ==============================
+        window.changeActivePlan = function(plan) {
+            document.getElementById("plan-free-card").classList.toggle("selected", plan === "free");
+            document.getElementById("plan-pro-card").classList.toggle("selected", plan === "pro");
+            document.getElementById("pro-form-fields").classList.toggle("active-view", plan === "pro");
+        };
+
+        // ==============================
+        // CARGAR DATOS FIRESTORE
+        // ==============================
         async function cargarTienda() {
             try {
                 if (!id || !localidad) {
-                    console.error("Faltan parámetros id o localidad");
                     ocultarSkeleton();
                     return;
                 }
@@ -719,127 +877,101 @@
                 const refTienda = doc(db, "Tiendas", localidad, localidad, id);
                 const refLugar = doc(db, "lugares", id);
 
-                // 🔥 carga en paralelo (más rápido)
                 const [snapTienda, snapLugar] = await Promise.all([
                     getDoc(refTienda),
                     getDoc(refLugar)
                 ]);
 
                 if (snapTienda.exists()) {
-                    tiendaData = snapTienda.data();
-                    aplicarTienda();
+                    const tiendaData = snapTienda.data();
+                    if (tiendaData?.img_tienda?.lista_img?.ambientales?.[0]) {
+                        waCardImage.src = tiendaData.img_tienda.lista_img.ambientales[0];
+                    }
                 }
 
                 if (snapLugar.exists()) {
-                    lugarData = snapLugar.data();
-                    aplicarLugar();
+                    const lugarData = snapLugar.data();
+
+                    // Imagen bot
+                    if (lugarData.plantilla === true && lugarData.imagen_bot) {
+                        waCardImage.src = lugarData.imagen_bot;
+                    }
+
+                    // ── Descripción ──
+                    const desc = lugarData.descripcion || "";
+                    originalValues.descripcion = desc;
+                    seoInput.value = desc;
+                    updateCounter("counter-descripcion", desc.length, 200);
+
+                    // ── WhatsApp (int → string para el input) ──
+                    const wa = lugarData.whatsapp !== undefined ? String(lugarData.whatsapp) : "";
+                    originalValues.whatsapp = wa;
+                    waInput.value = wa;
+
+                    // ── Mensaje WhatsApp ──
+                    const msje = lugarData.msje_whatsapp || "";
+                    originalValues.msje_whatsapp = msje;
+                    msjeInput.value = msje;
+                    updateCounter("counter-msje", msje.length, 200);
+
+                    // ── Preview ──
+                    const nombre = lugarData.nombre || "Negocio";
+                    waTextRenderer.dataset.nombre = nombre;
+                    waTextRenderer.dataset.dir = lugarData.ubicacion?.latitud ? "" : "";
+
+                    if (lugarData.plantilla === true) {
+                        waTextRenderer.innerHTML = `
+                            <strong>${nombre}</strong><br><br>
+                            ${desc}<br><br>
+                            📲 WhatsApp: ${wa}<br>
+                            🏷️ ${lugarData.categoria || ""}
+                        `;
+                    } else {
+                        waTextRenderer.innerHTML = `
+                            <strong>${nombre}</strong><br><br>
+                            ${desc}
+                        `;
+                    }
                 }
 
             } catch (error) {
                 console.error("Error cargando datos:", error);
             } finally {
-                // 🔥 SIEMPRE ocultar loader
                 ocultarSkeleton();
             }
         }
-        // ===============================
-        // APLICAR TIENDA
-        // ===============================
-        function aplicarTienda() {
 
-            // IMAGEN BOT
-            if (tiendaData?.img_tienda?.lista_img?.ambientales?.[0]) {
-                waCardImage.src = tiendaData.img_tienda.lista_img.ambientales[0];
-            }
-
-            // PLAN PRO
-            if (tiendaData.bot_plan_pro === true) {
-                console.log("Plan PRO activo");
-            }
-
-            // PLANTILLA
-            if (tiendaData.plantilla === true) {
-                console.log("Plantilla activa PRO BOT");
-            }
-
-            // WhatsApp preview
-            waTextRenderer.innerHTML = `
-        <strong>${tiendaData.nombre_tienda}</strong><br><br>
-        ${tiendaData.descripcion || ""}<br><br>
-        <span>📍 ${tiendaData.ubicacion?.dirección || ""}</span>
-    `;
-        }
-
-        // ===============================
-        // APLICAR LUGAR (BOT PRO)
-        // ===============================
-        function aplicarLugar() {
-
-            if (!lugarData) return;
-
-            // si plantilla true usa imagen_bot
-            if (lugarData.plantilla === true && lugarData.imagen_bot) {
-                waCardImage.src = lugarData.imagen_bot;
-            }
-
-            // override mensaje pro
-            if (lugarData.plantilla === true) {
-                waTextRenderer.innerHTML = `
-            <strong>${lugarData.nombre}</strong><br><br>
-            ${lugarData.descripcion}<br><br>
-            📲 WhatsApp: ${lugarData.whatsapp || ""}<br>
-            🏷️ ${lugarData.categoria || ""}
-        `;
-            }
-        }
-
-        // ===============================
+        // ==============================
         // CAMBIAR IMAGEN AL HACER CLICK
-        // ===============================
+        // ==============================
         waCardImage.addEventListener("click", () => {
             const input = document.createElement("input");
             input.type = "file";
             input.accept = "image/*";
-
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-
                 const reader = new FileReader();
-
-                reader.onload = () => {
-                    waCardImage.src = reader.result;
-
-                    // aquí luego puedes subir a Firebase Storage si quieres
-                    console.log("Imagen seleccionada lista para upload");
-                };
-
+                reader.onload = () => { waCardImage.src = reader.result; };
                 reader.readAsDataURL(file);
             };
-
             input.click();
         });
 
-        // iniciar
         cargarTienda();
     </script>
 </body>
-<!-- ================= SKELETON LOADER ================= -->
+
+<!-- SKELETON LOADER -->
 <div id="skeleton-loader">
     <div class="skeleton-container">
-
         <div class="skeleton-header"></div>
-
         <div class="skeleton-grid">
-
             <div class="skeleton-card large"></div>
             <div class="skeleton-card"></div>
-
             <div class="skeleton-card large"></div>
             <div class="skeleton-card"></div>
-
         </div>
-
     </div>
 </div>
 

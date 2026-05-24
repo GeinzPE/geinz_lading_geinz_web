@@ -755,7 +755,7 @@ const CONTACT_META = {
   facebook: { icon: "./img/facebook_icon.webp", getHref: (c) => c.valor },
   instagram: { icon: "./img/instagram_icon.webp", getHref: (c) => c.valor },
   tiktok: { icon: "./img/tik_tok_icon.webp", getHref: (c) => c.valor },
-  web: { icon: "./img/logo_plin.webp", getHref: (c) => c.valor },
+  web: { icon: "./img/sitio-web.webp", getHref: (c) => c.valor },
 };
 
 function renderContactDetail(contactos) {
