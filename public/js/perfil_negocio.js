@@ -1,6 +1,7 @@
 /* ════════════════════════════════
    LOADING STATE — shimmer + GEINZ
    ════════════════════════════════ */
+
 const LOADER_CSS = `
   .geinz-loader {
     position: fixed;
@@ -907,7 +908,8 @@ function renderPromoGallery(promos, nombreNegocio, contactos) {
   const carousel = document.getElementById("promoCarousel");
   section.style.display = "";
 
-  document.getElementById("promoTitle").textContent = `Promos de ${nombreNegocio}`;
+  document.getElementById("promoTitle").textContent =
+    `Promos de ${nombreNegocio}`;
 
   const wa = contactos.find((c) => c.tipo === "whatsapp");
   const waNum = wa ? wa.valor.replace(/\D/g, "") : "";
@@ -948,22 +950,22 @@ function renderPromoGallery(promos, nombreNegocio, contactos) {
     carousel.appendChild(card);
   });
 
-carousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    const url = btn.dataset.shareUrl;
-    const fullText = `Mira lo que encontre en ${nombreNegocio} 👀🔥\n${url}`;
+  carousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = btn.dataset.shareUrl;
+      const fullText = `Mira lo que encontre en ${nombreNegocio} 👀🔥\n${url}`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          text: fullText   // ← todo en text, sin title ni url separados
-        });
-      } catch {}
-    } else {
-      copyToClipboard(fullText);
-    }
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            text: fullText, // ← todo en text, sin title ni url separados
+          });
+        } catch {}
+      } else {
+        copyToClipboard(fullText);
+      }
+    });
   });
-});
 }
 /* ════════════════════════════════
    RENDER PRINCIPAL
@@ -987,7 +989,6 @@ function render(raw) {
     promoExiste = promoImages.some((p) => p.id == targetPromoId);
   }
 
- 
   const amenities = normalizeAmenities(raw.servicios_comodidades);
 
   // Validar datos para cada sección
@@ -1010,20 +1011,22 @@ function render(raw) {
   const shareBtn = document.getElementById("shareBtn");
 
   if (shareBtn) {
-  shareBtn.onclick = () => {
-    const cat = (raw.categoria_tienda || "")
-      .toLowerCase()
-      .replace(/\s+/g, "+");
-    const shareUrl = `https://geinzworkapp.web.app/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
-    const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
+    shareBtn.onclick = () => {
+      const cat = (raw.categoria_tienda || "")
+        .toLowerCase()
+        .replace(/\s+/g, "+");
+      const shareUrl = `https://geinzworkapp.web.app/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
+      const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
 
-    if (navigator.share) {
-      navigator.share({ text: fullText }).catch(() => copyToClipboard(fullText));
-    } else {
-      copyToClipboard(fullText);
-    }
-  };
-}
+      if (navigator.share) {
+        navigator
+          .share({ text: fullText })
+          .catch(() => copyToClipboard(fullText));
+      } else {
+        copyToClipboard(fullText);
+      }
+    };
+  }
 
   document.getElementById("refText").textContent = ubicacion.referencia || "—";
 
@@ -1116,23 +1119,23 @@ function render(raw) {
     renderPromoGallery(promoImages, nombre, contactos);
   }
   if (promoExiste) {
-  setTimeout(() => {
-    const sec = document.getElementById("secPromos");
+    setTimeout(() => {
+      const sec = document.getElementById("secPromos");
 
-    if (sec) {
-      sec.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
+      if (sec) {
+        sec.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
 
-      sec.classList.add("promo-highlight");
+        sec.classList.add("promo-highlight");
 
-      setTimeout(() => {
-        sec.classList.remove("promo-highlight");
-      }, 2600);
-    }
-  }, 700);
-}
+        setTimeout(() => {
+          sec.classList.remove("promo-highlight");
+        }, 2600);
+      }
+    }, 700);
+  }
 }
 
 /* ════════════════════════════════
@@ -1205,3 +1208,327 @@ let _params = {};
     document.getElementById("statusText").textContent = err.message;
   }
 })();
+
+
+
+
+
+
+
+
+gsap.registerPlugin(ScrollTrigger, Flip, CustomEase);
+
+/* ═══════════════════════════════════════
+   CUSTOM EASE PREMIUM
+═══════════════════════════════════════ */
+
+CustomEase.create("silicon", "0.16, 1, 0.3, 1");
+
+/* ═══════════════════════════════════════
+   GLOBAL SMOOTH
+═══════════════════════════════════════ */
+
+gsap.config({
+  force3D: true,
+  nullTargetWarn: false,
+});
+
+/* ═══════════════════════════════════════
+   HERO CINEMATIC INTRO
+═══════════════════════════════════════ */
+
+const heroTL = gsap.timeline();
+
+heroTL
+
+  .from("body", {
+    opacity: 0,
+    duration: 0.25,
+  })
+
+  .from(
+    ".gallery-track",
+    {
+      scale: 1.35,
+      rotate: -0.8,
+      filter: "blur(22px)",
+      duration: 2.4,
+      ease: "silicon",
+    },
+    0,
+  )
+
+  .from(
+    ".gallery-overlay",
+    {
+      opacity: 0,
+      duration: 1.8,
+      ease: "power4.out",
+    },
+    0,
+  )
+
+  .from(
+    ".header-card",
+    {
+      y: 180,
+      opacity: 0,
+      rotateX: 18,
+      transformOrigin: "top center",
+      filter: "blur(18px)",
+      duration: 1.8,
+      ease: "silicon",
+    },
+    0.18,
+  )
+
+  .from(
+    ".biz-logo-wrap",
+    {
+      scale: 0.2,
+      opacity: 0,
+      rotate: -240,
+      duration: 1.6,
+      ease: "elastic.out(1,0.5)",
+    },
+    0.4,
+  )
+
+  .from(
+    ".biz-name",
+    {
+      y: 120,
+      skewY: 6,
+      opacity: 0,
+      duration: 1.4,
+      ease: "silicon",
+    },
+    0.5,
+  )
+
+  .from(
+    ".tag",
+    {
+      opacity: 0,
+      y: 40,
+      stagger: 0.06,
+      duration: 0.9,
+      ease: "back.out(1.8)",
+    },
+    0.72,
+  )
+
+  .from(
+    ".route-btn",
+    {
+      scale: 0,
+      opacity: 0,
+      stagger: 0.12,
+      duration: 1,
+      ease: "elastic.out(1,.6)",
+    },
+    0.9,
+  );
+
+/* ═══════════════════════════════════════
+   DEPTH PARALLAX SYSTEM
+═══════════════════════════════════════ */
+
+gsap.to(".gallery-track", {
+  yPercent: 22,
+  scale: 1.08,
+
+  scrollTrigger: {
+    trigger: ".gallery",
+    start: "top top",
+    end: "bottom top",
+    scrub: 1.8,
+  },
+});
+
+gsap.to(".gallery-overlay", {
+  opacity: 0.96,
+
+  scrollTrigger: {
+    trigger: ".gallery",
+    start: "top top",
+    end: "bottom top",
+    scrub: true,
+  },
+});
+
+gsap.to(".header-card", {
+  y: -45,
+
+  scrollTrigger: {
+    trigger: ".gallery",
+    start: "top top",
+    end: "bottom top",
+    scrub: 1.2,
+  },
+});
+
+/* ═══════════════════════════════════════
+   SILICON VALLEY REVEALS
+═══════════════════════════════════════ */
+
+gsap.utils.toArray(".section").forEach((section, i) => {
+  gsap.from(section, {
+    scrollTrigger: {
+      trigger: section,
+      start: "top 90%",
+      toggleActions: "play none none reverse",
+    },
+
+    opacity: 0,
+    y: 120,
+    scale: 0.94,
+    rotateX: 12,
+    filter: "blur(16px)",
+
+    duration: 1.5,
+
+    ease: "silicon",
+
+    delay: i * 0.04,
+  });
+});
+
+/* ═══════════════════════════════════════
+   MAGNETIC BUTTONS
+═══════════════════════════════════════ */
+
+document
+  .querySelectorAll(".route-btn, .discover-btn, .promo-btn-wa")
+  .forEach((btn) => {
+    btn.addEventListener("mousemove", (e) => {
+      const rect = btn.getBoundingClientRect();
+
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+
+      gsap.to(btn, {
+        x: x * 0.22,
+        y: y * 0.22,
+        scale: 1.08,
+        duration: 0.45,
+        ease: "power3.out",
+      });
+    });
+
+    btn.addEventListener("mouseleave", () => {
+      gsap.to(btn, {
+        x: 0,
+        y: 0,
+        scale: 1,
+        duration: 0.7,
+        ease: "elastic.out(1,.5)",
+      });
+    });
+  });
+
+/* ═══════════════════════════════════════
+   FLOATING AMBIENT SYSTEM
+═══════════════════════════════════════ */
+
+gsap.to(".discover-glow", {
+  x: 60,
+  y: -35,
+  scale: 1.18,
+  duration: 5,
+  repeat: -1,
+  yoyo: true,
+  ease: "sine.inOut",
+});
+
+gsap.to(".biz-logo-ring", {
+  rotate: 360,
+  duration: 8,
+  repeat: -1,
+  ease: "none",
+});
+
+/* ═══════════════════════════════════════
+   3D PROMO CARDS
+═══════════════════════════════════════ */
+
+document.querySelectorAll(".promo-card").forEach((card) => {
+  card.addEventListener("mousemove", (e) => {
+    const rect = card.getBoundingClientRect();
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const rotateY = (x / rect.width - 0.5) * 18;
+    const rotateX = (y / rect.height - 0.5) * -18;
+
+    gsap.to(card, {
+      rotateY,
+      rotateX,
+
+      transformPerspective: 1200,
+
+      scale: 1.04,
+
+      duration: 0.6,
+
+      ease: "power3.out",
+    });
+  });
+
+  card.addEventListener("mouseleave", () => {
+    gsap.to(card, {
+      rotateY: 0,
+      rotateX: 0,
+      scale: 1,
+
+      duration: 1.1,
+
+      ease: "elastic.out(1,.5)",
+    });
+  });
+});
+
+/* ═══════════════════════════════════════
+   PREMIUM SCROLL MOTION
+═══════════════════════════════════════ */
+
+gsap.utils.toArray(".prod-card").forEach((card, i) => {
+  gsap.from(card, {
+    scrollTrigger: {
+      trigger: card,
+      start: "top 95%",
+    },
+
+    opacity: 0,
+    y: 90,
+    rotateY: 25,
+    scale: 0.85,
+    filter: "blur(10px)",
+
+    duration: 1.3,
+
+    ease: "silicon",
+
+    delay: i * 0.06,
+  });
+});
+
+/* ═══════════════════════════════════════
+   CURSOR LIGHT EFFECT
+═══════════════════════════════════════ */
+
+const light = document.createElement("div");
+
+light.className = "cursor-light";
+
+document.body.appendChild(light);
+
+document.addEventListener("mousemove", (e) => {
+  gsap.to(light, {
+    x: e.clientX - 150,
+    y: e.clientY - 150,
+    duration: 0.9,
+    ease: "power3.out",
+  });
+});
