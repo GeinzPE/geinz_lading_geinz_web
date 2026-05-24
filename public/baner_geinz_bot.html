@@ -1,547 +1,102 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Geinz IA · Asistente WhatsApp Premium</title>
-    <style>
-        /* ------------------------------------------------------------------
-           RESET + DESIGN SYSTEM: AIR & EXPANSIVE (Espaciado Generoso)
-        ------------------------------------------------------------------ */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        :root {
-            --bg-deep: #03030a;
-            --purple-neon: #a855f7;
-            --cyan-neon: #22d3ee;
-            --gold-accent: #fbbf24;
-            --glass-light: rgba(255, 255, 255, 0.02);
-            --glass-border: rgba(255, 255, 255, 0.05);
-            --text-white: #fafafc;
-            --text-soft: #cbcbd9;
-            --transition-premium: all 0.4s cubic-bezier(0.2, 0.95, 0.4, 1.05);
-        }
-
-        body {
-            background: var(--bg-deep);
-            font-family: 'Inter', system-ui, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-            color: var(--text-white);
-            overflow-x: hidden;
-            line-height: 1.4;
-        }
-
-        /* FONDO ATMOSFÉRICO SUAVE */
-        .ambient-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-        }
-        .ambient-bg::before {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 20% 30%, rgba(147,51,234,0.08) 0%, transparent 55%),
-                        radial-gradient(circle at 85% 70%, rgba(6,182,212,0.07) 0%, transparent 60%);
-        }
-        .grid-overlay {
-            position: absolute;
-            inset: 0;
-            background-image: 
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 70px 70px;
-            mask-image: radial-gradient(circle at 50% 40%, black 30%, transparent 85%);
-        }
-
-        /* MAIN CONTAINER CON AMPLIO PADDING Y ESPACIADO */
-        .hero-expansive {
-            position: relative;
-            z-index: 3;
-            max-width: 1440px;
-            margin: 0 auto;
-            padding: 100px 48px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 80px;
-            align-items: center;
-        }
-
-        /* COLUMNA IZQUIERDA - CONTENIDO AIREADO */
-        .content-spacious {
-            display: flex;
-            flex-direction: column;
-            gap: 28px;
-        }
-
-        .badge-air {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(255, 255, 255, 0.02);
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 120px;
-            padding: 8px 24px 8px 20px;
-            width: fit-content;
-            font-size: 13px;
-            font-weight: 500;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            color: #cbd5e6;
-        }
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--cyan-neon);
-            border-radius: 50%;
-            box-shadow: 0 0 12px var(--cyan-neon);
-            animation: gentlePulse 2s infinite;
-        }
-        @keyframes gentlePulse {
-            0% { opacity: 0.4; transform: scale(0.8);}
-            100% { opacity: 1; transform: scale(1.2);}
-        }
-
-        .title-expansive {
-            font-size: clamp(40px, 5.5vw, 72px);
-            font-weight: 800;
-            line-height: 1.1;
-            letter-spacing: -0.03em;
-            background: linear-gradient(125deg, #FFFFFF 35%, #b9b9e6 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin-top: 8px;
-        }
-        .title-expansive span {
-            background: linear-gradient(90deg, var(--cyan-neon), var(--purple-neon));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .desc-air {
-            font-size: clamp(16px, 1.4vw, 20px);
-            line-height: 1.55;
-            color: var(--text-soft);
-            max-width: 560px;
-            margin-top: 8px;
-        }
-
-        /* CARDS CON MÁS PADDING Y ESPACIO INTERNO */
-        .cards-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin: 16px 0 12px;
-        }
-        .glass-card-air {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--glass-border);
-            border-radius: 28px;
-            padding: 22px 28px;
-            backdrop-filter: blur(12px);
-            transition: var(--transition-premium);
-        }
-        .glass-card-air:hover {
-            border-color: rgba(255,255,255,0.12);
-            background: rgba(255,255,255,0.04);
-            transform: translateX(8px);
-        }
-        .icon-xl {
-            width: 56px;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.5);
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.08);
-            color: var(--cyan-neon);
-            transition: var(--transition-premium);
-            flex-shrink: 0;
-        }
-        .glass-card-air:hover .icon-xl {
-            color: var(--purple-neon);
-            border-color: rgba(168,85,247,0.3);
-            box-shadow: 0 0 12px rgba(168,85,247,0.2);
-        }
-        .card-text-premium {
-            font-size: 15px;
-            line-height: 1.5;
-            color: #cbcbd9;
-        }
-        .card-text-premium strong {
-            color: white;
-            font-weight: 700;
-        }
-        .gold-special {
-            border-left: 3px solid rgba(251,191,36,0.5);
-            background: linear-gradient(90deg, rgba(251,191,36,0.02), rgba(255,255,255,0.005));
-        }
-        .gold-special .icon-xl {
-            color: var(--gold-accent);
-            background: rgba(251,191,36,0.08);
-        }
-        .discount-chip {
-            background: rgba(251,191,36,0.18);
-            padding: 5px 12px;
-            border-radius: 40px;
-            font-size: 12px;
-            font-weight: 800;
-            color: #ffdf8c;
-            display: inline-block;
-            margin-left: 8px;
-            border: 0.5px solid rgba(251,191,36,0.3);
-        }
-
-        /* TAGS CON MAYOR SEPARACIÓN */
-        .tags-deck {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 14px;
-            margin: 18px 0 32px;
-            padding-top: 24px;
-            border-top: 1px solid rgba(255,255,255,0.04);
-        }
-        .tag-modern {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 60px;
-            padding: 8px 22px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #dbdbec;
-            transition: 0.2s;
-        }
-        .tag-modern:hover {
-            background: rgba(34,211,238,0.1);
-            border-color: rgba(34,211,238,0.3);
-            color: white;
-        }
-
-        /* CTA GRANDE CON AIRE */
-        .cta-massive {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            background: white;
-            border-radius: 100px;
-            padding: 18px 44px;
-            width: fit-content;
-            font-weight: 700;
-            font-size: 16px;
-            color: #05050f;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
-            margin-top: 8px;
-        }
-        .cta-massive svg {
-            width: 20px;
-            transition: transform 0.25s;
-        }
-        .cta-massive:hover {
-            background: #f3f3ff;
-            transform: scale(1.02);
-            gap: 20px;
-            box-shadow: 0 18px 40px rgba(255,255,255,0.12);
-        }
-        .cta-massive:hover svg {
-            transform: translateX(6px);
-        }
-
-        /* ----- COLUMNA DERECHA: IMAGEN NATIVA CON RESPIRACIÓN ----- */
-        .visual-gallery {
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            padding: 20px 0;
-        }
-        .img-wrapper-fluid {
-            position: relative;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        /* IMAGEN SIN CONTENEDORES QUE LA CORTEN - totalmente fluida */
-        .ia-native-img {
-            max-width: 100%;
-            width: auto;
-            height: auto;
-            display: block;
-            filter: drop-shadow(0 30px 40px rgba(0,0,0,0.6));
-            animation: floatGentle 6s ease-in-out infinite;
-            border-radius: 32px;
-            background: transparent;
-            object-fit: contain;
-        }
-        @keyframes floatGentle {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-12px); }
-            100% { transform: translateY(0px); }
-        }
-
-        /* card flotante minimal */
-        .live-status-card {
-            position: absolute;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(8, 8, 18, 0.85);
-            backdrop-filter: blur(18px);
-            border-radius: 80px;
-            padding: 10px 28px;
-            border: 1px solid rgba(255,255,255,0.12);
-            font-size: 13px;
-            font-weight: 500;
-            white-space: nowrap;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            pointer-events: none;
-        }
-        .green-led {
-            width: 9px;
-            height: 9px;
-            background: #2dd4bf;
-            border-radius: 50%;
-            box-shadow: 0 0 10px #2dd4bf;
-            animation: ledFlash 1.6s infinite;
-        }
-        @keyframes ledFlash {
-            0% { opacity: 0.5; transform: scale(0.9);}
-            100% { opacity: 1; transform: scale(1.2);}
-        }
-
-        /* BACKDROP GLOW DETRÁS DE LA IMAGEN (SIN INTERFERIR) */
-        .image-aura {
-            position: absolute;
-            width: 85%;
-            height: 85%;
-            background: radial-gradient(ellipse, rgba(34,211,238,0.15) 0%, rgba(168,85,247,0.1) 60%, transparent 85%);
-            filter: blur(70px);
-            z-index: -1;
-            border-radius: 50%;
-        }
-
-        /* RESPONSIVE: + ESPACIADO EN MÓVIL Y TABLET */
-        @media (max-width: 1100px) {
-            .hero-expansive {
-                gap: 60px;
-                padding: 80px 40px;
-            }
-        }
-        @media (max-width: 960px) {
-            .hero-expansive {
-                grid-template-columns: 1fr;
-                gap: 56px;
-                padding: 70px 32px;
-            }
-            .content-spacious {
-                order: 1;
-            }
-            .visual-gallery {
-                order: 2;
-                margin-top: 12px;
-            }
-            .ia-native-img {
-                max-width: 85%;
-                margin: 0 auto;
-            }
-            .cta-massive {
-                width: 100%;
-                justify-content: center;
-                padding: 16px 32px;
-            }
-        }
-        @media (max-width: 680px) {
-            .hero-expansive {
-                padding: 50px 24px;
-                gap: 48px;
-            }
-            .glass-card-air {
-                padding: 18px 20px;
-                gap: 16px;
-            }
-            .icon-xl {
-                width: 48px;
-                height: 48px;
-            }
-            .card-text-premium {
-                font-size: 13.5px;
-            }
-            .tags-deck {
-                gap: 10px;
-            }
-            .tag-modern {
-                padding: 5px 16px;
-                font-size: 11px;
-            }
-            .live-status-card {
-                font-size: 10px;
-                padding: 6px 18px;
-                bottom: 5px;
-                white-space: nowrap;
-            }
-            .ia-native-img {
-                max-width: 95%;
-            }
-        }
-        @media (max-width: 480px) {
-            .hero-expansive {
-                padding: 40px 20px;
-            }
-            .badge-air {
-                font-size: 10px;
-                padding: 6px 16px;
-            }
-            .glass-card-air {
-                flex-direction: column;
-                align-items: flex-start;
-                text-align: left;
-            }
-            .icon-xl {
-                width: 44px;
-                height: 44px;
-            }
-            .cta-massive {
-                font-size: 14px;
-                padding: 14px 28px;
-            }
-            .live-status-card {
-                padding: 4px 16px;
-                font-size: 9px;
-            }
-        }
-
-        /* ESPACIADO EXTRA PARA SECCIONES INTERNAS */
-        .content-spacious > * {
-            margin-bottom: 0;
-        }
-        .cards-stack {
-            margin-bottom: 8px;
-        }
-    </style>
+<link rel="stylesheet" href="style/baner_geinz_bot.css">
 </head>
+
 <body>
 
-<div class="ambient-bg">
-    <div class="grid-overlay"></div>
-</div>
+    <main class="hero-expansive">
+        <section>
+            <div class="badge-air">◉ Beneficio exclusivo · Aliados Geinz</div>
+            <h1 class="title-expansive">Consigue tu propio <span>asistente de WhatsApp</span> con IA</h1>
+            <p class="desc-air">Automatiza pedidos, agenda citas y responde clientes al instante mientras duermes.</p>
 
-<main class="hero-expansive">
-    <!-- COLUMNA IZQUIERDA - CONTENIDO PRINCIPAL CON AIRE -->
-    <div class="content-spacious">
-        <div class="badge-air">
-            <span class="pulse-dot"></span>
-            <span>◉ Beneficio exclusivo · Aliados Geinz</span>
-        </div>
-
-        <h1 class="title-expansive">
-            Consigue tu propio <span>asistente de WhatsApp</span> integrado con IA
-        </h1>
-        <p class="desc-air">
-            Automatiza el flujo completo de tu negocio: recibe pedidos, agenda citas y responde clientes al instante, 
-            todo mientras duermes. Un agente inteligente disponible 24/7 para escalar tus ventas.
-        </p>
-
-        <!-- Cards con más espacio interno y externo -->
-        <div class="cards-stack">
-            <div class="glass-card-air">
-                <div class="icon-xl">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                    </svg>
+            <div class="cards-stack">
+                <div class="glass-card-air">
+                    <div class="icon-box">⚡</div>
+                    <div><strong>Conversión 24/7</strong><br><small>Gestión de pedidos en tiempo real.</small></div>
                 </div>
-                <div class="card-text-premium">
-                    <strong>Conversión inmediata 24/7</strong> · Gestiona pedidos, reservas y solicitudes en tiempo real. Tu negocio activo siempre.
+                <div class="glass-card-air">
+                    <div class="icon-box" style="color: #ef4444;">🛡️</div>
+                    <div><strong>Seguridad Anti-Abuso</strong><br><small>Baneo en tiempo real de contactos maliciosos y
+                            protección contra extorsión.</small></div>
+                </div>
+                <div class="glass-card-air gold-special">
+                    <div class="icon-box" style="color: var(--gold-accent);">⭐</div>
+                    <div><strong>Descuento exclusivo</strong><br><small>30% off para negocios verificados.</small></div>
                 </div>
             </div>
 
-            <div class="glass-card-air">
-                <div class="icon-xl">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
+            <div class="form-container-air">
+                <div class="input-group">
+                    <label for="rubro">Selecciona tu rubro</label>
+                    <select id="rubro" onchange="toggleManualInput()">
+                        <option value="" disabled selected>Elige una opción...</option>
+                        <option value="clinica">Clínica / Salud</option>
+                        <option value="restaurante">Restaurante / Pollería</option>
+                        <option value="servicios">Servicios Técnicos</option>
+                        <option value="inmobiliaria">Inmobiliaria</option>
+                        <option value="otro">Otro rubro (Escribir abajo)</option>
+                    </select>
                 </div>
-                <div class="card-text-premium">
-                    <strong>Privacidad blindada</strong> · Separa tu vida personal de la comercial. Perfil de marca profesional, número privado protegido.
-                </div>
-            </div>
-
-            <div class="glass-card-air gold-special">
-                <div class="icon-xl">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <line x1="19" y1="5" x2="5" y2="19" />
-                        <circle cx="6.5" cy="6.5" r="2.5" />
-                        <circle cx="17.5" cy="17.5" r="2.5" />
-                    </svg>
-                </div>
-                <div class="card-text-premium">
-                    <strong>Descuento de creación especial</strong> para negocios verificados dentro de Geinz
-                    <span class="discount-chip">-30% exclusivo</span>
+                <div class="input-group" id="manual-group" style="display: none;">
+                    <label for="manual">Escribe tu rubro aquí</label>
+                    <input type="text" id="manual" class="modern-input" placeholder="Ej: Tienda de ropa...">
                 </div>
             </div>
-        </div>
 
-        <!-- Ecosistema de tags con espaciado generoso -->
-        <div class="tags-deck">
-            <span class="tag-modern">Pollerías</span>
-            <span class="tag-modern">Chifas & Nikkei</span>
-            <span class="tag-modern">Clínicas y salud</span>
-            <span class="tag-modern">Inmobiliarias</span>
-            <span class="tag-modern">Tiendas de Ropa</span>
-            <span class="tag-modern">Restobares</span>
-            <span class="tag-modern">Educación</span>
-        </div>
+            <button onclick="solicitarAsistente()" class="cta-massive">Solicitar asistente con descuento</button>
+        </section>
 
-        <!-- Botón CTA expansivo -->
-        <a href="#" class="cta-massive">
-            <span>Solicitar mi asistente con descuento</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-            </svg>
-        </a>
-    </div>
+        <aside class="visual-gallery">
+            <img class="ia-native-img" src="img/daniel_geinz_asistnet.webp" alt="Asistente Geinz IA">
+        </aside>
+    </main>
 
-    <!-- COLUMNA DERECHA: IMAGEN NATIVA + FLUIDA (eliminamos contenedores restrictivos) -->
-    <div class="visual-gallery">
-        <div class="img-wrapper-fluid">
-            <div class="image-aura"></div>
-            <!-- La imagen se muestra nativa, sin dimensiones forzadas, sin recortes -->
-            <img class="ia-native-img" 
-                 src="img/daniel_geinz_asistnet.webp" 
-                 alt="Asistente inteligente WhatsApp - Automatización Geinz IA"
-                 loading="eager">
-            <div class="live-status-card">
-                <span class="green-led"></span>
-                <span>Módulo IA conectado · Integración en tiempo real</span>
-            </div>
-        </div>
-    </div>
-</main>
+    <script>
+        function toggleManualInput() {
+            const select = document.getElementById('rubro');
+            const manualGroup = document.getElementById('manual-group');
+            manualGroup.style.display = (select.value === 'otro') ? 'block' : 'none';
+        }
 
-<!-- Nota: La imagen mantiene su flujo natural. Aumento de paddings en todo el layout para sensación premium y "aire" -->
+        async function solicitarAsistente() {
+            const rubro = document.getElementById('rubro').value;
+            const manual = document.getElementById('manual').value;
+            const rubroFinal = (rubro === 'otro') ? manual : rubro;
+
+            if (!rubroFinal) {
+                alert("Por favor, selecciona o escribe tu rubro.");
+                return;
+            }
+
+            const payload = { rubro: rubroFinal, fecha: new Date().toISOString() };
+
+            try {
+                // Reemplaza con tu URL real cuando esté lista
+                const response = await fetch('TU_URL_DE_CLOUD_FUNCTION_AQUI', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    alert("¡Solicitud enviada! Nos pondremos en contacto contigo pronto.");
+                } else {
+                    throw new Error('Error');
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Solicitud recibida. (Modo simulación activo)");
+            }
+        }
+    </script>
+
 </body>
+
 </html>

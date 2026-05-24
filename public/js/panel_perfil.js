@@ -30,6 +30,20 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   //  INICIALIZACIÓN
   // ═══════════════════════════════════════════
+  _showUploadLoading: function (msg, subMsg) {
+    var el = document.getElementById("uploadLoadingOverlay");
+    if (!el) return;
+    el.style.display = "flex";
+    document.getElementById("uploadLoadingMsg").textContent =
+      msg || "Subiendo imagen...";
+    document.getElementById("uploadLoadingSubMsg").textContent =
+      subMsg || "Por favor espera";
+  },
+
+  _hideUploadLoading: function () {
+    var el = document.getElementById("uploadLoadingOverlay");
+    if (el) el.style.display = "none";
+  },
   init: function () {
     const self = this;
 
@@ -410,7 +424,9 @@ window.PanelPerfil = {
   askChangeCategoria: function (newCat) {
     var self = this;
 
-    if (!confirm("Cambiar categoría reiniciará las subcategorías.\n\n¿Continuar?")) {
+    if (
+      !confirm("Cambiar categoría reiniciará las subcategorías.\n\n¿Continuar?")
+    ) {
       return;
     }
 
@@ -539,7 +555,9 @@ window.PanelPerfil = {
     // ── Teléfono ──
     self._insertFieldSaveBtn("fieldTelefono", "teléfono", async function () {
       var val = document.getElementById("fieldTelefono")?.value || "";
-      await self.updateDoc(self.TIENDA_REF, { "metodo_contacto.llamada.numero": val });
+      await self.updateDoc(self.TIENDA_REF, {
+        "metodo_contacto.llamada.numero": val,
+      });
       self._originalValues["fieldTelefono"] = val;
       self.showToast("✓ Teléfono guardado");
     });
@@ -547,15 +565,21 @@ window.PanelPerfil = {
     // ── WhatsApp ──
     self._insertFieldSaveBtn("fieldWhatsapp", "WhatsApp", async function () {
       var val = document.getElementById("fieldWhatsapp")?.value || "";
-      await self.updateDoc(self.TIENDA_REF, { "metodo_contacto.whatsapp.numero": val });
+      await self.updateDoc(self.TIENDA_REF, {
+        "metodo_contacto.whatsapp.numero": val,
+      });
       self._originalValues["fieldWhatsapp"] = val;
       self.showToast("✓ WhatsApp guardado");
     });
 
     // ── Instagram ──
     self._insertFieldSaveBtn("fieldInstagram", "Instagram", async function () {
-      var val = (document.getElementById("fieldInstagram")?.value || "").replace("@", "");
-      await self.updateDoc(self.TIENDA_REF, { "metodo_contacto.instagram.nombre": val });
+      var val = (
+        document.getElementById("fieldInstagram")?.value || ""
+      ).replace("@", "");
+      await self.updateDoc(self.TIENDA_REF, {
+        "metodo_contacto.instagram.nombre": val,
+      });
       self._originalValues["fieldInstagram"] = "@" + val;
       self.showToast("✓ Instagram guardado");
     });
@@ -563,7 +587,9 @@ window.PanelPerfil = {
     // ── Facebook ──
     self._insertFieldSaveBtn("fieldFacebook", "Facebook", async function () {
       var val = document.getElementById("fieldFacebook")?.value || "";
-      await self.updateDoc(self.TIENDA_REF, { "metodo_contacto.facebook.url": val });
+      await self.updateDoc(self.TIENDA_REF, {
+        "metodo_contacto.facebook.url": val,
+      });
       self._originalValues["fieldFacebook"] = val;
       self.showToast("✓ Facebook guardado");
     });
@@ -571,7 +597,9 @@ window.PanelPerfil = {
     // ── TikTok ──
     self._insertFieldSaveBtn("fieldTiktok", "TikTok", async function () {
       var val = document.getElementById("fieldTiktok")?.value || "";
-      await self.updateDoc(self.TIENDA_REF, { "metodo_contacto.tiktok.url": val });
+      await self.updateDoc(self.TIENDA_REF, {
+        "metodo_contacto.tiktok.url": val,
+      });
       self._originalValues["fieldTiktok"] = val;
       self.showToast("✓ TikTok guardado");
     });
@@ -579,7 +607,9 @@ window.PanelPerfil = {
     // ── Sitio web ──
     self._insertFieldSaveBtn("fieldWeb", "sitio web", async function () {
       var val = document.getElementById("fieldWeb")?.value || "";
-      await self.updateDoc(self.TIENDA_REF, { "metodo_contacto.sitio_web.url": val });
+      await self.updateDoc(self.TIENDA_REF, {
+        "metodo_contacto.sitio_web.url": val,
+      });
       self._originalValues["fieldWeb"] = val;
       self.showToast("✓ Sitio web guardado");
     });
@@ -623,12 +653,16 @@ window.PanelPerfil = {
     });
 
     // ── Referencia ──
-    self._insertFieldSaveBtn("fieldReferencia", "referencia", async function () {
-      var val = document.getElementById("fieldReferencia")?.value || "";
-      await self.updateDoc(self.TIENDA_REF, { "ubicacion.referencia": val });
-      self._originalValues["fieldReferencia"] = val;
-      self.showToast("✓ Referencia guardada");
-    });
+    self._insertFieldSaveBtn(
+      "fieldReferencia",
+      "referencia",
+      async function () {
+        var val = document.getElementById("fieldReferencia")?.value || "";
+        await self.updateDoc(self.TIENDA_REF, { "ubicacion.referencia": val });
+        self._originalValues["fieldReferencia"] = val;
+        self.showToast("✓ Referencia guardada");
+      },
+    );
 
     // ── Coordenadas (mapa) ──
     self._insertMapSaveBtn();
@@ -677,7 +711,8 @@ window.PanelPerfil = {
         });
 
         // Guardar en /lugares/
-        const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const { updateDoc, doc } =
+          await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
         const lugarRef = doc(self.db, "lugares", self.TIENDA_REF.id);
         await updateDoc(lugarRef, {
           "ubicacion.latitud": lat,
@@ -734,7 +769,8 @@ window.PanelPerfil = {
         });
 
         // Guardar en /lugares/
-        const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const { updateDoc, doc } =
+          await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
         const lugarRef = doc(self.db, "lugares", self.TIENDA_REF.id);
         await updateDoc(lugarRef, {
           tag: self.selectedSubcats,
@@ -755,7 +791,6 @@ window.PanelPerfil = {
 
     body.appendChild(btn);
   },
-
 
   _originalSubcats: [],
 
@@ -790,10 +825,16 @@ window.PanelPerfil = {
           return;
         }
         self.currentData = snap.data();
-        console.log("🔔 SNAPSHOT recibido, _ignorarSnapshot =", self._ignorarSnapshot);
+        console.log(
+          "🔔 SNAPSHOT recibido, _ignorarSnapshot =",
+          self._ignorarSnapshot,
+        );
 
         if (self._ignorarSnapshot > 0) {
-          console.log("⏭️ Ignorando snapshot, decrementando contador a", self._ignorarSnapshot - 1);
+          console.log(
+            "⏭️ Ignorando snapshot, decrementando contador a",
+            self._ignorarSnapshot - 1,
+          );
           self._ignorarSnapshot--;
         } else {
           console.log("✅ Ejecutando populateUI");
@@ -901,8 +942,18 @@ window.PanelPerfil = {
 
     var imgs = data.img_tienda?.lista_img;
 
-    self.populatePhotoGrid("ambienteGrid", imgs?.ambientales || [], 6, "ambientales");
-    self.populatePhotoGrid("productosGrid", imgs?.servicios_productos || [], 6, "servicios_productos");
+    self.populatePhotoGrid(
+      "ambienteGrid",
+      imgs?.ambientales || [],
+      6,
+      "ambientales",
+    );
+    self.populatePhotoGrid(
+      "productosGrid",
+      imgs?.servicios_productos || [],
+      6,
+      "servicios_productos",
+    );
 
     if (imgs?.promociones) {
       self.populatePromocionesGrid("promocionesGrid", imgs.promociones, 3);
@@ -915,26 +966,37 @@ window.PanelPerfil = {
     // ── Guardar valores originales para detectar cambios ──
     self._originalValues["businessName"] = data.nombre_tienda || "";
     self._originalValues["businessDesc"] = data.descripcion || "";
-    self._originalValues["fieldAforo"] = data.aforo_max !== undefined ? String(data.aforo_max) : "";
-    self._originalValues["fieldDireccion"] = data.ubicacion?.["dirección"] || "";
+    self._originalValues["fieldAforo"] =
+      data.aforo_max !== undefined ? String(data.aforo_max) : "";
+    self._originalValues["fieldDireccion"] =
+      data.ubicacion?.["dirección"] || "";
     self._originalValues["fieldReferencia"] = data.ubicacion?.referencia || "";
     self._originalSubcats = [...self.selectedSubcats];
 
-
-    self._originalValues["fieldTelefono"] = data.metodo_contacto?.llamada?.numero || "";
-    self._originalValues["fieldWhatsapp"] = data.metodo_contacto?.whatsapp?.numero || "";
-    self._originalValues["fieldInstagram"] = data.metodo_contacto?.instagram?.nombre
-      ? (data.metodo_contacto.instagram.nombre.startsWith("@")
+    self._originalValues["fieldTelefono"] =
+      data.metodo_contacto?.llamada?.numero || "";
+    self._originalValues["fieldWhatsapp"] =
+      data.metodo_contacto?.whatsapp?.numero || "";
+    self._originalValues["fieldInstagram"] = data.metodo_contacto?.instagram
+      ?.nombre
+      ? data.metodo_contacto.instagram.nombre.startsWith("@")
         ? data.metodo_contacto.instagram.nombre
-        : "@" + data.metodo_contacto.instagram.nombre)
+        : "@" + data.metodo_contacto.instagram.nombre
       : "";
-    self._originalValues["fieldFacebook"] = data.metodo_contacto?.facebook?.url || "";
-    self._originalValues["fieldTiktok"] = data.metodo_contacto?.tiktok?.url || "";
-    self._originalValues["fieldWeb"] = data.metodo_contacto?.sitio_web?.url || "";
-    self._originalValues["fieldYapeTitular"] = data.metodos_pago?.yape?.nombre || "";
-    self._originalValues["fieldYapeAlias"] = data.metodos_pago?.yape?.numero || "";
-    self._originalValues["fieldPlinTitular"] = data.metodos_pago?.plin?.nombre || "";
-    self._originalValues["fieldPlinAlias"] = data.metodos_pago?.plin?.numero || "";
+    self._originalValues["fieldFacebook"] =
+      data.metodo_contacto?.facebook?.url || "";
+    self._originalValues["fieldTiktok"] =
+      data.metodo_contacto?.tiktok?.url || "";
+    self._originalValues["fieldWeb"] =
+      data.metodo_contacto?.sitio_web?.url || "";
+    self._originalValues["fieldYapeTitular"] =
+      data.metodos_pago?.yape?.nombre || "";
+    self._originalValues["fieldYapeAlias"] =
+      data.metodos_pago?.yape?.numero || "";
+    self._originalValues["fieldPlinTitular"] =
+      data.metodos_pago?.plin?.nombre || "";
+    self._originalValues["fieldPlinAlias"] =
+      data.metodos_pago?.plin?.numero || "";
 
     // ── Setup botones de campo (solo la primera vez) ──
     if (!self._fieldBtnsReady) {
@@ -1024,12 +1086,15 @@ window.PanelPerfil = {
 
         img.onload = function () {
           sk.style.display = "none";
-          requestAnimationFrame(() => { img.style.opacity = "1"; });
+          requestAnimationFrame(() => {
+            img.style.opacity = "1";
+          });
         };
 
         img.onerror = function () {
           sk.style.display = "none";
-          wrap.innerHTML = '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
+          wrap.innerHTML =
+            '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
         };
 
         img.src = url;
@@ -1079,11 +1144,30 @@ window.PanelPerfil = {
       const file = e.target.files[0];
       if (!file) return;
 
+      const currentGrid = document.getElementById(
+        tipo === "ambientales" ? "ambienteGrid" : "productosGrid",
+      );
+      const slots = currentGrid
+        ? currentGrid.querySelectorAll(".photo-item")
+        : [];
+      const slotEl = slots[slotIndex];
+      const tieneImagen =
+        slotEl && !slotEl.classList.contains("photo-item-add");
+
+      if (tieneImagen) {
+        if (!confirm("¿Reemplazar esta foto por la nueva imagen?")) return;
+      } else {
+        if (!confirm("¿Subir esta imagen al panel?")) return;
+      }
       const reader = new FileReader();
       reader.onload = async function (ev) {
-        self.showToast("⏳ Subiendo...");
+        self._showUploadLoading("Subiendo foto...", "Comprimiendo y guardando");
         try {
-          const comprimida = await self._comprimirImagen(ev.target.result, 1024, 0.85);
+          const comprimida = await self._comprimirImagen(
+            ev.target.result,
+            1024,
+            0.85,
+          );
           const blob = self._dataURLtoBlob(comprimida);
 
           const storageModule =
@@ -1091,7 +1175,9 @@ window.PanelPerfil = {
           const storage = storageModule.getStorage(self._firebaseApp);
           const path = `tiendas/${self.TIENDA_ID}/imagenes/${tipo}/slot_${slotIndex}.webp`;
           const storageRef = storageModule.ref(storage, path);
-          await storageModule.uploadBytes(storageRef, blob, { contentType: "image/webp" });
+          await storageModule.uploadBytes(storageRef, blob, {
+            contentType: "image/webp",
+          });
           const finalURL = await storageModule.getDownloadURL(storageRef);
 
           const { getDoc } =
@@ -1113,7 +1199,10 @@ window.PanelPerfil = {
             [`img_tienda.lista_img.${tipo}`]: lista,
           });
 
-          const gridMap = { ambientales: "ambienteGrid", servicios_productos: "productosGrid" };
+          const gridMap = {
+            ambientales: "ambienteGrid",
+            servicios_productos: "productosGrid",
+          };
           const maxMap = { ambientales: 6, servicios_productos: 6 };
           self.populatePhotoGrid(gridMap[tipo], lista, maxMap[tipo], tipo);
 
@@ -1121,6 +1210,8 @@ window.PanelPerfil = {
         } catch (err) {
           console.error("Error subiendo foto:", err);
           self.showToast("❌ Error al subir foto");
+        } finally {
+          self._hideUploadLoading();
         }
       };
       reader.readAsDataURL(file);
@@ -1169,7 +1260,10 @@ window.PanelPerfil = {
         [`img_tienda.lista_img.${tipo}`]: lista,
       });
 
-      const gridMap = { ambientales: "ambienteGrid", servicios_productos: "productosGrid" };
+      const gridMap = {
+        ambientales: "ambienteGrid",
+        servicios_productos: "productosGrid",
+      };
       const maxMap = { ambientales: 6, servicios_productos: 6 };
       self.populatePhotoGrid(gridMap[tipo], lista, maxMap[tipo], tipo);
 
@@ -1239,7 +1333,9 @@ window.PanelPerfil = {
   _updateDescSilent: function (val) {
     var el = document.getElementById("heroDesc");
     if (el) {
-      el.textContent = val || "Toca aquí para agregar una descripción atractiva de tu negocio...";
+      el.textContent =
+        val ||
+        "Toca aquí para agregar una descripción atractiva de tu negocio...";
     }
   },
 
@@ -1357,7 +1453,9 @@ window.PanelPerfil = {
       await self.updateDoc(self.TIENDA_REF, {
         ["metodos_pago." + method + ".enable"]: enabled,
       });
-      self.showToast(method.toUpperCase() + " " + (enabled ? "activado" : "desactivado"));
+      self.showToast(
+        method.toUpperCase() + " " + (enabled ? "activado" : "desactivado"),
+      );
       self.showSaveFab();
     } catch (e) {
       console.error("Error togglePayMethod:", e);
@@ -1371,7 +1469,11 @@ window.PanelPerfil = {
       await self.updateDoc(self.TIENDA_REF, {
         ["metodo_contacto." + method + ".estado"]: enabled,
       });
-      self.showToast(self._getContactName(method) + " " + (enabled ? "activado" : "desactivado"));
+      self.showToast(
+        self._getContactName(method) +
+          " " +
+          (enabled ? "activado" : "desactivado"),
+      );
       self.showSaveFab();
     } catch (e) {
       console.error("Error toggleContactMethod:", e);
@@ -1478,7 +1580,10 @@ window.PanelPerfil = {
     var placeholder = document.getElementById("avatarModalPlaceholder");
     var btnSave = document.getElementById("btnSaveAvatarImg");
 
-    if (preview) { preview.src = ""; preview.style.display = "none"; }
+    if (preview) {
+      preview.src = "";
+      preview.style.display = "none";
+    }
     if (placeholder) placeholder.style.display = "flex";
     if (btnSave) {
       btnSave.style.display = "none";
@@ -1519,7 +1624,10 @@ window.PanelPerfil = {
     var preview = document.getElementById("avatarModalPreview");
     var placeholder = document.getElementById("avatarModalPlaceholder");
 
-    if (preview) { preview.src = dataURL; preview.style.display = "block"; }
+    if (preview) {
+      preview.src = dataURL;
+      preview.style.display = "block";
+    }
     if (placeholder) placeholder.style.display = "none";
 
     var btnSave = document.getElementById("btnSaveAvatarImg");
@@ -1532,6 +1640,8 @@ window.PanelPerfil = {
   applyProfileImg: async function () {
     var self = this;
 
+    if (!confirm("¿Guardar esta imagen como logo de tu negocio?")) return;
+
     var dataURL = self._avatarPendingDataURL;
     if (!dataURL) {
       self.showToast("Selecciona una imagen primero");
@@ -1539,7 +1649,10 @@ window.PanelPerfil = {
     }
 
     var btnSave = document.getElementById("btnSaveAvatarImg");
-    if (btnSave) { btnSave.disabled = true; btnSave.textContent = "Subiendo..."; }
+    if (btnSave) {
+      btnSave.disabled = true;
+      btnSave.textContent = "Subiendo...";
+    }
 
     try {
       var comprimida = await self._comprimirImagen(dataURL, 512, 0.82);
@@ -1553,12 +1666,16 @@ window.PanelPerfil = {
         "tiendas/" + self.TIENDA_ID + "/logo/logo.webp",
       );
 
-      await storageModule.uploadBytes(storageRef, blob, { contentType: "image/webp" });
+      await storageModule.uploadBytes(storageRef, blob, {
+        contentType: "image/webp",
+      });
       var finalURL = await storageModule.getDownloadURL(storageRef);
 
       console.log("✅ Logo subido:", finalURL);
 
-      await self.updateDoc(self.TIENDA_REF, { "img_tienda.logo_tienda": finalURL });
+      await self.updateDoc(self.TIENDA_REF, {
+        "img_tienda.logo_tienda": finalURL,
+      });
 
       const lugarRef = self.doc(self.db, "lugares", self.TIENDA_ID);
       await self.updateDoc(lugarRef, { img: finalURL });
@@ -1571,7 +1688,10 @@ window.PanelPerfil = {
       console.error("Error subiendo logo:", e);
       self.showToast("❌ Error al subir imagen");
     } finally {
-      if (btnSave) { btnSave.disabled = false; btnSave.textContent = "Guardar"; }
+      if (btnSave) {
+        btnSave.disabled = false;
+        btnSave.textContent = "Guardar";
+      }
     }
   },
 
@@ -1586,8 +1706,13 @@ window.PanelPerfil = {
         var h = img.height;
 
         if (w > maxPx || h > maxPx) {
-          if (w >= h) { h = Math.round((h * maxPx) / w); w = maxPx; }
-          else { w = Math.round((w * maxPx) / h); h = maxPx; }
+          if (w >= h) {
+            h = Math.round((h * maxPx) / w);
+            w = maxPx;
+          } else {
+            w = Math.round((w * maxPx) / h);
+            h = maxPx;
+          }
         }
 
         var canvas = document.createElement("canvas");
@@ -1596,7 +1721,9 @@ window.PanelPerfil = {
         canvas.getContext("2d").drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL("image/webp", calidad));
       };
-      img.onerror = function () { reject(new Error("No se pudo leer imagen")); };
+      img.onerror = function () {
+        reject(new Error("No se pudo leer imagen"));
+      };
       img.src = dataURL;
     });
   },
@@ -1717,28 +1844,53 @@ window.PanelPerfil = {
     input.onchange = function (e) {
       var file = e.target.files[0];
       if (!file) return;
-
+      const mensaje = oldKey
+        ? "¿Reemplazar esta promoción por la nueva imagen?"
+        : "¿Subir esta imagen como nueva promoción?";
+      if (!confirm(mensaje)) return;
       var reader = new FileReader();
       reader.onload = async function (ev) {
-        self.showToast("⏳ Subiendo...");
+        self._showUploadLoading(
+          "Subiendo promoción...",
+          "Comprimiendo y guardando",
+        );
+
         try {
           var newKey = String(Math.floor(Math.random() * 9000000) + 1000000);
-          var comprimida = await self._comprimirImagen(ev.target.result, 1024, 0.85);
+          var comprimida = await self._comprimirImagen(
+            ev.target.result,
+            1024,
+            0.85,
+          );
           var blob = self._dataURLtoBlob(comprimida);
 
           var storageModule =
             await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js");
           var storage = storageModule.getStorage(self._firebaseApp);
 
-          var path = "tiendas/" + self.TIENDA_ID + "/imagenes/promociones/" + newKey + ".webp";
+          var path =
+            "tiendas/" +
+            self.TIENDA_ID +
+            "/imagenes/promociones/" +
+            newKey +
+            ".webp";
           var storageRef = storageModule.ref(storage, path);
-          await storageModule.uploadBytes(storageRef, blob, { contentType: "image/webp" });
+          await storageModule.uploadBytes(storageRef, blob, {
+            contentType: "image/webp",
+          });
           var finalURL = await storageModule.getDownloadURL(storageRef);
 
           if (oldKey) {
             try {
-              var oldPath = "tiendas/" + self.TIENDA_ID + "/imagenes/promociones/" + oldKey + ".webp";
-              await storageModule.deleteObject(storageModule.ref(storage, oldPath));
+              var oldPath =
+                "tiendas/" +
+                self.TIENDA_ID +
+                "/imagenes/promociones/" +
+                oldKey +
+                ".webp";
+              await storageModule.deleteObject(
+                storageModule.ref(storage, oldPath),
+              );
             } catch (e) {
               console.warn("No se pudo borrar el anterior:", e);
             }
@@ -1748,15 +1900,32 @@ window.PanelPerfil = {
             await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
           var updates = {};
-          if (oldKey) updates["img_tienda.lista_img.promociones." + oldKey] = deleteField();
+          if (oldKey)
+            updates["img_tienda.lista_img.promociones." + oldKey] =
+              deleteField();
           updates["img_tienda.lista_img.promociones." + newKey] = finalURL;
 
           self._ignorarSnapshot++;
           await self.updateDoc(self.TIENDA_REF, updates);
+
+          // Re-leer y re-renderizar igual que en servicios/ambiente
+          const { getDoc: getDocPromo } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+          const snapPromo = await getDocPromo(self.TIENDA_REF);
+          const promocionesActualizadas =
+            snapPromo.data()?.img_tienda?.lista_img?.promociones || {};
+          self.populatePromocionesGrid(
+            "promocionesGrid",
+            promocionesActualizadas,
+            3,
+          );
+
           self.showToast("✓ Promoción actualizada");
         } catch (err) {
           console.error("Error subiendo promoción:", err);
           self.showToast("❌ Error al subir");
+        } finally {
+          self._hideUploadLoading();
         }
       };
       reader.readAsDataURL(file);
@@ -1790,6 +1959,19 @@ window.PanelPerfil = {
       await self.updateDoc(self.TIENDA_REF, {
         [`img_tienda.lista_img.promociones.${key}`]: deleteField(),
       });
+
+      // Re-leer y re-renderizar
+      const { getDoc: getDocDel } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const snapDel = await getDocDel(self.TIENDA_REF);
+      const promocionesActualizadas =
+        snapDel.data()?.img_tienda?.lista_img?.promociones || {};
+      self.populatePromocionesGrid(
+        "promocionesGrid",
+        promocionesActualizadas,
+        3,
+      );
+
       self.showToast("✓ Promoción eliminada");
     } catch (err) {
       console.error("Error eliminando promoción:", err);
@@ -1824,11 +2006,14 @@ window.PanelPerfil = {
         "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
       img.onload = function () {
         sk.style.display = "none";
-        setTimeout(function () { img.style.opacity = "1"; }, 50);
+        setTimeout(function () {
+          img.style.opacity = "1";
+        }, 50);
       };
       img.onerror = function () {
         sk.style.display = "none";
-        wrap.innerHTML = '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
+        wrap.innerHTML =
+          '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
       };
       img.src = url;
       wrap.appendChild(img);
@@ -1856,7 +2041,9 @@ window.PanelPerfil = {
       var div = document.createElement("div");
       div.className = "photo-item photo-item-add";
       div.innerHTML = "<span>📷</span><span>Agregar</span>";
-      div.onclick = function () { self.openFotoPromocion(null); };
+      div.onclick = function () {
+        self.openFotoPromocion(null);
+      };
       grid.appendChild(div);
     }
   },

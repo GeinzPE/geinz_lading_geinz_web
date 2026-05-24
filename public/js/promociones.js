@@ -1,6 +1,4 @@
-/* ════════════════════════════════
-   ESTADOS: loading | available | expired | deleted
-   ════════════════════════════════ */
+
 
 /* ── CSS DE ESTADOS (inyectado dinámicamente) ── */
 const STATE_CSS = `
