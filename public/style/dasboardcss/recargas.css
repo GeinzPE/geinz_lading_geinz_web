@@ -1,0 +1,455 @@
+:root {
+    --bg-main: #03000a;
+    --bg-card: #090514;
+    --purple-glow: #a14fff;
+    --purple-border: rgba(161, 79, 255, 0.4);
+    --text-white: #ffffff;
+    --text-muted: #888296;
+    --gold: #ffc107;
+    --gold-bg: rgba(255, 193, 7, 0.1);
+    --card-radius: 20px;
+    --bg-culqi: #f8f8f9;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+
+    background: #070707;
+    min-height: 100%;
+
+    overflow-x: hidden;
+}
+
+/* === ESTILIZACIÓN PREMIUM DEL SCROLLBAR === */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #475569;
+    /* Gris medio */
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+    /* Gris un poco más claro al pasar el mouse */
+}
+
+
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 var(--bg-main);
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.02em;
+    -webkit-tap-highlight-color: transparent;
+
+}
+
+/* Quitar selección azul */
+button,
+a,
+div,
+span,
+input,
+textarea,
+select {
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Quitar flash azul en Android */
+button:focus,
+a:focus,
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+body {
+    background-color: var(--bg-main);
+    background-image:
+        radial-gradient(circle at 50% -20%, rgba(123, 44, 191, 0.18) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(75, 0, 130, 0.08) 0%, transparent 40%),
+        linear-gradient(180deg, #03000a 0%, #070312 100%);
+    background-attachment: fixed;
+    color: var(--text-white);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4rem 1.5rem;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+header {
+    text-align: center;
+    max-width: 600px;
+    margin-bottom: 3rem;
+    width: 100%;
+}
+
+header h1 {
+    font-size: 2.75rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    background: linear-gradient(180deg, #ffffff 50%, #c3b4ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+header p {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+/* Banner Culqi */
+.culqi-banner {
+    background-color: var(--bg-culqi);
+    color: #000000;
+    width: 100%;
+    max-width: 1200px;
+    border-radius: 16px;
+    padding: 1.2rem 2rem;
+    margin-bottom: 3.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(240, 240, 242, 0.3) 100%);
+}
+
+.culqi-banner-text {
+    flex: 1;
+    padding-right: 2rem;
+}
+
+.culqi-banner h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.03em;
+}
+
+.culqi-banner p {
+    font-size: 0.95rem;
+    color: #555555;
+    line-height: 1.5;
+}
+
+.culqi-logo-space {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.culqi-img {
+    max-width: 260px;
+    height: auto;
+    object-fit: contain;
+}
+
+.planes-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 1200px;
+    padding: 0.5rem;
+}
+
+.plan-card {
+    background: linear-gradient(180deg, rgba(15, 9, 30, 0.6) 0%, rgba(9, 5, 20, 0.9) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--card-radius);
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.plan-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(161, 79, 255, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(161, 79, 255, 0.1);
+}
+
+.plan-card.avanzado-destacado {
+    border: 1px solid var(--purple-border);
+    background: linear-gradient(180deg, rgba(22, 12, 44, 0.7) 0%, rgba(9, 5, 20, 0.9) 100%);
+    box-shadow: 0 0 35px rgba(161, 79, 255, 0.15);
+}
+
+.plan-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
+}
+
+.avanzado-destacado .plan-name {
+    color: #bfa1ff;
+}
+
+.plan-coins-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.plan-coins {
+    font-size: 3.4rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    color: #ffffff;
+}
+
+.coin-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.gift-badge {
+    background-color: var(--gold-bg);
+    color: var(--gold);
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    margin-bottom: 1.75rem;
+    border: 1px solid rgba(255, 193, 7, 0.15);
+}
+
+.benefits-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    flex-grow: 1;
+    margin-bottom: 2.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    padding-top: 1.5rem;
+}
+
+.no-gift-padding {
+    margin-top: 1rem;
+}
+
+.benefits-list li {
+    font-size: 0.9rem;
+    color: #d1cedb;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.4;
+}
+
+.benefits-list li::before {
+    content: "✓";
+    color: #10b981;
+    font-weight: 800;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.btn-price {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-white);
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.btn-price:hover {
+    background-color: var(--text-white);
+    color: var(--bg-main);
+    border-color: var(--text-white);
+    box-shadow: 0 10px 25px rgba(255, 255, 255, 0.12);
+}
+
+.avanzado-destacado .btn-price {
+    background-color: #7b2cbf;
+    border-color: transparent;
+}
+
+.avanzado-destacado .btn-price:hover {
+    background-color: var(--text-white);
+    color: var(--bg-main);
+}
+
+footer {
+    margin-top: auto;
+    padding-top: 5rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.bold-white {
+    color: var(--text-white);
+    font-weight: 600;
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #090514 25%, #140d28 50%, #090514 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    height: 410px;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 2.5rem 1rem;
+    }
+
+    header h1 {
+        font-size: 2.2rem;
+    }
+
+    .culqi-banner {
+        flex-direction: column;
+        text-align: center;
+        padding: 1.5rem;
+        gap: 1.2rem;
+    }
+
+    .culqi-banner-text {
+        padding-right: 0;
+    }
+
+    .culqi-banner h2 {
+        font-size: 1.2rem;
+    }
+
+    .culqi-img {
+        max-width: 240px;
+    }
+
+    .planes-container {
+        grid-template-columns: 1fr;
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .plan-card {
+        padding: 2rem 1.5rem;
+    }
+
+    .plan-coins {
+        font-size: 2.8rem;
+    }
+}
+
+@media (min-width: 601px) and (max-width: 950px) {
+    .planes-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+
+/* ═══════════════════════════════════════
+   BLOQUEAR MULTICLICK + BARRA
+═══════════════════════════════════════ */
+
+.btn-plan {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 0%;
+    background: #ffffff;
+    border-radius: 0 999px 999px 0;
+    transition: width .18s linear;
+    z-index: 3;
+    opacity: .95;
+}
+
+.btn-plan.loading {
+    pointer-events: none;
+    opacity: .75;
+}
+
+.btn-plan.loading .btn-text {
+    opacity: .9;
+}
+
+/* TODOS LOS BOTONES BLOQUEADOS */
+.btn-plan.disabled-all {
+    pointer-events: none;
+    opacity: .45;
+    filter: grayscale(.2);
+}
+
+.btn-back {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    z-index: 999;
+
+    border: none;
+    outline: none;
+
+    background: rgba(255, 255, 255, .08);
+    backdrop-filter: blur(10px);
+
+    color: #fff;
+    padding: 10px 16px;
+
+    border-radius: 14px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: .25s ease;
+}
+
+.btn-back:hover {
+    transform: scale(1.05);
+    background: rgba(255, 255, 255, .14);
+}

@@ -5,8 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <link rel="stylesheet" href="style/publicaciones.css">
-    <script type="module" src="js/publicaciones.js"></script>
+    <link rel="stylesheet" href="../style/dasboardcss/publicaciones.css">
+
+    <script type="module" src="../js/dasboardjs/publicaciones.js"></script>
 </head>
 
 <body>
@@ -15,8 +16,28 @@
 
 
         <div class="hdr">
-            <h1>Promociones <i class="ti ti-sparkles hdr-icon" aria-hidden="true"></i></h1>
-            <p>Selecciona hasta 5 imágenes que quieras mostrar en tu publicación </p>
+            <div class="hdr-top">
+                <div class="hdr-left">
+                    <h1>
+                        Promociones
+                        <i class="ti ti-sparkles hdr-icon" aria-hidden="true"></i>
+                    </h1>
+                    <p>Selecciona hasta 5 imágenes que quieras mostrar en tu publicación</p>
+                </div>
+
+                <div class="creditos_clientes" id="creditos_clientes">
+                    <div class="creditos-card">
+                        <div class="creditos-icon">
+                            <img src="../img/icon_monedas_3d.webp" alt="Créditos">
+                        </div>
+
+                        <div class="creditos-info">
+                            <span class="creditos-label">Créditos disponibles</span>
+                            <span class="creditos-value" id="creditos_value">0 pts</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="card">
@@ -150,7 +171,7 @@
                         <div id="resultadoIAContainer" class="ia-results"></div>
                     </div>
 
-                   
+
 
                 </div>
 
@@ -169,7 +190,7 @@
                         <div class="param-box">
                             <div class="param-row">
                                 <div class="param-info">
-                                    <img src="img/whatsapp_icon.png" alt="icono"
+                                    <img src="../img/whatsapp_icon.png" alt="icono"
                                         style="width: 23px; height: 23px; margin-left: 6px;">
                                     <h4>WhatsApp</h4>
                                 </div>
@@ -198,7 +219,7 @@
                         <div class="param-box">
                             <div class="param-row">
                                 <div class="param-info">
-                                    <img src="img/compartir_icon_rojo.webp" alt="icono"
+                                    <img src="../img/compartir_icon_rojo.webp" alt="icono"
                                         style="width: 23px; height: 23px; margin-left: 6px;">
                                     <h4>Compartir</h4>
                                 </div>
@@ -222,7 +243,7 @@
                         <div class="param-box">
                             <div class="param-row">
                                 <div class="param-info">
-                                    <img src="img/google_maps_icono.webp" alt="icono"
+                                    <img src="../img/google_maps_icono.webp" alt="icono"
                                         style="width: 23px; height: 23px; margin-left: 6px;">
                                     <h4>Cercanía</h4>
                                 </div>
@@ -241,7 +262,7 @@
                         <div class="param-box">
                             <div class="param-row">
                                 <div class="param-info">
-                                    <img src="img/efectivo_logo.webp" alt="icono"
+                                    <img src="../img/efectivo_logo.webp" alt="icono"
                                         style="width: 23px; height: 23px; margin-left: 6px;">
                                     <h4>Precio</h4>
                                 </div>
@@ -260,7 +281,7 @@
                         <div class="param-box">
                             <div class="param-row">
                                 <div class="param-info">
-                                    <img src="img/reloj_icon_hora_3d.webp" alt="icono"
+                                    <img src="../img/reloj_icon_hora_3d.webp" alt="icono"
                                         style="width: 23px; height: 23px; margin-left: 6px;">
                                     <h4>Horario</h4>
                                 </div>
@@ -284,7 +305,7 @@
                         <div class="param-box">
                             <div class="param-row">
                                 <div class="param-info">
-                                    <img src="img/yape_logo.webp" alt="icono"
+                                    <img src="../img/yape_logo.webp" alt="icono"
                                         style="width: 23px; height: 23px; margin-left: 6px;">
                                     <h4>Métodos de pago</h4>
                                 </div>
@@ -298,7 +319,7 @@
                                 <div class="pay-grid">
                                     <div class="pay-item">
                                         <span class="pay-lbl">
-                                            <img src="img/yape_logo.webp" alt="Yape"
+                                            <img src="../img/yape_logo.webp" alt="Yape"
                                                 style="width: 24px; height: 24px; border-radius: 8px;">
                                             Yape
                                         </span>
@@ -310,7 +331,7 @@
 
                                     <div class="pay-item">
                                         <span class="pay-lbl">
-                                            <img src="img/logo_plin.webp" alt="Plin"
+                                            <img src="../img/logo_plin.webp" alt="Plin"
                                                 style="width: 24px; height: 24px; border-radius: 8px;">
                                             Plin
                                         </span>
@@ -322,7 +343,7 @@
 
                                     <div class="pay-item">
                                         <span class="pay-lbl">
-                                            <img src="img/logo_agora.webp" alt="Agora"
+                                            <img src="../img/logo_agora.webp" alt="Agora"
                                                 style="width: 24px; height: 24px; border-radius: 8px;">
                                             Agora
                                         </span>
@@ -334,7 +355,7 @@
 
                                     <div class="pay-item">
                                         <span class="pay-lbl">
-                                            <img src="img/efectivo_logo.webp" alt="Efectivo"
+                                            <img src="../img/efectivo_logo.webp" alt="Efectivo"
                                                 style="width: 24px; height: 24px; border-radius: 8px;">
                                             Efectivo
                                         </span>
@@ -346,7 +367,7 @@
 
                                     <div class="pay-item">
                                         <span class="pay-lbl">
-                                            <img src="img/visa_logo.webp" alt="Visa"
+                                            <img src="../img/visa_logo.webp" alt="Visa"
                                                 style="width: 24px; height: 24px; border-radius: 8px;">
                                             Visa
                                         </span>
@@ -358,7 +379,7 @@
 
                                     <div class="pay-item">
                                         <span class="pay-lbl">
-                                            <img src="img/master_car_logo.webp" alt="Mastercard"
+                                            <img src="../img/master_car_logo.webp" alt="Mastercard"
                                                 style="width: 24px; height: 24px; border-radius: 8px;">
                                             Mastercard
                                         </span>
@@ -380,22 +401,22 @@
 
                         <div class="plazo-sel">
 
-                            <label class="radio">
+                            <label class="plazo-chip">
                                 <input type="radio" name="plazo" value="horas" onchange="tipoPlazo()">
-
-                                <img src="img/reloj_icon_hora_3d.webp"
-                                    style="width:20px;height:20px;object-fit:contain;margin:0 4px;">
-
-                                Horas
+                                <div class="plazo-chip-inner">
+                                    <img src="../img/reloj_icon_hora_3d.webp"
+                                        style="width:28px;height:28px;object-fit:contain;">
+                                    <span>Horas</span>
+                                </div>
                             </label>
 
-                            <label class="radio">
+                            <label class="plazo-chip">
                                 <input type="radio" name="plazo" value="dias" checked onchange="tipoPlazo()">
-
-                                <img src="img/por_dias_icon_3d.webp"
-                                    style="width:20px;height:20px;object-fit:contain;margin:0 4px;">
-
-                                Días
+                                <div class="plazo-chip-inner">
+                                    <img src="../img/por_dias_icon_3d.webp"
+                                        style="width:28px;height:28px;object-fit:contain;">
+                                    <span>Días</span>
+                                </div>
                             </label>
 
                         </div>

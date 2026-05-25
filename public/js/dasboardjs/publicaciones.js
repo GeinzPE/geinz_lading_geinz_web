@@ -1,23 +1,23 @@
 // ── Firebase (módulos ESM) ──────────────────────────────
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore,
   doc,
   getDoc,
   setDoc,
   collection,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth,
   signInAnonymously,
   onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getStorage,
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
@@ -36,9 +36,92 @@ let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
 let precioYaSeteado = false;
 
-
 let tipoTextoIA = "venta";
 let tipoImagenIA = "venta";
+
+// ══════════════════════════════════════════
+//  PRECIOS — se llenan cuando llega PLANES_UPDATE desde el padre
+//  Defaults en 0 para que se vea claramente si aún no llegaron
+//  Los nombres de campo Firestore son fijos (ceo_descripcion50, etc.)
+//  pero sus valores int64 varían — siempre usamos el valor, nunca el sufijo
+// ══════════════════════════════════════════
+let _precios = {
+  ia_imagen_texto: 0, // ← publicidad.ia_imagen_texto100   (campo fijo, valor variable)
+  mejora_texto_x3: 0, // ← publicidad.ceo_descripcion50    (campo fijo, valor variable)
+  mensaje_w_c: 0, // ← publicidad.mensaje_w_c90        (campo fijo, valor variable)
+  publicacion_24h: 0, // ← publicidad.publicacion_24h100   (campo fijo, valor variable)
+  publicacion_x_hora: 0, // ← publicidad.publicacion_por_hora10 (campo fijo, valor variable)
+};
+
+// Aplica los precios recibidos a los botones del DOM
+function aplicarPreciosEnDOM() {
+  // ── Botón: Generar imagen + texto con IA ──
+  const precioImgEl = document.getElementById("precioImagenIA");
+  if (precioImgEl) precioImgEl.textContent = _precios.ia_imagen_texto;
+
+  // ── Botón: Mejorar título y descripción ──
+  const btnDesc = document.getElementById("btnDescripcionIA");
+  if (btnDesc) {
+    let priceSpan = btnDesc.querySelector(".ia-zona-btn-price");
+    if (!priceSpan) {
+      priceSpan = document.createElement("span");
+      priceSpan.className = "ia-zona-btn-price";
+      btnDesc.appendChild(priceSpan);
+    }
+    priceSpan.textContent = _precios.mejora_texto_x3;
+  }
+
+  // ── Botón: Mejorar WhatsApp ──
+  const precioWpEl = document.getElementById("precioMensajeWpIA");
+  if (precioWpEl) precioWpEl.textContent = `+${_precios.mensaje_w_c}`;
+
+  // ── Botón: Mejorar Compartir ──
+  const precioShareEl = document.getElementById("precioShareIA");
+  if (precioShareEl) precioShareEl.textContent = `+${_precios.mensaje_w_c}`;
+
+  // ── Recalcular costo total de publicación ──
+  actualizarCostoPublicar();
+}
+
+// Calcula el costo total según plazo activo y actualiza el botón Publicar
+function actualizarCostoPublicar() {
+  const tipo =
+    document.querySelector('input[name="plazo"]:checked')?.value || "dias";
+  let total = 0;
+
+  if (tipo === "horas") {
+    const h = parseInt(document.getElementById("inputHoras")?.value || "1");
+    total =
+      isNaN(h) || h < 1
+        ? _precios.publicacion_x_hora
+        : h * _precios.publicacion_x_hora;
+  } else {
+    const fi = document.getElementById("fechaInicio")?.value;
+    const ff = document.getElementById("fechaFin")?.value;
+    if (fi && ff) {
+      const inicio = new Date(fi);
+      const fin = new Date(ff);
+      if (fin >= inicio) {
+        const dias = Math.ceil(Math.abs(fin - inicio) / 86400000) + 1;
+        total = dias * _precios.publicacion_24h;
+      } else {
+        total = _precios.publicacion_24h; // mínimo 1 día mientras elige
+      }
+    } else {
+      total = _precios.publicacion_24h;
+    }
+  }
+
+  const btn = document.querySelector(".btn-submit");
+  if (btn && !btn.disabled) {
+    btn.innerHTML = `<i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i>
+      Publicar &nbsp;·&nbsp;
+      <span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;">
+        ${total.toLocaleString("es-PE")}
+        <img src="../img/icon_monedas_3d.webp" style="width:16px;height:16px;vertical-align:middle;" alt="pts">
+      </span>`;
+  }
+}
 
 const BULLETS = {
   venta: [
@@ -65,23 +148,29 @@ function renderBullets(tipo) {
   const container = document.getElementById("iaBullets");
   if (!container) return;
   container.innerHTML = BULLETS[tipo]
-    .map(b => `
+    .map(
+      (b) => `
       <div class="ia-bullet">
         <div class="ia-bullet-icon"><i class="ti ti-check" style="font-size:10px"></i></div>
         <span>${b}</span>
-      </div>`)
+      </div>`,
+    )
     .join("");
 }
 
 window.selectTipoTexto = function (el) {
-  document.querySelectorAll("#iaZonaTexto .ia-tipo-chip").forEach(c => c.classList.remove("active"));
+  document
+    .querySelectorAll("#iaZonaTexto .ia-tipo-chip")
+    .forEach((c) => c.classList.remove("active"));
   el.classList.add("active");
   tipoTextoIA = el.dataset.tipo;
   renderBullets(tipoTextoIA);
 };
 
 window.selectTipoImagen = function (el) {
-  document.querySelectorAll("#iaZonaImagen .ia-tipo-chip").forEach(c => c.classList.remove("active"));
+  document
+    .querySelectorAll("#iaZonaImagen .ia-tipo-chip")
+    .forEach((c) => c.classList.remove("active"));
   el.classList.add("active");
   tipoImagenIA = el.dataset.tipo;
 };
@@ -92,12 +181,13 @@ signInAnonymously(auth).catch((e) => console.error("Auth error:", e));
 async function getToken() {
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      unsub(); // ✅ desuscribirse inmediatamente
+      unsub();
       if (user) resolve(await user.getIdToken());
       else resolve(null);
     });
   });
 }
+
 // ── Datos de tienda ────────────────────────────────────
 let datosTienda = null;
 const ID_TIENDA = "fW7W8RsgkkQ3IYfxKHGR";
@@ -145,7 +235,6 @@ cargarDatosTienda();
 /* ══════════════════════════════════════════
      STORAGE — SUBIR IMÁGENES (FRONT)
    ══════════════════════════════════════════ */
-
 function dataURLtoBlob(dataURL) {
   const [header, base64] = dataURL.split(",");
   const mime = header.match(/:(.*?);/)[1];
@@ -159,7 +248,6 @@ async function subirImagenesAStorage(id_tienda, id_promocion) {
   const urls = [];
   let botUrl = null;
 
-  // ── Imagen BOT (preview comprimida) ──
   const primeraImg = imagesData.find((img) => img !== null);
   if (primeraImg) {
     try {
@@ -178,7 +266,6 @@ async function subirImagenesAStorage(id_tienda, id_promocion) {
     }
   }
 
-  // ── Imágenes normales ──
   for (let i = 0; i < imagesData.length; i++) {
     const img = imagesData[i];
     if (!img) continue;
@@ -212,10 +299,7 @@ async function guardarImagenesEnFirestore(
 ) {
   const imgContainer = { lista_img: urls, logo_img: logo_url };
   const data = { img_container: imgContainer };
-
-  // Ruta 1: Tiendas/{localidad}/promos_ofertas/{idPromo}
   const ref1 = doc(db, "Tiendas", localidad, "promos_ofertas", id_promocion);
-  // Ruta 2: Tiendas/{localidad}/{localidad}/{id_tienda}/promociones_geinz/{idPromo}
   const ref2 = doc(
     db,
     "Tiendas",
@@ -225,15 +309,14 @@ async function guardarImagenesEnFirestore(
     "promociones_geinz",
     id_promocion,
   );
-
   await Promise.all([
     setDoc(ref1, data, { merge: true }),
     setDoc(ref2, data, { merge: true }),
   ]);
-
   console.log("✅ img_container guardado en Firestore");
   return imgContainer;
 }
+
 /* ══════════════════════════════════════════
        COMPRIMIR IMAGEN
     ══════════════════════════════════════════ */
@@ -300,7 +383,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
   /* ══════════════════════════════════════════
        ESTADO
     ══════════════════════════════════════════ */
-
   window.selectImage = function (index) {
     if (imagesData[index]) return;
     selectedImageIndex = index;
@@ -418,11 +500,9 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const desc = descripcionInput.value.trim();
     aplicarPrecioDetectado(detectarPrecioTexto(`${titulo} ${desc}`));
 
-    // zona IA imagen
     const zonaImg = document.getElementById("iaZonaImagen");
     if (zonaImg) zonaImg.style.display = imgsCount > 0 ? "flex" : "none";
 
-    // zona IA texto
     const zonaTxt = document.getElementById("iaZonaTexto");
     if (zonaTxt) {
       const mostrar = desc.length >= 10;
@@ -430,7 +510,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       if (mostrar) renderBullets(tipoTextoIA);
     }
 
-    // wp / share
     const tieneContenido = titulo.length >= 4 && desc.length >= 15;
     showBtn(btnMensajeWpIA, tieneContenido);
     showBtn(btnMensajeShareIA, tieneContenido);
@@ -456,7 +535,9 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     btnImagenIA.disabled = on;
     btnImagenIA.classList.toggle("loading", on);
     loadingImagenIA.style.display = on ? "inline-flex" : "none";
-    btnImagenIALabel.textContent = on ? "Generando…" : "Generar imagen + texto con IA";
+    btnImagenIALabel.textContent = on
+      ? "Generando…"
+      : "Generar imagen + texto con IA";
     if (precioImagenIA) precioImagenIA.style.display = on ? "none" : "inline";
   }
 
@@ -499,7 +580,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     setBtnLoading(btnDescripcionIA, true);
     try {
       const result = await callFirebaseFunction(CLOUD_FN_TEXT_URL, {
-        tipo: tipoTextoIA.toUpperCase(),   // "VENTA" | "LLAMADO" | "INFORMATIVO"
+        tipo: tipoTextoIA.toUpperCase(),
         tituloUsuario: titulo,
         descripcionUsuario: descripcion,
       });
@@ -621,7 +702,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       const result = await callFirebaseFunction(CLOUD_FN_URL, {
         imageBase64: dataURL.split(",")[1],
         mimeType: "image/jpeg",
-        tipo: tipoImagenIA,   // "venta" | "llamado" | "informativo"
+        tipo: tipoImagenIA,
       });
       if (!result?.ok) throw new Error("IA inválida");
       if (result.titulo) tituloInput.value = result.titulo;
@@ -692,10 +773,12 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       fin = new Date(ff.value);
     if (fin >= inicio) {
       const dias = Math.ceil(Math.abs(fin - inicio) / 86400000) + 1;
-      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} días</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${dias * 100} monedas</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ Costo por día: 100 monedas</div></div>`;
+      const monedas = dias * _precios.publicacion_24h;
+      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} días</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas} monedas</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ Costo por día: ${_precios.publicacion_24h} monedas</div></div>`;
     } else {
       dc.innerHTML = `<div style="background:rgba(239,68,68,.1);padding:10px 16px;border-radius:14px;margin-top:12px;border-left:3px solid #ef4444"><span style="font-size:13px;color:#ef4444">⚠️ La fecha final debe ser mayor o igual a la inicial</span></div>`;
     }
+    actualizarCostoPublicar();
   }
 
   function calcularDuracionHoras() {
@@ -705,7 +788,9 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     let h = parseInt(ih.value);
     if (isNaN(h) || h < 1) h = 1;
     if (h > 20) h = 20;
-    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${h * 10} monedas</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ Costo por hora: 10 monedas</div></div>`;
+    const monedas = h * _precios.publicacion_x_hora;
+    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas} monedas</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ Costo por hora: ${_precios.publicacion_x_hora} monedas</div></div>`;
+    actualizarCostoPublicar();
   }
 
   window.tipoPlazo = function () {
@@ -725,7 +810,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       if (bF) bF.style.display = "block";
       if (dH) dH.style.display = "none";
       if (dD) dD.style.display = "block";
-      if (dD) calcularDuracionDias();
+      calcularDuracionDias();
     }
   };
 
@@ -750,31 +835,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
   })();
 
   /* ══════════════════════════════════════════
-       SKELETON — helpers de paso manual
-    ══════════════════════════════════════════ */
-  function skSetStep(stepNum, titleText, subtitleText, barPct) {
-    ["sk-step1", "sk-step2", "sk-step3", "sk-step4"].forEach((id, idx) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (idx < stepNum) {
-        el.className = "sk-step done";
-        el.querySelector(".sk-step-icon").innerHTML =
-          '<i class="ti ti-check"></i>';
-      } else if (idx === stepNum) {
-        el.className = "sk-step active";
-      } else {
-        el.className = "sk-step pending";
-      }
-    });
-    const t = document.getElementById("skTitle");
-    const s = document.getElementById("skSubtitle");
-    const b = document.getElementById("skBar");
-    if (t) t.textContent = titleText;
-    if (s) s.textContent = subtitleText;
-    if (b) b.style.width = barPct + "%";
-  }
-
-  /* ══════════════════════════════════════════
        PUBLICAR PROMOCIÓN — FLUJO COMPLETO
     ══════════════════════════════════════════ */
   async function publicarPromocion() {
@@ -782,7 +842,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const titulo = tituloInput.value.trim();
     const descripcion = descripcionInput.value.trim();
 
-    // ── Validaciones básicas ──
     if (!titulo || !descripcion) {
       mostrarToast("Completa título y descripción", "error");
       return;
@@ -796,7 +855,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       return;
     }
 
-    // ── Leer switches ──
     const switches = document.querySelectorAll(
       '.param-box > .param-row > label.switch input[type="checkbox"]',
     );
@@ -806,7 +864,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const sw_horario = switches[4]?.checked ?? false;
     const sw_pagos = switches[5]?.checked ?? false;
 
-    // ── Validar WhatsApp ──
     if (sw_whatsapp) {
       const numeroVal = document
         .querySelector('#wp input[type="text"]')
@@ -826,8 +883,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         return;
       }
     }
-
-    // ── Validar Compartir ──
     if (sw_compartir) {
       const mensajeShareVal = document
         .getElementById("mensajeShareInput")
@@ -840,8 +895,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         return;
       }
     }
-
-    // ── Validar Precio ──
     if (sw_precio) {
       const precioVal = document.getElementById("precioInput")?.value?.trim();
       if (!precioVal) {
@@ -852,8 +905,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         return;
       }
     }
-
-    // ── Validar Pagos ──
     if (sw_pagos) {
       const hayPagoActivo = Array.from(
         document.querySelectorAll('#payments .pay-item input[type="checkbox"]'),
@@ -864,7 +915,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       }
     }
 
-    // ── Validar Plazo ──
     const tipoPlazoVal =
       document.querySelector('input[name="plazo"]:checked')?.value || "dias";
     const fechaInicio = document.getElementById("fechaInicio")?.value || "";
@@ -889,7 +939,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       }
     }
 
-    // ── Timestamps ──
     const ahora = new Date();
     const horaActual = `${String(ahora.getHours()).padStart(2, "0")}:${String(ahora.getMinutes()).padStart(2, "0")}`;
     let tsInicio = {
@@ -897,8 +946,8 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       nanoseconds: 0,
     };
     let tsFin = { seconds: Math.floor(ahora.getTime() / 1000), nanoseconds: 0 };
-    let hora_inicio = horaActual;
-    let hora_fin = horaActual;
+    let hora_inicio = horaActual,
+      hora_fin = horaActual;
 
     if (tipoPlazoVal === "dias" && fechaInicio && fechaFin) {
       tsInicio = {
@@ -916,7 +965,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       hora_fin = `${String(finDate.getHours()).padStart(2, "0")}:${String(finDate.getMinutes()).padStart(2, "0")}`;
     }
 
-    // ── Pagos ──
     const pagosChecks = document.querySelectorAll(
       '#payments .pay-item input[type="checkbox"]',
     );
@@ -933,7 +981,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       pagos[nombresP[i]] = cb.checked;
     });
 
-    // ── Horario ──
     const horarioMap = {
       "Todo el día": "todo_dia",
       Mañana: "manana",
@@ -944,7 +991,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       ? horarioMap[document.querySelector("#hours select")?.value] || "todo_dia"
       : "todo_dia";
 
-    // ── Datos de tienda ──
     const id_tienda = datosTienda.id_tienda || ID_TIENDA;
     const localidad = datosTienda.localidad || LOCALIDAD;
     const id_promocion = doc(collection(db, "Promociones")).id;
@@ -957,13 +1003,11 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const logo_url = datosTienda.img_tienda?.logo_tienda || "";
     const numero = datosTienda.metodo_contacto?.whatsapp?.numero || "";
 
-    // ── Mostrar skeleton y bloquear btn ──
     mostrarSkeletonPublicando();
     btn.disabled = true;
     btn.innerHTML = `<span class="loading-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Publicando...`;
 
     try {
-      // ════ PASO 1: Términos clave IA ════
       skSetStep(1, "Analizando con IA...", "Generando términos clave", 30);
       let terminosClave = [];
       try {
@@ -977,14 +1021,12 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         console.warn("Términos clave fallaron, continuando...", e);
       }
 
-      // ════ PASO 2: Subir imágenes a Storage (FRONT) ════
       skSetStep(2, "Subiendo imágenes...", "Procesando tus fotos", 55);
       const { urls, botUrl } = await subirImagenesAStorage(
         id_tienda,
         id_promocion,
       );
 
-      // ════ PASO 3: Guardar img_container en Firestore (FRONT) ════
       skSetStep(2, "Guardando imágenes...", "Registrando en base de datos", 70);
       const imgContainer = await guardarImagenesEnFirestore(
         id_tienda,
@@ -994,7 +1036,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         urls,
       );
 
-      // ════ PASO 4: Llamar al backend con URLs listas ════
       skSetStep(3, "Publicando en Geinz...", "Ya casi está listo", 88);
 
       const payload = {
@@ -1023,13 +1064,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         ...(sw_pagos
           ? pagos
           : {
-            yape: false,
-            plin: false,
-            agora: false,
-            efectivo: false,
-            visa: false,
-            mastercard: false,
-          }),
+              yape: false,
+              plin: false,
+              agora: false,
+              efectivo: false,
+              visa: false,
+              mastercard: false,
+            }),
         numero,
         mensaje_whatsapp: mensajeWpInput.value || "",
         mensaje_compartir: mensajeShareInput.value || "",
@@ -1037,7 +1078,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         activo_mensaje_compartir: sw_compartir,
         servicios_comodidades: {},
         terminos_clave_ia: terminosClave,
-        // ✅ URLs ya subidas — el backend NO sube nada
         urls_imagenes: urls,
         img_bot: botUrl || urls[0] || "",
         logo_url,
@@ -1052,7 +1092,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       console.log("✅ RESULTADO:", result);
 
       ocultarSkeleton();
-
       limpiarFormulario();
       mostrarModalExito(id_promocion, localidad);
     } catch (err) {
@@ -1061,7 +1100,8 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast(err.message || "Error al publicar", "error");
     } finally {
       btn.disabled = false;
-      btn.innerHTML = `<i class="ti ti-send" style="font-size:15px"></i> Publicar promoción`;
+      // Restaurar botón con precio actualizado
+      actualizarCostoPublicar();
     }
   }
 
@@ -1095,31 +1135,19 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     <div class="sk-steps" id="skSteps">
       <div class="sk-step done" id="sk-step1">
         <div class="sk-step-icon"><i class="ti ti-check"></i></div>
-        <div class="sk-step-text">
-          <div class="sk-step-label">Validando datos</div>
-          <div class="sk-step-status" id="sk-status1">Completado</div>
-        </div>
+        <div class="sk-step-text"><div class="sk-step-label">Validando datos</div><div class="sk-step-status" id="sk-status1">Completado</div></div>
       </div>
       <div class="sk-step active" id="sk-step2">
         <div class="sk-step-icon"><i class="ti ti-cpu"></i></div>
-        <div class="sk-step-text">
-          <div class="sk-step-label">Analizando con IA</div>
-          <div class="sk-step-status" id="sk-status2">En progreso...</div>
-        </div>
+        <div class="sk-step-text"><div class="sk-step-label">Analizando con IA</div><div class="sk-step-status" id="sk-status2">En progreso...</div></div>
       </div>
       <div class="sk-step pending" id="sk-step3">
         <div class="sk-step-icon"><i class="ti ti-photo"></i></div>
-        <div class="sk-step-text">
-          <div class="sk-step-label">Subiendo imagenes</div>
-          <div class="sk-step-status" id="sk-status3">Pendiente</div>
-        </div>
+        <div class="sk-step-text"><div class="sk-step-label">Subiendo imagenes</div><div class="sk-step-status" id="sk-status3">Pendiente</div></div>
       </div>
       <div class="sk-step pending" id="sk-step4">
         <div class="sk-step-icon"><i class="ti ti-world"></i></div>
-        <div class="sk-step-text">
-          <div class="sk-step-label">Publicando en Geinz</div>
-          <div class="sk-step-status" id="sk-status4">Pendiente</div>
-        </div>
+        <div class="sk-step-text"><div class="sk-step-label">Publicando en Geinz</div><div class="sk-step-status" id="sk-status4">Pendiente</div></div>
       </div>
     </div>
   </div>`;
@@ -1134,15 +1162,18 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       if (!el) return;
       if (idx < stepNum) {
         el.className = "sk-step done";
-        el.querySelector(".sk-step-icon").innerHTML = '<i class="ti ti-check"></i>';
+        el.querySelector(".sk-step-icon").innerHTML =
+          '<i class="ti ti-check"></i>';
         if (st) st.textContent = "Completado";
       } else if (idx === stepNum) {
         el.className = "sk-step active";
-        el.querySelector(".sk-step-icon").innerHTML = `<i class="ti ${icons[idx]}"></i>`;
+        el.querySelector(".sk-step-icon").innerHTML =
+          `<i class="ti ${icons[idx]}"></i>`;
         if (st) st.textContent = "En progreso...";
       } else {
         el.className = "sk-step pending";
-        el.querySelector(".sk-step-icon").innerHTML = `<i class="ti ${icons[idx]}"></i>`;
+        el.querySelector(".sk-step-icon").innerHTML =
+          `<i class="ti ${icons[idx]}"></i>`;
         if (st) st.textContent = "Pendiente";
       }
     });
@@ -1156,13 +1187,31 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
   function ocultarSkeleton() {
     const sk = document.getElementById("skeletonPublicando");
-    if (sk) sk.remove();
+    if (!sk) return;
+    const t = document.getElementById("skTitle");
+    const s = document.getElementById("skSubtitle");
+    const b = document.getElementById("skBar");
+    if (t) t.textContent = "¡Publicado con éxito! 🎉";
+    if (s) s.textContent = "Tu promoción ya está visible en Geinz";
+    if (b) {
+      b.style.width = "100%";
+      b.style.background = "#16a34a";
+    }
+    ["sk-step1", "sk-step2", "sk-step3", "sk-step4"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.className = "sk-step done";
+        el.querySelector(".sk-step-icon").innerHTML =
+          '<i class="ti ti-check"></i>';
+      }
+    });
+    setTimeout(() => sk.remove(), 1800);
   }
-
 
   function mostrarModalExito(id_promocion, localidad) {
     const localidadMap = { barranca: "ba", lima: "li", callao: "ca" };
-    const l = localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
+    const l =
+      localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
     const url = `https://geinzworkapp.web.app/share?t=prms&l=${l}&pi=${id_promocion}`;
     const urlCorta = url.length > 52 ? url.slice(0, 52) + "..." : url;
 
@@ -1192,19 +1241,25 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
     document.getElementById("btnCopyUrl").addEventListener("click", () => {
       navigator.clipboard.writeText(url).then(() => {
-        const btn = document.getElementById("btnCopyUrl");
-        if (btn) { btn.innerHTML = '<i class="ti ti-check" style="font-size:13px"></i> Copiado'; }
+        const b = document.getElementById("btnCopyUrl");
+        if (b) {
+          b.innerHTML =
+            '<i class="ti ti-check" style="font-size:13px"></i> Copiado';
+        }
         setTimeout(() => {
-          const b = document.getElementById("btnCopyUrl");
-          if (b) b.innerHTML = '<i class="ti ti-copy" style="font-size:13px"></i> Copiar';
+          const b2 = document.getElementById("btnCopyUrl");
+          if (b2)
+            b2.innerHTML =
+              '<i class="ti ti-copy" style="font-size:13px"></i> Copiar';
         }, 2000);
       });
     });
-
     document.getElementById("btnShareWp").addEventListener("click", () => {
-      window.open(`https://wa.me/?text=${encodeURIComponent("Mira esta promo en Geinz: " + url)}`, "_blank");
+      window.open(
+        `https://wa.me/?text=${encodeURIComponent("Mira esta promo en Geinz: " + url)}`,
+        "_blank",
+      );
     });
-
     document.getElementById("btnShareNative").addEventListener("click", () => {
       if (navigator.share) {
         navigator.share({ title: "Promo en Geinz", url });
@@ -1213,39 +1268,12 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         mostrarToast("Enlace copiado al portapapeles");
       }
     });
-
     document.getElementById("btnVerPromo").addEventListener("click", () => {
       window.open(url, "_blank");
     });
-
     document.getElementById("btnCerrarExito").addEventListener("click", () => {
       modal.remove();
     });
-  }
-  function ocultarSkeleton() {
-    const sk = document.getElementById("skeletonPublicando");
-    if (!sk) return;
-    const spin = document.getElementById("skSpinner");
-    if (spin) spin.style.display = "none";
-    const t = document.getElementById("skTitle");
-    const s = document.getElementById("skSubtitle");
-    const b = document.getElementById("skBar");
-    if (t) t.textContent = "¡Publicado con éxito! 🎉";
-    if (s) s.textContent = "Tu promoción ya está visible en Geinz";
-    if (b) {
-      b.style.width = "100%";
-      b.style.background = "#16a34a";
-    }
-    // Marcar todos los pasos como done
-    ["sk-step1", "sk-step2", "sk-step3", "sk-step4"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.className = "sk-step done";
-        el.querySelector(".sk-step-icon").innerHTML =
-          '<i class="ti ti-check"></i>';
-      }
-    });
-    setTimeout(() => sk.remove(), 1800);
   }
 
   function limpiarFormulario() {
@@ -1316,6 +1344,98 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     .querySelector(".btn-submit")
     ?.addEventListener("click", publicarPromocion);
 
+  // Aplicar precios iniciales con los valores por defecto
+  aplicarPreciosEnDOM();
   validate();
   tipoPlazo();
 })();
+
+/* ══════════════════════════════════════════
+     MENSAJES DESDE EL FRAME PADRE
+   ══════════════════════════════════════════ */
+window.addEventListener("message", (event) => {
+  // ─────────────────────────────────────────
+  // SALDO / CRÉDITOS
+  // ─────────────────────────────────────────
+  if (event.data?.type === "SALDO_UPDATE") {
+    const saldo = Number(event.data.saldo || 0);
+
+    const value = document.getElementById("creditos_value");
+
+    if (value) {
+      value.innerHTML = `
+                ${saldo.toLocaleString("es-PE")}
+                <small style="
+                    font-size:12px;
+                    font-weight:700;
+                    opacity:.7;
+                    margin-left:4px;
+                ">
+Creditos</small>
+            `;
+    }
+
+    // animación glow
+    const card = document.querySelector(".creditos-card");
+
+    if (card) {
+      card.animate(
+        [
+          { transform: "scale(1)" },
+          { transform: "scale(1.04)" },
+          { transform: "scale(1)" },
+        ],
+        {
+          duration: 500,
+          easing: "ease",
+        },
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // PUBLICIDAD UPDATE
+  // ─────────────────────────────────────────
+  if (event.data?.type === "PUBLICIDAD_UPDATE") {
+    const pub = event.data.publicidad || {};
+
+    console.log("📩 [PUBLICIDAD_UPDATE]:", pub);
+
+    if (typeof _aplicarPublicidad === "function") {
+      _aplicarPublicidad(pub);
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // PLANES UPDATE
+  // ─────────────────────────────────────────
+  if (event.data?.type === "PLANES_UPDATE") {
+    const pub = event.data.publicidad || {};
+
+    console.log("📩 [PLANES_UPDATE]:", pub);
+
+    if (typeof _aplicarPublicidad === "function") {
+      _aplicarPublicidad(pub);
+    }
+  }
+});
+
+// ── Función compartida: aplica publicidad al _precios y al DOM ──
+function _aplicarPublicidad(pub) {
+  // Claves EXACTAS como vienen de Firestore (sin sufijo numérico)
+  if (pub.ia_imagen_texto != null)
+    _precios.ia_imagen_texto = pub.ia_imagen_texto;
+  if (pub.mejora_texto_x3 != null)
+    _precios.mejora_texto_x3 = pub.mejora_texto_x3;
+  if (pub.mensaje_w_c != null) _precios.mensaje_w_c = pub.mensaje_w_c;
+  if (pub.publicacion_24h != null)
+    _precios.publicacion_24h = pub.publicacion_24h;
+  if (pub.publicacion_por_hora != null)
+    _precios.publicacion_x_hora = pub.publicacion_por_hora;
+  // ceo_descripcion también mapea a mejora_texto_x3 si existe
+  if (pub.ceo_descripcion != null)
+    _precios.mejora_texto_x3 = pub.ceo_descripcion;
+
+  console.log("✅ _precios actualizados:", JSON.stringify(_precios));
+  aplicarPreciosEnDOM();
+}

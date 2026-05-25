@@ -8,14 +8,16 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style/panel_perfil.css">
+    <link rel="stylesheet" href="../style/dasboardcss/panel_perfil.css">
+
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
-    <script type="module" src="js/panel_perfil.js"></script>
-    <script type="module" src="js/horario_perfil.js"></script>
-    <script type="module" src="js/horario_real_time.js"></script>
-    <script type="module" src="js/cambios_horario.js"></script>
+
+    <script type="module" src="../js/dasboardjs/panel_perfil.js"></script>
+    <script type="module" src="../js/dasboardjs/creditos_data_tienda.js"></script>
+    <script type="module" src="../js/dasboardjs/horario_real_time.js"></script>
+
 
 </head>
 
@@ -29,7 +31,7 @@
 
             <div class="sidebar-brand">
 
-                <img class="sidebar-logo-img" src="img/Diseño sin título (2).png" alt="Geinz">
+                <img class="sidebar-logo-img" src="../img/Diseño sin título (2).png" alt="Geinz">
 
                 <div class="sidebar-brand-text">
                     <div class="sidebar-brand-name">Geinz Web</div>
@@ -57,12 +59,7 @@
 
                 </button>
 
-                <button class="sidebar-btn" id="sbb-fotos" onclick="PanelPerfil.showSection('fotos')">
 
-                    <span class="sbb-icon">📸</span>
-                    <span class="sbb-label">Fotos</span>
-
-                </button>
 
                 <button class="sidebar-btn" id="sbb-recargas" onclick="PanelPerfil.showSection('recargas')">
 
@@ -74,13 +71,46 @@
 
                 <button class="sidebar-btn" id="sbb-cotiza" onclick="PanelPerfil.showSection('cotiza')">
 
-                    <span class="sbb-icon">🤖⚡</span>
+                    <span class="sbb-icon">🔨</span>
                     <span class="sbb-label">Crea tu asistente</span>
 
                 </button>
 
 
 
+                <div class="sidebar-collapse-wrap">
+                    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="PanelPerfil.toggleSidebar()">
+                        <svg class="collapse-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <span class="collapse-label">Colapsar</span>
+                    </button>
+
+                    <button class="sidebar-collapse-btn sidebar-cerrar-btn" id="sidebarCerrarBtn"
+                        onclick="cerrarSesionPanel()">
+
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <!-- tapa -->
+                            <path d="M4 7H20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+
+                            <!-- cuerpo -->
+                            <path d="M7 7L8 19C8.1 20.1 8.9 21 10 21H14C15.1 21 15.9 20.1 16 19L17 7"
+                                stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+
+                            <!-- líneas internas -->
+                            <path d="M10 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+
+                            <path d="M14 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+
+                            <!-- mango -->
+                            <path d="M9 4H15" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                        </svg>
+
+                        <span class="collapse-label">Cerrar sesión</span>
+                    </button>
+                </div>
             </nav>
             <!-- =====
             <div class="sidebar-save-wrap">
@@ -146,9 +176,12 @@
 
                             <div id="horario-estado"></div>
 
+
+
                         </div>
 
                     </div>
+
 
 
                     <div class="wrapper">
@@ -224,11 +257,11 @@
                                         <h1 class="balance-title">Saldo restante</h1>
                                         <div class="balance-big">
                                             <span class="balance-num" id="balance-full">—</span>
-                                            <img src="img/icon_monedas_3d.webp" class="balance-img" alt="Saldo"
+                                            <img src="../img/icon_monedas_3d.webp" class="balance-img" alt="Saldo"
                                                 width="40" height="40">
                                         </div>
                                         <div class="action-container">
-                                            <button class="btn-renovar" onclick="PanelPerfil.abrirModalRenovacion()">
+                                            <button class="btn-renovar" onclick="abrirModalRenovacion()">
                                                 Renovar plan
                                             </button>
                                         </div>
@@ -238,6 +271,79 @@
                             </div>
                         </div>
                     </div>
+                    <div class="expand-section">
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                            <div class="expand-header-icon icon-blue">📸</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Fotos del negocio</div>
+                                <div class="expand-header-sub">Ambiente, productos y promociones</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+
+
+
+                        <div class="expand-body">
+
+                            <div class="expand-section_Data">
+                                <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                                    <div class="expand-header-icon icon-blue">🏠</div>
+                                    <div class="expand-header-text">
+                                        <div class="expand-header-title">Fotos de ambiente</div>
+                                        <div class="expand-header-sub">Hasta 6 fotos del local</div>
+                                    </div>
+                                    <div class="expand-arrow">▼</div>
+                                </div>
+                                <div class="expand-body">
+                                    <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
+                                        Añade hasta 6 fotos de ambiente para que los usuarios puedan ver el interior de
+                                        tu negocio, lugar o local.
+                                    </p>
+                                    <div class="photo-grid" id="ambienteGrid"></div>
+                                </div>
+                            </div>
+
+                            <div class="expand-section_Data">
+                                <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                                    <div class="expand-header-icon icon-orange">🛍️</div>
+                                    <div class="expand-header-text">
+                                        <div class="expand-header-title">Servicios y productos</div>
+                                        <div class="expand-header-sub">Hasta 6 fotos</div>
+                                    </div>
+                                    <div class="expand-arrow">▼</div>
+                                </div>
+                                <div class="expand-body">
+                                    <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
+                                        Añade hasta 6 fotos de los servicios o productos que ofreces para que los
+                                        usuarios sepan qué pueden encontrar en tu negocio.
+                                    </p>
+                                    <div class="photo-grid" id="productosGrid"></div>
+                                </div>
+                            </div>
+
+                            <div class="expand-section_Data">
+                                <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                                    <div class="expand-header-icon icon-pink">🎉</div>
+                                    <div class="expand-header-text">
+                                        <div class="expand-header-title">Promociones</div>
+                                        <div class="expand-header-sub">Hasta 3 fotos</div>
+                                    </div>
+                                    <div class="expand-arrow">▼</div>
+                                </div>
+                                <div class="expand-body">
+                                    <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
+                                        Añade hasta 3 fotos de tus promociones activas, ofertas o descuentos para atraer
+                                        más clientes.
+                                    </p>
+                                    <div class="photo-grid" id="promocionesGrid"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+
+
 
 
                     <!-- Categoría -->
@@ -358,7 +464,7 @@
                                 <div class="contact-item">
 
                                     <div class="contact-icon-wrap ci-phone">
-                                        <img src="img/llamada_icon.png" alt="Teléfono">
+                                        <img src="../img/llamada_icon.png" alt="Teléfono">
                                     </div>
 
                                     <div class="contact-text">
@@ -380,7 +486,7 @@
                                 <div class="contact-item">
 
                                     <div class="contact-icon-wrap ci-wa">
-                                        <img src="img/whatsapp_icon.png" alt="WhatsApp">
+                                        <img src="../img/whatsapp_icon.png" alt="WhatsApp">
                                     </div>
 
                                     <div class="contact-text">
@@ -402,7 +508,7 @@
                                 <div class="contact-item">
 
                                     <div class="contact-icon-wrap ci-ig">
-                                        <img src="img/instagram_icon.webp" alt="Instagram">
+                                        <img src="../img/instagram_icon.webp" alt="Instagram">
                                     </div>
 
                                     <div class="contact-text">
@@ -424,7 +530,7 @@
                                 <div class="contact-item">
 
                                     <div class="contact-icon-wrap ci-fb">
-                                        <img src="img/facebook_icon.webp" alt="Facebook">
+                                        <img src="../img/facebook_icon.webp" alt="Facebook">
                                     </div>
 
                                     <div class="contact-text">
@@ -446,7 +552,7 @@
                                 <div class="contact-item">
 
                                     <div class="contact-icon-wrap ci-tk">
-                                        <img src="img/tik_tok_icon.webp" alt="TikTok">
+                                        <img src="../img/tik_tok_icon.webp" alt="TikTok">
                                     </div>
 
                                     <div class="contact-text">
@@ -526,7 +632,7 @@
                                     <div class="pay-method">
 
                                         <div class="pay-icon-img">
-                                            <img src="img/yape_logo.webp" alt="Yape">
+                                            <img src="../img/yape_logo.webp" alt="Yape">
                                         </div>
 
                                         <div class="pay-info">
@@ -545,7 +651,7 @@
                                     <div class="pay-method">
 
                                         <div class="pay-icon-img">
-                                            <img src="img/logo_plin.webp" alt="Plin">
+                                            <img src="../img/logo_plin.webp" alt="Plin">
                                         </div>
 
                                         <div class="pay-info">
@@ -564,7 +670,7 @@
                                     <div class="pay-method">
 
                                         <div class="pay-icon-img">
-                                            <img src="img/logo_agora.webp" alt="Agora">
+                                            <img src="../img/logo_agora.webp" alt="Agora">
                                         </div>
 
                                         <div class="pay-info">
@@ -583,7 +689,7 @@
                                     <div class="pay-method">
 
                                         <div class="pay-icon-img">
-                                            <img src="img/efectivo_logo.webp" alt="Efectivo">
+                                            <img src="../img/efectivo_logo.webp" alt="Efectivo">
                                         </div>
 
                                         <div class="pay-info">
@@ -602,7 +708,7 @@
                                     <div class="pay-method">
 
                                         <div class="pay-icon-img">
-                                            <img src="img/visa_logo.webp" alt="Visa">
+                                            <img src="../img/visa_logo.webp" alt="Visa">
                                         </div>
 
                                         <div class="pay-info">
@@ -624,73 +730,7 @@
                         </div>
 
                     </div>
-
-
-
-                    <!-- ===== CONTACTO Y REDES + OTROS MÉTODOS (2 columnas en PC) ===== -->
-
                 </div>
-
-
-                <!-- ===== FOTOS ===== -->
-                <div class="section" id="sec-fotos">
-
-                    <div class="expand-section">
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-blue">🏠</div>
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">Fotos de ambiente</div>
-                                <div class="expand-header-sub">Hasta 6 fotos del local</div>
-                            </div>
-                            <div class="expand-arrow">▼</div>
-                        </div>
-                        <div class="expand-body">
-                            <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
-                                Añade hasta 6 fotos de ambiente para que los usuarios puedan ver el interior de tu
-                                negocio, lugar o local.
-                            </p>
-                            <div class="photo-grid" id="ambienteGrid"></div>
-                        </div>
-                    </div>
-
-                    <div class="expand-section">
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-orange">🛍️</div>
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">Servicios y productos</div>
-                                <div class="expand-header-sub">Hasta 6 fotos</div>
-                            </div>
-                            <div class="expand-arrow">▼</div>
-                        </div>
-                        <div class="expand-body">
-                            <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
-                                Añade hasta 6 fotos de los servicios o productos que ofreces para que los usuarios sepan
-                                qué pueden encontrar en tu negocio.
-                            </p>
-                            <div class="photo-grid" id="productosGrid"></div>
-                        </div>
-                    </div>
-
-                    <div class="expand-section">
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-pink">🎉</div>
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">Promociones</div>
-                                <div class="expand-header-sub">Hasta 3 fotos</div>
-                            </div>
-                            <div class="expand-arrow">▼</div>
-                        </div>
-                        <div class="expand-body">
-                            <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
-                                Añade hasta 3 fotos de tus promociones activas, ofertas o descuentos para atraer más
-                                clientes.
-                            </p>
-                            <div class="photo-grid" id="promocionesGrid"></div>
-                        </div>
-                    </div>
-
-                </div>
-
 
                 <!-- ===== RECARGAS ===== -->
                 <div class="section" id="sec-recargas">
@@ -761,7 +801,7 @@
 -->
 
             <!-- BOTON MENU MOBILE -->
-            <button class="mobile-menu-btn" onclick="PanelPerfil.toggleMobileMenu()">
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
                 ☰
             </button>
 
@@ -773,7 +813,7 @@
 
                 <div class="mobile-menu-header">
 
-                    <img class="mobile-menu-logo" src="img/Diseño sin título (2).png" alt="Geinz">
+                    <img class="mobile-menu-logo" src="../img/Diseño sin título (2).png" alt="Geinz">
 
                     <div>
                         <div class="mobile-menu-title">Geinz Web</div>
@@ -808,13 +848,7 @@
                         <span>Asistente Daniel</span>
                     </button>
 
-                    <button class="mobile-menu-item" id="mmb-fotos"
-                        onclick="PanelPerfil.showSection('fotos'); PanelPerfil.toggleMobileMenu()">
 
-                        <span>📸</span>
-                        <span>Fotos</span>
-
-                    </button>
 
                     <button class="mobile-menu-item" id="mmb-recargas"
                         onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
@@ -827,12 +861,34 @@
 
                     <button class="mobile-menu-item" id="mmb-cotiza"
                         onclick="PanelPerfil.showSection('cotiza');PanelPerfil.toggleMobileMenu()">
-                        <span class="sbb-icon">🤖⚡</span>
+                        <span class="sbb-icon">🔨</span>
                         <span class="sbb-label">Crea tu asistente</span>
 
                     </button>
 
+                    <button class="sidebar-collapse-btn sidebar-cerrar-btn" id="sidebarCerrarBtn"
+                        onclick="cerrarSesionPanel()">
 
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <!-- tapa -->
+                            <path d="M4 7H20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+
+                            <!-- cuerpo -->
+                            <path d="M7 7L8 19C8.1 20.1 8.9 21 10 21H14C15.1 21 15.9 20.1 16 19L17 7"
+                                stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+
+                            <!-- líneas internas -->
+                            <path d="M10 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+
+                            <path d="M14 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+
+                            <!-- mango -->
+                            <path d="M9 4H15" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                        </svg>
+
+                        <span class="collapse-label">Cerrar sesión</span>
+                    </button>
 
                 </div>
             </div>
@@ -906,20 +962,20 @@
             <div class="resumen-pago">
                 <p>Saldo actual:
                     <span id="saldo-actual">0</span>
-                    <img src="img/icon_monedas_3d.webp" class="coin-icon">
+                    <img src="../img/icon_monedas_3d.webp" class="coin-icon">
                 </p>
                 <div id="detalle-descuento"></div>
                 <p>
                     <span class="label-text">Saldo disponible restante:</span>
                     <span class="valor-container">
                         <span id="saldo-restante">0</span>
-                        <img src="img/icon_monedas_3d.webp" class="coin-icon">
+                        <img src="../img/icon_monedas_3d.webp" class="coin-icon">
                     </span>
                 </p>
                 <hr>
                 <p>Total:
                     <span id="total-a-pagar">0</span>
-                    <img src="img/icon_monedas_3d.webp" class="coin-icon">
+                    <img src="../img/icon_monedas_3d.webp" class="coin-icon">
                 </p>
             </div>
 
@@ -1070,76 +1126,108 @@
 
         </div>
     </div>
+    <script type="module">
+        import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
-    <style>
-        @keyframes uploadSpin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.firebasestorage.app",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+        };
 
-        @keyframes uploadPulse {
+        const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-            0%,
-            100% {
-                opacity: .4;
-                transform: scale(.95)
-            }
+        window.cerrarSesionPanel = async () => {
+            const confirmar = confirm("¿Seguro que deseas cerrar sesión?");
+            if (!confirmar) return;
 
-            50% {
-                opacity: 1;
-                transform: scale(1)
-            }
-        }
+            try {
 
-        @keyframes uploadProgress {
-            0% {
-                width: 0%;
-                margin-left: 0
-            }
+                await signOut(auth);
+            } catch (e) {
 
-            50% {
-                width: 60%;
-                margin-left: 20%
             }
 
-            100% {
-                width: 0%;
-                margin-left: 100%
-            }
-        }
+            sessionStorage.removeItem("tiendaId");
+            sessionStorage.removeItem("localidad");
+            sessionStorage.removeItem("correoVinculado");
 
-        @keyframes uploadDot {
-            0% {
-                opacity: .2
-            }
-
-            20% {
-                opacity: 1
-            }
-
-            100% {
-                opacity: .2
-            }
-        }
-
-        #uploadDots span:nth-child(1) {
-            animation: uploadDot 1.4s 0s infinite
-        }
-
-        #uploadDots span:nth-child(2) {
-            animation: uploadDot 1.4s .2s infinite
-        }
-
-        #uploadDots span:nth-child(3) {
-            animation: uploadDot 1.4s .4s infinite
-        }
-    </style>
-
+            window.location.replace("../index.html");
+        };
+    </script>
     <script>
         (function () {
             var d = document.getElementById("uploadDots");
             if (d) d.innerHTML = "<span>.</span><span>.</span><span>.</span>";
+        })();
+    </script>
+
+    <script>
+        // Guarda los datos de la tienda para reenviarlos cuando el iframe recargue
+        window._datosParaIframe = null;
+
+        // Interceptar postMessage para guardar copia de los datos
+        const _originalPostMessage = window.postMessage.bind(window);
+        // En realidad los datos los manda el JS principal al iframe, 
+        // así que interceptamos desde panel_perfil.js
+
+        function volverDesdeIframe() {
+            const iframe = document.querySelector('#sec-recargas iframe');
+            if (!iframe) return;
+
+            document.getElementById('iframeBackBtn').classList.remove('visible');
+
+            // Recargar el iframe a recargas.html
+            iframe.src = 'recargas.html';
+
+            // Cuando termine de cargar, reenviar los datos guardados
+            iframe.addEventListener('load', function reenviar() {
+                iframe.removeEventListener('load', reenviar);
+                reenviarDatosAlIframe(iframe);
+            }, { once: true });
+        }
+
+        function reenviarDatosAlIframe(iframe) {
+            if (!window._datosParaIframe) return;
+
+            setTimeout(() => {
+                try {
+                    iframe.contentWindow.postMessage(window._datosParaIframe, '*');
+                    console.log('📤 Datos reenviados al iframe:', window._datosParaIframe);
+                } catch (e) {
+                    console.warn('No se pudo reenviar datos:', e);
+                }
+            }, 300); // pequeño delay para que el iframe esté listo
+        }
+
+        // Vigilar cuando el iframe navega
+        (function () {
+            const sec = document.getElementById('sec-recargas');
+            const btn = document.getElementById('iframeBackBtn');
+            if (!sec || !btn) return;
+
+            const iframe = sec.querySelector('iframe');
+            if (!iframe) return;
+
+            iframe.addEventListener('load', function () {
+                try {
+                    const iframeHref = iframe.contentWindow.location.href;
+                    const esRecargas = iframeHref.includes('recargas.html') || iframeHref === 'about:blank';
+                    if (!esRecargas) {
+                        btn.classList.add('visible');
+                    } else {
+                        btn.classList.remove('visible');
+                    }
+                } catch (e) {
+                    // Cross-origin: mostrar botón
+                    btn.classList.add('visible');
+                }
+            });
         })();
     </script>
 </body>

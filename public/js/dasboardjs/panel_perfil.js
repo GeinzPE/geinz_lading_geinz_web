@@ -1,7 +1,18 @@
-// ═══════════════════════════════════════════════════════════
-//  NAMESPACE: PanelPerfil
-// ═══════════════════════════════════════════════════════════
+const params = new URLSearchParams(window.location.search);
+const tiendaId = params.get("id") || sessionStorage.getItem("tiendaId");
+const localidad =
+  params.get("localidad") || sessionStorage.getItem("localidad");
 
+console.log("📦 Parámetros recibidos en panel_perfil:");
+console.log("   🏪 tiendaId  →", tiendaId);
+console.log("   📍 localidad →", localidad);
+
+if (!tiendaId || !localidad) {
+  console.warn(
+    "⚠️ No se recibieron parámetros válidos, redirigiendo al login...",
+  );
+  window.location.href = "../login/index.html";
+}
 window.PanelPerfil = {
   // ── Estado interno ──
   activeSection: "perfil",
@@ -17,16 +28,20 @@ window.PanelPerfil = {
   _avatarPendingDataURL: null,
 
   // ── IDs ──
-  TIENDA_ID: "fW7W8RsgkkQ3IYfxKHGR",
+  TIENDA_ID: tiendaId,
   TIENDA_REF: null,
   db: null,
   doc: null,
   onSnapshot: null,
   updateDoc: null,
-
+  LOCALIDAD_TIENDA: localidad,
   // ── Valores originales para detectar cambios ──
   _originalValues: {},
 
+  toggleSidebar() {
+    const sidebar = document.querySelector(".sidebar");
+    sidebar.classList.toggle("collapsed");
+  },
   // ═══════════════════════════════════════════
   //  INICIALIZACIÓN
   // ═══════════════════════════════════════════
@@ -76,8 +91,8 @@ window.PanelPerfil = {
         self.TIENDA_REF = self.doc(
           self.db,
           "Tiendas",
-          "barranca",
-          "barranca",
+          self.LOCALIDAD_TIENDA,
+          self.LOCALIDAD_TIENDA,
           self.TIENDA_ID,
         );
 
@@ -90,6 +105,7 @@ window.PanelPerfil = {
 
     this._bindEvents();
     this._injectFieldSaveBtnStyles();
+    this._initDraggableBtn();
   },
 
   selectedSubcats: [],
@@ -172,140 +188,6 @@ window.PanelPerfil = {
   },
   _hideFieldBtn: function (btn) {
     btn.classList.remove("visible");
-  },
-
-  // ═══════════════════════════════════════════
-  //  MODAL RENOVACIÓN
-  // ═══════════════════════════════════════════
-  abrirModalRenovacion: async function () {
-    const self = this;
-    const modal = document.getElementById("modal-renovacion");
-    if (!modal) return;
-
-    modal.classList.add("open");
-
-    const selectorPlanes = document.getElementById("selector-planes");
-    const resumenPago = document.getElementById("resumen-pago");
-    const btnContinuar = document.getElementById("btn-continuar");
-
-    if (selectorPlanes)
-      selectorPlanes.innerHTML =
-        '<p style="text-align:center;color:#888">Cargando planes...</p>';
-    if (resumenPago) resumenPago.style.display = "none";
-    if (btnContinuar) btnContinuar.disabled = true;
-
-    self._planSeleccionado = null;
-
-    try {
-      const { initializeApp, getApps } =
-        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
-      const { getFirestore, doc, getDoc } =
-        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-      const appPlanes =
-        getApps().find((a) => a.name === "planes") ||
-        initializeApp(
-          {
-            apiKey: "AIzaSyA47YFtXgzUQe8w_Wb6AlfDcQSjOB5rT_U",
-            authDomain: "proyectolista-95172.firebaseapp.com",
-            projectId: "proyectolista-95172",
-            storageBucket: "proyectolista-95172.firebasestorage.app",
-            messagingSenderId: "250365546182",
-            appId: "1:250365546172:web:732f2342d416eb909111c7",
-          },
-          "planes",
-        );
-
-      const dbPlanes = getFirestore(appPlanes);
-      const snap = await getDoc(doc(dbPlanes, "precio_apartado", "app"));
-
-      if (!snap.exists()) throw new Error("Documento no encontrado");
-
-      const planes = snap.data().planes_activacion || {};
-      self._planesData = planes;
-      self._renderPlanes(planes);
-    } catch (e) {
-      console.error(e);
-      if (selectorPlanes)
-        selectorPlanes.innerHTML =
-          '<p style="color:red;text-align:center">❌ Error al cargar planes</p>';
-    }
-  },
-
-  _planesData: {},
-  _planSeleccionado: null,
-
-  _NOMBRES_PLANES: {
-    "20_dias": "20 días",
-    "1_mes": "1 mes",
-    "2_meses": "2 meses",
-    "3_meses": "3 meses",
-    "4_meses": "4 meses",
-  },
-  _ORDEN_PLANES: ["20_dias", "1_mes", "2_meses", "3_meses", "4_meses"],
-  _DESCUENTOS: { "2_meses": 7, "3_meses": 10, "4_meses": 15 },
-
-  _renderPlanes: function (planes) {
-    const self = this;
-    const container = document.getElementById("selector-planes");
-    container.innerHTML = "";
-
-    self._ORDEN_PLANES
-      .filter((k) => planes[k] !== undefined)
-      .forEach((key) => {
-        const precio = planes[key];
-        const desc = self._DESCUENTOS[key] || 0;
-
-        const div = document.createElement("div");
-        div.className = "plan-item";
-        div.dataset.key = key;
-        div.innerHTML = `
-    <strong>${key.replace(/_/g, " ")}</strong>
-    <span class="precio-container">
-        ${precio}<img src="img/icon_monedas_3d.webp" class="coin-icon" alt="moneda">
-    </span>
-`;
-        div.onclick = () => self._seleccionarPlan(key, precio);
-        container.appendChild(div);
-      });
-  },
-
-  _seleccionarPlan: function (key, precio) {
-    const self = this;
-    self._planSeleccionado = { key, precio };
-
-    document
-      .querySelectorAll("#selector-planes .plan-item")
-      .forEach((el) => el.classList.toggle("selected", el.dataset.key === key));
-
-    const saldo = self.currentData?.saldo || 0;
-    const desc = self._DESCUENTOS[key] || 0;
-    const precioFinal =
-      desc > 0 ? Math.round(precio * (1 - desc / 100)) : precio;
-    const restante = saldo - precioFinal;
-
-    document.getElementById("saldo-actual").textContent =
-      ` ${saldo.toLocaleString("es-PE")}`;
-    document.getElementById("saldo-restante").textContent =
-      ` ${restante.toLocaleString("es-PE")}`;
-    document.getElementById("total-a-pagar").textContent =
-      ` ${precioFinal.toLocaleString("es-PE")}`;
-
-    const detalle = document.getElementById("detalle-descuento");
-    detalle.innerHTML = desc
-      ? `<p>
-       Descuento aplicado: 
-       <strong>${desc}% = - 
-         <span style="display:inline-flex; align-items:center; gap:4px;">
-           ${(precio - precioFinal).toLocaleString("es-PE")}
-           <img src="img/icon_monedas_3d.webp" class="coin-icon" style="width:16px; height:16px; vertical-align:middle;">
-         </span>
-       </strong>
-     </p>`
-      : "";
-
-    document.getElementById("resumen-pago").style.display = "block";
-    document.getElementById("btn-continuar").disabled = false;
   },
 
   // ═══════════════════════════════════════════
@@ -419,6 +301,130 @@ window.PanelPerfil = {
     const overlay = document.getElementById("mobileMenuOverlay");
     menu.classList.toggle("open");
     overlay.classList.toggle("show");
+  },
+  _initDraggableBtn: function () {
+    const btn = document.getElementById("mobileMenuBtn");
+    if (!btn) return;
+
+    let isDragging = false;
+    let hasMoved = false;
+    let startX, startY, startLeft, startTop;
+
+    const clampToScreen = () => {
+      const rect = btn.getBoundingClientRect();
+      let currentLeft = parseFloat(btn.style.left);
+      let currentTop = parseFloat(btn.style.top);
+      if (isNaN(currentLeft) || isNaN(currentTop)) {
+        btn.style.left = window.innerWidth - btn.offsetWidth - 16 + "px";
+        btn.style.top = window.innerHeight - btn.offsetHeight - 24 + "px";
+        return;
+      }
+      const maxLeft = window.innerWidth - btn.offsetWidth - 8;
+      const maxTop = window.innerHeight - btn.offsetHeight - 8;
+      btn.style.left = Math.max(8, Math.min(maxLeft, currentLeft)) + "px";
+      btn.style.top = Math.max(8, Math.min(maxTop, currentTop)) + "px";
+      btn.style.right = "auto";
+      btn.style.bottom = "auto";
+    };
+
+    clampToScreen();
+    window.addEventListener("resize", clampToScreen);
+
+    const onStart = (clientX, clientY) => {
+      isDragging = true;
+      hasMoved = false;
+      const rect = btn.getBoundingClientRect();
+      startX = clientX;
+      startY = clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      btn.style.left = startLeft + "px";
+      btn.style.right = "auto";
+      btn.style.top = startTop + "px";
+      btn.style.bottom = "auto";
+      btn.style.transition = "none";
+    };
+
+    const onMove = (clientX, clientY) => {
+      if (!isDragging) return;
+      const dx = clientX - startX;
+      const dy = clientY - startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        // umbral aumentado a 5px
+        hasMoved = true;
+      }
+      if (!hasMoved) return; // no mover hasta que realmente haya arrastre
+      const newLeft = Math.max(
+        8,
+        Math.min(window.innerWidth - btn.offsetWidth - 8, startLeft + dx),
+      );
+      const newTop = Math.max(
+        8,
+        Math.min(window.innerHeight - btn.offsetHeight - 8, startTop + dy),
+      );
+      btn.style.left = newLeft + "px";
+      btn.style.top = newTop + "px";
+    };
+
+    const onEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      btn.style.transition = "left 0.2s ease";
+      const rect = btn.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const snapLeft =
+        centerX < window.innerWidth / 2
+          ? 16
+          : window.innerWidth - rect.width - 16;
+      btn.style.left = snapLeft + "px";
+      btn.style.right = "auto";
+    };
+
+    // Manejador de clic simple (independiente del arrastre)
+    const onClick = (e) => {
+      if (!hasMoved) {
+        e.preventDefault();
+        e.stopPropagation();
+        PanelPerfil.toggleMobileMenu();
+      }
+    };
+
+    // Eventos táctiles
+    btn.addEventListener(
+      "touchstart",
+      (e) => {
+        const t = e.touches[0];
+        onStart(t.clientX, t.clientY);
+      },
+      { passive: true },
+    );
+
+    document.addEventListener(
+      "touchmove",
+      (e) => {
+        const t = e.touches[0];
+        onMove(t.clientX, t.clientY);
+      },
+      { passive: true },
+    );
+
+    document.addEventListener("touchend", (e) => {
+      onEnd();
+      // No abrimos aquí el menú, lo dejamos al click
+    });
+
+    // Eventos de ratón
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onStart(e.clientX, e.clientY);
+    });
+    document.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY));
+    document.addEventListener("mouseup", () => {
+      onEnd();
+    });
+
+    // Evento click (para mouse y táctil después de touch)
+    btn.addEventListener("click", onClick);
   },
 
   askChangeCategoria: function (newCat) {
@@ -839,6 +845,7 @@ window.PanelPerfil = {
         } else {
           console.log("✅ Ejecutando populateUI");
           self.populateUI(self.currentData);
+          window.enviarDatosTiendaFrames();
         }
 
         if (self._firstLoad) {
@@ -866,7 +873,6 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   populateUI: function (data) {
     var self = this;
-
     self.setField("businessName", data.nombre_tienda || "");
     self._updateNameSilent(data.nombre_tienda || "");
 
@@ -2065,3 +2071,46 @@ function procesarPago() {
   if (!plan) return;
   console.log("Procesando plan:", plan.key, "S/", plan.precio);
 }
+
+// ═══════════════════════════════════════════════════════
+// ENVIAR DATOS DE LA TIENDA AL IFRAME
+// ═══════════════════════════════════════════════════════
+window.enviarDatosTiendaFrames = function () {
+  const dataFrame = {
+    id_tienda: PanelPerfil.TIENDA_ID || "",
+    nombre_tienda: PanelPerfil.currentData?.nombre_tienda || "",
+    localidad:
+      PanelPerfil.currentData?.localdiad ||
+      PanelPerfil.currentData?.localidad ||
+      PanelPerfil.LOCALIDAD_TIENDA,
+    categoria_tienda: PanelPerfil.currentData?.categoria_tienda || "",
+    logo_tienda:
+      PanelPerfil.currentData?.img_tienda?.logo_tienda ||
+      PanelPerfil.currentData?.logo_tienda ||
+      "",
+    // ✅ AGREGAR saldo aquí también
+    saldo_tienda: Number(window._saldoActual || 0),
+  };
+
+  window._datosParaIframe = { type: "DATOS_TIENDA", payload: dataFrame };
+
+  document.querySelectorAll("iframe").forEach((frame) => {
+    if (!frame.contentWindow) return;
+    frame.contentWindow.postMessage(
+      { type: "DATOS_TIENDA", payload: dataFrame },
+      "*",
+    );
+  });
+};
+
+window.addEventListener("message", (event) => {
+  // CUANDO EL IFRAME QUIERA VOLVER
+  if (event.data?.type === "VOLVER_PANEL") {
+    const iframe = document.getElementById("iframeRecargas");
+
+    if (iframe) {
+      // REGRESA AL HTML ORIGINAL
+      iframe.src = "recargas.html";
+    }
+  }
+});

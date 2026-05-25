@@ -7,14 +7,14 @@
 import {
   initializeApp,
   getApps,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
 import {
   getFirestore,
   doc,
   onSnapshot,
   updateDoc,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ─────────────────────────────────────────────────────────────
 // Firebase Config
@@ -81,6 +81,7 @@ const MOTIVOS_CIERRE = [
 ];
 
 let estado = {};
+let estadoGuardado = {};
 let unsub = null;
 let diasAbiertosUI = {};
 let _container = null;
@@ -91,6 +92,31 @@ let _ignorarSnapshot = 0;
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
+
+function hayCambios(dia) {
+  const actual = estado[dia];
+  const guardado = estadoGuardado[dia];
+  if (!guardado) return true;
+
+  if (actual.activo !== guardado.activo) return true;
+  if (actual.descanso !== guardado.descanso) return true;
+  if (!actual.activo && actual.motivo !== guardado.motivo) return true;
+
+  const bActual = actual.descanso
+    ? actual.bloques.slice(0, 2)
+    : [actual.bloques[0]];
+  const bGuardado = guardado.descanso
+    ? guardado.bloques.slice(0, 2)
+    : [guardado.bloques[0]];
+
+  for (let i = 0; i < bActual.length; i++) {
+    if (!bGuardado[i]) return true;
+    if (bActual[i].h_apertura !== bGuardado[i].h_apertura) return true;
+    if (bActual[i].h_cierre !== bGuardado[i].h_cierre) return true;
+  }
+  return false;
+}
+
 function bloqueDefault() {
   return { h_apertura: "19:00", h_cierre: "22:30" };
 }
@@ -128,6 +154,7 @@ function cargarHorario(data) {
       out[dia].bloques.push(bloqueDefault());
     }
   });
+  estadoGuardado = JSON.parse(JSON.stringify(out));
   return out;
 }
 
@@ -234,26 +261,23 @@ async function guardarDia(dia, btn) {
     btn.innerText = "Guardando...";
 
     const data = serializarDia(dia);
-
-    // ── Incrementamos el contador ANTES de guardar
-    // para que el snapshot que llega tras el updateDoc sea ignorado
     _ignorarSnapshot++;
-
     await updateDoc(refHorario, data);
+    estadoGuardado[dia] = JSON.parse(JSON.stringify(estado[dia]));
 
     btn.style.background = "#34c759";
     btn.innerText = "✓ Guardado";
 
     setTimeout(() => {
-      btn.style.background = "#a000ff";
-      btn.innerText = textoOriginal;
-      btn.disabled = false;
+      // ── Busca el body actual del día y oculta el botón si ya no hay cambios
+      const card = _container?.querySelector(`.he-card[data-dia="${dia}"]`);
+      const body = card?.querySelector(".he-body");
+      if (body) checkBtn(dia, body);
     }, 2000);
   } catch (e) {
     console.error("Error:", e);
     btn.innerText = "Error";
     btn.disabled = false;
-    // Si falló, cancelamos el contador para no ignorar el próximo snapshot real
     if (_ignorarSnapshot > 0) _ignorarSnapshot--;
   }
 }
@@ -277,35 +301,49 @@ function buildBody(dia, body) {
           <div class="he-a">a</div>
           <div class="he-field"><label>Cierre 1</label><input class="he-input close1" type="time" value="${d.bloques[0]?.h_cierre || "22:30"}"></div>
         </div>
-        ${d.descanso ? `
+        ${
+          d.descanso
+            ? `
         <div class="he-row">
           <div class="he-field"><label>Apertura 2</label><input class="he-input open2" type="time" value="${d.bloques[1]?.h_apertura || "19:00"}"></div>
           <div class="he-a">a</div>
           <div class="he-field"><label>Cierre 2</label><input class="he-input close2" type="time" value="${d.bloques[1]?.h_cierre || "22:30"}"></div>
-        </div>` : ""}
+        </div>`
+            : ""
+        }
       </div>
-      ${d.mostrar12h ? `
+      ${
+        d.mostrar12h
+          ? `
       <div class="he-conv-box">
         <div class="he-conv-title">Conversión automática a 12 h</div>
         <div class="he-conv-grid">
           <div><strong>Apertura:</strong> ${convertir12h(d.bloques[0]?.h_apertura)}</div>
           <div><strong>Cierre:</strong> ${convertir12h(d.bloques[0]?.h_cierre)}</div>
         </div>
-        ${d.descanso && d.bloques[1] ? `
+        ${
+          d.descanso && d.bloques[1]
+            ? `
         <div class="he-conv-grid" style="margin-top: 8px;">
           <div><strong>Apertura 2:</strong> ${convertir12h(d.bloques[1]?.h_apertura)}</div>
           <div><strong>Cierre 2:</strong> ${convertir12h(d.bloques[1]?.h_cierre)}</div>
-        </div>` : ""}
-      </div>` : ""}
+        </div>`
+            : ""
+        }
+      </div>`
+          : ""
+      }
     `;
 
     body.querySelector(".open1").oninput = (e) => {
       d.bloques[0].h_apertura = e.target.value;
       if (d.mostrar12h) buildBody(dia, body);
+      checkBtn(dia, body);
     };
     body.querySelector(".close1").oninput = (e) => {
       d.bloques[0].h_cierre = e.target.value;
       if (d.mostrar12h) buildBody(dia, body);
+      checkBtn(dia, body);
     };
 
     if (d.descanso) {
@@ -313,11 +351,13 @@ function buildBody(dia, body) {
         if (!d.bloques[1]) d.bloques[1] = bloqueDefault();
         d.bloques[1].h_apertura = e.target.value;
         if (d.mostrar12h) buildBody(dia, body);
+        checkBtn(dia, body);
       };
       body.querySelector(".close2").oninput = (e) => {
         if (!d.bloques[1]) d.bloques[1] = bloqueDefault();
         d.bloques[1].h_cierre = e.target.value;
         if (d.mostrar12h) buildBody(dia, body);
+        checkBtn(dia, body);
       };
     }
 
@@ -325,7 +365,7 @@ function buildBody(dia, body) {
       d.descanso = false;
       if (window.innerWidth >= 900) {
         buildBody(dia, body);
-        rebindBtn(dia, body);
+        checkBtn(dia, body);
       } else {
         render(_container);
       }
@@ -335,7 +375,7 @@ function buildBody(dia, body) {
       if (d.bloques.length < 2) d.bloques.push(bloqueDefault());
       if (window.innerWidth >= 900) {
         buildBody(dia, body);
-        rebindBtn(dia, body);
+        checkBtn(dia, body);
       } else {
         render(_container);
       }
@@ -343,7 +383,7 @@ function buildBody(dia, body) {
     body.querySelector(".he-link-toggle").onclick = () => {
       d.mostrar12h = !d.mostrar12h;
       buildBody(dia, body);
-      rebindBtn(dia, body);
+      checkBtn(dia, body);
     };
   } else {
     body.innerHTML = `
@@ -352,9 +392,12 @@ function buildBody(dia, body) {
         ${MOTIVOS_CIERRE.map((m) => `<label class="he-motivo-label"><input type="radio" name="motivo_cierre_${dia}" value="${m}" ${d.motivo === m ? "checked" : ""}> ${m}</label>`).join("")}
       </div>
     `;
-    body
-      .querySelectorAll(`input[name="motivo_cierre_${dia}"]`)
-      .forEach((r) => (r.onchange = (e) => (d.motivo = e.target.value)));
+    body.querySelectorAll(`input[name="motivo_cierre_${dia}"]`).forEach((r) => {
+      r.onchange = (e) => {
+        d.motivo = e.target.value;
+        checkBtn(dia, body);
+      };
+    });
   }
 }
 
@@ -367,7 +410,20 @@ function rebindBtn(dia, body) {
   btn.onclick = () => guardarDia(dia, btn);
   body.appendChild(btn);
 }
-
+function checkBtn(dia, body) {
+  let btn = body.querySelector(".he-btn");
+  if (hayCambios(dia)) {
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.className = "he-btn";
+      btn.innerText = "Guardar";
+      btn.onclick = () => guardarDia(dia, btn);
+      body.appendChild(btn);
+    }
+  } else {
+    if (btn) btn.remove();
+  }
+}
 // ─────────────────────────────────────────────────────────────
 // updateCardBody: en PC actualiza solo la card afectada
 // ─────────────────────────────────────────────────────────────
@@ -383,14 +439,7 @@ function updateCardBody(dia, card) {
   if (!body) return;
   buildBody(dia, body);
 
-  let btn = body.querySelector(".he-btn");
-  if (!btn) {
-    btn = document.createElement("button");
-    btn.className = "he-btn";
-    btn.innerText = "Guardar";
-    body.appendChild(btn);
-  }
-  btn.onclick = () => guardarDia(dia, btn);
+  checkBtn(dia, body);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -448,12 +497,7 @@ function render(container) {
     body.className = "he-body";
     buildBody(dia, body);
 
-    const btn = document.createElement("button");
-    btn.className = "he-btn";
-    btn.innerText = "Guardar";
-    btn.onclick = () => guardarDia(dia, btn);
-    body.appendChild(btn);
-
+    checkBtn(dia, body);
     card.appendChild(head);
     card.appendChild(body);
     wrap.appendChild(card);

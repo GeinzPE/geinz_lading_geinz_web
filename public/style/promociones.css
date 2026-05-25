@@ -24,19 +24,42 @@
   --txt3: #5c5070;
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Quitar selección azul */
+button,
+a,
+div,
+span,
+input,
+textarea,
+select {
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Quitar flash azul en Android */
+button:focus,
+a:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+
 }
 
-html,
-body {
-  height: 100%;
-  -webkit-tap-highlight-color: transparent;
-}
+
 
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -44,6 +67,8 @@ body {
   color: var(--txt1);
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 body::before {

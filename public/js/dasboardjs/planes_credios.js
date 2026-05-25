@@ -7,8 +7,8 @@ window.PanelPerfil = {
   init: async function () {
     if (this.db) return; // Ya inicializado
     
-    const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
-    const { getFirestore, doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const { getFirestore, doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
     // DB Geinzwork
     const app = !getApps().find(a => a.name === 'geinzApp') 
@@ -52,7 +52,7 @@ window.PanelPerfil = {
     container.innerHTML = "Cargando...";
 
     // 2. Traer los datos
-    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
     const snap = await getDoc(doc(this.dbPlanes, "precio_apartado", "app"));
     
     if (snap.exists()) {

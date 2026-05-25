@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Geinz - Socio o Cliente</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+
+    <script type="module" src="../js/login/login.js"></script>
+    <link rel="stylesheet" href="../style/logincss/login.css" />
+</head>
+
+<body>
+
+    <!-- BACKGROUND -->
+    <div class="slider-wrapper">
+
+        <div class="slide active" style="background-image:url('../img/f10.webp')">
+        </div>
+        <div class="slide" style="background-image:url('../img/f2.webp')">
+        </div>
+        <div class="slide" style="background-image:url('../img/f3.webp')">
+        </div>
+        <div class="slide " style="background-image:url('../img/f4.webp')">
+        </div>
+        <div class="slide" style="background-image:url('../img/f6.webp')">
+        </div>
+        <div class="slide" style="background-image:url('../img/f7.webp')">
+        </div>
+        <div class="slide" style="background-image:url('../img/f10.webp')">
+        </div>
+
+    </div>
+
+    <div class="dark-overlay"></div>
+
+    <!-- UI PRINCIPAL (LOGIN/REGISTRO SOCIO) -->
+    <div class="ui-container" id="mainUI">
+        <div class="welcome-screen" id="welcomeScreen">
+
+            <div class="logo-circle">
+                <span class="material-symbols-outlined">supervised_user_circle</span>
+            </div>
+
+            <h1 class="dynamic-title" id="dynamicTitle">
+                Encuentra tu próximo destino favorito
+            </h1>
+
+            <div class="buttons-wrap">
+                <!-- Nuevo botón para socios -->
+                <button class="btn btn-purple" onclick="openSocioModal()">Soy socio Geinz</button>
+                <button class="btn btn-white" onclick="loginGoogle()">
+                    <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/web-24dp/copy_of_googleg_standard_color_24dp.png"
+                        alt="" />
+                    Continuar con Google
+                </button>
+            </div>
+
+            <div class="footer-action">
+                Aún no tienes cuenta ?
+                <strong onclick="openRegisterModal()">Crear cuenta</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN MODAL (usuario normal) -->
+    <div class="modal-overlay" id="loginModal" onclick="closeIfOutside(event,'loginModal')">
+        <div class="modal-scroll">
+            <div class="dialog">
+                <h2 class="sheet-caption">Accede a tu cuenta</h2>
+                <p class="sheet-sub">Ingresa con tu cuenta Geinz para continuar.</p>
+                <form onsubmit="submitLogin(event)">
+                    <div class="input-box">
+                        <input type="email" class="input-field" placeholder="Correo electrónico" required />
+                    </div>
+                    <div class="input-box">
+                        <input type="password" id="loginPassword" class="input-field" placeholder="Contraseña"
+                            required />
+                        <span class="material-symbols-outlined field-icon-right"
+                            onclick="togglePassword('loginPassword',this)">visibility</span>
+                    </div>
+                    <a class="forgot-btn">Olvidaste tu contraseña?</a>
+                    <button type="submit" class="btn btn-purple">Iniciar sesión</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTER MODAL (usuario normal) -->
+    <div class="modal-overlay" id="registerModal" onclick="closeIfOutside(event,'registerModal')">
+        <div class="modal-scroll">
+            <div class="dialog register-screen">
+                <h2 class="sheet-caption">Crear cuenta</h2>
+                <p class="register-desc">Descubre negocios, promociones y novedades cerca de ti con Geinz.</p>
+                <form onsubmit="submitRegister(event)">
+                    <div class="input-box">
+                        <input type="text" class="input-field" placeholder="Nombre" required />
+                    </div>
+                    <div class="input-box">
+                        <input type="text" class="input-field" placeholder="Apellido" required />
+                    </div>
+                    <div class="input-box">
+                        <input type="text" class="input-field" placeholder="Nombre de usuario" required />
+                    </div>
+                    <div class="phone-flex-row">
+                        <div class="country-selector">
+                            <span>🇵🇪</span>
+                            <span>+51</span>
+                        </div>
+                        <input type="tel" class="input-field" placeholder="Número de teléfono" required />
+                    </div>
+                    <div class="input-box">
+                        <select class="custom-select" required>
+                            <option value="" disabled selected hidden>Selecciona tu género</option>
+                            <option>Masculino</option>
+                            <option>Femenino</option>
+                            <option>Otro</option>
+                        </select>
+                    </div>
+                    <div class="input-box">
+                        <select class="custom-select" required>
+                            <option value="" disabled selected hidden>Selecciona tu localidad</option>
+                            <option>Barranca</option>
+                            <option>Supe</option>
+                            <option>Puerto Supe</option>
+                            <option>Paramonga</option>
+                            <option>Pativilca</option>
+                        </select>
+                    </div>
+                    <div class="input-box">
+                        <input type="text" class="input-field" placeholder="Fecha de nacimiento"
+                            onfocus="this.type='date'" onblur="if(!this.value)this.type='text'" required />
+                    </div>
+                    <div class="input-box">
+                        <input type="email" class="input-field" placeholder="Correo electrónico" required />
+                    </div>
+                    <div class="input-box">
+                        <input type="password" id="registerPass1" class="input-field" placeholder="Contraseña"
+                            required />
+                        <span class="material-symbols-outlined field-icon-right"
+                            onclick="togglePassword('registerPass1',this)">visibility</span>
+                    </div>
+                    <div class="input-box">
+                        <input type="password" id="registerPass2" class="input-field" placeholder="Confirmar contraseña"
+                            required />
+                        <span class="material-symbols-outlined field-icon-right"
+                            onclick="togglePassword('registerPass2',this)">visibility</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:14px;margin-top:24px;">
+                        <button type="submit" class="btn btn-purple">Registrarse</button>
+                        <button type="button" class="btn btn-white"
+                            onclick="closeModal('registerModal')">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA SOCIO GEINZ (ID y localidad) -->
+    <div class="modal-overlay" id="socioModal" onclick="closeIfOutside(event,'socioModal')">
+        <div class="modal-scroll">
+            <div class="dialog" style="text-align: center;">
+                <div class="socio-badge">👑 Socio Geinz</div>
+                <h2 class="sheet-caption">¿Eres socio de Geinz?</h2>
+                <p class="sheet-sub" style="margin-bottom: 20px;">
+                    Ingresa tu ID y descubre el impacto real de tu negocio.<br>
+                    Conoce cuántas personas visitaron tu perfil, cuántos lo guardaron como favorito y actualiza tu
+                    horario en segundos.
+                </p>
+
+                <div class="input-box">
+                    <input type="text" id="socioId" class="input-field" placeholder="Pega tu ID" required>
+                </div>
+
+                <div class="input-box">
+                    <select id="socioLocalidad" class="custom-select" required>
+                        <option value="" disabled selected hidden>Selecciona tu localidad</option>
+                        <option value="barranca">Barranca</option>
+                        <option value="supe">Supe</option>
+                        <option value="puerto-supe">Puerto Supe</option>
+                        <option value="paramonga">Paramonga</option>
+                        <option value="pativilca">Pativilca</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-purple" id="btnAccederSocio" style="margin-top: 8px;">Acceder</button>
+
+                <div class="socio-link">
+                    <a href="#" onclick="switchToUserLogin(); return false;">Ingresar con cuenta de usuario (solo
+                        vinculados)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPLASH PARA USUARIO NORMAL (no usado para socios) -->
+    <div id="splashScreen">
+        <div id="sValidating" style="display:flex;flex-direction:column;align-items:center;width:100%;">
+            <div class="spinner-ring"></div>
+            <p class="val-title">Validando sesión</p>
+            <p class="val-sub">Estamos verificando tu cuenta Geinz,<br>un momento por favor…</p>
+            <div class="steps-list">
+                <div class="step-item" id="step1">
+                    <span class="material-symbols-outlined step-icon">security</span>
+                    Verificando credenciales
+                </div>
+                <div class="step-item" id="step2">
+                    <span class="material-symbols-outlined step-icon">person_check</span>
+                    Cargando tu perfil
+                </div>
+                <div class="step-item" id="step3">
+                    <span class="material-symbols-outlined step-icon">storefront</span>
+                    ¿Eres negocio en Geinz?
+                </div>
+            </div>
+        </div>
+        <div id="sWelcome">
+            <div class="av-wrap">
+                <div class="av-circle">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+                <div class="av-check">
+                    <span class="material-symbols-outlined">check</span>
+                </div>
+            </div>
+            <p class="wb-label">Bienvenido de vuelta</p>
+            <h1 class="wb-name" id="wName">Usuario</h1>
+            <p class="wb-user" id="wUser">@username</p>
+            <div class="wb-pts">
+                <span class="material-symbols-outlined" style="font-size:15px;">stars</span>
+                <span id="wPoints">500</span> puntos Geinz
+            </div>
+
+            <button class="btn-enter" id="btnEnter">
+                <span class="material-symbols-outlined">rocket_launch</span>
+                Entrar al panel Geinz
+            </button>
+
+        </div>
+    </div>
+
+
+    <!-- PANTALLA INTERMEDIA -->
+    <div id="selectorSocioScreen" class="selector-screen">
+
+        <div class="selector-content">
+
+            <h2>¿Eres socio de Geinz?</h2>
+
+            <p>
+                Ingresa tu ID y descubre el impacto real de tu negocio.
+                Conoce cuántas personas visitaron tu perfil,
+                cuántos lo guardaron como favorito y actualiza
+                tu horario en segundos.
+            </p>
+
+            <h3>Selecciona tu localidad</h3>
+
+            <div class="chips-wrap">
+
+                <button class="chip active" data-local="barranca">
+                    Barranca
+                </button>
+
+                <button class="chip" data-local="supe">
+                    Supe
+                </button>
+
+                <button class="chip" data-local="puerto-supe">
+                    Puerto Supe
+                </button>
+
+                <button class="chip" data-local="paramonga">
+                    Paramonga
+                </button>
+
+                <button class="chip" data-local="pativilca">
+                    Pativilca
+                </button>
+
+            </div>
+
+            <div class="selector-input-wrap">
+
+                <input type="text" id="selectorInput" placeholder="Pega tu ID">
+
+                <button id="toggleModoBtn">
+                    <span class="material-symbols-outlined">
+                        content_copy
+                    </span>
+                </button>
+
+            </div>
+
+            <div id="modoCorreo" class="selector-link">
+                Ingresar con cuenta de usuario (solo vinculados)
+            </div>
+
+            <button class="btn btn-purple" onclick="continuarPanel()">
+                Acceder
+            </button>
+
+        </div>
+
+    </div>
+
+
+</body>
+
+</html>

@@ -70,11 +70,15 @@
     /* o 'DM Sans' según prefieras */
 }
 
+
+
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
     -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: transparent;
+
 }
 
 html {
@@ -88,7 +92,32 @@ body {
     color: var(--text);
     height: 100%;
     overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
 }
+
+/* Quitar selección azul */
+button,
+a,
+div,
+span,
+input,
+textarea,
+select {
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Quitar flash azul en Android */
+button:focus,
+a:focus,
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    box-shadow: none;
+}
+
 
 /* =============================================
    LAYOUT SHELL
@@ -538,6 +567,11 @@ body {
 }
 
 @media (min-width: 768px) {
+
+    .exp-card {
+        margin: 32px 15px 0px;
+    }
+
     .card {
         padding: 20px 22px;
     }
@@ -633,8 +667,8 @@ body {
 /* DESKTOP */
 @media (min-width: 900px) {
 
-    .profile-avatar::after {
 
+    .profile-avatar::after {
         background:
             linear-gradient(to left,
                 transparent 35%,
@@ -1233,6 +1267,11 @@ textarea.field-value {
 
 .expand-section {
     margin: 27px 14px 10px;
+}
+
+.expand-section_Data {
+    margin-top: 20px;
+
 }
 
 @media (min-width: 768px) {
@@ -2327,23 +2366,29 @@ input:checked+.slider:before {
 
 
 /* ── Iconos de contacto con imagen ── */
+/* ── Iconos de contacto con imagen circular ── */
 .contact-icon-wrap img {
     width: 100%;
     height: 100%;
     object-fit: contain;
+
     padding: 6px;
-    border-radius: 11px;
+
+    border-radius: 50%;
 }
 
 /* ── Iconos de pago con imagen ── */
 .pay-icon-img {
     width: 48px;
-    height: 36px;
-    border-radius: 10px;
+    height: 48px;
+    /* mismo tamaño para círculo */
+    border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
+
     background: var(--surface2);
     border: 1px solid var(--border-light);
+
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3205,8 +3250,7 @@ input:checked+.slider:before {
 .mobile-menu-btn {
     position: fixed;
 
-    bottom: 20px;
-    right: 20px;
+
 
     top: auto;
     left: auto;
@@ -3873,7 +3917,7 @@ input:checked+.slider:before {
     padding: 24px;
     border-radius: 28px;
     color: white;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
 .selector-planes {
@@ -3926,18 +3970,21 @@ input:checked+.slider:before {
 
 .resumen-pago p {
     margin: 8px 0;
-    overflow: hidden; /* Esto es clave para limpiar los floats */
+    overflow: hidden;
+    /* Esto es clave para limpiar los floats */
     color: #888;
     line-height: 24px;
     font-family: sans-serif;
 }
 
 .label-text {
-    float: left; /* Texto a la izquierda */
+    float: left;
+    /* Texto a la izquierda */
 }
 
 .valor-container {
-    float: right; /* Precio y moneda a la derecha */
+    float: right;
+    /* Precio y moneda a la derecha */
     color: white;
     font-weight: 600;
 }
@@ -3946,9 +3993,11 @@ input:checked+.slider:before {
     width: 18px;
     height: 18px;
     vertical-align: middle;
-    margin-left: 4px; /* Separación pequeña entre número y moneda */
+    margin-left: 4px;
+    /* Separación pequeña entre número y moneda */
     display: inline-block;
 }
+
 .acciones {
     display: flex;
     gap: 12px;
@@ -3981,15 +4030,19 @@ input:checked+.slider:before {
     cursor: not-allowed;
     background: #333;
 }
+
 /* ── Ajustes para 100% Responsividad ── */
 
 /* 1. Modal que se adapta al espacio */
 #modal-renovacion .modal-content {
     width: 90%;
-    max-width: 450px; /* Un poco más amplio en PC */
+    max-width: 450px;
+    /* Un poco más amplio en PC */
     margin: 20px;
-    max-height: 90vh; /* Evita que el modal se salga de la pantalla */
-    overflow-y: auto; /* Scroll si el contenido es muy largo */
+    max-height: 90vh;
+    /* Evita que el modal se salga de la pantalla */
+    overflow-y: auto;
+    /* Scroll si el contenido es muy largo */
 }
 
 /* 2. Grid inteligente (1 columna en móvil, 2 en PC) */
@@ -4010,13 +4063,16 @@ input:checked+.slider:before {
 
 /* 3. Botones responsivos */
 .acciones {
-    flex-direction: row; /* Mantener horizontal */
+    flex-direction: row;
+    /* Mantener horizontal */
     width: 100%;
 }
 
 .acciones button {
-    flex: 1; /* Ambos botones ocupan el mismo ancho */
-    padding: 14px; /* Un poco más grande para facilitar el toque en móvil */
+    flex: 1;
+    /* Ambos botones ocupan el mismo ancho */
+    padding: 14px;
+    /* Un poco más grande para facilitar el toque en móvil */
 }
 
 /* 4. Ajustes táctiles para móvil */
@@ -4024,11 +4080,12 @@ input:checked+.slider:before {
     .plan-item {
         padding: 14px;
     }
-    
+
     .acciones {
-        flex-direction: column-reverse; /* En móvil, el botón principal queda arriba */
+        flex-direction: column-reverse;
+        /* En móvil, el botón principal queda arriba */
     }
-    
+
     .acciones button {
         width: 100%;
     }
@@ -4039,7 +4096,8 @@ input:checked+.slider:before {
     display: inline-flex !important;
     align-items: center;
     justify-content: flex-start;
-    gap: 4px; /* Esto controla qué tan cerca está la moneda del número */
+    gap: 4px;
+    /* Esto controla qué tan cerca está la moneda del número */
     font-weight: 700;
 }
 
@@ -4048,6 +4106,203 @@ input:checked+.slider:before {
     height: 18px !important;
     display: inline-block !important;
     vertical-align: middle;
-    margin: 0 !important; /* Elimina cualquier margen residual */
+    margin: 0 !important;
+    /* Elimina cualquier margen residual */
     padding: 0 !important;
+}
+
+
+
+
+.iframe-back-btn {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    z-index: 999999;
+
+    width: 54px;
+    height: 54px;
+
+    border: none;
+    outline: none;
+
+    border-radius: 50%;
+
+    background: rgba(18, 18, 18, .82);
+    backdrop-filter: blur(14px);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 6px 24px rgba(0, 0, 0, .35);
+
+    transition:
+        transform .22s ease,
+        background .22s ease,
+        opacity .22s ease;
+}
+
+/* ICONO */
+.iframe-back-btn::before {
+    content: "<";
+
+    color: #fff;
+
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* OCULTAR TEXTO */
+.iframe-back-btn {
+    font-size: 0;
+    color: transparent;
+}
+
+.iframe-back-btn:hover {
+    transform: scale(1.08);
+    background: rgba(35, 35, 35, .95);
+}
+
+.iframe-back-btn:active {
+    transform: scale(.94);
+}
+
+
+
+
+
+/* ── Collapse button ── */
+.sidebar-collapse-wrap {
+    padding: 12px 10px 16px;
+    margin-top: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-collapse-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.sidebar-collapse-btn:hover {
+    background: rgba(124, 77, 255, 0.1);
+    border-color: rgba(124, 77, 255, 0.3);
+    color: #c4b5fd;
+}
+
+.collapse-arrow {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.collapse-label {
+    transition: opacity 0.2s, width 0.3s;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Estado colapsado */
+.sidebar.collapsed .collapse-arrow {
+    transform: rotate(180deg);
+    margin-left: 10px;
+}
+
+.sidebar.collapsed .collapse-label {
+    opacity: 0;
+    width: 0;
+}
+
+.sidebar.collapsed .sidebar-collapse-btn {
+    justify-content: center;
+    padding: 10px;
+}
+
+.sidebar-cerrar-btn {
+    color: #ff4d4d !important;
+    background: rgba(255, 60, 60, 0.08) !important;
+    border: 1px solid rgba(255, 60, 60, 0.18) !important;
+    margin-top: 6px;
+}
+
+.sidebar-cerrar-btn:hover {
+    background: rgba(255, 60, 60, 0.18) !important;
+}
+
+
+@keyframes uploadSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes uploadPulse {
+
+    0%,
+    100% {
+        opacity: .4;
+        transform: scale(.95)
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1)
+    }
+}
+
+@keyframes uploadProgress {
+    0% {
+        width: 0%;
+        margin-left: 0
+    }
+
+    50% {
+        width: 60%;
+        margin-left: 20%
+    }
+
+    100% {
+        width: 0%;
+        margin-left: 100%
+    }
+}
+
+@keyframes uploadDot {
+    0% {
+        opacity: .2
+    }
+
+    20% {
+        opacity: 1
+    }
+
+    100% {
+        opacity: .2
+    }
+}
+
+#uploadDots span:nth-child(1) {
+    animation: uploadDot 1.4s 0s infinite
+}
+
+#uploadDots span:nth-child(2) {
+    animation: uploadDot 1.4s .2s infinite
+}
+
+#uploadDots span:nth-child(3) {
+    animation: uploadDot 1.4s .4s infinite
 }

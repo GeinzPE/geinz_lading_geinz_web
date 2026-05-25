@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#070707">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagos geinz</title>
+    <script src="https://js.culqi.com/checkout-js"></script>
+    <script type="module" src="../js/pagos/pagos.js"></script>
+    <link rel="stylesheet" href="../style/pagoscss/pagos.css">
+
+    <link rel="icon" href="/img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+</head>
+
+<body style="background:#070707;margin:0">
+    <a href="../dasboard/recargas.html" class="back-btn">
+        < </a>
+            <div class="wrap">
+                <div class="card" id="mainContent" style="display:none;">
+                    <div class="glow-top"></div>
+
+                    <div class="hdr">
+                        <div class="hdr-top">
+                            <div class="logo-ring">
+                                <img src="../img/logo geinz.png" alt="">
+                            </div>
+                            <div class="brand">
+                                <div class="brand-name">Geinz Tech</div>
+                                <div class="cat-pill"><span class="pulse"></span>Verifica tus datos</div>
+                            </div>
+                        </div>
+                        <div class="dt-row">
+                            <div class="dt-cell">
+                                <span class="dt-lbl">Fecha</span>
+                                <span class="dt-val" id="fv">—</span>
+                            </div>
+                            <div class="dt-cell">
+                                <span class="dt-lbl">Hora de inicio</span>
+                                <span class="dt-val" id="hv">—</span>
+                            </div>
+                            <div class="dt-cell">
+                                <span class="dt-lbl">RUC</span>
+                                <span class="dt-val">20615632580</span>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="body">
+                        <div class="sec-lbl">Cliente</div>
+                        <div class="user-card">
+                            <img id="tiendaLogo" class="ava" src="" alt="logo">
+                            <div>
+                                <div class="u-name" id="tiendaNombre">Cliente Geinz</div>
+                                <div class="u-id" id="tiendaCategoria">USR · 00421</div>
+                            </div>
+                            <div class="u-badge">Activo</div>
+                        </div>
+                        <div class="plan-box" id="planBox">
+                            <div class="plan-shimmer"></div>
+                            <div class="plan-top-row">
+                                <div class="plan-badge-wrap">
+                                    <div class="plan-selected-tag"><span class="plan-check-dot"></span>Tu plan elegido
+                                    </div>
+                                    <div class="plan-name-row">
+                                        <span class="plan-icon" id="planIcon"></span>
+                                        <span class="plan-name" id="planName"></span>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="plan-coins-row">
+                                <span class="plan-coins" id="planCoins"></span>
+                                <div class="info-image">
+                                    <img src="../img/icon_monedas_3d.webp" alt="Monedas Geinz 3D">
+                                </div>
+                            </div>
+
+                            <div class="bonus-pill" id="bonusPill">🎁 +300 monedas de regalo</div>
+
+                            <div class="plan-divider"></div>
+
+                            <div class="features-grid" id="featGrid">
+                                <div class="feat">
+                                    <div class="feat-check"><svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                                            <path d="M1 3.5L3 5.5L8 1" stroke="#a78bfa" stroke-width="1.5"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg></div>Todo lo del Básico
+                                </div>
+                                <div class="feat">
+                                    <div class="feat-check"><svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                                            <path d="M1 3.5L3 5.5L8 1" stroke="#a78bfa" stroke-width="1.5"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg></div>Envío frecuente de notificaciones
+                                </div>
+                                <div class="feat">
+                                    <div class="feat-check"><svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                                            <path d="M1 3.5L3 5.5L8 1" stroke="#a78bfa" stroke-width="1.5"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg></div>Ahorro con bono incluido
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="sec-lbl">Resumen del cobro</div>
+                        <div class="price-box">
+                            <div class="p-left">
+                                <div class="p-lbl">Total a pagar</div>
+                                <div><span class="p-amount">S/ 0.0</span><span class="p-cur">PEN</span></div>
+                            </div>
+                            <div class="p-right">
+                                <div class="igv-badge">
+                                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                        <circle cx="6.5" cy="6.5" r="5.5" stroke="#a78bfa" stroke-width="1.2" />
+                                        <path d="M6.5 5.5v4M6.5 4h.01" stroke="#a78bfa" stroke-width="1.3"
+                                            stroke-linecap="round" />
+                                    </svg>
+                                    Incluye IGV
+                                </div>
+                                <div class="igv-sub">18% incluido</div>
+                            </div>
+                        </div>
+
+                        <div class="bal-row">
+                            <span class="bal-lbl">Saldo actual de monedas</span>
+
+                            <div class="bal-right">
+                                <span class="bal-val" id="tiendaSaldo">320 monedas</span>
+
+                                <div class="info-image">
+                                    <img src="../img/icon_monedas_3d.webp" alt="Monedas Geinz">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="comp-section">
+                            <div class="sec-lbl" style="margin-bottom:9px">Tipo de comprobante</div>
+                            <div class="comp-toggle">
+                                <div class="comp-opt active" id="optBoleta" onclick="selComp('boleta')">
+                                    <div class="comp-radio on" id="radioBoleta">
+                                        <div class="radio-dot"></div>
+                                    </div>
+                                    <div>
+                                        <div class="comp-label">Boleta</div>
+                                        <div class="comp-sub-label">Para personas naturales</div>
+                                    </div>
+                                    <span class="comp-icon">🧾</span>
+                                </div>
+                                <div class="comp-opt" id="optFactura" onclick="selComp('factura')">
+                                    <div class="comp-radio" id="radioFactura">
+                                        <div class="radio-dot"></div>
+                                    </div>
+                                    <div>
+                                        <div class="comp-label">Factura</div>
+                                        <div class="comp-sub-label">Para empresas con RUC</div>
+                                    </div>
+                                    <span class="comp-icon">🏢</span>
+                                </div>
+                            </div>
+
+                            <div class="factura-form" id="facturaForm">
+                                <div class="form-inner">
+                                    <div class="sec-lbl" style="margin-bottom:2px;color:rgba(167,139,250,0.6)">Datos
+                                        para la
+                                        factura</div>
+                                    <div class="form-row">
+                                        <label class="f-lbl">RUC de la empresa</label>
+                                        <input class="f-input" id="inputRuc" type="text" maxlength="11"
+                                            placeholder="Ej: 20123456789" oninput="onRucInput(this)" />
+                                        <span class="f-hint" id="rucHint">Ingresa los 11 dígitos del RUC</span>
+                                    </div>
+                                    <div class="form-row">
+                                        <label class="f-lbl">Razón social</label>
+                                        <input class="f-input" id="inputRazon" type="text"
+                                            placeholder="Nombre legal de la empresa" />
+                                    </div>
+                                    <div class="form-row two">
+                                        <div>
+                                            <label class="f-lbl">Departamento</label>
+                                            <input class="f-input" id="inputDept" type="text" placeholder="Ej: Lima" />
+                                        </div>
+                                        <div>
+                                            <label class="f-lbl">Distrito</label>
+                                            <input class="f-input" id="inputDist" type="text"
+                                                placeholder="Ej: Miraflores" />
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <label class="f-lbl">Dirección fiscal</label>
+                                        <input class="f-input" id="inputDir" type="text"
+                                            placeholder="Av. / Calle, número, referencia" />
+                                    </div>
+                                    <div class="form-row">
+                                        <label class="f-lbl">Correo para envío de factura</label>
+                                        <input class="f-input" id="inputEmail" type="email"
+                                            placeholder="contabilidad@empresa.com" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="empresa-box">
+                            <div class="sec-lbl" style="margin-bottom:9px">Datos de la empresa</div>
+
+                            <div class="emp-header">
+
+                                <div class="emp-name">GEINZ TECNOLOGIA E.I.R.L.</div>
+                            </div>
+                            <div class="emp-grid">
+                                <div class="emp-item">RUC <b>20615632580</b></div>
+                                <div class="emp-item">Tipo <b>E.I.R.L.</b></div>
+                                <div class="emp-item">Régimen <b>MYPE Tributario</b></div>
+                                <div class="emp-item">IGV desde <b>01/05/2026</b></div>
+                                <div class="emp-item">Ubicación <b>Barranca, Lima</b></div>
+                                <div class="emp-item">Estado <b class="ok">ACTIVO · HABIDO</b></div>
+                            </div>
+                        </div>
+
+                        <div class="terms-wrap" id="tw" onclick="toggleTerms()">
+                            <div class="chkbox" id="cb">
+                                <svg class="chktick" width="11" height="9" viewBox="0 0 11 9" fill="none">
+                                    <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.8" stroke-linecap="round"
+                                        stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <div class="terms-txt">Al pagar acepto los <a class="terms-lnk"
+                                    href="terminos_y_condiciones.html" onclick="">términos
+                                    y condiciones</a> de Geinz Tech y autorizo el cargo a mi método de pago.</div>
+                        </div>
+
+                        <button class="pay-btn" id="pb" disabled>
+                            <svg class="lock-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <rect x="2" y="6" width="10" height="7" rx="2" stroke="currentColor"
+                                    stroke-width="1.3" />
+                                <path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="currentColor" stroke-width="1.3"
+                                    stroke-linecap="round" />
+                            </svg>
+                            Pagar ahora
+                        </button>
+                    </div>
+
+                    <div class="ftr">
+                        <span class="ftr-txt">GEINZ TECNOLOGIA E.I.R.L. · RUC 20615632580</span>
+                        <span class="ftr-sep"></span>
+                        <span class="ftr-sunat">Verificado SUNAT</span>
+                    </div>
+                </div>
+                <div class="page" id="contenido_cancelado" style="display:none;">
+                    <div class="confetti-wrap" id="confetti"></div>
+
+                    <div class="card">
+                        <div class="top-band"></div>
+                        <div class="card-inner">
+
+                            <div class="icon-wrap">
+                                <div class="ripple"></div>
+                                <div class="ripple ripple2"></div>
+                                <div class="check-bg">
+                                    <svg viewBox="0 0 38 38">
+                                        <polyline points="8,20 16,28 30,12" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <h1 class="main-title">¡Tu pago fue aprobado!</h1>
+                            <p class="main-sub">Tu transacción se procesó correctamente.<br>Aquí tienes el resumen de tu
+                                compra.
+                            </p>
+
+                            <div class="amount-pill" id="monto_cancelado">S/ 349.90</div>
+
+                            <div class="info-grid">
+                                <div class="info-row">
+                                    <span class="info-key">Estado</span>
+                                    <span class="status-badge"><span class="dot"></span>Aprobado</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-key">Fecha</span>
+                                    <span class="info-val" id="fecha_realizado"></span>
+                                </div>
+
+                                <div class="info-row">
+                                    <span class="info-key">Plan adquirido</span>
+                                    <span class="info-val" id="concepto_pago">Suscripción mensual</span>
+                                </div>
+                            </div>
+
+                            <div class="ref-box">
+                                <div>
+                                    <p class="ref-label">Número de referencia</p>
+                                    <p class="ref-num" id="id_comprobante"></p>
+                                </div>
+                                <button class="copy-btn" id="copyBtn" onclick="copiarId(this)">
+                                    Copiar
+                                </button>
+                            </div>
+
+                            <div class="msg-box">
+                                <p>Te enviamos un mensaje de confirmación por whatsapp con todos los
+                                    detalles de tu pago.</p>
+                            </div>
+
+                            <a href="../dasboard/recargas.html">
+                                <button class="btn-sec">Volver al inicio</button>
+                            </a>
+
+                            <p class="footer-note">
+                                ¿Algún problema?
+                                <a href="#" onclick="irWhatsApp()">Escríbenos a +51 958 120 920</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+</body>
+<div id="loadingOverlay" class="overlay">
+    <div class="loader-card">
+        <div class="spinner"></div>
+        <div id="loadingText">Validando ID...</div>
+    </div>
+</div>
+
+<div id="errorOverlay" class="overlay hidden">
+    <div class="loader-card">
+        <div class="error-icon">❌</div>
+        <div id="errorText">El ID no existe</div>
+    </div>
+</div>
+<div id="paymentOverlay" class="payment-overlay hidden">
+    <div class="payment-card">
+
+        <div class="spinner" id="spinner"></div>
+
+        <h2 id="paymentTitle">Procesando...</h2>
+        <p id="paymentText">Por favor espera</p>
+
+    </div>
+</div>
+
+
+
+</html>
