@@ -176,8 +176,13 @@ window.selectTipoImagen = function (el) {
 };
 
 // ── Auth anónimo ───────────────────────────────────────
-signInAnonymously(auth).catch((e) => console.error("Auth error:", e));
-
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    console.log("Usuario listo:", user.uid);
+  } else {
+    console.log("No hay sesión activa");
+  }
+});
 async function getToken() {
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -192,7 +197,7 @@ async function getToken() {
 let datosTienda = null;
 const ID_TIENDA = "fW7W8RsgkkQ3IYfxKHGR";
 const LOCALIDAD = "barranca";
-
+/*
 async function cargarDatosTienda() {
   try {
     const ref = doc(db, "Tiendas", LOCALIDAD, LOCALIDAD, ID_TIENDA);
@@ -231,7 +236,7 @@ async function cargarDatosTienda() {
   }
 }
 cargarDatosTienda();
-
+ */
 /* ══════════════════════════════════════════
      STORAGE — SUBIR IMÁGENES (FRONT)
    ══════════════════════════════════════════ */
@@ -1064,13 +1069,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         ...(sw_pagos
           ? pagos
           : {
-              yape: false,
-              plin: false,
-              agora: false,
-              efectivo: false,
-              visa: false,
-              mastercard: false,
-            }),
+            yape: false,
+            plin: false,
+            agora: false,
+            efectivo: false,
+            visa: false,
+            mastercard: false,
+          }),
         numero,
         mensaje_whatsapp: mensajeWpInput.value || "",
         mensaje_compartir: mensajeShareInput.value || "",
@@ -1357,41 +1362,45 @@ window.addEventListener("message", (event) => {
   // ─────────────────────────────────────────
   // SALDO / CRÉDITOS
   // ─────────────────────────────────────────
-  if (event.data?.type === "SALDO_UPDATE") {
-    const saldo = Number(event.data.saldo || 0);
-
-    const value = document.getElementById("creditos_value");
-
-    if (value) {
-      value.innerHTML = `
-                ${saldo.toLocaleString("es-PE")}
-                <small style="
-                    font-size:12px;
-                    font-weight:700;
-                    opacity:.7;
-                    margin-left:4px;
-                ">
-Creditos</small>
-            `;
-    }
-
-    // animación glow
-    const card = document.querySelector(".creditos-card");
-
-    if (card) {
-      card.animate(
-        [
-          { transform: "scale(1)" },
-          { transform: "scale(1.04)" },
-          { transform: "scale(1)" },
-        ],
-        {
-          duration: 500,
-          easing: "ease",
-        },
-      );
-    }
+  if (event.data?.type === "DATOS_TIENDA") {
+    const d = event.data.payload;
+    datosTienda = {
+      id_tienda: d.id_tienda,
+      localidad: d.localidad,
+      nombre_tienda: d.nombre_tienda,
+      categoria_tienda: d.categoria_tienda,
+      img_tienda: { logo_tienda: d.logo_tienda },
+      // El padre manda estos en el payload completo:
+      metodo_contacto: d.metodo_contacto,
+      metodos_pago: d.metodos_pago,
+      ubicacion: d.ubicacion,
+      saldo_tienda: d.saldo_tienda
+    };
+    _aplicarDatosTienda(datosTienda);
   }
+  if (event.data?.type === "PATCH_TIENDA") {
+    if (!datosTienda) return;
+
+    // Merge profundo — maneja claves con puntos como "metodo_contacto.whatsapp.numero"
+    const diff = event.data.payload;
+    for (const key of Object.keys(diff)) {
+      const parts = key.split(".");
+      if (parts.length === 1) {
+        datosTienda[key] = diff[key];
+      } else {
+        // Navegar y setear en el objeto anidado
+        let obj = datosTienda;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!obj[parts[i]]) obj[parts[i]] = {};
+          obj = obj[parts[i]];
+        }
+        obj[parts[parts.length - 1]] = diff[key];
+      }
+    }
+
+    _aplicarDatosTienda(datosTienda);
+  }
+
 
   // ─────────────────────────────────────────
   // PUBLICIDAD UPDATE
@@ -1419,7 +1428,32 @@ Creditos</small>
     }
   }
 });
+function _aplicarDatosTienda(d) {
+  if (!d) return;
+  console.log("saldoteindasdasdasdas", d.saldo_tienda);
+  // WhatsApp
+  const numeroWp = d.metodo_contacto?.whatsapp?.numero || "";
+  const wpInput = document.querySelector('#wp input[type="text"]');
+  if (wpInput && numeroWp) wpInput.value = numeroWp;
+  const saldo = d.saldo_tienda || 0;
 
+  document.getElementById("creditos_value").textContent =
+    `${Number(saldo).toLocaleString("en-US")} Creditos  `;
+  // Dirección y referencia
+  const geoInputs = document.querySelectorAll('#geo input[type="text"]');
+  if (geoInputs[0]) geoInputs[0].value = d.ubicacion?.dirección || "";
+  if (geoInputs[1]) geoInputs[1].value = d.ubicacion?.referencia || "";
+
+  // Métodos de pago
+  const mp = d.metodos_pago || {};
+  const pagosChecks = document.querySelectorAll('#payments .pay-item input[type="checkbox"]');
+  if (pagosChecks[0]) pagosChecks[0].checked = mp.yape?.enable ?? false;
+  if (pagosChecks[1]) pagosChecks[1].checked = mp.plin?.enable ?? false;
+  if (pagosChecks[2]) pagosChecks[2].checked = mp.agora?.enable ?? false;
+  if (pagosChecks[3]) pagosChecks[3].checked = mp.efectivo?.enable ?? false;
+  if (pagosChecks[4]) pagosChecks[4].checked = mp.visa_mastercard?.enable ?? false;
+  if (pagosChecks[5]) pagosChecks[5].checked = mp.visa_mastercard?.enable ?? false;
+}
 // ── Función compartida: aplica publicidad al _precios y al DOM ──
 function _aplicarPublicidad(pub) {
   // Claves EXACTAS como vienen de Firestore (sin sufijo numérico)

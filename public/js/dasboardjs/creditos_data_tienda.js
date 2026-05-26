@@ -19,15 +19,12 @@
 
   function sendCacheToIframe(iframe) {
     try {
-      // ✅ reenviar DATOS_TIENDA con saldo incluido
       if (window._datosParaIframe) {
         if (window._datosParaIframe.payload) {
           window._datosParaIframe.payload.saldo_tienda = _cache.saldo;
         }
         iframe.contentWindow.postMessage(window._datosParaIframe, "*");
       }
-
-      // saldo por separado también (por si acaso)
       if (_cache.saldo !== null)
         iframe.contentWindow.postMessage(
           { type: "SALDO_UPDATE", saldo: _cache.saldo },
@@ -48,22 +45,20 @@
           },
           "*",
         );
-    } catch (e) {}
+    } catch (e) { }
   }
+
   function broadcastSaldo(saldo) {
     _cache.saldo = saldo;
-    window._saldoActual = saldo; // ✅ guardar para enviarDatosTiendaFrames
-
-    // ✅ actualizar _datosParaIframe si ya existe
+    window._saldoActual = saldo;
     if (window._datosParaIframe?.payload) {
       window._datosParaIframe.payload.saldo_tienda = saldo;
     }
-
     console.log("📤 [broadcast] SALDO_UPDATE →", saldo);
     document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage({ type: "SALDO_UPDATE", saldo }, "*");
-      } catch (e) {}
+      } catch (e) { }
     });
   }
 
@@ -76,7 +71,7 @@
           { type: "PUBLICIDAD_UPDATE", publicidad },
           "*",
         );
-      } catch (e) {}
+      } catch (e) { }
     });
   }
 
@@ -84,11 +79,7 @@
     _cache.planes_activacion = planesActivacion;
     _cache.planes_bot_promo = planesBotPromo;
     _cache.publicidad = publicidad;
-    console.log("📤 [broadcast] PLANES_UPDATE →", {
-      planesActivacion,
-      planesBotPromo,
-      publicidad,
-    });
+    console.log("📤 [broadcast] PLANES_UPDATE →", { planesActivacion, planesBotPromo, publicidad });
     document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage(
@@ -100,7 +91,7 @@
           },
           "*",
         );
-      } catch (e) {}
+      } catch (e) { }
     });
   }
 
@@ -126,7 +117,7 @@
   _iframeObserver.observe(document.body, { childList: true, subtree: true });
 
   // ============================================================
-  //  1. FIREBASE PLANES — una sola instancia compartida
+  //  1. FIREBASE PLANES
   // ============================================================
   async function getFirebasePlanes() {
     const { initializeApp, getApps } =
@@ -150,7 +141,7 @@
   }
 
   // ============================================================
-  //  2. PUBLICIDAD — carga inmediata al entrar (antes que planes)
+  //  2. PUBLICIDAD
   // ============================================================
   async function initPublicidad() {
     console.log("🚀 [publicidad] Cargando inmediatamente...");
@@ -163,20 +154,18 @@
         console.warn("⚠️ [publicidad] Documento no encontrado");
         return;
       }
-
       const publicidad = snap.data().publicidad || {};
       console.log("✅ [publicidad] Cargada:", publicidad);
-
       window._publicidad = publicidad;
       _renovacion._publicidadData = publicidad;
-      broadcastPublicidad(publicidad); // ← llega inmediato a los iframes
+      broadcastPublicidad(publicidad);
     } catch (err) {
       console.error("❌ [publicidad] Error:", err);
     }
   }
 
   // ============================================================
-  //  3. PLANES — carga separada después de publicidad
+  //  3. PLANES
   // ============================================================
   async function initPreciosApp() {
     console.log("💰 [precios] Cargando planes...");
@@ -189,9 +178,7 @@
         console.warn("⚠️ [precios] Documento no encontrado");
         return;
       }
-
       const data = snap.data();
-
       const planesActivacion = data.planes_activacion || {};
       const rawBotPromo = data.planes_bot_promo || {};
       const planesBotPromo = {
@@ -199,18 +186,14 @@
         planes_bot_tiendas: rawBotPromo.planes_bot_tiendas || {},
       };
       const publicidad = data.publicidad || {};
-
       console.log("✅ [precios] planes_activacion:", planesActivacion);
       console.log("✅ [precios] planes_bot_promo:", planesBotPromo);
-
       window._planesActivacion = planesActivacion;
       window._planesBotPromo = planesBotPromo;
       window._publicidad = publicidad;
-
       _renovacion._planesData = planesActivacion;
       _renovacion._planesBotPromoData = planesBotPromo;
       _renovacion._publicidadData = publicidad;
-
       broadcastPlanes(planesActivacion, planesBotPromo, publicidad);
     } catch (err) {
       console.error("❌ [precios] Error:", err);
@@ -235,13 +218,13 @@
       const app = getApps().length
         ? getApp()
         : initializeApp({
-            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-            authDomain: "geinzworkapp.firebaseapp.com",
-            projectId: "geinzworkapp",
-            storageBucket: "geinzworkapp.appspot.com",
-            messagingSenderId: "921389328767",
-            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-          });
+          apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+          authDomain: "geinzworkapp.firebaseapp.com",
+          projectId: "geinzworkapp",
+          storageBucket: "geinzworkapp.appspot.com",
+          messagingSenderId: "921389328767",
+          appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+        });
       const db = getFirestore(app);
 
       const docRefOriginal = doc(
@@ -409,6 +392,13 @@
       renewalTextSpan.classList.toggle("normal", renewalDays > 10);
     }
 
+    // ── BLOQUEO: solo cuando el plan está vencido ──
+    if (renewalDays === 0) {
+      bloquearExpandibles();
+    } else {
+      desbloquearExpandibles();
+    }
+
     console.log("✅ Tarjeta de cuenta actualizada");
   }
 
@@ -419,16 +409,81 @@
   }
 
   // ============================================================
-  //  ARRANCAR — publicidad primero, luego planes y cuenta
+  //  BLOQUEO DE EXPANDIBLES (plan vencido)
   // ============================================================
-  initPublicidad(); // ← inmediato, no espera planes
-  initPreciosApp(); // ← planes completos
-  initRealtimeAccount(); // ← saldo en tiempo real
+  function bloquearExpandibles() {
+    const targets = [
+      ...document.querySelectorAll("#sec-perfil .expand-section"),
+      document.querySelector(".profile-top-row"),
+    ].filter(Boolean);
+
+    targets.forEach(el => {
+      if (el.dataset.bloqueado === "1") return;
+      el.dataset.bloqueado = "1";
+      el.style.opacity = "0.45";
+      el.style.userSelect = "none";
+      const posActual = getComputedStyle(el).position;
+      if (posActual === "static") el.style.position = "relative";
+
+      if (el.querySelector(".bloqueo-section-overlay")) return;
+      const ov = document.createElement("div");
+      ov.className = "bloqueo-section-overlay";
+      ov.style.cssText = "position:absolute;inset:0;z-index:10;cursor:not-allowed;border-radius:inherit;";
+      ov.addEventListener("click", (e) => {
+        e.stopPropagation();
+        mostrarToastBloqueo();
+      });
+      el.appendChild(ov);
+    });
+  }
+
+  function desbloquearExpandibles() {
+    const targets = [
+      ...document.querySelectorAll("#sec-perfil .expand-section"),
+      document.querySelector(".profile-top-row"),
+    ].filter(Boolean);
+
+    targets.forEach(el => {
+      el.style.opacity = "";
+      el.style.pointerEvents = "";
+      el.style.userSelect = "";
+      el.style.position = "";
+      delete el.dataset.bloqueado;
+      el.querySelectorAll(".bloqueo-section-overlay").forEach(ov => ov.remove());
+    });
+  }
+
+  function mostrarToastBloqueo() {
+    const t = document.getElementById("toast");
+    if (!t) return;
+    t.textContent = "⚠️ Renueva tu plan para editar los campos";
+    t.classList.add("show");
+    clearTimeout(window._toastBloqueoTimer);
+    window._toastBloqueoTimer = setTimeout(() => t.classList.remove("show"), 3000);
+  }
+
+  // ============================================================
+  //  ARRANCAR
+  // ============================================================
+  initPublicidad();
+  initPreciosApp();
+  initRealtimeAccount();
+
 })();
 
 // ============================================================
 //  MODAL RENOVACIÓN
 // ============================================================
+
+// Mapeo de plan → días
+const _DIAS_POR_PLAN = {
+  "20_dias": 20,
+  "1_mes": 30,
+  "2_meses": 60,
+  "3_meses": 90,
+  "4_meses": 120,
+};
+
 const _renovacion = {
   _planesData: {},
   _planesBotPromoData: {},
@@ -461,8 +516,7 @@ const _renovacion = {
     if (!planes || Object.keys(planes).length === 0) {
       const selectorPlanes = document.getElementById("selector-planes");
       if (selectorPlanes)
-        selectorPlanes.innerHTML =
-          '<p style="text-align:center;color:#888">Cargando planes...</p>';
+        selectorPlanes.innerHTML = '<p style="text-align:center;color:#888">Cargando planes...</p>';
       setTimeout(() => self.abrirModal(), 800);
       return;
     }
@@ -506,18 +560,20 @@ const _renovacion = {
 
     const saldo = window._saldoTienda || 0;
     const desc = self._DESCUENTOS[key] || 0;
-    const precioFinal =
-      desc > 0 ? Math.round(precio * (1 - desc / 100)) : precio;
+    const precioFinal = desc > 0 ? Math.round(precio * (1 - desc / 100)) : precio;
     const restante = saldo - precioFinal;
 
-    document.getElementById("saldo-actual").textContent =
-      ` ${saldo.toLocaleString("es-PE")}`;
-    document.getElementById("saldo-restante").textContent =
-      ` ${restante.toLocaleString("es-PE")}`;
-    document.getElementById("total-a-pagar").textContent =
-      ` ${precioFinal.toLocaleString("es-PE")}`;
-
+    const elSaldoActual = document.getElementById("saldo-actual");
+    const elSaldoRestante = document.getElementById("saldo-restante");
+    const elTotal = document.getElementById("total-a-pagar");
+    const elResumen = document.getElementById("resumen-pago");
+    const elBtnContinuar = document.getElementById("btn-continuar");
     const detalle = document.getElementById("detalle-descuento");
+
+    if (elSaldoActual) elSaldoActual.textContent = ` ${saldo.toLocaleString("es-PE")}`;
+    if (elSaldoRestante) elSaldoRestante.textContent = ` ${restante.toLocaleString("es-PE")}`;
+    if (elTotal) elTotal.textContent = ` ${precioFinal.toLocaleString("es-PE")}`;
+
     if (detalle) {
       detalle.innerHTML = desc
         ? `<p>Descuento aplicado:
@@ -531,16 +587,95 @@ const _renovacion = {
         : "";
     }
 
-    document.getElementById("resumen-pago").style.display = "block";
-    document.getElementById("btn-continuar").disabled = false;
+    if (elResumen) elResumen.style.display = "block";
+    if (elBtnContinuar) elBtnContinuar.disabled = false;
   },
 };
 
 window.abrirModalRenovacion = () => _renovacion.abrirModal();
 window.cerrarModal = () =>
   document.getElementById("modal-renovacion")?.classList.remove("open");
-window.procesarPago = () => {
+
+// ============================================================
+//  PROCESAR PAGO — llama a la Cloud Function
+// ============================================================
+window.procesarPago = async () => {
   const plan = _renovacion._planSeleccionado;
   if (!plan) return;
-  console.log("Procesando plan:", plan.key, "precio:", plan.precio);
+
+  // ── Validar saldo suficiente ──────────────────────────────
+  const saldo = window._saldoTienda || 0;
+  const desc = _renovacion._DESCUENTOS[plan.key] || 0;
+  const precioFinal = desc > 0 ? Math.round(plan.precio * (1 - desc / 100)) : plan.precio;
+
+  if (saldo < precioFinal) {
+    alert("❌ Saldo insuficiente para renovar este plan.");
+    return;
+  }
+
+  // ── Obtener id_tienda y localidad ─────────────────────────
+  const id_tienda = window.APP_STATE?.tienda?.id_tienda
+    || sessionStorage.getItem("tiendaId");
+  const localidad = window.APP_STATE?.tienda?.localidad
+    || sessionStorage.getItem("localidad");
+
+  if (!id_tienda || !localidad) {
+    alert("❌ No se pudo identificar la tienda. Recarga la página.");
+    return;
+  }
+
+  // ── Días según el plan seleccionado ──────────────────────
+  const dias_extra = _DIAS_POR_PLAN[plan.key];
+  if (!dias_extra) {
+    alert("❌ Plan no reconocido.");
+    return;
+  }
+
+  // ── Bloquear botón y mostrar estado ──────────────────────
+  const btnContinuar = document.getElementById("btn-continuar");
+  if (btnContinuar) {
+    btnContinuar.disabled = true;
+    btnContinuar.textContent = "Procesando...";
+  }
+
+  console.log("💳 Procesando pago:", { id_tienda, localidad, dias_extra, plan: plan.key, precio: precioFinal });
+
+  try {
+    const response = await fetch(
+      "https://pagar-plan--usuario-oixttik5rq-uc.a.run.app",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: { id_tienda, localidad, dias_extra, monedas_costo: precioFinal},
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || result?.error) {
+      throw new Error(result?.error?.message || `Error ${response.status}`);
+    }
+
+    console.log("✅ Plan renovado:", result);
+
+    // Cerrar modal y avisar
+    document.getElementById("modal-renovacion")?.classList.remove("open");
+    const toast = document.getElementById("toast");
+    if (toast) {
+      toast.textContent = "✅ Plan renovado correctamente";
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+
+  } catch (err) {
+    console.error("❌ Error procesarPago:", err);
+    alert("❌ Error al procesar el pago: " + (err.message || "intenta de nuevo"));
+  } finally {
+    if (btnContinuar) {
+      btnContinuar.disabled = false;
+      btnContinuar.textContent = "Continuar";
+    }
+  }
 };
