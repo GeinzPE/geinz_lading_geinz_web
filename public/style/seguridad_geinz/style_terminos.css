@@ -1,0 +1,160 @@
+/* Estilos Generales - Refactorizados por GEINZ TECH */
+:root {
+    --primary-color: #1a237e;      /* Azul profundo */
+    --secondary-color: #3f51b5;    /* Azul vibrante */
+    --accent-color: #6200EE;       /* Morado Geinz */
+    --text-color: #2c3e50;
+    --muted-text: #5f6368;
+    --bg-color: #f8f9fa;
+    --white: #ffffff;
+    --border-color: #e0e0e0;
+    --section-bg: #f0f2ff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Fuente más moderna */
+    line-height: 1.7;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    padding: 40px 20px;
+}
+
+/* Contenedor Principal */
+.contenido {
+    max-width: 850px;
+    margin: 0 auto;
+    background: var(--white);
+    padding: 60px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); /* Sombra más suave y moderna */
+    border: 1px solid var(--border-color);
+}
+
+/* Encabezado */
+.header_encabezado {
+    text-align: center;
+    margin-bottom: 50px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.header_encabezado h1 {
+    color: var(--primary-color);
+    font-size: 2.2rem;
+    margin-bottom: 15px;
+    letter-spacing: -0.5px;
+    font-weight: 800;
+}
+
+.header_encabezado p {
+    font-size: 0.95rem;
+    color: var(--muted-text);
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Secciones */
+section {
+    margin-bottom: 40px;
+    /* Eliminamos estilos inline del HTML con esto */
+    font-family: inherit !important; 
+    color: inherit !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+
+h2 {
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    /* Estilo premium de barra lateral */
+    border-left: 4px solid var(--accent-color);
+    padding: 10px 15px;
+    background: linear-gradient(90deg, var(--section-bg) 0%, rgba(255,255,255,0) 100%);
+    border-radius: 4px;
+}
+
+h3 {
+    color: var(--secondary-color);
+    margin: 25px 0 12px 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+/* Textos y Listas */
+p {
+    margin-bottom: 18px;
+    text-align: justify;
+    color: var(--text-color);
+}
+
+ul, ol {
+    margin-bottom: 20px;
+    padding-left: 10px;
+}
+
+li {
+    margin-bottom: 12px;
+    list-style-position: outside;
+    margin-left: 20px;
+}
+
+/* Estilo para las listas con puntos internos (como las de tu HTML) */
+li strong {
+    color: var(--primary-color);
+}
+
+/* Footer */
+.footer_terminos {
+    text-align: center;
+    margin-top: 50px;
+    padding: 30px;
+    font-size: 0.85rem;
+    color: var(--muted-text);
+    border-top: 1px solid var(--border-color);
+}
+
+/* ==========================================
+   MEDIA QUERIES (RESPONSIVIDAD PRO)
+   ========================================== */
+
+@media (max-width: 768px) {
+    body {
+        padding: 20px 10px;
+    }
+    .contenido {
+        padding: 40px 25px;
+    }
+    .header_encabezado h1 {
+        font-size: 1.6rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .contenido {
+        padding: 30px 20px;
+        border-radius: 0; /* Pantalla completa en móvil */
+    }
+    h2 {
+        font-size: 1.25rem;
+    }
+    p {
+        text-align: left; /* Mejor lectura en pantallas pequeñas */
+    }
+}
+
+/* Estilo para Impresión */
+@media print {
+    body { background: white; padding: 0; }
+    .contenido { box-shadow: none; border: none; max-width: 100%; }
+    .header_encabezado { border-bottom: 1pt solid #000; }
+}

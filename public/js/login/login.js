@@ -334,23 +334,60 @@ window.submitLogin = async (event) => {
 /* =========================================================
            SPLASH SCREEN
         ========================================================= */
+/* =========================================================
+   SNACKBAR
+   ========================================================= */
+function showSnackbar(msg) {
+  let sb = document.getElementById("geinzSnackbar");
+  if (!sb) {
+    sb = document.createElement("div");
+    sb.id = "geinzSnackbar";
+    sb.style.cssText = `
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #323232;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      white-space: nowrap;
+      pointer-events: none;
+    `;
+    document.body.appendChild(sb);
+  }
+  sb.textContent = msg;
+  requestAnimationFrame(() => {
+    sb.style.opacity = "1";
+    sb.style.transform = "translateX(-50%) translateY(0)";
+  });
+  clearTimeout(sb._timer);
+  sb._timer = setTimeout(() => {
+    sb.style.opacity = "0";
+    sb.style.transform = "translateX(-50%) translateY(20px)";
+  }, 3200);
+}
+
+/* =========================================================
+   SPLASH SCREEN — con validación automática de tienda
+   ========================================================= */
 async function showSplash(user) {
   if (splashShown) return;
-
   splashShown = true;
 
   document.getElementById("mainUI").style.display = "none";
-
   const splash = document.getElementById("splashScreen");
-
   splash.classList.add("visible");
 
   await delay(600);
-
   markStep("step1");
-
   await delay(700);
-
   markStep("step2");
 
   const userRef = doc(
@@ -360,37 +397,61 @@ async function showSplash(user) {
     "users",
     user.uid,
   );
-
   const snap = await getDoc(userRef);
 
   await delay(600);
-
   markStep("step3");
-
   await delay(700);
 
   const data = snap.exists() ? snap.data() : {};
-
   const nombre = data.nombre || user.displayName || "Usuario";
-
   const username = data.nombre_user
     ? data.nombre_user
     : "@" + user.email.split("@")[0];
 
   document.getElementById("wName").textContent = nombre;
-
   document.getElementById("wUser").textContent = username;
-
   document.getElementById("wPoints").textContent = data.puntos || 500;
-
   document.getElementById("sValidating").classList.add("fade-out");
 
   await delay(450);
-
   document.getElementById("sWelcome").classList.add("visible");
 
-  document.getElementById("btnEnter").onclick = () => {
-    abrirPantallaSocio(user);
+  // ── Determinar a dónde va el botón "Entrar" ──────────────
+  const idTienda = data.id_tienda_propietario?.trim();
+
+  document.getElementById("btnEnter").onclick = async () => {
+    if (!idTienda) {
+      // No tiene campo → snackbar + pantalla selector
+      showSnackbar("⚠️ No tienes un ID de tienda vinculado");
+      setTimeout(() => abrirPantallaSocio(user), 1200);
+      return;
+    }
+
+    // Valida que la tienda exista en /lugares/{idTienda}
+    try {
+      const lugarRef = doc(db, "lugares", idTienda);
+      const lugarSnap = await getDoc(lugarRef);
+
+      if (!lugarSnap.exists()) {
+        showSnackbar("❌ Tu ID de tienda no existe o fue eliminado");
+        setTimeout(() => abrirPantallaSocio(user), 1400);
+        return;
+      }
+
+      // ✅ Tienda válida → redirige directo al panel
+      const lugarData = lugarSnap.data();
+      const localidad = lugarData.localidad || "barranca";
+
+      sessionStorage.setItem("tiendaId", idTienda);
+      sessionStorage.setItem("localidad", localidad);
+
+      window.location.href = `../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
+    } catch (err) {
+      console.error("Error validando tienda:", err);
+      showSnackbar("Error al validar tu tienda");
+      setTimeout(() => abrirPantallaSocio(user), 1400);
+    }
   };
 }
 

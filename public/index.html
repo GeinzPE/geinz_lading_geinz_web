@@ -5,337 +5,499 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Geinz - Redirigiendo...</title>
-    <link rel="icon" href="img/icons/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="img/icons/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
-    <link rel="manifest" href="img/icons/site.webmanifest">
-  <style>
-    :root {
-      --primary-color: #8800F2;
-      --bg-dark: #0a0a0a;
-      --skeleton-base: #1a1a1a;
-      --skeleton-highlight: #252525;
-    }
+  <link rel="icon" href="img/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <link rel="manifest" href="img/icons/site.webmanifest">
+  <link style="display: none;" rel="stylesheet" href="style/index.css">
+  <script type="module" src="js/lading_index.js"></script>
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: var(--bg-dark);
-      background-image:
-        radial-gradient(circle at 0% 0%, rgba(136, 0, 242, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 100% 100%, rgba(136, 0, 242, 0.1) 0%, transparent 50%);
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      overflow: hidden;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 400px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      animation: fadeIn 0.8s ease-out;
-    }
-
-    .skeleton-card {
-      background: var(--skeleton-base);
-      border-radius: 20px;
-      padding: 30px;
-      border: 1px solid rgba(136, 0, 242, 0.2);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .skeleton-card::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      background: linear-gradient(90deg, transparent, rgba(136, 0, 242, 0.05), transparent);
-      animation: shimmer 2s infinite;
-    }
-
-    .shimmer-element {
-      background: var(--skeleton-highlight);
-      border-radius: 8px;
-      margin-bottom: 15px;
-    }
-
-    .circle {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      margin: 0 auto 20px;
-      border: 2px solid var(--primary-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .line-full {
-      height: 12px;
-      width: 100%;
-    }
-
-    .line-mid {
-      height: 12px;
-      width: 60%;
-      margin: 0 auto;
-    }
-
-    .status-text {
-      color: white;
-      text-align: center;
-      font-size: 1.1rem;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-    }
-
-    .brand {
-      color: var(--primary-color);
-      font-weight: 800;
-      font-size: 1.5rem;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-      display: block;
-    }
-
-    @keyframes shimmer {
-      0% {
-        transform: translateX(-100%);
-      }
-
-      100% {
-        transform: translateX(100%);
-      }
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .pulse {
-      animation: pulse-glow 2s infinite ease-in-out;
-    }
-
-    @keyframes pulse-glow {
-
-      0%,
-      100% {
-        box-shadow: 0 0 15px rgba(136, 0, 242, 0.3);
-      }
-
-      50% {
-        box-shadow: 0 0 30px rgba(136, 0, 242, 0.6);
-      }
-    }
-  </style>
 </head>
 
 <body>
-  <div class="container">
-    <div class="skeleton-card pulse">
-      <div class="circle">
-        <div style="width:30px;height:30px;background:var(--primary-color);border-radius:6px;transform:rotate(45deg);">
+
+
+  <body>
+
+    <!-- NAV -->
+    <nav>
+      <a class="nav-logo" href="#">
+        <img
+          src="https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/logo%20geinz.png?alt=media&token=4b90f507-8914-4f75-ae8e-0a1a0acda2a5"
+          alt="Geinz Logo"
+          onerror="this.style.background='linear-gradient(135deg,#7B2FBE,#C77DFF)';this.style.borderRadius='10px'">
+        <span>GEINZ</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#servicios">Servicios</a></li>
+        <li><a href="#pagos">Pagos</a></li>
+        <li><a href="#legal">Legal</a></li>
+        <li><a href="#contacto">Contacto</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=com.geinzz.geinzwork" class="nav-cta"
+            target="_blank">Descargar App</a></li>
+      </ul>
+    </nav>
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-glow"></div>
+      <div class="hero-glow2"></div>
+      <div class="hero-content">
+        <div class="hero-badge">Plataforma digital · Perú</div>
+        <h1>Conecta. Publica.<br><span>Crece con Geinz.</span></h1>
+        <p>Plataforma digital de servicios, promociones y visibilidad dentro de aplicación móvil. Lleva tu negocio al
+          siguiente nivel.</p>
+        <div class="hero-actions">
+          <a href="https://play.google.com/store/apps/details?id=com.geinzz.geinzwork" class="btn-primary"
+            target="_blank">
+            ▶ Descargar gratis
+          </a>
+
         </div>
       </div>
-      <div class="shimmer-element line-full"></div>
-      <div class="shimmer-element line-mid"></div>
     </div>
-    <div class="status-text">
-      <span class="brand">Geinz</span>
-      <p id="message" style="margin:0;opacity:0.8;font-size:0.9rem;">Preparando tu destino...</p>
+
+
+    <!-- MAIN CONTENT -->
+    <section class="content">
+
+      <!-- LOGO CARD -->
+      <section class="content" id="localidades">
+        <div class="section-label">Nuestra Cobertura</div>
+        <h2 class="section-title">Explora las Localidades</h2>
+
+        <div class="localidades-grid">
+          <div class="city-card" id="card-barranca" onclick="seleccionarLocalidad('barranca')">
+            <div class="city-image"
+              style="background-image: url('https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/geinz_work_turismo%2Fbarranca%2Fbarranca%2FDJI_0159.00_00_00_00.Imagen%20fija002.webp?alt=media&token=d6b10663-457f-44ff-96a8-4a1f9134f4b6')">
+              <div class="city-name">Barranca</div>
+            </div>
+          </div>
+
+          <div class="city-card not-available">
+            <div class="city-image"
+              style="background-image: url('https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/geinz_work_turismo%2Fbarranca%2Fparamonga%2FFORTALEZA%20PGA.webp?alt=media&token=8a910e66-60f1-45ff-9dda-f042e1a0898e')">
+              ">
+              <div class="city-name">Paramonga <span>(Próximamente)</span></div>
+            </div>
+          </div>
+
+          <div class="city-card not-available">
+            <div class="city-image"
+              style="background-image: url('https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/geinz_work_turismo%2Fbarranca%2Fpativilca%2FPATIVILCA%20MUSEO%20(1).webp?alt=media&token=de7d4cc9-0dcd-4945-a238-49c8df616193')">
+              ">
+              <div class="city-name">Pativilca <span>(Próximamente)</span></div>
+            </div>
+          </div>
+          <div class="city-card not-available">
+            <div class="city-image"
+              style="background-image: url('https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/geinz_work_turismo%2Fbarranca%2Fsupe%2FCARAL%20(1).webp?alt=media&token=abbe7657-bc93-421f-b9dd-8c00c65c5e47')">
+              ">
+              <div class="city-name">Supe <span>(Próximamente)</span></div>
+            </div>
+          </div>
+
+          <div class="city-card not-available">
+            <div class="city-image"
+              style="background-image: url('https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/geinz_work_turismo%2Fbarranca%2Fpuerto%2FPUERTO%20SUPE%20DIA.webp?alt=media&token=4771c33e-78b2-4a7f-a0d9-933c9fe01917')">
+              ">
+              <div class="city-name">Supe Pueblo<span>(Próximamente)</span></div>
+            </div>
+          </div>
+
+
+
+        </div>
+
+        <div class="global-categories">
+          <button onclick="abrirCategoria('turismo')" class="btn-global disabled" id="btn-turismo">
+            <span>🏖️</span> Lugares turisticos
+          </button>
+
+          <button onclick="abrirCategoria('emergencia')" class="btn-global emergency disabled" id="btn-emergencia">
+            <span>🚨</span> Numeros de emergencia
+          </button>
+
+          <button onclick="abrirCategoria('promociones')" class="btn-global disabled" id="btn-promos">
+            <span>🔥</span> Ofertas y Promos
+          </button>
+        </div>
+      </section>
+
+
+      <!-- SERVICIOS
+<section class="content" id="promociones">
+    <div class="section-label">Exclusivo en la App</div>
+    <h2 class="section-title">Caza las mejores ofertas en tiempo real</h2>
+    <p style="text-align: center; color: var(--muted); margin-bottom: 30px; max-width: 600px; margin-inline: auto;">
+        Cientos de negocios en Barranca y alrededores lanzan promociones flash cada hora. ¡No te pierdas ninguna!
+    </p>
+
+    <div class="promos-wrapper">
+      
+        <div class="promo-card">
+            <div class="promo-badge">RECLAMAR EN APP</div>
+            <div class="promo-img" style="background-image: url('https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=400')"></div>
+            <div class="promo-overlay-link">
+                <span style="color: white; font-weight: 700; border: 2px solid white; padding: 10px 20px; border-radius: 50px;">VER EN GEINZ</span>
+            </div>
+            <div class="promo-info">
+                <span class="promo-store">RESTAURANTES</span>
+                <h3 style="font-size: 1.1rem; margin: 5px 0;">Pizzas y Parrillas</h3>
+                <p style="font-size: 0.8rem; color: var(--muted);">Descuentos del 20% al 50% todos los fines de semana.</p>
+                <a href="geinzapp://categoria/comida" class="btn-cat" style="margin-top: 15px; width: 100%;">Abrir sección promociones</a>
+            </div>
+        </div>
+
+        <div class="promo-card">
+            <div class="promo-badge">SOLO POR HOY</div>
+            <div class="promo-img" style="background-image: url('https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=400')"></div>
+            <div class="promo-overlay-link">
+                <span style="color: white; font-weight: 700; border: 2px solid white; padding: 10px 20px; border-radius: 50px;">VER EN GEINZ</span>
+            </div>
+            <div class="promo-info">
+                <span class="promo-store">TIENDAS DE ROPA</span>
+                <h3 style="font-size: 1.1rem; margin: 5px 0;">Moda y Tendencia</h3>
+                <p style="font-size: 0.8rem; color: var(--muted);">Liquidaciones de temporada exclusivas para usuarios Geinz.</p>
+                <a href="geinzapp://categoria/ropa" class="btn-cat" style="margin-top: 15px; width: 100%;">Ver ofertas actuales</a>
+            </div>
+        </div>
+
+        <div class="promo-card">
+            <div class="promo-badge">OFERTAS FLASH</div>
+            <div class="promo-img" style="background-image: url('https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?q=80&w=400')"></div>
+            <div class="promo-overlay-link">
+                <span style="color: white; font-weight: 700; border: 2px solid white; padding: 10px 20px; border-radius: 50px;">VER EN GEINZ</span>
+            </div>
+            <div class="promo-info">
+                <span class="promo-store">HOGAR Y MUEBLES</span>
+                <h3 style="font-size: 1.1rem; margin: 5px 0;">Deco y Construcción</h3>
+                <p style="font-size: 0.8rem; color: var(--muted);">Todo para tu casa con cupones de regalo dentro de la App.</p>
+                <a href="geinzapp://categoria/hogar" class="btn-cat" style="margin-top: 15px; width: 100%;">Explorar cupones</a>
+            </div>
+        </div>
     </div>
-  </div>
+</section>
+ -->
 
-  <script>
-    (function () {
+      <section class="bot-landing" id="asistente-wa">
+        <div class="bot-text-side">
+          <h2 class="titulo-wa">
+            <span class="linea linea1">Tu asistente Geinz</span>
+            <span class="linea linea2">ahora en WhatsApp</span>
+          </h2>
 
-      console.clear();
-      console.log("🚀 SHARE INICIADO");
+          <p>
+            ¿Necesitas ayuda rápida? Nuestro bot con Inteligencia Artificial está disponible 24/7 para resolver tus
+            dudas,
+            ayudarte a encontrar servicios, directo en tu chat favorito.
+          </p>
 
-      const params = new URLSearchParams(window.location.search);
 
-      // =========================
-      // DETECTAR TIPO
-      // =========================
-      let t = (params.get("t") || "").trim().toLowerCase();
+          <a href="https://wa.me/51962386529?text=%C2%A1Hola%21%20Quiero%20ir%20a%20la%20playa.%20%C2%BFQu%C3%A9%20me%20recomiendas%3F"
+            target="_blank" class="btn-whatsapp">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
+            Hablar con el Asistente
+          </a>
+        </div>
 
-      if (!t) {
-        const path = window.location.pathname;
-        console.log("🛣️ PATH:", path);
-        if (path.includes("/ti")) t = "ti";
-        else if (path.includes("/p")) t = "p";
-        else if (path.includes("/scr")) t = "scr";
-        else if (path.includes("/prms")) t = "prms";
-        else if (path.includes("/promo")) t = "promo";
-        else if (path.includes("/tu")) t = "tu";
-      }
 
-      // =========================
-      // PARAMETROS
-      // =========================
-      const rawId = (() => {
-        const id = params.get("id");
-        const pi = params.get("pi");
+      </section>
 
-        if (id !== null && id.trim() !== "" && id !== "undefined" && id !== "null") {
-          return id.trim();
-        }
-        if (pi !== null && pi.trim() !== "" && pi !== "undefined" && pi !== "null") {
-          return pi.trim();
-        }
-        return "";
-      })();
+      <!-- SERVICIOS -->
+      <section class="content" id="servicios">
+        <div class="section-label">Potencial Tecnológico</div>
+        <h2 class="section-title">¿Qué puede hacer con Geinz con tu negocio?</h2>
 
-      const id = rawId;
+        <div class="cards-grid">
+          <div class="card">
+            <div class="card-icon">🤖</div>
+            <h3>Inteligencia Artificial</h3>
+            <p>Deja que nuestra IA redacte tus anuncios de forma profesional y optimice tus ventas las 24/7 sin que
+              muevas
+              un dedo.</p>
+          </div>
 
-      let loc = (
-        params.get("l") ||
-        params.get("localidad") ||
-        ""
-      ).trim().toLowerCase();
+          <div class="card">
+            <div class="card-icon">🚀</div>
+            <h3>Geinz Ads (Monedas)</h3>
+            <p>Usa tus monedas para destacar en el feed principal. Aparece antes que la competencia en Barranca,
+              Paramonga
+              y Supe.</p>
+          </div>
 
-      const cat = (
-        params.get("c") ||
-        params.get("subcol") ||
-        ""
-      ).trim();
+          <div class="card">
+            <div class="card-icon">📍</div>
+            <h3>Alcance Local Exacto</h3>
+            <p>Tus anuncios llegan a las personas que están cerca de tu negocio. Segmentación real para el Norte Chico.
+            </p>
+          </div>
 
-      // =========================
-      // NORMALIZAR LOCALIDADES
-      // =========================
-      switch (loc) {
-        case "ba":
-        case "barranca": loc = "barranca"; break;
-        case "par":
-        case "paramonga": loc = "paramonga"; break;
-        case "pat":
-        case "pativilca": loc = "pativilca"; break;
-        case "su":
-        case "supe": loc = "supe"; break;
-        case "pue":
-        case "puerto supe":
-        case "puertosupe": loc = "puerto supe"; break;
-        default: loc = "barranca"; break;
-      }
+          <div class="card">
+            <div class="card-icon">📊</div>
+            <h3>Gestión Business</h3>
+            <p>Controla tus publicaciones, revisa tus estadísticas y gestiona tus monedas desde un panel elegante y
+              sencillo.</p>
+          </div>
+        </div>
+      </section>
+      <div class="divider"></div>
 
-      console.table({ t, id, loc, cat });
 
-      // =========================
-      // VALIDAR
-      // =========================
-      if (!t) {
-        console.error("❌ TIPO NO DETECTADO");
-        return;
-      }
+      <div class="info-credits-card">
+        <div class="info-content">
+          <div class="info-text">
+            <h3 class="info-title">¿Cómo funcionan los créditos Geinz?</h3>
+            <p class="info-description">
+              Impulsa tu negocio en nuestra plataforma usando créditos Geinz. Son la herramienta oficial para gestionar
+              tu
+              tienda en tiempo real: actualiza horarios, cambia fotos, envía notificaciones push a tus seguidores y
+              accede
+              a estadísticas avanzadas.
+            </p>
+          </div>
+          <div class="info-image">
+            <img src="../public/img/icon_monedas_3d.webp" alt="Monedas Geinz 3D">
+          </div>
+        </div>
+      </div>
 
-      if (!id && t !== "scr" && t !== "prms" && t !== "promo") {
-        console.error("❌ NO EXISTE ID");
-        return;
-      }
+      <!-- PAGOS -->
+      <section class="content" id="pagos">
+        <div class="section-label">Potencia tu negocio</div>
+        <h2 class="section-title">Adquiere tus Monedas Geinz</h2>
 
-      let destino = "";
+        <div class="id-verification">
+          <label style="font-weight: 600; color: var(--magenta);">Ingresa tu ID de Afiliado a tienda Geinz</label>
+          <div class="id-input-group">
+            <input type="text" id="userId" placeholder="Ej: GX-88293">
+            <button class="btn-search" id="btnSearch">
+              <span id="btnText">🔍 Buscar</span>
+            </button>
+          </div>
 
-      // =====================================================
-      // NEGOCIOS
-      // =====================================================
-      // =====================================================
-      // NEGOCIOS + PROMOS INTERNAS
-      // =====================================================
-      if (t === "ti" || t === "p") {
+          <div id="progressContainer"
+            style="display: none; width: 100%; background: #eee; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden;">
+            <div id="progressBar"
+              style="width: 0%; height: 100%; background: var(--magenta); transition: width 0.3s ease;"></div>
+          </div>
 
-        console.log("🏪 ENTRANDO A NEGOCIO");
+          <p id="msgId" class="status-msg" style="color: var(--muted);">Verifica tu ID para activar los planes</p>
+        </div>
 
-        const promoIndex = (
-          params.get("i") ||
-          params.get("indice") ||
-          ""
-        ).trim();
+        <div id="resultadoUsuario" style="display: none; margin-top: 20px;">
+          <div
+            style="display: flex; align-items: center; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 5px solid var(--magenta);">
+            <img id="tiendaLogo" src="" alt="Logo"
+              style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-right: 15px; border: 2px solid #eee;">
 
-        destino =
-          `/perfil_negocio.html` +
-          `?id=${encodeURIComponent(id)}` +
-          `&localidad=${encodeURIComponent(loc)}` +
-          `&subcol=${encodeURIComponent(cat || "")}`;
+            <div style="flex-grow: 1;">
+              <h4 id="tiendaNombre" style="margin: 0; color: #333; font-size: 1.1rem;">Nombre de la Tienda</h4>
+              <p id="tiendaCategoria"
+                style="margin: 2px 0; color: var(--magenta); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">
+                Categoría</p>
+              <p style="margin: 5px 0 0; color: #666; font-size: 0.9rem;">
+                Saldo actual: <span id="tiendaSaldo" style="font-weight: bold; color: #2ecc71;">S/ 0.00</span>
+              </p>
+            </div>
+          </div>
+        </div>
 
-        // si existe promo interna la enviamos
-        if (promoIndex) {
-          destino += `&i=${encodeURIComponent(promoIndex)}`;
-        }
-      }
+        <div class="pricing-wrapper">
 
-      // =====================================================
-      // SERVICIOS / TURISMO / SALUD
-      // =====================================================
-      else if (t === "scr") {
-        console.log("🛠️ ENTRANDO A SCR");
-        if (id === "lgtr") { console.log("🌎 TURISMO"); destino = `/pantalla_turismo.html`; }
-        else if (id === "nemg") { console.log("🚑 EMERGENCIA"); destino = `/emergencia.html`; }
-        else if (id === "seyt") { console.log("🛠️ SERVICIOS"); destino = `/pantalla_servicios_geinz.html`; }
-        else { console.error("❌ SCR ID DESCONOCIDO:", id); return; }
-      }
 
-      // =====================================================
-      // TURISMO DIRECTO
-      // =====================================================
-      else if (t === "tu") {
-        console.log("🌎 TURISMO DIRECTO");
-        destino =
-          `/turismo.html` +
-          `?id=${encodeURIComponent(id)}` +
-          `&localidad=${encodeURIComponent(loc)}`;
-      }
+        </div>
+      </section>
 
-      // =====================================================
-      // PROMOS
-      // =====================================================
-      else if (t === "prms" || t === "promo") {
-        console.log("🎁 PROMOS");
-        destino =
-          `/promociones.html` +
-          `?localidad=${encodeURIComponent(loc)}` +
-          `&id=${encodeURIComponent(id)}`;
-      }
+      <!-- inmobiliara 
+<section class="inmobiliaria-section">
+    <div class="inmo-text">
+        <div class="section-label" style="margin-left: 0;">Geinz Properties</div>
+        <h2>Encuentra el hogar de tus sueños con total seguridad</h2>
+        <p>
+            En <b>Geinz Inmobiliaria</b>, transformamos la búsqueda de propiedades en una experiencia transparente y eficiente. 
+            Utilizamos tecnología avanzada para conectar a compradores y vendedores en el Norte Chico, 
+            garantizando que cada transacción sea respaldada por la confianza y el respaldo de nuestra plataforma.
+        </p>
+        
+        <div class="inmo-stats">
+            <div class="stat-item">
+                <b>100%</b>
+                <span>Seguridad</span>
+            </div>
+            <div class="stat-item">
+                <b>+500</b>
+                <span>Propiedades</span>
+            </div>
+            <div class="stat-item">
+                <b>Verificados</b>
+                <span>Agentes</span>
+            </div>
+        </div>
 
-      else {
-        console.error("❌ TIPO DESCONOCIDO:", t);
-        return;
-      }
+        <button class="btn-primary" style="margin-top: 30px; padding: 15px 35px;">
+            Ver Propiedades Ahora
+        </button>
+    </div>
 
-      // =====================================================
-      // REDIRECCION
-      // =====================================================
-      console.log("📍 DESTINO:", destino);
+    <div class="inmo-logo-container">
+        <img src="tu-logo-geinz-inmo.png" alt="Geinz Inmobiliaria Logo" class="inmo-logo">
+    </div>
+</section>
+-->
+      <!-- APP -->
+      <section class="app-section">
+        <div class="app-info">
 
-      if (!destino) {
-        console.error("❌ DESTINO VACIO");
-        return;
-      }
+          <h2>Lleva a Geinz <br>en tu bolsillo</h2>
+          <p>
+            Descubre negocios, reclama promociones y gestiona tus servicios desde tu celular.
+            Tecnología hecha en casa para potenciar el Norte Chico.
+          </p>
 
-      const finalUrl = window.location.origin + destino;
-      console.log("🌐 URL FINAL:", finalUrl);
+          <a href="https://play.google.com/store/apps/details?id=com.geinzz.geinzwork" target="_blank"
+            class="store-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M3.18 23.76A2 2 0 0 1 2 22V2a2 2 0 0 1 1.18-1.76L13.54 12 3.18 23.76zM16.54 9L5.07.88l9.61 9.62L16.54 9zm0 6-1.86-1.5-9.61 9.62L16.54 15zm2.46-2.46L16.54 12l2.46-1.54L22 12l-3 .54z" />
+            </svg>
+            Instalar ahora
+          </a>
+        </div>
 
-      window.location.replace(finalUrl);
+        <div class="app-visual">
+          <img src="img/sinfondogooglplay.png" alt="Local Geinz" class="img-local-real">
 
-    })();
-  </script>
+
+        </div>
+      </section>
+      <div class="divider" id="legal"></div>
+
+      <!-- DOCUMENTOS LEGALES -->
+      <div>
+        <div class="section-label">Documentación</div>
+        <div class="section-title">Marco legal y políticas</div>
+        <div class="legal-grid">
+          <a href="../public/seguridad_geinz/terminos_y_condiciones.html" class="legal-card">
+            <div class="legal-icon">📄</div>
+            <div class="legal-text">
+              <h3>Términos y Condiciones</h3>
+              <p>Condiciones de uso de la plataforma</p>
+            </div>
+            <span class="legal-arrow">→</span>
+          </a>
+          <a href="../public/seguridad_geinz/politicas_devoluciones.html" class="legal-card">
+            <div class="legal-icon">↩️</div>
+            <div class="legal-text">
+              <h3>Políticas de Devoluciones</h3>
+              <p>Procedimiento de reembolso y cancelación</p>
+            </div>
+            <span class="legal-arrow">→</span>
+          </a>
+          <a href="../public/seguridad_geinz/libro_reclamaciones.html" class="legal-card">
+            <div class="legal-icon">📋</div>
+            <div class="legal-text">
+              <h3>Libro de Reclamaciones</h3>
+              <p>Registro oficial de reclamos y quejas</p>
+            </div>
+            <span class="legal-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="divider" id="contacto"></div>
+
+      <!-- CONTACTO + RUC -->
+      <div>
+        <div class="section-label">Información</div>
+        <div class="section-title">Contacto y empresa</div>
+        <div class="contact-section">
+          <div class="contact-card">
+            <h3>Contáctanos</h3>
+            <div class="contact-item">
+              <div class="contact-dot">📞</div>
+              <span>+51 937 659 216</span>
+            </div>
+            <div class="contact-item">
+              <div class="contact-dot">📱</div>
+              <span>+51 958 120 920</span>
+            </div>
+            <div class="contact-item">
+              <div class="contact-dot">✉️</div>
+              <span>soybenjadesing@gmail.com</span>
+            </div>
+            <div class="contact-item">
+              <div class="contact-dot">📍</div>
+              <span>Barranca, Lima — Perú</span>
+            </div>
+          </div>
+          <div class="ruc-box">
+            <h3>Datos de la empresa</h3>
+            <div class="ruc-item">
+              <span class="key">Razón Social</span>
+              <span class="value">GEINZ TECNOLOGÍA E.I.R.L.</span>
+            </div>
+            <div class="ruc-item">
+              <span class="key">Nombre Comercial</span>
+              <span class="value">GEINZ TECH</span>
+            </div>
+            <div class="ruc-item">
+              <span class="key">RUC</span>
+              <span class="value">20615632580</span>
+            </div>
+            <div class="ruc-item">
+              <span class="key">Estado</span>
+              <span class="value" style="color:#4CAF50;">● Activo</span>
+            </div>
+            <div class="ruc-item">
+              <span class="key">Actividad</span>
+              <span class="value">Programación Informática</span>
+            </div>
+            <div class="ruc-item">
+              <span class="key">Régimen</span>
+              <span class="value">MYPE Tributario</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="footer-inner">
+        <div class="footer-logo">
+          <img src="Diseño_sin_título__18_.png" alt="Geinz" onerror="this.style.display='none'">
+          <span>GEINZ</span>
+        </div>
+        <div class="footer-links">
+          <a href="../public/seguridad_geinz/terminos_y_condiciones.html">Términos</a>
+          <a href="../public/seguridad_geinz/politicas_devoluciones.html">Devoluciones</a>
+          <a href="../public/seguridad_geinz/libro_reclamaciones.html">Reclamaciones</a>
+        </div>
+        <span class="footer-copy">© 2026 Geinz Tecnología E.I.R.L. — RUC 20615632580</span>
+      </div>
+    </footer>
+
+    <div id="paymentOverlay" class="payment-overlay hidden">
+      <div class="payment-card">
+
+        <div class="spinner" id="spinner"></div>
+
+        <h2 id="paymentTitle">Procesando...</h2>
+        <p id="paymentText">Por favor espera</p>
+
+      </div>
+    </div>
+
+    <!-- DIALOG REDIRECCION -->
+
+  </body>
+
 </body>
 
 </html>

@@ -77,6 +77,13 @@
                 </button>
 
 
+                <div class="sidebar-vincular-wrap">
+                    <p class="sidebar-vincular-text">Vincula tu cuenta para la próxima vez</p>
+                    <button class="sidebar-vincular-btn" onclick="PanelPerfil.vincularCuenta?.()">
+                        🔗 Vincular cuenta
+                    </button>
+                </div>
+
 
                 <div class="sidebar-collapse-wrap">
                     <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="PanelPerfil.toggleSidebar()">
@@ -138,7 +145,9 @@
 
                     <div class="profile-top-row">
 
-                        <div class="profile-avatar" onclick="PanelPerfil.openModal('modalFotoPerfil')" id="avatarEl">
+                        <div class="profile-avatar" onclick="document.getElementById('avatarFileInputHtml').click()"
+                            id="avatarEl">
+
 
                             <!-- Skeleton -->
                             <div class="avatar-skeleton" id="avatarSkeleton"></div>
@@ -189,7 +198,7 @@
                             <!-- ÚNICA TARJETA PRINCIPAL -->
                             <div class="exp-card" id="card-account">
                                 <!-- HEADER (resumen colapsable) -->
-                                <div class="exp-header" >
+                                <div class="exp-header">
                                     <div class="exp-header-left">
                                         <div class="exp-icon purple">✦</div>
                                         <div>
@@ -260,9 +269,9 @@
                                             <img src="../img/icon_monedas_3d.webp" class="balance-img" alt="Saldo"
                                                 width="40" height="40">
                                         </div>
-                                        <div class="action-container">
+                                        <div class="action-container" id="action-renovar" style="display:none;">
                                             <button class="btn-renovar" onclick="abrirModalRenovacion()">
-                                                Renovar plan
+                                                Renovar ahora
                                             </button>
                                         </div>
 
@@ -936,7 +945,7 @@
               cursor:pointer;margin-bottom:10px;box-sizing:border-box;
               display:flex;align-items:center;justify-content:center;gap:8px;">
                 📁 Elegir foto de galería
-                <input type="file" id="avatarFileInputHtml" accept="image/*" style="display:none;">
+
             </label>
 
             <!-- Botón guardar — display:none con !important para que el JS lo pueda mostrar -->
@@ -959,12 +968,13 @@
 
             <div id="selector-planes" class="selector-planes"></div>
 
-            <div class="resumen-pago">
+            <div class="resumen-pago" id="resumen-pago" style="display:none;">
                 <p>Saldo actual:
                     <span id="saldo-actual">0</span>
                     <img src="../img/icon_monedas_3d.webp" class="coin-icon">
                 </p>
                 <div id="detalle-descuento"></div>
+                <div id="aviso-saldo-insuficiente" style="display:none; margin: 6px 0 4px;"></div>
                 <p>
                     <span class="label-text">Saldo disponible restante:</span>
                     <span class="valor-container">
@@ -981,7 +991,7 @@
 
             <div class="acciones">
                 <button onclick="cerrarModal()">Cancelar</button>
-                <button id="btn-continuar" onclick="procesarPago()">Continuar</button>
+                <button id="btn-continuar" onclick="procesarPago()" disabled>Continuar</button>
             </div>
         </div>
     </div>
@@ -1125,10 +1135,36 @@
             </div>
 
         </div>
+
+        <div id="toast-renovacion" style="
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(30px);
+    background: #1a1a2e;
+    color: #fff;
+    padding: 14px 24px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    opacity: 0;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 9999;
+    pointer-events: none;
+    white-space: nowrap;
+">
+            <span id="toast-renovacion-icon">✅</span>
+            <span id="toast-renovacion-msg">Plan renovado correctamente</span>
+        </div>
     </div>
     <script type="module">
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
         import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, updateDoc, arrayRemove, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
@@ -1141,17 +1177,48 @@
 
         const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
 
         window.cerrarSesionPanel = async () => {
-            const confirmar = confirm("¿Seguro que deseas cerrar sesión?");
+            const uid = auth.currentUser?.uid;
+            const propietarios = window.PanelPerfil?.currentData?.propietario_id || [];
+            const estaVinculado = uid && propietarios.includes(uid);
+
+            const mensaje = estaVinculado
+                ? "⚠️ ¿Cerrar sesión?\n\nTu cuenta será desvinculada de este negocio.\nLa próxima vez tendrás que ingresar el ID del negocio manualmente."
+                : "⚠️ ¿Cerrar sesión?\n\nLa próxima vez tendrás que ingresar el ID del negocio manualmente para acceder.";
+
+            const confirmar = confirm(mensaje);
             if (!confirmar) return;
 
-            try {
+            if (estaVinculado && uid) {
+                try {
+                    // 1. Eliminar UID de propietario_id en la tienda
+                    const tiendaRef = doc(
+                        db,
+                        "Tiendas",
+                        window.PanelPerfil.LOCALIDAD_TIENDA,
+                        window.PanelPerfil.LOCALIDAD_TIENDA,
+                        window.PanelPerfil.TIENDA_ID
+                    );
+                    await updateDoc(tiendaRef, {
+                        propietario_id: arrayRemove(uid)
+                    });
 
-                await signOut(auth);
-            } catch (e) {
+                    // 2. Eliminar id_tienda_propietario del documento del usuario
+                    const userRef = doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid);
+                    await updateDoc(userRef, {
+                        id_tienda_propietario: deleteField()
+                    });
 
+                } catch (e) {
+                    console.error("Error desvinculando:", e);
+                }
             }
+
+            try {
+                await signOut(auth);
+            } catch (e) { }
 
             sessionStorage.removeItem("tiendaId");
             sessionStorage.removeItem("localidad");
@@ -1230,6 +1297,7 @@
             });
         })();
     </script>
+    <input type="file" id="avatarFileInputHtml" accept="image/*" style="display:none;">
 </body>
 
 </html>

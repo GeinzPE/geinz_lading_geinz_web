@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap"
+        rel="stylesheet">
+
+    <title>Libro de Reclamaciones Virtual | GEINZ</title>
+
+    <link rel="stylesheet" href="../style/seguridad_geinz/style_libro_reclamaciones.css">
+
+
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+
+    <script type="module" src="../js/seguridad_geinz/libro_reclamaciones.js"></script>
+</head>
+
+<body>
+
+    <div class="contenido">
+
+        <!-- HEADER -->
+        <div class="header-premium">
+            <p class="company-name">GEINZ TECNOLOGIA E.I.R.L.</p>
+            <h1>Libro de Reclamaciones</h1>
+
+            <p class="subtitle">
+                En GEINZ cuidamos tu experiencia. Responderemos tu reclamo en un plazo máximo de 30 días calendario.
+            </p>
+
+            <!-- 🔴 AVISO LEGAL OBLIGATORIO -->
+            <p style="font-size:13px; color:#888; margin-top:10px;">
+                Conforme al Código de Protección y Defensa del Consumidor (Ley N° 29571), este establecimiento cuenta
+                con un Libro de Reclamaciones Virtual.
+            </p>
+        </div>
+
+        <!-- 🔴 DATOS EMPRESA -->
+        <div class="datos-empresa" style="margin-bottom:20px; font-size:14px;">
+            <p><strong>Razón Social:</strong> GEINZ TECNOLOGIA E.I.R.L.</p>
+            <p><strong>RUC:</strong>20615632580</p>
+            <p><strong>Dirección:</strong> URB. San Mateo, Barranca</p>
+            <p><strong>Correo:</strong> soybenjade@gmail.com</p>
+            <p><strong>Teléfono:</strong> +51 958 120 920 </p>
+        </div>
+
+        <div class="form-body">
+
+            <form id="claimForm">
+
+                <!-- 1 -->
+                <div class="card-step">
+                    <h3><span class="step-number">1</span> Datos del Consumidor</h3>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Nombres y Apellidos *</label>
+                            <input id="nombre" type="text" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>DNI / CE *</label>
+                            <input id="documento" type="text" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Correo Electrónico *</label>
+                        <input id="correo" type="email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Celular *</label>
+                        <input id="celular" type="tel" required>
+                    </div>
+
+                    <!-- 🔴 NUEVO -->
+                    <div class="form-group">
+                        <label>Dirección *</label>
+                        <input id="direccion" type="text" required>
+                    </div>
+
+                    <!-- 🟡 OPCIONAL -->
+                    <div class="form-group">
+                        <label>ID de usuario o pedido (opcional)</label>
+                        <input id="id_usuario" type="text">
+                        <small style="color:#888;">
+                            Si eres usuario de GEINZ, puedes ingresarlo para agilizar tu atención.
+                        </small>
+                    </div>
+                </div>
+
+                <!-- 2 -->
+                <div class="card-step">
+                    <h3><span class="step-number">2</span> Detalle del Reclamo</h3>
+
+                    <div class="form-group">
+                        <label>Tipo de solicitud *</label>
+                        <select id="tipo_solicitud" required>
+                            <option value="reclamo">RECLAMO</option>
+                            <option value="queja">QUEJA</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Producto o servicio *</label>
+                        <select id="servicio" required>
+                            <option value="monedas">Monedas Geinz</option>
+                            <option value="vitrina">Publicidad</option>
+                            <option value="app">App</option>
+                        </select>
+                    </div>
+
+                    <!-- 🔴 NUEVO -->
+                    <div class="form-group">
+                        <label>Monto reclamado (opcional)</label>
+                        <input id="monto" type="number">
+                    </div>
+
+                    <div class="form-group">
+                        <label>¿Qué sucedió? *</label>
+                        <textarea id="detalle" rows="4" required></textarea>
+                    </div>
+                </div>
+
+                <!-- 3 -->
+                <div class="card-step">
+                    <h3><span class="step-number">3</span> Solución Esperada</h3>
+
+                    <div class="form-group">
+                        <label>Solución *</label>
+                        <textarea id="solucion" rows="3" required></textarea>
+                    </div>
+                </div>
+
+                <!-- 🔴 DECLARACIÓN -->
+                <div style="margin:15px 0; font-size:12px; color:#888;">
+                    Declaro que la información proporcionada es veraz y autorizo el tratamiento de mis datos personales
+                    conforme a la normativa vigente.
+                </div>
+
+                <button id="btnEnviar" type="submit" class="btn-enviar">
+                    ENVIAR RECLAMACIÓN
+                </button>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="toast hidden">
+        <div class="toast-content">
+            <p id="toast-msg"></p>
+
+            <div class="toast-actions">
+                <button id="copyTicket">📋 Copiar</button>
+                <button id="downloadTicket">⬇ Descargar</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 GEINZ TECH | Todos los derechos reservados.</p>
+    </footer>
+
+</body>
+
+</html>

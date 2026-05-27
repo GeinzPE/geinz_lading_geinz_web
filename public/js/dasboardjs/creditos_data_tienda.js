@@ -45,7 +45,7 @@
           },
           "*",
         );
-    } catch (e) { }
+    } catch (e) {}
   }
 
   function broadcastSaldo(saldo) {
@@ -58,7 +58,7 @@
     document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage({ type: "SALDO_UPDATE", saldo }, "*");
-      } catch (e) { }
+      } catch (e) {}
     });
   }
 
@@ -71,7 +71,7 @@
           { type: "PUBLICIDAD_UPDATE", publicidad },
           "*",
         );
-      } catch (e) { }
+      } catch (e) {}
     });
   }
 
@@ -79,7 +79,11 @@
     _cache.planes_activacion = planesActivacion;
     _cache.planes_bot_promo = planesBotPromo;
     _cache.publicidad = publicidad;
-    console.log("📤 [broadcast] PLANES_UPDATE →", { planesActivacion, planesBotPromo, publicidad });
+    console.log("📤 [broadcast] PLANES_UPDATE →", {
+      planesActivacion,
+      planesBotPromo,
+      publicidad,
+    });
     document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage(
@@ -91,7 +95,7 @@
           },
           "*",
         );
-      } catch (e) { }
+      } catch (e) {}
     });
   }
 
@@ -218,13 +222,13 @@
       const app = getApps().length
         ? getApp()
         : initializeApp({
-          apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-          authDomain: "geinzworkapp.firebaseapp.com",
-          projectId: "geinzworkapp",
-          storageBucket: "geinzworkapp.appspot.com",
-          messagingSenderId: "921389328767",
-          appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-        });
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.appspot.com",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+          });
       const db = getFirestore(app);
 
       const docRefOriginal = doc(
@@ -393,10 +397,14 @@
     }
 
     // ── BLOQUEO: solo cuando el plan está vencido ──
+    const actionRenovar = document.getElementById("action-renovar");
+
     if (renewalDays === 0) {
       bloquearExpandibles();
+      if (actionRenovar) actionRenovar.style.display = "block";
     } else {
       desbloquearExpandibles();
+      if (actionRenovar) actionRenovar.style.display = "none";
     }
 
     console.log("✅ Tarjeta de cuenta actualizada");
@@ -417,7 +425,7 @@
       document.querySelector(".profile-top-row"),
     ].filter(Boolean);
 
-    targets.forEach(el => {
+    targets.forEach((el) => {
       if (el.dataset.bloqueado === "1") return;
       el.dataset.bloqueado = "1";
       el.style.opacity = "0.45";
@@ -428,7 +436,8 @@
       if (el.querySelector(".bloqueo-section-overlay")) return;
       const ov = document.createElement("div");
       ov.className = "bloqueo-section-overlay";
-      ov.style.cssText = "position:absolute;inset:0;z-index:10;cursor:not-allowed;border-radius:inherit;";
+      ov.style.cssText =
+        "position:absolute;inset:0;z-index:10;cursor:not-allowed;border-radius:inherit;";
       ov.addEventListener("click", (e) => {
         e.stopPropagation();
         mostrarToastBloqueo();
@@ -443,13 +452,15 @@
       document.querySelector(".profile-top-row"),
     ].filter(Boolean);
 
-    targets.forEach(el => {
+    targets.forEach((el) => {
       el.style.opacity = "";
       el.style.pointerEvents = "";
       el.style.userSelect = "";
       el.style.position = "";
       delete el.dataset.bloqueado;
-      el.querySelectorAll(".bloqueo-section-overlay").forEach(ov => ov.remove());
+      el.querySelectorAll(".bloqueo-section-overlay").forEach((ov) =>
+        ov.remove(),
+      );
     });
   }
 
@@ -459,7 +470,10 @@
     t.textContent = "⚠️ Renueva tu plan para editar los campos";
     t.classList.add("show");
     clearTimeout(window._toastBloqueoTimer);
-    window._toastBloqueoTimer = setTimeout(() => t.classList.remove("show"), 3000);
+    window._toastBloqueoTimer = setTimeout(
+      () => t.classList.remove("show"),
+      3000,
+    );
   }
 
   // ============================================================
@@ -468,7 +482,6 @@
   initPublicidad();
   initPreciosApp();
   initRealtimeAccount();
-
 })();
 
 // ============================================================
@@ -498,7 +511,7 @@ const _renovacion = {
     "4_meses": "4 meses",
   },
   _ORDEN_PLANES: ["20_dias", "1_mes", "2_meses", "3_meses", "4_meses"],
-  _DESCUENTOS: { "2_meses": 7, "3_meses": 10, "4_meses": 15 },
+  _DESCUENTOS: { "1_mes": 5, "2_meses": 10, "3_meses": 20, "4_meses": 30 },
 
   abrirModal: function () {
     const self = this;
@@ -506,20 +519,23 @@ const _renovacion = {
     if (!modal) return;
     modal.classList.add("open");
 
+    // Limpiar estado anterior SIEMPRE al abrir
+    self._planSeleccionado = null;
     const resumenPago = document.getElementById("resumen-pago");
     const btnContinuar = document.getElementById("btn-continuar");
     if (resumenPago) resumenPago.style.display = "none";
     if (btnContinuar) btnContinuar.disabled = true;
-    self._planSeleccionado = null;
 
     const planes = window._planesActivacion || self._planesData;
     if (!planes || Object.keys(planes).length === 0) {
       const selectorPlanes = document.getElementById("selector-planes");
       if (selectorPlanes)
-        selectorPlanes.innerHTML = '<p style="text-align:center;color:#888">Cargando planes...</p>';
+        selectorPlanes.innerHTML =
+          '<p style="text-align:center;color:#888">Cargando planes...</p>';
       setTimeout(() => self.abrirModal(), 800);
       return;
     }
+    // _renderPlanes ya limpia el innerHTML, así que no hay selected residual
     self._renderPlanes(planes);
   },
 
@@ -560,8 +576,11 @@ const _renovacion = {
 
     const saldo = window._saldoTienda || 0;
     const desc = self._DESCUENTOS[key] || 0;
-    const precioFinal = desc > 0 ? Math.round(precio * (1 - desc / 100)) : precio;
+    const precioFinal =
+      desc > 0 ? Math.round(precio * (1 - desc / 100)) : precio;
     const restante = saldo - precioFinal;
+    const falta = precioFinal - saldo;
+    const sinSaldo = saldo < precioFinal;
 
     const elSaldoActual = document.getElementById("saldo-actual");
     const elSaldoRestante = document.getElementById("saldo-restante");
@@ -569,33 +588,73 @@ const _renovacion = {
     const elResumen = document.getElementById("resumen-pago");
     const elBtnContinuar = document.getElementById("btn-continuar");
     const detalle = document.getElementById("detalle-descuento");
+    const avisoSaldo = document.getElementById("aviso-saldo-insuficiente");
 
-    if (elSaldoActual) elSaldoActual.textContent = ` ${saldo.toLocaleString("es-PE")}`;
-    if (elSaldoRestante) elSaldoRestante.textContent = ` ${restante.toLocaleString("es-PE")}`;
-    if (elTotal) elTotal.textContent = ` ${precioFinal.toLocaleString("es-PE")}`;
+    if (elSaldoActual)
+      elSaldoActual.textContent = ` ${saldo.toLocaleString("es-PE")}`;
+    if (elSaldoRestante)
+      elSaldoRestante.textContent = sinSaldo
+        ? " —"
+        : ` ${restante.toLocaleString("es-PE")}`;
+    if (elTotal)
+      elTotal.textContent = ` ${precioFinal.toLocaleString("es-PE")}`;
 
+    // Descuento
     if (detalle) {
       detalle.innerHTML = desc
         ? `<p>Descuento aplicado:
-             <strong>${desc}% = -
-               <span style="display:inline-flex;align-items:center;gap:4px;">
-                 ${(precio - precioFinal).toLocaleString("es-PE")}
-                 <img src="../img/icon_monedas_3d.webp" class="coin-icon" style="width:16px;height:16px;vertical-align:middle;">
-               </span>
-             </strong>
-           </p>`
+                <strong>${desc}% = -
+                  <span style="display:inline-flex;align-items:center;gap:4px;">
+                    ${(precio - precioFinal).toLocaleString("es-PE")}
+                    <img src="../img/icon_monedas_3d.webp" class="coin-icon" style="width:16px;height:16px;vertical-align:middle;">
+                  </span>
+                </strong>
+               </p>`
         : "";
     }
 
+    // Aviso saldo insuficiente
+    if (avisoSaldo) {
+      if (sinSaldo) {
+        avisoSaldo.innerHTML = `
+                <span style="color:#e05c00;font-weight:600;display:flex;align-items:center;gap:6px;font-size:13px;">
+                    ❌ Te faltan
+                    <span style="display:inline-flex;align-items:center;gap:4px;background:#fff3e0;padding:2px 8px;border-radius:8px;color:#e05c00;font-weight:700;">
+                        ${falta.toLocaleString("es-PE")}
+                        <img src="../img/icon_monedas_3d.webp" style="width:16px;height:16px;vertical-align:middle;">
+                    </span>
+                    para este plan
+                </span>`;
+        avisoSaldo.style.display = "block";
+      } else {
+        avisoSaldo.style.display = "none";
+        avisoSaldo.innerHTML = "";
+      }
+    }
+
     if (elResumen) elResumen.style.display = "block";
-    if (elBtnContinuar) elBtnContinuar.disabled = false;
+    // Deshabilitar continuar si no tiene saldo
+    if (elBtnContinuar) elBtnContinuar.disabled = sinSaldo;
   },
 };
 
 window.abrirModalRenovacion = () => _renovacion.abrirModal();
-window.cerrarModal = () =>
+window.cerrarModal = () => {
   document.getElementById("modal-renovacion")?.classList.remove("open");
-
+  _renovacion._planSeleccionado = null;
+  const resumenPago = document.getElementById("resumen-pago");
+  const btnContinuar = document.getElementById("btn-continuar");
+  const avisoSaldo = document.getElementById("aviso-saldo-insuficiente");
+  if (resumenPago) resumenPago.style.display = "none";
+  if (btnContinuar) btnContinuar.disabled = true;
+  if (avisoSaldo) {
+    avisoSaldo.style.display = "none";
+    avisoSaldo.innerHTML = "";
+  }
+  document
+    .querySelectorAll("#selector-planes .plan-item")
+    .forEach((el) => el.classList.remove("selected"));
+};
 // ============================================================
 //  PROCESAR PAGO — llama a la Cloud Function
 // ============================================================
@@ -606,7 +665,8 @@ window.procesarPago = async () => {
   // ── Validar saldo suficiente ──────────────────────────────
   const saldo = window._saldoTienda || 0;
   const desc = _renovacion._DESCUENTOS[plan.key] || 0;
-  const precioFinal = desc > 0 ? Math.round(plan.precio * (1 - desc / 100)) : plan.precio;
+  const precioFinal =
+    desc > 0 ? Math.round(plan.precio * (1 - desc / 100)) : plan.precio;
 
   if (saldo < precioFinal) {
     alert("❌ Saldo insuficiente para renovar este plan.");
@@ -614,10 +674,10 @@ window.procesarPago = async () => {
   }
 
   // ── Obtener id_tienda y localidad ─────────────────────────
-  const id_tienda = window.APP_STATE?.tienda?.id_tienda
-    || sessionStorage.getItem("tiendaId");
-  const localidad = window.APP_STATE?.tienda?.localidad
-    || sessionStorage.getItem("localidad");
+  const id_tienda =
+    window.APP_STATE?.tienda?.id_tienda || sessionStorage.getItem("tiendaId");
+  const localidad =
+    window.APP_STATE?.tienda?.localidad || sessionStorage.getItem("localidad");
 
   if (!id_tienda || !localidad) {
     alert("❌ No se pudo identificar la tienda. Recarga la página.");
@@ -638,7 +698,13 @@ window.procesarPago = async () => {
     btnContinuar.textContent = "Procesando...";
   }
 
-  console.log("💳 Procesando pago:", { id_tienda, localidad, dias_extra, plan: plan.key, precio: precioFinal });
+  console.log("💳 Procesando pago:", {
+    id_tienda,
+    localidad,
+    dias_extra,
+    plan: plan.key,
+    precio: precioFinal,
+  });
 
   try {
     const response = await fetch(
@@ -647,9 +713,14 @@ window.procesarPago = async () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          data: { id_tienda, localidad, dias_extra, monedas_costo: precioFinal},
+          data: {
+            id_tienda,
+            localidad,
+            dias_extra,
+            monedas_costo: precioFinal,
+          },
         }),
-      }
+      },
     );
 
     const result = await response.json();
@@ -662,16 +733,19 @@ window.procesarPago = async () => {
 
     // Cerrar modal y avisar
     document.getElementById("modal-renovacion")?.classList.remove("open");
+    mostrarSnackbar("Plan renovado correctamente 🎉", "success");
+
     const toast = document.getElementById("toast");
     if (toast) {
       toast.textContent = "✅ Plan renovado correctamente";
       toast.classList.add("show");
       setTimeout(() => toast.classList.remove("show"), 3000);
     }
-
   } catch (err) {
     console.error("❌ Error procesarPago:", err);
-    alert("❌ Error al procesar el pago: " + (err.message || "intenta de nuevo"));
+    alert(
+      "❌ Error al procesar el pago: " + (err.message || "intenta de nuevo"),
+    );
   } finally {
     if (btnContinuar) {
       btnContinuar.disabled = false;
@@ -679,3 +753,20 @@ window.procesarPago = async () => {
     }
   }
 };
+
+function mostrarSnackbar(msg, tipo = "success") {
+  const toast = document.getElementById("toast-renovacion");
+  const icon = document.getElementById("toast-renovacion-icon");
+  const text = document.getElementById("toast-renovacion-msg");
+  if (!toast) return;
+
+  icon.textContent =
+    tipo === "success" ? "✅" : tipo === "warning" ? "⚠️" : "❌";
+  text.textContent = msg;
+  toast.style.background =
+    tipo === "success" ? "#0f9b6e" : tipo === "warning" ? "#e07b00" : "#d63031";
+
+  toast.classList.add("show");
+  clearTimeout(window._snackTimer);
+  window._snackTimer = setTimeout(() => toast.classList.remove("show"), 3500);
+}

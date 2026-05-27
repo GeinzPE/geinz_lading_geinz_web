@@ -4306,3 +4306,85 @@ input:checked+.slider:before {
 #uploadDots span:nth-child(3) {
     animation: uploadDot 1.4s .4s infinite
 }
+
+#action-renovar {
+    margin-top: 12px;
+}
+
+.btn-renovar {
+    width: 100%;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #ff4e4e, #ff8c00);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    box-shadow: 0 4px 15px rgba(255, 78, 78, 0.35);
+    animation: pulso-renovar 2s ease-in-out infinite;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-renovar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 78, 78, 0.5);
+}
+
+.btn-renovar:active {
+    transform: translateY(0);
+}
+
+@keyframes pulso-renovar {
+
+    0%,
+    100% {
+        box-shadow: 0 4px 15px rgba(255, 78, 78, 0.35);
+    }
+
+    50% {
+        box-shadow: 0 4px 25px rgba(255, 78, 78, 0.65);
+    }
+}
+
+#toast-renovacion.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.sidebar-vincular-wrap {
+    margin: auto 0 0;
+    padding: 16px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-vincular-text {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1.5;
+    margin: 0;
+    text-align: center;
+    padding: 0 4px;
+}
+
+.sidebar-vincular-btn {
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(124, 77, 255, 0.3);
+    background: rgba(124, 77, 255, 0.08);
+    color: rgba(124, 77, 255, 0.85);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    letter-spacing: 0.2px;
+}
+
+.sidebar-vincular-btn:hover {
+    background: rgba(124, 77, 255, 0.16);
+    border-color: rgba(124, 77, 255, 0.55);
+}

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Geinz Share</title>
+</head>
+
+<body>
+
+  <script>
+    (function () {
+
+      console.clear();
+      console.log("🚀 SHARE INICIADO");
+
+      const params = new URLSearchParams(window.location.search);
+
+      // =========================
+      // DETECTAR TIPO
+      // =========================
+      let t = (params.get("t") || "").trim().toLowerCase();
+
+      if (!t) {
+        const path = window.location.pathname;
+        console.log("🛣️ PATH:", path);
+        if (path.includes("/ti")) t = "ti";
+        else if (path.includes("/p")) t = "p";
+        else if (path.includes("/scr")) t = "scr";
+        else if (path.includes("/prms")) t = "prms";
+        else if (path.includes("/promo")) t = "promo";
+        else if (path.includes("/tu")) t = "tu";
+      }
+
+      // =========================
+      // PARAMETROS
+      // =========================
+      const rawId = (() => {
+        const id = params.get("id");
+        const pi = params.get("pi");
+
+        if (id !== null && id.trim() !== "" && id !== "undefined" && id !== "null") {
+          return id.trim();
+        }
+        if (pi !== null && pi.trim() !== "" && pi !== "undefined" && pi !== "null") {
+          return pi.trim();
+        }
+        return "";
+      })();
+
+      const id = rawId;
+
+      let loc = (
+        params.get("l") ||
+        params.get("localidad") ||
+        ""
+      ).trim().toLowerCase();
+
+      const cat = (
+        params.get("c") ||
+        params.get("subcol") ||
+        ""
+      ).trim();
+
+      // =========================
+      // NORMALIZAR LOCALIDADES
+      // =========================
+      switch (loc) {
+        case "ba":
+        case "barranca": loc = "barranca"; break;
+        case "par":
+        case "paramonga": loc = "paramonga"; break;
+        case "pat":
+        case "pativilca": loc = "pativilca"; break;
+        case "su":
+        case "supe": loc = "supe"; break;
+        case "pue":
+        case "puerto supe":
+        case "puertosupe": loc = "puerto supe"; break;
+        default: loc = "barranca"; break;
+      }
+
+      console.table({ t, id, loc, cat });
+
+      // =========================
+      // VALIDAR
+      // =========================
+      if (!t) {
+        console.error("❌ TIPO NO DETECTADO");
+        return;
+      }
+
+      if (!id && t !== "scr" && t !== "prms" && t !== "promo") {
+        console.error("❌ NO EXISTE ID");
+        return;
+      }
+
+      let destino = "";
+
+      // =====================================================
+      // NEGOCIOS
+      // =====================================================
+      // =====================================================
+      // NEGOCIOS + PROMOS INTERNAS
+      // =====================================================
+      if (t === "ti" || t === "p") {
+
+        console.log("🏪 ENTRANDO A NEGOCIO");
+
+        const promoIndex = (
+          params.get("i") ||
+          params.get("indice") ||
+          ""
+        ).trim();
+
+        destino =
+          `/perfil_negocio.html` +
+          `?id=${encodeURIComponent(id)}` +
+          `&localidad=${encodeURIComponent(loc)}` +
+          `&subcol=${encodeURIComponent(cat || "")}`;
+
+        // si existe promo interna la enviamos
+        if (promoIndex) {
+          destino += `&i=${encodeURIComponent(promoIndex)}`;
+        }
+      }
+
+      // =====================================================
+      // SERVICIOS / TURISMO / SALUD
+      // =====================================================
+      else if (t === "scr") {
+        console.log("🛠️ ENTRANDO A SCR");
+        if (id === "lgtr") { console.log("🌎 TURISMO"); destino = `/pantalla_turismo.html`; }
+        else if (id === "nemg") { console.log("🚑 EMERGENCIA"); destino = `/emergencia.html`; }
+        else if (id === "seyt") { console.log("🛠️ SERVICIOS"); destino = `/pantalla_servicios_geinz.html`; }
+        else { console.error("❌ SCR ID DESCONOCIDO:", id); return; }
+      }
+
+      // =====================================================
+      // TURISMO DIRECTO
+      // =====================================================
+      else if (t === "tu") {
+        console.log("🌎 TURISMO DIRECTO");
+        destino =
+          `/turismo.html` +
+          `?id=${encodeURIComponent(id)}` +
+          `&localidad=${encodeURIComponent(loc)}`;
+      }
+
+      // =====================================================
+      // PROMOS
+      // =====================================================
+      else if (t === "prms" || t === "promo") {
+        console.log("🎁 PROMOS");
+        destino =
+          `/promociones.html` +
+          `?localidad=${encodeURIComponent(loc)}` +
+          `&id=${encodeURIComponent(id)}`;
+      }
+
+      else {
+        console.error("❌ TIPO DESCONOCIDO:", t);
+        return;
+      }
+
+      // =====================================================
+      // REDIRECCION
+      // =====================================================
+      console.log("📍 DESTINO:", destino);
+
+      if (!destino) {
+        console.error("❌ DESTINO VACIO");
+        return;
+      }
+
+      const finalUrl = window.location.origin + destino;
+      console.log("🌐 URL FINAL:", finalUrl);
+
+      window.location.replace(finalUrl);
+
+    })();
+  </script>
+
+</body>
+
+</html>
