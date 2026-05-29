@@ -446,9 +446,7 @@ async function showSplash(user) {
       sessionStorage.setItem("tiendaId", idTienda);
       sessionStorage.setItem("localidad", localidad);
 
-            window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
-
-
+      window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
     } catch (err) {
       console.error("Error validando tienda:", err);
       showSnackbar("Error al validar tu tienda");
@@ -481,7 +479,7 @@ function abrirPantallaSocio(user) {
     };
   });
 
-  document.getElementById("modoCorreo").onclick = () => {
+  document.getElementById("toggleModoBtn").onclick = () => {
     modoCorreo = !modoCorreo;
 
     if (modoCorreo) {
@@ -512,7 +510,7 @@ window.continuarPanel = async () => {
     return;
   }
 
-  const btn = document.querySelector("#selectorSocioScreen .btn-purple");
+  const btn = document.getElementById("btnContinuar");
   const oldText = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = "Validando...";

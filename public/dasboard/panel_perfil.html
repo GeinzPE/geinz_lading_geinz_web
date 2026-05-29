@@ -1325,18 +1325,21 @@
             const { tipo, seccion } = e.data || {};
             if (tipo !== 'NAVEGAR') return;
 
-            if (seccion === 'recargas') {
-                const iframe = document.querySelector('#sec-recargas iframe');
-                if (!iframe) return;
+            const iframe = document.querySelector('#sec-recargas iframe');
 
-                // Forzar recarga limpia cambiando src a blank y luego de vuelta
-                iframe.src = 'about:blank';
+            // ✅ Siempre matar el iframe primero
+            if (iframe) iframe.src = 'about:blank';
 
+            // ✅ Navegar la sección en el panel
+            if (window.PanelPerfil && typeof PanelPerfil.showSection === 'function') {
+                PanelPerfil.showSection(seccion || 'perfil');
+            }
+
+            // ✅ Si es recargas, recargar el iframe después
+            if (seccion === 'recargas' && iframe) {
                 setTimeout(() => {
                     iframe.src = 'recargas';
-
-                    iframe.addEventListener('load', function reenviar() {
-                        iframe.removeEventListener('load', reenviar);
+                    iframe.addEventListener('load', function () {
                         setTimeout(() => {
                             if (window._datosParaIframe) {
                                 iframe.contentWindow.postMessage(window._datosParaIframe, '*');
@@ -1344,10 +1347,6 @@
                         }, 300);
                     }, { once: true });
                 }, 50);
-            }
-
-            if (window.PanelPerfil && typeof PanelPerfil.showSection === 'function') {
-                PanelPerfil.showSection(seccion || 'perfil');
             }
         });
     </script>
