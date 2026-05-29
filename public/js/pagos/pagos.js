@@ -48,6 +48,7 @@ window.direccion_fiscal = "";
 // ─────────────────────────────────────────
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get("orderId");
+const params_mostrado=params.get("ins");
 window._userId = orderId;
 let termsOn = false;
 let compType = "boleta";

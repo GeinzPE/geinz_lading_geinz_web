@@ -1327,20 +1327,23 @@
 
             if (seccion === 'recargas') {
                 const iframe = document.querySelector('#sec-recargas iframe');
-                if (iframe) {
-                    iframe.src = iframe.src; // recarga limpia
+                if (!iframe) return;
 
-                    // cuando termine de cargar, reenviar los datos guardados
+                // Forzar recarga limpia cambiando src a blank y luego de vuelta
+                iframe.src = 'about:blank';
+
+                setTimeout(() => {
+                    iframe.src = 'recargas';
+
                     iframe.addEventListener('load', function reenviar() {
                         iframe.removeEventListener('load', reenviar);
                         setTimeout(() => {
                             if (window._datosParaIframe) {
                                 iframe.contentWindow.postMessage(window._datosParaIframe, '*');
-                                console.log('📤 Datos reenviados al iframe:', window._datosParaIframe);
                             }
                         }, 300);
                     }, { once: true });
-                }
+                }, 50);
             }
 
             if (window.PanelPerfil && typeof PanelPerfil.showSection === 'function') {

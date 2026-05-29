@@ -1983,6 +1983,9 @@ document.addEventListener("DOMContentLoaded", () => PanelPerfil.init());
 function enviarDatosAFrames() {
   const payload = window.APP_STATE?.tienda;
   if (!payload) return;
+
+  window._datosParaIframe = { type: "DATOS_TIENDA", payload }; // 👈 esta línea
+
   document.querySelectorAll("iframe").forEach((frame) => {
     frame.contentWindow?.postMessage(
       { type: "DATOS_TIENDA", payload },
