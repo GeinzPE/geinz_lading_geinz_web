@@ -1,0 +1,655 @@
+/* ================================================================
+   GEINZ BUSINESS PROFILE — ESTILO OPTIMIZADO
+   Mejoras en galerías de productos y ambientes (desktop más grande)
+   ================================================================ */
+
+/* ----------------------------------------------
+   1. VARIABLES & RESET
+-------------------------------------------------- */
+:root {
+    --dr: 168;
+    --dg: 85;
+    --db: 247;
+    --dominant: rgb(var(--dr), var(--dg), var(--db));
+    --bg: #050505;
+    --card: rgba(255, 255, 255, 0.045);
+    --border: rgba(255, 255, 255, 0.08);
+    --text-primary: #ffffff;
+    --text-secondary: #b0b3bc;
+    --text-muted: #7e818c;
+    --radius-xl: 2rem;
+    --radius-2xl: 2.5rem;
+    --transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    background: #000;
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    line-height: 1.5;
+}
+
+/* ----------------------------------------------
+   2. FONDOS DINÁMICOS
+-------------------------------------------------- */
+.dynamic-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -3;
+    background: radial-gradient(circle at 30% 20%,
+            rgba(var(--dr), var(--dg), var(--db), 0.35) 0%,
+            rgba(var(--dr), var(--dg), var(--db), 0.08) 50%,
+            transparent 80%);
+    filter: blur(60px);
+    transform: scale(1.2);
+    transition: background 0.9s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+
+.grid-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(circle at center, black 30%, transparent 100%);
+}
+
+/* ----------------------------------------------
+   3. UTILIDADES REUTILIZABLES
+-------------------------------------------------- */
+.glass {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.section {
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+}
+
+.section-header {
+    padding: 1.5rem 2rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -0.02em;
+}
+
+.section-body {
+    padding: 2rem;
+}
+
+.tag {
+    display: inline-block;
+    padding: 0.5rem 1.25rem;
+    border-radius: 999px;
+    background: rgba(var(--dr), var(--dg), var(--db), 0.12);
+    border: 1px solid rgba(var(--dr), var(--dg), var(--db), 0.25);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.tag:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--dr), var(--dg), var(--db), 0.5);
+}
+
+/* ----------------------------------------------
+   4. BOTONES Y BADGES
+-------------------------------------------------- */
+.btn-primary {
+    background: linear-gradient(135deg,
+            rgb(var(--dr), var(--dg), var(--db)),
+            rgba(var(--dr), var(--dg), var(--db), 0.7));
+    border: none;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(var(--dr), var(--dg), var(--db), 0.3);
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 40px rgba(var(--dr), var(--dg), var(--db), 0.4);
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transform: translateX(-100%);
+    transition: 0.7s;
+}
+
+.btn-primary:hover::before {
+    transform: translateX(100%);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    backdrop-filter: blur(20px);
+}
+
+.status-badge.open {
+    background: rgba(34, 197, 94, 0.14);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #86efac;
+}
+
+.status-badge.closed {
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.accent {
+    color: rgb(var(--dr), var(--dg), var(--db));
+}
+
+/* ----------------------------------------------
+   5. HERO SECTION (logo tamaño óptimo)
+-------------------------------------------------- */
+#bizName {
+    font-size: clamp(3rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+}
+
+.hero-logo-container {
+    width: 100%;
+    height: auto;
+    min-height: 420px;
+    max-height: 520px;
+    border-radius: 2rem;
+    overflow: hidden;
+    background: #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-logo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ----------------------------------------------
+   6. TÍTULOS DE SECCIÓN (más compactos)
+-------------------------------------------------- */
+#secProductos h2,
+#secAmbientes h2,
+#secPromos h2 {
+    font-size: clamp(2rem, 5vw, 3.5rem) !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+}
+
+/* ----------------------------------------------
+   7. GALERÍAS (productos, ambientes) - MEJORADO PARA DESKTOP
+-------------------------------------------------- */
+#productosGrid,
+#ambientesGrid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+/* Móvil por defecto */
+#productosGrid,
+#ambientesGrid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.gallery-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.75rem;
+    height: 220px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.gallery-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.gallery-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(var(--dr), var(--dg), var(--db), 0.6);
+    box-shadow: 0 25px 40px rgba(var(--dr), var(--dg), var(--db), 0.2);
+}
+
+.gallery-card:hover img {
+    transform: scale(1.08);
+}
+
+/* Desktop: tarjetas más grandes */
+@media (min-width: 1024px) {
+
+    #productosGrid,
+    #ambientesGrid {
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 2rem;
+    }
+
+    .gallery-card {
+        height: 360px;
+        border-radius: 2rem;
+    }
+}
+
+/* ----------------------------------------------
+   8. PROMOCIONES (botones reducidos y altura responsiva)
+-------------------------------------------------- */
+#promoCarousel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.75rem;
+}
+
+.promo-card {
+    border-radius: 1.75rem;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.promo-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(var(--dr), var(--dg), var(--db), 0.4);
+    box-shadow: 0 20px 35px rgba(var(--dr), var(--dg), var(--db), 0.12);
+}
+
+.promo-card-img-wrap {
+    position: relative;
+    overflow: hidden;
+}
+
+.promo-card img {
+    width: 100%;
+    height: 280px;
+    /* móvil */
+    object-fit: cover;
+    display: block;
+    transition: transform 0.4s ease;
+}
+
+.promo-card:hover img {
+    transform: scale(1.03);
+}
+
+/* Desktop: altura de imagen de promo más equilibrada */
+@media (min-width: 1024px) {    
+    .promo-card img {
+        height: 490px;
+
+    }
+}
+
+.promo-overlay-actions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    z-index: 2;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+}
+
+/* Botones de WhatsApp y Compartir — TAMAÑO REDUCIDO */
+.promo-btn-wa,
+.promo-btn-share {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    border-radius: 0.875rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: center;
+    backdrop-filter: blur(12px);
+    border: none;
+    line-height: 1.2;
+}
+
+.promo-btn-wa {
+    background: rgba(34, 197, 94, 0.92);
+    color: white;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+
+.promo-btn-share {
+    background: rgba(var(--dr), var(--dg), var(--db), 0.92);
+    color: white;
+}
+
+.promo-btn-wa:hover,
+.promo-btn-share:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+}
+
+/* ----------------------------------------------
+   9. HORARIO, DIRECCIÓN, CONTACTO
+-------------------------------------------------- */
+.sched-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.sched-row.today {
+    color: rgb(var(--dr), var(--dg), var(--db));
+    font-weight: 700;
+}
+
+.day-name {
+    font-weight: 500;
+}
+
+.hours {
+    color: var(--text-secondary);
+}
+
+.closed-day {
+    color: #f87171;
+}
+
+.pay-chip {
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    transition: var(--transition);
+}
+
+.pay-chip:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--dr), var(--dg), var(--db), 0.4);
+}
+
+/* ----------------------------------------------
+   10. FULL GALLERY (carrusel)
+-------------------------------------------------- */
+.full-gallery {
+    width: 100%;
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+    border-radius: 2rem;
+    background: #111;
+}
+
+.full-gallery-track {
+    display: flex;
+    transition: transform 0.45s cubic-bezier(0.77, 0, 0.18, 1);
+    will-change: transform;
+}
+
+.full-gallery-slide {
+    min-width: 100%;
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    height: 480px;
+}
+
+.full-gallery-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.full-gallery-dots {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.5rem;
+    z-index: 10;
+}
+
+.full-gallery-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.full-gallery-dot.active {
+    background: rgb(var(--dr), var(--dg), var(--db));
+    transform: scale(1.2);
+}
+
+/* ----------------------------------------------
+   11. CTA BANNER
+-------------------------------------------------- */
+#ctaBanner {
+    position: relative;
+    overflow: hidden;
+    border-radius: 2rem;
+    border: 1px solid var(--border);
+}
+
+#ctaGradient {
+    transition: background 0.7s ease;
+}
+
+#ctaGlow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    filter: blur(120px);
+    background: rgba(var(--dr), var(--dg), var(--db), 0.3);
+    pointer-events: none;
+}
+
+/* ----------------------------------------------
+   12. TOAST
+-------------------------------------------------- */
+#toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(120px);
+    background: linear-gradient(135deg,
+            rgb(var(--dr), var(--dg), var(--db)),
+            rgba(var(--dr), var(--dg), var(--db), 0.8));
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    z-index: 9999;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+#toast.show {
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ----------------------------------------------
+   13. ANIMACIONES REVEAL
+-------------------------------------------------- */
+.reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ----------------------------------------------
+   14. RESPONSIVE (ajustes adicionales)
+-------------------------------------------------- */
+@media (min-width: 1280px) {
+    .hero-logo-container {
+        max-height: 540px;
+        min-height: 480px;
+    }
+
+    .full-gallery-slide {
+        height: 520px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .section-header {
+        padding: 1.25rem 1.5rem;
+        font-size: 1.35rem;
+    }
+
+    .section-body {
+        padding: 1.5rem;
+    }
+
+    .hero-logo-container {
+        min-height: 380px;
+    }
+}
+
+@media (max-width: 768px) {
+    main {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    #bizName {
+        font-size: clamp(2.5rem, 8vw, 3.5rem);
+    }
+
+    .hero-logo-container {
+        min-height: 300px;
+        border-radius: 1.5rem;
+    }
+
+    .full-gallery-slide {
+        height: 320px;
+    }
+
+    .promo-btn-wa,
+    .promo-btn-share {
+        padding: 0.65rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .section-header {
+        font-size: 1.25rem;
+        padding: 1rem 1.25rem;
+    }
+
+    .section-body {
+        padding: 1.25rem;
+    }
+
+    .btn-primary {
+        padding: 0.875rem 1.5rem !important;
+        font-size: 0.9rem;
+    }
+}
+
+
+
+@media (max-width: 480px) {
+    .hero-logo-container {
+        min-height: 240px;
+    }
+
+    .full-gallery-slide {
+        height: 260px;
+    }
+
+    .gallery-card {
+        height: 180px;
+    }
+
+
+
+    .promo-overlay-actions {
+        padding: 0.75rem;
+        gap: 0.75rem;
+    }
+
+    .promo-btn-wa,
+    .promo-btn-share {
+        padding: 0.6rem 0.4rem;
+        font-size: 0.75rem;
+    }
+
+    .section-header {
+        font-size: 1.125rem;
+    }
+}

@@ -975,7 +975,7 @@ function render(raw) {
       const cat = (raw.categoria_tienda || "")
         .toLowerCase()
         .replace(/\s+/g, "+");
-      const shareUrl = `https://geinzworkapp.web.app/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
+      const shareUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
       if (navigator.share) {
         navigator.share({ title: nombre, url: shareUrl }).catch(() => copyToClipboard(shareUrl));
       } else {

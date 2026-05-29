@@ -56,7 +56,7 @@
                 <div 
                     class="card"
                     data-id="${item.id}"
-                    onclick="window.location.href='turismo.html?id=${item.id}&l=barranca'"
+                    onclick="window.location.href='turismo?id=${item.id}&l=barranca'"
                     style="animation-delay:${Math.min(idx * .04, .5)}s"
                 >
 

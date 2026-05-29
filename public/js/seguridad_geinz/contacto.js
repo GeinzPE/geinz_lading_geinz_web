@@ -489,7 +489,7 @@ window.addEventListener("load", async () => {
                         ? `🚨 Tu negocio alcanzó ${nuevaDeuda} créditos de deuda acumulada.❌ Tu plantilla premium y contacto directo por WhatsApp fueron desactivados automáticamente.📲 Los enlaces activos fueron cancelados para evitar seguir acumulando deuda.💳 Recarga saldo para volver a activar todas las funciones premium de tu negocio 🚀`
                         : `🚨 Tu negocio tiene una deuda acumulada de ${nuevaDeuda} créditos 💳 📲 Tu WhatsApp sigue recibiendo clientes y clicks directos gracias a tu plantilla premium 🚀 🔥 Recarga tu saldo para evitar interrupciones y seguir recibiendo pedidos. ⚠️ Si superas los ${deudaMaxima} créditos de deuda, tu cuenta pasará automáticamente al plan gratis.`,
                     // ✅ LINK DINÁMICO
-                    link: "https://geinzworkapp.web.app/share?t=scr&id=rec",
+                    link: "https://geinzworkapp.web.app/api/share?t=scr&id=rec",
                   }),
                 },
               );
@@ -652,7 +652,7 @@ function renderError(titulo, descripcion, tiendaData = null) {
     const localidad = tiendaData?.localidad || "barranca";
 
     const perfilUrl =
-      `https://geinzworkapp.web.app/share?t=ti` +
+      `https://geinzworkapp.web.app/api/share?t=ti` +
       `&id=${idTienda}` +
       `&l=${encodeURIComponent(localidad)}` +
       `&c=${categoria}`;

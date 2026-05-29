@@ -2,170 +2,376 @@
 <html lang="es">
 
 <head>
-  <meta charset="UTF-8">
-  <title>Geinz Share</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Geinz | Conectando...</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../img/icons/site.webmanifest">
+  <style>
+    :root {
+      /* Paleta Apple Silicon / Dark Cyber */
+      --bg-main: #030008;
+      --accent-purple: #a855f7;
+      --accent-magenta: #ec4899;
+      --card-bg: rgba(15, 10, 25, 0.6);
+      --card-border: rgba(168, 85, 247, 0.15);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-main);
+      /* Orbes de luz de fondo estilo Apple */
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.12) 0%, transparent 40%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .card {
+      position: relative;
+      text-align: center;
+      padding: 3rem 2.5rem;
+      border-radius: 28px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow:
+        0 30px 60px -15px rgba(0, 0, 0, 0.8),
+        0 0 50px -10px rgba(168, 85, 247, 0.1);
+      max-width: 380px;
+      width: 90%;
+      animation: scaleUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Contenedor del Loader con Resplandor */
+    .loader-wrapper {
+      position: relative;
+      width: 86px;
+      height: 86px;
+      margin: 0 auto 2rem;
+    }
+
+    .loader-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-magenta));
+      border-radius: 50%;
+      filter: blur(12px);
+      opacity: 0.35;
+      animation: pulseGlow 2s ease-in-out infinite alternate;
+    }
+
+    /* Spinner con Gradiente */
+    .spinner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-magenta) 50%, transparent 100%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .brand-letter {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff 30%, var(--accent-purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+      letter-spacing: -0.5px;
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+    }
+
+    /* Animaciones de Alto Rendimiento */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulseGlow {
+      from {
+        transform: scale(0.92);
+        opacity: 0.25;
+      }
+
+      to {
+        transform: scale(1.08);
+        opacity: 0.45;
+      }
+    }
+
+    @keyframes scaleUp {
+      from {
+        transform: scale(0.95);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+  </style>
 </head>
 
 <body>
 
+  <div class="card">
+    <div class="loader-wrapper">
+      <div class="loader-glow"></div>
+      <div class="spinner"></div>
+      <div class="brand-letter">G</div>
+    </div>
+    <h1>Abriendo Geinz</h1>
+    <p>Redireccionando de forma segura...</p>
+  </div>
+
   <script>
     (function () {
-
       console.clear();
-      console.log("🚀 SHARE INICIADO");
+      console.log("════════════════════════════════════");
+      console.log("🚀 GEINZ REDIRECT INICIADO");
+      console.log("════════════════════════════════════");
+      console.log("🌐 URL:", window.location.href);
+      console.log("🛣️ PATH:", window.location.pathname);
+      console.log("🔎 SEARCH:", window.location.search);
 
+      // =====================================================
+      // PARAMETROS
+      // =====================================================
       const params = new URLSearchParams(window.location.search);
-
-      // =========================
-      // DETECTAR TIPO
-      // =========================
-      let t = (params.get("t") || "").trim().toLowerCase();
-
-      if (!t) {
-        const path = window.location.pathname;
-        console.log("🛣️ PATH:", path);
-        if (path.includes("/ti")) t = "ti";
-        else if (path.includes("/p")) t = "p";
-        else if (path.includes("/scr")) t = "scr";
-        else if (path.includes("/prms")) t = "prms";
-        else if (path.includes("/promo")) t = "promo";
-        else if (path.includes("/tu")) t = "tu";
+      console.log("════════════════════════════════════");
+      console.log("📦 PARAMETROS DETECTADOS");
+      console.log("════════════════════════════════════");
+      for (const [key, value] of params.entries()) {
+        console.log(`➡️ ${key} =`, value);
       }
 
-      // =========================
-      // PARAMETROS
-      // =========================
+      // =====================================================
+      // TIPO
+      // =====================================================
+      let t = (
+        params.get("t") ||
+        params.get("tipo") ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+      console.log("📌 TIPO ORIGINAL:", t);
+
+      // =====================================================
+      // DETECTAR TIPO POR PATH
+      // =====================================================
+      if (!t) {
+        const path = window.location.pathname.toLowerCase();
+        console.warn("⚠️ NO EXISTE PARAMETRO t");
+        console.log("🔍 DETECTANDO POR PATH...");
+
+        if (path.includes("/ti")) { t = "ti"; }
+        else if (path.includes("/p")) { t = "p"; }
+        else if (path.includes("/scr")) { t = "scr"; }
+        else if (path.includes("/prms")) { t = "prms"; }
+        else if (path.includes("/promo")) { t = "promo"; }
+        else if (path.includes("/tu")) { t = "tu"; }
+      }
+
+      console.log("✅ TIPO FINAL:", t);
+
+      // =====================================================
+      // ID
+      // =====================================================
       const rawId = (() => {
         const id = params.get("id");
         const pi = params.get("pi");
+        console.log("🆔 id:", id);
+        console.log("🆔 pi:", pi);
 
-        if (id !== null && id.trim() !== "" && id !== "undefined" && id !== "null") {
-          return id.trim();
-        }
-        if (pi !== null && pi.trim() !== "" && pi !== "undefined" && pi !== "null") {
-          return pi.trim();
-        }
+        if (id && id !== "undefined" && id !== "null") { return id.trim(); }
+        if (pi && pi !== "undefined" && pi !== "null") { return pi.trim(); }
         return "";
       })();
 
       const id = rawId;
+      console.log("✅ ID FINAL:", id);
 
+      // =====================================================
+      // LOCALIDAD
+      // =====================================================
       let loc = (
         params.get("l") ||
         params.get("localidad") ||
         ""
-      ).trim().toLowerCase();
+      )
+        .trim()
+        .toLowerCase();
 
+      console.log("📍 LOCALIDAD ORIGINAL:", loc);
+
+      switch (loc) {
+        case "ba":
+        case "barranca":
+          loc = "barranca";
+          break;
+        case "par":
+        case "paramonga":
+          loc = "paramonga";
+          break;
+        case "pat":
+        case "pativilca":
+          loc = "pativilca";
+          break;
+        case "su":
+        case "supe":
+          loc = "supe";
+          break;
+        case "pue":
+        case "puerto supe":
+        case "puertosupe":
+          loc = "puerto supe";
+          break;
+        default:
+          if (!loc) { console.warn("⚠️ LOCALIDAD VACIA"); }
+          else { console.warn("⚠️ LOCALIDAD NO RECONOCIDA:", loc); }
+          break;
+      }
+
+      console.log("✅ LOCALIDAD FINAL:", loc);
+
+      // =====================================================
+      // CATEGORIA
+      // =====================================================
       const cat = (
         params.get("c") ||
+        params.get("categoria") ||
         params.get("subcol") ||
         ""
       ).trim();
 
-      // =========================
-      // NORMALIZAR LOCALIDADES
-      // =========================
-      switch (loc) {
-        case "ba":
-        case "barranca": loc = "barranca"; break;
-        case "par":
-        case "paramonga": loc = "paramonga"; break;
-        case "pat":
-        case "pativilca": loc = "pativilca"; break;
-        case "su":
-        case "supe": loc = "supe"; break;
-        case "pue":
-        case "puerto supe":
-        case "puertosupe": loc = "puerto supe"; break;
-        default: loc = "barranca"; break;
-      }
+      console.log("📂 CATEGORIA:", cat);
 
-      console.table({ t, id, loc, cat });
+      // =====================================================
+      // INDICE
+      // =====================================================
+      const indice = (
+        params.get("i") ||
+        params.get("indice") ||
+        ""
+      ).trim();
 
-      // =========================
-      // VALIDAR
-      // =========================
+      console.log("🎁 INDICE:", indice);
+
+      // =====================================================
+      // VALIDACIONES
+      // =====================================================
+      console.log("════════════════════════════════════");
+      console.log("✅ VALIDANDO");
+      console.log("════════════════════════════════════");
+
       if (!t) {
-        console.error("❌ TIPO NO DETECTADO");
+        console.error("❌ NO EXISTE TIPO");
         return;
       }
 
-      if (!id && t !== "scr" && t !== "prms" && t !== "promo") {
+      if (!id && t !== "scr" && t !== "promo" && t !== "prms") {
         console.error("❌ NO EXISTE ID");
         return;
       }
 
+      console.log("✅ VALIDACIONES OK");
+
+      // =====================================================
+      // DESTINO
+      // =====================================================
       let destino = "";
+      console.log("════════════════════════════════════");
+      console.log("🛣️ GENERANDO DESTINO");
+      console.log("════════════════════════════════════");
 
-      // =====================================================
-      // NEGOCIOS
-      // =====================================================
-      // =====================================================
-      // NEGOCIOS + PROMOS INTERNAS
-      // =====================================================
       if (t === "ti" || t === "p") {
-
-        console.log("🏪 ENTRANDO A NEGOCIO");
-
-        const promoIndex = (
-          params.get("i") ||
-          params.get("indice") ||
-          ""
-        ).trim();
-
-        destino =
-          `/perfil_negocio.html` +
-          `?id=${encodeURIComponent(id)}` +
-          `&localidad=${encodeURIComponent(loc)}` +
-          `&subcol=${encodeURIComponent(cat || "")}`;
-
-        // si existe promo interna la enviamos
-        if (promoIndex) {
-          destino += `&i=${encodeURIComponent(promoIndex)}`;
-        }
+        console.log("🏪 NEGOCIO");
+        destino = `/redirect/perfil_negocio?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}&subcol=${encodeURIComponent(cat)}`;
+        if (indice) { destino += `&i=${encodeURIComponent(indice)}`; }
       }
-
-      // =====================================================
-      // SERVICIOS / TURISMO / SALUD
-      // =====================================================
-      else if (t === "scr") {
-        console.log("🛠️ ENTRANDO A SCR");
-        if (id === "lgtr") { console.log("🌎 TURISMO"); destino = `/pantalla_turismo.html`; }
-        else if (id === "nemg") { console.log("🚑 EMERGENCIA"); destino = `/emergencia.html`; }
-        else if (id === "seyt") { console.log("🛠️ SERVICIOS"); destino = `/pantalla_servicios_geinz.html`; }
-        else { console.error("❌ SCR ID DESCONOCIDO:", id); return; }
-      }
-
-      // =====================================================
-      // TURISMO DIRECTO
-      // =====================================================
       else if (t === "tu") {
-        console.log("🌎 TURISMO DIRECTO");
-        destino =
-          `/turismo.html` +
-          `?id=${encodeURIComponent(id)}` +
-          `&localidad=${encodeURIComponent(loc)}`;
+        console.log("🌎 TURISMO");
+        destino = `/redirect/turismo?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}`;
       }
-
-      // =====================================================
-      // PROMOS
-      // =====================================================
       else if (t === "prms" || t === "promo") {
         console.log("🎁 PROMOS");
-        destino =
-          `/promociones.html` +
-          `?localidad=${encodeURIComponent(loc)}` +
-          `&id=${encodeURIComponent(id)}`;
+        destino = `/redirect/promociones?localidad=${encodeURIComponent(loc)}&id=${encodeURIComponent(id)}`;
       }
-
+      else if (t === "scr") {
+        console.log("🛠️ SCR");
+        if (id === "lgtr") { destino = `/redirect/pantalla_turismo`; }
+        else if (id === "nemg") { destino = `/redirect/emergencia`; }
+        else if (id === "seyt") { destino = `/redirect/pantalla_servicios_geinz`; }
+        else {
+          console.error("❌ SCR NO RECONOCIDO:", id);
+          return;
+        }
+      }
       else {
-        console.error("❌ TIPO DESCONOCIDO:", t);
+        console.error("❌ TIPO NO RECONOCIDO:", t);
         return;
       }
 
       // =====================================================
       // REDIRECCION
       // =====================================================
+      console.log("════════════════════════════════════");
+      console.log("🚀 REDIRECCION FINAL");
+      console.log("════════════════════════════════════");
       console.log("📍 DESTINO:", destino);
 
       if (!destino) {
@@ -174,10 +380,13 @@
       }
 
       const finalUrl = window.location.origin + destino;
-      console.log("🌐 URL FINAL:", finalUrl);
+      console.log("🌐 FINAL URL:", finalUrl);
+      console.log("⏳ REDIRECCIONANDO...");
 
-      window.location.replace(finalUrl);
-
+      setTimeout(() => {
+        console.log("✅ EJECUTANDO REDIRECT");
+        window.location.href = finalUrl;
+      }, 300);
     })();
   </script>
 

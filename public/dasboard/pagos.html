@@ -17,7 +17,7 @@
 </head>
 
 <body style="background:#070707;margin:0">
-    <a href="../dasboard/recargas.html" class="back-btn">
+    <a href="../dasboard/recargas" class="back-btn">
         < </a>
             <div class="wrap">
                 <div class="card" id="mainContent" style="display:none;">
@@ -228,7 +228,7 @@
                                 </svg>
                             </div>
                             <div class="terms-txt">Al pagar acepto los <a class="terms-lnk"
-                                    href="terminos_y_condiciones.html" onclick="">términos
+                                    href="../seguridad_geinz/terminos_y_condiciones.html" onclick="">términos
                                     y condiciones</a> de Geinz Tech y autorizo el cargo a mi método de pago.</div>
                         </div>
 
@@ -304,10 +304,10 @@
                                     detalles de tu pago.</p>
                             </div>
 
-                            <a href="../dasboard/recargas.html">
-                                <button class="btn-sec">Volver al inicio</button>
-                            </a>
-
+                            <button class="btn-sec"
+                                onclick="window.top.postMessage({ tipo: 'NAVEGAR', seccion: 'recargas' }, '*')">
+                                Volver al inicio
+                            </button>
                             <p class="footer-note">
                                 ¿Algún problema?
                                 <a href="#" onclick="irWhatsApp()">Escríbenos a +51 958 120 920</a>

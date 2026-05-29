@@ -744,7 +744,7 @@
                 <!-- ===== RECARGAS ===== -->
                 <div class="section" id="sec-recargas">
 
-                    <iframe src="recargas.html" style="
+                    <iframe src="recargas" style="
                         width:100%;
                         height:100vh;
                         border:none;
@@ -759,7 +759,7 @@
 
                 <div class="section" id="sec-daniel">
 
-                    <iframe src="lading_daniel.html" style="
+                    <iframe src="lading_daniel" style="
                         width:100%;
                         height:100vh;
                         border:none;
@@ -774,7 +774,7 @@
                 <!-- ===== PUBLICIDAD ===== -->
                 <div class="section" id="sec-publicidad">
 
-                    <iframe src="publicaicones.html" style="
+                    <iframe src="publicaicones" style="
                         width:100%;
                         height:100vh;
                         border:none;
@@ -789,7 +789,7 @@
 
                 <div class="section" id="sec-cotiza">
 
-                    <iframe src="baner_geinz_bot.html" style="
+                    <iframe src="baner_geinz_bot" style="
                         width:100%;
                         height:100vh;
                         border:none;
@@ -1162,7 +1162,7 @@
         </div>
     </div>
     <script type="module">
-        import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
         import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getFirestore, doc, updateDoc, arrayRemove, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -1179,7 +1179,24 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        /* 🔥 ESPERA REAL DE FIREBASE AUTH */
+        onAuthStateChanged(auth, (user) => {
+
+            if (!user) {
+                sessionStorage.removeItem("tiendaId");
+                sessionStorage.removeItem("localidad");
+                sessionStorage.removeItem("correoVinculado");
+
+                window.location.replace("../index");
+                return;
+            }
+
+            console.log("Usuario logeado OK:", user.uid);
+        });
+
+
         window.cerrarSesionPanel = async () => {
+
             const uid = auth.currentUser?.uid;
             const propietarios = window.PanelPerfil?.currentData?.propietario_id || [];
             const estaVinculado = uid && propietarios.includes(uid);
@@ -1193,7 +1210,6 @@
 
             if (estaVinculado && uid) {
                 try {
-                    // 1. Eliminar UID de propietario_id en la tienda
                     const tiendaRef = doc(
                         db,
                         "Tiendas",
@@ -1201,12 +1217,19 @@
                         window.PanelPerfil.LOCALIDAD_TIENDA,
                         window.PanelPerfil.TIENDA_ID
                     );
+
                     await updateDoc(tiendaRef, {
                         propietario_id: arrayRemove(uid)
                     });
 
-                    // 2. Eliminar id_tienda_propietario del documento del usuario
-                    const userRef = doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid);
+                    const userRef = doc(
+                        db,
+                        "Trabajadores_Usuarios_Drivers",
+                        "users",
+                        "users",
+                        uid
+                    );
+
                     await updateDoc(userRef, {
                         id_tienda_propietario: deleteField()
                     });
@@ -1224,7 +1247,7 @@
             sessionStorage.removeItem("localidad");
             sessionStorage.removeItem("correoVinculado");
 
-            window.location.replace("../index.html");
+            window.location.replace("../index");
         };
     </script>
     <script>
@@ -1249,8 +1272,8 @@
 
             document.getElementById('iframeBackBtn').classList.remove('visible');
 
-            // Recargar el iframe a recargas.html
-            iframe.src = 'recargas.html';
+            // Recargar el iframe a recargas
+            iframe.src = 'recargas';
 
             // Cuando termine de cargar, reenviar los datos guardados
             iframe.addEventListener('load', function reenviar() {
@@ -1284,7 +1307,7 @@
             iframe.addEventListener('load', function () {
                 try {
                     const iframeHref = iframe.contentWindow.location.href;
-                    const esRecargas = iframeHref.includes('recargas.html') || iframeHref === 'about:blank';
+                    const esRecargas = iframeHref.includes('recargas') || iframeHref === 'about:blank';
                     if (!esRecargas) {
                         btn.classList.add('visible');
                     } else {
@@ -1296,6 +1319,34 @@
                 }
             });
         })();
+    </script>
+    <script>
+        window.addEventListener('message', function (e) {
+            const { tipo, seccion } = e.data || {};
+            if (tipo !== 'NAVEGAR') return;
+
+            if (seccion === 'recargas') {
+                const iframe = document.querySelector('#sec-recargas iframe');
+                if (iframe) {
+                    iframe.src = iframe.src; // recarga limpia
+
+                    // cuando termine de cargar, reenviar los datos guardados
+                    iframe.addEventListener('load', function reenviar() {
+                        iframe.removeEventListener('load', reenviar);
+                        setTimeout(() => {
+                            if (window._datosParaIframe) {
+                                iframe.contentWindow.postMessage(window._datosParaIframe, '*');
+                                console.log('📤 Datos reenviados al iframe:', window._datosParaIframe);
+                            }
+                        }, 300);
+                    }, { once: true });
+                }
+            }
+
+            if (window.PanelPerfil && typeof PanelPerfil.showSection === 'function') {
+                PanelPerfil.showSection(seccion || 'perfil');
+            }
+        });
     </script>
     <input type="file" id="avatarFileInputHtml" accept="image/*" style="display:none;">
 </body>

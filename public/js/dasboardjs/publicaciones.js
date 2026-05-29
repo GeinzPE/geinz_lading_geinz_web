@@ -1217,7 +1217,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const localidadMap = { barranca: "ba", lima: "li", callao: "ca" };
     const l =
       localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
-    const url = `https://geinzworkapp.web.app/share?t=prms&l=${l}&pi=${id_promocion}`;
+    const url = `https://geinzworkapp.web.app/api/share?t=prms&l=${l}&pi=${id_promocion}`;
     const urlCorta = url.length > 52 ? url.slice(0, 52) + "..." : url;
 
     const modal = document.createElement("div");

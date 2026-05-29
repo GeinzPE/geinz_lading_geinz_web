@@ -274,7 +274,7 @@ function openLightboxFallback(imgUrl) {
    ════════════════════════════════ */
 
 function getShareUrl() {
-  return `https://geinzworkapp.web.app/share?t=tu&id=${placeId}&l=${locationName}&c=lugares_turisticos`;
+  return `https://geinzworkapp.web.app/api/share?t=tu&id=${placeId}&l=${locationName}&c=lugares_turisticos`;
 }
 
 async function handleShare() {

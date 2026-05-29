@@ -446,7 +446,9 @@ async function showSplash(user) {
       sessionStorage.setItem("tiendaId", idTienda);
       sessionStorage.setItem("localidad", localidad);
 
-      window.location.href = `../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
+            window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
+
+
     } catch (err) {
       console.error("Error validando tienda:", err);
       showSnackbar("Error al validar tu tienda");
@@ -542,7 +544,7 @@ window.continuarPanel = async () => {
     sessionStorage.setItem("localidad", localidadSeleccionada);
     sessionStorage.setItem("tiendaId", valor);
 
-    window.location.href = `../dasboard/panel_perfil.html?id=${encodeURIComponent(valor)}&localidad=${encodeURIComponent(localidadSeleccionada)}`;
+    window.location.href = `./../../dasboard/panel_perfil?id=${encodeURIComponent(valor)}&localidad=${encodeURIComponent(localidadSeleccionada)}`;
   } catch (error) {
     console.error("🔥 Error:", error);
     showAlert("Error al validar. Intenta de nuevo.");
@@ -596,7 +598,7 @@ window.accederSocio = async () => {
     sessionStorage.setItem("tiendaId", idTienda);
     sessionStorage.setItem("localidad", localidad);
 
-    window.location.href = `../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
+    window.location.href = `./../../dasboard/panel_perfil?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
   } catch (error) {
     console.error("🔥 Error:", error);
     alert("Error al validar. Intenta de nuevo.");

@@ -1,394 +1,377 @@
-
-
 /* ── CSS DE ESTADOS (inyectado dinámicamente) ── */
 const STATE_CSS = `
-  /* ── PANTALLA DE ESTADO FULLSCREEN ── */
+ 
+  /* ════════════════════════════════
+     PANTALLA BASE
+  ════════════════════════════════ */
   .state-screen {
     position: fixed;
     inset: 0;
     z-index: 9999;
+    background: #08080a;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #07050e;
-    padding: 20px;
-    animation: fadeInState .3s ease both;
+    animation: fadeInState .25s ease both;
+    overflow: hidden;
   }
-
+ 
   @keyframes fadeInState {
     from { opacity: 0; }
-    to { opacity: 1; }
+    to   { opacity: 1; }
   }
-
-  /* ── SHIMMER LOADING ── */
+ 
+  /* ════════════════════════════════
+     SHIMMER — ESTRUCTURA FULL GRID
+     Replica exacta del shell real:
+     desktop = 2 cols, mobile = 1 col
+  ════════════════════════════════ */
   .state-screen.loading {
-    gap: 0;
+    display: grid;
+    grid-template-columns: 1.1fr .9fr;
+    min-height: 100vh;
   }
-
-  .shimmer-wrap {
-    width: 100%;
-    max-width: 540px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: 28px;
-    background: #0f0918;
-    border: 1px solid rgba(255,255,255,.05);
-    box-shadow: 0 10px 40px rgba(0,0,0,.35);
-  }
-
-  .shimmer-img {
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: #1a1228;
+ 
+  /* ── LADO IZQUIERDO: bloque imagen ── */
+  .sk-img-col {
     position: relative;
+    background: #0f0f12;
     overflow: hidden;
-    flex-shrink: 0;
-    border-radius: 24px 24px 0 0;
   }
-
-  .shimmer-body {
-    padding: 22px 18px;
+ 
+  /* ── LADO DERECHO: contenido ── */
+  .sk-body-col {
+    padding: 56px 52px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    justify-content: center;
+    gap: 28px;
+    background: #09090b;
+    border-left: 1px solid rgba(255,255,255,.04);
   }
-
-  .shimmer-biz {
+ 
+  /* ── NEGOCIO ROW ── */
+  .sk-biz {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
-
-  .shimmer-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #1a1228;
-    flex-shrink: 0;
+ 
+  .sk-avatar {
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+    border-radius: 20px;
+    background: #16161a;
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
   }
-
-  .shimmer-biz-info {
+ 
+  .sk-biz-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
     flex: 1;
+  }
+ 
+  /* ── TÍTULO ── */
+  .sk-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+ 
+  /* ── DESCRIPCIÓN ── */
+  .sk-desc-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-
-  .sh-line {
-    background: #1a1228;
+ 
+  /* ── PÍLDORA DÍAS ── */
+  .sk-pill {
+    width: 140px;
+    height: 40px;
     border-radius: 999px;
+    background: #16161a;
     position: relative;
     overflow: hidden;
   }
-
-  .sh-line::after,
-  .shimmer-img::after,
-  .shimmer-avatar::after {
+ 
+  /* ── BOTÓN ── */
+  .sk-btn {
+    height: 62px;
+    border-radius: 18px;
+    background: #16161a;
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  /* ── SHARE ROW ── */
+  .sk-share {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+ 
+  .sk-share-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,.05);
+  }
+ 
+  .sk-share-pill {
+    width: 120px;
+    height: 44px;
+    border-radius: 999px;
+    background: #16161a;
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  /* ── BASE LINE SHIMMER ── */
+  .sh {
+    background: #16161a;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  .sh.r-full { border-radius: 999px; }
+ 
+  /* ── SHIMMER SWEEP (plateado puro, sin color) ── */
+  .sk-img-col::after,
+  .sh::after,
+  .sk-avatar::after,
+  .sk-pill::after,
+  .sk-btn::after,
+  .sk-share-pill::after {
     content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(130,70,240,.18) 40%,
-      rgba(160,100,255,.28) 50%,
-      rgba(130,70,240,.18) 60%,
-      transparent 100%
+      105deg,
+      transparent       0%,
+      transparent      35%,
+      rgba(255,255,255,.035) 45%,
+      rgba(255,255,255,.07)  50%,
+      rgba(255,255,255,.035) 55%,
+      transparent      65%,
+      transparent     100%
     );
-    background-size: 200% 100%;
-    animation: shimmer-move 1.6s ease-in-out infinite;
+    background-size: 250% 100%;
+    animation: sk-sweep 1.8s ease-in-out infinite;
   }
-
-  @keyframes shimmer-move {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+ 
+  /* Delays escalonados para sensación orgánica */
+  .sk-avatar::after          { animation-delay: 0s; }
+  .sk-biz-lines .sh:first-child::after { animation-delay: .1s; }
+  .sk-biz-lines .sh:last-child::after  { animation-delay: .2s; }
+  .sk-title-group .sh:first-child::after { animation-delay: .05s; }
+  .sk-title-group .sh:last-child::after  { animation-delay: .15s; }
+  .sk-btn::after             { animation-delay: .25s; }
+  .sk-img-col::after         { animation-delay: .08s; }
+ 
+  @keyframes sk-sweep {
+    0%   { background-position: 120% 0; }
+    100% { background-position: -120% 0; }
   }
-
-  .sh-l1 {
-    height: 16px;
-    width: 55%;
+ 
+  /* ── LOGO GEINZ ── */
+  .loading-logo {
+    position: fixed;
+    top: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .25em;
+    color: rgba(255,255,255,.18);
+    z-index: 10000;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    pointer-events: none;
   }
-
-  .sh-l2 {
-    height: 12px;
-    width: 38%;
+ 
+  /* ── OCULTAR CONTENIDO REAL MIENTRAS CARGA ── */
+  .shell.is-loading > * {
+    visibility: hidden;
   }
-
-  .sh-title1 {
-    height: 24px;
-    width: 92%;
-    border-radius: 12px;
+ 
+  /* ── REVEAL ANIMATION ── */
+  @keyframes contentReveal {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-
-  .sh-title2 {
-    height: 24px;
-    width: 72%;
-    border-radius: 12px;
+ 
+  .shell.revealed .promo-img-wrap {
+    animation: contentReveal .45s cubic-bezier(0.16,1,0.3,1) both;
   }
-
-  .sh-desc1 {
-    height: 13px;
-    width: 100%;
+ 
+  .shell.revealed .body {
+    animation: contentReveal .45s cubic-bezier(0.16,1,0.3,1) .06s both;
   }
-
-  .sh-desc2 {
-    height: 13px;
-    width: 82%;
+ 
+  /* ════════════════════════════════
+     ESTADOS: EXPIRED / DELETED
+     Pantalla completa centrada
+  ════════════════════════════════ */
+  .state-screen.state-full {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    gap: 0;
   }
-
-  .sh-desc3 {
-    height: 13px;
-    width: 60%;
-  }
-
-  .sh-pill {
-    height: 30px;
-    width: 140px;
-    border-radius: 999px;
-  }
-
-  .sh-btn {
-    height: 52px;
-    width: 100%;
-    border-radius: 18px;
-  }
-
-  /* ── ESTADO VENCIDO ── */
-  .state-icon {
-    width: 84px;
-    height: 84px;
+ 
+  /* Glow de fondo suave */
+  .state-full::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
     border-radius: 50%;
+    filter: blur(140px);
+    opacity: .12;
+    pointer-events: none;
+  }
+ 
+  .state-full.expired::before  { background: #fbbf24; }
+  .state-full.deleted::before  { background: #ef4444; }
+ 
+  /* Icono grande */
+  .state-icon {
+    width: 96px;
+    height: 96px;
+    border-radius: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 38px;
-    margin-bottom: 24px;
+    font-size: 40px;
+    margin-bottom: 28px;
+    position: relative;
+    z-index: 1;
   }
-
+ 
   .state-icon.expired {
-    background: rgba(234,179,8,.1);
-    border: 1px solid rgba(234,179,8,.25);
+    background: rgba(251,191,36,.06);
+    border: 1px solid rgba(251,191,36,.15);
+    box-shadow: 0 0 60px rgba(251,191,36,.08), inset 0 1px 0 rgba(255,255,255,.04);
   }
-
+ 
   .state-icon.deleted {
-    background: rgba(239,68,68,.1);
-    border: 1px solid rgba(239,68,68,.25);
+    background: rgba(239,68,68,.06);
+    border: 1px solid rgba(239,68,68,.15);
+    box-shadow: 0 0 60px rgba(239,68,68,.08), inset 0 1px 0 rgba(255,255,255,.04);
   }
-
+ 
+  .state-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+  }
+ 
+  .state-badge.expired {
+    background: rgba(251,191,36,.07);
+    color: #fbbf24;
+    border: 1px solid rgba(251,191,36,.18);
+  }
+ 
+  .state-badge.deleted {
+    background: rgba(239,68,68,.07);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,.18);
+  }
+ 
   .state-title {
-    font-family: 'Fraunces', serif;
-    font-size: clamp(22px, 5vw, 28px);
-    font-weight: 400;
-    color: #ede8ff;
-    margin-bottom: 10px;
+    font-size: clamp(22px, 4vw, 28px);
+    font-weight: 800;
+    color: #f4f4f5;
+    margin-bottom: 12px;
     text-align: center;
-    padding: 0 24px;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+    position: relative;
+    z-index: 1;
   }
-
+ 
   .state-sub {
-    font-size: 14px;
-    color: #5c5070;
+    font-size: 15px;
+    color: #71717a;
     text-align: center;
     line-height: 1.6;
-    padding: 0 32px;
-    margin-bottom: 32px;
-  }
-
-  .state-badge {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    padding: 7px 18px;
-    border-radius: 999px;
     margin-bottom: 36px;
+    max-width: 320px;
+    position: relative;
+    z-index: 1;
   }
-
-  .state-badge.expired {
-    background: rgba(234,179,8,.12);
-    color: #fbbf24;
-    border: 1px solid rgba(234,179,8,.3);
-  }
-
-  .state-badge.deleted {
-    background: rgba(239,68,68,.12);
-    color: #f87171;
-    border: 1px solid rgba(239,68,68,.3);
-  }
-
+ 
   .state-back-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(124,58,237,.12);
-    border: 1px solid rgba(124,58,237,.3);
-    color: #bf97fb;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #ffffff;
+    border: none;
+    color: #000;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     border-radius: 999px;
-    padding: 12px 24px;
+    padding: 14px 28px;
     cursor: pointer;
-    transition: all .25s;
-  }
-
-  .state-back-btn:hover {
-    background: rgba(124,58,237,.22);
-  }
-
-  /* content hidden while loading */
-  .shell.is-loading > *:not(.state-screen) {
-    visibility: hidden;
-  }
-
-  /* fade in content */
-  @keyframes contentReveal {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .shell.revealed .promo-img-wrap,
-  .shell.revealed .body {
-    animation: contentReveal .5s ease both;
-  }
-
-  .shell.revealed .body {
-    animation-delay: .1s;
-  }
-
-  /* ── PHOTOSWIPE GALLERY ── */
-  .promo-img-wrap {
-    cursor: pointer;
-    transition: opacity .2s;
-    border-radius: 24px;
-    overflow: hidden;
+    transition: transform .2s ease, box-shadow .2s ease;
     position: relative;
+    z-index: 1;
   }
-
-  .promo-img-wrap:hover {
-    opacity: .92;
+ 
+  .state-back-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(255,255,255,.12);
   }
-
-  .img-counter {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    z-index: 3;
-    background: rgba(7,5,14,.75);
-    backdrop-filter: blur(8px);
-    color: #ede8ff;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 5px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.1);
-    pointer-events: none;
+ 
+  .state-back-btn:active {
+    transform: translateY(0);
   }
-
-  .img-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 3;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(7,5,14,.6);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.12);
-    color: #ede8ff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all .2s;
-    font-size: 18px;
-    line-height: 1;
-  }
-
-  .img-nav:hover {
-    background: rgba(124,58,237,.3);
-    border-color: rgba(124,58,237,.4);
-  }
-
-  .img-nav.prev {
-    left: 10px;
-  }
-
-  .img-nav.next {
-    right: 10px;
-  }
-
-  .img-nav.hidden {
-    display: none;
-  }
-
-  .img-dots {
-    position: absolute;
-    bottom: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 3;
-    display: flex;
-    gap: 5px;
-    pointer-events: none;
-  }
-
-  .img-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.35);
-    transition: all .25s;
-  }
-
-  .img-dot.active {
-    background: #bf97fb;
-    box-shadow: 0 0 6px rgba(124,58,237,.6);
-    width: 16px;
-  }
-
-  .pswp {
-    --pswp-bg: #07050e;
-  }
-
-  /* ── MOBILE ── */
-  @media (max-width: 640px) {
-    .state-screen {
-      padding: 14px;
+ 
+  /* ════════════════════════════════
+     RESPONSIVE SKELETON
+  ════════════════════════════════ */
+  @media (max-width: 768px) {
+ 
+    .state-screen.loading {
+      grid-template-columns: 1fr;
+      grid-template-rows: 44svh 1fr;
     }
-
-    .shimmer-wrap {
-      border-radius: 22px;
+ 
+    .sk-body-col {
+      padding: 28px 20px 40px;
+      gap: 22px;
+      border-left: none;
+      border-top: 1px solid rgba(255,255,255,.04);
     }
-
-    .shimmer-img {
-      border-radius: 22px 22px 0 0;
+ 
+    .sk-avatar {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      border-radius: 16px;
     }
-
-    .shimmer-body {
-      padding: 18px 15px;
-      gap: 12px;
-    }
-
-    .img-nav {
-      width: 32px;
-      height: 32px;
-      font-size: 16px;
-    }
+ 
+    .sk-btn { height: 56px; border-radius: 16px; }
+ 
+    .loading-logo { top: 24px; font-size: 12px; }
+  }
+ 
+  @media (max-width: 400px) {
+    .sk-body-col { padding: 22px 16px 36px; }
   }
 `;
-
 function injectCSS(css) {
   const s = document.createElement("style");
   s.textContent = css;
@@ -396,64 +379,90 @@ function injectCSS(css) {
 }
 
 /* ── SHIMMER SKELETON ── */
+
 function showLoading() {
   injectCSS(STATE_CSS);
 
   /* Logo GEINZ flotante */
   const logo = document.createElement("div");
   logo.className = "loading-logo";
-  logo.textContent = "GEINZ";
+
   document.body.appendChild(logo);
 
-  /* Shimmer skeleton */
+  /* Skeleton — replica el grid del shell */
   const screen = document.createElement("div");
   screen.className = "state-screen loading";
   screen.id = "stateScreen";
   screen.innerHTML = `
-    <div class="shimmer-wrap">
-      <div class="shimmer-img"></div>
-      <div class="shimmer-body">
-        <div class="shimmer-biz">
-          <div class="shimmer-avatar sh-line"></div>
-          <div class="shimmer-biz-info">
-            <div class="sh-line sh-l1"></div>
-            <div class="sh-line sh-l2"></div>
-          </div>
+ 
+    <!-- Columna imagen -->
+    <div class="sk-img-col"></div>
+ 
+    <!-- Columna contenido -->
+    <div class="sk-body-col">
+ 
+      <!-- Negocio -->
+      <div class="sk-biz">
+        <div class="sk-avatar"></div>
+        <div class="sk-biz-lines">
+          <div class="sh r-full" style="height:14px;width:52%"></div>
+          <div class="sh r-full" style="height:10px;width:32%"></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div class="sh-line sh-title1"></div>
-          <div class="sh-line sh-title2"></div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:7px">
-          <div class="sh-line sh-desc1"></div>
-          <div class="sh-line sh-desc2"></div>
-          <div class="sh-line sh-desc3"></div>
-        </div>
-        <div class="sh-line sh-pill"></div>
-        <div class="sh-line sh-btn"></div>
+        <div class="sh r-full" style="height:36px;width:100px;flex-shrink:0"></div>
       </div>
-    </div>`;
+ 
+      <!-- Título -->
+      <div class="sk-title-group">
+        <div class="sh" style="height:26px;width:95%;border-radius:10px"></div>
+        <div class="sh" style="height:26px;width:72%;border-radius:10px"></div>
+        <div class="sh" style="height:26px;width:48%;border-radius:10px"></div>
+      </div>
+ 
+      <!-- Descripción -->
+      <div class="sk-desc-group">
+        <div class="sh r-full" style="height:12px;width:100%"></div>
+        <div class="sh r-full" style="height:12px;width:88%"></div>
+        <div class="sh r-full" style="height:12px;width:60%"></div>
+      </div>
+ 
+      <!-- Píldora días -->
+      <div class="sk-pill"></div>
+ 
+      <!-- Divider -->
+      <div style="height:1px;background:rgba(255,255,255,.04)"></div>
+ 
+      <!-- Botón -->
+      <div class="sk-btn"></div>
+ 
+      <!-- Share row -->
+      <div class="sk-share">
+        <div class="sh r-full" style="height:10px;width:60px"></div>
+        <div class="sk-share-line"></div>
+        <div class="sk-share-pill"></div>
+      </div>
+ 
+    </div>
+  `;
+
   document.body.appendChild(screen);
 }
 
 function hideLoading() {
-  /* quitar logo */
   const logo = document.querySelector(".loading-logo");
   if (logo) logo.remove();
-  /* fade out skeleton */
+
   const screen = document.getElementById("stateScreen");
   if (screen) {
     screen.style.transition = "opacity .4s ease";
     screen.style.opacity = "0";
     setTimeout(() => screen.remove(), 400);
   }
-  /* revelar contenido */
+
   setTimeout(
     () => document.querySelector(".shell")?.classList.add("revealed"),
     350,
   );
 }
-
 /* ── ESTADO VENCIDO ── */
 function showExpired() {
   const screen = document.getElementById("stateScreen");
@@ -462,7 +471,7 @@ function showExpired() {
   if (logo) logo.remove();
 
   const s = document.createElement("div");
-  s.className = "state-screen";
+  s.className = "state-screen state-full expired";
   s.innerHTML = `
     <div class="state-icon expired">⏰</div>
     <div class="state-badge expired">Promoción vencida</div>
@@ -483,7 +492,7 @@ function showDeleted(isDeleted = false) {
   if (logo) logo.remove();
 
   const s = document.createElement("div");
-  s.className = "state-screen";
+  s.className = "state-screen state-full deleted";
   s.innerHTML = `
     <div class="state-icon deleted">${isDeleted ? "🗑️" : "🔍"}</div>
     <div class="state-badge deleted">${isDeleted ? "Eliminada" : "No encontrada"}</div>
@@ -534,7 +543,7 @@ function getParams() {
   return {
     localidad: p.get("localidad") || p.get("l") || "barranca",
 
-    id: p.get("id") || p.get("pi") || "gPjdfCe26YTHphbCUfCU",
+    id: p.get("id") || p.get("pi") || "k8TFjbHn9x6rZ9PizMQv",
   };
 }
 
@@ -807,7 +816,7 @@ function render(data) {
       msgs.whatsapp?.msje_predermindo ||
       "Hola, quiero esta oferta que vi en Geinz:";
     // URL de contacto: usa la localidad completa (ej: "barranca")
-    const linkWa = `https://geinzworkapp.web.app/share?t=prms&l=${window._localidad}&pi=${data.id}`;
+    const linkWa = `https://geinzworkapp.web.app/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
     const texto = encodeURIComponent(`${msjeWa} ${linkWa}`);
 
     if (info.contactar && numero) {
@@ -828,7 +837,7 @@ function render(data) {
 
   // URL de compartir: usa "ba" como localidad corta
 
-  const shareLink = `https://geinzworkapp.web.app/share?t=prms&l=${window._localidad}&pi=${data.id}`;
+  const shareLink = `https://geinzworkapp.web.app/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
 
   console.log("🔗 shareLink =", shareLink);
   console.log("🆔 promoId =", data.id);
@@ -887,7 +896,7 @@ function render(data) {
   );
 
   // 👇 URL PERFIL
-  const perfilUrl = `https://geinzworkapp.web.app/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
+  const perfilUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
 
   console.log("🏪 PERFIL URL:", perfilUrl);
 

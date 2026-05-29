@@ -186,7 +186,7 @@ window.abrirCategoria = function (tipo) {
   }
 
   // Construcción del link de Firebase Hosting
-  const urlFinal = `https://geinzworkapp.web.app/share?t=${tParam}&id=${idParam}&loc=${localidadSeleccionada}`;
+  const urlFinal = `https://geinzworkapp.web.app/api/share?t=${tParam}&id=${idParam}&loc=${localidadSeleccionada}`;
 
   console.log("Navegando a: " + urlFinal);
 

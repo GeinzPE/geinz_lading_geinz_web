@@ -175,7 +175,7 @@
         window.addEventListener("pageshow", () => {
 
             if (
-                document.referrer.includes("pagos.html")
+                document.referrer.includes("pagos")
             ) {
 
                 console.log(
@@ -555,7 +555,7 @@
                     setTimeout(resolve, 450)
                 );
 
-                const urlPago = `pagos.html?orderId=${idPago}`;
+                const urlPago = `pagos?orderId=${idPago}`;
                 console.log(
                     "➡️ REDIRECCIONANDO:",
                     urlPago

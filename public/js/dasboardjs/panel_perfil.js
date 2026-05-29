@@ -8,7 +8,7 @@ const localidad =
 
 if (!tiendaId || !localidad) {
   console.warn("⚠️ Parámetros inválidos, redirigiendo al login...");
-  window.location.href = "../login/index.html";
+  window.location.href = "../login/index";
 }
 
 // ─────────────────────────────────────────────
@@ -1664,7 +1664,7 @@ window.PanelPerfil = {
       '<div class="sk-block" style="height:200px;border-radius:18px"></div></div>';
 
     try {
-      const html = await fetch("publicaicones.html").then((r) => r.text());
+      const html = await fetch("publicaicones").then((r) => r.text());
       container.innerHTML = html;
       container.querySelectorAll("script").forEach((old) => {
         const s = document.createElement("script");
@@ -1678,7 +1678,7 @@ window.PanelPerfil = {
     } catch (e) {
       console.error(e);
       container.innerHTML =
-        '<div style="padding:40px;text-align:center;color:white;font-size:15px;">❌ Error cargando publicaciones.html</div>';
+        '<div style="padding:40px;text-align:center;color:white;font-size:15px;">❌ Error cargando publicaciones</div>';
     }
   },
 
@@ -2009,7 +2009,7 @@ window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data?.type === "VOLVER_PANEL") {
     const iframe = document.getElementById("iframeRecargas");
-    if (iframe) iframe.src = "recargas.html";
+    if (iframe) iframe.src = "recargas";
   }
 });
 

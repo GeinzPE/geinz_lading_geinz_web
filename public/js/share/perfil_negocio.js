@@ -921,7 +921,7 @@ function renderPromoGallery(promos, nombreNegocio, contactos) {
 
   promos.forEach((promo) => {
     // URL base del perfil compartible
-    const shareBase = `https://geinzworkapp.web.app/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+    const shareBase = `https://geinzworkapp.web.app/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
 
     // WhatsApp: texto + URL (sin encodeURIComponent en la URL, wa.me lo maneja)
     const waText = `Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`;
@@ -1015,7 +1015,7 @@ function render(raw) {
       const cat = (raw.categoria_tienda || "")
         .toLowerCase()
         .replace(/\s+/g, "+");
-      const shareUrl = `https://geinzworkapp.web.app/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
+      const shareUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
       const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
 
       if (navigator.share) {

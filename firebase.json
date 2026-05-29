@@ -1,16 +1,31 @@
 {
   "hosting": {
     "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+
     "rewrites": [
+
+      {
+        "source": "/redirect/**",
+        "destination": "/redirect/index.html"
+      },
+
       {
         "source": "/api/share",
         "function": "share"
       },
+
       {
         "source": "**",
         "destination": "/index.html"
       }
+
     ]
   }
 }
