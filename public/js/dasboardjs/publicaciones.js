@@ -708,6 +708,14 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         imageBase64: dataURL.split(",")[1],
         mimeType: "image/jpeg",
         tipo: tipoImagenIA,
+
+        // ── Todo viene de datosTienda (ya cargado vía postMessage DATOS_TIENDA) ──
+        saldo_actual: datosTienda.saldo_tienda,           // ✅ línea: saldo_tienda: d.saldo_tienda
+        saldo_descuento: _precios.ia_imagen_texto,           // ✅ línea: _precios.ia_imagen_texto
+        precio_por_moneda: 0.1,                                // fijo
+        id_tienda: datosTienda.id_tienda,              // ✅ línea: id_tienda: d.id_tienda
+        localidad: datosTienda.localidad,              // ✅ línea: localidad: d.localidad
+        nombre_tienda: datosTienda.nombre_tienda,          // ✅ línea: nombre_tienda: d.nombre_tienda
       });
       if (!result?.ok) throw new Error("IA inválida");
       if (result.titulo) tituloInput.value = result.titulo;
