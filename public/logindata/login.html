@@ -66,10 +66,10 @@
         <!-- LOGO -->
         <div class="brand-row">
           <div class="logo-mark">
-            <span class="material-symbols-outlined" aria-hidden="true">supervised_user_circle</span>
+            <img src="../img/logo geinz.png" alt="Logo">
           </div>
           <span class="brand-name">Geinz</span>
-          <div class="brand-badge">Beta</div>
+
         </div>
 
         <!-- TÍTULO DINÁMICO -->
@@ -82,17 +82,12 @@
 
         <!-- ACCIONES -->
         <div class="actions-stack">
-          <button class="btn btn-socio" onclick="openSocioModal()">
-            <span class="btn-icon-wrap" aria-hidden="true">
-              <span class="material-symbols-outlined">king_bed</span>
-            </span>
-            <span class="btn-label">
-              <span class="btn-title">Soy socio Geinz</span>
-              <span class="btn-sub">Gestiona tu negocio</span>
-            </span>
-            <span class="material-symbols-outlined btn-arrow" aria-hidden="true">arrow_forward</span>
-          </button>
 
+          <!-- NUEVO: botón login email -->
+          <button class="btn btn-email" onclick="openLoginModal()">
+            <span class="material-symbols-outlined" aria-hidden="true">mail</span>
+            Iniciar sesión
+          </button>
           <div class="divider-row">
             <div class="divider-line"></div>
             <span class="divider-text">o continúa con</span>
@@ -100,9 +95,7 @@
           </div>
 
           <button class="btn btn-google" onclick="loginGoogle()">
-            <img
-              src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/web-24dp/copy_of_googleg_standard_color_24dp.png"
-              alt="" aria-hidden="true" />
+            <img src="../img/logo_google.webp" alt="" aria-hidden="true" />
             Continuar con Google
           </button>
         </div>
@@ -124,6 +117,7 @@
   </div>
 
   <!-- ===== MODAL: LOGIN ===== -->
+  <!-- ===== MODAL: LOGIN EMAIL ===== -->
   <div class="modal-overlay" id="loginModal" onclick="closeIfOutside(event,'loginModal')" role="dialog"
     aria-modal="true" aria-label="Iniciar sesión">
     <div class="modal-scroll">
@@ -142,42 +136,66 @@
           <p class="dialog-sub">Ingresa con tu cuenta Geinz para continuar.</p>
         </div>
 
-        <form onsubmit="submitLogin(event)" novalidate>
+        <!-- ESTADOS DEL FORMULARIO -->
+        <!-- Estado 1: solo correo -->
+        <div id="loginStepEmail">
           <div class="field-group">
             <label class="field-label" for="loginEmail">Correo electrónico</label>
             <div class="input-box">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">mail</span>
-              <input id="loginEmail" type="email" class="input-field" placeholder="tucorreo@ejemplo.com" required
+              <input id="loginEmail" type="email" class="input-field" placeholder="tucorreo@ejemplo.com"
                 autocomplete="email" />
             </div>
+            <p class="field-error" id="loginEmailError"></p>
           </div>
 
-          <div class="field-group">
+          <button class="btn btn-primary full-width" onclick="checkEmailExists()">
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+            Continuar
+          </button>
+        </div>
+
+        <!-- Estado 2: contraseña (oculto al inicio) -->
+        <div id="loginStepPassword" style="display:none;">
+          <!-- Chip del correo confirmado -->
+          <div class="login-email-chip" id="loginEmailChip">
+            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+            <span id="loginEmailChipText"></span>
+            <button class="chip-change-btn" onclick="backToEmail()" aria-label="Cambiar correo">
+              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+            </button>
+          </div>
+
+          <div class="field-group" style="margin-top:16px;">
             <div class="field-label-row">
               <label class="field-label" for="loginPassword">Contraseña</label>
-              <a class="forgot-link" tabindex="0">¿Olvidaste tu contraseña?</a>
+              <a class="forgot-link" tabindex="0" onclick="openForgotPassword()">¿Olvidaste tu contraseña?</a>
             </div>
             <div class="input-box">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">lock</span>
-              <input id="loginPassword" type="password" class="input-field" placeholder="••••••••" required
+              <input id="loginPassword" type="password" class="input-field" placeholder="••••••••"
                 autocomplete="current-password" />
               <button type="button" class="toggle-pass-btn" onclick="togglePassword('loginPassword',this)"
                 aria-label="Mostrar contraseña">
                 <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
               </button>
             </div>
+            <p class="field-error" id="loginPassError"></p>
           </div>
 
-          <button type="submit" class="btn btn-primary full-width">
+          <button class="btn btn-primary full-width" id="btnDoLogin" onclick="doEmailLogin()">
             <span class="material-symbols-outlined" aria-hidden="true">login</span>
             Iniciar sesión
           </button>
-        </form>
+        </div>
+
       </div>
     </div>
   </div>
 
   <!-- ===== MODAL: REGISTRO ===== -->
+  <!-- ===== MODAL: REGISTRO ===== -->
+
   <div class="modal-overlay" id="registerModal" onclick="closeIfOutside(event,'registerModal')" role="dialog"
     aria-modal="true" aria-label="Crear cuenta">
     <div class="modal-scroll">
@@ -196,28 +214,25 @@
           <p class="dialog-sub">Únete a Geinz y descubre lo mejor de tu ciudad.</p>
         </div>
 
-        <!-- PROGRESS BAR VISUAL -->
-        <div class="register-steps" aria-hidden="true">
-          <div class="step-track">
-            <div class="step-fill"></div>
-          </div>
-          <span class="step-label-text">Paso 1 de 1</span>
-        </div>
-
         <form onsubmit="submitRegister(event)" novalidate>
 
           <!-- NOMBRE Y APELLIDO -->
-          <div class="field-group">
-            <label class="field-label">Nombre completo</label>
-            <div class="input-row-2">
+          <div class="input-row-2">
+            <div class="field-group">
+              <label class="field-label" for="regNombre">Nombre</label>
               <div class="input-box">
-                <input type="text" class="input-field input-no-icon" placeholder="Nombre" required
+                <input id="regNombre" type="text" class="input-field input-no-icon" placeholder="Nombre"
                   autocomplete="given-name" />
               </div>
+              <p class="field-error" id="errNombre"></p>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="regApellido">Apellido</label>
               <div class="input-box">
-                <input type="text" class="input-field input-no-icon" placeholder="Apellido" required
+                <input id="regApellido" type="text" class="input-field input-no-icon" placeholder="Apellido"
                   autocomplete="family-name" />
               </div>
+              <p class="field-error" id="errApellido"></p>
             </div>
           </div>
 
@@ -226,9 +241,10 @@
             <label class="field-label" for="regUsername">Nombre de usuario</label>
             <div class="input-box">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">alternate_email</span>
-              <input id="regUsername" type="text" class="input-field" placeholder="mi_usuario" required
-                autocomplete="username" />
+              <input id="regUsername" type="text" class="input-field" placeholder="mi_usuario" autocomplete="username"
+                oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.]/g,'')" />
             </div>
+            <p class="field-error" id="errUsername"></p>
           </div>
 
           <!-- TELÉFONO -->
@@ -239,18 +255,19 @@
                 <span class="flag" aria-hidden="true">🇵🇪</span>
                 <span class="prefix-code">+51</span>
               </div>
-              <input type="tel" class="input-field phone-input" placeholder="987 654 321" required
-                autocomplete="tel-national" />
+              <input id="regTelefono" type="tel" class="input-field phone-input" placeholder="987 654 321"
+                autocomplete="tel-national" oninput="this.value=this.value.replace(/\D/g,'')" maxlength="12" />
             </div>
+            <p class="field-error" id="errTelefono"></p>
           </div>
 
-          <!-- GÉNERO Y LOCALIDAD EN FILA -->
+          <!-- GÉNERO Y LOCALIDAD -->
           <div class="input-row-2">
             <div class="field-group">
-              <label class="field-label">Género</label>
+              <label class="field-label" for="regGenero">Género</label>
               <div class="input-box select-wrap">
                 <span class="material-symbols-outlined input-icon" aria-hidden="true">wc</span>
-                <select class="custom-select" required>
+                <select id="regGenero" class="custom-select">
                   <option value="" disabled selected hidden>Seleccionar</option>
                   <option value="Masculino">Masculino</option>
                   <option value="Femenino">Femenino</option>
@@ -258,51 +275,75 @@
                 </select>
                 <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
               </div>
+              <p class="field-error" id="errGenero"></p>
             </div>
             <div class="field-group">
-              <label class="field-label">Localidad</label>
+              <label class="field-label" for="regLocalidad">Localidad</label>
               <div class="input-box select-wrap">
                 <span class="material-symbols-outlined input-icon" aria-hidden="true">location_on</span>
-                <select class="custom-select" required>
+                <select id="regLocalidad" class="custom-select">
                   <option value="" disabled selected hidden>Seleccionar</option>
-                  <option>Barranca</option>
-                  <option>Supe</option>
-                  <option>Puerto Supe</option>
-                  <option>Paramonga</option>
-                  <option>Pativilca</option>
+                  <option value="Barranca">Barranca</option>
+                  <option value="Supe">Supe</option>
+                  <option value="Puerto Supe">Puerto Supe</option>
+                  <option value="Paramonga">Paramonga</option>
+                  <option value="Pativilca">Pativilca</option>
                 </select>
                 <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
               </div>
+              <p class="field-error" id="errLocalidad"></p>
             </div>
           </div>
 
           <!-- FECHA DE NACIMIENTO -->
           <div class="field-group">
-            <label class="field-label">Fecha de nacimiento</label>
+            <label class="field-label" for="regFechaNac">Fecha de nacimiento</label>
             <div class="input-box">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">calendar_month</span>
-              <input type="text" class="input-field" placeholder="DD / MM / AAAA" onfocus="this.type='date'"
-                onblur="if(!this.value)this.type='text'" required />
+              <input id="regFechaNac" type="date" class="input-field" max="" autocomplete="bday" />
             </div>
+            <p class="field-error" id="errFecha"></p>
           </div>
 
-          <!-- CORREO -->
+          <!-- NACIONALIDAD -->
+          <div class="field-group">
+            <label class="field-label">Nacionalidad</label>
+            <div class="input-box select-wrap">
+              <span class="material-symbols-outlined input-icon" aria-hidden="true">public</span>
+              <select id="regNacionalidad" class="custom-select" onchange="onNacionalidadChange(this)">
+                <option value="" disabled selected hidden>Seleccionar país</option>
+              </select>
+              <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
+            </div>
+            <!-- Campos ocultos que guarda el JS -->
+            <input type="hidden" id="regCodPais" />
+            <input type="hidden" id="regNombrePais" />
+            <p class="field-error" id="errPais"></p>
+          </div>
+
+          <!-- CORREO (solo lectura, viene de Google) -->
+          <!-- CORREO ELECTRÓNICO -->
           <div class="field-group">
             <label class="field-label">Correo electrónico</label>
             <div class="input-box">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">mail</span>
-              <input type="email" class="input-field" placeholder="tucorreo@ejemplo.com" required
-                autocomplete="email" />
+              <input id="regCorreo" type="email" class="input-field" placeholder="tucorreo@gmail.com"
+                autocomplete="email" oninput="validarCorreoGmail(this)" />
             </div>
+            <p class="field-error" id="errCorreo"></p>
+            <!-- Aviso informativo -->
+            <p class="field-hint" id="hintCorreo" style="display:none;">
+              <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">info</span>
+              Si el correo es ficticio no podrás recuperar tu cuenta. Procura tener este correo activo.
+            </p>
           </div>
-
           <!-- CONTRASEÑAS -->
           <div class="input-row-2">
             <div class="field-group">
               <label class="field-label" for="registerPass1">Contraseña</label>
               <div class="input-box">
                 <span class="material-symbols-outlined input-icon" aria-hidden="true">lock</span>
-                <input id="registerPass1" type="password" class="input-field" placeholder="Mín. 8 caracteres" required
+                <input id="registerPass1" type="password" class="input-field" placeholder="Mín. 8 caracteres"
                   autocomplete="new-password" />
                 <button type="button" class="toggle-pass-btn" onclick="togglePassword('registerPass1',this)"
                   aria-label="Mostrar">
@@ -315,7 +356,7 @@
               <div class="input-box">
                 <span class="material-symbols-outlined input-icon" aria-hidden="true">lock_reset</span>
                 <input id="registerPass2" type="password" class="input-field" placeholder="Repite tu contraseña"
-                  required autocomplete="new-password" />
+                  autocomplete="new-password" />
                 <button type="button" class="toggle-pass-btn" onclick="togglePassword('registerPass2',this)"
                   aria-label="Mostrar">
                   <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
@@ -323,24 +364,29 @@
               </div>
             </div>
           </div>
+          <p class="field-error" id="errPass"></p>
 
           <!-- TÉRMINOS -->
           <div class="terms-row">
-            <input type="checkbox" id="termsCheck" class="terms-check" required />
+            <input type="checkbox" id="termsCheck" class="terms-check" />
             <label for="termsCheck" class="terms-label">
-              Acepto los <a class="terms-link" href="#">Términos de servicio</a> y la <a class="terms-link"
-                href="#">Política de privacidad</a>
+              Acepto los <a class="terms-link" href="../seguridad_geinz/terminos_y_condiciones.html">Términos de
+                servicio</a>
+              y la <a class="terms-link" href="../seguridad_geinz/politicas_devoluciones.html">Política de
+                privacidad</a>
             </label>
           </div>
+          <p class="field-error" id="errTerminos"></p>
 
           <div class="dialog-actions">
-            <button type="submit" class="btn btn-primary full-width">
+            <button type="submit" class="btn btn-primary full-width btn-register-submit">
               <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
               Crear mi cuenta
             </button>
             <button type="button" class="btn btn-ghost full-width"
               onclick="closeModal('registerModal')">Cancelar</button>
           </div>
+
         </form>
       </div>
     </div>
@@ -514,8 +560,13 @@
         Acceder ahora
       </button>
 
-      <p class="selector-help">¿Necesitas ayuda? <a href="#" class="selector-link">Contacta soporte</a></p>
-
+      <p class="selector-help">
+        ¿Necesitas ayuda?
+        <a href="https://wa.me/51958120920?text=Tengo%20problemas%20para%20iniciar%20sesi%C3%B3n%20en%20Geinz"
+          class="selector-link" target="_blank" rel="noopener noreferrer">
+          Contacta soporte
+        </a>
+      </p>
     </div>
   </div>
 

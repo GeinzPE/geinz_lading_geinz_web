@@ -520,8 +520,16 @@ window.generarDescripcionIA = async function () {
       "generar_descripcion_whatsapp_ia",
     );
 
-    const result = await generarFn({ texto });
-
+    const result = await generarFn({
+      texto,
+      saldo_actual: data.puntos_tienda ?? 0,
+      saldo_descuento: window._precioDescripcionIA ?? 0,
+      id_tienda: id,
+      precio_por_moneda: 0.012,
+      localidad: localidad,
+      nombre_tienda: data.nombre_tienda ?? "",
+      tipo_paquete: "Gen Descripción WP IA",
+    });
     if (result.data?.ok && result.data?.descripcion) {
       const desc = result.data.descripcion.trim();
 
@@ -621,6 +629,18 @@ async function cargarTienda() {
 
       actualizarBotonPlan();
       actualizarPreview();
+    }
+
+    const refPrecio = doc(dbPlanes, "precio_apartado", "app");
+    const snapPrecio = await getDoc(refPrecio);
+    if (snapPrecio.exists()) {
+      const precioDesc = snapPrecio.data()?.descripcionSEO ?? 0;
+      window._precioDescripcionIA = precioDesc;
+
+      // Mostrar en el botón
+      const btn = document.getElementById("btn-ia-generar");
+      if (btn)
+        btn.innerHTML = `Generar descripción con IA ✨ <span style="opacity:0.7;font-size:11px">${precioDesc} pts</span>`;
     }
   } catch (err) {
     console.error("Error cargando datos:", err);

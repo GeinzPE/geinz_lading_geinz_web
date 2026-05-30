@@ -950,27 +950,30 @@ window.PanelPerfil = {
     );
   },
 
-  async _onMapPointChanged(lat, lng) {
-    try {
-      const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`,
-      );
-      const data = await res.json();
-      const place = data.features?.[0];
-      if (place) {
-        document.getElementById("fieldDireccion").value = place.place_name;
-        this._checkFieldChanged("fieldDireccion");
-      }
-    } catch (e) {
-      console.error(e);
+async _onMapPointChanged(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`,
+    );
+    const data = await res.json();
+    const place = data.features?.[0];
+    if (place) {
+      document.getElementById("fieldDireccion").value = place.place_name;
+      this._checkFieldChanged("fieldDireccion");
     }
+  } catch (e) {
+    console.error(e);
+  }
 
-    this._pendingLat = lat;
-    this._pendingLng = lng;
-    const btn = document.getElementById("fieldSaveBtn-coordenadas");
-    if (btn) this._showFieldBtn(btn);
-  },
+  // ✅ Mover el pin y centrar el mapa
+  this.mapMarker.setLngLat([lng, lat]);
+  this.map.flyTo({ center: [lng, lat], zoom: 18 });
 
+  this._pendingLat = lat;
+  this._pendingLng = lng;
+  const btn = document.getElementById("fieldSaveBtn-coordenadas");
+  if (btn) this._showFieldBtn(btn);
+},
   // ═══════════════════════════════════════════
   //  AVATAR
   // ═══════════════════════════════════════════

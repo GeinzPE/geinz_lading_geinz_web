@@ -35,31 +35,235 @@ let imgsCount = 0;
 let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
 let precioYaSeteado = false;
+let terminosAceptados = false;
 
 let tipoTextoIA = "venta";
 let tipoImagenIA = "venta";
 
-// ══════════════════════════════════════════
-//  PRECIOS — se llenan cuando llega PLANES_UPDATE desde el padre
-//  Defaults en 0 para que se vea claramente si aún no llegaron
-//  Los nombres de campo Firestore son fijos (ceo_descripcion50, etc.)
-//  pero sus valores int64 varían — siempre usamos el valor, nunca el sufijo
-// ══════════════════════════════════════════
 let _precios = {
-  ia_imagen_texto: 0, // ← publicidad.ia_imagen_texto100   (campo fijo, valor variable)
-  mejora_texto_x3: 0, // ← publicidad.ceo_descripcion50    (campo fijo, valor variable)
-  mensaje_w_c: 0, // ← publicidad.mensaje_w_c90        (campo fijo, valor variable)
-  publicacion_24h: 0, // ← publicidad.publicacion_24h100   (campo fijo, valor variable)
-  publicacion_x_hora: 0, // ← publicidad.publicacion_por_hora10 (campo fijo, valor variable)
+  ia_imagen_texto: 0,
+  mejora_texto_x3: 0,
+  mensaje_w_c: 0,
+  publicacion_24h: 100, // 100 créditos por día
+  publicacion_x_hora: 10, // 10 créditos por hora
 };
 
-// Aplica los precios recibidos a los botones del DOM
+// ── Inyectar estilos del bottom sheet de términos ──────
+(function inyectarEstilosTerminos() {
+  const style = document.createElement("style");
+  style.textContent = `
+    /* ── TERMS BOTTOM SHEET ── */
+    .terms-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 9000;
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s ease;
+    }
+    .terms-overlay.open {
+      opacity: 1; pointer-events: auto;
+    }
+    .terms-sheet {
+      width: 100%; max-width: 640px;
+      background: #0f0f13;
+      border-radius: 24px 24px 0 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      max-height: 85vh;
+      display: flex; flex-direction: column;
+      transform: translateY(100%);
+      transition: transform .35s cubic-bezier(0.34,1.2,0.64,1);
+      overflow: hidden;
+    }
+    .terms-overlay.open .terms-sheet {
+      transform: translateY(0);
+    }
+    .terms-sheet-handle {
+      width: 40px; height: 4px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+      margin: 14px auto 0;
+      flex-shrink: 0;
+    }
+    .terms-sheet-header {
+      padding: 20px 24px 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .terms-sheet-title {
+      font-size: 17px; font-weight: 700; color: #fff;
+      margin: 0 0 6px;
+    }
+    .terms-sheet-intro {
+      font-size: 13px; color: #9ca3af; margin: 0; line-height: 1.5;
+    }
+    .terms-sheet-body {
+      overflow-y: auto; padding: 20px 24px 32px;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+    .terms-card {
+      background: #1a1a24;
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .terms-section { margin-bottom: 20px; }
+    .terms-section:last-child { margin-bottom: 0; }
+    .terms-section-title {
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.04em;
+      margin: 0 0 10px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .terms-section-title.purple { color: #a78bfa; }
+    .terms-section-title.orange { color: #fb923c; }
+    .terms-section-title.gray   { color: #94a3b8; }
+    .terms-list {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .terms-list li {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 13px; color: #d1d5db; line-height: 1.5;
+    }
+    .terms-list li::before {
+      content: "•"; color: #6b7280;
+      font-size: 16px; flex-shrink: 0; margin-top: -1px;
+    }
+    .terms-sheet-close {
+      margin: 0 24px 24px;
+      padding: 14px;
+      background: #7c3aed;
+      color: #fff; border: none; border-radius: 14px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; flex-shrink: 0;
+      transition: background .2s;
+    }
+    .terms-sheet-close:hover { background: #6d28d9; }
+
+    /* ── FOOTER PUBLICAR ── */
+    .footer-terms-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0 4px;
+    }
+    .terms-checkbox {
+      width: 18px; height: 18px;
+      accent-color: #7c3aed;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .terms-label-text {
+      font-size: 13px; color: #9ca3af; line-height: 1.4;
+    }
+    .terms-label-text .terms-link {
+      color: #a78bfa;
+      text-decoration: underline;
+      cursor: pointer;
+      background: none; border: none;
+      font-size: 13px; padding: 0;
+    }
+    .btn-submit:disabled {
+      opacity: 0.45; cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* ── FECHA INPUT LEGIBLE ── */
+    input[type="date"] {
+      color-scheme: dark;
+      background: var(--bg-input, #1e1e2a);
+      color: #f0f0f0;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+      width: 100%;
+      font-size: 14px;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1) opacity(0.6);
+      cursor: pointer;
+    }
+    .saldo-insuficiente-warn {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #f87171;
+      margin-top: 8px;
+      display: none;
+    }
+    .saldo-insuficiente-warn.visible { display: block; }
+  `;
+  document.head.appendChild(style);
+})();
+
+// ── Inyectar bottom sheet de términos en el DOM ─────────
+(function inyectarTerminosSheet() {
+  const sheet = document.createElement("div");
+  sheet.className = "terms-overlay";
+  sheet.id = "termsOverlay";
+  sheet.innerHTML = `
+    <div class="terms-sheet" id="termsSheet">
+      <div class="terms-sheet-handle"></div>
+      <div class="terms-sheet-header">
+        <p class="terms-sheet-title">Políticas de publicaciones y promociones</p>
+        <p class="terms-sheet-intro">Al crear y publicar contenido dentro de la plataforma, el usuario acepta cumplir las siguientes normas:</p>
+      </div>
+      <div class="terms-sheet-body">
+        <div class="terms-card">
+          <div class="terms-section">
+            <p class="terms-section-title purple">✦ Responsabilidades del publicador</p>
+            <ul class="terms-list">
+              <li>Verificar que la información publicada sea clara, veraz y actualizada.</li>
+              <li>Revisar cuidadosamente el contenido antes de publicarlo.</li>
+              <li>Respetar los días, horarios y duración definidos para cada publicación.</li>
+              <li>Cumplir con las condiciones ofrecidas en promociones y servicios.</li>
+              <li>Mantener coherencia entre el contenido publicado y el servicio real brindado.</li>
+            </ul>
+          </div>
+          <div class="terms-section">
+            <p class="terms-section-title orange">⚠ Contenido no permitido</p>
+            <ul class="terms-list">
+              <li>Información falsa, engañosa o que induzca a error.</li>
+              <li>Promociones que no puedan ser cumplidas.</li>
+              <li>Contenido fraudulento, confuso o manipulado.</li>
+              <li>Publicaciones repetitivas con fines de spam.</li>
+              <li>Contenido que infrinja leyes, normas o derechos de terceros.</li>
+            </ul>
+          </div>
+          <div class="terms-section">
+            <p class="terms-section-title gray">⚙ Medidas y sanciones</p>
+            <ul class="terms-list">
+              <li>La plataforma puede revisar, modificar o retirar publicaciones.</li>
+              <li>El incumplimiento puede derivar en suspensión temporal o permanente.</li>
+              <li>Reincidencias pueden limitar el acceso a futuras publicaciones.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <button class="terms-sheet-close" onclick="cerrarTerminos()">Entendido</button>
+    </div>`;
+  document.body.appendChild(sheet);
+
+  // Cerrar al tocar el fondo
+  sheet.addEventListener("click", (e) => {
+    if (e.target === sheet) cerrarTerminos();
+  });
+})();
+
+window.abrirTerminos = function () {
+  document.getElementById("termsOverlay")?.classList.add("open");
+};
+window.cerrarTerminos = function () {
+  document.getElementById("termsOverlay")?.classList.remove("open");
+};
+
+// ── Aplicar precios recibidos al DOM ────────────────────
 function aplicarPreciosEnDOM() {
-  // ── Botón: Generar imagen + texto con IA ──
   const precioImgEl = document.getElementById("precioImagenIA");
   if (precioImgEl) precioImgEl.textContent = _precios.ia_imagen_texto;
 
-  // ── Botón: Mejorar título y descripción ──
   const btnDesc = document.getElementById("btnDescripcionIA");
   if (btnDesc) {
     let priceSpan = btnDesc.querySelector(".ia-zona-btn-price");
@@ -71,20 +275,24 @@ function aplicarPreciosEnDOM() {
     priceSpan.textContent = _precios.mejora_texto_x3;
   }
 
-  // ── Botón: Mejorar WhatsApp ──
   const precioWpEl = document.getElementById("precioMensajeWpIA");
   if (precioWpEl) precioWpEl.textContent = `+${_precios.mensaje_w_c}`;
 
-  // ── Botón: Mejorar Compartir ──
   const precioShareEl = document.getElementById("precioShareIA");
   if (precioShareEl) precioShareEl.textContent = `+${_precios.mensaje_w_c}`;
 
-  // ── Recalcular costo total de publicación ──
   actualizarCostoPublicar();
+  actualizarBotonesIA();
 }
 
-// Calcula el costo total según plazo activo y actualiza el botón Publicar
-function actualizarCostoPublicar() {
+// ── Calcula costo total y actualiza botón ───────────────
+
+function parseFechaLocal(str) {
+  if (!str) return null;
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+function calcularCostoTotal() {
   const tipo =
     document.querySelector('input[name="plazo"]:checked')?.value || "dias";
   let total = 0;
@@ -99,28 +307,74 @@ function actualizarCostoPublicar() {
     const fi = document.getElementById("fechaInicio")?.value;
     const ff = document.getElementById("fechaFin")?.value;
     if (fi && ff) {
-      const inicio = new Date(fi);
-      const fin = new Date(ff);
+      const inicio = parseFechaLocal(fi);
+      const fin = parseFechaLocal(ff);
       if (fin >= inicio) {
         const dias = Math.ceil(Math.abs(fin - inicio) / 86400000) + 1;
         total = dias * _precios.publicacion_24h;
-      } else {
-        total = _precios.publicacion_24h; // mínimo 1 día mientras elige
       }
-    } else {
-      total = _precios.publicacion_24h;
     }
   }
+  return total;
+}
 
+function actualizarCostoPublicar() {
   const btn = document.querySelector(".btn-submit");
-  if (btn && !btn.disabled) {
+  if (!btn) return;
+
+  // Solo mostrar costo si hay imágenes seleccionadas
+  if (imgsCount === 0) {
+    btn.innerHTML = `<i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i> Publicar promoción`;
+    return;
+  }
+
+  const total = calcularCostoTotal();
+  if (total > 0) {
     btn.innerHTML = `<i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i>
       Publicar &nbsp;·&nbsp;
       <span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;">
         ${total.toLocaleString("es-PE")}
         <img src="../img/icon_monedas_3d.webp" style="width:16px;height:16px;vertical-align:middle;" alt="pts">
       </span>`;
+  } else {
+    btn.innerHTML = `<i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i> Publicar promoción`;
   }
+}
+
+// ── Verificar si el saldo es suficiente ─────────────────
+function verificarSaldo() {
+  const saldo = datosTienda?.saldo_tienda ?? 0;
+  const total = calcularCostoTotal();
+  const warn = document.getElementById("saldoInsuficienteWarn");
+  const suficiente = saldo >= total && total > 0;
+
+  if (warn) {
+    if (total > 0 && saldo < total) {
+      warn.textContent = `⚠️ Saldo insuficiente. Necesitas ${total.toLocaleString("es-PE")} créditos y tienes ${Number(saldo).toLocaleString("es-PE")}.`;
+      warn.classList.add("visible");
+    } else {
+      warn.classList.remove("visible");
+    }
+  }
+  return suficiente || total === 0;
+}
+
+// ── Validar si el botón publicar debe estar activo ──────
+function actualizarEstadoBotonPublicar() {
+  const btn = document.querySelector(".btn-submit");
+  if (!btn) return;
+
+  const titulo = document.getElementById("tituloInput")?.value.trim() || "";
+  const desc = document.getElementById("descripcionInput")?.value.trim() || "";
+  const tieneImagen = imgsCount > 0;
+  const tieneTitulo = titulo.length >= 4;
+  const tieneDesc = desc.length >= 10;
+  const saldoOk = verificarSaldo();
+  const terminosOk = terminosAceptados;
+
+  const habilitado =
+    tieneImagen && tieneTitulo && tieneDesc && saldoOk && terminosOk;
+  btn.disabled = !habilitado;
 }
 
 const BULLETS = {
@@ -175,14 +429,12 @@ window.selectTipoImagen = function (el) {
   tipoImagenIA = el.dataset.tipo;
 };
 
-// ── Auth anónimo ───────────────────────────────────────
+// ── Auth ────────────────────────────────────────────────
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("Usuario listo:", user.uid);
-  } else {
-    console.log("No hay sesión activa");
-  }
+  if (user) console.log("Usuario listo:", user.uid);
+  else console.log("No hay sesión activa");
 });
+
 async function getToken() {
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -193,53 +445,11 @@ async function getToken() {
   });
 }
 
-// ── Datos de tienda ────────────────────────────────────
 let datosTienda = null;
 const ID_TIENDA = "fW7W8RsgkkQ3IYfxKHGR";
 const LOCALIDAD = "barranca";
-/*
-async function cargarDatosTienda() {
-  try {
-    const ref = doc(db, "Tiendas", LOCALIDAD, LOCALIDAD, ID_TIENDA);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      console.warn("Tienda no encontrada");
-      return;
-    }
-    datosTienda = snap.data();
-    console.log("✅ Tienda cargada:", datosTienda);
 
-    const numeroWp = datosTienda?.metodo_contacto?.whatsapp?.numero || "";
-    const wpInput = document.querySelector('#wp input[type="text"]');
-    if (wpInput && numeroWp) wpInput.value = numeroWp;
-
-    const direccion = datosTienda?.ubicacion?.dirección || "";
-    const referencia = datosTienda?.ubicacion?.referencia || "";
-    const geoInputs = document.querySelectorAll('#geo input[type="text"]');
-    if (geoInputs[0]) geoInputs[0].value = direccion;
-    if (geoInputs[1]) geoInputs[1].value = referencia;
-
-    const mp = datosTienda?.metodos_pago || {};
-    const pagosChecks = document.querySelectorAll(
-      '#payments .pay-item input[type="checkbox"]',
-    );
-    if (pagosChecks[0]) pagosChecks[0].checked = mp?.yape?.enable ?? false;
-    if (pagosChecks[1]) pagosChecks[1].checked = mp?.plin?.enable ?? false;
-    if (pagosChecks[2]) pagosChecks[2].checked = mp?.agora?.enable ?? false;
-    if (pagosChecks[3]) pagosChecks[3].checked = mp?.efectivo?.enable ?? false;
-    if (pagosChecks[4])
-      pagosChecks[4].checked = mp?.visa_mastercard?.enable ?? false;
-    if (pagosChecks[5])
-      pagosChecks[5].checked = mp?.visa_mastercard?.enable ?? false;
-  } catch (e) {
-    console.error("Error cargando tienda:", e);
-  }
-}
-cargarDatosTienda();
- */
-/* ══════════════════════════════════════════
-     STORAGE — SUBIR IMÁGENES (FRONT)
-   ══════════════════════════════════════════ */
+/* ── STORAGE ── */
 function dataURLtoBlob(dataURL) {
   const [header, base64] = dataURL.split(",");
   const mime = header.match(/:(.*?);/)[1];
@@ -252,7 +462,6 @@ function dataURLtoBlob(dataURL) {
 async function subirImagenesAStorage(id_tienda, id_promocion) {
   const urls = [];
   let botUrl = null;
-
   const primeraImg = imagesData.find((img) => img !== null);
   if (primeraImg) {
     try {
@@ -265,12 +474,10 @@ async function subirImagenesAStorage(id_tienda, id_promocion) {
       );
       await uploadBytes(ref, botBlob, { contentType: "image/jpeg" });
       botUrl = await getDownloadURL(ref);
-      console.log("✅ Bot URL:", botUrl);
     } catch (e) {
       console.warn("⚠️ Error subiendo bot img:", e);
     }
   }
-
   for (let i = 0; i < imagesData.length; i++) {
     const img = imagesData[i];
     if (!img) continue;
@@ -285,13 +492,11 @@ async function subirImagenesAStorage(id_tienda, id_promocion) {
       await uploadBytes(ref, blob, { contentType: "image/jpeg" });
       const url = await getDownloadURL(ref);
       urls.push(url);
-      console.log(`✅ Imagen ${i + 1} subida:`, url);
     } catch (e) {
       console.error(`❌ Error subiendo imagen ${i + 1}:`, e);
       throw new Error(`No se pudo subir la imagen ${i + 1}`);
     }
   }
-
   return { urls, botUrl };
 }
 
@@ -318,13 +523,9 @@ async function guardarImagenesEnFirestore(
     setDoc(ref1, data, { merge: true }),
     setDoc(ref2, data, { merge: true }),
   ]);
-  console.log("✅ img_container guardado en Firestore");
   return imgContainer;
 }
 
-/* ══════════════════════════════════════════
-       COMPRIMIR IMAGEN
-    ══════════════════════════════════════════ */
 function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
   return new Promise((resolve, reject) => {
     const imgEl = new Image();
@@ -351,9 +552,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 }
 
 (function () {
-  /* ══════════════════════════════════════════
-       CLOUD FUNCTIONS
-    ══════════════════════════════════════════ */
   const CLOUD_FN_URL =
     "https://us-central1-geinzworkapp.cloudfunctions.net/generar_titulo_descripcion_IA";
   const CLOUD_FN_TEXT_URL =
@@ -364,9 +562,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     "https://generar-whatsapp-contacto-ia-oixttik5rq-uc.a.run.app";
   const CLOUD_FN_CREAR_PROMO = "https://crearpromocion-oixttik5rq-uc.a.run.app";
 
-  /* ══════════════════════════════════════════
-       ELEMENTOS
-    ══════════════════════════════════════════ */
   const tituloInput = document.getElementById("tituloInput");
   const descripcionInput = document.getElementById("descripcionInput");
   const mensajeWpInput = document.getElementById("mensajeWpInput");
@@ -385,9 +580,40 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     e.target.value = e.target.value.replace(/\D/g, "");
   });
 
-  /* ══════════════════════════════════════════
-       ESTADO
-    ══════════════════════════════════════════ */
+  // ── Inyectar fila de términos y advertencia de saldo en el footer ──
+  (function inyectarFooterExtra() {
+    const footer = document.querySelector(".footer");
+    if (!footer) return;
+
+    // Advertencia de saldo insuficiente
+    const warnDiv = document.createElement("div");
+    warnDiv.className = "saldo-insuficiente-warn";
+    warnDiv.id = "saldoInsuficienteWarn";
+    footer.insertBefore(warnDiv, footer.firstChild);
+
+    // Fila de términos
+    const termsRow = document.createElement("div");
+    termsRow.className = "footer-terms-row";
+    termsRow.innerHTML = `
+      <input type="checkbox" class="terms-checkbox" id="terminosCheck">
+      <label for="terminosCheck" class="terms-label-text">
+        Acepto los
+        <button class="terms-link" onclick="abrirTerminos()">términos de la publicación</button>
+        antes de publicar
+      </label>`;
+    // Solo esto — sin tocar los botones existentes
+    footer.insertBefore(termsRow, footer.querySelector(".btn-submit"));
+    document.getElementById("terminosCheck").addEventListener("change", (e) => {
+      terminosAceptados = e.target.checked;
+      actualizarEstadoBotonPublicar();
+    });
+
+    // Deshabilitar botón publicar al inicio
+    const btnSubmit = document.querySelector(".btn-submit");
+    if (btnSubmit) btnSubmit.disabled = true;
+  })();
+
+  /* ── IMAGEN ── */
   window.selectImage = function (index) {
     if (imagesData[index]) return;
     selectedImageIndex = index;
@@ -419,9 +645,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     });
   }
 
-  /* ══════════════════════════════════════════
-       HELPERS
-    ══════════════════════════════════════════ */
+  /* ── HELPERS ── */
   function detectarPrecioTexto(texto) {
     if (!texto?.trim()) return null;
     const clean = texto.toLowerCase();
@@ -497,9 +721,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     });
   }
 
-  /* ══════════════════════════════════════════
-       VALIDACIÓN
-    ══════════════════════════════════════════ */
+  /* ── VALIDACIÓN GENERAL ── */
   function validate() {
     const titulo = tituloInput.value.trim();
     const desc = descripcionInput.value.trim();
@@ -518,11 +740,12 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const tieneContenido = titulo.length >= 4 && desc.length >= 15;
     showBtn(btnMensajeWpIA, tieneContenido);
     showBtn(btnMensajeShareIA, tieneContenido);
+
+    actualizarCostoPublicar();
+    actualizarEstadoBotonPublicar();
   }
 
-  /* ══════════════════════════════════════════
-       LOADING BTNS
-    ══════════════════════════════════════════ */
+  /* ── LOADING BTNS ── */
   function setBtnLoading(btn, loading = true) {
     if (!btn) return;
     if (loading) {
@@ -546,9 +769,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     if (precioImagenIA) precioImagenIA.style.display = on ? "none" : "inline";
   }
 
-  /* ══════════════════════════════════════════
-       FIREBASE CALL
-    ══════════════════════════════════════════ */
+  /* ── FIREBASE CALL ── */
   async function callFirebaseFunction(url, payload = {}) {
     const token = await getToken();
     const headers = { "Content-Type": "application/json" };
@@ -564,17 +785,18 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     } catch {
       throw new Error("Respuesta inválida del servidor");
     }
-    console.log("Firebase Response:", data);
     if (!response.ok)
       throw new Error(data?.error?.message || `HTTP ${response.status}`);
     if (data?.error) throw new Error(data.error.message || "Error Firebase");
     return data?.result ?? data;
   }
 
-  /* ══════════════════════════════════════════
-       IA: MEJORAR TEXTO
-    ══════════════════════════════════════════ */
+  /* ── IA: MEJORAR TEXTO ── */
   async function mejorarTextoIA() {
+    if (!datosTienda) {
+      mostrarToast("Cargando datos de tienda...", "error");
+      return;
+    }
     precioYaSeteado = false;
     const titulo = tituloInput.value.trim();
     const descripcion = descripcionInput.value.trim();
@@ -588,6 +810,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         tipo: tipoTextoIA.toUpperCase(),
         tituloUsuario: titulo,
         descripcionUsuario: descripcion,
+        saldo_actual: datosTienda.saldo_tienda,
+        saldo_descuento: _precios.mejora_texto_x3,
+        id_tienda: datosTienda.id_tienda,
+        precio_por_moneda: 0.012,
+        localidad: datosTienda.localidad,
+        nombre_tienda: datosTienda.nombre_tienda,
+        tipo_paquete: "Gen x3 IA",
       });
       if (!result?.ok || !result?.respuesta)
         throw new Error("Sin respuesta IA");
@@ -637,6 +866,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
   /* ── IA: WhatsApp ── */
   async function generarMensajeWhatsappIA() {
+    if (!datosTienda) {
+      mostrarToast("Cargando datos de tienda...", "error");
+      return;
+    }
     const titulo = tituloInput.value.trim();
     if (!titulo) {
       mostrarToast("Agrega un título primero", "error");
@@ -647,6 +880,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       const result = await callFirebaseFunction(CLOUD_FN_WP_URL, {
         titulo,
         descripcion: descripcionInput.value.trim(),
+        saldo_actual: datosTienda.saldo_tienda,
+        saldo_descuento: _precios.mensaje_w_c,
+        id_tienda: datosTienda.id_tienda,
+        precio_por_moneda: 0.012,
+        localidad: datosTienda.localidad,
+        nombre_tienda: datosTienda.nombre_tienda,
+        tipo_paquete: "Gen Mensaje WP IA",
       });
       const mensaje = result?.mensaje?.trim();
       if (!mensaje) throw new Error("Gemini devolvió vacío");
@@ -662,6 +902,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
   /* ── IA: Compartir ── */
   async function generarMensajeCompartirIA() {
+    if (!datosTienda) {
+      mostrarToast("Cargando datos de tienda...", "error");
+      return;
+    }
     const titulo = tituloInput.value.trim();
     if (!titulo) {
       mostrarToast("Agrega un título primero", "error");
@@ -672,6 +916,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       const result = await callFirebaseFunction(CLOUD_FN_SHARE_URL, {
         tituloUsuario: titulo,
         descripcionUsuario: descripcionInput.value.trim(),
+        saldo_actual: datosTienda.saldo_tienda,
+        saldo_descuento: _precios.mensaje_w_c,
+        id_tienda: datosTienda.id_tienda,
+        precio_por_moneda: 0.012,
+        localidad: datosTienda.localidad,
+        nombre_tienda: datosTienda.nombre_tienda,
+        tipo_paquete: "Gen Mensaje Share IA",
       });
       const mensaje = result?.mensaje?.trim();
       if (!mensaje) throw new Error("Gemini devolvió vacío");
@@ -687,6 +938,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
   /* ── IA: Imagen + Texto ── */
   async function generarImagenTextoIA() {
+    if (!datosTienda) {
+      mostrarToast("Cargando datos de tienda...", "error");
+      return;
+    }
     precioYaSeteado = false;
     if (!imagesData[0]) {
       mostrarToast(
@@ -708,14 +963,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         imageBase64: dataURL.split(",")[1],
         mimeType: "image/jpeg",
         tipo: tipoImagenIA,
-
-        // ── Todo viene de datosTienda (ya cargado vía postMessage DATOS_TIENDA) ──
-        saldo_actual: datosTienda.saldo_tienda,           // ✅ línea: saldo_tienda: d.saldo_tienda
-        saldo_descuento: _precios.ia_imagen_texto,           // ✅ línea: _precios.ia_imagen_texto
-        precio_por_moneda: 0.012,                                // fijo
-        id_tienda: datosTienda.id_tienda,              // ✅ línea: id_tienda: d.id_tienda
-        localidad: datosTienda.localidad,              // ✅ línea: localidad: d.localidad
-        nombre_tienda: datosTienda.nombre_tienda,          // ✅ línea: nombre_tienda: d.nombre_tienda
+        saldo_actual: datosTienda.saldo_tienda,
+        saldo_descuento: _precios.ia_imagen_texto,
+        precio_por_moneda: 0.012,
+        id_tienda: datosTienda.id_tienda,
+        localidad: datosTienda.localidad,
+        nombre_tienda: datosTienda.nombre_tienda,
+        tipo_paquete: "Gen Imagen texto IA",
       });
       if (!result?.ok) throw new Error("IA inválida");
       if (result.titulo) tituloInput.value = result.titulo;
@@ -736,9 +990,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     }
   }
 
-  /* ══════════════════════════════════════════
-       HANDLE FILES
-    ══════════════════════════════════════════ */
+  /* ── HANDLE FILES ── */
   window.handleFiles = function (input) {
     const file = input.files[0];
     if (!file || selectedImageIndex === null) return;
@@ -769,9 +1021,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     reader.readAsDataURL(file);
   };
 
-  /* ══════════════════════════════════════════
-       TOGGLE / PLAZO / FECHAS
-    ══════════════════════════════════════════ */
+  /* ── TOGGLE / PLAZO / FECHAS ── */
   window.toggle = function (id, cb) {
     const panel = document.getElementById(id);
     if (panel) panel.classList.toggle("open", cb.checked);
@@ -782,16 +1032,19 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const ff = document.getElementById("fechaFin");
     const dc = document.getElementById("duracionDiasContainer");
     if (!fi || !ff || !dc || !fi.value || !ff.value) return;
-    const inicio = new Date(fi.value),
-      fin = new Date(ff.value);
+    const inicio = parseFechaLocal(fi.value),
+      fin = parseFechaLocal(ff.value);
     if (fin >= inicio) {
       const dias = Math.ceil(Math.abs(fin - inicio) / 86400000) + 1;
       const monedas = dias * _precios.publicacion_24h;
-      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} días</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas} monedas</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ Costo por día: ${_precios.publicacion_24h} monedas</div></div>`;
+      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${_precios.publicacion_24h} créditos por día · Inicio: ${fi.value} · Fin: ${ff.value}</div></div>`;
+      dc.style.display = "block";
     } else {
       dc.innerHTML = `<div style="background:rgba(239,68,68,.1);padding:10px 16px;border-radius:14px;margin-top:12px;border-left:3px solid #ef4444"><span style="font-size:13px;color:#ef4444">⚠️ La fecha final debe ser mayor o igual a la inicial</span></div>`;
+      dc.style.display = "block";
     }
     actualizarCostoPublicar();
+    actualizarEstadoBotonPublicar();
   }
 
   function calcularDuracionHoras() {
@@ -802,8 +1055,15 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     if (isNaN(h) || h < 1) h = 1;
     if (h > 20) h = 20;
     const monedas = h * _precios.publicacion_x_hora;
-    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas} monedas</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ Costo por hora: ${_precios.publicacion_x_hora} monedas</div></div>`;
+    const hoy = new Date();
+    const fechaStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+    const finMs = hoy.getTime() + h * 3600000;
+    const finDate = new Date(finMs);
+    const finStr = `${finDate.getHours().toString().padStart(2, "0")}:${finDate.getMinutes().toString().padStart(2, "0")}`;
+    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${_precios.publicacion_x_hora} créditos/hora · Fecha: ${fechaStr} · Termina ~${finStr}</div></div>`;
+    dc.style.display = "block";
     actualizarCostoPublicar();
+    actualizarEstadoBotonPublicar();
   }
 
   window.tipoPlazo = function () {
@@ -815,46 +1075,60 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     if (v === "horas") {
       if (bH) bH.style.display = "block";
       if (bF) bF.style.display = "none";
-      if (dH) dH.style.display = "block";
+      if (dH) {
+        dH.style.display = "block";
+        calcularDuracionHoras();
+      }
       if (dD) dD.style.display = "none";
-      calcularDuracionHoras();
     } else {
       if (bH) bH.style.display = "none";
       if (bF) bF.style.display = "block";
       if (dH) dH.style.display = "none";
-      if (dD) dD.style.display = "block";
-      calcularDuracionDias();
+      if (dD) {
+        dD.style.display = "block";
+        calcularDuracionDias();
+      }
     }
+    actualizarCostoPublicar();
+    actualizarEstadoBotonPublicar();
   };
-
   (function initDates() {
     const hoy = new Date();
-    const str = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+
+    // ── mañana como mínimo ──
+    const manana = new Date(hoy);
+    manana.setDate(hoy.getDate() + 1);
+    const strManana = `${manana.getFullYear()}-${String(manana.getMonth() + 1).padStart(2, "0")}-${String(manana.getDate()).padStart(2, "0")}`;
+
     const fi = document.getElementById("fechaInicio");
     const ff = document.getElementById("fechaFin");
+
     if (fi) {
-      fi.value = str;
-      fi.setAttribute("min", str);
+      fi.value = strManana; // ← default = mañana
+      fi.setAttribute("min", strManana); // ← no puede ser hoy ni antes
     }
     if (ff) {
-      ff.setAttribute("min", str);
+      ff.setAttribute("min", strManana);
       ff.addEventListener("change", () => {
         if (ff.value && ff.value < fi.value) {
           mostrarToast("La fecha final no puede ser menor", "error");
           ff.value = fi.value;
         }
+        calcularDuracionDias();
       });
     }
   })();
-
-  /* ══════════════════════════════════════════
-       PUBLICAR PROMOCIÓN — FLUJO COMPLETO
-    ══════════════════════════════════════════ */
+  /* ── PUBLICAR PROMOCIÓN ── */
   async function publicarPromocion() {
     const btn = document.querySelector(".btn-submit");
     const titulo = tituloInput.value.trim();
     const descripcion = descripcionInput.value.trim();
 
+    // Validaciones obligatorias
+    if (!imagesData.some((img) => img !== null)) {
+      mostrarToast("Selecciona al menos una imagen", "error");
+      return;
+    }
     if (!titulo || !descripcion) {
       mostrarToast("Completa título y descripción", "error");
       return;
@@ -863,8 +1137,8 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast("Cargando datos de tienda...", "error");
       return;
     }
-    if (!imagesData.some((img) => img !== null)) {
-      mostrarToast("Selecciona al menos una imagen", "error");
+    if (!terminosAceptados) {
+      mostrarToast("Acepta los términos de la publicación", "error");
       return;
     }
 
@@ -877,6 +1151,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const sw_horario = switches[4]?.checked ?? false;
     const sw_pagos = switches[5]?.checked ?? false;
 
+    // WhatsApp
     if (sw_whatsapp) {
       const numeroVal = document
         .querySelector('#wp input[type="text"]')
@@ -896,6 +1171,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         return;
       }
     }
+    // Compartir
     if (sw_compartir) {
       const mensajeShareVal = document
         .getElementById("mensajeShareInput")
@@ -908,6 +1184,17 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         return;
       }
     }
+    // Cercanía
+    const geoInputs = document.querySelectorAll('#geo input[type="text"]');
+    const swGeo = switches[2]?.checked ?? false;
+    if (swGeo && !geoInputs[0]?.value?.trim()) {
+      mostrarToast(
+        "Cercanía activa: la dirección no puede estar vacía",
+        "error",
+      );
+      return;
+    }
+    // Precio
     if (sw_precio) {
       const precioVal = document.getElementById("precioInput")?.value?.trim();
       if (!precioVal) {
@@ -918,6 +1205,8 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         return;
       }
     }
+    // Horario — si está activo debe tener una opción seleccionada (siempre lo tiene por el select, pero validamos)
+    // Pagos
     if (sw_pagos) {
       const hayPagoActivo = Array.from(
         document.querySelectorAll('#payments .pay-item input[type="checkbox"]'),
@@ -941,7 +1230,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         mostrarToast("Selecciona fecha final", "error");
         return;
       }
-      if (new Date(fechaFin) < new Date(fechaInicio)) {
+      if (parseFechaLocal(fechaFin) < parseFechaLocal(fechaInicio)) {
         mostrarToast("La fecha final no puede ser menor a la inicial", "error");
         return;
       }
@@ -950,6 +1239,17 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         mostrarToast("Ingresa una cantidad de horas válida (1–20)", "error");
         return;
       }
+    }
+
+    // Verificar saldo
+    const total = calcularCostoTotal();
+    const saldo = datosTienda?.saldo_tienda ?? 0;
+    if (saldo < total) {
+      mostrarToast(
+        `Saldo insuficiente. Necesitas ${total.toLocaleString("es-PE")} créditos`,
+        "error",
+      );
+      return;
     }
 
     const ahora = new Date();
@@ -964,11 +1264,11 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
     if (tipoPlazoVal === "dias" && fechaInicio && fechaFin) {
       tsInicio = {
-        seconds: Math.floor(new Date(fechaInicio).getTime() / 1000),
+        seconds: Math.floor(parseFechaLocal(fechaInicio).getTime() / 1000),
         nanoseconds: 0,
       };
       tsFin = {
-        seconds: Math.floor(new Date(fechaFin).getTime() / 1000),
+        seconds: Math.floor(parseFechaLocal(fechaFin).getTime() / 1000),
         nanoseconds: 0,
       };
     } else if (tipoPlazoVal === "horas") {
@@ -1041,7 +1341,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       );
 
       skSetStep(2, "Guardando imágenes...", "Registrando en base de datos", 70);
-      const imgContainer = await guardarImagenesEnFirestore(
+      await guardarImagenesEnFirestore(
         id_tienda,
         logo_url,
         localidad,
@@ -1077,13 +1377,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         ...(sw_pagos
           ? pagos
           : {
-            yape: false,
-            plin: false,
-            agora: false,
-            efectivo: false,
-            visa: false,
-            mastercard: false,
-          }),
+              yape: false,
+              plin: false,
+              agora: false,
+              efectivo: false,
+              visa: false,
+              mastercard: false,
+            }),
         numero,
         mensaje_whatsapp: mensajeWpInput.value || "",
         mensaje_compartir: mensajeShareInput.value || "",
@@ -1100,10 +1400,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         referencia,
       };
 
-      console.log("📤 PAYLOAD:", payload);
       const result = await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
-      console.log("✅ RESULTADO:", result);
-
       ocultarSkeleton();
       limpiarFormulario();
       mostrarModalExito(id_promocion, localidad);
@@ -1113,57 +1410,17 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast(err.message || "Error al publicar", "error");
     } finally {
       btn.disabled = false;
-      // Restaurar botón con precio actualizado
       actualizarCostoPublicar();
+      actualizarEstadoBotonPublicar();
     }
   }
 
-  /* ══════════════════════════════════════════
-       SKELETON
-    ══════════════════════════════════════════ */
+  /* ── SKELETON ── */
   function mostrarSkeletonPublicando() {
     const sk = document.createElement("div");
     sk.id = "skeletonPublicando";
     sk.className = "sk-overlay";
-    sk.innerHTML = `
-  <div class="sk-modal">
-    <div class="sk-badge">GEINZ</div>
-    <div class="sk-ring">
-      <svg viewBox="0 0 56 56" width="56" height="56">
-        <defs>
-          <linearGradient id="skRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#6d28d9"/>
-            <stop offset="100%" stop-color="#a855f7"/>
-          </linearGradient>
-        </defs>
-        <circle class="sk-ring-bg" cx="28" cy="28" r="22"/>
-        <circle class="sk-ring-fill" cx="28" cy="28" r="22"/>
-      </svg>
-    </div>
-    <div class="sk-titles">
-      <p class="sk-title" id="skTitle">Publicando tu promocion...</p>
-      <p class="sk-subtitle" id="skSubtitle">Esto solo tarda unos segundos</p>
-    </div>
-    <div class="sk-bar-wrap"><div class="sk-bar" id="skBar" style="width:15%"></div></div>
-    <div class="sk-steps" id="skSteps">
-      <div class="sk-step done" id="sk-step1">
-        <div class="sk-step-icon"><i class="ti ti-check"></i></div>
-        <div class="sk-step-text"><div class="sk-step-label">Validando datos</div><div class="sk-step-status" id="sk-status1">Completado</div></div>
-      </div>
-      <div class="sk-step active" id="sk-step2">
-        <div class="sk-step-icon"><i class="ti ti-cpu"></i></div>
-        <div class="sk-step-text"><div class="sk-step-label">Analizando con IA</div><div class="sk-step-status" id="sk-status2">En progreso...</div></div>
-      </div>
-      <div class="sk-step pending" id="sk-step3">
-        <div class="sk-step-icon"><i class="ti ti-photo"></i></div>
-        <div class="sk-step-text"><div class="sk-step-label">Subiendo imagenes</div><div class="sk-step-status" id="sk-status3">Pendiente</div></div>
-      </div>
-      <div class="sk-step pending" id="sk-step4">
-        <div class="sk-step-icon"><i class="ti ti-world"></i></div>
-        <div class="sk-step-text"><div class="sk-step-label">Publicando en Geinz</div><div class="sk-step-status" id="sk-status4">Pendiente</div></div>
-      </div>
-    </div>
-  </div>`;
+    sk.innerHTML = `<div class="sk-modal"><div class="sk-badge">GEINZ</div><div class="sk-ring"><svg viewBox="0 0 56 56" width="56" height="56"><defs><linearGradient id="skRingGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#6d28d9"/><stop offset="100%" stop-color="#a855f7"/></linearGradient></defs><circle class="sk-ring-bg" cx="28" cy="28" r="22"/><circle class="sk-ring-fill" cx="28" cy="28" r="22"/></svg></div><div class="sk-titles"><p class="sk-title" id="skTitle">Publicando tu promocion...</p><p class="sk-subtitle" id="skSubtitle">Esto solo tarda unos segundos</p></div><div class="sk-bar-wrap"><div class="sk-bar" id="skBar" style="width:15%"></div></div><div class="sk-steps" id="skSteps"><div class="sk-step done" id="sk-step1"><div class="sk-step-icon"><i class="ti ti-check"></i></div><div class="sk-step-text"><div class="sk-step-label">Validando datos</div><div class="sk-step-status" id="sk-status1">Completado</div></div></div><div class="sk-step active" id="sk-step2"><div class="sk-step-icon"><i class="ti ti-cpu"></i></div><div class="sk-step-text"><div class="sk-step-label">Analizando con IA</div><div class="sk-step-status" id="sk-status2">En progreso...</div></div></div><div class="sk-step pending" id="sk-step3"><div class="sk-step-icon"><i class="ti ti-photo"></i></div><div class="sk-step-text"><div class="sk-step-label">Subiendo imagenes</div><div class="sk-step-status" id="sk-status3">Pendiente</div></div></div><div class="sk-step pending" id="sk-step4"><div class="sk-step-icon"><i class="ti ti-world"></i></div><div class="sk-step-text"><div class="sk-step-label">Publicando en Geinz</div><div class="sk-step-status" id="sk-status4">Pendiente</div></div></div></div></div>`;
     document.body.appendChild(sk);
   }
 
@@ -1226,67 +1483,204 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     const l =
       localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
     const url = `https://geinzworkapp.web.app/api/share?t=prms&l=${l}&pi=${id_promocion}`;
-    const urlCorta = url.length > 52 ? url.slice(0, 52) + "..." : url;
+
+    // Quitar modal anterior si existe
+    document.getElementById("modalExitoPromo")?.remove();
 
     const modal = document.createElement("div");
     modal.id = "modalExitoPromo";
-    modal.className = "sk-overlay";
+    modal.style.cssText = `
+    position:fixed;inset:0;z-index:9999;
+    background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
+    display:flex;align-items:flex-end;justify-content:center;
+    animation:fadeInOverlay .25s ease;
+  `;
+
     modal.innerHTML = `
-  <div class="sk-modal sk-modal-success">
-    <div class="sk-check-wrap"><i class="ti ti-check"></i></div>
-    <div class="sk-titles">
-      <p class="sk-title">Publicacion exitosa</p>
-      <p class="sk-subtitle">Tu promocion ya esta visible en Geinz para todos los usuarios de ${localidad || "tu ciudad"}.</p>
+    <style>
+      @keyframes fadeInOverlay { from{opacity:0} to{opacity:1} }
+      @keyframes slideUpSheet  { from{transform:translateY(100%)} to{transform:translateY(0)} }
+      #modalExitoPromo .sheet {
+        width:100%;max-width:520px;
+        background:#0f0f13;
+        border-radius:28px 28px 0 0;
+        border-top:1px solid rgba(255,255,255,.08);
+        padding:0 0 env(safe-area-inset-bottom,0);
+        animation:slideUpSheet .4s cubic-bezier(.34,1.1,.64,1);
+        overflow:hidden;
+      }
+      #modalExitoPromo .handle {
+        width:36px;height:4px;
+        background:rgba(255,255,255,.15);border-radius:2px;
+        margin:14px auto 0;
+      }
+      #modalExitoPromo .sheet-inner { padding:24px 24px 32px; }
+      #modalExitoPromo .success-ring {
+        width:72px;height:72px;border-radius:50%;
+        background:rgba(34,197,94,.12);
+        border:1.5px solid rgba(34,197,94,.3);
+        display:flex;align-items:center;justify-content:center;
+        margin:0 auto 20px;
+      }
+      #modalExitoPromo .success-ring i {
+        font-size:32px;color:#22c55e;
+      }
+      #modalExitoPromo h2 {
+        font-size:22px;font-weight:700;color:#fff;
+        text-align:center;margin:0 0 8px;
+      }
+      #modalExitoPromo .subtitle {
+        font-size:13px;color:#6b7280;text-align:center;
+        line-height:1.5;margin:0 0 24px;
+      }
+      #modalExitoPromo .url-box {
+        display:flex;align-items:center;gap:10px;
+        background:#1a1a24;
+        border:1px solid rgba(255,255,255,.07);
+        border-radius:14px;padding:12px 14px;
+        margin-bottom:20px;
+      }
+      #modalExitoPromo .url-box i { font-size:16px;color:#52525b;flex-shrink:0; }
+      #modalExitoPromo .url-text {
+        flex:1;font-size:12px;color:#9ca3af;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+        font-family:monospace;
+      }
+      #modalExitoPromo .btn-copy {
+        flex-shrink:0;height:32px;padding:0 12px;
+        border:1px solid rgba(255,255,255,.1);
+        background:rgba(255,255,255,.05);
+        color:#d1d5db;border-radius:8px;
+        font-size:12px;font-weight:600;cursor:pointer;
+        display:flex;align-items:center;gap:5px;
+        transition:background .2s;white-space:nowrap;
+      }
+      #modalExitoPromo .btn-copy:hover { background:rgba(255,255,255,.1); }
+      #modalExitoPromo .btn-copy.copied { color:#22c55e;border-color:rgba(34,197,94,.3); }
+      #modalExitoPromo .share-grid {
+        display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;
+        margin-bottom:16px;
+      }
+      #modalExitoPromo .share-btn {
+        display:flex;flex-direction:column;align-items:center;gap:6px;
+        padding:14px 8px;border-radius:16px;border:1px solid rgba(255,255,255,.07);
+        background:rgba(255,255,255,.03);cursor:pointer;
+        font-size:11px;font-weight:600;color:#9ca3af;
+        transition:background .2s,transform .15s;
+      }
+      #modalExitoPromo .share-btn:hover { background:rgba(255,255,255,.07);transform:translateY(-2px); }
+      #modalExitoPromo .share-btn i { font-size:22px; }
+      #modalExitoPromo .share-btn.wp i  { color:#22c55e; }
+      #modalExitoPromo .share-btn.share i { color:#6366f1; }
+      #modalExitoPromo .share-btn.view i  { color:#f59e0b; }
+      #modalExitoPromo .btn-done {
+        width:100%;height:52px;border-radius:16px;border:none;
+        background:linear-gradient(135deg,#7c3aed,#6d28d9);
+        color:#fff;font-size:15px;font-weight:700;
+        cursor:pointer;transition:opacity .2s,transform .15s;
+      }
+      #modalExitoPromo .btn-done:hover { opacity:.9;transform:translateY(-1px); }
+      #modalExitoPromo .divider {
+        height:1px;background:rgba(255,255,255,.06);
+        margin:0 0 16px;
+      }
+    </style>
+
+    <div class="sheet">
+      <div class="handle"></div>
+      <div class="sheet-inner">
+
+        <div class="success-ring">
+          <i class="ti ti-check"></i>
+        </div>
+
+        <h2>¡Promoción publicada!</h2>
+        <p class="subtitle">
+          Tu promo ya está visible para todos los usuarios<br>
+          de <strong style="color:#fff">${localidad || "tu ciudad"}</strong> en Geinz.
+        </p>
+
+        <div class="url-box">
+          <i class="ti ti-link"></i>
+          <span class="url-text" title="${url}">${url}</span>
+          <button class="btn-copy" id="btnCopyUrl">
+            <i class="ti ti-copy" style="font-size:13px"></i> Copiar
+          </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="share-grid">
+          <button class="share-btn wp" id="btnShareWp">
+            <i class="ti ti-brand-whatsapp"></i>
+            WhatsApp
+          </button>
+          <button class="share-btn share" id="btnShareNative">
+            <i class="ti ti-share"></i>
+            Compartir
+          </button>
+          <button class="share-btn view" id="btnVerPromo">
+            <i class="ti ti-external-link"></i>
+            Ver promo
+          </button>
+        </div>
+
+        <button class="btn-done" id="btnCerrarExito">Listo</button>
+
+      </div>
     </div>
-    <div class="sk-url-box">
-      <i class="ti ti-link" style="font-size:14px;color:#52525b;flex-shrink:0"></i>
-      <span class="sk-url-text" title="${url}">${urlCorta}</span>
-      <button class="sk-copy-btn" id="btnCopyUrl"><i class="ti ti-copy" style="font-size:13px"></i> Copiar</button>
-    </div>
-    <div class="sk-share-row">
-      <button class="sk-share-btn sk-share-wp" id="btnShareWp"><i class="ti ti-brand-whatsapp" style="font-size:15px"></i> WhatsApp</button>
-      <button class="sk-share-btn" id="btnShareNative"><i class="ti ti-share" style="font-size:15px"></i> Compartir</button>
-      <button class="sk-share-btn" id="btnVerPromo"><i class="ti ti-external-link" style="font-size:15px"></i> Ver</button>
-    </div>
-    <button class="sk-close-btn" id="btnCerrarExito">Listo</button>
-  </div>`;
+  `;
+
     document.body.appendChild(modal);
+
+    // Cerrar al tocar el fondo
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) cerrarModalExito();
+    });
 
     document.getElementById("btnCopyUrl").addEventListener("click", () => {
       navigator.clipboard.writeText(url).then(() => {
         const b = document.getElementById("btnCopyUrl");
         if (b) {
+          b.classList.add("copied");
           b.innerHTML =
             '<i class="ti ti-check" style="font-size:13px"></i> Copiado';
-        }
-        setTimeout(() => {
-          const b2 = document.getElementById("btnCopyUrl");
-          if (b2)
-            b2.innerHTML =
+          setTimeout(() => {
+            b.classList.remove("copied");
+            b.innerHTML =
               '<i class="ti ti-copy" style="font-size:13px"></i> Copiar';
-        }, 2000);
+          }, 2200);
+        }
       });
     });
+
     document.getElementById("btnShareWp").addEventListener("click", () => {
       window.open(
         `https://wa.me/?text=${encodeURIComponent("Mira esta promo en Geinz: " + url)}`,
         "_blank",
       );
     });
+
     document.getElementById("btnShareNative").addEventListener("click", () => {
-      if (navigator.share) {
-        navigator.share({ title: "Promo en Geinz", url });
-      } else {
+      if (navigator.share) navigator.share({ title: "Promo en Geinz", url });
+      else {
         navigator.clipboard.writeText(url);
         mostrarToast("Enlace copiado al portapapeles");
       }
     });
+
     document.getElementById("btnVerPromo").addEventListener("click", () => {
       window.open(url, "_blank");
     });
-    document.getElementById("btnCerrarExito").addEventListener("click", () => {
-      modal.remove();
-    });
+
+    document
+      .getElementById("btnCerrarExito")
+      .addEventListener("click", cerrarModalExito);
+
+    function cerrarModalExito() {
+      modal.style.animation = "fadeInOverlay .2s ease reverse";
+      setTimeout(() => modal.remove(), 200);
+    }
   }
 
   function limpiarFormulario() {
@@ -1304,6 +1698,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     mensajeWpInput.value = "Hola, quiero esta oferta que vi en Geinz";
     mensajeShareInput.value = "Mira esta promo en Geinz 🎁";
     resultadoIAContainer.innerHTML = "";
+    // Resetear términos
+    terminosAceptados = false;
+    const tc = document.getElementById("terminosCheck");
+    if (tc) tc.checked = false;
     document
       .querySelectorAll(
         '.param-box > .param-row > label.switch input[type="checkbox"]',
@@ -1315,8 +1713,9 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
           ?.parentElement?.querySelector(".sub-panel");
         if (panel) panel.classList.remove("open");
       });
-    const hoy = new Date();
-    const str = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const str = `${manana.getFullYear()}-${String(manana.getMonth() + 1).padStart(2, "0")}-${String(manana.getDate()).padStart(2, "0")}`;
     document.getElementById("fechaInicio").value = str;
     document.getElementById("fechaFin").value = "";
     document.getElementById("duracionDiasContainer").innerHTML = "";
@@ -1326,9 +1725,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     validate();
   }
 
-  /* ══════════════════════════════════════════
-       EVENTOS
-    ══════════════════════════════════════════ */
+  /* ── EVENTOS ── */
   tituloInput?.addEventListener("input", validate);
   descripcionInput?.addEventListener("input", validate);
   mensajeWpInput?.addEventListener("input", validate);
@@ -1338,10 +1735,29 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
   btnImagenIA?.addEventListener("click", generarImagenTextoIA);
 
   document.getElementById("inputHoras")?.addEventListener("input", function () {
+    // Permitir borrar el campo para redigitar
+    if (this.value === "" || this.value === "0") {
+      this.value = "";
+      return;
+    }
     let v = parseInt(this.value);
-    if (isNaN(v) || v < 1) this.value = 1;
-    if (v > 20) this.value = 20;
+    if (isNaN(v)) {
+      this.value = "";
+      return;
+    }
+    if (v > 20) {
+      v = 20;
+      this.value = v;
+    }
     calcularDuracionHoras();
+  });
+
+  document.getElementById("inputHoras")?.addEventListener("blur", function () {
+    let v = parseInt(this.value);
+    if (isNaN(v) || v < 1) {
+      this.value = 1;
+      calcularDuracionHoras();
+    }
   });
 
   document.getElementById("fechaFin")?.addEventListener("change", function () {
@@ -1357,19 +1773,13 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     .querySelector(".btn-submit")
     ?.addEventListener("click", publicarPromocion);
 
-  // Aplicar precios iniciales con los valores por defecto
   aplicarPreciosEnDOM();
   validate();
   tipoPlazo();
 })();
 
-/* ══════════════════════════════════════════
-     MENSAJES DESDE EL FRAME PADRE
-   ══════════════════════════════════════════ */
+/* ── MENSAJES DESDE EL FRAME PADRE ── */
 window.addEventListener("message", (event) => {
-  // ─────────────────────────────────────────
-  // SALDO / CRÉDITOS
-  // ─────────────────────────────────────────
   if (event.data?.type === "DATOS_TIENDA") {
     const d = event.data.payload;
     datosTienda = {
@@ -1378,25 +1788,22 @@ window.addEventListener("message", (event) => {
       nombre_tienda: d.nombre_tienda,
       categoria_tienda: d.categoria_tienda,
       img_tienda: { logo_tienda: d.logo_tienda },
-      // El padre manda estos en el payload completo:
       metodo_contacto: d.metodo_contacto,
       metodos_pago: d.metodos_pago,
       ubicacion: d.ubicacion,
-      saldo_tienda: d.saldo_tienda
+      saldo_tienda: d.saldo_tienda,
     };
     _aplicarDatosTienda(datosTienda);
+    actualizarEstadoBotonPublicar();
   }
   if (event.data?.type === "PATCH_TIENDA") {
     if (!datosTienda) return;
-
-    // Merge profundo — maneja claves con puntos como "metodo_contacto.whatsapp.numero"
     const diff = event.data.payload;
     for (const key of Object.keys(diff)) {
       const parts = key.split(".");
       if (parts.length === 1) {
         datosTienda[key] = diff[key];
       } else {
-        // Navegar y setear en el objeto anidado
         let obj = datosTienda;
         for (let i = 0; i < parts.length - 1; i++) {
           if (!obj[parts[i]]) obj[parts[i]] = {};
@@ -1405,66 +1812,75 @@ window.addEventListener("message", (event) => {
         obj[parts[parts.length - 1]] = diff[key];
       }
     }
-
     _aplicarDatosTienda(datosTienda);
+    actualizarEstadoBotonPublicar();
+  }
+  if (
+    event.data?.type === "PUBLICIDAD_UPDATE" ||
+    event.data?.type === "PLANES_UPDATE"
+  ) {
+    const pub = event.data.publicidad || {};
+    if (typeof _aplicarPublicidad === "function") _aplicarPublicidad(pub);
   }
 
+  if (event.data?.type === "SALDO_UPDATE") {
+    const nuevoSaldo = event.data?.saldo ?? 0;
 
-  // ─────────────────────────────────────────
-  // PUBLICIDAD UPDATE
-  // ─────────────────────────────────────────
-  if (event.data?.type === "PUBLICIDAD_UPDATE") {
-    const pub = event.data.publicidad || {};
-
-    console.log("📩 [PUBLICIDAD_UPDATE]:", pub);
-
-    if (typeof _aplicarPublicidad === "function") {
-      _aplicarPublicidad(pub);
+    // 1. Actualizar state local
+    if (datosTienda) {
+      datosTienda.saldo_tienda = nuevoSaldo;
+    } else {
+      // Si aún no llegó DATOS_TIENDA, guardar para cuando llegue
+      window._saldoPendiente = nuevoSaldo;
     }
-  }
 
-  // ─────────────────────────────────────────
-  // PLANES UPDATE
-  // ─────────────────────────────────────────
-  if (event.data?.type === "PLANES_UPDATE") {
-    const pub = event.data.publicidad || {};
+    // 2. Actualizar badge de créditos en la UI
+    const el = document.getElementById("creditos_value");
+    if (el)
+      el.textContent = `${Number(nuevoSaldo).toLocaleString("en-US")} Creditos  `;
 
-    console.log("📩 [PLANES_UPDATE]:", pub);
+    // 3. Re-validar botones IA y botón publicar
+    actualizarBotonesIA();
+    actualizarCostoPublicar();
+    actualizarEstadoBotonPublicar();
+    verificarSaldo();
 
-    if (typeof _aplicarPublicidad === "function") {
-      _aplicarPublicidad(pub);
-    }
+    console.log("💰 [SALDO_UPDATE] Saldo actualizado en iframe:", nuevoSaldo);
   }
 });
+
 function _aplicarDatosTienda(d) {
   if (!d) return;
-  console.log("saldoteindasdasdasdas", d.saldo_tienda);
-  // WhatsApp
+  if (window._saldoPendiente !== undefined) {
+    d.saldo_tienda = window._saldoPendiente;
+    delete window._saldoPendiente;
+  }
   const numeroWp = d.metodo_contacto?.whatsapp?.numero || "";
   const wpInput = document.querySelector('#wp input[type="text"]');
   if (wpInput && numeroWp) wpInput.value = numeroWp;
   const saldo = d.saldo_tienda || 0;
-
-  document.getElementById("creditos_value").textContent =
-    `${Number(saldo).toLocaleString("en-US")} Creditos  `;
-  // Dirección y referencia
+  const el = document.getElementById("creditos_value");
+  if (el)
+    el.textContent = `${Number(saldo).toLocaleString("en-US")} Creditos  `;
   const geoInputs = document.querySelectorAll('#geo input[type="text"]');
   if (geoInputs[0]) geoInputs[0].value = d.ubicacion?.dirección || "";
   if (geoInputs[1]) geoInputs[1].value = d.ubicacion?.referencia || "";
-
-  // Métodos de pago
   const mp = d.metodos_pago || {};
-  const pagosChecks = document.querySelectorAll('#payments .pay-item input[type="checkbox"]');
+  const pagosChecks = document.querySelectorAll(
+    '#payments .pay-item input[type="checkbox"]',
+  );
   if (pagosChecks[0]) pagosChecks[0].checked = mp.yape?.enable ?? false;
   if (pagosChecks[1]) pagosChecks[1].checked = mp.plin?.enable ?? false;
   if (pagosChecks[2]) pagosChecks[2].checked = mp.agora?.enable ?? false;
   if (pagosChecks[3]) pagosChecks[3].checked = mp.efectivo?.enable ?? false;
-  if (pagosChecks[4]) pagosChecks[4].checked = mp.visa_mastercard?.enable ?? false;
-  if (pagosChecks[5]) pagosChecks[5].checked = mp.visa_mastercard?.enable ?? false;
+  if (pagosChecks[4])
+    pagosChecks[4].checked = mp.visa_mastercard?.enable ?? false;
+  if (pagosChecks[5])
+    pagosChecks[5].checked = mp.visa_mastercard?.enable ?? false;
+  actualizarBotonesIA();
 }
-// ── Función compartida: aplica publicidad al _precios y al DOM ──
+
 function _aplicarPublicidad(pub) {
-  // Claves EXACTAS como vienen de Firestore (sin sufijo numérico)
   if (pub.ia_imagen_texto != null)
     _precios.ia_imagen_texto = pub.ia_imagen_texto;
   if (pub.mejora_texto_x3 != null)
@@ -1474,10 +1890,88 @@ function _aplicarPublicidad(pub) {
     _precios.publicacion_24h = pub.publicacion_24h;
   if (pub.publicacion_por_hora != null)
     _precios.publicacion_x_hora = pub.publicacion_por_hora;
-  // ceo_descripcion también mapea a mejora_texto_x3 si existe
   if (pub.ceo_descripcion != null)
     _precios.mejora_texto_x3 = pub.ceo_descripcion;
-
-  console.log("✅ _precios actualizados:", JSON.stringify(_precios));
   aplicarPreciosEnDOM();
+  actualizarEstadoBotonPublicar();
+  actualizarBotonesIA();
+}
+
+// ── Validar saldo para botones IA ──────────────────────
+function actualizarBotonesIA() {
+  const saldo = datosTienda?.saldo_tienda ?? 0;
+
+  const botones = [
+    {
+      id: "btnImagenIA",
+      costo: _precios.ia_imagen_texto,
+      labelActivo: "Generar imagen + texto con IA",
+      icono: "ti-sparkles",
+    },
+    {
+      id: "btnDescripcionIA",
+      costo: _precios.mejora_texto_x3,
+      labelActivo: "Mejorar texto con IA",
+      icono: "ti-wand",
+    },
+    {
+      id: "btnMensajeWpIA",
+      costo: _precios.mensaje_w_c,
+      labelActivo: "Generar mensaje WhatsApp",
+      icono: "ti-brand-whatsapp",
+    },
+    {
+      id: "btnMensajeShareIA",
+      costo: _precios.mensaje_w_c,
+      labelActivo: "Generar mensaje compartir",
+      icono: "ti-share",
+    },
+  ];
+
+  botones.forEach(({ id, costo, labelActivo }) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+
+    const saldoSuficiente = saldo >= costo && costo > 0;
+    const sinPrecio = costo === 0;
+
+    if (sinPrecio || saldoSuficiente) {
+      // ── Habilitado ──
+      btn.disabled = false;
+      btn.title = "";
+      btn.style.opacity = "";
+      btn.style.cursor = "";
+      btn.style.filter = "";
+      // Quitar badge de saldo insuficiente si existe
+      btn.querySelector(".btn-no-saldo-badge")?.remove();
+    } else {
+      // ── Deshabilitado por saldo ──
+      btn.disabled = true;
+      btn.title = `Necesitas ${costo.toLocaleString("es-PE")} créditos`;
+      btn.style.opacity = "0.45";
+      btn.style.cursor = "not-allowed";
+
+      // Inyectar badge de costo solo si no existe
+      if (!btn.querySelector(".btn-no-saldo-badge")) {
+        const badge = document.createElement("span");
+        badge.className = "btn-no-saldo-badge";
+        badge.style.cssText = `
+          display:inline-flex;align-items:center;gap:3px;
+          background:rgba(239,68,68,.15);
+          border:1px solid rgba(239,68,68,.3);
+          color:#f87171;
+          font-size:10px;font-weight:700;
+          padding:2px 7px;border-radius:999px;
+          margin-left:8px;
+          vertical-align:middle;
+          pointer-events:none;
+        `;
+        badge.innerHTML = `
+          <i class="ti ti-coins" style="font-size:11px"></i>
+          Necesitas ${costo.toLocaleString("es-PE")} créditos
+        `;
+        btn.appendChild(badge);
+      }
+    }
+  });
 }
