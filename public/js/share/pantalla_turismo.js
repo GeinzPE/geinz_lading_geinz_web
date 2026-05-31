@@ -23,7 +23,10 @@
         const db = getFirestore(app);
 
         let allPlaces = [];
+const params = new URLSearchParams(window.location.search);
+const localidad = params.get('loc');
 
+console.log(localidad);
         async function renderWithSmoothImages(data) {
 
             const grid = document.getElementById("placesGrid");
@@ -56,7 +59,7 @@
                 <div 
                     class="card"
                     data-id="${item.id}"
-                    onclick="window.location.href='turismo?id=${item.id}&l=barranca'"
+                    onclick="window.location.href='turismo?id=${item.id}&l=${localidad}'"
                     style="animation-delay:${Math.min(idx * .04, .5)}s"
                 >
 
@@ -159,7 +162,7 @@
                         collection(
                             db,
                             "Tiendas",
-                            "barranca",
+                            localidad,
                             "lugares_turisticos"
                         )
                     )

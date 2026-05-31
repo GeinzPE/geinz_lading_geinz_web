@@ -1,114 +1,116 @@
-
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Conectando…</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Clash+Display:wght@500;600;700&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="../style/seguridad_geinz/contac.css"/>
-    <script type="module" src="../js/seguridad_geinz/contacto.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Conectando…</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Clash+Display:wght@500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="../style/seguridad_geinz/contac.css" />
+  <script type="module" src="../js/seguridad_geinz/contacto.js"></script>
+  
+  <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../img/icons/site.webmanifest">
 </head>
+
 <body>
 
-<div class="bg-grid"></div>
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
-<div class="orb orb-3"></div>
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
 
-<div class="scene">
-  <div class="card">
+  <div class="scene">
+    <div class="card">
 
-    <!-- Logo circular con anillo giratorio -->
-    <div class="logo-ring">
-      <div class="logo-halo-2"></div>
-      <div class="logo-halo"></div>
-      <svg class="ring" viewBox="0 0 104 104">
-        <defs>
-          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#8b5cf6"/>
-            <stop offset="50%" stop-color="#e879f9"/>
-            <stop offset="100%" stop-color="#6d28d9"/>
-          </linearGradient>
-        </defs>
-        <circle class="track" cx="52" cy="52" r="50"/>
-        <circle class="spin" cx="52" cy="52" r="50"/>
-      </svg>
-      <!--
+      <!-- Logo circular con anillo giratorio -->
+      <div class="logo-ring">
+        <div class="logo-halo-2"></div>
+        <div class="logo-halo"></div>
+        <svg class="ring" viewBox="0 0 104 104">
+          <defs>
+            <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#8b5cf6" />
+              <stop offset="50%" stop-color="#e879f9" />
+              <stop offset="100%" stop-color="#6d28d9" />
+            </linearGradient>
+          </defs>
+          <circle class="track" cx="52" cy="52" r="50" />
+          <circle class="spin" cx="52" cy="52" r="50" />
+        </svg>
+        <!--
         Logo del negocio — reemplaza src con tu imagen:
         src="./logo.png"
       -->
-      <img
-        class="logo-img"
-        id="businessLogo"
-        src="https://placehold.co/80x80/161322/8b5cf6?text=L"
-        alt="Logo"
-      />
-    </div>
+        <img class="logo-img" id="businessLogo" src="https://placehold.co/80x80/161322/8b5cf6?text=L" alt="Logo" />
+      </div>
 
-    <!-- Badge estado -->
-    <div class="store-pill">
-      <span class="pill-dot"></span>
-      <span id="storeId">Tienda</span>
-    </div>
+      <!-- Badge estado -->
+      <div class="store-pill">
+        <span class="pill-dot"></span>
+        <span id="storeId">Tienda</span>
+      </div>
 
-    <!-- Nombre negocio -->
-    <h1 class="biz-name" id="businessName">Geinz</h1>
-    <p class="biz-sub">Contacto oficial · WhatsApp</p>
+      <!-- Nombre negocio -->
+      <h1 class="biz-name" id="businessName">Geinz</h1>
+      <p class="biz-sub">Contacto oficial · WhatsApp</p>
 
-    <div class="sep"></div>
+      <div class="sep"></div>
 
-    <!-- Asistente -->
-    <div class="assistant">
-      <!--
+      <!-- Asistente -->
+      <div class="assistant">
+        <!--
         Imagen del asistente — reemplaza src:
         src="./asistente.png"
       -->
-      <img
-        class="asst-av"
-        src="https://placehold.co/44x44/161322/a78bfa?text=AI"
-        alt="Asistente"
-      />
-      <div class="asst-info">
-        <span class="asst-name">Asistente Inteligente</span>
-        <span class="asst-role">Gestionando tu conexión ahora mismo</span>
+        <img class="asst-av" src="https://placehold.co/44x44/161322/a78bfa?text=AI" alt="Asistente" />
+        <div class="asst-info">
+          <span class="asst-name">Asistente Inteligente</span>
+          <span class="asst-role">Gestionando tu conexión ahora mismo</span>
+        </div>
       </div>
+
+      <!-- Mensaje redirección -->
+      <p class="redir-txt" id="redirMsg">
+        Te estamos redirigiendo directamente con<br />
+        <strong id="bizInline">el negocio</strong> en WhatsApp.<br />
+        Solo tomará unos segundos
+      </p>
+
+      <!-- Barra de progreso -->
+      <div class="prog-wrap">
+        <div class="prog-head">
+          <span class="prog-label">Conectando</span>
+          <span class="prog-pct" id="pct">0%</span>
+        </div>
+        <div class="prog-track">
+          <div class="prog-fill" id="fill"></div>
+        </div>
+      </div>
+
+      <!-- Botón CTA -->
+      <a class="cta" id="ctaBtn" href="#" target="_blank" rel="noopener">
+        <svg class="cta-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.139 1.533 5.874L0 24l6.322-1.51A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.018-1.378l-.36-.214-3.73.891.93-3.617-.234-.372A9.818 9.818 0 1112 21.818z" />
+        </svg>
+        Abrir WhatsApp ahora
+      </a>
+
+      <p class="foot">Powered by Geinz· Conexión segura</p>
+
+
+
     </div>
-
-    <!-- Mensaje redirección -->
-    <p class="redir-txt" id="redirMsg">
-      Te estamos redirigiendo directamente con<br/>
-      <strong id="bizInline">el negocio</strong> en WhatsApp.<br/>
-      Solo tomará unos segundos
-    </p>
-
-    <!-- Barra de progreso -->
-    <div class="prog-wrap">
-      <div class="prog-head">
-        <span class="prog-label">Conectando</span>
-        <span class="prog-pct" id="pct">0%</span>
-      </div>
-      <div class="prog-track">
-        <div class="prog-fill" id="fill"></div>
-      </div>
-    </div>
-
-    <!-- Botón CTA -->
-    <a class="cta" id="ctaBtn" href="#" target="_blank" rel="noopener">
-      <svg class="cta-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.139 1.533 5.874L0 24l6.322-1.51A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.018-1.378l-.36-.214-3.73.891.93-3.617-.234-.372A9.818 9.818 0 1112 21.818z"/>
-      </svg>
-      Abrir WhatsApp ahora
-    </a>
-
-    <p class="foot">Powered by Geinz· Conexión segura</p>
-
-
-    
   </div>
-</div>
 
 
 </body>
+
 </html>

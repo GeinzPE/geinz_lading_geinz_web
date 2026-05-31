@@ -17,7 +17,7 @@
     window.PhotoSwipeLightbox = PhotoSwipeLightbox;
   </script>
   <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
   <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
   <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
   <link rel="manifest" href="../img/icons/site.webmanifest">
@@ -130,8 +130,8 @@
 
     function applyAccent(r, g, b) {
       const root = document.documentElement;
-      root.style.setProperty('--accent',     `rgb(${r},${g},${b})`);
-      root.style.setProperty('--accent2',    `rgba(${r},${g},${b},0.82)`);
+      root.style.setProperty('--accent', `rgb(${r},${g},${b})`);
+      root.style.setProperty('--accent2', `rgba(${r},${g},${b},0.82)`);
       root.style.setProperty('--accentSoft', `rgba(${r},${g},${b},0.18)`);
     }
 
@@ -139,7 +139,7 @@
       try {
         const SIZE = 80;
         const canvas = document.createElement('canvas');
-        canvas.width  = SIZE;
+        canvas.width = SIZE;
         canvas.height = SIZE;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, SIZE, SIZE);
@@ -148,7 +148,7 @@
         let r = 0, g = 0, b = 0, count = 0;
 
         for (let i = 0; i < data.length; i += 16) {
-          const rr = data[i], gg = data[i+1], bb = data[i+2], aa = data[i+3];
+          const rr = data[i], gg = data[i + 1], bb = data[i + 2], aa = data[i + 3];
           if (aa < 128) continue;
           const brightness = (rr + gg + bb) / 3;
           const isGray = Math.abs(rr - gg) < 20 && Math.abs(gg - bb) < 20;
@@ -158,9 +158,9 @@
         }
 
         if (count < 50) return false; // imagen sin color útil
-        applyAccent(Math.floor(r/count), Math.floor(g/count), Math.floor(b/count));
+        applyAccent(Math.floor(r / count), Math.floor(g / count), Math.floor(b / count));
         return true;
-      } catch(e) {
+      } catch (e) {
         return false; // CORS tainted → silencio
       }
     }
@@ -200,4 +200,5 @@
   </script>
 
 </body>
+
 </html>

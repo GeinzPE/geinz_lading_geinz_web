@@ -23,7 +23,10 @@ const grid = document.getElementById("containerGrid");
 let listadoEmergencias = [];
 
 /* controls effect */
+const params = new URLSearchParams(window.location.search);
+const localidad = params.get("loc");
 
+console.log(localidad);
 const controls = document.getElementById("controls");
 
 window.addEventListener("scroll", () => {
@@ -38,7 +41,7 @@ window.addEventListener("scroll", () => {
 
 async function fetchDatabase() {
   try {
-    const colRef = collection(db, "Tiendas", "salud_seguridad", "barranca");
+    const colRef = collection(db, "Tiendas", "salud_seguridad", localidad);
 
     const snapshot = await getDocs(colRef);
 

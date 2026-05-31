@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeinzWork · Explora negocios cerca de ti</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap"
+        rel="stylesheet">
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Quitar selección de texto accidental */
+        * {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Opcional: quitar contornos de enfoque táctil */
+        button,
+        a,
+        input,
+        textarea,
+        select {
+            outline: none;
+        }
+
+        body {
+            background: #050505;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        :root {
+            --primary: #8b5cf6;
+            --primary-glow: #a855f7;
+            --card-bg: #0c0c0c;
+            --border-subtle: #1f1f1f;
+            --gray-mid: #a1a1aa;
+        }
+
+        /* ========= HERO ========= */
+        .hero {
+            position: relative;
+            padding: 80px 20px 50px;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: "";
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--primary), transparent 70%);
+            top: -250px;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0.25;
+            filter: blur(80px);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.3rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 18px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 60%, #c084fc 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .hero p {
+            max-width: 700px;
+            margin: 0 auto;
+            color: #b0b0b0;
+            line-height: 1.6;
+            font-size: 1.05rem;
+            font-weight: 400;
+        }
+
+        /* ========= SEARCH BAR ========= */
+        .search-container {
+            max-width: 1000px;
+            margin: 30px auto 50px;
+            padding: 0 20px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: #0a0a0a;
+            border: 2px solid #2a2a2a;
+            border-radius: 80px;
+            padding: 14px 24px;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(2px);
+        }
+
+        .search-box:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 22px rgba(139, 92, 246, 0.3);
+        }
+
+        .search-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+            color: white;
+            font-weight: 500;
+        }
+
+        .search-box input::placeholder {
+            color: #5e5e6e;
+            font-weight: 400;
+        }
+
+        .search-box svg {
+            width: 24px;
+            height: 24px;
+            fill: #b9b9c5;
+        }
+
+        /* ========= GRID ========= */
+        .container {
+            width: min(1500px, 95%);
+            margin: 0 auto 80px;
+        }
+
+        .section-title {
+            font-size: 1.9rem;
+            font-weight: 800;
+            margin-bottom: 32px;
+            padding-left: 6px;
+            letter-spacing: -0.01em;
+            border-left: 5px solid var(--primary);
+            padding-left: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 24px;
+        }
+
+        /* ========= CARD (REAL) ========= */
+        .card {
+            position: relative;
+            height: 420px;
+            border-radius: 32px;
+            overflow: hidden;
+            cursor: pointer;
+            background: #0f0f0f;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1), box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 35px -12px rgba(0, 0, 0, 0.6);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        /* Imagen real (z-index base) */
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+            position: relative;
+            z-index: 0;
+        }
+
+        .card:hover .card-img {
+            transform: scale(1.06);
+        }
+
+        /* Skeleton overlay de imagen (shimmer) que se elimina al cargar */
+        .img-skeleton-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, #151515 8%, #232323 18%, #151515 33%);
+            background-size: 200% 100%;
+            animation: shimmerMove 1.2s linear infinite;
+            z-index: 1;
+            pointer-events: none;
+            border-radius: 32px;
+        }
+
+        @keyframes shimmerMove {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* Gradiente y texto (z-index alto) */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.3) 40%, rgba(0, 0, 0, 0.85) 100%);
+            z-index: 2;
+        }
+
+        .content {
+            position: absolute;
+            left: 13px;
+            right: 21px;
+            bottom: 7px;
+            z-index: 3;
+        }
+
+        .content h2 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* TAGS / CHIPS MODERNOS */
+        .tags {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex-wrap: nowrap;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tags::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tags::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .tags::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.6);
+            border-radius: 8px;
+        }
+
+        .tag {
+            flex-shrink: 0;
+            background: rgba(12, 12, 12, 0.75);
+            backdrop-filter: blur(8px);
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: #f1f1f1;
+            border: 0.5px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tag:hover {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.02);
+            border-color: var(--primary);
+        }
+
+        /* ========= SKELETON CARDS (carga global) ========= */
+        .skeleton-card {
+            background: #0c0c0c;
+            border: 1px solid #1e1e1e;
+            border-radius: 32px;
+            overflow: hidden;
+            height: 420px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .skeleton-img {
+            width: 100%;
+            height: 65%;
+            background: linear-gradient(110deg, #171717 8%, #242424 18%, #171717 33%);
+            background-size: 200% 100%;
+            animation: shimmerMove 1s infinite;
+        }
+
+        .skeleton-content {
+            padding: 20px 20px 18px;
+            background: #0c0c0c;
+        }
+
+        .skeleton-title {
+            width: 80%;
+            height: 28px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            animation: pulseOpacity 1.4s infinite;
+        }
+
+        .skeleton-chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .skeleton-chip {
+            width: 70px;
+            height: 28px;
+            background: #202020;
+            border-radius: 40px;
+            animation: pulseOpacity 1.4s infinite;
+        }
+
+        .skeleton-chip.short {
+            width: 55px;
+        }
+
+        .skeleton-chip.medium {
+            width: 85px;
+        }
+
+        @keyframes pulseOpacity {
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 0.9;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        /* mensaje sin resultados */
+        .empty-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 70px 20px;
+            background: #0a0a0a;
+            border-radius: 48px;
+            color: #aaa;
+            font-weight: 500;
+            border: 1px dashed #2c2c2c;
+        }
+
+        /* responsive grid */
+        @media (max-width: 1400px) {
+            .grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+
+            .card,
+            .skeleton-card {
+                height: 340px;
+            }
+
+            .content h2 {
+                font-size: 1.5rem;
+            }
+
+            .tag {
+                padding: 4px 12px;
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (max-width: 540px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .card,
+            .skeleton-card {
+                height: 280px;
+            }
+
+            .content h2 {
+                font-size: 1.1rem;
+            }
+
+            .tag {
+                font-size: 0.68rem;
+                padding: 4px 10px;
+            }
+        }
+
+        .card,
+        .skeleton-card {
+            animation: fadeInUp 0.35s ease both;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <section class="hero">
+        <h1>Explora negocios cerca de ti</h1>
+        <p>Restaurantes, bancos, salud, hospedaje, educación, entretenimiento y más. Encuentra lo que necesitas con
+            estilo.</p>
+    </section>
+
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="searchInput"
+                placeholder="Buscar por nombre o subcategoría (ej: pizzas, hotel, salud...)">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16a6.47 6.47 0 004.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM10 14a4 4 0 110-8 4 4 0 010 8z" />
+            </svg>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title">Categorías destacadas</h2>
+        <div class="grid" id="categoriasGrid">
+            <!-- Aquí se renderizan las cards reales o skeletons -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.appspot.com",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:094e8a2a5fcd69395b524a"
+        };
+
+        const appGeinz = initializeApp(firebaseConfig, "geinz");
+        const db = getFirestore(appGeinz);
+        const params = new URLSearchParams(window.location.search);
+        const localidad = params.get('loc');
+
+
+        const gridContainer = document.getElementById("categoriasGrid");
+        const searchInput = document.getElementById("searchInput");
+
+        let categoriasOriginales = [];
+        let isLoading = true;
+
+        // ========== SKELETON RENDER (cards placeholder) ==========
+        function renderSkeletons(quantity = 6) {
+            gridContainer.innerHTML = '';
+            for (let i = 0; i < quantity; i++) {
+                const skeletonCard = document.createElement('div');
+                skeletonCard.className = 'skeleton-card';
+                skeletonCard.innerHTML = `
+                <div class="skeleton-img"></div>
+                <div class="skeleton-content">
+                    <div class="skeleton-title"></div>
+                    <div class="skeleton-chips">
+                        <div class="skeleton-chip"></div>
+                        <div class="skeleton-chip short"></div>
+                        <div class="skeleton-chip medium"></div>
+                    </div>
+                </div>
+            `;
+                gridContainer.appendChild(skeletonCard);
+            }
+        }
+
+        // ========== RENDER REAL (con skeleton por imagen y chips elegantes) ==========
+        function renderizarCategorias(lista) {
+            if (!lista.length) {
+                gridContainer.innerHTML = `<div class="empty-message">✨ No se encontraron categorías o negocios. Intenta con otra palabra ✨</div>`;
+                return;
+            }
+
+            gridContainer.innerHTML = '';
+
+            lista.forEach((categoria, index) => {
+
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                // Contenedor relativo para la imagen y su skeleton overlay
+                const imgWrapper = document.createElement('div');
+                imgWrapper.style.position = 'relative';
+                imgWrapper.style.width = '100%';
+                imgWrapper.style.height = '100%';
+                imgWrapper.style.overflow = 'hidden';
+
+                // Imagen real
+                const img = document.createElement('img');
+                img.className = 'card-img';
+                img.alt = categoria.id || 'categoría';
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.style.position = 'relative';
+                img.style.zIndex = '0';
+
+                // URL de imagen o placeholder sutil si no existe
+                let imgUrl = categoria.img_categoria;
+                if (!imgUrl || imgUrl.trim() === '') {
+                    imgUrl = 'https://placehold.co/600x400/1a1a2e/8b5cf6?text=GeinzWork';
+                }
+                img.src = imgUrl;
+
+                // Skeleton overlay individual (shimmer) que desaparecerá al cargar la imagen
+                const skeletonOverlay = document.createElement('div');
+                skeletonOverlay.className = 'img-skeleton-overlay';
+
+                // Eventos: cuando la imagen carga -> elimina skeleton overlay
+                img.addEventListener('load', () => {
+                    if (skeletonOverlay && skeletonOverlay.remove) skeletonOverlay.remove();
+                });
+                img.addEventListener('error', () => {
+                    // Si falla la imagen, igual remover skeleton y poner un fallback visual
+                    if (skeletonOverlay && skeletonOverlay.remove) skeletonOverlay.remove();
+                    img.src = 'https://placehold.co/600x400/1e1e2f/8b5cf6?text=Imagen+Geinz';
+                });
+
+                imgWrapper.appendChild(img);
+                imgWrapper.appendChild(skeletonOverlay);
+
+                // Overlay de gradiente
+                const overlayDiv = document.createElement('div');
+                overlayDiv.className = 'overlay';
+
+                // Contenido de texto (nombre y chips)
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'content';
+
+                const title = document.createElement('h2');
+                const nombre = categoria.id || 'Sin nombre';
+                title.innerText = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+
+                const tagsContainer = document.createElement('div');
+                tagsContainer.className = 'tags';
+
+                const subcategorias = categoria.subcategorias || [];
+                // Mostramos max 8 subcategorias como chips, pero scroll horizontal
+                const subList = subcategorias.slice(0, 8);
+                subList.forEach(sub => {
+                    const chip = document.createElement('span');
+                    chip.className = 'tag';
+                    chip.innerText = sub;
+                    tagsContainer.appendChild(chip);
+                });
+
+                // Si no hay subcategorías, mostramos un chip sutil "explorar"
+                if (subList.length === 0) {
+                    const emptyChip = document.createElement('span');
+                    emptyChip.className = 'tag';
+                    emptyChip.innerText = 'Próximamente';
+                    tagsContainer.appendChild(emptyChip);
+                }
+
+                contentDiv.appendChild(title);
+                contentDiv.appendChild(tagsContainer);
+
+                card.appendChild(imgWrapper);
+                card.appendChild(overlayDiv);
+                card.appendChild(contentDiv);
+                card.style.animationDelay = `${index * 0.06}s`;
+                card.addEventListener('click', () => {
+                    const categoriaSlug = (categoria.id || '')
+                        .toLowerCase()
+                        .trim()
+                        .replace(/\s+/g, '+');
+                    window.location.href = `negocios.html?localidad=${localidad}&categoria=${categoriaSlug}`;
+                });
+
+                gridContainer.appendChild(card);
+            });
+        }
+
+        // ========== FILTRO BÚSQUEDA (nombre + subcategorías) ==========
+        function filtrarPorTexto(texto) {
+            if (!texto.trim()) {
+                renderizarCategorias(categoriasOriginales);
+                return;
+            }
+            const term = texto.toLowerCase().trim();
+            const filtradas = categoriasOriginales.filter(cat => {
+                const nombreMatch = cat.id?.toLowerCase().includes(term) || false;
+                const subcategoriasMatch = (cat.subcategorias || []).some(sub => sub.toLowerCase().includes(term));
+                return nombreMatch || subcategoriasMatch;
+            });
+            renderizarCategorias(filtradas);
+        }
+
+        // ========== CARGA DESDE FIRESTORE CON SKELETON GLOBAL ==========
+        async function cargarCategorias() {
+            try {
+                // Mostrar skeleton global mientras se cargan los datos
+                isLoading = true;
+                renderSkeletons(8);  // 8 skeletons para grid moderno
+
+                const categoriasRef = collection(db, "Tiendas", "categorias", "categorias");
+                const snapshot = await getDocs(categoriasRef);
+                const tempArray = [];
+
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    tempArray.push({
+                        id: docSnap.id,
+                        img_categoria: data.img_categoria || '',
+                        subcategorias: Array.isArray(data.subcategorias) ? data.subcategorias : []
+                    });
+                });
+
+                categoriasOriginales = tempArray;
+                isLoading = false;
+
+                // Render categorías reales
+                if (categoriasOriginales.length === 0) {
+                    gridContainer.innerHTML = `<div class="empty-message">🏪 No hay categorías disponibles por ahora. Vuelve pronto.</div>`;
+                } else {
+                    renderizarCategorias(categoriasOriginales);
+                }
+            } catch (error) {
+                console.error("Error Firebase:", error);
+                isLoading = false;
+                gridContainer.innerHTML = `<div class="empty-message">⚠️ Error al cargar datos. Revisa tu conexión o contacta soporte.</div>`;
+            }
+        }
+
+        // Evento de búsqueda (con debounce suave para mejor UX)
+        let debounceTimer;
+        searchInput.addEventListener('input', (e) => {
+            if (isLoading) return;  // mientras carga, no filtramos skeletons
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                filtrarPorTexto(e.target.value);
+            }, 280);
+        });
+
+        // Inicializar todo
+        cargarCategorias();
+    </script>
+</body>
+
+</html>

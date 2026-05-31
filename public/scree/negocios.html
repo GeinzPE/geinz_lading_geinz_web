@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GeinzWork · Tiendas</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Quitar selección de texto accidental */
+        * {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Opcional: quitar contornos de enfoque táctil */
+        button,
+        a,
+        input,
+        textarea,
+        select {
+            outline: none;
+        }
+
+        :root {
+            --bg: #030303;
+            --surface: #0a0a0c;
+            --surface2: #121216;
+            --border: rgba(255, 255, 255, 0.04);
+            --border2: rgba(255, 255, 255, 0.08);
+            --accent: #6d28d9;
+            --accent2: #9333ea;
+            --accent-glow: rgba(109, 40, 217, 0.2);
+            --text: #f3f4f6;
+            --text2: #9ca3af;
+            --text3: #4b5563;
+            --open: #10b981;
+            --closed: #ef4444;
+            --warn: #f59e0b;
+            --radius: 24px;
+            --radius-sm: 16px;
+        }
+
+        /* MATAR SCROLL HORIZONTAL GLOBAL */
+        html,
+        body {
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden !important;
+            position: relative;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1,
+        h2,
+        h3,
+        .hero-label,
+        .meta-cat {
+            font-family: sans-serif;
+        }
+
+        .glow-radial {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(109, 40, 217, 0.08) 0%, transparent 70%);
+            top: -150px;
+            right: -50px;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(50px);
+        }
+
+        /* ── HERO ── */
+        .hero {
+            position: relative;
+            padding-top: 20px;
+            padding-bottom: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+            z-index: 1;
+            width: 100%;
+        }
+
+        .hero-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(109, 40, 217, 0.1);
+            border: 1px solid rgba(109, 40, 217, 0.2);
+            border-radius: 100px;
+            padding: 6px 14px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #a78bfa;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5.5vw, 3.8rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, #c084fc, #6d28d9);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .hero p {
+            font-size: clamp(0.95rem, 2vw, 1.1rem);
+            color: var(--text2);
+            max-width: 540px;
+            line-height: 1.5;
+            font-weight: 400;
+        }
+
+        /* ── STICKY CONTROLS ── */
+        .controls {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(3, 3, 3, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding-top: 15px;
+            padding-bottom: 15px;
+            width: 100%;
+        }
+
+        .controls-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+        }
+
+        .search-wrap {
+            position: relative;
+            max-width: 480px;
+            width: 100%;
+        }
+
+        .search-wrap svg {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            fill: var(--text3);
+            pointer-events: none;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: 16px;
+            padding: 14px 16px 14px 46px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+            background: var(--surface2);
+        }
+
+        /* CHIPS HORIZONTALES CONTROLADOS */
+        .chips-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding-bottom: 2px;
+            width: 100%;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .chips-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .chip {
+            flex-shrink: 0;
+            padding: 8px 18px;
+            border-radius: 100px;
+            border: 1px solid var(--border2);
+            background: var(--surface);
+            color: var(--text2);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chip.active {
+            background: var(--text);
+            border-color: var(--text);
+            color: var(--bg);
+            font-weight: 700;
+        }
+
+        /* ── MAIN LAYOUT ── */
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-top: 20px;
+            padding-bottom: 60px;
+            position: relative;
+            z-index: 1;
+            width: 100%;
+        }
+
+        .meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .meta-cat {
+            font-size: clamp(1.25rem, 3vw, 1.8rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .meta-cat span {
+            color: #a78bfa;
+        }
+
+        .meta-count {
+            font-size: 0.8rem;
+            color: var(--text2);
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: 100px;
+            padding: 6px 14px;
+        }
+
+        /* ── TIENDAS GRID TOTALMENTE RESPONSIVE ── */
+        .tiendas-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            width: 100%;
+        }
+
+        @media(min-width: 720px) {
+            .tiendas-list {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media(min-width: 1100px) {
+            .tiendas-list {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* REINGENIERÍA DE LA TARJETA (ANTI-DEFORMACIÓN) */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 16px;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.25s, background-color 0.25s;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(109, 40, 217, 0.3);
+            background: rgba(18, 18, 22, 0.4);
+        }
+
+        .card-top {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        /* Cambio de layout adaptativo en móviles pequeños para que no se aplaste nada */
+        @media (max-width: 380px) {
+            .card-top {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+
+        .card-logo,
+        .card-logo-placeholder {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--radius-sm);
+            object-fit: cover;
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            flex-shrink: 0;
+        }
+
+        .card-logo-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #a78bfa;
+        }
+
+        .card-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+            /* Permite un quiebre correcto interno */
+            width: 100%;
+        }
+
+        .card-name {
+            font-family: sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            line-height: 1.3;
+            color: var(--text);
+            word-wrap: break-word;
+        }
+
+        .card-dir,
+        .card-ref {
+            font-size: 0.82rem;
+            color: var(--text2);
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            line-height: 1.4;
+        }
+
+        .card-dir span,
+        .card-ref span {
+            word-wrap: break-word;
+            word-break: break-word;
+            /* El texto baja de renglón si es muy largo, no genera scroll */
+        }
+
+        .card-dir svg,
+        .card-ref svg {
+            width: 14px;
+            height: 14px;
+            fill: var(--text3);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .card-bottom {
+            border-top: 1px solid var(--border);
+            padding-top: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .card-subcats {
+            display: flex;
+            flex-wrap: wrap;
+            /* Evita scroll horizontal dentro de la tarjeta */
+            gap: 6px;
+            width: 100%;
+        }
+
+        .subcat-tag {
+            padding: 4px 10px;
+            border-radius: 100px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border2);
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text2);
+        }
+
+        .card-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.open {
+            background: var(--open);
+            box-shadow: 0 0 8px var(--open);
+        }
+
+        .status-dot.closed {
+            background: var(--closed);
+        }
+
+        .status-dot.warn {
+            background: var(--warn);
+            box-shadow: 0 0 8px var(--warn);
+        }
+
+        .status-text.open {
+            color: var(--open);
+        }
+
+        .status-text.closed {
+            color: var(--closed);
+        }
+
+        .status-text.warn {
+            color: var(--warn);
+        }
+
+        /* ── SKELETON RE-DISEÑADO CON ZERO SCROLL HORIZONTAL ── */
+        .screen-skeleton {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--bg);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            padding: clamp(50px, 8vw, 100px) clamp(16px, 4vw, 60px);
+            overflow-y: auto;
+            overflow-x: hidden !important;
+            pointer-events: none;
+        }
+
+        body:not(.loading) .screen-skeleton {
+            display: none;
+        }
+
+        body.loading {
+            overflow: hidden !important;
+        }
+
+        .sk-shimmer {
+            background: linear-gradient(90deg, #0a0a0c 25%, #16161f 50%, #0a0a0c 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite linear;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .sk-hero {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .sk-label {
+            width: 100px;
+            height: 22px;
+            border-radius: 100px;
+        }
+
+        .sk-title {
+            width: min(100%, 420px);
+            height: 42px;
+            border-radius: 12px;
+        }
+
+        .sk-text {
+            width: min(100%, 320px);
+            height: 18px;
+            border-radius: 6px;
+        }
+
+        .sk-controls {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .sk-search {
+            width: 100%;
+            max-width: 480px;
+            height: 46px;
+            border-radius: 16px;
+        }
+
+        .sk-grid {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        @media(min-width: 720px) {
+            .sk-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media(min-width: 1100px) {
+            .sk-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .sk-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .sk-card-top {
+            display: flex;
+            gap: 14px;
+            width: 100%;
+        }
+
+        .sk-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--radius-sm);
+            flex-shrink: 0;
+        }
+
+        .sk-lines {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .sk-line-1 {
+            width: 80%;
+            height: 16px;
+            border-radius: 6px;
+        }
+
+        .sk-line-2 {
+            width: 55%;
+            height: 12px;
+            border-radius: 4px;
+        }
+
+        /* ── APP BANNER RESPONSIVE ── */
+        .app-banner {
+            max-width: 1400px;
+            margin: 0 auto 60px;
+            padding-bottom: 20px;
+            padding-top: 20px;
+            width: 100%;
+        }
+
+        .app-banner-inner {
+            background: linear-gradient(135deg, #09090b 0%, #111115 100%);
+            border: 1px solid rgba(109, 40, 217, 0.15);
+            /* Borde sutil con el color de la marca */
+            border-radius: 28px;
+            padding: clamp(24px, 5vw, 48px);
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .app-banner-inner::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(109, 40, 217, 0.15) 0%, transparent 70%);
+            top: -150px;
+            right: -50px;
+            pointer-events: none;
+            filter: blur(40px);
+        }
+
+        @media (min-width: 850px) {
+            .app-banner-inner {
+                grid-template-columns: 1fr auto;
+                gap: 40px;
+            }
+        }
+
+        .banner-content-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            z-index: 2;
+        }
+
+        .banner-text-wrapper {
+
+            width: 100%;
+        }
+
+        .banner-eyebrow {
+            font-family: sans-serif;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #a78bfa;
+            margin-bottom: 8px;
+        }
+
+        .banner-title {
+            font-family: sans-serif;
+            font-size: clamp(1.4rem, 3vw, 2.2rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            margin-bottom: 12px;
+            background: linear-gradient(120deg, #ffffff 60%, #a78bfa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .banner-desc {
+            font-size: 0.95rem;
+            color: var(--text2);
+            line-height: 1.6;
+        }
+
+        .banner-action-zone {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .banner-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #ffffff;
+            color: #030303;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 16px 32px;
+            border-radius: 16px;
+            text-decoration: none;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            /* Full width en móvil para mejor ergonomía */
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+        }
+
+        .banner-btn:hover,
+        .banner-btn:active {
+            transform: translateY(-2px);
+            background: #f3f4f6;
+            box-shadow: 0 8px 20px rgba(109, 40, 217, 0.3);
+        }
+
+        .banner-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #030303;
+        }
+
+        @media (min-width: 480px) {
+            .banner-btn {
+                width: auto;
+                /* Regresa a su tamaño contenido en pantallas medianas/grandes */
+            }
+        }
+
+        .banner-btn:hover {
+            transform: translateY(-2px);
+            background: #ffffff;
+        }
+
+
+
+        .banner-image-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            max-width: 240px;
+            width: 100%;
+            justify-self: center;
+            z-index: 2;
+        }
+
+        .banner-right-img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.7));
+        }
+
+        @media (max-width: 850px) {
+            .banner-image-container {
+                max-width: 160px;
+                /* Reducido en móvil para dar prioridad al texto y acción */
+                grid-row: 1;
+                /* La imagen sube elegantemente sobre el texto */
+                margin-bottom: 8px;
+            }
+
+            .app-banner-inner {
+                text-align: center;
+                gap: 16px;
+            }
+
+            .banner-action-zone {
+                justify-content: center;
+            }
+        }
+
+        .empty {
+            text-align: center;
+            padding: 50px 16px;
+            grid-column: 1 / -1;
+            width: 100%;
+        }
+
+        .empty-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .spaces {
+            margin: 25px
+        }
+    </style>
+</head>
+
+<body class="loading">
+
+    <div class="screen-skeleton">
+        <div class="sk-hero">
+            <div class="sk-label sk-shimmer"></div>
+            <div class="sk-title sk-shimmer"></div>
+            <div class="sk-text sk-shimmer"></div>
+        </div>
+        <div class="sk-controls">
+            <div class="sk-search sk-shimmer"></div>
+        </div>
+        <div class="sk-grid">
+            <div class="sk-card">
+                <div class="sk-card-top">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-lines">
+                        <div class="sk-line-1 sk-shimmer"></div>
+                        <div class="sk-line-2 sk-shimmer"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sk-card">
+                <div class="sk-card-top">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-lines">
+                        <div class="sk-line-1 sk-shimmer"></div>
+                        <div class="sk-line-2 sk-shimmer"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sk-card">
+                <div class="sk-card-top">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-lines">
+                        <div class="sk-line-1 sk-shimmer"></div>
+                        <div class="sk-line-2 sk-shimmer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="spaces">
+
+
+        <section class="hero">
+            <div class="glow-radial"></div>
+            <div class="hero-label">Geinz Ecosystem</div>
+            <h1>Busca tus tiendas<br><span>favoritas</span></h1>
+            <p id="heroDesc">Filtra entre nuestras categorías o busca directamente por el nombre de esa tienda que tanto
+                te
+                gusta.</p>
+        </section>
+
+        <div class="controls">
+            <div class="controls-inner">
+                <div class="search-wrap">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16a6.47 6.47 0 004.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM10 14a4 4 0 110-8 4 4 0 010 8z" />
+                    </svg>
+                    <input class="search-input" id="searchInput" type="text" placeholder="Buscar tienda o producto...">
+                </div>
+                <div class="chips-scroll" id="chipsContainer"></div>
+            </div>
+        </div>
+
+        <main class="main">
+            <div class="meta-row">
+                <div class="meta-cat" id="metaCat">Cargando catálogo...</div>
+                <div class="meta-count" id="metaCount">Calculando...</div>
+            </div>
+
+            <div class="tiendas-list" id="listContainer"></div>
+        </main>
+
+        <div class="app-banner">
+            <div class="app-banner-inner">
+                <div class="banner-content-layout">
+                    <div class="banner-text-wrapper">
+                        <div class="banner-eyebrow">App Nativa · Android</div>
+                        <div class="banner-title">Lleva la experiencia completa al celular</div>
+                        <div class="banner-desc">Accede a geolocalización avanzada, filtros interactivos y
+                            notificaciones en
+                            tiempo real descargando nuestra aplicación oficial.</div>
+                    </div>
+                    <div class="banner-action-zone">
+                        <a class="banner-btn" href="#" id="downloadBtn">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M3.18 23.76c.2.11.43.14.65.08L13 18.55l-2.76-2.76-7.06 7.97zM.54 2.48A1 1 0 0 0 .5 3v18a1 1 0 0 0 .54.9l9.96-9.96L.54 2.48zM20.48 10.56l-2.26-1.28-3.06 3.07 3.06 3.07 2.28-1.3A1.96 1.96 0 0 0 20.48 10.56zM3.83.16a.96.96 0 0 0-.65.08l7.06 7.97L13 5.45 3.83.16z" />
+                            </svg>
+                            Descargar App
+                        </a>
+                    </div>
+                </div>
+                <div class="banner-image-container">
+                    <img class="banner-right-img" src="/public/img/sinfondogooglplay.png" alt="Geinz Preview">
+                </div>
+            </div>
+        </div>
+    </section>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const app = initializeApp({
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.appspot.com",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:094e8a2a5fcd69395b524a"
+        });
+        const db = getFirestore(app);
+
+        const params = new URLSearchParams(location.search);
+        const localidad = (params.get('localidad') || '').toLowerCase().trim();
+        const categoriaParam = (params.get('categoria') || '').replace(/\+/g, ' ').toLowerCase().trim();
+
+        const listEl = document.getElementById('listContainer');
+        const chipsEl = document.getElementById('chipsContainer');
+        const searchEl = document.getElementById('searchInput');
+        const metaCatEl = document.getElementById('metaCat');
+        const metaCountEl = document.getElementById('metaCount');
+        const heroDescEl = document.getElementById('heroDesc');
+
+        if (categoriaParam) {
+            const cat = categoriaParam.charAt(0).toUpperCase() + categoriaParam.slice(1);
+            metaCatEl.innerHTML = `<span>${cat}</span> en ${localidad ? localidad.charAt(0).toUpperCase() + localidad.slice(1) : 'tu zona'}`;
+            heroDescEl.textContent = `Explora los mejores negocios de ${cat.toLowerCase()} cerca de ti. Ordenados por disponibilidad.`;
+        }
+
+        let allTiendas = [];
+        let subcats = [];
+        let activeSubcat = 'todos';
+        let searchTerm = '';
+
+        function norm(s) {
+            return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        }
+
+        function getDiaActual() {
+            const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+            return dias[new Date().getDay()];
+        }
+
+        function getEstado(horario) {
+            if (!horario) return { estado: 'cerrado', texto: 'Cerrado', clase: 'closed' };
+            const dia = getDiaActual();
+            const diaData = horario[dia];
+            if (!diaData) return { estado: 'cerrado', texto: 'Cerrado', clase: 'closed' };
+
+            const cerradoDia = diaData.cerrado;
+            const bloques = diaData.bloques || [];
+
+            if (cerradoDia === true && bloques.length === 0) {
+                return { estado: 'cerrado', texto: 'Cerrado hoy', clase: 'closed' };
+            }
+
+            if (bloques.length > 0) {
+                const bloque = bloques[0];
+                if (bloque.cerrado === true) return { estado: 'cerrado', texto: 'Cerrado', clase: 'closed' };
+
+                const now = new Date();
+                const [hA, mA] = (bloque.h_apertura || '00:00').split(':').map(Number);
+                const [hC, mC] = (bloque.h_cierre || '23:59').split(':').map(Number);
+                const apert = new Date(now); apert.setHours(hA, mA, 0);
+                const cierr = new Date(now); cierr.setHours(hC, mC, 0);
+
+                if (now >= apert && now < cierr) {
+                    const diffMs = cierr - now;
+                    const diffH = Math.floor(diffMs / 3600000);
+                    const diffM = Math.floor((diffMs % 3600000) / 60000);
+                    return { estado: 'abierto', texto: diffH > 0 ? `Cierra en ${diffH}h ${diffM}m` : `Cierra en ${diffM}m`, clase: diffMs < 3600000 ? 'warn' : 'open' };
+                } else if (now < apert) {
+                    return { estado: 'pronto', texto: `Abre hoy a las ${bloque.h_apertura}`, clase: 'warn' };
+                } else {
+                    return { estado: 'cerrado', texto: 'Cerrado por hoy', clase: 'closed' };
+                }
+            }
+            return { estado: 'cerrado', texto: 'Cerrado', clase: 'closed' };
+        }
+
+        function renderChips() {
+            chipsEl.innerHTML = '';
+            const all = document.createElement('button');
+            all.className = 'chip' + (activeSubcat === 'todos' ? ' active' : '');
+            all.textContent = 'Todos';
+            all.onclick = () => { changeCategory('todos'); };
+            chipsEl.appendChild(all);
+
+            subcats.forEach(s => {
+                const btn = document.createElement('button');
+                btn.className = 'chip' + (activeSubcat === s ? ' active' : '');
+                btn.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+                btn.onclick = () => { changeCategory(s); };
+                chipsEl.appendChild(btn);
+            });
+        }
+
+        function changeCategory(cat) {
+            activeSubcat = cat;
+            renderChips();
+            renderList();
+        }
+
+        function renderList() {
+            let lista = [...allTiendas];
+            if (searchTerm) {
+                const t = norm(searchTerm);
+                lista = lista.filter(ti =>
+                    norm(ti.nombre_tienda).includes(t) ||
+                    norm(ti.nombre_lower).includes(t) ||
+                    (ti.nombre_keywords || []).some(k => norm(k).includes(t)) ||
+                    (ti.subcategoria || []).some(s => norm(s).includes(t))
+                );
+            }
+
+            if (activeSubcat !== 'todos') {
+                lista = lista.filter(ti => (ti.subcategoria || []).some(s => norm(s) === norm(activeSubcat)));
+            }
+
+            lista.sort((a, b) => {
+                const ord = { abierto: 0, pronto: 1, cerrado: 2 };
+                const oa = ord[a._estado?.estado || 'cerrado'];
+                const ob = ord[b._estado?.estado || 'cerrado'];
+                if (oa !== ob) return oa - ob;
+                return (b.puntos_tienda || 0) - (a.puntos_tienda || 0);
+            });
+
+            const total = lista.length;
+            lista = lista.slice(0, 6);
+            metaCountEl.textContent = total > 6 ? `Mostrando 6 de ${total}` : `${total} resultado${total !== 1 ? 's' : ''}`;
+
+            if (lista.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty">
+                        <div class="empty-icon">🔍</div>
+                        <h3>Sin resultados coincidentes</h3>
+                        <p>Intenta cambiar de término o de subcategoría.</p>
+                    </div>`;
+                return;
+            }
+
+            listEl.innerHTML = '';
+            lista.forEach((ti) => {
+                const estado = ti._estado || { estado: 'cerrado', texto: 'Cerrado', clase: 'closed' };
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                const logoEl = ti.logo
+                    ? `<img class="card-logo" src="${ti.logo}" alt="${ti.nombre_tienda}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                    : '';
+                const iniciales = (ti.nombre_tienda || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+                const placeholderDisplay = ti.logo ? 'none' : 'flex';
+                const subcatsHtml = (ti.subcategoria || []).slice(0, 3).map(s => `<span class="subcat-tag">${s.charAt(0).toUpperCase() + s.slice(1)}</span>`).join('');
+
+                card.innerHTML = `
+                    <div class="card-top">
+                        ${logoEl}
+                        <div class="card-logo-placeholder" style="display:${placeholderDisplay}">${iniciales}</div>
+                        <div class="card-info">
+                            <div class="card-name">${ti.nombre_tienda || 'Sin nombre'}</div>
+                            <div class="card-dir">
+                                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
+                                <span>${ti.direccion || 'Dirección no disponible'}</span>
+                            </div>
+                            ${ti.referencia ? `
+                            <div class="card-ref">
+                                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                <span>${ti.referencia}</span>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                    <div class="card-bottom">
+                        <div class="card-subcats">${subcatsHtml}</div>
+                        <div class="card-status">
+                            <span class="status-dot ${estado.clase}"></span>
+                            <span class="status-text ${estado.clase}">${estado.texto}</span>
+                        </div>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => {
+                    const cat = encodeURIComponent((ti.categoria_tienda || categoriaParam).replace(/\s+/g, '+'));
+                    window.location.href = `/redirect/perfil_negocio.html?id=${ti.id}&l=${localidad}&c=${cat}`;
+                });
+
+                listEl.appendChild(card);
+            });
+        }
+
+        async function cargar() {
+            try {
+                if (!localidad) {
+                    document.body.classList.remove('loading');
+                    listEl.innerHTML = `<div class="empty"><div class="empty-icon">📍</div><h3>Ubicación requerida</h3><p>Por favor, especifica una localidad en los parámetros de navegación.</p></div>`;
+                    return;
+                }
+
+                const locRef = collection(db, 'Tiendas', localidad, localidad);
+                const snap = await getDocs(locRef);
+                const tempArr = [];
+
+                snap.forEach(docSnap => {
+                    const d = docSnap.data();
+                    if (localidad && norm(d.localidad) !== norm(localidad)) return;
+                    if (categoriaParam && norm(d.categoria_tienda) !== norm(categoriaParam)) return;
+
+                    tempArr.push({
+                        id: docSnap.id,
+                        nombre_tienda: d.nombre_tienda || docSnap.id,
+                        nombre_lower: d.nombre_lower || '',
+                        nombre_keywords: d.nombre_keywords || [],
+                        direccion: d.ubicacion?.dirección || '',
+                        referencia: d.ubicacion?.referencia || '',
+                        subcategoria: d.subcategoria || [],
+                        logo: d.img_tienda?.logo_tienda || '',
+                        puntos_tienda: d.puntos_tienda || 0,
+                        horario_atencion: d.horario_atencion || null,
+                        _estado: getEstado(d.horario_atencion),
+                    });
+                });
+
+                allTiendas = tempArr;
+
+                const subcatSet = new Set();
+                allTiendas.forEach(ti => (ti.subcategoria || []).forEach(s => subcatSet.add(s.toLowerCase())));
+                subcats = [...subcatSet].sort();
+
+                document.body.classList.remove('loading');
+                renderChips();
+                renderList();
+            } catch (err) {
+                console.error(err);
+                document.body.classList.remove('loading');
+                listEl.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><h3>Error de conexión</h3><p>Hubo un fallo al intentar leer los datos de Firebase.</p></div>`;
+            }
+        }
+
+        let debounce;
+        searchEl.addEventListener('input', e => {
+            clearTimeout(debounce);
+            debounce = setTimeout(() => {
+                searchTerm = e.target.value;
+                renderList();
+            }, 200);
+        });
+
+        cargar();
+    </script>
+</body>
+
+</html>

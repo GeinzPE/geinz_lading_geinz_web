@@ -9,14 +9,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 
-      <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
-  <link rel="manifest" href="../img/icons/site.webmanifest">
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
 
     <style>
         :root {
@@ -44,10 +45,10 @@
             position: fixed;
             inset: 0;
             z-index: -3;
-            background: radial-gradient(circle at 30% 20%, 
-                        rgba(var(--dominant-color-rgb), 0.35) 0%,
-                        rgba(var(--dominant-color-rgb), 0.08) 50%,
-                        transparent 80%);
+            background: radial-gradient(circle at 30% 20%,
+                    rgba(var(--dominant-color-rgb), 0.35) 0%,
+                    rgba(var(--dominant-color-rgb), 0.08) 50%,
+                    transparent 80%);
             filter: blur(60px);
             transform: scale(1.2);
             transition: background 0.8s cubic-bezier(0.2, 0.9, 0.4, 1.1);
@@ -58,7 +59,7 @@
             inset: 0;
             z-index: -2;
             background-image: linear-gradient(rgba(255, 255, 255, .02) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(255, 255, 255, .02) 1px, transparent 1px);
+                linear-gradient(90deg, rgba(255, 255, 255, .02) 1px, transparent 1px);
             background-size: 60px 60px;
             mask-image: radial-gradient(circle at center, black 30%, transparent 100%);
         }
@@ -225,16 +226,37 @@
         }
 
         @media(max-width:900px) {
-            .hero-logo-container { height: 500px; }
-            .full-gallery-slide { height: 420px; }
-            #bizName { font-size: 68px !important; line-height: .95; }
+            .hero-logo-container {
+                height: 500px;
+            }
+
+            .full-gallery-slide {
+                height: 420px;
+            }
+
+            #bizName {
+                font-size: 68px !important;
+                line-height: .95;
+            }
         }
 
         @media(max-width:640px) {
-            .hero-logo-container { height: 420px; }
-            .full-gallery-slide { height: 320px; }
-            #bizName { font-size: 54px !important; letter-spacing: -2px; }
-            .section-header { font-size: 21px; }
+            .hero-logo-container {
+                height: 420px;
+            }
+
+            .full-gallery-slide {
+                height: 320px;
+            }
+
+            #bizName {
+                font-size: 54px !important;
+                letter-spacing: -2px;
+            }
+
+            .section-header {
+                font-size: 21px;
+            }
         }
 
         .section {
@@ -266,9 +288,17 @@
             font-weight: 700;
         }
 
-        .day-name { font-weight: 600; }
-        .hours { color: #ddd; }
-        .closed-day { color: #f87171; }
+        .day-name {
+            font-weight: 600;
+        }
+
+        .hours {
+            color: #ddd;
+        }
+
+        .closed-day {
+            color: #f87171;
+        }
 
         .pay-chip {
             padding: 13px 18px;
@@ -357,7 +387,8 @@
             background: linear-gradient(to top, rgba(0, 0, 0, .78), rgba(0, 0, 0, 0));
         }
 
-        .promo-btn-wa, .promo-btn-share {
+        .promo-btn-wa,
+        .promo-btn-share {
             flex: 1;
             padding: 13px;
             border-radius: 16px;
@@ -389,7 +420,8 @@
             color: white;
         }
 
-        .promo-btn-wa:hover, .promo-btn-share:hover {
+        .promo-btn-wa:hover,
+        .promo-btn-share:hover {
             transform: translateY(-2px);
         }
 
@@ -432,7 +464,8 @@
         <!-- TOP -->
         <div class="flex items-center justify-between mb-10">
             <div class="flex items-center gap-4">
-                <div class="w-14 h-14 rounded-2xl bg-purple-600 flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,.4)]">
+                <div
+                    class="w-14 h-14 rounded-2xl bg-purple-600 flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,.4)]">
                     <i class="fa-solid fa-gem text-white"></i>
                 </div>
                 <div>
@@ -440,7 +473,8 @@
                     <p class="text-gray-500 text-sm">Business Profile</p>
                 </div>
             </div>
-            <button id="shareBtn" class="glass px-5 py-3 rounded-2xl hover:border-purple-500 transition">Compartir</button>
+            <button id="shareBtn"
+                class="glass px-5 py-3 rounded-2xl hover:border-purple-500 transition">Compartir</button>
         </div>
 
         <!-- HERO -->
@@ -468,12 +502,15 @@
             </div>
 
             <div class="relative">
-                <div class="absolute -top-20 right-0 w-[400px] h-[400px] bg-purple-600/20 blur-[120px] rounded-full"></div>
+                <div class="absolute -top-20 right-0 w-[400px] h-[400px] bg-purple-600/20 blur-[120px] rounded-full">
+                </div>
                 <div class="glass rounded-[42px] p-4 relative overflow-hidden">
                     <div id="heroLogoContainer" class="hero-logo-container">
                         <!-- SIN crossorigin para evitar error CORS -->
                         <img id="bizLogoHero" style="width:100%; height:100%; object-fit:cover; display:none;" />
-                        <div id="bizLogoPlaceholderHero" class="w-full h-full flex items-center justify-center bg-zinc-900 text-gray-500">Logo del negocio</div>
+                        <div id="bizLogoPlaceholderHero"
+                            class="w-full h-full flex items-center justify-center bg-zinc-900 text-gray-500">Logo del
+                            negocio</div>
                     </div>
                 </div>
             </div>
@@ -512,23 +549,31 @@
 
             <section id="secSchedule" class="section glass reveal">
                 <div class="section-header">Horario</div>
-                <div class="section-body"><div id="schedGrid"></div></div>
+                <div class="section-body">
+                    <div id="schedGrid"></div>
+                </div>
             </section>
         </section>
 
         <section id="secContact" class="section glass mb-10 reveal">
             <div class="section-header">Métodos de contacto</div>
-            <div class="section-body"><div id="contactDetail"></div></div>
+            <div class="section-body">
+                <div id="contactDetail"></div>
+            </div>
         </section>
 
         <section id="secPay" class="section glass mb-10 reveal">
             <div class="section-header">Métodos de pago</div>
-            <div class="section-body"><div id="payGrid" class="flex flex-wrap gap-4"></div></div>
+            <div class="section-body">
+                <div id="payGrid" class="flex flex-wrap gap-4"></div>
+            </div>
         </section>
 
         <section class="section glass mb-20 reveal">
             <div class="section-header">Servicios y comodidades</div>
-            <div class="section-body"><div id="amenitiesGrid" class="flex flex-wrap gap-4"></div></div>
+            <div class="section-body">
+                <div id="amenitiesGrid" class="flex flex-wrap gap-4"></div>
+            </div>
         </section>
 
         <section id="secPromos" class="mb-28 reveal" style="display:none;">
@@ -546,10 +591,14 @@
                 <div class="relative z-10 p-8 md:p-16 flex flex-col xl:flex-row gap-10 xl:items-center justify-between">
                     <div class="max-w-4xl">
                         <p class="uppercase tracking-[5px] text-purple-300 text-sm mb-5">Powered by GEINZ</p>
-                        <h2 class="text-5xl md:text-7xl font-black leading-[.95] mb-6">Descubre más negocios, promociones y servicios.</h2>
-                        <p class="text-gray-300 text-lg">Explora negocios modernos y experiencias increíbles dentro de Geinz.</p>
+                        <h2 class="text-5xl md:text-7xl font-black leading-[.95] mb-6">Descubre más negocios,
+                            promociones y servicios.</h2>
+                        <p class="text-gray-300 text-lg">Explora negocios modernos y experiencias increíbles dentro de
+                            Geinz.</p>
                     </div>
-                    <a href="https://geinzworkapp.web.app/api/" class="btn-primary px-10 py-5 rounded-[24px] text-lg font-bold whitespace-nowrap">Explorar Geinz</a>
+                    <a href="https://geinzworkapp.web.app/api/"
+                        class="btn-primary px-10 py-5 rounded-[24px] text-lg font-bold whitespace-nowrap">Explorar
+                        Geinz</a>
                 </div>
             </div>
         </section>
@@ -665,7 +714,7 @@
         }
         function normalizePromos(img_tienda) {
             const promos = img_tienda?.lista_img?.promociones || {};
-            return Object.entries(promos).map(([id, url], idx) => ({ id, url, titulo: `Promoción ${idx+1}` }));
+            return Object.entries(promos).map(([id, url], idx) => ({ id, url, titulo: `Promoción ${idx + 1}` }));
         }
         const AMENITY_ICONS = { "zona expandida": "🏢", "camaras de seguridad": "📷", "servicios higenicos": "🚻", wifi: "📶", "sala de espera": "🛋️", "mesa para niños": "👶", "sala de juegos": "🎮", estacionamiento: "🅿️", enchufe: "🔌", "aire acondicionado": "❄️", "ingreso con mascotas": "🐾" };
         function normalizeAmenities(servicios_comodidades) {
@@ -687,11 +736,11 @@
             el.classList.add("show");
             setTimeout(() => el.classList.remove("show"), 2400);
         }
-        function ocultarNumero(numero) { const limpio = numero.replace(/\D/g, ""); return limpio.length <= 3 ? limpio : limpio.slice(0,3)+"******"; }
+        function ocultarNumero(numero) { const limpio = numero.replace(/\D/g, ""); return limpio.length <= 3 ? limpio : limpio.slice(0, 3) + "******"; }
 
         // ---------- RENDER CONTACTOS ----------
         const CONTACT_META = {
-            whatsapp: { icon: "./img/whatsapp_icon.png", getHref: (c) => `https://wa.me/${c.valor.replace(/\D/g,"")}` },
+            whatsapp: { icon: "./img/whatsapp_icon.png", getHref: (c) => `https://wa.me/${c.valor.replace(/\D/g, "")}` },
             telefono: { icon: "./img/llamada_icon.png", getHref: (c) => `tel:${c.valor}` },
             facebook: { icon: "./img/facebook_icon.webp", getHref: (c) => c.valor },
             instagram: { icon: "./img/instagram_icon.webp", getHref: (c) => c.valor },
@@ -712,7 +761,7 @@
             cd.querySelectorAll(".copy-btn").forEach((btn) => {
                 btn.addEventListener("click", async () => {
                     const value = btn.dataset.copy;
-                    try { await navigator.clipboard.writeText(value); btn.textContent = "✅"; setTimeout(() => btn.textContent = "📋", 1400); } 
+                    try { await navigator.clipboard.writeText(value); btn.textContent = "✅"; setTimeout(() => btn.textContent = "📋", 1400); }
                     catch { const t = document.createElement("textarea"); t.value = value; t.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t); btn.textContent = "✅"; setTimeout(() => btn.textContent = "📋", 1400); }
                 });
             });
@@ -721,21 +770,21 @@
         // ---------- STATUS ----------
         function calcStatus(horario) {
             const now = new Date();
-            const map = [6,0,1,2,3,4,5];
+            const map = [6, 0, 1, 2, 3, 4, 5];
             const today = horario[map[now.getDay()]];
             const badge = document.getElementById("statusBadge");
             const stxt = document.getElementById("statusText");
             if (!today?.apertura) { badge.className = "status-badge closed"; stxt.textContent = "Cerrado hoy"; return; }
-            const toMin = (t) => { const [h,m] = t.split(":").map(Number); return h*60+m; };
-            const nowMin = now.getHours()*60+now.getMinutes();
+            const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+            const nowMin = now.getHours() * 60 + now.getMinutes();
             const openMin = toMin(today.apertura);
             const closeMin = toMin(today.cierre);
             if (nowMin >= openMin && nowMin < closeMin) {
-                const diff = closeMin-nowMin, h = Math.floor(diff/60), m = diff%60;
+                const diff = closeMin - nowMin, h = Math.floor(diff / 60), m = diff % 60;
                 badge.className = "status-badge open";
                 stxt.textContent = h > 0 ? `Cierra en ${h}h ${m}m` : `Cierra en ${m}m`;
             } else if (nowMin < openMin) { badge.className = "status-badge closed"; stxt.textContent = `Abre hoy a las ${today.apertura}`; }
-            else { const dayNames = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]; let found = null; for (let i=1;i<=7;i++) { const ni = (map[now.getDay()]+i)%7; if (horario[ni]?.apertura) { found = `Abre el ${dayNames[ni]} a las ${horario[ni].apertura}`; break; } } badge.className = "status-badge closed"; stxt.textContent = found || "Cerrado temporalmente"; }
+            else { const dayNames = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]; let found = null; for (let i = 1; i <= 7; i++) { const ni = (map[now.getDay()] + i) % 7; if (horario[ni]?.apertura) { found = `Abre el ${dayNames[ni]} a las ${horario[ni].apertura}`; break; } } badge.className = "status-badge closed"; stxt.textContent = found || "Cerrado temporalmente"; }
         }
 
         // ---------- GALERÍA COMPLETA (CARRUSEL) ----------
@@ -753,7 +802,7 @@
                 slide.className = "full-gallery-slide";
                 const img = document.createElement("img");
                 img.src = src;
-                img.alt = `Galería ${i+1}`;
+                img.alt = `Galería ${i + 1}`;
                 img.loading = "lazy";
                 slide.appendChild(img);
                 track.appendChild(slide);
@@ -771,7 +820,7 @@
             document.getElementById("fullGalleryTrack").style.transform = `translateX(-${fullCurrentSlide * 100}%)`;
             document.querySelectorAll(".full-gallery-dot").forEach((d, i) => d.classList.toggle("active", i === fullCurrentSlide));
         }
-        function startFullAuto() { if (fullAutoTimer) clearInterval(fullAutoTimer); fullAutoTimer = setInterval(() => goFullSlide(fullCurrentSlide+1), 4000); }
+        function startFullAuto() { if (fullAutoTimer) clearInterval(fullAutoTimer); fullAutoTimer = setInterval(() => goFullSlide(fullCurrentSlide + 1), 4000); }
         function resetFullAuto() { clearInterval(fullAutoTimer); startFullAuto(); }
 
         // ---------- COLOR DINÁMICO BASADO EN NOMBRE (SIN CORS) ----------
@@ -832,7 +881,7 @@
 
             document.getElementById("bizName").textContent = nombre;
             document.title = nombre;
-            document.getElementById("cats").innerHTML = `<span class="tag cat">${categoria}</span>${subcategorias.map(s=>`<span class="tag sub">${s}</span>`).join("")}`;
+            document.getElementById("cats").innerHTML = `<span class="tag cat">${categoria}</span>${subcategorias.map(s => `<span class="tag sub">${s}</span>`).join("")}`;
             calcStatus(horario);
             setInterval(() => calcStatus(horario), 30000);
             document.getElementById("descText").textContent = descripcion;
@@ -846,10 +895,10 @@
             const gridSched = document.getElementById("schedGrid");
             if (gridSched) {
                 gridSched.innerHTML = "";
-                const todayIdx = [6,0,1,2,3,4,5][new Date().getDay()];
-                horario.forEach((h,i) => {
+                const todayIdx = [6, 0, 1, 2, 3, 4, 5][new Date().getDay()];
+                horario.forEach((h, i) => {
                     const div = document.createElement("div");
-                    div.className = "sched-row" + (i===todayIdx ? " today" : "");
+                    div.className = "sched-row" + (i === todayIdx ? " today" : "");
                     div.innerHTML = h.apertura ? `<span class="day-name">${h.dia}</span><span class="hours">${h.apertura} – ${h.cierre}</span>` : `<span class="day-name">${h.dia}</span><span class="closed-day">Cerrado</span>`;
                     gridSched.appendChild(div);
                 });
@@ -861,13 +910,13 @@
             const payGrid = document.getElementById("payGrid");
             if (payGrid && pagos.length) {
                 payGrid.innerHTML = "";
-                pagos.forEach(({label,icon}) => { const chip = document.createElement("div"); chip.className = "pay-chip"; chip.innerHTML = `<img src="${icon}" alt="${label}" style="width:16px;height:16px;object-fit:contain;margin-right:6px;vertical-align:middle;"> ${label}`; payGrid.appendChild(chip); });
+                pagos.forEach(({ label, icon }) => { const chip = document.createElement("div"); chip.className = "pay-chip"; chip.innerHTML = `<img src="${icon}" alt="${label}" style="width:16px;height:16px;object-fit:contain;margin-right:6px;vertical-align:middle;"> ${label}`; payGrid.appendChild(chip); });
             }
             // Amenities
             const amenitiesGrid = document.getElementById("amenitiesGrid");
             if (amenitiesGrid && amenities.length) {
                 amenitiesGrid.innerHTML = "";
-                amenities.forEach(({name,icon}) => { const chip = document.createElement("div"); chip.className = "pay-chip"; chip.innerHTML = `<span class="pi">${icon}</span> ${name}`; amenitiesGrid.appendChild(chip); });
+                amenities.forEach(({ name, icon }) => { const chip = document.createElement("div"); chip.className = "pay-chip"; chip.innerHTML = `<span class="pi">${icon}</span> ${name}`; amenitiesGrid.appendChild(chip); });
             }
 
             // Productos Grid
@@ -902,8 +951,8 @@
                 promoCarousel.innerHTML = "";
                 document.getElementById("promoTitle").textContent = `Promos de ${nombre}`;
                 const wa = contactos.find(c => c.tipo === "whatsapp");
-                const waNum = wa ? wa.valor.replace(/\D/g,"") : "";
-                const catFormatted = (_params.subcol || "").toLowerCase().replace(/\s+/g,"+");
+                const waNum = wa ? wa.valor.replace(/\D/g, "") : "";
+                const catFormatted = (_params.subcol || "").toLowerCase().replace(/\s+/g, "+");
                 promoImages.forEach(promo => {
                     const shareBase = `https://geinzworkapp.web.app/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
                     const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
@@ -915,7 +964,7 @@
                     btn.addEventListener("click", async () => {
                         const url = btn.dataset.shareUrl;
                         const fullText = `Mira lo que encontre en ${nombre} 👀🔥\n${url}`;
-                        if (navigator.share) try { await navigator.share({ text: fullText }); } catch(e) {}
+                        if (navigator.share) try { await navigator.share({ text: fullText }); } catch (e) { }
                         else copyToClipboard(fullText);
                     });
                 });
@@ -923,9 +972,9 @@
 
             // Botones
             const routeBtn = document.getElementById("routeBtn");
-            if (routeBtn) routeBtn.onclick = () => { const lat = ubicacion.latitud, lng = ubicacion.longitud; if (!lat||!lng) showToast("Ubicación no disponible"); else window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, "_blank"); };
+            if (routeBtn) routeBtn.onclick = () => { const lat = ubicacion.latitud, lng = ubicacion.longitud; if (!lat || !lng) showToast("Ubicación no disponible"); else window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, "_blank"); };
             const shareBtn = document.getElementById("shareBtn");
-            if (shareBtn) shareBtn.onclick = () => { const cat = (biz.categoria_tienda||"").toLowerCase().replace(/\s+/g,"+"); const shareUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${cat}`; const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`; if (navigator.share) navigator.share({ text: fullText }).catch(()=>copyToClipboard(fullText)); else copyToClipboard(fullText); };
+            if (shareBtn) shareBtn.onclick = () => { const cat = (biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+"); const shareUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${cat}`; const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`; if (navigator.share) navigator.share({ text: fullText }).catch(() => copyToClipboard(fullText)); else copyToClipboard(fullText); };
         }
 
         // ---------- REALTIME ----------
