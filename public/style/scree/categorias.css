@@ -1,0 +1,430 @@
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Quitar selección de texto accidental */
+        * {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Opcional: quitar contornos de enfoque táctil */
+        button,
+        a,
+        input,
+        textarea,
+        select {
+            outline: none;
+        }
+
+        body {
+            background: #050505;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        :root {
+            --primary: #8b5cf6;
+            --primary-glow: #a855f7;
+            --card-bg: #0c0c0c;
+            --border-subtle: #1f1f1f;
+            --gray-mid: #a1a1aa;
+        }
+
+        /* ========= HERO ========= */
+        .hero {
+            position: relative;
+            padding: 80px 20px 50px;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: "";
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--primary), transparent 70%);
+            top: -250px;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0.25;
+            filter: blur(80px);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.3rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 18px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 60%, #c084fc 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .hero p {
+            max-width: 700px;
+            margin: 0 auto;
+            color: #b0b0b0;
+            line-height: 1.6;
+            font-size: 1.05rem;
+            font-weight: 400;
+        }
+
+        /* ========= SEARCH BAR ========= */
+        .search-container {
+            max-width: 1000px;
+            margin: 30px auto 50px;
+            padding: 0 20px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: #0a0a0a;
+            border: 2px solid #2a2a2a;
+            border-radius: 80px;
+            padding: 14px 24px;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(2px);
+        }
+
+        .search-box:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 22px rgba(139, 92, 246, 0.3);
+        }
+
+        .search-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+            color: white;
+            font-weight: 500;
+        }
+
+        .search-box input::placeholder {
+            color: #5e5e6e;
+            font-weight: 400;
+        }
+
+        .search-box svg {
+            width: 24px;
+            height: 24px;
+            fill: #b9b9c5;
+        }
+
+        /* ========= GRID ========= */
+        .container {
+            width: min(1500px, 95%);
+            margin: 0 auto 80px;
+        }
+
+        .section-title {
+            font-size: 1.9rem;
+            font-weight: 800;
+            margin-bottom: 32px;
+            padding-left: 6px;
+            letter-spacing: -0.01em;
+            border-left: 5px solid var(--primary);
+            padding-left: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 24px;
+        }
+
+        /* ========= CARD (REAL) ========= */
+        .card {
+            position: relative;
+            height: 420px;
+            border-radius: 32px;
+            overflow: hidden;
+            cursor: pointer;
+            background: #0f0f0f;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1), box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 35px -12px rgba(0, 0, 0, 0.6);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        /* Imagen real (z-index base) */
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+            position: relative;
+            z-index: 0;
+        }
+
+        .card:hover .card-img {
+            transform: scale(1.06);
+        }
+
+        /* Skeleton overlay de imagen (shimmer) que se elimina al cargar */
+        .img-skeleton-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, #151515 8%, #232323 18%, #151515 33%);
+            background-size: 200% 100%;
+            animation: shimmerMove 1.2s linear infinite;
+            z-index: 1;
+            pointer-events: none;
+            border-radius: 32px;
+        }
+
+        @keyframes shimmerMove {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* Gradiente y texto (z-index alto) */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.3) 40%, rgba(0, 0, 0, 0.85) 100%);
+            z-index: 2;
+        }
+
+        .content {
+            position: absolute;
+            left: 13px;
+            right: 21px;
+            bottom: 7px;
+            z-index: 3;
+        }
+
+        .content h2 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* TAGS / CHIPS MODERNOS */
+        .tags {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex-wrap: nowrap;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tags::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tags::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .tags::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.6);
+            border-radius: 8px;
+        }
+
+        .tag {
+            flex-shrink: 0;
+            background: rgba(12, 12, 12, 0.75);
+            backdrop-filter: blur(8px);
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: #f1f1f1;
+            border: 0.5px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tag:hover {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.02);
+            border-color: var(--primary);
+        }
+
+        /* ========= SKELETON CARDS (carga global) ========= */
+        .skeleton-card {
+            background: #0c0c0c;
+            border: 1px solid #1e1e1e;
+            border-radius: 32px;
+            overflow: hidden;
+            height: 420px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .skeleton-img {
+            width: 100%;
+            height: 65%;
+            background: linear-gradient(110deg, #171717 8%, #242424 18%, #171717 33%);
+            background-size: 200% 100%;
+            animation: shimmerMove 1s infinite;
+        }
+
+        .skeleton-content {
+            padding: 20px 20px 18px;
+            background: #0c0c0c;
+        }
+
+        .skeleton-title {
+            width: 80%;
+            height: 28px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            animation: pulseOpacity 1.4s infinite;
+        }
+
+        .skeleton-chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .skeleton-chip {
+            width: 70px;
+            height: 28px;
+            background: #202020;
+            border-radius: 40px;
+            animation: pulseOpacity 1.4s infinite;
+        }
+
+        .skeleton-chip.short {
+            width: 55px;
+        }
+
+        .skeleton-chip.medium {
+            width: 85px;
+        }
+
+        @keyframes pulseOpacity {
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 0.9;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        /* mensaje sin resultados */
+        .empty-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 70px 20px;
+            background: #0a0a0a;
+            border-radius: 48px;
+            color: #aaa;
+            font-weight: 500;
+            border: 1px dashed #2c2c2c;
+        }
+
+        /* responsive grid */
+        @media (max-width: 1400px) {
+            .grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+
+            .card,
+            .skeleton-card {
+                height: 340px;
+            }
+
+            .content h2 {
+                font-size: 1.5rem;
+            }
+
+            .tag {
+                padding: 4px 12px;
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (max-width: 540px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .card,
+            .skeleton-card {
+                height: 280px;
+            }
+
+            .content h2 {
+                font-size: 1.1rem;
+            }
+
+            .tag {
+                font-size: 0.68rem;
+                padding: 4px 10px;
+            }
+        }
+
+        .card,
+        .skeleton-card {
+            animation: fadeInUp 0.35s ease both;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }

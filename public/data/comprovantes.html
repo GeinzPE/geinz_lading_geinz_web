@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Comprobante Geinz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+
+    <script type="module" src="/public/js/data/comprovante.js"></script>
+    <link rel="stylesheet" href="/public/style/data/comprovante.css">
+
+</head>
+
+<body>
+
+    <div class="wrap">
+        <div class="card">
+
+            <div class="header-strip">
+                <div class="logo-area">
+                    <div class="logo-icon">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/logo_geinz_webp.webp?alt=media&token=aa1ef1df-1bcd-48f2-9cad-a85929c3a8d0"
+                            alt="Geinz" />
+                    </div>
+                    <span class="brand-name">GEINZ</span>
+                </div>
+                <span class="badge-tipo" id="badgeTipo">Cargando...</span>
+            </div>
+
+
+            <div class="body">
+
+                <div class="state-loading" id="stateLoading">
+                    <div class="ring"></div>
+                    <p>Recuperando comprobante...</p>
+                    <div style="width:100%; margin-top:8px">
+                        <div class="skel" style="width:60%"></div>
+                        <div class="skel" style="width:80%"></div>
+                        <div class="skel" style="width:45%"></div>
+                    </div>
+                </div>
+
+                <div class="state-error" id="stateError">
+                    <span class="icon-err">&#9888;</span>
+                    <p>No se encontró el comprobante.<br />Verifica el enlace o contacta soporte.</p>
+                </div>
+
+                <div class="state-ready" id="stateReady">
+
+                    <div class="meta-grid">
+                        <div class="meta-item">
+                            <div class="meta-label">Periodo</div>
+                            <div class="meta-value gold" id="metaPeriodo">—</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Estado</div>
+                            <div class="meta-value green" id="metaEstado">Pagado</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Negocio</div>
+                            <div class="meta-value" id="metaNegocio">—</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Monto</div>
+                            <div class="meta-value" id="metaMonto">—</div>
+                        </div>
+                        <div class="meta-item full">
+                            <div class="meta-label">ID Transacción</div>
+                            <div class="meta-value id-ticker" id="metaId">—</div>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="pdf-viewer" id="pdfViewer">
+                        <iframe id="pdfFrame" title="Comprobante PDF"></iframe>
+                    </div>
+
+                    <div class="btns">
+                        <button class="btn btn-primary" id="btnVer">
+                            &#128065; Ver comprobante
+                        </button>
+                        <a class="btn btn-secondary" id="btnDescargar" download="comprobante_geinz.pdf">
+                            &#8595; Descargar PDF
+                        </a>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="footer">
+                <span>Geinz Tecnología</span>
+                <div class="dot"></div>
+                <span>Comprobante electrónico</span>
+                <div class="dot"></div>
+                <span id="footerAnio">2026</span>
+            </div>
+
+        </div>
+    </div>
+
+
+</body>
+
+</html>

@@ -1,0 +1,469 @@
+:root {
+    --bg-color: #000000;
+    --card-bg: #0b0b0c;
+    --border-color: #1c1c1e;
+    --text-primary: #ffffff;
+    --text-secondary: #7c7c80;
+    --accent-purple: #9d4edd;
+    --accent-red: #ff3b30;
+    --accent-green: #34c759;
+    --skeleton-bg: #121214;
+    --skeleton-anim: #1a1a1e;
+}
+
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Quitar selección de texto accidental */
+* {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Opcional: quitar contornos de enfoque táctil */
+button,
+a,
+input,
+textarea,
+select {
+    outline: none;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    padding-bottom: 60px;
+    overflow-x: hidden;
+}
+
+/* Cabecera Principal */
+.hero-header {
+    text-align: center;
+    padding: 50px 20px 20px 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    animation: fadeIn 0.8s ease-out;
+}
+
+.hero-header h1 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #ffffff 40%, #a29bfe 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+}
+
+.hero-header p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* Contenedor Principal de Promociones */
+main {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 15px;
+}
+
+/* Tarjeta de Promoción Premium */
+.promo-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    margin-bottom: 35px;
+    overflow: hidden;
+    position: relative;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: cardAppear 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+    cursor: pointer;
+}
+
+/* Contenedor Fijo para Imagen Única */
+.image-container-single {
+    width: 100%;
+    aspect-ratio: 4/5;
+    background-color: #050505;
+    overflow: hidden;
+}
+
+.image-container-single img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Detalles Inferiores */
+.promo-footer {
+    padding: 18px;
+    background: linear-gradient(to bottom, #0c0c0e, #0b0b0c);
+}
+
+.store-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 12px;
+}
+
+.store-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.store-logo {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+}
+
+.store-text-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.store-name {
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.promo-title {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Fila de Estado, Expiración y Acciones */
+.store-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    padding-top: 14px;
+    gap: 10px;
+}
+
+/* Contenedor de badges de tiempo */
+.time-info-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.badge-days {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 12px;
+    width: fit-content;
+}
+
+.badge-urgent {
+    background-color: rgba(255, 59, 48, 0.12);
+    color: #ff453a;
+}
+
+.badge-normal {
+    background-color: rgba(157, 78, 221, 0.12);
+    color: #d4bbff;
+}
+
+.expiration-date {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding-left: 4px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.action-btn {
+    background: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    color: white;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s;
+}
+
+.action-btn:active {
+    transform: scale(0.9);
+}
+
+.action-btn.share:hover {
+    background-color: var(--accent-purple);
+    border-color: transparent;
+}
+
+.action-btn.whatsapp:hover {
+    background-color: var(--accent-green);
+    border-color: transparent;
+}
+
+/* ── BANNER DE DESCARGA PREMIUM ── */
+.download-banner {
+    background: linear-gradient(145deg, #0f0f14 0%, #070709 100%);
+    border: 1px solid #1a1a22;
+    border-radius: 28px;
+    padding: 40px 24px;
+    text-align: left;
+    margin-top: 30px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeIn 0.8s ease-out 0.4s forwards;
+}
+
+.download-banner-content {
+    max-width: 100%;
+    z-index: 2;
+}
+
+.download-banner h3 {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin-bottom: 14px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(120deg, #ffffff, #e2d9ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.download-banner p {
+    font-size: 13.5px;
+    color: #8e8e93;
+    margin-bottom: 28px;
+    line-height: 1.6;
+}
+
+.download-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    color: #000000;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    font-size: 14px;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+    width: fit-content;
+}
+
+.download-btn:hover {
+    background-color: #f2f2f7;
+    transform: scale(1.02);
+}
+
+/* Logo Gigante Decorativo Integrado */
+.download-banner-icon {
+    position: absolute;
+    right: -20px;
+    bottom: -20px;
+    font-size: 160px;
+    background: linear-gradient(135deg, #34c759, #007aff, #ff3b30, #ffcc00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    opacity: 0.15;
+    transform: rotate(-15deg);
+    pointer-events: none;
+    z-index: 1;
+    transition: transform 0.5s ease;
+}
+
+.download-banner:hover .download-banner-icon {
+    transform: rotate(-10deg) scale(1.05);
+}
+
+/* SKELETON SCREEN ANIMADO */
+.skeleton-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    margin-bottom: 35px;
+    overflow: hidden;
+}
+
+.skeleton-image {
+    width: 100%;
+    aspect-ratio: 4/5;
+    background: linear-gradient(90deg, var(--skeleton-bg) 25%, var(--skeleton-anim) 50%, var(--skeleton-bg) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+.skeleton-footer {
+    padding: 18px;
+}
+
+.skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.skeleton-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, var(--skeleton-bg) 25%, var(--skeleton-anim) 50%, var(--skeleton-bg) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+.skeleton-line {
+    height: 12px;
+    background: linear-gradient(90deg, var(--skeleton-bg) 25%, var(--skeleton-anim) 50%, var(--skeleton-bg) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+.skeleton-line.w-70 {
+    width: 70%;
+}
+
+.skeleton-line.w-40 {
+    width: 40%;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes cardAppear {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* VISTA PC PREMIUM MULTICOLUMNA */
+@media (min-width: 850px) {
+    .hero-header {
+        padding: 70px 20px 40px 20px;
+    }
+
+    .hero-header h1 {
+        font-size: 3.2rem;
+    }
+
+    main {
+        max-width: 1200px;
+        padding: 0 25px;
+    }
+
+    #promos-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 30px;
+    }
+
+    .promo-card {
+        margin-bottom: 0;
+    }
+
+    .promo-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(157, 78, 221, 0.12);
+        border-color: rgba(157, 78, 221, 0.25);
+    }
+
+    /* Adaptación del Banner a Pantallas Grandes */
+    .download-banner {
+        grid-column: 1 / -1;
+        margin-top: 40px;
+        padding: 60px 80px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 50px;
+    }
+
+    .download-banner-content {
+        max-width: 65%;
+    }
+
+    .download-banner h3 {
+        font-size: 32px;
+    }
+
+    .download-banner p {
+        font-size: 15px;
+    }
+
+    .download-banner-icon {
+        position: relative;
+        right: 0;
+        bottom: 0;
+        font-size: 180px;
+        opacity: 0.85;
+        transform: rotate(0deg);
+        margin-right: 20px;
+    }
+
+    .download-banner:hover .download-banner-icon {
+        transform: scale(1.05) rotate(3deg);
+    }
+}
