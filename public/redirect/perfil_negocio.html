@@ -87,8 +87,10 @@
 
         <section class="grid xl:grid-cols-[1fr_.8fr] gap-8 mb-10">
             <section id="secAddr" class="section glass reveal">
-                <div class="section-header">Ubicación</div>
+                <div class="section-header">Ubicación </div>
                 <div class="section-body space-y-8">
+
+                
                     <div>
                         <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Dirección</h3>
                         <p id="addrText" class="text-4xl md:text-5xl font-black leading-tight"></p>
@@ -96,6 +98,15 @@
                     <div>
                         <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Referencia</h3>
                         <p id="refText" class="text-gray-300 text-lg leading-relaxed"></p>
+                    </div>
+
+                    <div id="zonaSection">
+                        <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Zona y Aforo</h3>
+                        <p style="font-size:11px;color:var(--muted);margin-top:6px;opacity:.6;">
+                            Zona aproximada según el cuadrante comercial de Geinz
+                        </p>
+
+                        <p id="zonaText" class="text-gray-300 text-lg leading-relaxed"></p>
                     </div>
                 </div>
             </section>
@@ -152,9 +163,10 @@
                         <p class="text-gray-300 text-lg">Explora negocios modernos y experiencias increíbles dentro de
                             Geinz.</p>
                     </div>
-                    <a href="https://geinzworkapp.web.app/api/"
-                        class="btn-primary px-10 py-5 rounded-[24px] text-lg font-bold whitespace-nowrap">Explorar
-                        Geinz</a>
+                    <a id="exploreBtn" href="https://geinzworkapp.web.app"
+                        class="btn-primary px-10 py-5 rounded-[24px] text-lg font-bold whitespace-nowrap">
+                        Explorar Geinz
+                    </a>
                 </div>
             </div>
         </section>

@@ -444,11 +444,31 @@ const DAY_KEYS = [
   { key: "sábado", label: "Sábado" },
   { key: "domingo", label: "Domingo" },
 ];
+// Reemplaza normalizeSchedule en el archivo 2
 function normalizeSchedule(h) {
   return DAY_KEYS.map(({ key, label }) => {
-    const b = h?.[key]?.bloques?.[0];
-    if (!b || b.cerrado) return { dia: label, apertura: null, cierre: null };
-    return { dia: label, apertura: b.h_apertura, cierre: b.h_cierre };
+    const diaData = h?.[key];
+
+    // Día marcado como cerrado
+    if (!diaData || diaData.cerrado === true) {
+      return {
+        dia: label,
+        cerrado: true,
+        motivo: diaData?.motivo || null,
+        bloques: [],
+      };
+    }
+
+    const bloques = (diaData.bloques || []).filter(
+      (b) => b.h_apertura && b.h_cierre,
+    );
+
+    return {
+      dia: label,
+      cerrado: false,
+      motivo: null,
+      bloques, // puede tener 1 (corrido) o 2 (con descanso)
+    };
   });
 }
 function normalizeContactos(mc = {}) {
@@ -517,8 +537,8 @@ function normalizeImages(it) {
     ? lista.servicios_productos
     : [];
   return {
-    ambientales: ambi,
-    productos,
+    ambientales: ambi.filter(Boolean), // ← filtra null/undefined/""
+    productos: productos.filter(Boolean), // ← filtra null/undefined/""
     todas: [...ambi, ...productos].filter(Boolean),
   };
 }
@@ -705,54 +725,116 @@ function renderContactDetail(contactos) {
 // ══════════════════════════════════════════
 //  STATUS BADGE
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  STATUS BADGE (compatible con nuevo formato de bloques)
+// ══════════════════════════════════════════
 function calcStatus(horario) {
   const now = new Date();
-  const map = [6, 0, 1, 2, 3, 4, 5];
-  const today = horario[map[now.getDay()]];
+  const DIAS_ES = [
+    "domingo",
+    "lunes",
+    "martes",
+    "miércoles",
+    "jueves",
+    "viernes",
+    "sábado",
+  ];
+  const diaKey = DIAS_ES[now.getDay()]; // clave directa en el objeto horario_atencion
+
   const badge = document.getElementById("statusBadge");
   const stxt = document.getElementById("statusText");
-  if (!today?.apertura) {
-    badge.className = "status-badge closed";
-    stxt.textContent = "Cerrado hoy";
-    return;
-  }
+
+  // Buscar el día de hoy en el array normalizado (que viene de normalizeSchedule)
+  // horario aquí ya es el resultado de normalizeSchedule → array de 7 elementos
+  const DAY_KEYS_ORDER = [
+    "lunes",
+    "martes",
+    "miércoles",
+    "jueves",
+    "viernes",
+    "sábado",
+    "domingo",
+  ];
+  const map = [6, 0, 1, 2, 3, 4, 5]; // getDay() → índice en el array normalizado
+  const todayIdx = map[now.getDay()];
+  const today = horario[todayIdx];
+
   const toMin = (t) => {
+    if (!t) return null;
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
+
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const openMin = toMin(today.apertura);
-  const closeMin = toMin(today.cierre);
-  if (nowMin >= openMin && nowMin < closeMin) {
-    const diff = closeMin - nowMin,
-      h = Math.floor(diff / 60),
-      m = diff % 60;
-    badge.className = "status-badge open";
-    stxt.textContent = h > 0 ? `Cierra en ${h}h ${m}m` : `Cierra en ${m}m`;
-  } else if (nowMin < openMin) {
-    badge.className = "status-badge closed";
-    stxt.textContent = `Abre hoy a las ${today.apertura}`;
-  } else {
-    const dayNames = [
-      "Lunes",
-      "Martes",
-      "Miércoles",
-      "Jueves",
-      "Viernes",
-      "Sábado",
-      "Domingo",
-    ];
-    let found = null;
+
+  const formatDur = (mins) => {
+    const h = Math.floor(mins / 60),
+      m = mins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m}m`;
+  };
+
+  // Día cerrado
+  if (!today || today.cerrado || !today.bloques?.length) {
+    const motivoTexto = today?.motivo ? ` · ${today.motivo}` : "";
+
+    // Buscar próxima apertura
     for (let i = 1; i <= 7; i++) {
-      const ni = (map[now.getDay()] + i) % 7;
-      if (horario[ni]?.apertura) {
-        found = `Abre el ${dayNames[ni]} a las ${horario[ni].apertura}`;
-        break;
+      const next = horario[(todayIdx + i) % 7];
+      if (!next?.cerrado && next?.bloques?.length) {
+        const label = i === 1 ? "mañana" : next.dia;
+        badge.className = "status-badge closed";
+        stxt.textContent = `Cerrado${motivoTexto} · Abre ${i === 1 ? "mañana" : "el " + label} a las ${next.bloques[0].h_apertura}`;
+        return;
       }
     }
     badge.className = "status-badge closed";
-    stxt.textContent = found || "Cerrado temporalmente";
+    stxt.textContent = `Cerrado${motivoTexto}`;
+    return;
   }
+
+  // Revisar cada bloque de hoy
+  for (const bloque of today.bloques) {
+    const apertura = toMin(bloque.h_apertura);
+    const cierre = toMin(bloque.h_cierre);
+    if (apertura === null || cierre === null) continue;
+
+    if (nowMin >= apertura && nowMin < cierre) {
+      const diff = cierre - nowMin;
+      badge.className = "status-badge open";
+      stxt.textContent =
+        diff <= 30
+          ? `Cierra pronto · ${bloque.h_cierre}`
+          : `Cierra en ${formatDur(diff)} · ${bloque.h_cierre}`;
+      return;
+    }
+  }
+
+  // Aún no abre (primer bloque futuro de hoy)
+  for (const bloque of today.bloques) {
+    const apertura = toMin(bloque.h_apertura);
+    if (apertura !== null && apertura > nowMin) {
+      const diff = apertura - nowMin;
+      badge.className = "status-badge closed";
+      stxt.textContent = `Abre hoy en ${formatDur(diff)} · ${bloque.h_apertura}`;
+      return;
+    }
+  }
+
+  // Ya cerró hoy — buscar próximo día
+  for (let i = 1; i <= 7; i++) {
+    const next = horario[(todayIdx + i) % 7];
+    if (!next?.cerrado && next?.bloques?.length) {
+      const label = i === 1 ? "mañana" : `el ${next.dia}`;
+      badge.className = "status-badge closed";
+      stxt.textContent = `Abre ${label} a las ${next.bloques[0].h_apertura}`;
+      return;
+    }
+  }
+
+  badge.className = "status-badge closed";
+  stxt.textContent = "Cerrado temporalmente";
 }
 
 // ══════════════════════════════════════════
@@ -776,6 +858,9 @@ function buildFullGallery(images) {
     img.src = src;
     img.alt = `Galería ${i + 1}`;
     img.loading = "lazy";
+    img.onerror = () => {
+      card.style.display = "none"; // oculta el card si la img falla
+    };
     slide.appendChild(img);
     track.appendChild(slide);
     const dot = document.createElement("div");
@@ -811,7 +896,11 @@ function resetFullAuto() {
 // ══════════════════════════════════════════
 //  RENDER PRINCIPAL
 // ══════════════════════════════════════════
+// ── Variables globales ──
 let _params = {};
+let _colorReady = false;
+let _schedInterval = null; // evitar setInterval duplicados
+
 async function render(biz) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
   const categoria = biz.categoria_tienda || "—";
@@ -826,48 +915,72 @@ async function render(biz) {
   const amenities = normalizeAmenities(biz.servicios_comodidades);
   const logoUrl = biz.img_tienda?.logo_tienda || null;
 
-  // ── 1. Aplicar color fallback (por nombre) inmediatamente ──
-  applyDominantColor(colorFromName(nombre));
+  // ── COLOR + LOGO: solo la primera vez ──
+  if (!_colorReady) {
+    applyDominantColor(colorFromName(nombre));
 
-  // ── 2. Cargar logo ──
-  const heroImg = document.getElementById("bizLogoHero");
-  const heroPlaceholder = document.getElementById("bizLogoPlaceholderHero");
-  if (logoUrl) {
-    heroImg.src = logoUrl;
-    heroImg.style.display = "block";
-    heroPlaceholder.style.display = "none";
+    const heroImg = document.getElementById("bizLogoHero");
+    const heroPlaceholder = document.getElementById("bizLogoPlaceholderHero");
 
-    const tempImg = new Image();
-    tempImg.crossOrigin = "anonymous";
+    if (logoUrl) {
+      heroImg.src = logoUrl;
+      heroImg.style.display = "block";
+      heroPlaceholder.style.display = "none";
 
-    tempImg.onload = () => {
-      getDominantColor(tempImg).then((color) => {
-        if (color) applyDominantColor(color);
-        hideBizLoader(); // ✅ oculta DESPUÉS del color
-      });
-    };
-    tempImg.onerror = () => {
-      // CORS falló — color por nombre ya aplicado
-      hideBizLoader(); // ✅ oculta igual si falla
-    };
-    tempImg.src =
-      logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
-  } else {
-    // Sin logo — ocultar de una
-    hideBizLoader();
+      const tempImg = new Image();
+      tempImg.crossOrigin = "anonymous";
+      tempImg.onload = () => {
+        getDominantColor(tempImg).then((color) => {
+          if (color) applyDominantColor(color);
+          _colorReady = true;
+          hideBizLoader();
+        });
+      };
+      tempImg.onerror = () => {
+        _colorReady = true;
+        hideBizLoader();
+      };
+      tempImg.src =
+        logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
+    } else {
+      _colorReady = true;
+      hideBizLoader();
+    }
   }
 
-  // ── 4. Resto del render ──
+  // ── CONTENIDO: siempre se actualiza ──
   document.getElementById("bizName").textContent = nombre;
   document.title = nombre;
   document.getElementById("cats").innerHTML =
     `<span class="tag cat">${categoria}</span>${subcategorias.map((s) => `<span class="tag sub">${s}</span>`).join("")}`;
-  calcStatus(horario);
-  setInterval(() => calcStatus(horario), 30000);
-  document.getElementById("descText").textContent = descripcion;
-  document.getElementById("addrText").textContent = ubicacion.dirección || "—";
-  document.getElementById("refText").textContent = ubicacion.referencia || "—";
 
+  // Status badge
+  calcStatus(horario);
+  if (_schedInterval) clearInterval(_schedInterval);
+  _schedInterval = setInterval(() => calcStatus(horario), 30000);
+
+document.getElementById("descText").textContent = descripcion;
+document.getElementById("addrText").textContent = ubicacion.dirección || "—";
+document.getElementById("refText").textContent = ubicacion.referencia || "—";
+
+const zonaSection = document.getElementById("zonaSection");
+if (zonaSection) {
+  const aforoMax = biz.aforo_max;
+  const zonaTexto = ubicacion.zona
+    ? aforoMax
+      ? `${ubicacion.zona} / Aforo máx. ${aforoMax} personas`
+      : ubicacion.zona
+    : aforoMax
+      ? `Aforo máx. ${aforoMax} personas`
+      : null;
+
+  if (zonaTexto) {
+    document.getElementById("zonaText").textContent = zonaTexto;
+    zonaSection.style.display = "";
+  } else {
+    zonaSection.style.display = "none";
+  }
+}
   // Horario
   const gridSched = document.getElementById("schedGrid");
   if (gridSched) {
@@ -876,9 +989,22 @@ async function render(biz) {
     horario.forEach((h, i) => {
       const div = document.createElement("div");
       div.className = "sched-row" + (i === todayIdx ? " today" : "");
-      div.innerHTML = h.apertura
-        ? `<span class="day-name">${h.dia}</span><span class="hours">${h.apertura} – ${h.cierre}</span>`
-        : `<span class="day-name">${h.dia}</span><span class="closed-day">Cerrado</span>`;
+      if (h.cerrado) {
+        const motivoText = h.motivo ? ` · ${h.motivo}` : "";
+        div.innerHTML = `<span class="day-name">${h.dia}</span><span class="closed-day">Cerrado${motivoText}</span>`;
+      } else if (h.bloques.length === 2) {
+        div.innerHTML = `
+          <span class="day-name">${h.dia}</span>
+          <span class="hours">
+            ${h.bloques[0].h_apertura} – ${h.bloques[0].h_cierre}
+            <span style="color:var(--muted);margin:0 4px">·</span>
+            ${h.bloques[1].h_apertura} – ${h.bloques[1].h_cierre}
+          </span>`;
+      } else if (h.bloques.length === 1) {
+        div.innerHTML = `<span class="day-name">${h.dia}</span><span class="hours">${h.bloques[0].h_apertura} – ${h.bloques[0].h_cierre}</span>`;
+      } else {
+        div.innerHTML = `<span class="day-name">${h.dia}</span><span class="closed-day">Sin horario</span>`;
+      }
       gridSched.appendChild(div);
     });
   }
@@ -914,8 +1040,20 @@ async function render(biz) {
   const prodGrid = document.getElementById("productosGrid");
   if (prodGrid && productos.length) {
     prodGrid.innerHTML = "";
+
+    // Grid dinámico según cantidad real visible
     const isMobile = window.matchMedia("(max-width: 767px)").matches;
     const maxVisible = isMobile ? 4 : productos.length;
+    const realCount = Math.min(productos.length, maxVisible);
+
+    if (realCount === 1) {
+      prodGrid.className = "grid grid-cols-1 gap-5 max-w-xs";
+    } else if (realCount === 2) {
+      prodGrid.className = "grid grid-cols-2 gap-5";
+    } else {
+      prodGrid.className = "grid grid-cols-2 md:grid-cols-3 gap-5";
+    }
+
     const hidden = productos.length - maxVisible;
     productos.forEach((src, idx) => {
       if (idx >= maxVisible) return;
@@ -928,17 +1066,32 @@ async function render(biz) {
         const img = document.createElement("img");
         img.src = src;
         img.loading = "lazy";
+        img.onerror = () => {
+          card.style.display = "none"; // oculta el card si la img falla
+        };
         card.appendChild(img);
       }
       prodGrid.appendChild(card);
     });
   }
+
   // Ambientes Grid
   const ambGrid = document.getElementById("ambientesGrid");
   if (ambGrid && ambientales.length) {
     ambGrid.innerHTML = "";
+
     const isMobileAmb = window.matchMedia("(max-width: 767px)").matches;
     const maxVisibleAmb = isMobileAmb ? 4 : ambientales.length;
+    const realCountAmb = Math.min(ambientales.length, maxVisibleAmb);
+
+    if (realCountAmb === 1) {
+      ambGrid.className = "grid grid-cols-1 gap-5 max-w-xs";
+    } else if (realCountAmb === 2) {
+      ambGrid.className = "grid grid-cols-2 gap-5";
+    } else {
+      ambGrid.className = "grid grid-cols-2 md:grid-cols-3 gap-5";
+    }
+
     const hiddenAmb = ambientales.length - maxVisibleAmb;
     ambientales.forEach((src, idx) => {
       if (idx >= maxVisibleAmb) return;
@@ -951,11 +1104,15 @@ async function render(biz) {
         const img = document.createElement("img");
         img.src = src;
         img.loading = "lazy";
+        img.onerror = () => {
+          card.style.display = "none"; // oculta el card si la img falla
+        };
         card.appendChild(img);
       }
       ambGrid.appendChild(card);
     });
   }
+
   // Carrusel completo
   if (todas.length) buildFullGallery(todas);
 
@@ -1005,6 +1162,7 @@ async function render(biz) {
           "_blank",
         );
     };
+
   const shareBtn = document.getElementById("shareBtn");
   if (shareBtn)
     shareBtn.onclick = () => {
@@ -1021,7 +1179,6 @@ async function render(biz) {
     };
 
   // Ocultar secciones vacías
-
   if (!productos.length)
     document
       .getElementById("secProductos")
@@ -1038,6 +1195,12 @@ async function render(biz) {
     document
       .getElementById("secAmenities")
       ?.style.setProperty("display", "none");
+
+  const exploreBtn = document.getElementById("exploreBtn");
+  if (exploreBtn) {
+    const cat = (biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+");
+    exploreBtn.href = `https://geinzworkapp.web.app/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1046,10 +1209,12 @@ async function render(biz) {
 function listenBusinessRealtime({ localidad, id }) {
   const ref = doc(db, "Tiendas", localidad, localidad, id);
   return onSnapshot(ref, (snap) => {
-    if (snap.exists()) render({ id: snap.id, ...snap.data() });
+    if (snap.exists()) {
+      const changed = snap.metadata.hasPendingWrites === false; // vino del server
+      render({ id: snap.id, ...snap.data() });
+    }
   });
 }
-
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════

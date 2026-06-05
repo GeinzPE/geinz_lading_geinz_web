@@ -1,7 +1,12 @@
+
+  const _urlParams = new URLSearchParams(window.location.search);
+let tiendaId = _urlParams.get("id") || sessionStorage.getItem("tiendaId");
+let localidad = _urlParams.get("localidad") || sessionStorage.getItem("localidad");
+
 window.PanelPerfil = {
   db: null,
   dbPlanes: null,
-  TIENDA_ID: "fW7W8RsgkkQ3IYfxKHGR",
+  TIENDA_ID: tiendaId,
 
   // Solo inicializa la conexión, no ejecuta lógica de UI
   init: async function () {
@@ -24,7 +29,7 @@ window.PanelPerfil = {
     this.db = getFirestore(app);
     this.doc = doc;
     this.onSnapshot = onSnapshot;
-    this.TIENDA_REF = doc(this.db, "Tiendas", "barranca", "barranca", this.TIENDA_ID);
+    this.TIENDA_REF = doc(this.db, "Tiendas", localidad, localidad, this.TIENDA_ID);
 
     // DB Planes
     const appPlanes = !getApps().find(a => a.name === 'planesApp') 

@@ -19,6 +19,11 @@ import {
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
+const _urlParams = new URLSearchParams(window.location.search);
+let tiendaId = _urlParams.get("id") || sessionStorage.getItem("tiendaId");
+let localidad =
+  _urlParams.get("localidad") || sessionStorage.getItem("localidad");
+
 const app = initializeApp({
   apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
   authDomain: "geinzworkapp.firebaseapp.com",
@@ -46,6 +51,7 @@ let _precios = {
   mensaje_w_c: 0,
   publicacion_24h: 100, // 100 créditos por día
   publicacion_x_hora: 10, // 10 créditos por hora
+  costo_por_moneda: 0.012,
 };
 
 // ── Inyectar estilos del bottom sheet de términos ──────
@@ -276,16 +282,120 @@ function aplicarPreciosEnDOM() {
   }
 
   const precioWpEl = document.getElementById("precioMensajeWpIA");
-  if (precioWpEl) precioWpEl.textContent = `+${_precios.mensaje_w_c}`;
+  if (precioWpEl) precioWpEl.textContent = `${_precios.mensaje_w_c}`;
 
   const precioShareEl = document.getElementById("precioShareIA");
-  if (precioShareEl) precioShareEl.textContent = `+${_precios.mensaje_w_c}`;
+  if (precioShareEl) precioShareEl.textContent = `${_precios.mensaje_w_c}`;
 
   actualizarCostoPublicar();
   actualizarBotonesIA();
 }
 
 // ── Calcula costo total y actualiza botón ───────────────
+
+// ==================== BANNER SALDO BAJO ====================
+(function inyectarEstilosBanner() {
+  const style = document.createElement("style");
+  style.textContent = `
+    .saldo-bajo-banner {
+      display: none;
+      margin: 0 0 18px;
+      background: linear-gradient(135deg, rgba(234,88,12,0.12) 0%, rgba(239,68,68,0.08) 100%);
+      border: 1px solid rgba(234,88,12,0.35);
+      border-left: 4px solid #ea580c;
+      border-radius: 14px;
+      padding: 14px 16px 14px 14px;
+      animation: bannerFadeIn .35s ease;
+    }
+    .saldo-bajo-banner.visible { display: flex; }
+    @keyframes bannerFadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .banner-icon-wrap {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      background: rgba(234,88,12,0.15);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-right: 12px;
+    }
+    .banner-icon-wrap i { font-size: 18px; color: #fb923c; }
+    .banner-body { flex: 1; }
+    .banner-title {
+      font-size: 13px; font-weight: 700; color: #fdba74;
+      margin: 0 0 4px; display: flex; align-items: center; gap: 6px;
+    }
+    .banner-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .05em;
+      background: rgba(234,88,12,0.25); color: #fb923c;
+      border: 1px solid rgba(234,88,12,0.4);
+      padding: 1px 7px; border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .banner-text {
+      font-size: 12px; color: #d1d5db; line-height: 1.55; margin: 0;
+    }
+    .banner-text strong { color: #fdba74; }
+    .banner-close {
+      flex-shrink: 0; align-self: flex-start;
+      background: none; border: none; color: #6b7280;
+      font-size: 16px; cursor: pointer; padding: 2px 4px;
+      line-height: 1; transition: color .2s;
+      margin-left: 8px;
+    }
+    .banner-close:hover { color: #d1d5db; }
+  `;
+  document.head.appendChild(style);
+})();
+
+function inyectarBannerSaldoBajo() {
+  if (document.getElementById("bannerSaldoBajo")) return;
+  const banner = document.createElement("div");
+  banner.id = "bannerSaldoBajo";
+  banner.className = "saldo-bajo-banner";
+  banner.innerHTML = `
+ 
+    <div class="banner-body">
+      <p class="banner-title">
+        Alerta de saldo bajo
+        <span class="banner-badge">Geinz</span>
+      </p>
+      <p class="banner-text">
+        Priorizamos tu estabilidad y detectamos que tienes
+        <strong>saldo bajo para crear publicaciones</strong>.
+        Puedes crearlas con normalidad, pero si harás
+        <strong>generaciones con IA</strong> o publicar por
+        <strong>periodos largos</strong>, no queremos que te lleves
+        malos resultados por no tener saldo suficiente.
+      </p>
+    </div>
+    <button class="banner-close" onclick="ocultarBannerSaldo()" aria-label="Cerrar">✕</button>
+  `;
+  // Insertar al inicio del .card, antes del .grid
+  const grid = document.querySelector(".card .grid");
+  if (grid) grid.parentElement.insertBefore(banner, grid);
+  else document.querySelector(".card")?.prepend(banner);
+}
+
+window.ocultarBannerSaldo = function () {
+  const b = document.getElementById("bannerSaldoBajo");
+  if (b) {
+    b.style.animation = "bannerFadeIn .25s ease reverse";
+    setTimeout(() => b.classList.remove("visible"), 220);
+  }
+};
+
+function actualizarBannerSaldo(saldo) {
+  inyectarBannerSaldoBajo();
+  const b = document.getElementById("bannerSaldoBajo");
+  if (!b) return;
+  if (saldo < 300) {
+    b.classList.add("visible");
+  } else {
+    b.classList.remove("visible");
+  }
+}
 
 function parseFechaLocal(str) {
   if (!str) return null;
@@ -446,8 +556,8 @@ async function getToken() {
 }
 
 let datosTienda = null;
-const ID_TIENDA = "fW7W8RsgkkQ3IYfxKHGR";
-const LOCALIDAD = "barranca";
+const ID_TIENDA = tiendaId;
+const LOCALIDAD = localidad;
 
 /* ── STORAGE ── */
 function dataURLtoBlob(dataURL) {
@@ -550,7 +660,17 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     imgEl.src = dataURL;
   });
 }
-
+let _iaGenerando = false;
+let _iaActivo = null;
+function setGenerandoIA(activo, btnId = null) {
+  _iaActivo = activo ? btnId : null;
+  actualizarBotonesIA();
+}
+function formatFechaSlash(str) {
+  if (!str) return "";
+  const [y, m, d] = str.split("-");
+  return `${d}/${m}/${y}`;
+}
 (function () {
   const CLOUD_FN_URL =
     "https://us-central1-geinzworkapp.cloudfunctions.net/generar_titulo_descripcion_IA";
@@ -680,20 +800,24 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
 
   function aplicarPrecioDetectado(precio) {
     if (!precioInput) return;
+
     if (!precio) {
       precioInput.value = "";
       precioYaSeteado = false;
       return;
     }
-    if (precioYaSeteado && precioInput.value === precio) return;
-    if (precioInput.value !== precio) {
-      precioInput.value = precio;
+
+    const precioEntero = Math.round(Number(precio));
+
+    if (precioYaSeteado && Number(precioInput.value) === precioEntero) return;
+
+    if (Number(precioInput.value) !== precioEntero) {
+      precioInput.value = precioEntero;
       flashFields(precioInput);
-      mostrarToast(`💰 Precio detectado: S/ ${precio}`, "success");
+      mostrarToast(`💰 Precio detectado: S/ ${precioEntero}`, "success");
       precioYaSeteado = true;
     }
   }
-
   function showBtn(btn, visible) {
     if (!btn) return;
     btn.classList.toggle("show", visible);
@@ -804,6 +928,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast("Completa título y descripción", "error");
       return;
     }
+    setGenerandoIA(true, "btnDescripcionIA");
     setBtnLoading(btnDescripcionIA, true);
     try {
       const result = await callFirebaseFunction(CLOUD_FN_TEXT_URL, {
@@ -813,10 +938,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         saldo_actual: datosTienda.saldo_tienda,
         saldo_descuento: _precios.mejora_texto_x3,
         id_tienda: datosTienda.id_tienda,
-        precio_por_moneda: 0.012,
+        precio_por_moneda: _precios.costo_por_moneda,
         localidad: datosTienda.localidad,
         nombre_tienda: datosTienda.nombre_tienda,
-        tipo_paquete: "Gen x3 IA",
+        tipo_paquete: "Gen IA (Promociones X3)",
       });
       if (!result?.ok || !result?.respuesta)
         throw new Error("Sin respuesta IA");
@@ -826,6 +951,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast(err.message || "Error generando textos", "error");
     } finally {
       setBtnLoading(btnDescripcionIA, false);
+      setGenerandoIA(false);
     }
   }
 
@@ -875,6 +1001,8 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast("Agrega un título primero", "error");
       return;
     }
+    setGenerandoIA(true, "btnMensajeWpIA");
+
     setBtnLoading(btnMensajeWpIA, true);
     try {
       const result = await callFirebaseFunction(CLOUD_FN_WP_URL, {
@@ -883,10 +1011,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         saldo_actual: datosTienda.saldo_tienda,
         saldo_descuento: _precios.mensaje_w_c,
         id_tienda: datosTienda.id_tienda,
-        precio_por_moneda: 0.012,
+        precio_por_moneda: _precios.costo_por_moneda,
         localidad: datosTienda.localidad,
         nombre_tienda: datosTienda.nombre_tienda,
-        tipo_paquete: "Gen Mensaje WP IA",
+        tipo_paquete: "Gen IA (Mensaje WhatsApp personalizado)",
       });
       const mensaje = result?.mensaje?.trim();
       if (!mensaje) throw new Error("Gemini devolvió vacío");
@@ -897,6 +1025,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast(err.message || "Error generando mensaje", "error");
     } finally {
       setBtnLoading(btnMensajeWpIA, false);
+      setGenerandoIA(false);
     }
   }
 
@@ -911,6 +1040,8 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast("Agrega un título primero", "error");
       return;
     }
+    setGenerandoIA(true, "btnMensajeShareIA");
+
     setBtnLoading(btnMensajeShareIA, true);
     try {
       const result = await callFirebaseFunction(CLOUD_FN_SHARE_URL, {
@@ -919,10 +1050,10 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         saldo_actual: datosTienda.saldo_tienda,
         saldo_descuento: _precios.mensaje_w_c,
         id_tienda: datosTienda.id_tienda,
-        precio_por_moneda: 0.012,
+        precio_por_moneda: _precios.costo_por_moneda,
         localidad: datosTienda.localidad,
         nombre_tienda: datosTienda.nombre_tienda,
-        tipo_paquete: "Gen Mensaje Share IA",
+        tipo_paquete: "Gen IA (Mensaje para compartir)",
       });
       const mensaje = result?.mensaje?.trim();
       if (!mensaje) throw new Error("Gemini devolvió vacío");
@@ -933,6 +1064,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast(err.message || "Error generando mensaje", "error");
     } finally {
       setBtnLoading(btnMensajeShareIA, false);
+      setGenerandoIA(false);
     }
   }
 
@@ -951,6 +1083,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       return;
     }
     if (btnImagenIA.classList.contains("loading")) return;
+    setGenerandoIA(true, "btnImagenIA");
     setLoadingImagen(true);
     try {
       let dataURL;
@@ -965,11 +1098,11 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         tipo: tipoImagenIA,
         saldo_actual: datosTienda.saldo_tienda,
         saldo_descuento: _precios.ia_imagen_texto,
-        precio_por_moneda: 0.012,
+        precio_por_moneda: _precios.costo_por_moneda,
         id_tienda: datosTienda.id_tienda,
         localidad: datosTienda.localidad,
         nombre_tienda: datosTienda.nombre_tienda,
-        tipo_paquete: "Gen Imagen texto IA",
+        tipo_paquete: "Gen IA titulo y descripcion de Imagen ",
       });
       if (!result?.ok) throw new Error("IA inválida");
       if (result.titulo) tituloInput.value = result.titulo;
@@ -987,6 +1120,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
       mostrarToast(err.message || "Error generando IA", "error");
     } finally {
       setLoadingImagen(false);
+      setGenerandoIA(false);
     }
   }
 
@@ -1037,7 +1171,7 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     if (fin >= inicio) {
       const dias = Math.ceil(Math.abs(fin - inicio) / 86400000) + 1;
       const monedas = dias * _precios.publicacion_24h;
-      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${_precios.publicacion_24h} créditos por día · Inicio: ${fi.value} · Fin: ${ff.value}</div></div>`;
+      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${_precios.publicacion_24h} créditos por día · Inicio: ${fi.value.split("-").reverse().join("/")} · Fin: ${ff.value.split("-").reverse().join("/")}</div></div>`;
       dc.style.display = "block";
     } else {
       dc.innerHTML = `<div style="background:rgba(239,68,68,.1);padding:10px 16px;border-radius:14px;margin-top:12px;border-left:3px solid #ef4444"><span style="font-size:13px;color:#ef4444">⚠️ La fecha final debe ser mayor o igual a la inicial</span></div>`;
@@ -1046,7 +1180,6 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
     actualizarCostoPublicar();
     actualizarEstadoBotonPublicar();
   }
-
   function calcularDuracionHoras() {
     const ih = document.getElementById("inputHoras");
     const dc = document.getElementById("duracionHorasContainer");
@@ -1362,8 +1495,8 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         estado: "activo",
         exclusivo: false,
         formato_fecha_hora: tipoPlazoVal,
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin,
+        fecha_inicio: formatFechaSlash(fechaInicio),
+        fecha_fin: formatFechaSlash(fechaFin),
         hora_inicio,
         hora_fin,
         timestamp_inicio: tsInicio,
@@ -1398,6 +1531,15 @@ function comprimirImagen(dataURL, maxPx = 1024, calidad = 0.82) {
         lat,
         long: lng,
         referencia,
+
+        // ── Financiero ──────────────────────────────────────
+        saldo_actual: datosTienda.saldo_tienda, // ej: 5490
+        saldo_descuento: total, // ej: 700 (calculado arriba)
+        precio_por_moneda: _precios.costo_por_moneda, // ej: 0.012
+        tipo_paquete:
+          tipoPlazoVal === "horas"
+            ? `Publicidad por ${horasInput} hora${horasInput > 1 ? "s" : ""}`
+            : `Publicidad por ${Math.ceil(Math.abs(parseFechaLocal(fechaFin) - parseFechaLocal(fechaInicio)) / 86400000) + 1} días`,
       };
 
       const result = await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
@@ -1892,6 +2034,8 @@ function _aplicarPublicidad(pub) {
     _precios.publicacion_x_hora = pub.publicacion_por_hora;
   if (pub.ceo_descripcion != null)
     _precios.mejora_texto_x3 = pub.ceo_descripcion;
+  if (pub.costo_por_moneda != null)
+    _precios.costo_por_moneda = pub.costo_por_moneda; // 👈
   aplicarPreciosEnDOM();
   actualizarEstadoBotonPublicar();
   actualizarBotonesIA();
@@ -1899,79 +2043,72 @@ function _aplicarPublicidad(pub) {
 
 // ── Validar saldo para botones IA ──────────────────────
 function actualizarBotonesIA() {
+  if (!datosTienda) return;
   const saldo = datosTienda?.saldo_tienda ?? 0;
+  actualizarBannerSaldo(saldo);
 
   const botones = [
-    {
-      id: "btnImagenIA",
-      costo: _precios.ia_imagen_texto,
-      labelActivo: "Generar imagen + texto con IA",
-      icono: "ti-sparkles",
-    },
-    {
-      id: "btnDescripcionIA",
-      costo: _precios.mejora_texto_x3,
-      labelActivo: "Mejorar texto con IA",
-      icono: "ti-wand",
-    },
-    {
-      id: "btnMensajeWpIA",
-      costo: _precios.mensaje_w_c,
-      labelActivo: "Generar mensaje WhatsApp",
-      icono: "ti-brand-whatsapp",
-    },
-    {
-      id: "btnMensajeShareIA",
-      costo: _precios.mensaje_w_c,
-      labelActivo: "Generar mensaje compartir",
-      icono: "ti-share",
-    },
+    { id: "btnImagenIA", costo: _precios.ia_imagen_texto },
+    { id: "btnDescripcionIA", costo: _precios.mejora_texto_x3 },
+    { id: "btnMensajeWpIA", costo: _precios.mensaje_w_c },
+    { id: "btnMensajeShareIA", costo: _precios.mensaje_w_c },
   ];
 
-  botones.forEach(({ id, costo, labelActivo }) => {
+  botones.forEach(({ id, costo }) => {
     const btn = document.getElementById(id);
     if (!btn) return;
 
-    const saldoSuficiente = saldo >= costo && costo > 0;
-    const sinPrecio = costo === 0;
+    btn.querySelector(".btn-no-saldo-badge")?.remove();
+    btn.querySelector(".btn-bloqueado-badge")?.remove();
+    btn.style.filter = "";
 
-    if (sinPrecio || saldoSuficiente) {
-      // ── Habilitado ──
+    const esteActivo = _iaActivo === id;
+    const hayOtroActivo = _iaActivo !== null && !esteActivo;
+
+    // Otro botón está generando → bloquear este
+    if (hayOtroActivo) {
+      btn.disabled = true;
+      btn.style.opacity = "0.35";
+      btn.style.cursor = "not-allowed";
+      const badge = document.createElement("span");
+      badge.className = "btn-bloqueado-badge";
+      badge.style.cssText = `
+        display:inline-flex;align-items:center;gap:3px;
+        background:rgba(107,114,128,0.18);border:1px solid rgba(107,114,128,0.32);
+        color:#9ca3af;font-size:10px;font-weight:700;
+        padding:2px 7px;border-radius:999px;margin-left:8px;
+        vertical-align:middle;pointer-events:none;`;
+      badge.innerHTML = `<i class="ti ti-lock" style="font-size:11px"></i> Ocupado`;
+      btn.appendChild(badge);
+      return;
+    }
+
+    // Este es el que está generando → se gestiona solo con setBtnLoading
+    if (esteActivo) return;
+
+    // Estado normal → evaluar saldo
+    btn.style.opacity = "";
+    btn.style.cursor = "";
+    const saldoOk = costo === 0 || saldo >= costo;
+
+    if (saldoOk) {
       btn.disabled = false;
       btn.title = "";
-      btn.style.opacity = "";
-      btn.style.cursor = "";
-      btn.style.filter = "";
-      // Quitar badge de saldo insuficiente si existe
-      btn.querySelector(".btn-no-saldo-badge")?.remove();
     } else {
-      // ── Deshabilitado por saldo ──
       btn.disabled = true;
       btn.title = `Necesitas ${costo.toLocaleString("es-PE")} créditos`;
       btn.style.opacity = "0.45";
       btn.style.cursor = "not-allowed";
-
-      // Inyectar badge de costo solo si no existe
-      if (!btn.querySelector(".btn-no-saldo-badge")) {
-        const badge = document.createElement("span");
-        badge.className = "btn-no-saldo-badge";
-        badge.style.cssText = `
-          display:inline-flex;align-items:center;gap:3px;
-          background:rgba(239,68,68,.15);
-          border:1px solid rgba(239,68,68,.3);
-          color:#f87171;
-          font-size:10px;font-weight:700;
-          padding:2px 7px;border-radius:999px;
-          margin-left:8px;
-          vertical-align:middle;
-          pointer-events:none;
-        `;
-        badge.innerHTML = `
-          <i class="ti ti-coins" style="font-size:11px"></i>
-          Necesitas ${costo.toLocaleString("es-PE")} créditos
-        `;
-        btn.appendChild(badge);
-      }
+      const badge = document.createElement("span");
+      badge.className = "btn-no-saldo-badge";
+      badge.style.cssText = `
+        display:inline-flex;align-items:center;gap:3px;
+        background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);
+        color:#f87171;font-size:10px;font-weight:700;
+        padding:2px 7px;border-radius:999px;margin-left:8px;
+        vertical-align:middle;pointer-events:none;`;
+      badge.innerHTML = `<i class="ti ti-coins" style="font-size:11px"></i> Necesitas ${costo.toLocaleString("es-PE")} créditos`;
+      btn.appendChild(badge);
     }
   });
 }

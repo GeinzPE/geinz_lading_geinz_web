@@ -245,9 +245,9 @@ function getParams() {
   };
 
   return {
-    localidad: data.localidad || "barranca",
-    subcol: data.subcol || "barranca",
-    id: data.id || "fW7W8RsgkkQ3IYfxKHGR",
+    localidad: data.localidad ,
+    subcol: data.subcol ,
+    id: data.id ,
     promoIndex: data.promoIndex || null,
   };
 }

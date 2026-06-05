@@ -669,9 +669,9 @@
         function getParams() {
             const p = new URLSearchParams(window.location.search);
             return {
-                localidad: p.get("localidad") || p.get("l") || "barranca",
-                subcol: p.get("subcol") || p.get("c") || "barranca",
-                id: p.get("id") || "fW7W8RsgkkQ3IYfxKHGR",
+                localidad: p.get("localidad") || p.get("l") ,
+                subcol: p.get("subcol") || p.get("c") ,
+                id: p.get("id") ,
                 promoIndex: p.get("i") || null,
             };
         }

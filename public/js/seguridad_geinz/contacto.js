@@ -51,13 +51,8 @@ const tokenId = p("contacto");
 
 console.log("🔍 PARAMS →", { idTienda, tokenId });
 
-/* ═══════════════════════════════════════
-   VALIDACIÓN PARAMS
-═══════════════════════════════════════ */
-
 if (!idTienda || !tokenId) {
   renderError("Link inválido", "El enlace no contiene información válida.");
-
   throw new Error("Parámetros inválidos");
 }
 
@@ -66,168 +61,134 @@ if (!idTienda || !tokenId) {
 ═══════════════════════════════════════ */
 
 const businessName = document.getElementById("businessName");
-const bizInline = document.getElementById("bizInline");
-const storeId = document.getElementById("storeId");
+const bizInline    = document.getElementById("bizInline");
+const storeId      = document.getElementById("storeId");
 const businessLogo = document.getElementById("businessLogo");
-
-const btn = document.getElementById("ctaBtn");
-const fill = document.getElementById("fill");
-const pct = document.getElementById("pct");
+const btn          = document.getElementById("ctaBtn");
+const fill         = document.getElementById("fill");
+const pct          = document.getElementById("pct");
 
 /* ═══════════════════════════════════════
    FLAGS
 ═══════════════════════════════════════ */
 
-let waUrl = "";
-
-let timerDone = false;
+let waUrl         = "";
 let descuentoDone = false;
 
-/* ═══════════════════════════════════════
-   REDIRECCIÓN
-═══════════════════════════════════════ */
-
 function intentarRedirigir() {
-  if (timerDone && descuentoDone && waUrl) {
-    console.log("✅ Timer + descuento listos");
-
-     location.href = waUrl;
+  console.log("🔁 intentarRedirigir →", { descuentoDone, waUrl });
+  if (descuentoDone && waUrl) {
+    console.log("✅ Redirigiendo a:", waUrl);
+    location.href = waUrl;
   }
 }
+
+/* ═══════════════════════════════════════
+   BARRA PROGRESO (solo UX)
+═══════════════════════════════════════ */
+
+const TOTAL = 2200;
+const TICK  = 30;
+let elapsed = 0;
+
+const timer = setInterval(() => {
+  elapsed += TICK;
+  const progress = Math.min(Math.round((elapsed / TOTAL) * 100), 100);
+  fill.style.width = progress + "%";
+  pct.textContent  = progress + "%";
+  if (elapsed >= TOTAL) {
+    clearInterval(timer);
+    console.log("⏱️ Timer completado (solo UX)");
+  }
+}, TICK);
 
 /* ═══════════════════════════════════════
    INIT
 ═══════════════════════════════════════ */
 
+let costo_por_moneda = 0;
+
 window.addEventListener("load", async () => {
   console.log("🚀 INIT");
 
   try {
+    /* costo_por_moneda */
+    try {
+      console.log("📡 Fetching precio_apartado/app...");
+      const precioSnap = await getDoc(doc(dbPlanes, "precio_apartado", "app"));
+      costo_por_moneda = Number(precioSnap.data()?.costo_por_moneda || 0);
+      console.log("✅ costo_por_moneda →", costo_por_moneda);
+    } catch (e) {
+      console.warn("⚠️ No se pudo leer costo_por_moneda:", e.message);
+    }
+
     const tiendaRef = doc(db, "lugares", idTienda);
+    const tokenRef  = doc(dbPlanes, "creditos_tienda", idTienda, "interaccion_directa_bot", tokenId);
 
-    const tokenRef = doc(
-      dbPlanes,
-      "creditos_tienda",
-      idTienda,
-      "interaccion_directa_bot",
-      tokenId,
-    );
-
-    console.log("📄 tiendaRef →", tiendaRef.path);
-    console.log("📄 tokenRef →", tokenRef.path);
-
+    console.log("📡 Fetching tienda y token...");
     const [tiendaSnap, tokenSnap] = await Promise.all([
       getDoc(tiendaRef),
       getDoc(tokenRef),
     ]);
-
-    /* ═══════════════════════════════════════
-       VALIDACIONES
-    ═══════════════════════════════════════ */
+    console.log("✅ tienda y token ok");
 
     if (!tiendaSnap.exists()) {
       renderError("Tienda no encontrada", "La tienda solicitada no existe.");
       return;
     }
-
     if (!tokenSnap.exists()) {
       renderError("Link no válido", "Este enlace no existe.");
       return;
     }
 
     const tiendaData = tiendaSnap.data() || {};
-    const tokenData = tokenSnap.data() || {};
+    const tokenData  = tokenSnap.data() || {};
 
     console.log("📦 tiendaData →", tiendaData);
     console.log("📦 tokenData →", tokenData);
 
-    /* ═══════════════════════════════════════
-       VALIDAR EXPIRACIÓN
-    ═══════════════════════════════════════ */
-
-    const fin = tokenData?.fin;
+    /* EXPIRACIÓN */
+    const fin   = tokenData?.fin;
     const ahora = Date.now();
-
-    console.log(
-      "⏰ fin →",
-      fin ? new Date(fin.toMillis()).toLocaleString() : "sin fin",
-    );
-
-    console.log("⏰ ahora →", new Date(ahora).toLocaleString());
 
     if (fin && ahora > fin.toMillis()) {
       console.warn("⚠️ Link expirado");
-
-      renderError(
-        "Link expirado",
-        "Este enlace ya expiro Recuerda que los enlaces de contacto duran 24h ",
-        tiendaData,
-      );
-
+      renderError("Link expirado", "Este enlace ya expiró. Recuerda que los enlaces de contacto duran 24h.", tiendaData);
       return;
     }
 
-    /* ═══════════════════════════════════════
-       DATOS TIENDA
-    ═══════════════════════════════════════ */
-
-    const nombre = tiendaData?.nombre || "Mi Tienda";
-
+    /* DATOS TIENDA */
+    const nombre    = tiendaData?.nombre || "Mi Tienda";
     const localidad = tiendaData?.localidad || "barranca";
+    const logo      = tiendaData?.img || "";
+    const numero    = tiendaData?.whatsapp || "";
+    const mensaje   = tiendaData?.msje_whatsapp || "Hola";
 
-    const categoria = tiendaData?.categoria || "negocios";
-
-    const logo = tiendaData?.img || "";
-
-    const numero = tiendaData?.whatsapp || "";
-
-    const mensaje = tiendaData?.msje_whatsapp || "Hola";
-
-    console.log("🏪 nombre →", nombre);
-    console.log("📞 numero →", numero);
-    console.log("💬 mensaje →", mensaje);
+    console.log("🏪 nombre →", nombre, "| 📞 numero →", numero);
 
     if (!numero) {
       renderError("Sin WhatsApp", "La tienda no tiene WhatsApp configurado.");
-
       return;
     }
 
-    /* ═══════════════════════════════════════
-       WHATSAPP URL
-    ═══════════════════════════════════════ */
-
-    waUrl = `https://wa.me/${numero}` + `?text=${encodeURIComponent(mensaje)}`;
-
-    btn.href = waUrl;
-
+    /* WHATSAPP URL */
+    waUrl     = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+    btn.href  = waUrl;
     console.log("🔗 waUrl →", waUrl);
 
-    /* ═══════════════════════════════════════
-       UI
-    ═══════════════════════════════════════ */
-
+    /* UI */
     businessName.textContent = nombre;
-    bizInline.textContent = nombre;
-    storeId.textContent = nombre;
+    bizInline.textContent    = nombre;
+    storeId.textContent      = nombre;
 
     if (logo) {
-      const img = new Image();
-
+      const img  = new Image();
       img.onload = () => {
         businessLogo.src = logo;
-
-        requestAnimationFrame(() => {
-          businessLogo.classList.add("loaded");
-        });
-
+        requestAnimationFrame(() => businessLogo.classList.add("loaded"));
         console.log("🖼️ Logo cargado");
       };
-
-      img.onerror = () => {
-        console.warn("⚠️ Error logo");
-      };
-
+      img.onerror = () => console.warn("⚠️ Error logo");
       img.src = logo;
     }
 
@@ -236,405 +197,197 @@ window.addEventListener("load", async () => {
     ═══════════════════════════════════════ */
 
     try {
-      const fechaId = new Date().toISOString().split("T")[0];
+      const fechaId        = new Date().toISOString().split("T")[0];
+      const estadisticaRef = doc(dbPlanes, "creditos_tienda", idTienda, "estadisticas", fechaId);
+      const creditosRef    = doc(dbPlanes, "creditos_tienda", idTienda);
 
-      const estadisticaRef = doc(
-        dbPlanes,
-        "creditos_tienda",
-        idTienda,
-        "estadisticas",
-        fechaId,
-      );
-
-      const creditosRef = doc(dbPlanes, "creditos_tienda", idTienda);
-
-      /* ═══════════════════════════════════════
-         LEER PRECIOS
-      ═══════════════════════════════════════ */
-
-      const preciosSnap = await getDoc(
-        doc(dbPlanes, "precio_apartado", "bot_daniel"),
-      );
+      /* PRECIOS */
+      console.log("📡 Fetching precios bot_daniel...");
+      const preciosSnap = await getDoc(doc(dbPlanes, "precio_apartado", "bot_daniel"));
+      console.log("✅ precios ok");
 
       const preciosData = preciosSnap.exists() ? preciosSnap.data() : {};
-
-      const monedas = Number(preciosData?.contacto_directo ?? 20);
-
+      const monedas     = Number(preciosData?.contacto_directo ?? 20);
       const deudaMaxima = Number(preciosData?.saldo_deuda_maxima ?? 300);
 
-      console.log("💰 monedas →", monedas);
-      console.log("🚨 deudaMaxima →", deudaMaxima);
+      console.log("💰 monedas →", monedas, "| deudaMaxima →", deudaMaxima);
 
-      /* ═══════════════════════════════════════
-         CRÉDITOS
-      ═══════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         MAESTRA: leer puntos_tienda de Geinz
+         Todos los cálculos parten de aquí.
+      ════════════════════════════════════════ */
+      console.log("📡 Fetching tiendaGeinz (MAESTRA)...");
+      const tiendaGeinzRef  = doc(db, "Tiendas", localidad, localidad, idTienda);
+      const tiendaGeinzSnap = await getDoc(tiendaGeinzRef);
+      console.log("✅ tiendaGeinz ok, exists:", tiendaGeinzSnap.exists());
 
+      if (!tiendaGeinzSnap.exists()) {
+        console.warn("⚠️ Tienda Geinz no encontrada");
+        renderError("Tienda no encontrada", "No se encontró la información del negocio.");
+        return;
+      }
+
+      const datosGeinz    = tiendaGeinzSnap.data() || {};
+      const nombre_tienda = datosGeinz.nombre_tienda || "Sin nombre";
+
+      // ✅ Saldo real viene de la MAESTRA
+      const saldoActual         = Math.max(Number(datosGeinz.puntos_tienda || 0), 0);
+      const descontarDeSaldo    = Math.min(monedas, saldoActual);
+      const saldo_restante      = Math.max(saldoActual - descontarDeSaldo, 0);
+      const irADeuda            = monedas - descontarDeSaldo;
+
+      console.log("💎 saldoActual (maestra) →", saldoActual);
+      console.log("💎 saldo_restante →", saldo_restante);
+      console.log("🔴 irADeuda →", irADeuda);
+
+      /* deuda actual de dbPlanes (solo para acumular, no para calcular saldo) */
+      console.log("📡 Fetching deuda actual dbPlanes...");
       const creditosSnapAntes = await getDoc(creditosRef);
-
-      const creditosAntes = Number(
-        creditosSnapAntes.exists()
-          ? (creditosSnapAntes.data()?.creditos ?? 0)
-          : 0,
-      );
-
-      const deudaActual = Number(
-        creditosSnapAntes.exists()
-          ? (creditosSnapAntes.data()?.deuda_pendiente ?? 0)
-          : 0,
-      );
-
-      const descontarDeCreditos = Math.min(monedas, Math.max(creditosAntes, 0));
-
-      const irADeuda = monedas - descontarDeCreditos;
-
-      console.log("💳 creditosAntes →", creditosAntes);
+      const deudaActual       = Number(creditosSnapAntes.exists() ? (creditosSnapAntes.data()?.deuda_pendiente ?? 0) : 0);
       console.log("📋 deudaActual →", deudaActual);
 
-      /* ═══════════════════════════════════════
-         WRITES PRINCIPALES
-      ═══════════════════════════════════════ */
+      /* FECHA */
+      const now   = new Date();
+      const zona  = { timeZone: "America/Lima" };
+      const fecha = now.toLocaleDateString("es-PE", { ...zona, day: "2-digit", month: "2-digit", year: "numeric" });
+      const hora  = now.toLocaleTimeString("es-PE", { ...zona, hour: "2-digit", minute: "2-digit", hour12: false });
 
-      await Promise.all([
-        /* 1️⃣ Estadísticas */
+      const precio_soles   = (monedas * costo_por_moneda).toFixed(2);
+      const id_transaccion = crypto.randomUUID();
 
-        setDoc(
-          estadisticaRef,
-          {
-            clicks: increment(1),
-            monedasGastadas: increment(monedas),
-            updatedAt: serverTimestamp(),
+      const historialFinancieroRef = doc(
+        db, "Tiendas", localidad, localidad, idTienda,
+        "historial_financiero", id_transaccion,
+      );
+
+      /* ════════════════════════════════════════
+         WRITES — saldo_restante va igual en ambas DBs
+      ════════════════════════════════════════ */
+
+      const writes = [
+
+        /* 1️⃣ Estadísticas dbPlanes */
+        setDoc(estadisticaRef, {
+          clicks: increment(1),
+          monedasGastadas: increment(monedas),
+          updatedAt: serverTimestamp(),
+        }, { merge: true }),
+
+        /* 2️⃣ COPIA → dbPlanes creditos = saldo_restante (copia de la maestra) */
+        setDoc(creditosRef, {
+          creditos: saldo_restante,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).then(() => console.log("✅ creditos dbPlanes →", saldo_restante)),
+
+        /* 3️⃣ MAESTRA → Geinz puntos_tienda = saldo_restante */
+        setDoc(tiendaGeinzRef, {
+          puntos_tienda: saldo_restante,
+        }, { merge: true }).then(() => console.log("✅ puntos_tienda Geinz →", saldo_restante)),
+
+        /* 4️⃣ Historial */
+        setDoc(historialFinancieroRef, {
+          datos_recarga: {
+            estado: "Aceptado",
+            monto_descontado: monedas,
+            monto_restante: saldo_restante,
+            precio_soles,
+            tipo_paquete: "Contacto directo (WhatsApp)",
           },
-          { merge: true },
-        ),
-
-        /* 2️⃣ Descontar créditos */
-
-        setDoc(
-          creditosRef,
-          {
-            creditos: increment(-descontarDeCreditos),
-            updatedAt: serverTimestamp(),
+          datos_tienda: {
+            id_tienda: idTienda,
+            localidad_tienda: localidad,
+            nombre_tienda,
           },
-          { merge: true },
-        ),
+          hora_fecha: { fecha, hora },
+          id_transaccion,
+          timestamp: serverTimestamp(),
+          tipo_transacción: "descuento",
+        }),
+      ];
 
-        /* 3️⃣ Historial + puntos */
+      /* DEUDA */
+      if (irADeuda > 0) {
+        const nuevaDeuda = deudaActual + irADeuda;
+        console.log("🔴 nuevaDeuda →", nuevaDeuda);
 
-        (async () => {
-          const tiendaGeinzRef = doc(
-            db,
-            "Tiendas",
-            localidad,
-            localidad,
-            idTienda,
+        if (nuevaDeuda <= deudaMaxima) {
+          writes.push(
+            setDoc(creditosRef, {
+              deuda_pendiente: increment(irADeuda),
+              updatedAt: serverTimestamp(),
+            }, { merge: true }),
           );
+          console.log("📝 deuda acumulada");
 
-          const tiendaGeinzSnap = await getDoc(tiendaGeinzRef);
-
-          if (!tiendaGeinzSnap.exists()) {
-            console.warn("⚠️ Tienda no encontrada");
-            return;
-          }
-
-          const datosGeinz = tiendaGeinzSnap.data() || {};
-
-          const puntosActuales = Math.max(
-            Number(datosGeinz.puntos_tienda || 0),
-            0,
-          );
-
-          const descuentoReal = Math.min(monedas, puntosActuales);
-
-          const monto_restante = Math.max(puntosActuales - descuentoReal, 0);
-
-          const nombre_tienda = datosGeinz.nombre_tienda || "Sin nombre";
-
-          /* ═══════════════════════════════════════
-             FECHA
-          ═══════════════════════════════════════ */
-
-          const now = new Date();
-
-          const zona = {
-            timeZone: "America/Lima",
-          };
-
-          const fecha = now.toLocaleDateString("es-PE", {
-            ...zona,
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          });
-
-          const hora = now.toLocaleTimeString("es-PE", {
-            ...zona,
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          });
-
-          const precio_soles = (monedas * 0.01).toFixed(2);
-
-          const id_transaccion = crypto.randomUUID();
-
-          /* ═══════════════════════════════════════
-             HISTORIAL
-          ═══════════════════════════════════════ */
-
-          const historialFinancieroRef = doc(
-            db,
-            "Tiendas",
-            localidad,
-            localidad,
-            idTienda,
-            "historial_financiero",
-            id_transaccion,
-          );
-
-          const writes = [
-            /* puntos_tienda */
-
-            setDoc(
-              tiendaGeinzRef,
-              {
-                puntos_tienda: monto_restante,
-              },
-              { merge: true },
-            ),
-
-            /* historial */
-
-            setDoc(historialFinancieroRef, {
-              datos_recarga: {
-                estado: "Aceptado",
-                monto_descontado: monedas,
-                monto_restante: monto_restante,
-                precio_soles: precio_soles,
-                tipo_paquete: "Contacto directo (WhatsApp)",
-              },
-
-              datos_tienda: {
-                id_tienda: idTienda,
-                localidad_tienda: localidad,
-                nombre_tienda: nombre_tienda,
-              },
-
-              hora_fecha: {
-                fecha: fecha,
-                hora: hora,
-              },
-
-              id_transaccion: id_transaccion,
-
-              timestamp: serverTimestamp(),
-
-              tipo_transacción: "descuento",
+          await fetch("https://enviar-notificacion-deuda-acumulada-oixttik5rq-uc.a.run.app", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id_tienda: idTienda,
+              localidad,
+              nombre_negocio: nombre_tienda,
+              deuda: nuevaDeuda,
+              titulo: nuevaDeuda >= deudaMaxima
+                ? "🚫 Tu plantilla premium fue desactivada"
+                : `⚠️ ${nombre_tienda}, tienes deuda acumulada`,
+              mensaje: nuevaDeuda >= deudaMaxima
+                ? `🚨 Tu negocio alcanzó ${nuevaDeuda} créditos de deuda acumulada.❌ Tu plantilla premium y contacto directo por WhatsApp fueron desactivados automáticamente.📲 Los enlaces activos fueron cancelados para evitar seguir acumulando deuda.💳 Recarga saldo para volver a activar todas las funciones premium de tu negocio 🚀`
+                : `🚨 Tu negocio tiene una deuda acumulada de ${nuevaDeuda} créditos 💳 📲 Tu WhatsApp sigue recibiendo clientes y clicks directos gracias a tu plantilla premium 🚀 🔥 Recarga tu saldo para evitar interrupciones y seguir recibiendo pedidos. ⚠️ Si superas los ${deudaMaxima} créditos de deuda, tu cuenta pasará automáticamente al plan gratis.`,
+              link: "https://geinzworkapp.web.app/api/share?t=scr&id=rec",
             }),
-          ];
+          });
 
-          /* ═══════════════════════════════════════
-             DEUDA
-          ═══════════════════════════════════════ */
+        } else {
+          console.warn("🚫 deuda máxima alcanzada");
 
-          if (irADeuda > 0) {
-            const nuevaDeuda = deudaActual + irADeuda;
+          const tokenRefDeuda   = doc(dbPlanes, "creditos_tienda", idTienda, "interaccion_directa_bot", tokenId);
+          const lugarRef        = doc(db, "lugares", idTienda);
 
-            console.log("🔴 nuevaDeuda →", nuevaDeuda);
+          console.log("📡 Fetching lugarRef...");
+          const lugarSnap       = await getDoc(lugarRef);
+          const plantillaActual = lugarSnap.exists() ? lugarSnap.data()?.plantilla : false;
+          console.log("🎨 plantilla →", plantillaActual);
 
-            /* ═══════════════════════════════════════
-               TODAVÍA NO LLEGA AL LÍMITE
-            ═══════════════════════════════════════ */
-
-            if (nuevaDeuda <= deudaMaxima) {
-              writes.push(
-                setDoc(
-                  creditosRef,
-                  {
-                    deuda_pendiente: increment(irADeuda),
-
-                    updatedAt: serverTimestamp(),
-                  },
-                  { merge: true },
-                ),
-              );
-
-              console.log("📝 deuda acumulada");
-
-              /* NOTIFICAR */
-
-              await fetch(
-                "https://enviar-notificacion-deuda-acumulada-oixttik5rq-uc.a.run.app",
-                {
-                  method: "POST",
-
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-
-                  body: JSON.stringify({
-                    id_tienda: idTienda,
-                    localidad: localidad,
-                    nombre_negocio: nombre_tienda,
-                    deuda: nuevaDeuda,
-
-                    // ✅ TÍTULO DINÁMICO
-                    titulo:
-                      nuevaDeuda >= deudaMaxima
-                        ? "🚫 Tu plantilla premium fue desactivada"
-                        : `⚠️ ${nombre_tienda}, tienes deuda acumulada`,
-
-                    // ✅ MENSAJE DINÁMICO
-                    mensaje:
-                      nuevaDeuda >= deudaMaxima
-                        ? `🚨 Tu negocio alcanzó ${nuevaDeuda} créditos de deuda acumulada.❌ Tu plantilla premium y contacto directo por WhatsApp fueron desactivados automáticamente.📲 Los enlaces activos fueron cancelados para evitar seguir acumulando deuda.💳 Recarga saldo para volver a activar todas las funciones premium de tu negocio 🚀`
-                        : `🚨 Tu negocio tiene una deuda acumulada de ${nuevaDeuda} créditos 💳 📲 Tu WhatsApp sigue recibiendo clientes y clicks directos gracias a tu plantilla premium 🚀 🔥 Recarga tu saldo para evitar interrupciones y seguir recibiendo pedidos. ⚠️ Si superas los ${deudaMaxima} créditos de deuda, tu cuenta pasará automáticamente al plan gratis.`,
-                    // ✅ LINK DINÁMICO
-                    link: "https://geinzworkapp.web.app/api/share?t=scr&id=rec",
-                  }),
-                },
-              );
-            } else {
-              /* ═══════════════════════════════════════
-               DEUDA MÁXIMA
-            ═══════════════════════════════════════ */
-              console.warn("🚫 deuda máxima alcanzada");
-
-              const tokenRef = doc(
-                dbPlanes,
-                "creditos_tienda",
-                idTienda,
-                "interaccion_directa_bot",
-                tokenId,
-              );
-
-              const lugarRef = doc(db, "lugares", idTienda);
-
-              const lugarSnap = await getDoc(lugarRef);
-
-              const plantillaActual = lugarSnap.exists()
-                ? lugarSnap.data()?.plantilla
-                : false;
-
-              console.log("🎨 plantilla →", plantillaActual);
-
-              const tiendaGeinzRef_data = doc(
-                db,
-                "Tiendas",
-                localidad,
-                localidad,
-                idTienda,
-              );
-              /* DESACTIVAR PLANTILLA */
-
-              if (plantillaActual === true) {
-                writes.push(
-                  setDoc(
-                    lugarRef,
-                    {
-                      plantilla: false,
-                    },
-                    { merge: true },
-                  ),
-                );
-
-                console.log("❌ plantilla → false");
-              }
-
-              // ✅ SIEMPRE desactivar bot_plan_pro
-              writes.push(
-                setDoc(
-                  tiendaGeinzRef_data,
-                  {
-                    bot_plan_pro: false,
-                  },
-                  { merge: true },
-                ),
-              );
-
-              console.log("❌ bot_plan_pro → false");
-
-              /* EXPIRAR LINK */
-
-              writes.push(
-                setDoc(
-                  tokenRef,
-                  {
-                    fin: serverTimestamp(),
-
-                    expired_by_debt: true,
-
-                    updatedAt: serverTimestamp(),
-                  },
-                  { merge: true },
-                ),
-              );
-
-              console.log("⛔ link expirado");
-            }
-          } else {
-            console.log("✅ saldo suficiente");
+          if (plantillaActual === true) {
+            writes.push(setDoc(lugarRef, { plantilla: false }, { merge: true }));
+            console.log("❌ plantilla → false");
           }
 
-          await Promise.all(writes);
+          writes.push(setDoc(tiendaGeinzRef, { bot_plan_pro: false }, { merge: true }));
+          console.log("❌ bot_plan_pro → false");
 
-          console.log("✅ historial_financiero guardado");
-        })(),
-      ]);
+          writes.push(setDoc(tokenRefDeuda, {
+            fin: serverTimestamp(),
+            expired_by_debt: true,
+            updatedAt: serverTimestamp(),
+          }, { merge: true }));
+          console.log("⛔ link expirado por deuda");
+        }
+      } else {
+        console.log("✅ saldo suficiente, sin deuda");
+      }
 
-      console.log("🎉 Click procesado");
+      console.log("📡 Ejecutando todos los writes...");
+      await Promise.all(writes);
+      console.log("🎉 Click procesado — saldo_restante:", saldo_restante);
 
       descuentoDone = true;
-
       intentarRedirigir();
+
     } catch (e) {
-      console.warn("⚠️ Error estadísticas:", e.code, e.message);
-
+      console.warn("⚠️ Error estadísticas:", e.code, e.message, e);
       descuentoDone = true;
-
       intentarRedirigir();
     }
+
   } catch (e) {
     console.error("💥 Error general:", e.code, e.message, e);
-
-    renderError(
-      "Error inesperado",
-      "Ocurrió un problema cargando la información.",
-    );
+    renderError("Error inesperado", "Ocurrió un problema cargando la información.");
   }
 });
 
 /* ═══════════════════════════════════════
-   BARRA PROGRESO
-═══════════════════════════════════════ */
-
-const TOTAL = 2200;
-
-const TICK = 30;
-
-let elapsed = 0;
-
-const timer = setInterval(() => {
-  elapsed += TICK;
-
-  const progress = Math.min(Math.round((elapsed / TOTAL) * 100), 100);
-
-  fill.style.width = progress + "%";
-
-  pct.textContent = progress + "%";
-
-  if (elapsed >= TOTAL && !timerDone) {
-    timerDone = true;
-
-    clearInterval(timer);
-
-    console.log("⏱️ Timer completado");
-
-    intentarRedirigir();
-  }
-}, TICK);
-
-/* ═══════════════════════════════════════
-   ERROR UI + BANNER EXPIRADO
+   ERROR UI
 ═══════════════════════════════════════ */
 
 function renderError(titulo, descripcion, tiendaData = null) {
@@ -642,15 +395,9 @@ function renderError(titulo, descripcion, tiendaData = null) {
 
   let bannerHTML = "";
 
-  // ✅ SOLO SI HAY DATOS DE TIENDA
   if (tiendaData) {
-    const categoria = (tiendaData?.categoria || "negocios")
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "+");
-
+    const categoria = (tiendaData?.categoria || "negocios").toLowerCase().trim().replace(/\s+/g, "+");
     const localidad = tiendaData?.localidad || "barranca";
-
     const perfilUrl =
       `https://geinzworkapp.web.app/api/share?t=ti` +
       `&id=${idTienda}` +
@@ -658,77 +405,29 @@ function renderError(titulo, descripcion, tiendaData = null) {
       `&c=${categoria}`;
 
     bannerHTML = `
-
       <div class="geinz-banner">
-
-   
-
         <div class="geinz-banner-right">
-
-          <span class="geinz-mini-badge">
-            Perfil disponible en Geinz
-          </span>
-
-          <h3 class="geinz-title">
-            Puedes ver el perfil completo del negocio desde Geinz
-          </h3>
-
-          <p class="geinz-desc">
-            Explora promociones, catálogo,
-            reservas, ubicación y mucho más.
-          </p>
-
-          <a
-            href="${perfilUrl}"
-            class="geinz-btn"
-            target="_blank"
-            rel="noopener"
-          >
-            Ver perfil completo
-          </a>
-
+          <span class="geinz-mini-badge">Perfil disponible en Geinz</span>
+          <h3 class="geinz-title">Puedes ver el perfil completo del negocio desde Geinz</h3>
+          <p class="geinz-desc">Explora promociones, catálogo, reservas, ubicación y mucho más.</p>
+          <a href="${perfilUrl}" class="geinz-btn" target="_blank" rel="noopener">Ver perfil completo</a>
         </div>
-             <div class="geinz-banner-left">
-
+        <div class="geinz-banner-left">
           <div class="geinz-logo-wrap">
-
-            <img
-              class="geinz-logo"
-              src="${tiendaData?.img || "https://placehold.co/90x90"}"
-              alt="Logo negocio"
-            />
-
+            <img class="geinz-logo" src="${tiendaData?.img || "https://placehold.co/90x90"}" alt="Logo negocio"/>
           </div>
-
         </div>
-
-      </div>
-    `;
+      </div>`;
   }
 
   document.body.innerHTML = `
     <div class="error404">
-
       <div class="error-glow"></div>
-
       <div class="error-card">
-
-        <span class="error-code">
-          404
-        </span>
-
-        <h1>
-          ${titulo}
-        </h1>
-
-        <p>
-          ${descripcion}
-        </p>
-
+        <span class="error-code">404</span>
+        <h1>${titulo}</h1>
+        <p>${descripcion}</p>
         ${bannerHTML}
-
       </div>
-
-    </div>
-  `;
+    </div>`;
 }

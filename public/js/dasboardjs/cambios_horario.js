@@ -28,6 +28,10 @@ const FB_CONFIG = {
   appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
 };
 
+const params = new URLSearchParams(window.location.search); 
+const tiendaId = params.get("id") || sessionStorage.getItem("tiendaId");
+const localidad = params.get("localidad") || sessionStorage.getItem("localidad");
+
 function _getApp() {
   const apps = getApps();
   if (apps.length) return apps[0];
@@ -40,9 +44,9 @@ const db = getFirestore(app);
 const refHorario = doc(
   db,
   "Tiendas",
+  localidad,
   "barranca",
-  "barranca",
-  "fW7W8RsgkkQ3IYfxKHGR",
+  tiendaId,
 );
 
 // ─────────────────────────────────────────────────────────────

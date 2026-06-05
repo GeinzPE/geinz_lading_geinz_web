@@ -1934,3 +1934,45 @@ textarea {
         font-size: 14px;
     }
 }
+
+
+/* Scrollbar elegante, negra, delgada y redondeada */
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #111;
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #333, #000);
+    border-radius: 999px;
+    border: 1px solid #111;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #444, #111);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #000 #111;
+}
+
+.btn-price{
+    display:flex;
+    align-items:center;
+    gap:4px;
+}
+
+.price-icon{
+    width:20px;
+    height:20px;
+    object-fit:contain;
+}

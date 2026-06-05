@@ -40,9 +40,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-const params = new URLSearchParams(window.location.search);
-const id = params.get("id") || "fW7W8RsgkkQ3IYfxKHGR";
-const localidad = params.get("localidad") || "barranca";
+// ── Al inicio, SIN llamar cargarTienda() aún ──
+const _urlParams = new URLSearchParams(window.location.search);
+let id = _urlParams.get("id") || sessionStorage.getItem("tiendaId");
+let localidad =
+  _urlParams.get("localidad") || sessionStorage.getItem("localidad");
 
 const waCardImage = document.getElementById("wa-card-image");
 const waTextRenderer = document.getElementById("wa-text-renderer");
@@ -64,6 +66,29 @@ function showToast(msg, isError = false) {
   setTimeout(() => t.classList.remove("show"), 3000);
 }
 
+function showSnackbar(msg) {
+  let sb = document.getElementById("snackbar-android");
+  if (!sb) {
+    sb = document.createElement("div");
+    sb.id = "snackbar-android";
+    sb.style.cssText = `
+      position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);
+      background:#fff;color:#1a1a1a;padding:14px 22px;border-radius:8px;
+      font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,0.18);
+      z-index:9999;transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;
+      opacity:0;max-width:320px;text-align:center;line-height:1.4;
+    `;
+    document.body.appendChild(sb);
+  }
+  sb.textContent = msg;
+  sb.style.transform = "translateX(-50%) translateY(0)";
+  sb.style.opacity = "1";
+  clearTimeout(sb._timer);
+  sb._timer = setTimeout(() => {
+    sb.style.transform = "translateX(-50%) translateY(80px)";
+    sb.style.opacity = "0";
+  }, 3500);
+}
 // ==================== COUNTER ====================
 function updateCounter(counterId, current, max) {
   const el = document.getElementById(counterId);
@@ -243,7 +268,6 @@ function actualizarBotonPlan() {
 }
 
 // ==================== CAMBIAR PLAN EN DB ====================
-// ==================== CAMBIAR PLAN EN DB ====================
 window.cambiarPlan = async function () {
   const planActivoDB = state.planActivo ? "pro" : "free";
   if (state.planSeleccionado === planActivoDB) return;
@@ -270,6 +294,14 @@ window.cambiarPlan = async function () {
         ? (snapTienda.data().puntos_tienda ?? 0)
         : 0;
 
+      if (saldoActual < 300) {
+        showSnackbar(
+          `Necesitas mínimo 300 créditos para activar el Plan Pro. Tienes ${saldoActual.toLocaleString("es-PE")}.`,
+        );
+        btn.classList.remove("loading"); // ← esto faltaba
+        actualizarBotonPlan(); // ← esto faltaba
+        return;
+      }
       // Actualizar las 3 rutas en paralelo
       await Promise.all([
         updateDoc(refLugar, updateData),
@@ -563,8 +595,44 @@ window.toggleSeoAccordion = function () {
   document.getElementById("seo-arrow-indicator").classList.toggle("rotated");
 };
 
+// ==================== BOTÓN IA: VALIDAR SALDO ====================
+function actualizarBotonIA() {
+  const btn = document.getElementById("btn-ia-generar");
+  if (!btn) return;
+
+  const costo = window._precioDescripcionIA ?? 0;
+  const saldo = window._saldoActual ?? 0;
+
+  btn.querySelector(".btn-no-saldo-badge")?.remove();
+
+  if (costo === 0 || saldo >= costo) {
+    btn.disabled = false;
+    btn.style.opacity = "";
+    btn.style.cursor = "";
+    btn.innerHTML = `Generar descripción con IA ✨ <span style="opacity:0.7;font-size:11px">${costo} Creditos</span>`;
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = "0.5";
+    btn.style.cursor = "not-allowed";
+    btn.innerHTML = `Generar descripción con IA ✨
+      <span class="btn-no-saldo-badge" style="
+        display:inline-flex;align-items:center;gap:3px;
+        background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);
+        color:#f87171;font-size:10px;font-weight:700;
+        padding:2px 7px;border-radius:999px;margin-left:8px;
+        vertical-align:middle;pointer-events:none;">
+        Saldo insuficiente
+      </span>`;
+  }
+}
 // ==================== CARGAR DATOS ====================
 async function cargarTienda() {
+  if (!id || !localidad) {
+    console.error("❌ Faltan parámetros: id =", id, "| localidad =", localidad);
+    showToast("⚠️ Faltan parámetros de tienda en la URL", true);
+    document.getElementById("skeleton-loader").style.display = "none";
+    return;
+  }
   try {
     const refTienda = doc(db, "Tiendas", localidad, localidad, id);
     const refLugar = doc(db, "lugares", id);
@@ -632,15 +700,52 @@ async function cargarTienda() {
     }
 
     const refPrecio = doc(dbPlanes, "precio_apartado", "app");
-    const snapPrecio = await getDoc(refPrecio);
-    if (snapPrecio.exists()) {
-      const precioDesc = snapPrecio.data()?.descripcionSEO ?? 0;
-      window._precioDescripcionIA = precioDesc;
+    const refPrecioBot = doc(dbPlanes, "precio_apartado", "bot_daniel");
 
-      // Mostrar en el botón
-      const btn = document.getElementById("btn-ia-generar");
-      if (btn)
-        btn.innerHTML = `Generar descripción con IA ✨ <span style="opacity:0.7;font-size:11px">${precioDesc} pts</span>`;
+    console.log("📄 Ref App:", refPrecio.path);
+    console.log("📄 Ref Bot:", refPrecioBot.path);
+
+    const snapPrecio = await getDoc(refPrecio);
+    const snapPrecioBot = await getDoc(refPrecioBot);
+
+    console.log("📥 snapPrecio.exists():", snapPrecio.exists());
+    console.log("📥 snapPrecioBot.exists():", snapPrecioBot.exists());
+
+    if (snapPrecio.exists()) {
+      const precioData = snapPrecio.data();
+      const precioBotData = snapPrecioBot.exists() ? snapPrecioBot.data() : {};
+
+      console.log("📊 Datos App:", precioData);
+      console.log("📊 Datos Bot:", precioBotData);
+
+      window._precioDescripcionIA = precioData?.descripcionSEO ?? 0;
+      window._precioPorClick = precioBotData?.plantillas ?? 10;
+      window._precioPorContacto = precioBotData?.contacto_directo ?? 20;
+
+      console.log("💰 descripcionSEO:", window._precioDescripcionIA);
+      console.log("💰 precio_por_click:", window._precioPorClick);
+      console.log("💰 precio_por_contacto:", window._precioPorContacto);
+
+      document.getElementById("precio-plantilla").textContent =
+        window._precioPorClick;
+
+      document.getElementById("precio-contacto").textContent =
+        window._precioPorContacto;
+
+      console.log(
+        "🖥️ precio-plantilla:",
+        document.getElementById("precio-plantilla").textContent,
+      );
+      console.log(
+        "🖥️ precio-contacto:",
+        document.getElementById("precio-contacto").textContent,
+      );
+
+      actualizarBotonIA();
+
+      console.log("✅ actualizarBotonIA ejecutado");
+    } else {
+      console.error("❌ No existe el documento precio_apartado/app");
     }
   } catch (err) {
     console.error("Error cargando datos:", err);
@@ -669,13 +774,29 @@ document.getElementById("input-msje").addEventListener("input", (e) => {
 cargarTienda();
 
 window.addEventListener("message", (event) => {
-  if (event.data?.type !== "SALDO_UPDATE") return;
-  const saldo = event.data.saldo;
+  // ── 1. DATOS_TIENDA: recibir id y localidad del padre ──
+  if (event.data?.type === "DATOS_TIENDA") {
+    if (!id && event.data.id) {
+      id = event.data.id;
+      window.TIENDA_ID = event.data.id;
+    }
+    if (!localidad && event.data.localidad) {
+      localidad = event.data.localidad;
+      window.TIENDA_LOCALIDAD = event.data.localidad;
+    }
+    cargarTienda(); // ← recién aquí
+    return;
+  }
 
-  let el = document.getElementById("saldo_tienda");
-  if (!el) return;
+  // ── 2. SALDO_UPDATE: actualizar créditos en UI ──
+  if (event.data?.type === "SALDO_UPDATE") {
+    const saldo = event.data.saldo;
+    window._saldoActual = saldo;
+    actualizarBotonIA();
 
-  el.innerHTML = `
+    const el = document.getElementById("saldo_tienda");
+    if (!el) return;
+    el.innerHTML = `
     <div style="
       width: 100%;
       background: linear-gradient(135deg, #0d0d0f 0%, #13101f 100%);
@@ -743,4 +864,7 @@ window.addEventListener("message", (event) => {
       }
     </style>
   `;
+
+    return;
+  }
 });

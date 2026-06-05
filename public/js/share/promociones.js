@@ -383,6 +383,12 @@ function injectCSS(css) {
 function showLoading() {
   injectCSS(STATE_CSS);
 
+  // Ocultar shell inmediatamente
+  const shell = document.querySelector(".shell");
+  if (shell) {
+    shell.style.visibility = "hidden";
+    shell.style.opacity = "0";
+  }
   /* Logo GEINZ flotante */
   const logo = document.createElement("div");
   logo.className = "loading-logo";
@@ -456,6 +462,14 @@ function hideLoading() {
     screen.style.transition = "opacity .4s ease";
     screen.style.opacity = "0";
     setTimeout(() => screen.remove(), 400);
+  }
+
+  // Revelar shell
+  const shell = document.querySelector(".shell");
+  if (shell) {
+    shell.style.visibility = "visible";
+    shell.style.opacity = "1";
+    shell.style.transition = "opacity .4s ease";
   }
 
   setTimeout(

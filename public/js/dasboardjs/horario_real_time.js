@@ -28,6 +28,9 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "921389328767",
   appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
 };
+const params = new URLSearchParams(window.location.search); 
+const tiendaId = params.get("id") || sessionStorage.getItem("tiendaId");
+const localidad = params.get("localidad") || sessionStorage.getItem("localidad");
 
 let _app;
 try {
@@ -40,7 +43,7 @@ const db = getFirestore(_app);
 // ─────────────────────────────────────────────────────────────
 // Referencia al documento (única)
 // ─────────────────────────────────────────────────────────────
-const TIENDA_PATH = "Tiendas/barranca/barranca/fW7W8RsgkkQ3IYfxKHGR";
+const TIENDA_PATH = `Tiendas/${localidad}/${localidad}/${tiendaId}`;
 const docRef = doc(db, TIENDA_PATH);
 
 // ─────────────────────────────────────────────────────────────

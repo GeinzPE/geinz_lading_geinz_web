@@ -1,7 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 //  cuenta_tarjeta.js - Tarjeta de cuenta (TIEMPO REAL)
 // ═══════════════════════════════════════════════════════════
+const params = new URLSearchParams(window.location.search);
+const tiendaId = params.get("id") || sessionStorage.getItem("tiendaId");
+const localidad =
+  params.get("localidad") || sessionStorage.getItem("localidad");
 
+if (!tiendaId || !localidad) {
+  console.warn("⚠️ Parámetros inválidos, redirigiendo al login...");
+  window.location.href = "../login/index";
+}
 (function () {
   "use strict";
 
@@ -159,6 +167,10 @@
         return;
       }
       const publicidad = snap.data().publicidad || {};
+      const data = snap.data();
+      if (data.costo_por_moneda != null) {
+        publicidad.costo_por_moneda = data.costo_por_moneda;
+      }
       console.log("✅ [publicidad] Cargada:", publicidad);
       window._publicidad = publicidad;
       _renovacion._publicidadData = publicidad;
@@ -190,6 +202,9 @@
         planes_bot_tiendas: rawBotPromo.planes_bot_tiendas || {},
       };
       const publicidad = data.publicidad || {};
+      if (data.costo_por_moneda != null) {
+        publicidad.costo_por_moneda = data.costo_por_moneda;
+      }
       console.log("✅ [precios] planes_activacion:", planesActivacion);
       console.log("✅ [precios] planes_bot_promo:", planesBotPromo);
       window._planesActivacion = planesActivacion;
@@ -231,19 +246,13 @@
           });
       const db = getFirestore(app);
 
-      const docRefOriginal = doc(
-        db,
-        "Tiendas",
-        "barranca",
-        "barranca",
-        "fW7W8RsgkkQ3IYfxKHGR",
-      );
+      const docRefOriginal = doc(db, "Tiendas", localidad, localidad, tiendaId);
       const docRefServicios = doc(
         db,
         "Tiendas",
-        "barranca",
+        localidad,
         "tiendas_servicios_geinz_activos",
-        "fW7W8RsgkkQ3IYfxKHGR",
+        tiendaId,
       );
 
       let originalData = {};
@@ -375,7 +384,7 @@
     window._saldoTienda = balance;
     broadcastSaldo(balance);
 
-    setText("user-id", data.id_tienda || "fW7W8RsgkkQ3IYfxKHGR");
+    setText("user-id", data.id_tienda || tiendaId);
 
     const startRaw = data.fechas?.fecha_ingreso || data.fecha_ingreso;
     setText("start-date", formatDate(startRaw));
@@ -396,9 +405,7 @@
       renewalTextSpan.classList.toggle("normal", renewalDays > 10);
     }
 
-    // ── BLOQUEO: solo cuando el plan está vencido ──
     const actionRenovar = document.getElementById("action-renovar");
-
     if (renewalDays === 0) {
       bloquearExpandibles();
       if (actionRenovar) actionRenovar.style.display = "block";
@@ -487,8 +494,6 @@
 // ============================================================
 //  MODAL RENOVACIÓN
 // ============================================================
-
-// Mapeo de plan → días
 const _DIAS_POR_PLAN = {
   "20_dias": 20,
   "1_mes": 30,
@@ -519,7 +524,6 @@ const _renovacion = {
     if (!modal) return;
     modal.classList.add("open");
 
-    // Limpiar estado anterior SIEMPRE al abrir
     self._planSeleccionado = null;
     const resumenPago = document.getElementById("resumen-pago");
     const btnContinuar = document.getElementById("btn-continuar");
@@ -535,7 +539,6 @@ const _renovacion = {
       setTimeout(() => self.abrirModal(), 800);
       return;
     }
-    // _renderPlanes ya limpia el innerHTML, así que no hay selected residual
     self._renderPlanes(planes);
   },
 
@@ -599,32 +602,30 @@ const _renovacion = {
     if (elTotal)
       elTotal.textContent = ` ${precioFinal.toLocaleString("es-PE")}`;
 
-    // Descuento
     if (detalle) {
       detalle.innerHTML = desc
         ? `<p>Descuento aplicado:
-                <strong>${desc}% = -
-                  <span style="display:inline-flex;align-items:center;gap:4px;">
-                    ${(precio - precioFinal).toLocaleString("es-PE")}
-                    <img src="../img/icon_monedas_3d.webp" class="coin-icon" style="width:16px;height:16px;vertical-align:middle;">
-                  </span>
-                </strong>
-               </p>`
+            <strong>${desc}% = -
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                ${(precio - precioFinal).toLocaleString("es-PE")}
+                <img src="../img/icon_monedas_3d.webp" class="coin-icon" style="width:16px;height:16px;vertical-align:middle;">
+              </span>
+            </strong>
+           </p>`
         : "";
     }
 
-    // Aviso saldo insuficiente
     if (avisoSaldo) {
       if (sinSaldo) {
         avisoSaldo.innerHTML = `
-                <span style="color:#e05c00;font-weight:600;display:flex;align-items:center;gap:6px;font-size:13px;">
-                    ❌ Te faltan
-                    <span style="display:inline-flex;align-items:center;gap:4px;background:#fff3e0;padding:2px 8px;border-radius:8px;color:#e05c00;font-weight:700;">
-                        ${falta.toLocaleString("es-PE")}
-                        <img src="../img/icon_monedas_3d.webp" style="width:16px;height:16px;vertical-align:middle;">
-                    </span>
-                    para este plan
-                </span>`;
+          <span style="color:#e05c00;font-weight:600;display:flex;align-items:center;gap:6px;font-size:13px;">
+            ❌ Te faltan
+            <span style="display:inline-flex;align-items:center;gap:4px;background:#fff3e0;padding:2px 8px;border-radius:8px;color:#e05c00;font-weight:700;">
+              ${falta.toLocaleString("es-PE")}
+              <img src="../img/icon_monedas_3d.webp" style="width:16px;height:16px;vertical-align:middle;">
+            </span>
+            para este plan
+          </span>`;
         avisoSaldo.style.display = "block";
       } else {
         avisoSaldo.style.display = "none";
@@ -633,7 +634,6 @@ const _renovacion = {
     }
 
     if (elResumen) elResumen.style.display = "block";
-    // Deshabilitar continuar si no tiene saldo
     if (elBtnContinuar) elBtnContinuar.disabled = sinSaldo;
   },
 };
@@ -655,6 +655,7 @@ window.cerrarModal = () => {
     .querySelectorAll("#selector-planes .plan-item")
     .forEach((el) => el.classList.remove("selected"));
 };
+
 // ============================================================
 //  PROCESAR PAGO — llama a la Cloud Function
 // ============================================================
@@ -662,7 +663,6 @@ window.procesarPago = async () => {
   const plan = _renovacion._planSeleccionado;
   if (!plan) return;
 
-  // ── Validar saldo suficiente ──────────────────────────────
   const saldo = window._saldoTienda || 0;
   const desc = _renovacion._DESCUENTOS[plan.key] || 0;
   const precioFinal =
@@ -673,25 +673,21 @@ window.procesarPago = async () => {
     return;
   }
 
-  // ── Obtener id_tienda y localidad ─────────────────────────
-  const id_tienda =
-    window.APP_STATE?.tienda?.id_tienda || sessionStorage.getItem("tiendaId");
-  const localidad =
-    window.APP_STATE?.tienda?.localidad || sessionStorage.getItem("localidad");
+  // 🔥 Usar variables globales del top del archivo
+  const id_tienda = tiendaId;
+  const localidad_pago = localidad;
 
-  if (!id_tienda || !localidad) {
+  if (!id_tienda || !localidad_pago) {
     alert("❌ No se pudo identificar la tienda. Recarga la página.");
     return;
   }
 
-  // ── Días según el plan seleccionado ──────────────────────
   const dias_extra = _DIAS_POR_PLAN[plan.key];
   if (!dias_extra) {
     alert("❌ Plan no reconocido.");
     return;
   }
 
-  // ── Bloquear botón y mostrar estado ──────────────────────
   const btnContinuar = document.getElementById("btn-continuar");
   if (btnContinuar) {
     btnContinuar.disabled = true;
@@ -700,7 +696,7 @@ window.procesarPago = async () => {
 
   console.log("💳 Procesando pago:", {
     id_tienda,
-    localidad,
+    localidad: localidad_pago,
     dias_extra,
     plan: plan.key,
     precio: precioFinal,
@@ -708,14 +704,15 @@ window.procesarPago = async () => {
 
   try {
     const response = await fetch(
-      "https://pagar-plan--usuario-oixttik5rq-uc.a.run.app",
+      "https://us-central1-geinzworkapp.cloudfunctions.net/pagar_plan__usuario",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           data: {
+            precio_por_moneda: window._publicidad?.costo_por_moneda,
             id_tienda,
-            localidad,
+            localidad: localidad_pago, // 🔥 fix: ya no pisa la variable global
             dias_extra,
             monedas_costo: precioFinal,
           },
@@ -731,7 +728,6 @@ window.procesarPago = async () => {
 
     console.log("✅ Plan renovado:", result);
 
-    // Cerrar modal y avisar
     document.getElementById("modal-renovacion")?.classList.remove("open");
     mostrarSnackbar("Plan renovado correctamente 🎉", "success");
 
