@@ -323,7 +323,8 @@
         return;
       }
 
-      if (!id && t !== "scr" && t !== "promo" && t !== "prms") {
+  if (!id && t !== "scr" && t !== "promo" && t !== "prms" && t !== "pmspls") {
+
         console.error("❌ NO EXISTE ID");
         return;
       }
@@ -360,6 +361,11 @@
           console.error("❌ SCR NO RECONOCIDO:", id);
           return;
         }
+      }
+      else if (t === "pmspls") {
+        console.log("🎁 PROMOS MULTI");
+        const p = params.get("p") || "";
+        destino = `/redirect/promos?localidad=${encodeURIComponent(loc)}&ids=${encodeURIComponent(p)}`;
       }
       else {
         console.error("❌ TIPO NO RECONOCIDO:", t);
