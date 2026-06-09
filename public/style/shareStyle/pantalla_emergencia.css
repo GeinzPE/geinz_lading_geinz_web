@@ -475,6 +475,8 @@ header p {
     grid-template-columns: 1fr 1fr 54px;
     gap: 10px;
     margin-top: 26px;
+    position: relative;  
+    z-index: 2;       
 }
 
 .btn {
@@ -490,6 +492,8 @@ header p {
     font-size: .86rem;
     transition: .25s ease;
     border: none;
+    position: relative;  
+    z-index: 2;         
 }
 
 .btn:hover {

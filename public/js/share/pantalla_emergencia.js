@@ -54,8 +54,8 @@ async function fetchDatabase() {
         img: d.img || "",
         direccion: d.ubicacion?.direccion || "Sin dirección",
         referencia: d.ubicacion?.referencia || "Sin referencia",
-        lat: d.ubicacion?.latitud || -10.7539,
-        lng: d.ubicacion?.longitud || -77.764,
+        lat: d.ubicacion?.latitud ?? null,   // ✅ null si no existe
+        lng: d.ubicacion?.longitud ?? null,  // ✅ null si no existe
         llamada: d.numeros_contactos?.llamada?.[0] || "",
         whatsapp: d.numeros_contactos?.whatsapp?.[0] || "",
         tags: d.tag_eventos_emerge || [],
@@ -67,20 +67,17 @@ async function fetchDatabase() {
     console.error(error);
 
     grid.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-triangle-exclamation"></i>
-                <p>Error cargando información.</p>
-            </div>
-        `;
+      <div class="empty-state">
+        <i class="fas fa-triangle-exclamation"></i>
+        <p>Error cargando información.</p>
+      </div>
+    `;
   }
 
   /* hide skeleton */
-
   setTimeout(() => {
     document.getElementById("pageSkeleton").classList.add("hide");
-
     document.body.classList.remove("loading-page");
-
     document.querySelector(".container").classList.add("loaded");
   }, 700);
 }
@@ -88,12 +85,11 @@ async function fetchDatabase() {
 function renderCards(data) {
   if (!data.length) {
     grid.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-search"></i>
-                <p>No se encontraron resultados.</p>
-            </div>
-        `;
-
+      <div class="empty-state">
+        <i class="fas fa-search"></i>
+        <p>No se encontraron resultados.</p>
+      </div>
+    `;
     return;
   }
 
@@ -101,109 +97,77 @@ function renderCards(data) {
     .map((item) => {
       const hasCall = item.llamada !== "";
       const hasWhatsapp = item.whatsapp !== "";
+      const hasMap = item.lat !== null && item.lng !== null; // ✅ solo si tiene coords reales
 
-      const mapUrl = `https://www.google.com/maps?q=${item.lat},${item.lng}`;
+      const mapUrl = hasMap
+        ? `https://www.google.com/maps?q=${item.lat},${item.lng}`
+        : "";
 
       const img =
         item.img ||
         `https://ui-avatars.com/api/?name=${encodeURIComponent(item.nombre.charAt(0))}&background=8800F2&color=fff`;
 
       return `
-
         <div class="card reveal-card">
 
-            <div class="card-header">
-
-                <img
-                    class="card-logo"
-                    src="${img}"
-                    alt="${item.nombre}"
-                    loading="lazy"
-                />
-
-                <div>
-
-                    <span class="tag-category">
-                        <i class="fas ${
-                          item.categoria === "salud"
-                            ? "fa-heartbeat"
-                            : "fa-shield-alt"
-                        }"></i>
-
-                        ${item.categoria === "salud" ? "SALUD" : "SEGURIDAD"}
-
-                    </span>
-
-                    <h3>${item.nombre}</h3>
-
-                </div>
-
+          <div class="card-header">
+            <img
+              class="card-logo"
+              src="${img}"
+              alt="${item.nombre}"
+              loading="lazy"
+            />
+            <div>
+              <span class="tag-category">
+                <i class="fas ${item.categoria === "salud" ? "fa-heartbeat" : "fa-shield-alt"}"></i>
+                ${item.categoria === "salud" ? "SALUD" : "SEGURIDAD"}
+              </span>
+              <h3>${item.nombre}</h3>
             </div>
+          </div>
 
-            <div class="card-info">
-
-                <div>
-                    <i class="fas fa-location-dot"></i>
-                    <span>${item.direccion}</span>
-                </div>
-
-                <div>
-                    <i class="fas fa-circle-info"></i>
-                    <span>${item.referencia}</span>
-                </div>
-
+          <div class="card-info">
+            <div>
+              <i class="fas fa-location-dot"></i>
+              <span>${item.direccion}</span>
             </div>
-
-            <div class="card-actions">
-
-                ${
-                  hasCall
-                    ? `
-                    <a href="tel:${item.llamada}" class="btn btn-call">
-                        <i class="fas fa-phone"></i>
-                        Llamar
-                    </a>
-                    `
-                    : `
-               <button class="btn btn-call" disabled>
-    <i class="fas fa-ban"></i>
-    No disponible
-</button>
-                    `
-                }
-
-                ${
-                  hasWhatsapp
-                    ? `
-                    <a
-                        href="https://wa.me/${item.whatsapp.replace(/[^0-9]/g, "")}"
-                        target="_blank"
-                        class="btn btn-wssp"
-                    >
-                        <i class="fab fa-whatsapp"></i>
-                        WhatsApp
-                    </a>
-                    `
-                    : `
-                    <button class="btn btn-wssp" disabled>
-                        No disponible
-                    </button>
-                    `
-                }
-
-                <a
-                    href="${mapUrl}"
-                    target="_blank"
-                    class="btn btn-map"
-                >
-                    <i class="fas fa-location-arrow"></i>
-                </a>
-
+            <div>
+              <i class="fas fa-circle-info"></i>
+              <span>${item.referencia}</span>
             </div>
+          </div>
+
+          <div class="card-actions">
+
+            ${hasCall
+              ? `<a href="tel:${item.llamada}" class="btn btn-call">
+                   <i class="fas fa-phone"></i> Llamar
+                 </a>`
+              : `<button class="btn btn-call btn-disabled" disabled>
+                   <i class="fas fa-ban"></i> No disponible
+                 </button>`
+            }
+
+            ${hasWhatsapp
+              ? `<a href="https://wa.me/${item.whatsapp.replace(/[^0-9]/g, "")}" target="_blank" class="btn btn-wssp">
+                   <i class="fab fa-whatsapp"></i> WhatsApp
+                 </a>`
+              : `<button class="btn btn-wssp btn-disabled" disabled>
+                   <i class="fas fa-ban"></i> No disponible
+                 </button>`
+            }
+
+            ${hasMap
+              ? `<a href="${mapUrl}" target="_blank" class="btn btn-map">
+                   <i class="fas fa-location-arrow"></i>
+                 </a>`
+              : ""
+            }
+
+          </div>
 
         </div>
-
-        `;
+      `;
     })
     .join("");
 
@@ -223,9 +187,7 @@ function revealCards() {
         }
       });
     },
-    {
-      threshold: 0.12,
-    },
+    { threshold: 0.12 }
   );
 
   cards.forEach((card) => observer.observe(card));
@@ -234,11 +196,7 @@ function revealCards() {
 /* filters */
 
 function filterData() {
-  const term = document
-    .getElementById("searchInput")
-    .value.toLowerCase()
-    .trim();
-
+  const term = document.getElementById("searchInput").value.toLowerCase().trim();
   const active = document.querySelector(".filter-btn.active").dataset.filter;
 
   const filtered = listadoEmergencias.filter((item) => {
@@ -261,22 +219,17 @@ let debounce;
 
 document.getElementById("searchInput").addEventListener("input", () => {
   clearTimeout(debounce);
-
   debounce = setTimeout(() => {
     filterData();
   }, 220);
 });
 
-/* filters */
+/* filter buttons */
 
 document.querySelectorAll(".filter-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document
-      .querySelectorAll(".filter-btn")
-      .forEach((b) => b.classList.remove("active"));
-
+    document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
-
     filterData();
   });
 });

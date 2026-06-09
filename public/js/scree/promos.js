@@ -39,15 +39,20 @@ async function fetchPromociones() {
   );
   const querySnapshot = await getDocs(q);
 
-  let htmlContent = "";
-  let delayIndex = 0;
-
+  // ← check vacío PRIMERO
   if (querySnapshot.empty) {
     promosContainer.innerHTML = `<p style="text-align:center; color: var(--text-secondary); padding: 40px;">No hay ofertas disponibles en este momento.</p>`;
     return;
   }
 
-  querySnapshot.forEach((doc) => {
+  const docs = [];
+  querySnapshot.forEach((doc) => docs.push(doc));
+  const docsAleatorios = docs.sort(() => Math.random() - 0.5);
+
+  let htmlContent = "";
+  let delayIndex = 0;
+
+  docsAleatorios.forEach((doc) => {
     const data = doc.data();
     if (data.activo !== true && data.estado !== "activo") return;
 

@@ -976,7 +976,7 @@ window.PanelPerfil = {
         await this._updateDoc(lugarRef, {
           "ubicacion.latitud": lat,
           "ubicacion.longitud": lng,
-          "ubicacion.zona": zona,
+          "zona": zona,
           geohash,
         });
 

@@ -1457,9 +1457,15 @@ function formatFechaSlash(str) {
       skSetStep(1, "Analizando con IA...", "Generando términos clave", 30);
       let terminosClave = [];
       try {
+        const textoParaIA = `${titulo} ${descripcion}`.slice(0, 300);
+
         const resTerminos = await callFirebaseFunction(
           "https://extraerterminosclaveia-oixttik5rq-uc.a.run.app",
-          { textoUsuario: `${titulo} ${descripcion}`, categoria },
+          {
+            textoUsuario: textoParaIA,
+            categoria,
+            nombreNegocio: nombre_tienda,
+          },
         );
         if (resTerminos?.ok && Array.isArray(resTerminos.terminos))
           terminosClave = resTerminos.terminos;
