@@ -1,9 +1,5 @@
-/* ── CSS DE ESTADOS (inyectado dinámicamente) ── */
+// ===================== INYECCIÓN DE ESTILOS PARA ESTADOS =====================
 const STATE_CSS = `
- 
-  /* ════════════════════════════════
-     PANTALLA BASE
-  ════════════════════════════════ */
   .state-screen {
     position: fixed;
     inset: 0;
@@ -20,25 +16,18 @@ const STATE_CSS = `
     to   { opacity: 1; }
   }
  
-  /* ════════════════════════════════
-     SHIMMER — ESTRUCTURA FULL GRID
-     Replica exacta del shell real:
-     desktop = 2 cols, mobile = 1 col
-  ════════════════════════════════ */
   .state-screen.loading {
     display: grid;
     grid-template-columns: 1.1fr .9fr;
     min-height: 100vh;
   }
  
-  /* ── LADO IZQUIERDO: bloque imagen ── */
   .sk-img-col {
     position: relative;
     background: #0f0f12;
     overflow: hidden;
   }
  
-  /* ── LADO DERECHO: contenido ── */
   .sk-body-col {
     padding: 56px 52px;
     display: flex;
@@ -49,7 +38,6 @@ const STATE_CSS = `
     border-left: 1px solid rgba(255,255,255,.04);
   }
  
-  /* ── NEGOCIO ROW ── */
   .sk-biz {
     display: flex;
     align-items: center;
@@ -74,21 +62,18 @@ const STATE_CSS = `
     flex: 1;
   }
  
-  /* ── TÍTULO ── */
   .sk-title-group {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
  
-  /* ── DESCRIPCIÓN ── */
   .sk-desc-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
  
-  /* ── PÍLDORA DÍAS ── */
   .sk-pill {
     width: 140px;
     height: 40px;
@@ -98,7 +83,6 @@ const STATE_CSS = `
     overflow: hidden;
   }
  
-  /* ── BOTÓN ── */
   .sk-btn {
     height: 62px;
     border-radius: 18px;
@@ -107,7 +91,6 @@ const STATE_CSS = `
     overflow: hidden;
   }
  
-  /* ── SHARE ROW ── */
   .sk-share {
     display: flex;
     align-items: center;
@@ -129,7 +112,6 @@ const STATE_CSS = `
     overflow: hidden;
   }
  
-  /* ── BASE LINE SHIMMER ── */
   .sh {
     background: #16161a;
     border-radius: 8px;
@@ -139,7 +121,6 @@ const STATE_CSS = `
  
   .sh.r-full { border-radius: 999px; }
  
-  /* ── SHIMMER SWEEP (plateado puro, sin color) ── */
   .sk-img-col::after,
   .sh::after,
   .sk-avatar::after,
@@ -151,33 +132,31 @@ const STATE_CSS = `
     inset: 0;
     background: linear-gradient(
       105deg,
-      transparent       0%,
-      transparent      35%,
+      transparent 0%,
+      transparent 35%,
       rgba(255,255,255,.035) 45%,
-      rgba(255,255,255,.07)  50%,
+      rgba(255,255,255,.07) 50%,
       rgba(255,255,255,.035) 55%,
-      transparent      65%,
-      transparent     100%
+      transparent 65%,
+      transparent 100%
     );
     background-size: 250% 100%;
     animation: sk-sweep 1.8s ease-in-out infinite;
   }
  
-  /* Delays escalonados para sensación orgánica */
-  .sk-avatar::after          { animation-delay: 0s; }
+  .sk-avatar::after { animation-delay: 0s; }
   .sk-biz-lines .sh:first-child::after { animation-delay: .1s; }
   .sk-biz-lines .sh:last-child::after  { animation-delay: .2s; }
   .sk-title-group .sh:first-child::after { animation-delay: .05s; }
   .sk-title-group .sh:last-child::after  { animation-delay: .15s; }
-  .sk-btn::after             { animation-delay: .25s; }
-  .sk-img-col::after         { animation-delay: .08s; }
+  .sk-btn::after { animation-delay: .25s; }
+  .sk-img-col::after { animation-delay: .08s; }
  
   @keyframes sk-sweep {
     0%   { background-position: 120% 0; }
     100% { background-position: -120% 0; }
   }
  
-  /* ── LOGO GEINZ ── */
   .loading-logo {
     position: fixed;
     top: 36px;
@@ -192,12 +171,8 @@ const STATE_CSS = `
     pointer-events: none;
   }
  
-  /* ── OCULTAR CONTENIDO REAL MIENTRAS CARGA ── */
-  .shell.is-loading > * {
-    visibility: hidden;
-  }
+  .shell.is-loading > * { visibility: hidden; }
  
-  /* ── REVEAL ANIMATION ── */
   @keyframes contentReveal {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -211,10 +186,6 @@ const STATE_CSS = `
     animation: contentReveal .45s cubic-bezier(0.16,1,0.3,1) .06s both;
   }
  
-  /* ════════════════════════════════
-     ESTADOS: EXPIRED / DELETED
-     Pantalla completa centrada
-  ════════════════════════════════ */
   .state-screen.state-full {
     display: flex;
     flex-direction: column;
@@ -224,7 +195,6 @@ const STATE_CSS = `
     gap: 0;
   }
  
-  /* Glow de fondo suave */
   .state-full::before {
     content: '';
     position: absolute;
@@ -236,10 +206,9 @@ const STATE_CSS = `
     pointer-events: none;
   }
  
-  .state-full.expired::before  { background: #fbbf24; }
-  .state-full.deleted::before  { background: #ef4444; }
+  .state-full.expired::before { background: #fbbf24; }
+  .state-full.deleted::before { background: #ef4444; }
  
-  /* Icono grande */
   .state-icon {
     width: 96px;
     height: 96px;
@@ -335,36 +304,24 @@ const STATE_CSS = `
     box-shadow: 0 12px 30px rgba(255,255,255,.12);
   }
  
-  .state-back-btn:active {
-    transform: translateY(0);
-  }
- 
-  /* ════════════════════════════════
-     RESPONSIVE SKELETON
-  ════════════════════════════════ */
   @media (max-width: 768px) {
- 
     .state-screen.loading {
       grid-template-columns: 1fr;
       grid-template-rows: 44svh 1fr;
     }
- 
     .sk-body-col {
       padding: 28px 20px 40px;
       gap: 22px;
       border-left: none;
       border-top: 1px solid rgba(255,255,255,.04);
     }
- 
     .sk-avatar {
       width: 48px;
       height: 48px;
       min-width: 48px;
       border-radius: 16px;
     }
- 
     .sk-btn { height: 56px; border-radius: 16px; }
- 
     .loading-logo { top: 24px; font-size: 12px; }
   }
  
@@ -372,160 +329,14 @@ const STATE_CSS = `
     .sk-body-col { padding: 22px 16px 36px; }
   }
 `;
+
 function injectCSS(css) {
   const s = document.createElement("style");
   s.textContent = css;
   document.head.appendChild(s);
 }
 
-/* ── SHIMMER SKELETON ── */
-
-function showLoading() {
-  injectCSS(STATE_CSS);
-
-  // Ocultar shell inmediatamente
-  const shell = document.querySelector(".shell");
-  if (shell) {
-    shell.style.visibility = "hidden";
-    shell.style.opacity = "0";
-  }
-  /* Logo GEINZ flotante */
-  const logo = document.createElement("div");
-  logo.className = "loading-logo";
-
-  document.body.appendChild(logo);
-
-  /* Skeleton — replica el grid del shell */
-  const screen = document.createElement("div");
-  screen.className = "state-screen loading";
-  screen.id = "stateScreen";
-  screen.innerHTML = `
- 
-    <!-- Columna imagen -->
-    <div class="sk-img-col"></div>
- 
-    <!-- Columna contenido -->
-    <div class="sk-body-col">
- 
-      <!-- Negocio -->
-      <div class="sk-biz">
-        <div class="sk-avatar"></div>
-        <div class="sk-biz-lines">
-          <div class="sh r-full" style="height:14px;width:52%"></div>
-          <div class="sh r-full" style="height:10px;width:32%"></div>
-        </div>
-        <div class="sh r-full" style="height:36px;width:100px;flex-shrink:0"></div>
-      </div>
- 
-      <!-- Título -->
-      <div class="sk-title-group">
-        <div class="sh" style="height:26px;width:95%;border-radius:10px"></div>
-        <div class="sh" style="height:26px;width:72%;border-radius:10px"></div>
-        <div class="sh" style="height:26px;width:48%;border-radius:10px"></div>
-      </div>
- 
-      <!-- Descripción -->
-      <div class="sk-desc-group">
-        <div class="sh r-full" style="height:12px;width:100%"></div>
-        <div class="sh r-full" style="height:12px;width:88%"></div>
-        <div class="sh r-full" style="height:12px;width:60%"></div>
-      </div>
- 
-      <!-- Píldora días -->
-      <div class="sk-pill"></div>
- 
-      <!-- Divider -->
-      <div style="height:1px;background:rgba(255,255,255,.04)"></div>
- 
-      <!-- Botón -->
-      <div class="sk-btn"></div>
- 
-      <!-- Share row -->
-      <div class="sk-share">
-        <div class="sh r-full" style="height:10px;width:60px"></div>
-        <div class="sk-share-line"></div>
-        <div class="sk-share-pill"></div>
-      </div>
- 
-    </div>
-  `;
-
-  document.body.appendChild(screen);
-}
-
-function hideLoading() {
-  const logo = document.querySelector(".loading-logo");
-  if (logo) logo.remove();
-
-  const screen = document.getElementById("stateScreen");
-  if (screen) {
-    screen.style.transition = "opacity .4s ease";
-    screen.style.opacity = "0";
-    setTimeout(() => screen.remove(), 400);
-  }
-
-  // Revelar shell
-  const shell = document.querySelector(".shell");
-  if (shell) {
-    shell.style.visibility = "visible";
-    shell.style.opacity = "1";
-    shell.style.transition = "opacity .4s ease";
-  }
-
-  setTimeout(
-    () => document.querySelector(".shell")?.classList.add("revealed"),
-    350,
-  );
-}
-/* ── ESTADO VENCIDO ── */
-function showExpired() {
-  const screen = document.getElementById("stateScreen");
-  if (screen) screen.remove();
-  const logo = document.querySelector(".loading-logo");
-  if (logo) logo.remove();
-
-  const s = document.createElement("div");
-  s.className = "state-screen state-full expired";
-  s.innerHTML = `
-    <div class="state-icon expired">⏰</div>
-    <div class="state-badge expired">Promoción vencida</div>
-    <div class="state-title">Esta promo ya terminó</div>
-    <div class="state-sub">El tiempo de esta oferta ha expirado.<br>Descubre más promos vigentes en Geinz.</div>
-    <button class="state-back-btn" onclick="history.back()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      Volver
-    </button>`;
-  document.body.appendChild(s);
-}
-
-/* ── ESTADO ELIMINADO / NO EXISTE ── */
-function showDeleted(isDeleted = false, localidad = "barranca") {
-  const screen = document.getElementById("stateScreen");
-  if (screen) screen.remove();
-  const logo = document.querySelector(".loading-logo");
-  if (logo) logo.remove();
-
-  const s = document.createElement("div");
-  s.className = "state-screen state-full deleted";
-  s.innerHTML = `
-    <div class="state-icon deleted">${isDeleted ? "🗑️" : "🔍"}</div>
-    <div class="state-badge deleted">${isDeleted ? "Eliminada" : "No encontrada"}</div>
-    <div class="state-title">Esta promo ya no existe</div>
-    <div class="state-sub">${
-      isDeleted
-        ? "El negocio ha eliminado esta promoción."
-        : "No encontramos esta promoción en nuestro sistema."
-    }<br>Busca otras ofertas en Geinz.</div>
-    <button class="state-back-btn" onclick="window.location.href='https://geinzworkapp.web.app/scree/promos?loc=${localidad}'">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      Volver
-    </button>`;
-  document.body.appendChild(s);
-}
-
-/* ════════════════════════════════
-   FIREBASE — mismo proyecto
-   ════════════════════════════════ */
+// ===================== FIREBASE =====================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore,
@@ -547,23 +358,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ════════════════════════════════
-   URL PARAMS
-   ?localidad=barranca&id=yHA8BOswrDpnMyN26dYw
-   ════════════════════════════════ */
+// ===================== UTILIDADES =====================
 function getParams() {
   const p = new URLSearchParams(window.location.search);
-
   return {
     localidad: p.get("localidad") || p.get("l") || "barranca",
-
     id: p.get("id") || p.get("pi") || "V0ii5fOF8i8zs1yK9Lih",
   };
 }
 
-/* ════════════════════════════════
-   DÍAS RESTANTES
-   ════════════════════════════════ */
 function calcDaysLeft(datos) {
   if (!datos?.timestamp_fin) return null;
   const fin = datos.timestamp_fin?.toDate
@@ -573,55 +376,75 @@ function calcDaysLeft(datos) {
   return diff > 0 ? diff : 0;
 }
 
-/* ════════════════════════════════
-   PHOTOSWIPE GALLERY SETUP
-   ════════════════════════════════ */
+function isExpired(data) {
+  if (data.estado === "vencido" || data.estado === "expirado") return true;
+  if (data.datos_hora_fecha?.activo === false) return true;
+  const tsf = data.datos_hora_fecha?.timestamp_fin;
+  if (tsf) {
+    const fin = tsf?.toDate ? tsf.toDate() : new Date(tsf);
+    if (!isNaN(fin) && fin < new Date()) return true;
+  }
+  return false;
+}
+
+function isDeleted(data) {
+  return data.estado === "eliminado" || data.eliminado === true;
+}
+
+// ===================== GALERÍA Y PHOTOSWIPE =====================
 let currentImgIndex = 0;
 let galleryImages = [];
+
+async function openPhotoSwipe(index) {
+  if (!galleryImages.length) return;
+  const PhotoSwipeModule = await import("https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js");
+  const dataSource = await Promise.all(
+    galleryImages.map(
+      (src) =>
+        new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () =>
+            resolve({ src, w: img.naturalWidth, h: img.naturalHeight });
+          img.onerror = () => resolve({ src, w: 1600, h: 1200 });
+          img.src = src;
+        })
+    )
+  );
+  const pswp = new PhotoSwipeModule.default({
+    dataSource,
+    index,
+    pswpModule: PhotoSwipeModule,
+    bgOpacity: 0.98,
+    showHideAnimationType: "zoom",
+    allowPanToNext: true,
+  });
+  pswp.init();
+}
 
 function setupGallery(images) {
   galleryImages = images;
   const imgWrap = document.querySelector(".promo-img-wrap");
   if (!imgWrap || !images.length) return;
-
-  // Limpiar contenido previo
   imgWrap.innerHTML = "";
-
-  // Crear imagen principal
   const img = document.createElement("img");
   img.className = "promo-img";
   img.src = images[0];
   img.alt = "Promoción";
   img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
   imgWrap.appendChild(img);
-
-  // Si solo hay 1 imagen, solo permitir zoom al hacer clic
   if (images.length <= 1) {
     imgWrap.style.cursor = "zoom-in";
-
     img.addEventListener("click", (e) => {
       e.preventDefault();
-      e.stopPropagation();
       openPhotoSwipe(0);
     });
-
-    img.addEventListener("mouseleave", () => {
-      imgWrap.style.cursor = "zoom-in";
-    });
-
     return;
   }
-
-  // Cursor normal para galerías múltiples
   imgWrap.style.cursor = "default";
-
-  // Contador
   const counter = document.createElement("div");
   counter.className = "img-counter";
   counter.textContent = `1 / ${images.length}`;
   imgWrap.appendChild(counter);
-
-  // Dots
   const dots = document.createElement("div");
   dots.className = "img-dots";
   images.forEach((_, i) => {
@@ -631,138 +454,67 @@ function setupGallery(images) {
     dots.appendChild(dot);
   });
   imgWrap.appendChild(dots);
-
-  // Flechas
   const prevBtn = document.createElement("button");
   prevBtn.className = "img-nav prev";
   prevBtn.innerHTML = "‹";
-  prevBtn.setAttribute("aria-label", "Anterior");
-  imgWrap.appendChild(prevBtn);
-
   const nextBtn = document.createElement("button");
   nextBtn.className = "img-nav next";
   nextBtn.innerHTML = "›";
-  nextBtn.setAttribute("aria-label", "Siguiente");
+  imgWrap.appendChild(prevBtn);
   imgWrap.appendChild(nextBtn);
 
-  // Actualizar vista
   function updateView(index) {
     currentImgIndex = index;
     img.src = images[index];
     counter.textContent = `${index + 1} / ${images.length}`;
-
-    dots.querySelectorAll(".img-dot").forEach((d, i) => {
-      d.classList.toggle("active", i === index);
-    });
-
+    dots.querySelectorAll(".img-dot").forEach((d, i) =>
+      d.classList.toggle("active", i === index)
+    );
     prevBtn.classList.toggle("hidden", index === 0);
     nextBtn.classList.toggle("hidden", index === images.length - 1);
   }
-
-  // Eventos de flechas
   prevBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (currentImgIndex > 0) updateView(currentImgIndex - 1);
   });
-
   nextBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (currentImgIndex < images.length - 1) updateView(currentImgIndex + 1);
   });
-
-  // Click en imagen abre PhotoSwipe en la posición actual
   img.addEventListener("click", (e) => {
     e.preventDefault();
-    e.stopPropagation();
     openPhotoSwipe(currentImgIndex);
   });
-
-  // Swipe táctil para móvil
   let touchStartX = 0;
-  let touchEndX = 0;
-
   imgWrap.addEventListener(
     "touchstart",
     (e) => {
       touchStartX = e.changedTouches[0].screenX;
     },
-    { passive: true },
+    { passive: true }
   );
-
   imgWrap.addEventListener("touchend", (e) => {
-    touchEndX = e.changedTouches[0].screenX;
-    const diff = touchStartX - touchEndX;
-
+    const diff = touchStartX - e.changedTouches[0].screenX;
     if (Math.abs(diff) > 50) {
-      if (diff > 0 && currentImgIndex < images.length - 1) {
-        updateView(currentImgIndex + 1);
-      } else if (diff < 0 && currentImgIndex > 0) {
-        updateView(currentImgIndex - 1);
-      }
+      if (diff > 0 && currentImgIndex < images.length - 1) updateView(currentImgIndex + 1);
+      else if (diff < 0 && currentImgIndex > 0) updateView(currentImgIndex - 1);
     }
   });
-
   updateView(0);
 }
 
-async function openPhotoSwipe(index) {
-  if (!galleryImages.length) return;
-
-  const PhotoSwipeModule =
-    await import("https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js");
-  const PhotoSwipeLightboxModule =
-    await import("https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js");
-
-  // Cargar dimensiones reales de cada imagen
-  const dataSource = await Promise.all(
-    galleryImages.map(
-      (src) =>
-        new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () =>
-            resolve({ src, w: img.naturalWidth, h: img.naturalHeight });
-          img.onerror = () => resolve({ src, w: 1600, h: 1200 }); // fallback si falla
-          img.src = src;
-        }),
-    ),
-  );
-
-  const pswp = new PhotoSwipeModule.default({
-    dataSource: dataSource,
-    index: index,
-    pswpModule: PhotoSwipeModule,
-    bgOpacity: 0.98,
-    showHideAnimationType: "zoom",
-    allowPanToNext: true,
-  });
-
-  pswp.init();
-}
-
-/* ════════════════════════════════
-   RENDER
-   ════════════════════════════════ */
+// ===================== RENDER PRINCIPAL =====================
 function render(data) {
   const info = data.informacion || {};
   const img = data.img_container || {};
   const msgs = data.mensaje_predeterminado || {};
   const datos = data.datos_hora_fecha || {};
 
-  /* ── GALERÍA DE IMÁGENES ── */
+  // Galería
   const images = img.lista_img || [];
-  if (images.length > 0) {
-    setupGallery(images);
-  }
+  if (images.length > 0) setupGallery(images);
 
-  /* ── BADGE DESCUENTO ── */
-  const badge = document.querySelector(".badge-pct");
-  if (badge) {
-    const rango = data.rango_establecido;
-    badge.textContent = rango ? `${rango}% Dscto` : "";
-    if (!rango) badge.style.display = "none";
-  }
-
-  /* ── LOGO / AVATAR DEL NEGOCIO ── */
+  // Avatar negocio
   const avatar = document.querySelector(".biz-avatar");
   if (avatar && img.logo_img) {
     const logoEl = document.createElement("img");
@@ -776,63 +528,47 @@ function render(data) {
     avatar.textContent = (info.nombre_tienda || "?")[0].toUpperCase();
   }
 
-  /* ── NOMBRE NEGOCIO ── */
-  const bizName = document.querySelector(".biz-name");
-  if (bizName) bizName.textContent = info.nombre_tienda || "—";
+  document.querySelector(".biz-name").textContent = info.nombre_tienda || "—";
+  document.querySelector(".biz-meta").textContent = `Solo publicaciones de ${info.nombre_tienda || "este negocio"}`;
+  document.querySelector(".promo-title").textContent = info.titulo || "—";
+  document.querySelector(".promo-desc").textContent = info.descripcion || "—";
 
-  /* ── META ── */
-  const bizMeta = document.querySelector(".biz-meta");
-  if (bizMeta)
-    bizMeta.textContent = `Solo publicaciones de ${info.nombre_tienda || "este negocio"}`;
-
-  /* ── TÍTULO ── */
-  const title = document.querySelector(".promo-title");
-  if (title) title.textContent = info.titulo || "—";
-
-  /* ── DESCRIPCIÓN ── */
-  const desc = document.querySelector(".promo-desc");
-  if (desc) desc.textContent = info.descripcion || "—";
-
-  /* ── DÍAS RESTANTES ── */
+  // Días restantes
   const daysRow = document.querySelector(".days-row");
-  if (daysRow) {
-    const days = calcDaysLeft(datos);
-    if (days === null) {
-      daysRow.style.display = "none";
-    } else if (days === 0) {
-      daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;"></div> ¡Último día!`;
-      daysRow.style.background = "rgba(239,68,68,.15)";
-      daysRow.style.border = "1px solid rgba(239,68,68,.35)";
-      daysRow.style.color = "#fca5a5";
-    } else if (days <= 2) {
-      daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;animation:blink 1s ease-in-out infinite;"></div> ${days} día${days !== 1 ? "s" : ""} restante${days !== 1 ? "s" : ""}`;
-      daysRow.style.background = "rgba(239,68,68,.12)";
-      daysRow.style.border = "1px solid rgba(239,68,68,.3)";
-      daysRow.style.color = "#fca5a5";
-    } else if (days <= 5) {
-      daysRow.innerHTML = `<div class="days-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div> ${days} días restantes`;
-      daysRow.style.background = "rgba(245,158,11,.12)";
-      daysRow.style.border = "1px solid rgba(245,158,11,.3)";
-      daysRow.style.color = "#fcd34d";
-    } else {
-      daysRow.innerHTML = `<div class="days-dot" style="background:#10b981;box-shadow:0 0 6px #10b981;"></div> ${days} días restantes`;
-      daysRow.style.background = "rgba(16,185,129,.1)";
-      daysRow.style.border = "1px solid rgba(16,185,129,.25)";
-      daysRow.style.color = "#6ee7b7";
-    }
+  const days = calcDaysLeft(datos);
+  if (days === null) {
+    daysRow.style.display = "none";
+  } else if (days === 0) {
+    daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;"></div> ¡Último día!`;
+    daysRow.style.background = "rgba(239,68,68,.15)";
+    daysRow.style.border = "1px solid rgba(239,68,68,.35)";
+    daysRow.style.color = "#fca5a5";
+  } else if (days <= 2) {
+    daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;animation:blink 1s ease-in-out infinite;"></div> ${days} día${days !== 1 ? "s" : ""} restante${days !== 1 ? "s" : ""}`;
+    daysRow.style.background = "rgba(239,68,68,.12)";
+    daysRow.style.border = "1px solid rgba(239,68,68,.3)";
+    daysRow.style.color = "#fca5a5";
+  } else if (days <= 5) {
+    daysRow.innerHTML = `<div class="days-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div> ${days} días restantes`;
+    daysRow.style.background = "rgba(245,158,11,.12)";
+    daysRow.style.border = "1px solid rgba(245,158,11,.3)";
+    daysRow.style.color = "#fcd34d";
+  } else {
+    daysRow.innerHTML = `<div class="days-dot" style="background:#10b981;box-shadow:0 0 6px #10b981;"></div> ${days} días restantes`;
+    daysRow.style.background = "rgba(16,185,129,.1)";
+    daysRow.style.border = "1px solid rgba(16,185,129,.25)";
+    daysRow.style.color = "#6ee7b7";
   }
 
-  /* ── BOTÓN WHATSAPP ── */
+  // Botón WhatsApp
   const btnWa = document.querySelector(".btn-wa");
   if (btnWa) {
     const numero = info.numero?.replace(/\D/g, "");
     const msjeWa =
       msgs.whatsapp?.msje_predermindo ||
       "Hola, quiero esta oferta que vi en Geinz:";
-    // URL de contacto: usa la localidad completa (ej: "barranca")
     const linkWa = `https://geinzworkapp.web.app/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
     const texto = encodeURIComponent(`${msjeWa} ${linkWa}`);
-
     if (info.contactar && numero) {
       btnWa.href = `https://wa.me/51${numero}?text=${texto}`;
       btnWa.style.display = "";
@@ -841,104 +577,191 @@ function render(data) {
     }
   }
 
-  /* ── BOTÓN COMPARTIR ── */
+  // Compartir
   const shareText =
     msgs.compartir?.msje_predermindo || "Mira esta promo en Geinz ❤️‍🔥";
-
-  console.log("════════════════════════════");
-  console.log("🚀 CONFIG SHARE PROMO");
-  console.log("📝 shareText =", shareText);
-
-  // URL de compartir: usa "ba" como localidad corta
-
   const shareLink = `https://geinzworkapp.web.app/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
-
-  console.log("🔗 shareLink =", shareLink);
-  console.log("🆔 promoId =", data.id);
-
   window._shareTitle = shareText;
   window._shareUrl = shareLink;
-
-  console.log("💾 window._shareTitle =", window._shareTitle);
-  console.log("💾 window._shareUrl =", window._shareUrl);
-
-  console.log("📤 info.compartir =", info.compartir);
-
   if (!info.compartir) {
-    console.log("⛔ Compartir desactivado → ocultando botones");
-
     document
       .querySelectorAll(".btn-share, .icon-btn, .btn-share-pill")
-      .forEach((b, index) => {
-        console.log(`🙈 Ocultando botón share #${index}`);
-
-        b.style.display = "none";
-      });
-  } else {
-    console.log("✅ Compartir habilitado");
+      .forEach((b) => (b.style.display = "none"));
   }
-
-  /* ── TÍTULO DE PÁGINA ── */
 
   document.title = `${info.nombre_tienda || "Promo"} — Geinz`;
 
-  console.log("📄 document.title =", document.title);
-  console.log("🏪 nombre_tienda =", info.nombre_tienda);
-  console.log("════════════════════════════");
-
-  /* ── PERFIL NEGOCIO CLICK ── */
-  const bizWrap =
-    document.querySelector(".biz") ||
-    document.querySelector(".biz-row") ||
-    document.querySelector(".biz-info-wrap");
-
-  // 👇 ID tienda
+  // Perfil negocio clickeable
+  const bizWrap = document.querySelector(".biz-row");
   const idTienda =
     info.id_tienda || data.id_tienda || info.id || data.id_negocio || "";
-
-  // 👇 categoría tienda
   const categoriaTienda =
     info.categoria || info.cat || data.categoria || data.cat || "general";
-
-  // 👇 localidad
   const localidadTienda = window._localidad || "barranca";
-
-  // 👇 convertir espacios a +
   const categoriaFinal = encodeURIComponent(categoriaTienda).replace(
     /%20/g,
-    "+",
+    "+"
   );
-
-  // 👇 URL PERFIL
   const perfilUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
-
-  console.log("🏪 PERFIL URL:", perfilUrl);
-
-  // 👇 hacer clickeable
   if (bizWrap && idTienda) {
     bizWrap.style.cursor = "pointer";
-
     bizWrap.addEventListener("click", () => {
-      console.log("🚀 Abriendo perfil tienda");
-
       window.location.href = perfilUrl;
     });
   }
+
+  // ========== MÉTODOS DE PAGO CON IMÁGENES CIRCULARES ==========
+  const paymentSection = document.querySelector(".payment-section");
+  const paymentContainer = document.querySelector(".payment-methods");
+  const pagos = data.pagos || [];
+
+  if (paymentSection && paymentContainer && pagos.length > 0) {
+    const getImageSrc = (method) => {
+      const m = method.toLowerCase();
+      if (m.includes('yape')) return '../img/yape_logo.webp';
+      if (m.includes('plin')) return '../img/logo_plin.webp';
+      if (m.includes('efectivo')) return '../img/efectivo_logo.webp';
+      if (m.includes('visa')) return '../img/visa_logo.webp';
+      if (m.includes('mastercard')) return '../img/master_car_logo.webp';
+      if (m.includes('agora')) return '../img/logo_agora.webp';
+      return null;
+    };
+    const validMethods = pagos.filter(metodo => getImageSrc(metodo) !== null);
+
+    paymentContainer.innerHTML = validMethods.map(metodo => `
+      <div class="payment-method">
+        <div class="payment-icon">
+          <img src="${getImageSrc(metodo)}" alt="${metodo}" style="width: 32px; height: 32px; object-fit: contain; border-radius: 50%;">
+        </div>
+        <span class="payment-name">${metodo.charAt(0).toUpperCase() + metodo.slice(1)}</span>
+      </div>
+    `).join('');
+    paymentSection.style.display = 'block';
+  } else if (paymentSection) {
+    paymentSection.style.display = 'none';
+  }
 }
 
-/* ════════════════════════════════
-   SHARE  (expuesto globalmente para el onclick del HTML)
-   ════════════════════════════════ */
+// ===================== LOADING / ERROR STATES =====================
+function showLoading() {
+  injectCSS(STATE_CSS);
+  const shell = document.querySelector(".shell");
+  if (shell) {
+    shell.style.visibility = "hidden";
+    shell.style.opacity = "0";
+  }
+  const logo = document.createElement("div");
+  logo.className = "loading-logo";
+  document.body.appendChild(logo);
+  const screen = document.createElement("div");
+  screen.className = "state-screen loading";
+  screen.id = "stateScreen";
+  screen.innerHTML = `
+    <div class="sk-img-col"></div>
+    <div class="sk-body-col">
+      <div class="sk-biz">
+        <div class="sk-avatar"></div>
+        <div class="sk-biz-lines">
+          <div class="sh r-full" style="height:14px;width:52%"></div>
+          <div class="sh r-full" style="height:10px;width:32%"></div>
+        </div>
+        <div class="sh r-full" style="height:36px;width:100px;flex-shrink:0"></div>
+      </div>
+      <div class="sk-title-group">
+        <div class="sh" style="height:26px;width:95%;border-radius:10px"></div>
+        <div class="sh" style="height:26px;width:72%;border-radius:10px"></div>
+        <div class="sh" style="height:26px;width:48%;border-radius:10px"></div>
+      </div>
+      <div class="sk-desc-group">
+        <div class="sh r-full" style="height:12px;width:100%"></div>
+        <div class="sh r-full" style="height:12px;width:88%"></div>
+        <div class="sh r-full" style="height:12px;width:60%"></div>
+      </div>
+      <div class="sk-pill"></div>
+      <div style="height:1px;background:rgba(255,255,255,.04)"></div>
+      <div class="sk-btn"></div>
+      <div class="sk-share">
+        <div class="sh r-full" style="height:10px;width:60px"></div>
+        <div class="sk-share-line"></div>
+        <div class="sk-share-pill"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(screen);
+}
+
+function hideLoading() {
+  const logo = document.querySelector(".loading-logo");
+  if (logo) logo.remove();
+  const screen = document.getElementById("stateScreen");
+  if (screen) {
+    screen.style.transition = "opacity .4s ease";
+    screen.style.opacity = "0";
+    setTimeout(() => screen.remove(), 400);
+  }
+  const shell = document.querySelector(".shell");
+  if (shell) {
+    shell.style.visibility = "visible";
+    shell.style.opacity = "1";
+    shell.style.transition = "opacity .4s ease";
+  }
+  setTimeout(
+    () => document.querySelector(".shell")?.classList.add("revealed"),
+    350
+  );
+}
+
+function showExpired() {
+  const screen = document.getElementById("stateScreen");
+  if (screen) screen.remove();
+  const logo = document.querySelector(".loading-logo");
+  if (logo) logo.remove();
+  const s = document.createElement("div");
+  s.className = "state-screen state-full expired";
+  s.innerHTML = `
+    <div class="state-icon expired">⏰</div>
+    <div class="state-badge expired">Promoción vencida</div>
+    <div class="state-title">Esta promo ya terminó</div>
+    <div class="state-sub">El tiempo de esta oferta ha expirado.<br>Descubre más promos vigentes en Geinz.</div>
+    <button class="state-back-btn" onclick="history.back()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Volver
+    </button>
+  `;
+  document.body.appendChild(s);
+}
+
+function showDeleted(isDeleted = false, localidad = "barranca") {
+  const screen = document.getElementById("stateScreen");
+  if (screen) screen.remove();
+  const logo = document.querySelector(".loading-logo");
+  if (logo) logo.remove();
+  const s = document.createElement("div");
+  s.className = "state-screen state-full deleted";
+  s.innerHTML = `
+    <div class="state-icon deleted">${isDeleted ? "🗑️" : "🔍"}</div>
+    <div class="state-badge deleted">${isDeleted ? "Eliminada" : "No encontrada"}</div>
+    <div class="state-title">Esta promo ya no existe</div>
+    <div class="state-sub">${
+      isDeleted
+        ? "El negocio ha eliminado esta promoción."
+        : "No encontramos esta promoción en nuestro sistema."
+    }<br>Busca otras ofertas en Geinz.</div>
+    <button class="state-back-btn" onclick="window.location.href='https://geinzworkapp.web.app/scree/promos?loc=${localidad}'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Volver
+    </button>
+  `;
+  document.body.appendChild(s);
+}
+
+// ===================== SHARE Y TOAST =====================
 function handleShare() {
   const url = window._shareUrl || window.location.href;
   const text = window._shareTitle || "Mira esta promo en Geinz ❤️‍🔥";
-
   if (navigator.share) {
     navigator
-      .share({
-        // ✅ Combinar texto + url en "text", no en "title"
-        text: `${text}\n${url}`,
-      })
+      .share({ text: `${text}\n${url}` })
       .catch(() => copy(`${text}\n${url}`));
   } else {
     copy(`${text}\n${url}`);
@@ -961,6 +784,7 @@ function copy(txt) {
       showToast();
     });
 }
+
 function showToast() {
   const el = document.getElementById("toast");
   if (!el) return;
@@ -968,64 +792,92 @@ function showToast() {
   setTimeout(() => el.classList.remove("show"), 2400);
 }
 
-/* Exponer al scope global (onclick en HTML) */
 window.handleShare = handleShare;
 
-/* ════════════════════════════════
-   VERIFICAR VENCIMIENTO
-   ════════════════════════════════ */
-function isExpired(data) {
-  if (data.estado === "vencido" || data.estado === "expirado") return true;
-  if (data.datos_hora_fecha?.activo === false) return true;
-  const tsf = data.datos_hora_fecha?.timestamp_fin;
-  if (tsf) {
-    const fin = tsf?.toDate ? tsf.toDate() : new Date(tsf);
-    if (!isNaN(fin) && fin < new Date()) return true;
+// ===================== COLOR DINÁMICO DESDE EL LOGO =====================
+function applyAccent(r, g, b) {
+  const root = document.documentElement;
+  root.style.setProperty("--accent", `rgb(${r},${g},${b})`);
+  root.style.setProperty("--accent2", `rgba(${r},${g},${b},0.82)`);
+  root.style.setProperty("--accentSoft", `rgba(${r},${g},${b},0.18)`);
+}
+
+function extractColorFromImg(img) {
+  try {
+    const SIZE = 80;
+    const canvas = document.createElement("canvas");
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, SIZE, SIZE);
+    const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+    let r = 0,
+      g = 0,
+      b = 0,
+      count = 0;
+    for (let i = 0; i < data.length; i += 16) {
+      const rr = data[i],
+        gg = data[i + 1],
+        bb = data[i + 2],
+        aa = data[i + 3];
+      if (aa < 128) continue;
+      const brightness = (rr + gg + bb) / 3;
+      const isGray = Math.abs(rr - gg) < 20 && Math.abs(gg - bb) < 20;
+      if (brightness > 35 && brightness < 230 && !isGray) {
+        r += rr;
+        g += gg;
+        b += bb;
+        count++;
+      }
+    }
+    if (count < 50) return false;
+    applyAccent(Math.floor(r / count), Math.floor(g / count), Math.floor(b / count));
+    return true;
+  } catch (e) {
+    return false;
   }
-  return false;
 }
 
-function isDeleted(data) {
-  return data.estado === "eliminado" || data.eliminado === true;
+function tryExtract(img) {
+  if (!img) return;
+  img.crossOrigin = "anonymous";
+  if (img.complete && img.naturalWidth > 0) {
+    extractColorFromImg(img);
+  } else {
+    img.addEventListener("load", () => extractColorFromImg(img), { once: true });
+  }
 }
 
-/* ════════════════════════════════
-   INIT
-   ════════════════════════════════ */
+const avatarObserver = new MutationObserver(() => {
+  const img = document.querySelector(".biz-avatar img");
+  if (img) {
+    avatarObserver.disconnect();
+    tryExtract(img);
+  }
+});
+avatarObserver.observe(document.body, { childList: true, subtree: true });
+
+// ===================== INICIALIZACIÓN =====================
 (async () => {
   showLoading();
   const params = getParams();
   try {
-    const snap_ref = doc(
-      db,
-      "Tiendas",
-      params.localidad,
-      "promos_ofertas",
-      params.id,
-    );
+    const snap_ref = doc(db, "Tiendas", params.localidad, "promos_ofertas", params.id);
     const snap = await getDoc(snap_ref);
-
-    /* ── NO EXISTE ── */
     if (!snap.exists()) {
       showDeleted(false, params.localidad);
       return;
     }
-
     const promo = { id: snap.id, ...snap.data() };
-
-    /* ── ELIMINADA ── */
     if (isDeleted(promo)) {
       showDeleted(true, params.localidad);
       return;
     }
-    /* ── VENCIDA ── */
     if (isExpired(promo)) {
       showExpired();
       return;
     }
-
-    /* ── DISPONIBLE ── */
-    window._localidad = params.localidad; // ← disponible en render()
+    window._localidad = params.localidad;
     render(promo);
     hideLoading();
   } catch (err) {

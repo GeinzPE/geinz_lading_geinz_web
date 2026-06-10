@@ -8,27 +8,21 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
     rel="stylesheet">
-  <script type="module" src="../js/share/promociones.js"></script>
-  <link rel="stylesheet" href="../style/shareStyle/promociones.css" />
-
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.css">
-  <script type="module">
-    import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js';
-    window.PhotoSwipeLightbox = PhotoSwipeLightbox;
-  </script>
   <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
   <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
   <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
   <link rel="manifest" href="../img/icons/site.webmanifest">
+
+  <script type="module" src="../js/share/promociones.js"></script>
+  <link rel="stylesheet" href="../style/shareStyle/promociones.css" />
 </head>
 
 <body>
 
   <div class="page">
     <div class="shell">
-
-      <!-- PROMO IMAGE — el JS de setupGallery() inyecta .promo-img aquí -->
       <div class="promo-img-wrap">
         <div class="promo-placeholder">
           <div class="pp-inner">
@@ -37,10 +31,7 @@
         </div>
       </div>
 
-      <!-- BODY -->
       <div class="body">
-
-        <!-- NEGOCIO — el JS rellena .biz-avatar, .biz-name, .biz-meta -->
         <div class="biz-row">
           <div class="biz-avatar"></div>
           <div class="biz-info">
@@ -57,20 +48,21 @@
           </div>
         </div>
 
-        <!-- TÍTULO — el JS rellena .promo-title -->
         <h1 class="promo-title"></h1>
-
-        <!-- DESCRIPCIÓN — el JS rellena .promo-desc -->
         <p class="promo-desc"></p>
 
-        <!-- DÍAS RESTANTES — el JS rellena .days-row -->
+        <!-- SECCIÓN DE MÉTODOS DE PAGO (nueva) -->
+        <div class="payment-section" style="display: none;">
+          <div class="payment-label">Puedes pagar con</div>
+          <div class="payment-methods"></div>
+        </div>
+
         <div class="days-row">
           <div class="days-dot"></div>
         </div>
 
         <div class="hr"></div>
 
-        <!-- BOTÓN WHATSAPP — el JS rellena href de .btn-wa -->
         <div class="actions">
           <a href="#" class="btn-wa" target="_blank" rel="noopener">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">
@@ -83,7 +75,6 @@
           </a>
         </div>
 
-        <!-- COMPARTIR -->
         <div class="share-row">
           <span class="share-label">Compartir</span>
           <div class="share-divider"></div>
@@ -97,7 +88,6 @@
           </button>
         </div>
 
-        <!-- DISCOVER BANNER -->
         <section class="discover-banner">
           <div class="discover-glow"></div>
           <div class="discover-content">
@@ -112,92 +102,12 @@
           </div>
           <img src="../img/Diseño sin título (23)-Photoroom.png" alt="Promociones Geinz" class="discover-side-image" />
         </section>
-
       </div>
     </div>
   </div>
 
   <div class="toast" id="toast">✓ ¡Enlace copiado!</div>
 
-  <script>
-    /* ══════════════════════════════════════════
-       COLOR DINÁMICO ESTILO YT MUSIC
-       Se extrae del logo del negocio.
-       El JS principal inyecta la img en .biz-avatar
-       con appendChild(), así que usamos MutationObserver
-       para detectar cuando aparece y extraer el color.
-    ══════════════════════════════════════════ */
-
-    function applyAccent(r, g, b) {
-      const root = document.documentElement;
-      root.style.setProperty('--accent', `rgb(${r},${g},${b})`);
-      root.style.setProperty('--accent2', `rgba(${r},${g},${b},0.82)`);
-      root.style.setProperty('--accentSoft', `rgba(${r},${g},${b},0.18)`);
-    }
-
-    function extractColorFromImg(img) {
-      try {
-        const SIZE = 80;
-        const canvas = document.createElement('canvas');
-        canvas.width = SIZE;
-        canvas.height = SIZE;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, SIZE, SIZE);
-
-        const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
-        let r = 0, g = 0, b = 0, count = 0;
-
-        for (let i = 0; i < data.length; i += 16) {
-          const rr = data[i], gg = data[i + 1], bb = data[i + 2], aa = data[i + 3];
-          if (aa < 128) continue;
-          const brightness = (rr + gg + bb) / 3;
-          const isGray = Math.abs(rr - gg) < 20 && Math.abs(gg - bb) < 20;
-          if (brightness > 35 && brightness < 230 && !isGray) {
-            r += rr; g += gg; b += bb; count++;
-          }
-        }
-
-        if (count < 50) return false; // imagen sin color útil
-        applyAccent(Math.floor(r / count), Math.floor(g / count), Math.floor(b / count));
-        return true;
-      } catch (e) {
-        return false; // CORS tainted → silencio
-      }
-    }
-
-    function tryExtract(img) {
-      if (!img) return;
-      img.crossOrigin = 'anonymous';
-      if (img.complete && img.naturalWidth > 0) {
-        extractColorFromImg(img);
-      } else {
-        img.addEventListener('load', () => extractColorFromImg(img), { once: true });
-      }
-    }
-
-    /* Observar .biz-avatar para cuando el JS inyecte el logo */
-    const avatarObserver = new MutationObserver(() => {
-      const img = document.querySelector('.biz-avatar img');
-      if (img) {
-        avatarObserver.disconnect();
-        tryExtract(img);
-      }
-    });
-    avatarObserver.observe(document.body, { childList: true, subtree: true });
-
-    /* Observar .promo-img-wrap como fallback (la imagen de promo) */
-    let accentApplied = false;
-    const promoObserver = new MutationObserver(() => {
-      const img = document.querySelector('.promo-img');
-      if (img && !accentApplied) {
-        promoObserver.disconnect();
-        const logoImg = document.querySelector('.biz-avatar img');
-        /* Solo usar promo si el logo ya no pudo */
-        if (!logoImg) tryExtract(img);
-      }
-    });
-    promoObserver.observe(document.body, { childList: true, subtree: true });
-  </script>
 
 </body>
 
