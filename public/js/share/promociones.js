@@ -499,7 +499,7 @@ function showExpired() {
 }
 
 /* ── ESTADO ELIMINADO / NO EXISTE ── */
-function showDeleted(isDeleted = false) {
+function showDeleted(isDeleted = false, localidad = "barranca") {
   const screen = document.getElementById("stateScreen");
   if (screen) screen.remove();
   const logo = document.querySelector(".loading-logo");
@@ -516,7 +516,7 @@ function showDeleted(isDeleted = false) {
         ? "El negocio ha eliminado esta promoción."
         : "No encontramos esta promoción en nuestro sistema."
     }<br>Busca otras ofertas en Geinz.</div>
-    <button class="state-back-btn" onclick="history.back()">
+    <button class="state-back-btn" onclick="window.location.href='https://geinzworkapp.web.app/scree/promos?loc=${localidad}'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       Volver
     </button>`;
@@ -1007,7 +1007,7 @@ function isDeleted(data) {
 
     /* ── NO EXISTE ── */
     if (!snap.exists()) {
-      showDeleted(false);
+      showDeleted(false, params.localidad);
       return;
     }
 
@@ -1015,10 +1015,9 @@ function isDeleted(data) {
 
     /* ── ELIMINADA ── */
     if (isDeleted(promo)) {
-      showDeleted(true);
+      showDeleted(true, params.localidad);
       return;
     }
-
     /* ── VENCIDA ── */
     if (isExpired(promo)) {
       showExpired();
