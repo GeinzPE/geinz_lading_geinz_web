@@ -664,7 +664,6 @@ async function cargarTienda() {
       const desc = lugar.descripcion || "";
       const wa = lugar.whatsapp !== undefined ? String(lugar.whatsapp) : "";
       const msje = lugar.msje_whatsapp || "";
-
       originalValues.descripcion = desc;
       originalValues.whatsapp = wa;
       originalValues.msje_whatsapp = msje;

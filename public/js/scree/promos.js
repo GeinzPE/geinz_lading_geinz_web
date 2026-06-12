@@ -20,7 +20,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const promosContainer = document.getElementById("promos-container");
-
+// Al inicio, después de las imports y config, agrega:
+const urlParams = new URLSearchParams(window.location.search);
+const localidadParam = (urlParams.get("loc") || "barranca")
+  .toLowerCase()
+  .trim();
 async function init() {
   try {
     await fetchPromociones();
@@ -31,17 +35,12 @@ async function init() {
 }
 
 async function fetchPromociones() {
-  const path = "Tiendas/barranca/promos_ofertas";
-  const q = query(
-    collection(db, path),
-    where("estado", "==", "activo"),
-    limit(20),
-  );
+  const path = `Tiendas/${localidadParam}/promos_ofertas`;
+  const q = query(collection(db, path), where("estado", "==", "activo"));
   const querySnapshot = await getDocs(q);
 
-  // ← check vacío PRIMERO
   if (querySnapshot.empty) {
-    promosContainer.innerHTML = `<p style="text-align:center; color: var(--text-secondary); padding: 40px;">No hay ofertas disponibles en este momento.</p>`;
+    promosContainer.innerHTML = `<p style="text-align:center; color: var(--text-secondary); padding: 40px;">No hay ofertas disponibles en <strong>${localidadParam}</strong> en este momento.</p>`;
     return;
   }
 
@@ -56,53 +55,44 @@ async function fetchPromociones() {
     const data = doc.data();
     if (data.activo !== true && data.estado !== "activo") return;
 
-    // Filtrar expirados
-    const dhf2 = data.datos_hora_fecha || {};
-    const rawFecha2 = data.fecha_fin || dhf2.fecha_fin || "";
-    let finDate2 = null;
-    if (rawFecha2) {
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawFecha2)) {
-        const [d, m, y] = rawFecha2.split("/");
-        finDate2 = new Date(`${y}-${m}-${d}T23:59:59`);
-      } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawFecha2)) {
-        finDate2 = new Date(rawFecha2 + "T23:59:59");
+    // ── Calcular fecha_fin UNA SOLA VEZ ─────────────────────────
+    const dhf = data.datos_hora_fecha || {};
+    const tipoHora = data.tipo_hora_dias || dhf.tipo_hora_dias || "dias";
+    const horaFin = dhf.hora_fin || data.hora_fin || "23:59";
+
+    let finDate = null;
+    const tsFinSeconds =
+      dhf.timestamp_fin?.seconds || data.timestamp_fin?.seconds;
+    if (tsFinSeconds) {
+      finDate = new Date(tsFinSeconds * 1000);
+    } else {
+      // 2️⃣ FALLBACK: fecha_fin como string
+      const rawFecha = data.fecha_fin || dhf.fecha_fin || "";
+      if (rawFecha) {
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawFecha)) {
+          const [d, m, y] = rawFecha.split("/");
+          finDate = new Date(`${y}-${m}-${d}T${horaFin}:00`);
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawFecha)) {
+          finDate = new Date(`${rawFecha}T${horaFin}:00`);
+        }
       }
     }
-    if (!finDate2 || isNaN(finDate2.getTime())) {
-      const ts = dhf2.timestamp_fin?.seconds;
-      if (ts) finDate2 = new Date(ts * 1000);
-    }
-    if (finDate2 && !isNaN(finDate2.getTime()) && finDate2 < new Date()) return;
-    if (delayIndex >= 6) return;
 
+ 
+
+ 
+    if (dhf.activo === false) return;
+    if (finDate && !isNaN(finDate.getTime()) && finDate.getTime() < Date.now())
+      return;
+
+    if (delayIndex >= 6) return;
     const info = data.informacion || {};
     const imgContainer = data.img_container || {};
     const listImg = imgContainer.lista_img || [];
     const logoImg = imgContainer.logo_img || "";
 
-    // ── Obtener fecha_fin y construir badge de tiempo ──────────────
+    // ── Construir badge de tiempo ──────────────────────────────
     let timeContainerHtml = "";
-    const dhf = data.datos_hora_fecha || {};
-    const tipoHora = data.tipo_hora_dias || dhf.tipo_hora_dias || "dias";
-    let finDate = null;
-    const rawFecha = data.fecha_fin || dhf.fecha_fin || "";
-
-    if (rawFecha) {
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawFecha)) {
-        const [d, m, y] = rawFecha.split("/");
-        finDate = new Date(`${y}-${m}-${d}T23:59:59`);
-      } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawFecha)) {
-        finDate = new Date(rawFecha + "T23:59:59");
-      }
-    }
-
-    if (!finDate || isNaN(finDate.getTime())) {
-      const tsFinSeconds =
-        dhf.timestamp_fin?.seconds || data.timestamp_fin?.seconds;
-      if (tsFinSeconds) {
-        finDate = new Date(tsFinSeconds * 1000);
-      }
-    }
 
     if (finDate && !isNaN(finDate.getTime())) {
       const ahora = new Date();
@@ -216,13 +206,11 @@ async function fetchPromociones() {
       }
     }
 
-    // Obtener solo la primera imagen de la promo
     const singleImgUrl =
       listImg.length > 0
         ? listImg[0]
         : logoImg || "https://via.placeholder.com/400x500?text=Geinz";
 
-    // PON esto:
     const wsMessage =
       data.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
       "Hola, quiero esta oferta que vi en Geinz";
@@ -272,7 +260,6 @@ async function fetchPromociones() {
     delayIndex++;
   });
 
-  /* Rediseño del Banner Final (Fiel a la estructura de la captura) */
   htmlContent += `
         <div class="download-banner">
             <div class="download-banner-content">

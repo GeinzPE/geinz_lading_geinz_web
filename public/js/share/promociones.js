@@ -397,7 +397,8 @@ let galleryImages = [];
 
 async function openPhotoSwipe(index) {
   if (!galleryImages.length) return;
-  const PhotoSwipeModule = await import("https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js");
+  const PhotoSwipeModule =
+    await import("https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe.esm.js");
   const dataSource = await Promise.all(
     galleryImages.map(
       (src) =>
@@ -407,8 +408,8 @@ async function openPhotoSwipe(index) {
             resolve({ src, w: img.naturalWidth, h: img.naturalHeight });
           img.onerror = () => resolve({ src, w: 1600, h: 1200 });
           img.src = src;
-        })
-    )
+        }),
+    ),
   );
   const pswp = new PhotoSwipeModule.default({
     dataSource,
@@ -467,9 +468,9 @@ function setupGallery(images) {
     currentImgIndex = index;
     img.src = images[index];
     counter.textContent = `${index + 1} / ${images.length}`;
-    dots.querySelectorAll(".img-dot").forEach((d, i) =>
-      d.classList.toggle("active", i === index)
-    );
+    dots
+      .querySelectorAll(".img-dot")
+      .forEach((d, i) => d.classList.toggle("active", i === index));
     prevBtn.classList.toggle("hidden", index === 0);
     nextBtn.classList.toggle("hidden", index === images.length - 1);
   }
@@ -491,12 +492,13 @@ function setupGallery(images) {
     (e) => {
       touchStartX = e.changedTouches[0].screenX;
     },
-    { passive: true }
+    { passive: true },
   );
   imgWrap.addEventListener("touchend", (e) => {
     const diff = touchStartX - e.changedTouches[0].screenX;
     if (Math.abs(diff) > 50) {
-      if (diff > 0 && currentImgIndex < images.length - 1) updateView(currentImgIndex + 1);
+      if (diff > 0 && currentImgIndex < images.length - 1)
+        updateView(currentImgIndex + 1);
       else if (diff < 0 && currentImgIndex > 0) updateView(currentImgIndex - 1);
     }
   });
@@ -529,7 +531,8 @@ function render(data) {
   }
 
   document.querySelector(".biz-name").textContent = info.nombre_tienda || "—";
-  document.querySelector(".biz-meta").textContent = `Solo publicaciones de ${info.nombre_tienda || "este negocio"}`;
+  document.querySelector(".biz-meta").textContent =
+    `Solo publicaciones de ${info.nombre_tienda || "este negocio"}`;
   document.querySelector(".promo-title").textContent = info.titulo || "—";
   document.querySelector(".promo-desc").textContent = info.descripcion || "—";
 
@@ -600,7 +603,7 @@ function render(data) {
   const localidadTienda = window._localidad || "barranca";
   const categoriaFinal = encodeURIComponent(categoriaTienda).replace(
     /%20/g,
-    "+"
+    "+",
   );
   const perfilUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
   if (bizWrap && idTienda) {
@@ -618,27 +621,31 @@ function render(data) {
   if (paymentSection && paymentContainer && pagos.length > 0) {
     const getImageSrc = (method) => {
       const m = method.toLowerCase();
-      if (m.includes('yape')) return '../img/yape_logo.webp';
-      if (m.includes('plin')) return '../img/logo_plin.webp';
-      if (m.includes('efectivo')) return '../img/efectivo_logo.webp';
-      if (m.includes('visa')) return '../img/visa_logo.webp';
-      if (m.includes('mastercard')) return '../img/master_car_logo.webp';
-      if (m.includes('agora')) return '../img/logo_agora.webp';
+      if (m.includes("yape")) return "../img/yape_logo.webp";
+      if (m.includes("plin")) return "../img/logo_plin.webp";
+      if (m.includes("efectivo")) return "../img/efectivo_logo.webp";
+      if (m.includes("visa")) return "../img/visa_logo.webp";
+      if (m.includes("mastercard")) return "../img/master_car_logo.webp";
+      if (m.includes("agora")) return "../img/logo_agora.webp";
       return null;
     };
-    const validMethods = pagos.filter(metodo => getImageSrc(metodo) !== null);
+    const validMethods = pagos.filter((metodo) => getImageSrc(metodo) !== null);
 
-    paymentContainer.innerHTML = validMethods.map(metodo => `
+    paymentContainer.innerHTML = validMethods
+      .map(
+        (metodo) => `
       <div class="payment-method">
         <div class="payment-icon">
           <img src="${getImageSrc(metodo)}" alt="${metodo}" style="width: 32px; height: 32px; object-fit: contain; border-radius: 50%;">
         </div>
         <span class="payment-name">${metodo.charAt(0).toUpperCase() + metodo.slice(1)}</span>
       </div>
-    `).join('');
-    paymentSection.style.display = 'block';
+    `,
+      )
+      .join("");
+    paymentSection.style.display = "block";
   } else if (paymentSection) {
-    paymentSection.style.display = 'none';
+    paymentSection.style.display = "none";
   }
 }
 
@@ -707,11 +714,11 @@ function hideLoading() {
   }
   setTimeout(
     () => document.querySelector(".shell")?.classList.add("revealed"),
-    350
+    350,
   );
 }
 
-function showExpired() {
+function showExpired(localidad = "barranca") {
   const screen = document.getElementById("stateScreen");
   if (screen) screen.remove();
   const logo = document.querySelector(".loading-logo");
@@ -723,7 +730,7 @@ function showExpired() {
     <div class="state-badge expired">Promoción vencida</div>
     <div class="state-title">Esta promo ya terminó</div>
     <div class="state-sub">El tiempo de esta oferta ha expirado.<br>Descubre más promos vigentes en Geinz.</div>
-    <button class="state-back-btn" onclick="history.back()">
+<button class="state-back-btn" onclick="window.location.href='https://geinzworkapp.web.app/scree/promos?loc=${localidad}'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       Volver
     </button>
@@ -831,7 +838,11 @@ function extractColorFromImg(img) {
       }
     }
     if (count < 50) return false;
-    applyAccent(Math.floor(r / count), Math.floor(g / count), Math.floor(b / count));
+    applyAccent(
+      Math.floor(r / count),
+      Math.floor(g / count),
+      Math.floor(b / count),
+    );
     return true;
   } catch (e) {
     return false;
@@ -844,7 +855,9 @@ function tryExtract(img) {
   if (img.complete && img.naturalWidth > 0) {
     extractColorFromImg(img);
   } else {
-    img.addEventListener("load", () => extractColorFromImg(img), { once: true });
+    img.addEventListener("load", () => extractColorFromImg(img), {
+      once: true,
+    });
   }
 }
 
@@ -862,7 +875,13 @@ avatarObserver.observe(document.body, { childList: true, subtree: true });
   showLoading();
   const params = getParams();
   try {
-    const snap_ref = doc(db, "Tiendas", params.localidad, "promos_ofertas", params.id);
+    const snap_ref = doc(
+      db,
+      "Tiendas",
+      params.localidad,
+      "promos_ofertas",
+      params.id,
+    );
     const snap = await getDoc(snap_ref);
     if (!snap.exists()) {
       showDeleted(false, params.localidad);
@@ -874,7 +893,7 @@ avatarObserver.observe(document.body, { childList: true, subtree: true });
       return;
     }
     if (isExpired(promo)) {
-      showExpired();
+      showExpired(params.localidad);
       return;
     }
     window._localidad = params.localidad;

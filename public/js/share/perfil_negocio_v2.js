@@ -1,6 +1,104 @@
 import PhotoSwipeLightbox from "https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js";
 window.PhotoSwipeLightbox = PhotoSwipeLightbox;
 
+// ══════════════════════════════════════════
+//  PANTALLA: PERFIL NO ENCONTRADO
+// ══════════════════════════════════════════
+function showNotFoundScreen(message = "") {
+  hideBizLoader();
+  document.body.innerHTML = "";
+  document.body.style.cssText = `
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(circle at 20% 30%, #0a0418, #000000);
+    min-height: 100vh;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  `;
+
+  // Obtener alias desde la URL
+  const aliasAttempted = window.location.pathname.split("/perfil/")[1] || "";
+  const cleanAlias = aliasAttempted
+    ? decodeURIComponent(aliasAttempted).split(/[?#]/)[0]
+    : "";
+
+  // Sanitización básica
+  const escapeHtml = (str) => {
+    if (!str) return "";
+    return str.replace(/[&<>]/g, (m) => {
+      if (m === "&") return "&amp;";
+      if (m === "<") return "&lt;";
+      if (m === ">") return "&gt;";
+      return m;
+    });
+  };
+
+  const escapedAlias = escapeHtml(cleanAlias);
+  const escapedMessage = escapeHtml(message);
+
+  const errorDescription = escapedAlias
+    ? `El perfil <strong style="color:#c084fc;">/${escapedAlias}</strong> no existe o fue eliminado.`
+    : "El negocio o perfil que buscas no existe o fue eliminado.";
+
+  const extraMessage = escapedMessage
+    ? `<div style="margin-top: 1rem; font-size: 0.85rem; background: rgba(139, 92, 246, 0.12); backdrop-filter: blur(4px); padding: 0.6rem 1rem; border-radius: 2rem; color: #d9c6ff;">${escapedMessage}</div>`
+    : "";
+
+  const html = `
+    <div style="max-width: 520px; width: 90%; margin: 1rem; z-index: 2;">
+      <!-- Card principal con efecto glass + borde morado -->
+      <div style="background: rgba(8, 5, 20, 0.75); backdrop-filter: blur(12px); border-radius: 3rem; border: 1px solid rgba(139, 92, 246, 0.35); box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(139, 92, 246, 0.1); padding: 2.2rem 1.8rem; text-align: center; transition: transform 0.25s ease;">
+        
+        <!-- Icono animado sutil -->
+                <!-- 404 con gradiente morado -->
+        <h1 style="font-size: 4.2rem; font-weight: 800; margin: 0 0 0.2rem 0; background: linear-gradient(135deg, #e9d5ff, #c084fc, #8b5cf6); background-clip: text; -webkit-background-clip: text; color: transparent; letter-spacing: -0.02em;">404</h1>
+        
+        <p style="font-size: 1.6rem; font-weight: 600; margin: 0 0 0.5rem 0; color: #f3e8ff;">Perfil no encontrado</p>
+        
+        <div style="font-size: 0.95rem; color: #c4b5fd; line-height: 1.5; margin: 1.2rem 0 0; border-top: 1px solid rgba(139, 92, 246, 0.25); padding-top: 1.2rem;">
+          ${errorDescription}
+          <div style="font-size: 0.8rem; color: #a78bfa; margin-top: 0.5rem;">🔗 El enlace puede estar desactualizado o el contenido fue removido</div>
+        </div>
+        
+        ${extraMessage}
+        
+        <!-- Botón único sin "volver" -->
+        <div style="margin: 2rem 0 0.8rem;">
+          <a href="https://geinzworkapp.web.app" class="geinz-purple-btn" style="display: inline-block; padding: 0.85rem 2rem; background: linear-gradient(100deg, #8b5cf6, #6d28d9); border-radius: 60px; color: white; font-weight: 600; text-decoration: none; font-size: 0.95rem; letter-spacing: 0.3px; box-shadow: 0 6px 14px -4px rgba(109, 40, 217, 0.5); transition: all 0.2s ease; border: none; cursor: pointer;">Explorar Geinz</a>
+        </div>
+        
+        <p style="font-size: 0.7rem; color: #6b4e9e; margin: 0.8rem 0 0;">✨ ¿Buscas algo específico? Revisa la URL o regresa al inicio</p>
+      </div>
+    </div>
+
+    <!-- Partículas o decoración de fondo con morado -->
+    <div style="position: fixed; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;">
+      <div style="position: absolute; top: 15%; left: -10%; width: 300px; height: 300px; background: #7c3aed; filter: blur(100px); opacity: 0.2; border-radius: 50%;"></div>
+      <div style="position: absolute; bottom: 10%; right: -5%; width: 250px; height: 250px; background: #a855f7; filter: blur(90px); opacity: 0.15; border-radius: 50%;"></div>
+      <div style="position: absolute; top: 60%; left: 20%; width: 180px; height: 180px; background: #4c1d95; filter: blur(80px); opacity: 0.2; border-radius: 50%;"></div>
+    </div>
+
+    <style>
+      .geinz-purple-btn:hover {
+        transform: scale(1.02);
+        background: linear-gradient(100deg, #a67cff, #7c3aed);
+        box-shadow: 0 8px 20px -6px #7c3aed;
+      }
+      @keyframes fadeSlideUp {
+        0% { opacity: 0; transform: translateY(12px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      body > div:first-child {
+        animation: fadeSlideUp 0.5s ease-out;
+      }
+    </style>
+  `;
+
+  document.body.innerHTML = html;
+}
 function getDominantColor(imgEl) {
   return new Promise((resolve) => {
     const canvas = document.createElement("canvas");
@@ -411,9 +509,35 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-function getParams() {
-  const p =
-    new URLSearchParams(window.location.search) || "JHgbs7ttVXRnsIqsEGWS";
+async function getParams() {
+  // ── Lee alias desde la URL limpia /perfil/alonsopenarestobar1621 ──
+  const path = window.location.pathname;
+  const desdePath = path.startsWith("/perfil/");
+
+  if (desdePath) {
+    const alias = path.split("/perfil/")[1]?.trim();
+    if (!alias) throw new Error("Alias inválido");
+
+    const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
+    if (!aliasSnap.exists()) throw new Error("Perfil no encontrado");
+
+    const { id, localidad, categoria } = aliasSnap.data();
+
+    // ← leer ?p= aquí
+    const promoId =
+      new URLSearchParams(window.location.search).get("p") || null;
+
+    return {
+      localidad: localidad.trim().toLowerCase(),
+      subcol: (categoria || "").replace(/\+/g, " "),
+      id,
+      promoIndex: null,
+      promoId, // ← nuevo
+    };
+  }
+
+  // ── Fallback URL vieja con ?id=&l= ──
+  const p = new URLSearchParams(window.location.search);
   const localidad = (p.get("localidad") || p.get("l") || "barranca")
     .trim()
     .toLowerCase();
@@ -422,9 +546,9 @@ function getParams() {
   subcol = decodeURIComponent(subcol);
   const id = (p.get("id") || "JHgbs7ttVXRnsIqsEGWS").trim();
   const promoIndex = p.get("i") || null;
+
   return { localidad, subcol, id, promoIndex };
 }
-
 async function loadBusiness({ localidad, id }) {
   const ref = doc(db, "Tiendas", localidad, localidad, id);
   const snap = await getDoc(ref);
@@ -893,6 +1017,29 @@ function resetFullAuto() {
   startFullAuto();
 }
 
+function showSnackbar(msg) {
+  let sb = document.getElementById("snackbar-geinz");
+  if (!sb) {
+    sb = document.createElement("div");
+    sb.id = "snackbar-geinz";
+    sb.style.cssText = `
+      position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);
+      background:#111;color:#fff;padding:14px 22px;border-radius:10px;
+      font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+      z-index:9999;transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;
+      opacity:0;max-width:320px;text-align:center;line-height:1.4;
+    `;
+    document.body.appendChild(sb);
+  }
+  sb.textContent = msg;
+  sb.style.transform = "translateX(-50%) translateY(0)";
+  sb.style.opacity = "1";
+  clearTimeout(sb._timer);
+  sb._timer = setTimeout(() => {
+    sb.style.transform = "translateX(-50%) translateY(80px)";
+    sb.style.opacity = "0";
+  }, 3500);
+}
 // ══════════════════════════════════════════
 //  RENDER PRINCIPAL
 // ══════════════════════════════════════════
@@ -959,28 +1106,28 @@ async function render(biz) {
   if (_schedInterval) clearInterval(_schedInterval);
   _schedInterval = setInterval(() => calcStatus(horario), 30000);
 
-document.getElementById("descText").textContent = descripcion;
-document.getElementById("addrText").textContent = ubicacion.dirección || "—";
-document.getElementById("refText").textContent = ubicacion.referencia || "—";
+  document.getElementById("descText").textContent = descripcion;
+  document.getElementById("addrText").textContent = ubicacion.dirección || "—";
+  document.getElementById("refText").textContent = ubicacion.referencia || "—";
 
-const zonaSection = document.getElementById("zonaSection");
-if (zonaSection) {
-  const aforoMax = biz.aforo_max;
-  const zonaTexto = ubicacion.zona
-    ? aforoMax
-      ? `${ubicacion.zona} / Aforo máx. ${aforoMax} personas`
-      : ubicacion.zona
-    : aforoMax
-      ? `Aforo máx. ${aforoMax} personas`
-      : null;
+  const zonaSection = document.getElementById("zonaSection");
+  if (zonaSection) {
+    const aforoMax = biz.aforo_max;
+    const zonaTexto = ubicacion.zona
+      ? aforoMax
+        ? `${ubicacion.zona} / Aforo máx. ${aforoMax} personas`
+        : ubicacion.zona
+      : aforoMax
+        ? `Aforo máx. ${aforoMax} personas`
+        : null;
 
-  if (zonaTexto) {
-    document.getElementById("zonaText").textContent = zonaTexto;
-    zonaSection.style.display = "";
-  } else {
-    zonaSection.style.display = "none";
+    if (zonaTexto) {
+      document.getElementById("zonaText").textContent = zonaTexto;
+      zonaSection.style.display = "";
+    } else {
+      zonaSection.style.display = "none";
+    }
   }
-}
   // Horario
   const gridSched = document.getElementById("schedGrid");
   if (gridSched) {
@@ -1128,8 +1275,17 @@ if (zonaSection) {
     const catFormatted = (_params.subcol || "")
       .toLowerCase()
       .replace(/\s+/g, "+");
+    const promoIdParam = new URLSearchParams(window.location.search).get("p");
+    if (promoIdParam) {
+      const promoExiste = promoImages.some((p) => p.id === promoIdParam);
+      if (!promoExiste) {
+        showSnackbar("Esta promo ya no está disponible");
+      }
+    }
     promoImages.forEach((promo) => {
-      const shareBase = `https://geinzworkapp.web.app/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+      const shareBase = biz.alias_key
+        ? `https://geinzworkapp.web.app/perfil/${biz.alias_key}?p=${promo.id}`
+        : `https://geinzworkapp.web.app/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
       const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
       const card = document.createElement("div");
       card.className = "promo-card";
@@ -1166,10 +1322,11 @@ if (zonaSection) {
   const shareBtn = document.getElementById("shareBtn");
   if (shareBtn)
     shareBtn.onclick = () => {
-      const cat = (biz.categoria_tienda || "")
-        .toLowerCase()
-        .replace(/\s+/g, "+");
-      const shareUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${cat}`;
+      // ── Usa alias si existe, si no fallback a URL vieja ──
+      const shareUrl = biz.alias_key
+        ? `https://geinzworkapp.web.app/perfil/${biz.alias_key}`
+        : `https://geinzworkapp.web.app/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
+
       const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
       if (navigator.share)
         navigator
@@ -1220,18 +1377,15 @@ function listenBusinessRealtime({ localidad, id }) {
 // ══════════════════════════════════════════
 (async () => {
   showBizLoader();
-  const params = getParams();
-  _params = params;
   try {
+    const params = await getParams(); // ← si falla aquí
+    _params = params;
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
-    // hideBizLoader() se mueve adentro del render
   } catch (err) {
     console.error(err);
-    hideBizLoader();
-    document.getElementById("bizName").textContent = "Error al cargar";
-    document.getElementById("statusText").textContent = err.message;
+    showNotFoundScreen(err.message); // ← debe capturarlo
   }
 })();
 

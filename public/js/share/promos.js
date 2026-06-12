@@ -253,11 +253,21 @@ function buildCard(promo, id) {
   const tiendaId = info.id_tienda || promo.id_tienda || "";
   if (tiendaId) {
     bizRow.style.cursor = "pointer";
-    bizRow.addEventListener(
-      "click",
-      () =>
-        (window.location.href = `https://geinzworkapp.web.app/api/share?t=ti&id=${tiendaId}&l=${localidad}&c=${info.categoria || "general"}`),
-    );
+    bizRow.addEventListener("click", async () => {
+      try {
+        const snapTienda = await getDoc(
+          doc(db, "Tiendas", localidad, localidad, tiendaId),
+        );
+        const alias = snapTienda.exists() ? snapTienda.data().alias_key : null;
+        if (alias) {
+          window.location.href = `https://geinzworkapp.web.app/perfil/${alias}`;
+        } else {
+          window.location.href = `https://geinzworkapp.web.app/api/share?t=ti&id=${tiendaId}&l=${localidad}&c=${info.categoria || "general"}`;
+        }
+      } catch {
+        window.location.href = `https://geinzworkapp.web.app/api/share?t=ti&id=${tiendaId}&l=${localidad}&c=${info.categoria || "general"}`;
+      }
+    });
   }
   bizRow.append(avatarDiv, bizInfoDiv, verifiedBadge);
   body.appendChild(bizRow);
