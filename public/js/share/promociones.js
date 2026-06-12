@@ -372,8 +372,10 @@ function calcDaysLeft(datos) {
   const fin = datos.timestamp_fin?.toDate
     ? datos.timestamp_fin.toDate()
     : new Date(datos.timestamp_fin);
-  const diff = Math.ceil((fin - Date.now()) / 86_400_000);
-  return diff > 0 ? diff : 0;
+  const diffMs = fin - Date.now();
+  if (diffMs <= 0) return 0;
+  const diff = Math.floor(diffMs / 86_400_000); // floor, no ceil
+  return diff; // si quedan 4h → floor da 0 → entra al bloque de horas
 }
 
 function isExpired(data) {
@@ -542,7 +544,17 @@ function render(data) {
   if (days === null) {
     daysRow.style.display = "none";
   } else if (days === 0) {
-    daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;"></div> ¡Último día!`;
+    const tsf = datos.timestamp_fin;
+    const fin = tsf?.toDate ? tsf.toDate() : new Date(tsf);
+    const diffMs = fin - Date.now();
+    const horasLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+    const horaFinStr = fin.toLocaleTimeString("es-PE", {
+      timeZone: "America/Lima",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    daysRow.innerHTML = `<div class="days-dot" style="background:#ef4444;box-shadow:0 0 8px #ef4444;animation:blink 1s ease-in-out infinite;"></div> ¡Solo ${horasLeft}h! · Vence a las ${horaFinStr}`;
     daysRow.style.background = "rgba(239,68,68,.15)";
     daysRow.style.border = "1px solid rgba(239,68,68,.35)";
     daysRow.style.color = "#fca5a5";
@@ -605,14 +617,28 @@ function render(data) {
     /%20/g,
     "+",
   );
-  const perfilUrl = `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
   if (bizWrap && idTienda) {
     bizWrap.style.cursor = "pointer";
-    bizWrap.addEventListener("click", () => {
-      window.location.href = perfilUrl;
+    bizWrap.addEventListener("click", async () => {
+      try {
+        const tiendaSnap = await getDoc(
+          doc(db, "Tiendas", localidadTienda, localidadTienda, idTienda),
+        );
+        const aliasKey = tiendaSnap.exists()
+          ? tiendaSnap.data()?.alias_key || null
+          : null;
+
+        const perfilUrl = aliasKey
+          ? `https://geinzworkapp.web.app/perfil/${aliasKey}`
+          : `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
+
+        window.location.href = perfilUrl;
+      } catch (e) {
+        // fallback si falla la consulta
+        window.location.href = `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
+      }
     });
   }
-
   // ========== MÉTODOS DE PAGO CON IMÁGENES CIRCULARES ==========
   const paymentSection = document.querySelector(".payment-section");
   const paymentContainer = document.querySelector(".payment-methods");

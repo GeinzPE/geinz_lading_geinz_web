@@ -55,119 +55,160 @@ async function fetchPromociones() {
     const data = doc.data();
     if (data.activo !== true && data.estado !== "activo") return;
 
-    // ── Calcular fecha_fin UNA SOLA VEZ ─────────────────────────
     const dhf = data.datos_hora_fecha || {};
     const tipoHora = data.tipo_hora_dias || dhf.tipo_hora_dias || "dias";
-    const horaFin = dhf.hora_fin || data.hora_fin || "23:59";
 
+    // ── 1. Calcular finDate ──────────────────────────────────────
     let finDate = null;
     const tsFinSeconds =
       dhf.timestamp_fin?.seconds || data.timestamp_fin?.seconds;
+
     if (tsFinSeconds) {
       finDate = new Date(tsFinSeconds * 1000);
     } else {
-      // 2️⃣ FALLBACK: fecha_fin como string
       const rawFecha = data.fecha_fin || dhf.fecha_fin || "";
       if (rawFecha) {
+        const horaFallback = dhf.hora_fin || data.hora_fin || "23:59";
         if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawFecha)) {
           const [d, m, y] = rawFecha.split("/");
-          finDate = new Date(`${y}-${m}-${d}T${horaFin}:00`);
+          finDate = new Date(`${y}-${m}-${d}T${horaFallback}:00`);
         } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawFecha)) {
-          finDate = new Date(`${rawFecha}T${horaFin}:00`);
+          finDate = new Date(`${rawFecha}T${horaFallback}:00`);
         }
       }
     }
 
- 
+    // ── 2. horaFinStr siempre del timestamp real ─────────────────
+    const horaFinStr = finDate
+      ? finDate.toLocaleTimeString("es-PE", {
+          timeZone: "America/Lima",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true, // ← esto
+        })
+      : "11:59 p. m.";
 
- 
+    // ── 3. LOG ───────────────────────────────────────────────────
+    console.log(
+      `📦 Promo: "${data.informacion?.titulo || doc.id}" | ` +
+        `finDate: ${finDate ? finDate.toLocaleString("es-PE", { timeZone: "America/Lima" }) : "sin fecha"} | ` +
+        `ahora: ${new Date().toLocaleString("es-PE", { timeZone: "America/Lima" })} | ` +
+        `diffMs: ${finDate ? finDate.getTime() - Date.now() : "N/A"}ms | ` +
+        `horaFinStr: ${horaFinStr}`,
+    );
+
     if (dhf.activo === false) return;
     if (finDate && !isNaN(finDate.getTime()) && finDate.getTime() < Date.now())
       return;
 
-    if (delayIndex >= 6) return;
     const info = data.informacion || {};
     const imgContainer = data.img_container || {};
     const listImg = imgContainer.lista_img || [];
     const logoImg = imgContainer.logo_img || "";
 
-    // ── Construir badge de tiempo ──────────────────────────────
+    const pagosArr = data.pagos || [];
+    const getPagoImg = (metodo) => {
+      const m = metodo.toLowerCase();
+      if (m.includes("yape")) return "../../img/yape_logo.webp";
+      if (m.includes("plin")) return "../../img/logo_plin.webp";
+      if (m.includes("efectivo")) return "../../img/efectivo_logo.webp";
+      if (m.includes("visa")) return "../../img/visa_logo.webp";
+      if (m.includes("mastercard")) return "../../img/master_car_logo.webp";
+      if (m.includes("agora")) return "../../img/logo_agora.webp";
+      return null;
+    };
+
+    const pillsHtml = pagosArr
+      .map((m) => getPagoImg(m))
+      .filter(Boolean)
+      .map(
+        (src) =>
+          `<div class="payment-pill"><img src="${src}" alt="metodo de pago"></div>`,
+      )
+      .join("");
+
+    const pagosHtml = pillsHtml
+      ? `<div class="payment-row">
+           <span class="payment-row-label">Paga con</span>
+           <div class="payment-pills">${pillsHtml}</div>
+         </div>`
+      : "";
+
+    // ── 4. Badge de tiempo ───────────────────────────────────────
     let timeContainerHtml = "";
 
     if (finDate && !isNaN(finDate.getTime())) {
-      const ahora = new Date();
-      const diffMs = finDate - ahora;
+      const diffMs = finDate.getTime() - Date.now();
       const opciones = { day: "numeric", month: "long" };
       const fechaFormateada = finDate.toLocaleDateString("es-ES", opciones);
-      const horaFin = dhf.hora_fin || data.hora_fin || "23:59";
 
       if (tipoHora === "horas") {
         const diffHoras = Math.ceil(diffMs / (1000 * 60 * 60));
         if (diffHoras > 3) {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days" style="background:rgba(52,199,89,0.12); color:#30d158;">
-                                <i class="fa-solid fa-clock"></i> ${diffHoras}h restantes
-                            </div>
-                            <span class="expiration-date">Vence hoy a las ${horaFin}</span>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days" style="background:rgba(52,199,89,0.12); color:#30d158;">
+                <i class="fa-solid fa-clock"></i> ${diffHoras}h restantes
+              </div>
+              <span class="expiration-date">Vence hoy a las ${horaFinStr}</span>
+            </div>`;
         } else if (diffHoras > 0) {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days badge-urgent">
-                                <i class="fa-solid fa-bolt"></i> ¡Solo ${diffHoras}h!
-                            </div>
-                            <span class="expiration-date">Vence a las ${horaFin}</span>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days badge-urgent">
+                <i class="fa-solid fa-bolt"></i> ¡Solo ${diffHoras}h!
+              </div>
+              <span class="expiration-date">Vence a las ${horaFinStr}</span>
+            </div>`;
         } else {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days" style="background:#242426; color:var(--text-secondary);">
-                                <i class="fa-solid fa-calendar-xmark"></i> Finalizado
-                            </div>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days" style="background:#242426; color:var(--text-secondary);">
+                <i class="fa-solid fa-calendar-xmark"></i> Finalizado
+              </div>
+            </div>`;
         }
       } else {
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
         if (diffDays > 3) {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days" style="background:rgba(52,199,89,0.12); color:#30d158;">
-                                <i class="fa-solid fa-clock"></i> Quedan ${diffDays} días
-                            </div>
-                            <span class="expiration-date">Expira el ${fechaFormateada}</span>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days" style="background:rgba(52,199,89,0.12); color:#30d158;">
+                <i class="fa-solid fa-clock"></i> Quedan ${diffDays} días
+              </div>
+              <span class="expiration-date">Expira el ${fechaFormateada}</span>
+            </div>`;
         } else if (diffDays >= 2) {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days" style="background:rgba(255,159,10,0.12); color:#ff9f0a;">
-                                <i class="fa-solid fa-triangle-exclamation"></i> Quedan ${diffDays} días
-                            </div>
-                            <span class="expiration-date">Expira el ${fechaFormateada}</span>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days" style="background:rgba(255,159,10,0.12); color:#ff9f0a;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Quedan ${diffDays} días
+              </div>
+              <span class="expiration-date">Expira el ${fechaFormateada}</span>
+            </div>`;
         } else if (diffDays === 1) {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days badge-urgent">
-                                <i class="fa-solid fa-triangle-exclamation"></i> Último día
-                            </div>
-                            <span class="expiration-date">Vence mañana</span>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days badge-urgent">
+                <i class="fa-solid fa-triangle-exclamation"></i> Último día
+              </div>
+              <span class="expiration-date">Vence mañana</span>
+            </div>`;
         } else if (diffDays === 0) {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days badge-urgent">
-                                <i class="fa-solid fa-bolt"></i> Finaliza hoy
-                            </div>
-                            <span class="expiration-date">Vence hoy a las ${horaFin}</span>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days badge-urgent">
+                <i class="fa-solid fa-bolt"></i> Finaliza hoy
+              </div>
+              <span class="expiration-date">Vence hoy a las ${horaFinStr}</span>
+            </div>`;
         } else {
           timeContainerHtml = `
-                        <div class="time-info-container">
-                            <div class="badge-days" style="background:#242426; color:var(--text-secondary);">
-                                <i class="fa-solid fa-calendar-xmark"></i> Finalizado
-                            </div>
-                        </div>`;
+            <div class="time-info-container">
+              <div class="badge-days" style="background:#242426; color:var(--text-secondary);">
+                <i class="fa-solid fa-calendar-xmark"></i> Finalizado
+              </div>
+            </div>`;
         }
       }
     } else {
@@ -192,17 +233,17 @@ async function fetchPromociones() {
           })
           .join("");
         timeContainerHtml = `
-                    <div class="time-info-container">
-                        <div class="badge-days badge-normal" style="gap:8px;">
-                            ${iconosHtml}
-                            <span style="font-size:11px; color:var(--text-secondary);">${comodidades[0]}${comodidades.length > 1 ? ` +${comodidades.length - 1}` : ""}</span>
-                        </div>
-                    </div>`;
+          <div class="time-info-container">
+            <div class="badge-days badge-normal" style="gap:8px;">
+              ${iconosHtml}
+              <span style="font-size:11px; color:var(--text-secondary);">${comodidades[0]}${comodidades.length > 1 ? ` +${comodidades.length - 1}` : ""}</span>
+            </div>
+          </div>`;
       } else {
         timeContainerHtml = `
-                    <div class="badge-days badge-normal">
-                        <i class="fa-solid fa-tag"></i> Oferta disponible
-                    </div>`;
+          <div class="badge-days badge-normal">
+            <i class="fa-solid fa-tag"></i> Oferta disponible
+          </div>`;
       }
     }
 
@@ -233,46 +274,53 @@ async function fetchPromociones() {
     if (info.contactar === true) {
       buttonsHtml += `<button class="action-btn whatsapp" onclick="contactWhatsApp('${phoneNumber}', '${wsMessage}', '${promoUrl}')"><i class="fa-brands fa-whatsapp"></i></button>`;
     }
+
     htmlContent += `
-            <div class="promo-card" style="animation-delay: ${delayIndex * 0.1}s" onclick="abrirPromo('${promoUrl}')">
-                <div class="image-container-single">
-                    <img src="${singleImgUrl}" alt="Oferta" loading="lazy">
-                </div>
-                <div class="promo-footer">
-                    <div class="store-header-row">
-                        <div class="store-info">
-                            <img class="store-logo" src="${logoImg}" alt="${info.nombre_tienda}">
-                            <div class="store-text-details">
-                                <span class="store-name">${info.nombre_tienda || "Negocio Local"}</span>
-                                <span class="promo-title">${info.titulo || "Descuento"}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="store-actions-row">
-                        ${timeContainerHtml}
-                        <div class="action-buttons">
-                            ${buttonsHtml}
-                        </div>
-                    </div>
-                </div>
+      <div class="promo-card" style="animation-delay: ${delayIndex * 0.1}s" onclick="abrirPromo('${promoUrl}')">
+        <div class="image-container-single">
+          <img src="${singleImgUrl}" alt="Oferta" loading="lazy">
+        </div>
+        <div class="promo-footer">
+          ${pagosHtml}
+          <div class="store-header-row">
+            <div class="store-info">
+              <img class="store-logo" src="${logoImg}" alt="${info.nombre_tienda}">
+              <div class="store-text-details">
+                <span class="store-name">${info.nombre_tienda || "Negocio Local"}</span>
+                <span class="promo-title">${info.titulo || "Descuento"}</span>
+              </div>
             </div>
-        `;
+          </div>
+          <div class="store-actions-row">
+            ${timeContainerHtml}
+            <div class="action-buttons">
+              ${buttonsHtml}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
     delayIndex++;
   });
 
   htmlContent += `
-        <div class="download-banner">
-            <div class="download-banner-content">
-                <h3>¿Listo para expandir tu flujo comercial?</h3>
-                <p>Descarga la app nativa de Geinz y accede de manera centralizada a cientos de promociones de impacto, activaciones en tiempo real y el posicionamiento integral de las mejores marcas locales en Barranca.</p>
-                <a href="https://play.google.com/store/apps/details?id=com.geinzz.geinzwork" target="_blank" class="download-btn">
-                    Descargar Aplicación Nativa
-                </a>
-            </div>
-            <i class="fa-brands fa-google-play download-banner-icon"></i>
-        </div>
-    `;
+    <div class="download-banner">
+      <div class="download-banner-content">
+        <h3>¿Listo para expandir tu flujo comercial?</h3>
+        <p>Descarga la app nativa de Geinz y accede de manera centralizada a cientos de promociones de impacto, activaciones en tiempo real y el posicionamiento integral de las mejores marcas locales en Barranca.</p>
+        <a href="https://play.google.com/store/apps/details?id=com.geinzz.geinzwork" target="_blank" class="download-btn">
+          Descargar Aplicación Nativa
+        </a>
+      </div>
+      <i class="fa-brands fa-google-play download-banner-icon"></i>
+    </div>
+  `;
   promosContainer.innerHTML = htmlContent;
 }
 
 window.addEventListener("DOMContentLoaded", init);
+
+history.pushState(null, "", window.location.href);
+window.addEventListener("popstate", () => {
+  window.location.href = "https://geinzworkapp.web.app/";
+});

@@ -97,12 +97,84 @@ main {
     aspect-ratio: 4/5;
     background-color: #050505;
     overflow: hidden;
+    position: relative;
+    /* 👈 agregado */
 }
 
-.image-container-single img {
+.payment-overlay-card {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 32px 14px 14px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.55) 50%, transparent 100%);
+    pointer-events: none;
+}
+
+.payment-overlay-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.payment-pills {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+
+.payment-pill img {
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+    padding: 4px;
+    border-radius: 50%
+}
+
+.payment-pill {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.image-container-single {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    aspect-ratio: 4/5;
+    background-color: #050505;
+    overflow: hidden;
+    position: relative;
+}
+
+.payment-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.payment-row-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 2px;
 }
 
 /* Detalles Inferiores */
@@ -496,4 +568,12 @@ main {
 * {
     scrollbar-width: thin;
     scrollbar-color: #000 #111;
+}
+
+.image-container-single img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Si quieres que llene sin deformarse pero recorta */
+    /* object-fit: contain;  Si quieres ver la imagen completa (pueden aparecer bordes negros) */
 }
