@@ -1976,3 +1976,8 @@ textarea {
     height:20px;
     object-fit:contain;
 }
+#modalExitoPromo .sb-icon img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}

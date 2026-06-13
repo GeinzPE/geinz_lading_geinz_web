@@ -1366,9 +1366,8 @@ function formatFechaSlash(str) {
       document.querySelector('input[name="plazo"]:checked')?.value || "dias";
     const fechaInicio = document.getElementById("fechaInicio")?.value || "";
     const fechaFin = document.getElementById("fechaFin")?.value || "";
-    const horasInput = parseInt(
-      document.getElementById("inputHoras")?.value || "1",
-    );
+const horasInputRaw = document.getElementById("inputHoras")?.value || "";
+const horasInput = parseInt(horasInputRaw);
 
     if (tipoPlazoVal === "dias") {
       if (!fechaInicio || !fechaFin) {
@@ -1379,12 +1378,18 @@ function formatFechaSlash(str) {
         mostrarToast("La fecha final no puede ser menor a la inicial", "error");
         return;
       }
-    } else if (tipoPlazoVal === "horas") {
-      if (!horasInput || horasInput < 1 || horasInput > 20) {
-        mostrarToast("Ingresa una cantidad de horas válida (1–20)", "error");
-        return;
-      }
-    }
+  } else if (tipoPlazoVal === "horas") {
+  if (
+    horasInputRaw.trim() === "" ||
+    isNaN(horasInput) ||
+    horasInput < 1 ||
+    horasInput > 20
+  ) {
+    mostrarToast("Ingresa una cantidad de horas válida (1–20)", "error");
+    document.getElementById("inputHoras")?.focus();
+    return;
+  }
+}
 
     // Verificar saldo
     const total = calcularCostoTotal();
@@ -1490,7 +1495,6 @@ function formatFechaSlash(str) {
     btn.innerHTML = `<span class="loading-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Publicando...`;
 
     try {
-   
       skSetStep(2, "Subiendo imágenes...", "Procesando tus fotos", 55);
       const { urls, botUrl } = await subirImagenesAStorage(
         id_tienda,
@@ -1585,8 +1589,195 @@ function formatFechaSlash(str) {
   function mostrarSkeletonPublicando() {
     const sk = document.createElement("div");
     sk.id = "skeletonPublicando";
-    sk.className = "sk-overlay";
-    sk.innerHTML = `<div class="sk-modal"><div class="sk-badge">GEINZ</div><div class="sk-ring"><svg viewBox="0 0 56 56" width="56" height="56"><defs><linearGradient id="skRingGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#6d28d9"/><stop offset="100%" stop-color="#a855f7"/></linearGradient></defs><circle class="sk-ring-bg" cx="28" cy="28" r="22"/><circle class="sk-ring-fill" cx="28" cy="28" r="22"/></svg></div><div class="sk-titles"><p class="sk-title" id="skTitle">Publicando tu promocion...</p><p class="sk-subtitle" id="skSubtitle">Esto solo tarda unos segundos</p></div><div class="sk-bar-wrap"><div class="sk-bar" id="skBar" style="width:15%"></div></div><div class="sk-steps" id="skSteps"><div class="sk-step done" id="sk-step1"><div class="sk-step-icon"><i class="ti ti-check"></i></div><div class="sk-step-text"><div class="sk-step-label">Validando datos</div><div class="sk-step-status" id="sk-status1">Completado</div></div></div><div class="sk-step active" id="sk-step2"><div class="sk-step-icon"><i class="ti ti-cpu"></i></div><div class="sk-step-text"><div class="sk-step-label">Analizando con IA</div><div class="sk-step-status" id="sk-status2">En progreso...</div></div></div><div class="sk-step pending" id="sk-step3"><div class="sk-step-icon"><i class="ti ti-photo"></i></div><div class="sk-step-text"><div class="sk-step-label">Subiendo imagenes</div><div class="sk-step-status" id="sk-status3">Pendiente</div></div></div><div class="sk-step pending" id="sk-step4"><div class="sk-step-icon"><i class="ti ti-world"></i></div><div class="sk-step-text"><div class="sk-step-label">Publicando en Geinz</div><div class="sk-step-status" id="sk-status4">Pendiente</div></div></div></div></div>`;
+
+    sk.innerHTML = `
+    <style>
+      #skeletonPublicando {
+        position:fixed;inset:0;z-index:9998;
+        background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
+        display:flex;align-items:center;justify-content:center;
+        animation:skFadeIn .25s ease;
+      }
+      @keyframes skFadeIn { from{opacity:0} to{opacity:1} }
+      @keyframes skSpin    { to{stroke-dashoffset:-138} }
+      @keyframes skPulse   { 0%,100%{opacity:1} 50%{opacity:.35} }
+      @keyframes skFillBar { from{width:15%} to{width:82%} }
+ 
+      #skeletonPublicando .sk-card {
+        width:calc(100% - 32px);max-width:360px;
+        background:#0f0f14;
+        border-radius:20px;
+        border:0.5px solid rgba(255,255,255,.08);
+        padding:28px 24px 32px;
+      }
+ 
+      #skeletonPublicando .sk-head {
+        display:flex;align-items:center;
+        justify-content:space-between;margin-bottom:24px;
+      }
+      #skeletonPublicando .sk-badge {
+        font-size:10px;font-weight:700;letter-spacing:.12em;
+        color:#7c3aed;
+        background:rgba(124,58,237,.12);
+        border:0.5px solid rgba(124,58,237,.25);
+        padding:4px 10px;border-radius:6px;
+      }
+      #skeletonPublicando .sk-ring svg { display:block; }
+      #skeletonPublicando .sk-ring-bg  {
+        fill:none;stroke:rgba(255,255,255,.07);stroke-width:3.5;
+      }
+      #skeletonPublicando .sk-ring-fill {
+        fill:none;stroke:url(#skGrad);stroke-width:3.5;
+        stroke-dasharray:138;stroke-dashoffset:0;stroke-linecap:round;
+        animation:skSpin 1.4s linear infinite;
+        transform-origin:28px 28px;transform:rotate(-90deg);
+      }
+ 
+      #skeletonPublicando .sk-title {
+        font-size:17px;font-weight:600;color:#fff;margin:0 0 4px;
+      }
+      #skeletonPublicando .sk-subtitle {
+        font-size:12px;color:#6b7280;margin:0 0 20px;
+      }
+ 
+      #skeletonPublicando .sk-bar-wrap {
+        background:#1a1a24;border-radius:8px;
+        height:6px;overflow:hidden;margin-bottom:24px;
+      }
+      #skeletonPublicando .sk-bar {
+        height:100%;border-radius:8px;
+        background:linear-gradient(90deg,#7c3aed,#a855f7);
+        animation:skFillBar 3s ease-out forwards;
+      }
+ 
+      #skeletonPublicando .sk-steps {
+        display:flex;flex-direction:column;gap:10px;
+      }
+      #skeletonPublicando .sk-step {
+        display:flex;align-items:center;gap:12px;
+        padding:10px 12px;border-radius:12px;
+      }
+      #skeletonPublicando .sk-step-icon {
+        width:32px;height:32px;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      }
+      #skeletonPublicando .sk-step-icon i { font-size:16px; }
+      #skeletonPublicando .sk-step-label  { font-size:12px;font-weight:600; }
+      #skeletonPublicando .sk-step-status { font-size:10px;margin-top:1px; }
+      #skeletonPublicando .sk-step-right  { margin-left:auto; }
+      #skeletonPublicando .sk-step-right i { font-size:16px; }
+ 
+      /* done */
+      #skeletonPublicando .sk-step.done {
+        background:rgba(34,197,94,.06);
+        border:0.5px solid rgba(34,197,94,.15);
+      }
+      #skeletonPublicando .sk-step.done .sk-step-icon {
+        background:rgba(34,197,94,.15);border:0.5px solid rgba(34,197,94,.3);
+      }
+      #skeletonPublicando .sk-step.done .sk-step-icon i { color:#22c55e; }
+      #skeletonPublicando .sk-step.done .sk-step-label  { color:#e5e7eb; }
+      #skeletonPublicando .sk-step.done .sk-step-status { color:#22c55e; }
+      #skeletonPublicando .sk-step.done .sk-step-right i { color:#22c55e; }
+ 
+      /* active */
+      #skeletonPublicando .sk-step.active {
+        background:rgba(124,58,237,.08);
+        border:0.5px solid rgba(124,58,237,.25);
+      }
+      #skeletonPublicando .sk-step.active .sk-step-icon {
+        background:rgba(124,58,237,.15);border:0.5px solid rgba(124,58,237,.3);
+      }
+      #skeletonPublicando .sk-step.active .sk-step-icon i {
+        color:#a855f7;animation:skPulse 1.4s ease-in-out infinite;
+      }
+      #skeletonPublicando .sk-step.active .sk-step-label  { color:#e5e7eb; }
+      #skeletonPublicando .sk-step.active .sk-step-status { color:#a855f7; }
+      #skeletonPublicando .sk-step.active .sk-step-right i {
+        color:#a855f7;animation:skSpin 1s linear infinite;
+        transform-origin:center;
+      }
+ 
+      /* pending */
+      #skeletonPublicando .sk-step.pending {
+        background:rgba(255,255,255,.02);
+        border:0.5px solid rgba(255,255,255,.06);
+      }
+      #skeletonPublicando .sk-step.pending .sk-step-icon {
+        background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);
+      }
+      #skeletonPublicando .sk-step.pending .sk-step-icon i { color:#52525b; }
+      #skeletonPublicando .sk-step.pending .sk-step-label  { color:#6b7280; }
+      #skeletonPublicando .sk-step.pending .sk-step-status { color:#3f3f46; }
+      #skeletonPublicando .sk-step.pending .sk-step-right i { color:#3f3f46; }
+    </style>
+ 
+    <div class="sk-card">
+      <div class="sk-head">
+        <span class="sk-badge">GEINZ</span>
+        <div class="sk-ring">
+          <svg viewBox="0 0 56 56" width="44" height="44">
+            <defs>
+              <linearGradient id="skGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#7c3aed"/>
+                <stop offset="100%" stop-color="#a855f7"/>
+              </linearGradient>
+            </defs>
+            <circle class="sk-ring-bg"   cx="28" cy="28" r="22"/>
+            <circle class="sk-ring-fill" cx="28" cy="28" r="22"/>
+          </svg>
+        </div>
+      </div>
+ 
+      <p class="sk-title"    id="skTitle">Publicando tu promoción...</p>
+      <p class="sk-subtitle" id="skSubtitle">Esto solo tarda unos segundos</p>
+ 
+      <div class="sk-bar-wrap">
+        <div class="sk-bar" id="skBar" style="width:15%"></div>
+      </div>
+ 
+      <div class="sk-steps" id="skSteps">
+ 
+        <div class="sk-step done" id="sk-step1">
+          <div class="sk-step-icon"><i class="ti ti-shield-check"></i></div>
+          <div>
+            <div class="sk-step-label">Validando datos</div>
+            <div class="sk-step-status" id="sk-status1">Completado</div>
+          </div>
+          <div class="sk-step-right"><i class="ti ti-circle-check"></i></div>
+        </div>
+ 
+        <div class="sk-step active" id="sk-step2">
+          <div class="sk-step-icon"><i class="ti ti-brain"></i></div>
+          <div>
+            <div class="sk-step-label">Analizando con IA</div>
+            <div class="sk-step-status" id="sk-status2">En progreso...</div>
+          </div>
+          <div class="sk-step-right"><i class="ti ti-loader-2"></i></div>
+        </div>
+ 
+        <div class="sk-step pending" id="sk-step3">
+          <div class="sk-step-icon"><i class="ti ti-photo-up"></i></div>
+          <div>
+            <div class="sk-step-label">Subiendo imágenes</div>
+            <div class="sk-step-status" id="sk-status3">Pendiente</div>
+          </div>
+          <div class="sk-step-right"><i class="ti ti-clock"></i></div>
+        </div>
+ 
+        <div class="sk-step pending" id="sk-step4">
+          <div class="sk-step-icon"><i class="ti ti-world-upload"></i></div>
+          <div>
+            <div class="sk-step-label">Publicando en Geinz</div>
+            <div class="sk-step-status" id="sk-status4">Pendiente</div>
+          </div>
+          <div class="sk-step-right"><i class="ti ti-clock"></i></div>
+        </div>
+ 
+      </div>
+    </div>
+  `;
+
     document.body.appendChild(sk);
   }
 
@@ -1650,7 +1841,6 @@ function formatFechaSlash(str) {
       localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
     const url = `https://geinzworkapp.web.app/api/share?t=prms&l=${l}&pi=${id_promocion}`;
 
-    // Quitar modal anterior si existe
     document.getElementById("modalExitoPromo")?.remove();
 
     const modal = document.createElement("div");
@@ -1666,140 +1856,197 @@ function formatFechaSlash(str) {
     <style>
       @keyframes fadeInOverlay { from{opacity:0} to{opacity:1} }
       @keyframes slideUpSheet  { from{transform:translateY(100%)} to{transform:translateY(0)} }
+ 
       #modalExitoPromo .sheet {
         width:100%;max-width:520px;
-        background:#0f0f13;
+        background:#0f0f14;
         border-radius:28px 28px 0 0;
-        border-top:1px solid rgba(255,255,255,.08);
+        border-top:0.5px solid rgba(255,255,255,.09);
         padding:0 0 env(safe-area-inset-bottom,0);
         animation:slideUpSheet .4s cubic-bezier(.34,1.1,.64,1);
         overflow:hidden;
       }
       #modalExitoPromo .handle {
         width:36px;height:4px;
-        background:rgba(255,255,255,.15);border-radius:2px;
+        background:rgba(255,255,255,.13);border-radius:2px;
         margin:14px auto 0;
       }
-      #modalExitoPromo .sheet-inner { padding:24px 24px 32px; }
-      #modalExitoPromo .success-ring {
-        width:72px;height:72px;border-radius:50%;
-        background:rgba(34,197,94,.12);
-        border:1.5px solid rgba(34,197,94,.3);
-        display:flex;align-items:center;justify-content:center;
-        margin:0 auto 20px;
+      #modalExitoPromo .sheet-inner { padding:20px 20px 28px; }
+ 
+      #modalExitoPromo .hero-img {
+        display:block;width:80px;height:80px;
+        object-fit:contain;margin:0 auto 4px;
       }
-      #modalExitoPromo .success-ring i {
-        font-size:32px;color:#22c55e;
+      #modalExitoPromo .hero-fallback {
+        display:none;width:72px;height:72px;border-radius:50%;
+        background:rgba(109,40,217,.15);
+        border:0.5px solid rgba(109,40,217,.3);
+        align-items:center;justify-content:center;
+        margin:0 auto 4px;
       }
+      #modalExitoPromo .hero-fallback i { font-size:30px;color:#a855f7; }
+ 
       #modalExitoPromo h2 {
-        font-size:22px;font-weight:700;color:#fff;
-        text-align:center;margin:0 0 8px;
+        font-size:20px;font-weight:600;color:#fff;
+        text-align:center;margin:0 0 5px;
       }
       #modalExitoPromo .subtitle {
-        font-size:13px;color:#6b7280;text-align:center;
-        line-height:1.5;margin:0 0 24px;
+        font-size:12px;color:#6b7280;text-align:center;
+        line-height:1.5;margin:0 0 18px;
       }
+ 
       #modalExitoPromo .url-box {
-        display:flex;align-items:center;gap:10px;
+        display:flex;align-items:center;gap:8px;
         background:#1a1a24;
-        border:1px solid rgba(255,255,255,.07);
-        border-radius:14px;padding:12px 14px;
-        margin-bottom:20px;
+        border:0.5px solid rgba(255,255,255,.07);
+        border-radius:12px;padding:10px 12px;
+        margin-bottom:14px;
       }
-      #modalExitoPromo .url-box i { font-size:16px;color:#52525b;flex-shrink:0; }
+      #modalExitoPromo .url-box > i { font-size:15px;color:#52525b;flex-shrink:0; }
       #modalExitoPromo .url-text {
-        flex:1;font-size:12px;color:#9ca3af;
+        flex:1;font-size:11px;color:#9ca3af;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
         font-family:monospace;
       }
       #modalExitoPromo .btn-copy {
-        flex-shrink:0;height:32px;padding:0 12px;
-        border:1px solid rgba(255,255,255,.1);
+        flex-shrink:0;height:28px;padding:0 10px;
+        border:0.5px solid rgba(255,255,255,.1);
         background:rgba(255,255,255,.05);
         color:#d1d5db;border-radius:8px;
-        font-size:12px;font-weight:600;cursor:pointer;
-        display:flex;align-items:center;gap:5px;
+        font-size:11px;font-weight:600;cursor:pointer;
+        display:flex;align-items:center;gap:4px;
         transition:background .2s;white-space:nowrap;
       }
       #modalExitoPromo .btn-copy:hover { background:rgba(255,255,255,.1); }
       #modalExitoPromo .btn-copy.copied { color:#22c55e;border-color:rgba(34,197,94,.3); }
+ 
+      #modalExitoPromo .divider {
+        height:0.5px;background:rgba(255,255,255,.06);margin:0 0 14px;
+      }
+ 
       #modalExitoPromo .share-grid {
-        display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;
-        margin-bottom:16px;
+        display:grid;grid-template-columns:1fr 1fr;gap:8px;
+        margin-bottom:14px;
       }
       #modalExitoPromo .share-btn {
-        display:flex;flex-direction:column;align-items:center;gap:6px;
-        padding:14px 8px;border-radius:16px;border:1px solid rgba(255,255,255,.07);
-        background:rgba(255,255,255,.03);cursor:pointer;
-        font-size:11px;font-weight:600;color:#9ca3af;
+        display:flex;align-items:center;gap:10px;
+        padding:12px 14px;border-radius:14px;cursor:pointer;
+        border:0.5px solid rgba(255,255,255,.07);
+        background:rgba(255,255,255,.03);
         transition:background .2s,transform .15s;
       }
-      #modalExitoPromo .share-btn:hover { background:rgba(255,255,255,.07);transform:translateY(-2px); }
-      #modalExitoPromo .share-btn i { font-size:22px; }
-      #modalExitoPromo .share-btn.wp i  { color:#22c55e; }
-      #modalExitoPromo .share-btn.share i { color:#6366f1; }
-      #modalExitoPromo .share-btn.view i  { color:#f59e0b; }
+      #modalExitoPromo .share-btn:hover { background:rgba(255,255,255,.07);transform:translateY(-1px); }
+      #modalExitoPromo .share-btn .sb-icon {
+        width:32px;height:32px;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      }
+      #modalExitoPromo .share-btn .sb-label { font-size:12px;font-weight:600;color:#e5e7eb; }
+      #modalExitoPromo .share-btn .sb-sub   { font-size:10px;color:#6b7280; }
+ 
+      #modalExitoPromo .share-btn.wp   { border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.06); }
+      #modalExitoPromo .share-btn.share { border-color:rgba(99,102,241,.2);background:rgba(99,102,241,.06); }
+      #modalExitoPromo .share-btn.view  {
+        grid-column:1/-1;
+        border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.06);
+      }
+      #modalExitoPromo .share-btn.wp   .sb-icon { background:rgba(34,197,94,.15); }
+      #modalExitoPromo .share-btn.share .sb-icon { background:rgba(99,102,241,.15); }
+      #modalExitoPromo .share-btn.view  .sb-icon { background:rgba(245,158,11,.15); }
+      #modalExitoPromo .share-btn.wp   .sb-icon i { font-size:18px;color:#22c55e; }
+      #modalExitoPromo .share-btn.share .sb-icon i { font-size:18px;color:#818cf8; }
+      #modalExitoPromo .share-btn.view  .sb-icon i { font-size:18px;color:#f59e0b; }
+ 
       #modalExitoPromo .btn-done {
-        width:100%;height:52px;border-radius:16px;border:none;
+        width:100%;height:48px;border-radius:14px;border:none;
         background:linear-gradient(135deg,#7c3aed,#6d28d9);
-        color:#fff;font-size:15px;font-weight:700;
-        cursor:pointer;transition:opacity .2s,transform .15s;
+        color:#fff;font-size:14px;font-weight:600;
+        cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+        transition:opacity .2s,transform .15s;
       }
       #modalExitoPromo .btn-done:hover { opacity:.9;transform:translateY(-1px); }
-      #modalExitoPromo .divider {
-        height:1px;background:rgba(255,255,255,.06);
-        margin:0 0 16px;
-      }
     </style>
-
+ 
     <div class="sheet">
       <div class="handle"></div>
       <div class="sheet-inner">
-
-        <div class="success-ring">
-          <i class="ti ti-check"></i>
+ 
+        <div style="text-align:center;margin-bottom:18px;">
+          <img
+            class="hero-img"
+            src="../img/taza.png"
+            alt="Monedas Geinz"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+          />
+          <div class="hero-fallback">
+            <i class="ti ti-trophy"></i>
+          </div>
         </div>
-
+ 
         <h2>¡Promoción publicada!</h2>
         <p class="subtitle">
           Tu promo ya está visible para todos los usuarios<br>
           de <strong style="color:#fff">${localidad || "tu ciudad"}</strong> en Geinz.
         </p>
-
+ 
         <div class="url-box">
           <i class="ti ti-link"></i>
           <span class="url-text" title="${url}">${url}</span>
           <button class="btn-copy" id="btnCopyUrl">
-            <i class="ti ti-copy" style="font-size:13px"></i> Copiar
+            <i class="ti ti-copy" style="font-size:12px"></i> Copiar
           </button>
         </div>
-
+ 
         <div class="divider"></div>
+ 
+     <div class="share-grid">
+  <button class="share-btn wp" id="btnShareWp">
+    <div class="sb-icon">
+      <img src="../img/whatsapp_icon.png" alt="WhatsApp"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <i class="ti ti-brand-whatsapp" style="display:none"></i>
+    </div>
+    <div>
+      <div class="sb-label">WhatsApp</div>
+      <div class="sb-sub">Compartir promo</div>
+    </div>
+  </button>
 
-        <div class="share-grid">
-          <button class="share-btn wp" id="btnShareWp">
-            <i class="ti ti-brand-whatsapp"></i>
-            WhatsApp
-          </button>
-          <button class="share-btn share" id="btnShareNative">
-            <i class="ti ti-share"></i>
-            Compartir
-          </button>
-          <button class="share-btn view" id="btnVerPromo">
-            <i class="ti ti-external-link"></i>
-            Ver promo
-          </button>
-        </div>
+  <button class="share-btn share" id="btnShareNative">
+    <div class="sb-icon">
+      <img src="../img/compartir_icon_rojo.webp" alt="Compartir"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <i class="ti ti-share" style="display:none"></i>
+    </div>
+    <div>
+      <div class="sb-label">Compartir</div>
+      <div class="sb-sub">Más opciones</div>
+    </div>
+  </button>
 
-        <button class="btn-done" id="btnCerrarExito">Listo</button>
-
+  <button class="share-btn view" id="btnVerPromo">
+    <div class="sb-icon">
+      <img src="../img/logo_geinz.webp" alt="Ver promo"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <i class="ti ti-external-link" style="display:none"></i>
+    </div>
+    <div>
+      <div class="sb-label">Ver mi promo en Geinz</div>
+      <div class="sb-sub">Previsualizar como la ven los usuarios</div>
+    </div>
+  </button>
+</div>
+ 
+        <button class="btn-done" id="btnCerrarExito">
+          <i class="ti ti-check" style="font-size:18px"></i>
+          Listo
+        </button>
+ 
       </div>
     </div>
   `;
 
     document.body.appendChild(modal);
 
-    // Cerrar al tocar el fondo
     modal.addEventListener("click", (e) => {
       if (e.target === modal) cerrarModalExito();
     });
@@ -1810,11 +2057,11 @@ function formatFechaSlash(str) {
         if (b) {
           b.classList.add("copied");
           b.innerHTML =
-            '<i class="ti ti-check" style="font-size:13px"></i> Copiado';
+            '<i class="ti ti-check" style="font-size:12px"></i> Copiado';
           setTimeout(() => {
             b.classList.remove("copied");
             b.innerHTML =
-              '<i class="ti ti-copy" style="font-size:13px"></i> Copiar';
+              '<i class="ti ti-copy" style="font-size:12px"></i> Copiar';
           }, 2200);
         }
       });
