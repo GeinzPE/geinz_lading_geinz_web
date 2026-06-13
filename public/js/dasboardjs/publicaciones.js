@@ -402,6 +402,17 @@ function parseFechaLocal(str) {
   const [y, m, d] = str.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
+// ── FUNCIÓN CENTRALIZADA (reemplaza todos los cálculos dispersos) ──
+function calcularDias() {
+  const fi = document.getElementById("fechaInicio")?.value;
+  const ff = document.getElementById("fechaFin")?.value;
+  if (!fi || !ff) return 0;
+  const inicio = parseFechaLocal(fi);
+  const fin = parseFechaLocal(ff);
+  if (fin < inicio) return 0;
+  // Diferencia exacta en días, sin Math.ceil (la diferencia ya es entera)
+  return Math.round((fin - inicio) / 86400000);
+}
 function calcularCostoTotal() {
   const tipo =
     document.querySelector('input[name="plazo"]:checked')?.value || "dias";
@@ -420,7 +431,7 @@ function calcularCostoTotal() {
       const inicio = parseFechaLocal(fi);
       const fin = parseFechaLocal(ff);
       if (fin >= inicio) {
-        const dias = Math.ceil(Math.abs(fin - inicio) / 86400000) + 1;
+        const dias = calcularDias();
         total = dias * _precios.publicacion_24h;
       }
     }
@@ -671,6 +682,7 @@ function formatFechaSlash(str) {
   const [y, m, d] = str.split("-");
   return `${d}/${m}/${y}`;
 }
+
 (function () {
   const CLOUD_FN_URL =
     "https://us-central1-geinzworkapp.cloudfunctions.net/generar_titulo_descripcion_IA";
@@ -1169,7 +1181,7 @@ function formatFechaSlash(str) {
     const inicio = parseFechaLocal(fi.value),
       fin = parseFechaLocal(ff.value);
     if (fin >= inicio) {
-      const dias = Math.ceil(Math.abs(fin - inicio) / 86400000) + 1;
+      const dias = calcularDias();
       const monedas = dias * _precios.publicacion_24h;
       dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${_precios.publicacion_24h} créditos por día · Inicio: ${fi.value.split("-").reverse().join("/")} · Fin: ${ff.value.split("-").reverse().join("/")}</div></div>`;
       dc.style.display = "block";
@@ -1227,8 +1239,8 @@ function formatFechaSlash(str) {
   };
   (function initDates() {
     const hoy = new Date();
+    const strHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 
-    // ── mañana como mínimo ──
     const manana = new Date(hoy);
     manana.setDate(hoy.getDate() + 1);
     const strManana = `${manana.getFullYear()}-${String(manana.getMonth() + 1).padStart(2, "0")}-${String(manana.getDate()).padStart(2, "0")}`;
@@ -1237,11 +1249,11 @@ function formatFechaSlash(str) {
     const ff = document.getElementById("fechaFin");
 
     if (fi) {
-      fi.value = strManana; // ← default = mañana
-      fi.setAttribute("min", strManana); // ← no puede ser hoy ni antes
+      fi.value = strHoy; // ← default = hoy
+      fi.setAttribute("min", strHoy); // ← puede empezar hoy
     }
     if (ff) {
-      ff.setAttribute("min", strManana);
+      ff.setAttribute("min", strManana); // ← fin mínimo = mañana
       ff.addEventListener("change", () => {
         if (ff.value && ff.value < fi.value) {
           mostrarToast("La fecha final no puede ser menor", "error");
@@ -1395,15 +1407,39 @@ function formatFechaSlash(str) {
     let hora_inicio = horaActual,
       hora_fin = horaActual;
 
+    // ANTES:
+    // DESPUÉS:
     if (tipoPlazoVal === "dias" && fechaInicio && fechaFin) {
+      // Inicio = fecha seleccionada pero con la hora actual exacta
+      const inicioBase = parseFechaLocal(fechaInicio);
+      inicioBase.setHours(
+        ahora.getHours(),
+        ahora.getMinutes(),
+        ahora.getSeconds(),
+        0,
+      );
+
+      // Fin = fecha final + misma hora actual (exactamente N días después)
+      const finBase = parseFechaLocal(fechaFin);
+      finBase.setHours(
+        ahora.getHours(),
+        ahora.getMinutes(),
+        ahora.getSeconds(),
+        0,
+      );
+
       tsInicio = {
-        seconds: Math.floor(parseFechaLocal(fechaInicio).getTime() / 1000),
+        seconds: Math.floor(inicioBase.getTime() / 1000),
         nanoseconds: 0,
       };
       tsFin = {
-        seconds: Math.floor(parseFechaLocal(fechaFin).getTime() / 1000),
+        seconds: Math.floor(finBase.getTime() / 1000),
         nanoseconds: 0,
       };
+
+      // También actualizar hora_inicio y hora_fin con la hora real
+      hora_inicio = horaActual;
+      hora_fin = horaActual;
     } else if (tipoPlazoVal === "horas") {
       const finMs = ahora.getTime() + horasInput * 3600000;
       tsFin = { seconds: Math.floor(finMs / 1000), nanoseconds: 0 };
@@ -1454,25 +1490,7 @@ function formatFechaSlash(str) {
     btn.innerHTML = `<span class="loading-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Publicando...`;
 
     try {
-      skSetStep(1, "Analizando con IA...", "Generando términos clave", 30);
-      let terminosClave = [];
-      try {
-        const textoParaIA = `${titulo} ${descripcion}`.slice(0, 300);
-
-        const resTerminos = await callFirebaseFunction(
-          "https://extraerterminosclaveia-oixttik5rq-uc.a.run.app",
-          {
-            textoUsuario: textoParaIA,
-            categoria,
-            nombreNegocio: nombre_tienda,
-          },
-        );
-        if (resTerminos?.ok && Array.isArray(resTerminos.terminos))
-          terminosClave = resTerminos.terminos;
-      } catch (e) {
-        console.warn("Términos clave fallaron, continuando...", e);
-      }
-
+   
       skSetStep(2, "Subiendo imágenes...", "Procesando tus fotos", 55);
       const { urls, botUrl } = await subirImagenesAStorage(
         id_tienda,
@@ -1529,7 +1547,7 @@ function formatFechaSlash(str) {
         activo_mensaje_whatsapp: sw_whatsapp,
         activo_mensaje_compartir: sw_compartir,
         servicios_comodidades: {},
-        terminos_clave_ia: terminosClave,
+        terminos_clave_ia: [],
         urls_imagenes: urls,
         img_bot: botUrl || urls[0] || "",
         logo_url,
@@ -1545,7 +1563,7 @@ function formatFechaSlash(str) {
         tipo_paquete:
           tipoPlazoVal === "horas"
             ? `Publicidad por ${horasInput} hora${horasInput > 1 ? "s" : ""}`
-            : `Publicidad por ${Math.ceil(Math.abs(parseFechaLocal(fechaFin) - parseFechaLocal(fechaInicio)) / 86400000) + 1} días`,
+            : `Publicidad por ${calcularDias()} día${calcularDias() > 1 ? "s" : ""}`,
       };
 
       const result = await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);

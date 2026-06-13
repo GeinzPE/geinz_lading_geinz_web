@@ -624,10 +624,10 @@ function render(data) {
         const tiendaSnap = await getDoc(
           doc(db, "Tiendas", localidadTienda, localidadTienda, idTienda),
         );
-        const aliasKey = tiendaSnap.exists()
+        const rawAlias = tiendaSnap.exists()
           ? tiendaSnap.data()?.alias_key || null
           : null;
-
+        const aliasKey = rawAlias ? rawAlias.replace(/^perfil\//, "") : null;
         const perfilUrl = aliasKey
           ? `https://geinzworkapp.web.app/perfil/${aliasKey}`
           : `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
@@ -930,3 +930,8 @@ avatarObserver.observe(document.body, { childList: true, subtree: true });
     showDeleted(false);
   }
 })();
+
+history.pushState(null, "", window.location.href);
+window.addEventListener("popstate", () => {
+  window.location.href = `https://geinzworkapp.web.app/scree/promos?loc=${getParams().localidad}`;
+});
