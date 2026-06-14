@@ -51,10 +51,11 @@ const navbar = document.getElementById("navbar");
 let currentSlide = 0;
 let allImages = [];
 let placeData = null;
-let placeId = "p4QWaeKNTgJvUL2kFkDO";
-let locationName = "barranca";
+let placeId = null;
+let locationName = null;
+let categoriaColeccion = "lugares_turisticos";
+let placeAlias = null;
 let autoSlideInterval = null;
-
 /* ════════════════════════════════
    HELPERS
    ════════════════════════════════ */
@@ -62,6 +63,42 @@ let autoSlideInterval = null;
 function getParam(name) {
   const url = new URL(window.location.href);
   return url.searchParams.get(name);
+}
+
+function getAliasFromPath() {
+  // /turismo/{alias}
+  const match = window.location.pathname.match(/\/turismo\/([^/]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function getShareUrl() {
+  if (placeAlias) {
+    return `https://geinzworkapp.web.app/turismo/${placeAlias}`;
+  }
+  // fallback (no debería pasar si se cargó por alias)
+  return `https://geinzworkapp.web.app/api/share?t=tu&id=${placeId}&l=${locationName}&c=${categoriaColeccion}`;
+}
+
+
+/* ════════════════════════════════
+   FETCH PLACE DATA
+   ════════════════════════════════ */
+
+async function resolveAlias(alias) {
+  const aliasRef = doc(db, "alias_turismo", alias);
+  const aliasSnap = await getDoc(aliasRef);
+
+  if (!aliasSnap.exists()) {
+    throw new Error("Alias no encontrado");
+  }
+
+  const aliasData = aliasSnap.data();
+
+  return {
+    id: aliasData.id,
+    localidad: aliasData.localidad,
+    categoria: aliasData.categoria || "lugares_turisticos",
+  };
 }
 
 function showToast(message = "✓ Enlace copiado al portapapeles") {
@@ -273,10 +310,6 @@ function openLightboxFallback(imgUrl) {
    SHARE LOGIC
    ════════════════════════════════ */
 
-function getShareUrl() {
-  return `https://geinzworkapp.web.app/api/share?t=tu&id=${placeId}&l=${locationName}&c=lugares_turisticos`;
-}
-
 async function handleShare() {
   const shareUrl = getShareUrl();
   const title = placeData?.titulo || "Lugar turístico";
@@ -346,25 +379,44 @@ function openInGoogleMaps() {
 async function fetchPlaceData() {
   try {
 
-    const idFromUrl = getParam("id");
+    const alias = getAliasFromPath();
 
-    const locFromUrl =
-      getParam("localidad") ||
-      getParam("l");
+    console.log("🔗 ALIAS URL:", alias);
 
-    console.log("🆔 ID URL:", idFromUrl);
-    console.log("📍 LOCALIDAD URL:", locFromUrl);
+    if (alias) {
+      placeAlias = alias;
 
-    if (idFromUrl) placeId = idFromUrl;
-    if (locFromUrl) locationName = locFromUrl;
+      console.log("🔍 Resolviendo alias:", alias);
 
-    console.log("🔍 Buscando lugar:", locationName, placeId);
+      const { id, localidad, categoria } = await resolveAlias(alias);
+
+      placeId = id;
+      locationName = localidad;
+      categoriaColeccion = categoria;
+
+    } else {
+      // Fallback: formato viejo ?id=&l=
+      const idFromUrl = getParam("id");
+      const locFromUrl = getParam("localidad") || getParam("l");
+
+      console.log("🆔 ID URL:", idFromUrl);
+      console.log("📍 LOCALIDAD URL:", locFromUrl);
+
+      if (!idFromUrl || !locFromUrl) {
+        throw new Error("No se especificó alias ni id/localidad");
+      }
+
+      placeId = idFromUrl;
+      locationName = locFromUrl;
+    }
+
+    console.log("🔍 Buscando lugar:", locationName, categoriaColeccion, placeId);
 
     const docRef = doc(
       db,
       "Tiendas",
       locationName,
-      "lugares_turisticos",
+      categoriaColeccion,
       placeId,
     );
 
@@ -532,6 +584,7 @@ if (shareBtn) {
 }
 
 window.addEventListener("scroll", () => {
+  if (!navbar) return;
   if (window.scrollY > 50) {
     navbar.classList.add("scrolled");
   } else {

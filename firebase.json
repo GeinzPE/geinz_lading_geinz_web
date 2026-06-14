@@ -13,6 +13,10 @@
         "function": "perfilSSR"
       },
       {
+        "source": "/turismo/**",
+        "function": "turismoSSR"
+      },
+      {
         "source": "/sitemap.xml",
         "function": "sitemap"
       },

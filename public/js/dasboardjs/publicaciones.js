@@ -2025,7 +2025,7 @@ const horasInput = parseInt(horasInputRaw);
 
   <button class="share-btn view" id="btnVerPromo">
     <div class="sb-icon">
-      <img src="../img/logo_geinz.webp" alt="Ver promo"
+      <img src="../img/logo_geinz.png" alt="Ver promo"
            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
       <i class="ti ti-external-link" style="display:none"></i>
     </div>
