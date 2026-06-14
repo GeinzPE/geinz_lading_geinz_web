@@ -1,39 +1,39 @@
 
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
-        import {
-            getFirestore,
-            collection,
-            getDocs,
-            doc,
-            getDoc
-        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+    getFirestore,
+    collection,
+    getDocs,
+    doc,
+    getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-            authDomain: "geinzworkapp.firebaseapp.com",
-            projectId: "geinzworkapp",
-            storageBucket: "geinzworkapp.appspot.com",
-            messagingSenderId: "921389328767",
-            appId: "1:921389328767:web:dc6fffc43a51444f5b524a"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+    authDomain: "geinzworkapp.firebaseapp.com",
+    projectId: "geinzworkapp",
+    storageBucket: "geinzworkapp.appspot.com",
+    messagingSenderId: "921389328767",
+    appId: "1:921389328767:web:dc6fffc43a51444f5b524a"
+};
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-        let allPlaces = [];
+let allPlaces = [];
 const params = new URLSearchParams(window.location.search);
 const localidad = params.get('loc');
 
 console.log(localidad);
-        async function renderWithSmoothImages(data) {
+async function renderWithSmoothImages(data) {
 
-            const grid = document.getElementById("placesGrid");
+    const grid = document.getElementById("placesGrid");
 
-            if (data.length === 0) {
+    if (data.length === 0) {
 
-                grid.innerHTML = `
+        grid.innerHTML = `
                     <p style="
                         grid-column:1/-1;
                         text-align:center;
@@ -44,184 +44,174 @@ console.log(localidad);
                     </p>
                 `;
 
-                return;
-            }
+        return;
+    }
 
-            grid.innerHTML = data.map((item, idx) => {
+    grid.innerHTML = data.map((item, idx) => {
 
-                const imgUrl =
-                    item.img?.principal ||
-                    item.img ||
-                    "https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz";
+        const imgUrl =
+            item.img?.principal ||
+            item.img ||
+            "https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz";
 
-                return `
-                
-                <div 
-                    class="card"
-                    data-id="${item.id}"
-                    onclick="window.location.href='turismo?id=${item.id}&l=${localidad}'"
-                    style="animation-delay:${Math.min(idx * .04, .5)}s"
-                >
+      return `
+    <a 
+        class="card"
+        data-id="${item.id}"
+        href="/turismo/${item.alias_key || item.id}"
+        style="animation-delay:${Math.min(idx * .04, .5)}s; text-decoration:none; display:block;"
+    >
+        <div class="img-wrapper loading" id="img-wrapper-${item.id}">
+            <img
+                data-src="${imgUrl}"
+                alt="${item.titulo || 'Lugar'}"
+                id="img-${item.id}"
+            >
+        </div>
 
-                    <div class="img-wrapper loading" id="img-wrapper-${item.id}">
-                        
-                        <img
-                            data-src="${imgUrl}"
-                            alt="${item.titulo || 'Lugar'}"
-                            id="img-${item.id}"
-                        >
+        <div class="card-body">
+            <div class="status-badge">
+                <i class="fas fa-clock"></i>
+                Abierto 24 h
+            </div>
 
-                    </div>
+            <h3 class="card-title">
+                ${item.titulo || "Lugar turístico"}
+            </h3>
 
-                    <div class="card-body">
+            <div class="tag-container">
+                ${(Array.isArray(item.categoria)
+                    ? item.categoria
+                    : [item.categoria])
+                    .filter(c => c)
+                    .map(c => `<span class="tag">${c}</span>`)
+                    .join("")}
+            </div>
+        </div>
+    </a>
+`;
 
-                        <div class="status-badge">
-                            <i class="fas fa-clock"></i>
-                            Abierto 24 h
-                        </div>
+    }).join("");
 
-                        <h3 class="card-title">
-                            ${item.titulo || "Lugar turístico"}
-                        </h3>
+    for (const item of data) {
 
-                        <div class="tag-container">
+        const imgElement = document.getElementById(`img-${item.id}`);
 
-                            ${(Array.isArray(item.categoria)
-                        ? item.categoria
-                        : [item.categoria])
-                        .filter(c => c)
-                        .map(c => `<span class="tag">${c}</span>`)
-                        .join("")}
+        const wrapperElement =
+            document.getElementById(`img-wrapper-${item.id}`);
 
-                        </div>
+        if (!imgElement) continue;
 
-                    </div>
+        const src = imgElement.getAttribute("data-src");
 
-                </div>
+        const tempImg = new Image();
 
-                `;
+        tempImg.onload = () => {
 
-            }).join("");
+            imgElement.src = src;
 
-            for (const item of data) {
+            imgElement.classList.add("loaded");
 
-                const imgElement = document.getElementById(`img-${item.id}`);
+            wrapperElement?.classList.remove("loading");
 
-                const wrapperElement =
-                    document.getElementById(`img-wrapper-${item.id}`);
+        };
 
-                if (!imgElement) continue;
+        tempImg.onerror = () => {
 
-                const src = imgElement.getAttribute("data-src");
+            imgElement.src =
+                "https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz";
 
-                const tempImg = new Image();
+            imgElement.classList.add("loaded");
 
-                tempImg.onload = () => {
+            wrapperElement?.classList.remove("loading");
 
-                    imgElement.src = src;
+        };
 
-                    imgElement.classList.add("loaded");
+        tempImg.src = src;
 
-                    wrapperElement?.classList.remove("loading");
+    }
+}
 
-                };
+async function startApp() {
 
-                tempImg.onerror = () => {
+    try {
 
-                    imgElement.src =
-                        "https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz";
+        const [filterSnap, placesSnap] = await Promise.all([
 
-                    imgElement.classList.add("loaded");
+            getDoc(
+                doc(
+                    db,
+                    "Tiendas",
+                    "categorias",
+                    "categorias",
+                    "turismo"
+                )
+            ),
 
-                    wrapperElement?.classList.remove("loading");
+            getDocs(
+                collection(
+                    db,
+                    "Tiendas",
+                    localidad,
+                    "lugares_turisticos"
+                )
+            )
 
-                };
+        ]);
 
-                tempImg.src = src;
+        if (filterSnap.exists()) {
 
-            }
+            const subcats =
+                filterSnap.data().subcategorias || [];
+
+            const container =
+                document.getElementById("filterContainer");
+
+            subcats.forEach(cat => {
+
+                const btn = document.createElement("button");
+
+                btn.className = "filter-btn";
+
+                btn.textContent = cat;
+
+                btn.setAttribute(
+                    "data-filter",
+                    cat.toLowerCase()
+                );
+
+                btn.onclick = e => filterAction(e.target);
+
+                container.appendChild(btn);
+
+            });
+
         }
 
-        async function startApp() {
+        allPlaces = placesSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
 
-            try {
+        await renderWithSmoothImages(allPlaces);
 
-                const [filterSnap, placesSnap] = await Promise.all([
+        document
+            .getElementById("fullscreenSkeleton")
+            .style.display = "none";
 
-                    getDoc(
-                        doc(
-                            db,
-                            "Tiendas",
-                            "categorias",
-                            "categorias",
-                            "turismo"
-                        )
-                    ),
+        document
+            .getElementById("appContent")
+            .style.display = "block";
 
-                    getDocs(
-                        collection(
-                            db,
-                            "Tiendas",
-                            localidad,
-                            "lugares_turisticos"
-                        )
-                    )
+        document
+            .getElementById("placesGrid")
+            .classList.add("loaded");
 
-                ]);
+    } catch (error) {
 
-                if (filterSnap.exists()) {
+        console.error(error);
 
-                    const subcats =
-                        filterSnap.data().subcategorias || [];
-
-                    const container =
-                        document.getElementById("filterContainer");
-
-                    subcats.forEach(cat => {
-
-                        const btn = document.createElement("button");
-
-                        btn.className = "filter-btn";
-
-                        btn.textContent = cat;
-
-                        btn.setAttribute(
-                            "data-filter",
-                            cat.toLowerCase()
-                        );
-
-                        btn.onclick = e => filterAction(e.target);
-
-                        container.appendChild(btn);
-
-                    });
-
-                }
-
-                allPlaces = placesSnap.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                await renderWithSmoothImages(allPlaces);
-
-                document
-                    .getElementById("fullscreenSkeleton")
-                    .style.display = "none";
-
-                document
-                    .getElementById("appContent")
-                    .style.display = "block";
-
-                document
-                    .getElementById("placesGrid")
-                    .classList.add("loaded");
-
-            } catch (error) {
-
-                console.error(error);
-
-                document.getElementById("fullscreenSkeleton").innerHTML = `
+        document.getElementById("fullscreenSkeleton").innerHTML = `
                 
                     <div style="
                         display:flex;
@@ -268,60 +258,60 @@ console.log(localidad);
                     </div>
 
                 `;
-            }
-        }
+    }
+}
 
-        async function filterAction(btn) {
+async function filterAction(btn) {
 
-            document
-                .querySelectorAll(".filter-btn")
-                .forEach(b => b.classList.remove("active"));
+    document
+        .querySelectorAll(".filter-btn")
+        .forEach(b => b.classList.remove("active"));
 
-            btn.classList.add("active");
+    btn.classList.add("active");
 
-            const filterValue =
-                btn.getAttribute("data-filter");
+    const filterValue =
+        btn.getAttribute("data-filter");
 
-            const grid =
-                document.getElementById("placesGrid");
+    const grid =
+        document.getElementById("placesGrid");
 
-            grid.style.opacity = "0";
+    grid.style.opacity = "0";
 
-            setTimeout(async () => {
+    setTimeout(async () => {
 
-                let filteredData;
+        let filteredData;
 
-                if (filterValue === "todos") {
+        if (filterValue === "todos") {
 
-                    filteredData = allPlaces;
+            filteredData = allPlaces;
 
-                } else {
+        } else {
 
-                    filteredData = allPlaces.filter(p => {
+            filteredData = allPlaces.filter(p => {
 
-                        if (!p.categoria) return false;
+                if (!p.categoria) return false;
 
-                        const categories = Array.isArray(p.categoria)
-                            ? p.categoria.map(c => c.toLowerCase())
-                            : [p.categoria.toLowerCase()];
+                const categories = Array.isArray(p.categoria)
+                    ? p.categoria.map(c => c.toLowerCase())
+                    : [p.categoria.toLowerCase()];
 
-                        return categories.includes(filterValue);
+                return categories.includes(filterValue);
 
-                    });
-
-                }
-
-                await renderWithSmoothImages(filteredData);
-
-                grid.style.opacity = "1";
-
-            }, 150);
-
-            window.scrollTo({
-                top: 0,
-                behavior: "smooth"
             });
+
         }
 
-        startApp();
+        await renderWithSmoothImages(filteredData);
+
+        grid.style.opacity = "1";
+
+    }, 150);
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+}
+
+startApp();
 
