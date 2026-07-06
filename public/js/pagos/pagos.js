@@ -150,7 +150,7 @@ function inicializarCulqi({ monto, culqi_order_id }) {
     paymentMethods: {
       tarjeta: true,
       yape: true,
-      billetera: true,
+      billetera: false,
       bancaMovil: false,
       agente: false,
       cuotealo: false,

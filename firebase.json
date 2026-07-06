@@ -20,7 +20,7 @@
         "source": "/sitemap.xml",
         "function": "sitemap"
       },
-      {
+      { 
         "source": "/redirect/**",
         "destination": "/redirect/index.html"
       },

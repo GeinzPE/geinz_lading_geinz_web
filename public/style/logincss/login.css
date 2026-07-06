@@ -137,14 +137,15 @@ body {
 .ui-root {
   position: relative;
   z-index: 4;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  height: 100vh;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 40px;
+  display: flex;
+  /* ✅ flex simple en vez de grid de 2 columnas */
+  justify-content: center;
+  /* ✅ centra horizontalmente */
   align-items: center;
-  gap: 60px;
+  /* ✅ centra verticalmente */
+  height: 100vh;
+  width: 100%;
+  padding: 0 24px;
 }
 
 /* ── SIDE PANEL (desktop only) ── */
@@ -245,8 +246,11 @@ body {
 .auth-column {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding-left: 20px;
+  justify-content: center;
+  /* ✅ centrado horizontal */
+  padding-left: 0;
+  /* ✅ sin padding que la desplace */
+  width: 100%;
 }
 
 /* ── TARJETA DE BIENVENIDA ── */
@@ -1848,27 +1852,27 @@ input[type="date"].input-field::-webkit-calendar-picker-indicator {
 
 /* Chrome, Edge, Safari */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #111;
-    border-radius: 999px;
+  background: #111;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #333, #000);
-    border-radius: 999px;
-    border: 1px solid #111;
+  background: linear-gradient(180deg, #333, #000);
+  border-radius: 999px;
+  border: 1px solid #111;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #444, #111);
+  background: linear-gradient(180deg, #444, #111);
 }
 
 /* Firefox */
 * {
-    scrollbar-width: thin;
-    scrollbar-color: #000 #111;
+  scrollbar-width: thin;
+  scrollbar-color: #000 #111;
 }
