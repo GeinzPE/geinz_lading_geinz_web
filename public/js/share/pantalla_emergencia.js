@@ -24,7 +24,7 @@ let listadoEmergencias = [];
 
 /* controls effect */
 const params = new URLSearchParams(window.location.search);
-const localidad = params.get("loc");
+const localidad = params.get("loc") || "barranca";
 
 console.log(localidad);
 const controls = document.getElementById("controls");
@@ -37,6 +37,12 @@ window.addEventListener("scroll", () => {
   }
 });
 
+const backBtn = document.getElementById("backBtn");
+if (backBtn) {
+  backBtn.addEventListener("click", () => {
+    window.location.href = "https://geinztech.com/";
+  });
+}
 /* fetch */
 
 async function fetchDatabase() {
@@ -82,6 +88,20 @@ async function fetchDatabase() {
   }, 700);
 }
 
+/* normaliza números al formato 51XXXXXXXXX para WhatsApp */
+function formatWhatsappNumber(number) {
+  let clean = number.replace(/[^0-9]/g, ""); // deja solo dígitos
+
+  // quita ceros a la izquierda por si acaso (ej: "0987654321")
+  clean = clean.replace(/^0+/, "");
+
+  // si no empieza con 51, se lo agregamos
+  if (!clean.startsWith("51")) {
+    clean = "51" + clean;
+  }
+
+  return clean;
+}
 function renderCards(data) {
   if (!data.length) {
     grid.innerHTML = `
@@ -148,8 +168,8 @@ function renderCards(data) {
                  </button>`
             }
 
-            ${hasWhatsapp
-              ? `<a href="https://wa.me/${item.whatsapp.replace(/[^0-9]/g, "")}" target="_blank" class="btn btn-wssp">
+          ${hasWhatsapp
+  ? `<a href="https://wa.me/${formatWhatsappNumber(item.whatsapp)}" target="_blank" class="btn btn-wssp">
                    <i class="fab fa-whatsapp"></i> WhatsApp
                  </a>`
               : `<button class="btn btn-wssp btn-disabled" disabled>

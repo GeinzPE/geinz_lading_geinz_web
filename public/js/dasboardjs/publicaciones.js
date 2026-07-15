@@ -1366,8 +1366,8 @@ function formatFechaSlash(str) {
       document.querySelector('input[name="plazo"]:checked')?.value || "dias";
     const fechaInicio = document.getElementById("fechaInicio")?.value || "";
     const fechaFin = document.getElementById("fechaFin")?.value || "";
-const horasInputRaw = document.getElementById("inputHoras")?.value || "";
-const horasInput = parseInt(horasInputRaw);
+    const horasInputRaw = document.getElementById("inputHoras")?.value || "";
+    const horasInput = parseInt(horasInputRaw);
 
     if (tipoPlazoVal === "dias") {
       if (!fechaInicio || !fechaFin) {
@@ -1378,18 +1378,18 @@ const horasInput = parseInt(horasInputRaw);
         mostrarToast("La fecha final no puede ser menor a la inicial", "error");
         return;
       }
-  } else if (tipoPlazoVal === "horas") {
-  if (
-    horasInputRaw.trim() === "" ||
-    isNaN(horasInput) ||
-    horasInput < 1 ||
-    horasInput > 20
-  ) {
-    mostrarToast("Ingresa una cantidad de horas válida (1–20)", "error");
-    document.getElementById("inputHoras")?.focus();
-    return;
-  }
-}
+    } else if (tipoPlazoVal === "horas") {
+      if (
+        horasInputRaw.trim() === "" ||
+        isNaN(horasInput) ||
+        horasInput < 1 ||
+        horasInput > 20
+      ) {
+        mostrarToast("Ingresa una cantidad de horas válida (1–20)", "error");
+        document.getElementById("inputHoras")?.focus();
+        return;
+      }
+    }
 
     // Verificar saldo
     const total = calcularCostoTotal();
@@ -1591,198 +1591,210 @@ const horasInput = parseInt(horasInputRaw);
     sk.id = "skeletonPublicando";
 
     sk.innerHTML = `
-    <style>
-      #skeletonPublicando {
-        position:fixed;inset:0;z-index:9998;
-        background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
-        display:flex;align-items:center;justify-content:center;
-        animation:skFadeIn .25s ease;
-      }
-      @keyframes skFadeIn { from{opacity:0} to{opacity:1} }
-      @keyframes skSpin    { to{stroke-dashoffset:-138} }
-      @keyframes skPulse   { 0%,100%{opacity:1} 50%{opacity:.35} }
-      @keyframes skFillBar { from{width:15%} to{width:82%} }
- 
-      #skeletonPublicando .sk-card {
-        width:calc(100% - 32px);max-width:360px;
-        background:#0f0f14;
-        border-radius:20px;
-        border:0.5px solid rgba(255,255,255,.08);
-        padding:28px 24px 32px;
-      }
- 
-      #skeletonPublicando .sk-head {
-        display:flex;align-items:center;
-        justify-content:space-between;margin-bottom:24px;
-      }
-      #skeletonPublicando .sk-badge {
-        font-size:10px;font-weight:700;letter-spacing:.12em;
-        color:#7c3aed;
-        background:rgba(124,58,237,.12);
-        border:0.5px solid rgba(124,58,237,.25);
-        padding:4px 10px;border-radius:6px;
-      }
-      #skeletonPublicando .sk-ring svg { display:block; }
-      #skeletonPublicando .sk-ring-bg  {
-        fill:none;stroke:rgba(255,255,255,.07);stroke-width:3.5;
-      }
-      #skeletonPublicando .sk-ring-fill {
-        fill:none;stroke:url(#skGrad);stroke-width:3.5;
-        stroke-dasharray:138;stroke-dashoffset:0;stroke-linecap:round;
-        animation:skSpin 1.4s linear infinite;
-        transform-origin:28px 28px;transform:rotate(-90deg);
-      }
- 
-      #skeletonPublicando .sk-title {
-        font-size:17px;font-weight:600;color:#fff;margin:0 0 4px;
-      }
-      #skeletonPublicando .sk-subtitle {
-        font-size:12px;color:#6b7280;margin:0 0 20px;
-      }
- 
-      #skeletonPublicando .sk-bar-wrap {
-        background:#1a1a24;border-radius:8px;
-        height:6px;overflow:hidden;margin-bottom:24px;
-      }
-      #skeletonPublicando .sk-bar {
-        height:100%;border-radius:8px;
-        background:linear-gradient(90deg,#7c3aed,#a855f7);
-        animation:skFillBar 3s ease-out forwards;
-      }
- 
-      #skeletonPublicando .sk-steps {
-        display:flex;flex-direction:column;gap:10px;
-      }
-      #skeletonPublicando .sk-step {
-        display:flex;align-items:center;gap:12px;
-        padding:10px 12px;border-radius:12px;
-      }
-      #skeletonPublicando .sk-step-icon {
-        width:32px;height:32px;border-radius:50%;
-        display:flex;align-items:center;justify-content:center;flex-shrink:0;
-      }
-      #skeletonPublicando .sk-step-icon i { font-size:16px; }
-      #skeletonPublicando .sk-step-label  { font-size:12px;font-weight:600; }
-      #skeletonPublicando .sk-step-status { font-size:10px;margin-top:1px; }
-      #skeletonPublicando .sk-step-right  { margin-left:auto; }
-      #skeletonPublicando .sk-step-right i { font-size:16px; }
- 
-      /* done */
-      #skeletonPublicando .sk-step.done {
-        background:rgba(34,197,94,.06);
-        border:0.5px solid rgba(34,197,94,.15);
-      }
-      #skeletonPublicando .sk-step.done .sk-step-icon {
-        background:rgba(34,197,94,.15);border:0.5px solid rgba(34,197,94,.3);
-      }
-      #skeletonPublicando .sk-step.done .sk-step-icon i { color:#22c55e; }
-      #skeletonPublicando .sk-step.done .sk-step-label  { color:#e5e7eb; }
-      #skeletonPublicando .sk-step.done .sk-step-status { color:#22c55e; }
-      #skeletonPublicando .sk-step.done .sk-step-right i { color:#22c55e; }
- 
-      /* active */
-      #skeletonPublicando .sk-step.active {
-        background:rgba(124,58,237,.08);
-        border:0.5px solid rgba(124,58,237,.25);
-      }
-      #skeletonPublicando .sk-step.active .sk-step-icon {
-        background:rgba(124,58,237,.15);border:0.5px solid rgba(124,58,237,.3);
-      }
-      #skeletonPublicando .sk-step.active .sk-step-icon i {
-        color:#a855f7;animation:skPulse 1.4s ease-in-out infinite;
-      }
-      #skeletonPublicando .sk-step.active .sk-step-label  { color:#e5e7eb; }
-      #skeletonPublicando .sk-step.active .sk-step-status { color:#a855f7; }
-      #skeletonPublicando .sk-step.active .sk-step-right i {
-        color:#a855f7;animation:skSpin 1s linear infinite;
-        transform-origin:center;
-      }
- 
-      /* pending */
-      #skeletonPublicando .sk-step.pending {
-        background:rgba(255,255,255,.02);
-        border:0.5px solid rgba(255,255,255,.06);
-      }
-      #skeletonPublicando .sk-step.pending .sk-step-icon {
-        background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);
-      }
-      #skeletonPublicando .sk-step.pending .sk-step-icon i { color:#52525b; }
-      #skeletonPublicando .sk-step.pending .sk-step-label  { color:#6b7280; }
-      #skeletonPublicando .sk-step.pending .sk-step-status { color:#3f3f46; }
-      #skeletonPublicando .sk-step.pending .sk-step-right i { color:#3f3f46; }
-    </style>
- 
-    <div class="sk-card">
-      <div class="sk-head">
-        <span class="sk-badge">GEINZ</span>
-        <div class="sk-ring">
-          <svg viewBox="0 0 56 56" width="44" height="44">
-            <defs>
-              <linearGradient id="skGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#7c3aed"/>
-                <stop offset="100%" stop-color="#a855f7"/>
-              </linearGradient>
-            </defs>
-            <circle class="sk-ring-bg"   cx="28" cy="28" r="22"/>
-            <circle class="sk-ring-fill" cx="28" cy="28" r="22"/>
-          </svg>
-        </div>
+<style>
+  #skeletonPublicando {
+    position:fixed;inset:0;z-index:9998;
+    background:rgba(7,6,10,0.85);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    display:flex;align-items:center;justify-content:center;
+    animation:skFadeIn .35s ease;padding:20px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+  }
+  @keyframes skFadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes skRingSpin { to{stroke-dashoffset:-176} }
+  @keyframes skPulse   { 0%,100%{opacity:1} 50%{opacity:.35} }
+  @keyframes skFillBar { from{width:8%} to{width:82%} }
+  @keyframes skPop     { 0%{transform:scale(.94) translateY(10px);opacity:0} 100%{transform:scale(1) translateY(0);opacity:1} }
+  @keyframes skLineGrow{ from{height:0} to{height:100%} }
+
+  #skeletonPublicando .sk-card {
+    width:100%;max-width:380px;
+    background:#101017;
+    border-radius:26px;
+    border:1px solid rgba(255,255,255,0.07);
+    padding:28px 24px 24px;
+    animation:skPop .4s cubic-bezier(.22,1,.36,1);
+    box-shadow:0 30px 70px -20px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.02) inset;
+  }
+
+  #skeletonPublicando .sk-head {
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;
+  }
+  #skeletonPublicando .sk-badge {
+    display:flex;align-items:center;gap:6px;
+    font-size:10px;font-weight:700;letter-spacing:.12em;
+    color:#c4b5fd;
+    background:rgba(124,58,237,0.14);
+    border:1px solid rgba(124,58,237,0.28);
+    padding:5px 10px;border-radius:99px;
+  }
+  #skeletonPublicando .sk-badge-dot {
+    width:5px;height:5px;border-radius:50%;
+    background:linear-gradient(135deg,#a78bfa,#7c3aed);
+    animation:skPulse 1.6s ease infinite;
+  }
+
+  #skeletonPublicando .sk-ring-wrap { position:relative;width:46px;height:46px; }
+  #skeletonPublicando .sk-ring svg { display:block; }
+  #skeletonPublicando .sk-ring-bg  { fill:none;stroke:rgba(255,255,255,.05);stroke-width:3; }
+  #skeletonPublicando .sk-ring-fill {
+    fill:none;stroke:url(#skGrad);stroke-width:3;
+    stroke-dasharray:88 176;stroke-dashoffset:0;stroke-linecap:round;
+    animation:skRingSpin 1.5s linear infinite;
+    transform-origin:23px 23px;transform:rotate(-90deg);
+  }
+  #skeletonPublicando .sk-ring-pct {
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:700;color:#e9e4f7;
+  }
+
+  #skeletonPublicando .sk-title {
+    font-size:17px;font-weight:650;color:#fff;margin:0 0 3px;letter-spacing:-.2px;
+  }
+  #skeletonPublicando .sk-subtitle {
+    font-size:12.5px;color:#78748a;margin:0 0 22px;
+  }
+
+  #skeletonPublicando .sk-bar-wrap {
+    background:rgba(255,255,255,0.045);border-radius:99px;
+    height:4px;overflow:hidden;margin-bottom:26px;
+  }
+  #skeletonPublicando .sk-bar {
+    height:100%;border-radius:99px;
+    background:linear-gradient(90deg,#7c3aed,#a78bfa);
+    animation:skFillBar 3s cubic-bezier(.22,1,.36,1) forwards;
+  }
+
+  #skeletonPublicando .sk-steps { display:flex;flex-direction:column; }
+  #skeletonPublicando .sk-step {
+    display:flex;align-items:flex-start;gap:14px;
+    padding:9px 4px;border-radius:14px;position:relative;
+    transition:opacity .35s ease;
+  }
+  #skeletonPublicando .sk-step-track {
+    display:flex;flex-direction:column;align-items:center;
+    flex-shrink:0;
+  }
+  #skeletonPublicando .sk-step-icon {
+    width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    transition:all .35s ease;position:relative;z-index:1;
+    background:rgba(255,255,255,.04);
+    border:1.5px solid rgba(255,255,255,.08);
+  }
+  #skeletonPublicando .sk-step-icon .material-symbols-outlined { font-size:14px;color:#4a4658; }
+  #skeletonPublicando .sk-step-line {
+    width:1.5px;flex:1;min-height:22px;
+    background:rgba(255,255,255,.06);
+    margin:2px 0;
+  }
+  #skeletonPublicando .sk-step-line.filled {
+    background:linear-gradient(180deg,#7c3aed,rgba(124,58,237,.15));
+  }
+  #skeletonPublicando .sk-step-body { padding-top:4px; }
+  #skeletonPublicando .sk-step-label  { font-size:13px;font-weight:600;color:#4a4658;transition:color .35s ease; }
+  #skeletonPublicando .sk-step-status { font-size:11px;margin-top:2px;color:#3d3a48;transition:color .35s ease; }
+
+  #skeletonPublicando .sk-step.done .sk-step-icon {
+    background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.3);
+  }
+  #skeletonPublicando .sk-step.done .sk-step-icon .material-symbols-outlined { color:#4ade80; }
+  #skeletonPublicando .sk-step.done .sk-step-label  { color:#d4d0e0; }
+  #skeletonPublicando .sk-step.done .sk-step-status { color:#4ade80; }
+
+  #skeletonPublicando .sk-step.active .sk-step-icon {
+    background:rgba(124,58,237,.16);border-color:rgba(124,58,237,.4);
+    box-shadow:0 0 0 4px rgba(124,58,237,.08);
+  }
+  #skeletonPublicando .sk-step.active .sk-step-icon .material-symbols-outlined {
+    color:#c4b5fd;animation:skPulse 1.3s ease-in-out infinite;
+  }
+  #skeletonPublicando .sk-step.active .sk-step-label  { color:#fff; }
+  #skeletonPublicando .sk-step.active .sk-step-status { color:#c4b5fd; }
+
+  #skeletonPublicando .sk-step.pending { opacity:.5; }
+</style>
+
+<div class="sk-card">
+  <div class="sk-head">
+    <span class="sk-badge"><span class="sk-badge-dot"></span>GEINZ</span>
+    <div class="sk-ring-wrap">
+      <div class="sk-ring">
+        <svg viewBox="0 0 46 46" width="46" height="46">
+          <defs>
+            <linearGradient id="skGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#7c3aed"/>
+              <stop offset="100%" stop-color="#c4b5fd"/>
+            </linearGradient>
+          </defs>
+          <circle class="sk-ring-bg"   cx="23" cy="23" r="19.5"/>
+          <circle class="sk-ring-fill" cx="23" cy="23" r="19.5"/>
+        </svg>
       </div>
- 
-      <p class="sk-title"    id="skTitle">Publicando tu promoción...</p>
-      <p class="sk-subtitle" id="skSubtitle">Esto solo tarda unos segundos</p>
- 
-      <div class="sk-bar-wrap">
-        <div class="sk-bar" id="skBar" style="width:15%"></div>
+      <div class="sk-ring-pct" id="skPct">25%</div>
+    </div>
+  </div>
+
+  <p class="sk-title"    id="skTitle">Publicando tu promoción</p>
+  <p class="sk-subtitle" id="skSubtitle">Esto solo tarda unos segundos</p>
+
+  <div class="sk-bar-wrap">
+    <div class="sk-bar" id="skBar" style="width:15%"></div>
+  </div>
+
+  <div class="sk-steps" id="skSteps">
+
+    <div class="sk-step done" id="sk-step1">
+      <div class="sk-step-track">
+        <div class="sk-step-icon"><span class="material-symbols-outlined">check</span></div>
+        <div class="sk-step-line filled"></div>
       </div>
- 
-      <div class="sk-steps" id="skSteps">
- 
-        <div class="sk-step done" id="sk-step1">
-          <div class="sk-step-icon"><i class="ti ti-shield-check"></i></div>
-          <div>
-            <div class="sk-step-label">Validando datos</div>
-            <div class="sk-step-status" id="sk-status1">Completado</div>
-          </div>
-          <div class="sk-step-right"><i class="ti ti-circle-check"></i></div>
-        </div>
- 
-        <div class="sk-step active" id="sk-step2">
-          <div class="sk-step-icon"><i class="ti ti-brain"></i></div>
-          <div>
-            <div class="sk-step-label">Analizando con IA</div>
-            <div class="sk-step-status" id="sk-status2">En progreso...</div>
-          </div>
-          <div class="sk-step-right"><i class="ti ti-loader-2"></i></div>
-        </div>
- 
-        <div class="sk-step pending" id="sk-step3">
-          <div class="sk-step-icon"><i class="ti ti-photo-up"></i></div>
-          <div>
-            <div class="sk-step-label">Subiendo imágenes</div>
-            <div class="sk-step-status" id="sk-status3">Pendiente</div>
-          </div>
-          <div class="sk-step-right"><i class="ti ti-clock"></i></div>
-        </div>
- 
-        <div class="sk-step pending" id="sk-step4">
-          <div class="sk-step-icon"><i class="ti ti-world-upload"></i></div>
-          <div>
-            <div class="sk-step-label">Publicando en Geinz</div>
-            <div class="sk-step-status" id="sk-status4">Pendiente</div>
-          </div>
-          <div class="sk-step-right"><i class="ti ti-clock"></i></div>
-        </div>
- 
+      <div class="sk-step-body">
+        <div class="sk-step-label">Validando datos</div>
+        <div class="sk-step-status" id="sk-status1">Completado</div>
       </div>
     </div>
-  `;
+
+    <div class="sk-step active" id="sk-step2">
+      <div class="sk-step-track">
+        <div class="sk-step-icon"><span class="material-symbols-outlined">auto_awesome</span></div>
+        <div class="sk-step-line"></div>
+      </div>
+      <div class="sk-step-body">
+        <div class="sk-step-label">Analizando con IA</div>
+        <div class="sk-step-status" id="sk-status2">En progreso...</div>
+      </div>
+    </div>
+
+    <div class="sk-step pending" id="sk-step3">
+      <div class="sk-step-track">
+        <div class="sk-step-icon"><span class="material-symbols-outlined">image</span></div>
+        <div class="sk-step-line"></div>
+      </div>
+      <div class="sk-step-body">
+        <div class="sk-step-label">Subiendo imágenes</div>
+        <div class="sk-step-status" id="sk-status3">Pendiente</div>
+      </div>
+    </div>
+
+    <div class="sk-step pending" id="sk-step4">
+      <div class="sk-step-track">
+        <div class="sk-step-icon"><span class="material-symbols-outlined">public</span></div>
+      </div>
+      <div class="sk-step-body">
+        <div class="sk-step-label">Publicando en Geinz</div>
+        <div class="sk-step-status" id="sk-status4">Pendiente</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+`;
 
     document.body.appendChild(sk);
   }
-
   function skSetStep(stepNum, titleText, subtitleText, barPct) {
-    const icons = ["ti-check", "ti-cpu", "ti-photo", "ti-world"];
+    const icons = ["shield_check", "auto_awesome", "image", "public"];
     ["sk-step1", "sk-step2", "sk-step3", "sk-step4"].forEach((id, idx) => {
       const el = document.getElementById(id);
       const st = document.getElementById(`sk-status${idx + 1}`);
@@ -1790,26 +1802,28 @@ const horasInput = parseInt(horasInputRaw);
       if (idx < stepNum) {
         el.className = "sk-step done";
         el.querySelector(".sk-step-icon").innerHTML =
-          '<i class="ti ti-check"></i>';
+          '<span class="material-symbols-outlined">check_circle</span>';
         if (st) st.textContent = "Completado";
       } else if (idx === stepNum) {
         el.className = "sk-step active";
         el.querySelector(".sk-step-icon").innerHTML =
-          `<i class="ti ${icons[idx]}"></i>`;
+          `<span class="material-symbols-outlined">${icons[idx]}</span>`;
         if (st) st.textContent = "En progreso...";
       } else {
         el.className = "sk-step pending";
         el.querySelector(".sk-step-icon").innerHTML =
-          `<i class="ti ${icons[idx]}"></i>`;
+          `<span class="material-symbols-outlined">${icons[idx]}</span>`;
         if (st) st.textContent = "Pendiente";
       }
     });
     const t = document.getElementById("skTitle");
     const s = document.getElementById("skSubtitle");
     const b = document.getElementById("skBar");
+    const pctEl = document.getElementById("skPct");
     if (t) t.textContent = titleText;
     if (s) s.textContent = subtitleText;
     if (b) b.style.width = barPct + "%";
+    if (pctEl) pctEl.textContent = barPct + "%";
   }
 
   function ocultarSkeleton() {
@@ -1818,18 +1832,23 @@ const horasInput = parseInt(horasInputRaw);
     const t = document.getElementById("skTitle");
     const s = document.getElementById("skSubtitle");
     const b = document.getElementById("skBar");
-    if (t) t.textContent = "¡Publicado con éxito! 🎉";
+    const pctEl = document.getElementById("skPct");
+    if (t) t.textContent = "¡Publicado con éxito!";
     if (s) s.textContent = "Tu promoción ya está visible en Geinz";
     if (b) {
       b.style.width = "100%";
-      b.style.background = "#16a34a";
+      b.style.background = "linear-gradient(90deg,#22c55e,#4ade80)";
+    }
+    if (pctEl) {
+      pctEl.textContent = "100%";
+      pctEl.style.color = "#4ade80";
     }
     ["sk-step1", "sk-step2", "sk-step3", "sk-step4"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) {
         el.className = "sk-step done";
         el.querySelector(".sk-step-icon").innerHTML =
-          '<i class="ti ti-check"></i>';
+          '<span class="material-symbols-outlined">check_circle</span>';
       }
     });
     setTimeout(() => sk.remove(), 1800);
@@ -1839,7 +1858,7 @@ const horasInput = parseInt(horasInputRaw);
     const localidadMap = { barranca: "ba", lima: "li", callao: "ca" };
     const l =
       localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
-    const url = `https://geinzworkapp.web.app/api/share?t=prms&l=${l}&pi=${id_promocion}`;
+    const url = `https://geinztech.com/api/share?t=prms&l=${l}&pi=${id_promocion}`;
 
     document.getElementById("modalExitoPromo")?.remove();
 
@@ -1856,156 +1875,148 @@ const horasInput = parseInt(horasInputRaw);
     <style>
       @keyframes fadeInOverlay { from{opacity:0} to{opacity:1} }
       @keyframes slideUpSheet  { from{transform:translateY(100%)} to{transform:translateY(0)} }
- 
+
       #modalExitoPromo .sheet {
         width:100%;max-width:520px;
-        background:#0f0f14;
-        border-radius:28px 28px 0 0;
-        border-top:0.5px solid rgba(255,255,255,.09);
+        background:#0d0c12;
+        border-radius:30px 30px 0 0;
+        border-top:1px solid rgba(255,255,255,.07);
         padding:0 0 env(safe-area-inset-bottom,0);
-        animation:slideUpSheet .4s cubic-bezier(.34,1.1,.64,1);
+        animation:slideUpSheet .45s cubic-bezier(.22,1,.36,1);
         overflow:hidden;
       }
       #modalExitoPromo .handle {
         width:36px;height:4px;
-        background:rgba(255,255,255,.13);border-radius:2px;
+        background:rgba(255,255,255,.15);border-radius:2px;
         margin:14px auto 0;
       }
-      #modalExitoPromo .sheet-inner { padding:20px 20px 28px; }
- 
-      #modalExitoPromo .hero-img {
-        display:block;width:80px;height:80px;
-        object-fit:contain;margin:0 auto 4px;
+      #modalExitoPromo .sheet-inner { padding:24px 22px 28px; }
+
+      #modalExitoPromo .hero-badge {
+        width:64px;height:64px;border-radius:20px;
+        margin:4px auto 18px;
+        background:linear-gradient(155deg,#7c3aed,#4c1d95);
+        display:flex;align-items:center;justify-content:center;
+        box-shadow:0 12px 28px -8px rgba(124,58,237,.55);
       }
-      #modalExitoPromo .hero-fallback {
-        display:none;width:72px;height:72px;border-radius:50%;
-        background:rgba(109,40,217,.15);
-        border:0.5px solid rgba(109,40,217,.3);
-        align-items:center;justify-content:center;
-        margin:0 auto 4px;
-      }
-      #modalExitoPromo .hero-fallback i { font-size:30px;color:#a855f7; }
- 
+      #modalExitoPromo .hero-badge svg { width:30px;height:30px; }
+
       #modalExitoPromo h2 {
-        font-size:20px;font-weight:600;color:#fff;
-        text-align:center;margin:0 0 5px;
+        font-size:21px;font-weight:700;color:#fff;
+        text-align:center;margin:0 0 6px;letter-spacing:-.3px;
       }
       #modalExitoPromo .subtitle {
-        font-size:12px;color:#6b7280;text-align:center;
-        line-height:1.5;margin:0 0 18px;
+        font-size:13px;color:#8b869b;text-align:center;
+        line-height:1.5;margin:0 0 20px;
       }
- 
+
       #modalExitoPromo .url-box {
         display:flex;align-items:center;gap:8px;
-        background:#1a1a24;
-        border:0.5px solid rgba(255,255,255,.07);
-        border-radius:12px;padding:10px 12px;
-        margin-bottom:14px;
+        background:#17151f;
+        border:1px solid rgba(255,255,255,.06);
+        border-radius:14px;padding:11px 12px;
+        margin-bottom:16px;
       }
-      #modalExitoPromo .url-box > i { font-size:15px;color:#52525b;flex-shrink:0; }
+      #modalExitoPromo .url-box svg { flex-shrink:0;width:15px;height:15px;color:#5c5670; }
       #modalExitoPromo .url-text {
-        flex:1;font-size:11px;color:#9ca3af;
+        flex:1;font-size:11px;color:#a29cb5;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-        font-family:monospace;
+        font-family:'SF Mono',monospace;
       }
       #modalExitoPromo .btn-copy {
-        flex-shrink:0;height:28px;padding:0 10px;
-        border:0.5px solid rgba(255,255,255,.1);
-        background:rgba(255,255,255,.05);
-        color:#d1d5db;border-radius:8px;
-        font-size:11px;font-weight:600;cursor:pointer;
-        display:flex;align-items:center;gap:4px;
+        flex-shrink:0;height:28px;padding:0 12px;
+        border:none;
+        background:rgba(124,58,237,.18);
+        color:#c4b5fd;border-radius:9px;
+        font-size:11px;font-weight:700;cursor:pointer;
+        display:flex;align-items:center;gap:5px;
         transition:background .2s;white-space:nowrap;
       }
-      #modalExitoPromo .btn-copy:hover { background:rgba(255,255,255,.1); }
-      #modalExitoPromo .btn-copy.copied { color:#22c55e;border-color:rgba(34,197,94,.3); }
- 
+      #modalExitoPromo .btn-copy svg { width:12px;height:12px; }
+      #modalExitoPromo .btn-copy:hover { background:rgba(124,58,237,.3); }
+      #modalExitoPromo .btn-copy.copied { color:#4ade80;background:rgba(74,222,128,.15); }
+
       #modalExitoPromo .divider {
         height:0.5px;background:rgba(255,255,255,.06);margin:0 0 14px;
       }
- 
+
       #modalExitoPromo .share-grid {
-        display:grid;grid-template-columns:1fr 1fr;gap:8px;
-        margin-bottom:14px;
+        display:grid;grid-template-columns:1fr 1fr;gap:10px;
+        margin-bottom:16px;
       }
       #modalExitoPromo .share-btn {
-        display:flex;align-items:center;gap:10px;
-        padding:12px 14px;border-radius:14px;cursor:pointer;
-        border:0.5px solid rgba(255,255,255,.07);
-        background:rgba(255,255,255,.03);
-        transition:background .2s,transform .15s;
+        display:flex;align-items:center;gap:11px;
+        padding:13px 14px;border-radius:16px;cursor:pointer;
+        border:1px solid rgba(255,255,255,.06);
+        background:#15131c;
+        transition:transform .18s ease,border-color .18s ease;
+        text-align:left;
       }
-      #modalExitoPromo .share-btn:hover { background:rgba(255,255,255,.07);transform:translateY(-1px); }
+      #modalExitoPromo .share-btn:active { transform:scale(.97); }
       #modalExitoPromo .share-btn .sb-icon {
-        width:32px;height:32px;border-radius:50%;
+        width:34px;height:34px;border-radius:11px;
         display:flex;align-items:center;justify-content:center;flex-shrink:0;
       }
-      #modalExitoPromo .share-btn .sb-label { font-size:12px;font-weight:600;color:#e5e7eb; }
-      #modalExitoPromo .share-btn .sb-sub   { font-size:10px;color:#6b7280; }
- 
-      #modalExitoPromo .share-btn.wp   { border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.06); }
-      #modalExitoPromo .share-btn.share { border-color:rgba(99,102,241,.2);background:rgba(99,102,241,.06); }
-      #modalExitoPromo .share-btn.view  {
-        grid-column:1/-1;
-        border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.06);
+      #modalExitoPromo .share-btn .sb-icon img { width:18px;height:18px;object-fit:contain;display:block; }
+      #modalExitoPromo .share-btn .sb-icon svg { width:17px;height:17px;display:block; }
+      #modalExitoPromo .share-btn .sb-text {
+        display:flex;flex-direction:column;justify-content:center;
+        min-width:0;
       }
-      #modalExitoPromo .share-btn.wp   .sb-icon { background:rgba(34,197,94,.15); }
-      #modalExitoPromo .share-btn.share .sb-icon { background:rgba(99,102,241,.15); }
-      #modalExitoPromo .share-btn.view  .sb-icon { background:rgba(245,158,11,.15); }
-      #modalExitoPromo .share-btn.wp   .sb-icon i { font-size:18px;color:#22c55e; }
-      #modalExitoPromo .share-btn.share .sb-icon i { font-size:18px;color:#818cf8; }
-      #modalExitoPromo .share-btn.view  .sb-icon i { font-size:18px;color:#f59e0b; }
- 
+      #modalExitoPromo .share-btn .sb-label { font-size:12.5px;font-weight:650;color:#f0eef5;line-height:1.3; }
+      #modalExitoPromo .share-btn .sb-sub   { font-size:10.5px;color:#6b6680;margin-top:2px;line-height:1.3; }
+
+      #modalExitoPromo .share-btn.wp    { border-color:rgba(34,197,94,.18); }
+      #modalExitoPromo .share-btn.share { border-color:rgba(129,140,248,.18); }
+      #modalExitoPromo .share-btn.view  { grid-column:1/-1;border-color:rgba(245,158,11,.18); }
+      #modalExitoPromo .share-btn.wp    .sb-icon { background:rgba(34,197,94,.14); }
+      #modalExitoPromo .share-btn.share .sb-icon { background:rgba(129,140,248,.14); }
+      #modalExitoPromo .share-btn.view  .sb-icon { background:rgba(245,158,11,.14); }
+      #modalExitoPromo .share-btn.wp    .sb-icon svg { color:#22c55e; }
+      #modalExitoPromo .share-btn.share .sb-icon svg { color:#818cf8; }
+      #modalExitoPromo .share-btn.view  .sb-icon svg { color:#f59e0b; }
+
       #modalExitoPromo .btn-done {
-        width:100%;height:48px;border-radius:14px;border:none;
-        background:linear-gradient(135deg,#7c3aed,#6d28d9);
-        color:#fff;font-size:14px;font-weight:600;
+        width:100%;height:50px;border-radius:15px;border:none;
+        background:linear-gradient(135deg,#8b5cf6,#6d28d9);
+        color:#fff;font-size:14.5px;font-weight:650;
         cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
-        transition:opacity .2s,transform .15s;
+        box-shadow:0 10px 24px -8px rgba(124,58,237,.5);
+        transition:transform .15s ease,box-shadow .15s ease;
       }
-      #modalExitoPromo .btn-done:hover { opacity:.9;transform:translateY(-1px); }
+      #modalExitoPromo .btn-done svg { width:18px;height:18px; }
+      #modalExitoPromo .btn-done:active { transform:scale(.98); }
     </style>
- 
+
     <div class="sheet">
       <div class="handle"></div>
       <div class="sheet-inner">
- 
-        <div style="text-align:center;margin-bottom:18px;">
-          <img
-            class="hero-img"
-            src="../img/taza.png"
-            alt="Monedas Geinz"
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
-          />
-          <div class="hero-fallback">
-            <i class="ti ti-trophy"></i>
-          </div>
-        </div>
- 
-        <h2>¡Promoción publicada!</h2>
+
+      
+      <h2>¡Promoción publicada!</h2>
         <p class="subtitle">
           Tu promo ya está visible para todos los usuarios<br>
           de <strong style="color:#fff">${localidad || "tu ciudad"}</strong> en Geinz.
         </p>
- 
+
         <div class="url-box">
-          <i class="ti ti-link"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.36-1.36"/></svg>
           <span class="url-text" title="${url}">${url}</span>
           <button class="btn-copy" id="btnCopyUrl">
-            <i class="ti ti-copy" style="font-size:12px"></i> Copiar
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar
           </button>
         </div>
- 
+
         <div class="divider"></div>
- 
+
      <div class="share-grid">
   <button class="share-btn wp" id="btnShareWp">
     <div class="sb-icon">
       <img src="../img/whatsapp_icon.png" alt="WhatsApp"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-      <i class="ti ti-brand-whatsapp" style="display:none"></i>
+           onerror="this.remove();">
     </div>
-    <div>
+    <div class="sb-text">
       <div class="sb-label">WhatsApp</div>
       <div class="sb-sub">Compartir promo</div>
     </div>
@@ -2013,34 +2024,27 @@ const horasInput = parseInt(horasInputRaw);
 
   <button class="share-btn share" id="btnShareNative">
     <div class="sb-icon">
-      <img src="../img/compartir_icon_rojo.webp" alt="Compartir"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-      <i class="ti ti-share" style="display:none"></i>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51 15.42 17.49M15.41 6.51 8.59 10.49"/></svg>
     </div>
-    <div>
+    <div class="sb-text">
       <div class="sb-label">Compartir</div>
       <div class="sb-sub">Más opciones</div>
     </div>
   </button>
 
   <button class="share-btn view" id="btnVerPromo">
-    <div class="sb-icon">
-      <img src="../img/logo_geinz.png" alt="Ver promo"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-      <i class="ti ti-external-link" style="display:none"></i>
-    </div>
-    <div>
+    <div class="sb-text">
       <div class="sb-label">Ver mi promo en Geinz</div>
       <div class="sb-sub">Previsualizar como la ven los usuarios</div>
     </div>
   </button>
 </div>
- 
+
         <button class="btn-done" id="btnCerrarExito">
-          <i class="ti ti-check" style="font-size:18px"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Listo
         </button>
- 
+
       </div>
     </div>
   `;
@@ -2057,11 +2061,11 @@ const horasInput = parseInt(horasInputRaw);
         if (b) {
           b.classList.add("copied");
           b.innerHTML =
-            '<i class="ti ti-check" style="font-size:12px"></i> Copiado';
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copiado';
           setTimeout(() => {
             b.classList.remove("copied");
             b.innerHTML =
-              '<i class="ti ti-copy" style="font-size:12px"></i> Copiar';
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar';
           }, 2200);
         }
       });
@@ -2095,7 +2099,6 @@ const horasInput = parseInt(horasInputRaw);
       setTimeout(() => modal.remove(), 200);
     }
   }
-
   function limpiarFormulario() {
     imagesData = [null, null, null, null, null];
     imgsCount = 0;

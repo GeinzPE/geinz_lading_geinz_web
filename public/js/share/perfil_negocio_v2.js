@@ -67,7 +67,7 @@ function showNotFoundScreen(message = "") {
         
         <!-- Botón único sin "volver" -->
         <div style="margin: 2rem 0 0.8rem;">
-          <a href="https://geinzworkapp.web.app" class="geinz-purple-btn" style="display: inline-block; padding: 0.85rem 2rem; background: linear-gradient(100deg, #8b5cf6, #6d28d9); border-radius: 60px; color: white; font-weight: 600; text-decoration: none; font-size: 0.95rem; letter-spacing: 0.3px; box-shadow: 0 6px 14px -4px rgba(109, 40, 217, 0.5); transition: all 0.2s ease; border: none; cursor: pointer;">Explorar Geinz</a>
+          <a href="https://geinztech.com" class="geinz-purple-btn" style="display: inline-block; padding: 0.85rem 2rem; background: linear-gradient(100deg, #8b5cf6, #6d28d9); border-radius: 60px; color: white; font-weight: 600; text-decoration: none; font-size: 0.95rem; letter-spacing: 0.3px; box-shadow: 0 6px 14px -4px rgba(109, 40, 217, 0.5); transition: all 0.2s ease; border: none; cursor: pointer;">Explorar Geinz</a>
         </div>
         
         <p style="font-size: 0.7rem; color: #6b4e9e; margin: 0.8rem 0 0;">✨ ¿Buscas algo específico? Revisa la URL o regresa al inicio</p>
@@ -1284,8 +1284,8 @@ async function render(biz) {
     }
     promoImages.forEach((promo) => {
       const shareBase = biz.alias_key
-        ? `https://geinzworkapp.web.app/perfil/${biz.alias_key}?p=${promo.id}`
-        : `https://geinzworkapp.web.app/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+        ? `https://geinztech.com/perfil/${biz.alias_key}?p=${promo.id}`
+        : `https://geinztech.com/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
       const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
       const card = document.createElement("div");
       card.className = "promo-card";
@@ -1324,8 +1324,8 @@ async function render(biz) {
     shareBtn.onclick = () => {
       // ── Usa alias si existe, si no fallback a URL vieja ──
       const shareUrl = biz.alias_key
-        ? `https://geinzworkapp.web.app/perfil/${biz.alias_key}`
-        : `https://geinzworkapp.web.app/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
+        ? `https://geinztech.com/perfil/${biz.alias_key}`
+        : `https://geinztech.com/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
 
       const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
       if (navigator.share)
@@ -1356,7 +1356,7 @@ async function render(biz) {
   const exploreBtn = document.getElementById("exploreBtn");
   if (exploreBtn) {
     const cat = (biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+");
-    exploreBtn.href = `https://geinzworkapp.web.app/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
+    exploreBtn.href = `https://geinztech.com/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
   }
 }
 

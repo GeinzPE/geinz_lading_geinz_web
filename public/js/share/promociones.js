@@ -582,7 +582,7 @@ function render(data) {
     const msjeWa =
       msgs.whatsapp?.msje_predermindo ||
       "Hola, quiero esta oferta que vi en Geinz:";
-    const linkWa = `https://geinzworkapp.web.app/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
+    const linkWa = `https://geinztech.com/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
     const texto = encodeURIComponent(`${msjeWa} ${linkWa}`);
     if (info.contactar && numero) {
       btnWa.href = `https://wa.me/51${numero}?text=${texto}`;
@@ -595,7 +595,7 @@ function render(data) {
   // Compartir
   const shareText =
     msgs.compartir?.msje_predermindo || "Mira esta promo en Geinz ❤️‍🔥";
-  const shareLink = `https://geinzworkapp.web.app/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
+  const shareLink = `https://geinztech.com/api/share?t=prms&l=${window._localidad}&pi=${data.id}`;
   window._shareTitle = shareText;
   window._shareUrl = shareLink;
   if (!info.compartir) {
@@ -629,13 +629,13 @@ function render(data) {
           : null;
         const aliasKey = rawAlias ? rawAlias.replace(/^perfil\//, "") : null;
         const perfilUrl = aliasKey
-          ? `https://geinzworkapp.web.app/perfil/${aliasKey}`
-          : `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
+          ? `https://geinztech.com/perfil/${aliasKey}`
+          : `https://geinztech.com/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
 
         window.location.href = perfilUrl;
       } catch (e) {
         // fallback si falla la consulta
-        window.location.href = `https://geinzworkapp.web.app/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
+        window.location.href = `https://geinztech.com/api/share?t=ti&id=${idTienda}&l=${localidadTienda}&c=${categoriaFinal}`;
       }
     });
   }
@@ -756,7 +756,7 @@ function showExpired(localidad = "barranca") {
     <div class="state-badge expired">Promoción vencida</div>
     <div class="state-title">Esta promo ya terminó</div>
     <div class="state-sub">El tiempo de esta oferta ha expirado.<br>Descubre más promos vigentes en Geinz.</div>
-<button class="state-back-btn" onclick="window.location.href='https://geinzworkapp.web.app/scree/promos?loc=${localidad}'">
+<button class="state-back-btn" onclick="window.location.href='https://geinztech.com/scree/promos?loc=${localidad}'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       Volver
     </button>
@@ -780,7 +780,7 @@ function showDeleted(isDeleted = false, localidad = "barranca") {
         ? "El negocio ha eliminado esta promoción."
         : "No encontramos esta promoción en nuestro sistema."
     }<br>Busca otras ofertas en Geinz.</div>
-    <button class="state-back-btn" onclick="window.location.href='https://geinzworkapp.web.app/scree/promos?loc=${localidad}'">
+    <button class="state-back-btn" onclick="window.location.href='https://geinztech.com/scree/promos?loc=${localidad}'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       Volver
     </button>
@@ -933,5 +933,5 @@ avatarObserver.observe(document.body, { childList: true, subtree: true });
 
 history.pushState(null, "", window.location.href);
 window.addEventListener("popstate", () => {
-  window.location.href = `https://geinzworkapp.web.app/scree/promos?loc=${getParams().localidad}`;
+  window.location.href = `https://geinztech.com/scree/promos?loc=${getParams().localidad}`;
 });

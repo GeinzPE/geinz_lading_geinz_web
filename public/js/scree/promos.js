@@ -33,7 +33,12 @@ async function init() {
     promosContainer.innerHTML = `<p style="text-align:center; color: #ff3b30; padding: 20px;">Error al conectar con la base de datos.</p>`;
   }
 }
-
+const backBtn = document.getElementById("backBtn");
+if (backBtn) {
+  backBtn.addEventListener("click", () => {
+    window.location.href = "https://geinztech.com/";
+  });
+}
 async function fetchPromociones() {
   const path = `Tiendas/${localidadParam}/promos_ofertas`;
   const q = query(collection(db, path), where("estado", "==", "activo"));
@@ -48,7 +53,7 @@ async function fetchPromociones() {
   querySnapshot.forEach((doc) => docs.push(doc));
   const docsAleatorios = docs.sort(() => Math.random() - 0.5);
 
-  let htmlContent = "";
+  let promoCards = [];
   let delayIndex = 0;
 
   docsAleatorios.forEach((doc) => {
@@ -265,7 +270,7 @@ async function fetchPromociones() {
       ? "ba"
       : "ba";
     const promoId = info.id_promocion || "";
-    const promoUrl = `https://geinzworkapp.web.app/api/share?t=prms&l=${localidad}&pi=${promoId}`;
+    const promoUrl = `https://geinztech.com/api/share?t=prms&l=${localidad}&pi=${promoId}`;
 
     let buttonsHtml = "";
     if (info.compartir === true) {
@@ -275,7 +280,7 @@ async function fetchPromociones() {
       buttonsHtml += `<button class="action-btn whatsapp" onclick="contactWhatsApp('${phoneNumber}', '${wsMessage}', '${promoUrl}')"><i class="fa-brands fa-whatsapp"></i></button>`;
     }
 
-    htmlContent += `
+    promoCards.push(`
       <div class="promo-card" style="animation-delay: ${delayIndex * 0.1}s" onclick="abrirPromo('${promoUrl}')">
         <div class="image-container-single">
           <img src="${singleImgUrl}" alt="Oferta" loading="lazy">
@@ -299,9 +304,25 @@ async function fetchPromociones() {
           </div>
         </div>
       </div>
-    `;
+    `);
     delayIndex++;
   });
+
+  // ── Límite de 8 promos + banner de "hay más" ────────────────────
+  const totalPromosValidas = promoCards.length;
+  const promosAMostrar = promoCards.slice(0, 9);
+
+  let htmlContent = promosAMostrar.join("");
+
+  if (totalPromosValidas > 9) {
+    const restantes = totalPromosValidas - 9;
+    htmlContent += `
+      <div class="more-promos-banner">
+        <i class="fa-solid fa-fire"></i>
+        <span>+${restantes} promoción${restantes === 1 ? "" : "es"} más esperándote en Barranca</span>
+      </div>
+    `;
+  }
 
   htmlContent += `
     <div class="download-banner">
@@ -322,5 +343,5 @@ window.addEventListener("DOMContentLoaded", init);
 
 history.pushState(null, "", window.location.href);
 window.addEventListener("popstate", () => {
-  window.location.href = "https://geinzworkapp.web.app/";
+  window.location.href = "https://geinztech.com/";
 });
