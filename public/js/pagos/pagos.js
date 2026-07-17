@@ -3,6 +3,7 @@ import {
   getFirestore,
   doc,
   getDoc,
+  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getFunctions,
@@ -44,6 +45,8 @@ const crearOrdenFn = httpsCallable(functions, "crearOrdenCulqi");
 window.ruc_tienda = "";
 window.direccion_fiscal = "";
 
+const CULQI_RSA_ID = "b5d89da9-98c9-4f93-b593-86d71ba05720";
+const CULQI_RSA_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCldcHT37kf7vUe5++264WeIQaw\nQQsagSztPOMtyFuofyN8IhTwxgQXXXVjv8zG5OsDj5FyXqBK/cg5kUDdp6ecQlhG\n93Mr4FCFwgyAAfxdspafrIPw0aOPv2h/oW7KavYWhv8r50aOuzIxGExtXly15Ib4\nKFwl+dzcVU5pFGEiVQIDAQAB\n-----END PUBLIC KEY-----`;
 // ─────────────────────────────────────────
 // URL PARAMS
 // ─────────────────────────────────────────
@@ -56,6 +59,7 @@ let termsOn = false;
 let compType = "boleta";
 let CulqiInstance = null;
 let backBtn = null;
+let unsubscribePago = null;
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -138,9 +142,8 @@ function inicializarCulqi({ monto, culqi_order_id }) {
     currency: "PEN",
     amount: Math.round(monto * 100),
     order: culqi_order_id,
-    xculqirsaid: "b5d89da9-98c9-4f93-b593-86d71ba05720",
-    rsapublickey:
-      "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCldcHT37kf7vUe5++264WeIQaw\nQQsagSztPOMtyFuofyN8IhTwxgQXXXVjv8zG5OsDj5FyXqBK/cg5kUDdp6ecQlhG\n93Mr4FCFwgyAAfxdspafrIPw0aOPv2h/oW7KavYWhv8r50aOuzIxGExtXly15Ib4\nKFwl+dzcVU5pFGEiVQIDAQAB\n-----END PUBLIC KEY-----",
+    xculqirsaid: CULQI_RSA_ID,
+    rsapublickey: CULQI_RSA_PUBLIC_KEY,
   };
 
   const options = {
@@ -150,14 +153,14 @@ function inicializarCulqi({ monto, culqi_order_id }) {
     paymentMethods: {
       tarjeta: true,
       yape: true,
-      billetera: false,
+      billetera: true,
       bancaMovil: false,
       agente: false,
       cuotealo: false,
     },
   };
 
-  const client = { email: "cliente@geinz.com" };
+  const client = {};
 
   const appearance = {
     theme: "default",
@@ -203,16 +206,6 @@ function inicializarCulqi({ monto, culqi_order_id }) {
   });
 
   CulqiInstance.culqi = async function () {
-    if (CulqiInstance.order) {
-      document.getElementById("paymentOverlay").classList.remove("hidden");
-      document.getElementById("spinner").style.display = "none";
-      document.getElementById("paymentTitle").textContent =
-        "¡Pago recibido! 📱✅";
-      document.getElementById("paymentText").textContent =
-        "Tu pago con billetera fue registrado. Tus monedas se acreditarán en breve.";
-      return;
-    }
-
     if (CulqiInstance.error) {
       const code = CulqiInstance.error?.code || "";
       if (code === "CNP0183") {
@@ -225,65 +218,61 @@ function inicializarCulqi({ monto, culqi_order_id }) {
       return;
     }
 
+    // Flujo billetera/QR: hay order pero NO hay token.
+    // NO asumir pago recibido acá — solo el webhook backend confirma.
+    if (CulqiInstance.order && !CulqiInstance.token) {
+      mostrarEstado("billetera");
+      escucharConfirmacionPago(orderId);
+      return;
+    }
+
     if (!CulqiInstance.token) {
+      // Ni token, ni error, ni order => el usuario cerró el checkout
+      // sin completar el pago.
       mostrarBackBtn();
       ocultarPago();
       return;
     }
-
-    const emailFinal = CulqiInstance.token.email || "cliente@geinz.com";
-    CulqiInstance.close();
-
-    document.getElementById("paymentOverlay").classList.remove("hidden");
-    document.getElementById("spinner").style.display = "block";
-    document.getElementById("paymentTitle").textContent = "Procesando pago...";
-    document.getElementById("paymentText").textContent =
-      "Por favor espera, no cierres esta página";
-
-    const tipo_comprobante = compType === "boleta" ? 2 : 1;
-    const rucFinal = document.getElementById("inputRuc")?.value.trim() || "0";
-    const dirFinal = document.getElementById("inputDir")?.value.trim() || "";
-    const razonFinal =
-      document.getElementById("inputRazon")?.value.trim() || "";
-    const nombre_final =
-      tipo_comprobante === 2
-        ? window._pago.nombre_tienda || "Consumidor Final"
-        : razonFinal || "Empresa sin nombre";
-
-    try {
-      await confirmarPagoFn({
-        tipo_comprobante,
-        ruc: rucFinal,
-        direccion_negocio: dirFinal,
-        token: CulqiInstance.token.id,
-        monto: window._pago.monto,
-        email: emailFinal,
-        userId: window._pago.user_id,
-        monedas: window._pago.monedas,
-        monedas_originales: window._pago.monedas_originales || 0,
-        deuda_pendiente: window._pago.deuda_pendiente || 0,
-        tiene_deuda: window._pago.tiene_deuda === true,
-        nombre_tienda: nombre_final,
-        localidad: window._pago.localidad_tienda || "Localidad desconocida",
-        nombre_paquete: window._pago.nombre_paquete || "Paquete desconocido",
-        monto_anterior: window._pago.saldo_tienda || 0,
-        id_select_boleta_pago: orderId,
-      });
-
-      document.getElementById("mainContent").style.display = "none";
-      document.getElementById("paymentOverlay").classList.add("hidden");
-      await buscarUsuario(orderId);
-    } catch (err) {
-      console.error("Error pago:", err);
-      mostrarEstado("rechazado");
-      mostrarBackBtn();
-      setTimeout(() => {
-        document.getElementById("paymentOverlay").classList.add("hidden");
-      }, 1200);
-    }
   };
 }
 
+// ─────────────────────────────────────────
+// ESCUCHAR CONFIRMACIÓN DE PAGO (billetera/QR)
+// ─────────────────────────────────────────
+function escucharConfirmacionPago(orderIdParam) {
+  if (unsubscribePago) {
+    unsubscribePago();
+    unsubscribePago = null;
+  }
+
+  const docRef = doc(
+    dbGeinz,
+    "Tiendas",
+    "barranca",
+    "pagos_tiendas",
+    orderIdParam,
+  );
+
+  unsubscribePago = onSnapshot(docRef, (snap) => {
+    if (!snap.exists()) return;
+    const datos = snap.data();
+
+    if (datos.estado === "pagado") {
+      unsubscribePago();
+      unsubscribePago = null;
+
+      document.getElementById("paymentOverlay").classList.remove("hidden");
+      document.getElementById("spinner").style.display = "none";
+      document.getElementById("paymentTitle").textContent =
+        "¡Pago recibido! 📱✅";
+      document.getElementById("paymentText").textContent =
+        "Tu pago con billetera fue confirmado. Tus monedas fueron acreditadas.";
+
+      document.getElementById("mainContent").style.display = "none";
+      buscarUsuario(orderIdParam);
+    }
+  });
+}
 // ─────────────────────────────────────────
 // PAGAR
 // ─────────────────────────────────────────
@@ -362,7 +351,6 @@ async function buscarUsuario(orderId) {
     );
     const docSnap = await getDoc(docRef);
 
-  
     if (!docSnap.exists()) {
       mostrarError("El ID no existe ❌");
       return;
@@ -434,7 +422,7 @@ async function renderPlan(datos) {
     mostrarError("No se recibió el plan");
     return;
   }
-console.error("🔍 datos completos:", JSON.stringify(datos));
+  console.error("🔍 datos completos:", JSON.stringify(datos));
   try {
     const docRef = doc(dbPlanes, "precios_planes_geinz", datos.plan_select);
     const docSnap = await getDoc(docRef);
