@@ -495,6 +495,8 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  collection,
+  getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 const firebaseConfig = {
   apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
@@ -554,6 +556,140 @@ async function loadBusiness({ localidad, id }) {
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("Negocio no encontrado");
   return { id: snap.id, ...snap.data() };
+}
+
+// ══════════════════════════════════════════
+//  PROMOCIONES ACTIVAS
+// ══════════════════════════════════════════
+async function loadActivePromos({ localidad, id }) {
+  try {
+    const ref = collection(db, "Tiendas", localidad, localidad, id, "promociones_geinz");
+    const snap = await getDocs(ref);
+    const now = Date.now();
+    const promos = [];
+
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.estado !== "activo") return;
+
+      const finMs = data.timestamp_fin?.toMillis
+        ? data.timestamp_fin.toMillis()
+        : null;
+
+      // Descartar si ya expiró
+      if (finMs && finMs < now) return;
+
+      promos.push({ id: docSnap.id, ...data, _finMs: finMs });
+    });
+
+    // Las que vencen antes van primero
+    promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
+
+    return promos.slice(0, 4); // máx 4, o menos si hay menos
+  } catch (e) {
+    console.warn("No se pudieron cargar promociones activas:", e.message);
+    return [];
+  }
+}
+
+function formatExpiry(finMs) {
+  if (!finMs) return { text: "Promo activa", cls: "exp-green" };
+
+  const diffMs = finMs - Date.now();
+  if (diffMs <= 0) return { text: "Expirada", cls: "exp-red" };
+
+  const diffH = diffMs / 3600000;
+  const diffD = diffH / 24;
+
+  let cls = "exp-green";
+  if (diffH <= 24) cls = "exp-red";
+  else if (diffD <= 3) cls = "exp-yellow";
+
+  let text;
+  if (diffD >= 1) {
+    const d = Math.floor(diffD);
+    text = `Vence en ${d} día${d !== 1 ? "s" : ""}`;
+  } else {
+    const h = Math.floor(diffH);
+    text = h > 0 ? `Vence en ${h}h` : "Vence en minutos";
+  }
+  return { text, cls };
+}
+
+function renderActivePromos(promos, localidad) {
+  const sec = document.getElementById("secPromosActivas");
+  const grid = document.getElementById("promosActivasGrid");
+  if (!sec || !grid) return;
+
+  if (!promos.length) {
+    sec.style.display = "none";
+    return;
+  }
+
+  sec.style.display = "";
+  grid.innerHTML = "";
+
+  promos.forEach((p) => {
+    const info = p.informacion || {};
+    const img = p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
+    const expiry = formatExpiry(p._finMs);
+    const shareUrl = `https://geinztech.com/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
+
+    const whatsappAllowed = info.contactar && info.numero;
+    const shareAllowed = info.compartir;
+
+    const waMsg =
+      p.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
+      "Hola, quiero esta oferta que vi en Geinz";
+    const shareMsg =
+      p.mensaje_predeterminado?.compartir?.msje_predermindo ||
+      "Mira esta promo en Geinz 🎁";
+
+    const waLink = whatsappAllowed
+      ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
+          `${waMsg}: ${shareUrl}`
+        )}`
+      : null;
+
+    const card = document.createElement("div");
+    card.className = "promo-active-card";
+    card.innerHTML = `
+      <div class="promo-active-img-wrap">
+        <img src="${img}" alt="${info.titulo || "Promoción"}" loading="lazy">
+        <span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>
+      </div>
+      <div class="promo-active-body">
+        <h3 class="promo-active-title">${info.titulo || ""}</h3>
+        <p class="promo-active-desc">${info.descripcion || ""}</p>
+        <div class="promo-active-actions">
+          ${waLink ? `<a class="promo-btn-wa" href="${waLink}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}
+          ${shareAllowed ? `<button class="promo-btn-share" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}">Compartir</button>` : ""}
+        </div>
+      </div>
+    `;
+
+    const imgEl = card.querySelector("img");
+    imgEl.onerror = () => {
+      card.querySelector(".promo-active-img-wrap").style.display = "none";
+    };
+
+    grid.appendChild(card);
+  });
+
+  grid.querySelectorAll(".promo-btn-share").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = btn.dataset.shareUrl;
+      const msg = btn.dataset.shareMsg;
+      const fullText = `${msg}\n${url}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ text: fullText });
+        } catch (e) {}
+      } else {
+        copyToClipboard(fullText);
+      }
+    });
+  });
 }
 
 // ══════════════════════════════════════════
@@ -1383,6 +1519,11 @@ function listenBusinessRealtime({ localidad, id }) {
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
+
+    // Promociones activas (no bloquea el render principal)
+    loadActivePromos(params).then((promos) =>
+      renderActivePromos(promos, params.localidad)
+    );
   } catch (err) {
     console.error(err);
     showNotFoundScreen(err.message); // ← debe capturarlo

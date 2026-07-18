@@ -8,13 +8,13 @@
 
     <!-- SEO base (el JS las sobreescribe con datos reales) -->
     <meta name="description" content="Encuentra negocios locales en Geinz">
-    <meta property="og:site_name"   content="GeinzWork" />
-    <meta property="og:type"        content="website" />
-    <meta property="og:title"       content="Geinz Business" />
+    <meta property="og:site_name" content="GeinzWork" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Geinz Business" />
     <meta property="og:description" content="Encuentra negocios locales en Geinz" />
-    <meta property="og:image"       content="https://geinztech.com/default.jpg" />
-    <meta property="og:locale"      content="es_PE" />
-    <link rel="canonical"           href="https://geinztech.com/perfil_negocio.html" />
+    <meta property="og:image" content="https://geinztech.com/default.jpg" />
+    <meta property="og:locale" content="es_PE" />
+    <link rel="canonical" href="https://geinztech.com/perfil_negocio.html" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,11 +31,15 @@
     <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
     <link rel="manifest" href="./img/icons/site.webmanifest">
 </head>
+
 <body>
     <div class="dynamic-bg" id="dynamicBg"></div>
     <div class="grid-bg"></div>
-
-    <main class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6">
+    <a href="../index.html" id="geinzHeader" class="geinz-header" aria-label="Volver a Geinz">
+        <img src="../img/icons/favicon-96x96.png" alt="Geinz" class="geinz-header-logo" />
+        <span class="geinz-header-name">GEINZ</span>
+    </a>
+    <main class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6 pt-24 md:pt-24">
 
         <!-- HERO -->
         <section class="grid xl:grid-cols-[1fr_.9fr] gap-14 items-center mb-24">
@@ -78,6 +82,15 @@
             </div>
         </section>
 
+
+        <section id="secPromosActivas" class="mb-20 reveal" style="display:none;">
+            <div class="mb-8">
+                <p class="uppercase tracking-[5px] accent text-sm mb-3">PROMOCIONES ACTIVAS</p>
+                <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Ofertas del momento</h2>
+            </div>
+            <div id="promosActivasGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"></div>
+        </section>
+
         <section id="secProductos" class="mb-20 reveal">
             <div class="mb-8">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PRODUCTOS Y SERVICIOS</p>
@@ -85,6 +98,9 @@
             </div>
             <div id="productosGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
         </section>
+
+
+
 
         <section id="secAmbientes" class="mb-20 reveal">
             <div class="mb-8">
