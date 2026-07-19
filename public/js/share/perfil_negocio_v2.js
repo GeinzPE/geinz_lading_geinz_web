@@ -563,7 +563,14 @@ async function loadBusiness({ localidad, id }) {
 // ══════════════════════════════════════════
 async function loadActivePromos({ localidad, id }) {
   try {
-    const ref = collection(db, "Tiendas", localidad, localidad, id, "promociones_geinz");
+    const ref = collection(
+      db,
+      "Tiendas",
+      localidad,
+      localidad,
+      id,
+      "promociones_geinz",
+    );
     const snap = await getDocs(ref);
     const now = Date.now();
     const promos = [];
@@ -631,7 +638,8 @@ function renderActivePromos(promos, localidad) {
 
   promos.forEach((p) => {
     const info = p.informacion || {};
-    const img = p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
+    const img =
+      p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
     const expiry = formatExpiry(p._finMs);
     const shareUrl = `https://geinztech.com/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
 
@@ -647,7 +655,7 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-          `${waMsg}: ${shareUrl}`
+          `${waMsg}: ${shareUrl}`,
         )}`
       : null;
 
@@ -1522,7 +1530,7 @@ function listenBusinessRealtime({ localidad, id }) {
 
     // Promociones activas (no bloquea el render principal)
     loadActivePromos(params).then((promos) =>
-      renderActivePromos(promos, params.localidad)
+      renderActivePromos(promos, params.localidad),
     );
   } catch (err) {
     console.error(err);
@@ -1540,3 +1548,56 @@ const observer = new IntersectionObserver(
   { threshold: 0.12 },
 );
 reveal.forEach((el) => observer.observe(el));
+
+// ══════════════════════════════════════════
+//  CARRUSEL HORIZONTAL POR HOVER (solo PC)
+// ══════════════════════════════════════════
+function setupHoverCarousel(wrapId, trackId) {
+  const wrap = document.getElementById(wrapId);
+  const track = document.getElementById(trackId);
+  if (!wrap || !track) return;
+
+  let rafId = null;
+  let direction = 0;
+  const MAX_SPEED = 9;
+
+  const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
+
+  function step() {
+    if (direction !== 0) track.scrollLeft += direction;
+    rafId = requestAnimationFrame(step);
+  }
+
+  wrap.addEventListener("mouseenter", () => {
+    if (!isDesktop()) return;
+    wrap.classList.add("scrolling");
+    if (!rafId) rafId = requestAnimationFrame(step);
+  });
+
+  wrap.addEventListener("mousemove", (e) => {
+    if (!isDesktop()) return;
+    const rect = wrap.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const edgeZone = Math.min(160, rect.width * 0.28);
+
+    if (x < edgeZone) {
+      direction = -MAX_SPEED * (1 - x / edgeZone);
+    } else if (x > rect.width - edgeZone) {
+      direction = MAX_SPEED * (1 - (rect.width - x) / edgeZone);
+    } else {
+      direction = 0;
+    }
+  });
+
+  wrap.addEventListener("mouseleave", () => {
+    direction = 0;
+    wrap.classList.remove("scrolling");
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  });
+}
+
+setupHoverCarousel("productosCarouselWrap", "productosGrid");
+setupHoverCarousel("ambientesCarouselWrap", "ambientesGrid");
