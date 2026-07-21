@@ -51,6 +51,27 @@
       }
 
       // =====================================================
+      // DEEP LINK: /redirect/serviciosHogar/<alias>
+      // ej: /redirect/serviciosHogar/fibramasbrca
+      // =====================================================
+      const serviciosHogarMatch = window.location.pathname.match(
+        /^\/redirect\/servicioshogar\/([^\/?#]+)\/?$/i
+      );
+
+      let alias = "";
+      if (serviciosHogarMatch) {
+        try {
+          alias = decodeURIComponent(serviciosHogarMatch[1]).trim();
+        } catch {
+          alias = serviciosHogarMatch[1].trim();
+        }
+        console.log("════════════════════════════════════");
+        console.log("🔗 DEEP LINK SERVICIOS HOGAR DETECTADO");
+        console.log("════════════════════════════════════");
+        console.log("🏷️ ALIAS:", alias);
+      }
+
+      // =====================================================
       // TIPO
       // =====================================================
       let t = (
@@ -71,7 +92,8 @@
         console.warn("⚠️ NO EXISTE PARAMETRO t");
         console.log("🔍 DETECTANDO POR PATH...");
 
-        if (path.includes("/ti")) { t = "ti"; }
+        if (serviciosHogarMatch) { t = "scr"; }
+        else if (path.includes("/ti")) { t = "ti"; }
         else if (path.includes("/p")) { t = "p"; }
         else if (path.includes("/scr")) { t = "scr"; }
         else if (path.includes("/prms")) { t = "prms"; }
@@ -92,6 +114,7 @@
 
         if (id && id !== "undefined" && id !== "null") { return id.trim(); }
         if (pi && pi !== "undefined" && pi !== "null") { return pi.trim(); }
+        if (serviciosHogarMatch) { return "seyt"; } // deep link directo a serviciosHogar
         return "";
       })();
 
@@ -176,8 +199,7 @@
         return;
       }
 
-  if (!id && t !== "scr" && t !== "promo" && t !== "prms" && t !== "pmspls") {
-
+      if (!id && t !== "scr" && t !== "promo" && t !== "prms" && t !== "pmspls") {
         console.error("❌ NO EXISTE ID");
         return;
       }
@@ -209,7 +231,10 @@
         console.log("🛠️ SCR");
         if (id === "lgtr") { destino = `/redirect/pantalla_turismo`; }
         else if (id === "nemg") { destino = `/redirect/emergencia`; }
-        else if (id === "seyt") { destino = `/redirect/pantalla_servicios_geinz`; }
+        else if (id === "seyt") {
+          destino = `/redirect/serviciosHogar`;
+          if (alias) { destino += `/${encodeURIComponent(alias)}`; }
+        }
         else {
           console.error("❌ SCR NO RECONOCIDO:", id);
           return;
@@ -240,6 +265,13 @@
 
       const finalUrl = window.location.origin + destino;
       console.log("🌐 FINAL URL:", finalUrl);
+
+      // Evita loop infinito si ya estamos exactamente en la url final
+      if (finalUrl === window.location.href) {
+        console.log("ℹ️ YA ESTAMOS EN EL DESTINO FINAL, NO SE REDIRIGE");
+        return;
+      }
+
       console.log("⏳ REDIRECCIONANDO...");
 
       setTimeout(() => {

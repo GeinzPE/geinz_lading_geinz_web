@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geinz · Generador QR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg-deep:#0a0a0d;
+    --bg-card:#141319;
+    --line: rgba(255,255,255,0.08);
+    --text-cream:#f6f3ee;
+    --muted:#9a95a6;
+    --g1:#4f5bd5;
+    --g2:#962fbf;
+    --g3:#d62976;
+    --g4:#fa7e1e;
+    --g5:#feda75;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg-deep);
+    color:var(--text-cream);
+    font-family:'Inter', sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  .bg-layer{
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    opacity:0;
+    transition:opacity .9s ease;
+    pointer-events:none;
+  }
+  .bg-layer.bg-a{opacity:1;}
+
+  .app-shell{
+    width:100%;
+    max-width:420px;
+    margin:0 auto;
+  }
+  .app-left{ width:100%; }
+  .app-right{ width:100%; margin-top:0; }
+
+  .brand-lockup{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .brand-logo{
+    font-family:'Outfit', sans-serif;
+    font-weight:800;
+    font-size:15px;
+    letter-spacing:-0.01em;
+    background:linear-gradient(90deg,var(--g2),var(--g3),var(--g4));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .brand-tagline{
+    font-size:10.5px;
+    letter-spacing:0.24em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  .brand-tagline::before{
+    content:"";
+    display:inline-block;
+    width:14px;
+    height:1px;
+    background:linear-gradient(90deg,var(--g3),var(--g4));
+    margin-right:8px;
+    vertical-align:middle;
+  }
+
+  .eyebrow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:11px;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:10px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:18px;
+    height:1px;
+    background:linear-gradient(90deg,var(--g3),var(--g4));
+  }
+
+  /* ---- Responsive: side-by-side on desktop ---- */
+  @media (min-width:900px){
+    body{ padding:56px 40px; align-items:flex-start; }
+    .app-shell{
+      max-width:960px;
+      display:grid;
+      grid-template-columns:minmax(360px,420px) minmax(360px,1fr);
+      gap:56px;
+      align-items:start;
+      margin:40px auto;
+    }
+    .app-left{ padding-top:6px; }
+    .app-right{
+      position:sticky;
+      top:40px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+    .app-right .card{ width:100%; max-width:380px; }
+    .app-right .switch-row,
+    .app-right .actions,
+    .app-right .hint{ width:100%; max-width:380px; }
+  }
+
+  @media (min-width:1180px){
+    .app-shell{ max-width:1080px; grid-template-columns:440px 1fr; gap:72px; }
+  }
+
+  h1{
+    font-family:'Outfit', sans-serif;
+    font-weight:800;
+    font-size:34px;
+    line-height:1.05;
+    margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  h1 span{
+    background:linear-gradient(90deg,var(--g1),var(--g2) 35%,var(--g3) 60%,var(--g4) 80%,var(--g5));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  .sub{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 26px;
+    max-width:34ch;
+  }
+
+  .input-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:28px;
+  }
+
+  .input-wrap{
+    flex:1;
+    position:relative;
+    border-radius:14px;
+    padding:1px;
+    background:linear-gradient(120deg,var(--g1),var(--g2),var(--g3),var(--g4));
+  }
+
+  input[type="text"]{
+    width:100%;
+    background:var(--bg-card);
+    border:none;
+    border-radius:13px;
+    padding:14px 16px;
+    color:var(--text-cream);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    outline:none;
+  }
+  input[type="text"]::placeholder{color:#6b6678;}
+
+  button.generate{
+    border:none;
+    border-radius:14px;
+    padding:0 20px;
+    font-family:'Outfit', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    color:#fff;
+    cursor:pointer;
+    background:linear-gradient(120deg,var(--g2),var(--g3),var(--g4));
+    transition:transform .15s ease, filter .15s ease;
+  }
+  button.generate:hover{filter:brightness(1.08);}
+  button.generate:active{transform:scale(0.97);}
+
+  .panel{
+    margin-bottom:26px;
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:18px 18px 20px;
+    background:rgba(255,255,255,0.02);
+  }
+  .panel-label{
+    font-family:'Outfit', sans-serif;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:12px;
+  }
+  .panel-label.spaced{ margin-top:22px; }
+
+  .swatches{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+  }
+  .swatch{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    border:2px solid transparent;
+    cursor:pointer;
+    padding:0;
+    position:relative;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .swatch:hover{transform:scale(1.08);}
+  .swatch.active{
+    border-color:#fff;
+    box-shadow:0 0 0 2px var(--bg-deep), 0 0 0 4px rgba(255,255,255,0.5);
+  }
+
+  .custom-colors{
+    margin-bottom:20px;
+  }
+  .color-pickers{
+    display:flex;
+    gap:14px;
+  }
+  .color-picker{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+  }
+  .color-picker span{
+    font-size:10px;
+    color:var(--muted);
+    letter-spacing:0.04em;
+  }
+  .color-picker input[type="color"]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:38px;
+    height:38px;
+    border:none;
+    border-radius:50%;
+    padding:0;
+    cursor:pointer;
+    background:none;
+    box-shadow:0 0 0 2px var(--line);
+    transition:box-shadow .15s ease;
+  }
+  .color-picker input[type="color"]:hover{
+    box-shadow:0 0 0 2px rgba(255,255,255,0.4);
+  }
+  .color-picker input[type="color"]::-webkit-color-swatch-wrapper{padding:0;border-radius:50%;}
+  .color-picker input[type="color"]::-webkit-color-swatch{border:none;border-radius:50%;}
+  .color-picker input[type="color"]::-moz-color-swatch{border:none;border-radius:50%;}
+
+  /* --- Estilos de tarjeta: tira de miniaturas --- */
+  .style-thumb-strip{
+    display:flex;
+    gap:14px;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+    padding:10px 6px 16px;
+    margin:0 -6px 6px;
+    scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+    mask-image:linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  }
+  .style-thumb-strip::-webkit-scrollbar{ display:none; }
+
+  .style-thumb{
+    flex:0 0 auto;
+    border:none;
+    background:none;
+    padding:0;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    scroll-snap-align:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .style-thumb-label{
+    font-family:'Outfit', sans-serif;
+    font-size:10px;
+    font-weight:600;
+    color:var(--muted);
+    letter-spacing:0.02em;
+    transition:color .15s ease;
+  }
+  .style-thumb.active .style-thumb-label{ color:var(--text-cream); }
+
+  .mini-card{
+    width:60px;
+    height:76px;
+    border-radius:14px;
+    border:2px solid var(--line);
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--bg-card);
+    box-shadow:0 6px 16px -10px rgba(0,0,0,0.55);
+    transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+  }
+  .style-thumb:hover .mini-card{ transform:translateY(-3px) scale(1.03); }
+  .style-thumb:active .mini-card{ transform:translateY(-1px) scale(0.98); }
+  .style-thumb.active .mini-card{
+    border-color:#6fa8ff;
+    box-shadow:0 0 0 3px rgba(111,168,255,0.28), 0 10px 20px -10px rgba(111,168,255,0.4);
+  }
+
+  .mini-qr{
+    width:24px;height:24px;
+    border-radius:5px;
+    background-color:#fdfdfd;
+    background-image:
+      linear-gradient(90deg, rgba(20,19,25,0.9) 0 3px, transparent 3px 6px),
+      linear-gradient(0deg, rgba(20,19,25,0.9) 0 3px, transparent 3px 6px);
+    background-size:12px 12px;
+    position:relative;
+    z-index:1;
+  }
+
+  /* Neón mini */
+  .mini-card.mv-neon{ background:linear-gradient(160deg,#1c1c22,#0a0a0d); }
+  .mini-card.mv-neon::before{
+    content:"";
+    position:absolute; inset:5px;
+    border:1px solid transparent;
+    border-image:linear-gradient(135deg,var(--g2),var(--g4)) 1;
+    border-radius:8px;
+    opacity:0.75;
+  }
+
+  /* Minimal mini */
+  .mini-card.mv-minimal{ background:#fdfdfd; border-color:#e5e2ec; }
+
+  /* Badge mini */
+  .mini-card.mv-badge{ background:linear-gradient(105deg,var(--g1),var(--g2) 45%,var(--g3) 75%,var(--g4)); }
+  .mini-card.mv-badge .mini-qr{ margin-top:12px; }
+
+  /* Ticket mini */
+  .mini-card.mv-ticket{ background:#141319; }
+  .mini-card.mv-ticket::after{
+    content:"";
+    position:absolute; left:5px; right:5px; top:46px; height:1px;
+    background-image:repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0 3px, transparent 3px 6px);
+  }
+
+  /* Sticker (circular) mini */
+  .mini-card.mv-sticker{
+    border-radius:50%;
+    background:var(--bg-card);
+    border:2px dashed;
+    border-image:linear-gradient(135deg,var(--g1),var(--g3),var(--g4)) 1;
+  }
+
+  /* Phone mini */
+  .mini-card.mv-phone{
+    background:linear-gradient(160deg,#1c1c22,#0a0a0d);
+    border-radius:16px;
+    border-color:#050505;
+  }
+  .mini-card.mv-phone::before{
+    content:"";
+    position:absolute; top:4px; left:50%; transform:translateX(-50%);
+    width:16px; height:4px;
+    background:#050505;
+    border-radius:0 0 4px 4px;
+    z-index:2;
+  }
+
+  /* Polaroid mini */
+  .mini-card.mv-polaroid{ background:#fdfdfd; border-radius:3px; }
+  .mini-card.mv-polaroid .mini-qr{ margin-bottom:14px; }
+  .mini-card.mv-polaroid::after{
+    content:"";
+    position:absolute; bottom:0; left:0; right:0; height:14px;
+    background:#fdfdfd; border-top:1px solid #eee;
+  }
+
+  /* Clip mini */
+  .mini-card.mv-clip{ background:#fdfdfd; }
+  .mini-card.mv-clip::before{
+    content:"";
+    position:absolute; top:-5px; left:50%; transform:translateX(-50%);
+    width:18px; height:9px;
+    background:linear-gradient(135deg,var(--g2),var(--g4));
+    border-radius:3px;
+    z-index:2;
+  }
+
+  /* --- Select forma de puntos --- */
+  select#dotShapeSelect{
+    width:100%;
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 12px;
+    color:var(--text-cream);
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    outline:none;
+    cursor:pointer;
+  }
+  select#dotShapeSelect option{ background:var(--bg-card); color:var(--text-cream); }
+
+  .field{
+    margin-bottom:12px;
+  }
+  .field:last-child{margin-bottom:0;}
+  .field label{
+    display:block;
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .field-hint{
+    font-size:10px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+  .logo-upload{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .logo-btn{
+    border:1px dashed var(--line);
+    background:rgba(255,255,255,0.03);
+    color:var(--text-cream);
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    padding:10px 14px;
+    border-radius:12px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .logo-btn:hover{
+    border-color:rgba(255,255,255,0.3);
+    background:rgba(255,255,255,0.05);
+  }
+  .logo-preview{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .logo-preview img{
+    width:38px;
+    height:38px;
+    object-fit:cover;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:#fff;
+  }
+  .logo-remove{
+    border:none;
+    background:rgba(255,255,255,0.06);
+    color:var(--muted);
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:12px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .logo-remove:hover{color:var(--text-cream); background:rgba(255,255,255,0.12);}
+  .logo-hint{
+    font-size:10px;
+    color:var(--muted);
+    margin-top:8px;
+  }
+  .field input[type="text"]{
+    padding:10px 12px;
+    font-size:13px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,0.03);
+  }
+
+  /* ============ TARJETA EXPORTABLE ============ */
+  .card{
+    background:var(--bg-card);
+    border:1px solid var(--line);
+    border-radius:28px;
+    padding:36px 28px 28px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+      radial-gradient(circle at 20% -10%, rgba(214,41,118,0.25), transparent 40%),
+      radial-gradient(circle at 110% 110%, rgba(79,91,213,0.22), transparent 40%);
+    pointer-events:none;
+  }
+
+  .brand{
+    font-family:'Outfit', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    margin-bottom:22px;
+    position:relative;
+    z-index:1;
+    background:linear-gradient(90deg,var(--g2),var(--g3),var(--g4));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    word-break:break-word;
+  }
+
+  .frame{
+    width:236px;
+    height:236px;
+    margin:0 auto 22px;
+    position:relative;
+    z-index:1;
+  }
+  .frame .corner{
+    position:absolute;
+    width:34px;
+    height:34px;
+    border:3px solid transparent;
+    border-image:linear-gradient(135deg,var(--g2),var(--g4)) 1;
+  }
+  .corner.tl{top:0;left:0;border-right:none;border-bottom:none;border-radius:14px 0 0 0;}
+  .corner.tr{top:0;right:0;border-left:none;border-bottom:none;border-radius:0 14px 0 0;}
+  .corner.bl{bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 14px;}
+  .corner.br{bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 14px 0;}
+
+  .qr-box{
+    position:absolute;
+    inset:18px;
+    background:#fdfdfd;
+    border-radius:18px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 18px 40px -14px rgba(214,41,118,0.45);
+  }
+  #qrcode{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:190px;
+    height:190px;
+  }
+  #qrcode img, #qrcode canvas{
+    border-radius:10px;
+    display:block;
+    width:100%;
+    height:100%;
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+  }
+  #qrcode.empty{
+    width:150px;height:150px;
+    display:flex;align-items:center;justify-content:center;
+    color:#c9c5d1;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    text-align:center;
+    padding:10px;
+  }
+
+  .caption{
+    font-family:'Outfit', sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--text-cream);
+    position:relative;
+    z-index:1;
+    margin-bottom:4px;
+    word-break:break-word;
+  }
+  .caption-sub{
+    font-size:12px;
+    color:var(--muted);
+    position:relative;
+    z-index:1;
+  }
+
+  /* ---- Variante: Minimal ---- */
+  .card.style-minimal{
+    background:#fdfdfd;
+    border-color:#e5e2ec;
+  }
+  .card.style-minimal::before{ display:none; }
+  .card.style-minimal .corner{ display:none; }
+  .card.style-minimal .brand{
+    background:none; -webkit-text-fill-color:#141319; color:#141319;
+  }
+  .card.style-minimal .qr-box{
+    box-shadow:0 10px 26px -14px rgba(20,19,25,0.25);
+    inset:14px;
+  }
+  .card.style-minimal .caption{ color:#141319; }
+  .card.style-minimal .caption-sub{ color:#847e8f; }
+
+  /* ---- Variante: Badge ---- */
+  .card.style-badge::before{ display:none; }
+  .card.style-badge .corner{ display:none; }
+  .card.style-badge{ padding-top:0; }
+  .card.style-badge .brand{
+    background:linear-gradient(100deg,var(--g1),var(--g2) 40%,var(--g3) 70%,var(--g4));
+    -webkit-background-clip:initial; background-clip:initial;
+    -webkit-text-fill-color:#fff; color:#fff;
+    margin:0 -28px 26px;
+    padding:14px 20px;
+    border-radius:0;
+    font-size:13px;
+  }
+
+  /* ---- Variante: Ticket ---- */
+  .card.style-ticket{
+    padding-bottom:26px;
+  }
+  .card.style-ticket::before{ display:none; }
+  .card.style-ticket .corner{ display:none; }
+  .card.style-ticket .brand{
+    background:none; -webkit-text-fill-color:var(--text-cream); color:var(--text-cream);
+  }
+  .card.style-ticket .frame{ margin-bottom:24px; }
+  .card.style-ticket .divider{
+    display:block;
+    position:relative;
+    height:1px;
+    margin:0 -28px 20px;
+    background-image:repeating-linear-gradient(90deg, rgba(255,255,255,0.25) 0 8px, transparent 8px 16px);
+  }
+  .card.style-ticket .divider::before,
+  .card.style-ticket .divider::after{
+    content:"";
+    position:absolute;
+    top:50%; transform:translateY(-50%);
+    width:20px;height:20px;
+    background:var(--bg-deep);
+    border-radius:50%;
+  }
+  .card.style-ticket .divider::before{ left:-10px; }
+  .card.style-ticket .divider::after{ right:-10px; }
+  .card:not(.style-ticket) .divider{ display:none; }
+
+  /* ---- Variante: Sticker (circular) ---- */
+  .card.style-sticker{
+    width:300px;
+    height:300px;
+    margin:0 auto;
+    border-radius:50%;
+    border:3px dashed;
+    border-image:linear-gradient(135deg,var(--g1),var(--g3),var(--g4)) 1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:26px;
+  }
+  .card.style-sticker::before{ display:none; }
+  .card.style-sticker .corner{ display:none; }
+  .card.style-sticker .frame{ width:168px; height:168px; margin-bottom:14px; }
+  .card.style-sticker .brand{ margin-bottom:12px; font-size:12px; }
+  .card.style-sticker .caption{ font-size:13px; }
+  .card.style-sticker .caption-sub{ font-size:11px; display:none; }
+
+  /* ---- Variante: Phone ---- */
+  .card.style-phone{
+    background:linear-gradient(165deg,#1e1e25,#08080a);
+    border:6px solid #050505;
+    border-radius:46px;
+    padding:34px 22px 26px;
+  }
+  .card.style-phone::before{
+    content:"";
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    width:76px; height:18px;
+    background:#050505;
+    border-radius:0 0 14px 14px;
+    z-index:2;
+  }
+  .card.style-phone .corner{ display:none; }
+  .card.style-phone .brand{ background:none; -webkit-text-fill-color:var(--text-cream); color:var(--text-cream); }
+  .card.style-phone .qr-box{ box-shadow:0 18px 40px -14px rgba(0,0,0,0.6); }
+  .card.style-phone::after{
+    content:"";
+    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+    width:84px; height:4px; border-radius:4px;
+    background:rgba(255,255,255,0.28);
+  }
+
+  /* ---- Variante: Polaroid ---- */
+  .card.style-polaroid{
+    background:#fdfdfd;
+    border:1px solid #eee;
+    border-radius:4px;
+    padding:22px 22px 64px;
+    box-shadow:0 24px 50px -22px rgba(0,0,0,0.5);
+    transform:rotate(-1.2deg);
+  }
+  .card.style-polaroid::before{ display:none; }
+  .card.style-polaroid .corner{ display:none; }
+  .card.style-polaroid .brand{
+    background:none; -webkit-text-fill-color:#141319; color:#141319;
+    text-transform:none; letter-spacing:0; font-size:16px;
+  }
+  .card.style-polaroid .qr-box{ box-shadow:0 10px 26px -14px rgba(20,19,25,0.25); }
+  .card.style-polaroid .caption{ color:#141319; }
+  .card.style-polaroid .caption-sub{ color:#847e8f; }
+
+  /* ---- Variante: Clip ---- */
+  .card.style-clip{
+    background:#fdfdfd;
+    border:1px solid #eee;
+    padding-top:44px;
+  }
+  .card.style-clip::before{ display:none; }
+  .card.style-clip::after{
+    content:"";
+    position:absolute; top:-15px; left:50%; transform:translateX(-50%);
+    width:64px; height:28px;
+    background:linear-gradient(135deg,var(--g2),var(--g4));
+    border-radius:8px;
+    box-shadow:0 6px 14px rgba(0,0,0,0.25);
+    z-index:2;
+  }
+  .card.style-clip .corner{ display:none; }
+  .card.style-clip .brand{ background:none; -webkit-text-fill-color:#141319; color:#141319; }
+  .card.style-clip .qr-box{ box-shadow:0 10px 26px -14px rgba(20,19,25,0.25); }
+  .card.style-clip .caption{ color:#141319; }
+  .card.style-clip .caption-sub{ color:#847e8f; }
+
+  .actions{
+    margin-top:22px;
+    display:flex;
+    gap:10px;
+  }
+
+  button.download{
+    flex:1;
+    border:none;
+    border-radius:14px;
+    padding:15px;
+    font-family:'Outfit', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:#fff;
+    cursor:pointer;
+    background:linear-gradient(100deg,var(--g1),var(--g2) 30%,var(--g3) 60%,var(--g4) 85%,var(--g5));
+    background-size:160% 160%;
+    transition:filter .15s ease, transform .15s ease, background-position .4s ease;
+  }
+  button.download:hover{filter:brightness(1.06); background-position:100% 0;}
+  button.download:active{transform:scale(0.98);}
+  button.download:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+
+  /* --- Switch "solo QR" --- */
+  .switch-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top:18px;
+    justify-content:center;
+  }
+  .switch{
+    position:relative;
+    display:inline-block;
+    width:40px;
+    height:23px;
+    flex-shrink:0;
+  }
+  .switch input{ opacity:0; width:0; height:0; }
+  .switch-slider{
+    position:absolute;
+    cursor:pointer;
+    inset:0;
+    background:rgba(255,255,255,0.12);
+    border-radius:999px;
+    transition:background .2s ease;
+  }
+  .switch-slider::before{
+    content:"";
+    position:absolute;
+    height:17px; width:17px;
+    left:3px; top:3px;
+    background:#fff;
+    border-radius:50%;
+    transition:transform .2s ease;
+  }
+  .switch input:checked + .switch-slider{
+    background:linear-gradient(120deg,var(--g2),var(--g4));
+  }
+  .switch input:checked + .switch-slider::before{
+    transform:translateX(17px);
+  }
+  .switch-label{
+    font-size:12.5px;
+    color:var(--text-cream);
+    cursor:pointer;
+    user-select:none;
+  }
+
+  .hint{
+    text-align:center;
+    font-size:11px;
+    color:var(--muted);
+    margin-top:10px;
+  }
+
+  @media (max-width:380px){
+    h1{font-size:28px;}
+    .frame{width:200px;height:200px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-layer bg-a" id="bgA"></div>
+<div class="bg-layer bg-b" id="bgB"></div>
+
+<div class="app-shell">
+<div class="app-left">
+  <div class="brand-lockup">
+    <span class="brand-logo">Geinz</span>
+    <span class="brand-tagline">Generador QR</span>
+  </div>
+  <h1>Tu link, en <span>QR vacán</span></h1>
+  <p class="sub">Pega tu URL y arma un QR con onda, listo para tu bio o tus stories.</p>
+
+  <div class="input-row">
+    <div class="input-wrap">
+      <input type="text" id="urlInput" placeholder="https://instagram.com/tuusuario">
+    </div>
+    <button class="generate" id="genBtn">Generar</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Paleta de colores</div>
+    <div class="swatches" id="swatches"></div>
+
+    <div class="custom-colors">
+      <div class="color-pickers">
+        <label class="color-picker">
+          <input type="color" id="colorPick1" value="#4f5bd5">
+          <span>Inicio</span>
+        </label>
+        <label class="color-picker">
+          <input type="color" id="colorPick2" value="#962fbf">
+          <span>Medio</span>
+        </label>
+        <label class="color-picker">
+          <input type="color" id="colorPick3" value="#d62976">
+          <span>Fin</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel-label">Estilo de tarjeta</div>
+    <div class="style-thumb-strip" id="styleOptions">
+      <button type="button" class="style-thumb active" data-style="style-neon">
+        <div class="mini-card mv-neon"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Neón</span>
+      </button>
+      <button type="button" class="style-thumb" data-style="style-minimal">
+        <div class="mini-card mv-minimal"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Minimal</span>
+      </button>
+      <button type="button" class="style-thumb" data-style="style-badge">
+        <div class="mini-card mv-badge"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Badge</span>
+      </button>
+      <button type="button" class="style-thumb" data-style="style-ticket">
+        <div class="mini-card mv-ticket"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Ticket</span>
+      </button>
+      <button type="button" class="style-thumb" data-style="style-sticker">
+        <div class="mini-card mv-sticker"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Sticker</span>
+      </button>
+      <button type="button" class="style-thumb" data-style="style-phone">
+        <div class="mini-card mv-phone"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Phone</span>
+      </button>
+      <button type="button" class="style-thumb" data-style="style-polaroid">
+        <div class="mini-card mv-polaroid"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Polaroid</span>
+      </button>
+      <button type="button" class="style-thumb" data-style="style-clip">
+        <div class="mini-card mv-clip"><div class="mini-qr"></div></div>
+        <span class="style-thumb-label">Clip</span>
+      </button>
+    </div>
+
+    <div class="field">
+      <label for="dotShapeSelect">Forma de los puntos</label>
+      <select id="dotShapeSelect">
+        <option value="rounded" selected>Redondeado</option>
+        <option value="dots">Puntos</option>
+        <option value="classy">Elegante</option>
+        <option value="classy-rounded">Elegante redondeado</option>
+        <option value="extra-rounded">Extra redondeado</option>
+        <option value="square">Clásico</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="topTextInput">Texto de arriba</label>
+      <input type="text" id="topTextInput" maxlength="40" placeholder="SCAN ME">
+    </div>
+    <div class="field">
+      <label for="captionTextInput">Texto debajo del QR (opcional)</label>
+      <input type="text" id="captionTextInput" maxlength="40" placeholder="Se autocompleta con tu link">
+      <div class="field-hint">Esto es solo lo que se ve en la tarjeta — el QR sigue apuntando a tu link real.</div>
+    </div>
+    <div class="field">
+      <label for="subTextInput">Texto de abajo</label>
+      <input type="text" id="subTextInput" maxlength="60" placeholder="Apunta la cámara para abrir">
+    </div>
+    <div class="field">
+      <label>Logo en el centro (opcional)</label>
+      <div class="logo-upload">
+        <input type="file" id="logoInput" accept="image/*" hidden>
+        <button type="button" class="logo-btn" id="logoBtnLabel">Subir logo</button>
+        <div class="logo-preview" id="logoPreview" style="display:none;">
+          <img id="logoPreviewImg" alt="logo">
+          <button type="button" class="logo-remove" id="logoRemoveBtn" title="Quitar logo">✕</button>
+        </div>
+      </div>
+      <div class="logo-hint">El QR se ajusta solo para que el logo se vea nítido y siga siendo 100% escaneable.</div>
+    </div>
+  </div>
+</div>
+
+<div class="app-right">
+  <div class="card style-neon" id="exportCard">
+    <div class="brand" id="brandText">SCAN ME</div>
+    <div class="frame">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+      <div class="qr-box">
+        <div id="qrcode" class="empty">Ingresa una URL<br>y dale a Generar</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="caption" id="caption">tu-link.com</div>
+    <div class="caption-sub" id="subText">Apunta la cámara para abrir</div>
+  </div>
+
+  <div class="switch-row">
+    <label class="switch">
+      <input type="checkbox" id="onlyQrToggle">
+      <span class="switch-slider"></span>
+    </label>
+    <span class="switch-label" id="switchLabelText">Descargar solo el QR (sin la tarjeta)</span>
+  </div>
+
+  <div class="actions">
+    <button class="download" id="downloadBtn" disabled>Guardar diseño completo</button>
+  </div>
+  <div class="hint">Se descarga como imagen PNG</div>
+</div>
+</div>
+
+<script>
+  const urlInput    = document.getElementById('urlInput');
+  const genBtn      = document.getElementById('genBtn');
+  const qrDiv       = document.getElementById('qrcode');
+  const caption     = document.getElementById('caption');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const exportCard  = document.getElementById('exportCard');
+  const swatchesEl  = document.getElementById('swatches');
+  const bgA         = document.getElementById('bgA');
+  const bgB         = document.getElementById('bgB');
+  const topTextInput= document.getElementById('topTextInput');
+  const subTextInput= document.getElementById('subTextInput');
+  const captionTextInput = document.getElementById('captionTextInput');
+  const brandText   = document.getElementById('brandText');
+  const subText     = document.getElementById('subText');
+  const colorPick1  = document.getElementById('colorPick1');
+  const colorPick2  = document.getElementById('colorPick2');
+  const colorPick3  = document.getElementById('colorPick3');
+  const logoInput   = document.getElementById('logoInput');
+  const logoBtnLabel= document.getElementById('logoBtnLabel');
+  const logoPreview = document.getElementById('logoPreview');
+  const logoPreviewImg = document.getElementById('logoPreviewImg');
+  const logoRemoveBtn  = document.getElementById('logoRemoveBtn');
+  const styleOptions   = document.getElementById('styleOptions');
+  const dotShapeSelect  = document.getElementById('dotShapeSelect');
+  const onlyQrToggle    = document.getElementById('onlyQrToggle');
+
+  let qrObj = null;
+  let currentUrl = "";
+  let activeBgLayer = 'a';
+  let logoDataUrl = null;
+
+  const PALETTES = [
+    { name: "IG Clásico", colors: ["#4f5bd5", "#962fbf", "#d62976", "#fa7e1e", "#feda75"] },
+    { name: "Atardecer",  colors: ["#ff0844", "#ff512f", "#f09819", "#ff8a00", "#ffd452"] },
+    { name: "Océano",     colors: ["#002fa7", "#0074ff", "#00c2ff", "#5ee7ff", "#c6faff"] },
+    { name: "Neón",       colors: ["#7b2ff7", "#f107a3", "#ff2079", "#ff6ec7", "#ffd1ff"] },
+    { name: "Oro",        colors: ["#7a5c00", "#b8860b", "#d4af37", "#f1d675", "#fff3c4"] },
+    { name: "Selva",      colors: ["#013220", "#0b6e4f", "#08a045", "#6fd08c", "#c3f584"] }
+  ];
+
+  let currentPalette = PALETTES[0];
+
+  function hexToRgba(hex, a){
+    const c = hex.replace('#','');
+    const full = c.length === 3 ? c.split('').map(ch => ch + ch).join('') : c;
+    const bigint = parseInt(full, 16);
+    const r = (bigint >> 16) & 255, g = (bigint >> 8) & 255, b = bigint & 255;
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  function lerpColor(hexA, hexB, t){
+    const a = hexA.replace('#',''), b = hexB.replace('#','');
+    const ar = parseInt(a.substring(0,2),16), ag = parseInt(a.substring(2,4),16), ab = parseInt(a.substring(4,6),16);
+    const br = parseInt(b.substring(0,2),16), bg = parseInt(b.substring(2,4),16), bb = parseInt(b.substring(4,6),16);
+    const r = Math.round(ar + (br-ar)*t);
+    const g = Math.round(ag + (bg-ag)*t);
+    const bl = Math.round(ab + (bb-ab)*t);
+    return '#' + [r,g,bl].map(v => v.toString(16).padStart(2,'0')).join('');
+  }
+
+  function buildBgGradient(colors){
+    return `radial-gradient(circle at 15% 10%, ${hexToRgba(colors[1], 0.30)}, transparent 45%),
+            radial-gradient(circle at 85% 85%, ${hexToRgba(colors[3], 0.24)}, transparent 45%),
+            radial-gradient(circle at 85% 10%, ${hexToRgba(colors[0], 0.20)}, transparent 40%),
+            var(--bg-deep)`;
+  }
+
+  function crossfadeBg(colors){
+    const showEl = activeBgLayer === 'a' ? bgB : bgA;
+    const hideEl = activeBgLayer === 'a' ? bgA : bgB;
+    showEl.style.background = buildBgGradient(colors);
+    requestAnimationFrame(() => {
+      showEl.style.opacity = '1';
+      hideEl.style.opacity = '0';
+    });
+    activeBgLayer = activeBgLayer === 'a' ? 'b' : 'a';
+  }
+
+  function buildSwatches(){
+    PALETTES.forEach((p) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'swatch';
+      btn.title = p.name;
+      btn.dataset.name = p.name;
+      btn.style.background = `linear-gradient(135deg, ${p.colors[0]}, ${p.colors[2]}, ${p.colors[4]})`;
+      btn.addEventListener('click', () => applyPalette(p));
+      swatchesEl.appendChild(btn);
+    });
+  }
+
+  function applyPalette(palette){
+    currentPalette = palette;
+    const c = palette.colors;
+    const root = document.documentElement.style;
+    root.setProperty('--g1', c[0]);
+    root.setProperty('--g2', c[1]);
+    root.setProperty('--g3', c[2]);
+    root.setProperty('--g4', c[3]);
+    root.setProperty('--g5', c[4]);
+
+    crossfadeBg(c);
+
+    [...swatchesEl.children].forEach(s => s.classList.toggle('active', s.dataset.name === palette.name));
+
+    if(currentUrl) renderQR(currentUrl);
+  }
+
+  function crearQR(url){
+    const c = currentPalette.colors;
+    const dotType = dotShapeSelect.value || "rounded";
+    const opts = {
+      width: 440,
+      height: 440,
+      type: "canvas",
+      data: url,
+      margin: 10,
+      qrOptions: { errorCorrectionLevel: "H" },
+      dotsOptions: {
+        type: dotType,
+        gradient: {
+          type: "linear",
+          rotation: Math.PI / 4,
+          colorStops: [
+            { offset: 0,   color: c[1] },
+            { offset: 0.5, color: c[2] },
+            { offset: 1,   color: c[3] }
+          ]
+        }
+      },
+      cornersSquareOptions: {
+        type: "extra-rounded",
+        gradient: {
+          type: "linear",
+          rotation: Math.PI / 4,
+          colorStops: [
+            { offset: 0, color: c[0] },
+            { offset: 1, color: c[2] }
+          ]
+        }
+      },
+      cornersDotOptions: {
+        type: "dot",
+        color: c[3]
+      },
+      backgroundOptions: {
+        color: "#fdfdfd"
+      }
+    };
+
+    if(logoDataUrl){
+      opts.image = logoDataUrl;
+      opts.imageOptions = {
+        crossOrigin: "anonymous",
+        margin: 14,
+        imageSize: 0.2,
+        hideBackgroundDots: true
+      };
+    }
+
+    return new QRCodeStyling(opts);
+  }
+
+  function normalizeUrl(raw){
+    let v = raw.trim();
+    if(!v) return "";
+    if(!/^https?:\/\//i.test(v)) v = "https://" + v;
+    return v;
+  }
+
+  function shortLabel(raw){
+    try{
+      const u = new URL(raw);
+      let label = u.hostname.replace(/^www\./,'') + (u.pathname !== '/' ? u.pathname : '');
+      if(label.length > 34) label = label.slice(0,31) + '…';
+      return label;
+    }catch(e){
+      return raw.length > 34 ? raw.slice(0,31) + '…' : raw;
+    }
+  }
+
+  function updateCaptionDisplay(){
+    const custom = captionTextInput.value.trim();
+    caption.textContent = custom || (currentUrl ? shortLabel(currentUrl) : 'tu-link.com');
+  }
+
+  function renderQR(url){
+    currentUrl = url;
+    qrDiv.innerHTML = "";
+    qrDiv.classList.remove('empty');
+    qrObj = crearQR(url);
+    qrObj.append(qrDiv);
+    updateCaptionDisplay();
+    downloadBtn.disabled = false;
+  }
+
+  function generarQR(){
+    const url = normalizeUrl(urlInput.value);
+    if(!url){
+      urlInput.focus();
+      return;
+    }
+    renderQR(url);
+  }
+
+  genBtn.addEventListener('click', generarQR);
+  urlInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') generarQR();
+  });
+
+  topTextInput.addEventListener('input', () => {
+    brandText.textContent = topTextInput.value.trim() || 'SCAN ME';
+  });
+  subTextInput.addEventListener('input', () => {
+    subText.textContent = subTextInput.value.trim() || 'Apunta la cámara para abrir';
+  });
+  captionTextInput.addEventListener('input', updateCaptionDisplay);
+
+  dotShapeSelect.addEventListener('change', () => {
+    if(currentUrl) renderQR(currentUrl);
+  });
+
+  buildSwatches();
+  bgA.style.background = buildBgGradient(currentPalette.colors);
+  [...swatchesEl.children][0].classList.add('active');
+
+  function applyCustomColors(){
+    const p1 = colorPick1.value;
+    const p2 = colorPick2.value;
+    const p3 = colorPick3.value;
+    const custom = {
+      name: "Personalizado",
+      colors: [
+        p1,
+        lerpColor(p1, p2, 0.5),
+        p2,
+        lerpColor(p2, p3, 0.5),
+        p3
+      ]
+    };
+    [...swatchesEl.children].forEach(s => s.classList.remove('active'));
+    applyPalette(custom);
+  }
+
+  [colorPick1, colorPick2, colorPick3].forEach(inp => {
+    inp.addEventListener('input', applyCustomColors);
+  });
+
+  // --- Estilos de tarjeta ---
+  styleOptions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.style-thumb');
+    if(!btn) return;
+    [...styleOptions.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    exportCard.className = 'card ' + btn.dataset.style;
+  });
+
+  function processLogoFile(file, callback){
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        const size = 300;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        callback(canvas.toDataURL('image/png'));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  logoBtnLabel.addEventListener('click', () => logoInput.click());
+
+  logoInput.addEventListener('change', () => {
+    const file = logoInput.files && logoInput.files[0];
+    if(!file) return;
+    processLogoFile(file, (dataUrl) => {
+      logoDataUrl = dataUrl;
+      logoPreviewImg.src = logoDataUrl;
+      logoPreview.style.display = 'flex';
+      logoBtnLabel.style.display = 'none';
+      if(currentUrl) renderQR(currentUrl);
+    });
+  });
+
+  logoRemoveBtn.addEventListener('click', () => {
+    logoDataUrl = null;
+    logoInput.value = '';
+    logoPreview.style.display = 'none';
+    logoBtnLabel.style.display = 'inline-block';
+    if(currentUrl) renderQR(currentUrl);
+  });
+
+  // --- Toggle: descargar solo el QR ---
+  onlyQrToggle.addEventListener('change', () => {
+    downloadBtn.textContent = onlyQrToggle.checked ? 'Guardar solo el QR' : 'Guardar diseño completo';
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if(!currentUrl) return;
+    downloadBtn.disabled = true;
+    const originalText = downloadBtn.textContent;
+    downloadBtn.textContent = "Generando imagen...";
+
+    if(onlyQrToggle.checked && qrObj){
+      // Descarga solo el código QR (con logo si aplica), sin la tarjeta
+      qrObj.download({ name: 'qr-vacan', extension: 'png' });
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = originalText;
+      return;
+    }
+
+    html2canvas(exportCard, {
+      backgroundColor: null,
+      scale: 3,
+      useCORS: true
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = 'qr-vacan.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = originalText;
+    }).catch(err => {
+      console.error(err);
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = originalText;
+      alert('No se pudo generar la imagen. Intenta de nuevo.');
+    });
+  });
+</script>
+
+</body>
+</html>

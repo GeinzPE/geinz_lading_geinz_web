@@ -1,325 +1,363 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+    getFirestore,
+    collection,
+    getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import {
-            getFirestore,
-            collection,
-            getDocs
-        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+/* =========================
+   FIREBASE
+========================= */
 
-        /* =========================
-           FIREBASE
-        ========================= */
+const config = {
+    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+    authDomain: "geinzworkapp.firebaseapp.com",
+    projectId: "geinzworkapp",
+    storageBucket: "geinzworkapp.appspot.com",
+    messagingSenderId: "921389328767",
+    appId: "1:921389328767:web:dc6fffc43a51444f5b524a"
+};
 
-        const config = {
-            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-            authDomain: "geinzworkapp.firebaseapp.com",
-            projectId: "geinzworkapp",
-            storageBucket: "geinzworkapp.appspot.com",
-            messagingSenderId: "921389328767",
-            appId: "1:921389328767:web:dc6fffc43a51444f5b524a"
-        };
+const app = initializeApp(config);
+const db = getFirestore(app);
 
-        const app = initializeApp(config);
-        const db = getFirestore(app);
+/* =========================
+   DATA
+========================= */
 
-        /* =========================
-           DATA
-        ========================= */
+let allData = [];
 
-        let allData = [];
+const categories = [
+    "Todos",
+    "agua",
+    "gas",
+    "luz",
+    "cable",
+    "internet",
+    "telefonia movil",
+    "tramites"
+];
 
-        const categories = [
-            "Todos",
-            "agua",
-            "gas",
-            "luz",
-            "cable",
-            "internet",
-            "telefonia movil",
-            "tramites"
-        ];
+const categoryIcon = {
+    "Todos": "fa-solid fa-grid-2",
+    "agua": "fa-solid fa-droplet",
+    "gas": "fa-solid fa-fire",
+    "luz": "fa-solid fa-bolt",
+    "cable": "fa-solid fa-tower-cell",
+    "internet": "fa-solid fa-wifi",
+    "telefonia movil": "fa-solid fa-mobile-screen",
+    "tramites": "fa-regular fa-file-lines"
+};
 
-        const categoryIcon = {
-            "Todos": "fa-solid fa-grid-2",
-            "agua": "fa-solid fa-droplet",
-            "gas": "fa-solid fa-fire",
-            "luz": "fa-solid fa-bolt",
-            "cable": "fa-solid fa-tower-cell",
-            "internet": "fa-solid fa-wifi",
-            "telefonia movil": "fa-solid fa-mobile-screen",
-            "tramites": "fa-regular fa-file-lines"
-        };
+/* =========================
+   ALIAS DESDE LA URL
+   ej: https://geinztech.com/redirect/serviciosHogar/fibramasbrca
+   -> alias = "fibramasbrca"
+========================= */
 
-        /* =========================
-           SKELETON FULL PAGE
-        ========================= */
+function getAliasFromURL() {
+    // toma el último segmento no vacío de la ruta
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    if (!parts.length) return null;
 
-        function showSkeletons() {
-            document.getElementById('app').innerHTML = `
-    <div class="page-skeleton">
+    const last = parts[parts.length - 1];
 
-        <header class="sticky-header">
-            <div class="container">
-                <div class="sk-line sk-title"></div>
-                <div class="sk-line sk-sub"></div>
-                <div class="sk-line sk-mini"></div>
+    try {
+        return decodeURIComponent(last).trim().toLowerCase();
+    } catch {
+        return last.trim().toLowerCase();
+    }
+}
 
-                <div class="sk-filters">
-                    ${Array(7).fill('<div class="sk-chip"></div>').join('')}
-                </div>
-            </div>
-        </header>
+function openByAliasIfPresent() {
+    const alias = getAliasFromURL();
+    if (!alias) return;
 
-        <main class="container">
-            <div class="sk-grid">
-                ${Array(12).fill('<div class="sk-card"></div>').join('')}
-            </div>
-        </main>
+    const item = allData.find(x =>
+        (x.alias || '').toString().trim().toLowerCase() === alias
+    );
 
-    </div>
-    `;
-        }
+    if (item) {
+        // pequeño delay para asegurar que el DOM del modal ya está pintado
+        setTimeout(() => showM(item.id), 50);
+    } else {
+        console.warn(`No se encontró ningún servicio con alias "${alias}"`);
+    }
+}
 
-        /* =========================
-           RENDER APP
-        ========================= */
+/* =========================
+   SKELETON FULL PAGE
+========================= */
 
-        function renderApp() {
-            document.getElementById('app').innerHTML = `
+function showSkeletons() {
+    document.getElementById('app').innerHTML = `
+<div class="page-skeleton">
 
     <header class="sticky-header">
         <div class="container">
+            <div class="sk-line sk-title"></div>
+            <div class="sk-line sk-sub"></div>
+            <div class="sk-line sk-mini"></div>
 
-            <h1 class="hero-title">servicios esenciales Geinz</h1>
-
-            <p class="hero-desc">
-                Obten los contactos y direcciones de los servicios esenciales de barranca
-            </p>
-
-            <p class="hero-mini">Barranca · verificado</p>
-
-            <div class="filter-wrapper" id="filterArea"></div>
-
+            <div class="sk-filters">
+                ${Array(7).fill('<div class="sk-chip"></div>').join('')}
+            </div>
         </div>
     </header>
 
     <main class="container">
-        <div class="grid" id="mainGrid"></div>
+        <div class="sk-grid">
+            ${Array(12).fill('<div class="sk-card"></div>').join('')}
+        </div>
     </main>
 
-    <div class="modal" id="modalUI" onclick="closeM(event)">
-        <div class="modal-content" onclick="event.stopPropagation()">
+</div>
+`;
+}
 
-            <div class="m-banner">
-                <button class="close-x" onclick="hideM()">
-                    <i class="fas fa-times"></i>
-                </button>
+/* =========================
+   RENDER APP
+========================= */
 
-                <img id="mi" src="" />
-            </div>
+function renderApp() {
+    document.getElementById('app').innerHTML = `
 
-            <div class="m-body">
-                <h2 id="mt" class="m-title"></h2>
+<header class="sticky-header">
+    <div class="container">
 
-                <div class="m-location">
-                    <i class="fas fa-map-pin"></i> Barranca, Perú
-                </div>
+        <h1 class="hero-title">servicios esenciales Geinz</h1>
 
-                <p id="md" class="m-desc"></p>
+        <p class="hero-desc">
+            Obten los contactos y direcciones de los servicios esenciales de barranca
+        </p>
 
-                <a id="ml" class="btn-main" target="_blank">
-                    <i class="fas fa-location-arrow"></i> Cómo llegar
-                </a>
+        <p class="hero-mini">Barranca · verificado</p>
 
-                <div class="socials" id="ms"></div>
-            </div>
+        <div class="filter-wrapper" id="filterArea"></div>
 
-        </div>
     </div>
+</header>
 
-    `;
+<main class="container">
+    <div class="grid" id="mainGrid"></div>
+</main>
 
-            renderFilters();
-            render(allData);
-        }
+<div class="modal" id="modalUI" onclick="closeM(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
 
-        /* =========================
-           FILTERS
-        ========================= */
+        <div class="m-banner">
+            <button class="close-x" onclick="hideM()">
+                <i class="fas fa-times"></i>
+            </button>
 
-        function renderFilters() {
-            const area = document.getElementById('filterArea');
-
-            area.innerHTML = categories.map(c => {
-                const icon = categoryIcon[c] || "fa-solid fa-tag";
-
-                return `
-        <button class="f-btn ${c === 'Todos' ? 'active' : ''}"
-                onclick="filter('${c.toLowerCase()}',this)">
-            <i class="${icon}" style="margin-right:6px;"></i>
-            ${c}
-        </button>`;
-            }).join('');
-        }
-
-        /* =========================
-           GRID
-        ========================= */
-
-        function render(data) {
-            const grid = document.getElementById('mainGrid');
-
-            if (!data.length) {
-                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:50px;">
-            Sin resultados
-        </div>`;
-                return;
-            }
-
-            grid.innerHTML = data.map(item => `
-        <div class="card" onclick="showM('${item.id}')">
-            <img src="${item.img_logo || ''}"
-                 loading="lazy"
-                 onload="this.classList.add('loaded')" />
+            <img id="mi" src="" />
         </div>
-    `).join('');
-        }
 
-        /* =========================
-           FILTER
-        ========================= */
+        <div class="m-body">
+            <h2 id="mt" class="m-title"></h2>
 
-        window.filter = (cat, btn) => {
-            document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            <div class="m-location">
+                <i class="fas fa-map-pin"></i> Barranca, Perú
+            </div>
 
-            const res = cat === 'todos'
-                ? allData
-                : allData.filter(i =>
-                    i.categoria?.some(x => x.toLowerCase() === cat)
-                );
+            <p id="md" class="m-desc"></p>
 
-            render(res);
-        };
+            <a id="ml" class="btn-main" target="_blank">
+                <i class="fas fa-location-arrow"></i> Cómo llegar
+            </a>
 
-        /* =========================
-           MODAL
-        ========================= */
+            <div class="socials" id="ms"></div>
+        </div>
 
-        window.showM = (id) => {
+    </div>
+</div>
 
-            const item = allData.find(x => x.id === id);
-            if (!item) return;
+`;
 
-            document.getElementById('mi').src =
-                item.img_logo || 'https://placehold.co/600x400';
+    renderFilters();
+    render(allData);
+}
 
-            document.getElementById('mt').innerText =
-                item.lugar_nombre || '';
+/* =========================
+   FILTERS
+========================= */
 
-            document.getElementById('md').innerText =
-                item.descripcion || '';
+function renderFilters() {
+    const area = document.getElementById('filterArea');
 
-            /* MAPS ROUTE */
-            const lat = item.direccion?.lat;
-            const lng = item.direccion?.log;
+    area.innerHTML = categories.map(c => {
+        const icon = categoryIcon[c] || "fa-solid fa-tag";
 
-            let mapsUrl = "https://maps.google.com/?q=Barranca";
+        return `
+    <button class="f-btn ${c === 'Todos' ? 'active' : ''}"
+            onclick="filter('${c.toLowerCase()}',this)">
+        <i class="${icon}" style="margin-right:6px;"></i>
+        ${c}
+    </button>`;
+    }).join('');
+}
 
-            if (lat && lng) {
-                mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
-            }
+/* =========================
+   GRID
+========================= */
 
-            document.getElementById('ml').href = mapsUrl;
+function render(data) {
+    const grid = document.getElementById('mainGrid');
 
-            /* SOCIALS */
-            const social = document.getElementById('ms');
-            social.innerHTML = '';
+    if (!data.length) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:50px;">
+        Sin resultados
+    </div>`;
+        return;
+    }
 
-            const c = item.contacto || {};
+    grid.innerHTML = data.map(item => `
+    <div class="card" onclick="showM('${item.id}')">
+        <img src="${item.img_logo || ''}"
+             loading="lazy"
+             onload="this.classList.add('loaded')" />
+    </div>
+`).join('');
+}
 
-            const add = (url, icon) => {
-                social.innerHTML += `
-        <a class="s-item" target="_blank" href="${url}">
-            <i class="${icon}"></i>
-        </a>`;
-            };
+/* =========================
+   FILTER
+========================= */
 
-            if (c.whatsapp?.[0]) {
-                let n = c.whatsapp[0].replace(/\s/g, '').replace(/^\+?51/, '');
-                add(`https://wa.me/51${n}`, 'fab fa-whatsapp');
-            }
+window.filter = (cat, btn) => {
+    document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
 
-            if (c.telefono?.[0]) {
-                add(`tel:${c.telefono[0]}`, 'fas fa-phone');
-            }
+    const res = cat === 'todos'
+        ? allData
+        : allData.filter(i =>
+            i.categoria?.some(x => x.toLowerCase() === cat)
+        );
 
-            if (c.ig) {
-                let ig = c.ig.startsWith('http')
-                    ? c.ig
-                    : `https://instagram.com/${c.ig.replace('@', '')}`;
-                add(ig, 'fab fa-instagram');
-            }
+    render(res);
+};
 
-            if (c.facebook) {
-                let fb = c.facebook.startsWith('http')
-                    ? c.facebook
-                    : `https://facebook.com/${c.facebook}`;
-                add(fb, 'fab fa-facebook-f');
-            }
+/* =========================
+   MODAL
+========================= */
 
-            if (c.tk) {
-                let tk = c.tk.startsWith('http')
-                    ? c.tk
-                    : `https://tiktok.com/@${c.tk.replace('@', '')}`;
-                add(tk, 'fab fa-tiktok');
-            }
+window.showM = (id) => {
 
-            if (c.sitio_web) {
-                let w = c.sitio_web.startsWith('http')
-                    ? c.sitio_web
-                    : `https://${c.sitio_web}`;
-                add(w, 'fas fa-globe');
-            }
+    const item = allData.find(x => x.id === id);
+    if (!item) return;
 
-            document.getElementById('modalUI').classList.add('active');
-            document.body.style.overflow = 'hidden';
-        };
+    document.getElementById('mi').src =
+        item.img_logo || 'https://placehold.co/600x400';
 
-        window.hideM = () => {
-            document.getElementById('modalUI').classList.remove('active');
-            document.body.style.overflow = '';
-        };
+    document.getElementById('mt').innerText =
+        item.lugar_nombre || '';
 
-        window.closeM = (e) => {
-            if (e.target.id === 'modalUI') hideM();
-        };
+    document.getElementById('md').innerText =
+        item.descripcion || '';
 
-        /* =========================
-           START
-        ========================= */
+    /* MAPS ROUTE */
+    const lat = item.direccion?.lat;
+    const lng = item.direccion?.log;
 
-        async function start() {
+    let mapsUrl = "https://maps.google.com/?q=Barranca";
 
-            showSkeletons();
+    if (lat && lng) {
+        mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    }
 
-            try {
+    document.getElementById('ml').href = mapsUrl;
 
-                const snap = await getDocs(
-                    collection(db, "Tiendas", "servicios_basicos", "barranca")
-                );
+    /* SOCIALS */
+    const social = document.getElementById('ms');
+    social.innerHTML = '';
 
-                allData = snap.docs.map(d => ({
-                    id: d.id,
-                    ...d.data()
-                }));
+    const c = item.contacto || {};
 
-                renderApp();
+    const add = (url, icon) => {
+        social.innerHTML += `
+    <a class="s-item" target="_blank" href="${url}">
+        <i class="${icon}"></i>
+    </a>`;
+    };
 
-            } catch (e) {
-                console.error(e);
-            }
-        }
+    if (c.whatsapp?.[0]) {
+        let n = c.whatsapp[0].replace(/\s/g, '').replace(/^\+?51/, '');
+        add(`https://wa.me/51${n}`, 'fab fa-whatsapp');
+    }
 
-        start();
+    if (c.telefono?.[0]) {
+        add(`tel:${c.telefono[0]}`, 'fas fa-phone');
+    }
 
+    if (c.ig) {
+        let ig = c.ig.startsWith('http')
+            ? c.ig
+            : `https://instagram.com/${c.ig.replace('@', '')}`;
+        add(ig, 'fab fa-instagram');
+    }
+
+    if (c.facebook) {
+        let fb = c.facebook.startsWith('http')
+            ? c.facebook
+            : `https://facebook.com/${c.facebook}`;
+        add(fb, 'fab fa-facebook-f');
+    }
+
+    if (c.tk) {
+        let tk = c.tk.startsWith('http')
+            ? c.tk
+            : `https://tiktok.com/@${c.tk.replace('@', '')}`;
+        add(tk, 'fab fa-tiktok');
+    }
+
+    if (c.sitio_web) {
+        let w = c.sitio_web.startsWith('http')
+            ? c.sitio_web
+            : `https://${c.sitio_web}`;
+        add(w, 'fas fa-globe');
+    }
+
+    document.getElementById('modalUI').classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+
+window.hideM = () => {
+    document.getElementById('modalUI').classList.remove('active');
+    document.body.style.overflow = '';
+};
+
+window.closeM = (e) => {
+    if (e.target.id === 'modalUI') hideM();
+};
+
+/* =========================
+   START
+========================= */
+
+async function start() {
+
+    showSkeletons();
+
+    try {
+
+        const snap = await getDocs(
+            collection(db, "Tiendas", "servicios_basicos", "barranca")
+        );
+
+        allData = snap.docs.map(d => ({
+            id: d.id,
+            ...d.data()
+        }));
+
+        renderApp();
+
+        // si la URL trae un alias (ej: /redirect/serviciosHogar/fibramasbrca)
+        // abrimos automáticamente el modal del servicio que coincida
+        openByAliasIfPresent();
+
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+start();
