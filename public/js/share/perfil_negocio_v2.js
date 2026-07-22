@@ -1187,6 +1187,216 @@ function showSnackbar(msg) {
 // ══════════════════════════════════════════
 //  RENDER PRINCIPAL
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+//  LIGHTBOX / CARRUSEL ESTILO IG
+// ══════════════════════════════════════════
+const LIGHTBOX_CSS = `
+  .lightbox-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(3,3,3,0.94);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s ease;
+  }
+  .lightbox-modal.open {
+    opacity: 1;
+    visibility: visible;
+  }
+  .lightbox-stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .lightbox-stage img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 18px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    opacity: 0;
+    transform: scale(0.96);
+    transition: opacity 0.32s ease, transform 0.32s cubic-bezier(.2,.8,.2,1);
+  }
+  .lightbox-stage img.show {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.18); transform: scale(1.05); }
+  .lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .lightbox-nav:hover { background: rgba(255,255,255,0.2); transform: translateY(-50%) scale(1.08); }
+  .lightbox-prev { left: 20px; }
+  .lightbox-next { right: 20px; }
+  .lightbox-counter {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    background: rgba(255,255,255,0.08);
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+  @media (max-width: 640px) {
+    .lightbox-nav { width: 44px; height: 44px; }
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
+    .lightbox-stage { padding: 16px; }
+  }
+`;
+
+let _lightboxImages = [];
+let _lightboxIndex = 0;
+let _lightboxBound = false;
+
+function injectLightboxStyles() {
+  if (document.getElementById("lightboxStyle")) return;
+  const style = document.createElement("style");
+  style.id = "lightboxStyle";
+  style.textContent = LIGHTBOX_CSS;
+  document.head.appendChild(style);
+}
+
+function bindLightboxEvents() {
+  if (_lightboxBound) return;
+  _lightboxBound = true;
+
+  document
+    .getElementById("lightboxClose")
+    ?.addEventListener("click", closeLightbox);
+  document
+    .getElementById("lightboxNext")
+    ?.addEventListener("click", lightboxNext);
+  document
+    .getElementById("lightboxPrev")
+    ?.addEventListener("click", lightboxPrev);
+
+  document.getElementById("lightboxModal")?.addEventListener("click", (e) => {
+    if (e.target.id === "lightboxModal") closeLightbox();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("lightboxModal");
+    if (!modal?.classList.contains("open")) return;
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowRight") lightboxNext();
+    if (e.key === "ArrowLeft") lightboxPrev();
+  });
+
+  // Swipe táctil
+  let touchStartX = 0;
+  const stage = document.querySelector(".lightbox-stage");
+  stage?.addEventListener(
+    "touchstart",
+    (e) => {
+      touchStartX = e.touches[0].clientX;
+    },
+    { passive: true },
+  );
+  stage?.addEventListener(
+    "touchend",
+    (e) => {
+      const diff = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(diff) > 50) diff > 0 ? lightboxPrev() : lightboxNext();
+    },
+    { passive: true },
+  );
+}
+
+function openLightbox(images, index) {
+  if (!images?.length) return;
+  injectLightboxStyles();
+  bindLightboxEvents();
+
+  _lightboxImages = images;
+  _lightboxIndex = index;
+
+  const modal = document.getElementById("lightboxModal");
+  const nav = document.querySelectorAll(".lightbox-nav");
+  nav.forEach(
+    (b) => (b.style.display = _lightboxImages.length > 1 ? "flex" : "none"),
+  );
+
+  renderLightboxImage();
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeLightbox() {
+  document.getElementById("lightboxModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function renderLightboxImage() {
+  const img = document.getElementById("lightboxImg");
+  const counter = document.getElementById("lightboxCounter");
+
+  img.classList.remove("show");
+  setTimeout(() => {
+    img.src = _lightboxImages[_lightboxIndex];
+    img.onload = () => img.classList.add("show");
+  }, 120);
+
+  counter.textContent = `${_lightboxIndex + 1} / ${_lightboxImages.length}`;
+  counter.style.display = _lightboxImages.length > 1 ? "block" : "none";
+}
+
+function lightboxNext() {
+  _lightboxIndex = (_lightboxIndex + 1) % _lightboxImages.length;
+  renderLightboxImage();
+}
+function lightboxPrev() {
+  _lightboxIndex =
+    (_lightboxIndex - 1 + _lightboxImages.length) % _lightboxImages.length;
+  renderLightboxImage();
+}
+
 // ── Variables globales ──
 let _params = {};
 let _colorReady = false;
@@ -1354,8 +1564,9 @@ async function render(biz) {
       if (idx >= maxVisible) return;
       const card = document.createElement("div");
       card.className = "gallery-card";
+      card.style.cursor = "pointer";
       if (isMobile && idx === 3 && hidden > 0) {
-        card.style.cssText = "position:relative;";
+        card.style.cssText = "position:relative;cursor:pointer;";
         card.innerHTML = `<img src="${src}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"><div style="position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;border-radius:30px;"><span style="font-size:32px;font-weight:900;color:white;">+${hidden}</span></div>`;
       } else {
         const img = document.createElement("img");
@@ -1366,6 +1577,7 @@ async function render(biz) {
         };
         card.appendChild(img);
       }
+      card.addEventListener("click", () => openLightbox(productos, idx));
       prodGrid.appendChild(card);
     });
   }
@@ -1392,8 +1604,9 @@ async function render(biz) {
       if (idx >= maxVisibleAmb) return;
       const card = document.createElement("div");
       card.className = "gallery-card";
+      card.style.cursor = "pointer";
       if (isMobileAmb && idx === 3 && hiddenAmb > 0) {
-        card.style.cssText = "position:relative;";
+        card.style.cssText = "position:relative;cursor:pointer;";
         card.innerHTML = `<img src="${src}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"><div style="position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;border-radius:30px;"><span style="font-size:32px;font-weight:900;color:white;">+${hiddenAmb}</span></div>`;
       } else {
         const img = document.createElement("img");
@@ -1404,6 +1617,7 @@ async function render(biz) {
         };
         card.appendChild(img);
       }
+      card.addEventListener("click", () => openLightbox(ambientales, idx));
       ambGrid.appendChild(card);
     });
   }
@@ -1541,6 +1755,7 @@ function listenBusinessRealtime({ localidad, id }) {
     showNotFoundScreen(err.message); // ← debe capturarlo
   }
 })();
+injectLightboxStyles();
 
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
