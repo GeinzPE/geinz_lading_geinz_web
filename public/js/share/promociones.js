@@ -424,17 +424,57 @@ async function openPhotoSwipe(index) {
   pswp.init();
 }
 
+function preloadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
+}
+
 function setupGallery(images) {
   galleryImages = images;
   const imgWrap = document.querySelector(".promo-img-wrap");
   if (!imgWrap || !images.length) return;
   imgWrap.innerHTML = "";
+
+  // Skeleton propio de la imagen
+  const skeleton = document.createElement("div");
+  skeleton.className = "img-skeleton";
+  imgWrap.appendChild(skeleton);
+
   const img = document.createElement("img");
   img.className = "promo-img";
-  img.src = images[0];
   img.alt = "Promoción";
-  img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
+  img.style.cssText =
+    "width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:2;";
   imgWrap.appendChild(img);
+
+  function showImage(src) {
+    img.classList.remove("loaded");
+    skeleton.style.opacity = "1";
+    skeleton.style.pointerEvents = "auto";
+
+    const done = () => {
+      img.classList.add("loaded");
+      skeleton.style.opacity = "0";
+      skeleton.style.pointerEvents = "none";
+    };
+
+    if (img.src === src && img.complete && img.naturalWidth > 0) {
+      // ya estaba cargada (ej. volviste a una foto de la galería)
+      requestAnimationFrame(done);
+      return;
+    }
+
+    img.onload = done;
+    img.onerror = done; // no dejar el skeleton pegado si falla
+    img.src = src;
+  }
+
+  showImage(images[0]);
+
   if (images.length <= 1) {
     imgWrap.style.cursor = "zoom-in";
     img.addEventListener("click", (e) => {
@@ -443,6 +483,7 @@ function setupGallery(images) {
     });
     return;
   }
+
   imgWrap.style.cursor = "default";
   const counter = document.createElement("div");
   counter.className = "img-counter";
@@ -466,9 +507,12 @@ function setupGallery(images) {
   imgWrap.appendChild(prevBtn);
   imgWrap.appendChild(nextBtn);
 
+  // Precarga silenciosa de las siguientes imágenes en segundo plano
+  images.slice(1).forEach((src) => preloadImage(src));
+
   function updateView(index) {
     currentImgIndex = index;
-    img.src = images[index];
+    showImage(images[index]);
     counter.textContent = `${index + 1} / ${images.length}`;
     dots
       .querySelectorAll(".img-dot")
@@ -504,9 +548,7 @@ function setupGallery(images) {
       else if (diff < 0 && currentImgIndex > 0) updateView(currentImgIndex - 1);
     }
   });
-  updateView(0);
 }
-
 // ===================== RENDER PRINCIPAL =====================
 function render(data) {
   const info = data.informacion || {};
@@ -528,6 +570,8 @@ function render(data) {
       "width:100%;height:100%;object-fit:cover;border-radius:inherit;";
     avatar.textContent = "";
     avatar.appendChild(logoEl);
+
+    setCircularFavicon(img.logo_img); // ← AGREGAR ESTA LÍNEA
   } else if (avatar) {
     avatar.textContent = (info.nombre_tienda || "?")[0].toUpperCase();
   }
@@ -673,6 +717,59 @@ function render(data) {
   } else if (paymentSection) {
     paymentSection.style.display = "none";
   }
+}
+
+// ===================== FAVICON CIRCULAR DINÁMICO =====================
+function setCircularFavicon(imgSrc) {
+  if (!imgSrc) return;
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try {
+      const size = 64;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      // Clip circular
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      // Dibuja tipo "cover" (recorta sin deformar)
+      const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+      const w = img.naturalWidth * scale;
+      const h = img.naturalHeight * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      ctx.restore();
+
+      const dataUrl = canvas.toDataURL("image/png");
+
+      // Quita favicons previos y coloca el nuevo
+      document
+        .querySelectorAll("link[rel~='icon'], link[rel='apple-touch-icon']")
+        .forEach((l) => l.remove());
+
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.type = "image/png";
+      link.href = dataUrl;
+      document.head.appendChild(link);
+
+      const appleLink = document.createElement("link");
+      appleLink.rel = "apple-touch-icon";
+      appleLink.href = dataUrl;
+      document.head.appendChild(appleLink);
+    } catch (e) {
+      // Si falla (ej. CORS del logo), se queda el favicon por defecto
+      console.warn("No se pudo generar favicon circular:", e);
+    }
+  };
+  img.onerror = () => {}; // fallback silencioso, se queda el favicon default
+  img.src = imgSrc;
 }
 
 // ===================== LOADING / ERROR STATES =====================

@@ -3,9 +3,9 @@
 
 <head>
     <meta charset="UTF-8" />
+    <script>document.documentElement.classList.add('geinz-loading');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Geinz Business</title>
-
     <!-- SEO base (el JS las sobreescribe con datos reales) -->
     <meta name="description" content="Encuentra negocios locales en Geinz">
     <meta property="og:site_name" content="GeinzWork" />
@@ -15,7 +15,6 @@
     <meta property="og:image" content="https://geinztech.com/default.jpg" />
     <meta property="og:locale" content="es_PE" />
     <link rel="canonical" href="https://geinztech.com/perfil_negocio.html" />
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,7 +23,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <link rel="stylesheet" href="./style/shareStyle/perfil_negocio_v2.css" />
     <script type="module" src="./js/share/perfil_negocio_v2.js"></script>
-
     <link rel="icon" href="./img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="./img/icons/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="./img/icons/favicon-16x16.png">
@@ -33,6 +31,37 @@
 </head>
 
 <body>
+       <div class="geinz-loader" id="geinzLoader">
+        <div class="sk-container">
+            <div class="sk-hero">
+                <div class="sk-hero-left">
+                    <div class="sk-title"></div>
+                    <div class="sk-status"></div>
+                    <div class="sk-tags">
+                        <div class="sk-tag"></div>
+                        <div class="sk-tag"></div>
+                        <div class="sk-tag"></div>
+                    </div>
+                    <div class="sk-desc"></div>
+                    <div class="sk-buttons">
+                        <div class="sk-btn"></div>
+                        <div class="sk-btn"></div>
+                    </div>
+                </div>
+                <div class="sk-hero-right">
+                    <div class="sk-image"></div>
+                </div>
+            </div>
+            <div class="sk-section">
+                <div class="sk-section-header"></div>
+                <div class="sk-grid">
+                    <div class="sk-card"></div>
+                    <div class="sk-card"></div>
+                    <div class="sk-card"></div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="dynamic-bg" id="dynamicBg"></div>
     <div class="grid-bg"></div>
     <a href="../index.html" id="geinzHeader" class="geinz-header" aria-label="Volver a Geinz">

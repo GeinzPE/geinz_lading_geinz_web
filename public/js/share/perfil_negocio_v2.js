@@ -426,63 +426,13 @@ const LOADER_CSS = `
         pointer-events: none;
     }
 `;
-function showBizLoader() {
-  const style = document.createElement("style");
-  style.id = "loaderStyle";
-  style.textContent = LOADER_CSS;
-  document.head.appendChild(style);
-  const loader = document.createElement("div");
-  loader.className = "geinz-loader";
-  loader.id = "geinzLoader";
-  loader.innerHTML = `
-    <div class="sk-container">
-        <div class="sk-hero">
-            <div class="sk-hero-left">
-                <div class="sk-title"></div>
-                <div class="sk-status"></div>
-                <div class="sk-tags">
-                    <div class="sk-tag"></div>
-                    <div class="sk-tag"></div>
-                    <div class="sk-tag"></div>
-                </div>
-                <div class="sk-desc"></div>
-                <div class="sk-buttons">
-                    <div class="sk-btn"></div>
-                    <div class="sk-btn"></div>
-                </div>
-            </div>
-            <div class="sk-hero-right">
-                <div class="sk-image"></div>
-            </div>
-        </div>
-        <div class="sk-section">
-            <div class="sk-section-header"></div>
-            <div class="sk-grid">
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-            </div>
-        </div>
-        <div class="sk-section">
-            <div class="sk-section-header"></div>
-            <div class="sk-grid">
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-            </div>
-        </div>
-    </div>
-`;
-  document.body.appendChild(loader);
-}
+
 function hideBizLoader() {
   const loader = document.getElementById("geinzLoader");
+  document.documentElement.classList.remove("geinz-loading");
   if (loader) {
     loader.classList.add("hide");
-    setTimeout(() => {
-      loader.remove();
-      document.getElementById("loaderStyle")?.remove();
-    }, 420);
+    setTimeout(() => loader.remove(), 420);
   }
 }
 
@@ -663,7 +613,6 @@ function renderActivePromos(promos, localidad) {
     card.className = "promo-active-card";
     card.innerHTML = `
       <div class="promo-active-img-wrap">
-        <img src="${img}" alt="${info.titulo || "Promoción"}" loading="lazy">
         <span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>
       </div>
       <div class="promo-active-body">
@@ -675,12 +624,16 @@ function renderActivePromos(promos, localidad) {
         </div>
       </div>
     `;
-
-    const imgEl = card.querySelector("img");
-    imgEl.onerror = () => {
-      card.querySelector(".promo-active-img-wrap").style.display = "none";
-    };
-
+    const imgWrapContainer = card.querySelector(".promo-active-img-wrap");
+    const imgWrap = createImageWithPlaceholder({
+      src: img,
+      alt: info.titulo || "Promoción",
+      onError: () => {
+        imgWrapContainer.style.display = "none";
+      },
+    });
+    imgWrapContainer.prepend(imgWrap);
+ 
     grid.appendChild(card);
   });
 
@@ -859,6 +812,31 @@ function copyToClipboard(txt) {
       showToast();
     });
 }
+
+function createImageWithPlaceholder({ src, alt = "", onError, onClick }) {
+  const wrap = document.createElement("div");
+  wrap.className = "img-ph-wrap";
+
+  const img = document.createElement("img");
+  img.alt = alt;
+  img.loading = "lazy";
+
+  img.onload = () => {
+    img.classList.add("loaded");
+    wrap.classList.add("loaded");
+  };
+  img.onerror = () => {
+    if (onError) onError(wrap, img);
+    else wrap.remove();
+  };
+
+  img.src = src;
+  wrap.appendChild(img);
+
+  if (onClick) wrap.addEventListener("click", onClick);
+  return wrap;
+}
+
 function showToast(msg) {
   const el = document.getElementById("toast");
   if (!el) return;
@@ -1122,14 +1100,14 @@ function buildFullGallery(images) {
   images.forEach((src, i) => {
     const slide = document.createElement("div");
     slide.className = "full-gallery-slide";
-    const img = document.createElement("img");
-    img.src = src;
-    img.alt = `Galería ${i + 1}`;
-    img.loading = "lazy";
-    img.onerror = () => {
-      card.style.display = "none"; // oculta el card si la img falla
-    };
-    slide.appendChild(img);
+    const imgWrap = createImageWithPlaceholder({
+      src,
+      alt: `Galería ${i + 1}`,
+      onError: () => {
+        slide.style.display = "none";
+      },
+    });
+    slide.appendChild(imgWrap);
     track.appendChild(slide);
     const dot = document.createElement("div");
     dot.className = "full-gallery-dot" + (i === 0 ? " active" : "");
@@ -1569,13 +1547,14 @@ async function render(biz) {
         card.style.cssText = "position:relative;cursor:pointer;";
         card.innerHTML = `<img src="${src}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"><div style="position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;border-radius:30px;"><span style="font-size:32px;font-weight:900;color:white;">+${hidden}</span></div>`;
       } else {
-        const img = document.createElement("img");
-        img.src = src;
-        img.loading = "lazy";
-        img.onerror = () => {
-          card.style.display = "none"; // oculta el card si la img falla
-        };
-        card.appendChild(img);
+        const imgWrap = createImageWithPlaceholder({
+          src,
+          alt: "Producto",
+          onError: () => {
+            card.style.display = "none";
+          },
+        });
+        card.appendChild(imgWrap);
       }
       card.addEventListener("click", () => openLightbox(productos, idx));
       prodGrid.appendChild(card);
@@ -1609,13 +1588,14 @@ async function render(biz) {
         card.style.cssText = "position:relative;cursor:pointer;";
         card.innerHTML = `<img src="${src}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"><div style="position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;border-radius:30px;"><span style="font-size:32px;font-weight:900;color:white;">+${hiddenAmb}</span></div>`;
       } else {
-        const img = document.createElement("img");
-        img.src = src;
-        img.loading = "lazy";
-        img.onerror = () => {
-          card.style.display = "none"; // oculta el card si la img falla
-        };
-        card.appendChild(img);
+        const imgWrap = createImageWithPlaceholder({
+          src,
+          alt: "Producto",
+          onError: () => {
+            card.style.display = "none";
+          },
+        });
+        card.appendChild(imgWrap);
       }
       card.addEventListener("click", () => openLightbox(ambientales, idx));
       ambGrid.appendChild(card);
@@ -1651,7 +1631,16 @@ async function render(biz) {
       const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
       const card = document.createElement("div");
       card.className = "promo-card";
-      card.innerHTML = `<div class="promo-card-img-wrap"><img src="${promo.url}" alt="${promo.titulo}" loading="lazy"><div class="promo-overlay-actions"><a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button></div></div>`;
+      card.innerHTML = `<div class="promo-card-img-wrap"><div class="promo-overlay-actions">${
+        /* deja aquí igual los botones de WhatsApp y Compartir */
+        `<a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>`
+      }</div></div>`;
+      const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
+      const imgWrap = createImageWithPlaceholder({
+        src: promo.url,
+        alt: promo.titulo,
+      });
+      imgWrapContainer.prepend(imgWrap);
       promoCarousel.appendChild(card);
     });
     promoCarousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
@@ -1738,7 +1727,6 @@ function listenBusinessRealtime({ localidad, id }) {
 //  INIT
 // ══════════════════════════════════════════
 (async () => {
-  showBizLoader();
   try {
     const params = await getParams(); // ← si falla aquí
     _params = params;

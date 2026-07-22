@@ -147,6 +147,12 @@ window.PanelPerfil = {
   mapMarker: null,
   mapMarkerActual: null,
 
+  // ── Carta digital (solo Comida y Restaurantes) ──
+  cartaColecciones: {},
+  CARTA_MAX_COLECCIONES: 5,
+  CARTA_MAX_FOTOS: 5,
+  _cartaLoaded: false,
+
   // ── IDs / refs Firebase ─────────────────────
   TIENDA_ID: tiendaId,
   LOCALIDAD_TIENDA: localidad,
@@ -391,6 +397,12 @@ window.PanelPerfil = {
       } else if (key === "metodo_contacto.sitio_web.url") {
         this.setField("fieldWeb", val || "");
         this._originalValues["fieldWeb"] = val || "";
+      } else if (key === "categoria_tienda") {
+        this.selectedCat = val || "";
+        this.renderCategorias();
+        this.renderSubcategorias();
+        this.updateCatDisplay();
+        this._actualizarVisibilidadCarta();
       } else if (key === "subcategoria") {
         this.selectedSubcats = Array.isArray(val)
           ? val.map((s) => s.toLowerCase())
@@ -446,6 +458,7 @@ window.PanelPerfil = {
     }
 
     this.updateCatDisplay();
+    this._actualizarVisibilidadCarta();
 
     if (data.ubicacion) {
       this.setField("fieldDireccion", data.ubicacion["dirección"] || "");
@@ -565,6 +578,7 @@ window.PanelPerfil = {
       this.renderCategorias();
       this.renderSubcategorias();
       this.updateCatDisplay();
+      this._actualizarVisibilidadCarta();
     } catch (e) {
       console.error("Error loadCategorias:", e);
     }
@@ -580,6 +594,7 @@ window.PanelPerfil = {
     this.renderCategorias();
     this.renderSubcategorias();
     this.updateCatDisplay();
+    this._actualizarVisibilidadCarta();
     this.showSaveFab();
   },
 
@@ -631,6 +646,409 @@ window.PanelPerfil = {
       text += ` • ${this.selectedSubcats.length} subcategorías`;
     const d = document.getElementById("catDisplay");
     if (d) d.textContent = text;
+  },
+
+  // ═══════════════════════════════════════════
+  //  CARTA DIGITAL (solo Comida y Restaurantes)
+  // ═══════════════════════════════════════════
+  _esCategoriaComida() {
+    const cat = (
+      this.selectedCat ||
+      this.currentData?.categoria_tienda ||
+      ""
+    )
+      .toString()
+      .toLowerCase();
+    return cat.includes("comida") || cat.includes("restaurant");
+  },
+
+  _actualizarVisibilidadCarta() {
+    const sec = document.getElementById("expCartaDigital");
+    if (!sec) return;
+
+    if (this._esCategoriaComida()) {
+      sec.style.display = "";
+      if (!this._cartaLoaded) {
+        this._cartaLoaded = true;
+        this.loadCartaColecciones();
+      }
+    } else {
+      sec.style.display = "none";
+    }
+  },
+
+  async loadCartaColecciones() {
+    if (!this.db) return;
+    try {
+      const colRef = this._collection(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+      );
+      const snap = await this._getDocs(colRef);
+
+      this.cartaColecciones = {};
+      snap.forEach((d) => {
+        const data = d.data() || {};
+        this.cartaColecciones[d.id] = {
+          nombre: data.nombre || d.id,
+          imagenes: Array.isArray(data.imagenes) ? data.imagenes : [],
+        };
+      });
+
+      this.renderCartaColecciones();
+    } catch (e) {
+      console.error("Error loadCartaColecciones:", e);
+    }
+  },
+
+  renderCartaColecciones() {
+    const list = document.getElementById("cartaColeccionesList");
+    const sub = document.getElementById("cartaDigitalSub");
+    const btn = document.getElementById("btnNuevaColeccion");
+    if (!list) return;
+
+    const ids = Object.keys(this.cartaColecciones);
+
+    if (sub)
+      sub.textContent = `${ids.length} de ${this.CARTA_MAX_COLECCIONES} colecciones`;
+    if (btn) btn.disabled = ids.length >= this.CARTA_MAX_COLECCIONES;
+
+    list.innerHTML = "";
+
+    if (!ids.length) {
+      const empty = document.createElement("p");
+      empty.style.cssText = "font-size:13px;color:#666;margin:0 0 10px;";
+      empty.textContent = "Aún no tienes colecciones. Crea la primera 👇";
+      list.appendChild(empty);
+      return;
+    }
+
+    ids.forEach((id) => {
+      const coleccion = this.cartaColecciones[id];
+      const totalFotos = coleccion.imagenes.filter(Boolean).length;
+
+      const card = document.createElement("div");
+      card.className = "carta-coleccion-card";
+
+      const head = document.createElement("div");
+      head.className = "carta-coleccion-head";
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "carta-coleccion-name";
+      nameEl.textContent = coleccion.nombre;
+
+      const countEl = document.createElement("span");
+      countEl.className = "carta-coleccion-count";
+      countEl.id = `cartaCount-${id}`;
+      countEl.textContent = `${totalFotos}/${this.CARTA_MAX_FOTOS}`;
+
+      const arrowEl = document.createElement("span");
+      arrowEl.className = "carta-coleccion-arrow";
+      arrowEl.textContent = "▼";
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "carta-coleccion-del";
+      delBtn.innerHTML = "🗑️";
+      delBtn.title = "Eliminar colección";
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.eliminarColeccionCarta(id);
+      };
+
+      head.appendChild(nameEl);
+      head.appendChild(countEl);
+      head.appendChild(delBtn);
+      head.appendChild(arrowEl);
+
+      const grid = document.createElement("div");
+      grid.className = "carta-coleccion-grid";
+      grid.id = `cartaGrid-${id}`;
+
+      head.onclick = () => {
+        const abierta = grid.classList.toggle("open");
+        arrowEl.style.transform = abierta ? "rotate(180deg)" : "rotate(0deg)";
+      };
+
+      card.appendChild(head);
+      card.appendChild(grid);
+      list.appendChild(card);
+
+      this._renderCartaGrid(id);
+    });
+  },
+
+  _renderCartaGrid(collId) {
+    const grid = document.getElementById(`cartaGrid-${collId}`);
+    const coleccion = this.cartaColecciones[collId];
+    if (!grid || !coleccion) return;
+
+    const urls = [...(coleccion.imagenes || [])].slice(0, this.CARTA_MAX_FOTOS);
+    while (urls.length < this.CARTA_MAX_FOTOS) urls.push(null);
+
+    grid.innerHTML = "";
+
+    urls.forEach((url, i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "carta-photo-item";
+
+      if (url) {
+        const img = document.createElement("img");
+        img.src = url;
+        img.style.cssText =
+          "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;";
+        wrap.appendChild(img);
+
+        const btnDel = document.createElement("button");
+        btnDel.innerHTML = "🗑️";
+        btnDel.title = "Eliminar foto";
+        btnDel.style.cssText =
+          "position:absolute;top:4px;right:4px;z-index:5;background:rgba(0,0,0,0.6);border:none;border-radius:6px;padding:3px 6px;font-size:11px;cursor:pointer;";
+        btnDel.onclick = (e) => {
+          e.stopPropagation();
+          this.eliminarFotoCarta(collId, i);
+        };
+        wrap.appendChild(btnDel);
+        wrap.onclick = () => this.abrirFotoCarta(collId, i);
+      } else {
+        wrap.classList.add("photo-item-add");
+        wrap.innerHTML = "<span>📷</span><span>Agregar</span>";
+        wrap.onclick = () => this.abrirFotoCarta(collId, i);
+      }
+
+      // Drag & drop directo de imagen desde el explorador/galería
+      wrap.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        wrap.classList.add("drag-over");
+      });
+      wrap.addEventListener("dragleave", () => {
+        wrap.classList.remove("drag-over");
+      });
+      wrap.addEventListener("drop", (e) => {
+        e.preventDefault();
+        wrap.classList.remove("drag-over");
+        const file = e.dataTransfer?.files?.[0];
+        if (file && file.type.startsWith("image/")) {
+          this._subirFotoCarta(collId, i, file);
+        }
+      });
+
+      grid.appendChild(wrap);
+    });
+  },
+
+  _actualizarContadorColeccion(collId) {
+    const coleccion = this.cartaColecciones[collId];
+    const countEl = document.getElementById(`cartaCount-${collId}`);
+    if (coleccion && countEl) {
+      const total = coleccion.imagenes.filter(Boolean).length;
+      countEl.textContent = `${total}/${this.CARTA_MAX_FOTOS}`;
+    }
+  },
+
+  async crearColeccionCarta() {
+    if (!this.db) {
+      this.showToast("⏳ Espera a que cargue la conexión...");
+      return;
+    }
+
+    const ids = Object.keys(this.cartaColecciones);
+    if (ids.length >= this.CARTA_MAX_COLECCIONES) {
+      this.showToast(`⚠️ Máximo ${this.CARTA_MAX_COLECCIONES} colecciones`);
+      return;
+    }
+
+    const nombre = prompt(
+      "Nombre de la colección (ej: Platos fuertes, Bebidas, Combos):",
+    );
+    if (!nombre || !nombre.trim()) return;
+
+    const nombreLimpio = nombre.trim().slice(0, 40);
+    const slug =
+      nombreLimpio
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "") || `coleccion_${Date.now()}`;
+
+    if (this.cartaColecciones[slug]) {
+      this.showToast("⚠️ Ya existe una colección con ese nombre");
+      return;
+    }
+
+    try {
+      const { setDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+      );
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        slug,
+      );
+      await setDoc(ref, { nombre: nombreLimpio, imagenes: [] });
+
+      this.cartaColecciones[slug] = { nombre: nombreLimpio, imagenes: [] };
+      this.renderCartaColecciones();
+      this.showToast("✓ Colección creada");
+    } catch (e) {
+      console.error("Error creando colección de carta:", e);
+      this.showToast("❌ Error al crear colección");
+    }
+  },
+
+  async eliminarColeccionCarta(collId) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+    if (
+      !confirm(
+        `¿Eliminar la colección "${coleccion.nombre}" y todas sus fotos? Esta acción no se puede deshacer.`,
+      )
+    )
+      return;
+
+    this.showToast("⏳ Eliminando colección...");
+    try {
+      await Promise.all(
+        (coleccion.imagenes || []).map((url, i) => {
+          if (!url) return Promise.resolve();
+          const path = `tiendas/${this.TIENDA_ID}/carta/${collId}/slot_${i}.webp`;
+          return this._deleteObject(this._storageRef(this._storage, path)).catch(
+            () => {},
+          );
+        }),
+      );
+
+      const { deleteDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+      );
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        collId,
+      );
+      await deleteDoc(ref);
+
+      delete this.cartaColecciones[collId];
+      this.renderCartaColecciones();
+      this.showToast("✓ Colección eliminada");
+    } catch (e) {
+      console.error("Error eliminando colección de carta:", e);
+      this.showToast("❌ Error al eliminar colección");
+    }
+  },
+
+  abrirFotoCarta(collId, slotIndex) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp";
+
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) this._subirFotoCarta(collId, slotIndex, file);
+    };
+    input.click();
+  },
+
+  async _subirFotoCarta(collId, slotIndex, file) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+
+    const tieneImagen = !!coleccion.imagenes[slotIndex];
+    const msg = tieneImagen
+      ? "¿Reemplazar esta foto de la carta?"
+      : "¿Subir esta imagen a la carta?";
+    if (!confirm(msg)) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      this._showUploadLoading("Subiendo foto...", "Comprimiendo y guardando");
+      try {
+        const blob = this._dataURLtoBlob(
+          await this._comprimirImagen(ev.target.result, 1024, 0.85),
+        );
+        const path = `tiendas/${this.TIENDA_ID}/carta/${collId}/slot_${slotIndex}.webp`;
+        const storageRef = this._storageRef(this._storage, path);
+
+        await this._uploadBytes(storageRef, blob, {
+          contentType: "image/webp",
+        });
+        const finalURL = await this._getDownloadURL(storageRef);
+
+        const nuevasImagenes = [...coleccion.imagenes];
+        while (nuevasImagenes.length <= slotIndex) nuevasImagenes.push(null);
+        nuevasImagenes[slotIndex] = finalURL;
+
+        const ref = this._doc(
+          this.db,
+          "Tiendas",
+          this.LOCALIDAD_TIENDA,
+          this.LOCALIDAD_TIENDA,
+          this.TIENDA_ID,
+          "carta",
+          collId,
+        );
+        await this._updateDoc(ref, { imagenes: nuevasImagenes });
+
+        coleccion.imagenes = nuevasImagenes;
+        this._renderCartaGrid(collId);
+        this._actualizarContadorColeccion(collId);
+        this.showToast("✓ Foto guardada en la carta");
+      } catch (err) {
+        console.error("Error subiendo foto de carta:", err);
+        this.showToast("❌ Error al subir foto");
+      } finally {
+        this._hideUploadLoading();
+      }
+    };
+    reader.readAsDataURL(file);
+  },
+
+  async eliminarFotoCarta(collId, slotIndex) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+    if (!confirm("¿Eliminar esta foto de la carta?")) return;
+
+    this.showToast("⏳ Eliminando...");
+    try {
+      const path = `tiendas/${this.TIENDA_ID}/carta/${collId}/slot_${slotIndex}.webp`;
+      await this._deleteObject(this._storageRef(this._storage, path)).catch(
+        () => {},
+      );
+
+      const nuevasImagenes = [...coleccion.imagenes];
+      nuevasImagenes[slotIndex] = null;
+
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        collId,
+      );
+      await this._updateDoc(ref, { imagenes: nuevasImagenes });
+
+      coleccion.imagenes = nuevasImagenes;
+      this._renderCartaGrid(collId);
+      this._actualizarContadorColeccion(collId);
+      this.showToast("✓ Foto eliminada");
+    } catch (e) {
+      console.error("Error eliminando foto de carta:", e);
+      this.showToast("❌ Error al eliminar");
+    }
   },
 
   // ═══════════════════════════════════════════

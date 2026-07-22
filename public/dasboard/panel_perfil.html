@@ -23,6 +23,111 @@
     <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
     <link rel="manifest" href="../img/icons/site.webmanifest">
 
+    <style id="carta-digital-styles">
+        .btn-nueva-coleccion {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            border: 1.5px dashed #7c4dff;
+            background: transparent;
+            color: #7c4dff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 6px;
+            transition: opacity .2s, background .2s;
+        }
+
+        .btn-nueva-coleccion:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        .carta-coleccion-card {
+            background: rgba(124, 77, 255, 0.05);
+            border: 1px solid rgba(124, 77, 255, 0.15);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .carta-coleccion-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .carta-coleccion-name {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            word-break: break-word;
+        }
+
+        .carta-coleccion-count {
+            font-size: 12px;
+            color: #888;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .carta-coleccion-del {
+            background: rgba(255, 70, 70, 0.12);
+            border: none;
+            border-radius: 8px;
+            padding: 6px 9px;
+            cursor: pointer;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .carta-coleccion-arrow {
+            font-size: 11px;
+            color: #7c4dff;
+            transition: transform .2s;
+            flex-shrink: 0;
+        }
+
+        .carta-coleccion-grid {
+            display: none;
+            grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .carta-coleccion-grid.open {
+            display: grid;
+        }
+
+        .carta-photo-item {
+            aspect-ratio: 1;
+            border-radius: 14px;
+            overflow: hidden;
+            position: relative;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .carta-photo-item.photo-item-add {
+            border: 1.5px dashed rgba(124, 77, 255, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 11px;
+            color: #7c4dff;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .carta-photo-item.drag-over {
+            border-color: #7c4dff;
+            background: rgba(124, 77, 255, 0.18);
+        }
+    </style>
+
 </head>
 
 <body>
@@ -392,6 +497,30 @@
 
                         </div>
 
+                    </div>
+
+                    <!-- Carta Digital (solo Comida y Restaurantes) -->
+                    <div class="expand-section" id="expCartaDigital" style="display:none;">
+                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+                            <div class="expand-header-icon icon-orange">📖</div>
+                            <div class="expand-header-text">
+                                <div class="expand-header-title">Carta digital</div>
+                                <div class="expand-header-sub" id="cartaDigitalSub">0 de 5 colecciones</div>
+                            </div>
+                            <div class="expand-arrow">▼</div>
+                        </div>
+                        <div class="expand-body">
+                            <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
+                                Crea colecciones para tu carta digital (ej: Platos fuertes, Bebidas, Combos, Postres).
+                                Puedes crear hasta 5 colecciones, con hasta 5 fotos cada una. Arrastra una imagen o
+                                toca para elegirla desde tu galería.
+                            </p>
+                            <div id="cartaColeccionesList"></div>
+                            <button class="btn-nueva-coleccion" id="btnNuevaColeccion"
+                                onclick="PanelPerfil.crearColeccionCarta()">
+                                ➕ Nueva colección
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Ubicación -->
