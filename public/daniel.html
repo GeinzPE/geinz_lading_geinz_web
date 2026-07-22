@@ -8,14 +8,11 @@
 
     <meta property="og:title" content="Hola, soy Daniel 🤖 - Tu Asistente en Barranca" />
     <meta property="og:description"
-        content="Tu asistente oficial de WhatsApp 24/7 en Barranca 🇵🇪 Encuentra negocios, promociones activas, emergencias, turismo y servicios públicos al instante." />
+        content="Tu asistente oficial de WhatsApp 24/7 en Barranca 🇵🇪 Encuentra negocios, emergencias, turismo y servicios públicos al instante." />
     <meta property="og:image"
         content="https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/asistente_daniel_wsap_pefil.webp?alt=media&token=6249f282-6579-4e43-b8df-2bece9ee9898" />
     <meta property="og:url" content="https://geinztech.com/daniel" />
     <meta property="og:type" content="website" />
-
-    <meta http-equiv="refresh"
-        content="0;url=https://wa.me/51962386529?text=Hola%20Daniel" />
 
     <style>
         body {
@@ -42,17 +39,35 @@
     <div>
         <p>Conectando con Daniel en WhatsApp...</p>
         <p>Si no te redirige automáticamente, 
-                href="https://wa.me/51962386529?text=Hola%20Daniel,%20necesito%20informaci%C3%B3n">haz clic aquí</a>.
+            <a id="btnRedirect" href="#">haz clic aquí</a>.
         </p>
     </div>
 
     <script>
-     
+        // Array con mensajes 100% reales para el estado actual de la app
+        const mensajes = [
+            "Hola Daniel 🤖 quiero ver las opciones de Barranca",
+            "Hola Daniel, ¿qué servicios o tiendas hay en Barranca?",
+         
+        ];
+
+        // Elegimos uno al azar
+        const mensajeAleatorio = mensajes[Math.floor(Math.random() * mensajes.length)];
+
+        // Armamos el enlace de WhatsApp limpiando caracteres especiales
+        const waLink = "https://wa.me/51962386529?text=" + encodeURIComponent(mensajeAleatorio);
+
+        // Asignamos al botón por si no redirige solo
+        document.getElementById("btnRedirect").href = waLink;
+
+        // Notificación de QR/Enlace abierto
         fetch("https://us-central1-geinzworkapp.cloudfunctions.net/geinz_aviso_qr_escaneado", {
             method: "POST",
             keepalive: true,
-        }).catch(function () {
-        });
+        }).catch(function () {});
+
+        // Redirección directa
+        window.location.href = waLink;
     </script>
 </body>
 

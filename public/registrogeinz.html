@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Registra tu negocio — GEINZ TECH</title>
+  <meta name="description" content="Registra tu negocio gratis en GEINZ y llega a todo Barranca. Verificación presencial en minutos, sin comisiones.">
+  <meta name="robots" content="index, follow">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="icon" href="/img/icons/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/img/icons/apple-touch-icon.png">
+
+  <style>
+    * { font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; overflow-x: hidden; background-color: #030307; color: #f3f4f6; min-height: 100vh;
+    }
+
+    .tech-bg {
+      position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(124,58,237,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(124,58,237,.03) 1px, transparent 1px);
+      background-size: 40px 40px; background-position: center;
+      mask-image: radial-gradient(circle at 50% 20%, black 40%, transparent 90%);
+      -webkit-mask-image: radial-gradient(circle at 50% 20%, black 40%, transparent 90%);
+      pointer-events: none; z-index: 0;
+    }
+    .glow-a { position: fixed; width: min(700px,90vw); height: min(700px,90vw); background: radial-gradient(circle, rgba(124,58,237,.10) 0%, transparent 70%); top: -260px; left: -120px; pointer-events:none; z-index:0; }
+    .glow-b { position: fixed; width: min(600px,80vw); height: min(600px,80vw); background: radial-gradient(circle, rgba(168,85,247,.07) 0%, transparent 70%); bottom: -260px; right: -140px; pointer-events:none; z-index:0; }
+
+    .gradient-text { background: linear-gradient(135deg,#fff 30%,#c084fc 70%,#a78bfa 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+    .glass-card { background: rgba(15,15,25,.55); border:1px solid rgba(124,58,237,.1); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 28px; }
+
+    .field-shell {
+      background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.08); border-radius: 16px;
+      transition: all .25s cubic-bezier(.16,1,.3,1);
+    }
+    .field-shell:focus-within { border-color: rgba(167,139,250,.55); background: rgba(124,58,237,.05); box-shadow: 0 0 0 4px rgba(124,58,237,.08); }
+    .field-input { background: transparent; border: none; outline: none; color: #fff; width: 100%; font-size: .875rem; }
+    .field-input::placeholder { color: rgba(255,255,255,.28); }
+    .field-label { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(167,139,250,.75); }
+
+    .btn-primary {
+      background: linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; font-weight:700; border-radius:14px;
+      box-shadow: 0 10px 30px rgba(124,58,237,.32); transition: all .3s cubic-bezier(.16,1,.3,1); border:none; cursor:pointer;
+    }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(124,58,237,.48); }
+    .btn-primary:disabled { opacity:.35; cursor:not-allowed; box-shadow:none; }
+    .btn-ghost { background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); color: rgba(255,255,255,.75); border-radius:14px; font-weight:600; transition: all .25s ease; cursor:pointer; }
+    .btn-ghost:hover { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.16); }
+
+    /* Step indicator */
+    .step-track { display:flex; align-items:center; gap:6px; }
+    .step-dot-wrap { display:flex; align-items:center; gap:10px; flex:1; }
+    .step-num {
+      width: 30px; height: 30px; border-radius: 50%; display:flex; align-items:center; justify-content:center;
+      font-size: 11px; font-weight: 800; border: 1.5px solid rgba(255,255,255,.12); color: rgba(255,255,255,.35);
+      background: rgba(255,255,255,.02); transition: all .4s cubic-bezier(.16,1,.3,1); flex-shrink:0;
+    }
+    .step-num.active { border-color: transparent; background: linear-gradient(135deg,#7c3aed,#c084fc); color:#fff; box-shadow: 0 0 0 4px rgba(124,58,237,.16); }
+    .step-num.done { border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.12); color:#4ade80; }
+    .step-label { font-size: 10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color: rgba(255,255,255,.3); transition: color .4s ease; }
+    .step-label.active { color: #c084fc; }
+    .step-line { flex:1; height: 1.5px; background: rgba(255,255,255,.08); position:relative; overflow:hidden; border-radius:2px; }
+    .step-line::after { content:''; position:absolute; inset:0; width:0%; background: linear-gradient(90deg,#7c3aed,#c084fc); transition: width .5s cubic-bezier(.16,1,.3,1); }
+    .step-line.filled::after { width: 100%; }
+
+    /* Panels */
+    .panel { display:none; animation: panelIn .5s cubic-bezier(.16,1,.3,1); }
+    .panel.active { display:block; }
+    @keyframes panelIn { from { opacity:0; transform: translateY(14px);} to { opacity:1; transform: translateY(0);} }
+
+    /* Logo upload */
+    .logo-drop {
+      width: 100%; aspect-ratio: 1/1; max-width: 180px; margin: 0 auto; border-radius: 22px;
+      border: 1.5px dashed rgba(167,139,250,.35); background: rgba(124,58,237,.04);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer;
+      transition: all .3s ease; position: relative; overflow:hidden;
+    }
+    .logo-drop:hover { border-color: rgba(167,139,250,.7); background: rgba(124,58,237,.08); }
+    .logo-drop img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .logo-drop .hint { font-size: 10px; font-weight:700; color: rgba(167,139,250,.65); text-transform:uppercase; letter-spacing:.06em; text-align:center; padding: 0 10px; }
+
+    /* Date chips */
+    .date-scroll { display:flex; gap:10px; overflow-x:auto; padding: 4px 2px 12px; scrollbar-width: none; }
+    .date-scroll::-webkit-scrollbar { display:none; }
+    .date-chip {
+      flex-shrink:0; width: 72px; padding: 14px 0; border-radius: 16px; text-align:center; cursor:pointer;
+      background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.08); transition: all .25s cubic-bezier(.16,1,.3,1);
+    }
+    .date-chip:hover { border-color: rgba(167,139,250,.4); }
+    .date-chip.selected { background: linear-gradient(160deg, rgba(124,58,237,.28), rgba(168,85,247,.1)); border-color: rgba(167,139,250,.6); box-shadow: 0 8px 24px rgba(124,58,237,.25); }
+    .date-chip .dow { font-size: 9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color: rgba(255,255,255,.4); }
+    .date-chip .num { font-size: 18px; font-weight:900; color:#fff; margin-top:2px; }
+    .date-chip .mon { font-size: 9px; font-weight:600; color: rgba(255,255,255,.35); text-transform:uppercase; }
+
+    /* Time slots */
+    .slot-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(72px,1fr)); gap: 8px; }
+    .slot-chip {
+      padding: 10px 0; border-radius: 12px; text-align:center; font-size: 12px; font-weight:700; cursor:pointer;
+      background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.07); color: rgba(255,255,255,.7);
+      transition: all .2s ease;
+    }
+    .slot-chip:hover { border-color: rgba(167,139,250,.4); color:#fff; }
+    .slot-chip.selected { background: linear-gradient(135deg,#7c3aed,#a855f7); border-color: transparent; color:#fff; box-shadow: 0 6px 18px rgba(124,58,237,.35); }
+
+    .slot-period-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color: rgba(167,139,250,.6); margin: 18px 0 10px; }
+
+    /* checkbox */
+    .chk-box {
+      width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid rgba(255,255,255,.2); flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; transition: all .2s ease; cursor:pointer; margin-top: 1px;
+    }
+    .chk-box.on { background: linear-gradient(135deg,#7c3aed,#a855f7); border-color: transparent; }
+
+    /* summary rows */
+    .sum-row { display:flex; justify-content:space-between; gap:12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .sum-row:last-child { border-bottom:none; }
+    .sum-key { font-size: 11px; font-weight:700; color: rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.05em; }
+    .sum-val { font-size: 13px; font-weight:600; color:#fff; text-align:right; }
+
+    /* verification note */
+    .verify-note {
+      background: rgba(124,58,237,.06); border: 1px solid rgba(124,58,237,.18); border-radius: 18px; padding: 18px 20px;
+      display:flex; gap: 14px; align-items:flex-start;
+    }
+
+    /* success */
+    .success-ring {
+      width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 22px;
+      background: radial-gradient(circle, rgba(74,222,128,.18), transparent 70%);
+      display:flex; align-items:center; justify-content:center; position:relative;
+    }
+    .success-ring::before { content:''; position:absolute; inset:0; border-radius:50%; border: 1.5px solid rgba(74,222,128,.35); animation: ringPulse 2s ease-in-out infinite; }
+    @keyframes ringPulse { 0%,100%{ transform:scale(1); opacity:.5;} 50%{ transform:scale(1.15); opacity:1;} }
+    .success-check { width: 46px; height:46px; }
+
+    .spinner { width: 16px; height:16px; border: 2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg);} }
+
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity:.6; }
+
+    ::selection { background: rgba(124,58,237,.4); }
+
+    @media (max-width: 480px) {
+      .glass-card { border-radius: 20px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="tech-bg"></div>
+  <div class="glow-a"></div>
+  <div class="glow-b"></div>
+
+  <div class="relative z-10 min-h-screen flex flex-col">
+
+    <!-- NAV -->
+    <div class="container-geinz" style="width:100%; max-width:900px; margin:0 auto; padding: 20px 20px 0;">
+      <nav class="flex items-center justify-between py-3 px-5 glass-card">
+        <a href="/" class="flex items-center gap-3">
+          <img src="/img/logo geinz.png" class="w-8 h-8 object-contain rounded-lg" alt="Geinz">
+          <span class="font-extrabold text-xs tracking-wide text-white">GEINZ TECH</span>
+        </a>
+        <a href="/" class="text-[11px] font-semibold text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          Volver al inicio
+        </a>
+      </nav>
+    </div>
+
+    <!-- MAIN -->
+    <main class="flex-1 flex items-start justify-center px-4 sm:px-6 py-10 md:py-14">
+      <div style="width:100%; max-width: 640px;">
+
+        <div class="text-center mb-8 space-y-2">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/20 bg-purple-500/5 text-[10px] font-bold text-purple-300 uppercase tracking-widest">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> Registro gratuito
+          </div>
+          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight gradient-text leading-tight">Registra tu negocio</h1>
+          <p class="text-gray-400 text-sm font-light max-w-md mx-auto leading-relaxed">
+            Tres pasos y quedas visible para todo Barranca. Sin comisiones, sin letra chica.
+          </p>
+        </div>
+
+        <!-- STEP TRACK -->
+        <div class="step-track mb-8 px-1">
+          <div class="step-dot-wrap">
+            <div class="step-num active" id="dot-1">1</div>
+            <span class="step-label active" id="lbl-1">Negocio</span>
+          </div>
+          <div class="step-line" id="line-1"></div>
+          <div class="step-dot-wrap">
+            <div class="step-num" id="dot-2">2</div>
+            <span class="step-label" id="lbl-2">Verificación</span>
+          </div>
+          <div class="step-line" id="line-2"></div>
+          <div class="step-dot-wrap" style="flex:0;">
+            <div class="step-num" id="dot-3">3</div>
+            <span class="step-label" id="lbl-3">Confirmar</span>
+          </div>
+        </div>
+
+        <form id="formRegistro" class="glass-card p-6 md:p-10" onsubmit="return false;">
+
+          <!-- ============ PANEL 1: DATOS DEL NEGOCIO ============ -->
+          <div class="panel active" id="panel-1">
+
+            <div class="mb-7">
+              <div class="logo-drop" id="logoDrop">
+                <img id="logoPreview" style="display:none;" alt="Logo del negocio">
+                <svg id="logoIcon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8">
+                  <path d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L16 16M14 14l1.5-1.5a2 2 0 0 1 2.8 0L20 14M4 8h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM8 8V6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
+                </svg>
+                <span class="hint" id="logoHint">Foto o logo<br>del negocio</span>
+                <input type="file" id="logoInput" accept="image/*" style="display:none;">
+              </div>
+              <p class="text-center text-[10px] text-gray-600 mt-2 font-light">JPG o PNG · usada como referencia para el asistente y la app</p>
+            </div>
+
+            <div class="space-y-5">
+              <div>
+                <label class="field-label">Nombre del negocio</label>
+                <div class="field-shell px-4 py-3.5 mt-1.5 flex items-center gap-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1"/></svg>
+                  <input type="text" id="nombreNegocio" class="field-input" placeholder="Ej: Panadería San José" maxlength="60" required>
+                </div>
+              </div>
+
+              <div>
+                <label class="field-label">Ubicación</label>
+                <div class="field-shell px-4 py-3.5 mt-1.5 flex items-center gap-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M12 22s7-7.4 7-12a7 7 0 1 0-14 0c0 4.6 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>
+                  <input type="text" id="ubicacionNegocio" class="field-input" placeholder="Ej: Jr. Lima 245, Barranca" maxlength="120" required>
+                </div>
+                <button type="button" id="btnGeo" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wide">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+                  Usar mi ubicación actual
+                </button>
+                <span id="geoStatus" class="ml-2 text-[10px] text-emerald-400 font-semibold" style="display:none;">✓ Ubicación detectada</span>
+              </div>
+
+              <div>
+                <label class="field-label">Teléfono / WhatsApp</label>
+                <div class="field-shell px-4 py-3.5 mt-1.5 flex items-center gap-3">
+                  <span class="text-xs font-bold text-gray-400">🇵🇪 +51</span>
+                  <div style="width:1px; height:16px; background:rgba(255,255,255,.1);"></div>
+                  <input type="tel" id="telefonoNegocio" class="field-input" placeholder="987 654 321" maxlength="9" inputmode="numeric" required>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end mt-8">
+              <button type="button" class="btn-primary px-7 py-3.5 text-xs" id="btnNext1">
+                Continuar
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" style="display:inline; margin-left:6px; vertical-align:-2px;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- ============ PANEL 2: VERIFICACIÓN ============ -->
+          <div class="panel" id="panel-2">
+
+            <div class="verify-note mb-7">
+              <span style="font-size:20px;">🕐</span>
+              <div>
+                <h4 class="text-xs font-bold text-white">Verificación presencial obligatoria</h4>
+                <p class="text-[11px] text-gray-400 mt-1 leading-relaxed font-light">
+                  Un asesor GEINZ visitará tu negocio para validar la información. La visita dura
+                  <span class="text-purple-300 font-semibold">máximo 10 minutos</span>. Elige el día y la hora que mejor te acomode.
+                </p>
+              </div>
+            </div>
+
+            <label class="field-label">Selecciona una fecha</label>
+            <div class="date-scroll mt-2" id="dateScroll"></div>
+
+            <div id="slotsWrapper" style="display:none;">
+              <div class="slot-period-label">🌅 Mañana · 8:00 am – 1:00 pm</div>
+              <div class="slot-grid" id="slotsMorning"></div>
+              <div class="slot-period-label">🌇 Tarde · 3:00 pm – 6:00 pm</div>
+              <div class="slot-grid" id="slotsAfternoon"></div>
+            </div>
+
+            <div id="noDateHint" class="text-center text-gray-600 text-xs font-light py-6">
+              Elige primero una fecha para ver los horarios disponibles.
+            </div>
+
+            <div class="flex justify-between mt-8">
+              <button type="button" class="btn-ghost px-6 py-3.5 text-xs" id="btnBack2">Atrás</button>
+              <button type="button" class="btn-primary px-7 py-3.5 text-xs" id="btnNext2" disabled>
+                Continuar
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" style="display:inline; margin-left:6px; vertical-align:-2px;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- ============ PANEL 3: CONFIRMAR ============ -->
+          <div class="panel" id="panel-3">
+
+            <h3 class="text-base font-bold text-white mb-1">Revisa tu registro</h3>
+            <p class="text-xs text-gray-500 font-light mb-4">Verifica que todo esté correcto antes de enviarlo.</p>
+
+            <div class="glass-card p-5" style="background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.06);">
+              <div class="sum-row"><span class="sum-key">Negocio</span><span class="sum-val" id="sumNombre">—</span></div>
+              <div class="sum-row"><span class="sum-key">Ubicación</span><span class="sum-val" id="sumUbicacion">—</span></div>
+              <div class="sum-row"><span class="sum-key">Teléfono</span><span class="sum-val" id="sumTelefono">—</span></div>
+              <div class="sum-row"><span class="sum-key">Verificación</span><span class="sum-val" id="sumFechaHora">—</span></div>
+            </div>
+
+            <div class="mt-6 flex items-start gap-3 cursor-pointer" id="termsRow">
+              <div class="chk-box" id="chkTerms"></div>
+              <p class="text-[11px] text-gray-400 leading-relaxed font-light select-none">
+                Acepto los <a href="/seguridad_geinz/terminos_y_condiciones" target="_blank" onclick="event.stopPropagation()" class="text-purple-400 hover:text-purple-300 font-semibold underline underline-offset-2">Términos y Condiciones</a>
+                de GEINZ y confirmo que la información brindada es real. Entiendo que, una vez verificado, mi negocio quedará registrado de forma permanente en el ecosistema GEINZ, salvo que yo solicite su eliminación.
+              </p>
+            </div>
+
+            <div id="formError" class="text-[11px] text-red-400 font-semibold mt-3" style="display:none;"></div>
+
+            <div class="flex justify-between mt-8">
+              <button type="button" class="btn-ghost px-6 py-3.5 text-xs" id="btnBack3">Atrás</button>
+              <button type="button" class="btn-primary px-7 py-3.5 text-xs flex items-center gap-2" id="btnSubmit" disabled>
+                <span id="submitLabel">🚀 Enviar registro</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ============ PANEL 4: ÉXITO ============ -->
+          <div class="panel" id="panel-4">
+            <div class="text-center py-4">
+              <div class="success-ring">
+                <svg class="success-check" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              <h3 class="text-xl font-extrabold text-white">¡Registro enviado!</h3>
+              <p class="text-gray-400 text-xs font-light mt-2 max-w-sm mx-auto leading-relaxed">
+                Un asesor GEINZ pasará por tu negocio para la verificación presencial. La visita no toma más de 10 minutos.
+              </p>
+
+              <div class="glass-card p-5 mt-6 text-left" style="background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.06);">
+                <div class="sum-row"><span class="sum-key">Negocio</span><span class="sum-val" id="doneNombre">—</span></div>
+                <div class="sum-row"><span class="sum-key">Visita programada</span><span class="sum-val" id="doneFechaHora">—</span></div>
+              </div>
+
+              <p class="text-gray-600 text-[10px] font-light mt-5 leading-relaxed">
+                Al confirmarse la verificación, tu negocio quedará registrado de forma permanente en GEINZ,
+                salvo que solicites su eliminación desde el panel de tu negocio.
+              </p>
+
+              <a href="/" class="btn-primary inline-flex px-7 py-3.5 text-xs mt-7">Volver al inicio</a>
+            </div>
+          </div>
+
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================================
+       FIREBASE — CLOUD FUNCTION HOOK
+  =================================== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+
+    // Mismo proyecto Firebase que el resto de GEINZ
+    const app = initializeApp({
+      apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+      authDomain: "geinzworkapp.firebaseapp.com",
+      projectId: "geinzworkapp",
+      storageBucket: "geinzworkapp.firebasestorage.app",
+      messagingSenderId: "921389328767",
+      appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
+    });
+    const functions = getFunctions(app, "us-central1");
+
+    // ⚠️ TODO: reemplaza "registrarNegocioGeinz" por el nombre EXACTO de tu Cloud Function
+    // cuando nos pases la URL/nombre definitivo. No hace falta tocar nada más de este archivo.
+const CLOUD_FUNCTION_NAME = "registrarNegocioGeinz";
+const registrarNegocioFn = httpsCallable(functions, CLOUD_FUNCTION_NAME);
+
+  window.__enviarRegistroNegocio = async (payload) => {
+  const res = await registrarNegocioFn(payload);
+  return res?.data;
+};
+  </script>
+
+  <!-- ===================================
+       LÓGICA DEL FORMULARIO
+  =================================== -->
+  <script>
+    const state = {
+      step: 1,
+      nombre: "", ubicacion: "", telefono: "", logoBase64: null,
+      lat: null, lng: null,
+      fechaISO: null, fechaLabel: null, hora: null,
+      termsAccepted: false,
+    };
+
+    const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+    const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+    // ---------- STEP NAV ----------
+    function goToStep(n) {
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      document.getElementById("panel-" + n).classList.add("active");
+      for (let i = 1; i <= 3; i++) {
+        const dot = document.getElementById("dot-" + i);
+        const lbl = document.getElementById("lbl-" + i);
+        dot.classList.remove("active", "done");
+        lbl.classList.remove("active");
+        if (i < n) dot.classList.add("done");
+        else if (i === n) { dot.classList.add("active"); lbl.classList.add("active"); }
+      }
+      const l1 = document.getElementById("line-1"), l2 = document.getElementById("line-2");
+      l1.classList.toggle("filled", n > 1);
+      l2.classList.toggle("filled", n > 2);
+      state.step = n;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // ---------- PANEL 1: LOGO UPLOAD ----------
+    const logoDrop = document.getElementById("logoDrop");
+    const logoInput = document.getElementById("logoInput");
+    const logoPreview = document.getElementById("logoPreview");
+    const logoIcon = document.getElementById("logoIcon");
+    const logoHint = document.getElementById("logoHint");
+
+    logoDrop.addEventListener("click", () => logoInput.click());
+    logoInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        state.logoBase64 = ev.target.result;
+        logoPreview.src = ev.target.result;
+        logoPreview.style.display = "block";
+        logoIcon.style.display = "none";
+        logoHint.style.display = "none";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ---------- PANEL 1: GEOLOCATION ----------
+    document.getElementById("btnGeo").addEventListener("click", () => {
+      const status = document.getElementById("geoStatus");
+      if (!navigator.geolocation) { alert("Tu navegador no soporta geolocalización."); return; }
+      navigator.geolocation.getCurrentPosition((pos) => {
+        state.lat = pos.coords.latitude;
+        state.lng = pos.coords.longitude;
+        status.style.display = "inline";
+      }, () => alert("No se pudo obtener tu ubicación. Ingrésala manualmente."));
+    });
+
+    // ---------- PANEL 1 -> 2 ----------
+    document.getElementById("btnNext1").addEventListener("click", () => {
+      const nombre = document.getElementById("nombreNegocio").value.trim();
+      const ubicacion = document.getElementById("ubicacionNegocio").value.trim();
+      const telefono = document.getElementById("telefonoNegocio").value.trim();
+
+      if (!nombre || !ubicacion || !/^[0-9]{9}$/.test(telefono)) {
+        alert("Completa el nombre, la ubicación y un teléfono válido de 9 dígitos.");
+        return;
+      }
+      state.nombre = nombre;
+      state.ubicacion = ubicacion;
+      state.telefono = telefono;
+      goToStep(2);
+    });
+
+    // ---------- PANEL 2: FECHAS ----------
+    function buildBusinessDays(count) {
+      const days = [];
+      let d = new Date();
+      d.setDate(d.getDate() + 1);
+      while (days.length < count) {
+        const dow = d.getDay();
+        if (dow !== 0 && dow !== 6) days.push(new Date(d));
+        d.setDate(d.getDate() + 1);
+      }
+      return days;
+    }
+
+    function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+    function generateSlots(startH, startM, endH, endM) {
+      const slots = [];
+      let h = startH, m = startM;
+      while (h < endH || (h === endH && m < endM)) {
+        slots.push(pad(h) + ":" + pad(m));
+        m += 10;
+        if (m >= 60) { m -= 60; h += 1; }
+      }
+      return slots;
+    }
+
+    const dateScroll = document.getElementById("dateScroll");
+    const businessDays = buildBusinessDays(12);
+
+    businessDays.forEach((d) => {
+      const chip = document.createElement("div");
+      chip.className = "date-chip";
+      chip.innerHTML = `
+        <div class="dow">${DIAS[d.getDay()]}</div>
+        <div class="num">${d.getDate()}</div>
+        <div class="mon">${MESES[d.getMonth()]}</div>
+      `;
+      chip.addEventListener("click", () => selectDate(d, chip));
+      dateScroll.appendChild(chip);
+    });
+
+    function selectDate(d, chipEl) {
+      document.querySelectorAll(".date-chip").forEach(c => c.classList.remove("selected"));
+      chipEl.classList.add("selected");
+      state.fechaISO = d.toISOString().slice(0, 10);
+      state.fechaLabel = `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`;
+      state.hora = null;
+      document.getElementById("btnNext2").disabled = true;
+
+      document.getElementById("noDateHint").style.display = "none";
+      document.getElementById("slotsWrapper").style.display = "block";
+      renderSlots();
+    }
+
+    function renderSlots() {
+      const morningWrap = document.getElementById("slotsMorning");
+      const afternoonWrap = document.getElementById("slotsAfternoon");
+      morningWrap.innerHTML = "";
+      afternoonWrap.innerHTML = "";
+
+      generateSlots(8, 0, 13, 0).forEach(t => morningWrap.appendChild(makeSlotChip(t)));
+      generateSlots(15, 0, 18, 0).forEach(t => afternoonWrap.appendChild(makeSlotChip(t)));
+    }
+
+    function makeSlotChip(t) {
+      const chip = document.createElement("div");
+      chip.className = "slot-chip";
+      chip.textContent = t;
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".slot-chip").forEach(c => c.classList.remove("selected"));
+        chip.classList.add("selected");
+        state.hora = t;
+        document.getElementById("btnNext2").disabled = false;
+      });
+      return chip;
+    }
+
+    document.getElementById("btnBack2").addEventListener("click", () => goToStep(1));
+    document.getElementById("btnNext2").addEventListener("click", () => {
+      if (!state.fechaISO || !state.hora) return;
+      fillSummary();
+      goToStep(3);
+    });
+
+    // ---------- PANEL 3: RESUMEN + TÉRMINOS ----------
+    function fillSummary() {
+      document.getElementById("sumNombre").textContent = state.nombre;
+      document.getElementById("sumUbicacion").textContent = state.ubicacion;
+      document.getElementById("sumTelefono").textContent = "+51 " + state.telefono;
+      document.getElementById("sumFechaHora").textContent = `${state.fechaLabel} · ${state.hora}`;
+    }
+
+    document.getElementById("btnBack3").addEventListener("click", () => goToStep(2));
+
+    const chkTerms = document.getElementById("chkTerms");
+    const termsRow = document.getElementById("termsRow");
+    const btnSubmit = document.getElementById("btnSubmit");
+
+    termsRow.addEventListener("click", () => {
+      state.termsAccepted = !state.termsAccepted;
+      chkTerms.classList.toggle("on", state.termsAccepted);
+      btnSubmit.disabled = !state.termsAccepted;
+    });
+
+    // ---------- ENVÍO ----------
+    btnSubmit.addEventListener("click", async () => {
+      if (!state.termsAccepted || btnSubmit.disabled) return;
+      const errBox = document.getElementById("formError");
+      errBox.style.display = "none";
+
+      btnSubmit.disabled = true;
+      document.getElementById("submitLabel").innerHTML = `<span class="spinner" style="display:inline-block; vertical-align:-2px; margin-right:6px;"></span> Enviando...`;
+
+      const payload = {
+        nombre_negocio: state.nombre,
+        ubicacion: state.ubicacion,
+        lat: state.lat,
+        lng: state.lng,
+        telefono: "+51" + state.telefono,
+        logo_base64: state.logoBase64,
+        fecha_verificacion: state.fechaISO,
+        hora_verificacion: state.hora,
+        terminos_aceptados: true,
+        origen: "landing_geinztech",
+      };
+
+      try {
+        if (typeof window.__enviarRegistroNegocio !== "function") {
+          throw new Error("Cloud Function no configurada todavía.");
+        }
+        await window.__enviarRegistroNegocio(payload);
+
+        document.getElementById("doneNombre").textContent = state.nombre;
+        document.getElementById("doneFechaHora").textContent = `${state.fechaLabel} · ${state.hora}`;
+        goToStep(4);
+      } catch (e) {
+        console.error(e);
+        errBox.textContent = "❌ No se pudo enviar tu registro. Intenta nuevamente en unos segundos.";
+        errBox.style.display = "block";
+        btnSubmit.disabled = false;
+        document.getElementById("submitLabel").textContent = "🚀 Enviar registro";
+      }
+    });
+
+    // step 4 has no numbered dot, hide track visually when reached
+    const originalGoToStep = goToStep;
+    goToStep = function (n) {
+      originalGoToStep(n);
+      const track = document.querySelector(".step-track");
+      track.style.display = n === 4 ? "none" : "flex";
+    };
+  </script>
+
+</body>
+</html>
