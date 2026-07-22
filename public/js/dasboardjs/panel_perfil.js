@@ -652,11 +652,7 @@ window.PanelPerfil = {
   //  CARTA DIGITAL (solo Comida y Restaurantes)
   // ═══════════════════════════════════════════
   _esCategoriaComida() {
-    const cat = (
-      this.selectedCat ||
-      this.currentData?.categoria_tienda ||
-      ""
-    )
+    const cat = (this.selectedCat || this.currentData?.categoria_tienda || "")
       .toString()
       .toLowerCase();
     return cat.includes("comida") || cat.includes("restaurant");
@@ -696,6 +692,7 @@ window.PanelPerfil = {
         this.cartaColecciones[d.id] = {
           nombre: data.nombre || d.id,
           imagenes: Array.isArray(data.imagenes) ? data.imagenes : [],
+          texto: data.texto || "",
         };
       });
 
@@ -734,12 +731,28 @@ window.PanelPerfil = {
       const card = document.createElement("div");
       card.className = "carta-coleccion-card";
 
+      // ── Header ──
       const head = document.createElement("div");
       head.className = "carta-coleccion-head";
+
+      const nameWrap = document.createElement("div");
+      nameWrap.className = "carta-coleccion-name-wrap";
 
       const nameEl = document.createElement("span");
       nameEl.className = "carta-coleccion-name";
       nameEl.textContent = coleccion.nombre;
+
+      const textPreview = document.createElement("p");
+      textPreview.className = "carta-coleccion-text-preview";
+      textPreview.id = `cartaTextoPreview-${id}`;
+      const tieneTexto = !!(coleccion.texto && coleccion.texto.trim());
+      textPreview.textContent = tieneTexto
+        ? coleccion.texto
+        : "Sin descripción";
+      if (!tieneTexto) textPreview.classList.add("empty");
+
+      nameWrap.appendChild(nameEl);
+      nameWrap.appendChild(textPreview);
 
       const countEl = document.createElement("span");
       countEl.className = "carta-coleccion-count";
@@ -759,28 +772,101 @@ window.PanelPerfil = {
         this.eliminarColeccionCarta(id);
       };
 
-      head.appendChild(nameEl);
+      head.appendChild(nameWrap);
       head.appendChild(countEl);
       head.appendChild(delBtn);
       head.appendChild(arrowEl);
+
+      // ── Cuerpo desplegable (texto + fotos) ──
+      const body = document.createElement("div");
+      body.className = "carta-coleccion-body";
+
+      const textField = document.createElement("div");
+      textField.className = "carta-coleccion-text-field";
+
+      const textarea = document.createElement("textarea");
+      textarea.className = "carta-coleccion-textarea";
+      textarea.id = `cartaTexto-${id}`;
+      textarea.placeholder =
+        "Agrega una descripción para esta colección (ej: disponible de lunes a viernes, incluye bebida)...";
+      textarea.rows = 2;
+      textarea.value = coleccion.texto || "";
+
+      const saveTextBtn = document.createElement("button");
+      saveTextBtn.className = "field-save-btn";
+      saveTextBtn.id = `cartaTextoSaveBtn-${id}`;
+      saveTextBtn.innerHTML = "✓ Guardar texto";
+      saveTextBtn.onclick = () =>
+        this._guardarTextoColeccion(id, textarea.value, saveTextBtn);
+
+      textarea.addEventListener("input", () => {
+        this.autoResize(textarea);
+        const changed = textarea.value !== (coleccion.texto || "");
+        changed
+          ? this._showFieldBtn(saveTextBtn)
+          : this._hideFieldBtn(saveTextBtn);
+      });
+
+      textField.appendChild(textarea);
+      textField.appendChild(saveTextBtn);
 
       const grid = document.createElement("div");
       grid.className = "carta-coleccion-grid";
       grid.id = `cartaGrid-${id}`;
 
+      body.appendChild(textField);
+      body.appendChild(grid);
+
       head.onclick = () => {
-        const abierta = grid.classList.toggle("open");
+        const abierta = body.classList.toggle("open");
         arrowEl.style.transform = abierta ? "rotate(180deg)" : "rotate(0deg)";
+        if (abierta) requestAnimationFrame(() => this.autoResize(textarea));
       };
 
       card.appendChild(head);
-      card.appendChild(grid);
+      card.appendChild(body);
       list.appendChild(card);
 
       this._renderCartaGrid(id);
     });
   },
 
+  async _guardarTextoColeccion(collId, valor, btn) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+
+    btn.classList.add("saving");
+    btn.innerHTML = "Guardando...";
+    try {
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        collId,
+      );
+      await this._updateDoc(ref, { texto: valor });
+      coleccion.texto = valor;
+
+      const preview = document.getElementById(`cartaTextoPreview-${collId}`);
+      if (preview) {
+        const tiene = !!(valor && valor.trim());
+        preview.textContent = tiene ? valor : "Sin descripción";
+        preview.classList.toggle("empty", !tiene);
+      }
+
+      btn.classList.remove("visible", "saving");
+      btn.innerHTML = "✓ Guardar texto";
+      this.showToast("✓ Descripción guardada");
+    } catch (e) {
+      console.error("Error guardando texto de colección:", e);
+      btn.classList.remove("saving");
+      btn.innerHTML = "✓ Guardar texto";
+      this.showToast("❌ Error al guardar descripción");
+    }
+  },
   _renderCartaGrid(collId) {
     const grid = document.getElementById(`cartaGrid-${collId}`);
     const coleccion = this.cartaColecciones[collId];
@@ -881,9 +967,8 @@ window.PanelPerfil = {
     }
 
     try {
-      const { setDoc } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
+      const { setDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const ref = this._doc(
         this.db,
         "Tiendas",
@@ -893,9 +978,13 @@ window.PanelPerfil = {
         "carta",
         slug,
       );
-      await setDoc(ref, { nombre: nombreLimpio, imagenes: [] });
+      await setDoc(ref, { nombre: nombreLimpio, imagenes: [], texto: "" });
 
-      this.cartaColecciones[slug] = { nombre: nombreLimpio, imagenes: [] };
+      this.cartaColecciones[slug] = {
+        nombre: nombreLimpio,
+        imagenes: [],
+        texto: "",
+      };
       this.renderCartaColecciones();
       this.showToast("✓ Colección creada");
     } catch (e) {
@@ -920,15 +1009,14 @@ window.PanelPerfil = {
         (coleccion.imagenes || []).map((url, i) => {
           if (!url) return Promise.resolve();
           const path = `tiendas/${this.TIENDA_ID}/carta/${collId}/slot_${i}.webp`;
-          return this._deleteObject(this._storageRef(this._storage, path)).catch(
-            () => {},
-          );
+          return this._deleteObject(
+            this._storageRef(this._storage, path),
+          ).catch(() => {});
         }),
       );
 
-      const { deleteDoc } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
+      const { deleteDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const ref = this._doc(
         this.db,
         "Tiendas",

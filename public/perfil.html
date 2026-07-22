@@ -21,6 +21,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
     <link rel="stylesheet" href="./style/shareStyle/perfil_negocio_v2.css" />
     <script type="module" src="./js/share/perfil_negocio_v2.js"></script>
     <link rel="icon" href="./img/icons/favicon.ico" sizes="any">
@@ -31,7 +32,7 @@
 </head>
 
 <body>
-       <div class="geinz-loader" id="geinzLoader">
+    <div class="geinz-loader" id="geinzLoader">
         <div class="sk-container">
             <div class="sk-hero">
                 <div class="sk-hero-left">
@@ -93,6 +94,7 @@
                     <button id="routeBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Cómo llegar</button>
                     <button id="shareBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Compartir</button>
                 </div>
+                <div id="quickNavRow" class="flex flex-wrap gap-3 mt-5"></div>
             </div>
 
             <div class="relative">
@@ -141,6 +143,20 @@
             </div>
             <div class="gallery-carousel-wrap" id="ambientesCarouselWrap">
                 <div id="ambientesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
+            </div>
+        </section>
+
+        <section id="secCarta" class="mb-20 reveal" style="display:none;">
+            <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <p class="uppercase tracking-[5px] accent text-sm mb-3">CARTA DIGITAL</p>
+                    <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Explora el menú</h2>
+                </div>
+                <button id="cartaShareBtn" class="carta-share-btn"><span>📤</span> Compartir carta</button>
+            </div>
+            <div id="cartaFilters" class="flex flex-wrap gap-3 mb-8"></div>
+            <div class="gallery-carousel-wrap" id="cartaCarouselWrap">
+                <div id="cartaGrid"></div>
             </div>
         </section>
 

@@ -467,15 +467,21 @@ async function getParams() {
   const desdePath = path.startsWith("/perfil/");
 
   if (desdePath) {
-    const alias = path.split("/perfil/")[1]?.trim();
+    let alias = path.split("/perfil/")[1]?.trim();
     if (!alias) throw new Error("Alias inválido");
+
+    // Detecta si la URL pide ir directo a la carta: /perfil/alias-carta
+    let wantsCarta = false;
+    if (alias.endsWith("-carta")) {
+      wantsCarta = true;
+      alias = alias.replace(/-carta$/, "");
+    }
 
     const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
     if (!aliasSnap.exists()) throw new Error("Perfil no encontrado");
 
     const { id, localidad, categoria } = aliasSnap.data();
 
-    // ← leer ?p= aquí
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
 
@@ -484,7 +490,8 @@ async function getParams() {
       subcol: (categoria || "").replace(/\+/g, " "),
       id,
       promoIndex: null,
-      promoId, // ← nuevo
+      promoId,
+      wantsCarta,
     };
   }
 
@@ -499,7 +506,7 @@ async function getParams() {
   const id = (p.get("id") || "JHgbs7ttVXRnsIqsEGWS").trim();
   const promoIndex = p.get("i") || null;
 
-  return { localidad, subcol, id, promoIndex };
+  return { localidad, subcol, id, promoIndex, wantsCarta: false };
 }
 async function loadBusiness({ localidad, id }) {
   const ref = doc(db, "Tiendas", localidad, localidad, id);
@@ -511,6 +518,25 @@ async function loadBusiness({ localidad, id }) {
 // ══════════════════════════════════════════
 //  PROMOCIONES ACTIVAS
 // ══════════════════════════════════════════
+
+async function loadCarta({ localidad, id }) {
+  try {
+    const ref = collection(db, "Tiendas", localidad, localidad, id, "carta");
+    const snap = await getDocs(ref);
+    const secciones = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      const imgs = (data.imagenes || []).filter(Boolean);
+      if (imgs.length)
+        secciones.push({ nombre: data.nombre || docSnap.id, imagenes: imgs });
+    });
+    return secciones;
+  } catch (e) {
+    console.warn("No se pudo cargar la carta:", e.message);
+    return [];
+  }
+}
+
 async function loadActivePromos({ localidad, id }) {
   try {
     const ref = collection(
@@ -549,6 +575,78 @@ async function loadActivePromos({ localidad, id }) {
   }
 }
 
+function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
+  const sec = document.getElementById("secCarta");
+  const filtersEl = document.getElementById("cartaFilters");
+  const gridEl = document.getElementById("cartaGrid");
+  if (!sec || !filtersEl || !gridEl) return;
+
+  const esComida = (categoria || "").toLowerCase().includes("comida");
+  _navState.carta = esComida && secciones.length > 0;
+  updateQuickNav();
+
+  if (!_navState.carta) {
+    sec.style.display = "none";
+    return;
+  }
+  sec.style.display = "";
+  filtersEl.innerHTML = "";
+  gridEl.innerHTML = "";
+
+  function paintGrid(idx) {
+    gridEl.innerHTML = "";
+    const imgs = secciones[idx].imagenes;
+    imgs.forEach((src, i) => {
+      const card = document.createElement("div");
+      card.className = "gallery-card";
+      card.style.cursor = "pointer";
+      const imgWrap = createImageWithPlaceholder({
+        src,
+        alt: secciones[idx].nombre,
+        onError: () => {
+          card.style.display = "none";
+        },
+      });
+      card.appendChild(imgWrap);
+      card.addEventListener("click", () => openLightbox(imgs, i));
+      gridEl.appendChild(card);
+    });
+  }
+
+  secciones.forEach((s, idx) => {
+    const chip = document.createElement("button");
+    chip.className = "carta-filter-chip" + (idx === 0 ? " active" : "");
+    chip.textContent = s.nombre;
+    chip.addEventListener("click", () => {
+      filtersEl
+        .querySelectorAll(".carta-filter-chip")
+        .forEach((el) => el.classList.remove("active"));
+      chip.classList.add("active");
+      paintGrid(idx);
+    });
+    filtersEl.appendChild(chip);
+  });
+
+  paintGrid(0);
+
+  const shareBtn = document.getElementById("cartaShareBtn");
+  if (shareBtn) {
+    shareBtn.onclick = () => {
+      const shareUrl = aliasKey
+        ? `https://geinztech.com/perfil/${aliasKey}-carta`
+        : window.location.href;
+      const fullText = `Mira la carta digital de ${nombreNegocio} 📖\n${shareUrl}`;
+      if (navigator.share) {
+        navigator
+          .share({ text: fullText })
+          .catch(() => copyToClipboard(fullText));
+      } else {
+        copyToClipboard(fullText);
+      }
+    };
+  }
+}
+
 function formatExpiry(finMs) {
   if (!finMs) return { text: "Promo activa", cls: "exp-green" };
 
@@ -580,11 +678,15 @@ function renderActivePromos(promos, localidad) {
 
   if (!promos.length) {
     sec.style.display = "none";
+    _navState.ofertas = false;
+    updateQuickNav();
     return;
   }
 
   sec.style.display = "";
   grid.innerHTML = "";
+  _navState.ofertas = true;
+  updateQuickNav();
 
   promos.forEach((p) => {
     const info = p.informacion || {};
@@ -633,7 +735,7 @@ function renderActivePromos(promos, localidad) {
       },
     });
     imgWrapContainer.prepend(imgWrap);
- 
+
     grid.appendChild(card);
   });
 
@@ -968,6 +1070,46 @@ function renderContactDetail(contactos) {
   });
 }
 
+function updateQuickNav() {
+  const row = document.getElementById("quickNavRow");
+  if (!row) return;
+  row.innerHTML = "";
+  const items = [
+    _navState.ofertas && {
+      emoji: "🔥",
+      label: "Ofertas",
+      target: "secPromosActivas",
+    },
+    _navState.productos && {
+      emoji: "⭐",
+      label: "Lo mejor",
+      target: "secProductos",
+    },
+    _navState.ambientes && {
+      emoji: "🌿",
+      label: "Ambientes",
+      target: "secAmbientes",
+    },
+    _navState.carta && {
+      emoji: "📖",
+      label: "Carta digital",
+      target: "secCarta",
+    },
+  ].filter(Boolean);
+
+  items.forEach(({ emoji, label, target }) => {
+    const btn = document.createElement("button");
+    btn.className = "nav-chip";
+    btn.innerHTML = `<span class="emoji">${emoji}</span> ${label}`;
+    btn.addEventListener("click", () =>
+      document
+        .getElementById(target)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+    row.appendChild(btn);
+  });
+}
+
 // ══════════════════════════════════════════
 //  STATUS BADGE
 // ══════════════════════════════════════════
@@ -1170,7 +1312,7 @@ function showSnackbar(msg) {
 //  LIGHTBOX / CARRUSEL ESTILO IG
 // ══════════════════════════════════════════
 const LIGHTBOX_CSS = `
-  .lightbox-modal {
+.lightbox-modal {
     position: fixed;
     inset: 0;
     z-index: 10000;
@@ -1182,12 +1324,14 @@ const LIGHTBOX_CSS = `
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.28s ease;
-  }
+    touch-action: none;
+    overscroll-behavior: contain;
+}
   .lightbox-modal.open {
     opacity: 1;
     visibility: visible;
   }
-  .lightbox-stage {
+.lightbox-stage {
     width: 100%;
     height: 100%;
     display: flex;
@@ -1196,8 +1340,9 @@ const LIGHTBOX_CSS = `
     padding: 40px;
     box-sizing: border-box;
     overflow: hidden;
-  }
-  .lightbox-stage img {
+    touch-action: none;
+}
+.lightbox-stage img {
     max-width: 90vw;
     max-height: 85vh;
     object-fit: contain;
@@ -1206,7 +1351,12 @@ const LIGHTBOX_CSS = `
     opacity: 0;
     transform: scale(0.96);
     transition: opacity 0.32s ease, transform 0.32s cubic-bezier(.2,.8,.2,1);
-  }
+    touch-action: none;
+    cursor: zoom-in;
+}
+    .lightbox-stage img.zoomed {
+    cursor: grab;
+}
   .lightbox-stage img.show {
     opacity: 1;
     transform: scale(1);
@@ -1272,6 +1422,7 @@ const LIGHTBOX_CSS = `
 let _lightboxImages = [];
 let _lightboxIndex = 0;
 let _lightboxBound = false;
+let _panzoomInstance = null;
 
 function injectLightboxStyles() {
   if (document.getElementById("lightboxStyle")) return;
@@ -1308,11 +1459,13 @@ function bindLightboxEvents() {
   });
 
   // Swipe táctil
+  // Swipe táctil (solo si la imagen no está ampliada)
   let touchStartX = 0;
   const stage = document.querySelector(".lightbox-stage");
   stage?.addEventListener(
     "touchstart",
     (e) => {
+      if (_panzoomInstance && _panzoomInstance.getScale() > 1) return;
       touchStartX = e.touches[0].clientX;
     },
     { passive: true },
@@ -1320,6 +1473,7 @@ function bindLightboxEvents() {
   stage?.addEventListener(
     "touchend",
     (e) => {
+      if (_panzoomInstance && _panzoomInstance.getScale() > 1) return;
       const diff = e.changedTouches[0].clientX - touchStartX;
       if (Math.abs(diff) > 50) diff > 0 ? lightboxPrev() : lightboxNext();
     },
@@ -1349,20 +1503,87 @@ function openLightbox(images, index) {
 function closeLightbox() {
   document.getElementById("lightboxModal")?.classList.remove("open");
   document.body.style.overflow = "";
+  if (_panzoomInstance) {
+    _panzoomInstance.destroy();
+    _panzoomInstance = null;
+  }
 }
 
 function renderLightboxImage() {
   const img = document.getElementById("lightboxImg");
   const counter = document.getElementById("lightboxCounter");
 
+  // Limpia zoom anterior antes de cambiar de imagen
+  if (_panzoomInstance) {
+    _panzoomInstance.destroy();
+    _panzoomInstance = null;
+    img.classList.remove("zoomed");
+  }
+
   img.classList.remove("show");
   setTimeout(() => {
     img.src = _lightboxImages[_lightboxIndex];
-    img.onload = () => img.classList.add("show");
+    img.onload = () => {
+      img.classList.add("show");
+      initLightboxZoom(img);
+    };
   }, 120);
 
   counter.textContent = `${_lightboxIndex + 1} / ${_lightboxImages.length}`;
   counter.style.display = _lightboxImages.length > 1 ? "block" : "none";
+}
+
+let _panzoomWheelHandler = null;
+let _lastTapTime = 0;
+
+function initLightboxZoom(img) {
+  if (typeof Panzoom === "undefined") return;
+
+  _panzoomInstance = Panzoom(img, {
+    maxScale: 4,
+    minScale: 1,
+    startScale: 1,
+    canvas: false,
+    cursor: "zoom-in",
+    step: 0.5,
+    touchAction: "none",
+  });
+
+  if (_panzoomWheelHandler) {
+    img.parentElement.removeEventListener("wheel", _panzoomWheelHandler);
+  }
+  _panzoomWheelHandler = (e) => _panzoomInstance.zoomWithWheel(e);
+  img.parentElement.addEventListener("wheel", _panzoomWheelHandler, {
+    passive: false,
+  });
+
+  const toggleZoom = () => {
+    if (_panzoomInstance.getScale() > 1) {
+      _panzoomInstance.reset();
+      img.classList.remove("zoomed");
+    } else {
+      _panzoomInstance.zoomIn();
+      img.classList.add("zoomed");
+    }
+  };
+
+  // Doble clic (desktop)
+  img.ondblclick = toggleZoom;
+
+  // Doble tap manual (móvil) — dblclick no siempre dispara en touch
+  img.ontouchend = (e) => {
+    const now = Date.now();
+    if (now - _lastTapTime < 300) {
+      e.preventDefault();
+      toggleZoom();
+    }
+    _lastTapTime = now;
+  };
+
+  img.onpanzoomzoom = () => {
+    if (_panzoomInstance.getScale() > 1) img.classList.add("zoomed");
+    else img.classList.remove("zoomed");
+  };
 }
 
 function lightboxNext() {
@@ -1377,6 +1598,12 @@ function lightboxPrev() {
 
 // ── Variables globales ──
 let _params = {};
+let _navState = {
+  ofertas: false,
+  productos: false,
+  ambientes: false,
+  carta: false,
+};
 let _colorReady = false;
 let _schedInterval = null; // evitar setInterval duplicados
 
@@ -1695,6 +1922,9 @@ async function render(biz) {
     document
       .getElementById("secAmbientes")
       ?.style.setProperty("display", "none");
+  _navState.productos = productos.length > 0;
+  _navState.ambientes = ambientales.length > 0;
+  updateQuickNav();
   if (!contactos.length)
     document.getElementById("secContact")?.style.setProperty("display", "none");
   if (!pagos.length)
@@ -1738,6 +1968,32 @@ function listenBusinessRealtime({ localidad, id }) {
     loadActivePromos(params).then((promos) =>
       renderActivePromos(promos, params.localidad),
     );
+    // Carta digital (solo aplica si es "comida y restaurantes")
+    loadCarta(params).then((secciones) => {
+      renderCarta(
+        secciones,
+        biz.categoria_tienda,
+        biz.alias_key,
+        biz.nombre_tienda || biz.nombre,
+      );
+
+      if (params.wantsCarta) {
+        const esComida = (biz.categoria_tienda || "")
+          .toLowerCase()
+          .includes("comida");
+        if (esComida && secciones.length > 0) {
+          setTimeout(() => {
+            document
+              .getElementById("secCarta")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 350);
+        } else {
+          const nombreNegocio =
+            biz.nombre_tienda || biz.nombre || "Este negocio";
+          showSnackbar(`${nombreNegocio} no tiene carta digital disponible`);
+        }
+      }
+    });
   } catch (err) {
     console.error(err);
     showNotFoundScreen(err.message); // ← debe capturarlo
