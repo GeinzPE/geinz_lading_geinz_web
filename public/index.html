@@ -2384,6 +2384,83 @@
       box-shadow: 0 16px 40px rgba(124, 58, 237, 0.5);
       background: linear-gradient(135deg, #8b47f0, #b566f9);
     }
+
+
+    /* ===================================
+   SECCIÓN: CREA TU ASISTENTE CON NOSOTROS
+=================================== */
+    .assistant-cta {
+      position: relative;
+      overflow: hidden;
+      border-radius: 32px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(3, 3, 7, 0.85) 50%, rgba(168, 85, 247, 0.06) 100%);
+      border: 1px solid rgba(124, 58, 237, 0.18);
+      padding: 64px 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 28px;
+    }
+
+    @media (max-width: 768px) {
+      .assistant-cta {
+        padding: 48px 24px;
+        border-radius: 24px;
+      }
+    }
+
+    .assistant-photo-wrap {
+      position: relative;
+      width: 168px;
+      height: 168px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .assistant-photo-glow {
+      position: absolute;
+      inset: -40px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.35) 0%, transparent 70%);
+      filter: blur(14px);
+      animation: appGlowPulse 4s ease-in-out infinite;
+    }
+
+    .assistant-photo-ring {
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 1.5px dashed rgba(167, 139, 250, 0.35);
+      animation: gzSpin 12s linear infinite;
+    }
+
+    .assistant-photo {
+      position: relative;
+      width: 168px;
+      height: 168px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(167, 139, 250, 0.5);
+      box-shadow: 0 20px 50px -10px rgba(124, 58, 237, 0.4), inset 0 0 0 4px rgba(3, 3, 7, 0.6);
+      z-index: 2;
+    }
+
+    .assistant-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .assistant-cta h2 {
+      max-width: 640px;
+    }
+
+    .assistant-cta p {
+      max-width: 560px;
+    }
   </style>
 </head>
 
@@ -2946,6 +3023,45 @@
             </p>
           </div>
         </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===================================
+     CREA TU ASISTENTE CON NOSOTROS
+=================================== -->
+  <section class="section-space reveal relative z-10 mb-20">
+    <div class="container-geinz">
+      <div class="assistant-cta">
+
+        <div class="startup-tag">
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse inline-block"></span>
+          Desarrollo a medida
+        </div>
+
+        <div class="assistant-photo-wrap">
+          <div class="assistant-photo-glow"></div>
+          <div class="assistant-photo-ring"></div>
+          <div class="assistant-photo">
+            <img src="img/daniel_fuerte.webp" alt="Crea tu asistente con Geinz">
+          </div>
+        </div>
+
+        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+          Crea tu propio asistente de whatsapp<span class="gradient-text">con nosotros</span>
+        </h2>
+
+        <p class="text-gray-400 text-sm md:text-base font-light leading-relaxed">
+          ¿Tu negocio necesita algo más que Daniel? Diseñamos un asistente de IA a tu medida,
+          con tu marca, tu tono y tus procesos, listo para atender por WhatsApp, web o donde lo necesites.
+        </p>
+
+        <a href="asistentesgeinz.html"
+          target="_blank" class="btn-register-free">
+          🤖 Quiero mi asistente personalizado
+        </a>
 
       </div>
     </div>

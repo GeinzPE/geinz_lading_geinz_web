@@ -528,7 +528,11 @@ async function loadCarta({ localidad, id }) {
       const data = docSnap.data();
       const imgs = (data.imagenes || []).filter(Boolean);
       if (imgs.length)
-        secciones.push({ nombre: data.nombre || docSnap.id, imagenes: imgs });
+        secciones.push({
+          nombre: data.nombre || docSnap.id,
+          imagenes: imgs,
+          texto: data.texto || "",
+        });
     });
     return secciones;
   } catch (e) {
@@ -581,6 +585,8 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   const gridEl = document.getElementById("cartaGrid");
   if (!sec || !filtersEl || !gridEl) return;
 
+  injectCartaTextStyles();
+
   const esComida = (categoria || "").toLowerCase().includes("comida");
   _navState.carta = esComida && secciones.length > 0;
   updateQuickNav();
@@ -592,6 +598,32 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   sec.style.display = "";
   filtersEl.innerHTML = "";
   gridEl.innerHTML = "";
+
+  // ── Caja de descripción (se inserta una sola vez, antes del grid) ──
+  let descBox = document.getElementById("cartaDescBox");
+  if (!descBox) {
+    descBox = document.createElement("p");
+    descBox.id = "cartaDescBox";
+    descBox.className = "carta-desc-box";
+    filtersEl.insertAdjacentElement("afterend", descBox);
+  }
+
+  function paintDesc(idx) {
+    const texto = (secciones[idx].texto || "").trim();
+    if (!texto) {
+      descBox.textContent = "";
+      descBox.classList.remove("show");
+      descBox.classList.add("hidden");
+      return;
+    }
+    descBox.classList.remove("show");
+    descBox.classList.remove("hidden");
+    // pequeño delay para que la transición se note al cambiar de filtro
+    requestAnimationFrame(() => {
+      descBox.textContent = texto;
+      requestAnimationFrame(() => descBox.classList.add("show"));
+    });
+  }
 
   function paintGrid(idx) {
     gridEl.innerHTML = "";
@@ -611,6 +643,7 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
       card.addEventListener("click", () => openLightbox(imgs, i));
       gridEl.appendChild(card);
     });
+    paintDesc(idx);
   }
 
   secciones.forEach((s, idx) => {
@@ -1418,6 +1451,40 @@ const LIGHTBOX_CSS = `
     .lightbox-stage { padding: 16px; }
   }
 `;
+
+const CARTA_TEXT_CSS = `
+.carta-desc-box {
+    max-width: 780px;
+    margin: 0 0 28px;
+    padding: 16px 20px;
+    border-radius: 18px;
+    background: var(--surface, rgba(255,255,255,0.03));
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-left: 3px solid rgb(var(--dr), var(--dg), var(--db));
+    color: #d4d4d8;
+    font-size: 14.5px;
+    line-height: 1.6;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.carta-desc-box.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+.carta-desc-box:empty,
+.carta-desc-box.hidden {
+    display: none;
+}
+`;
+
+function injectCartaTextStyles() {
+  if (document.getElementById("cartaTextStyle")) return;
+  const style = document.createElement("style");
+  style.id = "cartaTextStyle";
+  style.textContent = CARTA_TEXT_CSS;
+  document.head.appendChild(style);
+}
 
 let _lightboxImages = [];
 let _lightboxIndex = 0;
