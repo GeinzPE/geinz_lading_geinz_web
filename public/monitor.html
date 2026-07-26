@@ -1982,7 +1982,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import {
             getFirestore, collection, doc, onSnapshot, query, orderBy,
-            addDoc, updateDoc, serverTimestamp
+            addDoc, updateDoc, serverTimestamp, getDocs, setDoc, writeBatch
         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
@@ -2003,11 +2003,13 @@
         const enviarMensajeManual = httpsCallable(functions, 'enviarMensajeManual');
 
         // ===== canal (WhatsApp / Telegram) — cada uno con su propia colección =====
+        // Ruta nueva anidada: historial_conversaciones/{canal}/{subcoleccion}/{id}
         const CHANNELS = {
-            whatsapp: { collection: 'historial_whatsapp', label: 'WhatsApp', windowHours: 24 },
-            telegram: { collection: 'historial_telegram', label: 'Telegram', windowHours: null }, // sin restriccion de ventana
+            whatsapp: { collection: 'historial_conversaciones/whatsapp/whatsapp_geinz', label: 'WhatsApp', windowHours: 24 },
+            telegram: { collection: 'historial_conversaciones/telegram/geinz_telegram', label: 'Telegram', windowHours: null }, // sin restriccion de ventana
         };
         let activeChannel = 'whatsapp';
+
 
         // ===== catálogo de etiquetas disponibles para la ficha del cliente =====
         const TAGS_CATALOG = {
@@ -2339,9 +2341,9 @@
         tagAddSelect.innerHTML = '<option value="">+ Agregar etiqueta…</option>' +
             Object.keys(TAGS_CATALOG).map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
-        // arranca la escucha de ambos canales desde el inicio
-        watchChannelForAlerts('whatsapp');
-        watchChannelForAlerts('telegram');
+        // arranca la migración (si hace falta) y, cuando termine, arranca la escucha de ambos canales
+     watchChannelForAlerts('whatsapp');
+watchChannelForAlerts('telegram');
 
 
         function renderConvList() {
