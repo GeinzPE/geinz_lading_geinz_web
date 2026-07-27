@@ -60,6 +60,12 @@ function getDiaActual() {
   ];
   return dias[new Date().getDay()];
 }
+const backBtn = document.getElementById("backBtn");
+if (backBtn) {
+  backBtn.addEventListener("click", () => {
+    window.location.href = "https://geinztech.com/";
+  });
+}
 
 function getEstado(horario) {
   if (!horario) return { estado: "cerrado", texto: "Cerrado", clase: "closed" };
@@ -241,7 +247,7 @@ function renderList() {
 
     card.addEventListener("click", () => {
       const alias = ti.alias_key || ti.id;
-      window.location.href = `https://geinzworkapp.web.app/perfil/${alias}`;
+      window.location.href = `https://geinztech.com/perfil/${alias}`;
     });
 
     listEl.appendChild(card);

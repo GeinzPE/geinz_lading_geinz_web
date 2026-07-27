@@ -20,7 +20,11 @@
         "source": "/sitemap.xml",
         "function": "sitemap"
       },
-      {
+       {
+        "source": "/redirect/serviciosHogar/**",
+        "destination": "/redirect/serviciosHogar.html"
+      },
+      { 
         "source": "/redirect/**",
         "destination": "/redirect/index.html"
       },

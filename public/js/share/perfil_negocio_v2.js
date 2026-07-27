@@ -67,7 +67,7 @@ function showNotFoundScreen(message = "") {
         
         <!-- Botón único sin "volver" -->
         <div style="margin: 2rem 0 0.8rem;">
-          <a href="https://geinzworkapp.web.app" class="geinz-purple-btn" style="display: inline-block; padding: 0.85rem 2rem; background: linear-gradient(100deg, #8b5cf6, #6d28d9); border-radius: 60px; color: white; font-weight: 600; text-decoration: none; font-size: 0.95rem; letter-spacing: 0.3px; box-shadow: 0 6px 14px -4px rgba(109, 40, 217, 0.5); transition: all 0.2s ease; border: none; cursor: pointer;">Explorar Geinz</a>
+          <a href="https://geinztech.com" class="geinz-purple-btn" style="display: inline-block; padding: 0.85rem 2rem; background: linear-gradient(100deg, #8b5cf6, #6d28d9); border-radius: 60px; color: white; font-weight: 600; text-decoration: none; font-size: 0.95rem; letter-spacing: 0.3px; box-shadow: 0 6px 14px -4px rgba(109, 40, 217, 0.5); transition: all 0.2s ease; border: none; cursor: pointer;">Explorar Geinz</a>
         </div>
         
         <p style="font-size: 0.7rem; color: #6b4e9e; margin: 0.8rem 0 0;">✨ ¿Buscas algo específico? Revisa la URL o regresa al inicio</p>
@@ -426,63 +426,13 @@ const LOADER_CSS = `
         pointer-events: none;
     }
 `;
-function showBizLoader() {
-  const style = document.createElement("style");
-  style.id = "loaderStyle";
-  style.textContent = LOADER_CSS;
-  document.head.appendChild(style);
-  const loader = document.createElement("div");
-  loader.className = "geinz-loader";
-  loader.id = "geinzLoader";
-  loader.innerHTML = `
-    <div class="sk-container">
-        <div class="sk-hero">
-            <div class="sk-hero-left">
-                <div class="sk-title"></div>
-                <div class="sk-status"></div>
-                <div class="sk-tags">
-                    <div class="sk-tag"></div>
-                    <div class="sk-tag"></div>
-                    <div class="sk-tag"></div>
-                </div>
-                <div class="sk-desc"></div>
-                <div class="sk-buttons">
-                    <div class="sk-btn"></div>
-                    <div class="sk-btn"></div>
-                </div>
-            </div>
-            <div class="sk-hero-right">
-                <div class="sk-image"></div>
-            </div>
-        </div>
-        <div class="sk-section">
-            <div class="sk-section-header"></div>
-            <div class="sk-grid">
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-            </div>
-        </div>
-        <div class="sk-section">
-            <div class="sk-section-header"></div>
-            <div class="sk-grid">
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-                <div class="sk-card"></div>
-            </div>
-        </div>
-    </div>
-`;
-  document.body.appendChild(loader);
-}
+
 function hideBizLoader() {
   const loader = document.getElementById("geinzLoader");
+  document.documentElement.classList.remove("geinz-loading");
   if (loader) {
     loader.classList.add("hide");
-    setTimeout(() => {
-      loader.remove();
-      document.getElementById("loaderStyle")?.remove();
-    }, 420);
+    setTimeout(() => loader.remove(), 420);
   }
 }
 
@@ -495,6 +445,8 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  collection,
+  getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 const firebaseConfig = {
   apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
@@ -515,15 +467,21 @@ async function getParams() {
   const desdePath = path.startsWith("/perfil/");
 
   if (desdePath) {
-    const alias = path.split("/perfil/")[1]?.trim();
+    let alias = path.split("/perfil/")[1]?.trim();
     if (!alias) throw new Error("Alias inválido");
+
+    // Detecta si la URL pide ir directo a la carta: /perfil/alias-carta
+    let wantsCarta = false;
+    if (alias.endsWith("-carta")) {
+      wantsCarta = true;
+      alias = alias.replace(/-carta$/, "");
+    }
 
     const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
     if (!aliasSnap.exists()) throw new Error("Perfil no encontrado");
 
     const { id, localidad, categoria } = aliasSnap.data();
 
-    // ← leer ?p= aquí
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
 
@@ -532,7 +490,8 @@ async function getParams() {
       subcol: (categoria || "").replace(/\+/g, " "),
       id,
       promoIndex: null,
-      promoId, // ← nuevo
+      promoId,
+      wantsCarta,
     };
   }
 
@@ -547,13 +506,286 @@ async function getParams() {
   const id = (p.get("id") || "JHgbs7ttVXRnsIqsEGWS").trim();
   const promoIndex = p.get("i") || null;
 
-  return { localidad, subcol, id, promoIndex };
+  return { localidad, subcol, id, promoIndex, wantsCarta: false };
 }
 async function loadBusiness({ localidad, id }) {
   const ref = doc(db, "Tiendas", localidad, localidad, id);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("Negocio no encontrado");
   return { id: snap.id, ...snap.data() };
+}
+
+// ══════════════════════════════════════════
+//  PROMOCIONES ACTIVAS
+// ══════════════════════════════════════════
+
+async function loadCarta({ localidad, id }) {
+  try {
+    const ref = collection(db, "Tiendas", localidad, localidad, id, "carta");
+    const snap = await getDocs(ref);
+    const secciones = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      const imgs = (data.imagenes || []).filter(Boolean);
+      if (imgs.length)
+        secciones.push({
+          nombre: data.nombre || docSnap.id,
+          imagenes: imgs,
+          texto: data.texto || "",
+        });
+    });
+    return secciones;
+  } catch (e) {
+    console.warn("No se pudo cargar la carta:", e.message);
+    return [];
+  }
+}
+
+async function loadActivePromos({ localidad, id }) {
+  try {
+    const ref = collection(
+      db,
+      "Tiendas",
+      localidad,
+      localidad,
+      id,
+      "promociones_geinz",
+    );
+    const snap = await getDocs(ref);
+    const now = Date.now();
+    const promos = [];
+
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.estado !== "activo") return;
+
+      const finMs = data.timestamp_fin?.toMillis
+        ? data.timestamp_fin.toMillis()
+        : null;
+
+      // Descartar si ya expiró
+      if (finMs && finMs < now) return;
+
+      promos.push({ id: docSnap.id, ...data, _finMs: finMs });
+    });
+
+    // Las que vencen antes van primero
+    promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
+
+    return promos.slice(0, 4); // máx 4, o menos si hay menos
+  } catch (e) {
+    console.warn("No se pudieron cargar promociones activas:", e.message);
+    return [];
+  }
+}
+
+function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
+  const sec = document.getElementById("secCarta");
+  const filtersEl = document.getElementById("cartaFilters");
+  const gridEl = document.getElementById("cartaGrid");
+  if (!sec || !filtersEl || !gridEl) return;
+
+  injectCartaTextStyles();
+
+  const esComida = (categoria || "").toLowerCase().includes("comida");
+  _navState.carta = esComida && secciones.length > 0;
+  updateQuickNav();
+
+  if (!_navState.carta) {
+    sec.style.display = "none";
+    return;
+  }
+  sec.style.display = "";
+  filtersEl.innerHTML = "";
+  gridEl.innerHTML = "";
+
+  // ── Caja de descripción (se inserta una sola vez, antes del grid) ──
+  let descBox = document.getElementById("cartaDescBox");
+  if (!descBox) {
+    descBox = document.createElement("p");
+    descBox.id = "cartaDescBox";
+    descBox.className = "carta-desc-box";
+    filtersEl.insertAdjacentElement("afterend", descBox);
+  }
+
+  function paintDesc(idx) {
+    const texto = (secciones[idx].texto || "").trim();
+    if (!texto) {
+      descBox.textContent = "";
+      descBox.classList.remove("show");
+      descBox.classList.add("hidden");
+      return;
+    }
+    descBox.classList.remove("show");
+    descBox.classList.remove("hidden");
+    // pequeño delay para que la transición se note al cambiar de filtro
+    requestAnimationFrame(() => {
+      descBox.textContent = texto;
+      requestAnimationFrame(() => descBox.classList.add("show"));
+    });
+  }
+
+  function paintGrid(idx) {
+    gridEl.innerHTML = "";
+    const imgs = secciones[idx].imagenes;
+    imgs.forEach((src, i) => {
+      const card = document.createElement("div");
+      card.className = "gallery-card";
+      card.style.cursor = "pointer";
+      const imgWrap = createImageWithPlaceholder({
+        src,
+        alt: secciones[idx].nombre,
+        onError: () => {
+          card.style.display = "none";
+        },
+      });
+      card.appendChild(imgWrap);
+      card.addEventListener("click", () => openLightbox(imgs, i));
+      gridEl.appendChild(card);
+    });
+    paintDesc(idx);
+  }
+
+  secciones.forEach((s, idx) => {
+    const chip = document.createElement("button");
+    chip.className = "carta-filter-chip" + (idx === 0 ? " active" : "");
+    chip.textContent = s.nombre;
+    chip.addEventListener("click", () => {
+      filtersEl
+        .querySelectorAll(".carta-filter-chip")
+        .forEach((el) => el.classList.remove("active"));
+      chip.classList.add("active");
+      paintGrid(idx);
+    });
+    filtersEl.appendChild(chip);
+  });
+
+  paintGrid(0);
+
+  const shareBtn = document.getElementById("cartaShareBtn");
+  if (shareBtn) {
+    shareBtn.onclick = () => {
+      const shareUrl = aliasKey
+        ? `https://geinztech.com/perfil/${aliasKey}-carta`
+        : window.location.href;
+      const fullText = `Mira la carta digital de ${nombreNegocio} 📖\n${shareUrl}`;
+      if (navigator.share) {
+        navigator
+          .share({ text: fullText })
+          .catch(() => copyToClipboard(fullText));
+      } else {
+        copyToClipboard(fullText);
+      }
+    };
+  }
+}
+
+function formatExpiry(finMs) {
+  if (!finMs) return { text: "Promo activa", cls: "exp-green" };
+
+  const diffMs = finMs - Date.now();
+  if (diffMs <= 0) return { text: "Expirada", cls: "exp-red" };
+
+  const diffH = diffMs / 3600000;
+  const diffD = diffH / 24;
+
+  let cls = "exp-green";
+  if (diffH <= 24) cls = "exp-red";
+  else if (diffD <= 3) cls = "exp-yellow";
+
+  let text;
+  if (diffD >= 1) {
+    const d = Math.floor(diffD);
+    text = `Vence en ${d} día${d !== 1 ? "s" : ""}`;
+  } else {
+    const h = Math.floor(diffH);
+    text = h > 0 ? `Vence en ${h}h` : "Vence en minutos";
+  }
+  return { text, cls };
+}
+
+function renderActivePromos(promos, localidad) {
+  const sec = document.getElementById("secPromosActivas");
+  const grid = document.getElementById("promosActivasGrid");
+  if (!sec || !grid) return;
+
+  if (!promos.length) {
+    sec.style.display = "none";
+    _navState.ofertas = false;
+    updateQuickNav();
+    return;
+  }
+
+  sec.style.display = "";
+  grid.innerHTML = "";
+  _navState.ofertas = true;
+  updateQuickNav();
+
+  promos.forEach((p) => {
+    const info = p.informacion || {};
+    const img =
+      p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
+    const expiry = formatExpiry(p._finMs);
+    const shareUrl = `https://geinztech.com/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
+
+    const whatsappAllowed = info.contactar && info.numero;
+    const shareAllowed = info.compartir;
+
+    const waMsg =
+      p.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
+      "Hola, quiero esta oferta que vi en Geinz";
+    const shareMsg =
+      p.mensaje_predeterminado?.compartir?.msje_predermindo ||
+      "Mira esta promo en Geinz 🎁";
+
+    const waLink = whatsappAllowed
+      ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
+          `${waMsg}: ${shareUrl}`,
+        )}`
+      : null;
+
+    const card = document.createElement("div");
+    card.className = "promo-active-card";
+    card.innerHTML = `
+      <div class="promo-active-img-wrap">
+        <span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>
+      </div>
+      <div class="promo-active-body">
+        <h3 class="promo-active-title">${info.titulo || ""}</h3>
+        <p class="promo-active-desc">${info.descripcion || ""}</p>
+        <div class="promo-active-actions">
+          ${waLink ? `<a class="promo-btn-wa" href="${waLink}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}
+          ${shareAllowed ? `<button class="promo-btn-share" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}">Compartir</button>` : ""}
+        </div>
+      </div>
+    `;
+    const imgWrapContainer = card.querySelector(".promo-active-img-wrap");
+    const imgWrap = createImageWithPlaceholder({
+      src: img,
+      alt: info.titulo || "Promoción",
+      onError: () => {
+        imgWrapContainer.style.display = "none";
+      },
+    });
+    imgWrapContainer.prepend(imgWrap);
+
+    grid.appendChild(card);
+  });
+
+  grid.querySelectorAll(".promo-btn-share").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = btn.dataset.shareUrl;
+      const msg = btn.dataset.shareMsg;
+      const fullText = `${msg}\n${url}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ text: fullText });
+        } catch (e) {}
+      } else {
+        copyToClipboard(fullText);
+      }
+    });
+  });
 }
 
 // ══════════════════════════════════════════
@@ -715,6 +947,31 @@ function copyToClipboard(txt) {
       showToast();
     });
 }
+
+function createImageWithPlaceholder({ src, alt = "", onError, onClick }) {
+  const wrap = document.createElement("div");
+  wrap.className = "img-ph-wrap";
+
+  const img = document.createElement("img");
+  img.alt = alt;
+  img.loading = "lazy";
+
+  img.onload = () => {
+    img.classList.add("loaded");
+    wrap.classList.add("loaded");
+  };
+  img.onerror = () => {
+    if (onError) onError(wrap, img);
+    else wrap.remove();
+  };
+
+  img.src = src;
+  wrap.appendChild(img);
+
+  if (onClick) wrap.addEventListener("click", onClick);
+  return wrap;
+}
+
 function showToast(msg) {
   const el = document.getElementById("toast");
   if (!el) return;
@@ -843,6 +1100,46 @@ function renderContactDetail(contactos) {
         setTimeout(() => (btn.textContent = "📋"), 1400);
       }
     });
+  });
+}
+
+function updateQuickNav() {
+  const row = document.getElementById("quickNavRow");
+  if (!row) return;
+  row.innerHTML = "";
+  const items = [
+    _navState.ofertas && {
+      emoji: "🔥",
+      label: "Ofertas",
+      target: "secPromosActivas",
+    },
+    _navState.productos && {
+      emoji: "⭐",
+      label: "Lo mejor",
+      target: "secProductos",
+    },
+    _navState.ambientes && {
+      emoji: "🌿",
+      label: "Ambientes",
+      target: "secAmbientes",
+    },
+    _navState.carta && {
+      emoji: "📖",
+      label: "Carta digital",
+      target: "secCarta",
+    },
+  ].filter(Boolean);
+
+  items.forEach(({ emoji, label, target }) => {
+    const btn = document.createElement("button");
+    btn.className = "nav-chip";
+    btn.innerHTML = `<span class="emoji">${emoji}</span> ${label}`;
+    btn.addEventListener("click", () =>
+      document
+        .getElementById(target)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+    row.appendChild(btn);
   });
 }
 
@@ -978,14 +1275,14 @@ function buildFullGallery(images) {
   images.forEach((src, i) => {
     const slide = document.createElement("div");
     slide.className = "full-gallery-slide";
-    const img = document.createElement("img");
-    img.src = src;
-    img.alt = `Galería ${i + 1}`;
-    img.loading = "lazy";
-    img.onerror = () => {
-      card.style.display = "none"; // oculta el card si la img falla
-    };
-    slide.appendChild(img);
+    const imgWrap = createImageWithPlaceholder({
+      src,
+      alt: `Galería ${i + 1}`,
+      onError: () => {
+        slide.style.display = "none";
+      },
+    });
+    slide.appendChild(imgWrap);
     track.appendChild(slide);
     const dot = document.createElement("div");
     dot.className = "full-gallery-dot" + (i === 0 ? " active" : "");
@@ -1043,8 +1340,337 @@ function showSnackbar(msg) {
 // ══════════════════════════════════════════
 //  RENDER PRINCIPAL
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+//  LIGHTBOX / CARRUSEL ESTILO IG
+// ══════════════════════════════════════════
+const LIGHTBOX_CSS = `
+.lightbox-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(3,3,3,0.94);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s ease;
+    touch-action: none;
+    overscroll-behavior: contain;
+}
+  .lightbox-modal.open {
+    opacity: 1;
+    visibility: visible;
+  }
+.lightbox-stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    box-sizing: border-box;
+    overflow: hidden;
+    touch-action: none;
+}
+.lightbox-stage img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 18px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    opacity: 0;
+    transform: scale(0.96);
+    transition: opacity 0.32s ease, transform 0.32s cubic-bezier(.2,.8,.2,1);
+    touch-action: none;
+    cursor: zoom-in;
+}
+    .lightbox-stage img.zoomed {
+    cursor: grab;
+}
+  .lightbox-stage img.show {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.18); transform: scale(1.05); }
+  .lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .lightbox-nav:hover { background: rgba(255,255,255,0.2); transform: translateY(-50%) scale(1.08); }
+  .lightbox-prev { left: 20px; }
+  .lightbox-next { right: 20px; }
+  .lightbox-counter {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    background: rgba(255,255,255,0.08);
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+  @media (max-width: 640px) {
+    .lightbox-nav { width: 44px; height: 44px; }
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
+    .lightbox-stage { padding: 16px; }
+  }
+`;
+
+const CARTA_TEXT_CSS = `
+.carta-desc-box {
+    max-width: 780px;
+    margin: 0 0 28px;
+    padding: 16px 20px;
+    border-radius: 18px;
+    background: var(--surface, rgba(255,255,255,0.03));
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-left: 3px solid rgb(var(--dr), var(--dg), var(--db));
+    color: #d4d4d8;
+    font-size: 14.5px;
+    line-height: 1.6;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.carta-desc-box.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+.carta-desc-box:empty,
+.carta-desc-box.hidden {
+    display: none;
+}
+`;
+
+function injectCartaTextStyles() {
+  if (document.getElementById("cartaTextStyle")) return;
+  const style = document.createElement("style");
+  style.id = "cartaTextStyle";
+  style.textContent = CARTA_TEXT_CSS;
+  document.head.appendChild(style);
+}
+
+let _lightboxImages = [];
+let _lightboxIndex = 0;
+let _lightboxBound = false;
+let _panzoomInstance = null;
+
+function injectLightboxStyles() {
+  if (document.getElementById("lightboxStyle")) return;
+  const style = document.createElement("style");
+  style.id = "lightboxStyle";
+  style.textContent = LIGHTBOX_CSS;
+  document.head.appendChild(style);
+}
+
+function bindLightboxEvents() {
+  if (_lightboxBound) return;
+  _lightboxBound = true;
+
+  document
+    .getElementById("lightboxClose")
+    ?.addEventListener("click", closeLightbox);
+  document
+    .getElementById("lightboxNext")
+    ?.addEventListener("click", lightboxNext);
+  document
+    .getElementById("lightboxPrev")
+    ?.addEventListener("click", lightboxPrev);
+
+  document.getElementById("lightboxModal")?.addEventListener("click", (e) => {
+    if (e.target.id === "lightboxModal") closeLightbox();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("lightboxModal");
+    if (!modal?.classList.contains("open")) return;
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowRight") lightboxNext();
+    if (e.key === "ArrowLeft") lightboxPrev();
+  });
+
+  // Swipe táctil
+  // Swipe táctil (solo si la imagen no está ampliada)
+  let touchStartX = 0;
+  const stage = document.querySelector(".lightbox-stage");
+  stage?.addEventListener(
+    "touchstart",
+    (e) => {
+      if (_panzoomInstance && _panzoomInstance.getScale() > 1) return;
+      touchStartX = e.touches[0].clientX;
+    },
+    { passive: true },
+  );
+  stage?.addEventListener(
+    "touchend",
+    (e) => {
+      if (_panzoomInstance && _panzoomInstance.getScale() > 1) return;
+      const diff = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(diff) > 50) diff > 0 ? lightboxPrev() : lightboxNext();
+    },
+    { passive: true },
+  );
+}
+
+function openLightbox(images, index) {
+  if (!images?.length) return;
+  injectLightboxStyles();
+  bindLightboxEvents();
+
+  _lightboxImages = images;
+  _lightboxIndex = index;
+
+  const modal = document.getElementById("lightboxModal");
+  const nav = document.querySelectorAll(".lightbox-nav");
+  nav.forEach(
+    (b) => (b.style.display = _lightboxImages.length > 1 ? "flex" : "none"),
+  );
+
+  renderLightboxImage();
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeLightbox() {
+  document.getElementById("lightboxModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+  if (_panzoomInstance) {
+    _panzoomInstance.destroy();
+    _panzoomInstance = null;
+  }
+}
+
+function renderLightboxImage() {
+  const img = document.getElementById("lightboxImg");
+  const counter = document.getElementById("lightboxCounter");
+
+  // Limpia zoom anterior antes de cambiar de imagen
+  if (_panzoomInstance) {
+    _panzoomInstance.destroy();
+    _panzoomInstance = null;
+    img.classList.remove("zoomed");
+  }
+
+  img.classList.remove("show");
+  setTimeout(() => {
+    img.src = _lightboxImages[_lightboxIndex];
+    img.onload = () => {
+      img.classList.add("show");
+      initLightboxZoom(img);
+    };
+  }, 120);
+
+  counter.textContent = `${_lightboxIndex + 1} / ${_lightboxImages.length}`;
+  counter.style.display = _lightboxImages.length > 1 ? "block" : "none";
+}
+
+let _panzoomWheelHandler = null;
+let _lastTapTime = 0;
+
+function initLightboxZoom(img) {
+  if (typeof Panzoom === "undefined") return;
+
+  _panzoomInstance = Panzoom(img, {
+    maxScale: 4,
+    minScale: 1,
+    startScale: 1,
+    canvas: false,
+    cursor: "zoom-in",
+    step: 0.5,
+    touchAction: "none",
+  });
+
+  if (_panzoomWheelHandler) {
+    img.parentElement.removeEventListener("wheel", _panzoomWheelHandler);
+  }
+  _panzoomWheelHandler = (e) => _panzoomInstance.zoomWithWheel(e);
+  img.parentElement.addEventListener("wheel", _panzoomWheelHandler, {
+    passive: false,
+  });
+
+  const toggleZoom = () => {
+    if (_panzoomInstance.getScale() > 1) {
+      _panzoomInstance.reset();
+      img.classList.remove("zoomed");
+    } else {
+      _panzoomInstance.zoomIn();
+      img.classList.add("zoomed");
+    }
+  };
+
+  // Doble clic (desktop)
+  img.ondblclick = toggleZoom;
+
+  // Doble tap manual (móvil) — dblclick no siempre dispara en touch
+  img.ontouchend = (e) => {
+    const now = Date.now();
+    if (now - _lastTapTime < 300) {
+      e.preventDefault();
+      toggleZoom();
+    }
+    _lastTapTime = now;
+  };
+
+  img.onpanzoomzoom = () => {
+    if (_panzoomInstance.getScale() > 1) img.classList.add("zoomed");
+    else img.classList.remove("zoomed");
+  };
+}
+
+function lightboxNext() {
+  _lightboxIndex = (_lightboxIndex + 1) % _lightboxImages.length;
+  renderLightboxImage();
+}
+function lightboxPrev() {
+  _lightboxIndex =
+    (_lightboxIndex - 1 + _lightboxImages.length) % _lightboxImages.length;
+  renderLightboxImage();
+}
+
 // ── Variables globales ──
 let _params = {};
+let _navState = {
+  ofertas: false,
+  productos: false,
+  ambientes: false,
+  carta: false,
+};
 let _colorReady = false;
 let _schedInterval = null; // evitar setInterval duplicados
 
@@ -1074,6 +1700,8 @@ async function render(biz) {
       heroImg.style.display = "block";
       heroPlaceholder.style.display = "none";
 
+      setFaviconCircular(logoUrl);
+
       const tempImg = new Image();
       tempImg.crossOrigin = "anonymous";
       tempImg.onload = () => {
@@ -1098,6 +1726,8 @@ async function render(biz) {
   // ── CONTENIDO: siempre se actualiza ──
   document.getElementById("bizName").textContent = nombre;
   document.title = nombre;
+  const prodTitleEl = document.getElementById("productosTitle");
+  if (prodTitleEl) prodTitleEl.textContent = `Lo mejor de ${nombre}`;
   document.getElementById("cats").innerHTML =
     `<span class="tag cat">${categoria}</span>${subcategorias.map((s) => `<span class="tag sub">${s}</span>`).join("")}`;
 
@@ -1206,18 +1836,21 @@ async function render(biz) {
       if (idx >= maxVisible) return;
       const card = document.createElement("div");
       card.className = "gallery-card";
+      card.style.cursor = "pointer";
       if (isMobile && idx === 3 && hidden > 0) {
-        card.style.cssText = "position:relative;";
+        card.style.cssText = "position:relative;cursor:pointer;";
         card.innerHTML = `<img src="${src}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"><div style="position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;border-radius:30px;"><span style="font-size:32px;font-weight:900;color:white;">+${hidden}</span></div>`;
       } else {
-        const img = document.createElement("img");
-        img.src = src;
-        img.loading = "lazy";
-        img.onerror = () => {
-          card.style.display = "none"; // oculta el card si la img falla
-        };
-        card.appendChild(img);
+        const imgWrap = createImageWithPlaceholder({
+          src,
+          alt: "Producto",
+          onError: () => {
+            card.style.display = "none";
+          },
+        });
+        card.appendChild(imgWrap);
       }
+      card.addEventListener("click", () => openLightbox(productos, idx));
       prodGrid.appendChild(card);
     });
   }
@@ -1244,18 +1877,21 @@ async function render(biz) {
       if (idx >= maxVisibleAmb) return;
       const card = document.createElement("div");
       card.className = "gallery-card";
+      card.style.cursor = "pointer";
       if (isMobileAmb && idx === 3 && hiddenAmb > 0) {
-        card.style.cssText = "position:relative;";
+        card.style.cssText = "position:relative;cursor:pointer;";
         card.innerHTML = `<img src="${src}" loading="lazy" style="width:100%;height:100%;object-fit:cover;"><div style="position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;border-radius:30px;"><span style="font-size:32px;font-weight:900;color:white;">+${hiddenAmb}</span></div>`;
       } else {
-        const img = document.createElement("img");
-        img.src = src;
-        img.loading = "lazy";
-        img.onerror = () => {
-          card.style.display = "none"; // oculta el card si la img falla
-        };
-        card.appendChild(img);
+        const imgWrap = createImageWithPlaceholder({
+          src,
+          alt: "Producto",
+          onError: () => {
+            card.style.display = "none";
+          },
+        });
+        card.appendChild(imgWrap);
       }
+      card.addEventListener("click", () => openLightbox(ambientales, idx));
       ambGrid.appendChild(card);
     });
   }
@@ -1284,12 +1920,21 @@ async function render(biz) {
     }
     promoImages.forEach((promo) => {
       const shareBase = biz.alias_key
-        ? `https://geinzworkapp.web.app/perfil/${biz.alias_key}?p=${promo.id}`
-        : `https://geinzworkapp.web.app/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+        ? `https://geinztech.com/perfil/${biz.alias_key}?p=${promo.id}`
+        : `https://geinztech.com/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
       const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
       const card = document.createElement("div");
       card.className = "promo-card";
-      card.innerHTML = `<div class="promo-card-img-wrap"><img src="${promo.url}" alt="${promo.titulo}" loading="lazy"><div class="promo-overlay-actions"><a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button></div></div>`;
+      card.innerHTML = `<div class="promo-card-img-wrap"><div class="promo-overlay-actions">${
+        /* deja aquí igual los botones de WhatsApp y Compartir */
+        `<a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>`
+      }</div></div>`;
+      const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
+      const imgWrap = createImageWithPlaceholder({
+        src: promo.url,
+        alt: promo.titulo,
+      });
+      imgWrapContainer.prepend(imgWrap);
       promoCarousel.appendChild(card);
     });
     promoCarousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
@@ -1324,8 +1969,8 @@ async function render(biz) {
     shareBtn.onclick = () => {
       // ── Usa alias si existe, si no fallback a URL vieja ──
       const shareUrl = biz.alias_key
-        ? `https://geinzworkapp.web.app/perfil/${biz.alias_key}`
-        : `https://geinzworkapp.web.app/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
+        ? `https://geinztech.com/perfil/${biz.alias_key}`
+        : `https://geinztech.com/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
 
       const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
       if (navigator.share)
@@ -1344,6 +1989,9 @@ async function render(biz) {
     document
       .getElementById("secAmbientes")
       ?.style.setProperty("display", "none");
+  _navState.productos = productos.length > 0;
+  _navState.ambientes = ambientales.length > 0;
+  updateQuickNav();
   if (!contactos.length)
     document.getElementById("secContact")?.style.setProperty("display", "none");
   if (!pagos.length)
@@ -1356,7 +2004,7 @@ async function render(biz) {
   const exploreBtn = document.getElementById("exploreBtn");
   if (exploreBtn) {
     const cat = (biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+");
-    exploreBtn.href = `https://geinzworkapp.web.app/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
+    exploreBtn.href = `https://geinztech.com/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
   }
 }
 
@@ -1376,18 +2024,49 @@ function listenBusinessRealtime({ localidad, id }) {
 //  INIT
 // ══════════════════════════════════════════
 (async () => {
-  showBizLoader();
   try {
     const params = await getParams(); // ← si falla aquí
     _params = params;
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
+
+    // Promociones activas (no bloquea el render principal)
+    loadActivePromos(params).then((promos) =>
+      renderActivePromos(promos, params.localidad),
+    );
+    // Carta digital (solo aplica si es "comida y restaurantes")
+    loadCarta(params).then((secciones) => {
+      renderCarta(
+        secciones,
+        biz.categoria_tienda,
+        biz.alias_key,
+        biz.nombre_tienda || biz.nombre,
+      );
+
+      if (params.wantsCarta) {
+        const esComida = (biz.categoria_tienda || "")
+          .toLowerCase()
+          .includes("comida");
+        if (esComida && secciones.length > 0) {
+          setTimeout(() => {
+            document
+              .getElementById("secCarta")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 350);
+        } else {
+          const nombreNegocio =
+            biz.nombre_tienda || biz.nombre || "Este negocio";
+          showSnackbar(`${nombreNegocio} no tiene carta digital disponible`);
+        }
+      }
+    });
   } catch (err) {
     console.error(err);
     showNotFoundScreen(err.message); // ← debe capturarlo
   }
 })();
+injectLightboxStyles();
 
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
@@ -1399,3 +2078,97 @@ const observer = new IntersectionObserver(
   { threshold: 0.12 },
 );
 reveal.forEach((el) => observer.observe(el));
+
+// ══════════════════════════════════════════
+//  CARRUSEL HORIZONTAL POR HOVER (solo PC)
+// ══════════════════════════════════════════
+function setupHoverCarousel(wrapId, trackId) {
+  const wrap = document.getElementById(wrapId);
+  const track = document.getElementById(trackId);
+  if (!wrap || !track) return;
+
+  let rafId = null;
+  let direction = 0;
+  const MAX_SPEED = 9;
+
+  const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
+
+  function step() {
+    if (direction !== 0) track.scrollLeft += direction;
+    rafId = requestAnimationFrame(step);
+  }
+
+  wrap.addEventListener("mouseenter", () => {
+    if (!isDesktop()) return;
+    wrap.classList.add("scrolling");
+    if (!rafId) rafId = requestAnimationFrame(step);
+  });
+
+  wrap.addEventListener("mousemove", (e) => {
+    if (!isDesktop()) return;
+    const rect = wrap.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const edgeZone = Math.min(160, rect.width * 0.28);
+
+    if (x < edgeZone) {
+      direction = -MAX_SPEED * (1 - x / edgeZone);
+    } else if (x > rect.width - edgeZone) {
+      direction = MAX_SPEED * (1 - (rect.width - x) / edgeZone);
+    } else {
+      direction = 0;
+    }
+  });
+
+  wrap.addEventListener("mouseleave", () => {
+    direction = 0;
+    wrap.classList.remove("scrolling");
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  });
+}
+
+function setFaviconCircular(url) {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    const size = 64; // resolución del favicon
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+
+    // Recorte circular
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    // Dibuja la imagen cubriendo todo el círculo (cover)
+    const ratio = Math.max(size / img.width, size / img.height);
+    const w = img.width * ratio;
+    const h = img.height * ratio;
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+
+    const dataUrl = canvas.toDataURL("image/png");
+    applyFaviconLink(dataUrl);
+  };
+  img.onerror = () => {
+    // si falla (ej. CORS), usar la imagen original sin recorte
+    applyFaviconLink(url);
+  };
+  img.src = url;
+}
+
+function applyFaviconLink(href) {
+  document.querySelectorAll("link[rel~='icon']").forEach((el) => el.remove());
+  const link = document.createElement("link");
+  link.rel = "icon";
+  link.type = "image/png";
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+setupHoverCarousel("productosCarouselWrap", "productosGrid");
+setupHoverCarousel("ambientesCarouselWrap", "ambientesGrid");

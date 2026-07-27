@@ -153,6 +153,12 @@ function renderizarCategorias(lista) {
   });
 }
 
+const backBtn = document.getElementById("backBtn");
+if (backBtn) {
+  backBtn.addEventListener("click", () => {
+    window.location.href = "https://geinztech.com/";
+  });
+}
 // ========== FILTRO BÚSQUEDA (nombre + subcategorías) ==========
 function filtrarPorTexto(texto) {
   if (!texto.trim()) {

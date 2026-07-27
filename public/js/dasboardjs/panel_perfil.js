@@ -86,7 +86,9 @@ const GeofencingManager = {
       return "Barranca - Entrada y salida zona sur";
     if (this.esPuntoEnPoligono(latitud, longitud, this._sonaPlayera))
       return "Barranca - Zona playera";
-    if (this.esPuntoEnPoligono(latitud, longitud, this._sonaCentricaPanamericana))
+    if (
+      this.esPuntoEnPoligono(latitud, longitud, this._sonaCentricaPanamericana)
+    )
       return "Barranca - Zona céntrica";
     if (this.esPuntoEnPoligono(latitud, longitud, this._panamericanaNorte))
       return "Barranca - Salida y entrada, Panamericana Norte";
@@ -144,6 +146,12 @@ window.PanelPerfil = {
   map: null,
   mapMarker: null,
   mapMarkerActual: null,
+
+  // ── Carta digital (solo Comida y Restaurantes) ──
+  cartaColecciones: {},
+  CARTA_MAX_COLECCIONES: 5,
+  CARTA_MAX_FOTOS: 5,
+  _cartaLoaded: false,
 
   // ── IDs / refs Firebase ─────────────────────
   TIENDA_ID: tiendaId,
@@ -230,22 +238,42 @@ window.PanelPerfil = {
   _geohashFromLatLng(lat, lng) {
     const PRECISION = 12;
     const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
-    let bits = 0, ch = 0, geohash = "", even = true;
-    let latMin = -90.0, latMax = 90.0, lngMin = -180.0, lngMax = 180.0;
+    let bits = 0,
+      ch = 0,
+      geohash = "",
+      even = true;
+    let latMin = -90.0,
+      latMax = 90.0,
+      lngMin = -180.0,
+      lngMax = 180.0;
 
     while (geohash.length < PRECISION) {
       if (even) {
         const mid = (lngMin + lngMax) / 2;
-        if (lng >= mid) { ch = (ch << 1) | 1; lngMin = mid; }
-        else { ch = (ch << 1) | 0; lngMax = mid; }
+        if (lng >= mid) {
+          ch = (ch << 1) | 1;
+          lngMin = mid;
+        } else {
+          ch = (ch << 1) | 0;
+          lngMax = mid;
+        }
       } else {
         const mid = (latMin + latMax) / 2;
-        if (lat >= mid) { ch = (ch << 1) | 1; latMin = mid; }
-        else { ch = (ch << 1) | 0; latMax = mid; }
+        if (lat >= mid) {
+          ch = (ch << 1) | 1;
+          latMin = mid;
+        } else {
+          ch = (ch << 1) | 0;
+          latMax = mid;
+        }
       }
       bits++;
       even = !even;
-      if (bits === 5) { geohash += BASE32.charAt(ch); bits = 0; ch = 0; }
+      if (bits === 5) {
+        geohash += BASE32.charAt(ch);
+        bits = 0;
+        ch = 0;
+      }
     }
     return geohash;
   },
@@ -312,9 +340,12 @@ window.PanelPerfil = {
       const nVal = next?.[k];
 
       if (
-        pVal !== null && nVal !== null &&
-        typeof pVal === "object" && typeof nVal === "object" &&
-        !Array.isArray(pVal) && !Array.isArray(nVal)
+        pVal !== null &&
+        nVal !== null &&
+        typeof pVal === "object" &&
+        typeof nVal === "object" &&
+        !Array.isArray(pVal) &&
+        !Array.isArray(nVal)
       ) {
         Object.assign(changed, this._diffData(pVal, nVal, key));
       } else if (JSON.stringify(pVal) !== JSON.stringify(nVal)) {
@@ -366,15 +397,26 @@ window.PanelPerfil = {
       } else if (key === "metodo_contacto.sitio_web.url") {
         this.setField("fieldWeb", val || "");
         this._originalValues["fieldWeb"] = val || "";
+      } else if (key === "categoria_tienda") {
+        this.selectedCat = val || "";
+        this.renderCategorias();
+        this.renderSubcategorias();
+        this.updateCatDisplay();
+        this._actualizarVisibilidadCarta();
       } else if (key === "subcategoria") {
-        this.selectedSubcats = Array.isArray(val) ? val.map((s) => s.toLowerCase()) : [];
+        this.selectedSubcats = Array.isArray(val)
+          ? val.map((s) => s.toLowerCase())
+          : [];
         this._originalSubcats = [...this.selectedSubcats];
         this.renderSubcategorias();
         this.updateCatDisplay();
       } else if (key.startsWith("img_tienda.lista_img.")) {
         const tipo = key.split(".")[2];
         if (tipo === "ambientales" || tipo === "servicios_productos") {
-          const gridMap = { ambientales: "ambienteGrid", servicios_productos: "productosGrid" };
+          const gridMap = {
+            ambientales: "ambienteGrid",
+            servicios_productos: "productosGrid",
+          };
           this.populatePhotoGrid(gridMap[tipo], val || [], 6, tipo);
         } else if (tipo === "promociones") {
           this.populatePromocionesGrid("promocionesGrid", val || {}, 3);
@@ -416,6 +458,7 @@ window.PanelPerfil = {
     }
 
     this.updateCatDisplay();
+    this._actualizarVisibilidadCarta();
 
     if (data.ubicacion) {
       this.setField("fieldDireccion", data.ubicacion["dirección"] || "");
@@ -462,11 +505,19 @@ window.PanelPerfil = {
     }
 
     const imgs = data.img_tienda?.lista_img;
-    this.populatePhotoGrid("ambienteGrid", imgs?.ambientales || [], 6, "ambientales");
-    this.populatePhotoGrid("productosGrid", imgs?.servicios_productos || [], 6, "servicios_productos");
-    if (imgs?.promociones)
-      this.populatePromocionesGrid("promocionesGrid", imgs.promociones, 3);
-
+    this.populatePhotoGrid(
+      "ambienteGrid",
+      imgs?.ambientales || [],
+      6,
+      "ambientales",
+    );
+    this.populatePhotoGrid(
+      "productosGrid",
+      imgs?.servicios_productos || [],
+      6,
+      "servicios_productos",
+    );
+    this.populatePromocionesGrid("promocionesGrid", imgs?.promociones || {}, 3);
     if (data.aforo_max !== undefined)
       this.setField("fieldAforo", data.aforo_max);
 
@@ -507,28 +558,43 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   async loadCategorias() {
     try {
-      const colRef = this._collection(this.db, "Tiendas", "categorias", "categorias");
+      const colRef = this._collection(
+        this.db,
+        "Tiendas",
+        "categorias",
+        "categorias",
+      );
       const snap = await this._getDocs(colRef);
-      if (snap.empty) { console.warn("No se encontraron categorías"); return; }
+      if (snap.empty) {
+        console.warn("No se encontraron categorías");
+        return;
+      }
 
       this.categoriasDB = {};
-      snap.forEach((d) => { this.categoriasDB[d.id] = d.data(); });
+      snap.forEach((d) => {
+        this.categoriasDB[d.id] = d.data();
+      });
 
       this.renderCategorias();
       this.renderSubcategorias();
       this.updateCatDisplay();
+      this._actualizarVisibilidadCarta();
     } catch (e) {
       console.error("Error loadCategorias:", e);
     }
   },
 
   askChangeCategoria(newCat) {
-    if (!confirm("Cambiar categoría reiniciará las subcategorías.\n\n¿Continuar?")) return;
+    if (
+      !confirm("Cambiar categoría reiniciará las subcategorías.\n\n¿Continuar?")
+    )
+      return;
     this.selectedCat = newCat;
     this.selectedSubcats = [];
     this.renderCategorias();
     this.renderSubcategorias();
     this.updateCatDisplay();
+    this._actualizarVisibilidadCarta();
     this.showSaveFab();
   },
 
@@ -583,6 +649,497 @@ window.PanelPerfil = {
   },
 
   // ═══════════════════════════════════════════
+  //  CARTA DIGITAL (solo Comida y Restaurantes)
+  // ═══════════════════════════════════════════
+  _esCategoriaComida() {
+    const cat = (this.selectedCat || this.currentData?.categoria_tienda || "")
+      .toString()
+      .toLowerCase();
+    return cat.includes("comida") || cat.includes("restaurant");
+  },
+
+  _actualizarVisibilidadCarta() {
+    const sec = document.getElementById("expCartaDigital");
+    if (!sec) return;
+
+    if (this._esCategoriaComida()) {
+      sec.style.display = "";
+      if (!this._cartaLoaded) {
+        this._cartaLoaded = true;
+        this.loadCartaColecciones();
+      }
+    } else {
+      sec.style.display = "none";
+    }
+  },
+
+  async loadCartaColecciones() {
+    if (!this.db) return;
+    try {
+      const colRef = this._collection(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+      );
+      const snap = await this._getDocs(colRef);
+
+      this.cartaColecciones = {};
+      snap.forEach((d) => {
+        const data = d.data() || {};
+        this.cartaColecciones[d.id] = {
+          nombre: data.nombre || d.id,
+          imagenes: Array.isArray(data.imagenes) ? data.imagenes : [],
+          texto: data.texto || "",
+        };
+      });
+
+      this.renderCartaColecciones();
+    } catch (e) {
+      console.error("Error loadCartaColecciones:", e);
+    }
+  },
+
+  renderCartaColecciones() {
+    const list = document.getElementById("cartaColeccionesList");
+    const sub = document.getElementById("cartaDigitalSub");
+    const btn = document.getElementById("btnNuevaColeccion");
+    if (!list) return;
+
+    const ids = Object.keys(this.cartaColecciones);
+
+    if (sub)
+      sub.textContent = `${ids.length} de ${this.CARTA_MAX_COLECCIONES} colecciones`;
+    if (btn) btn.disabled = ids.length >= this.CARTA_MAX_COLECCIONES;
+
+    list.innerHTML = "";
+
+    if (!ids.length) {
+      const empty = document.createElement("p");
+      empty.style.cssText = "font-size:13px;color:#666;margin:0 0 10px;";
+      empty.textContent = "Aún no tienes colecciones. Crea la primera 👇";
+      list.appendChild(empty);
+      return;
+    }
+
+    ids.forEach((id) => {
+      const coleccion = this.cartaColecciones[id];
+      const totalFotos = coleccion.imagenes.filter(Boolean).length;
+
+      const card = document.createElement("div");
+      card.className = "carta-coleccion-card";
+
+      // ── Header ──
+      const head = document.createElement("div");
+      head.className = "carta-coleccion-head";
+
+      const nameWrap = document.createElement("div");
+      nameWrap.className = "carta-coleccion-name-wrap";
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "carta-coleccion-name";
+      nameEl.textContent = coleccion.nombre;
+
+      const textPreview = document.createElement("p");
+      textPreview.className = "carta-coleccion-text-preview";
+      textPreview.id = `cartaTextoPreview-${id}`;
+      const tieneTexto = !!(coleccion.texto && coleccion.texto.trim());
+      textPreview.textContent = tieneTexto
+        ? coleccion.texto
+        : "Sin descripción";
+      if (!tieneTexto) textPreview.classList.add("empty");
+
+      nameWrap.appendChild(nameEl);
+      nameWrap.appendChild(textPreview);
+
+      const countEl = document.createElement("span");
+      countEl.className = "carta-coleccion-count";
+      countEl.id = `cartaCount-${id}`;
+      countEl.textContent = `${totalFotos}/${this.CARTA_MAX_FOTOS}`;
+
+      const arrowEl = document.createElement("span");
+      arrowEl.className = "carta-coleccion-arrow";
+      arrowEl.textContent = "▼";
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "carta-coleccion-del";
+      delBtn.innerHTML = "🗑️";
+      delBtn.title = "Eliminar colección";
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.eliminarColeccionCarta(id);
+      };
+
+      head.appendChild(nameWrap);
+      head.appendChild(countEl);
+      head.appendChild(delBtn);
+      head.appendChild(arrowEl);
+
+      // ── Cuerpo desplegable (texto + fotos) ──
+      const body = document.createElement("div");
+      body.className = "carta-coleccion-body";
+
+      const textField = document.createElement("div");
+      textField.className = "carta-coleccion-text-field";
+
+      const textarea = document.createElement("textarea");
+      textarea.className = "carta-coleccion-textarea";
+      textarea.id = `cartaTexto-${id}`;
+      textarea.placeholder =
+        "Agrega una descripción para esta colección (ej: disponible de lunes a viernes, incluye bebida)...";
+      textarea.rows = 2;
+      textarea.value = coleccion.texto || "";
+
+      const saveTextBtn = document.createElement("button");
+      saveTextBtn.className = "field-save-btn";
+      saveTextBtn.id = `cartaTextoSaveBtn-${id}`;
+      saveTextBtn.innerHTML = "✓ Guardar texto";
+      saveTextBtn.onclick = () =>
+        this._guardarTextoColeccion(id, textarea.value, saveTextBtn);
+
+      textarea.addEventListener("input", () => {
+        this.autoResize(textarea);
+        const changed = textarea.value !== (coleccion.texto || "");
+        changed
+          ? this._showFieldBtn(saveTextBtn)
+          : this._hideFieldBtn(saveTextBtn);
+      });
+
+      textField.appendChild(textarea);
+      textField.appendChild(saveTextBtn);
+
+      const grid = document.createElement("div");
+      grid.className = "carta-coleccion-grid";
+      grid.id = `cartaGrid-${id}`;
+
+      body.appendChild(textField);
+      body.appendChild(grid);
+
+      head.onclick = () => {
+        const abierta = body.classList.toggle("open");
+        arrowEl.style.transform = abierta ? "rotate(180deg)" : "rotate(0deg)";
+        if (abierta) requestAnimationFrame(() => this.autoResize(textarea));
+      };
+
+      card.appendChild(head);
+      card.appendChild(body);
+      list.appendChild(card);
+
+      this._renderCartaGrid(id);
+    });
+  },
+
+  async _guardarTextoColeccion(collId, valor, btn) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+
+    btn.classList.add("saving");
+    btn.innerHTML = "Guardando...";
+    try {
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        collId,
+      );
+      await this._updateDoc(ref, { texto: valor });
+      coleccion.texto = valor;
+
+      const preview = document.getElementById(`cartaTextoPreview-${collId}`);
+      if (preview) {
+        const tiene = !!(valor && valor.trim());
+        preview.textContent = tiene ? valor : "Sin descripción";
+        preview.classList.toggle("empty", !tiene);
+      }
+
+      btn.classList.remove("visible", "saving");
+      btn.innerHTML = "✓ Guardar texto";
+      this.showToast("✓ Descripción guardada");
+    } catch (e) {
+      console.error("Error guardando texto de colección:", e);
+      btn.classList.remove("saving");
+      btn.innerHTML = "✓ Guardar texto";
+      this.showToast("❌ Error al guardar descripción");
+    }
+  },
+  _renderCartaGrid(collId) {
+    const grid = document.getElementById(`cartaGrid-${collId}`);
+    const coleccion = this.cartaColecciones[collId];
+    if (!grid || !coleccion) return;
+
+    const urls = [...(coleccion.imagenes || [])].slice(0, this.CARTA_MAX_FOTOS);
+    while (urls.length < this.CARTA_MAX_FOTOS) urls.push(null);
+
+    grid.innerHTML = "";
+
+    urls.forEach((url, i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "carta-photo-item";
+
+      if (url) {
+        const img = document.createElement("img");
+        img.src = url;
+        img.style.cssText =
+          "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;";
+        wrap.appendChild(img);
+
+        const btnDel = document.createElement("button");
+        btnDel.innerHTML = "🗑️";
+        btnDel.title = "Eliminar foto";
+        btnDel.style.cssText =
+          "position:absolute;top:4px;right:4px;z-index:5;background:rgba(0,0,0,0.6);border:none;border-radius:6px;padding:3px 6px;font-size:11px;cursor:pointer;";
+        btnDel.onclick = (e) => {
+          e.stopPropagation();
+          this.eliminarFotoCarta(collId, i);
+        };
+        wrap.appendChild(btnDel);
+        wrap.onclick = () => this.abrirFotoCarta(collId, i);
+      } else {
+        wrap.classList.add("photo-item-add");
+        wrap.innerHTML = "<span>📷</span><span>Agregar</span>";
+        wrap.onclick = () => this.abrirFotoCarta(collId, i);
+      }
+
+      // Drag & drop directo de imagen desde el explorador/galería
+      wrap.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        wrap.classList.add("drag-over");
+      });
+      wrap.addEventListener("dragleave", () => {
+        wrap.classList.remove("drag-over");
+      });
+      wrap.addEventListener("drop", (e) => {
+        e.preventDefault();
+        wrap.classList.remove("drag-over");
+        const file = e.dataTransfer?.files?.[0];
+        if (file && file.type.startsWith("image/")) {
+          this._subirFotoCarta(collId, i, file);
+        }
+      });
+
+      grid.appendChild(wrap);
+    });
+  },
+
+  _actualizarContadorColeccion(collId) {
+    const coleccion = this.cartaColecciones[collId];
+    const countEl = document.getElementById(`cartaCount-${collId}`);
+    if (coleccion && countEl) {
+      const total = coleccion.imagenes.filter(Boolean).length;
+      countEl.textContent = `${total}/${this.CARTA_MAX_FOTOS}`;
+    }
+  },
+
+  async crearColeccionCarta() {
+    if (!this.db) {
+      this.showToast("⏳ Espera a que cargue la conexión...");
+      return;
+    }
+
+    const ids = Object.keys(this.cartaColecciones);
+    if (ids.length >= this.CARTA_MAX_COLECCIONES) {
+      this.showToast(`⚠️ Máximo ${this.CARTA_MAX_COLECCIONES} colecciones`);
+      return;
+    }
+
+    const nombre = prompt(
+      "Nombre de la colección (ej: Platos fuertes, Bebidas, Combos):",
+    );
+    if (!nombre || !nombre.trim()) return;
+
+    const nombreLimpio = nombre.trim().slice(0, 40);
+    const slug =
+      nombreLimpio
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "") || `coleccion_${Date.now()}`;
+
+    if (this.cartaColecciones[slug]) {
+      this.showToast("⚠️ Ya existe una colección con ese nombre");
+      return;
+    }
+
+    try {
+      const { setDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        slug,
+      );
+      await setDoc(ref, { nombre: nombreLimpio, imagenes: [], texto: "" });
+
+      this.cartaColecciones[slug] = {
+        nombre: nombreLimpio,
+        imagenes: [],
+        texto: "",
+      };
+      this.renderCartaColecciones();
+      this.showToast("✓ Colección creada");
+    } catch (e) {
+      console.error("Error creando colección de carta:", e);
+      this.showToast("❌ Error al crear colección");
+    }
+  },
+
+  async eliminarColeccionCarta(collId) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+    if (
+      !confirm(
+        `¿Eliminar la colección "${coleccion.nombre}" y todas sus fotos? Esta acción no se puede deshacer.`,
+      )
+    )
+      return;
+
+    this.showToast("⏳ Eliminando colección...");
+    try {
+      await Promise.all(
+        (coleccion.imagenes || []).map((url, i) => {
+          if (!url) return Promise.resolve();
+          const path = `tiendas/${this.TIENDA_ID}/carta/${collId}/slot_${i}.webp`;
+          return this._deleteObject(
+            this._storageRef(this._storage, path),
+          ).catch(() => {});
+        }),
+      );
+
+      const { deleteDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        collId,
+      );
+      await deleteDoc(ref);
+
+      delete this.cartaColecciones[collId];
+      this.renderCartaColecciones();
+      this.showToast("✓ Colección eliminada");
+    } catch (e) {
+      console.error("Error eliminando colección de carta:", e);
+      this.showToast("❌ Error al eliminar colección");
+    }
+  },
+
+  abrirFotoCarta(collId, slotIndex) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp";
+
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) this._subirFotoCarta(collId, slotIndex, file);
+    };
+    input.click();
+  },
+
+  async _subirFotoCarta(collId, slotIndex, file) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+
+    const tieneImagen = !!coleccion.imagenes[slotIndex];
+    const msg = tieneImagen
+      ? "¿Reemplazar esta foto de la carta?"
+      : "¿Subir esta imagen a la carta?";
+    if (!confirm(msg)) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      this._showUploadLoading("Subiendo foto...", "Comprimiendo y guardando");
+      try {
+        const blob = this._dataURLtoBlob(
+          await this._comprimirImagen(ev.target.result, 1024, 0.85),
+        );
+        const path = `tiendas/${this.TIENDA_ID}/carta/${collId}/slot_${slotIndex}.webp`;
+        const storageRef = this._storageRef(this._storage, path);
+
+        await this._uploadBytes(storageRef, blob, {
+          contentType: "image/webp",
+        });
+        const finalURL = await this._getDownloadURL(storageRef);
+
+        const nuevasImagenes = [...coleccion.imagenes];
+        while (nuevasImagenes.length <= slotIndex) nuevasImagenes.push(null);
+        nuevasImagenes[slotIndex] = finalURL;
+
+        const ref = this._doc(
+          this.db,
+          "Tiendas",
+          this.LOCALIDAD_TIENDA,
+          this.LOCALIDAD_TIENDA,
+          this.TIENDA_ID,
+          "carta",
+          collId,
+        );
+        await this._updateDoc(ref, { imagenes: nuevasImagenes });
+
+        coleccion.imagenes = nuevasImagenes;
+        this._renderCartaGrid(collId);
+        this._actualizarContadorColeccion(collId);
+        this.showToast("✓ Foto guardada en la carta");
+      } catch (err) {
+        console.error("Error subiendo foto de carta:", err);
+        this.showToast("❌ Error al subir foto");
+      } finally {
+        this._hideUploadLoading();
+      }
+    };
+    reader.readAsDataURL(file);
+  },
+
+  async eliminarFotoCarta(collId, slotIndex) {
+    const coleccion = this.cartaColecciones[collId];
+    if (!coleccion) return;
+    if (!confirm("¿Eliminar esta foto de la carta?")) return;
+
+    this.showToast("⏳ Eliminando...");
+    try {
+      const path = `tiendas/${this.TIENDA_ID}/carta/${collId}/slot_${slotIndex}.webp`;
+      await this._deleteObject(this._storageRef(this._storage, path)).catch(
+        () => {},
+      );
+
+      const nuevasImagenes = [...coleccion.imagenes];
+      nuevasImagenes[slotIndex] = null;
+
+      const ref = this._doc(
+        this.db,
+        "Tiendas",
+        this.LOCALIDAD_TIENDA,
+        this.LOCALIDAD_TIENDA,
+        this.TIENDA_ID,
+        "carta",
+        collId,
+      );
+      await this._updateDoc(ref, { imagenes: nuevasImagenes });
+
+      coleccion.imagenes = nuevasImagenes;
+      this._renderCartaGrid(collId);
+      this._actualizarContadorColeccion(collId);
+      this.showToast("✓ Foto eliminada");
+    } catch (e) {
+      console.error("Error eliminando foto de carta:", e);
+      this.showToast("❌ Error al eliminar");
+    }
+  },
+
+  // ═══════════════════════════════════════════
   //  EVENTOS
   // ═══════════════════════════════════════════
   _bindEvents() {
@@ -598,19 +1155,30 @@ window.PanelPerfil = {
         reader.onload = async (ev) => {
           if (!confirm("¿Guardar esta imagen como logo de tu negocio?")) return;
 
-          this._showUploadLoading("Subiendo imagen...", "Comprimiendo y guardando");
+          this._showUploadLoading(
+            "Subiendo imagen...",
+            "Comprimiendo y guardando",
+          );
           try {
-            const comprimida = await this._comprimirImagen(ev.target.result, 512, 0.82);
+            const comprimida = await this._comprimirImagen(
+              ev.target.result,
+              512,
+              0.82,
+            );
             const blob = this._dataURLtoBlob(comprimida);
 
             const storageRef = this._storageRef(
               this._storage,
               `tiendas/${this.TIENDA_ID}/logo/logo.webp`,
             );
-            await this._uploadBytes(storageRef, blob, { contentType: "image/webp" });
+            await this._uploadBytes(storageRef, blob, {
+              contentType: "image/webp",
+            });
             const finalURL = await this._getDownloadURL(storageRef);
 
-            await this._updateDoc(this.TIENDA_REF, { "img_tienda.logo_tienda": finalURL });
+            await this._updateDoc(this.TIENDA_REF, {
+              "img_tienda.logo_tienda": finalURL,
+            });
             const lugarRef = this._doc(this.db, "lugares", this.TIENDA_ID);
             await this._updateDoc(lugarRef, { img: finalURL });
 
@@ -637,23 +1205,30 @@ window.PanelPerfil = {
       });
     }
 
-    document.querySelectorAll('.pay-methods-wrapper input[type="checkbox"]').forEach((cb) => {
-      cb.addEventListener("change", function () {
-        if (window.PanelPerfil.activeSection !== "perfil") return;
-        const method = this.dataset.method;
-        if (method) window.PanelPerfil.togglePayMethod(method, this.checked);
+    document
+      .querySelectorAll('.pay-methods-wrapper input[type="checkbox"]')
+      .forEach((cb) => {
+        cb.addEventListener("change", function () {
+          if (window.PanelPerfil.activeSection !== "perfil") return;
+          const method = this.dataset.method;
+          if (method) window.PanelPerfil.togglePayMethod(method, this.checked);
+        });
       });
-    });
 
-    document.querySelectorAll('.contact-methods-wrapper input[type="checkbox"]').forEach((cb) => {
-      cb.addEventListener("change", function () {
-        if (window.PanelPerfil.activeSection !== "perfil") return;
-        const contact = this.dataset.contact;
-        if (contact) window.PanelPerfil.toggleContactMethod(contact, this.checked);
+    document
+      .querySelectorAll('.contact-methods-wrapper input[type="checkbox"]')
+      .forEach((cb) => {
+        cb.addEventListener("change", function () {
+          if (window.PanelPerfil.activeSection !== "perfil") return;
+          const contact = this.dataset.contact;
+          if (contact)
+            window.PanelPerfil.toggleContactMethod(contact, this.checked);
+        });
       });
-    });
 
-    document.querySelectorAll("textarea.form-input").forEach((el) => this.autoResize(el));
+    document
+      .querySelectorAll("textarea.form-input")
+      .forEach((el) => this.autoResize(el));
   },
 
   // ═══════════════════════════════════════════
@@ -694,8 +1269,12 @@ window.PanelPerfil = {
     return btn;
   },
 
-  _showFieldBtn(btn) { btn?.classList.add("visible"); },
-  _hideFieldBtn(btn) { btn?.classList.remove("visible"); },
+  _showFieldBtn(btn) {
+    btn?.classList.add("visible");
+  },
+  _hideFieldBtn(btn) {
+    btn?.classList.remove("visible");
+  },
 
   _checkFieldChanged(fieldId) {
     const el = document.getElementById(fieldId);
@@ -727,66 +1306,89 @@ window.PanelPerfil = {
 
     const fieldDefs = [
       {
-        id: "fieldTelefono", label: "teléfono",
+        id: "fieldTelefono",
+        label: "teléfono",
         save: async (val) => {
-          await fs._updateDoc(fs.TIENDA_REF, { "metodo_contacto.llamada.numero": val });
+          await fs._updateDoc(fs.TIENDA_REF, {
+            "metodo_contacto.llamada.numero": val,
+          });
           fs._originalValues["fieldTelefono"] = val;
           fs.showToast("✓ Teléfono guardado");
         },
       },
       {
-        id: "fieldWhatsapp", label: "WhatsApp",
+        id: "fieldWhatsapp",
+        label: "WhatsApp",
         save: async (val) => {
-          await fs._updateDoc(fs.TIENDA_REF, { "metodo_contacto.whatsapp.numero": val });
+          await fs._updateDoc(fs.TIENDA_REF, {
+            "metodo_contacto.whatsapp.numero": val,
+          });
           fs._originalValues["fieldWhatsapp"] = val;
           fs.showToast("✓ WhatsApp guardado");
         },
       },
       {
-        id: "fieldInstagram", label: "Instagram",
+        id: "fieldInstagram",
+        label: "Instagram",
         save: async (val) => {
           const clean = val.replace("@", "");
-          await fs._updateDoc(fs.TIENDA_REF, { "metodo_contacto.instagram.nombre": clean });
+          await fs._updateDoc(fs.TIENDA_REF, {
+            "metodo_contacto.instagram.nombre": clean,
+          });
           fs._originalValues["fieldInstagram"] = "@" + clean;
           fs.showToast("✓ Instagram guardado");
         },
       },
       {
-        id: "fieldFacebook", label: "Facebook",
+        id: "fieldFacebook",
+        label: "Facebook",
         save: async (val) => {
-          await fs._updateDoc(fs.TIENDA_REF, { "metodo_contacto.facebook.url": val });
+          await fs._updateDoc(fs.TIENDA_REF, {
+            "metodo_contacto.facebook.url": val,
+          });
           fs._originalValues["fieldFacebook"] = val;
           fs.showToast("✓ Facebook guardado");
         },
       },
       {
-        id: "fieldTiktok", label: "TikTok",
+        id: "fieldTiktok",
+        label: "TikTok",
         save: async (val) => {
-          await fs._updateDoc(fs.TIENDA_REF, { "metodo_contacto.tiktok.url": val });
+          await fs._updateDoc(fs.TIENDA_REF, {
+            "metodo_contacto.tiktok.url": val,
+          });
           fs._originalValues["fieldTiktok"] = val;
           fs.showToast("✓ TikTok guardado");
         },
       },
       {
-        id: "fieldWeb", label: "sitio web",
+        id: "fieldWeb",
+        label: "sitio web",
         save: async (val) => {
-          await fs._updateDoc(fs.TIENDA_REF, { "metodo_contacto.sitio_web.url": val });
+          await fs._updateDoc(fs.TIENDA_REF, {
+            "metodo_contacto.sitio_web.url": val,
+          });
           fs._originalValues["fieldWeb"] = val;
           fs.showToast("✓ Sitio web guardado");
         },
       },
       {
-        id: "businessName", label: "nombre",
+        id: "businessName",
+        label: "nombre",
         save: async (val) => {
           if (!val.trim()) return;
-          await fs._updateDoc(fs.TIENDA_REF, { nombre_tienda: val, nombre_lower: val.toLowerCase() });
+          await fs._updateDoc(fs.TIENDA_REF, {
+            nombre_tienda: val,
+            nombre_lower: val.toLowerCase(),
+          });
           fs._originalValues["businessName"] = val;
           fs._updateNameSilent(val);
           fs.showToast("✓ Nombre guardado");
         },
       },
       {
-        id: "businessDesc", label: "descripción",
+        id: "businessDesc",
+        label: "descripción",
         save: async (val) => {
           await fs._updateDoc(fs.TIENDA_REF, { descripcion: val });
           fs._originalValues["businessDesc"] = val;
@@ -795,7 +1397,8 @@ window.PanelPerfil = {
         },
       },
       {
-        id: "fieldAforo", label: "aforo",
+        id: "fieldAforo",
+        label: "aforo",
         save: async (val) => {
           const num = parseInt(val);
           if (isNaN(num)) return;
@@ -805,7 +1408,8 @@ window.PanelPerfil = {
         },
       },
       {
-        id: "fieldDireccion", label: "dirección",
+        id: "fieldDireccion",
+        label: "dirección",
         save: async (val) => {
           await fs._updateDoc(fs.TIENDA_REF, { "ubicacion.dirección": val });
           fs._originalValues["fieldDireccion"] = val;
@@ -813,7 +1417,8 @@ window.PanelPerfil = {
         },
       },
       {
-        id: "fieldReferencia", label: "referencia",
+        id: "fieldReferencia",
+        label: "referencia",
         save: async (val) => {
           await fs._updateDoc(fs.TIENDA_REF, { "ubicacion.referencia": val });
           fs._originalValues["fieldReferencia"] = val;
@@ -855,7 +1460,8 @@ window.PanelPerfil = {
     // ── Pin actual (DB) — morado, fijo ──────────
     const elActual = document.createElement("div");
     elActual.id = "markerActualEl";
-    elActual.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;";
+    elActual.style.cssText =
+      "display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;";
     elActual.innerHTML = `
       <div style="background:#7c4dff;color:#fff;font-size:11px;font-weight:600;
         padding:3px 8px;border-radius:20px;white-space:nowrap;
@@ -863,7 +1469,10 @@ window.PanelPerfil = {
       <div style="width:14px;height:14px;background:#7c4dff;border:2.5px solid #fff;
         border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>`;
 
-    this.mapMarkerActual = new mapboxgl.Marker({ element: elActual, anchor: "bottom" })
+    this.mapMarkerActual = new mapboxgl.Marker({
+      element: elActual,
+      anchor: "bottom",
+    })
       .setLngLat([lng, lat])
       .addTo(this.map);
 
@@ -874,7 +1483,8 @@ window.PanelPerfil = {
     // siendo accesible directamente por su id.
     const elPendiente = document.createElement("div");
     elPendiente.id = "markerPendienteEl";
-    elPendiente.style.cssText = "display:none;flex-direction:column;align-items:center;gap:4px;";
+    elPendiente.style.cssText =
+      "display:none;flex-direction:column;align-items:center;gap:4px;";
     elPendiente.innerHTML = `
       <div style="background:#ff6d00;color:#fff;font-size:11px;font-weight:600;
         padding:3px 8px;border-radius:20px;white-space:nowrap;
@@ -921,7 +1531,7 @@ window.PanelPerfil = {
     // 4. Reverse geocoding para actualizar el campo dirección
     try {
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`,
       );
       const data = await res.json();
       const place = data.features?.[0];
@@ -948,7 +1558,8 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   _insertMapSaveBtn() {
     const mapWrapper = document.querySelector(".map-wrapper");
-    if (!mapWrapper || document.getElementById("fieldSaveBtn-coordenadas")) return;
+    if (!mapWrapper || document.getElementById("fieldSaveBtn-coordenadas"))
+      return;
 
     const btn = document.createElement("button");
     btn.id = "fieldSaveBtn-coordenadas";
@@ -963,7 +1574,8 @@ window.PanelPerfil = {
         const lat = this._pendingLat;
         const lng = this._pendingLng;
         const geohash = this._geohashFromLatLng(lat, lng);
-        const zona = this._pendingZona ?? GeofencingManager.obtenerNombreZona(lat, lng);
+        const zona =
+          this._pendingZona ?? GeofencingManager.obtenerNombreZona(lat, lng);
 
         await this._updateDoc(this.TIENDA_REF, {
           "ubicacion.latitud": lat,
@@ -976,7 +1588,7 @@ window.PanelPerfil = {
         await this._updateDoc(lugarRef, {
           "ubicacion.latitud": lat,
           "ubicacion.longitud": lng,
-          "zona": zona,
+          zona: zona,
           geohash,
         });
 
@@ -1000,7 +1612,9 @@ window.PanelPerfil = {
 
         btn.classList.remove("visible", "saving");
         btn.innerHTML = "✓ Guardar nueva ubicación";
-        this.showToast(zona ? `✓ Ubicación guardada · ${zona}` : "✓ Ubicación guardada");
+        this.showToast(
+          zona ? `✓ Ubicación guardada · ${zona}` : "✓ Ubicación guardada",
+        );
       } catch (e) {
         console.error(e);
         btn.classList.remove("saving");
@@ -1027,7 +1641,9 @@ window.PanelPerfil = {
       btn.classList.add("saving");
       btn.innerHTML = "Guardando...";
       try {
-        await this._updateDoc(this.TIENDA_REF, { subcategoria: this.selectedSubcats });
+        await this._updateDoc(this.TIENDA_REF, {
+          subcategoria: this.selectedSubcats,
+        });
         const lugarRef = this._doc(this.db, "lugares", this.TIENDA_REF.id);
         await this._updateDoc(lugarRef, { tag: this.selectedSubcats });
         this._originalSubcats = [...this.selectedSubcats];
@@ -1096,9 +1712,16 @@ window.PanelPerfil = {
     const placeholder = document.getElementById("avatarModalPlaceholder");
     const btnSave = document.getElementById("btnSaveAvatarImg");
 
-    if (preview) { preview.src = ""; preview.style.display = "none"; }
+    if (preview) {
+      preview.src = "";
+      preview.style.display = "none";
+    }
     if (placeholder) placeholder.style.display = "flex";
-    if (btnSave) { btnSave.style.display = "none"; btnSave.disabled = false; btnSave.textContent = "✓ Guardar foto"; }
+    if (btnSave) {
+      btnSave.style.display = "none";
+      btnSave.disabled = false;
+      btnSave.textContent = "✓ Guardar foto";
+    }
 
     this._avatarPendingDataURL = null;
 
@@ -1119,7 +1742,8 @@ window.PanelPerfil = {
       input.value = "";
     };
 
-    document.getElementById("btnSaveAvatarImg").onclick = () => this.applyProfileImg();
+    document.getElementById("btnSaveAvatarImg").onclick = () =>
+      this.applyProfileImg();
   },
 
   _showAvatarPreview(dataURL) {
@@ -1127,7 +1751,10 @@ window.PanelPerfil = {
     const placeholder = document.getElementById("avatarModalPlaceholder");
     const btnSave = document.getElementById("btnSaveAvatarImg");
 
-    if (preview) { preview.src = dataURL; preview.style.display = "block"; }
+    if (preview) {
+      preview.src = dataURL;
+      preview.style.display = "block";
+    }
     if (placeholder) placeholder.style.display = "none";
     if (btnSave) btnSave.style.display = "flex";
   },
@@ -1136,20 +1763,31 @@ window.PanelPerfil = {
     if (!confirm("¿Guardar esta imagen como logo de tu negocio?")) return;
 
     const dataURL = this._avatarPendingDataURL;
-    if (!dataURL) { this.showToast("Selecciona una imagen primero"); return; }
+    if (!dataURL) {
+      this.showToast("Selecciona una imagen primero");
+      return;
+    }
 
     const btnSave = document.getElementById("btnSaveAvatarImg");
-    if (btnSave) { btnSave.disabled = true; btnSave.textContent = "Subiendo..."; }
+    if (btnSave) {
+      btnSave.disabled = true;
+      btnSave.textContent = "Subiendo...";
+    }
 
     try {
       const comprimida = await this._comprimirImagen(dataURL, 512, 0.82);
       const blob = this._dataURLtoBlob(comprimida);
 
-      const storageRef = this._storageRef(this._storage, `tiendas/${this.TIENDA_ID}/logo/logo.webp`);
+      const storageRef = this._storageRef(
+        this._storage,
+        `tiendas/${this.TIENDA_ID}/logo/logo.webp`,
+      );
       await this._uploadBytes(storageRef, blob, { contentType: "image/webp" });
       const finalURL = await this._getDownloadURL(storageRef);
 
-      await this._updateDoc(this.TIENDA_REF, { "img_tienda.logo_tienda": finalURL });
+      await this._updateDoc(this.TIENDA_REF, {
+        "img_tienda.logo_tienda": finalURL,
+      });
       const lugarRef = this._doc(this.db, "lugares", this.TIENDA_ID);
       await this._updateDoc(lugarRef, { img: finalURL });
 
@@ -1161,7 +1799,10 @@ window.PanelPerfil = {
       console.error("Error subiendo logo:", e);
       this.showToast("❌ Error al subir imagen");
     } finally {
-      if (btnSave) { btnSave.disabled = false; btnSave.textContent = "Guardar"; }
+      if (btnSave) {
+        btnSave.disabled = false;
+        btnSave.textContent = "Guardar";
+      }
     }
   },
 
@@ -1184,21 +1825,36 @@ window.PanelPerfil = {
         wrap.style.position = "relative";
 
         const sk = document.createElement("div");
-        sk.style.cssText = "position:absolute;inset:0;background:linear-gradient(90deg,#1a1030 0%,#2a1850 50%,#1a1030 100%);background-size:200% 100%;animation:skeleton-loading 1.2s infinite;z-index:1;border-radius:16px;";
+        sk.style.cssText =
+          "position:absolute;inset:0;background:linear-gradient(90deg,#1a1030 0%,#2a1850 50%,#1a1030 100%);background-size:200% 100%;animation:skeleton-loading 1.2s infinite;z-index:1;border-radius:16px;";
         wrap.appendChild(sk);
 
         const img = document.createElement("img");
-        img.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
-        img.onload = () => { sk.style.display = "none"; requestAnimationFrame(() => { img.style.opacity = "1"; }); };
-        img.onerror = () => { sk.style.display = "none"; wrap.innerHTML = '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>'; };
+        img.style.cssText =
+          "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
+        img.onload = () => {
+          sk.style.display = "none";
+          requestAnimationFrame(() => {
+            img.style.opacity = "1";
+          });
+        };
+        img.onerror = () => {
+          sk.style.display = "none";
+          wrap.innerHTML =
+            '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
+        };
         img.src = url;
         wrap.appendChild(img);
 
         if (gridTipo) {
           const btnDel = document.createElement("button");
           btnDel.innerHTML = "🗑️";
-          btnDel.style.cssText = "position:absolute;top:6px;right:6px;z-index:10;background:rgba(0,0,0,0.6);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:13px;";
-          btnDel.onclick = (e) => { e.stopPropagation(); this.deleteFotoGrid(gridTipo, i); };
+          btnDel.style.cssText =
+            "position:absolute;top:6px;right:6px;z-index:10;background:rgba(0,0,0,0.6);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:13px;";
+          btnDel.onclick = (e) => {
+            e.stopPropagation();
+            this.deleteFotoGrid(gridTipo, i);
+          };
           wrap.onclick = () => this.openFotoGrid(gridTipo, i);
           wrap.appendChild(btnDel);
         }
@@ -1223,21 +1879,33 @@ window.PanelPerfil = {
       const file = e.target.files[0];
       if (!file) return;
 
-      const currentGrid = document.getElementById(tipo === "ambientales" ? "ambienteGrid" : "productosGrid");
-      const slots = currentGrid ? currentGrid.querySelectorAll(".photo-item") : [];
-      const tieneImagen = slots[slotIndex] && !slots[slotIndex].classList.contains("photo-item-add");
-      const msg = tieneImagen ? "¿Reemplazar esta foto?" : "¿Subir esta imagen al panel?";
+      const currentGrid = document.getElementById(
+        tipo === "ambientales" ? "ambienteGrid" : "productosGrid",
+      );
+      const slots = currentGrid
+        ? currentGrid.querySelectorAll(".photo-item")
+        : [];
+      const tieneImagen =
+        slots[slotIndex] &&
+        !slots[slotIndex].classList.contains("photo-item-add");
+      const msg = tieneImagen
+        ? "¿Reemplazar esta foto?"
+        : "¿Subir esta imagen al panel?";
       if (!confirm(msg)) return;
 
       const reader = new FileReader();
       reader.onload = async (ev) => {
         this._showUploadLoading("Subiendo foto...", "Comprimiendo y guardando");
         try {
-          const blob = this._dataURLtoBlob(await this._comprimirImagen(ev.target.result, 1024, 0.85));
+          const blob = this._dataURLtoBlob(
+            await this._comprimirImagen(ev.target.result, 1024, 0.85),
+          );
           const path = `tiendas/${this.TIENDA_ID}/imagenes/${tipo}/slot_${slotIndex}.webp`;
 
           const storageRef = this._storageRef(this._storage, path);
-          await this._uploadBytes(storageRef, blob, { contentType: "image/webp" });
+          await this._uploadBytes(storageRef, blob, {
+            contentType: "image/webp",
+          });
           const finalURL = await this._getDownloadURL(storageRef);
 
           const snap = await this._getDoc(this.TIENDA_REF);
@@ -1246,9 +1914,14 @@ window.PanelPerfil = {
           lista[slotIndex] = finalURL;
 
           this._ignorarSnapshot++;
-          await this._updateDoc(this.TIENDA_REF, { [`img_tienda.lista_img.${tipo}`]: lista });
+          await this._updateDoc(this.TIENDA_REF, {
+            [`img_tienda.lista_img.${tipo}`]: lista,
+          });
 
-          const gridMap = { ambientales: "ambienteGrid", servicios_productos: "productosGrid" };
+          const gridMap = {
+            ambientales: "ambienteGrid",
+            servicios_productos: "productosGrid",
+          };
           this.populatePhotoGrid(gridMap[tipo], lista, 6, tipo);
           this.showToast("✓ Foto guardada");
         } catch (err) {
@@ -1269,7 +1942,11 @@ window.PanelPerfil = {
 
     try {
       const path = `tiendas/${this.TIENDA_ID}/imagenes/${tipo}/slot_${slotIndex}.webp`;
-      try { await this._deleteObject(this._storageRef(this._storage, path)); } catch { /* no existía */ }
+      try {
+        await this._deleteObject(this._storageRef(this._storage, path));
+      } catch {
+        /* no existía */
+      }
 
       const snap = await this._getDoc(this.TIENDA_REF);
       const rawLista = snap.data()?.img_tienda?.lista_img?.[tipo] || [];
@@ -1277,9 +1954,14 @@ window.PanelPerfil = {
       lista[slotIndex] = null;
 
       this._ignorarSnapshot++;
-      await this._updateDoc(this.TIENDA_REF, { [`img_tienda.lista_img.${tipo}`]: lista });
+      await this._updateDoc(this.TIENDA_REF, {
+        [`img_tienda.lista_img.${tipo}`]: lista,
+      });
 
-      const gridMap = { ambientales: "ambienteGrid", servicios_productos: "productosGrid" };
+      const gridMap = {
+        ambientales: "ambienteGrid",
+        servicios_productos: "productosGrid",
+      };
       this.populatePhotoGrid(gridMap[tipo], lista, 6, tipo);
       this.showToast("✓ Foto eliminada");
     } catch (err) {
@@ -1299,33 +1981,62 @@ window.PanelPerfil = {
     input.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      if (!confirm(oldKey ? "¿Reemplazar esta promoción?" : "¿Subir esta imagen como nueva promoción?")) return;
+      if (
+        !confirm(
+          oldKey
+            ? "¿Reemplazar esta promoción?"
+            : "¿Subir esta imagen como nueva promoción?",
+        )
+      )
+        return;
 
       const reader = new FileReader();
       reader.onload = async (ev) => {
-        this._showUploadLoading("Subiendo promoción...", "Comprimiendo y guardando");
+        this._showUploadLoading(
+          "Subiendo promoción...",
+          "Comprimiendo y guardando",
+        );
         try {
           const newKey = String(Math.floor(Math.random() * 9000000) + 1000000);
-          const blob = this._dataURLtoBlob(await this._comprimirImagen(ev.target.result, 1024, 0.85));
+          const blob = this._dataURLtoBlob(
+            await this._comprimirImagen(ev.target.result, 1024, 0.85),
+          );
           const path = `tiendas/${this.TIENDA_ID}/imagenes/promociones/${newKey}.webp`;
           const storageRef = this._storageRef(this._storage, path);
 
-          await this._uploadBytes(storageRef, blob, { contentType: "image/webp" });
+          await this._uploadBytes(storageRef, blob, {
+            contentType: "image/webp",
+          });
           const finalURL = await this._getDownloadURL(storageRef);
 
           if (oldKey) {
-            try { await this._deleteObject(this._storageRef(this._storage, `tiendas/${this.TIENDA_ID}/imagenes/promociones/${oldKey}.webp`)); } catch { /* no existía */ }
+            try {
+              await this._deleteObject(
+                this._storageRef(
+                  this._storage,
+                  `tiendas/${this.TIENDA_ID}/imagenes/promociones/${oldKey}.webp`,
+                ),
+              );
+            } catch {
+              /* no existía */
+            }
           }
 
           const updates = {};
-          if (oldKey) updates[`img_tienda.lista_img.promociones.${oldKey}`] = this._deleteField();
+          if (oldKey)
+            updates[`img_tienda.lista_img.promociones.${oldKey}`] =
+              this._deleteField();
           updates[`img_tienda.lista_img.promociones.${newKey}`] = finalURL;
 
           this._ignorarSnapshot++;
           await this._updateDoc(this.TIENDA_REF, updates);
 
           const snapPromo = await this._getDoc(this.TIENDA_REF);
-          this.populatePromocionesGrid("promocionesGrid", snapPromo.data()?.img_tienda?.lista_img?.promociones || {}, 3);
+          this.populatePromocionesGrid(
+            "promocionesGrid",
+            snapPromo.data()?.img_tienda?.lista_img?.promociones || {},
+            3,
+          );
           this.showToast("✓ Promoción actualizada");
         } catch (err) {
           console.error("Error subiendo promoción:", err);
@@ -1345,13 +2056,23 @@ window.PanelPerfil = {
 
     try {
       const path = `tiendas/${this.TIENDA_ID}/imagenes/promociones/${key}.webp`;
-      try { await this._deleteObject(this._storageRef(this._storage, path)); } catch { /* no existía */ }
+      try {
+        await this._deleteObject(this._storageRef(this._storage, path));
+      } catch {
+        /* no existía */
+      }
 
       this._ignorarSnapshot++;
-      await this._updateDoc(this.TIENDA_REF, { [`img_tienda.lista_img.promociones.${key}`]: this._deleteField() });
+      await this._updateDoc(this.TIENDA_REF, {
+        [`img_tienda.lista_img.promociones.${key}`]: this._deleteField(),
+      });
 
       const snapDel = await this._getDoc(this.TIENDA_REF);
-      this.populatePromocionesGrid("promocionesGrid", snapDel.data()?.img_tienda?.lista_img?.promociones || {}, 3);
+      this.populatePromocionesGrid(
+        "promocionesGrid",
+        snapDel.data()?.img_tienda?.lista_img?.promociones || {},
+        3,
+      );
       this.showToast("✓ Promoción eliminada");
     } catch (err) {
       console.error("Error eliminando promoción:", err);
@@ -1372,20 +2093,35 @@ window.PanelPerfil = {
       wrap.style.position = "relative";
 
       const sk = document.createElement("div");
-      sk.style.cssText = "position:absolute;inset:0;background:linear-gradient(90deg,#1a1030 0%,#2a1850 50%,#1a1030 100%);background-size:200% 100%;animation:skeleton-loading 1.2s infinite;z-index:1;border-radius:16px;";
+      sk.style.cssText =
+        "position:absolute;inset:0;background:linear-gradient(90deg,#1a1030 0%,#2a1850 50%,#1a1030 100%);background-size:200% 100%;animation:skeleton-loading 1.2s infinite;z-index:1;border-radius:16px;";
       wrap.appendChild(sk);
 
       const img = document.createElement("img");
-      img.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
-      img.onload = () => { sk.style.display = "none"; setTimeout(() => { img.style.opacity = "1"; }, 50); };
-      img.onerror = () => { sk.style.display = "none"; wrap.innerHTML = '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>'; };
+      img.style.cssText =
+        "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
+      img.onload = () => {
+        sk.style.display = "none";
+        setTimeout(() => {
+          img.style.opacity = "1";
+        }, 50);
+      };
+      img.onerror = () => {
+        sk.style.display = "none";
+        wrap.innerHTML =
+          '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
+      };
       img.src = url;
       wrap.appendChild(img);
 
       const btnDel = document.createElement("button");
       btnDel.innerHTML = "🗑️";
-      btnDel.style.cssText = "position:absolute;top:6px;right:6px;z-index:10;background:rgba(0,0,0,0.6);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:13px;";
-      btnDel.onclick = (e) => { e.stopPropagation(); this.deleteFotoPromocion(key); };
+      btnDel.style.cssText =
+        "position:absolute;top:6px;right:6px;z-index:10;background:rgba(0,0,0,0.6);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:13px;";
+      btnDel.onclick = (e) => {
+        e.stopPropagation();
+        this.deleteFotoPromocion(key);
+      };
       wrap.onclick = () => this.openFotoPromocion(key);
       wrap.appendChild(btnDel);
       grid.appendChild(wrap);
@@ -1405,14 +2141,19 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   async _checkVincularBtn() {
     try {
-      const { getAuth } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-      const { arrayUnion } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const { getAuth } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+      const { arrayUnion } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       this._arrayUnion = arrayUnion;
 
       const auth = getAuth(this._firebaseApp);
       const user = auth.currentUser;
 
-      if (!user) { this._mostrarBtnVincular(true); return; }
+      if (!user) {
+        this._mostrarBtnVincular(true);
+        return;
+      }
 
       const uid = user.uid;
       const propietarios = this.currentData?.propietario_id || [];
@@ -1430,13 +2171,18 @@ window.PanelPerfil = {
 
   async vincularCuenta() {
     try {
-      const { getAuth } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-      const { arrayUnion, doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const { getAuth } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+      const { arrayUnion, doc, getDoc, updateDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
       const auth = getAuth(this._firebaseApp);
       const user = auth.currentUser;
 
-      if (!user) { this.showToast("⚠️ Debes iniciar sesión primero"); return; }
+      if (!user) {
+        this.showToast("⚠️ Debes iniciar sesión primero");
+        return;
+      }
 
       const uid = user.uid;
       const propietarios = this.currentData?.propietario_id || [];
@@ -1446,14 +2192,22 @@ window.PanelPerfil = {
         return;
       }
 
-      const userRef = doc(this.db, "Trabajadores_Usuarios_Drivers", "users", "users", uid);
+      const userRef = doc(
+        this.db,
+        "Trabajadores_Usuarios_Drivers",
+        "users",
+        "users",
+        uid,
+      );
       const userSnap = await getDoc(userRef);
       const userData = userSnap.exists() ? userSnap.data() : {};
       const tiendaAnterior = userData?.id_tienda_propietario || null;
 
-      let mensajeConfirm = "¿Vincular tu cuenta actual a este negocio?\n\nPodrás acceder sin necesidad del enlace la próxima vez.";
+      let mensajeConfirm =
+        "¿Vincular tu cuenta actual a este negocio?\n\nPodrás acceder sin necesidad del enlace la próxima vez.";
       if (tiendaAnterior && tiendaAnterior !== this.TIENDA_ID) {
-        mensajeConfirm = "⚠️ Ya tienes una tienda vinculada anteriormente.\n\nAl continuar, tu cuenta se desvinculará de la tienda anterior y quedará vinculada únicamente a este negocio.\n\n¿Deseas continuar?";
+        mensajeConfirm =
+          "⚠️ Ya tienes una tienda vinculada anteriormente.\n\nAl continuar, tu cuenta se desvinculará de la tienda anterior y quedará vinculada únicamente a este negocio.\n\n¿Deseas continuar?";
       }
 
       const confirmar = confirm(mensajeConfirm);
@@ -1461,18 +2215,30 @@ window.PanelPerfil = {
 
       if (tiendaAnterior && tiendaAnterior !== this.TIENDA_ID) {
         try {
-          const { arrayRemove } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-          const tiendaAnteriorRef = doc(this.db, "Tiendas", this.LOCALIDAD_TIENDA, this.LOCALIDAD_TIENDA, tiendaAnterior);
-          await updateDoc(tiendaAnteriorRef, { propietario_id: arrayRemove(uid) });
+          const { arrayRemove } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+          const tiendaAnteriorRef = doc(
+            this.db,
+            "Tiendas",
+            this.LOCALIDAD_TIENDA,
+            this.LOCALIDAD_TIENDA,
+            tiendaAnterior,
+          );
+          await updateDoc(tiendaAnteriorRef, {
+            propietario_id: arrayRemove(uid),
+          });
         } catch (e) {
           console.warn("No se pudo limpiar tienda anterior:", e);
         }
       }
 
-      await this._updateDoc(this.TIENDA_REF, { propietario_id: arrayUnion(uid) });
+      await this._updateDoc(this.TIENDA_REF, {
+        propietario_id: arrayUnion(uid),
+      });
       await updateDoc(userRef, { id_tienda_propietario: this.TIENDA_ID });
 
-      if (!this.currentData.propietario_id) this.currentData.propietario_id = [];
+      if (!this.currentData.propietario_id)
+        this.currentData.propietario_id = [];
       this.currentData.propietario_id.push(uid);
 
       this._mostrarBtnVincular(false);
@@ -1488,8 +2254,12 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   async togglePayMethod(method, enabled) {
     try {
-      await this._updateDoc(this.TIENDA_REF, { [`metodos_pago.${method}.enable`]: enabled });
-      this.showToast(`${method.toUpperCase()} ${enabled ? "activado" : "desactivado"}`);
+      await this._updateDoc(this.TIENDA_REF, {
+        [`metodos_pago.${method}.enable`]: enabled,
+      });
+      this.showToast(
+        `${method.toUpperCase()} ${enabled ? "activado" : "desactivado"}`,
+      );
     } catch (e) {
       console.error("Error togglePayMethod:", e);
       this.showToast("Error al actualizar método de pago");
@@ -1498,8 +2268,12 @@ window.PanelPerfil = {
 
   async toggleContactMethod(method, enabled) {
     try {
-      await this._updateDoc(this.TIENDA_REF, { [`metodo_contacto.${method}.estado`]: enabled });
-      this.showToast(`${this._getContactName(method)} ${enabled ? "activado" : "desactivado"}`);
+      await this._updateDoc(this.TIENDA_REF, {
+        [`metodo_contacto.${method}.estado`]: enabled,
+      });
+      this.showToast(
+        `${this._getContactName(method)} ${enabled ? "activado" : "desactivado"}`,
+      );
     } catch (e) {
       console.error("Error toggleContactMethod:", e);
       this.showToast("Error al actualizar");
@@ -1507,7 +2281,16 @@ window.PanelPerfil = {
   },
 
   _getContactName(method) {
-    return ({ llamada: "Teléfono", whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok", sitio_web: "Sitio web" }[method] || method);
+    return (
+      {
+        llamada: "Teléfono",
+        whatsapp: "WhatsApp",
+        instagram: "Instagram",
+        facebook: "Facebook",
+        tiktok: "TikTok",
+        sitio_web: "Sitio web",
+      }[method] || method
+    );
   },
 
   // ═══════════════════════════════════════════
@@ -1518,10 +2301,14 @@ window.PanelPerfil = {
     document.getElementById("saveFab")?.classList.remove("visible");
     document.getElementById("sidebarSaveBtn")?.classList.remove("visible");
 
-    document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+    document
+      .querySelectorAll(".section")
+      .forEach((s) => s.classList.remove("active"));
     document.getElementById(`sec-${name}`)?.classList.add("active");
 
-    document.querySelectorAll(".bar-btn, .sidebar-btn, .mobile-menu-item").forEach((b) => b.classList.remove("active"));
+    document
+      .querySelectorAll(".bar-btn, .sidebar-btn, .mobile-menu-item")
+      .forEach((b) => b.classList.remove("active"));
     document.getElementById(`bb-${name}`)?.classList.add("active");
     document.getElementById(`sbb-${name}`)?.classList.add("active");
     document.getElementById(`mmb-${name}`)?.classList.add("active");
@@ -1547,14 +2334,17 @@ window.PanelPerfil = {
       container.innerHTML = html;
       container.querySelectorAll("script").forEach((old) => {
         const s = document.createElement("script");
-        if (old.src) { s.src = old.src; s.type = old.type || "text/javascript"; }
-        else s.textContent = old.textContent;
+        if (old.src) {
+          s.src = old.src;
+          s.type = old.type || "text/javascript";
+        } else s.textContent = old.textContent;
         document.body.appendChild(s);
         old.remove();
       });
     } catch (e) {
       console.error(e);
-      container.innerHTML = '<div style="padding:40px;text-align:center;color:white;font-size:15px;">❌ Error cargando publicaciones</div>';
+      container.innerHTML =
+        '<div style="padding:40px;text-align:center;color:white;font-size:15px;">❌ Error cargando publicaciones</div>';
     }
   },
 
@@ -1581,7 +2371,10 @@ window.PanelPerfil = {
 
   _updateDescSilent(val) {
     const el = document.getElementById("heroDesc");
-    if (el) el.textContent = val || "Toca aquí para agregar una descripción atractiva de tu negocio...";
+    if (el)
+      el.textContent =
+        val ||
+        "Toca aquí para agregar una descripción atractiva de tu negocio...";
   },
 
   _setSwitchAuto(switchId, isEnabled) {
@@ -1629,8 +2422,10 @@ window.PanelPerfil = {
     const el = document.getElementById("uploadLoadingOverlay");
     if (!el) return;
     el.style.display = "flex";
-    document.getElementById("uploadLoadingMsg").textContent = msg || "Subiendo imagen...";
-    document.getElementById("uploadLoadingSubMsg").textContent = subMsg || "Por favor espera";
+    document.getElementById("uploadLoadingMsg").textContent =
+      msg || "Subiendo imagen...";
+    document.getElementById("uploadLoadingSubMsg").textContent =
+      subMsg || "Por favor espera";
   },
 
   _hideUploadLoading() {
@@ -1644,8 +2439,13 @@ window.PanelPerfil = {
       img.onload = () => {
         let { width: w, height: h } = img;
         if (w > maxPx || h > maxPx) {
-          if (w >= h) { h = Math.round((h * maxPx) / w); w = maxPx; }
-          else { w = Math.round((w * maxPx) / h); h = maxPx; }
+          if (w >= h) {
+            h = Math.round((h * maxPx) / w);
+            w = maxPx;
+          } else {
+            w = Math.round((w * maxPx) / h);
+            h = maxPx;
+          }
         }
         const canvas = document.createElement("canvas");
         canvas.width = w;
@@ -1678,14 +2478,28 @@ window.PanelPerfil = {
     if (!sec) return;
     const h = sec.querySelector(".expand-header");
     const b = sec.querySelector(".expand-body");
-    if (h && !h.classList.contains("open")) { h.classList.add("open"); b?.classList.add("open"); }
+    if (h && !h.classList.contains("open")) {
+      h.classList.add("open");
+      b?.classList.add("open");
+    }
     sec.scrollIntoView({ behavior: "smooth", block: "start" });
   },
 
-  updateName(val) { this._updateNameSilent(val); this._checkFieldChanged("businessName"); },
-  updateDesc(val) { this._updateDescSilent(val); this._checkFieldChanged("businessDesc"); },
-  focusField(id) { document.getElementById(id)?.focus(); },
-  autoResize(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; },
+  updateName(val) {
+    this._updateNameSilent(val);
+    this._checkFieldChanged("businessName");
+  },
+  updateDesc(val) {
+    this._updateDescSilent(val);
+    this._checkFieldChanged("businessDesc");
+  },
+  focusField(id) {
+    document.getElementById(id)?.focus();
+  },
+  autoResize(el) {
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  },
 
   toggleSidebar() {
     const sb = document.querySelector(".sidebar");
@@ -1706,7 +2520,8 @@ window.PanelPerfil = {
     const btn = document.getElementById("mobileMenuBtn");
     if (!btn) return;
 
-    let isDragging = false, hasMoved = false;
+    let isDragging = false,
+      hasMoved = false;
     let startX, startY, startLeft, startTop;
 
     const clampToScreen = () => {
@@ -1717,8 +2532,16 @@ window.PanelPerfil = {
         btn.style.top = window.innerHeight - btn.offsetHeight - 24 + "px";
         return;
       }
-      btn.style.left = Math.max(8, Math.min(window.innerWidth - btn.offsetWidth - 8, currentLeft)) + "px";
-      btn.style.top = Math.max(8, Math.min(window.innerHeight - btn.offsetHeight - 8, currentTop)) + "px";
+      btn.style.left =
+        Math.max(
+          8,
+          Math.min(window.innerWidth - btn.offsetWidth - 8, currentLeft),
+        ) + "px";
+      btn.style.top =
+        Math.max(
+          8,
+          Math.min(window.innerHeight - btn.offsetHeight - 8, currentTop),
+        ) + "px";
       btn.style.right = "auto";
       btn.style.bottom = "auto";
     };
@@ -1730,8 +2553,10 @@ window.PanelPerfil = {
       isDragging = true;
       hasMoved = false;
       const rect = btn.getBoundingClientRect();
-      startX = clientX; startY = clientY;
-      startLeft = rect.left; startTop = rect.top;
+      startX = clientX;
+      startY = clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
       btn.style.left = startLeft + "px";
       btn.style.right = "auto";
       btn.style.top = startTop + "px";
@@ -1741,11 +2566,20 @@ window.PanelPerfil = {
 
     const onMove = (clientX, clientY) => {
       if (!isDragging) return;
-      const dx = clientX - startX, dy = clientY - startY;
+      const dx = clientX - startX,
+        dy = clientY - startY;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
       if (!hasMoved) return;
-      btn.style.left = Math.max(8, Math.min(window.innerWidth - btn.offsetWidth - 8, startLeft + dx)) + "px";
-      btn.style.top = Math.max(8, Math.min(window.innerHeight - btn.offsetHeight - 8, startTop + dy)) + "px";
+      btn.style.left =
+        Math.max(
+          8,
+          Math.min(window.innerWidth - btn.offsetWidth - 8, startLeft + dx),
+        ) + "px";
+      btn.style.top =
+        Math.max(
+          8,
+          Math.min(window.innerHeight - btn.offsetHeight - 8, startTop + dy),
+        ) + "px";
     };
 
     const onEnd = () => {
@@ -1754,20 +2588,44 @@ window.PanelPerfil = {
       btn.style.transition = "left 0.2s ease";
       const rect = btn.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
-      const snapLeft = centerX < window.innerWidth / 2 ? 16 : window.innerWidth - rect.width - 16;
+      const snapLeft =
+        centerX < window.innerWidth / 2
+          ? 16
+          : window.innerWidth - rect.width - 16;
       btn.style.left = snapLeft + "px";
       btn.style.right = "auto";
     };
 
-    btn.addEventListener("touchstart", (e) => { const t = e.touches[0]; onStart(t.clientX, t.clientY); }, { passive: true });
-    document.addEventListener("touchmove", (e) => { const t = e.touches[0]; onMove(t.clientX, t.clientY); }, { passive: true });
+    btn.addEventListener(
+      "touchstart",
+      (e) => {
+        const t = e.touches[0];
+        onStart(t.clientX, t.clientY);
+      },
+      { passive: true },
+    );
+    document.addEventListener(
+      "touchmove",
+      (e) => {
+        const t = e.touches[0];
+        onMove(t.clientX, t.clientY);
+      },
+      { passive: true },
+    );
     document.addEventListener("touchend", () => onEnd());
-    btn.addEventListener("mousedown", (e) => { e.preventDefault(); onStart(e.clientX, e.clientY); });
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onStart(e.clientX, e.clientY);
+    });
     document.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY));
     document.addEventListener("mouseup", () => onEnd());
 
     btn.addEventListener("click", (e) => {
-      if (!hasMoved) { e.preventDefault(); e.stopPropagation(); this.toggleMobileMenu(); }
+      if (!hasMoved) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleMobileMenu();
+      }
     });
   },
 };
@@ -1799,7 +2657,10 @@ function enviarDatosAFrames() {
 function enviarPatchAFrames(diff) {
   if (!diff || !Object.keys(diff).length) return;
   document.querySelectorAll("iframe").forEach((frame) => {
-    frame.contentWindow?.postMessage({ type: "PATCH_TIENDA", payload: diff }, window.location.origin);
+    frame.contentWindow?.postMessage(
+      { type: "PATCH_TIENDA", payload: diff },
+      window.location.origin,
+    );
   });
 }
 

@@ -1478,3 +1478,40 @@ body {
     scrollbar-width: thin;
     scrollbar-color: #000 #111;
 }
+
+.back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 999;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.back-btn:hover {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.back-btn:active {
+  transform: scale(0.92);
+}
+
+@media (max-width: 480px) {
+  .back-btn {
+    top: 14px;
+    left: 14px;
+    width: 40px;
+    height: 40px;
+  }
+}

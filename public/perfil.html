@@ -3,39 +3,73 @@
 
 <head>
     <meta charset="UTF-8" />
+    <script>document.documentElement.classList.add('geinz-loading');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Geinz Business</title>
-
     <!-- SEO base (el JS las sobreescribe con datos reales) -->
     <meta name="description" content="Encuentra negocios locales en Geinz">
-    <meta property="og:site_name"   content="GeinzWork" />
-    <meta property="og:type"        content="website" />
-    <meta property="og:title"       content="Geinz Business" />
+    <meta property="og:site_name" content="GeinzWork" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Geinz Business" />
     <meta property="og:description" content="Encuentra negocios locales en Geinz" />
-    <meta property="og:image"       content="https://geinzworkapp.web.app/default.jpg" />
-    <meta property="og:locale"      content="es_PE" />
-    <link rel="canonical"           href="https://geinzworkapp.web.app/perfil_negocio.html" />
-
+    <meta property="og:image" content="https://geinztech.com/default.jpg" />
+    <meta property="og:locale" content="es_PE" />
+    <link rel="canonical" href="https://geinztech.com/perfil_negocio.html" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
     <link rel="stylesheet" href="./style/shareStyle/perfil_negocio_v2.css" />
     <script type="module" src="./js/share/perfil_negocio_v2.js"></script>
-
     <link rel="icon" href="./img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="./img/icons/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="./img/icons/favicon-16x16.png">
     <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
     <link rel="manifest" href="./img/icons/site.webmanifest">
 </head>
+
 <body>
+    <div class="geinz-loader" id="geinzLoader">
+        <div class="sk-container">
+            <div class="sk-hero">
+                <div class="sk-hero-left">
+                    <div class="sk-title"></div>
+                    <div class="sk-status"></div>
+                    <div class="sk-tags">
+                        <div class="sk-tag"></div>
+                        <div class="sk-tag"></div>
+                        <div class="sk-tag"></div>
+                    </div>
+                    <div class="sk-desc"></div>
+                    <div class="sk-buttons">
+                        <div class="sk-btn"></div>
+                        <div class="sk-btn"></div>
+                    </div>
+                </div>
+                <div class="sk-hero-right">
+                    <div class="sk-image"></div>
+                </div>
+            </div>
+            <div class="sk-section">
+                <div class="sk-section-header"></div>
+                <div class="sk-grid">
+                    <div class="sk-card"></div>
+                    <div class="sk-card"></div>
+                    <div class="sk-card"></div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="dynamic-bg" id="dynamicBg"></div>
     <div class="grid-bg"></div>
-
-    <main class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6">
+    <a href="../index.html" id="geinzHeader" class="geinz-header" aria-label="Volver a Geinz">
+        <img src="../img/icons/favicon-96x96.png" alt="Geinz" class="geinz-header-logo" />
+        <span class="geinz-header-name">GEINZ</span>
+    </a>
+    <main class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6 pt-24 md:pt-24">
 
         <!-- HERO -->
         <section class="grid xl:grid-cols-[1fr_.9fr] gap-14 items-center mb-24">
@@ -60,6 +94,7 @@
                     <button id="routeBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Cómo llegar</button>
                     <button id="shareBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Compartir</button>
                 </div>
+                <div id="quickNavRow" class="flex flex-wrap gap-3 mt-5"></div>
             </div>
 
             <div class="relative">
@@ -78,20 +113,51 @@
             </div>
         </section>
 
+
+        <section id="secPromosActivas" class="mb-20 reveal" style="display:none;">
+            <div class="mb-8">
+                <p class="uppercase tracking-[5px] accent text-sm mb-3">PROMOCIONES ACTIVAS</p>
+                <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Ofertas del momento</h2>
+            </div>
+            <div id="promosActivasGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            </div>
+        </section>
+
         <section id="secProductos" class="mb-20 reveal">
             <div class="mb-8">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PRODUCTOS Y SERVICIOS</p>
-                <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Lo mejor del negocio</h2>
+                <h2 id="productosTitle" class="text-4xl md:text-6xl font-black leading-[.95]">Lo mejor del negocio</h2>
             </div>
-            <div id="productosGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
+            <div class="gallery-carousel-wrap" id="productosCarouselWrap">
+                <div id="productosGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
+            </div>
         </section>
+
+
+
 
         <section id="secAmbientes" class="mb-20 reveal">
             <div class="mb-8">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">AMBIENTES</p>
                 <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Espacios y experiencia</h2>
             </div>
-            <div id="ambientesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
+            <div class="gallery-carousel-wrap" id="ambientesCarouselWrap">
+                <div id="ambientesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
+            </div>
+        </section>
+
+        <section id="secCarta" class="mb-20 reveal" style="display:none;">
+            <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <p class="uppercase tracking-[5px] accent text-sm mb-3">CARTA DIGITAL</p>
+                    <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Explora el menú</h2>
+                </div>
+                <button id="cartaShareBtn" class="carta-share-btn"><span>📤</span> Compartir carta</button>
+            </div>
+            <div id="cartaFilters" class="flex flex-wrap gap-3 mb-8"></div>
+            <div class="gallery-carousel-wrap" id="cartaCarouselWrap">
+                <div id="cartaGrid"></div>
+            </div>
         </section>
 
         <section class="grid xl:grid-cols-[1fr_.8fr] gap-8 mb-10">
@@ -172,7 +238,7 @@
                         <p class="text-gray-300 text-lg">Explora negocios modernos y experiencias increíbles dentro de
                             Geinz.</p>
                     </div>
-                    <a id="exploreBtn" href="https://geinzworkapp.web.app"
+                    <a id="exploreBtn" href="https://geinztech.com"
                         class="btn-primary px-10 py-5 rounded-[24px] text-lg font-bold whitespace-nowrap">
                         Explorar Geinz
                     </a>
@@ -183,6 +249,31 @@
 
     <div id="toast">Copiado correctamente</div>
 
+    <div id="lightboxModal" class="lightbox-modal">
+        <button id="lightboxClose" class="lightbox-close" aria-label="Cerrar">✕</button>
+
+        <button id="lightboxPrev" class="lightbox-nav lightbox-prev" aria-label="Anterior">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+            </svg>
+        </button>
+
+        <div class="lightbox-stage">
+            <img id="lightboxImg" src="" alt="">
+        </div>
+
+        <button id="lightboxNext" class="lightbox-nav lightbox-next" aria-label="Siguiente">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 6l6 6-6 6" />
+            </svg>
+        </button>
+
+        <div id="lightboxCounter" class="lightbox-counter"></div>
+    </div>
+
+</body>
 
 </body>
 

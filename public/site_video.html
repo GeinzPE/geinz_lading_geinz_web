@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Pipeline — Subir video</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f1115;
+    color: #eaeaea;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.sub { color: #9aa0a6; margin-top: 0; margin-bottom: 24px; }
+
+  .card {
+    background: #171a21;
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  .dropzone {
+    border: 2px dashed #3a3f4b;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .dropzone.dragover {
+    border-color: #6ea8fe;
+    background: #1c2230;
+  }
+  .dropzone input { display: none; }
+  .dropzone .icon { font-size: 2rem; margin-bottom: 8px; }
+  .dropzone .filename { margin-top: 10px; font-size: 0.9rem; color: #6ea8fe; word-break: break-all; }
+  .dropzone .filesize { font-size: 0.78rem; color: #6b7280; margin-top: 2px; }
+
+  .field { margin-top: 18px; }
+  label { display: block; font-size: 0.85rem; color: #9aa0a6; margin-bottom: 6px; }
+  select, input[type=number], input[type=text] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #3a3f4b;
+    background: #0f1115;
+    color: #eaeaea;
+    font-size: 0.95rem;
+  }
+  .hint { font-size: 0.75rem; color: #6b7280; margin-top: 4px; }
+
+  .advanced-toggle {
+    margin-top: 18px;
+    font-size: 0.85rem;
+    color: #6ea8fe;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .advanced-toggle .arrow { transition: transform 0.2s; font-size: 0.7rem; }
+  .advanced-toggle.open .arrow { transform: rotate(90deg); }
+  .advanced-panel {
+    display: none;
+    border-top: 1px solid #262b36;
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+  .advanced-panel.open { display: block; }
+
+  button {
+    width: 100%;
+    margin-top: 22px;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: #6ea8fe;
+    color: #0f1115;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- Progreso ---- */
+  .progress-wrap { margin-top: 20px; display: none; }
+  .progress-wrap.show { display: block; }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 0.82rem; color: #9aa0a6; margin-bottom: 6px;
+  }
+  .progress-track {
+    width: 100%; height: 8px; background: #262b36;
+    border-radius: 999px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; width: 0%; background: #6ea8fe;
+    border-radius: 999px; transition: width 0.15s ease-out;
+  }
+  .progress-bar.indeterminate { width: 40% !important; animation: slide 1.3s ease-in-out infinite; }
+  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+
+  .steps { display: flex; justify-content: space-between; margin-top: 12px; font-size: 0.72rem; color: #4b5261; }
+  .steps .step { display: flex; align-items: center; gap: 5px; }
+  .steps .dot { width: 7px; height: 7px; border-radius: 50%; background: #3a3f4b; }
+  .steps .step.active .dot { background: #6ea8fe; }
+  .steps .step.active { color: #6ea8fe; }
+  .steps .step.done .dot { background: #6ee7a0; }
+  .steps .step.done { color: #6ee7a0; }
+
+  .status { margin-top: 14px; font-size: 0.9rem; text-align: center; color: #9aa0a6; min-height: 20px; }
+  .status.error { color: #ff6b6b; }
+  .status.success { color: #6ee7a0; }
+
+  .cost-box {
+    margin-top: 14px; padding: 10px 12px; background: #12151b;
+    border-radius: 8px; font-size: 0.75rem; color: #6b7280;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ================= RESULTADOS (editor de subtítulos) ================= */
+  #resultsWrap {
+    display: none;
+    width: 100%;
+    max-width: 720px;
+    margin-top: 24px;
+  }
+  #resultsWrap.show { display: block; }
+
+  .result-card {
+    background: #171a21;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 22px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  .result-card h3 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .result-card h3 .dur { font-size: 0.75rem; color: #6b7280; font-weight: 400; }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    user-select: none;
+    touch-action: none;
+  }
+  .stage video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+
+  .caption-box {
+    position: absolute;
+    max-width: 90%;
+    padding: 0.35em 0.6em;
+    border-radius: 6px;
+    cursor: grab;
+    white-space: pre-wrap;
+    text-align: center;
+    line-height: 1.25;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    display: none;
+  }
+  .caption-box.dragging { cursor: grabbing; outline: 2px dashed #6ea8fe; }
+  .caption-box.visible { display: block; }
+  .caption-box .drag-hint {
+    position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+    font-size: 0.65rem; color: #6ea8fe; background: #0f1115cc;
+    padding: 2px 6px; border-radius: 4px; white-space: nowrap; opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .caption-box:hover .drag-hint, .caption-box.dragging .drag-hint { opacity: 1; }
+
+  .no-captions-note {
+    font-size: 0.75rem; color: #6b7280; margin-top: 10px; text-align: center;
+  }
+
+  .speed-row {
+    display: flex; align-items: center; gap: 10px; margin-top: 14px;
+  }
+  .speed-row input[type=range] { flex: 1; accent-color: #6ea8fe; }
+  .speed-row .speed-val {
+    font-size: 0.8rem; color: #6ea8fe; min-width: 44px; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .subtoggle {
+    margin-top: 14px; font-size: 0.85rem; color: #6ea8fe;
+    cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px;
+  }
+  .subtoggle .arrow { transition: transform 0.2s; font-size: 0.7rem; }
+  .subtoggle.open .arrow { transform: rotate(90deg); }
+  .subpanel { display: none; border-top: 1px solid #262b36; margin-top: 12px; padding-top: 12px; }
+  .subpanel.open { display: block; }
+
+  .style-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 14px;
+  }
+  .style-grid .full { grid-column: 1 / -1; }
+  .style-grid label { font-size: 0.72rem; margin-bottom: 4px; }
+  .style-grid input[type=color] {
+    width: 100%; height: 32px; padding: 2px; border-radius: 6px;
+    border: 1px solid #3a3f4b; background: #0f1115;
+  }
+  .style-grid input[type=range] { width: 100%; accent-color: #6ea8fe; }
+
+  .toggle-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 6px 12px; border-radius: 999px; font-size: 0.75rem;
+    background: #0f1115; border: 1px solid #3a3f4b; color: #9aa0a6;
+    cursor: pointer; user-select: none;
+  }
+  .chip.active { border-color: #6ea8fe; color: #6ea8fe; background: #1c2230; }
+
+  .presets-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .preset-chip {
+    padding: 6px 10px; border-radius: 8px; font-size: 0.72rem;
+    background: #0f1115; border: 1px solid #3a3f4b; color: #eaeaea;
+    cursor: pointer;
+  }
+  .preset-chip:hover { border-color: #6ea8fe; }
+
+  .captions-list {
+    margin-top: 10px;
+    max-height: 260px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 4px;
+  }
+  .cap-row {
+    background: #0f1115;
+    border: 1px solid #262b36;
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .cap-row.active-now { border-color: #6ea8fe; }
+  .cap-row .cap-times {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.68rem; color: #6b7280; margin-bottom: 6px;
+  }
+  .cap-row .cap-times .nudge {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .cap-row .cap-times button {
+    all: unset; cursor: pointer; font-size: 0.7rem; color: #6ea8fe;
+    padding: 1px 6px; border: 1px solid #263045; border-radius: 4px;
+  }
+  .cap-row textarea {
+    width: 100%; resize: vertical; min-height: 34px;
+    background: transparent; color: #eaeaea; border: none;
+    font-family: inherit; font-size: 0.85rem; padding: 0;
+  }
+  .cap-row textarea:focus { outline: none; }
+
+  .offset-row {
+    display: flex; align-items: center; gap: 10px; margin-top: 10px;
+    font-size: 0.75rem; color: #9aa0a6;
+  }
+  .offset-row input[type=range] { flex: 1; accent-color: #6ea8fe; }
+
+  .export-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .export-row button, .export-row a.btnlike {
+    margin-top: 0;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    padding: 11px 8px;
+  }
+  .btn-secondary { background: #1c2230 !important; color: #6ea8fe !important; border: 1px solid #2a3245; }
+  .btn-full { grid-column: 1 / -1; }
+
+  .export-progress {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: #6ea8fe;
+    text-align: center;
+    display: none;
+  }
+  .export-progress.show { display: block; }
+
+  video.hidden-canvas-src { display: none; }
+</style>
+</head>
+<body>
+
+  <h1>🎬 Media Pipeline</h1>
+  <p class="sub">Arrastra tu video, elige el modo, y listo.</p>
+
+  <div class="card">
+    <div class="dropzone" id="dropzone">
+      <div class="icon">📁</div>
+      <div>Arrastra tu video aquí o haz clic para elegirlo</div>
+      <div class="filename" id="filename"></div>
+      <div class="filesize" id="filesize"></div>
+      <input type="file" id="fileInput" accept="video/*">
+    </div>
+
+    <div class="field">
+      <label for="mode">Modo</label>
+      <select id="mode">
+        <option value="cambio_voz">Cambio de voz (dobla diálogos manteniendo el video)</option>
+        <option value="narracion">Narración (agrega voz en off)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="segmentMinutes">Duración de cada segmento (minutos)</label>
+      <input type="number" id="segmentMinutes" min="1" placeholder="Por defecto: el del servidor (ej. 2 min)">
+      <div class="hint">Videos largos se cortan en partes de esta duración para procesarlos.</div>
+    </div>
+
+    <!-- Parámetros avanzados -->
+    <div class="advanced-toggle" id="advToggle">
+      <span class="arrow">▶</span> Parámetros avanzados
+    </div>
+    <div class="advanced-panel" id="advPanel">
+      <div class="field" style="margin-top:0;">
+        <label for="bucketName">Bucket de destino</label>
+        <input type="text" id="bucketName" placeholder="Por defecto: el bucket configurado en el servidor">
+      </div>
+      <div class="field">
+        <label for="voiceId">Voice ID de ElevenLabs</label>
+        <input type="text" id="voiceId" placeholder="Por defecto: la voz configurada en el servidor">
+        <div class="hint">Deja vacío para usar la voz que ya tienes configurada por defecto.</div>
+      </div>
+      <div class="field">
+        <label for="outputFolder">Carpeta de salida (dentro del bucket)</label>
+        <input type="text" id="outputFolder" placeholder="Por defecto: narrados/{jobId}/">
+      </div>
+      <div class="field">
+        <label for="outputBucketName">Bucket de salida (si es distinto al de entrada)</label>
+        <input type="text" id="outputBucketName" placeholder="Opcional">
+      </div>
+    </div>
+
+    <button id="submitBtn" disabled>Subir y procesar</button>
+
+    <!-- Barra de progreso + pasos -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label">
+        <span id="progressText">Subiendo…</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="steps">
+        <div class="step" id="step-upload"><span class="dot"></span> Subida</div>
+        <div class="step" id="step-process"><span class="dot"></span> Procesando</div>
+        <div class="step" id="step-done"><span class="dot"></span> Listo</div>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="cost-box" id="costBox" style="display:none;"></div>
+  </div>
+
+  <!-- Resultados: uno por segmento, con editor de subtítulos + export -->
+  <div id="resultsWrap"></div>
+
+<script>
+  // ======= CONFIGURA ESTO =======
+  const API_URL = "https://media-pipeline-921389328767.us-central1.run.app/upload-and-process";
+  const PIPELINE_API_KEY = ""; // pon aquí tu PIPELINE_API_KEY si la configuraste, o deja vacío
+  // ================================
+
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const filenameEl = document.getElementById("filename");
+  const filesizeEl = document.getElementById("filesize");
+  const submitBtn = document.getElementById("submitBtn");
+  const statusEl = document.getElementById("status");
+  const costBox = document.getElementById("costBox");
+  const resultsWrap = document.getElementById("resultsWrap");
+
+  const advToggle = document.getElementById("advToggle");
+  const advPanel = document.getElementById("advPanel");
+
+  const progressWrap = document.getElementById("progressWrap");
+  const progressBar = document.getElementById("progressBar");
+  const progressText = document.getElementById("progressText");
+  const progressPct = document.getElementById("progressPct");
+  const stepUpload = document.getElementById("step-upload");
+  const stepProcess = document.getElementById("step-process");
+  const stepDone = document.getElementById("step-done");
+
+  let selectedFile = null;
+
+  advToggle.addEventListener("click", () => {
+    advToggle.classList.toggle("open");
+    advPanel.classList.toggle("open");
+  });
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length) setFile(fileInput.files[0]);
+  });
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+  }
+
+  function setFile(file) {
+    selectedFile = file;
+    filenameEl.textContent = `✅ ${file.name}`;
+    filesizeEl.textContent = formatBytes(file.size);
+    submitBtn.disabled = false;
+  }
+
+  function resetSteps() {
+    [stepUpload, stepProcess, stepDone].forEach((s) => s.classList.remove("active", "done"));
+  }
+  function setStep(activeId, doneIds = []) {
+    resetSteps();
+    doneIds.forEach((id) => document.getElementById(id).classList.add("done"));
+    if (activeId) document.getElementById(activeId).classList.add("active");
+  }
+
+  submitBtn.addEventListener("click", () => {
+    if (!selectedFile) return;
+
+    submitBtn.disabled = true;
+    resultsWrap.classList.remove("show");
+    resultsWrap.innerHTML = "";
+    costBox.style.display = "none";
+    statusEl.className = "status";
+    statusEl.textContent = "";
+
+    progressWrap.classList.add("show");
+    progressBar.classList.remove("indeterminate");
+    progressBar.style.width = "0%";
+    progressPct.textContent = "0%";
+    progressText.textContent = "Subiendo video…";
+    setStep("step-upload");
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("mode", document.getElementById("mode").value);
+
+    const segMin = document.getElementById("segmentMinutes").value;
+    if (segMin) formData.append("segmentMinutes", segMin);
+
+    const bucketName = document.getElementById("bucketName").value.trim();
+    if (bucketName) formData.append("bucketName", bucketName);
+
+    const voiceId = document.getElementById("voiceId").value.trim();
+    if (voiceId) formData.append("voiceId", voiceId);
+
+    const outputFolder = document.getElementById("outputFolder").value.trim();
+    if (outputFolder) formData.append("outputFolder", outputFolder);
+
+    const outputBucketName = document.getElementById("outputBucketName").value.trim();
+    if (outputBucketName) formData.append("outputBucketName", outputBucketName);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_URL, true);
+    if (PIPELINE_API_KEY) xhr.setRequestHeader("X-Pipeline-Key", PIPELINE_API_KEY);
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (!e.lengthComputable) return;
+      const pct = Math.round((e.loaded / e.total) * 100);
+      progressBar.style.width = pct + "%";
+      progressPct.textContent = pct + "%";
+      if (pct >= 100) {
+        progressText.textContent = "Procesando en el servidor… (esto puede tardar varios minutos)";
+        progressBar.classList.add("indeterminate");
+        setStep("step-process", ["step-upload"]);
+      }
+    });
+
+    xhr.onload = () => {
+      submitBtn.disabled = false;
+      progressBar.classList.remove("indeterminate");
+
+      let data;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        statusEl.className = "status error";
+        statusEl.textContent = "❌ Respuesta inválida del servidor.";
+        return;
+      }
+
+      if (xhr.status >= 400 || !data.ok) {
+        setStep(null, ["step-upload"]);
+        statusEl.className = "status error";
+        statusEl.textContent = "❌ " + (data.error || (data.failed && data.failed[0]?.error) || "Error desconocido");
+        return;
+      }
+
+      setStep(null, ["step-upload", "step-process", "step-done"]);
+      progressBar.style.width = "100%";
+      progressPct.textContent = "100%";
+      progressText.textContent = "Completado";
+
+      statusEl.className = "status success";
+      statusEl.textContent = `✅ Listo en ${data.elapsedSeconds}s`;
+
+      renderResults(data.successful || []);
+
+      if (data.cost) {
+        costBox.style.display = "flex";
+        costBox.innerHTML = `<span>Costo estimado</span><span>$${data.cost.totalUsd.toFixed(4)} USD (S/ ${data.cost.totalPen.toFixed(4)})</span>`;
+      }
+    };
+
+    xhr.onerror = () => {
+      submitBtn.disabled = false;
+      setStep(null, ["step-upload"]);
+      statusEl.className = "status error";
+      statusEl.textContent = "❌ Error de conexión con el servidor.";
+    };
+
+    xhr.send(formData);
+  });
+
+  // ======================================================================
+  // EDITOR DE SUBTÍTULOS + EXPORTACIÓN
+  //
+  // Los subtítulos NO se muestran quemados por defecto: son un overlay
+  // aparte que el usuario puede editar, mover a cualquier parte de la
+  // pantalla (estilo TikTok) y estilizar. El texto viene directo de lo
+  // que el backend ya generó (ElevenLabs Scribe / Gemini) — no se llama
+  // a ninguna API de nuevo para esto, es gratis.
+  //
+  // El botón "Exportar con subtítulos" quema los subtítulos SOLO si el
+  // usuario lo pide explícitamente, dibujando el video + overlay en un
+  // <canvas> y grabándolo con MediaRecorder — 100% en el navegador, sin
+  // tocar el backend ni gastar créditos.
+  // ======================================================================
+
+  const FONT_OPTIONS = [
+    { id: "sans",   label: "Moderna",  css: "-apple-system, 'Segoe UI', Arial, sans-serif", weight: 700 },
+    { id: "impact", label: "TikTok",   css: "'Arial Black', Impact, sans-serif",             weight: 900 },
+    { id: "round",  label: "Redonda",  css: "'Trebuchet MS', 'Comic Sans MS', sans-serif",   weight: 700 },
+    { id: "serif",  label: "Serif",    css: "Georgia, 'Times New Roman', serif",             weight: 700 },
+    { id: "mono",   label: "Mono",     css: "'Courier New', monospace",                      weight: 700 },
+  ];
+
+  const STYLE_PRESETS = {
+    tiktok:  { fontId: "impact", size: 6.5, color: "#ffffff", bg: "#000000", bgOpacity: 0,   outline: true,  align: "center" },
+    clasico: { fontId: "sans",   size: 5.5, color: "#ffffff", bg: "#000000", bgOpacity: 0.65, outline: false, align: "center" },
+    amarillo:{ fontId: "impact", size: 6.5, color: "#ffe000", bg: "#000000", bgOpacity: 0,   outline: true,  align: "center" },
+    minimal: { fontId: "sans",   size: 4.2, color: "#eaeaea", bg: "#12151b", bgOpacity: 0.55, outline: false, align: "center" },
+  };
+
+  function srtTime(seconds) {
+    const s = Math.max(0, seconds);
+    const h = String(Math.floor(s / 3600)).padStart(2, "0");
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+    const sec = String(Math.floor(s % 60)).padStart(2, "0");
+    const ms = String(Math.round((s % 1) * 1000)).padStart(3, "0");
+    return `${h}:${m}:${sec},${ms}`;
+  }
+
+  function buildSrt(captions) {
+    return captions.map((c, i) =>
+      `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.text}\n`
+    ).join("\n");
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  function renderResults(successful) {
+    resultsWrap.innerHTML = "";
+    if (!successful.length) return;
+    successful.forEach((seg, idx) => resultsWrap.appendChild(buildResultCard(seg, idx)));
+    resultsWrap.classList.add("show");
+  }
+
+  function buildResultCard(seg, idx) {
+    const uid = `seg${idx}_${Math.random().toString(36).slice(2, 7)}`;
+    const captions = (seg.captions || (seg.segmentsPreview || []).map((s, i) => ({
+      id: `${idx}-${i}`, start: s.start, end: s.end, text: s.textPreview,
+    }))).filter((c) => c.text).map((c) => ({ ...c })); // copia editable
+
+    const style = { ...STYLE_PRESETS.tiktok, posX: 50, posY: 85, offset: 0 };
+
+    const card = document.createElement("div");
+    card.className = "result-card";
+    card.innerHTML = `
+      <h3>Segmento ${idx + 1} <span class="dur">${seg.durationSeconds ? seg.durationSeconds.toFixed(1) + "s" : ""}</span></h3>
+
+      <div class="stage" id="${uid}_stage">
+        <video id="${uid}_video" ${seg.downloadUrl ? `src="${seg.downloadUrl}"` : ""} controls playsinline></video>
+        <div class="caption-box" id="${uid}_capbox"><span class="drag-hint">arrastra para mover</span><span class="cap-text"></span></div>
+      </div>
+      ${!seg.downloadUrl ? '<div class="no-captions-note">Este segmento no trajo una URL de descarga (downloadUrl) del backend, así que no se puede previsualizar aquí.</div>' : ""}
+
+      <div class="speed-row">
+        <span style="font-size:0.75rem;color:#9aa0a6;">Velocidad</span>
+        <input type="range" id="${uid}_speed" min="0.5" max="2" step="0.05" value="1">
+        <span class="speed-val" id="${uid}_speedval">1.00x</span>
+      </div>
+
+      <div class="subtoggle" id="${uid}_subtoggle"><span class="arrow">▶</span> Subtítulos y estilo (${captions.length})</div>
+      <div class="subpanel" id="${uid}_subpanel">
+
+        <div class="presets-row" id="${uid}_presets">
+          <div class="preset-chip" data-preset="tiktok">TikTok</div>
+          <div class="preset-chip" data-preset="clasico">Clásico</div>
+          <div class="preset-chip" data-preset="amarillo">Amarillo</div>
+          <div class="preset-chip" data-preset="minimal">Minimal</div>
+        </div>
+
+        <div class="style-grid" style="margin-top:12px;">
+          <div>
+            <label>Fuente</label>
+            <select id="${uid}_font"></select>
+          </div>
+          <div>
+            <label>Tamaño</label>
+            <input type="range" id="${uid}_size" min="2.5" max="10" step="0.1" value="${style.size}">
+          </div>
+          <div>
+            <label>Color de texto</label>
+            <input type="color" id="${uid}_color" value="${style.color}">
+          </div>
+          <div>
+            <label>Color de fondo</label>
+            <input type="color" id="${uid}_bg" value="${style.bg}">
+          </div>
+          <div class="full">
+            <label>Opacidad del fondo</label>
+            <input type="range" id="${uid}_bgop" min="0" max="1" step="0.05" value="${style.bgOpacity}">
+          </div>
+          <div class="full toggle-row">
+            <div class="chip" id="${uid}_outline">Contorno (estilo TikTok)</div>
+            <div class="chip" id="${uid}_alignL">Izquierda</div>
+            <div class="chip active" id="${uid}_alignC">Centro</div>
+            <div class="chip" id="${uid}_alignR">Derecha</div>
+          </div>
+        </div>
+
+        <div class="offset-row">
+          <span>Sincronía (desfase global)</span>
+          <input type="range" id="${uid}_offset" min="-3" max="3" step="0.05" value="0">
+          <span id="${uid}_offsetval" style="min-width:44px;text-align:right;">0.00s</span>
+        </div>
+        <div class="hint">Arrastra el subtítulo sobre el video para moverlo. Si el texto va adelantado o atrasado respecto al audio, ajusta la sincronía de arriba o los botones ±0.1s de cada línea.</div>
+
+        <div class="captions-list" id="${uid}_captions"></div>
+      </div>
+
+      <div class="export-row">
+        ${seg.downloadUrl ? `<a class="btnlike btn-secondary" href="${seg.downloadUrl}" target="_blank">⬇️ Video sin subtítulos</a>` : `<span></span>`}
+        <button class="btn-secondary" id="${uid}_srtbtn" type="button">📄 Descargar .srt</button>
+        <button class="btn-full" id="${uid}_burnbtn" type="button" ${seg.downloadUrl ? "" : "disabled"}>🔥 Exportar video con subtítulos</button>
+      </div>
+      <div class="export-progress" id="${uid}_exportprog"></div>
+    `;
+
+    // ---- refs ----
+    const video = card.querySelector(`#${uid}_video`);
+    const stage = card.querySelector(`#${uid}_stage`);
+    const capbox = card.querySelector(`#${uid}_capbox`);
+    const capTextEl = capbox.querySelector(".cap-text");
+    const speedInput = card.querySelector(`#${uid}_speed`);
+    const speedVal = card.querySelector(`#${uid}_speedval`);
+    const subtoggle = card.querySelector(`#${uid}_subtoggle`);
+    const subpanel = card.querySelector(`#${uid}_subpanel`);
+    const fontSelect = card.querySelector(`#${uid}_font`);
+    const sizeInput = card.querySelector(`#${uid}_size`);
+    const colorInput = card.querySelector(`#${uid}_color`);
+    const bgInput = card.querySelector(`#${uid}_bg`);
+    const bgopInput = card.querySelector(`#${uid}_bgop`);
+    const outlineChip = card.querySelector(`#${uid}_outline`);
+    const alignL = card.querySelector(`#${uid}_alignL`);
+    const alignC = card.querySelector(`#${uid}_alignC`);
+    const alignR = card.querySelector(`#${uid}_alignR`);
+    const offsetInput = card.querySelector(`#${uid}_offset`);
+    const offsetVal = card.querySelector(`#${uid}_offsetval`);
+    const captionsListEl = card.querySelector(`#${uid}_captions`);
+    const srtBtn = card.querySelector(`#${uid}_srtbtn`);
+    const burnBtn = card.querySelector(`#${uid}_burnbtn`);
+    const exportProg = card.querySelector(`#${uid}_exportprog`);
+
+    // ---- fuentes ----
+    FONT_OPTIONS.forEach((f) => {
+      const opt = document.createElement("option");
+      opt.value = f.id;
+      opt.textContent = f.label;
+      fontSelect.appendChild(opt);
+    });
+    fontSelect.value = style.fontId;
+
+    function currentFont() {
+      return FONT_OPTIONS.find((f) => f.id === fontSelect.value) || FONT_OPTIONS[0];
+    }
+
+    // ---- aplicar estilo visual al overlay ----
+    function applyBoxStyle() {
+      const f = currentFont();
+      capbox.style.left = style.posX + "%";
+      capbox.style.top = style.posY + "%";
+      capbox.style.fontFamily = f.css;
+      capbox.style.fontWeight = f.weight;
+      capbox.style.fontSize = style.size + "cqh"; // fallback abajo
+      capbox.style.fontSize = (stage.clientHeight * (style.size / 100)) + "px";
+      capbox.style.color = style.color;
+      capbox.style.textAlign = style.align;
+      const bgOpHex = Math.round(style.bgOpacity * 255).toString(16).padStart(2, "0");
+      capbox.style.background = style.bgOpacity > 0 ? (style.bg + bgOpHex) : "transparent";
+      capbox.style.textShadow = style.outline
+        ? "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 4px rgba(0,0,0,.6)"
+        : "0 1px 3px rgba(0,0,0,.6)";
+      outlineChip.classList.toggle("active", style.outline);
+      [alignL, alignC, alignR].forEach((el) => el.classList.remove("active"));
+      ({ left: alignL, center: alignC, right: alignR }[style.align]).classList.add("active");
+    }
+
+    fontSelect.addEventListener("change", applyBoxStyle);
+    sizeInput.addEventListener("input", () => { style.size = Number(sizeInput.value); applyBoxStyle(); });
+    colorInput.addEventListener("input", () => { style.color = colorInput.value; applyBoxStyle(); });
+    bgInput.addEventListener("input", () => { style.bg = bgInput.value; applyBoxStyle(); });
+    bgopInput.addEventListener("input", () => { style.bgOpacity = Number(bgopInput.value); applyBoxStyle(); });
+    outlineChip.addEventListener("click", () => { style.outline = !style.outline; applyBoxStyle(); });
+    alignL.addEventListener("click", () => { style.align = "left"; applyBoxStyle(); });
+    alignC.addEventListener("click", () => { style.align = "center"; applyBoxStyle(); });
+    alignR.addEventListener("click", () => { style.align = "right"; applyBoxStyle(); });
+
+    card.querySelectorAll(`#${uid}_presets .preset-chip`).forEach((chip) => {
+      chip.addEventListener("click", () => {
+        Object.assign(style, STYLE_PRESETS[chip.dataset.preset]);
+        fontSelect.value = style.fontId;
+        sizeInput.value = style.size;
+        colorInput.value = style.color;
+        bgInput.value = style.bg;
+        bgopInput.value = style.bgOpacity;
+        applyBoxStyle();
+      });
+    });
+
+    // ---- toggle panel ----
+    subtoggle.addEventListener("click", () => {
+      subtoggle.classList.toggle("open");
+      subpanel.classList.toggle("open");
+    });
+
+    // ---- arrastrar el subtítulo por toda la pantalla ----
+    let dragging = false;
+    function posFromEvent(e) {
+      const rect = stage.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      let x = ((clientX - rect.left) / rect.width) * 100;
+      let y = ((clientY - rect.top) / rect.height) * 100;
+      x = Math.min(97, Math.max(3, x));
+      y = Math.min(97, Math.max(3, y));
+      return { x, y };
+    }
+    function startDrag(e) {
+      dragging = true;
+      capbox.classList.add("dragging");
+      e.preventDefault();
+    }
+    function moveDrag(e) {
+      if (!dragging) return;
+      const { x, y } = posFromEvent(e);
+      style.posX = x; style.posY = y;
+      applyBoxStyle();
+    }
+    function endDrag() { dragging = false; capbox.classList.remove("dragging"); }
+    capbox.addEventListener("mousedown", startDrag);
+    capbox.addEventListener("touchstart", startDrag, { passive: false });
+    window.addEventListener("mousemove", moveDrag);
+    window.addEventListener("touchmove", moveDrag, { passive: false });
+    window.addEventListener("mouseup", endDrag);
+    window.addEventListener("touchend", endDrag);
+
+    // ---- velocidad ----
+    speedInput.addEventListener("input", () => {
+      const v = Number(speedInput.value);
+      video.playbackRate = v;
+      speedVal.textContent = v.toFixed(2) + "x";
+    });
+
+    // ---- desfase global de sincronía ----
+    offsetInput.addEventListener("input", () => {
+      style.offset = Number(offsetInput.value);
+      offsetVal.textContent = (style.offset >= 0 ? "+" : "") + style.offset.toFixed(2) + "s";
+    });
+
+    // ---- lista editable de subtítulos ----
+    function renderCaptionsList() {
+      captionsListEl.innerHTML = "";
+      captions.forEach((c) => {
+        const row = document.createElement("div");
+        row.className = "cap-row";
+        row.dataset.capId = c.id;
+        row.innerHTML = `
+          <div class="cap-times">
+            <span>${c.start.toFixed(1)}s → ${c.end.toFixed(1)}s</span>
+            <div class="nudge">
+              <button data-act="minus">-0.1s</button>
+              <button data-act="plus">+0.1s</button>
+            </div>
+          </div>
+          <textarea rows="1">${c.text}</textarea>
+        `;
+        const textarea = row.querySelector("textarea");
+        textarea.addEventListener("input", () => { c.text = textarea.value; });
+        row.querySelector('[data-act="minus"]').addEventListener("click", () => {
+          c.start = Math.max(0, c.start - 0.1); c.end = Math.max(c.start + 0.1, c.end - 0.1);
+          row.querySelector(".cap-times span").textContent = `${c.start.toFixed(1)}s → ${c.end.toFixed(1)}s`;
+        });
+        row.querySelector('[data-act="plus"]').addEventListener("click", () => {
+          c.start += 0.1; c.end += 0.1;
+          row.querySelector(".cap-times span").textContent = `${c.start.toFixed(1)}s → ${c.end.toFixed(1)}s`;
+        });
+        captionsListEl.appendChild(row);
+      });
+    }
+    renderCaptionsList();
+
+    // ---- sincronía en vivo: mostrar el subtítulo activo sobre el video ----
+    function activeCaption(t) {
+      const tt = t - style.offset;
+      return captions.find((c) => tt >= c.start && tt < c.end) || null;
+    }
+    function tick() {
+      const active = activeCaption(video.currentTime || 0);
+      if (active) {
+        capTextEl.textContent = active.text;
+        capbox.classList.add("visible");
+      } else {
+        capbox.classList.remove("visible");
+      }
+      captionsListEl.querySelectorAll(".cap-row").forEach((row) => {
+        row.classList.toggle("active-now", !!active && row.dataset.capId === active.id);
+      });
+    }
+    video.addEventListener("timeupdate", tick);
+    video.addEventListener("seeked", tick);
+
+    applyBoxStyle();
+    if (!captions.length) {
+      captionsListEl.innerHTML = '<div class="no-captions-note">Este segmento no trajo texto transcrito (silencio total o el backend no envió "captions").</div>';
+    }
+
+    // ---- exportar .srt (con el texto ya editado por el usuario) ----
+    srtBtn.addEventListener("click", () => {
+      const blob = new Blob([buildSrt(captions.map((c) => ({ ...c, start: c.start - style.offset, end: c.end - style.offset })))], { type: "text/plain;charset=utf-8" });
+      downloadBlob(blob, `segmento_${idx + 1}_subtitulos.srt`);
+    });
+
+    // ---- exportar video con subtítulos quemados (100% cliente, sin backend) ----
+    burnBtn.addEventListener("click", async () => {
+      if (!seg.downloadUrl) return;
+      burnBtn.disabled = true;
+      exportProg.classList.add("show");
+      exportProg.textContent = "Preparando exportación…";
+
+      try {
+        await burnCaptionsAndDownload({
+          video, captions, style, currentFont,
+          filename: `segmento_${idx + 1}_subtitulado.webm`,
+          onProgress: (t, dur) => {
+            exportProg.textContent = `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`;
+          },
+        });
+        exportProg.textContent = "✅ Exportado. Revisa tus descargas.";
+      } catch (err) {
+        console.error(err);
+        exportProg.textContent = "❌ No se pudo exportar: " + err.message;
+      } finally {
+        burnBtn.disabled = false;
+        setTimeout(() => exportProg.classList.remove("show"), 6000);
+      }
+    });
+
+    return card;
+  }
+
+  // Dibuja el video + el subtítulo activo (según estilo/posición actuales)
+  // frame a frame en un canvas, y graba el resultado con MediaRecorder.
+  // No usa ninguna API externa: es lo que ElevenLabs ya devolvió, quemado
+  // localmente solo si el usuario decide exportarlo así.
+  async function burnCaptionsAndDownload({ video, captions, style, currentFont, filename, onProgress }) {
+    if (!("MediaRecorder" in window) || !video.captureStream) {
+      throw new Error("Tu navegador no soporta grabación en el cliente (prueba con Chrome o Edge de escritorio).");
+    }
+
+    const w = video.videoWidth || 1280;
+    const h = video.videoHeight || 720;
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+
+    const wasPaused = video.paused;
+    const originalTime = video.currentTime;
+    video.pause();
+    video.currentTime = 0;
+    await new Promise((res) => { video.onseeked = res; });
+
+    const sourceStream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+    const canvasStream = canvas.captureStream(30);
+    const audioTracks = sourceStream.getAudioTracks();
+    const outStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...audioTracks,
+    ]);
+
+    const mimeCandidates = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+    ];
+    const mimeType = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m)) || "";
+    const recorder = new MediaRecorder(outStream, mimeType ? { mimeType } : undefined);
+    const chunks = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+    const donePromise = new Promise((resolve, reject) => {
+      recorder.onstop = resolve;
+      recorder.onerror = (e) => reject(e.error || new Error("Fallo el MediaRecorder"));
+    });
+
+    function activeCaption(t) {
+      const tt = t - style.offset;
+      return captions.find((c) => tt >= c.start && tt < c.end) || null;
+    }
+
+    function drawFrame() {
+      ctx.drawImage(video, 0, 0, w, h);
+      const active = activeCaption(video.currentTime);
+      if (active) {
+        const f = currentFont();
+        const fontSizePx = h * (style.size / 100);
+        ctx.font = `${f.weight} ${fontSizePx}px ${f.css}`;
+        ctx.textAlign = style.align === "left" ? "left" : style.align === "right" ? "right" : "center";
+        ctx.textBaseline = "middle";
+
+        const maxWidth = w * 0.9;
+        const words = active.text.split(" ");
+        const lines = [];
+        let line = "";
+        words.forEach((word) => {
+          const test = line ? line + " " + word : word;
+          if (ctx.measureText(test).width > maxWidth && line) {
+            lines.push(line);
+            line = word;
+          } else {
+            line = test;
+          }
+        });
+        if (line) lines.push(line);
+
+        const lineHeight = fontSizePx * 1.25;
+        const boxX = w * (style.posX / 100);
+        const boxY = h * (style.posY / 100) - ((lines.length - 1) * lineHeight) / 2;
+
+        if (style.bgOpacity > 0) {
+          const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
+          const padX = fontSizePx * 0.4, padY = fontSizePx * 0.25;
+          const boxW = widest + padX * 2;
+          const boxH = lines.length * lineHeight + padY * 2 - (lineHeight - fontSizePx);
+          const left = style.align === "left" ? boxX : style.align === "right" ? boxX - boxW : boxX - boxW / 2;
+          ctx.fillStyle = style.bg + Math.round(style.bgOpacity * 255).toString(16).padStart(2, "0");
+          ctx.fillRect(left, boxY - lineHeight / 2 - padY, boxW, boxH);
+        }
+
+        lines.forEach((l, i) => {
+          const ly = boxY + i * lineHeight;
+          if (style.outline) {
+            ctx.lineWidth = fontSizePx * 0.12;
+            ctx.strokeStyle = "#000000";
+            ctx.strokeText(l, boxX, ly);
+          }
+          ctx.fillStyle = style.color;
+          ctx.fillText(l, boxX, ly);
+        });
+      }
+      if (onProgress) onProgress(video.currentTime, video.duration || 0);
+    }
+
+    let rafId;
+    function loop() {
+      drawFrame();
+      if (!video.ended && !video.paused) rafId = requestAnimationFrame(loop);
+    }
+
+    recorder.start(250);
+    video.muted = false;
+    await video.play();
+    loop();
+
+    video.onended = () => {
+      cancelAnimationFrame(rafId);
+      recorder.stop();
+    };
+
+    await donePromise;
+
+    const blob = new Blob(chunks, { type: mimeType || "video/webm" });
+    downloadBlob(blob, filename);
+
+    video.currentTime = originalTime;
+    if (wasPaused) video.pause();
+  }
+</script>
+
+</body>
+</html>

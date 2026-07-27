@@ -333,7 +333,7 @@ window.addEventListener("load", async () => {
               mensaje: nuevaDeuda >= deudaMaxima
                 ? `🚨 Tu negocio alcanzó ${nuevaDeuda} créditos de deuda acumulada.❌ Tu plantilla premium y contacto directo por WhatsApp fueron desactivados automáticamente.📲 Los enlaces activos fueron cancelados para evitar seguir acumulando deuda.💳 Recarga saldo para volver a activar todas las funciones premium de tu negocio 🚀`
                 : `🚨 Tu negocio tiene una deuda acumulada de ${nuevaDeuda} créditos 💳 📲 Tu WhatsApp sigue recibiendo clientes y clicks directos gracias a tu plantilla premium 🚀 🔥 Recarga tu saldo para evitar interrupciones y seguir recibiendo pedidos. ⚠️ Si superas los ${deudaMaxima} créditos de deuda, tu cuenta pasará automáticamente al plan gratis.`,
-              link: "https://geinzworkapp.web.app/api/share?t=scr&id=rec",
+              link: "https://geinztech.com/api/share?t=scr&id=rec",
             }),
           });
 
@@ -399,7 +399,7 @@ function renderError(titulo, descripcion, tiendaData = null) {
     const categoria = (tiendaData?.categoria || "negocios").toLowerCase().trim().replace(/\s+/g, "+");
     const localidad = tiendaData?.localidad || "barranca";
     const perfilUrl =
-      `https://geinzworkapp.web.app/api/share?t=ti` +
+      `https://geinztech.com/api/share?t=ti` +
       `&id=${idTienda}` +
       `&l=${encodeURIComponent(localidad)}` +
       `&c=${categoria}`;

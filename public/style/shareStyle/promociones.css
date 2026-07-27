@@ -1231,3 +1231,69 @@
         height: 28px;
       }
     }
+
+    .img-skeleton {
+      position: absolute;
+      inset: 0;
+      background: #16161a;
+      overflow: hidden;
+      z-index: 1;
+      transition: opacity .35s ease;
+    }
+
+    .img-skeleton::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg,
+          transparent 0%,
+          transparent 35%,
+          rgba(255, 255, 255, .05) 45%,
+          rgba(255, 255, 255, .09) 50%,
+          rgba(255, 255, 255, .05) 55%,
+          transparent 65%,
+          transparent 100%);
+      background-size: 250% 100%;
+      animation: sk-sweep 1.6s ease-in-out infinite;
+    }
+
+    .promo-img {
+      opacity: 0;
+      transition: opacity .45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .promo-img.loaded {
+      opacity: 1;
+    }
+
+    .promo-img-wrap {
+      position: relative;
+      overflow: hidden;
+      /* necesario para que el zoom del hover no se salga del contenedor */
+    }
+
+    .promo-img {
+      opacity: 0;
+      transition:
+        opacity .45s cubic-bezier(0.16, 1, 0.3, 1),
+        transform .5s cubic-bezier(0.16, 1, 0.3, 1),
+        filter .35s ease;
+      will-change: transform;
+    }
+
+    .promo-img.loaded {
+      opacity: 1;
+    }
+
+    .promo-img-wrap:hover .promo-img {
+      transform: scale(1.045);
+      filter: brightness(1.03);
+    }
+
+    /* Que no se dispare el hover en touch (celular), solo en mouse real */
+    @media (hover: none) {
+      .promo-img-wrap:hover .promo-img {
+        transform: none;
+        filter: none;
+      }
+    }

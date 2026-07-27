@@ -73,17 +73,22 @@ function getAliasFromPath() {
 
 function getShareUrl() {
   if (placeAlias) {
-    return `https://geinzworkapp.web.app/turismo/${placeAlias}`;
+    return `https://geinztech.com/turismo/${placeAlias}`;
   }
   // fallback (no debería pasar si se cargó por alias)
-  return `https://geinzworkapp.web.app/api/share?t=tu&id=${placeId}&l=${locationName}&c=${categoriaColeccion}`;
+  return `https://geinztech.com/api/share?t=tu&id=${placeId}&l=${locationName}&c=${categoriaColeccion}`;
 }
-
 
 /* ════════════════════════════════
    FETCH PLACE DATA
    ════════════════════════════════ */
 
+const backBtn = document.getElementById("backBtn");
+if (backBtn) {
+  backBtn.addEventListener("click", () => {
+    window.location.href = "https://geinztech.com/";
+  });
+}
 async function resolveAlias(alias) {
   const aliasRef = doc(db, "alias_turismo", alias);
   const aliasSnap = await getDoc(aliasRef);
@@ -115,7 +120,7 @@ function startAutoSlide() {
   if (autoSlideInterval) {
     clearInterval(autoSlideInterval);
   }
-  
+
   autoSlideInterval = setInterval(() => {
     goToSlide(currentSlide + 1);
   }, 5000);
@@ -178,7 +183,6 @@ function buildSlider(images) {
     slideIndicators.appendChild(indicator);
   });
 
-
   if (images.length > 1) {
     startAutoSlide();
   }
@@ -193,8 +197,8 @@ function goToSlide(index) {
   if (index < 0) index = slides.length - 1;
   if (index >= slides.length) index = 0;
 
-  slides.forEach(s => s.classList.remove("active"));
-  indicators.forEach(i => i.classList.remove("active"));
+  slides.forEach((s) => s.classList.remove("active"));
+  indicators.forEach((i) => i.classList.remove("active"));
 
   slides[index].classList.add("active");
   if (indicators[index]) indicators[index].classList.add("active");
@@ -361,12 +365,10 @@ function openInGoogleMaps() {
   const lng = placeData?.ubicacion?.longitud;
 
   if (lat && lng) {
-
     // Navegación directa
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
 
     window.open(mapsUrl, "_blank");
-
   } else {
     showToast("Coordenadas no disponibles");
   }
@@ -378,7 +380,6 @@ function openInGoogleMaps() {
 
 async function fetchPlaceData() {
   try {
-
     const alias = getAliasFromPath();
 
     console.log("🔗 ALIAS URL:", alias);
@@ -393,7 +394,6 @@ async function fetchPlaceData() {
       placeId = id;
       locationName = localidad;
       categoriaColeccion = categoria;
-
     } else {
       // Fallback: formato viejo ?id=&l=
       const idFromUrl = getParam("id");
@@ -410,7 +410,12 @@ async function fetchPlaceData() {
       locationName = locFromUrl;
     }
 
-    console.log("🔍 Buscando lugar:", locationName, categoriaColeccion, placeId);
+    console.log(
+      "🔍 Buscando lugar:",
+      locationName,
+      categoriaColeccion,
+      placeId,
+    );
 
     const docRef = doc(
       db,
@@ -425,15 +430,19 @@ async function fetchPlaceData() {
     if (!docSnap.exists()) {
       throw new Error("Lugar no encontrado");
     }
-
     placeData = docSnap.data();
 
     console.log("✅ Datos cargados:", placeData);
 
+    // Si no llegamos por /turismo/{alias}, tomamos el alias
+    // guardado en el documento para que "Compartir lugar" siempre
+    // use el link bonito en vez del link viejo de /api/share
+    if (!placeAlias && placeData.alias_key) {
+      placeAlias = placeData.alias_key;
+    }
+
     renderPlaceData();
-
   } catch (error) {
-
     console.error("❌ Error al cargar el lugar:", error);
 
     placeTitle.textContent = "Lugar no encontrado";
@@ -444,9 +453,7 @@ async function fetchPlaceData() {
     buildSlider(null);
 
     gallerySection.style.display = "none";
-
   } finally {
-
     setTimeout(() => {
       loadingScreen.classList.add("hidden");
     }, 600);
@@ -556,8 +563,6 @@ function setMetaTag(property, content) {
    EVENT LISTENERS
    ════════════════════════════════ */
 
-
-
 document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") {
     goToSlide(currentSlide - 1);
@@ -640,12 +645,11 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function actualizarBanner(nombreLugar) {
+  const title = document.getElementById("discoverTitle");
 
-    const title = document.getElementById("discoverTitle");
+  if (!title) return;
 
-    if (!title) return;
-
-    title.innerHTML = `
+  title.innerHTML = `
         Obtén los lugares cercanos de <span>${nombreLugar}</span>
         descargando Geinz
     `;

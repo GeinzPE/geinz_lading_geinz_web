@@ -260,12 +260,12 @@ function buildCard(promo, id) {
         );
         const alias = snapTienda.exists() ? snapTienda.data().alias_key : null;
         if (alias) {
-          window.location.href = `https://geinzworkapp.web.app/perfil/${alias}`;
+          window.location.href = `https://geinztech.com/perfil/${alias}`;
         } else {
-          window.location.href = `https://geinzworkapp.web.app/api/share?t=ti&id=${tiendaId}&l=${localidad}&c=${info.categoria || "general"}`;
+          window.location.href = `https://geinztech.com/api/share?t=ti&id=${tiendaId}&l=${localidad}&c=${info.categoria || "general"}`;
         }
       } catch {
-        window.location.href = `https://geinzworkapp.web.app/api/share?t=ti&id=${tiendaId}&l=${localidad}&c=${info.categoria || "general"}`;
+        window.location.href = `https://geinztech.com/api/share?t=ti&id=${tiendaId}&l=${localidad}&c=${info.categoria || "general"}`;
       }
     });
   }
@@ -299,7 +299,7 @@ function buildCard(promo, id) {
   buttonsGroup.className = "buttons-group";
 
   const numero = info.numero?.replace(/\D/g, "");
-  const shareLink = `https://geinzworkapp.web.app/api/share?t=prms&l=${localidad}&pi=${id}`;
+  const shareLink = `https://geinztech.com/api/share?t=prms&l=${localidad}&pi=${id}`;
   const waMsg =
     msgs.whatsapp?.msje_predermindo ||
     "¡Hola! Vi esta promo en Geinz y me interesa:";

@@ -7,17 +7,17 @@
   <title>Geinz — Descubre tu ciudad</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
     rel="stylesheet" />
-
   <script type="module" src="../js/login/login.js"></script>
   <link rel="stylesheet" href="../style/logincss/login.css" />
-     <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
-    <link rel="manifest" href="../img/icons/site.webmanifest">
+  <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../img/icons/site.webmanifest">
 </head>
 
 <body class="dark-mode">
@@ -42,40 +42,20 @@
   <div class="ui-root" id="mainUI">
 
     <!-- COLUMNA IZQUIERDA: INFO DECORATIVA (solo desktop) -->
-    <aside class="side-panel" aria-hidden="true">
-      <div class="side-inner">
-        <div class="side-pill">
-          <span class="dot"></span>
-          <span>Más de 200 negocios en tu zona</span>
-        </div>
-        <div class="side-quote">
-          "El mejor lugar para descubrir tu ciudad"
-        </div>
-        <div class="side-stats">
-          <div class="stat-box">
-            <span class="stat-num">4.9</span>
-            <span class="stat-label">Rating promedio</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-num">12k+</span>
-            <span class="stat-label">Usuarios activos</span>
-          </div>
-        </div>
-      </div>
-    </aside>
 
     <!-- COLUMNA DERECHA: TARJETA DE BIENVENIDA -->
     <main class="auth-column">
       <div class="welcome-card" id="welcomeScreen">
 
         <!-- LOGO -->
-        <div class="brand-row">
-          <div class="logo-mark">
-            <img src="../img/logo geinz.png" alt="Logo">
+        <a href="../index.html" class="brand-link">
+          <div class="brand-row">
+            <div class="logo-mark">
+              <img src="../img/logo geinz.png" alt="Logo">
+            </div>
+            <span class="brand-name">Geinz</span>
           </div>
-          <span class="brand-name">Geinz</span>
-
-        </div>
+        </a>
 
         <!-- TÍTULO DINÁMICO -->
         <div class="title-wrap">
@@ -90,7 +70,11 @@
 
           <!-- NUEVO: botón login email -->
           <button class="btn btn-email" onclick="openLoginModal()">
-            <span class="material-symbols-outlined" aria-hidden="true">mail</span>
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="m22 7-10 7L2 7" />
+            </svg>
             Iniciar sesión
           </button>
           <div class="divider-row">
@@ -147,7 +131,11 @@
           <div class="field-group">
             <label class="field-label" for="loginEmail">Correo electrónico</label>
             <div class="input-box">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">mail</span>
+              <svg class="input-icon icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-10 7L2 7" />
+              </svg>
               <input id="loginEmail" type="email" class="input-field" placeholder="tucorreo@ejemplo.com"
                 autocomplete="email" />
             </div>

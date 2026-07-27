@@ -433,29 +433,76 @@
 
         /* Scrollbar elegante, negra, delgada y redondeada */
 
-/* Chrome, Edge, Safari */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
+        /* Chrome, Edge, Safari */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
 
-::-webkit-scrollbar-track {
-    background: #111;
-    border-radius: 999px;
-}
+        ::-webkit-scrollbar-track {
+            background: #111;
+            border-radius: 999px;
+        }
 
-::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #333, #000);
-    border-radius: 999px;
-    border: 1px solid #111;
-}
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #333, #000);
+            border-radius: 999px;
+            border: 1px solid #111;
+        }
 
-::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #444, #111);
-}
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #444, #111);
+        }
 
-/* Firefox */
-* {
-    scrollbar-width: thin;
-    scrollbar-color: #000 #111;
-}
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 999;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 0, 0, 0.55);
+        }
+
+        .back-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Aire extra arriba del hero para que el h1 nunca
+   quede debajo del botón flotante */
+        .hero {
+            padding-top: 76px;
+        }
+
+        @media (max-width: 480px) {
+            .back-btn {
+                top: 14px;
+                left: 14px;
+                width: 40px;
+                height: 40px;
+            }
+
+            .hero {
+                padding-top: 66px;
+            }
+        }
+
+        /* Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #000 #111;
+        }
