@@ -2336,6 +2336,15 @@ window.PanelPerfil = {
     iframe.src = `historial.html`; // ajusta al nombre real de tu archivo
   },
 
+
+    load_pedidos_vivos() {
+    this.showSection("pedidos");
+    const iframe = document.getElementById("iframePedidos");
+    if (!iframe || this._pedidosLoaded) return;
+    this._pedidosLoaded = true;
+    iframe.src = `pedidos.html`; // ajusta al nombre real de tu archivo
+  },
+
   // ═══════════════════════════════════════════
   //  PUBLICIDAD
   // ═══════════════════════════════════════════

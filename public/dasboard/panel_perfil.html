@@ -229,6 +229,11 @@
                     <span class="sbb-label">Historial de ventas</span>
                 </button>
 
+                <button class="sidebar-btn" id="sbb-pedidos" onclick="PanelPerfil.load_pedidos_vivos()">
+                    <span class="sbb-icon">🟢</span>
+                    <span class="sbb-label">Pedidos en vivo</span>
+                </button>
+
                 <button class="sidebar-btn" id="sbb-daniel" onclick="PanelPerfil.showSection('daniel')">
                     <span class="sbb-icon">🤖</span>
                     <span class="sbb-label">Asistente Daniel</span>
@@ -1043,6 +1048,21 @@
                 </div>
 
 
+                <div class="section" id="sec-pedidos">
+
+                    <iframe id="iframePedidos" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#fff;
+    ">
+                    </iframe>
+
+                </div>
+
+
 
 
 
@@ -1110,6 +1130,12 @@
                     <button class="sidebar-btn" id="mmb-historial" onclick="PanelPerfil.loadHistorial()">
                         <span class="sbb-icon">🧾</span>
                         <span class="sbb-label">Historial de ventas</span>
+                    </button>
+
+
+                    <button class="sidebar-btn" id="mmb-pedidos" onclick="PanelPerfil.load_pedidos_vivos()">
+                        <span class="sbb-icon">🟢</span>
+                        <span class="sbb-label">Pedidos en vivo</span>
                     </button>
 
                     <button class="mobile-menu-item" id="mmb-daniel"
