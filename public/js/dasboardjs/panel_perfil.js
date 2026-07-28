@@ -140,6 +140,7 @@ window.PanelPerfil = {
   _ignorarSnapshot: 0,
   saveTimer: null,
   publicidadLoaded: false,
+  _qrLoaded: false,
   selectedCat: "",
   selectedSubcats: [],
   categoriasDB: {},
@@ -2312,6 +2313,22 @@ window.PanelPerfil = {
     document.getElementById(`bb-${name}`)?.classList.add("active");
     document.getElementById(`sbb-${name}`)?.classList.add("active");
     document.getElementById(`mmb-${name}`)?.classList.add("active");
+  },
+
+  // ═══════════════════════════════════════════
+  //  MI QR
+  // ═══════════════════════════════════════════
+  loadQr() {
+    this.showSection("qr");
+
+    const iframe = document.getElementById("iframeMiQr");
+    if (!iframe || this._qrLoaded) return;
+
+    this._qrLoaded = true;
+
+    const id = encodeURIComponent(this.TIENDA_ID || "");
+    const localidad = encodeURIComponent(this.LOCALIDAD_TIENDA || "");
+    iframe.src = `miqr.html`;
   },
 
   // ═══════════════════════════════════════════

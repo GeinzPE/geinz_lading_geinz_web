@@ -1441,3 +1441,40 @@ html.geinz-loading #geinzHeader {
     border-color: transparent;
     box-shadow: 0 0 20px rgba(var(--dr), var(--dg), var(--db), .3);
 }
+
+
+.catalogo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+.catalogo-row-img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background: #141414;
+}
+.catalogo-row-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.catalogo-row-nombre {
+  font-weight: 600;
+  font-size: 14.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.catalogo-row-precio {
+  font-size: 13px;
+  color: rgb(var(--dr), var(--dg), var(--db));
+  font-weight: 700;
+}

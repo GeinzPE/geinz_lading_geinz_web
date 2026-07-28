@@ -2061,6 +2061,10 @@ function listenBusinessRealtime({ localidad, id }) {
         }
       }
     });
+
+    loadProductosCatalogo(params).then((productos) => {
+      renderProductosCatalogo(productos, params.localidad, params.id);
+    });
   } catch (err) {
     console.error(err);
     showNotFoundScreen(err.message); // ← debe capturarlo
@@ -2168,6 +2172,88 @@ function applyFaviconLink(href) {
   link.type = "image/png";
   link.href = href;
   document.head.appendChild(link);
+}
+
+async function loadProductosCatalogo({ localidad, id }) {
+  try {
+    const catRef = collection(
+      db,
+      "Tiendas",
+      localidad,
+      localidad,
+      id,
+      "productos",
+    );
+    const catSnap = await getDocs(catRef);
+    const productos = [];
+
+    for (const catDoc of catSnap.docs) {
+      const categoria = catDoc.id;
+      const subRef = collection(
+        db,
+        "Tiendas",
+        localidad,
+        localidad,
+        id,
+        "productos",
+        categoria,
+        categoria,
+      );
+      const subSnap = await getDocs(subRef);
+      subSnap.forEach((pDoc) => {
+        const d = pDoc.data();
+        if (d.disponible === false) return;
+        productos.push({
+          id: pDoc.id,
+          categoria,
+          nombre: d.nombre || "Producto",
+          precio: Number(d.precio) || 0,
+          imagen: d.imagenes?.[0]?.url || "",
+        });
+      });
+    }
+    return productos;
+  } catch (e) {
+    console.warn("No se pudo cargar el catálogo de productos:", e.message);
+    return [];
+  }
+}
+
+// ── 2. Pinta 5 productos en línea vertical + botón "Ver catálogo" (arriba si hay productos)
+function renderProductosCatalogo(productos, localidad, id) {
+  const sec = document.getElementById("secCatalogo");
+  const btnWrap = document.getElementById("catalogoBtnWrap");
+  const list = document.getElementById("catalogoList");
+  if (!sec || !list) return;
+
+  if (!productos.length) {
+    sec.style.display = "none";
+    return;
+  }
+
+  sec.style.display = "";
+
+  // Botón arriba, visible porque sí hay productos
+  if (btnWrap) {
+    btnWrap.innerHTML = `
+      <a href="../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}"
+         class="btn-primary px-6 py-3 rounded-2xl font-bold inline-flex items-center gap-2">
+        🛒 Ver catálogo y agregar al carrito
+      </a>`;
+  }
+
+  list.innerHTML = "";
+  productos.slice(0, 5).forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "catalogo-row";
+    row.innerHTML = `
+      <img src="${p.imagen}" alt="${p.nombre}" loading="lazy" class="catalogo-row-img">
+      <div class="catalogo-row-info">
+        <span class="catalogo-row-nombre">${p.nombre}</span>
+        <span class="catalogo-row-precio">S/ ${p.precio.toFixed(2)}</span>
+      </div>`;
+    list.appendChild(row);
+  });
 }
 
 setupHoverCarousel("productosCarouselWrap", "productosGrid");

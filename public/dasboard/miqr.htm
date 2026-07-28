@@ -1,0 +1,628 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Mis códigos QR — Panel de tienda</title>
+
+<!-- Tipografía: Sora (display) + Inter (texto) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+
+<!-- Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: {
+                    display: ['"Sora"', 'ui-sans-serif', 'sans-serif'],
+                    sans: ['"Inter"', 'ui-sans-serif', 'sans-serif'],
+                },
+            },
+        },
+    };
+</script>
+
+<!--
+  CSS crítico: pinta TODA la página (html + body, no solo un
+  contenedor) de dark al instante, sin esperar a que Tailwind
+  compile. Esto elimina cualquier destello o borde blanco, tanto
+  en el fondo del navegador como en el "rebote" elástico de
+  iOS Safari al hacer scroll de más.
+-->
+<style>
+    * { box-sizing: border-box; }
+    html, body {
+        background-color: #050506;
+        min-height: 100%;
+        overscroll-behavior-y: none;
+    }
+    body {
+        margin: 0;
+        font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, .font-display {
+        font-family: "Sora", ui-sans-serif, system-ui, sans-serif;
+    }
+</style>
+</head>
+
+<body class="min-h-screen bg-[#050506] text-white">
+
+    <!-- ============================================================
+         Capa de ambiente fija: cubre TODA la pantalla (no solo la
+         tarjeta), así no queda ningún borde ni franja sin cubrir
+         al hacer scroll o en pantallas muy anchas/altas.
+    ============================================================ -->
+    <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#050506]">
+        <div class="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#7c4dff]/[0.14] blur-[140px]"></div>
+        <div class="absolute -bottom-40 -left-24 h-[420px] w-[420px] rounded-full bg-[#5a2fe0]/[0.10] blur-[130px]"></div>
+        <div class="absolute -bottom-24 -right-24 h-[380px] w-[380px] rounded-full bg-[#ff4d8d]/[0.05] blur-[130px]"></div>
+        <div class="absolute inset-0 opacity-[0.035] [background-image:radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] [background-size:24px_24px]"></div>
+    </div>
+
+    <!-- ============================================================
+         Contenido
+    ============================================================ -->
+    <main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-10 sm:px-8 sm:py-16 lg:py-20">
+
+        <div id="qrNegocioSection" class="font-sans">
+
+            <!-- eyebrow -->
+            <div class="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9c86ff]">
+                <span class="h-[3px] w-[3px] rounded-full bg-[#9c86ff]"></span>
+                Panel de tienda
+            </div>
+
+            <!-- header -->
+            <div class="flex flex-col gap-4 border-b border-white/[0.07] pb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+                <div>
+                    <h1 class="font-display text-[26px] font-bold leading-tight tracking-tight text-white sm:text-[32px]">
+                        Genera tus códigos QR
+                    </h1>
+                    <p class="mt-2 max-w-md text-[13px] leading-relaxed text-neutral-400 sm:text-[14px]">
+                        Listos para imprimir en alta resolución. Usan el logo de tu tienda automáticamente.
+                    </p>
+                </div>
+
+                <div id="qrStoreChip" class="flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11.5px] font-semibold text-neutral-300 sm:text-[12px]">
+                    <span class="relative flex h-[7px] w-[7px] shrink-0">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7c4dff] opacity-70"></span>
+                        <span class="relative inline-flex h-[7px] w-[7px] rounded-full bg-[#7c4dff]"></span>
+                    </span>
+                    <span id="qrStoreChipLabel">Cargando tienda…</span>
+                </div>
+            </div>
+
+            <!-- grid de tarjetas -->
+            <div class="mt-7 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+
+                <!-- ===== QR INSTITUCIONAL / PERFIL ===== -->
+                <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
+                     id="qrTilePerfil" data-tipo="perfil" onclick="QrNegocio.onTileClick(event,'perfil')">
+
+                    <span class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">🏪</div>
+                        <div>
+                            <div class="font-display text-[14px] font-semibold text-white">Institucional</div>
+                            <div class="mt-0.5 text-[11px] text-neutral-500">Perfil completo del negocio</div>
+                        </div>
+                    </div>
+
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45" id="qrPreviewPerfil">
+                        <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
+                            <span class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para crear</span>
+                        </div>
+                    </div>
+
+                    <div class="hidden items-center gap-2" id="qrActionsPerfil">
+                        <button class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10" title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('perfil')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5" id="qrDescargaPerfil" title="Descargar en alta resolución" download="qr-perfil.png" onclick="event.stopPropagation();">
+                            <span>⬇</span><span>Descargar HD</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ===== QR CARTA / MENU ===== -->
+                <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
+                     id="qrTileCarta" data-tipo="carta" onclick="QrNegocio.onTileClick(event,'carta')">
+
+                    <span class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">🍽️</div>
+                        <div>
+                            <div class="font-display text-[14px] font-semibold text-white">Carta digital</div>
+                            <div class="mt-0.5 text-[11px] text-neutral-500">Para mesas y pedidos directos</div>
+                        </div>
+                    </div>
+
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45" id="qrPreviewCarta">
+                        <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
+                            <span class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para crear</span>
+                        </div>
+                    </div>
+
+                    <div class="hidden items-center gap-2" id="qrActionsCarta">
+                        <button class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10" title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carta')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5" id="qrDescargaCarta" title="Descargar en alta resolución" download="qr-carta.png" onclick="event.stopPropagation();">
+                            <span>⬇</span><span>Descargar HD</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ===== QR CARRITO ===== -->
+                <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
+                     id="qrTileCarrito" data-tipo="carrito" onclick="QrNegocio.onTileClick(event,'carrito')">
+
+                    <span class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">🛒</div>
+                        <div>
+                            <div class="font-display text-[14px] font-semibold text-white">Carrito</div>
+                            <div class="mt-0.5 text-[11px] text-neutral-500">Pedidos directos al carrito</div>
+                        </div>
+                    </div>
+
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45" id="qrPreviewCarrito">
+                        <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
+                            <span class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para crear</span>
+                        </div>
+                    </div>
+
+                    <div class="hidden items-center gap-2" id="qrActionsCarrito">
+                        <button class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10" title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carrito')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5" id="qrDescargaCarrito" title="Descargar en alta resolución" download="qr-carrito.png" onclick="event.stopPropagation();">
+                            <span>⬇</span><span>Descargar HD</span>
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <style>
+        /* Pequeños extras que Tailwind CDN no cubre out-of-the-box */
+
+        .qr-tile.has-qr { cursor: default; }
+        .qr-tile.has-qr:hover { transform: none; }
+
+        .qr-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            animation: qrFadeIn .4s cubic-bezier(.16,1,.3,1);
+        }
+
+        @keyframes qrFadeIn {
+            from { opacity: 0; transform: scale(.92); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        .qr-loading-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #7c4dff;
+            opacity: .3;
+            animation: qrLoadingPulse 1s ease-in-out infinite;
+        }
+        .qr-loading-dot:nth-child(1) { animation-delay: 0s; }
+        .qr-loading-dot:nth-child(2) { animation-delay: .15s; }
+        .qr-loading-dot:nth-child(3) { animation-delay: .3s; }
+
+        @keyframes qrLoadingPulse {
+            0%, 100% { opacity: .25; transform: scale(1); }
+            50%      { opacity: 1;   transform: scale(1.35); }
+        }
+
+        .qr-hd-badge {
+            animation: qrBadgeIn .35s cubic-bezier(.16,1,.3,1) .05s both;
+        }
+
+        @keyframes qrBadgeIn {
+            from { opacity: 0; transform: translateY(-4px) scale(.9); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @media (max-width: 380px) {
+            #qrNegocioSection h1 { font-size: 22px; }
+        }
+    </style>
+
+    <!-- ============================================================
+         JS con Firebase modular v10. Va como <script type="module">,
+         sin dependencias externas.
+    ============================================================ -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.appspot.com",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+            measurementId: "G-38J7RJP8HK",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // ------------------------------------------------------------
+        // localidad / id: se leen de la URL. Mientras no haya sesión
+        // real conectada, caen a estos valores "por ahora".
+        // ------------------------------------------------------------
+        const params = new URLSearchParams(window.location.search);
+        const DEFAULT_LOCALIDAD = "barranca";
+        const DEFAULT_STORE_ID = "fW7W8RsgkkQ3IYfxKHGR";
+
+        const localidad = (params.get("localidad") || DEFAULT_LOCALIDAD).toLowerCase();
+        const tiendaId = params.get("id") || DEFAULT_STORE_ID;
+
+        const QR_API_ENDPOINT = "https://qrapi-oixttik5rq-uc.a.run.app";
+        const COLOR_DEFAULT = ["#7c4dff", "#5a2fe0", "#1a1040"];
+
+        // Tamaño que le pedimos a la API generadora (si la Cloud Function
+        // acepta width/height, esto ya sale nítido de origen; si los
+        // ignora, el post-proceso de abajo igual garantiza la salida HD).
+        const QR_REQUEST_SIZE = 1000; // px
+
+        // Tamaño final del PNG que se descarga, pensado para impresión
+        // (≈ 10" a 300dpi, de sobra para volantes, stickers o afiches).
+        const QR_PRINT_SIZE = 3000; // px
+        const QR_PRINT_MARGIN = 0.06; // 6% de margen blanco (quiet zone extra)
+
+        const QrNegocio = {
+
+            _tiendaInfoCache: null, // { id, alias, localidad }
+            _logoCache: null,       // base64 (o null si no hay logo)
+
+            /**
+             * Lee /Tiendas/{localidad}/{localidad}/{tiendaId} y saca
+             * alias_key (o alias) + localidad real.
+             */
+            async _obtenerInfoTienda() {
+                if (this._tiendaInfoCache) return this._tiendaInfoCache;
+
+                const ref_ = doc(db, "Tiendas", localidad, localidad, tiendaId);
+                const snap = await getDoc(ref_);
+
+                if (!snap.exists()) {
+                    throw new Error(`No se encontró la tienda ${tiendaId} en /Tiendas/${localidad}/${localidad}.`);
+                }
+
+                const data = snap.data() || {};
+                const info = {
+                    id: tiendaId,
+                    alias: data.alias_key || data.alias || tiendaId,
+                    localidad: data.localidad || localidad,
+                };
+
+                this._tiendaInfoCache = info;
+                return info;
+            },
+
+            /**
+             * Descarga /tiendas/{tiendaId}/logo/logo.webp y lo pasa a
+             * base64. Si no existe, devuelve null (se usa color de marca).
+             */
+            async _logoBase64() {
+                if (this._logoCache !== null) return this._logoCache;
+
+                try {
+                    const logoRef = ref(storage, `tiendas/${tiendaId}/logo/logo.webp`);
+                    const url = await getDownloadURL(logoRef);
+
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("No se pudo descargar el logo desde Storage.");
+
+                    const blob = await res.blob();
+                    const base64 = await this._blobToBase64(blob);
+
+                    this._logoCache = base64;
+                    return base64;
+                } catch (err) {
+                    console.warn("QrNegocio: sin logo en Storage, se usará el color de marca.", err);
+                    this._logoCache = false; // false = "ya se buscó y no hay"
+                    return null;
+                }
+            },
+
+            _blobToBase64(blob) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            },
+
+            _armarUrl(tipo, info) {
+                switch (tipo) {
+                    case "perfil":
+                        return `https://geinztech.com/perfil/${info.alias}`;
+                    case "carta":
+                        return `https://geinztech.com/perfil/${info.alias}-carta`;
+                    case "carrito":
+                        return `https://geinztech.com/carrito/carrito?localidad=${info.localidad}&id=${info.id}`;
+                    default:
+                        throw new Error("Tipo de QR desconocido: " + tipo);
+                }
+            },
+
+            /**
+             * Ruta donde vive el QR ya generado de cada tipo, dentro
+             * del Storage de la propia tienda:
+             * tiendas/{tiendaId}/qr/{tipo}.png
+             */
+            _qrStoragePath(tipo) {
+                return `tiendas/${tiendaId}/qr/${tipo}.png`;
+            },
+
+            /**
+             * Intenta leer un QR ya generado previamente desde Storage.
+             * Devuelve el Blob si existe, o null si todavía no se ha
+             * generado ese tipo (caso normal la primera vez).
+             */
+            async _cargarQrGuardado(tipo) {
+                try {
+                    const qrRef = ref(storage, this._qrStoragePath(tipo));
+                    const url = await getDownloadURL(qrRef);
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("No se pudo leer el QR guardado.");
+                    return await res.blob();
+                } catch (err) {
+                    // object-not-found u otro error -> simplemente no hay QR guardado aún
+                    return null;
+                }
+            },
+
+            /**
+             * Sube el PNG del QR (tal cual lo devolvió la Cloud Function)
+             * a Storage, para no tener que regenerarlo la próxima vez
+             * que el usuario entre a esta página. No bloquea ni rompe
+             * el flujo si falla (por ejemplo, por reglas de Storage);
+             * solo queda registrado en consola.
+             */
+            async _guardarQrEnStorage(tipo, blob) {
+                try {
+                    const qrRef = ref(storage, this._qrStoragePath(tipo));
+                    await uploadBytes(qrRef, blob, { contentType: "image/png" });
+                } catch (err) {
+                    console.warn(`QrNegocio: no se pudo guardar el QR "${tipo}" en Storage (revisa las Storage Rules).`, err);
+                }
+            },
+
+            /** Markup del estado vacío ("Toca para crear"), reutilizable. */
+            _emptyStateHtml() {
+                return `
+                    <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
+                        <span class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                        <span class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                        <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para crear</span>
+                    </div>`;
+            },
+
+            /**
+             * Pinta un QR (ya sea recién generado o cargado desde
+             * Storage) dentro de su tile: preview, botón de descarga
+             * en HD y la insignia "HD · print".
+             */
+            async _mostrarQrEnTile(tipo, blobOriginal, info) {
+                const tile = document.querySelector(`.qr-tile[data-tipo="${tipo}"]`);
+                const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
+                const actions = document.getElementById(`qrActions${this._cap(tipo)}`);
+                const descarga = document.getElementById(`qrDescarga${this._cap(tipo)}`);
+
+                const objUrlPreview = URL.createObjectURL(blobOriginal);
+                preview.innerHTML = `<img src="${objUrlPreview}" alt="QR ${tipo}">`;
+                tile.classList.add("has-qr");
+
+                const blobHD = await this._prepararParaImpresion(blobOriginal);
+                const objUrlHD = URL.createObjectURL(blobHD);
+
+                descarga.href = objUrlHD;
+                descarga.download = `qr-${tipo}-${info.alias}.png`;
+                actions.classList.remove("hidden");
+                actions.classList.add("flex");
+
+                if (!preview.querySelector(".qr-hd-badge")) {
+                    preview.insertAdjacentHTML("beforeend", `
+                        <span class="qr-hd-badge pointer-events-none absolute right-2 top-2 rounded-full border border-[#7c4dff]/40 bg-black/70 px-2 py-[3px] text-[9px] font-bold tracking-wide text-[#c9bcff] backdrop-blur-sm">HD · print</span>
+                    `);
+                }
+            },
+
+            /**
+             * Convierte el PNG que devuelve la API en un archivo listo
+             * para imprimir:
+             *  - lo escala a QR_PRINT_SIZE px sin interpolar (nearest
+             *    neighbor), así los módulos del QR quedan con bordes
+             *    100% nítidos en vez de borrosos.
+             *  - lo centra sobre un fondo blanco con margen (quiet zone
+             *    extra), clave para que escanee bien impreso.
+             * Devuelve un Blob PNG.
+             */
+            async _prepararParaImpresion(blobOriginal) {
+                const bitmap = await createImageBitmap(blobOriginal);
+
+                const canvas = document.createElement("canvas");
+                canvas.width = QR_PRINT_SIZE;
+                canvas.height = QR_PRINT_SIZE;
+                const ctx = canvas.getContext("2d");
+
+                // fondo blanco: evita fondos transparentes/negros al imprimir
+                // (esto es solo dentro del archivo PNG descargado, no en la página)
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // nítido, sin blur al escalar
+                ctx.imageSmoothingEnabled = false;
+
+                const inner = Math.round(QR_PRINT_SIZE * (1 - QR_PRINT_MARGIN * 2));
+                const offset = Math.round((QR_PRINT_SIZE - inner) / 2);
+                ctx.drawImage(bitmap, offset, offset, inner, inner);
+
+                return await new Promise((resolve) => {
+                    canvas.toBlob((blob) => resolve(blob), "image/png", 1);
+                });
+            },
+
+            onTileClick(evt, tipo) {
+                const tile = evt.currentTarget;
+                if (tile.classList.contains("has-qr")) return;
+                this.generar(tipo);
+            },
+
+            async generar(tipo) {
+                const tile = document.querySelector(`.qr-tile[data-tipo="${tipo}"]`);
+                const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
+                const actions = document.getElementById(`qrActions${this._cap(tipo)}`);
+                const descarga = document.getElementById(`qrDescarga${this._cap(tipo)}`);
+
+                tile.style.pointerEvents = "none";
+                preview.innerHTML = `
+                    <div class="flex h-full w-full items-center justify-center gap-1.5">
+                        <div class="qr-loading-dot"></div>
+                        <div class="qr-loading-dot"></div>
+                        <div class="qr-loading-dot"></div>
+                    </div>`;
+                actions.classList.add("hidden");
+                actions.classList.remove("flex");
+
+                try {
+                    const info = await this._obtenerInfoTienda();
+                    const logo = await this._logoBase64();
+                    const url = this._armarUrl(tipo, info);
+
+                    const payload = {
+                        url,
+                        dotShape: "extra-rounded",
+                        onlyQr: true,
+                        autoColor: !!logo,
+                        width: QR_REQUEST_SIZE,
+                        height: QR_REQUEST_SIZE,
+                    };
+
+                    if (logo) {
+                        payload.logo = logo;
+                    } else {
+                        payload.colors = COLOR_DEFAULT;
+                    }
+
+                    const res = await fetch(QR_API_ENDPOINT, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (!res.ok) {
+                        let msg = `Error ${res.status}`;
+                        try {
+                            const j = await res.json();
+                            if (j.error) msg = j.error;
+                        } catch (_) {}
+                        throw new Error(msg);
+                    }
+
+                    const blobOriginal = await res.blob();
+
+                    await this._mostrarQrEnTile(tipo, blobOriginal, info);
+                    this._updateStoreChip(info);
+
+                    // Resultado correcto de la Cloud Function -> se guarda en
+                    // Storage para que la próxima vez que el usuario cargue
+                    // esta página, el QR aparezca directo sin regenerarlo.
+                    await this._guardarQrEnStorage(tipo, blobOriginal);
+                } catch (err) {
+                    preview.innerHTML = `<div class="flex h-full w-full flex-col items-center justify-center gap-1 px-2.5 text-center text-[10.5px] text-red-300">⚠️ ${err.message}</div>`;
+                    tile.classList.remove("has-qr");
+                } finally {
+                    tile.style.pointerEvents = "auto";
+                }
+            },
+
+            _updateStoreChip(info) {
+                const label = document.getElementById("qrStoreChipLabel");
+                if (label) label.textContent = `Tienda: ${info.alias} (${info.localidad})`;
+            },
+
+            _cap(tipo) {
+                return tipo.charAt(0).toUpperCase() + tipo.slice(1);
+            },
+
+            async init() {
+                const label = document.getElementById("qrStoreChipLabel");
+                let info;
+
+                try {
+                    info = await this._obtenerInfoTienda();
+                    if (label) label.textContent = `Tienda: ${info.alias} (${info.localidad})`;
+                } catch (err) {
+                    if (label) label.textContent = `Tienda: ${tiendaId}`;
+                    console.warn("QrNegocio: no se pudo precargar info de tienda.", err);
+                    return; // sin info de tienda no podemos armar las URLs de cada QR
+                }
+
+                // Por cada tipo, revisamos si ya existe un QR guardado en
+                // Storage de una visita anterior. Si existe, se muestra
+                // directo (con su botón de descarga HD) y NO se le pide
+                // al usuario que lo genere de nuevo. Si no existe, el tile
+                // se queda en su estado "Toca para crear" normal.
+                const tipos = ["perfil", "carta", "carrito"];
+
+                await Promise.all(tipos.map(async (tipo) => {
+                    const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
+                    if (preview) {
+                        preview.innerHTML = `
+                            <div class="flex h-full w-full items-center justify-center gap-1.5">
+                                <div class="qr-loading-dot"></div>
+                                <div class="qr-loading-dot"></div>
+                                <div class="qr-loading-dot"></div>
+                            </div>`;
+                    }
+
+                    const blobGuardado = await this._cargarQrGuardado(tipo);
+
+                    if (blobGuardado) {
+                        try {
+                            await this._mostrarQrEnTile(tipo, blobGuardado, info);
+                            return;
+                        } catch (err) {
+                            console.warn(`QrNegocio: no se pudo mostrar el QR guardado de "${tipo}".`, err);
+                        }
+                    }
+
+                    // no había QR guardado (o falló al mostrarlo) -> estado vacío normal
+                    if (preview) preview.innerHTML = this._emptyStateHtml();
+                }));
+            },
+        };
+
+        window.QrNegocio = QrNegocio;
+        QrNegocio.init();
+    </script>
+
+</body>
+</html>

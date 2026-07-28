@@ -362,7 +362,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore, collection, doc, onSnapshot, query, orderBy,
-  addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, getDocs
+  addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, getDocs,
+  setDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
@@ -390,15 +391,67 @@ const storage = getStorage(app);
 ========================================================= */
 const TIENDA_ID_STORAGE = "fW7W8RsgkkQ3IYfxKHGR";
 const tiendaDocRef = doc(db, "Tiendas", "barranca", "barranca", "fW7W8RsgkkQ3IYfxKHGR");
-const categoriasRef = collection(tiendaDocRef, "categorias");
+
+/* =========================================================
+   NUEVA RUTA (reemplaza a "categorias"):
+   /Tiendas/barranca/barranca/{tiendaId}/productos/{nombreCategoria}/{nombreCategoria}/{productoId}
+   - "productos" es ahora la colección raíz de categorías.
+   - El ID de cada documento de categoría es EXACTAMENTE el nombre
+     de la categoría (ej. "bebidas").
+   - Dentro de ese documento hay una subcolección con ese MISMO
+     nombre ("bebidas") que contiene los productos reales.
+========================================================= */
+const categoriasRef = collection(tiendaDocRef, "productos");
 
 function productosRef(categoriaId){
-  return collection(doc(categoriasRef, categoriaId), "productos");
+  return collection(doc(categoriasRef, categoriaId), categoriaId);
 }
 function storagePathProducto(productoId){
   return `tiendas/${TIENDA_ID_STORAGE}/productos/${productoId}`;
 }
 
+/* =========================================================
+   MIGRACIÓN AUTOMÁTICA DE LA RUTA VIEJA A LA NUEVA
+   Vieja: /Tiendas/.../categorias/{catId}/productos/{prodId}
+   Nueva: /Tiendas/.../productos/{nombreCategoria}/{nombreCategoria}/{prodId}
+   Se ejecuta al cargar la página. Si ya no queda nada en "categorias"
+   (porque ya se migró antes), no hace nada.
+=========================================================
+async function migrarCategoriasAntiguas(){
+  try{
+    const oldCategoriasRef = collection(tiendaDocRef, "categorias");
+    const oldSnap = await getDocs(oldCategoriasRef);
+    if(oldSnap.empty) return;
+
+    for(const catDoc of oldSnap.docs){
+      const catData = catDoc.data();
+      const nombreCategoria = (catData.nombre || catDoc.id || '').trim();
+      if(!nombreCategoria) continue;
+
+      // 1. Crear/asegurar el documento de categoría con ID = nombre exacto
+      const nuevoCatRef = doc(categoriasRef, nombreCategoria);
+      await setDoc(nuevoCatRef, {
+        nombre: nombreCategoria,
+        createdAt: catData.createdAt || serverTimestamp()
+      }, { merge: true });
+
+      // 2. Mover cada producto a la subcolección con el mismo nombre
+      const nuevaProductosRef = collection(nuevoCatRef, nombreCategoria);
+      const oldProductosSnap = await getDocs(collection(catDoc.ref, "productos"));
+      for(const prodDoc of oldProductosSnap.docs){
+        await setDoc(doc(nuevaProductosRef, prodDoc.id), prodDoc.data());
+        await deleteDoc(prodDoc.ref);
+      }
+
+      // 3. Borrar la categoría vieja ya migrada
+      await deleteDoc(catDoc.ref);
+    }
+  }catch(err){
+    console.error('Error migrando categorías antiguas:', err);
+  }
+}
+migrarCategoriasAntiguas();
+ */
 /* ---------------- Toasts ---------------- */
 const toastWrap = document.getElementById('toast-wrap');
 function toast(msg, type=''){
