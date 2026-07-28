@@ -7,18 +7,6 @@
       "**/node_modules/**"
     ],
     "cleanUrls": true,
-    "redirects": [
-      {
-        "source": "/",
-        "destination": "https://geinztech.com/",
-        "type": 301
-      },
-      {
-        "source": "/**",
-        "destination": "https://geinztech.com/:splat",
-        "type": 301
-      }
-    ],
     "rewrites": [
       {
         "source": "/perfil/**",
@@ -32,17 +20,17 @@
         "source": "/sitemap.xml",
         "function": "sitemap"
       },
-      {
-        "source": "/redirect/serviciosHogar/**",
-        "destination": "/redirect/serviciosHogar.html"
-      },
-      {
+      { 
         "source": "/redirect/**",
         "destination": "/redirect/index.html"
       },
       {
         "source": "/api/share",
         "function": "share"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
       }
     ]
   }

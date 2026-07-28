@@ -2320,15 +2320,20 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   loadQr() {
     this.showSection("qr");
+    // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
+  },
 
-    const iframe = document.getElementById("iframeMiQr");
-    if (!iframe || this._qrLoaded) return;
+  loadProductos() {
+    this.showSection("productos");
+    // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
+  },
 
-    this._qrLoaded = true;
-
-    const id = encodeURIComponent(this.TIENDA_ID || "");
-    const localidad = encodeURIComponent(this.LOCALIDAD_TIENDA || "");
-    iframe.src = `miqr.html`;
+  loadHistorial() {
+    this.showSection("historial");
+    const iframe = document.getElementById("iframeHistorial");
+    if (!iframe || this._historialLoaded) return;
+    this._historialLoaded = true;
+    iframe.src = `historial.html`; // ajusta al nombre real de tu archivo
   },
 
   // ═══════════════════════════════════════════
