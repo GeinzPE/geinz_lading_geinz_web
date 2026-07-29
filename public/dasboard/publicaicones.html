@@ -423,14 +423,28 @@
                         <div class="param-box">
                             <div class="param-row">
                                 <div class="param-info">
-                                    <img src="../img/facebook_icon.png" alt="icono"
+                                    <img src="../img/facebook_icon.webp" alt="icono"
                                         style="width: 23px; height: 23px; margin-left: 6px;">
                                     <h4>Fanpage de Facebook</h4>
                                 </div>
-                                <button class="btn" onclick="conectarMiFanpage()"
+
+                                <!-- Botón conectar (se oculta cuando ya está vinculada) -->
+                                <button class="btn" id="btnConectarFb" onclick="conectarMiFanpage()"
                                     style="padding:8px 16px;font-size:13px;">
                                     Conectar
                                 </button>
+
+                                <!-- Switch: publicar también en FB (oculto hasta conectar) -->
+                                <label class="switch" id="fbPublicarSwitchWrap" style="display:none;">
+                                    <input type="checkbox" id="fbPublicarSwitch" onchange="toggleFbPublicar(this)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="sub-panel" id="fbPublicarPanel">
+                                <p class="sec-sub" id="fbPageNameText">Conectado a: —</p>
+                                <p class="sec-sub">Si activas esto, tu promoción también se publicará automáticamente en
+                                    tu Fanpage de Facebook, con la imagen, título, descripción y el link de Geinz.</p>
                             </div>
                         </div>
 

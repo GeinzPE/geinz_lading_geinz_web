@@ -1,55 +1,69 @@
-
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
-<title>Mis códigos QR — Panel de tienda</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#050506">
+    <title>Mis códigos QR — Panel de tienda</title>
 
-<!-- Tipografía: Sora (display) + Inter (texto) -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- Tipografía: Sora (display) + Inter (texto) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap"
+        rel="stylesheet">
 
-<!-- Tailwind CDN -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                fontFamily: {
-                    display: ['"Sora"', 'ui-sans-serif', 'sans-serif'],
-                    sans: ['"Inter"', 'ui-sans-serif', 'sans-serif'],
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- JSZip: solo lo usa la descarga masiva (zip) de QRs de mesas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Sora"', 'ui-sans-serif', 'sans-serif'],
+                        sans: ['"Inter"', 'ui-sans-serif', 'sans-serif'],
+                    },
                 },
             },
-        },
-    };
-</script>
+        };
+    </script>
 
-<!--
+    <!--
   CSS crítico: pinta TODA la página (html + body, no solo un
   contenedor) de dark al instante, sin esperar a que Tailwind
   compile. Esto elimina cualquier destello o borde blanco, tanto
   en el fondo del navegador como en el "rebote" elástico de
   iOS Safari al hacer scroll de más.
 -->
-<style>
-    * { box-sizing: border-box; }
-    html, body {
-        background-color: #050506;
-        min-height: 100%;
-        overscroll-behavior-y: none;
-    }
-    body {
-        margin: 0;
-        font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-        -webkit-font-smoothing: antialiased;
-    }
-    h1, h2, h3, .font-display {
-        font-family: "Sora", ui-sans-serif, system-ui, sans-serif;
-    }
-</style>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            background-color: #050506;
+            min-height: 100%;
+            overscroll-behavior-y: none;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-display {
+            font-family: "Sora", ui-sans-serif, system-ui, sans-serif;
+        }
+    </style>
 </head>
 
 <body class="min-h-screen bg-[#050506] text-white">
@@ -60,39 +74,48 @@
          al hacer scroll o en pantallas muy anchas/altas.
     ============================================================ -->
     <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#050506]">
-        <div class="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#7c4dff]/[0.14] blur-[140px]"></div>
-        <div class="absolute -bottom-40 -left-24 h-[420px] w-[420px] rounded-full bg-[#5a2fe0]/[0.10] blur-[130px]"></div>
-        <div class="absolute -bottom-24 -right-24 h-[380px] w-[380px] rounded-full bg-[#ff4d8d]/[0.05] blur-[130px]"></div>
-        <div class="absolute inset-0 opacity-[0.035] [background-image:radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] [background-size:24px_24px]"></div>
+        <div
+            class="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#7c4dff]/[0.14] blur-[140px]">
+        </div>
+        <div class="absolute -bottom-40 -left-24 h-[420px] w-[420px] rounded-full bg-[#5a2fe0]/[0.10] blur-[130px]">
+        </div>
+        <div class="absolute -bottom-24 -right-24 h-[380px] w-[380px] rounded-full bg-[#ff4d8d]/[0.05] blur-[130px]">
+        </div>
+        <div
+            class="absolute inset-0 opacity-[0.035] [background-image:radial-gradient(circle_at_1px_1px,#fff_1px,transparent_0)] [background-size:24px_24px]">
+        </div>
     </div>
 
     <!-- ============================================================
          Contenido
     ============================================================ -->
-    <main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-10 sm:px-8 sm:py-16 lg:py-20">
+    <main
+        class="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-10 sm:px-8 sm:py-16 lg:py-20">
 
         <div id="qrNegocioSection" class="font-sans">
 
             <!-- eyebrow -->
-            <div class="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#9c86ff]">
-                <span class="h-[3px] w-[3px] rounded-full bg-[#9c86ff]"></span>
-                Panel de tienda
-            </div>
+
 
             <!-- header -->
-            <div class="flex flex-col gap-4 border-b border-white/[0.07] pb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+            <div
+                class="flex flex-col gap-4 border-b border-white/[0.07] pb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
                 <div>
-                    <h1 class="font-display text-[26px] font-bold leading-tight tracking-tight text-white sm:text-[32px]">
-                        Genera tus códigos QR
+                    <h1
+                        class="font-display text-[26px] font-bold leading-tight tracking-tight text-white sm:text-[32px]">
+                        Los QR de tu negocio
                     </h1>
                     <p class="mt-2 max-w-md text-[13px] leading-relaxed text-neutral-400 sm:text-[14px]">
-                        Listos para imprimir en alta resolución. Usan el logo de tu tienda automáticamente.
+                        Listos para imprimir en alta resolución. Usan el logo de tu tienda automáticamente para tener
+                        mayor perzonalizacion dentro de tu negocio.
                     </p>
                 </div>
 
-                <div id="qrStoreChip" class="flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11.5px] font-semibold text-neutral-300 sm:text-[12px]">
+                <div id="qrStoreChip"
+                    class="flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11.5px] font-semibold text-neutral-300 sm:text-[12px]">
                     <span class="relative flex h-[7px] w-[7px] shrink-0">
-                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7c4dff] opacity-70"></span>
+                        <span
+                            class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7c4dff] opacity-70"></span>
                         <span class="relative inline-flex h-[7px] w-[7px] rounded-full bg-[#7c4dff]"></span>
                     </span>
                     <span id="qrStoreChipLabel">Cargando tienda…</span>
@@ -104,29 +127,40 @@
 
                 <!-- ===== QR INSTITUCIONAL / PERFIL ===== -->
                 <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
-                     id="qrTilePerfil" data-tipo="perfil" onclick="QrNegocio.onTileClick(event,'perfil')">
+                    id="qrTilePerfil" data-tipo="perfil" onclick="QrNegocio.onTileClick(event,'perfil')">
 
-                    <span class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+                    <span
+                        class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
 
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">🏪</div>
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">
+                            🏪</div>
                         <div>
                             <div class="font-display text-[14px] font-semibold text-white">Institucional</div>
                             <div class="mt-0.5 text-[11px] text-neutral-500">Perfil completo del negocio</div>
                         </div>
                     </div>
 
-                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45" id="qrPreviewPerfil">
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45"
+                        id="qrPreviewPerfil">
                         <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
-                            <span class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
-                            <span class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
-                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para crear</span>
+                            <span
+                                class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span
+                                class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para
+                                crear</span>
                         </div>
                     </div>
 
                     <div class="hidden items-center gap-2" id="qrActionsPerfil">
-                        <button class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10" title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('perfil')">↻</button>
-                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5" id="qrDescargaPerfil" title="Descargar en alta resolución" download="qr-perfil.png" onclick="event.stopPropagation();">
+                        <button
+                            class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
+                            title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('perfil')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
+                            id="qrDescargaPerfil" title="Descargar en alta resolución" download="qr-perfil.png"
+                            onclick="event.stopPropagation();">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>
@@ -134,29 +168,40 @@
 
                 <!-- ===== QR CARTA / MENU ===== -->
                 <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
-                     id="qrTileCarta" data-tipo="carta" onclick="QrNegocio.onTileClick(event,'carta')">
+                    id="qrTileCarta" data-tipo="carta" onclick="QrNegocio.onTileClick(event,'carta')">
 
-                    <span class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+                    <span
+                        class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
 
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">🍽️</div>
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">
+                            🍽️</div>
                         <div>
                             <div class="font-display text-[14px] font-semibold text-white">Carta digital</div>
                             <div class="mt-0.5 text-[11px] text-neutral-500">Para mesas y pedidos directos</div>
                         </div>
                     </div>
 
-                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45" id="qrPreviewCarta">
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45"
+                        id="qrPreviewCarta">
                         <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
-                            <span class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
-                            <span class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
-                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para crear</span>
+                            <span
+                                class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span
+                                class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para
+                                crear</span>
                         </div>
                     </div>
 
                     <div class="hidden items-center gap-2" id="qrActionsCarta">
-                        <button class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10" title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carta')">↻</button>
-                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5" id="qrDescargaCarta" title="Descargar en alta resolución" download="qr-carta.png" onclick="event.stopPropagation();">
+                        <button
+                            class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
+                            title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carta')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
+                            id="qrDescargaCarta" title="Descargar en alta resolución" download="qr-carta.png"
+                            onclick="event.stopPropagation();">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>
@@ -164,29 +209,40 @@
 
                 <!-- ===== QR CARRITO ===== -->
                 <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
-                     id="qrTileCarrito" data-tipo="carrito" onclick="QrNegocio.onTileClick(event,'carrito')">
+                    id="qrTileCarrito" data-tipo="carrito" onclick="QrNegocio.onTileClick(event,'carrito')">
 
-                    <span class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+                    <span
+                        class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
 
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">🛒</div>
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">
+                            🛒</div>
                         <div>
                             <div class="font-display text-[14px] font-semibold text-white">Carrito</div>
                             <div class="mt-0.5 text-[11px] text-neutral-500">Pedidos directos al carrito</div>
                         </div>
                     </div>
 
-                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45" id="qrPreviewCarrito">
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45"
+                        id="qrPreviewCarrito">
                         <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
-                            <span class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
-                            <span class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
-                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para crear</span>
+                            <span
+                                class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span
+                                class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para
+                                crear</span>
                         </div>
                     </div>
 
                     <div class="hidden items-center gap-2" id="qrActionsCarrito">
-                        <button class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10" title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carrito')">↻</button>
-                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5" id="qrDescargaCarrito" title="Descargar en alta resolución" download="qr-carrito.png" onclick="event.stopPropagation();">
+                        <button
+                            class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
+                            title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carrito')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
+                            id="qrDescargaCarrito" title="Descargar en alta resolución" download="qr-carrito.png"
+                            onclick="event.stopPropagation();">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>
@@ -194,24 +250,207 @@
 
             </div>
         </div>
+
+        <!-- ============================================================
+             MESAS POR LOCAL — módulo aparte del bloque de QRs
+             institucionales de arriba. No modifica ni reemplaza nada
+             de "qrNegocioSection"; usa la misma app de Firebase, el
+             mismo logo y el mismo endpoint de generación, solo cambia
+             la URL que se codifica en el QR.
+        ============================================================ -->
+        <div id="mesasSection" class="font-sans mt-14">
+
+            <div
+                class="flex flex-col gap-4 border-b border-white/[0.07] pb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+                <div>
+                    <h2
+                        class="font-display text-[22px] font-bold leading-tight tracking-tight text-white sm:text-[26px]">
+                        Mesas por local
+                    </h2>
+                    <p class="mt-2 max-w-md text-[13px] leading-relaxed text-neutral-400 sm:text-[14px]">
+                        Crea, gestiona y descarga los QR de cada mesa. Cada uno lleva un token único
+                        para evitar enlaces manipulados.
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+                <button id="btnGenerarMultiples"
+                    class="font-display flex items-center justify-center gap-2 rounded-[14px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-4 py-3 text-[13px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-[.98]">
+                    <span>⚡</span><span>Generar múltiples mesas</span>
+                </button>
+                <button id="btnAgregarMesa"
+                    class="font-display flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[13px] font-semibold text-neutral-200 transition-colors hover:bg-white/[0.09] active:scale-[.98]">
+                    <span>➕</span><span>Agregar mesa</span>
+                </button>
+                <button id="btnDescargarTodo"
+                    class="font-display flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[13px] font-semibold text-neutral-200 transition-colors hover:bg-white/[0.09] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40">
+                    <span>⬇</span><span>Descargar todos (.zip)</span>
+                </button>
+
+                <span id="mesasCountLabel" class="ml-0 text-[12px] text-neutral-500 sm:ml-auto">0 mesas</span>
+            </div>
+
+            <div id="mesasGrid"
+                class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
+                <!-- se rellena por JS -->
+            </div>
+
+            <div id="mesasEmptyState"
+                class="mt-10 hidden flex-col items-center gap-3 rounded-[22px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-center">
+                <span class="text-[30px]">🪑</span>
+                <p class="font-display text-[15px] font-semibold text-white">Todavía no hay mesas</p>
+                <p class="max-w-xs text-[12.5px] leading-relaxed text-neutral-500">
+                    Usa "Generar múltiples mesas" para crear varias de una vez, o agrega una mesa individual.
+                </p>
+            </div>
+
+        </div>
     </main>
+
+    <!-- ============================================================
+         MODAL: Generar múltiples mesas
+    ============================================================ -->
+    <div id="modalMultiples"
+        class="fixed inset-0 z-50 hidden items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
+        <div class="w-full max-w-sm rounded-t-[24px] border border-white/10 bg-[#0b0b0e] p-5 sm:rounded-[22px] sm:p-6">
+            <h3 class="font-display text-[16px] font-bold text-white">Generar múltiples mesas</h3>
+            <p class="mt-1.5 text-[12.5px] text-neutral-500">Se crearán a partir del siguiente número disponible.</p>
+
+            <label class="mt-5 block text-[11.5px] font-semibold uppercase tracking-wide text-neutral-500">Cantidad de
+                mesas</label>
+            <input id="inputCantidadMesas" type="number" min="1" max="200" value="10"
+                class="mt-2 w-full rounded-[12px] border border-white/10 bg-white/[0.04] px-3.5 py-3 text-[15px] text-white outline-none focus:border-[#7c4dff]/60" />
+
+            <div id="progressMultiples" class="mt-4 hidden">
+                <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                    <div id="progressBarMultiples"
+                        class="h-full w-0 rounded-full bg-[#7c4dff] transition-all duration-200"></div>
+                </div>
+                <p id="progressLabelMultiples" class="mt-1.5 text-[11.5px] text-neutral-500">Generando 0 / 0…</p>
+            </div>
+
+            <div class="mt-5 flex gap-2.5">
+                <button data-close-modal="modalMultiples"
+                    class="flex-1 rounded-[12px] border border-white/10 bg-white/[0.04] py-3 text-[13px] font-semibold text-neutral-300 hover:bg-white/[0.08]">Cancelar</button>
+                <button id="btnConfirmarMultiples"
+                    class="flex-1 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/30 to-[#7c4dff]/15 py-3 text-[13px] font-semibold text-[#d4caff] hover:from-[#7c4dff]/40">Generar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         MODAL: Agregar mesa individual
+    ============================================================ -->
+    <div id="modalAgregar"
+        class="fixed inset-0 z-50 hidden items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
+        <div class="w-full max-w-sm rounded-t-[24px] border border-white/10 bg-[#0b0b0e] p-5 sm:rounded-[22px] sm:p-6">
+            <h3 class="font-display text-[16px] font-bold text-white">Agregar mesa</h3>
+            <p class="mt-1.5 text-[12.5px] text-neutral-500">Se le asignará el siguiente número disponible.</p>
+
+            <label class="mt-5 block text-[11.5px] font-semibold uppercase tracking-wide text-neutral-500">Alias
+                (opcional)</label>
+            <input id="inputAliasMesa" type="text" placeholder="Ej: Barra 1"
+                class="mt-2 w-full rounded-[12px] border border-white/10 bg-white/[0.04] px-3.5 py-3 text-[15px] text-white outline-none placeholder:text-neutral-600 focus:border-[#7c4dff]/60" />
+
+            <div class="mt-5 flex gap-2.5">
+                <button data-close-modal="modalAgregar"
+                    class="flex-1 rounded-[12px] border border-white/10 bg-white/[0.04] py-3 text-[13px] font-semibold text-neutral-300 hover:bg-white/[0.08]">Cancelar</button>
+                <button id="btnConfirmarAgregar"
+                    class="flex-1 flex items-center justify-center gap-2 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/30 to-[#7c4dff]/15 py-3 text-[13px] font-semibold text-[#d4caff] hover:from-[#7c4dff]/40 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="btnConfirmarAgregarLabel">Agregar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         MODAL: Ver QR de mesa
+    ============================================================ -->
+    <div id="modalVerQr"
+        class="fixed inset-0 z-50 hidden items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
+        <div class="w-full max-w-sm rounded-t-[24px] border border-white/10 bg-[#0b0b0e] p-5 sm:rounded-[22px] sm:p-6">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h3 id="verQrTitulo" class="font-display text-[16px] font-bold text-white">Mesa</h3>
+                    <p class="mt-1 text-[12px] text-neutral-500">Escanea o comparte el enlace directo.</p>
+                </div>
+                <button data-close-modal="modalVerQr"
+                    class="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[13px] text-neutral-400 hover:bg-white/[0.1]">✕</button>
+            </div>
+
+            <div class="mt-4 flex justify-center">
+                <div
+                    class="flex h-52 w-52 items-center justify-center overflow-hidden rounded-[16px] border border-white/10 bg-white p-3">
+                    <img id="verQrImagen" src="" alt="QR mesa" class="h-full w-full object-contain">
+                </div>
+            </div>
+
+            <div class="mt-4 flex items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                <span id="verQrLink" class="flex-1 truncate text-[11.5px] text-neutral-400"></span>
+                <button id="btnCopiarLink"
+                    class="shrink-0 rounded-[8px] border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-white/[0.12]">Copiar</button>
+            </div>
+
+            <div class="mt-4 grid grid-cols-2 gap-2.5">
+                <a id="verQrDescargar" download=""
+                    class="font-display flex items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 py-3 text-[12.5px] font-semibold text-[#d4caff] hover:from-[#7c4dff]/35">
+                    <span>⬇</span><span>Descargar HD</span>
+                </a>
+                <button id="btnRegenerarDesdeModal"
+                    class="font-display flex items-center justify-center gap-1.5 rounded-[12px] border border-white/10 bg-white/[0.04] py-3 text-[12.5px] font-semibold text-neutral-300 hover:bg-white/[0.09]">
+                    <span>↻</span><span>Regenerar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast simple, compartido por el módulo de mesas -->
+    <div id="toast"
+        class="pointer-events-none fixed bottom-5 left-1/2 z-[60] w-fit max-w-[90vw] -translate-x-1/2 translate-y-4 rounded-full border border-white/10 bg-[#141417] px-4 py-2.5 text-[12.5px] font-medium text-white opacity-0 shadow-xl transition-all duration-300">
+    </div>
+
+    <style>
+        .mesa-card {
+            cursor: default;
+        }
+
+        .mesa-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            animation: qrFadeIn .35s cubic-bezier(.16, 1, .3, 1);
+        }
+    </style>
 
     <style>
         /* Pequeños extras que Tailwind CDN no cubre out-of-the-box */
 
-        .qr-tile.has-qr { cursor: default; }
-        .qr-tile.has-qr:hover { transform: none; }
+        .qr-tile.has-qr {
+            cursor: default;
+        }
+
+        .qr-tile.has-qr:hover {
+            transform: none;
+        }
 
         .qr-preview img {
             width: 100%;
             height: 100%;
             object-fit: contain;
-            animation: qrFadeIn .4s cubic-bezier(.16,1,.3,1);
+            animation: qrFadeIn .4s cubic-bezier(.16, 1, .3, 1);
         }
 
         @keyframes qrFadeIn {
-            from { opacity: 0; transform: scale(.92); }
-            to   { opacity: 1; transform: scale(1); }
+            from {
+                opacity: 0;
+                transform: scale(.92);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
 
         .qr-loading-dot {
@@ -222,26 +461,85 @@
             opacity: .3;
             animation: qrLoadingPulse 1s ease-in-out infinite;
         }
-        .qr-loading-dot:nth-child(1) { animation-delay: 0s; }
-        .qr-loading-dot:nth-child(2) { animation-delay: .15s; }
-        .qr-loading-dot:nth-child(3) { animation-delay: .3s; }
+
+        .qr-loading-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .qr-loading-dot:nth-child(2) {
+            animation-delay: .15s;
+        }
+
+        .qr-loading-dot:nth-child(3) {
+            animation-delay: .3s;
+        }
 
         @keyframes qrLoadingPulse {
-            0%, 100% { opacity: .25; transform: scale(1); }
-            50%      { opacity: 1;   transform: scale(1.35); }
+
+            0%,
+            100% {
+                opacity: .25;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.35);
+            }
         }
 
         .qr-hd-badge {
-            animation: qrBadgeIn .35s cubic-bezier(.16,1,.3,1) .05s both;
+            animation: qrBadgeIn .35s cubic-bezier(.16, 1, .3, 1) .05s both;
         }
 
         @keyframes qrBadgeIn {
-            from { opacity: 0; transform: translateY(-4px) scale(.9); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(-4px) scale(.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         @media (max-width: 380px) {
-            #qrNegocioSection h1 { font-size: 22px; }
+            #qrNegocioSection h1 {
+                font-size: 22px;
+            }
+        }
+
+        /* Scrollbar totalmente oscura */
+        /* 1. Estándar (Firefox y navegadores compatibles) */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #2a2a2a #000000;
+            /* [tirador] [fondo] */
+        }
+
+        /* 2. WebKit (Chrome, Edge, Safari, Opera) */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        /* Fondo del scroll (totalmente oscuro) */
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+
+        /* Barrita / Tirador (Gris oscuro visible, no blanco) */
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a2a;
+            border-radius: 5px;
+            border: 2px solid #000000;
+            /* Espaciado estético alrededor del tirador */
+        }
+
+        /* Barrita al pasar el cursor (un poquitito más clara para dar respuesta visual) */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3d3d3d;
         }
     </style>
 
@@ -251,8 +549,13 @@
     ============================================================ -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-        import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+        import {
+            getFirestore, doc, getDoc, collection, query, orderBy,
+            onSnapshot, setDoc, updateDoc, deleteDoc, serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import {
+            getStorage, ref, getDownloadURL, uploadBytes, deleteObject
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
@@ -516,20 +819,19 @@
                     const logo = await this._logoBase64();
                     const url = this._armarUrl(tipo, info);
 
+                    if (!logo) {
+                        throw new Error(`No se encontró el logo en Storage (tiendas/${tiendaId}/logo/logo.webp). Sube el logo de tu tienda para poder generar el QR.`);
+                    }
+
                     const payload = {
                         url,
                         dotShape: "extra-rounded",
                         onlyQr: true,
-                        autoColor: !!logo,
+                        autoColor: true,
                         width: QR_REQUEST_SIZE,
                         height: QR_REQUEST_SIZE,
+                        logo,
                     };
-
-                    if (logo) {
-                        payload.logo = logo;
-                    } else {
-                        payload.colors = COLOR_DEFAULT;
-                    }
 
                     const res = await fetch(QR_API_ENDPOINT, {
                         method: "POST",
@@ -542,7 +844,7 @@
                         try {
                             const j = await res.json();
                             if (j.error) msg = j.error;
-                        } catch (_) {}
+                        } catch (_) { }
                         throw new Error(msg);
                     }
 
@@ -622,7 +924,492 @@
 
         window.QrNegocio = QrNegocio;
         QrNegocio.init();
+
+        // ================================================================
+        // MESAS POR LOCAL — módulo aparte, no toca QrNegocio ni su
+        // colección/carpeta de Storage. Reutiliza QrNegocio._obtenerInfoTienda()
+        // y QrNegocio._logoBase64() para que los QR de mesa salgan con el
+        // mismo logo/colores que tus QR institucionales; solo cambia la URL
+        // que se codifica y dónde se guarda cada uno.
+        // ================================================================
+        const MesasNegocio = {
+
+            _mesas: [], // cache local del último snapshot, ordenado por numero_mesa
+
+            _mesasCollection() {
+                // /Tiendas/{localidad}/{localidad}/{tiendaId}/mesas/{mesaDocId}
+                return collection(db, "Tiendas", localidad, localidad, tiendaId, "mesas");
+            },
+
+            _mesaDocRef(docId) {
+                return doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", docId);
+            },
+
+            _mesaDocId(numeroMesa) {
+                return `mesa_${numeroMesa}`;
+            },
+
+            _mesaStoragePath(numeroMesa) {
+                return `tiendas/${tiendaId}/mesas/mesa_${numeroMesa}.png`;
+            },
+
+            _generarToken(length = 16) {
+                const bytes = new Uint8Array(length);
+                crypto.getRandomValues(bytes);
+                return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").slice(0, length);
+            },
+
+            _armarUrlMesa(alias, token) {
+                return `https://geinztech.com/perfil/${alias}-mesa-${token}`;
+            },
+
+            _siguienteNumeroMesa() {
+                if (!this._mesas.length) return 1;
+                const max = this._mesas.reduce((m, mesa) => Math.max(m, mesa.numero_mesa || 0), 0);
+                return max + 1;
+            },
+
+            async _generarImagenQr(url, logo) {
+                if (!logo) {
+                    throw new Error(`No se encontró el logo en Storage (tiendas/${tiendaId}/logo/logo.webp). Sube el logo de tu tienda para poder generar los QR de mesa.`);
+                }
+
+                const payload = {
+                    url,
+                    dotShape: "extra-rounded",
+                    onlyQr: true,
+                    autoColor: true,
+                    width: QR_REQUEST_SIZE,
+                    height: QR_REQUEST_SIZE,
+                    logo,
+                };
+
+                const res = await fetch(QR_API_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!res.ok) {
+                    let msg = `Error ${res.status}`;
+                    try { const j = await res.json(); if (j.error) msg = j.error; } catch (_) { }
+                    throw new Error(msg);
+                }
+                return await res.blob();
+            },
+
+            // Crea UNA mesa: token, url, QR (con el mismo logo que QrNegocio),
+            // sube a Storage y escribe el documento en Firestore.
+            async _crearMesa({ numeroMesa, alias, info, logo }) {
+                const nombreAlias = alias && alias.trim() ? alias.trim() : `Mesa ${numeroMesa}`;
+                const token = this._generarToken();
+                const url = this._armarUrlMesa(info.alias, token);
+
+                const blob = await this._generarImagenQr(url, logo);
+
+                const storageRef = ref(storage, this._mesaStoragePath(numeroMesa));
+                await uploadBytes(storageRef, blob, { contentType: "image/png" });
+                const qrUrl = await getDownloadURL(storageRef);
+
+                const docId = this._mesaDocId(numeroMesa);
+                await setDoc(this._mesaDocRef(docId), {
+                    numero_mesa: numeroMesa,
+                    nombre_alias: nombreAlias,
+                    token_seguridad: token,
+                    qr_url: qrUrl,
+                    creado_en: serverTimestamp(),
+                });
+
+                return docId;
+            },
+
+            async generarMultiples(cantidad) {
+                cantidad = Math.max(1, Math.min(200, parseInt(cantidad, 10) || 0));
+                const info = await QrNegocio._obtenerInfoTienda();
+                const logo = await QrNegocio._logoBase64();
+
+                if (!logo) {
+                    UI.toast("No se encontró el logo de tu tienda en Storage. Súbelo antes de generar los QR de mesa.", true);
+                    return;
+                }
+
+                const inicio = this._siguienteNumeroMesa();
+
+                const progressWrap = document.getElementById("progressMultiples");
+                const progressBar = document.getElementById("progressBarMultiples");
+                const progressLabel = document.getElementById("progressLabelMultiples");
+                const btnConfirmar = document.getElementById("btnConfirmarMultiples");
+
+                progressWrap.classList.remove("hidden");
+                btnConfirmar.disabled = true;
+                btnConfirmar.classList.add("opacity-50", "cursor-not-allowed");
+
+                let creadas = 0;
+                for (let i = 0; i < cantidad; i++) {
+                    const numeroMesa = inicio + i;
+                    try {
+                        await this._crearMesa({ numeroMesa, alias: null, info, logo });
+                    } catch (err) {
+                        console.warn(`MesasNegocio: no se pudo crear la mesa ${numeroMesa}.`, err);
+                    }
+                    creadas++;
+                    const pct = Math.round((creadas / cantidad) * 100);
+                    progressBar.style.width = `${pct}%`;
+                    progressLabel.textContent = `Generando ${creadas} / ${cantidad}…`;
+                }
+
+                progressWrap.classList.add("hidden");
+                btnConfirmar.disabled = false;
+                btnConfirmar.classList.remove("opacity-50", "cursor-not-allowed");
+
+                UI.closeModal("modalMultiples");
+                UI.toast(`${creadas} mesa${creadas === 1 ? "" : "s"} generada${creadas === 1 ? "" : "s"} correctamente.`);
+            },
+
+            async agregarMesa(alias) {
+                const info = await QrNegocio._obtenerInfoTienda();
+                const logo = await QrNegocio._logoBase64();
+
+                if (!logo) {
+                    UI.toast("No se encontró el logo de tu tienda en Storage. Súbelo antes de generar los QR de mesa.", true);
+                    return;
+                }
+
+                const numeroMesa = this._siguienteNumeroMesa();
+                await this._crearMesa({ numeroMesa, alias, info, logo });
+                UI.closeModal("modalAgregar");
+                UI.toast(`Mesa ${numeroMesa} creada correctamente.`);
+            },
+
+            async renombrarMesa(docId, nuevoAlias) {
+                const alias = (nuevoAlias || "").trim();
+                if (!alias) return;
+                await updateDoc(this._mesaDocRef(docId), { nombre_alias: alias });
+                UI.toast("Alias actualizado.");
+            },
+
+            // Cambia solo el token de seguridad: invalida el QR anterior
+            // y regenera la imagen, sobreescribiendo el mismo archivo.
+            async regenerarMesa(docId) {
+                const mesa = this._mesas.find((m) => m.id === docId);
+                if (!mesa) return;
+
+                const info = await QrNegocio._obtenerInfoTienda();
+                const logo = await QrNegocio._logoBase64();
+
+                const nuevoToken = this._generarToken();
+                const url = this._armarUrlMesa(info.alias, nuevoToken);
+                const blob = await this._generarImagenQr(url, logo);
+
+                const storageRef = ref(storage, this._mesaStoragePath(mesa.numero_mesa));
+                await uploadBytes(storageRef, blob, { contentType: "image/png" });
+                const qrUrl = await getDownloadURL(storageRef);
+
+                await updateDoc(this._mesaDocRef(docId), {
+                    token_seguridad: nuevoToken,
+                    qr_url: qrUrl,
+                });
+
+                UI.toast(`QR de "${mesa.nombre_alias}" regenerado. El enlace anterior ya no funciona.`);
+            },
+
+            async eliminarMesa(docId) {
+                const mesa = this._mesas.find((m) => m.id === docId);
+                if (!mesa) return;
+                try {
+                    await deleteObject(ref(storage, this._mesaStoragePath(mesa.numero_mesa)));
+                } catch (err) {
+                    console.warn("MesasNegocio: no se pudo borrar la imagen del QR en Storage.", err);
+                }
+                await deleteDoc(this._mesaDocRef(docId));
+                UI.toast(`Mesa "${mesa.nombre_alias}" eliminada.`);
+            },
+
+            async descargarTodas() {
+                if (!this._mesas.length) return;
+                const btn = document.getElementById("btnDescargarTodo");
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<span class="font-display">Preparando ZIP…</span>`;
+
+                try {
+                    const zip = new JSZip();
+                    for (const mesa of this._mesas) {
+                        try {
+                            const res = await fetch(mesa.qr_url);
+                            const blobOriginal = await res.blob();
+                            const blobHD = await QrNegocio._prepararParaImpresion(blobOriginal);
+                            const nombreArchivo = `qr-${mesa.numero_mesa}-${this._slug(mesa.nombre_alias)}.png`;
+                            zip.file(nombreArchivo, blobHD);
+                        } catch (err) {
+                            console.warn(`MesasNegocio: no se pudo incluir la mesa ${mesa.numero_mesa} en el ZIP.`, err);
+                        }
+                    }
+                    const contenido = await zip.generateAsync({ type: "blob" });
+                    const objUrl = URL.createObjectURL(contenido);
+                    const a = document.createElement("a");
+                    a.href = objUrl;
+                    a.download = "qrs-mesas.zip";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(objUrl);
+                } catch (err) {
+                    UI.toast("No se pudo generar el ZIP.", true);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }
+            },
+
+            _slug(text) {
+                return (text || "mesa")
+                    .toLowerCase()
+                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/(^-|-$)/g, "");
+            },
+
+            async init() {
+                const q = query(this._mesasCollection(), orderBy("numero_mesa"));
+                onSnapshot(q, (snap) => {
+                    this._mesas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+                    UI.renderMesas(this._mesas);
+                }, (err) => {
+                    console.error("MesasNegocio: error al escuchar mesas.", err);
+                    UI.toast("No se pudieron cargar las mesas.", true);
+                });
+            },
+        };
+
+        const UI = {
+            _mesaEnModal: null,
+
+            renderMesas(mesas) {
+                const grid = document.getElementById("mesasGrid");
+                const empty = document.getElementById("mesasEmptyState");
+                const countLabel = document.getElementById("mesasCountLabel");
+                const btnDescargarTodo = document.getElementById("btnDescargarTodo");
+
+                countLabel.textContent = `${mesas.length} mesa${mesas.length === 1 ? "" : "s"}`;
+                btnDescargarTodo.disabled = mesas.length === 0;
+
+                if (!mesas.length) {
+                    grid.innerHTML = "";
+                    empty.classList.remove("hidden");
+                    empty.classList.add("flex");
+                    return;
+                }
+                empty.classList.add("hidden");
+                empty.classList.remove("flex");
+
+                grid.innerHTML = mesas.map((mesa) => this._cardHtml(mesa)).join("");
+                this._bindCardEvents();
+            },
+
+            _cardHtml(mesa) {
+                return `
+                <div class="mesa-card group relative flex flex-col gap-2.5 overflow-hidden rounded-[18px] border border-white/[0.07] bg-white/[0.025] p-3 transition-colors hover:border-[#7c4dff]/35 hover:bg-white/[0.045]" data-doc-id="${mesa.id}">
+                    <div class="mesa-preview relative aspect-square overflow-hidden rounded-[12px] border border-white/10 bg-white cursor-pointer" data-action="ver">
+                        <img src="${mesa.qr_url}" alt="QR ${mesa.nombre_alias}" loading="lazy">
+                    </div>
+
+                    <div class="flex items-center justify-between gap-1">
+                        <input type="text" value="${this._escapeAttr(mesa.nombre_alias)}"
+                            class="mesa-alias-input w-full min-w-0 truncate rounded-[8px] border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] font-semibold text-white outline-none transition-colors hover:border-white/10 focus:border-[#7c4dff]/50 focus:bg-white/[0.05]"
+                            data-action="renombrar" />
+                    </div>
+                    <div class="text-[10.5px] text-neutral-500">Mesa #${mesa.numero_mesa}</div>
+
+                    <div class="flex items-center gap-1.5">
+                        <button class="flex h-8 flex-1 items-center justify-center rounded-[8px] border border-white/10 bg-white/[0.04] text-[10.5px] font-semibold text-neutral-300 hover:bg-white/[0.09]" data-action="copiar" title="Copiar link">🔗</button>
+                        <button class="flex h-8 flex-1 items-center justify-center rounded-[8px] border border-white/10 bg-white/[0.04] text-[10.5px] font-semibold text-neutral-300 hover:bg-white/[0.09]" data-action="regenerar" title="Regenerar QR">↻</button>
+                        <button class="flex h-8 flex-1 items-center justify-center rounded-[8px] border border-red-500/20 bg-red-500/[0.06] text-[10.5px] font-semibold text-red-300 hover:bg-red-500/[0.12]" data-action="eliminar" title="Eliminar mesa">🗑</button>
+                    </div>
+                </div>`;
+            },
+
+            _escapeAttr(str) {
+                return String(str || "").replace(/"/g, "&quot;");
+            },
+
+            _bindCardEvents() {
+                document.querySelectorAll("#mesasGrid .mesa-card").forEach((card) => {
+                    const docId = card.dataset.docId;
+                    const mesa = MesasNegocio._mesas.find((m) => m.id === docId);
+                    if (!mesa) return;
+
+                    card.querySelector('[data-action="ver"]').addEventListener("click", () => this.openVerQr(mesa));
+
+                    card.querySelector('[data-action="copiar"]').addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        this.copiarLink(mesa);
+                    });
+
+                    card.querySelector('[data-action="regenerar"]').addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`¿Regenerar el QR de "${mesa.nombre_alias}"? El enlace/QR anterior dejará de funcionar.`)) return;
+                        await this._conEstadoCarga(card, () => MesasNegocio.regenerarMesa(docId));
+                    });
+
+                    card.querySelector('[data-action="eliminar"]').addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`¿Eliminar la mesa "${mesa.nombre_alias}"? Esta acción no se puede deshacer.`)) return;
+                        await MesasNegocio.eliminarMesa(docId);
+                    });
+
+                    const aliasInput = card.querySelector('[data-action="renombrar"]');
+                    aliasInput.addEventListener("click", (e) => e.stopPropagation());
+                    aliasInput.addEventListener("keydown", (e) => {
+                        if (e.key === "Enter") e.target.blur();
+                    });
+                    aliasInput.addEventListener("blur", async (e) => {
+                        const nuevo = e.target.value.trim();
+                        if (nuevo && nuevo !== mesa.nombre_alias) {
+                            await MesasNegocio.renombrarMesa(docId, nuevo);
+                        } else {
+                            e.target.value = mesa.nombre_alias;
+                        }
+                    });
+                });
+            },
+
+            async _conEstadoCarga(card, fn) {
+                const preview = card.querySelector(".mesa-preview");
+                const original = preview.innerHTML;
+                preview.innerHTML = `
+                    <div class="flex h-full w-full items-center justify-center gap-1.5 bg-[#050506]">
+                        <div class="qr-loading-dot"></div><div class="qr-loading-dot"></div><div class="qr-loading-dot"></div>
+                    </div>`;
+                try {
+                    await fn();
+                } catch (err) {
+                    console.error(err);
+                    this.toast("Ocurrió un error. Intenta de nuevo.", true);
+                    preview.innerHTML = original;
+                }
+            },
+
+            async openVerQr(mesa) {
+                this._mesaEnModal = mesa;
+                document.getElementById("verQrTitulo").textContent = mesa.nombre_alias;
+                document.getElementById("verQrImagen").src = mesa.qr_url;
+
+                const info = await QrNegocio._obtenerInfoTienda();
+                const url = MesasNegocio._armarUrlMesa(info.alias, mesa.token_seguridad);
+                document.getElementById("verQrLink").textContent = url;
+
+                const descarga = document.getElementById("verQrDescargar");
+                try {
+                    const res = await fetch(mesa.qr_url);
+                    const blobOriginal = await res.blob();
+                    const blobHD = await QrNegocio._prepararParaImpresion(blobOriginal);
+                    descarga.href = URL.createObjectURL(blobHD);
+                    descarga.download = `qr-mesa-${mesa.numero_mesa}-${MesasNegocio._slug(mesa.nombre_alias)}.png`;
+                } catch (err) {
+                    descarga.href = mesa.qr_url;
+                }
+
+                this.openModal("modalVerQr");
+            },
+
+            async copiarLink(mesa) {
+                try {
+                    const info = await QrNegocio._obtenerInfoTienda();
+                    const url = MesasNegocio._armarUrlMesa(info.alias, mesa.token_seguridad);
+                    await navigator.clipboard.writeText(url);
+                    this.toast("Enlace copiado.");
+                } catch (err) {
+                    this.toast("No se pudo copiar el enlace.", true);
+                }
+            },
+
+            openModal(id) {
+                const modal = document.getElementById(id);
+                modal.classList.remove("hidden");
+                modal.classList.add("flex");
+            },
+
+            closeModal(id) {
+                const modal = document.getElementById(id);
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            },
+
+            toast(msg, isError = false) {
+                const el = document.getElementById("toast");
+                el.textContent = msg;
+                el.style.borderColor = isError ? "rgba(248,113,113,.35)" : "rgba(255,255,255,.1)";
+                el.classList.remove("opacity-0", "translate-y-4");
+                clearTimeout(this._toastTimer);
+                this._toastTimer = setTimeout(() => {
+                    el.classList.add("opacity-0", "translate-y-4");
+                }, 2600);
+            },
+        };
+
+        document.getElementById("btnGenerarMultiples").addEventListener("click", () => UI.openModal("modalMultiples"));
+        document.getElementById("btnAgregarMesa").addEventListener("click", () => UI.openModal("modalAgregar"));
+        document.getElementById("btnDescargarTodo").addEventListener("click", () => MesasNegocio.descargarTodas());
+
+        document.querySelectorAll("[data-close-modal]").forEach((btn) => {
+            btn.addEventListener("click", () => UI.closeModal(btn.dataset.closeModal));
+        });
+        document.querySelectorAll('#modalMultiples, #modalAgregar, #modalVerQr').forEach((modal) => {
+            modal.addEventListener("click", (e) => {
+                if (e.target === modal) UI.closeModal(modal.id);
+            });
+        });
+
+        document.getElementById("btnConfirmarMultiples").addEventListener("click", () => {
+            const cantidad = document.getElementById("inputCantidadMesas").value;
+            MesasNegocio.generarMultiples(cantidad);
+        });
+
+        document.getElementById("btnConfirmarAgregar").addEventListener("click", async () => {
+            const alias = document.getElementById("inputAliasMesa").value;
+            const btn = document.getElementById("btnConfirmarAgregar");
+            const label = document.getElementById("btnConfirmarAgregarLabel");
+
+            btn.disabled = true;
+            label.innerHTML = `
+        <span class="flex items-center gap-1.5">
+            <span class="qr-loading-dot" style="background:#d4caff"></span>
+            <span class="qr-loading-dot" style="background:#d4caff"></span>
+            <span class="qr-loading-dot" style="background:#d4caff"></span>
+        </span>`;
+
+            try {
+                await MesasNegocio.agregarMesa(alias);
+                document.getElementById("inputAliasMesa").value = "";
+            } catch (err) {
+                UI.toast(err.message || "No se pudo crear la mesa.", true);
+            } finally {
+                btn.disabled = false;
+                label.textContent = "Agregar";
+            }
+        });
+
+        document.getElementById("btnCopiarLink").addEventListener("click", () => {
+            if (UI._mesaEnModal) UI.copiarLink(UI._mesaEnModal);
+        });
+
+        document.getElementById("btnRegenerarDesdeModal").addEventListener("click", async () => {
+            if (!UI._mesaEnModal) return;
+            if (!confirm(`¿Regenerar el QR de "${UI._mesaEnModal.nombre_alias}"? El enlace/QR anterior dejará de funcionar.`)) return;
+            const docId = UI._mesaEnModal.id;
+            UI.closeModal("modalVerQr");
+            try {
+                await MesasNegocio.regenerarMesa(docId);
+            } catch (err) {
+                UI.toast(err.message || "No se pudo regenerar el QR.", true);
+            }
+        });
+
+        window.MesasNegocio = MesasNegocio;
+        MesasNegocio.init();
     </script>
 
 </body>
+
 </html>

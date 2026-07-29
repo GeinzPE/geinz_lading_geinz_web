@@ -1,802 +1,2589 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>Pedidos en vivo · Geinz</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<style>
-  /* ══════════════════════════════════════════════
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <title>Pedidos en vivo · Geinz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ══════════════════════════════════════════════
      TOKENS
      ══════════════════════════════════════════════ */
-  :root{
-    --bg:#08080c;
-    --surface:#101017;
-    --surface-2:#151520;
-    --surface-3:#1b1b28;
-    --line:rgba(255,255,255,.08);
-    --line-soft:rgba(255,255,255,.05);
-    --ink:#f2f2f5;
-    --ink-dim:#93939f;
-    --ink-faint:#5a5a66;
+        :root {
+            --bg: #08080c;
+            --surface: #101017;
+            --surface-2: #151520;
+            --surface-3: #1b1b28;
+            --line: rgba(255, 255, 255, .08);
+            --line-soft: rgba(255, 255, 255, .05);
+            --ink: #f2f2f5;
+            --ink-dim: #93939f;
+            --ink-faint: #5a5a66;
 
-    --amber:#f5a524;
-    --amber-soft:rgba(245,165,36,.13);
-    --violet:#7c5cff;
-    --violet-soft:rgba(124,92,255,.14);
-    --green:#22c55e;
-    --green-soft:rgba(34,197,94,.13);
-    --red:#f0475a;
-    --red-soft:rgba(240,71,90,.13);
-  }
+            --amber: #f5a524;
+            --amber-soft: rgba(245, 165, 36, .13);
+            --violet: #7c5cff;
+            --violet-soft: rgba(124, 92, 255, .14);
+            --green: #22c55e;
+            --green-soft: rgba(34, 197, 94, .13);
+            --red: #f0475a;
+            --red-soft: rgba(240, 71, 90, .13);
+        }
 
-  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body{ background:var(--bg); color:var(--ink); font-family:'Inter',system-ui,sans-serif; }
-  body{ min-height:100vh; }
-  ::-webkit-scrollbar{ width:7px; height:7px; }
-  ::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:99px; }
-  ::-webkit-scrollbar-thumb:hover{ background:rgba(255,255,255,.2); }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-  .mono{ font-family:'JetBrains Mono',monospace; }
-  .display{ font-family:'Manrope',system-ui,sans-serif; }
-  button{ font-family:inherit; }
+        html,
+        body {
+            background: var(--bg);
+            color: var(--ink);
+            font-family: 'Inter', system-ui, sans-serif;
+        }
 
-  /* ══════════════════════════════════════════════
+        body {
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .12);
+            border-radius: 99px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, .2);
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .display {
+            font-family: 'Manrope', system-ui, sans-serif;
+        }
+
+        button {
+            font-family: inherit;
+        }
+
+        /* ══════════════════════════════════════════════
      SHELL
      ══════════════════════════════════════════════ */
-  .app-shell{ display:flex; flex-direction:column; }
+        .app-shell {
+            display: flex;
+            flex-direction: column;
+        }
 
-  /* ══════════════════════════════════════════════
+        /* ══════════════════════════════════════════════
      HEADER
      ══════════════════════════════════════════════ */
-  header{
-    flex-shrink:0; position:relative; z-index:20;
-    background:linear-gradient(180deg, rgba(124,92,255,.07), transparent 140%);
-    border-bottom:1px solid var(--line);
-    padding:18px 20px 14px;
-  }
-  .head-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
-  .head-id{ display:flex; align-items:center; gap:11px; min-width:0; }
-  .live-dot-wrap{ position:relative; width:11px; height:11px; flex-shrink:0; }
-  .live-dot{ width:11px; height:11px; border-radius:50%; background:var(--green); position:relative; z-index:2; box-shadow:0 0 8px rgba(34,197,94,.7); }
-  .live-dot::after{
-    content:''; position:absolute; inset:-6px; border-radius:50%; background:rgba(34,197,94,.35);
-    animation:ping 1.8s cubic-bezier(0,0,.3,1) infinite;
-  }
-  .live-dot-wrap.off .live-dot{ background:var(--red); box-shadow:0 0 8px rgba(240,71,90,.7); }
-  .live-dot-wrap.off .live-dot::after{ background:rgba(240,71,90,.35); }
-  @keyframes ping{ 0%{ transform:scale(1); opacity:1; } 100%{ transform:scale(2.4); opacity:0; } }
+        header {
+            flex-shrink: 0;
+            position: relative;
+            z-index: 20;
+            background: linear-gradient(180deg, rgba(124, 92, 255, .07), transparent 140%);
+            border-bottom: 1px solid var(--line);
+            padding: 18px 20px 14px;
+        }
 
-  .head-titles{ min-width:0; }
-  .head-eyebrow{ font-size:11px; font-weight:600; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.09em; margin-bottom:2px; }
-  .head-title{ font-size:19px; font-weight:800; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .head-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
 
-  .head-clock{ text-align:right; flex-shrink:0; }
-  .head-clock-time{ font-size:18px; font-weight:700; }
-  .head-clock-date{ font-size:11px; color:var(--ink-faint); text-transform:capitalize; }
+        .head-id {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-width: 0;
+        }
 
-  .head-right{ display:flex; align-items:center; gap:12px; flex-shrink:0; }
-  .bell-btn{
-    width:40px; height:40px; border-radius:13px; border:1px solid var(--line); background:var(--surface);
-    color:var(--ink-dim); font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;
-    transition:all .18s ease; flex-shrink:0; position:relative;
-  }
-  .bell-btn:hover{ background:var(--surface-2); }
-  .bell-btn.on{ color:var(--violet); border-color:rgba(124,92,255,.35); background:var(--violet-soft); }
-  .bell-btn.ring{ animation:bellRing .5s ease; }
-  @keyframes bellRing{
-    0%,100%{ transform:rotate(0); } 20%{ transform:rotate(-18deg); } 40%{ transform:rotate(16deg); }
-    60%{ transform:rotate(-10deg); } 80%{ transform:rotate(6deg); }
-  }
-  .bell-dot{ position:absolute; top:6px; right:6px; width:7px; height:7px; border-radius:50%; background:var(--red); opacity:0; transition:opacity .2s ease; box-shadow:0 0 6px rgba(240,71,90,.8); }
-  .bell-dot.show{ opacity:1; }
+        .live-dot-wrap {
+            position: relative;
+            width: 11px;
+            height: 11px;
+            flex-shrink: 0;
+        }
 
-  .status-tabs{ display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; }
-  .status-tabs::-webkit-scrollbar{ display:none; }
-  .stab{
-    flex-shrink:0; display:flex; align-items:center; gap:8px; padding:9px 14px 9px 11px; border-radius:14px;
-    border:1px solid var(--line); background:var(--surface); cursor:pointer; transition:all .18s ease; user-select:none;
-  }
-  .stab .dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .stab .lbl{ font-size:12.5px; font-weight:700; color:var(--ink-dim); white-space:nowrap; }
-  .stab .num{ font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; color:var(--ink-faint); }
-  .stab .money{ font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:var(--ink-faint); padding-left:6px; border-left:1px solid var(--line); }
-  .stab[data-s="pendiente"] .dot{ background:var(--amber); }
-  .stab[data-s="en_proceso"] .dot{ background:var(--violet); }
-  .stab[data-s="entregado"] .dot{ background:var(--green); }
-  .stab[data-s="rechazado"] .dot{ background:var(--red); }
-  .stab.active{ border-color:rgba(255,255,255,.22); background:var(--surface-2); }
-  .stab.active .lbl{ color:var(--ink); }
+        .live-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: var(--green);
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 0 8px rgba(34, 197, 94, .7);
+        }
 
-  /* ══════════════════════════════════════════════
+        .live-dot::after {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            background: rgba(34, 197, 94, .35);
+            animation: ping 1.8s cubic-bezier(0, 0, .3, 1) infinite;
+        }
+
+        .live-dot-wrap.off .live-dot {
+            background: var(--red);
+            box-shadow: 0 0 8px rgba(240, 71, 90, .7);
+        }
+
+        .live-dot-wrap.off .live-dot::after {
+            background: rgba(240, 71, 90, .35);
+        }
+
+        @keyframes ping {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2.4);
+                opacity: 0;
+            }
+        }
+
+        .head-titles {
+            min-width: 0;
+        }
+
+        .head-eyebrow {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ink-faint);
+            text-transform: uppercase;
+            letter-spacing: .09em;
+            margin-bottom: 2px;
+        }
+
+        .head-title {
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: -.01em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .head-clock {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .head-clock-time {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .head-clock-date {
+            font-size: 11px;
+            color: var(--ink-faint);
+            text-transform: capitalize;
+        }
+
+        .head-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        /* — Control de auto-rechazo — */
+        .autorej-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .autorej-btn {
+            height: 40px;
+            padding: 0 12px;
+            border-radius: 13px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--ink-dim);
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            transition: all .18s ease;
+        }
+
+        .autorej-btn:hover {
+            background: var(--surface-2);
+        }
+
+        .autorej-btn.on {
+            color: var(--red);
+            border-color: rgba(240, 71, 90, .3);
+            background: var(--red-soft);
+        }
+
+        .autorej-btn .ico {
+            font-size: 14px;
+        }
+
+        .autorej-btn .val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+
+        .autorej-pop {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            width: 250px;
+            background: #0c0c13;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .6);
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-6px) scale(.97);
+            transition: all .18s ease;
+        }
+
+        .autorej-pop.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        .autorej-pop-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 3px;
+        }
+
+        .autorej-pop-sub {
+            font-size: 10.5px;
+            color: var(--ink-faint);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .autorej-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .autorej-toggle-lbl {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ink-dim);
+        }
+
+        .switch {
+            position: relative;
+            width: 38px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .switch-track {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, .12);
+            border-radius: 99px;
+            cursor: pointer;
+            transition: background .18s ease;
+        }
+
+        .switch-track::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform .18s ease;
+        }
+
+        .switch input:checked+.switch-track {
+            background: var(--red);
+        }
+
+        .switch input:checked+.switch-track::after {
+            transform: translateX(16px);
+        }
+
+        .autorej-input-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .autorej-input-row input[type="number"] {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            color: var(--ink);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 8px 10px;
+            outline: none;
+        }
+
+        .autorej-input-row input[type="number"]:focus {
+            border-color: rgba(240, 71, 90, .4);
+        }
+
+        .autorej-input-row span {
+            font-size: 11.5px;
+            color: var(--ink-faint);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .autorej-save {
+            margin-top: 12px;
+            width: 100%;
+            padding: 9px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #f0475a, #d63750);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .autorej-save:active {
+            transform: scale(.97);
+        }
+
+        .bell-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 13px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--ink-dim);
+            font-size: 17px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .18s ease;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .bell-btn:hover {
+            background: var(--surface-2);
+        }
+
+        .bell-btn.on {
+            color: var(--violet);
+            border-color: rgba(124, 92, 255, .35);
+            background: var(--violet-soft);
+        }
+
+        .bell-btn.ring {
+            animation: bellRing .5s ease;
+        }
+
+        @keyframes bellRing {
+
+            0%,
+            100% {
+                transform: rotate(0);
+            }
+
+            20% {
+                transform: rotate(-18deg);
+            }
+
+            40% {
+                transform: rotate(16deg);
+            }
+
+            60% {
+                transform: rotate(-10deg);
+            }
+
+            80% {
+                transform: rotate(6deg);
+            }
+        }
+
+        .bell-dot {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--red);
+            opacity: 0;
+            transition: opacity .2s ease;
+            box-shadow: 0 0 6px rgba(240, 71, 90, .8);
+        }
+
+        .bell-dot.show {
+            opacity: 1;
+        }
+
+        .status-tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .status-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .stab {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px 9px 11px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            cursor: pointer;
+            transition: all .18s ease;
+            user-select: none;
+        }
+
+        .stab .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .stab .lbl {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--ink-dim);
+            white-space: nowrap;
+        }
+
+        .stab .num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ink-faint);
+        }
+
+        .stab .money {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ink-faint);
+            padding-left: 6px;
+            border-left: 1px solid var(--line);
+        }
+
+        .stab[data-s="pendiente"] .dot {
+            background: var(--amber);
+        }
+
+        .stab[data-s="en_proceso"] .dot {
+            background: var(--violet);
+        }
+
+        .stab[data-s="entregado"] .dot {
+            background: var(--green);
+        }
+
+        .stab[data-s="rechazado"] .dot {
+            background: var(--red);
+        }
+
+        .stab.active {
+            border-color: rgba(255, 255, 255, .22);
+            background: var(--surface-2);
+        }
+
+        .stab.active .lbl {
+            color: var(--ink);
+        }
+
+        /* ══════════════════════════════════════════════
      BOARD
      ══════════════════════════════════════════════ */
-  .board{
-    flex:1; min-height:0; padding:16px 20px 20px; display:grid;
-    grid-template-columns:repeat(4,1fr); gap:14px;
-  }
-  .board-col{ display:flex; flex-direction:column; min-height:0; background:var(--surface); border:1px solid var(--line); border-radius:20px; overflow:hidden; }
-  .col-head{
-    flex-shrink:0; display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
-    padding:14px 16px; border-bottom:1px solid var(--line-soft);
-  }
-  .col-head-left{ display:flex; align-items:center; gap:9px; min-width:0; }
-  .col-ico{ width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
-  .col-name{ font-family:'Manrope',sans-serif; font-weight:800; font-size:13.5px; letter-spacing:.01em; }
-  .col-sub{ font-size:10.5px; color:var(--ink-faint); font-weight:500; margin-top:1px; }
-  .col-stats{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
-  .col-count{
-    font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:600; color:var(--ink-dim);
-    background:rgba(255,255,255,.05); border:1px solid var(--line); padding:2px 8px; border-radius:99px;
-  }
-  .col-money{ font-family:'Manrope',sans-serif; font-size:14.5px; font-weight:800; letter-spacing:-.01em; }
-  [data-status="pendiente"] .col-money{ color:var(--amber); }
-  [data-status="en_proceso"] .col-money{ color:var(--violet); }
-  [data-status="entregado"] .col-money{ color:var(--green); }
-  [data-status="rechazado"] .col-money{ color:var(--red); }
+        .board {
+            flex: 1;
+            min-height: 0;
+            padding: 16px 20px 20px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+        }
 
-  [data-status="pendiente"] .col-ico{ background:var(--amber-soft); color:var(--amber); }
-  [data-status="en_proceso"] .col-ico{ background:var(--violet-soft); color:var(--violet); }
-  [data-status="entregado"] .col-ico{ background:var(--green-soft); color:var(--green); }
-  [data-status="rechazado"] .col-ico{ background:var(--red-soft); color:var(--red); }
+        .board-col {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            overflow: hidden;
+        }
 
-  .col-body{ flex:1; min-height:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:9px; }
-  .col-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:44px 16px; color:var(--ink-faint); flex:1; }
-  .col-empty .ce-ico{ font-size:26px; opacity:.5; }
-  .col-empty p{ font-size:12.5px; font-weight:600; }
+        .col-head {
+            flex-shrink: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line-soft);
+        }
 
-  /* ══════════════════════════════════════════════
+        .col-head-left {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            min-width: 0;
+        }
+
+        .col-ico {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .col-name {
+            font-family: 'Manrope', sans-serif;
+            font-weight: 800;
+            font-size: 13.5px;
+            letter-spacing: .01em;
+        }
+
+        .col-sub {
+            font-size: 10.5px;
+            color: var(--ink-faint);
+            font-weight: 500;
+            margin-top: 1px;
+        }
+
+        .col-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .col-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--ink-dim);
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid var(--line);
+            padding: 2px 8px;
+            border-radius: 99px;
+        }
+
+        .col-money {
+            font-family: 'Manrope', sans-serif;
+            font-size: 14.5px;
+            font-weight: 800;
+            letter-spacing: -.01em;
+        }
+
+        [data-status="pendiente"] .col-money {
+            color: var(--amber);
+        }
+
+        [data-status="en_proceso"] .col-money {
+            color: var(--violet);
+        }
+
+        [data-status="entregado"] .col-money {
+            color: var(--green);
+        }
+
+        [data-status="rechazado"] .col-money {
+            color: var(--red);
+        }
+
+        [data-status="pendiente"] .col-ico {
+            background: var(--amber-soft);
+            color: var(--amber);
+        }
+
+        [data-status="en_proceso"] .col-ico {
+            background: var(--violet-soft);
+            color: var(--violet);
+        }
+
+        [data-status="entregado"] .col-ico {
+            background: var(--green-soft);
+            color: var(--green);
+        }
+
+        [data-status="rechazado"] .col-ico {
+            background: var(--red-soft);
+            color: var(--red);
+        }
+
+        .col-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .col-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 8px;
+            padding: 44px 16px;
+            color: var(--ink-faint);
+            flex: 1;
+        }
+
+        .col-empty .ce-ico {
+            font-size: 26px;
+            opacity: .5;
+        }
+
+        .col-empty p {
+            font-size: 12.5px;
+            font-weight: 600;
+        }
+
+        /* ══════════════════════════════════════════════
      CARD (colapsada — vista compacta para la columna)
      ══════════════════════════════════════════════ */
-  .order-card{
-    background:var(--surface-2); border:1px solid var(--line); border-left:3px solid transparent; border-radius:16px;
-    padding:12px 13px; display:flex; flex-direction:column; gap:9px; animation:rise .32s cubic-bezier(.2,.8,.2,1) both;
-  }
-  @keyframes rise{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
-  .order-card.flash{ animation:rise .32s cubic-bezier(.2,.8,.2,1) both, flashBorder 1.1s ease; }
-  @keyframes flashBorder{ 0%{ box-shadow:0 0 0 2px rgba(124,92,255,.5); } 100%{ box-shadow:0 0 0 0 rgba(124,92,255,0); } }
+        .order-card {
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-left: 3px solid transparent;
+            border-radius: 16px;
+            padding: 12px 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            animation: rise .32s cubic-bezier(.2, .8, .2, 1) both;
+        }
 
-  [data-status="pendiente"] .order-card{ border-left-color:var(--amber); }
-  [data-status="en_proceso"] .order-card{ border-left-color:var(--violet); }
-  [data-status="entregado"] .order-card{ border-left-color:var(--green); }
-  [data-status="rechazado"] .order-card{ border-left-color:var(--red); }
+        @keyframes rise {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
 
-  .oc-hit{ display:flex; flex-direction:column; gap:8px; cursor:pointer; }
-  .oc-hit:active{ opacity:.85; }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-  .oc-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-  .oc-id{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); font-weight:500; letter-spacing:.02em; }
-  .oc-time{ display:flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600; color:var(--ink-dim); background:rgba(255,255,255,.04); padding:4px 8px 4px 6px; border-radius:99px; flex-shrink:0; }
-  .oc-time .pulse{ width:5px; height:5px; border-radius:50%; background:var(--green); flex-shrink:0; }
-  .oc-time.stale .pulse{ background:var(--ink-faint); }
+        .order-card.flash {
+            animation: rise .32s cubic-bezier(.2, .8, .2, 1) both, flashBorder 1.1s ease;
+        }
 
-  .oc-name{ font-family:'Manrope',sans-serif; font-weight:800; font-size:14.5px; letter-spacing:-.01em; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .oc-entrega-line{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-dim); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        @keyframes flashBorder {
+            0% {
+                box-shadow: 0 0 0 2px rgba(124, 92, 255, .5);
+            }
 
-  .oc-summary{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:2px; }
-  .oc-summary-left{ font-size:11px; color:var(--ink-faint); font-weight:600; }
-  .oc-summary-right{ display:flex; align-items:center; gap:7px; }
-  .oc-summary-total{ font-family:'Manrope',sans-serif; font-size:16.5px; font-weight:800; letter-spacing:-.01em; }
-  .oc-chevron{ color:var(--ink-faint); font-size:13px; transition:transform .15s ease; flex-shrink:0; }
-  .oc-hit:hover .oc-chevron{ transform:translateX(2px); color:var(--ink-dim); }
+            100% {
+                box-shadow: 0 0 0 0 rgba(124, 92, 255, 0);
+            }
+        }
 
-  .oc-actions{ display:flex; flex-wrap:wrap; gap:7px; }
-  .oc-btn{
-    flex:1; min-width:100px; padding:9px 10px; border-radius:11px; font-size:12px; font-weight:700;
-    border:none; cursor:pointer; transition:transform .15s cubic-bezier(.34,1.56,.64,1), opacity .15s ease, filter .15s ease;
-    display:flex; align-items:center; justify-content:center; gap:6px;
-  }
-  .oc-btn:active{ transform:scale(.95); }
-  .oc-btn:disabled{ opacity:.5; pointer-events:none; }
-  .oc-btn.primary{ color:#0a0a0f; }
-  .oc-btn.primary.v-violet{ background:linear-gradient(135deg,#7c5cff,#6640ff); color:#fff; }
-  .oc-btn.primary.v-green{ background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; }
-  .oc-btn.ghost{ background:transparent; border:1px solid var(--line); color:var(--ink-dim); flex:1; }
-  .oc-btn.ghost:hover{ background:rgba(255,255,255,.04); }
-  .oc-btn.ghost.danger{ color:var(--red); border-color:rgba(240,71,90,.25); }
-  .oc-btn.ghost.danger:hover{ background:rgba(240,71,90,.08); }
+        [data-status="pendiente"] .order-card {
+            border-left-color: var(--amber);
+        }
 
-  .oc-final-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .oc-final-tag{
-    flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-radius:11px;
-    font-size:11.5px; font-weight:700; letter-spacing:.01em;
-  }
-  [data-status="entregado"] .oc-final-tag{ background:var(--green-soft); color:var(--green); }
-  [data-status="rechazado"] .oc-final-tag{ background:var(--red-soft); color:var(--red); }
-  .oc-undo{ font-size:10.5px; color:var(--ink-faint); font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:2px; text-decoration-color:transparent; transition:text-decoration-color .15s ease; white-space:nowrap; flex-shrink:0; }
-  .oc-undo:hover{ text-decoration-color:var(--ink-faint); color:var(--ink-dim); }
+        [data-status="en_proceso"] .order-card {
+            border-left-color: var(--violet);
+        }
 
-  /* ══════════════════════════════════════════════
+        [data-status="entregado"] .order-card {
+            border-left-color: var(--green);
+        }
+
+        [data-status="rechazado"] .order-card {
+            border-left-color: var(--red);
+        }
+
+        .oc-hit {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .oc-hit:active {
+            opacity: .85;
+        }
+
+        .oc-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .oc-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--ink-faint);
+            font-weight: 500;
+            letter-spacing: .02em;
+        }
+
+        .oc-time {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--ink-dim);
+            background: rgba(255, 255, 255, .04);
+            padding: 4px 8px 4px 6px;
+            border-radius: 99px;
+            flex-shrink: 0;
+        }
+
+        .oc-time .pulse {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--green);
+            flex-shrink: 0;
+        }
+
+        .oc-time.stale .pulse {
+            background: var(--ink-faint);
+        }
+
+        .oc-time.urgent {
+            color: var(--red);
+            background: var(--red-soft);
+        }
+
+        .oc-time.urgent .pulse {
+            background: var(--red);
+        }
+
+        .oc-name {
+            font-family: 'Manrope', sans-serif;
+            font-weight: 800;
+            font-size: 14.5px;
+            letter-spacing: -.01em;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .oc-entrega-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            color: var(--ink-dim);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .oc-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding-top: 2px;
+        }
+
+        .oc-summary-left {
+            font-size: 11px;
+            color: var(--ink-faint);
+            font-weight: 600;
+        }
+
+        .oc-summary-right {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .oc-summary-total {
+            font-family: 'Manrope', sans-serif;
+            font-size: 16.5px;
+            font-weight: 800;
+            letter-spacing: -.01em;
+        }
+
+        .oc-chevron {
+            color: var(--ink-faint);
+            font-size: 13px;
+            transition: transform .15s ease;
+            flex-shrink: 0;
+        }
+
+        .oc-hit:hover .oc-chevron {
+            transform: translateX(2px);
+            color: var(--ink-dim);
+        }
+
+        .oc-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+
+        .oc-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 9px 10px;
+            border-radius: 11px;
+            font-size: 12px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: transform .15s cubic-bezier(.34, 1.56, .64, 1), opacity .15s ease, filter .15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .oc-btn:active {
+            transform: scale(.95);
+        }
+
+        .oc-btn:disabled {
+            opacity: .5;
+            pointer-events: none;
+        }
+
+        .oc-btn.primary {
+            color: #0a0a0f;
+        }
+
+        .oc-btn.primary.v-violet {
+            background: linear-gradient(135deg, #7c5cff, #6640ff);
+            color: #fff;
+        }
+
+        .oc-btn.primary.v-green {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #fff;
+        }
+
+        .oc-btn.ghost {
+            background: transparent;
+            border: 1px solid var(--line);
+            color: var(--ink-dim);
+            flex: 1;
+        }
+
+        .oc-btn.ghost:hover {
+            background: rgba(255, 255, 255, .04);
+        }
+
+        .oc-btn.ghost.danger {
+            color: var(--red);
+            border-color: rgba(240, 71, 90, .25);
+        }
+
+        .oc-btn.ghost.danger:hover {
+            background: rgba(240, 71, 90, .08);
+        }
+
+        .oc-final-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .oc-final-tag {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px;
+            border-radius: 11px;
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: .01em;
+        }
+
+        [data-status="entregado"] .oc-final-tag {
+            background: var(--green-soft);
+            color: var(--green);
+        }
+
+        [data-status="rechazado"] .oc-final-tag {
+            background: var(--red-soft);
+            color: var(--red);
+        }
+
+        .oc-final-tag.auto {
+            background: rgba(240, 71, 90, .2);
+        }
+
+        .oc-undo {
+            font-size: 10.5px;
+            color: var(--ink-faint);
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-color: transparent;
+            transition: text-decoration-color .15s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .oc-undo:hover {
+            text-decoration-color: var(--ink-faint);
+            color: var(--ink-dim);
+        }
+
+        /* ══════════════════════════════════════════════
+     ORIGEN (WhatsApp / Mesa) — badges y filtros
+     ══════════════════════════════════════════════ */
+        .origin-bar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 0 20px 12px;
+        }
+
+        .origin-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 13px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink-dim);
+            cursor: pointer;
+            transition: all .18s ease;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .origin-chip:hover {
+            background: var(--surface-2);
+        }
+
+        .origin-chip.active {
+            background: var(--violet-soft);
+            border-color: rgba(124, 92, 255, .35);
+            color: var(--violet);
+        }
+
+        .oc-origin-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--ink-faint);
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid var(--line);
+            padding: 2px 7px;
+            border-radius: 99px;
+            white-space: nowrap;
+        }
+
+        .oc-origin-tag.mesa {
+            color: #f5a524;
+            background: var(--amber-soft);
+            border-color: rgba(245, 165, 36, .3);
+        }
+
+        .mesas-strip-wrap {
+            padding: 0 20px 12px;
+        }
+
+        .mesas-strip {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding-bottom: 2px;
+        }
+
+        .mesas-strip::-webkit-scrollbar {
+            display: none;
+        }
+
+        .mesa-chip {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            cursor: pointer;
+            transition: all .18s ease;
+            user-select: none;
+        }
+
+        .mesa-chip:hover {
+            background: var(--surface-2);
+        }
+
+        .mesa-chip.active {
+            background: var(--amber-soft);
+            border-color: rgba(245, 165, 36, .4);
+        }
+
+        .mesa-chip .mc-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--ink-faint);
+            flex-shrink: 0;
+        }
+
+        .mesa-chip.has-activo .mc-dot {
+            background: var(--green);
+            box-shadow: 0 0 6px rgba(34, 197, 94, .7);
+        }
+
+        .mesa-chip .mc-lbl {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink-dim);
+            white-space: nowrap;
+        }
+
+        .mesa-chip.active .mc-lbl {
+            color: var(--ink);
+        }
+
+        .mesa-chip .mc-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--ink-faint);
+        }
+
+        .mesa-empty-banner {
+            margin: 0 20px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 15px;
+            border-radius: 14px;
+            border: 1px dashed var(--line);
+            background: var(--surface);
+            font-size: 12.5px;
+            color: var(--ink-dim);
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        @media (max-width:979px) {
+
+            .origin-bar,
+            .mesas-strip-wrap,
+            .mesa-empty-banner {
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+
+            .mesa-empty-banner {
+                margin-left: 14px;
+                margin-right: 14px;
+            }
+        }
+
+        /* ══════════════════════════════════════════════
      MODAL DE DETALLE
      ══════════════════════════════════════════════ */
-  #detailOverlay{
-    position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(3px);
-    opacity:0; pointer-events:none; transition:opacity .3s ease; z-index:70;
-  }
-  #detailOverlay.show{ opacity:1; pointer-events:auto; }
+        #detailOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .6);
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .3s ease;
+            z-index: 70;
+        }
 
-  #detailModal{
-    position:fixed; left:0; right:0; bottom:0; z-index:71; max-width:560px; margin:0 auto;
-    background:#0c0c13; border-top-left-radius:26px; border-top-right-radius:26px;
-    border:1px solid var(--line); border-bottom:none;
-    transform:translateY(100%); transition:transform .42s cubic-bezier(.22,1.2,.36,1);
-    max-height:88vh; display:flex; flex-direction:column; border-left:4px solid transparent;
-  }
-  #detailModal.show{ transform:translateY(0); }
-  #detailModal[data-status="pendiente"]{ border-left-color:var(--amber); }
-  #detailModal[data-status="en_proceso"]{ border-left-color:var(--violet); }
-  #detailModal[data-status="entregado"]{ border-left-color:var(--green); }
-  #detailModal[data-status="rechazado"]{ border-left-color:var(--red); }
+        #detailOverlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
 
-  @media (min-width:640px){
-    #detailOverlay{ display:flex; align-items:center; justify-content:center; }
-    #detailModal{
-      position:relative; left:auto; right:auto; bottom:auto; border-radius:24px; border-bottom:1px solid var(--line);
-      transform:translateY(20px) scale(.97); opacity:0; transition:transform .32s cubic-bezier(.22,1.2,.36,1), opacity .28s ease;
-      max-height:86vh;
-    }
-    #detailModal.show{ transform:translateY(0) scale(1); opacity:1; }
-  }
+        #detailModal {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 71;
+            max-width: 560px;
+            margin: 0 auto;
+            background: #0c0c13;
+            border-top-left-radius: 26px;
+            border-top-right-radius: 26px;
+            border: 1px solid var(--line);
+            border-bottom: none;
+            transform: translateY(100%);
+            transition: transform .42s cubic-bezier(.22, 1.2, .36, 1);
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            border-left: 4px solid transparent;
+        }
 
-  .dm-handle{ width:38px; height:4px; border-radius:99px; background:rgba(255,255,255,.18); margin:12px auto 2px; flex-shrink:0; }
-  .dm-head{ flex-shrink:0; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:14px 20px 16px; border-bottom:1px solid var(--line-soft); }
-  .dm-head-id{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); margin-bottom:4px; }
-  .dm-head-name{ font-family:'Manrope',sans-serif; font-size:20px; font-weight:800; letter-spacing:-.01em; }
-  .dm-head-time{ display:flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:var(--ink-dim); background:rgba(255,255,255,.05); padding:5px 10px 5px 7px; border-radius:99px; flex-shrink:0; white-space:nowrap; }
-  .dm-head-time .pulse{ width:5px; height:5px; border-radius:50%; background:var(--green); flex-shrink:0; }
-  .dm-close{ position:absolute; top:14px; right:16px; width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.06); border:none; color:var(--ink); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .dm-close:hover{ background:rgba(255,255,255,.12); }
+        #detailModal.show {
+            transform: translateY(0);
+        }
 
-  .dm-body{ flex:1; overflow-y:auto; padding:18px 20px 6px; display:flex; flex-direction:column; gap:18px; }
-  .dm-section-title{ font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.07em; margin-bottom:9px; }
+        #detailModal[data-status="pendiente"] {
+            border-left-color: var(--amber);
+        }
 
-  .dm-meta-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .dm-meta-item{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:11px 13px; }
-  .dm-meta-item.full{ grid-column:1 / -1; }
-  .dm-meta-label{ font-size:10px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; display:flex; align-items:center; gap:5px; }
-  .dm-meta-value{ font-size:13.5px; font-weight:600; color:var(--ink); line-height:1.4; }
-  .dm-meta-value.dim{ color:var(--ink-faint); font-style:italic; font-weight:500; }
+        #detailModal[data-status="en_proceso"] {
+            border-left-color: var(--violet);
+        }
 
-  .dm-products{ display:flex; flex-direction:column; gap:8px; }
-  .dm-prod-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:10px 13px; }
-  .dm-prod-name{ font-size:13.5px; font-weight:700; color:var(--ink); line-height:1.35; }
-  .dm-prod-cat{ font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.03em; font-weight:600; margin-top:2px; }
-  .dm-prod-qty{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; }
-  .dm-prod-price{ font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:var(--ink); flex-shrink:0; white-space:nowrap; }
+        #detailModal[data-status="entregado"] {
+            border-left-color: var(--green);
+        }
 
-  .dm-total-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-3); border:1px solid var(--line); border-radius:16px; padding:14px 16px; }
-  .dm-total-lbl{ font-size:12px; font-weight:700; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.05em; }
-  .dm-total-val{ font-family:'Manrope',sans-serif; font-size:24px; font-weight:800; }
+        #detailModal[data-status="rechazado"] {
+            border-left-color: var(--red);
+        }
 
-  .dm-actions{ flex-shrink:0; padding:16px 20px 20px; border-top:1px solid var(--line-soft); display:flex; flex-direction:column; gap:9px; }
-  .dm-actions .oc-actions{ gap:9px; }
-  .dm-actions .oc-btn{ padding:13px 14px; font-size:13.5px; border-radius:14px; }
-  .dm-undo-row{ text-align:center; padding-top:2px; }
+        @media (min-width:640px) {
+            #detailOverlay {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
 
-  /* ══════════════════════════════════════════════
+            #detailModal {
+                position: relative;
+                left: auto;
+                right: auto;
+                bottom: auto;
+                border-radius: 24px;
+                border-bottom: 1px solid var(--line);
+                transform: translateY(20px) scale(.97);
+                opacity: 0;
+                transition: transform .32s cubic-bezier(.22, 1.2, .36, 1), opacity .28s ease;
+                max-height: 86vh;
+            }
+
+            #detailModal.show {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .dm-handle {
+            width: 38px;
+            height: 4px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, .18);
+            margin: 12px auto 2px;
+            flex-shrink: 0;
+        }
+
+        .dm-head {
+            margin-top: 25px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 14px 20px 16px;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .dm-head-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--ink-faint);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dm-head-name {
+            font-family: 'Manrope', sans-serif;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -.01em;
+        }
+
+        .dm-head-time {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ink-dim);
+            background: rgba(255, 255, 255, .05);
+            padding: 5px 10px 5px 7px;
+            border-radius: 99px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .dm-head-time .pulse {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--green);
+            flex-shrink: 0;
+        }
+
+        .dm-close {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .06);
+            border: none;
+            color: var(--ink);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dm-close:hover {
+            background: rgba(255, 255, 255, .12);
+        }
+
+        .dm-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px 20px 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .dm-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--ink-faint);
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            margin-bottom: 9px;
+        }
+
+        .dm-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .dm-meta-item {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 11px 13px;
+        }
+
+        .dm-meta-item.full {
+            grid-column: 1 / -1;
+        }
+
+        .dm-meta-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--ink-faint);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dm-meta-value {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--ink);
+            line-height: 1.4;
+        }
+
+        .dm-meta-value.dim {
+            color: var(--ink-faint);
+            font-style: italic;
+            font-weight: 500;
+        }
+
+        .dm-products {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .dm-prod-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 13px;
+            padding: 10px 13px;
+        }
+
+        .dm-prod-name {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 1.35;
+        }
+
+        .dm-prod-cat {
+            font-size: 10.5px;
+            color: var(--ink-faint);
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .dm-prod-qty {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            color: var(--ink-dim);
+            margin-top: 3px;
+        }
+
+        .dm-prod-price {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ink);
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .dm-total-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface-3);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 14px 16px;
+        }
+
+        .dm-total-lbl {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink-dim);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .dm-total-val {
+            font-family: 'Manrope', sans-serif;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .dm-actions {
+            flex-shrink: 0;
+            padding: 16px 20px 20px;
+            border-top: 1px solid var(--line-soft);
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .dm-actions .oc-actions {
+            gap: 9px;
+        }
+
+        .dm-actions .oc-btn {
+            padding: 13px 14px;
+            font-size: 13.5px;
+            border-radius: 14px;
+        }
+
+        .dm-undo-row {
+            text-align: center;
+            padding-top: 2px;
+        }
+
+        /* ══════════════════════════════════════════════
      LOADER
      ══════════════════════════════════════════════ */
-  #pageLoader{ position:fixed; inset:0; background:var(--bg); z-index:999; display:flex; flex-direction:column; transition:opacity .4s ease; }
-  #pageLoader.leaving{ opacity:0; pointer-events:none; }
-  .shimmer{ background:var(--surface); position:relative; overflow:hidden; border-radius:16px; }
-  .shimmer::after{ content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent); background-size:200% 100%; animation:sh 1.5s infinite; }
-  @keyframes sh{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
+        #pageLoader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            transition: opacity .4s ease;
+        }
 
-  /* ══════════════════════════════════════════════
+        #pageLoader.leaving {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .shimmer {
+            background: var(--surface);
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+        }
+
+        .shimmer::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .05), transparent);
+            background-size: 200% 100%;
+            animation: sh 1.5s infinite;
+        }
+
+        @keyframes sh {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* ══════════════════════════════════════════════
      TOAST
      ══════════════════════════════════════════════ */
-  #toast{
-    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(16px) scale(.94); z-index:80;
-    background:#fff; color:#0a0a0f; font-weight:700; font-size:13px; padding:11px 20px; border-radius:14px;
-    opacity:0; pointer-events:none; transition:opacity .28s ease, transform .32s cubic-bezier(.22,1.4,.36,1);
-    box-shadow:0 14px 32px -10px rgba(0,0,0,.6);
-  }
-  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: 26px;
+            transform: translateX(-50%) translateY(16px) scale(.94);
+            z-index: 80;
+            background: #fff;
+            color: #0a0a0f;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 11px 20px;
+            border-radius: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .28s ease, transform .32s cubic-bezier(.22, 1.4, .36, 1);
+            box-shadow: 0 14px 32px -10px rgba(0, 0, 0, .6);
+        }
 
-  /* ══════════════════════════════════════════════
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
+        #toast.danger {
+            background: #f0475a;
+            color: #fff;
+        }
+
+        /* ══════════════════════════════════════════════
      DESKTOP (>=980px)
      ══════════════════════════════════════════════ */
-  @media (min-width:980px){
-    html,body{ height:100%; overflow:hidden; }
-    .app-shell{ height:100vh; }
-    .status-tabs .stab{ cursor:default; }
-    .status-tabs .stab:hover{ background:var(--surface); }
-  }
+        @media (min-width:980px) {
 
-  /* ══════════════════════════════════════════════
+            html,
+            body {
+                height: 100%;
+                overflow: hidden;
+            }
+
+            .app-shell {
+                height: 100vh;
+            }
+
+            .status-tabs .stab {
+                cursor: default;
+            }
+
+            .status-tabs .stab:hover {
+                background: var(--surface);
+            }
+        }
+
+        /* ══════════════════════════════════════════════
      MOBILE / TABLET (<980px)
      ══════════════════════════════════════════════ */
-  @media (max-width:979px){
-    header{ position:sticky; top:0; }
-    .board{ grid-template-columns:1fr; padding:14px 14px 90px; }
-    .board-col{ display:none; border-radius:18px; }
-    .board-col.col-active{ display:flex; }
-    .col-body{ overflow-y:visible; max-height:none; }
-  }
+        @media (max-width:979px) {
+            header {
+                position: sticky;
+                top: 0;
+            }
 
-  @media (max-width:520px){
-    .head-title{ font-size:16.5px; }
-    .head-clock-time{ font-size:15px; }
-    .dm-meta-grid{ grid-template-columns:1fr; }
-  }
-</style>
+            .board {
+                grid-template-columns: 1fr;
+                padding: 14px 14px 90px;
+            }
+
+            .board-col {
+                display: none;
+                border-radius: 18px;
+            }
+
+            .board-col.col-active {
+                display: flex;
+            }
+
+            .col-body {
+                overflow-y: visible;
+                max-height: none;
+            }
+        }
+
+        @media (max-width:640px) {
+            .autorej-pop {
+                left: 0;
+                width: 230px;
+            }
+        }
+
+        @media (max-width:520px) {
+            .head-title {
+                font-size: 16.5px;
+            }
+
+            .head-clock-time {
+                font-size: 15px;
+            }
+
+            .dm-meta-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .autorej-btn .lbl-text {
+                display: none;
+            }
+        }
+
+        /* ══════════════════════════════════════════════
+     FILTRO DE FECHA — barra a lo ancho, siempre visible
+     ══════════════════════════════════════════════ */
+        .datefilter-bar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 0 20px 14px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .datefilter-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .df-chip {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--ink-dim);
+            cursor: pointer;
+            transition: all .18s ease;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .df-chip:hover {
+            background: var(--surface-2);
+        }
+
+        .df-chip.active {
+            background: var(--violet-soft);
+            border-color: rgba(124, 92, 255, .35);
+            color: var(--violet);
+        }
+
+        .df-custom-inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 6px 8px;
+        }
+
+        .df-custom-inline input[type="date"] {
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            color: var(--ink);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            font-weight: 600;
+            padding: 7px 8px;
+            outline: none;
+            color-scheme: dark;
+        }
+
+        .df-custom-inline input[type="date"]:focus {
+            border-color: rgba(124, 92, 255, .4);
+        }
+
+        .df-custom-inline span {
+            color: var(--ink-faint);
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        .df-custom-apply-inline {
+            flex-shrink: 0;
+            padding: 8px 12px;
+            border-radius: 9px;
+            border: none;
+            background: linear-gradient(135deg, #7c5cff, #6640ff);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .df-custom-apply-inline:active {
+            transform: scale(.97);
+        }
+
+        .df-range-note {
+            flex-basis: 100%;
+            font-size: 10.5px;
+            color: var(--ink-faint);
+            padding: 2px 2px 0;
+        }
+
+        @media (max-width:640px) {
+            .df-custom-inline {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </head>
+
 <body>
 
-  <div id="pageLoader">
-    <div style="padding:18px 20px;">
-      <div class="shimmer" style="height:60px; border-radius:18px; margin-bottom:14px;"></div>
-      <div style="display:flex; gap:8px;">
-        <div class="shimmer" style="height:34px; width:110px;"></div>
-        <div class="shimmer" style="height:34px; width:130px;"></div>
-        <div class="shimmer" style="height:34px; width:120px;"></div>
-        <div class="shimmer" style="height:34px; width:120px;"></div>
-      </div>
-    </div>
-    <div style="flex:1; padding:0 20px 20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px;">
-      <div class="shimmer" style="height:100%; min-height:300px;"></div>
-      <div class="shimmer" style="height:100%; min-height:300px;"></div>
-      <div class="shimmer" style="height:100%; min-height:300px; display:none;" id="skC3"></div>
-      <div class="shimmer" style="height:100%; min-height:300px; display:none;" id="skC4"></div>
-    </div>
-  </div>
-
-  <div class="app-shell">
-    <header>
-      <div class="head-top">
-        <div class="head-id">
-          <div class="live-dot-wrap" id="liveDot"><div class="live-dot"></div></div>
-          <div class="head-titles">
-            <div class="head-eyebrow">Pedidos en vivo</div>
-            <div class="head-title" id="bizName">Cargando negocio…</div>
-          </div>
-        </div>
-        <div class="head-right">
-          <button class="bell-btn" id="bellBtn" title="Activar sonido y notificaciones">
-            🔔<span class="bell-dot" id="bellDot"></span>
-          </button>
-          <div class="head-clock">
-            <div class="head-clock-time" id="clockTime">--:--</div>
-            <div class="head-clock-date" id="clockDate">—</div>
-          </div>
-        </div>
-      </div>
-      <div class="status-tabs" id="statusTabs">
-        <div class="stab active" data-s="pendiente"><span class="dot"></span><span class="lbl">Pendiente</span><span class="num" id="cnt-pendiente">0</span><span class="money" id="money-pendiente">S/ 0.00</span></div>
-        <div class="stab" data-s="en_proceso"><span class="dot"></span><span class="lbl">En proceso</span><span class="num" id="cnt-en_proceso">0</span><span class="money" id="money-en_proceso">S/ 0.00</span></div>
-        <div class="stab" data-s="entregado"><span class="dot"></span><span class="lbl">Entregado</span><span class="num" id="cnt-entregado">0</span><span class="money" id="money-entregado">S/ 0.00</span></div>
-        <div class="stab" data-s="rechazado"><span class="dot"></span><span class="lbl">Rechazado</span><span class="num" id="cnt-rechazado">0</span><span class="money" id="money-rechazado">S/ 0.00</span></div>
-      </div>
-    </header>
-
-    <div class="board" id="board">
-      <div class="board-col col-active" data-status="pendiente">
-        <div class="col-head">
-          <div class="col-head-left">
-            <div class="col-ico">⏳</div>
-            <div>
-              <div class="col-name">Pendiente</div>
-              <div class="col-sub">Esperando confirmación</div>
+    <div id="pageLoader">
+        <div style="padding:18px 20px;">
+            <div class="shimmer" style="height:60px; border-radius:18px; margin-bottom:14px;"></div>
+            <div style="display:flex; gap:8px;">
+                <div class="shimmer" style="height:34px; width:110px;"></div>
+                <div class="shimmer" style="height:34px; width:130px;"></div>
+                <div class="shimmer" style="height:34px; width:120px;"></div>
+                <div class="shimmer" style="height:34px; width:120px;"></div>
             </div>
-          </div>
-          <div class="col-stats">
-            <div class="col-count"><span id="head-cnt-pendiente">0</span> pedidos</div>
-            <div class="col-money" id="head-money-pendiente">S/ 0.00</div>
-          </div>
         </div>
-        <div class="col-body" id="col-pendiente"></div>
-      </div>
-
-      <div class="board-col" data-status="en_proceso">
-        <div class="col-head">
-          <div class="col-head-left">
-            <div class="col-ico">🔥</div>
-            <div>
-              <div class="col-name">En proceso</div>
-              <div class="col-sub">Preparando pedido</div>
-            </div>
-          </div>
-          <div class="col-stats">
-            <div class="col-count"><span id="head-cnt-en_proceso">0</span> pedidos</div>
-            <div class="col-money" id="head-money-en_proceso">S/ 0.00</div>
-          </div>
+        <div
+            style="flex:1; padding:0 20px 20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px;">
+            <div class="shimmer" style="height:100%; min-height:300px;"></div>
+            <div class="shimmer" style="height:100%; min-height:300px;"></div>
+            <div class="shimmer" style="height:100%; min-height:300px; display:none;" id="skC3"></div>
+            <div class="shimmer" style="height:100%; min-height:300px; display:none;" id="skC4"></div>
         </div>
-        <div class="col-body" id="col-en_proceso"></div>
-      </div>
-
-      <div class="board-col" data-status="entregado">
-        <div class="col-head">
-          <div class="col-head-left">
-            <div class="col-ico">✅</div>
-            <div>
-              <div class="col-name">Entregado</div>
-              <div class="col-sub">Pedido completado</div>
-            </div>
-          </div>
-          <div class="col-stats">
-            <div class="col-count"><span id="head-cnt-entregado">0</span> pedidos</div>
-            <div class="col-money" id="head-money-entregado">S/ 0.00</div>
-          </div>
-        </div>
-        <div class="col-body" id="col-entregado"></div>
-      </div>
-
-      <div class="board-col" data-status="rechazado">
-        <div class="col-head">
-          <div class="col-head-left">
-            <div class="col-ico">✕</div>
-            <div>
-              <div class="col-name">Rechazado</div>
-              <div class="col-sub">Pedido no aceptado</div>
-            </div>
-          </div>
-          <div class="col-stats">
-            <div class="col-count"><span id="head-cnt-rechazado">0</span> pedidos</div>
-            <div class="col-money" id="head-money-rechazado">S/ 0.00</div>
-          </div>
-        </div>
-        <div class="col-body" id="col-rechazado"></div>
-      </div>
     </div>
-  </div>
 
-  <!-- Modal de detalle completo -->
-  <div id="detailOverlay">
-    <div id="detailModal">
-      <button class="dm-close" id="dmClose">✕</button>
-      <div class="dm-handle"></div>
-      <div class="dm-head">
-        <div>
-          <div class="dm-head-id mono" id="dmId">#——————</div>
-          <div class="dm-head-name" id="dmName">Cliente</div>
+    <div class="app-shell">
+        <header>
+            <div class="head-top">
+
+                <div class="head-right">
+
+                    <div class="autorej-wrap">
+                        <button class="autorej-btn" id="autorejBtn" title="Configurar auto-rechazo por tiempo">
+                            <span class="ico">⏱️</span>
+                            <span class="lbl-text">Auto-rechazo</span>
+                            <span class="val" id="autorejVal">5m</span>
+                        </button>
+                        <div class="autorej-pop" id="autorejPop">
+                            <div class="autorej-pop-title">Auto-rechazo por tiempo</div>
+                            <div class="autorej-pop-sub">Si un pedido queda "Pendiente" más del tiempo indicado sin
+                                pasar a "En proceso", se rechazará automáticamente y sonará una alarma distinta.</div>
+                            <div class="autorej-toggle-row">
+                                <span class="autorej-toggle-lbl">Activar auto-rechazo</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="autorejToggle">
+                                    <span class="switch-track"></span>
+                                </label>
+                            </div>
+                            <div class="autorej-input-row">
+                                <input type="number" id="autorejMinutes" min="1" max="120" value="5">
+                                <span>minutos</span>
+                            </div>
+                            <button class="autorej-save" id="autorejSave">Guardar</button>
+                        </div>
+                    </div>
+
+                    <button class="bell-btn" id="bellBtn" title="Activar sonido y notificaciones">
+                        🔔<span class="bell-dot" id="bellDot"></span>
+                    </button>
+                    <div class="head-clock">
+                        <div class="head-clock-time" id="clockTime">--:--</div>
+                        <div class="head-clock-date" id="clockDate">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="datefilter-bar" id="datefilterBar">
+                <div class="df-chip active" data-range="hoy">📅 Hoy</div>
+                <div class="df-chip" data-range="ayer">Ayer</div>
+                <div class="df-chip" data-range="semana">Esta semana</div>
+                <div class="df-chip" data-range="semana_pasada">Semana pasada</div>
+                <div class="df-chip" data-range="custom" id="dfCustomChip">🗓️ Rango personalizado</div>
+                <div class="df-custom-inline" id="dfCustomInline" style="display:none;">
+                    <input type="date" id="dfFrom">
+                    <span>a</span>
+                    <input type="date" id="dfTo">
+                    <button class="df-custom-apply-inline" id="dfApply">Aplicar</button>
+                </div>
+                <div class="df-range-note" id="dfRangeNote"></div>
+            </div>
+
+            <div class="origin-bar" id="originBar">
+                <div class="origin-chip active" data-origin="todos">📋 Todos</div>
+                <div class="origin-chip" data-origin="whatsapp">💬 WhatsApp</div>
+                <div class="origin-chip" data-origin="mesa">🍽️ Mesas</div>
+            </div>
+
+            <div class="mesas-strip-wrap" id="mesasStripWrap" style="display:none;">
+                <div class="mesas-strip" id="mesasStrip"></div>
+            </div>
+
+            <div class="status-tabs" id="statusTabs">
+                <div class="stab active" data-s="pendiente"><span class="dot"></span><span
+                        class="lbl">Pendiente</span><span class="num" id="cnt-pendiente">0</span><span class="money"
+                        id="money-pendiente">S/ 0.00</span></div>
+                <div class="stab" data-s="en_proceso"><span class="dot"></span><span class="lbl">En proceso</span><span
+                        class="num" id="cnt-en_proceso">0</span><span class="money" id="money-en_proceso">S/ 0.00</span>
+                </div>
+                <div class="stab" data-s="entregado"><span class="dot"></span><span class="lbl">Entregado</span><span
+                        class="num" id="cnt-entregado">0</span><span class="money" id="money-entregado">S/ 0.00</span>
+                </div>
+                <div class="stab" data-s="rechazado"><span class="dot"></span><span class="lbl">Rechazado</span><span
+                        class="num" id="cnt-rechazado">0</span><span class="money" id="money-rechazado">S/ 0.00</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="mesa-empty-banner" id="mesaEmptyBanner" style="display:none;"></div>
+
+        <div class="board" id="board">
+            <div class="board-col col-active" data-status="pendiente">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">⏳</div>
+                        <div>
+                            <div class="col-name">Pendiente</div>
+                            <div class="col-sub">Esperando confirmación</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-pendiente">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-pendiente">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-pendiente"></div>
+            </div>
+
+            <div class="board-col" data-status="en_proceso">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">🔥</div>
+                        <div>
+                            <div class="col-name">En proceso</div>
+                            <div class="col-sub">Preparando pedido</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-en_proceso">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-en_proceso">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-en_proceso"></div>
+            </div>
+
+            <div class="board-col" data-status="entregado">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">✅</div>
+                        <div>
+                            <div class="col-name">Entregado</div>
+                            <div class="col-sub">Pedido completado</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-entregado">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-entregado">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-entregado"></div>
+            </div>
+
+            <div class="board-col" data-status="rechazado">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">✕</div>
+                        <div>
+                            <div class="col-name">Rechazado</div>
+                            <div class="col-sub">Pedido no aceptado</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-rechazado">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-rechazado">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-rechazado"></div>
+            </div>
         </div>
-        <div class="dm-head-time" id="dmTime"><span class="pulse"></span>—</div>
-      </div>
-      <div class="dm-body" id="dmBody"></div>
-      <div class="dm-actions" id="dmActions"></div>
     </div>
-  </div>
 
-  <div id="toast"></div>
+    <!-- Modal de detalle completo -->
+    <div id="detailOverlay">
+        <div id="detailModal">
+            <button class="dm-close" id="dmClose">✕</button>
+            <div class="dm-handle"></div>
+            <div class="dm-head">
+                <div>
+                    <div class="dm-head-id mono" id="dmId">#——————</div>
+                    <div class="dm-head-name" id="dmName">Cliente</div>
+                </div>
+                <div class="dm-head-time" id="dmTime"><span class="pulse"></span>—</div>
+            </div>
+            <div class="dm-body" id="dmBody"></div>
+            <div class="dm-actions" id="dmActions"></div>
+        </div>
+    </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, serverTimestamp, query, orderBy
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    <div id="toast"></div>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.firebasestorage.app",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import {
+            getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, serverTimestamp, query, orderBy
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* ══════════════ Identificación del negocio ══════════════ */
-const _params = new URLSearchParams(window.location.search);
-let tiendaId = _params.get("id") || null;
-let localidad = (_params.get("localidad") || "barranca").toLowerCase();
-const ID_PRUEBA = "fW7W8RsgkkQ3IYfxKHGR";
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.firebasestorage.app",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-const ESTADOS = ["pendiente", "en_proceso", "entregado", "rechazado"];
-const pedidosMap = new Map(); // id -> data
-const prevMoney = { pendiente: 0, en_proceso: 0, entregado: 0, rechazado: 0 };
-let activeTab = "pendiente";
-let activeModalId = null;
-let isFirstSnapshot = true;
-let bizLogoUrl = "";
-let bizNombreGlobal = "Geinz";
-let soundEnabled = localStorage.getItem("geinz_sound_enabled") !== "0";
-let audioCtx = null;
+        /* ══════════════ Identificación del negocio ══════════════ */
+        const _params = new URLSearchParams(window.location.search);
+        let tiendaId = _params.get("id") || null;
+        let localidad = (_params.get("localidad") || "barranca").toLowerCase();
+        const ID_PRUEBA = "fW7W8RsgkkQ3IYfxKHGR";
 
-/* ══════════════ Utilidades ══════════════ */
-function escapeHtml(str) {
-  return String(str ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
-}
-function fmtMoney(n) { return "S/ " + Number(n || 0).toFixed(2); }
-function toDate(ts) { return ts && typeof ts.toDate === "function" ? ts.toDate() : null; }
+        const ESTADOS = ["pendiente", "en_proceso", "entregado", "rechazado"];
+        const pedidosMap = new Map(); // id -> data
+        const mesasMap = new Map(); // docId -> data (numero_mesa, nombre_alias, ...)
+        const prevMoney = { pendiente: 0, en_proceso: 0, entregado: 0, rechazado: 0 };
+        let activeTab = "pendiente";
+        let activeModalId = null;
+        let isFirstSnapshot = true;
+        let bizLogoUrl = "";
+        let bizNombreGlobal = "Geinz";
+        let soundEnabled = localStorage.getItem("geinz_sound_enabled") !== "0";
+        let audioCtx = null;
 
-function timeAgo(date) {
-  if (!date) return "—";
-  const diffMs = Date.now() - date.getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "ahora mismo";
-  if (min < 60) return `hace ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `hace ${h} h`;
-  const d = Math.floor(h / 24);
-  return `hace ${d} d`;
-}
+        /* ══════════════ Origen del pedido: WhatsApp o Mesa ══════════════
+           Los pedidos de mesa comparten la misma colección "pedidos" que los
+           de WhatsApp, pero su ID trae un sufijo "-mesa_N" (ej: "0DAzHLf...-mesa_1").
+           No hace falta ningún campo adicional en el documento: basta con
+           leer el ID para saber de dónde vino y a qué mesa pertenece. */
+        const MESA_ID_RE = /-mesa_(\d+)$/;
+        function getOrigen(id) {
+            const m = id.match(MESA_ID_RE);
+            return m ? { tipo: "mesa", numero: Number(m[1]) } : { tipo: "whatsapp", numero: null };
+        }
 
-function showToast(msg) {
-  const el = document.getElementById("toast");
-  el.textContent = msg;
-  el.classList.add("show");
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => el.classList.remove("show"), 2200);
-}
+        let originFilter = "todos"; // "todos" | "whatsapp" | "mesa"
+        let mesaFilter = null;      // numero_mesa seleccionado, o null = todas las mesas
 
-/* Anima un valor monetario en un elemento de texto, sin saltos bruscos */
-function animateMoney(el, end) {
-  if (!el) return;
-  const start = parseFloat((el.textContent || "").replace(/[^\d.]/g, "")) || 0;
-  if (Math.abs(end - start) < 0.005) { el.textContent = fmtMoney(end); return; }
-  const duration = 420;
-  const t0 = performance.now();
-  function step(now) {
-    const p = Math.min((now - t0) / duration, 1);
-    const eased = 1 - Math.pow(1 - p, 3);
-    el.textContent = fmtMoney(start + (end - start) * eased);
-    if (p < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
+        /* ══════════════ Auto-rechazo por tiempo (configurable) ══════════════ */
+        let autoRejectEnabled = localStorage.getItem("geinz_autorej_on") === "1";
+        let autoRejectMinutes = Number(localStorage.getItem("geinz_autorej_min")) || 5;
+        const autoRejectingIds = new Set(); // evita disparos duplicados mientras se actualiza Firestore
 
-/* ══════════════ Reloj en vivo ══════════════ */
-function tickClock() {
-  const now = new Date();
-  document.getElementById("clockTime").textContent =
-    now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
-  document.getElementById("clockDate").textContent =
-    now.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" });
-}
-tickClock();
-setInterval(tickClock, 15000);
+        /* ══════════════ Filtro de fecha ══════════════
+           El tablero SIEMPRE arranca mostrando solo los pedidos de HOY.
+           El usuario puede cambiar a: ayer, esta semana, semana pasada o un rango personalizado.
+           Esta preferencia NO se guarda entre sesiones a propósito: cada vez que se abre el
+           panel, por defecto se ve "Hoy". */
+        let dateFilter = { type: "hoy", from: null, to: null }; // from/to como Date, solo para "custom"
 
-function tickTimeAgo() {
-  document.querySelectorAll("[data-ts]").forEach((el) => {
-    const ts = Number(el.dataset.ts);
-    if (!ts) return;
-    const date = new Date(ts);
-    const label = timeAgo(date);
-    const target = el.querySelector(".ts-label") || el;
-    target.textContent = label;
-    const diffMin = Math.floor((Date.now() - ts) / 60000);
-    el.classList.toggle("stale", diffMin >= 20);
-  });
-}
-setInterval(tickTimeAgo, 20000);
+        function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+        function endOfDay(d) { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; }
 
-/* ══════════════ Datos del negocio ══════════════ */
-async function cargarNegocio() {
-  try {
-    const ref = doc(db, "Tiendas", localidad, localidad, tiendaId);
-    const snap = await getDoc(ref);
-    const data = snap.exists() ? snap.data() : null;
-    const nombre = data ? (data.nombre_tienda || data.nombre) : null;
-    bizNombreGlobal = nombre || "Geinz";
-    bizLogoUrl = data?.img_tienda?.logo_tienda || "";
-    document.getElementById("bizName").textContent = nombre || "Panel de pedidos";
-    document.title = `Pedidos en vivo · ${nombre || "Geinz"}`;
-  } catch {
-    document.getElementById("bizName").textContent = "Panel de pedidos";
-  }
-}
+        function getMondayOfWeek(d) {
+            const x = startOfDay(d);
+            const day = x.getDay(); // 0 = domingo
+            const diff = (day === 0 ? -6 : 1) - day; // retrocede hasta el lunes
+            x.setDate(x.getDate() + diff);
+            return x;
+        }
 
-/* ══════════════ Sonido de notificación (Web Audio, sin archivos externos) ══════════════ */
-function ensureAudio() {
-  if (!audioCtx) {
-    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
-  }
-  if (audioCtx.state === "suspended") audioCtx.resume();
-  return audioCtx;
-}
-// desbloquea el audio en la primera interacción real del operador con la página
-document.addEventListener("click", () => ensureAudio(), { once: true, capture: true });
+        function getDateFilterRange() {
+            const now = new Date();
+            switch (dateFilter.type) {
+                case "hoy": {
+                    return [startOfDay(now), endOfDay(now)];
+                }
+                case "ayer": {
+                    const ayer = new Date(now); ayer.setDate(ayer.getDate() - 1);
+                    return [startOfDay(ayer), endOfDay(ayer)];
+                }
+                case "semana": {
+                    const lunes = getMondayOfWeek(now);
+                    return [lunes, endOfDay(now)];
+                }
+                case "semana_pasada": {
+                    const lunesActual = getMondayOfWeek(now);
+                    const lunesPasado = new Date(lunesActual); lunesPasado.setDate(lunesPasado.getDate() - 7);
+                    const domingoPasado = new Date(lunesActual); domingoPasado.setDate(domingoPasado.getDate() - 1);
+                    return [startOfDay(lunesPasado), endOfDay(domingoPasado)];
+                }
+                case "custom": {
+                    if (!dateFilter.from || !dateFilter.to) return [startOfDay(now), endOfDay(now)];
+                    return [startOfDay(dateFilter.from), endOfDay(dateFilter.to)];
+                }
+                default:
+                    return [startOfDay(now), endOfDay(now)];
+            }
+        }
 
-function playChime() {
-  if (!soundEnabled) return;
-  const ctx = ensureAudio();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  const notas = [880, 1108.73, 1318.51, 1760]; // arpegio mayor ascendente, campana suave
-  notas.forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = i === notas.length - 1 ? "triangle" : "sine";
-    osc.frequency.value = freq;
-    const start = now + i * 0.085;
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.24, start + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.62);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start + 0.65);
-  });
-}
+        function pedidoEnRango(p) {
+            const fecha = toDate(p.timestamp);
+            if (!fecha) return false;
+            const [from, to] = getDateFilterRange();
+            return fecha >= from && fecha <= to;
+        }
 
-/* ══════════════ Botón de campana: sonido + permiso de notificaciones ══════════════ */
-const bellBtn = document.getElementById("bellBtn");
-const bellDot = document.getElementById("bellDot");
+        /* Filtro combinado: fecha + origen (whatsapp/mesa) + mesa específica seleccionada */
+        function pedidoVisible(id, p) {
+            if (!pedidoEnRango(p)) return false;
+            const origen = getOrigen(id);
+            if (originFilter === "whatsapp" && origen.tipo !== "whatsapp") return false;
+            if (originFilter === "mesa") {
+                if (origen.tipo !== "mesa") return false;
+                if (mesaFilter !== null && origen.numero !== mesaFilter) return false;
+            }
+            return true;
+        }
 
-function paintBell() {
-  bellBtn.classList.toggle("on", soundEnabled);
-  bellBtn.textContent = "";
-  bellBtn.innerHTML = (soundEnabled ? "🔔" : "🔕") + `<span class="bell-dot" id="bellDot"></span>`;
-}
-paintBell();
+        function labelDateFilter() {
+            switch (dateFilter.type) {
+                case "hoy": return "Hoy";
+                case "ayer": return "Ayer";
+                case "semana": return "Esta semana";
+                case "semana_pasada": return "Semana pasada";
+                case "custom": {
+                    if (!dateFilter.from || !dateFilter.to) return "Rango";
+                    const f = (d) => d.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit" });
+                    return `${f(dateFilter.from)}–${f(dateFilter.to)}`;
+                }
+                default: return "Hoy";
+            }
+        }
 
-bellBtn.addEventListener("click", async () => {
-  soundEnabled = !soundEnabled;
-  localStorage.setItem("geinz_sound_enabled", soundEnabled ? "1" : "0");
-  paintBell();
-  if (soundEnabled) {
-    ensureAudio();
-    playChime();
-    if (window.Notification && Notification.permission === "default") {
-      try { await Notification.requestPermission(); } catch {}
-    }
-    showToast("🔔 Notificaciones de sonido activadas");
-  } else {
-    showToast("🔕 Notificaciones de sonido desactivadas");
-  }
-});
+        /* ══════════════ Utilidades ══════════════ */
+        function escapeHtml(str) {
+            return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+            }[c]));
+        }
+        function fmtMoney(n) { return "S/ " + Number(n || 0).toFixed(2); }
+        function toDate(ts) { return ts && typeof ts.toDate === "function" ? ts.toDate() : null; }
 
-/* ══════════════ Notificación del navegador (con imagen del producto) ══════════════ */
-function notificarPedidoNuevo(p) {
-  const cliente = p.cliente || {};
-  const productos = Array.isArray(p.productos) ? p.productos : [];
-  const totalItems = p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
-  const imagenProducto = productos.find((it) => it.imagen)?.imagen || "";
+        function timeAgo(date) {
+            if (!date) return "—";
+            const diffMs = Date.now() - date.getTime();
+            const min = Math.floor(diffMs / 60000);
+            if (min < 1) return "ahora mismo";
+            if (min < 60) return `hace ${min} min`;
+            const h = Math.floor(min / 60);
+            if (h < 24) return `hace ${h} h`;
+            const d = Math.floor(h / 24);
+            return `hace ${d} d`;
+        }
 
-  if (!window.Notification || Notification.permission !== "granted") return;
-  if (document.visibilityState === "visible") return; // ya lo están viendo en pantalla, no saturamos
+        function showToast(msg, danger) {
+            const el = document.getElementById("toast");
+            el.textContent = msg;
+            el.classList.toggle("danger", !!danger);
+            el.classList.add("show");
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(() => el.classList.remove("show"), 2600);
+        }
 
-  try {
-    const n = new Notification(`🛎️ Nuevo pedido · ${cliente.nombre || "Cliente"}`, {
-      body: `${totalItems} item${totalItems === 1 ? "" : "s"} · ${fmtMoney(p.total)} · ${cliente.tipo_entrega || ""}`,
-      icon: bizLogoUrl || undefined,
-      image: imagenProducto || undefined,
-      badge: bizLogoUrl || undefined,
-      tag: "geinz-pedido-" + Date.now(),
-      requireInteraction: false,
-    });
-    n.onclick = () => { window.focus(); n.close(); };
-  } catch (e) { console.warn("No se pudo mostrar la notificación:", e); }
-}
+        /* Anima un valor monetario en un elemento de texto, sin saltos bruscos */
+        function animateMoney(el, end) {
+            if (!el) return;
+            const start = parseFloat((el.textContent || "").replace(/[^\d.]/g, "")) || 0;
+            if (Math.abs(end - start) < 0.005) { el.textContent = fmtMoney(end); return; }
+            const duration = 420;
+            const t0 = performance.now();
+            function step(now) {
+                const p = Math.min((now - t0) / duration, 1);
+                const eased = 1 - Math.pow(1 - p, 3);
+                el.textContent = fmtMoney(start + (end - start) * eased);
+                if (p < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
 
-function bellRingFeedback() {
-  bellBtn.classList.remove("ring");
-  void bellBtn.offsetWidth;
-  bellBtn.classList.add("ring");
-  const dot = document.getElementById("bellDot");
-  if (dot) {
-    dot.classList.add("show");
-    setTimeout(() => dot.classList.remove("show"), 2500);
-  }
-}
+        /* ══════════════ Reloj en vivo ══════════════ */
+        function tickClock() {
+            const now = new Date();
+            document.getElementById("clockTime").textContent =
+                now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+            document.getElementById("clockDate").textContent =
+                now.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" });
+        }
+        tickClock();
+        setInterval(tickClock, 15000);
 
-/* ══════════════ Tarjeta colapsada (vista de columna) ══════════════ */
-const ICONOS_ENTREGA = { "Delivery": "🛵", "Recojo en local": "🏬" };
-const ICONOS_PAGO = { "Yape / Plin": "📱", "Efectivo": "💵" };
+        function tickTimeAgo() {
+            document.querySelectorAll("[data-ts]").forEach((el) => {
+                const ts = Number(el.dataset.ts);
+                if (!ts) return;
+                const date = new Date(ts);
+                const label = timeAgo(date);
+                const target = el.querySelector(".ts-label") || el;
+                target.textContent = label;
+                const diffMin = Math.floor((Date.now() - ts) / 60000);
+                el.classList.toggle("stale", diffMin >= 20);
+            });
+        }
+        setInterval(tickTimeAgo, 20000);
 
-function buildCard(id, p) {
-  const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
-  const fecha = toDate(p.timestamp);
-  const tsMs = fecha ? fecha.getTime() : null;
-  const cliente = p.cliente || {};
-  const productos = Array.isArray(p.productos) ? p.productos : [];
-  const totalItems = p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
-  const entregaIco = ICONOS_ENTREGA[cliente.tipo_entrega] || "📦";
+        /* ══════════════ Datos del negocio ══════════════ */
+        async function cargarNegocio() {
+            try {
+                const ref = doc(db, "Tiendas", localidad, localidad, tiendaId);
+                const snap = await getDoc(ref);
+                const data = snap.exists() ? snap.data() : null;
+                const nombre = data ? (data.nombre_tienda || data.nombre) : null;
+                bizNombreGlobal = nombre || "Geinz";
+                bizLogoUrl = data?.img_tienda?.logo_tienda || "";
+                document.title = `Pedidos en vivo · ${nombre || "Geinz"}`;
+            } catch {
+            }
+        }
 
-  const card = document.createElement("div");
-  card.className = "order-card";
-  card.id = `order-${id}`;
+        /* ══════════════ Sonido de notificación (Web Audio, sin archivos externos) ══════════════ */
+        function ensureAudio() {
+            if (!audioCtx) {
+                try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+            }
+            if (audioCtx.state === "suspended") audioCtx.resume();
+            return audioCtx;
+        }
+        // desbloquea el audio en la primera interacción real del operador con la página
+        document.addEventListener("click", () => ensureAudio(), { once: true, capture: true });
 
-  const hitArea = document.createElement("div");
-  hitArea.className = "oc-hit";
-  hitArea.innerHTML = `
+        function playChime() {
+            if (!soundEnabled) return;
+            const ctx = ensureAudio();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            const notas = [880, 1108.73, 1318.51, 1760]; // arpegio mayor ascendente, campana suave — pedido nuevo
+            notas.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = i === notas.length - 1 ? "triangle" : "sine";
+                osc.frequency.value = freq;
+                const start = now + i * 0.085;
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.24, start + 0.012);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + 0.62);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + 0.65);
+            });
+        }
+
+        /* Alarma distinta y más urgente para el auto-rechazo por tiempo agotado */
+        function playAutoRejectAlarm() {
+            if (!soundEnabled) return;
+            const ctx = ensureAudio();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            // Dos pulsos graves y descendentes tipo "alerta", repetidos dos veces
+            const pulsos = [
+                { start: 0.00, f0: 480, f1: 300 },
+                { start: 0.26, f0: 480, f1: 300 },
+                { start: 0.62, f0: 480, f1: 300 },
+                { start: 0.88, f0: 480, f1: 300 },
+            ];
+            pulsos.forEach((p) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sawtooth";
+                const start = now + p.start;
+                osc.frequency.setValueAtTime(p.f0, start);
+                osc.frequency.exponentialRampToValueAtTime(p.f1, start + 0.2);
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.22, start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + 0.24);
+            });
+        }
+
+        /* ══════════════ Botón de campana: sonido + permiso de notificaciones ══════════════ */
+        const bellBtn = document.getElementById("bellBtn");
+
+        function paintBell() {
+            bellBtn.classList.toggle("on", soundEnabled);
+            bellBtn.innerHTML = (soundEnabled ? "🔔" : "🔕") + `<span class="bell-dot" id="bellDot"></span>`;
+        }
+        paintBell();
+
+        bellBtn.addEventListener("click", async () => {
+            soundEnabled = !soundEnabled;
+            localStorage.setItem("geinz_sound_enabled", soundEnabled ? "1" : "0");
+            paintBell();
+            if (soundEnabled) {
+                ensureAudio();
+                playChime();
+                if (window.Notification && Notification.permission === "default") {
+                    try { await Notification.requestPermission(); } catch { }
+                }
+                showToast("🔔 Notificaciones de sonido activadas");
+            } else {
+                showToast("🔕 Notificaciones de sonido desactivadas");
+            }
+        });
+
+        /* ══════════════ Control de auto-rechazo (popover) ══════════════ */
+        const autorejBtn = document.getElementById("autorejBtn");
+        const autorejPop = document.getElementById("autorejPop");
+        const autorejToggle = document.getElementById("autorejToggle");
+        const autorejMinutesInput = document.getElementById("autorejMinutes");
+        const autorejVal = document.getElementById("autorejVal");
+        const autorejSave = document.getElementById("autorejSave");
+
+        function paintAutorejBtn() {
+            autorejBtn.classList.toggle("on", autoRejectEnabled);
+            autorejVal.textContent = autoRejectEnabled ? `${autoRejectMinutes}m` : "Off";
+        }
+        autorejToggle.checked = autoRejectEnabled;
+        autorejMinutesInput.value = autoRejectMinutes;
+        paintAutorejBtn();
+
+        autorejBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            autorejPop.classList.toggle("show");
+        });
+        document.addEventListener("click", (e) => {
+            if (!autorejPop.contains(e.target) && e.target !== autorejBtn) autorejPop.classList.remove("show");
+        });
+        autorejPop.addEventListener("click", (e) => e.stopPropagation());
+
+        autorejSave.addEventListener("click", () => {
+            const mins = Math.max(1, Math.min(120, Math.round(Number(autorejMinutesInput.value) || 5)));
+            autorejMinutesInput.value = mins;
+            autoRejectMinutes = mins;
+            autoRejectEnabled = autorejToggle.checked;
+            localStorage.setItem("geinz_autorej_on", autoRejectEnabled ? "1" : "0");
+            localStorage.setItem("geinz_autorej_min", String(mins));
+            paintAutorejBtn();
+            autorejPop.classList.remove("show");
+            showToast(
+                autoRejectEnabled
+                    ? `⏱️ Auto-rechazo activado: ${mins} min sin confirmar`
+                    : "⏱️ Auto-rechazo desactivado"
+            );
+        });
+
+        /* ══════════════ Control de filtro de fecha (barra inline, siempre visible) ══════════════ */
+        const datefilterBar = document.getElementById("datefilterBar");
+        const dfFrom = document.getElementById("dfFrom");
+        const dfTo = document.getElementById("dfTo");
+        const dfApply = document.getElementById("dfApply");
+        const dfRangeNote = document.getElementById("dfRangeNote");
+        const dfCustomInline = document.getElementById("dfCustomInline");
+
+        function paintDateFilterBar() {
+            datefilterBar.querySelectorAll(".df-chip").forEach((chip) => {
+                chip.classList.toggle("active", chip.dataset.range === dateFilter.type);
+            });
+            if (dateFilter.type === "custom" && dateFilter.from && dateFilter.to) {
+                const f = (d) => d.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+                dfRangeNote.textContent = `Mostrando del ${f(dateFilter.from)} al ${f(dateFilter.to)}`;
+            } else {
+                dfRangeNote.textContent = "";
+            }
+        }
+        paintDateFilterBar();
+
+        datefilterBar.querySelectorAll(".df-chip").forEach((chip) => {
+            chip.addEventListener("click", () => {
+                const range = chip.dataset.range;
+                if (range === "custom") {
+                    dfCustomInline.style.display = dfCustomInline.style.display === "none" ? "flex" : "none";
+                    return;
+                }
+                dfCustomInline.style.display = "none";
+                dateFilter = { type: range, from: null, to: null };
+                paintDateFilterBar();
+                renderBoard();
+                showToast(`📅 Mostrando pedidos: ${labelDateFilter()}`);
+            });
+        });
+
+        dfApply.addEventListener("click", () => {
+            if (!dfFrom.value || !dfTo.value) {
+                showToast("⚠️ Elige una fecha de inicio y una de fin", true);
+                return;
+            }
+            const from = new Date(dfFrom.value + "T00:00:00");
+            const to = new Date(dfTo.value + "T00:00:00");
+            if (from > to) {
+                showToast("⚠️ La fecha de inicio no puede ser posterior a la de fin", true);
+                return;
+            }
+            dateFilter = { type: "custom", from, to };
+            paintDateFilterBar();
+            dfCustomInline.style.display = "none";
+            renderBoard();
+            showToast(`📅 Mostrando rango: ${labelDateFilter()}`);
+        });
+
+        /* ══════════════ Control de filtro de origen (Todos / WhatsApp / Mesas) ══════════════ */
+        const originBar = document.getElementById("originBar");
+        const mesasStripWrap = document.getElementById("mesasStripWrap");
+
+        originBar.querySelectorAll(".origin-chip").forEach((chip) => {
+            chip.addEventListener("click", () => {
+                originFilter = chip.dataset.origin;
+                mesaFilter = null; // al cambiar de vista, reseteamos la mesa seleccionada
+                originBar.querySelectorAll(".origin-chip").forEach((c) => c.classList.toggle("active", c === chip));
+                mesasStripWrap.style.display = originFilter === "mesa" ? "block" : "none";
+                renderBoard();
+            });
+        });
+
+        /* ══════════════ Franja de mesas (solo visible cuando el filtro de origen = "mesa") ══════════════
+           Muestra TODAS las mesas registradas en /mesas, tengan o no pedidos ahora mismo.
+           El punto verde indica que esa mesa tiene al menos un pedido pendiente o en proceso. */
+        function renderMesaStrip() {
+            const strip = document.getElementById("mesasStrip");
+            if (!strip) return;
+
+            const mesasOrdenadas = [...mesasMap.values()].sort((a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0));
+
+            if (!mesasOrdenadas.length) {
+                strip.innerHTML = `<div style="font-size:12px;color:var(--ink-faint);font-weight:600;padding:8px 2px;">Todavía no hay mesas registradas para este local.</div>`;
+                return;
+            }
+
+            // Cuenta pedidos activos (pendiente/en_proceso) por número de mesa, sin importar el filtro de fecha,
+            // para que el punto verde refleje la atención inmediata que necesita el negocio.
+            const activosPorMesa = new Map();
+            pedidosMap.forEach((p, id) => {
+                const origen = getOrigen(id);
+                if (origen.tipo !== "mesa") return;
+                const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
+                if (estado !== "pendiente" && estado !== "en_proceso") return;
+                activosPorMesa.set(origen.numero, (activosPorMesa.get(origen.numero) || 0) + 1);
+            });
+
+            const chips = [`<div class="mesa-chip${mesaFilter === null ? " active" : ""}" data-mesa="todas"><span class="mc-dot" style="background:var(--violet);box-shadow:0 0 6px rgba(124,92,255,.6);"></span><span class="mc-lbl">Todas las mesas</span></div>`];
+
+            mesasOrdenadas.forEach((m) => {
+                const activos = activosPorMesa.get(m.numero_mesa) || 0;
+                const isActive = mesaFilter === m.numero_mesa;
+                chips.push(`
+                    <div class="mesa-chip${activos > 0 ? " has-activo" : ""}${isActive ? " active" : ""}" data-mesa="${m.numero_mesa}">
+                        <span class="mc-dot"></span>
+                        <span class="mc-lbl">${escapeHtml(m.nombre_alias || ("Mesa " + m.numero_mesa))}</span>
+                        ${activos > 0 ? `<span class="mc-count">${activos}</span>` : ""}
+                    </div>
+                `);
+            });
+
+            strip.innerHTML = chips.join("");
+
+            strip.querySelectorAll(".mesa-chip").forEach((chip) => {
+                chip.addEventListener("click", () => {
+                    const val = chip.dataset.mesa;
+                    mesaFilter = val === "todas" ? null : Number(val);
+                    renderBoard();
+                });
+            });
+        }
+
+        /* ══════════════ Notificación del navegador (con imagen del producto) ══════════════ */
+        function notificarPedidoNuevo(p) {
+            const cliente = p.cliente || {};
+            const productos = Array.isArray(p.productos) ? p.productos : [];
+            const totalItems = p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
+            const imagenProducto = productos.find((it) => it.imagen)?.imagen || "";
+
+            if (!window.Notification || Notification.permission !== "granted") return;
+            if (document.visibilityState === "visible") return; // ya lo están viendo en pantalla, no saturamos
+
+            try {
+                const n = new Notification(`🛎️ Nuevo pedido · ${cliente.nombre || "Cliente"}`, {
+                    body: `${totalItems} item${totalItems === 1 ? "" : "s"} · ${fmtMoney(p.total)} · ${cliente.tipo_entrega || ""}`,
+                    icon: bizLogoUrl || undefined,
+                    image: imagenProducto || undefined,
+                    badge: bizLogoUrl || undefined,
+                    tag: "geinz-pedido-" + Date.now(),
+                    requireInteraction: false,
+                });
+                n.onclick = () => { window.focus(); n.close(); };
+            } catch (e) { console.warn("No se pudo mostrar la notificación:", e); }
+        }
+
+        function notificarAutoRechazo(p) {
+            if (!window.Notification || Notification.permission !== "granted") return;
+            if (document.visibilityState === "visible") return;
+            try {
+                const cliente = p.cliente || {};
+                const n = new Notification(`⏱️ Pedido rechazado automáticamente`, {
+                    body: `${cliente.nombre || "Cliente"} · superó ${autoRejectMinutes} min sin confirmarse`,
+                    icon: bizLogoUrl || undefined,
+                    badge: bizLogoUrl || undefined,
+                    tag: "geinz-autorechazo-" + Date.now(),
+                    requireInteraction: false,
+                });
+                n.onclick = () => { window.focus(); n.close(); };
+            } catch (e) { console.warn("No se pudo mostrar la notificación:", e); }
+        }
+
+        function bellRingFeedback() {
+            bellBtn.classList.remove("ring");
+            void bellBtn.offsetWidth;
+            bellBtn.classList.add("ring");
+            const dot = document.getElementById("bellDot");
+            if (dot) {
+                dot.classList.add("show");
+                setTimeout(() => dot.classList.remove("show"), 2500);
+            }
+        }
+
+        /* ══════════════ Tarjeta colapsada (vista de columna) ══════════════ */
+        const ICONOS_ENTREGA = { "Delivery": "🛵", "Recojo en local": "🏬" };
+        const ICONOS_PAGO = { "Yape / Plin": "📱", "Efectivo": "💵" };
+
+        function origenTagHtml(id) {
+            const origen = getOrigen(id);
+            if (origen.tipo === "mesa") {
+                const mesa = mesasMap.get(`mesa_${origen.numero}`);
+                const alias = mesa?.nombre_alias || `Mesa ${origen.numero}`;
+                return `<span class="oc-origin-tag mesa">🍽️ ${escapeHtml(alias)}</span>`;
+            }
+            return `<span class="oc-origin-tag">💬 WhatsApp</span>`;
+        }
+
+        function buildCard(id, p) {
+            const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
+            const fecha = toDate(p.timestamp);
+            const tsMs = fecha ? fecha.getTime() : null;
+            const cliente = p.cliente || {};
+            const productos = Array.isArray(p.productos) ? p.productos : [];
+            const totalItems = p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
+            const entregaIco = ICONOS_ENTREGA[cliente.tipo_entrega] || "📦";
+            const esUrgente = estado === "pendiente" && autoRejectEnabled && tsMs &&
+                (Date.now() - tsMs) / 60000 >= autoRejectMinutes * 0.7;
+
+            const card = document.createElement("div");
+            card.className = "order-card";
+            card.id = `order-${id}`;
+
+            const hitArea = document.createElement("div");
+            hitArea.className = "oc-hit";
+            hitArea.innerHTML = `
     <div class="oc-top">
       <span class="oc-id mono">#${id.slice(0, 6).toUpperCase()}</span>
-      <span class="oc-time" ${tsMs ? `data-ts="${tsMs}"` : ""}><span class="pulse"></span><span class="ts-label">${fecha ? timeAgo(fecha) : "—"}</span></span>
+      <span class="oc-time${esUrgente ? " urgent" : ""}" ${tsMs ? `data-ts="${tsMs}"` : ""}><span class="pulse"></span><span class="ts-label">${fecha ? timeAgo(fecha) : "—"}</span></span>
     </div>
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
     <div class="oc-summary">
-      <span class="oc-summary-left">${totalItems} item${totalItems === 1 ? "" : "s"}</span>
+      <span class="oc-summary-left">${origenTagHtml(id)}</span>
       <div class="oc-summary-right">
         <span class="oc-summary-total">${fmtMoney(p.total)}</span>
         <span class="oc-chevron">›</span>
       </div>
     </div>
   `;
-  hitArea.addEventListener("click", () => openDetail(id));
-  card.appendChild(hitArea);
+            hitArea.addEventListener("click", () => openDetail(id));
+            card.appendChild(hitArea);
 
-  const actionsWrap = document.createElement("div");
-  renderCardActions(actionsWrap, id, estado);
-  card.appendChild(actionsWrap);
+            const actionsWrap = document.createElement("div");
+            renderCardActions(actionsWrap, id, estado, p);
+            card.appendChild(actionsWrap);
 
-  return card;
-}
+            return card;
+        }
 
-function renderCardActions(container, id, estado) {
-  container.innerHTML = "";
-  if (estado === "pendiente") {
-    container.innerHTML = `
+        function renderCardActions(container, id, estado, p) {
+            container.innerHTML = "";
+            if (estado === "pendiente") {
+                container.innerHTML = `
       <div class="oc-actions">
         <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
         <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar →</button>
       </div>`;
-  } else if (estado === "en_proceso") {
-    container.innerHTML = `
+            } else if (estado === "en_proceso") {
+                container.innerHTML = `
       <div class="oc-actions">
         <button class="oc-btn ghost" data-action="pendiente">← Pendiente</button>
         <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
       </div>`;
-  } else if (estado === "entregado") {
-    container.innerHTML = `
+            } else if (estado === "entregado") {
+                container.innerHTML = `
       <div class="oc-final-row">
         <div class="oc-final-tag">✅ Entregado</div>
         <span class="oc-undo" data-action="en_proceso">↺ Reabrir</span>
       </div>`;
-  } else if (estado === "rechazado") {
-    container.innerHTML = `
+            } else if (estado === "rechazado") {
+                const auto = !!p.auto_rechazado;
+                container.innerHTML = `
       <div class="oc-final-row">
-        <div class="oc-final-tag">✕ Rechazado</div>
+        <div class="oc-final-tag${auto ? " auto" : ""}">${auto ? "⏱️ Auto-rechazado" : "✕ Rechazado"}</div>
         <span class="oc-undo" data-action="pendiente">↺ Reactivar</span>
       </div>`;
-  }
-  container.querySelectorAll("[data-action]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      cambiarEstado(id, btn.dataset.action, btn);
-    });
-  });
-}
+            }
+            container.querySelectorAll("[data-action]").forEach((btn) => {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    cambiarEstado(id, btn.dataset.action, btn);
+                });
+            });
+        }
 
-/* ══════════════ Modal de detalle completo ══════════════ */
-const detailOverlay = document.getElementById("detailOverlay");
-const detailModal = document.getElementById("detailModal");
+        /* ══════════════ Modal de detalle completo ══════════════ */
+        const detailOverlay = document.getElementById("detailOverlay");
+        const detailModal = document.getElementById("detailModal");
 
-function openDetail(id) {
-  activeModalId = id;
-  renderDetail(id);
-  detailOverlay.classList.add("show");
-  requestAnimationFrame(() => detailModal.classList.add("show"));
-  document.body.style.overflow = "hidden";
-}
-function closeDetail() {
-  detailModal.classList.remove("show");
-  detailOverlay.classList.remove("show");
-  document.body.style.overflow = "";
-  activeModalId = null;
-}
-document.getElementById("dmClose").addEventListener("click", closeDetail);
-detailOverlay.addEventListener("click", (e) => { if (e.target === detailOverlay) closeDetail(); });
+        function openDetail(id) {
+            activeModalId = id;
+            renderDetail(id);
+            detailOverlay.classList.add("show");
+            requestAnimationFrame(() => detailModal.classList.add("show"));
+            document.body.style.overflow = "hidden";
+        }
+        function closeDetail() {
+            detailModal.classList.remove("show");
+            detailOverlay.classList.remove("show");
+            document.body.style.overflow = "";
+            activeModalId = null;
+        }
+        document.getElementById("dmClose").addEventListener("click", closeDetail);
+        detailOverlay.addEventListener("click", (e) => { if (e.target === detailOverlay) closeDetail(); });
 
-function renderDetail(id) {
-  const p = pedidosMap.get(id);
-  if (!p) { closeDetail(); return; }
+        function renderDetail(id) {
+            const p = pedidosMap.get(id);
+            if (!p) { closeDetail(); return; }
 
-  const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
-  const fecha = toDate(p.timestamp);
-  const tsMs = fecha ? fecha.getTime() : null;
-  const cliente = p.cliente || {};
-  const pago = p.pago || {};
-  const productos = Array.isArray(p.productos) ? p.productos : [];
-  const totalItems = p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
-  const entregaIco = ICONOS_ENTREGA[cliente.tipo_entrega] || "📦";
-  const pagoIco = ICONOS_PAGO[pago.metodo] || "💳";
+            const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
+            const fecha = toDate(p.timestamp);
+            const tsMs = fecha ? fecha.getTime() : null;
+            const cliente = p.cliente || {};
+            const pago = p.pago || {};
+            const productos = Array.isArray(p.productos) ? p.productos : [];
+            const totalItems = p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
+            const entregaIco = ICONOS_ENTREGA[cliente.tipo_entrega] || "📦";
+            const pagoIco = ICONOS_PAGO[pago.metodo] || "💳";
+            const origen = getOrigen(id);
 
-  detailModal.dataset.status = estado;
-  document.getElementById("dmId").textContent = `#${id.slice(0, 8).toUpperCase()}`;
-  document.getElementById("dmName").textContent = cliente.nombre || "Cliente sin nombre";
-  const dmTime = document.getElementById("dmTime");
-  if (tsMs) { dmTime.dataset.ts = tsMs; dmTime.innerHTML = `<span class="pulse"></span><span class="ts-label">${timeAgo(fecha)}</span>`; }
-  else { dmTime.removeAttribute("data-ts"); dmTime.innerHTML = `<span class="pulse"></span><span class="ts-label">—</span>`; }
+            detailModal.dataset.status = estado;
+            document.getElementById("dmId").innerHTML = `#${id.slice(0, 8).toUpperCase()} ${origenTagHtml(id)}`;
+            document.getElementById("dmName").textContent = cliente.nombre || "Cliente sin nombre";
+            const dmTime = document.getElementById("dmTime");
+            if (tsMs) { dmTime.dataset.ts = tsMs; dmTime.innerHTML = `<span class="pulse"></span><span class="ts-label">${timeAgo(fecha)}</span>`; }
+            else { dmTime.removeAttribute("data-ts"); dmTime.innerHTML = `<span class="pulse"></span><span class="ts-label">—</span>`; }
 
-  const fechaHora = [p.fecha, p.hora].filter(Boolean).join(" · ");
+            const fechaHora = [p.fecha, p.hora].filter(Boolean).join(" · ");
 
-  const prodRows = productos.map((it) => `
+            const prodRows = productos.map((it) => `
     <div class="dm-prod-row">
       <div>
         <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
@@ -807,7 +2594,17 @@ function renderDetail(id) {
     </div>
   `).join("") || `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
 
-  document.getElementById("dmBody").innerHTML = `
+            const autoNote = estado === "rechazado" && p.auto_rechazado
+                ? `<div class="dm-meta-item full"><div class="dm-meta-label">⏱️ Motivo</div><div class="dm-meta-value">Rechazado automáticamente por superar ${autoRejectMinutes} min sin pasar a "En proceso"</div></div>`
+                : "";
+
+            const mesaInfoBlock = origen.tipo === "mesa" ? `
+        <div class="dm-meta-item">
+          <div class="dm-meta-label">🍽️ Mesa</div>
+          <div class="dm-meta-value">${escapeHtml((mesasMap.get(`mesa_${origen.numero}`)?.nombre_alias) || ("Mesa " + origen.numero))}</div>
+        </div>` : "";
+
+            document.getElementById("dmBody").innerHTML = `
     <div>
       <div class="dm-section-title">Datos del pedido</div>
       <div class="dm-meta-grid">
@@ -815,9 +2612,10 @@ function renderDetail(id) {
           <div class="dm-meta-label">🗓️ Fecha y hora</div>
           <div class="dm-meta-value">${escapeHtml(fechaHora || "Sin registrar")}</div>
         </div>
+        ${mesaInfoBlock}
         <div class="dm-meta-item">
           <div class="dm-meta-label">${entregaIco} Tipo de entrega</div>
-          <div class="dm-meta-value">${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
+          <div class="dm-meta-value">${escapeHtml(cliente.tipo_entrega || (origen.tipo === "mesa" ? "Consumo en mesa" : "Sin especificar"))}</div>
         </div>
         ${cliente.tipo_entrega === "Delivery" ? `
         <div class="dm-meta-item full">
@@ -836,6 +2634,7 @@ function renderDetail(id) {
           <div class="dm-meta-label">📝 Nota del cliente</div>
           <div class="dm-meta-value ${p.nota ? "" : "dim"}">${p.nota ? escapeHtml(p.nota) : "Sin especificaciones adicionales"}</div>
         </div>
+        ${autoNote}
       </div>
     </div>
 
@@ -850,206 +2649,302 @@ function renderDetail(id) {
     </div>
   `;
 
-  const actionsWrap = document.createElement("div");
-  actionsWrap.className = "oc-actions";
-  renderModalActions(actionsWrap, id, estado);
-  const dmActions = document.getElementById("dmActions");
-  dmActions.innerHTML = "";
-  dmActions.appendChild(actionsWrap);
-}
-
-function renderModalActions(container, id, estado) {
-  container.innerHTML = "";
-  if (estado === "pendiente") {
-    container.innerHTML = `
-      <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
-      <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar pedido →</button>`;
-  } else if (estado === "en_proceso") {
-    container.innerHTML = `
-      <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
-      <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
-  } else if (estado === "entregado") {
-    container.innerHTML = `
-      <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
-      <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
-  } else if (estado === "rechazado") {
-    container.innerHTML = `
-      <div class="oc-final-tag" style="width:100%;">✕ Este pedido fue rechazado</div>
-      <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="pendiente">↺ Reactivar pedido</span></div>`;
-  }
-  container.querySelectorAll("[data-action]").forEach((btn) => {
-    btn.addEventListener("click", () => cambiarEstado(id, btn.dataset.action, btn));
-  });
-}
-
-/* ══════════════ Cambiar estado en Firestore ══════════════ */
-async function cambiarEstado(pedidoId, nuevoEstado, btnEl) {
-  if (btnEl) btnEl.disabled = true;
-  try {
-    const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", pedidoId);
-    await updateDoc(ref, { estado: nuevoEstado, actualizado: serverTimestamp() });
-    showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
-  } catch (err) {
-    console.error("Error actualizando pedido:", err);
-    showToast("❌ No se pudo actualizar el pedido");
-    if (btnEl) btnEl.disabled = false;
-  }
-}
-function labelEstado(e) {
-  return { pendiente: "Pendiente", en_proceso: "En proceso", entregado: "Entregado", rechazado: "Rechazado" }[e] || e;
-}
-
-/* ══════════════ Render del tablero completo ══════════════ */
-function renderBoard() {
-  const grupos = { pendiente: [], en_proceso: [], entregado: [], rechazado: [] };
-
-  [...pedidosMap.entries()]
-    .sort((a, b) => (toDate(b[1].timestamp)?.getTime() || 0) - (toDate(a[1].timestamp)?.getTime() || 0))
-    .forEach(([id, p]) => {
-      const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
-      grupos[estado].push([id, p]);
-    });
-
-  ESTADOS.forEach((estado) => {
-    const body = document.getElementById(`col-${estado}`);
-    const items = grupos[estado];
-    const count = items.length;
-    const suma = items.reduce((s, [, p]) => s + Number(p.total || 0), 0);
-
-    document.getElementById(`cnt-${estado}`).textContent = count;
-    document.getElementById(`head-cnt-${estado}`).textContent = count;
-    document.getElementById(`money-${estado}`).textContent = fmtMoney(suma);
-    animateMoney(document.getElementById(`head-money-${estado}`), suma);
-    prevMoney[estado] = suma;
-
-    body.innerHTML = "";
-    if (!count) {
-      const icoMap = { pendiente: "🌙", en_proceso: "🧊", entregado: "📭", rechazado: "🚫" };
-      const msgMap = {
-        pendiente: "No hay pedidos pendientes",
-        en_proceso: "Nada en preparación ahora mismo",
-        entregado: "Aún no hay entregas registradas",
-        rechazado: "Sin pedidos rechazados",
-      };
-      body.innerHTML = `<div class="col-empty"><div class="ce-ico">${icoMap[estado]}</div><p>${msgMap[estado]}</p></div>`;
-      return;
-    }
-
-    const frag = document.createDocumentFragment();
-    items.forEach(([id, p]) => frag.appendChild(buildCard(id, p)));
-    body.appendChild(frag);
-  });
-
-  // Si el modal de detalle está abierto y ese pedido sigue existiendo, refrescamos su contenido en vivo
-  if (activeModalId) {
-    if (pedidosMap.has(activeModalId)) renderDetail(activeModalId);
-    else closeDetail();
-  }
-}
-
-/* ══════════════ Tabs (mobile) ══════════════ */
-document.getElementById("statusTabs").addEventListener("click", (e) => {
-  const tab = e.target.closest(".stab");
-  if (!tab) return;
-  activeTab = tab.dataset.s;
-  document.querySelectorAll(".stab").forEach((t) => t.classList.toggle("active", t === tab));
-  document.querySelectorAll(".board-col").forEach((c) => c.classList.toggle("col-active", c.dataset.status === activeTab));
-  window.scrollTo({ top: 0, behavior: "smooth" });
-});
-
-/* ══════════════ Loader ══════════════ */
-function hideLoader() {
-  const loader = document.getElementById("pageLoader");
-  if (!loader) return;
-  loader.classList.add("leaving");
-  setTimeout(() => loader.remove(), 450);
-}
-
-/* ══════════════ Listener en vivo ══════════════ */
-function iniciarListener() {
-  if (!tiendaId) return;
-  cargarNegocio();
-
-  const liveDot = document.getElementById("liveDot");
-  const pedidosRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
-  const q = query(pedidosRef, orderBy("timestamp", "desc"));
-
-  onSnapshot(
-    q,
-    (snap) => {
-      liveDot.classList.remove("off");
-
-      // Primera carga: solo llenamos el mapa, sin disparar notificaciones de pedidos "nuevos"
-      if (isFirstSnapshot) {
-        snap.forEach((d) => pedidosMap.set(d.id, d.data()));
-        isFirstSnapshot = false;
-        renderBoard();
-        hideLoader();
-        return;
-      }
-
-      const nuevosPendientes = [];
-
-      snap.docChanges().forEach((change) => {
-        const id = change.doc.id;
-        const data = change.doc.data();
-        const estadoNuevo = ESTADOS.includes(data.estado) ? data.estado : "pendiente";
-
-        if (change.type === "added") {
-          if (estadoNuevo === "pendiente") nuevosPendientes.push(data);
-        } else if (change.type === "modified") {
-          const anterior = pedidosMap.get(id);
-          const estadoAnterior = anterior ? (ESTADOS.includes(anterior.estado) ? anterior.estado : "pendiente") : null;
-          if (estadoNuevo === "pendiente" && estadoAnterior !== "pendiente") nuevosPendientes.push(data);
+            const actionsWrap = document.createElement("div");
+            actionsWrap.className = "oc-actions";
+            renderModalActions(actionsWrap, id, estado, p);
+            const dmActions = document.getElementById("dmActions");
+            dmActions.innerHTML = "";
+            dmActions.appendChild(actionsWrap);
         }
 
-        if (change.type === "removed") pedidosMap.delete(id);
-        else pedidosMap.set(id, data);
-      });
+        function renderModalActions(container, id, estado, p) {
+            container.innerHTML = "";
+            if (estado === "pendiente") {
+                container.innerHTML = `
+      <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
+      <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar pedido →</button>`;
+            } else if (estado === "en_proceso") {
+                container.innerHTML = `
+      <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
+      <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
+            } else if (estado === "entregado") {
+                container.innerHTML = `
+      <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
+      <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
+            } else if (estado === "rechazado") {
+                const auto = !!p.auto_rechazado;
+                container.innerHTML = `
+      <div class="oc-final-tag${auto ? " auto" : ""}" style="width:100%;">${auto ? "⏱️ Rechazado automáticamente por tiempo" : "✕ Este pedido fue rechazado"}</div>
+      <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="pendiente">↺ Reactivar pedido</span></div>`;
+            }
+            container.querySelectorAll("[data-action]").forEach((btn) => {
+                btn.addEventListener("click", () => cambiarEstado(id, btn.dataset.action, btn));
+            });
+        }
 
-      renderBoard();
+        /* ══════════════ Cambiar estado en Firestore ══════════════ */
+        async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
+            if (btnEl) btnEl.disabled = true;
+            try {
+                const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", pedidoId);
+                const payload = { estado: nuevoEstado, actualizado: serverTimestamp() };
+                // Si sale de "rechazado" (reactivación) limpiamos la marca de auto-rechazo
+                if (nuevoEstado !== "rechazado") payload.auto_rechazado = false;
+                if (opts.auto) payload.auto_rechazado = true;
+                await updateDoc(ref, payload);
+                if (!opts.auto) showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
+            } catch (err) {
+                console.error("Error actualizando pedido:", err);
+                showToast("❌ No se pudo actualizar el pedido", true);
+                if (btnEl) btnEl.disabled = false;
+                if (opts.auto) autoRejectingIds.delete(pedidoId);
+            }
+        }
+        function labelEstado(e) {
+            return { pendiente: "Pendiente", en_proceso: "En proceso", entregado: "Entregado", rechazado: "Rechazado" }[e] || e;
+        }
 
-      if (nuevosPendientes.length) {
-        playChime();
-        bellRingFeedback();
-        nuevosPendientes.forEach((p) => notificarPedidoNuevo(p));
-        const nombres = nuevosPendientes.map((p) => p.cliente?.nombre || "Cliente").join(", ");
-        showToast(nuevosPendientes.length === 1 ? `🛎️ Nuevo pedido de ${nombres}` : `🛎️ ${nuevosPendientes.length} pedidos nuevos`);
-      }
+        /* ══════════════ Chequeo periódico de auto-rechazo ══════════════
+           Nota: el auto-rechazo por tiempo se aplica a TODOS los pedidos pendientes que superen
+           el límite configurado, sin importar el filtro de fecha activo en pantalla — el filtro
+           de fecha solo afecta lo que se muestra, no la lógica de negocio. */
+        function chequearAutoRechazo() {
+            if (!autoRejectEnabled) return;
+            const limiteMs = autoRejectMinutes * 60000;
+            const rechazadosAhora = [];
 
-      hideLoader();
-    },
-    (err) => {
-      console.error("Error escuchando pedidos:", err);
-      liveDot.classList.add("off");
-      showToast("⚠️ Conexión interrumpida, reintentando…");
-      hideLoader();
-    }
-  );
-}
+            pedidosMap.forEach((p, id) => {
+                const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
+                if (estado !== "pendiente") return;
+                if (autoRejectingIds.has(id)) return;
+                const fecha = toDate(p.timestamp);
+                if (!fecha) return;
+                if (Date.now() - fecha.getTime() >= limiteMs) {
+                    autoRejectingIds.add(id);
+                    rechazadosAhora.push([id, p]);
+                }
+            });
 
-/* ══════════════ Arranque: URL → mensaje del panel → ID de prueba ══════════════ */
-if (tiendaId) {
-  iniciarListener();
-} else {
-  let resuelto = false;
-  window.addEventListener("message", (e) => {
-    const d = e.data;
-    if (d && d.type === "DATOS_TIENDA" && d.id && !resuelto) {
-      resuelto = true;
-      tiendaId = d.id;
-      localidad = (d.localidad || localidad).toLowerCase();
-      iniciarListener();
-    }
-  });
-  setTimeout(() => {
-    if (!resuelto) {
-      resuelto = true;
-      tiendaId = ID_PRUEBA;
-      iniciarListener();
-    }
-  }, 900);
-}
-</script>
+            if (!rechazadosAhora.length) return;
+
+            rechazadosAhora.forEach(([id, p]) => {
+                cambiarEstado(id, "rechazado", null, { auto: true });
+            });
+
+            playAutoRejectAlarm();
+            bellRingFeedback();
+            rechazadosAhora.forEach(([, p]) => notificarAutoRechazo(p));
+            const nombres = rechazadosAhora.map(([, p]) => p.cliente?.nombre || "Cliente").join(", ");
+            showToast(
+                rechazadosAhora.length === 1
+                    ? `⏱️ Pedido de ${nombres} rechazado automáticamente (${autoRejectMinutes} min sin confirmar)`
+                    : `⏱️ ${rechazadosAhora.length} pedidos rechazados automáticamente por tiempo`,
+                true
+            );
+        }
+        setInterval(chequearAutoRechazo, 15000);
+
+        /* ══════════════ Render del tablero completo ══════════════ */
+        function renderBoard() {
+            const grupos = { pendiente: [], en_proceso: [], entregado: [], rechazado: [] };
+
+            [...pedidosMap.entries()]
+                .filter(([id, p]) => pedidoVisible(id, p)) // ← aplica fecha + origen + mesa seleccionada
+                .sort((a, b) => (toDate(b[1].timestamp)?.getTime() || 0) - (toDate(a[1].timestamp)?.getTime() || 0))
+                .forEach(([id, p]) => {
+                    const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
+                    grupos[estado].push([id, p]);
+                    // Si un pedido ya no está pendiente (o ya no existe como tal), liberamos su marca de "procesando auto-rechazo"
+                    if (estado !== "pendiente") autoRejectingIds.delete(id);
+                });
+
+            const totalVisible = ESTADOS.reduce((s, e) => s + grupos[e].length, 0);
+
+            ESTADOS.forEach((estado) => {
+                const body = document.getElementById(`col-${estado}`);
+                const items = grupos[estado];
+                const count = items.length;
+                const suma = items.reduce((s, [, p]) => s + Number(p.total || 0), 0);
+
+                document.getElementById(`cnt-${estado}`).textContent = count;
+                document.getElementById(`head-cnt-${estado}`).textContent = count;
+                document.getElementById(`money-${estado}`).textContent = fmtMoney(suma);
+                animateMoney(document.getElementById(`head-money-${estado}`), suma);
+                prevMoney[estado] = suma;
+
+                body.innerHTML = "";
+                if (!count) {
+                    const icoMap = { pendiente: "🌙", en_proceso: "🧊", entregado: "📭", rechazado: "🚫" };
+                    const msgMap = {
+                        pendiente: "No hay pedidos pendientes",
+                        en_proceso: "Nada en preparación ahora mismo",
+                        entregado: "Aún no hay entregas registradas",
+                        rechazado: "Sin pedidos rechazados",
+                    };
+                    body.innerHTML = `<div class="col-empty"><div class="ce-ico">${icoMap[estado]}</div><p>${msgMap[estado]} en este periodo</p></div>`;
+                    return;
+                }
+
+                const frag = document.createDocumentFragment();
+                items.forEach(([id, p]) => frag.appendChild(buildCard(id, p)));
+                body.appendChild(frag);
+            });
+
+            // Banner explícito para la vista de mesas: si la mesa seleccionada (o todas, en el filtro
+            // "Mesas") no tiene ningún pedido en el periodo mostrado, se avisa claramente en vez de
+            // dejar las 4 columnas vacías sin contexto.
+            const banner = document.getElementById("mesaEmptyBanner");
+            if (originFilter === "mesa" && totalVisible === 0) {
+                const mesa = mesaFilter !== null ? mesasMap.get(`mesa_${mesaFilter}`) : null;
+                const nombreMesa = mesa?.nombre_alias || (mesaFilter !== null ? `Mesa ${mesaFilter}` : null);
+                banner.textContent = nombreMesa
+                    ? `🪑 No hay pedidos registrados en "${nombreMesa}" durante ${labelDateFilter().toLowerCase()}.`
+                    : `🪑 No hay pedidos de ninguna mesa registrados durante ${labelDateFilter().toLowerCase()}.`;
+                banner.style.display = "flex";
+            } else {
+                banner.style.display = "none";
+            }
+
+            if (originFilter === "mesa") renderMesaStrip();
+
+            // Si el modal de detalle está abierto y ese pedido sigue existiendo, refrescamos su contenido en vivo
+            if (activeModalId) {
+                if (pedidosMap.has(activeModalId)) renderDetail(activeModalId);
+                else closeDetail();
+            }
+        }
+
+        /* ══════════════ Tabs (mobile) ══════════════ */
+        document.getElementById("statusTabs").addEventListener("click", (e) => {
+            const tab = e.target.closest(".stab");
+            if (!tab) return;
+            activeTab = tab.dataset.s;
+            document.querySelectorAll(".stab").forEach((t) => t.classList.toggle("active", t === tab));
+            document.querySelectorAll(".board-col").forEach((c) => c.classList.toggle("col-active", c.dataset.status === activeTab));
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+
+        /* ══════════════ Loader ══════════════ */
+        function hideLoader() {
+            const loader = document.getElementById("pageLoader");
+            if (!loader) return;
+            loader.classList.add("leaving");
+            setTimeout(() => loader.remove(), 450);
+        }
+
+        /* ══════════════ Listener de mesas (independiente del de pedidos) ══════════════
+           /Tiendas/{localidad}/{localidad}/{tiendaId}/mesas/{mesa_N}
+           Este listener alimenta la franja de mesas y el badge de cada tarjeta/detalle;
+           no toca ni depende del listener de "pedidos". */
+        function iniciarListenerMesas() {
+            if (!tiendaId) return;
+            const mesasRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "mesas");
+            const q = query(mesasRef, orderBy("numero_mesa"));
+            onSnapshot(
+                q,
+                (snap) => {
+                    mesasMap.clear();
+                    snap.forEach((d) => mesasMap.set(d.id, d.data()));
+                    if (originFilter === "mesa") renderMesaStrip();
+                },
+                (err) => console.warn("No se pudieron cargar las mesas:", err)
+            );
+        }
+
+        /* ══════════════ Listener en vivo ══════════════ */
+        function iniciarListener() {
+            if (!tiendaId) return;
+
+            iniciarListenerMesas();
+
+            const pedidosRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
+            const q = query(pedidosRef, orderBy("timestamp", "desc"));
+
+            onSnapshot(
+                q,
+                (snap) => {
+
+                    // Primera carga: solo llenamos el mapa, sin disparar notificaciones de pedidos "nuevos"
+                    if (isFirstSnapshot) {
+                        snap.forEach((d) => pedidosMap.set(d.id, d.data()));
+                        isFirstSnapshot = false;
+                        renderBoard();
+                        hideLoader();
+                        chequearAutoRechazo();
+                        return;
+                    }
+
+                    const nuevosPendientes = [];
+
+                    snap.docChanges().forEach((change) => {
+                        const id = change.doc.id;
+                        const data = change.doc.data();
+                        const estadoNuevo = ESTADOS.includes(data.estado) ? data.estado : "pendiente";
+
+                        if (change.type === "added") {
+                            if (estadoNuevo === "pendiente") nuevosPendientes.push(data);
+                        } else if (change.type === "modified") {
+                            const anterior = pedidosMap.get(id);
+                            const estadoAnterior = anterior ? (ESTADOS.includes(anterior.estado) ? anterior.estado : "pendiente") : null;
+                            if (estadoNuevo === "pendiente" && estadoAnterior !== "pendiente") nuevosPendientes.push(data);
+                        }
+
+                        if (change.type === "removed") { pedidosMap.delete(id); autoRejectingIds.delete(id); }
+                        else pedidosMap.set(id, data);
+                    });
+
+                    renderBoard();
+
+                    if (nuevosPendientes.length) {
+                        playChime();
+                        bellRingFeedback();
+                        nuevosPendientes.forEach((p) => notificarPedidoNuevo(p));
+                        const nombres = nuevosPendientes.map((p) => p.cliente?.nombre || "Cliente").join(", ");
+                        showToast(nuevosPendientes.length === 1 ? `🛎️ Nuevo pedido de ${nombres}` : `🛎️ ${nuevosPendientes.length} pedidos nuevos`);
+                    }
+
+                    hideLoader();
+                },
+                (err) => {
+                    console.error("Error escuchando pedidos:", err);
+
+                    showToast("⚠️ Conexión interrumpida, reintentando…", true);
+                    hideLoader();
+                }
+            );
+        }
+
+        /* ══════════════ Refresco periódico del filtro "Hoy" ══════════════
+           Si el filtro activo es "Hoy" o "Esta semana" y el reloj cruza la medianoche
+           mientras la pantalla sigue abierta, este intervalo vuelve a evaluar el rango
+           para que el tablero no se quede mostrando el día anterior. */
+        setInterval(() => {
+            if (dateFilter.type === "hoy" || dateFilter.type === "semana") renderBoard();
+        }, 60000);
+
+        /* ══════════════ Arranque: URL → mensaje del panel → ID de prueba ══════════════ */
+        if (tiendaId) {
+            iniciarListener();
+        } else {
+            let resuelto = false;
+            window.addEventListener("message", (e) => {
+                const d = e.data;
+                if (d && d.type === "DATOS_TIENDA" && d.id && !resuelto) {
+                    resuelto = true;
+                    tiendaId = d.id;
+                    localidad = (d.localidad || localidad).toLowerCase();
+                    iniciarListener();
+                }
+            });
+            setTimeout(() => {
+                if (!resuelto) {
+                    resuelto = true;
+                    tiendaId = ID_PRUEBA;
+                    iniciarListener();
+                }
+            }, 900);
+        }
+    </script>
 </body>
+
 </html>

@@ -19,6 +19,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged,
   browserLocalPersistence,
   setPersistence,
@@ -243,28 +245,45 @@ window.togglePassword = (id, btn) => {
   if (ico) ico.textContent = isPass ? "visibility_off" : "visibility";
 };
 
+function esMobileOWebview() {
+  const ua = navigator.userAgent || "";
+  const esMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+  const esWebview = /FBAN|FBAV|Instagram|Line\//i.test(ua); // apps embebidas
+  return esMobile || esWebview;
+}
+
+async function procesarLoginGoogle(user) {
+  GOOGLE_USER = user;
+
+  const userRef = doc(
+    db,
+    "Trabajadores_Usuarios_Drivers",
+    "users",
+    "users",
+    user.uid,
+  );
+  const snap = await getDoc(userRef);
+
+  if (snap.exists()) {
+    showSplash(user);
+  } else {
+    openRegisterModal();
+  }
+}
 /* =========================================================
    LOGIN GOOGLE
 ========================================================= */
 window.loginGoogle = async () => {
   try {
-    const result = await signInWithPopup(auth, provider);
-    GOOGLE_USER = result.user;
-
-    const userRef = doc(
-      db,
-      "Trabajadores_Usuarios_Drivers",
-      "users",
-      "users",
-      result.user.uid,
-    );
-    const snap = await getDoc(userRef);
-
-    if (snap.exists()) {
-      showSplash(result.user);
-    } else {
-      openRegisterModal();
+    if (esMobileOWebview()) {
+      // En móvil: redirige en vez de abrir popup
+      await signInWithRedirect(auth, provider);
+      return; // el resultado se procesa al recargar, ver más abajo
     }
+
+    // En desktop: sigue usando popup normal
+    const result = await signInWithPopup(auth, provider);
+    await procesarLoginGoogle(result.user);
   } catch (err) {
     console.error(err);
     showSnackbar("❌ Error al iniciar sesión con Google", "error");
@@ -929,6 +948,19 @@ onAuthStateChanged(auth, async (user) => {
   showSplash(user);
 });
 
+/* =========================================================
+   RESULTADO DE REDIRECT (login Google en móvil)
+========================================================= */
+getRedirectResult(auth)
+  .then(async (result) => {
+    if (result && result.user) {
+      await procesarLoginGoogle(result.user);
+    }
+  })
+  .catch((err) => {
+    console.error("Error en redirect de Google:", err);
+    showSnackbar("❌ Error al iniciar sesión con Google", "error");
+  });
 /* =========================================================
    BACKGROUND SLIDER + DYNAMIC TITLE
 ========================================================= */

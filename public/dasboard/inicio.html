@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel del negocio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #060608;
+            --surface: #120e1c;
+            --surface-2: #1a1530;
+            --border: rgba(124, 77, 255, 0.16);
+            --text: #f2f0ec;
+            --muted: #948fa8;
+            --purple: #7c4dff;
+            --purple-dim: rgba(124, 77, 255, 0.14);
+            --purple-soft: rgba(124, 77, 255, 0.35);
+            --green: #3ecf8e;
+            --red: #e5484d;
+            --radius: 20px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 15% -10%, rgba(124, 77, 255, 0.16), transparent 45%),
+                radial-gradient(circle at 100% 0%, rgba(124, 77, 255, 0.08), transparent 40%),
+                var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            padding: 28px 16px 60px;
+        }
+
+        .wrap {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        .display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* ── Header ── */
+        .header-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 0 0 1px rgba(124, 77, 255, 0.04), 0 12px 30px -18px rgba(124, 77, 255, 0.4);
+        }
+
+        .logo-wrap {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.08);
+        }
+
+        .logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .logo-wrap img.loaded {
+            display: block;
+        }
+
+        .logo-fallback {
+            font-size: 22px;
+            color: var(--muted);
+        }
+
+        .biz-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .biz-name {
+            font-size: 19px;
+            font-weight: 600;
+            margin: 0 0 6px;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: .03em;
+            padding: 5px 12px 5px 10px;
+            border-radius: 99px;
+            background: rgba(62, 207, 142, 0.12);
+            color: var(--green);
+            border: 1px solid rgba(62, 207, 142, 0.25);
+        }
+
+        .status-pill.closed {
+            background: rgba(229, 72, 77, 0.1);
+            color: #f27478;
+            border-color: rgba(229, 72, 77, 0.25);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .status-pill.open .status-dot {
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(62, 207, 142, .5);
+            }
+
+            50% {
+                opacity: .7;
+                box-shadow: 0 0 0 5px rgba(62, 207, 142, 0);
+            }
+        }
+
+        /* ── Saldo ── */
+        .balance-card {
+            background: linear-gradient(140deg, #17102c 0%, var(--surface) 55%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: 0 0 0 1px rgba(124, 77, 255, 0.04), 0 12px 30px -18px rgba(124, 77, 255, 0.5);
+        }
+
+        .balance-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            margin: 0 0 6px;
+            font-weight: 600;
+        }
+
+        .balance-value {
+            font-size: 34px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.02em;
+            color: #fff;
+        }
+
+        .balance-sub {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .recharge-btn {
+            background: var(--purple);
+            color: #fff;
+            border: none;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 12px 20px;
+            border-radius: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .15s ease, filter .15s ease;
+            box-shadow: 0 6px 18px -6px rgba(124, 77, 255, 0.6);
+        }
+
+        .recharge-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .recharge-btn:active {
+            transform: translateY(0);
+        }
+
+        /* ── Stats ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--purple);
+            border-radius: 16px;
+            padding: 16px 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card.green {
+            border-left-color: var(--green);
+        }
+
+        .stat-card.urgent {
+            border-left-color: var(--red);
+        }
+
+        .stat-card.urgent.active {
+            animation: urgentGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes urgentGlow {
+
+            0%,
+            100% {
+                box-shadow: inset 0 0 0 0 rgba(229, 72, 77, 0);
+            }
+
+            50% {
+                box-shadow: inset 0 0 24px -4px rgba(229, 72, 77, 0.35);
+            }
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 2px;
+            letter-spacing: -0.01em;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 0;
+            font-weight: 500;
+        }
+
+        @media (max-width:560px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Acciones rápidas ── */
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            font-weight: 700;
+            margin: 22px 4px 10px;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .action-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 16px;
+            padding: 18px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            transition: border-color .15s ease, background .15s ease, transform .15s ease;
+        }
+
+        .action-btn .icon {
+            font-size: 22px;
+        }
+
+        .action-btn:hover {
+            border-color: var(--purple);
+            background: var(--purple-dim);
+            transform: translateY(-1px);
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width:560px) {
+            .actions-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #161225;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0;
+            transition: transform .3s ease, opacity .3s ease;
+            z-index: 999;
+            box-shadow: 0 10px 30px -10px rgba(124, 77, 255, 0.5);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #150f24 25%, #201a38 37%, #150f24 63%);
+            background-size: 400% 100%;
+            animation: shimmer 1.4s ease infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 100% 0;
+            }
+
+            100% {
+                background-position: -100% 0;
+            }
+        }
+
+        /* Scrollbar totalmente oscura */
+        /* 1. Estándar (Firefox y navegadores compatibles) */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #2a2a2a #000000;
+            /* [tirador] [fondo] */
+        }
+
+        /* 2. WebKit (Chrome, Edge, Safari, Opera) */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        /* Fondo del scroll (totalmente oscuro) */
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+
+        /* Barrita / Tirador (Gris oscuro visible, no blanco) */
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a2a;
+            border-radius: 5px;
+            border: 2px solid #000000;
+            /* Espaciado estético alrededor del tirador */
+        }
+
+        /* Barrita al pasar el cursor (un poquitito más clara para dar respuesta visual) */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3d3d3d;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+
+        <div class="header-card">
+            <div class="logo-wrap">
+                <img id="logoImg" alt="Logo">
+                <span class="logo-fallback" id="logoFallback">🏬</span>
+            </div>
+            <div class="biz-info">
+                <p class="biz-name display" id="bizName">Cargando…</p>
+                <span class="status-pill" id="statusPill"><span class="status-dot"></span><span
+                        id="statusText">—</span></span>
+            </div>
+        </div>
+
+        <div class="balance-card">
+            <div>
+                <p class="balance-label">Saldo</p>
+                <p class="balance-value display" id="balanceValue">S/ 0.00</p>
+                <p class="balance-sub" id="balanceSub">0 créditos</p>
+            </div>
+            <button class="recharge-btn" id="rechargeBtn">+ Recargar</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <p class="stat-value display" id="ventasValue">S/ 0.00</p>
+                <p class="stat-label">Ventas de hoy</p>
+            </div>
+            <div class="stat-card green">
+                <p class="stat-value display" id="atendidosValue">0</p>
+                <p class="stat-label">Atendidos hoy</p>
+            </div>
+            <div class="stat-card urgent" id="urgentCard">
+                <p class="stat-value display" id="cocinaValue">0</p>
+                <p class="stat-label">Atención urgente</p>
+            </div>
+        </div>
+
+        <p class="section-title">Acciones rápidas</p>
+        <div class="actions-grid">
+            <button class="action-btn" id="btnPedidosVivo"><span class="icon">📋</span> Pedidos en Vivo</button>
+            <button class="action-btn" id="btnProductos"><span class="icon">🛍️</span> Productos</button>
+            <button class="action-btn" id="btnQR"><span class="icon">📱</span> Ver mi QR</button>
+        </div>
+
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import {
+            getFirestore, doc, onSnapshot, collection
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.firebasestorage.app",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+            measurementId: "G-38J7RJP8HK",
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // ── Negocio fijo ──
+        const LOCALIDAD = "barranca";
+        const NEGOCIO_ID = "fW7W8RsgkkQ3IYfxKHGR";
+        const CREDITO_A_SOLES = 0.012;
+
+        // ══════════════════════════════════════════
+        //  HORARIO — mismo formato que el perfil público
+        // ══════════════════════════════════════════
+        const DAY_KEYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+
+        function normalizeSchedule(h) {
+            return DAY_KEYS.map((key) => {
+                const diaData = h?.[key];
+                if (!diaData || diaData.cerrado === true) {
+                    return { cerrado: true, motivo: diaData?.motivo || null, bloques: [] };
+                }
+                const bloques = (diaData.bloques || []).filter(b => b.h_apertura && b.h_cierre);
+                return { cerrado: false, motivo: null, bloques };
+            });
+        }
+
+        function calcOpenNow(horarioMap) {
+            if (!horarioMap) return false;
+            const horario = normalizeSchedule(horarioMap);
+            const now = new Date();
+            const map = [6, 0, 1, 2, 3, 4, 5]; // getDay() -> índice lunes..domingo
+            const today = horario[map[now.getDay()]];
+            if (!today || today.cerrado || !today.bloques.length) return false;
+
+            const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+            const nowMin = now.getHours() * 60 + now.getMinutes();
+
+            return today.bloques.some(b => {
+                const a = toMin(b.h_apertura), c = toMin(b.h_cierre);
+                return nowMin >= a && nowMin < c;
+            });
+        }
+
+        // ══════════════════════════════════════════
+        //  UI helpers
+        // ══════════════════════════════════════════
+        function showToast(msg) {
+            const t = document.getElementById("toast");
+            t.textContent = msg;
+            t.classList.add("show");
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove("show"), 2600);
+        }
+
+        function setStatus(isOpen) {
+            const pill = document.getElementById("statusPill");
+            const text = document.getElementById("statusText");
+            pill.className = "status-pill " + (isOpen ? "open" : "closed");
+            text.textContent = isOpen ? "TIENDA ABIERTA" : "TIENDA CERRADA";
+        }
+
+        function setLogo(url) {
+            const img = document.getElementById("logoImg");
+            const fallback = document.getElementById("logoFallback");
+            if (!url) { img.classList.remove("loaded"); fallback.style.display = "flex"; return; }
+            img.onload = () => { img.classList.add("loaded"); fallback.style.display = "none"; };
+            img.onerror = () => { img.classList.remove("loaded"); fallback.style.display = "flex"; };
+            img.src = url;
+        }
+
+        // ══════════════════════════════════════════
+        //  Navegación al panel padre
+        // ══════════════════════════════════════════
+        function navigateTo(seccion) {
+            window.parent.postMessage({ tipo: "NAVEGAR", seccion }, window.location.origin);
+        }
+
+        // ══════════════════════════════════════════
+        //  Datos del negocio (nombre, logo, horario, saldo)
+        // ══════════════════════════════════════════
+        function listenNegocio() {
+            const ref = doc(db, "Tiendas", LOCALIDAD, LOCALIDAD, NEGOCIO_ID);
+            onSnapshot(ref, (snap) => {
+                if (!snap.exists()) return;
+                const biz = snap.data();
+
+                document.getElementById("bizName").textContent = biz.nombre_tienda || biz.nombre || "Mi negocio";
+                setLogo(biz.img_tienda?.logo_tienda || null);
+                setStatus(calcOpenNow(biz.horario_atencion));
+
+                const puntos = Number(biz.puntos_tienda) || 0;
+                const soles = puntos * CREDITO_A_SOLES;
+                document.getElementById("balanceValue").textContent = `S/ ${soles.toFixed(2)}`;
+                document.getElementById("balanceSub").textContent = `${puntos} créditos`;
+            }, (err) => {
+                console.error("Error escuchando negocio:", err);
+            });
+
+            // Recalcular estado abierto/cerrado cada 30s aunque no cambien los datos
+            setInterval(() => {
+                onSnapshot(ref, (snap) => {
+                    if (snap.exists()) setStatus(calcOpenNow(snap.data().horario_atencion));
+                }, () => { });
+            }, 30000);
+        }
+
+        // ══════════════════════════════════════════
+        //  Pedidos de hoy — ventas, atendidos, en cocina
+        // ══════════════════════════════════════════
+        function todayStr() {
+            const d = new Date();
+            return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+        }
+
+        function listenPedidos() {
+            const ref = collection(db, "Tiendas", LOCALIDAD, LOCALIDAD, NEGOCIO_ID, "pedidos");
+
+            onSnapshot(ref, (snap) => {
+                const hoy = todayStr();
+                let ventas = 0, atendidos = 0, cocina = 0;
+
+                snap.forEach((docSnap) => {
+                    const p = docSnap.data();
+                    if (p.fecha !== hoy) return;
+
+                    const estado = (p.estado || "").toLowerCase();
+                    const rechazado = estado.includes("rechaz") || estado.includes("cancel");
+                    const enCocina = estado.includes("cocina");
+
+                    if (!rechazado) ventas += Number(p.total) || 0;
+                    if (enCocina) cocina++;
+                    else if (!rechazado) atendidos++;
+                });
+
+                document.getElementById("ventasValue").textContent = `S/ ${ventas.toFixed(2)}`;
+                document.getElementById("atendidosValue").textContent = atendidos;
+                document.getElementById("cocinaValue").textContent = cocina;
+
+                document.getElementById("urgentCard").classList.toggle("active", cocina > 0);
+            }, (err) => {
+                console.error("Error escuchando pedidos:", err);
+            });
+        }
+
+        // ══════════════════════════════════════════
+        //  Acciones — navegan a las secciones del panel
+        // ══════════════════════════════════════════
+        document.getElementById("rechargeBtn").addEventListener("click", () => {
+            navigateTo("recargas");
+        });
+        document.getElementById("btnPedidosVivo").addEventListener("click", () => {
+            navigateTo("pedidos");
+        });
+        document.getElementById("btnProductos").addEventListener("click", () => {
+            navigateTo("productos");
+        });
+        document.getElementById("btnQR").addEventListener("click", () => {
+            navigateTo("qr");
+        });
+
+        // ── Init ──
+        listenNegocio();
+        listenPedidos();
+    </script>
+</body>
+
+</html>

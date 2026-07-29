@@ -161,7 +161,7 @@ select:focus {
     padding: 0 0 24px;
 }
 
-.sidebar.collapsed .sidebar-btn {
+.sidebar.collapsed .sidebar-group-header {
     justify-content: center;
     padding: 11px 0;
 }
@@ -2397,7 +2397,7 @@ input:checked+.slider:before {
 .pay-icon-img img {
     width: 100%;
     height: 100%;
-     border-radius: 50%;
+    border-radius: 50%;
     object-fit: contain;
     padding: 5px;
 }
@@ -3294,6 +3294,9 @@ input:checked+.slider:before {
     padding: 22px;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .mobile-menu.open {
@@ -3353,6 +3356,7 @@ input:checked+.slider:before {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    padding-bottom: 20px;
 }
 
 .mobile-menu-item {
@@ -4212,6 +4216,7 @@ input:checked+.slider:before {
 }
 
 .collapse-label {
+    display: inline-block;
     transition: opacity 0.2s, width 0.3s;
     white-space: nowrap;
     overflow: hidden;
@@ -4389,9 +4394,11 @@ input:checked+.slider:before {
     background: rgba(124, 77, 255, 0.16);
     border-color: rgba(124, 77, 255, 0.55);
 }
+
 .sidebar.collapsed .sidebar-vincular-wrap {
     display: none !important;
 }
+
 .mobile-menu-items .sidebar-cerrar-btn {
     width: 100%;
     margin-top: 10px;
@@ -4439,4 +4446,250 @@ input:checked+.slider:before {
 * {
     scrollbar-width: thin;
     scrollbar-color: #000 #111;
+}
+
+
+/* ===== SIDEBAR GROUPS (expandable) ===== */
+.sidebar-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-group-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text2);
+    transition: all 0.18s;
+    text-align: left;
+}
+
+.sidebar-group-header:hover {
+    background: var(--surface2);
+    color: var(--text);
+}
+
+.sidebar-group-arrow {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text3);
+    transition: transform .25s;
+}
+
+.sidebar-group-header.open .sidebar-group-arrow {
+    transform: rotate(180deg);
+}
+
+.sidebar-group-body {
+    max-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 10px;
+    transition: max-height .28s ease;
+}
+
+.sidebar-group-body.open {
+    max-height: 300px;
+}
+
+.sidebar.collapsed .sidebar-group-header .sbb-label,
+.sidebar.collapsed .sidebar-group-arrow {
+    display: none;
+}
+
+.sidebar.collapsed .sidebar-group-body {
+    display: none;
+}
+
+/* ===== MOBILE MENU GROUPS (expandable) ===== */
+.mobile-menu-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-menu-group-header {
+    height: 52px;
+    border: none;
+    border-radius: 16px;
+    background: transparent;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 16px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: .2s;
+    width: 100%;
+    text-align: left;
+}
+
+.mobile-menu-group-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.mobile-menu-group-arrow {
+    margin-left: auto;
+    font-size: 11px;
+    color: #8b8b8b;
+    transition: transform .25s;
+}
+
+.mobile-menu-group-header.open .mobile-menu-group-arrow {
+    transform: rotate(180deg);
+}
+
+.mobile-menu-group-body {
+    max-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 8px;
+    transition: max-height .28s ease;
+}
+
+.mobile-menu-group-body.open {
+    max-height: 400px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+/* ═══════════════════════════════════════════
+   FIX — Sidebar colapsado: centrar íconos
+   ═══════════════════════════════════════════ */
+
+/* Nav simétrico cuando está colapsado (sin esto, el padding lateral
+   desigual desplaza los íconos hacia la izquierda) */
+.sidebar.collapsed .sidebar-nav {
+    padding: 0 10px;
+}
+
+/* Botón "Inicio" — centrado real */
+.sidebar.collapsed .sidebar-btn {
+    justify-content: center;
+    align-items: center;
+    padding: 11px 0;
+    gap: 0;
+}
+
+/* Headers de grupo ("Mi negocio", "Ventas y pedidos", "Recargas")
+   — esta regla NO existía y es la causa principal del desalineado */
+.sidebar.collapsed .sidebar-group-header {
+    justify-content: center;
+    align-items: center;
+    padding: 11px 0;
+    gap: 0;
+}
+
+/* El ícono de cada botón/grupo debe quedar centrado dentro de su caja,
+   sin margenes fantasma por el emoji */
+.sidebar.collapsed .sbb-icon {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Botones inferiores (Colapsar / Cerrar sesión) */
+.sidebar.collapsed .sidebar-collapse-btn {
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    gap: 0;
+}
+
+/* El texto del label debe colapsar de verdad su ancho.
+   Como es un <span> (inline), "width:0" no funciona sin display:inline-block */
+.collapse-label {
+    display: inline-block;
+}
+
+.sidebar.collapsed .collapse-label {
+    opacity: 0;
+    width: 0;
+    margin: 0;
+}
+
+/* ═══════════════════════════════════════════
+   FIX v2 — Botones inferiores colapsados
+   (círculo fijo, en vez de width:100%)
+   ═══════════════════════════════════════════ */
+
+.sidebar-collapse-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.sidebar.collapsed .sidebar-collapse-wrap {
+    align-items: center;
+    padding: 12px 0 16px;
+}
+
+.sidebar.collapsed .sidebar-collapse-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    margin: 0 auto;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed .sidebar-collapse-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.sidebar.collapsed .collapse-label {
+    display: none;
+}
+
+/* Scrollbar totalmente oscura */
+/* 1. Estándar (Firefox y navegadores compatibles) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a #000000; /* [tirador] [fondo] */
+}
+
+/* 2. WebKit (Chrome, Edge, Safari, Opera) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+/* Fondo del scroll (totalmente oscuro) */
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+/* Barrita / Tirador (Gris oscuro visible, no blanco) */
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 5px;
+  border: 2px solid #000000; /* Espaciado estético alrededor del tirador */
+}
+
+/* Barrita al pasar el cursor (un poquitito más clara para dar respuesta visual) */
+::-webkit-scrollbar-thumb:hover {
+  background: #3d3d3d;
 }

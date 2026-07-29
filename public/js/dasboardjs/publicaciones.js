@@ -36,6 +36,9 @@ const app = initializeApp({
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
+
+const CLOUD_FN_PUBLICAR_FB =
+  "https://us-central1-geinzworkapp.cloudfunctions.net/publicarEnFacebookOrganico";
 let imgsCount = 0;
 let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
@@ -54,6 +57,12 @@ let _precios = {
   costo_por_moneda: 0.012,
 };
 
+function construirLinkPromo(id_promocion, localidad) {
+  const localidadMap = { barranca: "ba", lima: "li", callao: "ca" };
+  const l =
+    localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
+  return `https://geinztech.com/api/share?t=prms&l=${l}&pi=${id_promocion}`;
+}
 // ── Inyectar estilos del bottom sheet de términos ──────
 (function inyectarEstilosTerminos() {
   const style = document.createElement("style");
@@ -1571,6 +1580,39 @@ function formatFechaSlash(str) {
       };
 
       const result = await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
+      // ── Publicar también en Facebook si el switch está activo ──
+      if (fbPublicarActivo && fbConectado) {
+        skSetStep(
+          3,
+          "Publicando en Facebook...",
+          "Compartiendo en tu Fanpage",
+          95,
+        );
+        const linkPromo = construirLinkPromo(id_promocion, localidad);
+        const captionFb = `${titulo}\n\n${descripcion}\n\n👉 Ver promoción completa: ${linkPromo}`;
+        try {
+          const fbResult = await callFirebaseFunction(CLOUD_FN_PUBLICAR_FB, {
+            id_tienda,
+            localidad,
+            image_url: urls[0] || botUrl,
+            caption: captionFb,
+          });
+          if (fbResult?.ok) {
+            mostrarToast("✅ También publicado en tu Facebook");
+          } else {
+            mostrarToast(
+              fbResult?.mensaje || "No se pudo publicar en Facebook",
+              "error",
+            );
+          }
+        } catch (fbErr) {
+          console.warn("Error publicando en FB:", fbErr);
+          mostrarToast(
+            "Tu promo en Geinz sí se publicó, pero falló la publicación en Facebook",
+            "error",
+          );
+        }
+      }
       ocultarSkeleton();
       limpiarFormulario();
       mostrarModalExito(id_promocion, localidad);
@@ -2192,7 +2234,7 @@ function formatFechaSlash(str) {
   aplicarPreciosEnDOM();
   validate();
   tipoPlazo();
-    // ── Exponer para uso fuera del IIFE (ej. conectarFacebook.js) ──
+  // ── Exponer para uso fuera del IIFE (ej. conectarFacebook.js) ──
   window.mostrarToast = mostrarToast;
   window.callFirebaseFunction = callFirebaseFunction;
 })();
@@ -2211,6 +2253,7 @@ window.addEventListener("message", (event) => {
       metodos_pago: d.metodos_pago,
       ubicacion: d.ubicacion,
       saldo_tienda: d.saldo_tienda,
+      facebook_page: d.facebook_page,
     };
     _aplicarDatosTienda(datosTienda);
     actualizarEstadoBotonPublicar();
@@ -2297,6 +2340,9 @@ function _aplicarDatosTienda(d) {
   if (pagosChecks[5])
     pagosChecks[5].checked = mp.visa_mastercard?.enable ?? false;
   actualizarBotonesIA();
+  if (d.facebook_page && d.facebook_page.page_id) {
+    mostrarFbConectado(d.facebook_page.page_name || "tu Fanpage");
+  }
 }
 
 function _aplicarPublicidad(pub) {
@@ -2390,7 +2436,6 @@ function actualizarBotonesIA() {
   });
 }
 
-
 // conectarFacebook.js
 //
 // Agrega esto a tu dashboard (donde tengas el botón "Conectar mi Fanpage").
@@ -2410,7 +2455,7 @@ const CLOUD_FN_CONECTAR_FB =
       appId: FACEBOOK_APP_ID,
       cookie: true,
       xfbml: false,
-version: "v21.0",
+      version: "v21.0",
     });
   };
 
@@ -2429,7 +2474,10 @@ window.conectarMiFanpage = function () {
         const userAccessToken = response.authResponse.accessToken;
         obtenerPaginasYMostrarSelector(userAccessToken);
       } else {
-        mostrarToast("Cancelaste el login de Facebook o no diste los permisos", "error");
+        mostrarToast(
+          "Cancelaste el login de Facebook o no diste los permisos",
+          "error",
+        );
       }
     },
     { config_id: "27931022663160133" },
@@ -2437,27 +2485,35 @@ window.conectarMiFanpage = function () {
 };
 
 function obtenerPaginasYMostrarSelector(userAccessToken) {
-  FB.api("/me/accounts", "GET", { access_token: userAccessToken }, function (res) {
-    if (!res || res.error) {
-      mostrarToast("No se pudo obtener la lista de páginas", "error");
-      return;
-    }
+  FB.api(
+    "/me/accounts",
+    "GET",
+    { access_token: userAccessToken },
+    function (res) {
+      if (!res || res.error) {
+        mostrarToast("No se pudo obtener la lista de páginas", "error");
+        return;
+      }
 
-    const paginas = res.data || [];
-    if (paginas.length === 0) {
-      mostrarToast("No administras ninguna página de Facebook con este usuario", "error");
-      return;
-    }
+      const paginas = res.data || [];
+      if (paginas.length === 0) {
+        mostrarToast(
+          "No administras ninguna página de Facebook con este usuario",
+          "error",
+        );
+        return;
+      }
 
-    if (paginas.length === 1) {
-      // Solo una página: conectar directo, sin preguntar
-      confirmarConexion(paginas[0].id, userAccessToken);
-      return;
-    }
+      if (paginas.length === 1) {
+        // Solo una página: conectar directo, sin preguntar
+        confirmarConexion(paginas[0].id, userAccessToken);
+        return;
+      }
 
-    // Varias páginas: mostrar selector simple
-    mostrarSelectorDePaginas(paginas, userAccessToken);
-  });
+      // Varias páginas: mostrar selector simple
+      mostrarSelectorDePaginas(paginas, userAccessToken);
+    },
+  );
 }
 
 function mostrarSelectorDePaginas(paginas, userAccessToken) {
@@ -2497,6 +2553,7 @@ async function confirmarConexion(pageId, userAccessToken) {
 
     if (result.ok) {
       mostrarToast(`✅ ${result.mensaje}`);
+      mostrarFbConectado(result.page_name); // ← nuevo
     } else {
       mostrarToast(result.mensaje || "No se pudo conectar la página", "error");
     }
@@ -2504,3 +2561,23 @@ async function confirmarConexion(pageId, userAccessToken) {
     mostrarToast("Error conectando con Facebook", "error");
   }
 }
+
+let fbConectado = false;
+let fbPublicarActivo = false;
+
+window.toggleFbPublicar = function (cb) {
+  fbPublicarActivo = cb.checked;
+  const panel = document.getElementById("fbPublicarPanel");
+  if (panel) panel.classList.toggle("open", cb.checked);
+};
+
+function mostrarFbConectado(pageName) {
+  fbConectado = true;
+  const btn = document.getElementById("btnConectarFb");
+  const switchWrap = document.getElementById("fbPublicarSwitchWrap");
+  const nameText = document.getElementById("fbPageNameText");
+  if (btn) btn.style.display = "none";
+  if (switchWrap) switchWrap.style.display = "inline-block";
+  if (nameText) nameText.textContent = `Conectado a: ${pageName}`;
+}
+window.mostrarFbConectado = mostrarFbConectado;

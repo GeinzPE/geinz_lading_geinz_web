@@ -126,7 +126,7 @@ window.APP_STATE = { tienda: null };
 // ═════════════════════════════════════════════
 window.PanelPerfil = {
   // ── Estado interno ──────────────────────────
-  activeSection: "perfil",
+  activeSection: "inicio",
   currentData: {},
   _prevData: {},
   _firstLoad: true,
@@ -2330,19 +2330,10 @@ window.PanelPerfil = {
 
   loadHistorial() {
     this.showSection("historial");
-    const iframe = document.getElementById("iframeHistorial");
-    if (!iframe || this._historialLoaded) return;
-    this._historialLoaded = true;
-    iframe.src = `historial.html`; // ajusta al nombre real de tu archivo
   },
 
-
-    load_pedidos_vivos() {
+  load_pedidos_vivos() {
     this.showSection("pedidos");
-    const iframe = document.getElementById("iframePedidos");
-    if (!iframe || this._pedidosLoaded) return;
-    this._pedidosLoaded = true;
-    iframe.src = `pedidos.html`; // ajusta al nombre real de tu archivo
   },
 
   // ═══════════════════════════════════════════
@@ -2542,6 +2533,20 @@ window.PanelPerfil = {
   toggleMobileMenu() {
     document.getElementById("mobileMenu")?.classList.toggle("open");
     document.getElementById("mobileMenuOverlay")?.classList.toggle("show");
+  },
+
+  toggleSidebarGroup(header) {
+    const body = header.nextElementSibling;
+    const isOpen = header.classList.contains("open");
+    header.classList.toggle("open", !isOpen);
+    body?.classList.toggle("open", !isOpen);
+  },
+
+  toggleMobileGroup(header) {
+    const body = header.nextElementSibling;
+    const isOpen = header.classList.contains("open");
+    header.classList.toggle("open", !isOpen);
+    body?.classList.toggle("open", !isOpen);
   },
 
   // ═══════════════════════════════════════════
