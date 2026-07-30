@@ -462,7 +462,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 async function getParams() {
-  // ── Lee alias desde la URL limpia /perfil/alonsopenarestobar1621 ──
   const path = window.location.pathname;
   const desdePath = path.startsWith("/perfil/");
 
@@ -470,11 +469,18 @@ async function getParams() {
     let alias = path.split("/perfil/")[1]?.trim();
     if (!alias) throw new Error("Alias inválido");
 
-    // Detecta si la URL pide ir directo a la carta: /perfil/alias-carta
     let wantsCarta = false;
     if (alias.endsWith("-carta")) {
       wantsCarta = true;
       alias = alias.replace(/-carta$/, "");
+    }
+
+    // Detecta sufijo de mesa: alias-mesa-{token}
+    let mesaToken = null;
+    const mesaMatch = alias.match(/-mesa-([a-zA-Z0-9]+)$/);
+    if (mesaMatch) {
+      mesaToken = mesaMatch[1];
+      alias = alias.slice(0, mesaMatch.index);
     }
 
     const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
@@ -492,6 +498,7 @@ async function getParams() {
       promoIndex: null,
       promoId,
       wantsCarta,
+      mesaToken,
     };
   }
 
@@ -506,7 +513,61 @@ async function getParams() {
   const id = (p.get("id") || "JHgbs7ttVXRnsIqsEGWS").trim();
   const promoIndex = p.get("i") || null;
 
-  return { localidad, subcol, id, promoIndex, wantsCarta: false };
+  return {
+    localidad,
+    subcol,
+    id,
+    promoIndex,
+    wantsCarta: false,
+    mesaToken: null,
+  };
+}
+
+async function resolveMesaYRedirigir({ localidad, id }, mesaToken) {
+  try {
+    const mesasRef = collection(
+      db,
+      "Tiendas",
+      localidad,
+      localidad,
+      id,
+      "mesas",
+    );
+    const snap = await getDocs(mesasRef);
+    let mesaDoc = null;
+
+    snap.forEach((d) => {
+      if (mesaDoc) return;
+      const data = d.data();
+      if (data.token_seguridad === mesaToken) {
+        mesaDoc = { id: d.id, ...data };
+      }
+    });
+
+    if (!mesaDoc) {
+      showNotFoundScreen("La mesa escaneada no es válida o ya no existe.");
+      return true;
+    }
+
+    const url = new URL("../carrito/carrito.html", window.location.href);
+    url.searchParams.set("localidad", localidad);
+    url.searchParams.set("id", id);
+    url.searchParams.set("mesaId", mesaDoc.id);
+    if (mesaDoc.nombre_alias)
+      url.searchParams.set("mesaNombre", mesaDoc.nombre_alias);
+    if (mesaDoc.numero_mesa != null)
+      url.searchParams.set("mesaNumero", mesaDoc.numero_mesa);
+    url.searchParams.set("mesaToken", mesaToken);
+
+    window.location.replace(url.toString());
+    return true;
+  } catch (e) {
+    console.error("Error resolviendo mesa:", e);
+    showNotFoundScreen(
+      "No se pudo verificar la mesa. Escanea el código de nuevo.",
+    );
+    return true;
+  }
 }
 async function loadBusiness({ localidad, id }) {
   const ref = doc(db, "Tiendas", localidad, localidad, id);
@@ -2027,6 +2088,12 @@ function listenBusinessRealtime({ localidad, id }) {
   try {
     const params = await getParams(); // ← si falla aquí
     _params = params;
+
+    if (params.mesaToken) {
+      await resolveMesaYRedirigir(params, params.mesaToken);
+      return; // no seguimos cargando el perfil normal, ya redirigimos
+    }
+
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
