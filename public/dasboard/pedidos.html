@@ -33,7 +33,7 @@
         </div>
     </div>
 
-    <div class="app-shell">
+ <div class="app-shell">
         <header>
             <div class="head-top">
 
@@ -74,29 +74,10 @@
                 </div>
             </div>
 
-            <div class="datefilter-bar" id="datefilterBar">
-                <div class="df-chip active" data-range="hoy">📅 Hoy</div>
-                <div class="df-chip" data-range="ayer">Ayer</div>
-                <div class="df-chip" data-range="semana">Esta semana</div>
-                <div class="df-chip" data-range="semana_pasada">Semana pasada</div>
-                <div class="df-chip" data-range="custom" id="dfCustomChip">🗓️ Rango personalizado</div>
-                <div class="df-custom-inline" id="dfCustomInline" style="display:none;">
-                    <input type="date" id="dfFrom">
-                    <span>a</span>
-                    <input type="date" id="dfTo">
-                    <button class="df-custom-apply-inline" id="dfApply">Aplicar</button>
-                </div>
-                <div class="df-range-note" id="dfRangeNote"></div>
-            </div>
-
             <div class="origin-bar" id="originBar">
-                <div class="origin-chip active" data-origin="todos">📋 Todos</div>
-                <div class="origin-chip" data-origin="whatsapp">💬 WhatsApp</div>
+                <div class="origin-chip active" data-origin="whatsapp">💬 WhatsApp<span class="oc-badge"
+                        id="waBadge"></span></div>
                 <div class="origin-chip" data-origin="mesa">🍽️ Mesas</div>
-            </div>
-
-            <div class="mesas-strip-wrap" id="mesasStripWrap" style="display:none;">
-                <div class="mesas-strip" id="mesasStrip"></div>
             </div>
 
             <div class="status-tabs" id="statusTabs">
@@ -114,6 +95,22 @@
                 </div>
             </div>
         </header>
+
+        <div class="mesas-strip-wrap" id="mesasStripWrap" style="display:none;">
+            <div class="mesas-panel">
+                <div class="mesas-panel-head">
+                    <div class="mesa-estado-ctrl" id="mesaEstadoCtrl"></div>
+                    <div class="mesa-size-ctrl" id="mesaSizeCtrl">
+                        <button class="ms-btn" data-size="chico">Chico</button>
+                        <button class="ms-btn" data-size="mediano">Mediano</button>
+                        <button class="ms-btn" data-size="grande">Grande</button>
+                    </div>
+                </div>
+                <div class="mesas-panel-body">
+                    <div class="mesa-grid" id="mesaGrid"></div>
+                </div>
+            </div>
+        </div>
 
         <div class="mesa-empty-banner" id="mesaEmptyBanner" style="display:none;"></div>
 
@@ -252,12 +249,16 @@
             if (mesa && mesa.numero != null) {
                 return { tipo: "mesa", numero: Number(mesa.numero), nombre: mesa.nombre || null, mesaId: mesa.id || null };
             }
+            // Pedidos de mesa guardados en el histórico (formato plano: mesaId / mesaNumero)
+            if (p && p.mesaId && p.mesaNumero != null) {
+                return { tipo: "mesa", numero: Number(p.mesaNumero), nombre: p.mesaNombre || null, mesaId: p.mesaId };
+            }
             return { tipo: "whatsapp", numero: null, nombre: null, mesaId: null };
         }
-
-        let originFilter = "todos"; // "todos" | "whatsapp" | "mesa"
+        let originFilter = "whatsapp"; // "whatsapp" | "mesa"
+        let whatsappUnseen = 0;
         let mesaFilter = null;      // numero_mesa seleccionado, o null = todas las mesas
-
+        let mesaEstadoFilter = null;
         /* ══════════════ Auto-rechazo por tiempo (configurable) ══════════════ */
         let autoRejectEnabled = localStorage.getItem("geinz_autorej_on") === "1";
         let autoRejectMinutes = Number(localStorage.getItem("geinz_autorej_min")) || 5;
@@ -273,46 +274,15 @@
            cliente — se usa para construir la query de Firestore (where timestamp >= / <=),
            así el listener en tiempo real solo trae los documentos del periodo visible,
            sin importar cuántos miles de pedidos históricos existan en la colección. */
-        let dateFilter = { type: "hoy", from: null, to: null }; // from/to como Date, solo para "custom"
-
-        function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
-        function endOfDay(d) { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; }
-
-        function getMondayOfWeek(d) {
-            const x = startOfDay(d);
-            const day = x.getDay(); // 0 = domingo
-            const diff = (day === 0 ? -6 : 1) - day; // retrocede hasta el lunes
-            x.setDate(x.getDate() + diff);
-            return x;
-        }
 
         function getDateFilterRange() {
-            const now = new Date();
-            switch (dateFilter.type) {
-                case "hoy": {
-                    return [startOfDay(now), endOfDay(now)];
-                }
-                case "ayer": {
-                    const ayer = new Date(now); ayer.setDate(ayer.getDate() - 1);
-                    return [startOfDay(ayer), endOfDay(ayer)];
-                }
-                case "semana": {
-                    const lunes = getMondayOfWeek(now);
-                    return [lunes, endOfDay(now)];
-                }
-                case "semana_pasada": {
-                    const lunesActual = getMondayOfWeek(now);
-                    const lunesPasado = new Date(lunesActual); lunesPasado.setDate(lunesPasado.getDate() - 7);
-                    const domingoPasado = new Date(lunesActual); domingoPasado.setDate(domingoPasado.getDate() - 1);
-                    return [startOfDay(lunesPasado), endOfDay(domingoPasado)];
-                }
-                case "custom": {
-                    if (!dateFilter.from || !dateFilter.to) return [startOfDay(now), endOfDay(now)];
-                    return [startOfDay(dateFilter.from), endOfDay(dateFilter.to)];
-                }
-                default:
-                    return [startOfDay(now), endOfDay(now)];
-            }
+            const ahoraUTC = new Date();
+            const limaOffsetMs = -5 * 60 * 60 * 1000; // Lima es UTC-5 todo el año, sin horario de verano
+            const limaAhora = new Date(ahoraUTC.getTime() + limaOffsetMs);
+            const y = limaAhora.getUTCFullYear(), m = limaAhora.getUTCMonth(), d = limaAhora.getUTCDate();
+            const from = new Date(Date.UTC(y, m, d, 0, 0, 0) - limaOffsetMs);
+            const to = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - limaOffsetMs);
+            return [from, to];
         }
 
         /* Filtro combinado que SOLO queda por aplicar en el cliente: origen (whatsapp/mesa)
@@ -326,7 +296,6 @@
             }
             return true;
         }
-
         function labelDateFilter() {
             switch (dateFilter.type) {
                 case "hoy": return "Hoy";
@@ -558,64 +527,6 @@
            Cada vez que el usuario cambia el rango de fecha, hay que volver a suscribirse a
            Firestore con un nuevo where(timestamp >=, <=) — por eso llamamos a iniciarListener()
            de nuevo en vez de solo volver a pintar el tablero con los datos que ya teníamos. */
-        const datefilterBar = document.getElementById("datefilterBar");
-        const dfFrom = document.getElementById("dfFrom");
-        const dfTo = document.getElementById("dfTo");
-        const dfApply = document.getElementById("dfApply");
-        const dfRangeNote = document.getElementById("dfRangeNote");
-        const dfCustomInline = document.getElementById("dfCustomInline");
-
-        function paintDateFilterBar() {
-            datefilterBar.querySelectorAll(".df-chip").forEach((chip) => {
-                chip.classList.toggle("active", chip.dataset.range === dateFilter.type);
-            });
-            if (dateFilter.type === "custom" && dateFilter.from && dateFilter.to) {
-                const f = (d) => d.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
-                dfRangeNote.textContent = `Mostrando del ${f(dateFilter.from)} al ${f(dateFilter.to)}`;
-            } else {
-                dfRangeNote.textContent = "";
-            }
-        }
-        paintDateFilterBar();
-
-        function aplicarNuevoRangoFecha() {
-            paintDateFilterBar();
-            pedidosMap.clear();
-            isFirstSnapshot = true;
-            mostrarLoaderTransicion();
-            suscribirPedidos();
-        }
-
-        datefilterBar.querySelectorAll(".df-chip").forEach((chip) => {
-            chip.addEventListener("click", () => {
-                const range = chip.dataset.range;
-                if (range === "custom") {
-                    dfCustomInline.style.display = dfCustomInline.style.display === "none" ? "flex" : "none";
-                    return;
-                }
-                dfCustomInline.style.display = "none";
-                dateFilter = { type: range, from: null, to: null };
-                aplicarNuevoRangoFecha();
-                showToast(`📅 Mostrando pedidos: ${labelDateFilter()}`);
-            });
-        });
-
-        dfApply.addEventListener("click", () => {
-            if (!dfFrom.value || !dfTo.value) {
-                showToast("⚠️ Elige una fecha de inicio y una de fin", true);
-                return;
-            }
-            const from = new Date(dfFrom.value + "T00:00:00");
-            const to = new Date(dfTo.value + "T00:00:00");
-            if (from > to) {
-                showToast("⚠️ La fecha de inicio no puede ser posterior a la de fin", true);
-                return;
-            }
-            dateFilter = { type: "custom", from, to };
-            dfCustomInline.style.display = "none";
-            aplicarNuevoRangoFecha();
-            showToast(`📅 Mostrando rango: ${labelDateFilter()}`);
-        });
 
         /* ══════════════ Control de filtro de origen (Todos / WhatsApp / Mesas) ══════════════
            Esto SOLO filtra en el cliente sobre lo que ya trajo la query de fecha — no requiere
@@ -626,9 +537,20 @@
         originBar.querySelectorAll(".origin-chip").forEach((chip) => {
             chip.addEventListener("click", () => {
                 originFilter = chip.dataset.origin;
-                mesaFilter = null; // al cambiar de vista, reseteamos la mesa seleccionada
                 originBar.querySelectorAll(".origin-chip").forEach((c) => c.classList.toggle("active", c === chip));
-                mesasStripWrap.style.display = originFilter === "mesa" ? "block" : "none";
+                mesasStripWrap.style.display = originFilter === "mesa" ? "flex" : "none";
+                document.getElementById("board").style.display = originFilter === "mesa" ? "none" : "grid";
+                document.getElementById("statusTabs").style.display = originFilter === "mesa" ? "none" : "flex";
+
+                // El auto-rechazo por tiempo es una funcionalidad exclusiva de WhatsApp
+                const autorejWrapEl = document.querySelector(".autorej-wrap");
+                if (autorejWrapEl) autorejWrapEl.style.display = originFilter === "mesa" ? "none" : "block";
+                if (originFilter === "mesa") autorejPop.classList.remove("show");
+
+                if (originFilter === "whatsapp") {
+                    whatsappUnseen = 0;
+                    actualizarBadgeWhatsapp();
+                }
                 renderBoard();
             });
         });
@@ -637,53 +559,97 @@
            Muestra TODAS las mesas registradas en /mesas, tengan o no pedidos ahora mismo.
            El punto verde indica que esa mesa tiene al menos un pedido pendiente o en proceso
            dentro del periodo de fecha actualmente cargado. */
-        function renderMesaStrip() {
-            const strip = document.getElementById("mesasStrip");
-            if (!strip) return;
+        function getPedidosDeMesa(numeroMesa) {
+            const activos = [];
+            mesasMap.forEach((m, mesaDocId) => {
+                if (Number(m.numero_mesa) !== Number(numeroMesa)) return;
+                if (m.estado !== "ocupado" || !m.pedido) return;
+                const pseudoPedido = {
+                    estado: "pendiente",
+                    timestamp: m.pedido.timestamp,
+                    fecha: m.pedido.fecha,
+                    hora: m.pedido.hora,
+                    cliente: { nombre: m.pedido.cliente_nombre || "", tipo_entrega: "En mesa" },
+                    mesa: { id: mesaDocId, nombre: m.mesaNombre || m.nombre_alias || null, numero: m.numero_mesa },
+                    pago: {},
+                    nota: m.pedido.nota || "",
+                    productos: m.pedido.productos || [],
+                    total_items: m.pedido.total_items || 0,
+                    total: m.pedido.total || 0,
+                };
+                activos.push([mesaDocId, pseudoPedido]);
+            });
+            return activos;
+        }
 
-            const mesasOrdenadas = [...mesasMap.values()].sort((a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0));
+        function renderMesaGrid() {
+            const grid = document.getElementById("mesaGrid");
+            if (!grid) return;
+            const todas = [...mesasMap.values()].sort((a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0));
 
-            if (!mesasOrdenadas.length) {
-                strip.innerHTML = `<div style="font-size:12px;color:var(--ink-faint);font-weight:600;padding:8px 2px;">Todavía no hay mesas registradas para este local.</div>`;
+            const conEstado = todas.map((m) => {
+                const activos = getPedidosDeMesa(m.numero_mesa);
+                return { m, activos, ocupada: activos.length > 0 };
+            });
+
+            const totalOcupadas = conEstado.filter((x) => x.ocupada).length;
+            const totalLibres = conEstado.length - totalOcupadas;
+            pintarResumenMesas(totalOcupadas, totalLibres);
+
+            const visibles = conEstado.filter((x) => {
+                if (mesaEstadoFilter === "ocupada") return x.ocupada;
+                if (mesaEstadoFilter === "libre") return !x.ocupada;
+                return true;
+            });
+
+            if (!visibles.length) {
+                const msg = mesaEstadoFilter
+                    ? `No hay mesas ${mesaEstadoFilter === "ocupada" ? "ocupadas" : "libres"} en este momento.`
+                    : "Todavía no hay mesas registradas para este local.";
+                grid.innerHTML = `<div style="font-size:12px;color:var(--ink-faint);font-weight:600;padding:8px 2px;">${msg}</div>`;
                 return;
             }
 
-            // Cuenta pedidos activos (pendiente/en_proceso) por número de mesa, dentro del
-            // rango de fecha ya cargado, para que el punto verde refleje la atención inmediata.
-            const activosPorMesa = new Map();
-            pedidosMap.forEach((p, id) => {
-                const origen = getOrigen(p);
-                if (origen.tipo !== "mesa") return;
-                const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
-                if (estado !== "pendiente" && estado !== "en_proceso") return;
-                activosPorMesa.set(origen.numero, (activosPorMesa.get(origen.numero) || 0) + 1);
-            });
-
-            const chips = [`<div class="mesa-chip${mesaFilter === null ? " active" : ""}" data-mesa="todas"><span class="mc-dot" style="background:var(--violet);box-shadow:0 0 6px rgba(124,92,255,.6);"></span><span class="mc-lbl">Todas las mesas</span></div>`];
-
-            mesasOrdenadas.forEach((m) => {
-                const activos = activosPorMesa.get(m.numero_mesa) || 0;
-                const isActive = mesaFilter === m.numero_mesa;
-                chips.push(`
-                    <div class="mesa-chip${activos > 0 ? " has-activo" : ""}${isActive ? " active" : ""}" data-mesa="${m.numero_mesa}">
-                        <span class="mc-dot"></span>
-                        <span class="mc-lbl">${escapeHtml(m.nombre_alias || ("Mesa " + m.numero_mesa))}</span>
-                        ${activos > 0 ? `<span class="mc-count">${activos}</span>` : ""}
-                    </div>
-                `);
-            });
-
-            strip.innerHTML = chips.join("");
-
-            strip.querySelectorAll(".mesa-chip").forEach((chip) => {
-                chip.addEventListener("click", () => {
-                    const val = chip.dataset.mesa;
-                    mesaFilter = val === "todas" ? null : Number(val);
-                    renderBoard();
-                });
+            grid.innerHTML = visibles.map(({ m, activos, ocupada }) => {
+                const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
+                return `
+    <div class="mesa-box ${ocupada ? "ocupada" : "libre"}" data-mesa="${m.numero_mesa}">
+        <span class="mb-status"><span class="dot"></span>${ocupada ? "Ocupada" : "Libre"}</span>
+        <div class="mb-name">${escapeHtml(m.nombre_alias || ("Mesa " + m.numero_mesa))}</div>
+        <div class="mb-total">${ocupada ? fmtMoney(total) : "—"}</div>
+        ${ocupada ? `<div class="mb-count">${activos.length} pedido${activos.length === 1 ? "" : "s"}</div>` : ""}
+    </div>`;
+            }).join("");
+            grid.querySelectorAll(".mesa-box").forEach((box) => {
+                box.addEventListener("click", () => openMesaDetail(Number(box.dataset.mesa)));
             });
         }
 
+        function pintarResumenMesas(ocupadas, libres) {
+            const ctrl = document.getElementById("mesaEstadoCtrl");
+            if (!ctrl) return;
+            const total = ocupadas + libres;
+            ctrl.innerHTML = `
+    <div class="mesa-chip ${mesaEstadoFilter === null ? "active" : ""}" data-estado="todas">
+        <span class="mc-dot" style="background:var(--ink-dim);"></span>
+        <span class="mc-lbl">Todas</span><span class="mc-count">${total}</span>
+    </div>
+    <div class="mesa-chip ${mesaEstadoFilter === "ocupada" ? "active" : ""}" data-estado="ocupada">
+        <span class="mc-dot" style="background:var(--amber);"></span>
+        <span class="mc-lbl">Ocupadas</span><span class="mc-count">${ocupadas}</span>
+    </div>
+    <div class="mesa-chip ${mesaEstadoFilter === "libre" ? "active" : ""}" data-estado="libre">
+        <span class="mc-dot" style="background:var(--green);"></span>
+        <span class="mc-lbl">Libres</span><span class="mc-count">${libres}</span>
+    </div>`;
+            ctrl.querySelectorAll(".mesa-chip").forEach((chip) => {
+                chip.addEventListener("click", () => {
+                    const val = chip.dataset.estado;
+                    mesaEstadoFilter = val === "todas" ? null : val;
+                    renderMesaGrid();
+                });
+            });
+        }
         /* ══════════════ Notificación del navegador (con imagen del producto) ══════════════ */
         function notificarPedidoNuevo(p) {
             const cliente = p.cliente || {};
@@ -707,6 +673,45 @@
             } catch (e) { console.warn("No se pudo mostrar la notificación:", e); }
         }
 
+        /* Sonido distintivo para pedidos que llegan desde una MESA (distinto al de WhatsApp) */
+        function playMesaChime() {
+            if (!soundEnabled) return;
+            const ctx = ensureAudio();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            const notas = [660, 880]; // dos notas tipo "campanita de mesa"
+            notas.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "square";
+                osc.frequency.value = freq;
+                const start = now + i * 0.16;
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.16, start + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + 0.52);
+            });
+        }
+
+        /* Notificación del navegador para pedidos de mesa (distinta a la de WhatsApp) */
+        function notificarPedidoMesa(nombreMesa, pedido) {
+            if (!window.Notification || Notification.permission !== "granted") return;
+            if (document.visibilityState === "visible") return;
+            try {
+                const totalItems = pedido?.total_items ?? 0;
+                const n = new Notification(`🍽️ Pedido en ${nombreMesa}`, {
+                    body: `${totalItems} item${totalItems === 1 ? "" : "s"} · ${fmtMoney(pedido?.total)}`,
+                    icon: bizLogoUrl || undefined,
+                    badge: bizLogoUrl || undefined,
+                    tag: "geinz-mesa-" + Date.now(),
+                    requireInteraction: false,
+                });
+                n.onclick = () => { window.focus(); n.close(); };
+            } catch (e) { console.warn("No se pudo mostrar la notificación de mesa:", e); }
+        }
+
         function notificarAutoRechazo(p) {
             if (!window.Notification || Notification.permission !== "granted") return;
             if (document.visibilityState === "visible") return;
@@ -723,6 +728,12 @@
             } catch (e) { console.warn("No se pudo mostrar la notificación:", e); }
         }
 
+        function actualizarBadgeWhatsapp() {
+            const badge = document.getElementById("waBadge");
+            if (!badge) return;
+            badge.textContent = whatsappUnseen > 9 ? "9+" : String(whatsappUnseen);
+            badge.classList.toggle("show", whatsappUnseen > 0);
+        }
         function bellRingFeedback() {
             bellBtn.classList.remove("ring");
             void bellBtn.offsetWidth;
@@ -842,9 +853,119 @@
             document.body.style.overflow = "";
             activeModalId = null;
         }
+
+        function openMesaDetail(numeroMesa) {
+            activeModalId = `mesa:${numeroMesa}`;
+            renderMesaDetail(numeroMesa);
+            detailOverlay.classList.add("show");
+            requestAnimationFrame(() => detailModal.classList.add("show"));
+            document.body.style.overflow = "hidden";
+        }
+
+        function renderMesaDetail(numeroMesa) {
+            const mesaInfo = [...mesasMap.values()].find(m => m.numero_mesa === numeroMesa);
+            const activos = getPedidosDeMesa(numeroMesa)
+                .sort((a, b) => (toDate(a[1].timestamp)?.getTime() || 0) - (toDate(b[1].timestamp)?.getTime() || 0));
+            const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
+            const ocupada = activos.length > 0;
+
+            detailModal.dataset.status = ocupada ? "pendiente" : "entregado";
+            document.getElementById("dmId").innerHTML = `🍽️ Mesa <span class="oc-origin-tag mesa">${ocupada ? "Ocupada" : "Libre"}</span>`;
+            document.getElementById("dmName").textContent = mesaInfo?.nombre_alias || ("Mesa " + numeroMesa);
+            document.getElementById("dmTime").innerHTML = `<span class="pulse"></span><span class="ts-label">${activos.length} pedido${activos.length === 1 ? "" : "s"} sin pagar</span>`;
+
+            // Todo el detalle directo: cada pedido de la mesa, con sus bloques por hora,
+            // sin necesitar un clic adicional para verlo.
+            const bloquesDePedidos = activos.map(([id, p]) => {
+                const cliente = p.cliente || {};
+                const fecha = toDate(p.timestamp);
+                const productos = Array.isArray(p.productos) ? p.productos : [];
+                const totalItems = p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
+
+                const contenido = Array.isArray(p.bloques) && p.bloques.length
+                    ? bloquesHtml(p.bloques)
+                    : `<div class="dm-products">${productos.map((it) => `
+          <div class="dm-prod-row">
+            <div>
+              <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
+              <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
+            </div>
+            <div class="dm-prod-price">S/ ${Number(it.subtotal || 0).toFixed(2)}</div>
+          </div>`).join("")}</div>`;
+
+                return `
+      <div style="border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; background:var(--surface);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
+          <div>
+            <div class="dm-prod-name">#${id.slice(0, 6).toUpperCase()} · ${escapeHtml(cliente.nombre || "Cliente")}</div>
+            <div class="dm-prod-qty">${fecha ? timeAgo(fecha) : "—"} · ${labelEstado(ESTADOS.includes(p.estado) ? p.estado : "pendiente")} · ${totalItems} item${totalItems === 1 ? "" : "s"}</div>
+          </div>
+          <div class="dm-prod-price">${fmtMoney(p.total)}</div>
+        </div>
+        ${contenido}
+      </div>`;
+            }).join("") || `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Esta mesa no tiene pedidos pendientes de pago.</p>`;
+
+            document.getElementById("dmBody").innerHTML = `
+        <div>
+            <div class="dm-section-title">Detalle completo de la mesa</div>
+            ${bloquesDePedidos}
+        </div>
+        <div class="dm-total-row">
+            <span class="dm-total-lbl">Total a pagar</span>
+            <span class="dm-total-val">${fmtMoney(total)}</span>
+        </div>`;
+
+            const dmActions = document.getElementById("dmActions");
+            dmActions.innerHTML = "";
+            if (ocupada) {
+                const btn = document.createElement("button");
+                btn.className = "oc-btn primary v-green";
+                btn.style.width = "100%";
+                btn.textContent = "💰 Marcar como pagado y liberar mesa";
+                btn.addEventListener("click", () => liberarMesa(numeroMesa, btn));
+                dmActions.appendChild(btn);
+            } else {
+                dmActions.innerHTML = `<div class="oc-final-tag" style="width:100%;background:var(--green-soft);color:var(--green);">✅ Mesa libre</div>`;
+            }
+        }
+        async function liberarMesa(numeroMesa, btnEl) {
+            const activos = getPedidosDeMesa(numeroMesa);
+            if (!activos.length) return;
+            if (btnEl) btnEl.disabled = true;
+            try {
+                await Promise.all(activos.map(([mesaDocId]) => {
+                    const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                    return updateDoc(ref, { estado: "libre", pago: "pagado", pedido: null });
+                }));
+                showToast("🍽️ Mesa liberada y pedido marcado como pagado");
+                closeDetail();
+            } catch (err) {
+                console.error("Error liberando mesa:", err);
+                showToast("❌ No se pudo liberar la mesa", true);
+                if (btnEl) btnEl.disabled = false;
+            }
+        }
         document.getElementById("dmClose").addEventListener("click", closeDetail);
         detailOverlay.addEventListener("click", (e) => { if (e.target === detailOverlay) closeDetail(); });
 
+
+        function bloquesHtml(bloques) {
+            return bloques.map((bloque, idx) => `
+    <div style="margin-bottom:12px;">
+      <div class="dm-prod-cat" style="margin-bottom:6px;">${idx === 0 ? "Pedido inicial" : "Agregado"} · ${escapeHtml(bloque.hora)}</div>
+      <div class="dm-products">
+        ${bloque.items.map((it) => `
+          <div class="dm-prod-row">
+            <div>
+              <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
+              <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
+            </div>
+            <div class="dm-prod-price">S/ ${Number(it.subtotal || 0).toFixed(2)}</div>
+          </div>`).join("")}
+      </div>
+    </div>`).join("");
+        }
         function renderDetail(id) {
             const p = pedidosMap.get(id);
             if (!p) { closeDetail(); return; }
@@ -924,9 +1045,9 @@
       </div>
     </div>
 
-    <div>
+     <div>
       <div class="dm-section-title">Productos · ${totalItems} item${totalItems === 1 ? "" : "s"}</div>
-      <div class="dm-products">${prodRows}</div>
+      ${origen.tipo === "mesa" && Array.isArray(p.bloques) && p.bloques.length ? bloquesHtml(p.bloques) : `<div class="dm-products">${prodRows}</div>`}
     </div>
 
     <div class="dm-total-row">
@@ -1006,6 +1127,7 @@
             pedidosMap.forEach((p, id) => {
                 const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
                 if (estado !== "pendiente") return;
+                if (getOrigen(p).tipo !== "whatsapp") return; // el auto-rechazo solo aplica a WhatsApp
                 if (autoRejectingIds.has(id)) return;
                 const fecha = toDate(p.timestamp);
                 if (!fecha) return;
@@ -1037,6 +1159,17 @@
         /* ══════════════ Render del tablero completo ══════════════ */
         function renderBoard() {
             const grupos = { pendiente: [], en_proceso: [], entregado: [], rechazado: [] };
+
+            if (originFilter === "mesa") {
+                renderMesaGrid();
+                document.getElementById("mesaEmptyBanner").style.display = "none";
+                if (activeModalId && String(activeModalId).startsWith("mesa:")) {
+                    renderMesaDetail(Number(String(activeModalId).split(":")[1]));
+                } else if (activeModalId) {
+                    if (pedidosMap.has(activeModalId)) renderDetail(activeModalId); else closeDetail();
+                }
+                return;
+            }
 
             [...pedidosMap.entries()]
                 .filter(([id, p]) => pedidoVisible(id, p)) // ← aplica solo origen + mesa (la fecha ya viene filtrada de Firestore)
@@ -1114,6 +1247,33 @@
             window.scrollTo({ top: 0, behavior: "smooth" });
         });
 
+
+        /* ══════════════ Tamaño de los recuadros de mesa (ajustable, se recuerda) ══════════════ */
+        const MESA_SIZES = {
+            chico: { col: 160, h: 130 },
+            mediano: { col: 210, h: 168 },
+            grande: { col: 270, h: 208 },
+        };
+        let mesaSize = localStorage.getItem("geinz_mesa_size") || "mediano";
+
+        function aplicarMesaSize() {
+            const cfg = MESA_SIZES[mesaSize] || MESA_SIZES.mediano;
+            document.documentElement.style.setProperty("--mesa-size", cfg.col + "px");
+            document.documentElement.style.setProperty("--mesa-h", cfg.h + "px");
+            document.querySelectorAll("#mesaSizeCtrl .ms-btn").forEach((btn) => {
+                btn.classList.toggle("active", btn.dataset.size === mesaSize);
+            });
+        }
+        aplicarMesaSize();
+
+        document.getElementById("mesaSizeCtrl").addEventListener("click", (e) => {
+            const btn = e.target.closest(".ms-btn");
+            if (!btn) return;
+            mesaSize = btn.dataset.size;
+            localStorage.setItem("geinz_mesa_size", mesaSize);
+            aplicarMesaSize();
+        });
+
         /* ══════════════ Loader ══════════════ */
         function hideLoader() {
             const loader = document.getElementById("pageLoader");
@@ -1135,6 +1295,13 @@
            Este listener alimenta la franja de mesas y el badge de cada tarjeta/detalle;
            no toca ni depende del listener de "pedidos". Se suscribe una sola vez. */
         let mesasListenerIniciado = false;
+        let mesasFirstSnapshot = true;
+        const mesaPedidoSignatures = new Map(); // mesaDocId -> firma del último pedido ya notificado
+
+        function firmaPedidoMesa(pedido) {
+            return `${pedido?.hora || ""}|${pedido?.total_items || 0}|${pedido?.total || 0}`;
+        }
+
         function iniciarListenerMesas() {
             if (!tiendaId || mesasListenerIniciado) return;
             mesasListenerIniciado = true;
@@ -1143,14 +1310,51 @@
             onSnapshot(
                 q,
                 (snap) => {
-                    mesasMap.clear();
-                    snap.forEach((d) => mesasMap.set(d.id, d.data()));
-                    if (originFilter === "mesa") renderMesaStrip();
+                    const nuevosPedidosMesa = [];
+
+                    snap.forEach((d) => {
+                        const data = d.data();
+                        mesasMap.set(d.id, data);
+
+                        if (data.estado === "ocupado" && data.pedido) {
+                            const firma = firmaPedidoMesa(data.pedido);
+                            const firmaAnterior = mesaPedidoSignatures.get(d.id);
+                            if (!mesasFirstSnapshot && firma !== firmaAnterior) {
+                                nuevosPedidosMesa.push({ mesaId: d.id, data });
+                            }
+                            mesaPedidoSignatures.set(d.id, firma);
+                        } else {
+                            mesaPedidoSignatures.delete(d.id);
+                        }
+                    });
+
+                    mesasFirstSnapshot = false;
+
+                    if (originFilter === "mesa") renderMesaGrid();
+                    if (activeModalId && String(activeModalId).startsWith("mesa:")) {
+                        renderMesaDetail(Number(String(activeModalId).split(":")[1]));
+                    }
+
+                    if (nuevosPedidosMesa.length) {
+                        playMesaChime();
+                        bellRingFeedback();
+                        nuevosPedidosMesa.forEach(({ data }) => {
+                            const nombreMesa = data.mesaNombre || `Mesa ${data.mesaNumero ?? ""}`;
+                            notificarPedidoMesa(nombreMesa, data.pedido);
+                        });
+                        const nombres = nuevosPedidosMesa
+                            .map(({ data }) => data.mesaNombre || `Mesa ${data.mesaNumero ?? ""}`)
+                            .join(", ");
+                        showToast(
+                            nuevosPedidosMesa.length === 1
+                                ? `🍽️ Pedido nuevo en ${nombres}`
+                                : `🍽️ Pedidos nuevos en ${nombres}`
+                        );
+                    }
                 },
                 (err) => console.warn("No se pudieron cargar las mesas:", err)
             );
         }
-
         /* ══════════════ Listener en vivo de pedidos (acotado por fecha en el servidor) ══════════════
            CLAVE PARA ESCALABILIDAD: la query incluye where("timestamp", ">=", from) y
            where("timestamp", "<=", to) según el filtro de fecha activo. Así, sin importar
@@ -1224,8 +1428,14 @@
                         nuevosPendientes.forEach((p) => notificarPedidoNuevo(p));
                         const nombres = nuevosPendientes.map((p) => p.cliente?.nombre || "Cliente").join(", ");
                         showToast(nuevosPendientes.length === 1 ? `🛎️ Nuevo pedido de ${nombres}` : `🛎️ ${nuevosPendientes.length} pedidos nuevos`);
-                    }
 
+                        // Si el operador está viendo "Mesas" y llegó un pedido de WhatsApp, avisamos con la bolita
+                        const nuevosWhatsapp = nuevosPendientes.filter((p) => getOrigen(p).tipo === "whatsapp");
+                        if (nuevosWhatsapp.length && originFilter === "mesa") {
+                            whatsappUnseen += nuevosWhatsapp.length;
+                            actualizarBadgeWhatsapp();
+                        }
+                    }
                     hideLoader();
                 },
                 (err) => {

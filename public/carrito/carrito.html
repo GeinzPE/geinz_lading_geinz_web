@@ -291,7 +291,7 @@
          Se arma como  {DASHBOARD_BASE_URL}/{idNegocio}/{idPedido}
        LANDING_BASE_URL: dominio de la landing normal del negocio (por alias).
          La ruta real es {LANDING_BASE_URL}/perfil/{alias_negocio}. */
-    const DASHBOARD_BASE_URL = "https://geinztech.com/dashboard";
+    const DASHBOARD_BASE_URL = "https://geinztech.com/pedidos";
     const LANDING_BASE_URL = "https://geinztech.com";
 
     const params = new URLSearchParams(window.location.search);
@@ -405,6 +405,11 @@
       const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaId);
       const now = new Date();
 
+      // Traemos el doc completo de la mesa para no perder campos como
+      // qr_url, token_seguridad, nombre_alias, numero_mesa al duplicar en pedidos
+      const mesaSnapActual = await getDoc(ref);
+      const mesaDataActual = mesaSnapActual.exists() ? mesaSnapActual.data() : {};
+
       // Si ya hay un pedido activo, combinamos productos (sumando cantidades)
       const productosPrevios = pedidoActivoMesa?.productos || [];
       const mapaProductos = new Map();
@@ -432,28 +437,72 @@
 
       const notaFinal = [pedidoActivoMesa?.nota, nota].filter(Boolean).join(" · ");
       const nombreFinal = pedidoActivoMesa?.cliente_nombre || nombre || "";
+      const horaActual = now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+
+      // ══ Bloques: cada llamada a "Llamar al mozo" queda registrada como una
+      // ronda independiente con su hora exacta y SOLO lo que se pidió en ese
+      // momento (no el acumulado). Sirve para saber "a qué hora pidió qué",
+      // aunque el total y los productos combinados (arriba) sigan siendo uno solo. ══
+      const bloquesPrevios = pedidoActivoMesa?.bloques || [];
+      const nuevoBloque = {
+        hora: horaActual,
+        nota: nota || "",
+        items: items.map((it) => ({
+          id: it.id, nombre: it.nombre, categoria: it.categoria,
+          precio_unitario: it.precio, cantidad: it.cantidad,
+          subtotal: +(it.precio * it.cantidad).toFixed(2), imagen: it.imagen || "",
+        })),
+        total_bloque: +items.reduce((s, i) => s + i.cantidad * i.precio, 0).toFixed(2),
+      };
+      const bloquesFinal = [...bloquesPrevios, nuevoBloque];
 
       const pedido = {
         cliente_nombre: nombreFinal,
         nota: notaFinal,
         productos: productosFinal,
+        bloques: bloquesFinal,
         total_items: productosFinal.reduce((s, i) => s + i.cantidad, 0),
         total: +totalFinal.toFixed(2),
         fecha: pedidoActivoMesa?.fecha || now.toLocaleDateString("es-PE"),
-        hora: now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }), // hora de la última actualización
+        hora: horaActual,
         timestamp: serverTimestamp(),
       };
 
-      await setDoc(ref, {
+      // ══ Decide si esta llamada pertenece a una sesión de mesa YA activa
+      // o si es el arranque de una sesión nueva (mesa estaba libre/cancelada
+      // o nunca tuvo un pedidoMesaDocId guardado) ══
+      const pedidosColRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
+
+      const yaHabiaSesionActiva =
+        mesaDataActual?.estado === "ocupado" && !!mesaDataActual?.pedidoMesaDocId;
+
+      const pedidoDocId = yaHabiaSesionActiva
+        ? mesaDataActual.pedidoMesaDocId
+        : doc(pedidosColRef).id; // nueva sesión de mesa -> nuevo id, uno solo por sesión
+
+      const dataToSave = {
+        ...mesaDataActual,
         estado: "ocupado",
         pago: "pendiente",
-        mesaNombre: mesaNombre || null,
-        mesaNumero: mesaNumero ? Number(mesaNumero) : null,
+        mesaNombre: mesaNombre || mesaDataActual.mesaNombre || null,
+        mesaNumero: mesaNumero ? Number(mesaNumero) : (mesaDataActual.mesaNumero || null),
         pedido,
+        pedidoMesaDocId: pedidoDocId, // clave: queda guardado en la mesa para la próxima vez
+      };
+
+      await setDoc(ref, dataToSave, { merge: true });
+
+      // Mismo doc de /pedidos mientras la mesa siga ocupada (merge, nunca doc nuevo)
+      const pedidoMesaRef = doc(pedidosColRef, pedidoDocId);
+      await setDoc(pedidoMesaRef, {
+        ...dataToSave,
+        mesaId,
+        negocio: { id: tiendaId, nombre: bizNombre, localidad },
       }, { merge: true });
 
       return pedido;
     }
+
 
     async function cancelarPedidoMesa() {
       const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaId);
@@ -462,20 +511,26 @@
         pago: "pendiente",
         pedido: null,
       });
+
+      const pedidoMesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", `${mesaId}-mesa`);
+      await updateDoc(pedidoMesaRef, {
+        estado: "cancelado",
+        pago: "pendiente",
+      }).catch(() => { }); // por si aún no existe el doc en pedidos
     }
 
-   function renderPedidoActivoMesa(pedido) {
-  const main = document.querySelector("main .min-w-0");
-  if (!main) return;
+    function renderPedidoActivoMesa(pedido) {
+      const main = document.querySelector("main .min-w-0");
+      if (!main) return;
 
-  // Si ya existe un banner de pedido activo, lo quitamos antes de crear el nuevo
-  const anterior = document.getElementById("pedidoActivoWrap");
-  if (anterior) anterior.remove();
+      // Si ya existe un banner de pedido activo, lo quitamos antes de crear el nuevo
+      const anterior = document.getElementById("pedidoActivoWrap");
+      if (anterior) anterior.remove();
 
-  const wrap = document.createElement("div");
-  wrap.id = "pedidoActivoWrap";
-  wrap.className = "glass rounded-[26px] p-5 flex flex-col gap-4 mb-6";
-  wrap.innerHTML = `
+      const wrap = document.createElement("div");
+      wrap.id = "pedidoActivoWrap";
+      wrap.className = "glass rounded-[26px] p-5 flex flex-col gap-4 mb-6";
+      wrap.innerHTML = `
     <div class="flex items-center justify-between">
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
       <span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background: rgba(var(--dr),var(--dg),var(--db),.15); color: rgb(var(--dr),var(--dg),var(--db));">
@@ -491,11 +546,37 @@
     <p class="text-[12px] text-gray-500 text-center">Si necesitas cambiar algo, avísale directamente al mozo.</p>
   `;
 
-  const itemsWrap = wrap.querySelector("#pedidoActivoItems");
-  pedido.productos.forEach((it) => {
-    const row = document.createElement("div");
-    row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
-    row.innerHTML = `
+      const itemsWrap = wrap.querySelector("#pedidoActivoItems");
+      const bloques = pedido.bloques && pedido.bloques.length ? pedido.bloques : null;
+
+      if (bloques) {
+        bloques.forEach((bloque, idx) => {
+          const bloqueWrap = document.createElement("div");
+          bloqueWrap.className = "flex flex-col gap-1.5";
+          bloqueWrap.innerHTML = `<p class="text-[11px] font-bold text-gray-500 uppercase tracking-wide mt-1">
+            ${idx === 0 ? "Pedido inicial" : "Agregado"} · ${bloque.hora}
+          </p>`;
+          bloque.items.forEach((it) => {
+            const row = document.createElement("div");
+            row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
+            row.innerHTML = `
+          <img src="${it.imagen}" class="w-14 h-14 rounded-xl object-cover bg-white/5 flex-shrink-0" loading="lazy" decoding="async">
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-[14px] truncate">${it.nombre}</p>
+            <p class="text-[12.5px] text-gray-500">${it.cantidad} × S/ ${it.precio_unitario.toFixed(2)}</p>
+          </div>
+          <span class="font-bold text-[14px]">S/ ${it.subtotal.toFixed(2)}</span>
+        `;
+            bloqueWrap.appendChild(row);
+          });
+          itemsWrap.appendChild(bloqueWrap);
+        });
+      } else {
+        // Compatibilidad con pedidos viejos sin "bloques" (creados antes de este cambio)
+        pedido.productos.forEach((it) => {
+          const row = document.createElement("div");
+          row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
+          row.innerHTML = `
       <img src="${it.imagen}" class="w-14 h-14 rounded-xl object-cover bg-white/5 flex-shrink-0" loading="lazy" decoding="async">
       <div class="flex-1 min-w-0">
         <p class="font-bold text-[14px] truncate">${it.nombre}</p>
@@ -503,11 +584,12 @@
       </div>
       <span class="font-bold text-[14px]">S/ ${it.subtotal.toFixed(2)}</span>
     `;
-    itemsWrap.appendChild(row);
-  });
+          itemsWrap.appendChild(row);
+        });
+      }
 
-  main.prepend(wrap);
-}
+      main.prepend(wrap);
+    }
 
 
     async function confirmarPedidoMesaDirecto() {

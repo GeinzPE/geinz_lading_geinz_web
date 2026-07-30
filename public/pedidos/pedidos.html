@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento de pedido</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --accent:#c2703d;
+    --accent-dark:#8f4e28;
+    --accent-soft:#2a1f18;
+    --bg:#0a0a0b;
+    --card:#131315;
+    --card-border:#232326;
+    --text-primary:#f4f3f1;
+    --text-secondary:#8f8d8a;
+    --text-muted:#5c5a58;
+  }
+  body{font-family:'Inter',sans-serif;background:var(--bg);}
+  .font-display{font-family:'Fraunces',serif;}
+  .font-mono{font-family:'JetBrains Mono',monospace;}
+  .accent-bg{background-color:var(--accent);}
+  .accent-text{color:var(--accent);}
+  .accent-border{border-color:var(--accent);}
+  .accent-soft-bg{background-color:var(--accent-soft);}
+  .bg-card{background-color:var(--card);}
+  .border-card{border-color:var(--card-border);}
+  .text-primary{color:var(--text-primary);}
+  .text-secondary{color:var(--text-secondary);}
+  .text-muted{color:var(--text-muted);}
+
+  @keyframes pulse-ring{
+    0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);}
+    70%{box-shadow:0 0 0 10px transparent;}
+    100%{box-shadow:0 0 0 0 transparent;}
+  }
+  .pulse{animation:pulse-ring 1.8s cubic-bezier(0.4,0,0.6,1) infinite;}
+
+  @keyframes shimmer{
+    0%{background-position:-400px 0;}
+    100%{background-position:400px 0;}
+  }
+  .skeleton{
+    background:linear-gradient(90deg,#151517 25%,#1c1c1f 37%,#151517 63%);
+    background-size:800px 100%;
+    animation:shimmer 1.4s linear infinite;
+  }
+
+  .fade-in{animation:fadeIn .5s ease both;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</head>
+<body class="min-h-screen text-primary">
+
+<div id="app" class="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+
+  <!-- SKELETON STATE -->
+  <div id="skeleton" class="space-y-6">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-2xl skeleton"></div>
+      <div class="space-y-2">
+        <div class="h-4 w-40 rounded skeleton"></div>
+        <div class="h-3 w-24 rounded skeleton"></div>
+      </div>
+    </div>
+    <div class="h-32 rounded-2xl skeleton"></div>
+    <div class="h-48 rounded-2xl skeleton"></div>
+    <div class="h-40 rounded-2xl skeleton"></div>
+  </div>
+
+  <!-- EMPTY / NOT FOUND STATE -->
+  <div id="empty-state" class="hidden fade-in flex flex-col items-center justify-center text-center py-24">
+    <div class="w-14 h-14 rounded-full bg-card border border-card flex items-center justify-center mb-5">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    </div>
+    <p class="font-display text-lg text-primary">No encontramos este pedido</p>
+    <p class="text-sm text-muted mt-1">Revisa el enlace o vuelve a intentarlo más tarde.</p>
+  </div>
+
+  <!-- CONTENT STATE -->
+  <div id="content" class="hidden space-y-6">
+
+    <!-- Header -->
+    <header class="flex items-center gap-4 fade-in">
+      <img id="logo-img" src="" alt="Logo" class="w-16 h-16 rounded-2xl object-cover border border-card shadow-sm bg-card">
+      <div>
+        <h1 id="negocio-nombre" class="font-display text-xl font-semibold text-primary leading-tight"></h1>
+        <p class="text-xs text-muted font-mono" id="negocio-localidad"></p>
+      </div>
+    </header>
+
+    <!-- Status card -->
+    <section class="rounded-2xl border border-card bg-card p-6 fade-in">
+      <div class="flex items-center justify-between mb-5">
+        <span class="text-xs uppercase tracking-widest text-secondary font-medium">Estado del pedido</span>
+        <span class="text-xs font-mono text-muted" id="pedido-fecha-hora"></span>
+      </div>
+
+      <div class="flex items-center gap-3 mb-6">
+        <span id="status-dot" class="relative flex h-3 w-3">
+          <span class="relative inline-flex rounded-full h-3 w-3 accent-bg pulse"></span>
+        </span>
+        <span id="status-label" class="font-display text-lg font-semibold text-primary"></span>
+      </div>
+
+      <!-- Timeline -->
+      <div id="timeline" class="flex flex-col gap-0"></div>
+    </section>
+
+    <!-- Cliente / entrega -->
+    <section class="rounded-2xl border border-card bg-card p-6 fade-in">
+      <span class="text-xs uppercase tracking-widest text-secondary font-medium">Cliente</span>
+      <div class="mt-3 grid grid-cols-2 gap-y-3 text-sm">
+        <div>
+          <p class="text-muted text-xs">Nombre</p>
+          <p id="cliente-nombre" class="font-medium text-primary"></p>
+        </div>
+        <div>
+          <p class="text-muted text-xs">Entrega</p>
+          <p id="cliente-entrega" class="font-medium text-primary"></p>
+        </div>
+        <div id="cliente-mesa-wrap" class="hidden">
+          <p class="text-muted text-xs">Mesa</p>
+          <p id="cliente-mesa" class="font-medium text-primary"></p>
+        </div>
+        <div id="cliente-direccion-wrap" class="hidden col-span-2">
+          <p class="text-muted text-xs">Dirección</p>
+          <p id="cliente-direccion" class="font-medium text-primary"></p>
+        </div>
+      </div>
+      <div id="nota-wrap" class="hidden mt-4 pt-4 border-t border-card">
+        <p class="text-muted text-xs mb-1">Nota</p>
+        <p id="nota-texto" class="text-sm text-secondary italic"></p>
+      </div>
+    </section>
+
+    <!-- Productos -->
+    <section class="rounded-2xl border border-card bg-card p-6 fade-in">
+      <span class="text-xs uppercase tracking-widest text-secondary font-medium">Productos</span>
+      <div id="productos-list" class="mt-4 divide-y divide-[color:var(--card-border)]"></div>
+
+      <div class="mt-4 pt-4 border-t border-card flex items-center justify-between">
+        <span class="text-sm text-secondary">Método de pago: <span id="pago-metodo" class="font-medium text-primary"></span></span>
+        <span class="font-display text-xl font-semibold accent-text">S/ <span id="pedido-total"></span></span>
+      </div>
+    </section>
+
+    <p class="text-center text-xs text-muted pt-2">Actualiza automáticamente en tiempo real</p>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFirestore, doc, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+  authDomain: "geinzworkapp.firebaseapp.com",
+  projectId: "geinzworkapp",
+  storageBucket: "geinzworkapp.firebasestorage.app",
+  messagingSenderId: "921389328767",
+  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ---- Config: ajustar si la localidad varía por negocio ----
+const LOCALIDAD_FIJA = "barranca";
+
+// ---- Parseo de ruta: /pedidos/{negocioId}/{pedidoId} (o /dashboard/... como alias) ----
+// También acepta ?negocioId=...&pedidoId=... como respaldo para pruebas.
+function parseRuta() {
+  console.log("[pedidos] pathname actual:", window.location.pathname);
+  console.log("[pedidos] search actual:", window.location.search);
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("negocioId") && params.get("pedidoId")) {
+    console.log("[pedidos] usando IDs de query string");
+    return { negocioId: params.get("negocioId"), pedidoId: params.get("pedidoId") };
+  }
+  const partes = window.location.pathname.split("/").filter(Boolean);
+  console.log("[pedidos] segmentos de ruta:", partes);
+
+  const idx = partes.findIndex((p) => p === "pedidos" || p === "dashboard");
+  console.log("[pedidos] indice de 'pedidos'/'dashboard':", idx);
+
+  if (idx === -1 || partes.length < idx + 3) {
+    console.warn("[pedidos] No se pudo extraer negocioId/pedidoId de la ruta");
+    return null;
+  }
+  const resultado = { negocioId: partes[idx + 1], pedidoId: partes[idx + 2] };
+  console.log("[pedidos] IDs extraidos de la ruta:", resultado);
+  return resultado;
+}
+
+const ids = parseRuta();
+console.log("[pedidos] ids finales usados:", ids);
+
+const el = (id) => document.getElementById(id);
+const showSkeleton = () => { el("skeleton").classList.remove("hidden"); el("empty-state").classList.add("hidden"); el("content").classList.add("hidden"); };
+const showEmpty = () => { el("skeleton").classList.add("hidden"); el("empty-state").classList.remove("hidden"); el("content").classList.add("hidden"); };
+const showContent = () => { el("skeleton").classList.add("hidden"); el("empty-state").classList.add("hidden"); el("content").classList.remove("hidden"); };
+
+if (!ids) {
+  showEmpty();
+} else {
+  init(ids.negocioId, ids.pedidoId);
+}
+
+async function init(negocioId, pedidoId) {
+  console.log("[pedidos] init() llamado con negocioId:", negocioId, "pedidoId:", pedidoId);
+  showSkeleton();
+
+  // --- Datos del negocio (logo, nombre) — se cargan una sola vez ---
+  const negocioPath = `Tiendas/${LOCALIDAD_FIJA}/${LOCALIDAD_FIJA}/${negocioId}`;
+  console.log("[pedidos] consultando negocio en:", negocioPath);
+  try {
+    const negocioRef = doc(db, "Tiendas", LOCALIDAD_FIJA, LOCALIDAD_FIJA, negocioId);
+    onSnapshot(negocioRef, (snap) => {
+      console.log("[pedidos] snapshot negocio recibido. existe:", snap.exists());
+      if (snap.exists()) {
+        const data = snap.data();
+        console.log("[pedidos] data negocio:", data);
+        const nombre = data.nombre || "Negocio";
+        const logoUrl = data.img_tienda?.logo_tienda || "";
+        el("negocio-nombre").textContent = nombre;
+        el("negocio-localidad").textContent = LOCALIDAD_FIJA;
+        if (logoUrl) {
+          el("logo-img").src = logoUrl;
+          extraerColorDominante(logoUrl);
+        }
+      } else {
+        console.warn("[pedidos] El documento del NEGOCIO no existe en:", negocioPath);
+      }
+    }, (error) => {
+      console.error("[pedidos] Error de Firestore leyendo NEGOCIO (revisa reglas de seguridad):", error.code, error.message);
+    });
+  } catch (e) {
+    console.error("[pedidos] Error cargando negocio:", e);
+  }
+
+  // --- Pedido en tiempo real ---
+  const pedidoPath = `Tiendas/${LOCALIDAD_FIJA}/${LOCALIDAD_FIJA}/${negocioId}/pedidos/${pedidoId}`;
+  console.log("[pedidos] consultando pedido en:", pedidoPath);
+  const pedidoRef = doc(db, "Tiendas", LOCALIDAD_FIJA, LOCALIDAD_FIJA, negocioId, "pedidos", pedidoId);
+
+  onSnapshot(pedidoRef, (snap) => {
+    console.log("[pedidos] snapshot pedido recibido. existe:", snap.exists());
+    if (!snap.exists()) {
+      console.warn("[pedidos] El documento del PEDIDO no existe en:", pedidoPath);
+      showEmpty();
+      return;
+    }
+    console.log("[pedidos] data pedido:", snap.data());
+    renderPedido(snap.data());
+    showContent();
+  }, (error) => {
+    console.error("[pedidos] Error de Firestore leyendo PEDIDO (revisa reglas de seguridad):", error.code, error.message);
+    showEmpty();
+  });
+}
+
+// ---- Estados del pedido ----
+// Coinciden exactamente con los valores guardados en Firestore.
+const ESTADOS = ["pendiente", "en_proceso", "entregado"];
+const ESTADOS_LABEL = {
+  pendiente: "Pendiente",
+  en_proceso: "En proceso",
+  entregado: "Entregado",
+  rechazado: "Rechazado",
+};
+
+function normalizarEstado(estado) {
+  const e = (estado || "").toLowerCase().trim();
+  if (e === "rechazado" || e.includes("rechaz")) return "rechazado";
+  if (e === "entregado" || e.includes("entreg")) return "entregado";
+  if (e === "en_proceso" || e.includes("proceso")) return "en_proceso";
+  return "pendiente";
+}
+
+function renderPedido(data) {
+  const estadoActual = normalizarEstado(data.estado);
+  const esRechazado = estadoActual === "rechazado";
+
+  el("status-label").textContent = ESTADOS_LABEL[estadoActual] || data.estado || "—";
+  el("pedido-fecha-hora").textContent = `${data.fecha || ""} · ${data.hora || ""}`;
+
+  const dot = el("status-dot").querySelector("span:last-child");
+  if (esRechazado) {
+    dot.classList.remove("accent-bg", "pulse");
+    dot.classList.add("bg-red-500");
+  } else if (estadoActual === "entregado") {
+    dot.classList.remove("pulse");
+  }
+
+  renderTimeline(estadoActual, esRechazado);
+
+  // Cliente
+  const cliente = data.cliente || {};
+  el("cliente-nombre").textContent = cliente.nombre || "—";
+  el("cliente-entrega").textContent = cliente.tipo_entrega || "—";
+
+  if (cliente.mesa) {
+    el("cliente-mesa-wrap").classList.remove("hidden");
+    el("cliente-mesa").textContent = cliente.mesa;
+  } else {
+    el("cliente-mesa-wrap").classList.add("hidden");
+  }
+
+  if (cliente.direccion) {
+    el("cliente-direccion-wrap").classList.remove("hidden");
+    el("cliente-direccion").textContent = cliente.direccion;
+  } else {
+    el("cliente-direccion-wrap").classList.add("hidden");
+  }
+
+  if (data.nota) {
+    el("nota-wrap").classList.remove("hidden");
+    el("nota-texto").textContent = data.nota;
+  } else {
+    el("nota-wrap").classList.add("hidden");
+  }
+
+  // Pago
+  el("pago-metodo").textContent = data.pago?.metodo || "—";
+  el("pedido-total").textContent = Number(data.total || 0).toFixed(2);
+
+  // Productos
+  const cont = el("productos-list");
+  cont.innerHTML = "";
+  (data.productos || []).forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "flex items-center gap-3 py-3";
+    row.innerHTML = `
+      <img src="${p.imagen || ""}" alt="${p.nombre || ""}" class="w-12 h-12 rounded-lg object-cover bg-black/30 flex-shrink-0" onerror="this.style.visibility='hidden'">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-primary truncate">${p.nombre || ""}</p>
+        <p class="text-xs text-muted">${p.cantidad || 1} × S/ ${Number(p.precio_unitario || 0).toFixed(2)}</p>
+      </div>
+      <span class="text-sm font-mono font-medium text-secondary">S/ ${Number(p.subtotal || 0).toFixed(2)}</span>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+function renderTimeline(estadoActual, esRechazado) {
+  const cont = el("timeline");
+  cont.innerHTML = "";
+
+  if (esRechazado) {
+    const div = document.createElement("div");
+    div.className = "text-sm text-red-500 font-medium";
+    div.textContent = "Este pedido fue rechazado.";
+    cont.appendChild(div);
+    return;
+  }
+
+  const idxActual = ESTADOS.indexOf(estadoActual);
+
+  ESTADOS.forEach((estado, i) => {
+    const activo = i <= idxActual;
+    const esActual = i === idxActual;
+    const isLast = i === ESTADOS.length - 1;
+
+    const item = document.createElement("div");
+    item.className = "flex gap-3";
+
+    item.innerHTML = `
+      <div class="flex flex-col items-center">
+        <div class="w-2.5 h-2.5 rounded-full mt-1.5 ${activo ? 'accent-bg' : 'bg-[color:var(--card-border)]'} ${esActual ? 'pulse' : ''}"></div>
+        ${!isLast ? `<div class="w-px flex-1 ${activo && i < idxActual ? 'accent-bg' : 'bg-[color:var(--card-border)]'} my-1"></div>` : ''}
+      </div>
+      <div class="pb-5 -mt-0.5">
+        <p class="text-sm ${activo ? 'text-primary font-medium' : 'text-muted'}">${ESTADOS_LABEL[estado]}</p>
+      </div>
+    `;
+    cont.appendChild(item);
+  });
+}
+
+// ---- Color dominante del logo → variables CSS de acento ----
+// Reglas: nunca usar blanco/casi-blanco como acento (aunque el logo sea blanco),
+// y priorizar el color más saturado/vivo del logo en vez del promedio plano.
+function extraerColorDominante(url) {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try {
+      const canvas = document.createElement("canvas");
+      const size = 48;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, size, size);
+      const data = ctx.getImageData(0, 0, size, size).data;
+
+      // Agrupamos píxeles en buckets de color y nos quedamos con el bucket
+      // más saturado y con mayor frecuencia, ignorando blancos/negros/grises.
+      const buckets = {};
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        if (alpha < 100) continue;
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const lightness = (max + min) / 2;
+        const sat = max === min ? 0 : (max - min) / (255 - Math.abs(2 * lightness - 255));
+
+        // descartar casi-blanco, casi-negro y grises poco saturados
+        if (lightness > 235) continue;
+        if (lightness < 18) continue;
+        if (sat < 0.15) continue;
+
+        const key = `${Math.round(r / 24)}-${Math.round(g / 24)}-${Math.round(b / 24)}`;
+        if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, count: 0, sat: 0 };
+        buckets[key].r += r;
+        buckets[key].g += g;
+        buckets[key].b += b;
+        buckets[key].count += 1;
+        buckets[key].sat += sat;
+      }
+
+      const bucketList = Object.values(buckets);
+      let chosen = null;
+      if (bucketList.length > 0) {
+        // score: frecuencia * saturación promedio, para elegir un color vivo y predominante
+        chosen = bucketList
+          .map((bk) => ({ ...bk, avgSat: bk.sat / bk.count, score: bk.count * (bk.sat / bk.count) }))
+          .sort((a, b) => b.score - a.score)[0];
+      }
+
+      let r, g, b;
+      if (chosen) {
+        r = Math.round(chosen.r / chosen.count);
+        g = Math.round(chosen.g / chosen.count);
+        b = Math.round(chosen.b / chosen.count);
+      } else {
+        // Fallback: el logo era blanco/negro/gris puro (sin color).
+        // Usamos un acento vívido por defecto en vez de blanco.
+        r = 194; g = 112; b = 61; // naranja tostado por defecto
+      }
+
+      // Asegurar un mínimo de vivacidad/luminosidad para que se vea bien en fondo negro
+      const brightness = (r + g + b) / 3;
+      if (brightness < 90) {
+        const boost = 90 / Math.max(brightness, 1);
+        r = Math.min(255, Math.round(r * boost));
+        g = Math.min(255, Math.round(g * boost));
+        b = Math.min(255, Math.round(b * boost));
+      }
+
+      const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
+      const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      const dark = `#${toHex(Math.round(r * 0.65))}${toHex(Math.round(g * 0.65))}${toHex(Math.round(b * 0.65))}`;
+      const soft = `#${toHex(Math.round(r * 0.18))}${toHex(Math.round(g * 0.18))}${toHex(Math.round(b * 0.18))}`;
+
+      document.documentElement.style.setProperty("--accent", hex);
+      document.documentElement.style.setProperty("--accent-dark", dark);
+      document.documentElement.style.setProperty("--accent-soft", soft);
+      console.log("[pedidos] color de acento extraido del logo:", hex);
+    } catch (e) {
+      console.warn("[pedidos] No se pudo extraer color del logo (posible CORS), usando color por defecto:", e);
+    }
+  };
+  img.onerror = () => console.warn("[pedidos] No se pudo cargar el logo para extraer color");
+  img.src = url;
+}
+</script>
+</body>
+</html>

@@ -20,13 +20,17 @@
         "source": "/sitemap.xml",
         "function": "sitemap"
       },
-      { 
+      {
         "source": "/redirect/**",
         "destination": "/redirect/index.html"
       },
       {
         "source": "/api/share",
         "function": "share"
+      },
+      {
+        "source": "/pedidos/**",
+        "destination": "/pedidos/pedidos.html"
       },
       {
         "source": "**",
