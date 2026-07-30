@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&family=Poppins:wght@600;700&family=Playfair+Display:wght@700;800&family=Space+Grotesk:wght@600;700&display=swap"
         rel="stylesheet">
 
     <!-- Tailwind CDN -->
@@ -19,6 +19,10 @@
 
     <!-- JSZip: solo lo usa la descarga masiva (zip) de QRs de mesas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- html2canvas: usado por la vista previa de descarga (tarjeta con marco) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -194,7 +198,7 @@
                             title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('perfil')">↻</button>
                         <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
                             id="qrDescargaPerfil" title="Descargar en alta resolución" download="qr-perfil.png"
-                            onclick="event.stopPropagation();">
+                            onclick="event.stopPropagation(); event.preventDefault(); PreviewQr.openNegocio('perfil');">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>
@@ -235,7 +239,7 @@
                             title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carta')">↻</button>
                         <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
                             id="qrDescargaCarta" title="Descargar en alta resolución" download="qr-carta.png"
-                            onclick="event.stopPropagation();">
+                            onclick="event.stopPropagation(); event.preventDefault(); PreviewQr.openNegocio('carta');">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>
@@ -276,7 +280,7 @@
                             title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carrito')">↻</button>
                         <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
                             id="qrDescargaCarrito" title="Descargar en alta resolución" download="qr-carrito.png"
-                            onclick="event.stopPropagation();">
+                            onclick="event.stopPropagation(); event.preventDefault(); PreviewQr.openNegocio('carrito');">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>
@@ -399,39 +403,101 @@
     </div>
 
     <!-- ============================================================
-         MODAL: Ver QR de mesa
+         MODAL: Vista previa + descarga de QR (negocio y mesas)
+         - Para Institucional / Carta digital / Productos (carrito):
+           los textos de la tarjeta son fijos (no editables).
+         - Para mesas por local: el negocio puede personalizar el
+           texto superior, el texto principal y el texto secundario
+           antes de descargar (ej. "MESA 1" / "Escanea aquí para ver
+           nuestros productos").
     ============================================================ -->
-    <div id="modalVerQr"
+    <div id="modalPreviewQr"
         class="fixed inset-0 z-50 hidden items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
-        <div class="w-full max-w-sm rounded-t-[24px] border border-white/10 bg-[#0b0b0e] p-5 sm:rounded-[22px] sm:p-6">
+        <div
+            class="max-h-[94vh] w-full max-w-sm overflow-y-auto rounded-t-[24px] border border-white/10 bg-[#0b0b0e] p-5 sm:rounded-[22px] sm:p-6">
             <div class="flex items-start justify-between">
                 <div>
-                    <h3 id="verQrTitulo" class="font-display text-[16px] font-bold text-white">Mesa</h3>
-                    <p class="mt-1 text-[12px] text-neutral-500">Escanea o comparte el enlace directo.</p>
+                    <h3 class="font-display text-[16px] font-bold text-white">Vista previa</h3>
+                    <p class="mt-1 text-[12px] text-neutral-500">Así se descargará tu QR.</p>
                 </div>
-                <button data-close-modal="modalVerQr"
+                <button data-close-modal="modalPreviewQr"
                     class="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[13px] text-neutral-400 hover:bg-white/[0.1]">✕</button>
             </div>
 
-            <div class="mt-4 flex justify-center">
-                <div
-                    class="flex h-52 w-52 items-center justify-center overflow-hidden rounded-[16px] border border-white/10 bg-white p-3">
-                    <img id="verQrImagen" src="" alt="QR mesa" class="h-full w-full object-contain">
+            <!-- Campos editables: solo visibles para mesas -->
+            <div id="previewFields" class="mt-4 hidden flex-col gap-3">
+                <div>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Texto
+                        superior</label>
+                    <input id="previewInputBrand" type="text" maxlength="40"
+                        class="mt-1.5 w-full rounded-[10px] border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[13px] text-white outline-none focus:border-[#7c4dff]/60 [color-scheme:dark]" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Texto
+                        principal</label>
+                    <input id="previewInputCaption" type="text" maxlength="40"
+                        class="mt-1.5 w-full rounded-[10px] border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[13px] text-white outline-none focus:border-[#7c4dff]/60 [color-scheme:dark]" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Texto
+                        secundario</label>
+                    <input id="previewInputSub" type="text" maxlength="60"
+                        class="mt-1.5 w-full rounded-[10px] border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[13px] text-white outline-none focus:border-[#7c4dff]/60 [color-scheme:dark]" />
+                </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-2 gap-3">
+                <div>
+                    <label
+                        class="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Fuente</label>
+                    <select id="previewFontSelect"
+                        class="mt-1.5 w-full rounded-[10px] border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[13px] text-white outline-none focus:border-[#7c4dff]/60 [color-scheme:dark]">
+                        <option value='"Sora", ui-sans-serif, sans-serif'>Sora</option>
+                        <option value='"Poppins", ui-sans-serif, sans-serif'>Poppins</option>
+                        <option value='"Space Grotesk", ui-sans-serif, sans-serif'>Space Grotesk</option>
+                        <option value='"Playfair Display", serif'>Playfair Display</option>
+                        <option value='"Inter", ui-sans-serif, sans-serif'>Inter</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Tamaño del
+                        texto</label>
+                    <select id="previewSizeSelect"
+                        class="mt-1.5 w-full rounded-[10px] border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[13px] text-white outline-none focus:border-[#7c4dff]/60 [color-scheme:dark]">
+                        <option value="12px">Pequeño</option>
+                        <option value="14px" selected>Normal</option>
+                        <option value="17px">Grande</option>
+                        <option value="20px">Extra grande</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-5 flex justify-center">
+                <div class="qrcard" id="previewCard">
+                    <div class="qrcard-brand" id="previewBrand">SCAN ME</div>
+                    <div class="qrcard-frame">
+                        <span class="corner tl"></span><span class="corner tr"></span><span
+                            class="corner bl"></span><span class="corner br"></span>
+                        <div class="qrcard-qrbox"><img id="previewQrImg" src="" alt="QR"></div>
+                    </div>
+                    <div class="qrcard-caption" id="previewCaption">tu-negocio</div>
+                    <div class="qrcard-subcaption" id="previewSub">Escanea para ver más</div>
+                    <div class="qrcard-watermark">Powered by Geinz</div>
                 </div>
             </div>
 
             <div class="mt-4 flex items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.03] px-3 py-2.5">
-                <span id="verQrLink" class="flex-1 truncate text-[11.5px] text-neutral-400"></span>
-                <button id="btnCopiarLink"
+                <span id="previewLink" class="flex-1 truncate text-[11.5px] text-neutral-400"></span>
+                <button id="btnCopiarPreviewLink"
                     class="shrink-0 rounded-[8px] border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-white/[0.12]">Copiar</button>
             </div>
 
             <div class="mt-4 grid grid-cols-2 gap-2.5">
-                <a id="verQrDescargar" download=""
+                <button id="btnDescargarPreview"
                     class="font-display flex items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 py-3 text-[12.5px] font-semibold text-[#d4caff] hover:from-[#7c4dff]/35">
                     <span>⬇</span><span>Descargar HD</span>
-                </a>
-                <button id="btnRegenerarDesdeModal"
+                </button>
+                <button id="btnRegenerarPreview"
                     class="font-display flex items-center justify-center gap-1.5 rounded-[12px] border border-white/10 bg-white/[0.04] py-3 text-[12.5px] font-semibold text-neutral-300 hover:bg-white/[0.09]">
                     <span>↻</span><span>Regenerar</span>
                 </button>
@@ -461,7 +527,7 @@
         /* Pequeños extras que Tailwind CDN no cubre out-of-the-box */
 
         .qr-tile.has-qr {
-            cursor: default;
+            cursor: pointer;
         }
 
         .qr-tile.has-qr:hover {
@@ -542,6 +608,153 @@
             #qrNegocioSection h1 {
                 font-size: 22px;
             }
+        }
+
+        /* ============================================================
+           TARJETA DE VISTA PREVIA (qrcard) — el "recibo" con marco que
+           se muestra en el modal de descarga y que se exporta a PNG
+           en alta resolución con html2canvas. Reutiliza la paleta de
+           marca del panel (morado -> rosa -> naranja).
+        ============================================================ */
+        .qrcard {
+            --qc-g1: #7c4dff;
+            --qc-g2: #a855f7;
+            --qc-g3: #ff4d8d;
+            --qc-g4: #ff9f4d;
+            --qc-text: #d9cfff;
+            --qc-font: "Sora", ui-sans-serif, sans-serif;
+            --qc-glow1: rgba(255, 77, 141, .22);
+            --qc-glow2: rgba(124, 77, 255, .22);
+            width: 300px;
+            background: #141317;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 28px;
+            padding: 28px 20px 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            font-family: "Sora", ui-sans-serif, sans-serif;
+        }
+
+        .qrcard::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% -10%, var(--qc-glow1), transparent 40%),
+                radial-gradient(circle at 110% 110%, var(--qc-glow2), transparent 40%);
+            pointer-events: none;
+        }
+
+        .qrcard-brand {
+            font-family: var(--qc-font);
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+            position: relative;
+            z-index: 1;
+            color: var(--qc-text);
+            word-break: break-word;
+        }
+
+        .qrcard-frame {
+            width: 230px;
+            height: 230px;
+            margin: 0 auto 14px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .qrcard-frame .corner {
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            border: 3px solid transparent;
+            border-image: linear-gradient(135deg, var(--qc-g1), var(--qc-g4)) 1;
+        }
+
+        .qrcard-frame .corner.tl {
+            top: 0;
+            left: 0;
+            border-right: none;
+            border-bottom: none;
+            border-radius: 12px 0 0 0;
+        }
+
+        .qrcard-frame .corner.tr {
+            top: 0;
+            right: 0;
+            border-left: none;
+            border-bottom: none;
+            border-radius: 0 12px 0 0;
+        }
+
+        .qrcard-frame .corner.bl {
+            bottom: 0;
+            left: 0;
+            border-right: none;
+            border-top: none;
+            border-radius: 0 0 0 12px;
+        }
+
+        .qrcard-frame .corner.br {
+            bottom: 0;
+            right: 0;
+            border-left: none;
+            border-top: none;
+            border-radius: 0 0 12px 0;
+        }
+
+        .qrcard-qrbox {
+            position: absolute;
+            inset: 15px;
+            background: #fdfdfd;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 16px 34px -14px var(--qc-shadow, rgba(255, 77, 141, .4));
+        }
+
+        .qrcard-qrbox img {
+            width: 82%;
+            height: 82%;
+            object-fit: contain;
+        }
+
+        .qrcard-caption {
+            font-family: var(--qc-font);
+            font-weight: 600;
+            font-size: var(--qc-size, 14px);
+            color: #fff;
+            position: relative;
+            z-index: 1;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .qrcard-subcaption {
+            font-family: var(--qc-font);
+            font-size: 11.5px;
+            color: #9a95a6;
+            position: relative;
+            z-index: 1;
+            word-break: break-word;
+        }
+
+        .qrcard-watermark {
+            margin-top: 12px;
+            font-family: var(--qc-font);
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, .28);
+            position: relative;
+            z-index: 1;
         }
 
         /* Scrollbar totalmente oscura */
@@ -634,6 +847,7 @@
 
             _tiendaInfoCache: null, // { id, alias, localidad }
             _logoCache: null,       // base64 (o null si no hay logo)
+            _estado: {},            // tipo -> { blobOriginal, blobHD, info } — usado por PreviewQr
 
             /**
              * Lee /Tiendas/{localidad}/{localidad}/{tiendaId} y saca
@@ -764,7 +978,8 @@
             /**
              * Pinta un QR (ya sea recién generado o cargado desde
              * Storage) dentro de su tile: preview, botón de descarga
-             * en HD y la insignia "HD · print".
+             * en HD y la insignia "HD · print". También cachea el
+             * resultado en _estado para que PreviewQr pueda usarlo.
              */
             async _mostrarQrEnTile(tipo, blobOriginal, info) {
                 const tile = document.querySelector(`.qr-tile[data-tipo="${tipo}"]`);
@@ -789,6 +1004,9 @@
                         <span class="qr-hd-badge pointer-events-none absolute right-2 top-2 rounded-full border border-[#7c4dff]/40 bg-black/70 px-2 py-[3px] text-[9px] font-bold tracking-wide text-[#c9bcff] backdrop-blur-sm">HD · print</span>
                     `);
                 }
+
+                // Cache para la vista previa de descarga (PreviewQr.openNegocio)
+                this._estado[tipo] = { blobOriginal, blobHD, info };
             },
 
             /**
@@ -815,7 +1033,8 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 // nítido, sin blur al escalar
-                ctx.imageSmoothingEnabled = false;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = "high";
 
                 const inner = Math.round(QR_PRINT_SIZE * (1 - QR_PRINT_MARGIN * 2));
                 const offset = Math.round((QR_PRINT_SIZE - inner) / 2);
@@ -828,7 +1047,11 @@
 
             onTileClick(evt, tipo) {
                 const tile = evt.currentTarget;
-                if (tile.classList.contains("has-qr")) return;
+                if (tile.classList.contains("has-qr")) {
+                    // Ya existe un QR para este tipo -> abrir vista previa de descarga
+                    PreviewQr.openNegocio(tipo);
+                    return;
+                }
                 this.generar(tipo);
             },
 
@@ -1217,8 +1440,6 @@
         };
 
         const UI = {
-            _mesaEnModal: null,
-
             renderMesas(mesas) {
                 const grid = document.getElementById("mesasGrid");
                 const empty = document.getElementById("mesasEmptyState");
@@ -1275,11 +1496,11 @@
                     const mesa = MesasNegocio._mesas.find((m) => m.id === docId);
                     if (!mesa) return;
 
-                    card.querySelector('[data-action="ver"]').addEventListener("click", () => this.openVerQr(mesa));
+                    card.querySelector('[data-action="ver"]').addEventListener("click", () => PreviewQr.openMesa(mesa));
 
                     card.querySelector('[data-action="copiar"]').addEventListener("click", (e) => {
                         e.stopPropagation();
-                        this.copiarLink(mesa);
+                        this.copiarLinkMesa(mesa);
                     });
 
                     card.querySelector('[data-action="regenerar"]').addEventListener("click", async (e) => {
@@ -1326,30 +1547,7 @@
                 }
             },
 
-            async openVerQr(mesa) {
-                this._mesaEnModal = mesa;
-                document.getElementById("verQrTitulo").textContent = mesa.nombre_alias;
-                document.getElementById("verQrImagen").src = mesa.qr_url;
-
-                const info = await QrNegocio._obtenerInfoTienda();
-                const url = MesasNegocio._armarUrlMesa(info.alias, mesa.token_seguridad);
-                document.getElementById("verQrLink").textContent = url;
-
-                const descarga = document.getElementById("verQrDescargar");
-                try {
-                    const res = await fetch(mesa.qr_url);
-                    const blobOriginal = await res.blob();
-                    const blobHD = await QrNegocio._prepararParaImpresion(blobOriginal);
-                    descarga.href = URL.createObjectURL(blobHD);
-                    descarga.download = `qr-mesa-${mesa.numero_mesa}-${MesasNegocio._slug(mesa.nombre_alias)}.png`;
-                } catch (err) {
-                    descarga.href = mesa.qr_url;
-                }
-
-                this.openModal("modalVerQr");
-            },
-
-            async copiarLink(mesa) {
+            async copiarLinkMesa(mesa) {
                 try {
                     const info = await QrNegocio._obtenerInfoTienda();
                     const url = MesasNegocio._armarUrlMesa(info.alias, mesa.token_seguridad);
@@ -1384,6 +1582,277 @@
             },
         };
 
+        // ================================================================
+        // PREVIEW QR — modal compartido de "vista previa + descarga",
+        // usado tanto por los QR de negocio (Institucional / Carta
+        // digital / Productos) como por los QR de mesa.
+        //
+        // Para negocio: los textos de la tarjeta son fijos (no editables),
+        // según el tipo de QR.
+        // Para mesas: el negocio puede personalizar el texto superior,
+        // el principal y el secundario antes de descargar.
+        // ================================================================
+        const PreviewQr = {
+            _state: null,
+            _paletteCache: null,
+
+            _fixedLabels: {
+                perfil: { brand: "INSTITUCIONAL", sub: "Escanea para ver nuestro perfil" },
+                carta: { brand: "CARTA DIGITAL", sub: "Escanea para ver nuestro menú" },
+                carrito: { brand: "PRODUCTOS", sub: "Escanea para pedir directo" },
+            },
+
+            async openNegocio(tipo) {
+                const estado = QrNegocio._estado[tipo];
+                if (!estado) return;
+
+                const info = estado.info;
+                const fixed = this._fixedLabels[tipo] || { brand: "SCAN ME", sub: "" };
+
+                this._state = {
+                    mode: "negocio",
+                    tipo,
+                    editable: false,
+                    brand: fixed.brand,
+                    caption: info.alias,
+                    sub: fixed.sub,
+                    urlLink: QrNegocio._armarUrl(tipo, info),
+                    qrObjectUrl: URL.createObjectURL(estado.blobOriginal),
+                    filenameBase: `qr-${tipo}-${info.alias}`,
+                };
+
+                await this._render();
+
+                const fields = document.getElementById("previewFields");
+                fields.classList.add("hidden");
+                fields.classList.remove("flex");
+
+                UI.openModal("modalPreviewQr");
+            },
+
+            async openMesa(mesa) {
+                const info = await QrNegocio._obtenerInfoTienda();
+                const url = MesasNegocio._armarUrlMesa(info.alias, mesa.token_seguridad);
+
+                let qrObjectUrl = mesa.qr_url;
+                try {
+                    const res = await fetch(mesa.qr_url);
+                    const blob = await res.blob();
+                    qrObjectUrl = URL.createObjectURL(blob);
+                } catch (err) {
+                    console.warn("PreviewQr: no se pudo pre-cargar el QR de la mesa como blob.", err);
+                }
+
+                this._state = {
+                    mode: "mesa",
+                    mesaDocId: mesa.id,
+                    editable: true,
+                    brand: (mesa.nombre_alias || `Mesa ${mesa.numero_mesa}`).toUpperCase(),
+                    caption: info.alias,
+                    sub: "Escanea para ver nuestros productos",
+                    urlLink: url,
+                    qrObjectUrl,
+                    filenameBase: `qr-mesa-${mesa.numero_mesa}-${MesasNegocio._slug(mesa.nombre_alias)}`,
+                };
+
+                await this._render();
+
+                document.getElementById("previewInputBrand").value = this._state.brand;
+                document.getElementById("previewInputCaption").value = this._state.caption;
+                document.getElementById("previewInputSub").value = this._state.sub;
+
+                const fields = document.getElementById("previewFields");
+                fields.classList.remove("hidden");
+                fields.classList.add("flex");
+
+                UI.openModal("modalPreviewQr");
+            },
+
+            async _render() {
+                const s = this._state;
+                if (!s) return;
+
+                const card = document.getElementById("previewCard");
+                const palette = await this._obtenerPaletteDeLogo();
+                card.style.setProperty("--qc-g1", palette.g1);
+                card.style.setProperty("--qc-g2", palette.g2);
+                card.style.setProperty("--qc-g3", palette.g3);
+                card.style.setProperty("--qc-g4", palette.g4);
+                card.style.setProperty("--qc-text", palette.text);
+                card.style.setProperty("--qc-shadow", palette.shadow);
+                card.style.setProperty("--qc-glow1", palette.glow1);
+                card.style.setProperty("--qc-glow2", palette.glow2);
+                card.style.setProperty("--qc-font", document.getElementById("previewFontSelect").value);
+                card.style.setProperty("--qc-size", document.getElementById("previewSizeSelect").value);
+
+                document.getElementById("previewBrand").textContent = s.brand || "SCAN ME";
+                document.getElementById("previewCaption").textContent = s.caption || "";
+                document.getElementById("previewSub").textContent = s.sub || "";
+                document.getElementById("previewQrImg").src = s.qrObjectUrl;
+                document.getElementById("previewLink").textContent = s.urlLink;
+            },
+
+            // Toma el color predominante real del logo (ignora blancos/negros casi
+            // puros) y arma con él 4 tonos + texto + sombras. Se cachea: solo se
+            // calcula una vez por visita.
+            async _obtenerPaletteDeLogo() {
+                if (this._paletteCache) return this._paletteCache;
+
+                const fallback = {
+                    g1: "#7c4dff", g2: "#a855f7", g3: "#ff4d8d", g4: "#ff9f4d",
+                    text: "#d9cfff", shadow: "rgba(255,77,141,.4)",
+                    glow1: "rgba(255,77,141,.22)", glow2: "rgba(124,77,255,.22)",
+                };
+
+                const logoDataUrl = await QrNegocio._logoBase64();
+                if (!logoDataUrl) { this._paletteCache = fallback; return fallback; }
+
+                const base = await this._colorDominanteDeImagen(logoDataUrl);
+                if (!base) { this._paletteCache = fallback; return fallback; }
+
+                const dark = this._shade(base, -0.35);
+                const light = this._shade(base, 0.4);
+
+                this._paletteCache = {
+                    g1: dark, g2: base, g3: this._lerp(base, light, 0.5), g4: light,
+                    text: this._shade(base, 0.55),
+                    shadow: this._toRgba(base, 0.45),
+                    glow1: this._toRgba(base, 0.25),
+                    glow2: this._toRgba(dark, 0.25),
+                };
+                return this._paletteCache;
+            },
+
+            _colorDominanteDeImagen(dataUrl) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        try {
+                            const canvas = document.createElement("canvas");
+                            const w = (canvas.width = Math.min(img.naturalWidth || img.width, 120));
+                            const h = (canvas.height = Math.min(img.naturalHeight || img.height, 120));
+                            const ctx = canvas.getContext("2d");
+                            ctx.drawImage(img, 0, 0, w, h);
+                            const { data } = ctx.getImageData(0, 0, w, h);
+                            const counts = {};
+                            for (let i = 0; i < data.length; i += 4) {
+                                const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                                if (a < 128) continue;
+                                const brightness = (r + g + b) / 3;
+                                if (brightness > 246 || brightness < 12) continue;
+                                const key = [Math.round(r / 16) * 16, Math.round(g / 16) * 16, Math.round(b / 16) * 16].join(",");
+                                counts[key] = (counts[key] || 0) + 1;
+                            }
+                            const best = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+                            if (!best) return resolve(null);
+                            resolve("#" + best.split(",").map(v => Number(v).toString(16).padStart(2, "0")).join(""));
+                        } catch (err) { resolve(null); }
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = dataUrl;
+                });
+            },
+
+            _shade(hex, percent) {
+                const f = hex.replace("#", "");
+                const R = parseInt(f.substring(0, 2), 16), G = parseInt(f.substring(2, 4), 16), B = parseInt(f.substring(4, 6), 16);
+                const t = percent < 0 ? 0 : 255;
+                const p = Math.min(1, Math.abs(percent));
+                const nr = Math.round((t - R) * p) + R, ng = Math.round((t - G) * p) + G, nb = Math.round((t - B) * p) + B;
+                return "#" + [nr, ng, nb].map(v => v.toString(16).padStart(2, "0")).join("");
+            },
+
+            _lerp(hexA, hexB, t) {
+                const a = hexA.replace("#", ""), b = hexB.replace("#", "");
+                const ar = parseInt(a.substring(0, 2), 16), ag = parseInt(a.substring(2, 4), 16), ab = parseInt(a.substring(4, 6), 16);
+                const br = parseInt(b.substring(0, 2), 16), bg = parseInt(b.substring(2, 4), 16), bb = parseInt(b.substring(4, 6), 16);
+                return "#" + [Math.round(ar + (br - ar) * t), Math.round(ag + (bg - ag) * t), Math.round(ab + (bb - ab) * t)]
+                    .map(v => v.toString(16).padStart(2, "0")).join("");
+            },
+
+            _toRgba(hex, a) {
+                const c = hex.replace("#", "");
+                const r = parseInt(c.substring(0, 2), 16), g = parseInt(c.substring(2, 4), 16), b = parseInt(c.substring(4, 6), 16);
+                return `rgba(${r},${g},${b},${a})`;
+            },
+
+            onStyleChange() {
+                if (!this._state) return;
+                this._render();
+            },
+
+            onInputChange() {
+                if (!this._state || !this._state.editable) return;
+                this._state.brand = document.getElementById("previewInputBrand").value.trim() || "SCAN ME";
+                this._state.caption = document.getElementById("previewInputCaption").value.trim();
+                this._state.sub = document.getElementById("previewInputSub").value.trim();
+                this._render();
+            },
+
+            async copiarLink() {
+                if (!this._state) return;
+                try {
+                    await navigator.clipboard.writeText(this._state.urlLink);
+                    UI.toast("Enlace copiado.");
+                } catch (err) {
+                    UI.toast("No se pudo copiar el enlace.", true);
+                }
+            },
+
+            async descargar() {
+                if (!this._state) return;
+                const btn = document.getElementById("btnDescargarPreview");
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<span class="font-display">Generando…</span>`;
+
+                try {
+                    const node = document.getElementById("previewCard");
+                    const canvas = await html2canvas(node, { scale: 4, backgroundColor: null, useCORS: true });
+                    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
+                    const objUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = objUrl;
+                    a.download = `${this._state.filenameBase}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(objUrl);
+                } catch (err) {
+                    console.error(err);
+                    UI.toast("No se pudo generar la imagen para descargar.", true);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }
+            },
+
+            async regenerar() {
+                if (!this._state) return;
+
+                if (this._state.mode === "negocio") {
+                    UI.closeModal("modalPreviewQr");
+                    await QrNegocio.generar(this._state.tipo);
+                    await this.openNegocio(this._state.tipo);
+                    return;
+                }
+
+                if (!confirm("¿Regenerar este QR? El enlace anterior dejará de funcionar.")) return;
+                try {
+                    await MesasNegocio.regenerarMesa(this._state.mesaDocId);
+                    const mesa = MesasNegocio._mesas.find((m) => m.id === this._state.mesaDocId);
+                    if (mesa) await this.openMesa(mesa);
+                } catch (err) {
+                    UI.toast(err.message || "No se pudo regenerar el QR.", true);
+                }
+            },
+        };
+
+        window.MesasNegocio = MesasNegocio;
+        window.UI = UI;
+        window.PreviewQr = PreviewQr;
+        MesasNegocio.init();
+
         document.getElementById("btnGenerarMultiples").addEventListener("click", () => UI.openModal("modalMultiples"));
         document.getElementById("btnAgregarMesa").addEventListener("click", () => UI.openModal("modalAgregar"));
         document.getElementById("btnDescargarTodo").addEventListener("click", () => MesasNegocio.descargarTodas());
@@ -1391,7 +1860,7 @@
         document.querySelectorAll("[data-close-modal]").forEach((btn) => {
             btn.addEventListener("click", () => UI.closeModal(btn.dataset.closeModal));
         });
-        document.querySelectorAll('#modalMultiples, #modalAgregar, #modalVerQr').forEach((modal) => {
+        document.querySelectorAll('#modalMultiples, #modalAgregar, #modalPreviewQr').forEach((modal) => {
             modal.addEventListener("click", (e) => {
                 if (e.target === modal) UI.closeModal(modal.id);
             });
@@ -1426,24 +1895,13 @@
             }
         });
 
-        document.getElementById("btnCopiarLink").addEventListener("click", () => {
-            if (UI._mesaEnModal) UI.copiarLink(UI._mesaEnModal);
-        });
-
-        document.getElementById("btnRegenerarDesdeModal").addEventListener("click", async () => {
-            if (!UI._mesaEnModal) return;
-            if (!confirm(`¿Regenerar el QR de "${UI._mesaEnModal.nombre_alias}"? El enlace/QR anterior dejará de funcionar.`)) return;
-            const docId = UI._mesaEnModal.id;
-            UI.closeModal("modalVerQr");
-            try {
-                await MesasNegocio.regenerarMesa(docId);
-            } catch (err) {
-                UI.toast(err.message || "No se pudo regenerar el QR.", true);
-            }
-        });
-
-        window.MesasNegocio = MesasNegocio;
-        MesasNegocio.init();
+        document.getElementById("previewInputBrand").addEventListener("input", () => PreviewQr.onInputChange());
+        document.getElementById("previewInputCaption").addEventListener("input", () => PreviewQr.onInputChange());
+        document.getElementById("previewInputSub").addEventListener("input", () => PreviewQr.onInputChange());
+        document.getElementById("previewFontSelect").addEventListener("change", () => PreviewQr.onStyleChange());
+        document.getElementById("previewSizeSelect").addEventListener("change", () => PreviewQr.onStyleChange()); document.getElementById("btnCopiarPreviewLink").addEventListener("click", () => PreviewQr.copiarLink());
+        document.getElementById("btnDescargarPreview").addEventListener("click", () => PreviewQr.descargar());
+        document.getElementById("btnRegenerarPreview").addEventListener("click", () => PreviewQr.regenerar());
     </script>
 
 </body>
