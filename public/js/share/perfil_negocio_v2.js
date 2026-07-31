@@ -740,7 +740,208 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
     };
   }
 }
+function listenMesasRealtime({ localidad, id }, categoria) {
+  const sec = document.getElementById("secMesas");
+  const esComida = (categoria || "").toLowerCase().includes("comida");
+  if (!esComida) {
+    if (sec) sec.style.display = "none";
+    return;
+  }
+  if (_mesasUnsub) return;
+  const ref = collection(db, "Tiendas", localidad, localidad, id, "mesas");
+  _mesasUnsub = onSnapshot(ref, (snap) => renderMesas(snap));
+}
 
+function renderMesas(snap) {
+  const sec = document.getElementById("secMesas");
+  const grid = document.getElementById("mesasGrid");
+  if (!sec || !grid) return;
+  if (snap.empty) {
+    sec.style.display = "none";
+    return;
+  }
+  injectMesasStyles();
+  const mesas = [];
+  snap.forEach((d) => mesas.push({ id: d.id, ...d.data() }));
+  mesas.sort((a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0));
+  _mesasCache = mesas;
+  sec.style.display = "";
+  grid.innerHTML = "";
+  mesas.forEach((m) => {
+    const libre = m.estado !== "ocupado";
+    const chip = document.createElement("div");
+    chip.className = "mesa-chip " + (libre ? "mesa-libre" : "mesa-ocupada");
+    chip.innerHTML = `<span class="mesa-num">${m.numero_mesa ?? m.mesaNumero ?? "-"}</span><span class="mesa-estado">${libre ? "Libre" : "Ocupada"}</span>`;
+    if (libre) {
+      chip.addEventListener("click", () =>
+        openMesaReservaModal(
+          m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`,
+        ),
+      );
+    }
+    grid.appendChild(chip);
+  });
+}
+
+function restarMinutos(hhmm, minutos) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  let total = h * 60 + m - minutos;
+  if (total < 0) total = 0;
+  const hh = String(Math.floor(total / 60)).padStart(2, "0");
+  const mm = String(total % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+function getHorarioHoyRange() {
+  if (!_horarioHoy || _horarioHoy.cerrado || !_horarioHoy.bloques?.length)
+    return null;
+  const bloques = _horarioHoy.bloques;
+  return {
+    min: bloques[0].h_apertura,
+    max: bloques[bloques.length - 1].h_cierre,
+  };
+}
+function openMesaReservaModal(mesaOMesas) {
+  const rango = getHorarioHoyRange();
+  if (!rango) {
+    showToast("El negocio está cerrado hoy, no se puede reservar");
+    return;
+  }
+  _mesaSeleccionada = mesaOMesas;
+  _horaMaxReserva = restarMinutos(rango.max, 30);
+
+  const esMultiple = Array.isArray(mesaOMesas);
+  const tituloMesas = esMultiple
+    ? `Mesas ${mesaOMesas.join(", ")}`
+    : mesaOMesas;
+
+  const modal = document.getElementById("mesaReservaModal");
+  const horaInput = document.getElementById("mesaReservaHora");
+  const errorEl = document.getElementById("mesaReservaError");
+  document.getElementById("mesaReservaTitle").textContent =
+    `Reservar ${tituloMesas}`;
+  document.getElementById("mesaReservaNombre").value = "";
+  document.getElementById("mesaReservaPersonas").value = "";
+  if (errorEl) {
+    errorEl.textContent = "";
+    errorEl.classList.remove("show");
+  }
+  horaInput.min = rango.min;
+  horaInput.max = _horaMaxReserva;
+  horaInput.value = "";
+  modal?.classList.add("open");
+}
+function closeMesaReservaModal() {
+  document.getElementById("mesaReservaModal")?.classList.remove("open");
+  _mesaSeleccionada = null;
+  const multiInput = document.getElementById("mesasMultiInput");
+  if (multiInput) multiInput.value = "";
+}
+
+function bindMesaReservaEvents() {
+  document
+    .getElementById("mesaReservaClose")
+    ?.addEventListener("click", closeMesaReservaModal);
+  document
+    .getElementById("mesaReservaModal")
+    ?.addEventListener("click", (e) => {
+      if (e.target.id === "mesaReservaModal") closeMesaReservaModal();
+    });
+  document
+    .getElementById("mesaReservaSubmit")
+    ?.addEventListener("click", () => {
+      const errorEl = document.getElementById("mesaReservaError");
+      const setError = (msg) => {
+        if (errorEl) {
+          errorEl.textContent = msg;
+          errorEl.classList.add("show");
+        } else {
+          showToast(msg);
+        }
+      };
+
+      const nombre = document.getElementById("mesaReservaNombre").value.trim();
+      const personas = document
+        .getElementById("mesaReservaPersonas")
+        .value.trim();
+      const hora = document.getElementById("mesaReservaHora").value.trim();
+      const rango = getHorarioHoyRange();
+
+      if (!nombre || !personas || !hora) {
+        setError("Completa nombre, personas y hora");
+        return;
+      }
+      const maxPermitido = _horaMaxReserva || rango?.max;
+      if (!rango || hora < rango.min || hora > maxPermitido) {
+        setError(
+          `Elige una hora entre ${rango?.min ?? "-"} y ${maxPermitido ?? "-"}`,
+        );
+        return;
+      }
+
+      if (errorEl) {
+        errorEl.textContent = "";
+        errorEl.classList.remove("show");
+      }
+
+      const mesasTexto = Array.isArray(_mesaSeleccionada)
+        ? `las mesas ${_mesaSeleccionada.join(", ")}`
+        : _mesaSeleccionada;
+
+      const msg = `Hola, quiero reservar ${mesasTexto} hoy a las ${hora} para ${personas} persona(s). Mi nombre es ${nombre}.`;
+      if (_waNumeroNegocio) {
+        window.open(
+          `https://wa.me/51${_waNumeroNegocio}?text=${encodeURIComponent(msg)}`,
+          "_blank",
+        );
+      } else {
+        showToast("Reserva enviada");
+      }
+      closeMesaReservaModal();
+    });
+
+  document.getElementById("mesasMultiBtn")?.addEventListener("click", () => {
+    const input = document.getElementById("mesasMultiInput");
+    const raw = input?.value.trim() || "";
+    if (!raw) {
+      showToast("Escribe los números de mesa, ej: 4,3,2,1");
+      return;
+    }
+    const numeros = raw
+      .split(",")
+      .map((n) => parseInt(n.trim(), 10))
+      .filter((n) => !isNaN(n));
+
+    if (!numeros.length) {
+      showToast("Formato inválido, usa: 4,3,2,1");
+      return;
+    }
+
+    const invalidas = [];
+    const ocupadas = [];
+    numeros.forEach((num) => {
+      const mesa = _mesasCache.find((m) => (m.numero_mesa || 0) === num);
+      if (!mesa) invalidas.push(num);
+      else if (mesa.estado === "ocupado") ocupadas.push(num);
+    });
+
+    if (invalidas.length) {
+      showToast(`Mesa(s) inexistente(s): ${invalidas.join(", ")}`);
+      return;
+    }
+    if (ocupadas.length) {
+      showToast(`Mesa(s) ocupada(s): ${ocupadas.join(", ")}`);
+      return;
+    }
+
+    const nombresMesas = numeros.map((num) => {
+      const mesa = _mesasCache.find((m) => (m.numero_mesa || 0) === num);
+      return mesa.nombre_alias || mesa.mesaNombre || `Mesa ${num}`;
+    });
+
+    openMesaReservaModal(nombresMesas);
+  });
+}
 function formatExpiry(finMs) {
   if (!finMs) return { text: "Promo activa", cls: "exp-green" };
 
@@ -1552,6 +1753,38 @@ let _lightboxIndex = 0;
 let _lightboxBound = false;
 let _panzoomInstance = null;
 
+const MESAS_CSS = `
+.mesas-grid{display:flex;flex-wrap:wrap;gap:12px;}
+.mesas-multi-wrap{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.mesas-multi-wrap input{flex:1;min-width:160px;padding:12px 14px;border-radius:12px;border:1px solid var(--border,rgba(255,255,255,.1));background:var(--surface,rgba(255,255,255,.04));color:#fff;font-size:14px;}
+.mesas-multi-btn{padding:12px 18px;border:none;border-radius:12px;font-weight:700;font-size:13px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));white-space:nowrap;}
+.mesa-reserva-error{font-size:12px;color:#ff6b6b;margin:-6px 0 10px;min-height:14px;display:none;}
+.mesa-reserva-error.show{display:block;}
+.mesa-chip{min-width:84px;padding:14px 18px;border-radius:16px;text-align:center;font-weight:700;font-size:13px;border:1px solid var(--border,rgba(255,255,255,.08));background:var(--surface,rgba(255,255,255,.03));transition:transform .18s ease,box-shadow .18s ease;user-select:none;}
+.mesa-chip .mesa-num{display:block;font-size:20px;font-weight:900;margin-bottom:4px;}
+.mesa-chip .mesa-estado{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.75;}
+.mesa-chip.mesa-libre{cursor:pointer;border-color:rgba(var(--dr),var(--dg),var(--db),.55);background:rgba(var(--dr),var(--dg),var(--db),.12);}
+.mesa-chip.mesa-libre:hover{transform:translateY(-2px);box-shadow:0 10px 24px -8px rgba(var(--dr),var(--dg),var(--db),.45);}
+.mesa-chip.mesa-ocupada{cursor:default;opacity:.45;}
+.mesa-reserva-modal{position:fixed;inset:0;z-index:10001;background:rgba(3,3,3,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s ease;padding:20px;}
+.mesa-reserva-modal.open{opacity:1;visibility:visible;}
+.mesa-reserva-box{width:100%;max-width:340px;background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.35);border-radius:24px;padding:24px 22px;position:relative;transform:scale(.96);transition:transform .25s ease;}
+.mesa-reserva-modal.open .mesa-reserva-box{transform:scale(1);}
+.mesa-reserva-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;}
+.mesa-reserva-box h3{font-size:18px;font-weight:800;margin:0 0 4px;color:#fff;}
+.mesa-reserva-sub{font-size:12px;color:#9c9ca3;margin:0 0 18px;}
+.mesa-reserva-box input{width:100%;padding:12px 14px;margin-bottom:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#fff;font-size:14px;box-sizing:border-box;}
+.mesa-reserva-box input:focus{outline:none;border-color:rgba(var(--dr),var(--dg),var(--db),.6);}
+.mesa-reserva-hora-label{display:block;font-size:11px;color:#9c9ca3;margin:-4px 0 6px;text-transform:uppercase;letter-spacing:.06em;}
+.mesa-reserva-submit{width:100%;padding:13px;border:none;border-radius:12px;font-weight:700;font-size:14px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
+`;
+function injectMesasStyles() {
+  if (document.getElementById("mesasStyle")) return;
+  const style = document.createElement("style");
+  style.id = "mesasStyle";
+  style.textContent = MESAS_CSS;
+  document.head.appendChild(style);
+}
 function injectLightboxStyles() {
   if (document.getElementById("lightboxStyle")) return;
   const style = document.createElement("style");
@@ -1734,7 +1967,12 @@ let _navState = {
 };
 let _colorReady = false;
 let _schedInterval = null; // evitar setInterval duplicados
-
+let _mesasUnsub = null;
+let _mesaSeleccionada = null;
+let _waNumeroNegocio = "";
+let _horarioHoy = null;
+let _mesasCache = [];
+let _horaMaxReserva = null;
 async function render(biz) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
   const categoria = biz.categoria_tienda || "—";
@@ -1742,7 +1980,11 @@ async function render(biz) {
   const descripcion = biz.descripcion || "—";
   const ubicacion = biz.ubicacion || {};
   const horario = normalizeSchedule(biz.horario_atencion);
+  const mapDiaHoy = [6, 0, 1, 2, 3, 4, 5];
+  _horarioHoy = horario[mapDiaHoy[new Date().getDay()]];
   const contactos = normalizeContactos(biz.metodo_contacto);
+  const waContacto = contactos.find((c) => c.tipo === "whatsapp");
+  _waNumeroNegocio = waContacto ? waContacto.valor.replace(/\D/g, "") : "";
   const pagos = normalizePagos(biz.metodos_pago);
   const { ambientales, productos, todas } = normalizeImages(biz.img_tienda);
   const promoImages = normalizePromos(biz.img_tienda);
@@ -2097,6 +2339,7 @@ function listenBusinessRealtime({ localidad, id }) {
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
+    listenMesasRealtime(params, biz.categoria_tienda);
 
     // Promociones activas (no bloquea el render principal)
     loadActivePromos(params).then((promos) =>
@@ -2138,7 +2381,7 @@ function listenBusinessRealtime({ localidad, id }) {
   }
 })();
 injectLightboxStyles();
-
+bindMesaReservaEvents();
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(

@@ -167,6 +167,18 @@
             </div>
         </section>
 
+        <section id="secMesas" class="mb-20 reveal" style="display:none;">
+            <div class="mb-8">
+                <p class="uppercase tracking-[5px] accent text-sm mb-3">MESAS</p>
+                <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Disponibilidad</h2>
+            </div>
+            <div id="mesasGrid" class="mesas-grid"></div>
+            <div id="mesasMultiWrap" class="mesas-multi-wrap">
+                <input id="mesasMultiInput" type="text" placeholder="Ej: 4,3,2,1" />
+                <button id="mesasMultiBtn" class="mesas-multi-btn">Reservar varias mesas</button>
+            </div>
+        </section>
+
         <section class="grid xl:grid-cols-[1fr_.8fr] gap-8 mb-10">
             <section id="secAddr" class="section glass reveal">
                 <div class="section-header">Ubicación </div>
@@ -280,6 +292,19 @@
         <div id="lightboxCounter" class="lightbox-counter"></div>
     </div>
 
+    <div id="mesaReservaModal" class="mesa-reserva-modal">
+        <div class="mesa-reserva-box">
+            <button id="mesaReservaClose" class="mesa-reserva-close" aria-label="Cerrar">✕</button>
+            <h3 id="mesaReservaTitle">Reservar mesa</h3>
+            <p class="mesa-reserva-sub">Completa tus datos</p>
+            <input id="mesaReservaNombre" type="text" placeholder="Tu nombre" />
+            <input id="mesaReservaPersonas" type="number" min="1" placeholder="Número de personas" />
+            <label id="mesaReservaHoraLabel" class="mesa-reserva-hora-label">Hora de la reserva (hoy)</label>
+            <input id="mesaReservaHora" type="time" />
+            <p id="mesaReservaError" class="mesa-reserva-error"></p>
+            <button id="mesaReservaSubmit" class="mesa-reserva-submit">Reservar</button>
+        </div>
+    </div>
 </body>
 
 </body>

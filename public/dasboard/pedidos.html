@@ -1419,11 +1419,11 @@
                         const estadoNuevo = ESTADOS.includes(data.estado) ? data.estado : "pendiente";
 
                         if (change.type === "added") {
-                            if (estadoNuevo === "pendiente") nuevosPendientes.push(data);
+                            if (estadoNuevo === "pendiente" && getOrigen(data).tipo === "whatsapp") nuevosPendientes.push(data);
                         } else if (change.type === "modified") {
                             const anterior = pedidosMap.get(id);
                             const estadoAnterior = anterior ? (ESTADOS.includes(anterior.estado) ? anterior.estado : "pendiente") : null;
-                            if (estadoNuevo === "pendiente" && estadoAnterior !== "pendiente") nuevosPendientes.push(data);
+                            if (estadoNuevo === "pendiente" && estadoAnterior !== "pendiente" && getOrigen(data).tipo === "whatsapp") nuevosPendientes.push(data);
                         }
 
                         if (change.type === "removed") { pedidosMap.delete(id); autoRejectingIds.delete(id); }
@@ -1440,9 +1440,8 @@
                         showToast(nuevosPendientes.length === 1 ? `🛎️ Nuevo pedido de ${nombres}` : `🛎️ ${nuevosPendientes.length} pedidos nuevos`);
 
                         // Si el operador está viendo "Mesas" y llegó un pedido de WhatsApp, avisamos con la bolita
-                        const nuevosWhatsapp = nuevosPendientes.filter((p) => getOrigen(p).tipo === "whatsapp");
-                        if (nuevosWhatsapp.length && originFilter === "mesa") {
-                            whatsappUnseen += nuevosWhatsapp.length;
+                        if (nuevosPendientes.length && originFilter === "mesa") {
+                            whatsappUnseen += nuevosPendientes.length;
                             actualizarBadgeWhatsapp();
                         }
                     }
