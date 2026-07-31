@@ -178,6 +178,35 @@
         }
     </style>
 
+    <style id="sidebar-disabled-styles">
+        .sidebar-btn-disabled,
+        .mobile-menu-item-disabled {
+            opacity: .4;
+            cursor: not-allowed !important;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .sidebar-btn-disabled .sbb-label,
+        .mobile-menu-item-disabled span {
+            filter: grayscale(.3);
+        }
+
+        .badge-proximamente {
+            margin-left: auto;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #7c4dff;
+            background: rgba(124, 77, 255, .12);
+            border: 1px solid rgba(124, 77, 255, .25);
+            padding: 2px 6px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+    </style>
+
 </head>
 
 <body>
@@ -256,13 +285,17 @@
                         <span class="sidebar-group-arrow">▼</span>
                     </button>
                     <div class="sidebar-group-body">
-                        <button class="sidebar-btn" id="sbb-daniel" onclick="PanelPerfil.showSection('daniel')">
+                        <button class="sidebar-btn sidebar-btn-disabled" id="sbb-daniel" disabled
+                            title="Próximamente disponible">
                             <span class="sbb-icon">🤖</span>
                             <span class="sbb-label">Asistente Daniel</span>
+                            <span class="badge-proximamente">Pronto</span>
                         </button>
-                        <button class="sidebar-btn" id="sbb-cotiza" onclick="PanelPerfil.showSection('cotiza')">
+                        <button class="sidebar-btn sidebar-btn-disabled" id="sbb-cotiza" disabled
+                            title="Próximamente disponible">
                             <span class="sbb-icon">🔨</span>
                             <span class="sbb-label">Crea tu asistente</span>
+                            <span class="badge-proximamente">Pronto</span>
                         </button>
                         <button class="sidebar-btn" id="sbb-recargas" onclick="PanelPerfil.showSection('recargas')">
                             <span class="sbb-icon">⚡</span>
@@ -1137,20 +1170,22 @@
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
                         <div class="mobile-menu-group-body">
-                            <button class="mobile-menu-item" id="mmb-perfil"
-                                onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
-                                <span>🏪</span>
-                                <span>Perfil</span>
+                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-daniel" disabled
+                                title="Próximamente disponible">
+                                <span>🤖</span>
+                                <span>Asistente Daniel</span>
+                                <span class="badge-proximamente">Pronto</span>
                             </button>
-                            <button class="mobile-menu-item" id="mmb-publicidad"
-                                onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
-                                <span>📢</span>
-                                <span>Publicidad</span>
+                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-cotiza" disabled
+                                title="Próximamente disponible">
+                                <span>🔨</span>
+                                <span>Crea tu asistente</span>
+                                <span class="badge-proximamente">Pronto</span>
                             </button>
-                            <button class="mobile-menu-item" id="mmb-qr"
-                                onclick="PanelPerfil.loadQr(); PanelPerfil.toggleMobileMenu()">
-                                <span>🔲</span>
-                                <span>MI QR</span>
+                            <button class="mobile-menu-item" id="mmb-recargas"
+                                onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
+                                <span>⚡</span>
+                                <span>Recargas</span>
                             </button>
                         </div>
                     </div>

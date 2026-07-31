@@ -390,7 +390,7 @@
         if (!snap.exists()) return null;
         const data = snap.data();
         if (data?.estado === "ocupado" && data?.pedido) {
-          return { ...data.pedido, estado: data.estado, pago: data.pago || "pendiente" };
+          return { ...data.pedido, estado: data.estado };
         }
         return null;
       } catch (err) {
@@ -436,7 +436,7 @@
       const totalFinal = productosFinal.reduce((s, i) => s + i.subtotal, 0);
 
       const notaFinal = [pedidoActivoMesa?.nota, nota].filter(Boolean).join(" · ");
-      const nombreFinal = pedidoActivoMesa?.cliente_nombre || nombre || "";
+      const nombreFinal = pedidoActivoMesa?.cliente?.nombre || nombre || "";
       const horaActual = now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
 
       // ══ Bloques: cada llamada a "Llamar al mozo" queda registrada como una
@@ -457,7 +457,11 @@
       const bloquesFinal = [...bloquesPrevios, nuevoBloque];
 
       const pedido = {
-        cliente_nombre: nombreFinal,
+        cliente: { nombre: nombreFinal, tipo_entrega: "Mesa", direccion: "" },
+        estado: "pendiente",
+        pago: { metodo: "En mesa", vuelto: "" },
+        mesa: { id: mesaId, nombre: mesaNombre || null, numero: mesaNumero ? Number(mesaNumero) : null },
+        negocio: { id: tiendaId, nombre: bizNombre, localidad },
         nota: notaFinal,
         productos: productosFinal,
         bloques: bloquesFinal,
@@ -495,9 +499,8 @@
       // Mismo doc de /pedidos mientras la mesa siga ocupada (merge, nunca doc nuevo)
       const pedidoMesaRef = doc(pedidosColRef, pedidoDocId);
       await setDoc(pedidoMesaRef, {
-        ...dataToSave,
+        ...pedido,
         mesaId,
-        negocio: { id: tiendaId, nombre: bizNombre, localidad },
       }, { merge: true });
 
       return pedido;
@@ -537,7 +540,7 @@
         ${pedido.estado === "ocupado" ? "Ocupado" : pedido.estado}
       </span>
     </div>
-    <p class="text-[12px] text-gray-500 -mt-2">Pedido a las ${pedido.hora} · Pago: ${pedido.pago}</p>
+  <p class="text-[12px] text-gray-500 -mt-2">Pedido a las ${pedido.hora} · Pago: ${pedido.pago.metodo}</p>
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>

@@ -33,7 +33,7 @@
         </div>
     </div>
 
- <div class="app-shell">
+    <div class="app-shell">
         <header>
             <div class="head-top">
 
@@ -576,6 +576,7 @@
                     productos: m.pedido.productos || [],
                     total_items: m.pedido.total_items || 0,
                     total: m.pedido.total || 0,
+                    pedidoDocId: m.pedidoMesaDocId || null,   // ← nuev
                 };
                 activos.push([mesaDocId, pseudoPedido]);
             });
@@ -934,9 +935,18 @@
             if (!activos.length) return;
             if (btnEl) btnEl.disabled = true;
             try {
-                await Promise.all(activos.map(([mesaDocId]) => {
-                    const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
-                    return updateDoc(ref, { estado: "libre", pago: "pagado", pedido: null });
+                await Promise.all(activos.map(([mesaDocId, pseudoPedido]) => {
+                    const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                    const tareas = [updateDoc(mesaRef, { estado: "libre", pago: "pagado", pedido: null })];
+
+                    if (pseudoPedido.pedidoDocId) {
+                        const pedidoRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", pseudoPedido.pedidoDocId);
+                        tareas.push(updateDoc(pedidoRef, {
+                            estado: "entregado",
+                            actualizado: serverTimestamp(),
+                        }));
+                    }
+                    return Promise.all(tareas);
                 }));
                 showToast("🍽️ Mesa liberada y pedido marcado como pagado");
                 closeDetail();

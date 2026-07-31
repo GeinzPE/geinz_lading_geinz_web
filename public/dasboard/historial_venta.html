@@ -1,507 +1,786 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Historial de Pedidos · Alonso Peña Restobar</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historial de Pedidos · Alonso Peña Restobar</title>
 
-<script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
 
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          base:    '#000000',   // fondo puro negro
-          panel:   '#050505',   // contenedores casi negros
-          panel2:  '#0D0D0D',   // tarjetas / inputs oscuros
-          line:    '#221B35',   // bordes oscuros con tinte morado
-          ink:     '#FFFFFF',   // texto blanco principal
-          inkdim:  '#CCCCCC',   // texto secundario claro
-          inkfaint:'#888888',   // texto terciario / muted
-          primary: '#8855FF',   // Color personalizado base (#8855FF)
-        },
-        fontFamily: {
-          display: ['"Bricolage Grotesque"', 'sans-serif'],
-          body: ['"Inter"', 'sans-serif'],
-          mono: ['"JetBrains Mono"', 'monospace'],
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            base: '#000000',   // fondo puro negro
+            panel: '#050505',   // contenedores casi negros
+            panel2: '#0D0D0D',   // tarjetas / inputs oscuros
+            line: '#221B35',   // bordes oscuros con tinte morado
+            ink: '#FFFFFF',   // texto blanco principal
+            inkdim: '#CCCCCC',   // texto secundario claro
+            inkfaint: '#888888',   // texto terciario / muted
+            primary: '#8855FF',   // Color personalizado base (#8855FF)
+          },
+          fontFamily: {
+            display: ['"Bricolage Grotesque"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
         }
       }
     }
-  }
-</script>
+  </script>
 
-<style>
-  body { font-family: 'Inter', sans-serif; background: #000000; color: #FFFFFF; }
-  .font-display { font-family: 'Bricolage Grotesque', sans-serif; }
-  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #000000;
+      color: #FFFFFF;
+    }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-thumb { background: #221B35; border-radius: 8px; }
-  ::-webkit-scrollbar-track { background: #000000; }
+    .font-display {
+      font-family: 'Bricolage Grotesque', sans-serif;
+    }
 
-  /* Chips e interactivos */
-  .chip { transition: all .15s ease; background: #0D0D0D; border: 1px solid #221B35; color: #CCCCCC; }
-  .chip:hover { border-color: #8855FF; color: #FFFFFF; }
-  .chip.active { background: #8855FF; color: #FFFFFF; border-color: #8855FF; box-shadow: 0 0 12px rgba(136,85,255,0.4); }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
 
-  tr.row-hover:hover { background: #0D0D0D; }
-  .fade-in { animation: fadeIn .25s ease both; }
-  @keyframes fadeIn { from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
-  .modal-panel { animation: slideIn .28s cubic-bezier(.16,1,.3,1) both; }
-  @keyframes slideIn { from{transform:translateX(24px); opacity:0} to{transform:translateX(0); opacity:1} }
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
 
-  /* Estados con acento en morado #8855FF */
-  [data-est="pendiente"]  { background: rgba(136,85,255,.15); color: #FFFFFF; border: 1px solid rgba(136,85,255,.4); }
-  [data-est="en_proceso"] { background: rgba(136,85,255,.30); color: #FFFFFF; border: 1px solid rgba(136,85,255,.6); }
-  [data-est="entregado"]  { background: #8855FF; color: #FFFFFF; border: 1px solid #8855FF; font-weight: 700; }
-  [data-est="rechazado"]  { background: rgba(255,255,255,.05); color: #888888; border: 1px solid rgba(255,255,255,.15); }
+    ::-webkit-scrollbar-thumb {
+      background: #221B35;
+      border-radius: 8px;
+    }
 
-  select, input { color-scheme: dark; }
+    ::-webkit-scrollbar-track {
+      background: #000000;
+    }
 
-  /* Skeleton ultraelegante */
-  .skeleton-element { background: #0D0D0D; border: 1px solid #1A1A1A; position: relative; overflow: hidden; border-radius: 8px; }
-  .skeleton-element::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(136, 85, 255, 0.18), transparent); animation: shimmer 1.6s infinite; }
-  @keyframes shimmer { 100% { transform: translateX(100%); } }
+    /* Chips e interactivos */
+    .chip {
+      transition: all .15s ease;
+      background: #0D0D0D;
+      border: 1px solid #221B35;
+      color: #CCCCCC;
+    }
 
-  /* Scrollbar totalmente oscura */
-/* 1. Estándar (Firefox y navegadores compatibles) */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #000000; /* [tirador] [fondo] */
-}
+    .chip:hover {
+      border-color: #8855FF;
+      color: #FFFFFF;
+    }
 
-/* 2. WebKit (Chrome, Edge, Safari, Opera) */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+    .chip.active {
+      background: #8855FF;
+      color: #FFFFFF;
+      border-color: #8855FF;
+      box-shadow: 0 0 12px rgba(136, 85, 255, 0.4);
+    }
 
-/* Fondo del scroll (totalmente oscuro) */
-::-webkit-scrollbar-track {
-  background: #000000;
-}
+    tr.row-hover:hover {
+      background: #0D0D0D;
+    }
 
-/* Barrita / Tirador (Gris oscuro visible, no blanco) */
-::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
-  border-radius: 5px;
-  border: 2px solid #000000; /* Espaciado estético alrededor del tirador */
-}
+    .fade-in {
+      animation: fadeIn .25s ease both;
+    }
 
-/* Barrita al pasar el cursor (un poquitito más clara para dar respuesta visual) */
-::-webkit-scrollbar-thumb:hover {
-  background: #3d3d3d;
-}
-</style>
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .modal-panel {
+      animation: slideIn .28s cubic-bezier(.16, 1, .3, 1) both;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(24px);
+        opacity: 0
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1
+      }
+    }
+
+    /* Estados con acento en morado #8855FF */
+    [data-est="pendiente"] {
+      background: rgba(136, 85, 255, .15);
+      color: #FFFFFF;
+      border: 1px solid rgba(136, 85, 255, .4);
+    }
+
+    [data-est="en_proceso"] {
+      background: rgba(136, 85, 255, .30);
+      color: #FFFFFF;
+      border: 1px solid rgba(136, 85, 255, .6);
+    }
+
+    [data-est="entregado"] {
+      background: #8855FF;
+      color: #FFFFFF;
+      border: 1px solid #8855FF;
+      font-weight: 700;
+    }
+
+    [data-est="rechazado"] {
+      background: rgba(255, 255, 255, .05);
+      color: #888888;
+      border: 1px solid rgba(255, 255, 255, .15);
+    }
+
+    select,
+    input {
+      color-scheme: dark;
+    }
+
+    /* Skeleton ultraelegante */
+    .skeleton-element {
+      background: #0D0D0D;
+      border: 1px solid #1A1A1A;
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    .skeleton-element::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(136, 85, 255, 0.18), transparent);
+      animation: shimmer 1.6s infinite;
+    }
+
+    @keyframes shimmer {
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    /* Scrollbar totalmente oscura */
+    /* 1. Estándar (Firefox y navegadores compatibles) */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #2a2a2a #000000;
+      /* [tirador] [fondo] */
+    }
+
+    /* 2. WebKit (Chrome, Edge, Safari, Opera) */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    /* Fondo del scroll (totalmente oscuro) */
+    ::-webkit-scrollbar-track {
+      background: #000000;
+    }
+
+    /* Barrita / Tirador (Gris oscuro visible, no blanco) */
+    ::-webkit-scrollbar-thumb {
+      background: #2a2a2a;
+      border-radius: 5px;
+      border: 2px solid #000000;
+      /* Espaciado estético alrededor del tirador */
+    }
+
+    /* Barrita al pasar el cursor (un poquitito más clara para dar respuesta visual) */
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3d3d3d;
+    }
+  </style>
 </head>
 
 <body class="text-ink min-h-screen bg-base relative">
 
-<!-- ======================= PANTALLA DE CARGA (SKELETON ELEGANTE) ======================= -->
-<div id="loadingScreen" class="fixed inset-0 bg-base z-50 flex flex-col p-4 sm:p-8 space-y-6 overflow-hidden">
-  <!-- Header Skeleton -->
-  <div class="flex items-center justify-between gap-4 pb-4 border-b border-line/50">
-    <div class="space-y-2">
-      <div class="skeleton-element h-7 w-48"></div>
-      <div class="skeleton-element h-3 w-28"></div>
+  <!-- ======================= PANTALLA DE CARGA (SKELETON ELEGANTE) ======================= -->
+  <div id="loadingScreen" class="fixed inset-0 bg-base z-50 flex flex-col p-4 sm:p-8 space-y-6 overflow-hidden">
+    <!-- Header Skeleton -->
+    <div class="flex items-center justify-between gap-4 pb-4 border-b border-line/50">
+      <div class="space-y-2">
+        <div class="skeleton-element h-7 w-48"></div>
+        <div class="skeleton-element h-3 w-28"></div>
+      </div>
+      <div class="skeleton-element h-10 w-32 rounded-xl"></div>
     </div>
-    <div class="skeleton-element h-10 w-32 rounded-xl"></div>
+
+    <!-- Métricas Skeleton -->
+    <div class="space-y-3">
+      <div class="skeleton-element h-6 w-36"></div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="skeleton-element h-28 rounded-2xl"></div>
+        <div class="skeleton-element h-28 rounded-2xl"></div>
+        <div class="skeleton-element h-28 rounded-2xl"></div>
+        <div class="skeleton-element h-28 rounded-2xl"></div>
+      </div>
+    </div>
+
+    <!-- Filtros Skeleton -->
+    <div class="skeleton-element h-24 rounded-2xl w-full"></div>
+
+    <!-- Tabla Skeleton -->
+    <div class="space-y-3 flex-1 flex flex-col">
+      <div class="skeleton-element h-6 w-32"></div>
+      <div class="skeleton-element flex-1 rounded-2xl w-full"></div>
+    </div>
   </div>
 
-  <!-- Métricas Skeleton -->
-  <div class="space-y-3">
-    <div class="skeleton-element h-6 w-36"></div>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="skeleton-element h-28 rounded-2xl"></div>
-      <div class="skeleton-element h-28 rounded-2xl"></div>
-      <div class="skeleton-element h-28 rounded-2xl"></div>
-      <div class="skeleton-element h-28 rounded-2xl"></div>
+  <!-- ======================= TOP BAR ======================= -->
+  <header class="sticky top-0 z-30 bg-base/90 backdrop-blur border-b border-line">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+      <div class="leading-tight">
+        <h1 class="font-display font-bold text-lg tracking-tight text-white">Historial de Pedidos</h1>
+        <p class="text-[11px] text-inkfaint font-mono flex items-center gap-1.5" id="connStatus">
+          <span class="w-2 h-2 rounded-full bg-inkfaint" id="connDot"></span>
+          conectando…
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="hidden sm:inline text-xs font-mono text-inkfaint" id="clockNow"></span>
+        <button id="btnCostConfig" title="Configurar costos"
+          class="flex items-center gap-1.5 bg-panel2 border border-line text-white font-semibold text-sm px-3 py-2 rounded-xl hover:border-primary active:scale-95 transition">
+          ⚙️ <span class="hidden sm:inline">Costos</span>
+        </button>
+        <div class="relative" id="exportDropdownWrap">
+          <button id="btnExport"
+            class="flex items-center gap-2 bg-primary text-white font-semibold text-sm px-4 py-2 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">
+            📊 <span class="hidden sm:inline">Exportar</span> <span class="text-xs">▾</span>
+          </button>
+          <div id="exportMenu"
+            class="hidden absolute right-0 mt-2 w-52 bg-panel border border-line rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-40 fade-in">
+            <button id="btnExportCSV"
+              class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-inkdim hover:bg-panel2 hover:text-white transition text-left">
+              📄 <span>Exportar CSV</span>
+            </button>
+            <button id="btnExportExcel"
+              class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-inkdim hover:bg-panel2 hover:text-white transition text-left border-t border-line">
+              📊 <span>Exportar Excel</span>
+            </button>
+            <button id="btnExportPDF"
+              class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-inkdim hover:bg-panel2 hover:text-white transition text-left border-t border-line">
+              🧾 <span>Exportar PDF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- ======================= 1. RESUMEN / MÉTRICAS ======================= -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display font-bold text-xl text-white">Resumen del día</h2>
+        <span id="rangeLabelEcho" class="text-xs font-mono text-primary"></span>
+      </div>
+
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div
+          class="bg-panel border border-primary/40 rounded-2xl p-4 relative overflow-hidden shadow-lg shadow-primary/5">
+          <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Total vendido</p>
+          <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiTotal">S/ 0.00</p>
+          <p class="text-[11px] text-inkfaint mt-1">solo pedidos entregados</p>
+        </div>
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Pedidos entregados</p>
+          <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiCount">0</p>
+          <p class="text-[11px] text-inkfaint mt-1"><span id="kpiOtros">0</span> pend./cancel. en el rango</p>
+        </div>
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ticket promedio</p>
+          <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiTicket">S/ 0.00</p>
+          <p class="text-[11px] text-inkfaint mt-1">por pedido entregado</p>
+        </div>
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Platos vendidos</p>
+          <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiItems">0</p>
+          <p class="text-[11px] text-inkfaint mt-1">unidades totales</p>
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Delivery vs. Mesa / Recojo</p>
+          <div class="space-y-2.5" id="barCanal"></div>
+        </div>
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Yape/Plin vs. Efectivo/Tarjeta
+          </p>
+          <div class="space-y-2.5" id="barPago"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= DASHBOARD INTELIGENTE ======================= -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display font-bold text-xl text-white">Dashboard inteligente</h2>
+        <span class="text-xs font-mono text-inkfaint">insights automáticos</span>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2">🏆 Producto más vendido</p>
+          <p class="font-display font-extrabold text-lg text-white leading-tight" id="topProductoNombre">—</p>
+          <p class="text-xs text-inkfaint mt-1"><span id="topProductoCant">0</span> unidades en el rango</p>
+        </div>
+
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2">⏰ Hora pico</p>
+          <p class="font-display font-extrabold text-lg text-white leading-tight" id="horaPicoLabel">—</p>
+          <p class="text-xs text-inkfaint mt-1"><span id="horaPicoCant">0</span> pedidos en esa franja</p>
+        </div>
+
+        <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2">📈 Vs. período anterior</p>
+          <p class="font-display font-extrabold text-lg text-white" id="comparativaLabel">—</p>
+          <p class="text-xs text-inkfaint mt-1" id="comparativaSub">sin datos suficientes</p>
+        </div>
+      </div>
+
+      <div class="bg-panel border border-line rounded-2xl p-4 mt-3">
+        <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Pedidos por franja horaria</p>
+        <div class="flex items-end gap-1 h-24" id="horaChart"></div>
+      </div>
+    </section>
+
+    <!-- ======================= RENTABILIDAD ======================= -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display font-bold text-xl text-white">Rentabilidad</h2>
+        <span class="text-xs font-mono text-inkfaint">basado en costos configurados</span>
+      </div>
+
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ingresos</p>
+          <p class="font-display font-extrabold text-2xl text-white" id="kpiIngresos">S/ 0.00</p>
+        </div>
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Costos estimados</p>
+          <p class="font-display font-extrabold text-2xl text-white" id="kpiCostos">S/ 0.00</p>
+        </div>
+        <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Margen bruto</p>
+          <p class="font-display font-extrabold text-2xl text-white" id="kpiMargenBruto">S/ 0.00</p>
+          <p class="text-[11px] text-inkfaint mt-1" id="kpiMargenPct">0% sobre ingresos</p>
+        </div>
+        <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Utilidad neta</p>
+          <p class="font-display font-extrabold text-2xl text-white" id="kpiUtilidadNeta">S/ 0.00</p>
+          <p class="text-[11px] text-inkfaint mt-1">margen bruto − gastos operativos</p>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-3">
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Ingresos vs. Costos</p>
+          <div class="space-y-2.5" id="barIngresoCosto"></div>
+        </div>
+
+        <div class="bg-panel border border-line rounded-2xl p-4">
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Ganancia por producto</p>
+          <div class="space-y-2 max-h-56 overflow-y-auto" id="gananciaProductoList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= MODAL CONFIGURACIÓN DE COSTOS ======================= -->
+    <div id="costModalOverlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex justify-end">
+      <div class="modal-panel bg-panel w-full sm:w-[440px] h-full overflow-y-auto shadow-2xl border-l border-line">
+        <div class="p-5">
+          <div class="flex justify-between items-start mb-5">
+            <div>
+              <h3 class="font-display font-bold text-xl text-white">Configurar costos</h3>
+              <p class="text-xs text-inkfaint mt-1">Se usan para calcular margen y utilidad</p>
+            </div>
+            <button onclick="window.closeCostModal()"
+              class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white">✕</button>
+          </div>
+
+          <div class="mb-4">
+            <label class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5 block">% de costo por
+              defecto</label>
+            <div class="flex items-center gap-2">
+              <input id="inputCostoPct" type="number" min="0" max="100" step="0.5"
+                class="w-24 text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+              <span class="text-inkfaint text-sm">% del precio de venta (se aplica a productos sin costo
+                específico)</span>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <label class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5 block">Gastos
+              operativos del período (S/)</label>
+            <input id="inputGastosOp" type="number" min="0" step="0.5"
+              class="w-32 text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+            <p class="text-[11px] text-inkfaint mt-1">Alquiler, planilla, servicios, etc. Se resta del margen bruto para
+              la utilidad neta.</p>
+          </div>
+
+          <div class="mb-3">
+            <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Costo por producto
+              (opcional, sobrescribe el %)</p>
+            <div id="costoProductosList" class="space-y-2 max-h-[320px] overflow-y-auto pr-1"></div>
+          </div>
+
+          <button id="btnGuardarCostos"
+            class="w-full bg-primary text-white font-semibold text-sm py-2.5 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20 mt-2">
+            💾 Guardar configuración
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= FILTROS ======================= -->
+    <section class="bg-panel border border-line rounded-2xl p-4 space-y-3">
+      <div class="flex flex-wrap items-center gap-2" id="dateChips">
+        <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mr-1">Rango</span>
+        <button data-range="hoy" class="chip active px-3 py-1.5 rounded-full text-sm font-medium">Hoy</button>
+        <button data-range="ayer" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Ayer</button>
+        <button data-range="semana" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Esta semana</button>
+        <button data-range="mes" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Este mes</button>
+        <button data-range="custom" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Personalizado</button>
+        <div id="customRangeBox" class="hidden flex items-center gap-1.5 ml-1">
+          <input type="date" id="customFrom"
+            class="text-sm border border-line rounded-lg px-2 py-1.5 font-mono bg-panel2 text-white">
+          <span class="text-inkfaint">→</span>
+          <input type="date" id="customTo"
+            class="text-sm border border-line rounded-lg px-2 py-1.5 font-mono bg-panel2 text-white">
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-line">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Estado</span>
+          <select id="filterEstado"
+            class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+            <option value="todos">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en proceso">En proceso</option>
+            <option value="entregado">Entregado</option>
+            <option value="rechazado">Rechazado</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Tipo</span>
+          <select id="filterTipo"
+            class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+            <option value="todos">Todos</option>
+            <option value="delivery">Delivery</option>
+            <option value="local">Mesa / Recojo</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[180px] relative">
+          <input id="searchBox" type="text" placeholder="Buscar cliente, teléfono o código…"
+            class="w-full text-sm border border-line rounded-lg pl-8 pr-3 py-1.5 bg-panel2 text-white placeholder:text-inkfaint focus:border-primary outline-none">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-inkfaint text-sm">🔍</span>
+        </div>
+        <button id="btnResetFilters" class="text-xs font-semibold text-primary hover:underline">Limpiar filtros</button>
+      </div>
+    </section>
+
+    <!-- ======================= 2. LISTA DE PEDIDOS ======================= -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display font-bold text-xl text-white">Pedidos <span id="resultCount"
+            class="text-inkfaint font-body font-normal text-base"></span></h2>
+      </div>
+
+      <div class="hidden md:block bg-panel border border-line rounded-2xl overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-[11px] uppercase tracking-wider text-inkfaint border-b border-line bg-panel2">
+              <th class="px-4 py-3 font-semibold">Código</th>
+              <th class="px-4 py-3 font-semibold">Fecha / Hora</th>
+              <th class="px-4 py-3 font-semibold">Cliente</th>
+              <th class="px-4 py-3 font-semibold">Tipo</th>
+              <th class="px-4 py-3 font-semibold text-right">Monto</th>
+              <th class="px-4 py-3 font-semibold">Pago</th>
+              <th class="px-4 py-3 font-semibold">Estado</th>
+              <th class="px-4 py-3 font-semibold"></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-line"></tbody>
+        </table>
+      </div>
+
+      <div class="md:hidden space-y-2.5" id="cardsBody"></div>
+
+      <div id="emptyState" class="hidden text-center py-16 text-inkfaint">
+        <p class="text-3xl mb-2">🍽️</p>
+        <p class="font-medium text-white">No hay pedidos con estos filtros</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======================= 3. MODAL DETALLE ======================= -->
+  <div id="modalOverlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex justify-end">
+    <div class="modal-panel bg-panel w-full sm:w-[440px] h-full overflow-y-auto shadow-2xl border-l border-line">
+      <div id="modalContent" class="p-5"></div>
     </div>
   </div>
 
-  <!-- Filtros Skeleton -->
-  <div class="skeleton-element h-24 rounded-2xl w-full"></div>
-
-  <!-- Tabla Skeleton -->
-  <div class="space-y-3 flex-1 flex flex-col">
-    <div class="skeleton-element h-6 w-32"></div>
-    <div class="skeleton-element flex-1 rounded-2xl w-full"></div>
+  <div id="toast"
+    class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xl shadow-primary/30 z-50">
   </div>
-</div>
 
-<!-- ======================= TOP BAR ======================= -->
-<header class="sticky top-0 z-30 bg-base/90 backdrop-blur border-b border-line">
-  <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-    <div class="leading-tight">
-      <h1 class="font-display font-bold text-lg tracking-tight text-white">Historial de Pedidos</h1>
-      <p class="text-[11px] text-inkfaint font-mono flex items-center gap-1.5" id="connStatus">
-        <span class="w-2 h-2 rounded-full bg-inkfaint" id="connDot"></span>
-        conectando…
-      </p>
-    </div>
-    <div class="flex items-center gap-3">
-      <span class="hidden sm:inline text-xs font-mono text-inkfaint" id="clockNow"></span>
-      <button id="btnExport" class="flex items-center gap-2 bg-primary text-white font-semibold text-sm px-4 py-2 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">
-        📊 <span class="hidden sm:inline">Exportar</span>
-      </button>
-    </div>
-  </div>
-</header>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getFirestore, collection, query, where, orderBy, limit, onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+      authDomain: "geinzworkapp.firebaseapp.com",
+      databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
+      projectId: "geinzworkapp",
+      storageBucket: "geinzworkapp.appspot.com",
+      messagingSenderId: "921389328767",
+      appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+      measurementId: "G-38J7RJP8HK",
+    };
 
-<main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+    const RUTA_PEDIDOS = "Tiendas/barranca/barranca/fW7W8RsgkkQ3IYfxKHGR/pedidos";
 
-  <!-- ======================= 1. RESUMEN / MÉTRICAS ======================= -->
-  <section>
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="font-display font-bold text-xl text-white">Resumen del día</h2>
-      <span id="rangeLabelEcho" class="text-xs font-mono text-primary"></span>
-    </div>
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-      <div class="bg-panel border border-primary/40 rounded-2xl p-4 relative overflow-hidden shadow-lg shadow-primary/5">
-        <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Total vendido</p>
-        <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiTotal">S/ 0.00</p>
-        <p class="text-[11px] text-inkfaint mt-1">solo pedidos entregados</p>
-      </div>
-      <div class="bg-panel border border-line rounded-2xl p-4">
-        <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Pedidos entregados</p>
-        <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiCount">0</p>
-        <p class="text-[11px] text-inkfaint mt-1"><span id="kpiOtros">0</span> pend./cancel. en el rango</p>
-      </div>
-      <div class="bg-panel border border-line rounded-2xl p-4">
-        <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ticket promedio</p>
-        <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiTicket">S/ 0.00</p>
-        <p class="text-[11px] text-inkfaint mt-1">por pedido entregado</p>
-      </div>
-      <div class="bg-panel border border-line rounded-2xl p-4">
-        <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Platos vendidos</p>
-        <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiItems">0</p>
-        <p class="text-[11px] text-inkfaint mt-1">unidades totales</p>
-      </div>
-    </div>
+    let pedidosRaw = [];
+    let currentRange = 'hoy';
+    let currentOrder = null;
 
-    <div class="grid sm:grid-cols-2 gap-3">
-      <div class="bg-panel border border-line rounded-2xl p-4">
-        <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Delivery vs. Mesa / Recojo</p>
-        <div class="space-y-2.5" id="barCanal"></div>
-      </div>
-      <div class="bg-panel border border-line rounded-2xl p-4">
-        <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Yape/Plin vs. Efectivo/Tarjeta</p>
-        <div class="space-y-2.5" id="barPago"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= FILTROS ======================= -->
-  <section class="bg-panel border border-line rounded-2xl p-4 space-y-3">
-    <div class="flex flex-wrap items-center gap-2" id="dateChips">
-      <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mr-1">Rango</span>
-      <button data-range="hoy" class="chip active px-3 py-1.5 rounded-full text-sm font-medium">Hoy</button>
-      <button data-range="ayer" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Ayer</button>
-      <button data-range="semana" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Esta semana</button>
-      <button data-range="mes" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Este mes</button>
-      <button data-range="custom" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Personalizado</button>
-      <div id="customRangeBox" class="hidden flex items-center gap-1.5 ml-1">
-        <input type="date" id="customFrom" class="text-sm border border-line rounded-lg px-2 py-1.5 font-mono bg-panel2 text-white">
-        <span class="text-inkfaint">→</span>
-        <input type="date" id="customTo" class="text-sm border border-line rounded-lg px-2 py-1.5 font-mono bg-panel2 text-white">
-      </div>
-    </div>
-
-    <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-line">
-      <div class="flex items-center gap-2">
-        <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Estado</span>
-        <select id="filterEstado" class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
-          <option value="todos">Todos</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="en proceso">En proceso</option>
-          <option value="entregado">Entregado</option>
-          <option value="rechazado">Rechazado</option>
-        </select>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Tipo</span>
-        <select id="filterTipo" class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
-          <option value="todos">Todos</option>
-          <option value="delivery">Delivery</option>
-          <option value="local">Mesa / Recojo</option>
-        </select>
-      </div>
-      <div class="flex-1 min-w-[180px] relative">
-        <input id="searchBox" type="text" placeholder="Buscar cliente, teléfono o código…" class="w-full text-sm border border-line rounded-lg pl-8 pr-3 py-1.5 bg-panel2 text-white placeholder:text-inkfaint focus:border-primary outline-none">
-        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-inkfaint text-sm">🔍</span>
-      </div>
-      <button id="btnResetFilters" class="text-xs font-semibold text-primary hover:underline">Limpiar filtros</button>
-    </div>
-  </section>
-
-  <!-- ======================= 2. LISTA DE PEDIDOS ======================= -->
-  <section>
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="font-display font-bold text-xl text-white">Pedidos <span id="resultCount" class="text-inkfaint font-body font-normal text-base"></span></h2>
-    </div>
-
-    <div class="hidden md:block bg-panel border border-line rounded-2xl overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-left text-[11px] uppercase tracking-wider text-inkfaint border-b border-line bg-panel2">
-            <th class="px-4 py-3 font-semibold">Código</th>
-            <th class="px-4 py-3 font-semibold">Fecha / Hora</th>
-            <th class="px-4 py-3 font-semibold">Cliente</th>
-            <th class="px-4 py-3 font-semibold">Tipo</th>
-            <th class="px-4 py-3 font-semibold text-right">Monto</th>
-            <th class="px-4 py-3 font-semibold">Pago</th>
-            <th class="px-4 py-3 font-semibold">Estado</th>
-            <th class="px-4 py-3 font-semibold"></th>
-          </tr>
-        </thead>
-        <tbody id="tableBody" class="divide-y divide-line"></tbody>
-      </table>
-    </div>
-
-    <div class="md:hidden space-y-2.5" id="cardsBody"></div>
-
-    <div id="emptyState" class="hidden text-center py-16 text-inkfaint">
-      <p class="text-3xl mb-2">🍽️</p>
-      <p class="font-medium text-white">No hay pedidos con estos filtros</p>
-    </div>
-  </section>
-</main>
-
-<!-- ======================= 3. MODAL DETALLE ======================= -->
-<div id="modalOverlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex justify-end">
-  <div class="modal-panel bg-panel w-full sm:w-[440px] h-full overflow-y-auto shadow-2xl border-l border-line">
-    <div id="modalContent" class="p-5"></div>
-  </div>
-</div>
-
-<div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xl shadow-primary/30 z-50"></div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore, collection, query, orderBy, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-  measurementId: "G-38J7RJP8HK",
-};
-
-const RUTA_PEDIDOS = "Tiendas/barranca/barranca/fW7W8RsgkkQ3IYfxKHGR/pedidos";
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-let pedidosRaw = [];
-let currentRange = 'hoy';
-let currentOrder = null;
-
-function setConnStatus(text, ok) {
-  const el = document.getElementById('connStatus');
-  const dot = document.getElementById('connDot');
-  if (el && el.lastChild) {
-    el.lastChild.textContent = ' ' + text;
-  }
-  if (dot) {
-    dot.className = 'w-2 h-2 rounded-full ' + (ok === true ? 'bg-primary shadow-[0_0_8px_#8855FF]' : ok === false ? 'bg-red-500' : 'bg-inkfaint animate-pulse');
-  }
-}
-
-function listenPedidos() {
-  try {
-    const col = collection(db, RUTA_PEDIDOS);
-    const q = query(col, orderBy('timestamp', 'desc'));
-    onSnapshot(q,
-      (snap) => {
-        pedidosRaw = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setConnStatus(`conectado · ${pedidosRaw.length} pedidos en total`, true);
-        renderAll();
-        
-        // Ocultar Skeleton progresivamente al cargar
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) {
-          loadingScreen.style.transition = 'opacity 0.3s ease';
-          loadingScreen.style.opacity = '0';
-          setTimeout(() => loadingScreen.classList.add('hidden'), 300);
-        }
-      },
-      (err) => {
-        console.error(err);
-        setConnStatus('⚠️ Error de conexión / permisos en Firestore', false);
+    function setConnStatus(text, ok) {
+      const el = document.getElementById('connStatus');
+      const dot = document.getElementById('connDot');
+      if (el && el.lastChild) {
+        el.lastChild.textContent = ' ' + text;
       }
-    );
-  } catch (e) {
-    console.error(e);
-    setConnStatus('⚠️ Error al conectar con Firebase', false);
-  }
-}
-
-function toDate(ts) {
-  if (!ts) return null;
-  if (typeof ts.toDate === 'function') return ts.toDate();
-  if (ts.seconds) return new Date(ts.seconds * 1000);
-  return new Date(ts);
-}
-
-function fmtMoney(n) {
-  return 'S/ ' + (Number(n) || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function fmtFechaHora(p) {
-  const d = toDate(p.timestamp) || toDate(p.actualizado);
-  if (!d) return `${p.fecha || ''} · ${p.hora || ''}`;
-  const hoy = new Date(); const ayer = new Date(); ayer.setDate(hoy.getDate() - 1);
-  const sameDay = (a,b) => a.toDateString() === b.toDateString();
-  const hora = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
-  if (sameDay(d, hoy)) return `Hoy, ${hora}`;
-  if (sameDay(d, ayer)) return `Ayer, ${hora}`;
-  return `${d.toLocaleDateString('es-PE', { day:'2-digit', month:'short' })}, ${hora}`;
-}
-
-function estadoBadge(estado) {
-  const e = (estado || '').toLowerCase();
-  const map = {
-    'pendiente':  { key:'pendiente',  label:'Pendiente' },
-    'en proceso': { key:'en_proceso', label:'En proceso' },
-    'entregado':  { key:'entregado',  label:'Completado' },
-    'rechazado':  { key:'rechazado',  label:'Rechazado' },
-  };
-  const info = map[e] || { key:'pendiente', label: estado || '—' };
-  return `<span data-est="${info.key}" class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">${info.label}</span>`;
-}
-
-function tipoBadge(tipo) {
-  const t = (tipo || '').toLowerCase();
-  let icon = '🏪', label = tipo || '—';
-  if (t.includes('delivery')) { icon = '🛵'; }
-  else if (t.includes('mesa')) { icon = '🍽️'; }
-  else if (t.includes('recojo') || t.includes('llevar')) { icon = '🥡'; }
-  return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-panel2 text-white text-xs font-medium whitespace-nowrap border border-line">${icon} ${label}</span>`;
-}
-
-function esDelivery(tipo) { return (tipo || '').toLowerCase().includes('delivery'); }
-function esBilleteraDigital(metodo) {
-  const m = (metodo || '').toLowerCase();
-  return m.includes('yape') || m.includes('plin');
-}
-function codigoPedido(p) { return '#' + (p.id || '').slice(-6).toUpperCase(); }
-function telefonoCliente(p) {
-  return (p.cliente && (p.cliente.telefono || p.cliente.phone || p.cliente.whatsapp || p.cliente.celular)) || '';
-}
-function waLink(tel, msg) {
-  const clean = (tel || '').replace(/\D/g,'');
-  const pref = clean.startsWith('51') ? clean : ('51' + clean);
-  return `https://wa.me/${pref}?text=${encodeURIComponent(msg || '')}`;
-}
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
-  clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(()=> t.classList.add('hidden'), 2200);
-}
-
-function getRangeBounds() {
-  const now = new Date();
-  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
-  const endOf   = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999);
-
-  if (currentRange === 'hoy') return [startOf(now), endOf(now)];
-  if (currentRange === 'ayer') {
-    const y = new Date(now); y.setDate(now.getDate()-1);
-    return [startOf(y), endOf(y)];
-  }
-  if (currentRange === 'semana') {
-    const day = now.getDay() === 0 ? 7 : now.getDay();
-    const monday = new Date(now); monday.setDate(now.getDate() - (day - 1));
-    return [startOf(monday), endOf(now)];
-  }
-  if (currentRange === 'mes') {
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    return [startOf(first), endOf(now)];
-  }
-  if (currentRange === 'custom') {
-    const from = document.getElementById('customFrom').value;
-    const to = document.getElementById('customTo').value;
-    const f = from ? startOf(new Date(from + 'T00:00:00')) : new Date(0);
-    const t = to ? endOf(new Date(to + 'T00:00:00')) : endOf(now);
-    return [f, t];
-  }
-  return [new Date(0), endOf(now)];
-}
-
-function getFilteredOrders() {
-  const [from, to] = getRangeBounds();
-  const estadoF = document.getElementById('filterEstado').value;
-  const tipoF = document.getElementById('filterTipo').value;
-  const q = document.getElementById('searchBox').value.trim().toLowerCase();
-
-  return pedidosRaw.filter(p => {
-    const d = toDate(p.timestamp) || toDate(p.actualizado);
-    if (d && (d < from || d > to)) return false;
-    if (estadoF !== 'todos' && (p.estado || '').toLowerCase() !== estadoF) return false;
-    if (tipoF === 'delivery' && !esDelivery(p.tipo_entrega)) return false;
-    if (tipoF === 'local' && esDelivery(p.tipo_entrega)) return false;
-    if (q) {
-      const nombre = (p.cliente && p.cliente.nombre || '').toLowerCase();
-      const tel = telefonoCliente(p).toLowerCase();
-      const cod = codigoPedido(p).toLowerCase();
-      if (!nombre.includes(q) && !tel.includes(q) && !cod.includes(q)) return false;
+      if (dot) {
+        dot.className = 'w-2 h-2 rounded-full ' + (ok === true ? 'bg-primary shadow-[0_0_8px_#8855FF]' : ok === false ? 'bg-red-500' : 'bg-inkfaint animate-pulse');
+      }
     }
-    return true;
-  }).sort((a,b) => {
-    const da = toDate(a.timestamp) || 0, db_ = toDate(b.timestamp) || 0;
-    return (db_ - da);
-  });
-}
 
-function renderMetrics(list) {
-  const entregados = list.filter(p => (p.estado||'').toLowerCase() === 'entregado');
-  const otros = list.length - entregados.length;
+    let unsubscribePedidos = null;
 
-  const total = entregados.reduce((s,p) => s + (Number(p.total)||0), 0);
-  const count = entregados.length;
-  const ticket = count ? total / count : 0;
-  const items = entregados.reduce((s,p) => s + (Number(p.total_items)|| (p.productos||[]).reduce((x,pr)=>x+(Number(pr.cantidad)||0),0)), 0);
+    function listenPedidos() {
+      const col = collection(db, RUTA_PEDIDOS);
+      const q = query(col, limit(2000)); // sin where/orderBy en timestamp: se filtra en el cliente
 
-  document.getElementById('kpiTotal').textContent = fmtMoney(total);
-  document.getElementById('kpiCount').textContent = count;
-  document.getElementById('kpiOtros').textContent = otros;
-  document.getElementById('kpiTicket').textContent = fmtMoney(ticket);
-  document.getElementById('kpiItems').textContent = items;
+      if (unsubscribePedidos) unsubscribePedidos();
 
-  const deliveryCount = entregados.filter(p => esDelivery(p.tipo_entrega)).length;
-  const localCount = count - deliveryCount;
-  renderBarPair('barCanal',
-    { label: '🛵 Delivery', value: deliveryCount, color: 'bg-primary' },
-    { label: '🏪 Mesa / Recojo', value: localCount, color: 'bg-primary/40' },
-    count
-  );
+      unsubscribePedidos = onSnapshot(q,
+        (snap) => {
+          pedidosRaw = snap.docs.map(d => normalizarPedido(d.id, d.data()));
+          setConnStatus(`conectado · ${pedidosRaw.length} pedidos totales`, true);
+          renderAll();
+          const loadingScreen = document.getElementById('loadingScreen');
+          if (loadingScreen) {
+            loadingScreen.style.transition = 'opacity 0.3s ease';
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => loadingScreen.classList.add('hidden'), 300);
+          }
+        },
+        (err) => {
+          console.error(err);
+          setConnStatus('⚠️ Error de conexión / permisos en Firestore', false);
+        }
+      );
+    }
 
-  const digitalCount = entregados.filter(p => esBilleteraDigital(p.pago && p.pago.metodo)).length;
-  const efectivoCount = count - digitalCount;
-  renderBarPair('barPago',
-    { label: '📱 Yape / Plin', value: digitalCount, color: 'bg-primary' },
-    { label: '💵 Efectivo / Tarjeta', value: efectivoCount, color: 'bg-primary/40' },
-    count
-  );
-}
+    // Los pedidos de mesa se guardan como { estado: "ocupado", pago: "pendiente", pedido: {...datos reales...} }
+    // mientras que los normales guardan los datos directamente en la raíz.
+    // Esta función los deja a todos con la misma forma para que el resto del código no tenga que distinguir.
+    function normalizarPedido(id, raw) {
+      if (raw && raw.pedido) {
+        return { id, ...raw.pedido, esMesa: true };
+      }
+      return { id, ...raw, esMesa: false };
+    }
+    function toDate(ts) {
+      if (!ts) return null;
+      if (typeof ts.toDate === 'function') return ts.toDate();
+      if (ts.seconds) return new Date(ts.seconds * 1000);
+      return new Date(ts);
+    }
 
-function renderBarPair(containerId, a, b, total) {
-  const el = document.getElementById(containerId);
-  const pct = (v) => total ? Math.round((v/total)*100) : 0;
-  el.innerHTML = [a,b].map(item => `
+    function fmtMoney(n) {
+      return 'S/ ' + (Number(n) || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtFechaHora(p) {
+      const d = toDate(p.timestamp) || toDate(p.actualizado);
+      if (!d) return `${p.fecha || ''} · ${p.hora || ''}`;
+      const hoy = new Date(); const ayer = new Date(); ayer.setDate(hoy.getDate() - 1);
+      const sameDay = (a, b) => a.toDateString() === b.toDateString();
+      const hora = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+      if (sameDay(d, hoy)) return `Hoy, ${hora}`;
+      if (sameDay(d, ayer)) return `Ayer, ${hora}`;
+      return `${d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}, ${hora}`;
+    }
+
+    function estadoBadge(estado) {
+      const e = (estado || '').toLowerCase();
+      const map = {
+        'pendiente': { key: 'pendiente', label: 'Pendiente' },
+        'en proceso': { key: 'en_proceso', label: 'En proceso' },
+        'entregado': { key: 'entregado', label: 'Completado' },
+        'rechazado': { key: 'rechazado', label: 'Rechazado' },
+      };
+      const info = map[e] || { key: 'pendiente', label: estado || '—' };
+      return `<span data-est="${info.key}" class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">${info.label}</span>`;
+    }
+
+    function tipoBadge(tipo) {
+      const t = (tipo || '').toLowerCase();
+      let icon = '🏪', label = tipo || '—';
+      if (t.includes('delivery')) { icon = '🛵'; }
+      else if (t.includes('mesa')) { icon = '🍽️'; }
+      else if (t.includes('recojo') || t.includes('llevar')) { icon = '🥡'; }
+      return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-panel2 text-white text-xs font-medium whitespace-nowrap border border-line">${icon} ${label}</span>`;
+    }
+
+    function esDelivery(tipo) { return (tipo || '').toLowerCase().includes('delivery'); }
+    function esBilleteraDigital(metodo) {
+      const m = (metodo || '').toLowerCase();
+      return m.includes('yape') || m.includes('plin');
+    }
+    function codigoPedido(p) { return '#' + (p.id || '').slice(-6).toUpperCase(); }
+    function telefonoCliente(p) {
+      return (p.cliente && (p.cliente.telefono || p.cliente.phone || p.cliente.whatsapp || p.cliente.celular)) || '';
+    }
+    function waLink(tel, msg) {
+      const clean = (tel || '').replace(/\D/g, '');
+      const pref = clean.startsWith('51') ? clean : ('51' + clean);
+      return `https://wa.me/${pref}?text=${encodeURIComponent(msg || '')}`;
+    }
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('hidden');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => t.classList.add('hidden'), 2200);
+    }
+
+    function getRangeBounds() {
+      const now = new Date();
+      const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+      const endOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+      if (currentRange === 'hoy') return [startOf(now), endOf(now)];
+      if (currentRange === 'ayer') {
+        const y = new Date(now); y.setDate(now.getDate() - 1);
+        return [startOf(y), endOf(y)];
+      }
+      if (currentRange === 'semana') {
+        const day = now.getDay() === 0 ? 7 : now.getDay();
+        const monday = new Date(now); monday.setDate(now.getDate() - (day - 1));
+        return [startOf(monday), endOf(now)];
+      }
+      if (currentRange === 'mes') {
+        const first = new Date(now.getFullYear(), now.getMonth(), 1);
+        return [startOf(first), endOf(now)];
+      }
+      if (currentRange === 'custom') {
+        const from = document.getElementById('customFrom').value;
+        const to = document.getElementById('customTo').value;
+        const f = from ? startOf(new Date(from + 'T00:00:00')) : new Date(0);
+        const t = to ? endOf(new Date(to + 'T00:00:00')) : endOf(now);
+        return [f, t];
+      }
+      return [new Date(0), endOf(now)];
+    }
+
+    function getFilteredOrders() {
+      const [from, to] = getRangeBounds();
+      const estadoF = document.getElementById('filterEstado').value;
+      const tipoF = document.getElementById('filterTipo').value;
+      const q = document.getElementById('searchBox').value.trim().toLowerCase();
+
+      return pedidosRaw.filter(p => {
+        const d = toDate(p.timestamp);
+        if (!d || d < from || d > to) return false;
+
+        if (estadoF !== 'todos' && (p.estado || '').toLowerCase() !== estadoF) return false;
+        if (tipoF === 'delivery' && !esDelivery(p.cliente && p.cliente.tipo_entrega)) return false;
+        if (tipoF === 'local' && esDelivery(p.cliente && p.cliente.tipo_entrega)) return false;
+        if (q) {
+          const nombre = (p.cliente && p.cliente.nombre || '').toLowerCase();
+          const tel = telefonoCliente(p).toLowerCase();
+          const cod = codigoPedido(p).toLowerCase();
+          if (!nombre.includes(q) && !tel.includes(q) && !cod.includes(q)) return false;
+        }
+        return true;
+      }).sort((a, b) => {
+        const da = toDate(a.timestamp) || 0, db_ = toDate(b.timestamp) || 0;
+        return (db_ - da);
+      });
+    }
+    function renderMetrics(list) {
+      const entregados = list.filter(p => (p.estado || '').toLowerCase() === 'entregado');
+      const otros = list.length - entregados.length;
+
+      const total = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      const count = entregados.length;
+      const ticket = count ? total / count : 0;
+      const items = entregados.reduce((s, p) => s + (Number(p.total_items) || (p.productos || []).reduce((x, pr) => x + (Number(pr.cantidad) || 0), 0)), 0);
+
+      document.getElementById('kpiTotal').textContent = fmtMoney(total);
+      document.getElementById('kpiCount').textContent = count;
+      document.getElementById('kpiOtros').textContent = otros;
+      document.getElementById('kpiTicket').textContent = fmtMoney(ticket);
+      document.getElementById('kpiItems').textContent = items;
+
+      const deliveryCount = entregados.filter(p => esDelivery(p.tipo_entrega)).length;
+      const localCount = count - deliveryCount;
+      renderBarPair('barCanal',
+        { label: '🛵 Delivery', value: deliveryCount, color: 'bg-primary' },
+        { label: '🏪 Mesa / Recojo', value: localCount, color: 'bg-primary/40' },
+        count
+      );
+
+      const digitalCount = entregados.filter(p => esBilleteraDigital(p.pago && p.pago.metodo)).length;
+      const efectivoCount = count - digitalCount;
+      renderBarPair('barPago',
+        { label: '📱 Yape / Plin', value: digitalCount, color: 'bg-primary' },
+        { label: '💵 Efectivo / Tarjeta', value: efectivoCount, color: 'bg-primary/40' },
+        count
+      );
+
+      const [from, to] = getRangeBounds();
+      renderInteligente(entregados, from, to);
+      renderRentabilidad(entregados);
+    }
+
+    function renderBarPair(containerId, a, b, total) {
+      const el = document.getElementById(containerId);
+      const pct = (v) => total ? Math.round((v / total) * 100) : 0;
+      el.innerHTML = [a, b].map(item => `
     <div>
       <div class="flex justify-between text-xs mb-1">
         <span class="font-medium text-white">${item.label}</span>
@@ -512,25 +791,260 @@ function renderBarPair(containerId, a, b, total) {
       </div>
     </div>
   `).join('');
-}
+    }
 
-function renderList(list) {
-  const tbody = document.getElementById('tableBody');
-  const cards = document.getElementById('cardsBody');
-  const empty = document.getElementById('emptyState');
-  const resultCount = document.getElementById('resultCount');
-  if (resultCount) {
-    resultCount.textContent = `(${list.length})`;
-  }
+    function getPreviousRangeBounds(from, to) {
+      const durationMs = to.getTime() - from.getTime();
+      const prevTo = new Date(from.getTime() - 1);
+      const prevFrom = new Date(prevTo.getTime() - durationMs);
+      return [prevFrom, prevTo];
+    }
 
-  if (!list.length) {
-    tbody.innerHTML = ''; cards.innerHTML = '';
-    if (empty) empty.classList.remove('hidden');
-    return;
-  }
-  if (empty) empty.classList.add('hidden');
+    function computeTopProducto(list) {
+      const counts = {};
+      list.forEach(p => {
+        (p.productos || []).forEach(pr => {
+          const nombre = pr.nombre || 'Sin nombre';
+          counts[nombre] = (counts[nombre] || 0) + (Number(pr.cantidad) || 0);
+        });
+      });
+      let top = null;
+      Object.entries(counts).forEach(([nombre, cant]) => {
+        if (!top || cant > top.cant) top = { nombre, cant };
+      });
+      return top;
+    }
 
-  tbody.innerHTML = list.map(p => `
+    function computeHoraPico(list) {
+      const franjas = Array(24).fill(0);
+      list.forEach(p => {
+        const d = toDate(p.timestamp) || toDate(p.actualizado);
+        if (d) franjas[d.getHours()]++;
+      });
+      let maxIdx = 0;
+      franjas.forEach((v, i) => { if (v > franjas[maxIdx]) maxIdx = i; });
+      return { franjas, horaTop: maxIdx, cantTop: franjas[maxIdx] };
+    }
+
+    function computeComparativaTotal(from, to) {
+      const [prevFrom, prevTo] = getPreviousRangeBounds(from, to);
+      const prevEntregados = pedidosRaw.filter(p => {
+        const d = toDate(p.timestamp) || toDate(p.actualizado);
+        return d && d >= prevFrom && d <= prevTo && (p.estado || '').toLowerCase() === 'entregado';
+      });
+      const prevTotal = prevEntregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      return { prevTotal, prevCount: prevEntregados.length };
+    }
+
+    function renderInteligente(entregados, from, to) {
+      // Producto más vendido
+      const top = computeTopProducto(entregados);
+      document.getElementById('topProductoNombre').textContent = top ? top.nombre : 'Sin datos';
+      document.getElementById('topProductoCant').textContent = top ? top.cant : 0;
+
+      // Hora pico + mini gráfico
+      const { franjas, horaTop, cantTop } = computeHoraPico(entregados);
+      const labelHora = (h) => `${String(h).padStart(2, '0')}:00 – ${String((h + 1) % 24).padStart(2, '0')}:00`;
+      document.getElementById('horaPicoLabel').textContent = cantTop > 0 ? labelHora(horaTop) : 'Sin datos';
+      document.getElementById('horaPicoCant').textContent = cantTop;
+
+      const maxFranja = Math.max(...franjas, 1);
+      const horaChart = document.getElementById('horaChart');
+      if (horaChart) {
+        horaChart.innerHTML = franjas.map((v, h) => {
+          const alturaPct = Math.round((v / maxFranja) * 100);
+          const activo = h === horaTop && v > 0;
+          return `<div class="flex-1 flex flex-col items-center justify-end h-full" title="${String(h).padStart(2, '0')}:00 · ${v} pedidos">
+        <div class="w-full rounded-t ${activo ? 'bg-primary' : 'bg-primary/25'}" style="height:${Math.max(alturaPct, 4)}%"></div>
+      </div>`;
+        }).join('');
+      }
+
+      // Comparativa vs. período anterior
+      const totalActual = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      const { prevTotal } = computeComparativaTotal(from, to);
+      const comparativaLabel = document.getElementById('comparativaLabel');
+      const comparativaSub = document.getElementById('comparativaSub');
+      if (prevTotal > 0) {
+        const cambio = ((totalActual - prevTotal) / prevTotal) * 100;
+        const signo = cambio >= 0 ? '+' : '';
+        comparativaLabel.textContent = `${signo}${cambio.toFixed(1)}%`;
+        comparativaLabel.className = `font-display font-extrabold text-lg ${cambio >= 0 ? 'text-primary' : 'text-red-400'}`;
+        comparativaSub.textContent = `${fmtMoney(totalActual)} vs ${fmtMoney(prevTotal)} anterior`;
+      } else {
+        comparativaLabel.textContent = totalActual > 0 ? 'Nuevo' : '—';
+        comparativaLabel.className = 'font-display font-extrabold text-lg text-white';
+        comparativaSub.textContent = 'sin ventas en el período anterior para comparar';
+      }
+    }
+
+    const COST_STORAGE_KEY = 'apr_costos_config_v1';
+
+    function loadCostosConfig() {
+      try {
+        const raw = localStorage.getItem(COST_STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) { console.warn('No se pudo leer config de costos', e); }
+      return { porcentaje: 35, gastosOperativos: 0, overrides: {} };
+    }
+
+    function saveCostosConfig(cfg) {
+      try {
+        localStorage.setItem(COST_STORAGE_KEY, JSON.stringify(cfg));
+      } catch (e) { console.warn('No se pudo guardar config de costos', e); }
+    }
+
+    let costosConfig = loadCostosConfig();
+
+    function getCostoUnitario(nombre, precioUnitario) {
+      const override = costosConfig.overrides && costosConfig.overrides[nombre];
+      if (override !== undefined && override !== null && override !== '') return Number(override);
+      const pct = Number(costosConfig.porcentaje) || 0;
+      return (Number(precioUnitario) || 0) * (pct / 100);
+    }
+
+    function computeFinanzas(entregados) {
+      let ingresos = 0, costos = 0;
+      entregados.forEach(p => {
+        ingresos += Number(p.total) || 0;
+        (p.productos || []).forEach(pr => {
+          const precioUnit = pr.precio_unitario ?? (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
+          const costoUnit = getCostoUnitario(pr.nombre, precioUnit);
+          costos += costoUnit * (Number(pr.cantidad) || 0);
+        });
+      });
+      const margenBruto = ingresos - costos;
+      const gastosOp = Number(costosConfig.gastosOperativos) || 0;
+      const utilidadNeta = margenBruto - gastosOp;
+      return { ingresos, costos, margenBruto, utilidadNeta };
+    }
+
+    function computeGananciaPorProducto(entregados) {
+      const map = {};
+      entregados.forEach(p => {
+        (p.productos || []).forEach(pr => {
+          const nombre = pr.nombre || 'Sin nombre';
+          const cantidad = Number(pr.cantidad) || 0;
+          const precioUnit = pr.precio_unitario ?? (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
+          const costoUnit = getCostoUnitario(nombre, precioUnit);
+          if (!map[nombre]) map[nombre] = { nombre, cantidad: 0, ingreso: 0, costo: 0 };
+          map[nombre].cantidad += cantidad;
+          map[nombre].ingreso += precioUnit * cantidad;
+          map[nombre].costo += costoUnit * cantidad;
+        });
+      });
+      return Object.values(map)
+        .map(x => ({ ...x, ganancia: x.ingreso - x.costo, margenPct: x.ingreso ? ((x.ingreso - x.costo) / x.ingreso) * 100 : 0 }))
+        .sort((a, b) => b.ganancia - a.ganancia);
+    }
+
+    function renderRentabilidad(entregados) {
+      const { ingresos, costos, margenBruto, utilidadNeta } = computeFinanzas(entregados);
+
+      document.getElementById('kpiIngresos').textContent = fmtMoney(ingresos);
+      document.getElementById('kpiCostos').textContent = fmtMoney(costos);
+      document.getElementById('kpiMargenBruto').textContent = fmtMoney(margenBruto);
+      document.getElementById('kpiMargenPct').textContent = `${ingresos ? ((margenBruto / ingresos) * 100).toFixed(1) : '0.0'}% sobre ingresos`;
+
+      const kpiUtilidad = document.getElementById('kpiUtilidadNeta');
+      kpiUtilidad.textContent = fmtMoney(utilidadNeta);
+      kpiUtilidad.className = `font-display font-extrabold text-2xl ${utilidadNeta >= 0 ? 'text-white' : 'text-red-400'}`;
+
+      renderBarPair('barIngresoCosto',
+        { label: '💰 Ingresos', value: ingresos, color: 'bg-primary' },
+        { label: '📦 Costos', value: costos, color: 'bg-primary/40' },
+        ingresos + costos
+      );
+
+      const ganancias = computeGananciaPorProducto(entregados).slice(0, 8);
+      const listEl = document.getElementById('gananciaProductoList');
+      if (listEl) {
+        listEl.innerHTML = ganancias.length ? ganancias.map(g => `
+      <div class="flex items-center justify-between gap-2 bg-panel2 border border-line rounded-xl px-3 py-2">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-white truncate">${g.nombre}</p>
+          <p class="text-[11px] text-inkfaint">${g.cantidad} unid · margen ${g.margenPct.toFixed(0)}%</p>
+        </div>
+        <span class="font-mono text-sm font-bold shrink-0 ${g.ganancia >= 0 ? 'text-primary' : 'text-red-400'}">${fmtMoney(g.ganancia)}</span>
+      </div>
+    `).join('') : '<p class="text-sm text-inkfaint py-3">Sin datos en el rango</p>';
+      }
+    }
+
+    function poblarCostoProductosList() {
+      const nombres = new Set();
+      pedidosRaw.forEach(p => (p.productos || []).forEach(pr => nombres.add(pr.nombre || 'Sin nombre')));
+      const el = document.getElementById('costoProductosList');
+      if (!el) return;
+      el.innerHTML = [...nombres].sort().map(nombre => `
+    <div class="flex items-center justify-between gap-2">
+      <span class="text-sm text-inkdim truncate">${nombre}</span>
+      <input type="number" min="0" step="0.1" placeholder="auto"
+        class="w-24 text-sm border border-line rounded-lg px-2 py-1 bg-panel2 text-white focus:border-primary outline-none costo-override-input"
+        data-nombre="${nombre}"
+        value="${costosConfig.overrides && costosConfig.overrides[nombre] !== undefined ? costosConfig.overrides[nombre] : ''}">
+    </div>
+  `).join('');
+    }
+
+    function openCostModal() {
+      document.getElementById('inputCostoPct').value = costosConfig.porcentaje ?? 35;
+      document.getElementById('inputGastosOp').value = costosConfig.gastosOperativos ?? 0;
+      poblarCostoProductosList();
+      const overlay = document.getElementById('costModalOverlay');
+      if (overlay) overlay.classList.remove('hidden');
+    }
+    function closeCostModal() {
+      const overlay = document.getElementById('costModalOverlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+    window.closeCostModal = closeCostModal;
+
+    const costModalOverlay = document.getElementById('costModalOverlay');
+    if (costModalOverlay) {
+      costModalOverlay.addEventListener('click', (e) => {
+        if (e.target.id === 'costModalOverlay') closeCostModal();
+      });
+    }
+    const btnCostConfig = document.getElementById('btnCostConfig');
+    if (btnCostConfig) btnCostConfig.addEventListener('click', openCostModal);
+
+    const btnGuardarCostos = document.getElementById('btnGuardarCostos');
+    if (btnGuardarCostos) {
+      btnGuardarCostos.addEventListener('click', () => {
+        const overrides = {};
+        document.querySelectorAll('.costo-override-input').forEach(input => {
+          if (input.value !== '') overrides[input.dataset.nombre] = Number(input.value);
+        });
+        costosConfig = {
+          porcentaje: Number(document.getElementById('inputCostoPct').value) || 0,
+          gastosOperativos: Number(document.getElementById('inputGastosOp').value) || 0,
+          overrides,
+        };
+        saveCostosConfig(costosConfig);
+        closeCostModal();
+        renderAll();
+        showToast('Configuración de costos guardada');
+      });
+    }
+
+    function renderList(list) {
+      const tbody = document.getElementById('tableBody');
+      const cards = document.getElementById('cardsBody');
+      const empty = document.getElementById('emptyState');
+      const resultCount = document.getElementById('resultCount');
+      if (resultCount) {
+        resultCount.textContent = `(${list.length})`;
+      }
+
+      if (!list.length) {
+        tbody.innerHTML = ''; cards.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+        return;
+      }
+      if (empty) empty.classList.add('hidden');
+
+      tbody.innerHTML = list.map(p => `
     <tr class="row-hover cursor-pointer fade-in" onclick="window.openModal('${p.id}')">
       <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${codigoPedido(p)}</td>
       <td class="px-4 py-3 text-inkdim">${fmtFechaHora(p)}</td>
@@ -545,7 +1059,7 @@ function renderList(list) {
     </tr>
   `).join('');
 
-  cards.innerHTML = list.map(p => `
+      cards.innerHTML = list.map(p => `
     <div class="bg-panel border border-line rounded-2xl p-4 fade-in active:scale-[.98] transition hover:border-primary/50" onclick="window.openModal('${p.id}')">
       <div class="flex justify-between items-start mb-2">
         <div>
@@ -563,31 +1077,31 @@ function renderList(list) {
       </div>
     </div>
   `).join('');
-}
+    }
 
-function openModal(id) {
-  const p = pedidosRaw.find(x => x.id === id);
-  if (!p) return;
-  currentOrder = p;
+    function openModal(id) {
+      const p = pedidosRaw.find(x => x.id === id);
+      if (!p) return;
+      currentOrder = p;
 
-  const productosHtml = (p.productos || []).map(pr => {
-    const extra = pr.variaciones || pr.adicionales || pr.comentario || '';
-    return `
+      const productosHtml = (p.productos || []).map(pr => {
+        const extra = pr.variaciones || pr.adicionales || pr.comentario || '';
+        return `
       <div class="flex justify-between items-start py-2 border-b border-line last:border-0">
         <div class="pr-3">
           <p class="text-sm font-medium text-white">${pr.cantidad}x ${pr.nombre}</p>
           ${extra ? `<p class="text-xs text-inkfaint mt-0.5">${extra}</p>` : ''}
         </div>
-        <span class="font-mono text-sm shrink-0 text-white">${fmtMoney(pr.subtotal ?? (pr.cantidad*pr.precio_unitario))}</span>
+        <span class="font-mono text-sm shrink-0 text-white">${fmtMoney(pr.subtotal ?? (pr.cantidad * pr.precio_unitario))}</span>
       </div>`;
-  }).join('');
+      }).join('');
 
-  const tel = telefonoCliente(p);
-  const waMsg = `Hola ${(p.cliente&&p.cliente.nombre)||''}, te contactamos por tu pedido ${codigoPedido(p)}.`;
+      const tel = telefonoCliente(p);
+      const waMsg = `Hola ${(p.cliente && p.cliente.nombre) || ''}, te contactamos por tu pedido ${codigoPedido(p)}.`;
 
-  const modalContent = document.getElementById('modalContent');
-  if (modalContent) {
-    modalContent.innerHTML = `
+      const modalContent = document.getElementById('modalContent');
+      if (modalContent) {
+        modalContent.innerHTML = `
       <div class="flex justify-between items-start mb-5">
         <div>
           <p class="font-mono text-xs text-primary font-semibold mb-0.5">${codigoPedido(p)}</p>
@@ -640,143 +1154,257 @@ function openModal(id) {
         <button onclick="window.exportarTicketWhatsApp()" class="flex-1 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl hover:brightness-110 transition shadow-lg shadow-primary/20">📤 Enviar comprobante</button>
       </div>
     `;
-  }
+      }
 
-  const modalOverlay = document.getElementById('modalOverlay');
-  if (modalOverlay) modalOverlay.classList.remove('hidden');
-}
-
-function closeModal() {
-  const modalOverlay = document.getElementById('modalOverlay');
-  if (modalOverlay) modalOverlay.classList.add('hidden');
-  currentOrder = null;
-}
-const modalOverlay = document.getElementById('modalOverlay');
-if (modalOverlay) {
-  modalOverlay.addEventListener('click', (e) => {
-    if (e.target.id === 'modalOverlay') closeModal();
-  });
-}
-
-function ticketTextoPlano(p) {
-  const lineas = (p.productos||[]).map(pr => `${pr.cantidad}x ${pr.nombre} — ${fmtMoney(pr.subtotal ?? pr.cantidad*pr.precio_unitario)}`).join('\n');
-  return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente&&p.cliente.nombre)||''}\n${esDelivery(p.tipo_entrega) ? 'Dirección: ' + ((p.cliente&&p.cliente.direccion)||'-') + '\n' : ''}------------------------------\n${lineas}\n------------------------------\nTOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago&&p.pago.metodo)||''}\n${p.nota ? 'Nota: '+p.nota : ''}`;
-}
-
-function reimprimirTicket() {
-  if (!currentOrder) return;
-  const w = window.open('', '_blank', 'width=380,height=600');
-  w.document.write(`<pre style="font-family:'JetBrains Mono',monospace;font-size:13px;white-space:pre-wrap;padding:16px;background:#000000;color:#FFFFFF;">${ticketTextoPlano(currentOrder)}</pre>`);
-  w.document.close();
-  w.focus();
-  w.print();
-}
-
-function exportarTicketWhatsApp() {
-  if (!currentOrder) return;
-  const tel = telefonoCliente(currentOrder);
-  const msg = ticketTextoPlano(currentOrder);
-  if (tel) {
-    window.open(waLink(tel, msg), '_blank');
-  } else {
-    navigator.clipboard.writeText(msg);
-    showToast('Sin teléfono registrado. Comprobante copiado al portapapeles.');
-  }
-}
-
-function exportarCSV() {
-  const list = getFilteredOrders();
-  if (!list.length) { showToast('No hay pedidos para exportar con estos filtros.'); return; }
-
-  const headers = ['Codigo','Fecha','Hora','Cliente','Telefono','Tipo','Productos','Metodo de pago','Estado','Total (S/)'];
-  const rows = list.map(p => {
-    const productos = (p.productos||[]).map(pr => `${pr.cantidad}x ${pr.nombre}`).join(' | ');
-    return [
-      codigoPedido(p), p.fecha || '', p.hora || '',
-      (p.cliente && p.cliente.nombre) || '', telefonoCliente(p),
-      p.tipo_entrega || '', productos, (p.pago && p.pago.metodo) || '',
-      p.estado || '', (Number(p.total)||0).toFixed(2)
-    ];
-  });
-
-  const csvEscape = (v) => `"${String(v).replace(/"/g,'""')}"`;
-  const csv = [headers, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const [from,to] = getRangeBounds();
-  const fmtF = (d) => d.toISOString().slice(0,10);
-  a.href = url;
-  a.download = `pedidos_${fmtF(from)}_a_${fmtF(to)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast(`Exportados ${list.length} pedidos a CSV`);
-}
-const btnExport = document.getElementById('btnExport');
-if (btnExport) btnExport.addEventListener('click', exportarCSV);
-
-const dateChips = document.getElementById('dateChips');
-if (dateChips) {
-  dateChips.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-range]');
-    if (!btn) return;
-    document.querySelectorAll('#dateChips .chip').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    currentRange = btn.dataset.range;
-    const customRangeBox = document.getElementById('customRangeBox');
-    if (customRangeBox) {
-      customRangeBox.classList.toggle('hidden', currentRange !== 'custom');
+      const modalOverlay = document.getElementById('modalOverlay');
+      if (modalOverlay) modalOverlay.classList.remove('hidden');
     }
-    renderAll();
-  });
-}
 
-const customFrom = document.getElementById('customFrom');
-if (customFrom) customFrom.addEventListener('change', renderAll);
-const customTo = document.getElementById('customTo');
-if (customTo) customTo.addEventListener('change', renderAll);
-const filterEstado = document.getElementById('filterEstado');
-if (filterEstado) filterEstado.addEventListener('change', renderAll);
-const filterTipo = document.getElementById('filterTipo');
-if (filterTipo) filterTipo.addEventListener('change', renderAll);
-const searchBox = document.getElementById('searchBox');
-if (searchBox) searchBox.addEventListener('input', renderAll);
-const btnResetFilters = document.getElementById('btnResetFilters');
-if (btnResetFilters) {
-  btnResetFilters.addEventListener('click', () => {
-    document.getElementById('filterEstado').value = 'todos';
-    document.getElementById('filterTipo').value = 'todos';
-    document.getElementById('searchBox').value = '';
-    document.querySelectorAll('#dateChips .chip').forEach(c => c.classList.remove('active'));
-    document.querySelector('[data-range="hoy"]').classList.add('active');
-    currentRange = 'hoy';
-    const customRangeBox = document.getElementById('customRangeBox');
-    if (customRangeBox) customRangeBox.classList.add('hidden');
-    renderAll();
-  });
-}
+    function closeModal() {
+      const modalOverlay = document.getElementById('modalOverlay');
+      if (modalOverlay) modalOverlay.classList.add('hidden');
+      currentOrder = null;
+    }
+    const modalOverlay = document.getElementById('modalOverlay');
+    if (modalOverlay) {
+      modalOverlay.addEventListener('click', (e) => {
+        if (e.target.id === 'modalOverlay') closeModal();
+      });
+    }
 
-function renderAll() {
-  const list = getFilteredOrders();
-  renderMetrics(list);
-  renderList(list);
-  const labels = { hoy:'Hoy', ayer:'Ayer', semana:'Esta semana', mes:'Este mes', custom:'Rango personalizado' };
-  const rangeLabelEcho = document.getElementById('rangeLabelEcho');
-  if (rangeLabelEcho) rangeLabelEcho.textContent = labels[currentRange] || '';
-}
+    function ticketTextoPlano(p) {
+      const lineas = (p.productos || []).map(pr => `${pr.cantidad}x ${pr.nombre} — ${fmtMoney(pr.subtotal ?? pr.cantidad * pr.precio_unitario)}`).join('\n');
+      return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ''}\n${esDelivery(p.tipo_entrega) ? 'Dirección: ' + ((p.cliente && p.cliente.direccion) || '-') + '\n' : ''}------------------------------\n${lineas}\n------------------------------\nTOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ''}\n${p.nota ? 'Nota: ' + p.nota : ''}`;
+    }
 
-function tickClock() {
-  const clockNow = document.getElementById('clockNow');
-  if (clockNow) clockNow.textContent = new Date().toLocaleString('es-PE', { dateStyle:'medium', timeStyle:'short' });
-}
-tickClock(); setInterval(tickClock, 30000);
+    function reimprimirTicket() {
+      if (!currentOrder) return;
+      const w = window.open('', '_blank', 'width=380,height=600');
+      w.document.write(`<pre style="font-family:'JetBrains Mono',monospace;font-size:13px;white-space:pre-wrap;padding:16px;background:#000000;color:#FFFFFF;">${ticketTextoPlano(currentOrder)}</pre>`);
+      w.document.close();
+      w.focus();
+      w.print();
+    }
 
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.reimprimirTicket = reimprimirTicket;
-window.exportarTicketWhatsApp = exportarTicketWhatsApp;
+    function exportarTicketWhatsApp() {
+      if (!currentOrder) return;
+      const tel = telefonoCliente(currentOrder);
+      const msg = ticketTextoPlano(currentOrder);
+      if (tel) {
+        window.open(waLink(tel, msg), '_blank');
+      } else {
+        navigator.clipboard.writeText(msg);
+        showToast('Sin teléfono registrado. Comprobante copiado al portapapeles.');
+      }
+    }
 
-listenPedidos();
-</script>
+    function exportarCSV() {
+      const list = getFilteredOrders();
+      if (!list.length) { showToast('No hay pedidos para exportar con estos filtros.'); return; }
+
+      const headers = ['Codigo', 'Fecha', 'Hora', 'Cliente', 'Telefono', 'Tipo', 'Productos', 'Metodo de pago', 'Estado', 'Total (S/)'];
+      const rows = list.map(p => {
+        const productos = (p.productos || []).map(pr => `${pr.cantidad}x ${pr.nombre}`).join(' | ');
+        return [
+          codigoPedido(p), p.fecha || '', p.hora || '',
+          (p.cliente && p.cliente.nombre) || '', telefonoCliente(p),
+          p.tipo_entrega || '', productos, (p.pago && p.pago.metodo) || '',
+          p.estado || '', (Number(p.total) || 0).toFixed(2)
+        ];
+      });
+
+      const csvEscape = (v) => `"${String(v).replace(/"/g, '""')}"`;
+      const csv = [headers, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const [from, to] = getRangeBounds();
+      const fmtF = (d) => d.toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `pedidos_${fmtF(from)}_a_${fmtF(to)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(`Exportados ${list.length} pedidos a CSV`);
+    }
+
+
+
+    function exportarExcel() {
+      const list = getFilteredOrders();
+      if (!list.length) { showToast('No hay pedidos para exportar con estos filtros.'); return; }
+
+      const rows = list.map(p => {
+        const productos = (p.productos || []).map(pr => `${pr.cantidad}x ${pr.nombre}`).join(' | ');
+        return {
+          'Código': codigoPedido(p),
+          'Fecha': p.fecha || '',
+          'Hora': p.hora || '',
+          'Cliente': (p.cliente && p.cliente.nombre) || '',
+          'Teléfono': telefonoCliente(p),
+          'Tipo': p.tipo_entrega || '',
+          'Productos': productos,
+          'Método de pago': (p.pago && p.pago.metodo) || '',
+          'Estado': p.estado || '',
+          'Total (S/)': Number(p.total) || 0,
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 22 }, { wch: 14 },
+        { wch: 14 }, { wch: 40 }, { wch: 16 }, { wch: 12 }, { wch: 12 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+
+      const [from, to] = getRangeBounds();
+      const entregados = list.filter(p => (p.estado || '').toLowerCase() === 'entregado');
+      const totalVendido = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      const resumen = [
+        { Métrica: 'Rango', Valor: `${from.toLocaleDateString('es-PE')} - ${to.toLocaleDateString('es-PE')}` },
+        { Métrica: 'Pedidos entregados', Valor: entregados.length },
+        { Métrica: 'Total vendido (S/)', Valor: totalVendido.toFixed(2) },
+        { Métrica: 'Ticket promedio (S/)', Valor: entregados.length ? (totalVendido / entregados.length).toFixed(2) : '0.00' },
+      ];
+      const wsResumen = XLSX.utils.json_to_sheet(resumen);
+      wsResumen['!cols'] = [{ wch: 22 }, { wch: 24 }];
+      XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+      const fmtFExcel = (d) => d.toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `pedidos_${fmtFExcel(from)}_a_${fmtFExcel(to)}.xlsx`);
+      showToast(`Exportados ${list.length} pedidos a Excel`);
+    }
+
+    function exportarPDF() {
+      const list = getFilteredOrders();
+      if (!list.length) { showToast('No hay pedidos para exportar con estos filtros.'); return; }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' });
+      const [from, to] = getRangeBounds();
+      const entregados = list.filter(p => (p.estado || '').toLowerCase() === 'entregado');
+      const totalVendido = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(20, 20, 20);
+      doc.text('Alonso Peña Restobar · Historial de Pedidos', 40, 40);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(90, 90, 90);
+      doc.text(`Rango: ${from.toLocaleDateString('es-PE')} - ${to.toLocaleDateString('es-PE')}`, 40, 58);
+      doc.text(`Pedidos entregados: ${entregados.length}   ·   Total vendido: ${fmtMoney(totalVendido)}`, 40, 72);
+
+      const headers = [['Código', 'Fecha/Hora', 'Cliente', 'Teléfono', 'Tipo', 'Productos', 'Pago', 'Estado', 'Total']];
+      const body = list.map(p => [
+        codigoPedido(p),
+        fmtFechaHora(p),
+        (p.cliente && p.cliente.nombre) || '',
+        telefonoCliente(p),
+        p.tipo_entrega || '',
+        (p.productos || []).map(pr => `${pr.cantidad}x ${pr.nombre}`).join(', '),
+        (p.pago && p.pago.metodo) || '',
+        p.estado || '',
+        fmtMoney(p.total),
+      ]);
+
+      doc.autoTable({
+        head: headers,
+        body: body,
+        startY: 90,
+        styles: { font: 'helvetica', fontSize: 8, cellPadding: 5, textColor: [30, 30, 30] },
+        headStyles: { fillColor: [136, 85, 255], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 242, 255] },
+        columnStyles: { 5: { cellWidth: 200 }, 8: { halign: 'right' } },
+        margin: { left: 40, right: 40 },
+      });
+
+      const fmtFPdf = (d) => d.toISOString().slice(0, 10);
+      doc.save(`pedidos_${fmtFPdf(from)}_a_${fmtFPdf(to)}.pdf`);
+      showToast(`Exportados ${list.length} pedidos a PDF`);
+    }
+
+    const btnExport = document.getElementById('btnExport');
+    const exportMenu = document.getElementById('exportMenu');
+    if (btnExport && exportMenu) {
+      btnExport.addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportMenu.classList.toggle('hidden');
+      });
+      document.addEventListener('click', () => exportMenu.classList.add('hidden'));
+      exportMenu.addEventListener('click', (e) => e.stopPropagation());
+    }
+    const btnExportCSV = document.getElementById('btnExportCSV');
+    if (btnExportCSV) btnExportCSV.addEventListener('click', () => { exportarCSV(); exportMenu.classList.add('hidden'); });
+    const btnExportExcel = document.getElementById('btnExportExcel');
+    if (btnExportExcel) btnExportExcel.addEventListener('click', () => { exportarExcel(); exportMenu.classList.add('hidden'); });
+    const btnExportPDF = document.getElementById('btnExportPDF');
+    if (btnExportPDF) btnExportPDF.addEventListener('click', () => { exportarPDF(); exportMenu.classList.add('hidden'); });
+    const dateChips = document.getElementById('dateChips');
+    if (dateChips) {
+      dateChips.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-range]');
+        if (!btn) return;
+        document.querySelectorAll('#dateChips .chip').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        currentRange = btn.dataset.range;
+        const customRangeBox = document.getElementById('customRangeBox');
+        if (customRangeBox) {
+          customRangeBox.classList.toggle('hidden', currentRange !== 'custom');
+        }
+        renderAll();
+      });
+    }
+
+    const customFrom = document.getElementById('customFrom');
+    if (customFrom) customFrom.addEventListener('change', renderAll);
+    const customTo = document.getElementById('customTo');
+    if (customTo) customTo.addEventListener('change', renderAll);
+    const filterEstado = document.getElementById('filterEstado');
+    if (filterEstado) filterEstado.addEventListener('change', renderAll);
+    const filterTipo = document.getElementById('filterTipo');
+    if (filterTipo) filterTipo.addEventListener('change', renderAll);
+    const searchBox = document.getElementById('searchBox');
+    if (searchBox) searchBox.addEventListener('input', renderAll);
+    const btnResetFilters = document.getElementById('btnResetFilters');
+    if (btnResetFilters) {
+      btnResetFilters.addEventListener('click', () => {
+        document.getElementById('filterEstado').value = 'todos';
+        document.getElementById('filterTipo').value = 'todos';
+        document.getElementById('searchBox').value = '';
+        document.querySelectorAll('#dateChips .chip').forEach(c => c.classList.remove('active'));
+        document.querySelector('[data-range="hoy"]').classList.add('active');
+        currentRange = 'hoy';
+        const customRangeBox = document.getElementById('customRangeBox');
+        if (customRangeBox) customRangeBox.classList.add('hidden');
+        renderAll();
+      });
+    }
+
+    function renderAll() {
+      const list = getFilteredOrders();
+      renderMetrics(list);
+      renderList(list);
+      const labels = { hoy: 'Hoy', ayer: 'Ayer', semana: 'Esta semana', mes: 'Este mes', custom: 'Rango personalizado' };
+      const rangeLabelEcho = document.getElementById('rangeLabelEcho');
+      if (rangeLabelEcho) rangeLabelEcho.textContent = labels[currentRange] || '';
+    }
+
+    function tickClock() {
+      const clockNow = document.getElementById('clockNow');
+      if (clockNow) clockNow.textContent = new Date().toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+    tickClock(); setInterval(tickClock, 30000);
+
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.reimprimirTicket = reimprimirTicket;
+    window.exportarTicketWhatsApp = exportarTicketWhatsApp;
+
+    listenPedidos();
+  </script>
 </body>
+
 </html>
