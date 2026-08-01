@@ -47,7 +47,7 @@
 
   <style>
     :root {
-      --bg-dark: #05040a;
+      --bg-dark: #000000;
       --surface-dark: #0d0a17;
       --border-dark: rgba(139, 92, 246, 0.12);
       --purple-deep: #4c1d95;
@@ -187,7 +187,7 @@
 
   <!-- SPLASH SCREEN PURE DARK (SOLO IMÁGENES + TOTALES) -->
   <div id="splash-screen"
-    class="fixed inset-0 z-[500] bg-[#05040a] flex flex-col items-center justify-center p-6 select-none overflow-hidden">
+    class="fixed inset-0 z-[500] bg-black flex flex-col items-center justify-center p-6 select-none overflow-hidden">
     <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(124,58,237,0.08)_0%,transparent_70%)]">
     </div>
 
@@ -232,7 +232,7 @@
   </div>
 
   <!-- Header Principal -->
-  <header class="sticky top-0 z-30 backdrop-blur-xl bg-[#05040a]/85 border-b border-purple-900/20">
+  <header class="sticky top-0 z-30 backdrop-blur-xl bg-black/85 border-b border-purple-900/20">
     <div class="max-w-[1360px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
       <div>
         <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
@@ -409,6 +409,23 @@
             (máx. 3)</label>
           <div class="grid grid-cols-3 gap-2.5" id="imgdrop-row"></div>
           <input type="file" id="input-prod-imgs" accept="image/*" style="display:none;">
+        </div>
+
+        <div class="mb-2">
+          <div class="flex items-center justify-between mb-2">
+            <label
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Condiciones
+              (máx. 3)</label>
+            <button type="button" id="btn-add-condicion"
+              class="text-[11px] font-medium text-violet-300 hover:text-violet-200 flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Agregar
+            </button>
+          </div>
+          <div id="condiciones-container" class="flex flex-col gap-3"></div>
         </div>
 
         <div class="flex justify-end gap-2.5 mt-6">
@@ -631,6 +648,10 @@
     /* ---------------- Productos ---------------- */
     let categoriaActivaParaProducto = null;
     let imagenesSeleccionadas = [null, null, null];
+    let condicionesSeleccionadas = [];
+    let productoEditandoId = null;
+    let productoEditandoCategoriaId = null;
+    let imagenesEnEdicionOriginal = [];
 
     function renderImgDropSlots() {
       const row = document.getElementById('imgdrop-row');
@@ -639,8 +660,9 @@
         const slot = document.createElement('div');
         slot.className = 'relative aspect-square rounded-xl border border-dashed border-purple-900/40 hover:border-violet-600 bg-[#05040a] flex items-center justify-center cursor-pointer overflow-hidden transition-all';
         if (imagenesSeleccionadas[i]) {
+          const item = imagenesSeleccionadas[i];
           const img = document.createElement('img');
-          img.src = URL.createObjectURL(imagenesSeleccionadas[i]);
+          img.src = item instanceof File ? URL.createObjectURL(item) : item.url;
           img.className = 'absolute inset-0 w-full h-full object-cover';
           const x = document.createElement('div');
           x.className = 'absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-black/80 hover:bg-rose-600 text-white text-[10px] flex items-center justify-center transition-colors';
@@ -663,6 +685,110 @@
       }
     }
 
+    function renderCondiciones() {
+      const cont = document.getElementById('condiciones-container');
+      const btnAdd = document.getElementById('btn-add-condicion');
+      cont.innerHTML = '';
+      btnAdd.style.display = condicionesSeleccionadas.length >= 3 ? 'none' : '';
+
+      condicionesSeleccionadas.forEach((cond, ci) => {
+        const box = document.createElement('div');
+        box.className = 'rounded-xl bg-[#05040a] border border-purple-900/30 p-3';
+
+        const head = document.createElement('div');
+        head.className = 'flex items-center gap-2 mb-2';
+
+        const nombreInput = document.createElement('input');
+        nombreInput.type = 'text';
+        nombreInput.placeholder = 'Ej. Partes';
+        nombreInput.maxLength = 30;
+        nombreInput.value = cond.nombre;
+        nombreInput.className = 'flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600';
+        nombreInput.addEventListener('input', () => { cond.nombre = nombreInput.value; });
+
+        const delCondBtn = document.createElement('button');
+        delCondBtn.type = 'button';
+        delCondBtn.className = 'w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-purple-400/50 hover:text-rose-400 hover:bg-rose-950/30 transition-colors';
+        delCondBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>`;
+        delCondBtn.addEventListener('click', () => {
+          condicionesSeleccionadas.splice(ci, 1);
+          renderCondiciones();
+        });
+
+        head.appendChild(nombreInput);
+        head.appendChild(delCondBtn);
+        box.appendChild(head);
+
+        const opcionesWrap = document.createElement('div');
+        opcionesWrap.className = 'flex flex-col gap-1.5';
+
+        cond.opciones.forEach((op, oi) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-2';
+          const opInput = document.createElement('input');
+          opInput.type = 'text';
+          opInput.placeholder = 'Ej. Pecho';
+          opInput.maxLength = 30;
+          opInput.value = op.nombre;
+          opInput.className = 'flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600';
+          opInput.addEventListener('input', () => { op.nombre = opInput.value; });
+
+          const costInput = document.createElement('input');
+          costInput.type = 'number';
+          costInput.step = '0.10';
+          costInput.min = '0';
+          costInput.placeholder = '+S/';
+          costInput.title = 'Costo adicional (opcional)';
+          costInput.value = op.costoAdicional ? op.costoAdicional : '';
+          costInput.className = 'w-16 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono';
+          costInput.addEventListener('input', () => { op.costoAdicional = parseFloat(costInput.value) || 0; });
+
+          const toggleLabel = document.createElement('label');
+          toggleLabel.className = 'relative inline-block w-9 h-5 shrink-0';
+          toggleLabel.innerHTML = `
+            <input type="checkbox" ${op.activo ? 'checked' : ''} class="peer opacity-0 w-0 h-0">
+            <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+              before:content-[''] before:absolute before:w-3.5 before:h-3.5 before:left-0.5 before:top-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-4"></span>`;
+          toggleLabel.querySelector('input').addEventListener('change', (ev) => { op.activo = ev.target.checked; });
+
+          const delOpBtn = document.createElement('button');
+          delOpBtn.type = 'button';
+          delOpBtn.className = 'w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 transition-colors text-xs';
+          delOpBtn.textContent = '✕';
+          delOpBtn.addEventListener('click', () => {
+            cond.opciones.splice(oi, 1);
+            renderCondiciones();
+          });
+
+          row.appendChild(opInput);
+          row.appendChild(costInput);
+          row.appendChild(toggleLabel);
+          row.appendChild(delOpBtn);
+          opcionesWrap.appendChild(row);
+        });
+
+        box.appendChild(opcionesWrap);
+
+        const addOpBtn = document.createElement('button');
+        addOpBtn.type = 'button';
+        addOpBtn.className = 'mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200';
+        addOpBtn.textContent = '+ Agregar opción';
+        addOpBtn.addEventListener('click', () => {
+          cond.opciones.push({ nombre: '', activo: true, costoAdicional: 0 });
+          renderCondiciones();
+        });
+        box.appendChild(addOpBtn);
+
+        cont.appendChild(box);
+      });
+    }
+
+    document.getElementById('btn-add-condicion').addEventListener('click', () => {
+      if (condicionesSeleccionadas.length >= 3) return;
+      condicionesSeleccionadas.push({ nombre: '', opciones: [{ nombre: '', activo: true, costoAdicional: 0 }] });
+      renderCondiciones();
+    });
+
     document.getElementById('input-prod-imgs').addEventListener('change', (e) => {
       const file = e.target.files[0];
       const slot = parseInt(e.target.dataset.targetSlot || '0', 10);
@@ -675,14 +801,43 @@
 
     function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
       categoriaActivaParaProducto = categoriaId;
+      productoEditandoId = null;
+      productoEditandoCategoriaId = null;
       imagenesSeleccionadas = [null, null, null];
+      imagenesEnEdicionOriginal = [];
+      condicionesSeleccionadas = [];
       document.getElementById('form-producto').reset();
       document.getElementById('input-prod-disponible').checked = true;
       document.getElementById('producto-cat-hint').textContent = `Se incluirá en "${categoriaNombre}".`;
+      document.getElementById('btn-guardar-producto-label').textContent = 'Crear producto';
       renderImgDropSlots();
+      renderCondiciones();
       openOverlay('overlay-producto');
     }
 
+    function abrirModalEditarProducto(categoriaId, productoId, data) {
+      categoriaActivaParaProducto = categoriaId;
+      productoEditandoId = productoId;
+      productoEditandoCategoriaId = categoriaId;
+      imagenesSeleccionadas = [null, null, null];
+      const imgsExistentes = data.imagenes || [];
+      imagenesEnEdicionOriginal = imgsExistentes;
+      imgsExistentes.slice(0, 3).forEach((img, i) => { imagenesSeleccionadas[i] = img; });
+      condicionesSeleccionadas = (data.condiciones || []).map(c => ({
+        nombre: c.nombre,
+        opciones: (c.opciones || []).map(o => ({ nombre: o.nombre, activo: !!o.activo, costoAdicional: Number(o.costoAdicional) || 0 }))
+      }));
+      document.getElementById('form-producto').reset();
+      document.getElementById('input-prod-nombre').value = data.nombre || '';
+      document.getElementById('input-prod-descripcion').value = data.descripcion || '';
+      document.getElementById('input-prod-precio').value = data.precio ?? '';
+      document.getElementById('input-prod-disponible').checked = !!data.disponible;
+      document.getElementById('producto-cat-hint').textContent = `Editando producto.`;
+      document.getElementById('btn-guardar-producto-label').textContent = 'Guardar cambios';
+      renderImgDropSlots();
+      renderCondiciones();
+      openOverlay('overlay-producto');
+    }
     document.getElementById('form-producto').addEventListener('submit', async (e) => {
       e.preventDefault();
       const nombre = document.getElementById('input-prod-nombre').value.trim();
@@ -692,38 +847,78 @@
 
       if (!nombre || isNaN(precio)) return;
 
+      const condiciones = condicionesSeleccionadas
+        .filter(c => c.nombre.trim())
+        .slice(0, 3)
+        .map(c => ({
+          nombre: c.nombre.trim(),
+          opciones: c.opciones.filter(o => o.nombre.trim()).map(o => ({
+            nombre: o.nombre.trim(),
+            activo: !!o.activo,
+            costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
+          }))
+        }));
+
       const btn = document.getElementById('btn-guardar-producto');
       const label = document.getElementById('btn-guardar-producto-label');
       btn.disabled = true;
       label.innerHTML = '<span class="spinner"></span>';
 
       try {
-        const nuevoDocRef = await addDoc(productosRef(categoriaActivaParaProducto), {
-          nombre, descripcion, precio, disponible, imagenes: [], createdAt: serverTimestamp()
-        });
+        if (productoEditandoId) {
+          const docRef = doc(productosRef(productoEditandoCategoriaId), productoEditandoId);
 
-        const archivos = imagenesSeleccionadas.filter(Boolean);
-        const imagenes = [];
-        for (const file of archivos) {
-          const path = `${storagePathProducto(nuevoDocRef.id)}/${Date.now()}_${file.name}`;
-          const ref = storageRef(storage, path);
-          await uploadBytes(ref, file);
-          const url = await getDownloadURL(ref);
-          imagenes.push({ url, path });
-        }
+          const conservadas = imagenesSeleccionadas.filter(item => item && !(item instanceof File));
+          const nuevas = imagenesSeleccionadas.filter(item => item instanceof File);
+          const eliminadas = (imagenesEnEdicionOriginal || []).filter(
+            orig => !conservadas.some(c => c.path === orig.path)
+          );
+          await Promise.all(eliminadas.map(img => deleteObject(storageRef(storage, img.path)).catch(() => { })));
 
-        if (imagenes.length) {
-          await updateDoc(nuevoDocRef, { imagenes });
+          const subidas = [];
+          for (const file of nuevas) {
+            const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${file.name}`;
+            const ref = storageRef(storage, path);
+            await uploadBytes(ref, file);
+            const url = await getDownloadURL(ref);
+            subidas.push({ url, path });
+          }
+
+          await updateDoc(docRef, {
+            nombre, descripcion, precio, disponible, condiciones,
+            imagenes: [...conservadas, ...subidas]
+          });
+
+          toast(`"${nombre}" actualizado.`);
+        } else {
+          const nuevoDocRef = await addDoc(productosRef(categoriaActivaParaProducto), {
+            nombre, descripcion, precio, disponible, condiciones, imagenes: [], createdAt: serverTimestamp()
+          });
+
+          const archivos = imagenesSeleccionadas.filter(Boolean);
+          const imagenes = [];
+          for (const file of archivos) {
+            const path = `${storagePathProducto(nuevoDocRef.id)}/${Date.now()}_${file.name}`;
+            const ref = storageRef(storage, path);
+            await uploadBytes(ref, file);
+            const url = await getDownloadURL(ref);
+            imagenes.push({ url, path });
+          }
+
+          if (imagenes.length) {
+            await updateDoc(nuevoDocRef, { imagenes });
+          }
+
+          toast(`"${nombre}" guardado.`);
         }
 
         closeOverlay('overlay-producto');
-        toast(`"${nombre}" guardado.`);
       } catch (err) {
         console.error(err);
         toast('No se pudo guardar el producto.', 'error');
       } finally {
         btn.disabled = false;
-        label.textContent = 'Crear producto';
+        label.textContent = productoEditandoId ? 'Guardar cambios' : 'Crear producto';
       }
     });
 
@@ -771,6 +966,30 @@
       infoSection.appendChild(nombreEl);
       infoSection.appendChild(descEl);
 
+      const condiciones = data.condiciones || [];
+      if (condiciones.length) {
+        const condWrap = document.createElement('div');
+        condWrap.className = 'flex flex-col gap-1 mt-2';
+        condiciones.forEach(cond => {
+          const activas = (cond.opciones || []).filter(o => o.activo);
+          if (!activas.length) return;
+          const row = document.createElement('div');
+          row.className = 'flex flex-wrap items-center gap-1';
+          const tag = document.createElement('span');
+          tag.className = 'text-[10px] font-mono text-purple-400/60';
+          tag.textContent = `${cond.nombre}:`;
+          row.appendChild(tag);
+          activas.forEach(op => {
+            const chip = document.createElement('span');
+            chip.className = 'text-[10px] px-1.5 py-0.5 rounded-md bg-purple-950/40 border border-purple-800/30 text-purple-300';
+            chip.textContent = op.costoAdicional ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})` : op.nombre;
+            row.appendChild(chip);
+          });
+          condWrap.appendChild(row);
+        });
+        infoSection.appendChild(condWrap);
+      }
+
       const bottomSection = document.createElement('div');
       bottomSection.className = 'pt-2 border-t border-purple-900/20 flex flex-col gap-2.5';
 
@@ -794,8 +1013,8 @@
       const estadoBtn = document.createElement('button');
       estadoBtn.type = 'button';
       estadoBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${data.disponible
-          ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40'
-          : 'bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40'}`;
+        ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40'
+        : 'bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40'}`;
       estadoBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${data.disponible ? 'bg-emerald-400' : 'bg-rose-400'}"></span><span>${data.disponible ? 'Disponible' : 'Agotado'}</span>`;
       estadoBtn.addEventListener('click', async () => {
         try {
@@ -815,7 +1034,16 @@
         });
       });
 
+      const editBtn = document.createElement('button');
+      editBtn.className = 'w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-violet-300 hover:bg-violet-950/30 transition-colors';
+      editBtn.title = 'Editar producto';
+      editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+      editBtn.addEventListener('click', () => {
+        abrirModalEditarProducto(categoriaId, productoId, data);
+      });
+
       actionRow.appendChild(estadoBtn);
+      actionRow.appendChild(editBtn);
       actionRow.appendChild(delBtn);
 
       bottomSection.appendChild(priceRow);

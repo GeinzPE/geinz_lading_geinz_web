@@ -267,11 +267,30 @@
     </div>
   </div>
 
-  <div id="toast"></div>
+  <!-- Modal de opciones del producto (condiciones) -->
+  <div id="optionsOverlay">
+    <div id="optionsModal">
+      <div class="drawer-handle sm:hidden"></div>
+      <div
+        class="px-5 sm:px-6 pt-4 sm:pt-6 pb-4 flex items-center justify-between border-b border-white/[.06] flex-shrink-0">
+        <div>
+          <h2 class="display font-extrabold text-lg" id="optionsProdNombre">Elige tus opciones</h2>
+          <p class="text-[12px] text-gray-500 mt-0.5">Selecciona antes de agregar al carrito</p>
+        </div>
+        <button id="closeOptionsBtn"
+          class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
+      </div>
+      <div class="px-5 sm:px-6 py-5 overflow-y-auto flex flex-col gap-5" id="optionsBody"></div>
+      <div class="px-5 sm:px-6 py-5 border-t border-white/[.06] flex-shrink-0">
+        <button id="confirmOptionsBtn" class="btn-whatsapp">Agregar al carrito</button>
+      </div>
+    </div>
+  </div>
 
+  <div id="toast"></div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, addDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
@@ -311,6 +330,7 @@
     let bizData = null;
     let bizNombre = "Catálogo";
     let pedidoActivoMesa = null;
+    let grupoActivo = null;
     /* Estado del checkout */
     let tipoEntrega = "Delivery";
     let metodoPago = "Yape / Plin";
@@ -385,6 +405,11 @@
     async function loadPedidoMesa() {
       if (!mesaId) return null;
       try {
+        grupoActivo = await resolveGrupoActivo();
+        if (grupoActivo) {
+          return grupoActivo.pedido ? { ...grupoActivo.pedido, estado: "ocupado" } : null;
+        }
+
         const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaId);
         const snap = await getDoc(ref);
         if (!snap.exists()) return null;
@@ -400,61 +425,111 @@
     }
 
 
+    async function resolveGrupoActivo() {
+      if (!mesaId) return null;
+      try {
+        const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaId);
+        const mesaSnap = await getDoc(mesaRef);
+        if (!mesaSnap.exists()) return null;
+        const grupoId = mesaSnap.data()?.grupoId;
+        if (!grupoId) return null;
+
+        const grupoRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId);
+        const grupoSnap = await getDoc(grupoRef);
+        if (!grupoSnap.exists() || grupoSnap.data()?.estado !== "activo") return null;
+
+        return { id: grupoSnap.id, ref: grupoRef, ...grupoSnap.data() };
+      } catch (err) {
+        console.error("Error resolviendo grupo de mesas:", err);
+        return null;
+      }
+    }
 
     async function llamarMozo({ nombre, nota, items, total }) {
-      const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaId);
+      if (!grupoActivo) grupoActivo = await resolveGrupoActivo();
       const now = new Date();
+      const horaActual = now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
 
-      // Traemos el doc completo de la mesa para no perder campos como
-      // qr_url, token_seguridad, nombre_alias, numero_mesa al duplicar en pedidos
-      const mesaSnapActual = await getDoc(ref);
-      const mesaDataActual = mesaSnapActual.exists() ? mesaSnapActual.data() : {};
-
-      // Si ya hay un pedido activo, combinamos productos (sumando cantidades)
+      // Combina productos previos (del grupo o de la mesa sola) con los nuevos
       const productosPrevios = pedidoActivoMesa?.productos || [];
       const mapaProductos = new Map();
-
-      productosPrevios.forEach((it) => {
-        mapaProductos.set(it.id, { ...it });
-      });
-
+      productosPrevios.forEach((it) => mapaProductos.set(it.cartKey || it.id, { ...it }));
       items.forEach((it) => {
-        const existente = mapaProductos.get(it.id);
+        const key = it.cartKey || it.id;
+        const existente = mapaProductos.get(key);
         if (existente) {
           existente.cantidad += it.cantidad;
           existente.subtotal = +(existente.cantidad * existente.precio_unitario).toFixed(2);
         } else {
-          mapaProductos.set(it.id, {
-            id: it.id, nombre: it.nombre, categoria: it.categoria,
+          mapaProductos.set(key, {
+            id: it.id, cartKey: key, nombre: it.nombre, categoria: it.categoria,
             precio_unitario: it.precio, cantidad: it.cantidad,
             subtotal: +(it.precio * it.cantidad).toFixed(2), imagen: it.imagen || "",
+            opciones: it.seleccion || null,
           });
         }
       });
-
       const productosFinal = [...mapaProductos.values()];
       const totalFinal = productosFinal.reduce((s, i) => s + i.subtotal, 0);
-
       const notaFinal = [pedidoActivoMesa?.nota, nota].filter(Boolean).join(" · ");
       const nombreFinal = pedidoActivoMesa?.cliente?.nombre || nombre || "";
-      const horaActual = now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
 
-      // ══ Bloques: cada llamada a "Llamar al mozo" queda registrada como una
-      // ronda independiente con su hora exacta y SOLO lo que se pidió en ese
-      // momento (no el acumulado). Sirve para saber "a qué hora pidió qué",
-      // aunque el total y los productos combinados (arriba) sigan siendo uno solo. ══
       const bloquesPrevios = pedidoActivoMesa?.bloques || [];
       const nuevoBloque = {
         hora: horaActual,
         nota: nota || "",
+        mesaOrigenId: mesaId,
+        mesaOrigenNombre: mesaNombre || `Mesa ${mesaNumero}`,
         items: items.map((it) => ({
-          id: it.id, nombre: it.nombre, categoria: it.categoria,
+          id: it.id, cartKey: it.cartKey || it.id, nombre: it.nombre, categoria: it.categoria,
           precio_unitario: it.precio, cantidad: it.cantidad,
           subtotal: +(it.precio * it.cantidad).toFixed(2), imagen: it.imagen || "",
+          opciones: it.seleccion || null,
         })),
         total_bloque: +items.reduce((s, i) => s + i.cantidad * i.precio, 0).toFixed(2),
       };
       const bloquesFinal = [...bloquesPrevios, nuevoBloque];
+
+      const pedidosColRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
+
+      /* ═══ CASO 1: mesa dentro de un grupo activo ═══ */
+      if (grupoActivo) {
+        const pedido = {
+          cliente: { nombre: nombreFinal, tipo_entrega: "Mesa", direccion: "" },
+          estado: "pendiente",
+          pago: { metodo: "En mesa", vuelto: "" },
+          mesas: grupoActivo.mesas || [],
+          negocio: { id: tiendaId, nombre: bizNombre, localidad },
+          nota: notaFinal,
+          productos: productosFinal,
+          bloques: bloquesFinal,
+          total_items: productosFinal.reduce((s, i) => s + i.cantidad, 0),
+          total: +totalFinal.toFixed(2),
+          fecha: pedidoActivoMesa?.fecha || now.toLocaleDateString("es-PE"),
+          hora: horaActual,
+          timestamp: serverTimestamp(),
+        };
+
+        const pedidoDocId = grupoActivo.pedidoGrupoDocId || doc(pedidosColRef).id;
+        const batch = writeBatch(db);
+
+        batch.set(grupoActivo.ref, { estado: "activo", pedido, pedidoGrupoDocId: pedidoDocId }, { merge: true });
+        batch.set(doc(pedidosColRef, pedidoDocId), { ...pedido, grupoId: grupoActivo.id }, { merge: true });
+
+        (grupoActivo.mesas || []).forEach((m) => {
+          const mRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", m.id);
+          batch.set(mRef, { estado: "ocupado", pago: "pendiente", pedidoMesaDocId: pedidoDocId }, { merge: true });
+        });
+
+        await batch.commit();
+        grupoActivo.pedidoGrupoDocId = pedidoDocId;
+        return pedido;
+      }
+
+      /* ═══ CASO 2: mesa individual (comportamiento original) ═══ */
+      const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaId);
+      const mesaSnapActual = await getDoc(ref);
+      const mesaDataActual = mesaSnapActual.exists() ? mesaSnapActual.data() : {};
 
       const pedido = {
         cliente: { nombre: nombreFinal, tipo_entrega: "Mesa", direccion: "" },
@@ -472,17 +547,8 @@
         timestamp: serverTimestamp(),
       };
 
-      // ══ Decide si esta llamada pertenece a una sesión de mesa YA activa
-      // o si es el arranque de una sesión nueva (mesa estaba libre/cancelada
-      // o nunca tuvo un pedidoMesaDocId guardado) ══
-      const pedidosColRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
-
-      const yaHabiaSesionActiva =
-        mesaDataActual?.estado === "ocupado" && !!mesaDataActual?.pedidoMesaDocId;
-
-      const pedidoDocId = yaHabiaSesionActiva
-        ? mesaDataActual.pedidoMesaDocId
-        : doc(pedidosColRef).id; // nueva sesión de mesa -> nuevo id, uno solo por sesión
+      const yaHabiaSesionActiva = mesaDataActual?.estado === "ocupado" && !!mesaDataActual?.pedidoMesaDocId;
+      const pedidoDocId = yaHabiaSesionActiva ? mesaDataActual.pedidoMesaDocId : doc(pedidosColRef).id;
 
       const dataToSave = {
         ...mesaDataActual,
@@ -491,35 +557,41 @@
         mesaNombre: mesaNombre || mesaDataActual.mesaNombre || null,
         mesaNumero: mesaNumero ? Number(mesaNumero) : (mesaDataActual.mesaNumero || null),
         pedido,
-        pedidoMesaDocId: pedidoDocId, // clave: queda guardado en la mesa para la próxima vez
+        pedidoMesaDocId: pedidoDocId,
       };
 
       await setDoc(ref, dataToSave, { merge: true });
-
-      // Mismo doc de /pedidos mientras la mesa siga ocupada (merge, nunca doc nuevo)
-      const pedidoMesaRef = doc(pedidosColRef, pedidoDocId);
-      await setDoc(pedidoMesaRef, {
-        ...pedido,
-        mesaId,
-      }, { merge: true });
+      await setDoc(doc(pedidosColRef, pedidoDocId), { ...pedido, mesaId }, { merge: true });
 
       return pedido;
     }
 
 
     async function cancelarPedidoMesa() {
+      if (!grupoActivo) grupoActivo = await resolveGrupoActivo();
+
+      if (grupoActivo) {
+        const batch = writeBatch(db);
+        batch.set(grupoActivo.ref, { estado: "cerrado" }, { merge: true });
+        (grupoActivo.mesas || []).forEach((m) => {
+          const mRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", m.id);
+          batch.set(mRef, { estado: "cancelado", pago: "pendiente", grupoId: null }, { merge: true });
+        });
+        if (grupoActivo.pedidoGrupoDocId) {
+          batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", grupoActivo.pedidoGrupoDocId), {
+            estado: "cancelado", pago: "pendiente",
+          }, { merge: true });
+        }
+        await batch.commit();
+        grupoActivo = null;
+        return;
+      }
+
       const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaId);
-      await updateDoc(ref, {
-        estado: "cancelado",
-        pago: "pendiente",
-        pedido: null,
-      });
+      await updateDoc(ref, { estado: "cancelado", pago: "pendiente", pedido: null });
 
       const pedidoMesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", `${mesaId}-mesa`);
-      await updateDoc(pedidoMesaRef, {
-        estado: "cancelado",
-        pago: "pendiente",
-      }).catch(() => { }); // por si aún no existe el doc en pedidos
+      await updateDoc(pedidoMesaRef, { estado: "cancelado", pago: "pendiente" }).catch(() => { });
     }
 
     function renderPedidoActivoMesa(pedido) {
@@ -657,6 +729,18 @@
             const d = pDoc.data();
             if (d.disponible === false) return;
             const nombre = d.nombre || "Producto";
+
+            // Solo se traen las condiciones/opciones marcadas como activas (true)
+            const condiciones = (d.condiciones || [])
+              .map((c) => ({
+                nombre: c.nombre,
+                opciones: (c.opciones || []).filter((o) => o.activo).map((o) => ({
+                  nombre: o.nombre,
+                  costoAdicional: Number(o.costoAdicional) || 0,
+                })),
+              }))
+              .filter((c) => c.nombre && c.opciones.length > 0);
+
             arr.push({
               id: pDoc.id,
               categoria,
@@ -665,6 +749,7 @@
               nombreNorm: normalizeText(nombre),
               precio: Number(d.precio) || 0,
               imagen: d.imagenes?.[0]?.url || "",
+              condiciones,
             });
           });
           return arr;
@@ -856,7 +941,7 @@
     function productoCard(p, index = 0) {
       const card = document.createElement("div");
       card.id = `card-${p.id}`;
-      card.className = "prod-card glass rise accent-border-hover" + (carrito.has(p.id) ? " in-cart" : "");
+      card.className = "prod-card glass rise accent-border-hover" + (productoEnCarrito(p.id) ? " in-cart" : "");
       card.style.animationDelay = `${Math.min(index, 12) * 30}ms`;
 
       const imgWrap = document.createElement("div");
@@ -872,10 +957,15 @@
 
       const info = document.createElement("div");
       info.className = "flex-1 min-w-0 prod-info";
+      const condLine = (p.condiciones || [])
+        .map((c) => `${c.nombre}: ${c.opciones.map((o) => o.nombre).join(", ")}`)
+        .join(" · ");
+
       info.innerHTML = `
     <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
+    ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
   `;
 
       const qtyWrap = document.createElement("div");
@@ -887,10 +977,85 @@
       return card;
     }
 
-    function renderQtyControls(container, p) {
-      const cantidad = carrito.get(p.id)?.cantidad || 0;
+    function renderQtyControls(container, p, cartKey = null) {
       container.innerHTML = "";
 
+      // Caso 1: es una línea específica del carrito (puede tener una variante ya elegida)
+      if (cartKey) {
+        const cantidad = carrito.get(cartKey)?.cantidad || 0;
+        const stepper = document.createElement("div");
+        stepper.className = "qty-stepper pop";
+
+        const minus = document.createElement("button");
+        minus.className = "qty-btn"; minus.textContent = "−";
+        minus.onclick = () => removeFromCart(cartKey, p.id);
+
+        const count = document.createElement("span");
+        count.className = "w-6 text-center font-black text-[15px] bump";
+        count.textContent = cantidad;
+
+        const plus = document.createElement("button");
+        plus.className = "qty-btn"; plus.textContent = "+";
+        plus.onclick = () => addToCart(p, carrito.get(cartKey)?.seleccion || null);
+
+        stepper.append(minus, count, plus);
+        container.appendChild(stepper);
+        return;
+      }
+
+      // Caso 2: tarjeta principal de un producto CON condiciones -> siempre abre el popup
+      // Caso 2: tarjeta principal de un producto CON condiciones
+      if (p.condiciones && p.condiciones.length) {
+        const variantes = [...carrito.values()].filter((it) => it.id === p.id);
+        const totalCantidad = variantes.reduce((s, it) => s + it.cantidad, 0);
+
+        if (variantes.length === 0) {
+          // Nada en el carrito todavía -> abre el popup a elegir
+          const btn = document.createElement("button");
+          btn.className = "btn-add accent-grad pop";
+          btn.textContent = "Agregar";
+          btn.onclick = () => addToCart(p);
+          container.appendChild(btn);
+        } else if (variantes.length === 1) {
+          // Una sola variante en el carrito -> stepper normal +/- y lápiz para cambiar la opción
+          const entry = variantes[0];
+          const wrap = document.createElement("div");
+          wrap.className = "flex items-center gap-1.5";
+
+          const stepper = document.createElement("div");
+          stepper.className = "qty-stepper pop";
+          const minus = document.createElement("button");
+          minus.className = "qty-btn"; minus.textContent = "−";
+          minus.onclick = () => removeFromCart(entry.cartKey, p.id);
+          const count = document.createElement("span");
+          count.className = "w-6 text-center font-black text-[15px] bump";
+          count.textContent = entry.cantidad;
+          const plus = document.createElement("button");
+          plus.className = "qty-btn"; plus.textContent = "+";
+          plus.onclick = () => addToCart(p, entry.seleccion);
+          stepper.append(minus, count, plus);
+
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.className = "w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 flex-shrink-0";
+          editBtn.title = "Cambiar opciones";
+          editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+          editBtn.onclick = () => abrirOptionsModal(p, entry.seleccion, entry.cartKey);
+
+          wrap.append(stepper, editBtn);
+          container.appendChild(wrap);
+        } else {
+          // Más de una variante (ej. "Pecho" y "Pierna" del mismo producto) -> se manejan desde el carrito
+          const btn = document.createElement("button");
+          btn.className = "btn-add accent-grad pop";
+          btn.textContent = `${totalCantidad} en carrito · Agregar otra`;
+          btn.onclick = () => addToCart(p);
+          container.appendChild(btn);
+        }
+        return;
+      }
+      // Caso 3: tarjeta principal de un producto SIN condiciones (comportamiento original)
+      const cantidad = carrito.get(p.id)?.cantidad || 0;
       if (cantidad === 0) {
         const btn = document.createElement("button");
         btn.className = "btn-add accent-grad pop";
@@ -903,7 +1068,7 @@
 
         const minus = document.createElement("button");
         minus.className = "qty-btn"; minus.textContent = "−";
-        minus.onclick = () => removeFromCart(p.id);
+        minus.onclick = () => removeFromCart(p.id, p.id);
 
         const count = document.createElement("span");
         count.className = "w-6 text-center font-black text-[15px] bump";
@@ -919,22 +1084,158 @@
     }
 
     /* ══════════════ Lógica del carrito (Map = O(1)) ══════════════ */
-    function addToCart(p) {
-      const existente = carrito.get(p.id);
-      if (existente) existente.cantidad += 1;
-      else carrito.set(p.id, { ...p, cantidad: 1 });
+    /* ══════════════ Lógica del carrito (Map = O(1)) ══════════════ */
+    function cartKeyFor(id, seleccion) {
+      if (!seleccion || !Object.keys(seleccion).length) return id;
+      const orden = Object.keys(seleccion).sort().map((k) => `${k}:${seleccion[k]}`).join("|");
+      return `${id}__${orden}`;
+    }
+
+    function productoEnCarrito(id) {
+      for (const it of carrito.values()) if (it.id === id) return true;
+      return false;
+    }
+
+    // Precio base + suma de costos adicionales de las opciones elegidas
+    function calcPrecioFinal(p, seleccion) {
+      let precio = Number(p.precio) || 0;
+      if (!seleccion) return precio;
+      (p.condiciones || []).forEach((cond) => {
+        const elegido = seleccion[cond.nombre];
+        if (!elegido) return;
+        const op = cond.opciones.find((o) => o.nombre === elegido);
+        if (op && op.costoAdicional) precio += Number(op.costoAdicional) || 0;
+      });
+      return +precio.toFixed(2);
+    }
+
+    function addToCart(p, seleccion = null) {
+      // Si el producto tiene condiciones y todavía no eligió nada, abrir el popup primero
+      if (!seleccion && p.condiciones && p.condiciones.length) {
+        abrirOptionsModal(p);
+        return;
+      }
+      const key = cartKeyFor(p.id, seleccion);
+      const existente = carrito.get(key);
+      if (existente) {
+        existente.cantidad += 1;
+      } else {
+        const precioFinal = calcPrecioFinal(p, seleccion);
+        carrito.set(key, { ...p, precio: precioFinal, cantidad: 1, cartKey: key, seleccion: seleccion || null });
+      }
       syncCartChange(p.id);
       pulseCard(p.id);
       showToast(`${p.nombre} agregado`);
     }
 
-    function removeFromCart(id) {
-      const existente = carrito.get(id);
+    // Cambia la selección (ej. "helada" -> "sin helar") de una línea que ya está en el carrito
+    function editCartSelection(oldKey, p, nuevaSeleccion) {
+      const entry = carrito.get(oldKey);
+      if (!entry) return;
+      const newKey = cartKeyFor(p.id, nuevaSeleccion);
+
+      if (newKey === oldKey) { syncCartChange(p.id); return; } // no cambió nada
+
+      const precioFinal = calcPrecioFinal(p, nuevaSeleccion);
+      carrito.delete(oldKey);
+      const existenteEnNuevo = carrito.get(newKey);
+      if (existenteEnNuevo) {
+        existenteEnNuevo.cantidad += entry.cantidad;
+      } else {
+        carrito.set(newKey, { ...p, precio: precioFinal, cantidad: entry.cantidad, cartKey: newKey, seleccion: nuevaSeleccion });
+      }
+      syncCartChange(p.id);
+      showToast("Opciones actualizadas");
+    }
+    function removeFromCart(key, productId) {
+      const existente = carrito.get(key);
       if (!existente) return;
       existente.cantidad -= 1;
-      if (existente.cantidad <= 0) carrito.delete(id);
-      syncCartChange(id);
+      if (existente.cantidad <= 0) carrito.delete(key);
+      syncCartChange(productId || key);
     }
+
+    /* ══════════════ Popup de opciones (condiciones del producto) ══════════════ */
+    /* ══════════════ Popup de opciones (condiciones del producto) ══════════════ */
+    let productoParaOpciones = null;
+    let seleccionOpciones = {};
+    let cartKeyEnEdicion = null; // si no es null, el popup está EDITANDO esa línea del carrito
+
+    function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
+      productoParaOpciones = p;
+      cartKeyEnEdicion = editKey;
+      seleccionOpciones = seleccionExistente ? { ...seleccionExistente } : {};
+      document.getElementById("optionsProdNombre").textContent = p.nombre;
+      const body = document.getElementById("optionsBody");
+      body.innerHTML = "";
+
+      (p.condiciones || []).forEach((cond) => {
+        const wrap = document.createElement("div");
+        const label = document.createElement("p");
+        label.className = "field-label";
+        label.textContent = cond.nombre;
+        wrap.appendChild(label);
+
+        const optsWrap = document.createElement("div");
+        optsWrap.className = "toggle-row flex-wrap";
+
+        cond.opciones.forEach((op, oi) => {
+          const valorPrevio = seleccionOpciones[cond.nombre];
+          const esActiva = valorPrevio ? valorPrevio === op.nombre : oi === 0;
+          const optBtn = document.createElement("div");
+          optBtn.className = "toggle-opt" + (esActiva ? " active" : "");
+          optBtn.textContent = op.costoAdicional
+            ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})`
+            : op.nombre;
+          if (esActiva) optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
+          optBtn.onclick = () => {
+            optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
+              o.classList.remove("active");
+              o.style.background = "";
+            });
+            optBtn.classList.add("active");
+            optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
+            seleccionOpciones[cond.nombre] = op.nombre;
+          };
+          optsWrap.appendChild(optBtn);
+        });
+
+        wrap.appendChild(optsWrap);
+        body.appendChild(wrap);
+        if (cond.opciones.length && !seleccionOpciones[cond.nombre]) {
+          seleccionOpciones[cond.nombre] = cond.opciones[0].nombre;
+        }
+      });
+
+      document.getElementById("confirmOptionsBtn").textContent = editKey ? "Guardar cambios" : "Agregar al carrito";
+      document.getElementById("optionsOverlay").classList.add("show");
+      document.body.style.overflow = "hidden";
+    }
+
+    function cerrarOptionsModal() {
+      document.getElementById("optionsOverlay").classList.remove("show");
+      if (!document.getElementById("checkoutOverlay").classList.contains("show") &&
+        !document.getElementById("drawer").classList.contains("show")) {
+        document.body.style.overflow = "";
+      }
+      productoParaOpciones = null;
+      cartKeyEnEdicion = null;
+    }
+
+    document.getElementById("closeOptionsBtn").onclick = cerrarOptionsModal;
+    document.getElementById("optionsOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "optionsOverlay") cerrarOptionsModal();
+    });
+    document.getElementById("confirmOptionsBtn").onclick = () => {
+      if (!productoParaOpciones) return;
+      if (cartKeyEnEdicion) {
+        editCartSelection(cartKeyEnEdicion, productoParaOpciones, { ...seleccionOpciones });
+      } else {
+        addToCart(productoParaOpciones, { ...seleccionOpciones });
+      }
+      cerrarOptionsModal();
+    };
+
 
     function syncCartChange(id) {
       updateCartUI();
@@ -947,7 +1248,7 @@
       const cardEl = document.getElementById(`card-${id}`);
       const qtyWrap = document.getElementById(`qty-${id}`);
       if (qtyWrap) renderQtyControls(qtyWrap, p);
-      if (cardEl) cardEl.classList.toggle("in-cart", carrito.has(id));
+      if (cardEl) cardEl.classList.toggle("in-cart", productoEnCarrito(id));
     }
 
     function pulseCard(id) {
@@ -979,7 +1280,17 @@
     function updateCartUI() {
       const items = [...carrito.values()];
       const count = items.reduce((s, i) => s + i.cantidad, 0);
-      const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+      const total = items.reduce((s, i) => s + (i.cantidad * (i.precio || 0)), 0);
+
+      // Primero se intenta dibujar la lista de productos. Si algo falla aquí,
+      // NO se deja que el contador/total queden desincronizados con la lista.
+      try {
+        renderCartList(document.getElementById("drawerItems"), items);
+        renderCartList(document.getElementById("sidebarItems"), items);
+      } catch (err) {
+        console.error("Error renderizando el carrito:", err);
+        showToast("⚠️ Hubo un problema mostrando el carrito, intenta de nuevo");
+      }
 
       const cartCountEl = document.getElementById("cartCount");
       cartCountEl.textContent = count;
@@ -999,9 +1310,6 @@
       document.getElementById("checkoutBtnMobile").disabled = count === 0;
       document.getElementById("checkoutBtnDesktop").disabled = count === 0;
 
-      renderCartList(document.getElementById("drawerItems"), items);
-      renderCartList(document.getElementById("sidebarItems"), items);
-
       if (count === 0) { closeDrawer(); closeCheckout(); }
     }
 
@@ -1013,25 +1321,45 @@
       }
       const frag = document.createDocumentFragment();
       items.forEach((it) => {
+        const key = it.cartKey || it.id;
+        const precioNum = Number(it.precio) || 0;
+        const opcionesTxt = it.seleccion
+          ? Object.entries(it.seleccion).map(([k, v]) => `${k}: ${v}`).join(" · ")
+          : "";
         const row = document.createElement("div");
         row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
         row.innerHTML = `
-      <img src="${it.imagen}" class="w-14 h-14 rounded-xl object-cover bg-white/5 flex-shrink-0" loading="lazy" decoding="async">
+      <img src="${it.imagen || ""}" class="w-14 h-14 rounded-xl object-cover bg-white/5 flex-shrink-0" loading="lazy" decoding="async">
       <div class="flex-1 min-w-0">
-        <p class="font-bold text-[14px] truncate">${it.nombre}</p>
-        <p class="text-[12.5px] text-gray-500">S/ ${it.precio.toFixed(2)} c/u</p>
+        <p class="font-bold text-[14px] truncate">${it.nombre || "Producto"}</p>
+        ${opcionesTxt ? `<p class="text-[11px] text-gray-500 truncate">${opcionesTxt}</p>` : ""}
+        <p class="text-[12.5px] text-gray-500">S/ ${precioNum.toFixed(2)} c/u</p>
       </div>
-      <div class="flex items-center gap-2 flex-shrink-0" id="cartQty-${wrap.id}-${it.id}"></div>
+      ${it.seleccion ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 flex-shrink-0" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>` : ""}
+      <div class="flex items-center gap-2 flex-shrink-0" id="cartQty-${wrap.id}-${key}"></div>
     `;
         frag.appendChild(row);
       });
       wrap.appendChild(frag);
+
       items.forEach((it) => {
-        const holder = wrap.querySelector(`#cartQty-${wrap.id}-${it.id}`);
-        if (holder) renderQtyControls(holder, it);
+        const key = it.cartKey || it.id;
+        const holder = wrap.querySelector(`#cartQty-${wrap.id}-${key}`);
+        if (holder) renderQtyControls(holder, it, key);
+      });
+
+      wrap.querySelectorAll(".cart-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.dataset.key;
+          const id = btn.dataset.id;
+          const entry = carrito.get(key);
+          const p = productosPorId.get(id);
+          if (entry && p) abrirOptionsModal(p, entry.seleccion, key);
+        });
       });
     }
-
     /* ══════════════ Drawer (mobile) ══════════════ */
     function openDrawer() {
       document.getElementById("drawerOverlay").classList.add("show");
@@ -1065,7 +1393,7 @@
           }, 3000);
           return;
         }
-        const idsAfectados = [...carrito.keys()];
+        const idsAfectados = [...new Set([...carrito.values()].map((it) => it.id))];
         carrito.clear();
         localConfirm = false;
         btn.textContent = originalText;
@@ -1107,15 +1435,19 @@
       const items = [...carrito.values()];
       const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
       const wrap = document.getElementById("checkoutSummary");
-      wrap.innerHTML = items.map((it) => `
+      wrap.innerHTML = items.map((it) => {
+        const opcionesTxt = it.seleccion
+          ? Object.entries(it.seleccion).map(([k, v]) => `${k}: ${v}`).join(" · ")
+          : "";
+        return `
     <div class="step-summary-row">
-      <span>${it.cantidad}× ${it.nombre}</span>
+      <span>${it.cantidad}× ${it.nombre}${opcionesTxt ? ` <span class="text-gray-500 text-[11px]">(${opcionesTxt})</span>` : ""}</span>
       <span>S/ ${(it.cantidad * it.precio).toFixed(2)}</span>
     </div>
-  `).join("");
+  `;
+      }).join("");
       document.getElementById("checkoutTotal").textContent = total.toFixed(2);
     }
-
     /* ══════════════ Guardar pedido en Firestore ══════════════ */
     async function guardarPedidoEnDB({ nombre, tipoEntrega, direccion, metodoPago, vuelto, nota, items, total }) {
       const pedidosRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
@@ -1145,6 +1477,7 @@
           id: it.id, nombre: it.nombre, categoria: it.categoria,
           precio_unitario: it.precio, cantidad: it.cantidad,
           subtotal: +(it.precio * it.cantidad).toFixed(2), imagen: it.imagen || "",
+          opciones: it.seleccion || null,
         })),
         total_items: items.reduce((s, i) => s + i.cantidad, 0),
         total: +total.toFixed(2),

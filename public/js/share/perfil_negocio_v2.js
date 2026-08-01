@@ -768,10 +768,22 @@ function renderMesas(snap) {
   sec.style.display = "";
   grid.innerHTML = "";
   mesas.forEach((m) => {
-    const libre = m.estado !== "ocupado";
+    const esOcupada = m.estado === "ocupado";
+    const esReservada = m.estado === "reservada";
+    const libre = !esOcupada && !esReservada;
+    const claseEstado = esOcupada
+      ? "mesa-ocupada"
+      : esReservada
+        ? "mesa-reservada"
+        : "mesa-libre";
+    const textoEstado = esOcupada
+      ? "Ocupada"
+      : esReservada
+        ? "Reservada"
+        : "Libre";
     const chip = document.createElement("div");
-    chip.className = "mesa-chip " + (libre ? "mesa-libre" : "mesa-ocupada");
-    chip.innerHTML = `<span class="mesa-num">${m.numero_mesa ?? m.mesaNumero ?? "-"}</span><span class="mesa-estado">${libre ? "Libre" : "Ocupada"}</span>`;
+    chip.className = "mesa-chip " + claseEstado;
+    chip.innerHTML = `<span class="mesa-num">${m.numero_mesa ?? m.mesaNumero ?? "-"}</span><span class="mesa-estado">${textoEstado}</span>`;
     if (libre) {
       chip.addEventListener("click", () =>
         openMesaReservaModal(
@@ -919,10 +931,12 @@ function bindMesaReservaEvents() {
 
     const invalidas = [];
     const ocupadas = [];
+    const reservadas = [];
     numeros.forEach((num) => {
       const mesa = _mesasCache.find((m) => (m.numero_mesa || 0) === num);
       if (!mesa) invalidas.push(num);
       else if (mesa.estado === "ocupado") ocupadas.push(num);
+      else if (mesa.estado === "reservada") reservadas.push(num);
     });
 
     if (invalidas.length) {
@@ -931,6 +945,10 @@ function bindMesaReservaEvents() {
     }
     if (ocupadas.length) {
       showToast(`Mesa(s) ocupada(s): ${ocupadas.join(", ")}`);
+      return;
+    }
+    if (reservadas.length) {
+      showToast(`Mesa(s) ya reservada(s): ${reservadas.join(", ")}`);
       return;
     }
 
@@ -1760,12 +1778,12 @@ const MESAS_CSS = `
 .mesas-multi-btn{padding:12px 18px;border:none;border-radius:12px;font-weight:700;font-size:13px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));white-space:nowrap;}
 .mesa-reserva-error{font-size:12px;color:#ff6b6b;margin:-6px 0 10px;min-height:14px;display:none;}
 .mesa-reserva-error.show{display:block;}
-.mesa-chip{min-width:84px;padding:14px 18px;border-radius:16px;text-align:center;font-weight:700;font-size:13px;border:1px solid var(--border,rgba(255,255,255,.08));background:var(--surface,rgba(255,255,255,.03));transition:transform .18s ease,box-shadow .18s ease;user-select:none;}
+.mesa-chip{min-width:84px;padding:14px 18px;border-radius:16px;text-align:center;font-weight:700;font-size:13px;border:1px solid var(--border,rgba(255,255,255,.08));background:var(--surface,rgba(255,255,255,.03));transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;user-select:none;}
 .mesa-chip .mesa-num{display:block;font-size:20px;font-weight:900;margin-bottom:4px;}
 .mesa-chip .mesa-estado{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.75;}
 .mesa-chip.mesa-libre{cursor:pointer;border-color:rgba(var(--dr),var(--dg),var(--db),.55);background:rgba(var(--dr),var(--dg),var(--db),.12);}
-.mesa-chip.mesa-libre:hover{transform:translateY(-2px);box-shadow:0 10px 24px -8px rgba(var(--dr),var(--dg),var(--db),.45);}
-.mesa-chip.mesa-ocupada{cursor:default;opacity:.45;}
+.mesa-chip.mesa-libre:hover{transform:translateY(-2px);box-shadow:0 0 18px rgba(var(--dr),var(--dg),var(--db),.35);border-color:rgba(var(--dr),var(--dg),var(--db),.8);}
+.mesa-chip.mesa-ocupada,.mesa-chip.mesa-reservada{cursor:not-allowed;opacity:.45;}
 .mesa-reserva-modal{position:fixed;inset:0;z-index:10001;background:rgba(3,3,3,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s ease;padding:20px;}
 .mesa-reserva-modal.open{opacity:1;visibility:visible;}
 .mesa-reserva-box{width:100%;max-width:340px;background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.35);border-radius:24px;padding:24px 22px;position:relative;transform:scale(.96);transition:transform .25s ease;}

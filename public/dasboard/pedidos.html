@@ -64,6 +64,32 @@
                         </div>
                     </div>
 
+                    <div class="autorej-wrap">
+                        <button class="autorej-btn" id="autoresBtn" title="Configurar auto-liberación de reservas">
+                            <span class="ico">🔔</span>
+                            <span class="lbl-text">Auto-reservas</span>
+                            <span class="val" id="autoresVal">20m</span>
+                        </button>
+                        <div class="autorej-pop" id="autoresPop">
+                            <div class="autorej-pop-title">Auto-liberar reservas</div>
+                            <div class="autorej-pop-sub">Si una mesa (o grupo de mesas) queda "Reservada" más del
+                                tiempo indicado sin pasar a "Ocupada", la reserva se quita automáticamente y sonará
+                                una alarma.</div>
+                            <div class="autorej-toggle-row">
+                                <span class="autorej-toggle-lbl">Activar auto-liberación</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="autoresToggle">
+                                    <span class="switch-track"></span>
+                                </label>
+                            </div>
+                            <div class="autorej-input-row">
+                                <input type="number" id="autoresMinutes" min="1" max="240" value="20">
+                                <span>minutos</span>
+                            </div>
+                            <button class="autorej-save" id="autoresSave">Guardar</button>
+                        </div>
+                    </div>
+
                     <button class="bell-btn" id="bellBtn" title="Activar sonido y notificaciones">
                         🔔<span class="bell-dot" id="bellDot"></span>
                     </button>
@@ -105,6 +131,16 @@
                         <button class="ms-btn" data-size="mediano">Mediano</button>
                         <button class="ms-btn" data-size="grande">Grande</button>
                     </div>
+                </div>
+                <div class="mesas-grupo-bar" id="mesasGrupoBar">
+                    <span class="mesas-sel-label" id="mesasSelLabel">Toca las mesas para seleccionarlas</span>
+                    <span class="mesas-sel-total" id="mesasSelTotal" style="display:none;"></span>
+                    <button class="mg-btn mg-reservar" id="mesasGrupoReservarBtn">Reservar</button>
+                    <button class="mg-btn mg-ocupar" id="mesasGrupoOcuparBtn">Ocupar</button>
+                    <button class="mg-btn mg-liberar" id="mesasGrupoLiberarBtn">Liberar</button>
+                    <button class="mg-btn mg-desagrupar" id="mesasGrupoDesagruparBtn">Desagrupar</button>
+                    <button class="mg-btn mg-cancelar" id="mesasGrupoCancelarBtn" style="display:none;">✕
+                        Cancelar</button>
                 </div>
                 <div class="mesas-panel-body">
                     <div class="mesa-grid" id="mesaGrid"></div>
@@ -207,7 +243,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import {
-            getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, serverTimestamp, query, orderBy, where, Timestamp
+            getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, serverTimestamp, query, orderBy, where, Timestamp, writeBatch, setDoc
         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -221,6 +257,49 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        /* ══════════════ Colores fijos para grupos de mesas (ya no editable por el usuario) ══════════════ */
+        const GROUP_COLOR_OCUPADA = "#f59e0b";   // ámbar, igual que una mesa ocupada individual
+        const GROUP_COLOR_RESERVADA = "#7c5cff"; // violeta, igual que una mesa reservada individual
+        function colorParaEstadoGrupo(estado) {
+            return estado === "reservada" ? GROUP_COLOR_RESERVADA : GROUP_COLOR_OCUPADA;
+        }
+
+        /* ══════════════ Estilos de reserva/grupo de mesas (inyectados) ══════════════ */
+        const MESA_ADMIN_CSS = `
+        .mesas-grupo-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+       .mesas-grupo-bar input[type="text"]{flex:1;min-width:140px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:13px;color:#fff;}
+.mesas-grupo-bar input[type="text"]::placeholder{color:rgba(255,255,255,.35);}
+        .mg-btn{padding:8px 14px;border:none;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;color:#fff;}
+        .mg-reservar{background:#7c5cff;}
+        .mg-ocupar{background:var(--amber,#f59e0b);}
+        .mg-liberar{background:var(--ink-dim,#666);}
+        .mg-desagrupar{background:transparent;border:1px solid var(--line);color:var(--ink-dim);}
+        .mesa-box{position:relative;}
+        .mesa-box.reservada{border-color:#7c5cff !important;}
+        .mesa-box.reservada .mb-status{color:#7c5cff;}
+        .mesa-box.reservada .mb-status .dot{background:#7c5cff;}
+        .mesa-box.grupo{box-shadow:0 0 0 2px var(--grupo-color,#7c5cff) inset;}
+     .mesa-reservar-btn{margin-top:8px;width:100%;padding:6px 0;border-radius:8px;border:1px solid var(--line);background:transparent;color:inherit;font-size:11.5px;font-weight:700;cursor:pointer;}
+        .mesa-reservar-btn:hover{background:var(--line);}
+        .mesa-desagrupar-btn{margin-top:6px;width:100%;padding:6px 0;border-radius:8px;border:1px dashed var(--line);background:transparent;color:inherit;font-size:11.5px;font-weight:700;cursor:pointer;}
+        .mesa-desagrupar-btn:hover{background:var(--line);}
+     .mesa-reserva-timer{font-size:10.5px;font-weight:700;color:var(--ink-dim);margin-top:2px;}
+.mesa-reserva-timer.urgent{color:#f87171;}
+.mesa-reserva-hora{font-size:10.5px;font-weight:700;color:var(--ink-dim);margin-top:2px;}
+.mesas-sel-total{font-size:12.5px;font-weight:800;color:var(--green,#22c55e);}
+        .mesas-sel-label{flex:1;min-width:160px;font-size:12.5px;font-weight:700;color:var(--ink-dim);}
+        .mg-cancelar{background:transparent;border:1px solid var(--line);color:var(--ink-dim);}
+        .mesa-box.selectable{cursor:pointer;transition:transform .12s ease,outline .12s ease;}
+        .mesa-box.selectable:active{transform:scale(.96);}
+        .mesa-box.selected{outline:3px solid #7c5cff;outline-offset:-3px;background:var(--violet-soft,rgba(124,92,255,.12));}
+        .mb-check{display:none;position:absolute;top:14px;left:14px;width:22px;height:22px;border-radius:50%;background:#7c5cff;color:#fff;align-items:center;justify-content:center;font-size:12px;font-weight:900;box-shadow:0 0 0 2px var(--bg,#08080c);}
+        .mesa-box.selected .mb-check{display:flex;}
+        .oc-btn.v-amber{background:var(--amber,#f59e0b);color:#1a1200;}
+        `;
+        const styleTag = document.createElement("style");
+        styleTag.textContent = MESA_ADMIN_CSS;
+        document.head.appendChild(styleTag);
+
         /* ══════════════ Identificación del negocio ══════════════ */
         const _params = new URLSearchParams(window.location.search);
         let tiendaId = _params.get("id") || null;
@@ -230,6 +309,7 @@
         const ESTADOS = ["pendiente", "en_proceso", "entregado", "rechazado"];
         const pedidosMap = new Map(); // id -> data
         const mesasMap = new Map(); // docId -> data (numero_mesa, nombre_alias, ...)
+        const gruposMap = new Map();
         const prevMoney = { pendiente: 0, en_proceso: 0, entregado: 0, rechazado: 0 };
         let activeTab = "pendiente";
         let activeModalId = null;
@@ -259,10 +339,18 @@
         let whatsappUnseen = 0;
         let mesaFilter = null;      // numero_mesa seleccionado, o null = todas las mesas
         let mesaEstadoFilter = null;
+        let mesasSeleccionadas = new Set();
         /* ══════════════ Auto-rechazo por tiempo (configurable) ══════════════ */
         let autoRejectEnabled = localStorage.getItem("geinz_autorej_on") === "1";
         let autoRejectMinutes = Number(localStorage.getItem("geinz_autorej_min")) || 5;
         const autoRejectingIds = new Set(); // evita disparos duplicados mientras se actualiza Firestore
+
+        /* ══════════════ Auto-liberación de reservas por tiempo (configurable) ══════════════
+           Si una mesa (o grupo de mesas) queda "reservada" más de X minutos sin pasar a
+           "ocupada", se le quita la reserva automáticamente y suena una alarma. */
+        let autoResEnabled = localStorage.getItem("geinz_autores_on") === "1";
+        let autoResMinutes = Number(localStorage.getItem("geinz_autores_min")) || 20;
+        const autoResReleasingIds = new Set(); // evita disparos duplicados (mesaDocId o grupoId) mientras se actualiza Firestore
 
         /* ══════════════ Filtro de fecha ══════════════
            El tablero SIEMPRE arranca mostrando solo los pedidos de HOY.
@@ -379,6 +467,7 @@
                 const diffMin = Math.floor((Date.now() - ts) / 60000);
                 el.classList.toggle("stale", diffMin >= 20);
             });
+            if (originFilter === "mesa") pintarTimersReserva();
         }
         setInterval(tickTimeAgo, 20000);
 
@@ -457,6 +546,28 @@
             });
         }
 
+        /* Alarma para reservas vencidas (auto-liberación) — dos tonos suaves alternando, distinta a las otras */
+        function playAutoResAlarm() {
+            if (!soundEnabled) return;
+            const ctx = ensureAudio();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            const notas = [740, 622, 740, 622];
+            notas.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "triangle";
+                osc.frequency.value = freq;
+                const start = now + i * 0.22;
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.18, start + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + 0.22);
+            });
+        }
+
         /* ══════════════ Botón de campana: sonido + permiso de notificaciones ══════════════ */
         const bellBtn = document.getElementById("bellBtn");
 
@@ -501,9 +612,11 @@
         autorejBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             autorejPop.classList.toggle("show");
+            autoresPop.classList.remove("show");
         });
         document.addEventListener("click", (e) => {
             if (!autorejPop.contains(e.target) && e.target !== autorejBtn) autorejPop.classList.remove("show");
+            if (!autoresPop.contains(e.target) && e.target !== autoresBtn) autoresPop.classList.remove("show");
         });
         autorejPop.addEventListener("click", (e) => e.stopPropagation());
 
@@ -520,6 +633,45 @@
                 autoRejectEnabled
                     ? `⏱️ Auto-rechazo activado: ${mins} min sin confirmar`
                     : "⏱️ Auto-rechazo desactivado"
+            );
+        });
+
+        /* ══════════════ Control de auto-liberación de reservas (popover) ══════════════ */
+        const autoresBtn = document.getElementById("autoresBtn");
+        const autoresPop = document.getElementById("autoresPop");
+        const autoresToggle = document.getElementById("autoresToggle");
+        const autoresMinutesInput = document.getElementById("autoresMinutes");
+        const autoresVal = document.getElementById("autoresVal");
+        const autoresSave = document.getElementById("autoresSave");
+
+        function paintAutoresBtn() {
+            autoresBtn.classList.toggle("on", autoResEnabled);
+            autoresVal.textContent = autoResEnabled ? `${autoResMinutes}m` : "Off";
+        }
+        autoresToggle.checked = autoResEnabled;
+        autoresMinutesInput.value = autoResMinutes;
+        paintAutoresBtn();
+
+        autoresBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            autoresPop.classList.toggle("show");
+            autorejPop.classList.remove("show");
+        });
+        autoresPop.addEventListener("click", (e) => e.stopPropagation());
+
+        autoresSave.addEventListener("click", () => {
+            const mins = Math.max(1, Math.min(240, Math.round(Number(autoresMinutesInput.value) || 20)));
+            autoresMinutesInput.value = mins;
+            autoResMinutes = mins;
+            autoResEnabled = autoresToggle.checked;
+            localStorage.setItem("geinz_autores_on", autoResEnabled ? "1" : "0");
+            localStorage.setItem("geinz_autores_min", String(mins));
+            paintAutoresBtn();
+            autoresPop.classList.remove("show");
+            showToast(
+                autoResEnabled
+                    ? `🔔 Auto-liberación de reservas activada: ${mins} min sin ocupar`
+                    : "🔔 Auto-liberación de reservas desactivada"
             );
         });
 
@@ -546,6 +698,9 @@
                 const autorejWrapEl = document.querySelector(".autorej-wrap");
                 if (autorejWrapEl) autorejWrapEl.style.display = originFilter === "mesa" ? "none" : "block";
                 if (originFilter === "mesa") autorejPop.classList.remove("show");
+                // El auto-liberación de reservas es exclusiva de Mesas
+                if (autoresBtn) autoresBtn.style.display = originFilter === "mesa" ? "inline-flex" : "none";
+                if (originFilter !== "mesa") autoresPop.classList.remove("show");
 
                 if (originFilter === "whatsapp") {
                     whatsappUnseen = 0;
@@ -563,6 +718,32 @@
             const activos = [];
             mesasMap.forEach((m, mesaDocId) => {
                 if (Number(m.numero_mesa) !== Number(numeroMesa)) return;
+
+                // Mesa agrupada: el pedido real vive en grupos_mesas, no en la mesa
+                if (m.grupoId) {
+                    const grupo = gruposMap.get(m.grupoId);
+                    if (!grupo || grupo.estado !== "activo" || !grupo.pedido) return;
+                    const pseudoPedido = {
+                        estado: "pendiente",
+                        timestamp: grupo.pedido.timestamp,
+                        fecha: grupo.pedido.fecha,
+                        hora: grupo.pedido.hora,
+                        cliente: grupo.pedido.cliente || { nombre: "", tipo_entrega: "En mesa" },
+                        mesa: { id: mesaDocId, nombre: m.mesaNombre || m.nombre_alias || null, numero: m.numero_mesa },
+                        mesasGrupo: grupo.mesas || [],
+                        pago: grupo.pedido.pago || {},
+                        nota: grupo.pedido.nota || "",
+                        productos: grupo.pedido.productos || [],
+                        bloques: grupo.pedido.bloques || [],
+                        total_items: grupo.pedido.total_items || 0,
+                        total: grupo.pedido.total || 0,
+                        pedidoDocId: grupo.pedidoGrupoDocId || null,
+                        grupoId: m.grupoId,
+                    };
+                    activos.push([mesaDocId, pseudoPedido]);
+                    return;
+                }
+
                 if (m.estado !== "ocupado" || !m.pedido) return;
                 const pseudoPedido = {
                     estado: "pendiente",
@@ -576,60 +757,205 @@
                     productos: m.pedido.productos || [],
                     total_items: m.pedido.total_items || 0,
                     total: m.pedido.total || 0,
-                    pedidoDocId: m.pedidoMesaDocId || null,   // ← nuev
+                    pedidoDocId: m.pedidoMesaDocId || null,
                 };
                 activos.push([mesaDocId, pseudoPedido]);
             });
             return activos;
         }
 
+        function getMesaEstadoVisual(m, activos) {
+            if (activos.length > 0 || m.estado === "ocupado") return "ocupada";
+            if (m.estado === "reservada") return "reservada";
+            return "libre";
+        }
+        function getColumnasActuales() {
+            const grid = document.getElementById("mesaGrid");
+            if (!grid) return 1;
+            const styles = getComputedStyle(grid);
+            const cols = styles.gridTemplateColumns.split(" ").filter(Boolean).length;
+            return Math.max(cols, 1);
+        }
+
+        /* Actualiza en vivo (sin re-pintar todo el grid) los contadores de "tiempo restante"
+           de las reservas, para que el reloj de cada mesa/grupo se vea fluido. */
+        function pintarTimersReserva() {
+            if (!autoResEnabled) return;
+            document.querySelectorAll("[data-reserva-ts]").forEach((el) => {
+                const ts = Number(el.dataset.reservaTs);
+                if (!ts) return;
+                const limiteMs = autoResMinutes * 60000;
+                const restanteMin = Math.max(0, Math.ceil((limiteMs - (Date.now() - ts)) / 60000));
+                el.textContent = restanteMin > 0 ? `⏳ vence en ${restanteMin} min` : "⏳ por vencer…";
+                el.classList.toggle("urgent", restanteMin <= 3);
+            });
+        }
+
         function renderMesaGrid() {
             const grid = document.getElementById("mesaGrid");
             if (!grid) return;
+
+            // Limpia selección de mesas que dejaron de estar disponibles (ocupadas por otro flujo, borradas, etc.)
+            [...mesasSeleccionadas].forEach((mesaDocId) => {
+                const m = mesasMap.get(mesaDocId);
+                if (!m || m.estado === "ocupado") mesasSeleccionadas.delete(mesaDocId);
+            });
+            pintarBarraSeleccion();
+
             const todas = [...mesasMap.values()].sort((a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0));
 
             const conEstado = todas.map((m) => {
                 const activos = getPedidosDeMesa(m.numero_mesa);
-                return { m, activos, ocupada: activos.length > 0 };
+                const estadoVisual = getMesaEstadoVisual(m, activos);
+                return { m, activos, estadoVisual };
             });
 
-            const totalOcupadas = conEstado.filter((x) => x.ocupada).length;
-            const totalLibres = conEstado.length - totalOcupadas;
-            pintarResumenMesas(totalOcupadas, totalLibres);
+            const totalOcupadas = conEstado.filter((x) => x.estadoVisual === "ocupada").length;
+            const totalReservadas = conEstado.filter((x) => x.estadoVisual === "reservada").length;
+            const totalLibres = conEstado.length - totalOcupadas - totalReservadas;
+            pintarResumenMesas(totalOcupadas, totalLibres, totalReservadas);
 
             const visibles = conEstado.filter((x) => {
-                if (mesaEstadoFilter === "ocupada") return x.ocupada;
-                if (mesaEstadoFilter === "libre") return !x.ocupada;
+                if (mesaEstadoFilter) return x.estadoVisual === mesaEstadoFilter;
                 return true;
             });
 
             if (!visibles.length) {
+                const nombresFiltro = { ocupada: "ocupadas", libre: "libres", reservada: "reservadas" };
                 const msg = mesaEstadoFilter
-                    ? `No hay mesas ${mesaEstadoFilter === "ocupada" ? "ocupadas" : "libres"} en este momento.`
+                    ? `No hay mesas ${nombresFiltro[mesaEstadoFilter]} en este momento.`
                     : "Todavía no hay mesas registradas para este local.";
                 grid.innerHTML = `<div style="font-size:12px;color:var(--ink-faint);font-weight:600;padding:8px 2px;">${msg}</div>`;
                 return;
             }
 
-            grid.innerHTML = visibles.map(({ m, activos, ocupada }) => {
-                const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
-                return `
-    <div class="mesa-box ${ocupada ? "ocupada" : "libre"}" data-mesa="${m.numero_mesa}">
-        <span class="mb-status"><span class="dot"></span>${ocupada ? "Ocupada" : "Libre"}</span>
+            // ── Une en un solo bloque visual las mesas que comparten el mismo grupoId (pedido único
+            //    o reserva conjunta). Esto aplica sin importar el estado visual (ocupada, reservada
+            //    o incluso libre si por algún motivo quedó un grupo "huérfano" sin desagrupar). ──
+            const yaRenderizadas = new Set();
+            const bloques = [];
+
+            visibles.forEach(({ m, activos, estadoVisual }) => {
+                if (yaRenderizadas.has(m.numero_mesa)) return;
+
+                if (m.grupoId) {
+                    const delMismoGrupo = visibles.filter((x) => x.m.grupoId === m.grupoId);
+                    delMismoGrupo.forEach((x) => yaRenderizadas.add(x.m.numero_mesa));
+                    bloques.push({ tipo: "grupo", integrantes: delMismoGrupo, grupoId: m.grupoId });
+                } else {
+                    yaRenderizadas.add(m.numero_mesa);
+                    const mesaDocId = [...mesasMap.entries()].find(([, mm]) => mm === m)?.[0];
+                    bloques.push({ tipo: "single", m, mesaDocId, activos, estadoVisual });
+                }
+            });
+
+            grid.innerHTML = bloques.map((bloque) => {
+                if (bloque.tipo === "single") {
+                    const { m, mesaDocId, activos, estadoVisual } = bloque;
+                    const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
+                    const label = { ocupada: "Ocupada", libre: "Libre", reservada: "Reservada" }[estadoVisual];
+                    const puedeReservar = estadoVisual !== "ocupada";
+                    const esSeleccionable = estadoVisual !== "ocupada";
+                    const estaSeleccionada = mesasSeleccionadas.has(mesaDocId);
+                    const horaReservaHtml = (estadoVisual === "reservada" && m.hora_reservada)
+                        ? `<div class="mesa-reserva-hora">🕐 Llega ${toDate(m.hora_reservada)?.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }) || "—"}</div>`
+                        : "";
+                    const reservaTimerHtml = (estadoVisual === "reservada" && autoResEnabled && m.reservado_en)
+                        ? `<div class="mesa-reserva-timer" data-reserva-ts="${toDate(m.reservado_en)?.getTime() || ""}">⏳ calculando…</div>`
+                        : "";
+                    return `
+    <div class="mesa-box ${estadoVisual}${esSeleccionable ? " selectable" : ""}${estaSeleccionada ? " selected" : ""}" data-mesa="${m.numero_mesa}" data-mesa-doc="${mesaDocId}" data-selectable="${esSeleccionable}">
+        <span class="mb-check">✓</span>
+        <span class="mb-status"><span class="dot"></span>${label}</span>
         <div class="mb-name">${escapeHtml(m.nombre_alias || ("Mesa " + m.numero_mesa))}</div>
-        <div class="mb-total">${ocupada ? fmtMoney(total) : "—"}</div>
-        ${ocupada ? `<div class="mb-count">${activos.length} pedido${activos.length === 1 ? "" : "s"}</div>` : ""}
+        <div class="mb-total">${estadoVisual === "ocupada" ? fmtMoney(total) : "—"}</div>
+     ${estadoVisual === "ocupada" ? `<div class="mb-count">${activos.length ? `${activos.length} pedido${activos.length === 1 ? "" : "s"}` : "Sin pedido registrado"}</div>` : ""}
+   ${horaReservaHtml}
+        ${reservaTimerHtml}
+        ${puedeReservar ? `<button class="mesa-reservar-btn" data-mesa-reservar="${m.numero_mesa}">${estadoVisual === "reservada" ? "Quitar reserva" : "Reservar"}</button>` : ""}
+    </div>`;
+                }
+
+                // Tarjeta única para todo el grupo: un solo total, un solo estado, abarca varias columnas
+                const integrantes = bloque.integrantes;
+                const primero = integrantes[0];
+                const color = colorParaEstadoGrupo(primero.estadoVisual);
+                const nombres = integrantes.map((x) => x.m.nombre_alias || `Mesa ${x.m.numero_mesa}`).join(" + ");
+                const totalGrupo = primero.activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
+                const totalPedidos = primero.activos.length;
+                const anchoSpan = Math.min(integrantes.length, getColumnasActuales());
+                const labelEstadoGrupo = { reservada: "Reservada", ocupada: "Ocupada", libre: "Sin agrupar" }[primero.estadoVisual] || "Ocupada";
+                const grupoDocId = integrantes.map((x) => [...mesasMap.entries()].find(([, mm]) => mm === x.m)?.[0]);
+                const grupoInfo = gruposMap.get(bloque.grupoId);
+                const esSeleccionableGrupo = primero.estadoVisual !== "ocupada";
+                const grupoSeleccionado = grupoDocId.length && grupoDocId.every((id) => id && mesasSeleccionadas.has(id));
+                const horaReservaHtml = (primero.estadoVisual === "reservada" && grupoInfo?.hora_reservada)
+                    ? `<div class="mesa-reserva-hora">🕐 Llega ${toDate(grupoInfo.hora_reservada)?.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }) || "—"}</div>`
+                    : "";
+                const reservaTimerHtml = (primero.estadoVisual === "reservada" && autoResEnabled && grupoInfo?.reservado_en)
+                    ? `<div class="mesa-reserva-timer" data-reserva-ts="${toDate(grupoInfo.reservado_en)?.getTime() || ""}">⏳ calculando…</div>`
+                    : "";
+
+                return `
+    <div class="mesa-box grupo ${primero.estadoVisual}${esSeleccionableGrupo ? " selectable" : ""}${grupoSeleccionado ? " selected" : ""}" data-mesa="${primero.m.numero_mesa}" data-grupo-id="${bloque.grupoId}" data-selectable="${esSeleccionableGrupo}" style="--grupo-color:${color}; grid-column: span ${anchoSpan};">
+        <span class="mb-check">✓</span>
+        <span class="mb-status"><span class="dot"></span>${labelEstadoGrupo} · Grupo</span>
+        <div class="mb-name">${escapeHtml(nombres)}</div>
+        <div class="mb-total">${primero.estadoVisual === "ocupada" ? fmtMoney(totalGrupo) : "—"}</div>
+        ${primero.estadoVisual === "ocupada" ? `<div class="mb-count">${totalPedidos} pedido${totalPedidos === 1 ? "" : "s"} · cuenta única</div>` : ""}
+    ${horaReservaHtml}
+        ${reservaTimerHtml}
+        ${primero.estadoVisual === "reservada" ? `<button class="mesa-reservar-btn" data-grupo-reservar="${bloque.grupoId}">Quitar reserva</button>` : ""}
+        <button class="mesa-desagrupar-btn" data-grupo-desagrupar="${bloque.grupoId}">⇱ Desagrupar</button>
     </div>`;
             }).join("");
-            grid.querySelectorAll(".mesa-box").forEach((box) => {
-                box.addEventListener("click", () => openMesaDetail(Number(box.dataset.mesa)));
-            });
-        }
 
-        function pintarResumenMesas(ocupadas, libres) {
+            grid.querySelectorAll(".mesa-box").forEach((box) => {
+                box.addEventListener("click", (e) => {
+                    if (e.target.closest("[data-mesa-reservar],[data-grupo-reservar],[data-grupo-desagrupar]")) return; // los botones internos manejan su propio click
+                    const esSeleccionable = box.dataset.selectable === "true";
+                    const mesaDocId = box.dataset.mesaDoc;
+                    const grupoId = box.dataset.grupoId;
+                    if (grupoId) {
+                        if (esSeleccionable) {
+                            toggleSeleccionGrupo(grupoId);
+                        } else {
+                            openMesaDetail(Number(box.dataset.mesa));
+                        }
+                        return;
+                    }
+                    if (esSeleccionable && mesaDocId) {
+                        toggleSeleccionMesa(mesaDocId);
+                    } else {
+                        openMesaDetail(Number(box.dataset.mesa));
+                    }
+                });
+            });
+            grid.querySelectorAll("[data-mesa-reservar]").forEach((btn) => {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    toggleReservaMesa(Number(btn.dataset.mesaReservar));
+                });
+            });
+            grid.querySelectorAll("[data-grupo-reservar]").forEach((btn) => {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    quitarReservaGrupo(btn.dataset.grupoReservar);
+                });
+            });
+            grid.querySelectorAll("[data-grupo-desagrupar]").forEach((btn) => {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    desagruparGrupo(btn.dataset.grupoDesagrupar);
+                });
+            });
+
+            pintarTimersReserva();
+        }
+        function pintarResumenMesas(ocupadas, libres, reservadas) {
             const ctrl = document.getElementById("mesaEstadoCtrl");
             if (!ctrl) return;
-            const total = ocupadas + libres;
+            const total = ocupadas + libres + reservadas;
             ctrl.innerHTML = `
     <div class="mesa-chip ${mesaEstadoFilter === null ? "active" : ""}" data-estado="todas">
         <span class="mc-dot" style="background:var(--ink-dim);"></span>
@@ -638,6 +964,10 @@
     <div class="mesa-chip ${mesaEstadoFilter === "ocupada" ? "active" : ""}" data-estado="ocupada">
         <span class="mc-dot" style="background:var(--amber);"></span>
         <span class="mc-lbl">Ocupadas</span><span class="mc-count">${ocupadas}</span>
+    </div>
+    <div class="mesa-chip ${mesaEstadoFilter === "reservada" ? "active" : ""}" data-estado="reservada">
+        <span class="mc-dot" style="background:#7c5cff;"></span>
+        <span class="mc-lbl">Reservadas</span><span class="mc-count">${reservadas}</span>
     </div>
     <div class="mesa-chip ${mesaEstadoFilter === "libre" ? "active" : ""}" data-estado="libre">
         <span class="mc-dot" style="background:var(--green);"></span>
@@ -651,6 +981,7 @@
                 });
             });
         }
+
         /* ══════════════ Notificación del navegador (con imagen del producto) ══════════════ */
         function notificarPedidoNuevo(p) {
             const cliente = p.cliente || {};
@@ -723,6 +1054,21 @@
                     icon: bizLogoUrl || undefined,
                     badge: bizLogoUrl || undefined,
                     tag: "geinz-autorechazo-" + Date.now(),
+                    requireInteraction: false,
+                });
+                n.onclick = () => { window.focus(); n.close(); };
+            } catch (e) { console.warn("No se pudo mostrar la notificación:", e); }
+        }
+
+        function notificarAutoLiberacionReserva(nombres) {
+            if (!window.Notification || Notification.permission !== "granted") return;
+            if (document.visibilityState === "visible") return;
+            try {
+                const n = new Notification(`🔔 Reserva vencida`, {
+                    body: `${nombres} · superó ${autoResMinutes} min sin ocuparse, la reserva se quitó`,
+                    icon: bizLogoUrl || undefined,
+                    badge: bizLogoUrl || undefined,
+                    tag: "geinz-autores-" + Date.now(),
                     requireInteraction: false,
                 });
                 n.onclick = () => { window.focus(); n.close(); };
@@ -868,13 +1214,16 @@
             const activos = getPedidosDeMesa(numeroMesa)
                 .sort((a, b) => (toDate(a[1].timestamp)?.getTime() || 0) - (toDate(b[1].timestamp)?.getTime() || 0));
             const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
-            const ocupada = activos.length > 0;
+            const ocupada = activos.length > 0 || mesaInfo?.estado === "ocupado";
 
             detailModal.dataset.status = ocupada ? "pendiente" : "entregado";
             document.getElementById("dmId").innerHTML = `🍽️ Mesa <span class="oc-origin-tag mesa">${ocupada ? "Ocupada" : "Libre"}</span>`;
             document.getElementById("dmName").textContent = mesaInfo?.nombre_alias || ("Mesa " + numeroMesa);
-            document.getElementById("dmTime").innerHTML = `<span class="pulse"></span><span class="ts-label">${activos.length} pedido${activos.length === 1 ? "" : "s"} sin pagar</span>`;
-
+            const mesasDelGrupo = activos[0]?.[1]?.mesasGrupo;
+            const grupoLabel = mesasDelGrupo && mesasDelGrupo.length > 1
+                ? ` · Unida con ${mesasDelGrupo.filter(m => m.numero !== numeroMesa).map(m => m.nombre || ("Mesa " + m.numero)).join(", ")}`
+                : "";
+            document.getElementById("dmTime").innerHTML = `<span class="pulse"></span><span class="ts-label">${activos.length} pedido${activos.length === 1 ? "" : "s"} sin pagar${grupoLabel}</span>`;
             // Todo el detalle directo: cada pedido de la mesa, con sus bloques por hora,
             // sin necesitar un clic adicional para verlo.
             const bloquesDePedidos = activos.map(([id, p]) => {
@@ -919,25 +1268,163 @@
 
             const dmActions = document.getElementById("dmActions");
             dmActions.innerHTML = "";
-            if (ocupada) {
+            if (activos.length > 0) {
+                // Ocupada CON pedido: hay que cobrar antes de liberar
                 const btn = document.createElement("button");
                 btn.className = "oc-btn primary v-green";
                 btn.style.width = "100%";
                 btn.textContent = "💰 Marcar como pagado y liberar mesa";
                 btn.addEventListener("click", () => liberarMesa(numeroMesa, btn));
                 dmActions.appendChild(btn);
+            } else if (ocupada) {
+                // Ocupada SIN pedido registrado: no hay nada que cobrar, solo liberar
+                const btn = document.createElement("button");
+                btn.className = "oc-btn primary v-amber";
+                btn.style.width = "100%";
+                btn.textContent = "🔓 Liberar mesa (sin pedido)";
+                btn.addEventListener("click", () => liberarMesa(numeroMesa, btn));
+                dmActions.appendChild(btn);
             } else {
                 dmActions.innerHTML = `<div class="oc-final-tag" style="width:100%;background:var(--green-soft);color:var(--green);">✅ Mesa libre</div>`;
             }
         }
+        async function toggleReservaMesa(numeroMesa) {
+            const mesaEntry = [...mesasMap.entries()].find(([, m]) => m.numero_mesa === numeroMesa);
+            if (!mesaEntry) return;
+            const [mesaDocId, m] = mesaEntry;
+            const activos = getPedidosDeMesa(numeroMesa);
+            if (activos.length > 0) {
+                showToast("Esta mesa tiene pedidos activos, no se puede reservar", true);
+                return;
+            }
+            const nuevaReserva = m.estado !== "reservada";
+            let horaReservadaTs = null;
+
+            if (nuevaReserva) {
+                const horaTexto = window.prompt("¿A qué hora llega el cliente? (formato 24h, ej: 14:20)", "");
+                if (horaTexto === null) return; // canceló
+                const match = horaTexto.trim().match(/^(\d{1,2}):(\d{2})$/);
+                if (!match) { showToast("Hora inválida, usa el formato HH:MM", true); return; }
+                const [, hh, mm] = match;
+                const fecha = new Date();
+                fecha.setHours(Number(hh), Number(mm), 0, 0);
+                if (fecha.getTime() < Date.now()) fecha.setDate(fecha.getDate() + 1); // si ya pasó, se asume mañana
+                horaReservadaTs = Timestamp.fromDate(fecha);
+            }
+
+            try {
+                const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                await updateDoc(mesaRef, {
+                    estado: nuevaReserva ? "reservada" : "libre",
+                    hora_reservada: nuevaReserva ? horaReservadaTs : null,
+                    reservado_en: nuevaReserva ? serverTimestamp() : null,
+                });
+                showToast(nuevaReserva ? `🔒 Mesa ${numeroMesa} reservada` : `🔓 Reserva de mesa ${numeroMesa} quitada`);
+            } catch (err) {
+                console.error("Error al reservar mesa:", err);
+                showToast("❌ No se pudo actualizar la reserva", true);
+            }
+        }
+
+        /* Quita la reserva de un GRUPO de mesas reservadas juntas: libera cada mesa y cierra el grupo */
+        async function quitarReservaGrupo(grupoId) {
+            const grupo = gruposMap.get(grupoId);
+            const miembros = grupo?.mesas || [...mesasMap.entries()].filter(([, m]) => m.grupoId === grupoId).map(([id, m]) => ({ id }));
+            if (!miembros.length) return;
+            try {
+                const batch = writeBatch(db);
+                miembros.forEach((m) => {
+                    const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", m.id);
+                    batch.set(mesaRef, { estado: "libre", grupoId: null, grupo_color: null, reservado_en: null }, { merge: true });
+                });
+                batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId), { estado: "cerrado" }, { merge: true });
+                await batch.commit();
+                showToast("🔓 Reserva del grupo quitada, mesas liberadas");
+            } catch (err) {
+                console.error("Error al quitar la reserva del grupo:", err);
+                showToast("❌ No se pudo quitar la reserva del grupo", true);
+            }
+        }
+
+        /* Desagrupa un grupo de mesas y las devuelve al grid como celdas individuales.
+           - Si el grupo NO tiene pedidos activos (reservado o quedó "huérfano"), simplemente
+             se separan y quedan libres.
+           - Si el grupo SÍ tiene un pedido activo (ocupado), se pide confirmación porque el
+             pedido compartido seguirá existiendo en la base de datos, pero dejará de estar
+             vinculado visualmente a estas mesas. */
+        async function desagruparGrupo(grupoId) {
+            const grupo = gruposMap.get(grupoId);
+            const miembrosMap = [...mesasMap.entries()].filter(([, m]) => m.grupoId === grupoId);
+            if (!miembrosMap.length) return;
+
+            const activos = miembrosMap.reduce((acc, [, m]) => acc + getPedidosDeMesa(m.numero_mesa).length, 0);
+
+            if (activos > 0) {
+                const ok = window.confirm(
+                    "Este grupo tiene un pedido activo compartido. Al desagrupar, las mesas se separarán " +
+                    "pero el pedido NO se marcará como pagado (seguirá existiendo en el sistema). ¿Deseas continuar?"
+                );
+                if (!ok) return;
+            }
+
+            try {
+                const batch = writeBatch(db);
+                miembrosMap.forEach(([mesaDocId]) => {
+                    const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                    batch.set(mesaRef, { estado: "libre", grupoId: null, grupo_color: null, reservado_en: null }, { merge: true });
+                });
+                batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId), { estado: "cerrado" }, { merge: true });
+                await batch.commit();
+                showToast("⇱ Mesas desagrupadas");
+            } catch (err) {
+                console.error("Error al desagrupar mesas:", err);
+                showToast("❌ No se pudo desagrupar el grupo", true);
+            }
+        }
+
         async function liberarMesa(numeroMesa, btnEl) {
             const activos = getPedidosDeMesa(numeroMesa);
-            if (!activos.length) return;
+            const mesaEntry = [...mesasMap.entries()].find(([, m]) => m.numero_mesa === numeroMesa);
+            if (!activos.length && mesaEntry?.[1]?.estado !== "ocupado") return;
             if (btnEl) btnEl.disabled = true;
             try {
+                const grupoId = activos[0]?.[1]?.grupoId || mesaEntry?.[1]?.grupoId || null;
+
+                if (grupoId) {
+                    // Mesa agrupada: liberamos TODAS las mesas del grupo de una sola vez
+                    const grupo = gruposMap.get(grupoId);
+                    const batch = writeBatch(db);
+                    (grupo?.mesas || []).forEach((m) => {
+                        const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", m.id);
+                        batch.set(mesaRef, { estado: "libre", pago: "pagado", grupoId: null, grupo_color: null, reservado_en: null, hora_reservada: null }, { merge: true });
+                    });
+                    batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId), { estado: "cerrado" }, { merge: true });
+                    if (grupo?.pedidoGrupoDocId) {
+                        batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", grupo.pedidoGrupoDocId), {
+                            estado: "entregado", actualizado: serverTimestamp(),
+                        }, { merge: true });
+                    }
+                    await batch.commit();
+                    showToast("🍽️ Mesas agrupadas liberadas y pedido marcado como pagado");
+                    closeDetail();
+                    return;
+                }
+
+                if (!activos.length) {
+                    // Mesa ocupada manualmente (sin pedido registrado todavía): solo se libera
+                    if (mesaEntry) {
+                        await updateDoc(doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaEntry[0]), {
+                            estado: "libre", pago: "pagado", pedido: null, reservado_en: null, hora_reservada: null,
+                        });
+                    }
+                    showToast("🍽️ Mesa liberada");
+                    closeDetail();
+                    return;
+                }
+
                 await Promise.all(activos.map(([mesaDocId, pseudoPedido]) => {
                     const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
-                    const tareas = [updateDoc(mesaRef, { estado: "libre", pago: "pagado", pedido: null })];
+                    const tareas = [updateDoc(mesaRef, { estado: "libre", pago: "pagado", pedido: null, reservado_en: null, hora_reservada: null })];
 
                     if (pseudoPedido.pedidoDocId) {
                         const pedidoRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", pseudoPedido.pedidoDocId);
@@ -956,6 +1443,7 @@
                 if (btnEl) btnEl.disabled = false;
             }
         }
+
         document.getElementById("dmClose").addEventListener("click", closeDetail);
         detailOverlay.addEventListener("click", (e) => { if (e.target === detailOverlay) closeDetail(); });
 
@@ -963,7 +1451,7 @@
         function bloquesHtml(bloques) {
             return bloques.map((bloque, idx) => `
     <div style="margin-bottom:12px;">
-      <div class="dm-prod-cat" style="margin-bottom:6px;">${idx === 0 ? "Pedido inicial" : "Agregado"} · ${escapeHtml(bloque.hora)}</div>
+      <div class="dm-prod-cat" style="margin-bottom:6px;">${idx === 0 ? "Pedido inicial" : "Agregado"} · ${escapeHtml(bloque.hora)}${bloque.mesaOrigenNombre ? ` · 🪑 ${escapeHtml(bloque.mesaOrigenNombre)}` : ""}</div>
       <div class="dm-products">
         ${bloque.items.map((it) => `
           <div class="dm-prod-row">
@@ -1166,6 +1654,76 @@
         }
         setInterval(chequearAutoRechazo, 15000);
 
+        /* ══════════════ Chequeo periódico de auto-liberación de reservas ══════════════
+           Revisa tanto mesas individuales reservadas como grupos reservados. Si el tiempo
+           reservado_en supera autoResMinutes sin que la mesa/grupo pase a "ocupada", se
+           libera automáticamente en Firestore, suena una alarma y se avisa por toast. */
+        async function chequearReservasVencidas() {
+            if (!autoResEnabled) return;
+            const limiteMs = autoResMinutes * 60000;
+            const gruposVencidos = new Set();
+            const mesasSueltasVencidas = [];
+            const nombresVencidos = [];
+
+            mesasMap.forEach((m, mesaDocId) => {
+                if (m.estado !== "reservada") return;
+                if (getPedidosDeMesa(m.numero_mesa).length > 0) return; // ya se ocupó, el snapshot lo resolverá
+
+                if (m.grupoId) {
+                    if (gruposVencidos.has(m.grupoId) || autoResReleasingIds.has(m.grupoId)) return;
+                    const grupo = gruposMap.get(m.grupoId);
+                    const fecha = toDate(grupo?.hora_reservada) || toDate(grupo?.reservado_en) || toDate(m.hora_reservada) || toDate(m.reservado_en);
+                    if (!fecha) return;
+                    if (Date.now() - fecha.getTime() >= limiteMs) {
+                        gruposVencidos.add(m.grupoId);
+                        autoResReleasingIds.add(m.grupoId);
+                        nombresVencidos.push(m.nombre_alias || `Mesa ${m.numero_mesa}`);
+                    }
+                    return;
+                }
+
+                if (autoResReleasingIds.has(mesaDocId)) return;
+                const fecha = toDate(m.reservado_en);
+                if (!fecha) return;
+                if (Date.now() - fecha.getTime() >= limiteMs) {
+                    autoResReleasingIds.add(mesaDocId);
+                    mesasSueltasVencidas.push([mesaDocId, m]);
+                    nombresVencidos.push(m.nombre_alias || `Mesa ${m.numero_mesa}`);
+                }
+            });
+
+            if (!gruposVencidos.size && !mesasSueltasVencidas.length) return;
+
+            try {
+                const batch = writeBatch(db);
+                mesasSueltasVencidas.forEach(([mesaDocId]) => {
+                    const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                    batch.set(mesaRef, { estado: "libre", reservado_en: null }, { merge: true });
+                });
+                gruposVencidos.forEach((grupoId) => {
+                    const grupo = gruposMap.get(grupoId);
+                    (grupo?.mesas || [...mesasMap.entries()].filter(([, m]) => m.grupoId === grupoId).map(([id]) => ({ id }))).forEach((m) => {
+                        const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", m.id);
+                        batch.set(mesaRef, { estado: "libre", grupoId: null, grupo_color: null, reservado_en: null }, { merge: true });
+                    });
+                    batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId), { estado: "cerrado" }, { merge: true });
+                });
+                await batch.commit();
+            } catch (err) {
+                console.error("Error liberando reservas vencidas:", err);
+                mesasSueltasVencidas.forEach(([mesaDocId]) => autoResReleasingIds.delete(mesaDocId));
+                gruposVencidos.forEach((grupoId) => autoResReleasingIds.delete(grupoId));
+                return;
+            }
+
+            playAutoResAlarm();
+            bellRingFeedback();
+            const nombres = nombresVencidos.join(", ");
+            notificarAutoLiberacionReserva(nombres);
+            showToast(`🔔 Reserva vencida y quitada automáticamente: ${nombres}`, true);
+        }
+        setInterval(chequearReservasVencidas, 15000);
+
         /* ══════════════ Render del tablero completo ══════════════ */
         function renderBoard() {
             const grupos = { pendiente: [], en_proceso: [], entregado: [], rechazado: [] };
@@ -1275,7 +1833,13 @@
             });
         }
         aplicarMesaSize();
-
+        let resizeDebounce;
+        window.addEventListener("resize", () => {
+            clearTimeout(resizeDebounce);
+            resizeDebounce = setTimeout(() => {
+                if (originFilter === "mesa") renderMesaGrid();
+            }, 150);
+        });
         document.getElementById("mesaSizeCtrl").addEventListener("click", (e) => {
             const btn = e.target.closest(".ms-btn");
             if (!btn) return;
@@ -1284,6 +1848,319 @@
             aplicarMesaSize();
         });
 
+        /* ══════════════ Reserva/ocupación grupal de mesas ══════════════ */
+        function parseMesasInput() {
+            if (!mesasSeleccionadas.size) return null;
+            const numeros = [...mesasSeleccionadas]
+                .map((mesaDocId) => mesasMap.get(mesaDocId)?.numero_mesa)
+                .filter((n) => n !== undefined && n !== null);
+            return numeros.length ? numeros : null;
+        }
+
+        function toggleSeleccionMesa(mesaDocId) {
+            if (mesasSeleccionadas.has(mesaDocId)) mesasSeleccionadas.delete(mesaDocId);
+            else mesasSeleccionadas.add(mesaDocId);
+            renderMesaGrid();
+        }
+
+        /* Seleccionar/deseleccionar un grupo entero (todas sus mesas a la vez), igual que
+           se seleccionan mesas individuales — así se puede agrupar, liberar o desagrupar
+           varios grupos/mesas sueltas juntos desde la barra de selección. */
+        function toggleSeleccionGrupo(grupoId) {
+            const miembros = [...mesasMap.entries()].filter(([, m]) => m.grupoId === grupoId).map(([id]) => id);
+            if (!miembros.length) return;
+            const todasSeleccionadas = miembros.every((id) => mesasSeleccionadas.has(id));
+            miembros.forEach((id) => {
+                if (todasSeleccionadas) mesasSeleccionadas.delete(id);
+                else mesasSeleccionadas.add(id);
+            });
+            renderMesaGrid();
+        }
+
+        function limpiarSeleccionMesas() {
+            mesasSeleccionadas.clear();
+            renderMesaGrid();
+        }
+
+        function pintarBarraSeleccion() {
+            const label = document.getElementById("mesasSelLabel");
+            const totalEl = document.getElementById("mesasSelTotal");
+            const cancelBtn = document.getElementById("mesasGrupoCancelarBtn");
+            const reservarBtn = document.getElementById("mesasGrupoReservarBtn");
+            const ocuparBtn = document.getElementById("mesasGrupoOcuparBtn");
+            const liberarBtn = document.getElementById("mesasGrupoLiberarBtn");
+            const desagruparBtn = document.getElementById("mesasGrupoDesagruparBtn");
+            if (!label || !cancelBtn) return;
+
+            const n = mesasSeleccionadas.size;
+            label.textContent = n
+                ? `${n} mesa${n === 1 ? "" : "s"} seleccionada${n === 1 ? "" : "s"}`
+                : "Toca las mesas para seleccionarlas";
+            cancelBtn.style.display = n ? "inline-flex" : "none";
+
+            if (!n) {
+                if (reservarBtn) reservarBtn.style.display = "none";
+                if (ocuparBtn) ocuparBtn.style.display = "none";
+                if (liberarBtn) liberarBtn.style.display = "none";
+                if (desagruparBtn) desagruparBtn.style.display = "none";
+                if (totalEl) totalEl.style.display = "none";
+                return;
+            }
+
+            const seleccionadas = [...mesasSeleccionadas].map((id) => mesasMap.get(id)).filter(Boolean);
+            const hayReservada = seleccionadas.some((m) => m.estado === "reservada");
+            const hayAgrupada = seleccionadas.some((m) => !!m.grupoId);
+
+            if (reservarBtn) reservarBtn.style.display = "inline-flex";
+            if (ocuparBtn) ocuparBtn.style.display = "inline-flex";
+            if (liberarBtn) liberarBtn.style.display = hayReservada ? "inline-flex" : "none";
+            if (desagruparBtn) desagruparBtn.style.display = hayAgrupada ? "inline-flex" : "none";
+
+            let suma = 0;
+            [...mesasSeleccionadas].forEach((mesaDocId) => {
+                const m = mesasMap.get(mesaDocId);
+                if (!m) return;
+                suma += getPedidosDeMesa(m.numero_mesa).reduce((s, [, p]) => s + Number(p.total || 0), 0);
+            });
+            if (totalEl) {
+                totalEl.style.display = suma > 0 ? "inline-flex" : "none";
+                totalEl.textContent = suma > 0 ? `Total: ${fmtMoney(suma)}` : "";
+            }
+        }
+        async function aplicarEstadoGrupal(estadoDestino) {
+            const numeros = parseMesasInput();
+            if (!numeros) {
+                showToast("Toca las mesas que quieres seleccionar primero", true);
+                return;
+            }
+
+            const mesasEncontradas = [];
+            const noEncontradas = [];
+            const conPedidoActivo = [];
+            if (estadoDestino === "ocupado") {
+                const yaOcupadas = numeros.filter(num => getPedidosDeMesa(num).length > 0 ||
+                    [...mesasMap.values()].find(m => m.numero_mesa === num)?.estado === "ocupado");
+                const nuevas = numeros.filter(num => !yaOcupadas.includes(num));
+                if (yaOcupadas.length === 1 && nuevas.length > 0) {
+                    await agregarMesasAGrupoExistente(yaOcupadas[0], nuevas);
+                    limpiarSeleccionMesas();
+                    return;
+                }
+                if (yaOcupadas.length > 1) {
+                    showToast("Selecciona como máximo una mesa ya ocupada para agregarla a un grupo", true);
+                    return;
+                }
+            }
+
+            numeros.forEach((num) => {
+                const entry = [...mesasMap.entries()].find(([, m]) => m.numero_mesa === num);
+                if (!entry) { noEncontradas.push(num); return; }
+                if (estadoDestino !== "libre" && estadoDestino !== "desagrupar" && getPedidosDeMesa(num).length > 0) { conPedidoActivo.push(num); return; }
+                mesasEncontradas.push(entry);
+            });
+
+            if (noEncontradas.length) {
+                showToast(`Mesa(s) inexistente(s): ${noEncontradas.join(", ")}`, true);
+                return;
+            }
+            if (conPedidoActivo.length) {
+                showToast(`Mesa(s) con pedidos activos, no se pueden marcar: ${conPedidoActivo.join(", ")}`, true);
+                return;
+            }
+
+            const esGrupoReal = numeros.length > 1;
+
+            try {
+                /* ═══ LIBERAR: si alguna mesa seleccionada pertenece a un grupo activo, cerramos el grupo entero ═══ */
+                if (estadoDestino === "libre") {
+                    const gruposAfectados = new Set();
+                    mesasEncontradas.forEach(([, m]) => { if (m.grupoId) gruposAfectados.add(m.grupoId); });
+
+                    const batch = writeBatch(db);
+                    mesasEncontradas.forEach(([mesaDocId]) => {
+                        const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                        batch.set(mesaRef, { estado: "libre", grupo_color: null, grupoId: null, reservado_en: null }, { merge: true });
+                    });
+                    gruposAfectados.forEach((grupoId) => {
+                        const grupoRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId);
+                        batch.set(grupoRef, { estado: "cerrado" }, { merge: true });
+                    });
+                    await batch.commit();
+
+                    limpiarSeleccionMesas();
+                    showToast(`🔓 Mesas ${numeros.join(", ")} liberadas`);
+                    return;
+                }
+
+                /* ═══ DESAGRUPAR: quita el grupoId de las mesas seleccionadas y cierra sus grupos,
+                       sin tocar el estado (libre/reservada) que ya tenían ═══ */
+                if (estadoDestino === "desagrupar") {
+                    const gruposAfectados = new Set();
+                    mesasEncontradas.forEach(([, m]) => { if (m.grupoId) gruposAfectados.add(m.grupoId); });
+
+                    if (!gruposAfectados.size) {
+                        showToast("Ninguna de las mesas seleccionadas está agrupada", true);
+                        return;
+                    }
+
+                    const batch = writeBatch(db);
+                    mesasEncontradas.forEach(([mesaDocId, m]) => {
+                        if (!m.grupoId) return;
+                        const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                        batch.set(mesaRef, { grupoId: null, grupo_color: null }, { merge: true });
+                    });
+                    gruposAfectados.forEach((grupoId) => {
+                        const grupoRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId);
+                        batch.set(grupoRef, { estado: "cerrado" }, { merge: true });
+                    });
+                    await batch.commit();
+
+                    limpiarSeleccionMesas();
+                    showToast(`⇱ Mesas desagrupadas`);
+                    return;
+                }
+
+                let horaReservadaTs = null;
+                if (estadoDestino === "reservada") {
+                    const horaTexto = window.prompt("¿A qué hora llega el cliente? (formato 24h, ej: 14:20)", "");
+                    if (horaTexto === null) return;
+                    const match = horaTexto.trim().match(/^(\d{1,2}):(\d{2})$/);
+                    if (!match) { showToast("Hora inválida, usa el formato HH:MM", true); return; }
+                    const fecha = new Date();
+                    fecha.setHours(Number(match[1]), Number(match[2]), 0, 0);
+                    if (fecha.getTime() < Date.now()) fecha.setDate(fecha.getDate() + 1);
+                    horaReservadaTs = Timestamp.fromDate(fecha);
+                }
+
+                /* ═══ OCUPAR o RESERVAR con 2+ mesas: crea/actualiza el grupo real que las mantiene unidas ═══ */
+                if ((estadoDestino === "ocupado" || estadoDestino === "reservada") && esGrupoReal) {
+                    const color = colorParaEstadoGrupo(estadoDestino);
+                    const gruposRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas");
+                    const grupoId = doc(gruposRef).id;
+                    const mesasInfo = mesasEncontradas.map(([mesaDocId, m]) => ({
+                        id: mesaDocId, nombre: m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`, numero: m.numero_mesa,
+                    }));
+
+                    const batch = writeBatch(db);
+                    batch.set(doc(gruposRef, grupoId), {
+                        estado: estadoDestino === "ocupado" ? "activo" : "reservado",
+                        mesas: mesasInfo,
+                        pedido: null,
+                        pedidoGrupoDocId: null,
+                        reservado_en: estadoDestino === "reservada" ? serverTimestamp() : null,
+                        hora_reservada: estadoDestino === "reservada" ? horaReservadaTs : null,
+                        creado_en: serverTimestamp(),
+                    });
+                    mesasEncontradas.forEach(([mesaDocId]) => {
+                        const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                        batch.set(mesaRef, {
+                            estado: estadoDestino,
+                            grupo_color: color,
+                            grupoId,
+                            reservado_en: estadoDestino === "reservada" ? serverTimestamp() : null,
+                            hora_reservada: estadoDestino === "reservada" ? horaReservadaTs : null,
+                        }, { merge: true });
+                    });
+                    mesasEncontradas.forEach(([mesaDocId]) => {
+                        const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                        batch.set(mesaRef, {
+                            estado: estadoDestino,
+                            grupo_color: color,
+                            grupoId,
+                            reservado_en: estadoDestino === "reservada" ? serverTimestamp() : null,
+                        }, { merge: true });
+                    });
+                    await batch.commit();
+
+                    limpiarSeleccionMesas();
+                    showToast(
+                        estadoDestino === "ocupado"
+                            ? `🔗 Mesas ${numeros.join(", ")} unidas en un solo pedido`
+                            : `🔒 Mesas ${numeros.join(", ")} reservadas juntas`
+                    );
+                    return;
+                }
+
+                /* ═══ Caso simple: reservar u ocupar UNA sola mesa (sin grupo) ═══ */
+                await Promise.all(mesasEncontradas.map(([mesaDocId]) => {
+                    const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
+                    return updateDoc(mesaRef, {
+                        estado: estadoDestino,
+                        grupo_color: null,
+                        grupoId: null,
+                        reservado_en: estadoDestino === "reservada" ? serverTimestamp() : null,
+                        hora_reservada: estadoDestino === "reservada" ? horaReservadaTs : null,
+                    });
+                }));
+                limpiarSeleccionMesas();
+                showToast(`Mesas ${numeros.join(", ")} marcadas como ${estadoDestino === "ocupado" ? "ocupadas" : "reservadas"}`);
+            } catch (err) {
+                console.error("Error aplicando estado grupal:", err);
+                showToast("❌ No se pudo actualizar el grupo de mesas", true);
+            }
+        }
+
+
+        async function agregarMesasAGrupoExistente(numeroMesaOcupada, numerosNuevos) {
+            const entryOcupada = [...mesasMap.entries()].find(([, m]) => m.numero_mesa === numeroMesaOcupada);
+            if (!entryOcupada) return;
+            const [mesaDocOcupada, mOcupada] = entryOcupada;
+
+            if (!mOcupada.grupoId && mOcupada.pedido) {
+                showToast("Esta mesa ya tiene un pedido propio; libérala o pide el pedido antes de unir mesas", true);
+                return;
+            }
+
+            const entriesNuevas = numerosNuevos
+                .map(num => [...mesasMap.entries()].find(([, m]) => m.numero_mesa === num))
+                .filter(Boolean);
+            const conPedido = entriesNuevas.filter(([, m]) => getPedidosDeMesa(m.numero_mesa).length > 0);
+            if (conPedido.length) {
+                showToast("No puedes agregar una mesa que ya tiene su propio pedido activo", true);
+                return;
+            }
+
+            try {
+                const batch = writeBatch(db);
+                let grupoId = mOcupada.grupoId;
+
+                if (!grupoId) {
+                    const gruposRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas");
+                    grupoId = doc(gruposRef).id;
+                    batch.set(doc(gruposRef, grupoId), {
+                        estado: "activo",
+                        mesas: [{ id: mesaDocOcupada, nombre: mOcupada.nombre_alias || `Mesa ${numeroMesaOcupada}`, numero: numeroMesaOcupada }],
+                        pedido: null, pedidoGrupoDocId: null, creado_en: serverTimestamp(),
+                    });
+                    batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocOcupada), {
+                        grupoId, grupo_color: colorParaEstadoGrupo("ocupado"),
+                    }, { merge: true });
+                }
+
+                const mesasActuales = gruposMap.get(grupoId)?.mesas || [];
+                const mesasNuevasInfo = entriesNuevas.map(([mesaDocId, m]) => ({ id: mesaDocId, nombre: m.nombre_alias || `Mesa ${m.numero_mesa}`, numero: m.numero_mesa }));
+                batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas", grupoId), {
+                    mesas: [...mesasActuales, ...mesasNuevasInfo],
+                }, { merge: true });
+
+                entriesNuevas.forEach(([mesaDocId]) => {
+                    batch.set(doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId), {
+                        estado: "ocupado", grupoId, grupo_color: colorParaEstadoGrupo("ocupado"), reservado_en: null, hora_reservada: null,
+                    }, { merge: true });
+                });
+
+                await batch.commit();
+                showToast(`🔗 Mesa(s) agregada(s) a la mesa ${numeroMesaOcupada}`);
+            } catch (err) {
+                console.error("Error agregando mesas al grupo:", err);
+                showToast("❌ No se pudo agregar la mesa al grupo", true);
+            }
+        }
+        document.getElementById("mesasGrupoReservarBtn")?.addEventListener("click", () => aplicarEstadoGrupal("reservada"));
+        document.getElementById("mesasGrupoOcuparBtn")?.addEventListener("click", () => aplicarEstadoGrupal("ocupado"));
+        document.getElementById("mesasGrupoLiberarBtn")?.addEventListener("click", () => aplicarEstadoGrupal("libre"));
+        document.getElementById("mesasGrupoDesagruparBtn")?.addEventListener("click", () => aplicarEstadoGrupal("desagrupar"));
+        document.getElementById("mesasGrupoCancelarBtn")?.addEventListener("click", limpiarSeleccionMesas);
         /* ══════════════ Loader ══════════════ */
         function hideLoader() {
             const loader = document.getElementById("pageLoader");
@@ -1455,9 +2332,30 @@
             );
         }
 
+
+        let gruposListenerIniciado = false;
+        function iniciarListenerGrupos() {
+            if (!tiendaId || gruposListenerIniciado) return;
+            gruposListenerIniciado = true;
+            const gruposRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas");
+            onSnapshot(
+                gruposRef,
+                (snap) => {
+                    gruposMap.clear();
+                    snap.forEach((d) => gruposMap.set(d.id, { id: d.id, ...d.data() }));
+                    if (originFilter === "mesa") renderMesaGrid();
+                    if (activeModalId && String(activeModalId).startsWith("mesa:")) {
+                        renderMesaDetail(Number(String(activeModalId).split(":")[1]));
+                    }
+                },
+                (err) => console.warn("No se pudieron cargar los grupos de mesas:", err)
+            );
+        }
+
         function iniciarListener() {
             if (!tiendaId) return;
             iniciarListenerMesas();
+            iniciarListenerGrupos();
             suscribirPedidos();
         }
 

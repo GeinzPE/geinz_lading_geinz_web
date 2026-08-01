@@ -553,7 +553,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getFirestore, collection, query, where, orderBy, limit, onSnapshot
+      getFirestore, collection, query, where, orderBy, limit, onSnapshot, getDocs, Timestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     const firebaseConfig = {
       apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
@@ -588,31 +588,58 @@
 
     let unsubscribePedidos = null;
 
-    function listenPedidos() {
-      const col = collection(db, RUTA_PEDIDOS);
-      const q = query(col, limit(2000)); // sin where/orderBy en timestamp: se filtra en el cliente
-
-      if (unsubscribePedidos) unsubscribePedidos();
-
-      unsubscribePedidos = onSnapshot(q,
-        (snap) => {
-          pedidosRaw = snap.docs.map(d => normalizarPedido(d.id, d.data()));
-          setConnStatus(`conectado · ${pedidosRaw.length} pedidos totales`, true);
-          renderAll();
-          const loadingScreen = document.getElementById('loadingScreen');
-          if (loadingScreen) {
-            loadingScreen.style.transition = 'opacity 0.3s ease';
-            loadingScreen.style.opacity = '0';
-            setTimeout(() => loadingScreen.classList.add('hidden'), 300);
-          }
-        },
-        (err) => {
-          console.error(err);
-          setConnStatus('⚠️ Error de conexión / permisos en Firestore', false);
-        }
-      );
+    function ocultarLoader() {
+      const loadingScreen = document.getElementById('loadingScreen');
+      if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        loadingScreen.style.transition = 'opacity 0.3s ease';
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => loadingScreen.classList.add('hidden'), 300);
+      }
     }
 
+    // Trae SOLO los pedidos dentro del rango de fecha seleccionado — nunca 2000 al azar
+    function listenPedidos() {
+      if (unsubscribePedidos) { unsubscribePedidos(); unsubscribePedidos = null; }
+
+      const [from, to] = getRangeBounds();
+      const col = collection(db, RUTA_PEDIDOS);
+      const q = query(
+        col,
+        where("timestamp", ">=", Timestamp.fromDate(from)),
+        where("timestamp", "<=", Timestamp.fromDate(to)),
+        orderBy("timestamp", "desc"),
+        limit(2000)
+      );
+
+      // "Hoy" sí se queda en vivo (es la vista operativa del día).
+      // Cualquier otro rango es histórico: una sola lectura, sin listener permanente.
+      if (currentRange === 'hoy') {
+        unsubscribePedidos = onSnapshot(q,
+          (snap) => {
+            pedidosRaw = snap.docs.map(d => normalizarPedido(d.id, d.data()));
+            setConnStatus(`conectado · ${pedidosRaw.length} pedidos hoy`, true);
+            renderAll();
+            ocultarLoader();
+          },
+          (err) => {
+            console.error(err);
+            setConnStatus('⚠️ Error de conexión / permisos en Firestore', false);
+          }
+        );
+      } else {
+        setConnStatus('cargando…', null);
+        getDocs(q).then((snap) => {
+          pedidosRaw = snap.docs.map(d => normalizarPedido(d.id, d.data()));
+          setConnStatus(`conectado · ${pedidosRaw.length} pedidos en el rango`, true);
+          renderAll();
+          ocultarLoader();
+        }).catch((err) => {
+          console.error(err);
+          setConnStatus('⚠️ Error de conexión / permisos en Firestore', false);
+          ocultarLoader();
+        });
+      }
+    }
     // Los pedidos de mesa se guardan como { estado: "ocupado", pago: "pendiente", pedido: {...datos reales...} }
     // mientras que los normales guardan los datos directamente en la raíz.
     // Esta función los deja a todos con la misma forma para que el resto del código no tenga que distinguir.
@@ -1354,14 +1381,14 @@
         if (customRangeBox) {
           customRangeBox.classList.toggle('hidden', currentRange !== 'custom');
         }
-        renderAll();
+        if (currentRange !== 'custom') listenPedidos(); // custom espera a que se llenen las 2 fechas
       });
     }
 
     const customFrom = document.getElementById('customFrom');
-    if (customFrom) customFrom.addEventListener('change', renderAll);
+    if (customFrom) customFrom.addEventListener('change', () => { if (currentRange === 'custom') listenPedidos(); });
     const customTo = document.getElementById('customTo');
-    if (customTo) customTo.addEventListener('change', renderAll);
+    if (customTo) customTo.addEventListener('change', () => { if (currentRange === 'custom') listenPedidos(); });
     const filterEstado = document.getElementById('filterEstado');
     if (filterEstado) filterEstado.addEventListener('change', renderAll);
     const filterTipo = document.getElementById('filterTipo');

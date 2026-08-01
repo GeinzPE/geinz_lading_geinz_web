@@ -321,9 +321,9 @@
                     class="font-display flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[13px] font-semibold text-neutral-200 transition-colors hover:bg-white/[0.09] active:scale-[.98]">
                     <span>➕</span><span>Agregar mesa</span>
                 </button>
-                <button id="btnDescargarTodo"
+                <button id="btnDescargarHoja"
                     class="font-display flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[13px] font-semibold text-neutral-200 transition-colors hover:bg-white/[0.09] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40">
-                    <span>⬇</span><span>Descargar todos (.zip)</span>
+                    <span>🖨️</span><span>Descargar hoja (imprimir)</span>
                 </button>
 
                 <span id="mesasCountLabel" class="ml-0 text-[12px] text-neutral-500 sm:ml-auto">0 mesas</span>
@@ -788,6 +788,12 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #3d3d3d;
         }
+
+        #previewFontSelect option,
+        #previewSizeSelect option {
+            color: #000000;
+            background: #ffffff;
+        }
     </style>
 
     <!-- ============================================================
@@ -986,15 +992,13 @@
                 const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
                 const actions = document.getElementById(`qrActions${this._cap(tipo)}`);
                 const descarga = document.getElementById(`qrDescarga${this._cap(tipo)}`);
-
                 const objUrlPreview = URL.createObjectURL(blobOriginal);
                 preview.innerHTML = `<img src="${objUrlPreview}" alt="QR ${tipo}">`;
                 tile.classList.add("has-qr");
 
-                const blobHD = await this._prepararParaImpresion(blobOriginal);
-                const objUrlHD = URL.createObjectURL(blobHD);
-
-                descarga.href = objUrlHD;
+                // El HD ya NO se genera aquí; se genera al vuelo cuando el usuario
+                // realmente pulsa "Descargar HD" (ver onclick del <a> más abajo).
+                descarga.href = "#";
                 descarga.download = `qr-${tipo}-${info.alias}.png`;
                 actions.classList.remove("hidden");
                 actions.classList.add("flex");
@@ -1006,7 +1010,7 @@
                 }
 
                 // Cache para la vista previa de descarga (PreviewQr.openNegocio)
-                this._estado[tipo] = { blobOriginal, blobHD, info };
+                this._estado[tipo] = { blobOriginal, info };
             },
 
             /**
@@ -1255,6 +1259,132 @@
                 return await res.blob();
             },
 
+
+            async descargarHoja() {
+                if (!this._mesas.length) return;
+                const btn = document.getElementById("btnDescargarHoja");
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                const setBtnProgress = (texto) => {
+                    btn.innerHTML = `
+        <span class="flex items-center gap-1.5">
+            <span class="qr-loading-dot"></span>
+            <span class="qr-loading-dot"></span>
+            <span class="qr-loading-dot"></span>
+        </span>
+        <span class="font-display">${texto}</span>`;
+                };
+                setBtnProgress("Preparando…");
+                try {
+                    const font = document.getElementById("previewFontSelect").value;
+                    const size = document.getElementById("previewSizeSelect").value;
+                    const palette = await PreviewQr._obtenerPaletteDeLogo();
+                    const info = await QrNegocio._obtenerInfoTienda();
+
+                    const stage = document.createElement("div");
+                    stage.style.position = "fixed";
+                    stage.style.left = "-9999px";
+                    stage.style.top = "0";
+                    document.body.appendChild(stage);
+
+                    const DPI = 300;
+                    const PAGE_W = Math.round(8.5 * DPI);
+                    const PAGE_H = Math.round(11 * DPI);
+                    const MARGIN = Math.round(0.25 * DPI);
+                    const GAP = Math.round(0.15 * DPI);
+                    const CARD_SCALE = 3;
+
+                    const cardCanvases = [];
+                    let procesadas = 0;
+                    for (const mesa of this._mesas) {
+                        setBtnProgress(`Generando ${procesadas + 1} / ${this._mesas.length}…`);
+                        const card = document.createElement("div");
+                        card.className = "qrcard";
+                        card.style.setProperty("--qc-g1", palette.g1);
+                        card.style.setProperty("--qc-g2", palette.g2);
+                        card.style.setProperty("--qc-g3", palette.g3);
+                        card.style.setProperty("--qc-g4", palette.g4);
+                        card.style.setProperty("--qc-text", palette.text);
+                        card.style.setProperty("--qc-shadow", palette.shadow);
+                        card.style.setProperty("--qc-glow1", palette.glow1);
+                        card.style.setProperty("--qc-glow2", palette.glow2);
+                        card.style.setProperty("--qc-font", font);
+                        card.style.setProperty("--qc-size", size);
+                        card.innerHTML = `
+                <div class="qrcard-brand">${(mesa.nombre_alias || `Mesa ${mesa.numero_mesa}`).toUpperCase()}</div>
+                <div class="qrcard-frame">
+                    <span class="corner tl"></span><span class="corner tr"></span>
+                    <span class="corner bl"></span><span class="corner br"></span>
+                    <div class="qrcard-qrbox"><img src="${mesa.qr_url}" crossorigin="anonymous"></div>
+                </div>
+                <div class="qrcard-caption">${info.alias}</div>
+                <div class="qrcard-subcaption">Escanea para ver nuestros productos</div>
+                <div class="qrcard-watermark">Powered by Geinz</div>`;
+                        stage.appendChild(card);
+
+                        await new Promise((res) => {
+                            const img = card.querySelector("img");
+                            img.onload = res; img.onerror = res;
+                        });
+
+                        const canvas = await html2canvas(card, { scale: CARD_SCALE, backgroundColor: "#141317", useCORS: true });
+                        cardCanvases.push(canvas);
+                        stage.removeChild(card);
+
+                        procesadas++;
+                    }
+                    document.body.removeChild(stage);
+                    setBtnProgress("Armando hojas…");
+                    const cardW = cardCanvases[0].width;
+                    const cardH = cardCanvases[0].height;
+                    const cols = Math.max(1, Math.floor((PAGE_W - MARGIN * 2 + GAP) / (cardW + GAP)));
+                    const rows = Math.max(1, Math.floor((PAGE_H - MARGIN * 2 + GAP) / (cardH + GAP)));
+                    const perPage = cols * rows;
+                    const totalPages = Math.ceil(cardCanvases.length / perPage);
+
+                    const zip = new JSZip();
+
+                    for (let p = 0; p < totalPages; p++) {
+                        const pageCanvas = document.createElement("canvas");
+                        pageCanvas.width = PAGE_W;
+                        pageCanvas.height = PAGE_H;
+                        const ctx = pageCanvas.getContext("2d");
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, PAGE_W, PAGE_H);
+
+                        cardCanvases.slice(p * perPage, (p + 1) * perPage).forEach((canvas, i) => {
+                            const col = i % cols;
+                            const row = Math.floor(i / cols);
+                            const x = MARGIN + col * (cardW + GAP);
+                            const y = MARGIN + row * (cardH + GAP);
+                            ctx.drawImage(canvas, x, y, cardW, cardH);
+                            ctx.strokeStyle = "#cccccc";
+                            ctx.setLineDash([6, 6]);
+                            ctx.strokeRect(x, y, cardW, cardH);
+                        });
+
+                        const blob = await new Promise((resolve) => pageCanvas.toBlob(resolve, "image/png", 1));
+                        zip.file(`hoja-qrs-mesas-${p + 1}.png`, blob);
+                    }
+
+                    setBtnProgress("Comprimiendo…");
+                    const contenidoZip = await zip.generateAsync({ type: "blob" });
+                    const objUrlZip = URL.createObjectURL(contenidoZip);
+                    const aZip = document.createElement("a");
+                    aZip.href = objUrlZip;
+                    aZip.download = "hojas-qrs-mesas.zip";
+                    document.body.appendChild(aZip);
+                    aZip.click();
+                    aZip.remove();
+                    URL.revokeObjectURL(objUrlZip);
+                } catch (err) {
+                    console.error(err);
+                    UI.toast("No se pudo generar la hoja para imprimir.", true);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }
+            },
             // Crea UNA mesa: token, url, QR (con el mismo logo que QrNegocio),
             // sube a Storage y escribe el documento en Firestore.
             async _crearMesa({ numeroMesa, alias, info, logo }) {
@@ -1391,7 +1521,7 @@
 
                 try {
                     const zip = new JSZip();
-                    for (const mesa of this._mesas) {
+                    await Promise.all(this._mesas.map(async (mesa) => {
                         try {
                             const res = await fetch(mesa.qr_url);
                             const blobOriginal = await res.blob();
@@ -1401,7 +1531,7 @@
                         } catch (err) {
                             console.warn(`MesasNegocio: no se pudo incluir la mesa ${mesa.numero_mesa} en el ZIP.`, err);
                         }
-                    }
+                    }));
                     const contenido = await zip.generateAsync({ type: "blob" });
                     const objUrl = URL.createObjectURL(contenido);
                     const a = document.createElement("a");
@@ -1444,11 +1574,9 @@
                 const grid = document.getElementById("mesasGrid");
                 const empty = document.getElementById("mesasEmptyState");
                 const countLabel = document.getElementById("mesasCountLabel");
-                const btnDescargarTodo = document.getElementById("btnDescargarTodo");
-
+                const btnDescargarHoja = document.getElementById("btnDescargarHoja");
                 countLabel.textContent = `${mesas.length} mesa${mesas.length === 1 ? "" : "s"}`;
-                btnDescargarTodo.disabled = mesas.length === 0;
-
+                btnDescargarHoja.disabled = mesas.length === 0;
                 if (!mesas.length) {
                     grid.innerHTML = "";
                     empty.classList.remove("hidden");
@@ -1468,8 +1596,8 @@
         <div class="mesa-preview relative aspect-square overflow-hidden rounded-[12px] border border-white/10 bg-white cursor-pointer" data-action="ver">
             <div class="qr-skeleton"></div>
             <img src="${mesa.qr_url}" alt="QR ${mesa.nombre_alias}" loading="lazy"
-                 onload="this.classList.add('loaded'); this.previousElementSibling.remove();"
-                 onerror="this.previousElementSibling.remove(); this.replaceWith(Object.assign(document.createElement('div'), {className:'flex h-full w-full items-center justify-center text-[10px] text-red-400', textContent:'⚠️ Error al cargar'}));">
+     onload="this.classList.add('loaded'); if(this.previousElementSibling) this.previousElementSibling.remove();"
+     onerror="if(this.previousElementSibling) this.previousElementSibling.remove(); this.replaceWith(Object.assign(document.createElement('div'), {className:'flex h-full w-full items-center justify-center text-[10px] text-red-400', textContent:'⚠️ Error al cargar'}));">
         </div>
                     <div class="flex items-center justify-between gap-1">
                         <input type="text" value="${this._escapeAttr(mesa.nombre_alias)}"
@@ -1855,8 +1983,7 @@
 
         document.getElementById("btnGenerarMultiples").addEventListener("click", () => UI.openModal("modalMultiples"));
         document.getElementById("btnAgregarMesa").addEventListener("click", () => UI.openModal("modalAgregar"));
-        document.getElementById("btnDescargarTodo").addEventListener("click", () => MesasNegocio.descargarTodas());
-
+        document.getElementById("btnDescargarHoja").addEventListener("click", () => MesasNegocio.descargarHoja());
         document.querySelectorAll("[data-close-modal]").forEach((btn) => {
             btn.addEventListener("click", () => UI.closeModal(btn.dataset.closeModal));
         });

@@ -1162,7 +1162,6 @@
                         <span>🏠</span>
                         <span>Inicio</span>
                     </button>
-
                     <div class="mobile-menu-group">
                         <button class="mobile-menu-group-header" onclick="PanelPerfil.toggleMobileGroup(this)">
                             <span>🏬</span>
@@ -1170,22 +1169,20 @@
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
                         <div class="mobile-menu-group-body">
-                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-daniel" disabled
-                                title="Próximamente disponible">
-                                <span>🤖</span>
-                                <span>Asistente Daniel</span>
-                                <span class="badge-proximamente">Pronto</span>
+                            <button class="mobile-menu-item" id="mmb-perfil"
+                                onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
+                                <span>🏪</span>
+                                <span>Perfil</span>
                             </button>
-                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-cotiza" disabled
-                                title="Próximamente disponible">
-                                <span>🔨</span>
-                                <span>Crea tu asistente</span>
-                                <span class="badge-proximamente">Pronto</span>
+                            <button class="mobile-menu-item" id="mmb-publicidad"
+                                onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
+                                <span>📢</span>
+                                <span>Publicidad</span>
                             </button>
-                            <button class="mobile-menu-item" id="mmb-recargas"
-                                onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
-                                <span>⚡</span>
-                                <span>Recargas</span>
+                            <button class="mobile-menu-item" id="mmb-qr"
+                                onclick="PanelPerfil.loadQr(); PanelPerfil.toggleMobileMenu()">
+                                <span>🔲</span>
+                                <span>MI QR</span>
                             </button>
                         </div>
                     </div>
