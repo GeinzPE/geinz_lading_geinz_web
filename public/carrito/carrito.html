@@ -1333,12 +1333,17 @@
       <div class="flex-1 min-w-0">
         <p class="font-bold text-[14px] truncate">${it.nombre || "Producto"}</p>
         ${opcionesTxt ? `<p class="text-[11px] text-gray-500 truncate">${opcionesTxt}</p>` : ""}
-        <p class="text-[12.5px] text-gray-500">S/ ${precioNum.toFixed(2)} c/u</p>
+        <p class="text-[12.5px] text-gray-500 mb-2">S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span></p>
+        <div class="flex items-center gap-1.5" id="cartQty-${wrap.id}-${key}"></div>
       </div>
-      ${it.seleccion ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 flex-shrink-0" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-      </button>` : ""}
-      <div class="flex items-center gap-2 flex-shrink-0" id="cartQty-${wrap.id}-${key}"></div>
+      <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
+        ${it.seleccion ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>` : ""}
+        <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+        </button>
+      </div>
     `;
         frag.appendChild(row);
       });
@@ -1348,16 +1353,6 @@
         const key = it.cartKey || it.id;
         const holder = wrap.querySelector(`#cartQty-${wrap.id}-${key}`);
         if (holder) renderQtyControls(holder, it, key);
-      });
-
-      wrap.querySelectorAll(".cart-edit-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const key = btn.dataset.key;
-          const id = btn.dataset.id;
-          const entry = carrito.get(key);
-          const p = productosPorId.get(id);
-          if (entry && p) abrirOptionsModal(p, entry.seleccion, key);
-        });
       });
     }
     /* ══════════════ Drawer (mobile) ══════════════ */
@@ -1600,9 +1595,35 @@
       setTimeout(() => loader.remove(), 480);
     }
 
+    function bindCartEditDelegation(wrap) {
+      if (!wrap) return;
+      wrap.addEventListener("click", (e) => {
+        const editBtn = e.target.closest(".cart-edit-btn");
+        if (editBtn) {
+          const key = editBtn.dataset.key;
+          const id = editBtn.dataset.id;
+          const entry = carrito.get(key);
+          const p = productosPorId.get(id);
+          if (entry && p) abrirOptionsModal(p, entry.seleccion, key);
+          return;
+        }
+        const removeBtn = e.target.closest(".cart-remove-btn");
+        if (removeBtn) {
+          const key = removeBtn.dataset.key;
+          const id = removeBtn.dataset.id;
+          carrito.delete(key);
+          syncCartChange(id);
+          showToast("Producto quitado del carrito");
+        }
+      });
+    }
+    /* ══════════════ Init ══════════════ */
+
     /* ══════════════ Init ══════════════ */
     async function init() {
       paintToggleDefaults();
+      bindCartEditDelegation(document.getElementById("drawerItems"));
+      bindCartEditDelegation(document.getElementById("sidebarItems"));
       pintarMesaBadge();
       if (mesaId) {
         tipoEntrega = "En mesa";
