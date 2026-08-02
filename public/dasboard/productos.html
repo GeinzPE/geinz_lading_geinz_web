@@ -289,6 +289,12 @@
           <span>Agotados: <strong id="stat-agotados">0</strong></span>
         </button>
 
+        <button type="button" id="btn-filter-stockbajo"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/20 text-amber-400 hover:bg-amber-900/40">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span>Stock bajo: <strong id="stat-stockbajo">0</strong></span>
+        </button>
+
         <button type="button" id="btn-filter-categorias"
           class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-purple-300 hover:bg-purple-900/40">
           <span>Categorías: <strong id="stat-categorias">0</strong></span>
@@ -349,8 +355,9 @@
           <button type="button" data-close="overlay-categoria"
             class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
           <button type="submit" id="btn-guardar-categoria"
-            class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all">Crear
-            categoría</button>
+            class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[130px] flex items-center justify-center">
+            <span id="btn-guardar-categoria-label">Crear categoría</span>
+          </button>
         </div>
       </form>
     </div>
@@ -390,12 +397,33 @@
             class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
         </div>
 
+        <div class="mb-4">
+          <label for="input-prod-stock"
+            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Stock
+            disponible (opcional)</label>
+          <input type="number" id="input-prod-stock" placeholder="Déjalo vacío para no controlar stock" step="1" min="0"
+            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
+        </div>
+
         <div class="mb-5">
           <div
             class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
             <span class="text-sm font-medium text-purple-100">Disponible para la venta</span>
             <label class="relative inline-block w-11 h-6 shrink-0">
               <input type="checkbox" id="input-prod-disponible" checked class="peer opacity-0 w-0 h-0">
+              <span
+                class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+              before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="mb-5">
+          <div
+            class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+            <span class="text-sm font-medium text-purple-100">Desactivar automáticamente al llegar a 0</span>
+            <label class="relative inline-block w-11 h-6 shrink-0">
+              <input type="checkbox" id="input-prod-auto-desactivar" class="peer opacity-0 w-0 h-0">
               <span
                 class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
               before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
@@ -457,7 +485,9 @@
         <button type="button" data-close="overlay-confirm"
           class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
         <button type="button" id="btn-confirm-action"
-          class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-rose-700 hover:bg-rose-600 transition-all">Eliminar</button>
+          class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-rose-700 hover:bg-rose-600 transition-all min-w-[100px] flex items-center justify-center">
+          <span id="btn-confirm-action-label">Eliminar</span>
+        </button>
       </div>
     </div>
   </div>
@@ -467,8 +497,8 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getFirestore, collection, doc, onSnapshot, query, orderBy,
-      addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, getDocs
+      getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit,
+      setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import {
       getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
@@ -535,9 +565,15 @@
       confirmCallback = onConfirm;
       openOverlay('overlay-confirm');
     }
+
+    // FIX: el botón de confirmar ahora muestra spinner mientras elimina,
+    // y se re-habilita siempre (antes se quedaba "colgado" si el callback tardaba o el modal se cerraba a medias).
     document.getElementById('btn-confirm-action').addEventListener('click', async () => {
       const btn = document.getElementById('btn-confirm-action');
+      const label = document.getElementById('btn-confirm-action-label');
+      const originalText = label.textContent;
       btn.disabled = true;
+      label.innerHTML = '<span class="spinner"></span>';
       try {
         if (confirmCallback) await confirmCallback();
         closeOverlay('overlay-confirm');
@@ -546,6 +582,8 @@
         toast('Ocurrió un error al intentar eliminar.', 'error');
       } finally {
         btn.disabled = false;
+        label.textContent = originalText;
+        confirmCallback = null;
       }
     });
 
@@ -565,6 +603,7 @@
         sliceImgs.forEach(url => {
           const img = document.createElement('img');
           img.src = url;
+          img.loading = 'lazy';
           img.className = 'w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-2xl border border-purple-800/40 shadow-xl transition-all duration-300 animate-fadeIn';
           splashGallery.appendChild(img);
         });
@@ -579,21 +618,24 @@
       }, 1200);
     }
 
-    /* ---------------- Estado de Filtros (Todos, Activos, Agotados, Categorias) ---------------- */
-    let filtroEstadoActual = 'todos'; // 'todos' | 'activos' | 'agotados' | 'categorias'
+    /* ---------------- Estado de Filtros (Todos, Activos, Agotados, Stock bajo, Categorias) ---------------- */
+    let filtroEstadoActual = 'todos'; // 'todos' | 'activos' | 'agotados' | 'stockbajo' | 'categorias'
+    const STOCK_BAJO_UMBRAL = 5; // productos con stock definido y menor a este número se consideran "stock bajo"
 
     const btnTodos = document.getElementById('btn-filter-todos');
     const btnActivos = document.getElementById('btn-filter-activos');
     const btnAgotados = document.getElementById('btn-filter-agotados');
+    const btnStockBajo = document.getElementById('btn-filter-stockbajo');
     const btnCategorias = document.getElementById('btn-filter-categorias');
 
     function setFiltroEstado(nuevoEstado) {
       filtroEstadoActual = nuevoEstado;
-      [btnTodos, btnActivos, btnAgotados, btnCategorias].forEach(b => b.classList.remove('active-filter', 'ring-2', 'ring-violet-500'));
+      [btnTodos, btnActivos, btnAgotados, btnStockBajo, btnCategorias].forEach(b => b.classList.remove('active-filter', 'ring-2', 'ring-violet-500', 'ring-emerald-500', 'ring-rose-500', 'ring-amber-500', 'ring-purple-500'));
 
       if (nuevoEstado === 'todos') btnTodos.classList.add('active-filter', 'ring-2', 'ring-violet-500');
       if (nuevoEstado === 'activos') btnActivos.classList.add('active-filter', 'ring-2', 'ring-emerald-500');
       if (nuevoEstado === 'agotados') btnAgotados.classList.add('active-filter', 'ring-2', 'ring-rose-500');
+      if (nuevoEstado === 'stockbajo') btnStockBajo.classList.add('active-filter', 'ring-2', 'ring-amber-500');
       if (nuevoEstado === 'categorias') btnCategorias.classList.add('active-filter', 'ring-2', 'ring-purple-500');
 
       aplicarFiltroYMetricas();
@@ -602,21 +644,38 @@
     btnTodos.addEventListener('click', () => setFiltroEstado('todos'));
     btnActivos.addEventListener('click', () => setFiltroEstado('activos'));
     btnAgotados.addEventListener('click', () => setFiltroEstado('agotados'));
+    btnStockBajo.addEventListener('click', () => setFiltroEstado('stockbajo'));
     btnCategorias.addEventListener('click', () => setFiltroEstado('categorias'));
 
     /* ---------------- Categorías ---------------- */
     document.getElementById('btn-nueva-categoria').addEventListener('click', () => openOverlay('overlay-categoria'));
     document.getElementById('btn-nueva-categoria-empty')?.addEventListener('click', () => openOverlay('overlay-categoria'));
 
+    // FIX PRINCIPAL #1: antes se usaba addDoc(), que SIEMPRE genera un ID aleatorio (ej. "sLQckf102FhuO4MUIXP5").
+    // Ahora usamos setDoc(doc(categoriasRef, nombre), ...) para que el ID del documento sea
+    // exactamente el nombre que escribes (igual que tus categorías "Entradas" o "Postres" creadas a mano).
+    // También se valida que no exista ya una categoría con ese nombre, y se muestra spinner mientras guarda.
     document.getElementById('form-categoria').addEventListener('submit', async (e) => {
       e.preventDefault();
       const input = document.getElementById('input-cat-nombre');
       const nombre = input.value.trim();
       if (!nombre) return;
+
       const btn = document.getElementById('btn-guardar-categoria');
+      const label = document.getElementById('btn-guardar-categoria-label');
+      const originalText = label.textContent;
       btn.disabled = true;
+      label.innerHTML = '<span class="spinner"></span>';
+
       try {
-        await addDoc(categoriasRef, { nombre, createdAt: serverTimestamp() });
+        const catDocRef = doc(categoriasRef, nombre);
+        const existente = await getDoc(catDocRef);
+        if (existente.exists()) {
+          toast(`Ya existe una categoría llamada "${nombre}".`, 'error');
+          return;
+        }
+
+        await setDoc(catDocRef, { nombre, createdAt: serverTimestamp() });
         input.value = '';
         closeOverlay('overlay-categoria');
         toast(`Categoría "${nombre}" añadida.`);
@@ -625,6 +684,7 @@
         toast('No se pudo guardar la categoría.', 'error');
       } finally {
         btn.disabled = false;
+        label.textContent = originalText;
       }
     });
 
@@ -743,6 +803,19 @@
           costInput.className = 'w-16 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono';
           costInput.addEventListener('input', () => { op.costoAdicional = parseFloat(costInput.value) || 0; });
 
+
+          const stockOpInput = document.createElement('input');
+          stockOpInput.type = 'number';
+          stockOpInput.step = '1';
+          stockOpInput.min = '0';
+          stockOpInput.placeholder = 'Stock';
+          stockOpInput.title = 'Stock de esta opción (vacío = sin control)';
+          stockOpInput.value = typeof op.stock === 'number' ? op.stock : '';
+          stockOpInput.className = 'w-14 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono';
+          stockOpInput.addEventListener('input', () => {
+            op.stock = stockOpInput.value === '' ? null : Math.max(0, parseInt(stockOpInput.value, 10) || 0);
+          });
+
           const toggleLabel = document.createElement('label');
           toggleLabel.className = 'relative inline-block w-9 h-5 shrink-0';
           toggleLabel.innerHTML = `
@@ -759,9 +832,9 @@
             cond.opciones.splice(oi, 1);
             renderCondiciones();
           });
-
           row.appendChild(opInput);
           row.appendChild(costInput);
+          row.appendChild(stockOpInput);
           row.appendChild(toggleLabel);
           row.appendChild(delOpBtn);
           opcionesWrap.appendChild(row);
@@ -774,7 +847,7 @@
         addOpBtn.className = 'mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200';
         addOpBtn.textContent = '+ Agregar opción';
         addOpBtn.addEventListener('click', () => {
-          cond.opciones.push({ nombre: '', activo: true, costoAdicional: 0 });
+          cond.opciones.push({ nombre: '', activo: true, costoAdicional: 0, stock: null });
           renderCondiciones();
         });
         box.appendChild(addOpBtn);
@@ -785,7 +858,7 @@
 
     document.getElementById('btn-add-condicion').addEventListener('click', () => {
       if (condicionesSeleccionadas.length >= 3) return;
-      condicionesSeleccionadas.push({ nombre: '', opciones: [{ nombre: '', activo: true, costoAdicional: 0 }] });
+      condicionesSeleccionadas.push({ nombre: '', opciones: [{ nombre: '', activo: true, costoAdicional: 0, stock: null }] });
       renderCondiciones();
     });
 
@@ -808,6 +881,8 @@
       condicionesSeleccionadas = [];
       document.getElementById('form-producto').reset();
       document.getElementById('input-prod-disponible').checked = true;
+      document.getElementById('input-prod-stock').value = '';
+      document.getElementById('input-prod-auto-desactivar').checked = false;
       document.getElementById('producto-cat-hint').textContent = `Se incluirá en "${categoriaNombre}".`;
       document.getElementById('btn-guardar-producto-label').textContent = 'Crear producto';
       renderImgDropSlots();
@@ -825,13 +900,19 @@
       imgsExistentes.slice(0, 3).forEach((img, i) => { imagenesSeleccionadas[i] = img; });
       condicionesSeleccionadas = (data.condiciones || []).map(c => ({
         nombre: c.nombre,
-        opciones: (c.opciones || []).map(o => ({ nombre: o.nombre, activo: !!o.activo, costoAdicional: Number(o.costoAdicional) || 0 }))
+        opciones: (c.opciones || []).map(o => ({
+          nombre: o.nombre, activo: !!o.activo, costoAdicional: Number(o.costoAdicional) || 0,
+          stock: typeof o.stock === 'number' ? o.stock : null,
+        }))
       }));
       document.getElementById('form-producto').reset();
       document.getElementById('input-prod-nombre').value = data.nombre || '';
       document.getElementById('input-prod-descripcion').value = data.descripcion || '';
       document.getElementById('input-prod-precio').value = data.precio ?? '';
       document.getElementById('input-prod-disponible').checked = !!data.disponible;
+      // Si el producto no tiene stock definido (productos viejos), el campo queda vacío = "sin control de stock"
+      document.getElementById('input-prod-stock').value = typeof data.stock === 'number' ? data.stock : '';
+      document.getElementById('input-prod-auto-desactivar').checked = !!data.autoDesactivar;
       document.getElementById('producto-cat-hint').textContent = `Editando producto.`;
       document.getElementById('btn-guardar-producto-label').textContent = 'Guardar cambios';
       renderImgDropSlots();
@@ -843,7 +924,16 @@
       const nombre = document.getElementById('input-prod-nombre').value.trim();
       const descripcion = document.getElementById('input-prod-descripcion').value.trim();
       const precio = parseFloat(document.getElementById('input-prod-precio').value);
-      const disponible = document.getElementById('input-prod-disponible').checked;
+      let disponible = document.getElementById('input-prod-disponible').checked;
+
+      const stockRaw = document.getElementById('input-prod-stock').value;
+      // Si el campo está vacío, el producto queda "sin control de stock" (stock = null)
+      const stock = stockRaw === '' ? null : Math.max(0, parseInt(stockRaw, 10) || 0);
+      const autoDesactivar = document.getElementById('input-prod-auto-desactivar').checked;
+
+      // Si el usuario activó "desactivar automáticamente al llegar a 0" y el stock es 0,
+      // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
+      if (autoDesactivar && stock === 0) disponible = false;
 
       if (!nombre || isNaN(precio)) return;
 
@@ -856,11 +946,13 @@
             nombre: o.nombre.trim(),
             activo: !!o.activo,
             costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
+            stock: typeof o.stock === 'number' ? o.stock : null,
           }))
         }));
 
       const btn = document.getElementById('btn-guardar-producto');
       const label = document.getElementById('btn-guardar-producto-label');
+      const originalText = label.textContent;
       btn.disabled = true;
       label.innerHTML = '<span class="spinner"></span>';
 
@@ -885,14 +977,15 @@
           }
 
           await updateDoc(docRef, {
-            nombre, descripcion, precio, disponible, condiciones,
+            nombre, descripcion, precio, disponible, condiciones, stock, autoDesactivar,
             imagenes: [...conservadas, ...subidas]
           });
 
           toast(`"${nombre}" actualizado.`);
         } else {
-          const nuevoDocRef = await addDoc(productosRef(categoriaActivaParaProducto), {
-            nombre, descripcion, precio, disponible, condiciones, imagenes: [], createdAt: serverTimestamp()
+          const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
+          await setDoc(nuevoDocRef, {
+            nombre, descripcion, precio, disponible, condiciones, stock, autoDesactivar, imagenes: [], createdAt: serverTimestamp()
           });
 
           const archivos = imagenesSeleccionadas.filter(Boolean);
@@ -918,7 +1011,7 @@
         toast('No se pudo guardar el producto.', 'error');
       } finally {
         btn.disabled = false;
-        label.textContent = productoEditandoId ? 'Guardar cambios' : 'Crear producto';
+        label.textContent = productoEditandoId ? 'Guardar cambios' : originalText;
       }
     });
 
@@ -931,9 +1024,19 @@
     /* ---------------- Render Tarjeta Producto ---------------- */
     function renderProductoCard(categoriaId, productoId, data) {
       const card = document.createElement('div');
-      card.className = 'producto-card animate-fadeIn group relative flex flex-col rounded-2xl bg-[#0d0a17] border border-purple-900/20 overflow-hidden hover:border-purple-800/40 transition-all duration-200 hover:scale-[1.01]';
+      card.className = 'producto-card animate-fadeIn group relative flex flex-col rounded-2xl bg-[#0d0a17] border border-purple-900/20 overflow-hidden hover:border-purple-800/40 transition-all duration-200 hover:scale-[1.01] cursor-pointer';
       card.dataset.nombre = (data.nombre + ' ' + (data.descripcion || '')).toLowerCase();
       card.dataset.disponible = data.disponible ? 'true' : 'false';
+      // 'stock' queda vacío en el dataset si el producto no tiene control de stock (data.stock === null/undefined)
+      card.dataset.stock = typeof data.stock === 'number' ? String(data.stock) : '';
+
+      // FIX PRINCIPAL #2: ahora la tarjeta completa abre el modal de edición al hacer clic
+      // (antes solo funcionaba el ícono del lápiz). Se ignoran los clics hechos sobre botones
+      // internos (disponible / editar / eliminar) para no interferir con esas acciones.
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        abrirModalEditarProducto(categoriaId, productoId, data);
+      });
 
       const imagenes = data.imagenes || [];
       imagenes.forEach(img => { if (img.url) loadedImageUrls.add(img.url); });
@@ -946,6 +1049,7 @@
       } else {
         const imgEl = document.createElement('img');
         imgEl.src = imagenes[0].url;
+        imgEl.loading = 'lazy';
         imgEl.className = 'w-full h-full object-cover block group-hover:scale-105 transition-transform duration-300';
         imgWrap.appendChild(imgEl);
       }
@@ -978,11 +1082,18 @@
           const tag = document.createElement('span');
           tag.className = 'text-[10px] font-mono text-purple-400/60';
           tag.textContent = `${cond.nombre}:`;
-          row.appendChild(tag);
+          row.appendChild(tag); 
           activas.forEach(op => {
             const chip = document.createElement('span');
-            chip.className = 'text-[10px] px-1.5 py-0.5 rounded-md bg-purple-950/40 border border-purple-800/30 text-purple-300';
-            chip.textContent = op.costoAdicional ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})` : op.nombre;
+            const stockBajo = typeof op.stock === 'number' && op.stock < STOCK_BAJO_UMBRAL;
+            const sinStock = typeof op.stock === 'number' && op.stock <= 0;
+            chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border ${sinStock ? 'bg-rose-950/40 border-rose-500/20 text-rose-300'
+                : stockBajo ? 'bg-amber-950/40 border-amber-500/20 text-amber-300'
+                  : 'bg-purple-950/40 border-purple-800/30 text-purple-300'
+              }`;
+            let txt = op.costoAdicional ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})` : op.nombre;
+            if (typeof op.stock === 'number') txt += ` · Stock: ${op.stock}`;
+            chip.textContent = txt;
             row.appendChild(chip);
           });
           condWrap.appendChild(row);
@@ -1005,6 +1116,19 @@
       codeEl.textContent = `#${productoId.slice(0, 5)}`;
 
       priceRow.appendChild(precioEl);
+
+      if (typeof data.stock === 'number') {
+        const stockEl = document.createElement('span');
+        const stockColor = data.stock <= 0
+          ? 'bg-rose-950/40 text-rose-400 border-rose-500/20'
+          : data.stock < STOCK_BAJO_UMBRAL
+            ? 'bg-amber-950/40 text-amber-400 border-amber-500/20'
+            : 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20';
+        stockEl.className = `font-mono text-[10px] px-2 py-0.5 rounded-md border ${stockColor}`;
+        stockEl.textContent = `Stock: ${data.stock}`;
+        priceRow.appendChild(stockEl);
+      }
+
       priceRow.appendChild(codeEl);
 
       const actionRow = document.createElement('div');
@@ -1016,29 +1140,37 @@
         ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40'
         : 'bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40'}`;
       estadoBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${data.disponible ? 'bg-emerald-400' : 'bg-rose-400'}"></span><span>${data.disponible ? 'Disponible' : 'Agotado'}</span>`;
-      estadoBtn.addEventListener('click', async () => {
+      estadoBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        estadoBtn.disabled = true;
         try {
           await updateDoc(doc(productosRef(categoriaId), productoId), { disponible: !data.disponible });
         } catch (err) {
           console.error(err); toast('Error al cambiar disponibilidad.', 'error');
+        } finally {
+          estadoBtn.disabled = false;
         }
       });
 
       const delBtn = document.createElement('button');
+      delBtn.type = 'button';
       delBtn.className = 'w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 hover:bg-rose-950/30 transition-colors';
       delBtn.title = 'Eliminar producto';
       delBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>`;
-      delBtn.addEventListener('click', () => {
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         askConfirm('¿Eliminar producto?', `"${data.nombre}" será removido permanentemente.`, () => {
           return eliminarProducto(categoriaId, productoId, data.nombre, imagenes);
         });
       });
 
       const editBtn = document.createElement('button');
+      editBtn.type = 'button';
       editBtn.className = 'w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-violet-300 hover:bg-violet-950/30 transition-colors';
       editBtn.title = 'Editar producto';
       editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
-      editBtn.addEventListener('click', () => {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         abrirModalEditarProducto(categoriaId, productoId, data);
       });
 
@@ -1062,6 +1194,57 @@
     const emptyGlobal = document.getElementById('empty-global');
     const emptySearch = document.getElementById('empty-search');
     const categoriaListeners = {};
+
+    // FIX #4 (escalabilidad): en vez de traer TODOS los productos de una categoría de golpe
+    // (lo cual se vuelve lento con miles de productos), se pide un límite inicial y se agrega
+    // un botón "Cargar más" que amplía el límite bajo demanda.
+    const PRODUCTOS_POR_PAGINA = 60;
+    const categoriaLimite = {}; // categoriaId -> límite actual de productos cargados
+
+    function suscribirProductos(categoriaId, grid, seccion) {
+      if (categoriaListeners[categoriaId]) categoriaListeners[categoriaId]();
+
+      const lim = categoriaLimite[categoriaId] || PRODUCTOS_POR_PAGINA;
+      const q = query(productosRef(categoriaId), orderBy('createdAt', 'desc'), limit(lim));
+
+      categoriaListeners[categoriaId] = onSnapshot(q, (snap) => {
+        grid.innerHTML = '';
+
+        const addCard = document.createElement('div');
+        addCard.className = 'btn-card-add group flex flex-col items-center justify-center gap-2 min-h-[260px] rounded-2xl border border-dashed border-purple-900/30 hover:border-violet-600 hover:bg-violet-950/10 cursor-pointer transition-all text-purple-400/50 hover:text-purple-200';
+        addCard.innerHTML = `
+        <div class="w-10 h-10 rounded-full bg-violet-950/50 group-hover:bg-violet-900/50 flex items-center justify-center transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <span class="text-xs font-medium">Nuevo Producto</span>`;
+        addCard.addEventListener('click', () => abrirModalNuevoProducto(categoriaId, seccion.dataset.catNombre));
+        grid.appendChild(addCard);
+
+        snap.forEach(prodDoc => {
+          grid.appendChild(renderProductoCard(categoriaId, prodDoc.id, prodDoc.data()));
+        });
+
+        // Botón "Cargar más" si hay indicios de que puede haber más productos
+        if (snap.size >= lim) {
+          const masBtn = document.createElement('button');
+          masBtn.type = 'button';
+          masBtn.className = 'col-span-full mt-2 mx-auto rounded-xl px-4 py-2 text-xs font-medium text-violet-300 bg-violet-950/30 hover:bg-violet-900/40 border border-violet-800/30 transition-all';
+          masBtn.textContent = 'Cargar más productos';
+          masBtn.addEventListener('click', () => {
+            categoriaLimite[categoriaId] = lim + PRODUCTOS_POR_PAGINA;
+            suscribirProductos(categoriaId, grid, seccion);
+          });
+          grid.appendChild(masBtn);
+        }
+
+        seccion.querySelector('.categoria-count').textContent = `${snap.size}${snap.size >= lim ? '+' : ''} ${snap.size === 1 ? 'producto' : 'productos'}`;
+        aplicarFiltroYMetricas();
+        updateSplashAndCheckDismiss();
+      }, (err) => {
+        console.error(err);
+        toast('Error al cargar productos.', 'error');
+      });
+    }
 
     function renderCategoriaShell(categoriaId, data) {
       let seccion = document.getElementById(`cat-${categoriaId}`);
@@ -1102,32 +1285,7 @@
         });
 
         const grid = seccion.querySelector('.productos-grid');
-        const q = query(productosRef(categoriaId), orderBy('createdAt', 'desc'));
-
-        categoriaListeners[categoriaId] = onSnapshot(q, (snap) => {
-          grid.innerHTML = '';
-
-          const addCard = document.createElement('div');
-          addCard.className = 'btn-card-add group flex flex-col items-center justify-center gap-2 min-h-[260px] rounded-2xl border border-dashed border-purple-900/30 hover:border-violet-600 hover:bg-violet-950/10 cursor-pointer transition-all text-purple-400/50 hover:text-purple-200';
-          addCard.innerHTML = `
-        <div class="w-10 h-10 rounded-full bg-violet-950/50 group-hover:bg-violet-900/50 flex items-center justify-center transition-colors">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
-        </div>
-        <span class="text-xs font-medium">Nuevo Producto</span>`;
-          addCard.addEventListener('click', () => abrirModalNuevoProducto(categoriaId, data.nombre));
-          grid.appendChild(addCard);
-
-          snap.forEach(prodDoc => {
-            grid.appendChild(renderProductoCard(categoriaId, prodDoc.id, prodDoc.data()));
-          });
-
-          seccion.querySelector('.categoria-count').textContent = `${snap.size} ${snap.size === 1 ? 'producto' : 'productos'}`;
-          aplicarFiltroYMetricas();
-          updateSplashAndCheckDismiss();
-        }, (err) => {
-          console.error(err);
-          toast('Error al cargar productos.', 'error');
-        });
+        suscribirProductos(categoriaId, grid, seccion);
       }
 
       seccion.dataset.catNombre = (data.nombre || '').toLowerCase();
@@ -1136,7 +1294,11 @@
 
     /* ---------------- Filtro Combinado Avanzado ---------------- */
     const inputBusqueda = document.getElementById('input-busqueda');
-    inputBusqueda.addEventListener('input', aplicarFiltroYMetricas);
+    let debounceTimer = null;
+    inputBusqueda.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(aplicarFiltroYMetricas, 180); // debounce para no recalcular en cada tecla con catálogos grandes
+    });
 
     function aplicarFiltroYMetricas() {
       const queryText = inputBusqueda.value.trim().toLowerCase();
@@ -1144,6 +1306,7 @@
 
       let totalActivos = 0;
       let totalAgotados = 0;
+      let totalStockBajo = 0;
       let totalCategoriasVisibles = 0;
       let algunElementoVisibleTotal = false;
       let totalProductosProcesados = 0;
@@ -1160,14 +1323,18 @@
           totalProductosProcesados++;
           const nombreProducto = card.dataset.nombre || '';
           const disponible = card.dataset.disponible === 'true';
+          const stockValor = card.dataset.stock;
+          const tieneStockBajo = stockValor !== '' && Number(stockValor) < STOCK_BAJO_UMBRAL;
 
           if (disponible) totalActivos++;
           else totalAgotados++;
+          if (tieneStockBajo) totalStockBajo++;
 
-          // Evaluar estado (Activo/Agotado/Todos)
+          // Evaluar estado (Activo/Agotado/Stock bajo/Todos)
           let cumpleEstado = true;
           if (filtroEstadoActual === 'activos') cumpleEstado = disponible;
           if (filtroEstadoActual === 'agotados') cumpleEstado = !disponible;
+          if (filtroEstadoActual === 'stockbajo') cumpleEstado = tieneStockBajo;
 
           // Evaluar Búsqueda de texto
           let cumpleTexto = (queryText === '' || coincideCategoriaTexto || nombreProducto.includes(queryText));
@@ -1218,6 +1385,7 @@
 
       document.getElementById('stat-activos').textContent = totalActivos;
       document.getElementById('stat-agotados').textContent = totalAgotados;
+      document.getElementById('stat-stockbajo').textContent = totalStockBajo;
       document.getElementById('stat-categorias').textContent = totalCategoriasVisibles;
 
       const hayCategorias = categorias.length > 0;
@@ -1248,6 +1416,7 @@
         if (!idsActuales.has(id)) {
           if (categoriaListeners[id]) categoriaListeners[id]();
           delete categoriaListeners[id];
+          delete categoriaLimite[id];
           el.remove();
         }
       });
