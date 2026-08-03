@@ -236,6 +236,21 @@ window.PanelPerfil = {
     }
   },
 
+  aplicarBloqueoPorVencimiento(diasRestantes) {
+    const vencido = diasRestantes <= 0;
+    document.body.classList.toggle("plan-vencido", vencido);
+
+    // Aseguramos que la tarjeta de Cuenta quede abierta automáticamente
+    if (vencido) {
+        const header = document.querySelector("#card-account .exp-header");
+        const body = document.querySelector("#card-account .exp-body");
+        const card = document.getElementById("card-account");
+        card?.classList.add("open");
+        header?.classList.add("open");
+        // fuerza el max-height si tu .exp-body usa max-height fijo
+        if (body) body.style.maxHeight = "1000px";
+    }
+},
   _geohashFromLatLng(lat, lng) {
     const PRECISION = 12;
     const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
@@ -1442,7 +1457,10 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   //  MAPBOX — dos pins (actual + pendiente)
   // ═══════════════════════════════════════════
-  initMapbox() {
+initMapbox() {
+    const container = document.getElementById("mapBoxPerfil");
+    if (!container || typeof mapboxgl === "undefined") return; // 👈 evita el crash cuando este script corre en panel_negocio.html (documento padre), donde no existe ni el div ni la librería de Mapbox
+
     mapboxgl.accessToken =
       "pk.eyJ1IjoiYmVuamFtaW5sb3BleiIsImEiOiJjbWZrajJ2NHIxOXBkMmtvZW1kMTA5NWNoIn0.7s_234BN9y0pkTIgtF6ikw";
 
@@ -1450,7 +1468,7 @@ window.PanelPerfil = {
     const lng = this.currentData?.ubicacion?.longitud || -77.7608478;
 
     this.map = new mapboxgl.Map({
-      container: "mapBoxPerfil",
+      container,
       style: "mapbox://styles/benjaminlopez/cmm9c0hlt003901s54utw9p30",
       center: [lng, lat],
       zoom: 18,

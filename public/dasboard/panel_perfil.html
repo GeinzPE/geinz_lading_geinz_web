@@ -10,203 +10,13 @@
         rel="stylesheet">
     <link rel="stylesheet" href="../style/dasboardcss/panel_perfil.css">
 
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
-
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
-
     <script type="module" src="../js/dasboardjs/panel_perfil.js"></script>
-    <script type="module" src="../js/dasboardjs/creditos_data_tienda.js"></script>
-    <script type="module" src="../js/dasboardjs/horario_real_time.js"></script>
+
     <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
     <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
     <link rel="manifest" href="../img/icons/site.webmanifest">
-
-    <style id="carta-digital-styles">
-        .btn-nueva-coleccion {
-            width: 100%;
-            padding: 14px;
-            border-radius: 14px;
-            border: 1.5px dashed #7c4dff;
-            background: transparent;
-            color: #7c4dff;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 6px;
-            transition: opacity .2s, background .2s;
-        }
-
-        .btn-nueva-coleccion:disabled {
-            opacity: .4;
-            cursor: not-allowed;
-        }
-
-        .carta-coleccion-card {
-            background: rgba(124, 77, 255, 0.05);
-            border: 1px solid rgba(124, 77, 255, 0.15);
-            border-radius: 16px;
-            padding: 14px;
-            margin-bottom: 14px;
-        }
-
-        .carta-coleccion-head {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-        }
-
-        .carta-coleccion-name-wrap {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-
-        .carta-coleccion-name {
-            font-size: 15px;
-            font-weight: 700;
-            color: #fff;
-            word-break: break-word;
-        }
-
-        .carta-coleccion-text-preview {
-            margin: 0;
-            font-size: 12px;
-            color: #aaa;
-            line-height: 1.4;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .carta-coleccion-text-preview.empty {
-            color: #666;
-            font-style: italic;
-        }
-
-        .carta-coleccion-body {
-            display: none;
-        }
-
-        .carta-coleccion-body.open {
-            display: block;
-        }
-
-        .carta-coleccion-text-field {
-            margin-top: 12px;
-        }
-
-        .carta-coleccion-textarea {
-            width: 100%;
-            box-sizing: border-box;
-            resize: vertical;
-            min-height: 44px;
-            padding: 10px 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(124, 77, 255, 0.25);
-            background: rgba(255, 255, 255, 0.03);
-            color: #fff;
-            font-size: 13px;
-            font-family: inherit;
-            line-height: 1.5;
-        }
-
-        .carta-coleccion-textarea::placeholder {
-            color: #666;
-        }
-
-        .carta-coleccion-count {
-            font-size: 12px;
-            color: #888;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-
-        .carta-coleccion-del {
-            background: rgba(255, 70, 70, 0.12);
-            border: none;
-            border-radius: 8px;
-            padding: 6px 9px;
-            cursor: pointer;
-            font-size: 13px;
-            flex-shrink: 0;
-        }
-
-        .carta-coleccion-arrow {
-            font-size: 11px;
-            color: #7c4dff;
-            transition: transform .2s;
-            flex-shrink: 0;
-        }
-
-        .carta-coleccion-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .carta-photo-item {
-            aspect-ratio: 1;
-            border-radius: 14px;
-            overflow: hidden;
-            position: relative;
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        .carta-photo-item.photo-item-add {
-            border: 1.5px dashed rgba(124, 77, 255, 0.4);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            font-size: 11px;
-            color: #7c4dff;
-            cursor: pointer;
-            text-align: center;
-        }
-
-        .carta-photo-item.drag-over {
-            border-color: #7c4dff;
-            background: rgba(124, 77, 255, 0.18);
-        }
-    </style>
-
-    <style id="sidebar-disabled-styles">
-        .sidebar-btn-disabled,
-        .mobile-menu-item-disabled {
-            opacity: .4;
-            cursor: not-allowed !important;
-            pointer-events: none;
-            position: relative;
-        }
-
-        .sidebar-btn-disabled .sbb-label,
-        .mobile-menu-item-disabled span {
-            filter: grayscale(.3);
-        }
-
-        .badge-proximamente {
-            margin-left: auto;
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: .04em;
-            text-transform: uppercase;
-            color: #7c4dff;
-            background: rgba(124, 77, 255, .12);
-            border: 1px solid rgba(124, 77, 255, .25);
-            padding: 2px 6px;
-            border-radius: 6px;
-            flex-shrink: 0;
-        }
-    </style>
-
 </head>
 
 <body>
@@ -218,14 +28,12 @@
         <aside class="sidebar">
 
             <div class="sidebar-brand">
-
                 <img class="sidebar-logo-img" src="../img/Diseño sin título (2).png" alt="Geinz">
-
                 <div class="sidebar-brand-text">
                     <div class="sidebar-brand-name">Geinz APP</div>
                 </div>
-
             </div>
+
             <nav class="sidebar-nav">
 
                 <button class="sidebar-btn active" id="sbb-inicio" onclick="PanelPerfil.showSection('inicio')">
@@ -254,7 +62,6 @@
                         </button>
                     </div>
                 </div>
-
 
                 <div class="sidebar-group">
                     <button class="sidebar-group-header" onclick="PanelPerfil.toggleSidebarGroup(this)">
@@ -311,7 +118,6 @@
                     </button>
                 </div>
 
-
                 <div class="sidebar-collapse-wrap">
                     <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="PanelPerfil.toggleSidebar()">
                         <svg class="collapse-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -323,43 +129,20 @@
 
                     <button class="sidebar-collapse-btn sidebar-cerrar-btn" id="sidebarCerrarBtn"
                         onclick="cerrarSesionPanel()">
-
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <!-- tapa -->
                             <path d="M4 7H20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-
-                            <!-- cuerpo -->
                             <path d="M7 7L8 19C8.1 20.1 8.9 21 10 21H14C15.1 21 15.9 20.1 16 19L17 7"
                                 stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
                                 stroke-linejoin="round" />
-
-                            <!-- líneas internas -->
                             <path d="M10 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-
                             <path d="M14 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-
-                            <!-- mango -->
                             <path d="M9 4H15" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
                         </svg>
-
                         <span class="collapse-label">Cerrar sesión</span>
                     </button>
                 </div>
             </nav>
-            <!-- =====
-            <div class="sidebar-save-wrap">
-                <button class="sidebar-save-btn" id="sidebarSaveBtn" onclick="PanelPerfil.saveChanges()">✓ Guardar
-                    cambios</button>
-                <button class="sidebar-toggle" onclick="PanelPerfil.toggleSidebar()" id="sidebarToggle">
-
-                    ◀
-
-                </button>
-
-            </div>
-             ===== -->
         </aside>
-
 
         <!-- ===== MAIN PANEL ===== -->
         <div class="main">
@@ -378,634 +161,20 @@
     "></iframe>
                 </div>
 
-                <!-- ===== PERFIL ===== -->
+                <!-- ===== PERFIL (ahora es un frame aparte) ===== -->
                 <div class="section" id="sec-perfil">
-
-                    <div class="profile-top-row">
-
-                        <div class="profile-avatar" onclick="document.getElementById('avatarFileInputHtml').click()"
-                            id="avatarEl">
-
-
-                            <!-- Skeleton -->
-                            <div class="avatar-skeleton" id="avatarSkeleton"></div>
-
-                            <!-- Imagen -->
-                            <img id="avatarImg" class="avatar-img" alt="Logo negocio">
-                            <!-- Placeholder -->
-                            <div class="profile-avatar-placeholder" id="avatarPlaceholder"> 🏪
-                            </div>
-
-                        </div>
-                        <!-- MODAL FOTO PERFIL -->
-
-                        <div class="form-section">
-                            <div class="form-section-title">Información básica</div>
-
-                            <div class="form-field">
-                                <label class="form-label" for="businessName">Nombre del negocio</label>
-                                <textarea class="form-input" id="businessName" rows="1"
-                                    placeholder="Ej: Cafetería El Rincón"
-                                    oninput="PanelPerfil.updateName(this.value); PanelPerfil.autoResize(this)"></textarea>
-                            </div>
-
-                            <div class="form-field">
-                                <label class="form-label" for="businessDesc">Descripción</label>
-                                <textarea class="form-input" id="businessDesc" rows="2"
-                                    placeholder="¿Qué ofrece tu negocio?"
-                                    oninput="PanelPerfil.updateDesc(this.value); PanelPerfil.autoResize(this)"></textarea>
-                            </div>
-
-                            <div class="form-field">
-                                <label class="form-label" for="fieldAforo">Aforo máximo</label>
-                                <input class="form-input" id="fieldAforo" type="number" placeholder="Ej: 50">
-                            </div>
-
-                            <div id="horario-estado"></div>
-
-
-
-                        </div>
-
-                    </div>
-
-
-
-                    <div class="wrapper">
-                        <div class="cards-stack">
-                            <!-- ÚNICA TARJETA PRINCIPAL -->
-                            <div class="exp-card" id="card-account">
-                                <!-- HEADER (resumen colapsable) -->
-                                <div class="exp-header">
-                                    <div class="exp-header-left">
-                                        <div class="exp-icon purple">✦</div>
-                                        <div>
-                                            <div class="exp-title">Cuenta</div>
-                                            <span class="renewal-label" id="renewal-text">— días para la
-                                                renovación</span>
-                                        </div>
-                                    </div>
-                                    <div class="exp-right">
-                                        <div class="chevron">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"
-                                                stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M6 9l6 6 6-6" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- CUERPO EXPANDIBLE (todo el contenido) -->
-                                <div class="exp-body">
-                                    <div class="exp-divider"></div>
-                                    <div class="exp-content">
-                                        <!-- ===== SECCIÓN PLAN ===== -->
-                                        <div class="field">
-                                            <span class="field-label">Plan activo</span>
-                                            <span class="field-value purple" id="plan-type-full">—</span>
-                                        </div>
-                                        <div class="field">
-                                            <span class="field-label">Estado</span>
-                                            <span class="field-value">
-                                                <span class="dot-pulse"></span>
-                                                <span class="status-text">Activo</span>
-                                            </span>
-                                        </div>
-
-                                        <!-- ===== SECCIÓN ID & FECHAS ===== -->
-                                        <div class="field">
-                                            <span class="field-label">ID de usuario</span>
-                                            <span class="field-value">
-                                                <span class="field-id-row">
-                                                    <span id="user-id">—</span>
-                                                    <button class="copy-btn" onclick="copyId(event)" title="Copiar ID">
-                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                            stroke-width="2" stroke-linecap="round"
-                                                            stroke-linejoin="round">
-                                                            <rect x="9" y="9" width="13" height="13" rx="2" />
-                                                            <path
-                                                                d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                                        </svg>
-                                                    </button>
-                                                </span>
-                                            </span>
-                                        </div>
-
-                                        <div class="field">
-                                            <span class="field-label">Inicio</span>
-                                            <span class="field-value" id="start-date">—</span>
-                                        </div>
-                                        <div class="field">
-                                            <span class="field-label">Finalización</span>
-                                            <span class="field-value" id="end-date">—</span>
-                                        </div>
-
-                                        <!-- ===== SECCIÓN SALDO ===== -->
-                                        <h1 class="balance-title">Saldo restante</h1>
-                                        <div class="balance-big">
-                                            <span class="balance-num" id="balance-full">—</span>
-                                            <img src="../img/icon_monedas_3d.webp" class="balance-img" alt="Saldo"
-                                                width="40" height="40">
-                                        </div>
-                                        <div class="action-container" id="action-renovar" style="display:none;">
-                                            <button class="btn-renovar" onclick="abrirModalRenovacion()">
-                                                Renovar ahora
-                                            </button>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="expand-section">
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-blue">📸</div>
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">Fotos del negocio</div>
-                                <div class="expand-header-sub">Ambiente, productos y promociones</div>
-                            </div>
-                            <div class="expand-arrow">▼</div>
-                        </div>
-
-
-
-                        <div class="expand-body">
-
-                            <div class="expand-section_Data">
-                                <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                                    <div class="expand-header-icon icon-blue">🏠</div>
-                                    <div class="expand-header-text">
-                                        <div class="expand-header-title">Fotos de ambiente</div>
-                                        <div class="expand-header-sub">Hasta 6 fotos del local</div>
-                                    </div>
-                                    <div class="expand-arrow">▼</div>
-                                </div>
-                                <div class="expand-body">
-                                    <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
-                                        Añade hasta 6 fotos de ambiente para que los usuarios puedan ver el interior de
-                                        tu negocio, lugar o local.
-                                    </p>
-                                    <div class="photo-grid" id="ambienteGrid"></div>
-                                </div>
-                            </div>
-
-                            <div class="expand-section_Data">
-                                <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                                    <div class="expand-header-icon icon-orange">🛍️</div>
-                                    <div class="expand-header-text">
-                                        <div class="expand-header-title">Servicios y productos</div>
-                                        <div class="expand-header-sub">Hasta 6 fotos</div>
-                                    </div>
-                                    <div class="expand-arrow">▼</div>
-                                </div>
-                                <div class="expand-body">
-                                    <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
-                                        Añade hasta 6 fotos de los servicios o productos que ofreces para que los
-                                        usuarios sepan qué pueden encontrar en tu negocio.
-                                    </p>
-                                    <div class="photo-grid" id="productosGrid"></div>
-                                </div>
-                            </div>
-
-                            <div class="expand-section_Data">
-                                <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                                    <div class="expand-header-icon icon-pink">🎉</div>
-                                    <div class="expand-header-text">
-                                        <div class="expand-header-title">Promociones</div>
-                                        <div class="expand-header-sub">Hasta 3 fotos</div>
-                                    </div>
-                                    <div class="expand-arrow">▼</div>
-                                </div>
-                                <div class="expand-body">
-                                    <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
-                                        Añade hasta 3 fotos de tus promociones activas, ofertas o descuentos para atraer
-                                        más clientes.
-                                    </p>
-                                    <div class="photo-grid" id="promocionesGrid"></div>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-
-
-
-
-
-                    <!-- Categoría -->
-                    <div class="expand-section" id="expCategoria">
-
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-orange">📂</div>
-
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">
-                                    Categoría y subcategoría
-                                </div>
-
-                                <div class="expand-header-sub" id="catDisplay">
-                                    Sin seleccionar
-                                </div>
-                            </div>
-
-                            <div class="expand-arrow">▼</div>
-                        </div>
-
-                        <div class="expand-body">
-
-                            <!-- Categorías -->
-                            <div class="cat-selector" id="catMain"></div>
-
-                            <!-- Subcategorías -->
-                            <div class="subcat-label">
-                                Subcategorías
-                            </div>
-
-                            <div class="cat-selector" id="catSub"></div>
-
-                        </div>
-
-                    </div>
-
-                    <!-- Carta Digital (solo Comida y Restaurantes) -->
-                    <div class="expand-section" id="expCartaDigital" style="display:none;">
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-orange">📖</div>
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">Carta digital</div>
-                                <div class="expand-header-sub" id="cartaDigitalSub">0 de 5 colecciones</div>
-                            </div>
-                            <div class="expand-arrow">▼</div>
-                        </div>
-                        <div class="expand-body">
-                            <p style="font-size:16px;color:#888;margin:0 0 14px;line-height:1.6;">
-                                Crea colecciones para tu carta digital (ej: Platos fuertes, Bebidas, Combos, Postres).
-                                Puedes crear hasta 5 colecciones, con hasta 5 fotos cada una. Arrastra una imagen o
-                                toca para elegirla desde tu galería.
-                            </p>
-                            <div id="cartaColeccionesList"></div>
-                            <button class="btn-nueva-coleccion" id="btnNuevaColeccion"
-                                onclick="PanelPerfil.crearColeccionCarta()">
-                                ➕ Nueva colección
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Ubicación -->
-                    <div class="expand-section">
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-blue">📍</div>
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">Ubicación</div>
-                                <div class="expand-header-sub">Dirección y referencia</div>
-                            </div>
-                            <div class="expand-arrow">▼</div>
-                        </div>
-                        <div class="expand-body">
-                            <div class="map-wrapper">
-
-                                <div id="mapBoxPerfil"></div>
-                                <!--
-                                <button class="map-current-btn" onclick="PanelPerfil.getCurrentLocation()">
-
-                                    📍 Mi ubicación
-
-                                </button>
- -->
-                            </div>
-                            <div class="form-section" style="margin:0; box-shadow:none;">
-                                <div class="form-field">
-                                    <label class="form-label" for="fieldDireccion">Dirección</label>
-                                    <input class="form-input" id="fieldDireccion" type="text"
-                                        placeholder="Av. Principal 123, Piso 2">
-                                </div>
-                                <div class="form-field" style="margin-bottom:0">
-                                    <label class="form-label" for="fieldReferencia">Referencia</label>
-                                    <input class="form-input" id="fieldReferencia" type="text"
-                                        placeholder="Frente al parque central">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Horario -->
-                    <!-- Horario -->
-                    <div class="expand-section">
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-                            <div class="expand-header-icon icon-green">🕐</div>
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">Horario de atención</div>
-                                <div class="expand-header-sub">Configura tus días y horas (formato 24h → 12h)</div>
-                            </div>
-                            <div class="expand-arrow">▼</div>
-                        </div>
-                        <div class="expand-body">
-                            <div class="schedule-wrapper" id="scheduleBody"></div>
-                        </div>
-                    </div>
-
-                    <!-- ===== FOTOS ===== -->
-                    <!-- ===== CONTACTO Y REDES ===== -->
-                    <div class="expand-section">
-
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-
-                            <div class="expand-header-icon icon-pink">📱</div>
-
-                            <div class="expand-header-text">
-                                <div class="expand-header-title">
-                                    Contacto y Redes
-                                </div>
-
-                                <div class="expand-header-sub">
-                                    WhatsApp, Instagram, Facebook y más
-                                </div>
-                            </div>
-
-                            <div class="expand-arrow">▼</div>
-
-                        </div>
-
-                        <div class="expand-body">
-
-                            <div class="card">
-
-                                <!-- Teléfono -->
-                                <div class="contact-item">
-
-                                    <div class="contact-icon-wrap ci-phone">
-                                        <img src="../img/llamada_icon.png" alt="Teléfono">
-                                    </div>
-
-                                    <div class="contact-text">
-                                        <div class="contact-name">Teléfono</div>
-
-                                        <input class="contact-val" id="fieldTelefono" type="tel"
-                                            placeholder="+51 999 999 999">
-                                    </div>
-
-                                    <label class="switch">
-                                        <input type="checkbox" data-contact="llamada"
-                                            onchange="PanelPerfil.toggleContactMethod('llamada', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-
-                                </div>
-
-                                <!-- WhatsApp -->
-                                <div class="contact-item">
-
-                                    <div class="contact-icon-wrap ci-wa">
-                                        <img src="../img/whatsapp_icon.png" alt="WhatsApp">
-                                    </div>
-
-                                    <div class="contact-text">
-                                        <div class="contact-name">WhatsApp</div>
-
-                                        <input class="contact-val" id="fieldWhatsapp" type="tel"
-                                            placeholder="+51 999 999 999">
-                                    </div>
-
-                                    <label class="switch">
-                                        <input type="checkbox" data-contact="whatsapp"
-                                            onchange="PanelPerfil.toggleContactMethod('whatsapp', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-
-                                </div>
-
-                                <!-- Instagram -->
-                                <div class="contact-item">
-
-                                    <div class="contact-icon-wrap ci-ig">
-                                        <img src="../img/instagram_icon.webp" alt="Instagram">
-                                    </div>
-
-                                    <div class="contact-text">
-                                        <div class="contact-name">Instagram</div>
-
-                                        <input class="contact-val" id="fieldInstagram" type="text"
-                                            placeholder="@mi_negocio">
-                                    </div>
-
-                                    <label class="switch">
-                                        <input type="checkbox" data-contact="instagram"
-                                            onchange="PanelPerfil.toggleContactMethod('instagram', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-
-                                </div>
-
-                                <!-- Facebook -->
-                                <div class="contact-item">
-
-                                    <div class="contact-icon-wrap ci-fb">
-                                        <img src="../img/facebook_icon.webp" alt="Facebook">
-                                    </div>
-
-                                    <div class="contact-text">
-                                        <div class="contact-name">Facebook</div>
-
-                                        <input class="contact-val" id="fieldFacebook" type="text"
-                                            placeholder="facebook.com/minegocio">
-                                    </div>
-
-                                    <label class="switch">
-                                        <input type="checkbox" data-contact="facebook"
-                                            onchange="PanelPerfil.toggleContactMethod('facebook', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-
-                                </div>
-
-                                <!-- TikTok -->
-                                <div class="contact-item">
-
-                                    <div class="contact-icon-wrap ci-tk">
-                                        <img src="../img/tik_tok_icon.webp" alt="TikTok">
-                                    </div>
-
-                                    <div class="contact-text">
-                                        <div class="contact-name">TikTok</div>
-
-                                        <input class="contact-val" id="fieldTiktok" type="text"
-                                            placeholder="@mi_negocio">
-                                    </div>
-
-                                    <label class="switch">
-                                        <input type="checkbox" data-contact="tiktok"
-                                            onchange="PanelPerfil.toggleContactMethod('tiktok', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-
-                                </div>
-
-                                <!-- Sitio web -->
-                                <div class="contact-item">
-
-                                    <div class="contact-icon-wrap ci-web">
-                                        🌐
-                                    </div>
-
-                                    <div class="contact-text">
-                                        <div class="contact-name">Sitio web</div>
-
-                                        <input class="contact-val" id="fieldWeb" type="url"
-                                            placeholder="www.minegocio.com">
-                                    </div>
-
-                                    <label class="switch">
-                                        <input type="checkbox" data-contact="sitio_web"
-                                            onchange="PanelPerfil.toggleContactMethod('sitio_web', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <!-- ===== OTROS MÉTODOS ===== -->
-
-                    <div class="expand-section">
-
-                        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
-
-                            <div class="expand-header-icon icon-green">💳</div>
-
-                            <div class="expand-header-text">
-
-                                <div class="expand-header-title">
-                                    Metodos de pago
-                                </div>
-
-                                <div class="expand-header-sub">
-                                    Métodos de pago disponibles
-                                </div>
-
-                            </div>
-
-                            <div class="expand-arrow">▼</div>
-
-                        </div>
-
-                        <div class="expand-body">
-
-                            <div class="card">
-
-                                <div class="pay-methods">
-
-                                    <!-- Yape -->
-                                    <div class="pay-method">
-
-                                        <div class="pay-icon-img">
-                                            <img src="../img/yape_logo.webp" alt="Yape">
-                                        </div>
-
-                                        <div class="pay-info">
-                                            <div class="pay-name">Yape</div>
-                                        </div>
-
-                                        <label class="switch">
-                                            <input type="checkbox" data-method="yape"
-                                                onchange="PanelPerfil.togglePayMethod('yape', this.checked)">
-                                            <span class="slider"></span>
-                                        </label>
-
-                                    </div>
-
-                                    <!-- Plin -->
-                                    <div class="pay-method">
-
-                                        <div class="pay-icon-img">
-                                            <img src="../img/logo_plin.webp" alt="Plin">
-                                        </div>
-
-                                        <div class="pay-info">
-                                            <div class="pay-name">Plin</div>
-                                        </div>
-
-                                        <label class="switch">
-                                            <input type="checkbox" data-method="plin"
-                                                onchange="PanelPerfil.togglePayMethod('plin', this.checked)">
-                                            <span class="slider"></span>
-                                        </label>
-
-                                    </div>
-
-                                    <!-- Agora -->
-                                    <div class="pay-method">
-
-                                        <div class="pay-icon-img">
-                                            <img src="../img/logo_agora.webp" alt="Agora">
-                                        </div>
-
-                                        <div class="pay-info">
-                                            <div class="pay-name">Agora / SIP</div>
-                                        </div>
-
-                                        <label class="switch">
-                                            <input type="checkbox" data-method="agora"
-                                                onchange="PanelPerfil.togglePayMethod('agora', this.checked)">
-                                            <span class="slider"></span>
-                                        </label>
-
-                                    </div>
-
-                                    <!-- Efectivo -->
-                                    <div class="pay-method">
-
-                                        <div class="pay-icon-img">
-                                            <img src="../img/efectivo_logo.webp" alt="Efectivo">
-                                        </div>
-
-                                        <div class="pay-info">
-                                            <div class="pay-name">Efectivo</div>
-                                        </div>
-
-                                        <label class="switch">
-                                            <input type="checkbox" data-method="efectivo"
-                                                onchange="PanelPerfil.togglePayMethod('efectivo', this.checked)">
-                                            <span class="slider"></span>
-                                        </label>
-
-                                    </div>
-
-                                    <!-- Visa -->
-                                    <div class="pay-method">
-
-                                        <div class="pay-icon-img">
-                                            <img src="../img/visa_logo.webp" alt="Visa">
-                                        </div>
-
-                                        <div class="pay-info">
-                                            <div class="pay-name">Visa / Mastercard</div>
-                                        </div>
-
-                                        <label class="switch">
-                                            <input type="checkbox" data-method="visa_mastercard"
-                                                onchange="PanelPerfil.togglePayMethod('visa_mastercard', this.checked)">
-                                            <span class="slider"></span>
-                                        </label>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
+                    <iframe id="iframePerfil" src="perfil.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    "></iframe>
                 </div>
 
                 <!-- ===== RECARGAS ===== -->
                 <div class="section" id="sec-recargas">
-
                     <iframe src="recargas" style="
                         width:100%;
                         height:100vh;
@@ -1015,12 +184,9 @@
                         background:#fff;
                     ">
                     </iframe>
-
                 </div>
 
-
                 <div class="section" id="sec-daniel">
-
                     <iframe src="lading_daniel" style="
                         width:100%;
                         height:100vh;
@@ -1030,12 +196,10 @@
                         background:#fff;
                     ">
                     </iframe>
-
                 </div>
 
                 <!-- ===== PUBLICIDAD ===== -->
                 <div class="section" id="sec-publicidad">
-
                     <iframe src="publicaicones" style="
                         width:100%;
                         height:100vh;
@@ -1045,12 +209,9 @@
                         background:#fff;
                     ">
                     </iframe>
-
                 </div>
 
-
                 <div class="section" id="sec-cotiza">
-
                     <iframe src="baner_geinz_bot" style="
                         width:100%;
                         height:100vh;
@@ -1060,10 +221,8 @@
                         background:#fff;
                     ">
                     </iframe>
-
                 </div>
 
-                <!-- ===== MI QR ===== -->
                 <!-- ===== MI QR ===== -->
                 <div class="section" id="sec-qr">
                     <iframe id="iframeMiQr" src="miqr.html" style="
@@ -1092,7 +251,6 @@
 
                 <!-- ===== HISTORIAL DE VENTAS ===== -->
                 <div class="section" id="sec-historial">
-
                     <iframe id="iframeHistorial" src="historial_venta.html" style="
         width:100%;
         height:100vh;
@@ -1102,12 +260,9 @@
         background:#fff;
     ">
                     </iframe>
-
                 </div>
 
-
                 <div class="section" id="sec-pedidos">
-
                     <iframe id="iframePedidos" src="pedidos.html" style="
         width:100%;
         height:100vh;
@@ -1117,19 +272,9 @@
         background:#fff;
     ">
                     </iframe>
-
                 </div>
 
-
-
-
-
             </div><!-- /content -->
-
-            <!-- SAVE FAB (mobile) 
-             
-            <button class="save-fab" id="saveFab" onclick="PanelPerfil.saveChanges()">✓ Guardar cambios</button>
--->
 
             <!-- BOTON MENU MOBILE -->
             <button class="mobile-menu-btn" id="mobileMenuBtn">
@@ -1143,16 +288,11 @@
             <div class="mobile-menu" id="mobileMenu">
 
                 <div class="mobile-menu-header">
-
                     <img class="mobile-menu-logo" src="../img/Diseño sin título (2).png" alt="Geinz">
-
                     <div>
                         <div class="mobile-menu-title">Geinz APP</div>
-                        <div class="mobile-menu-sub">
-                            Panel de negocio
-                        </div>
+                        <div class="mobile-menu-sub">Panel de negocio</div>
                     </div>
-
                 </div>
 
                 <div class="mobile-menu-items">
@@ -1162,6 +302,7 @@
                         <span>🏠</span>
                         <span>Inicio</span>
                     </button>
+
                     <div class="mobile-menu-group">
                         <button class="mobile-menu-group-header" onclick="PanelPerfil.toggleMobileGroup(this)">
                             <span>🏬</span>
@@ -1186,7 +327,6 @@
                             </button>
                         </div>
                     </div>
-
 
                     <div class="mobile-menu-group">
                         <button class="mobile-menu-group-header" onclick="PanelPerfil.toggleMobileGroup(this)">
@@ -1244,7 +384,6 @@
                     </button>
                     <button class="sidebar-collapse-btn sidebar-cerrar-btn" id="sidebarCerrarBtn"
                         onclick="cerrarSesionPanel()">
-
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                             <path d="M4 7H20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
                             <path d="M7 7L8 19C8.1 20.1 8.9 21 10 21H14C15.1 21 15.9 20.1 16 19L17 7"
@@ -1254,111 +393,18 @@
                             <path d="M14 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                             <path d="M9 4H15" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
                         </svg>
-
                         <span class="collapse-label">Cerrar sesión</span>
                     </button>
-
 
                 </div>
             </div>
 
         </div><!-- /main -->
     </div>
-    <div class="modal-overlay" id="modalFotoPerfil"
-        style="display:flex !important; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:flex-end; justify-content:center;">
-        <div class="modal-sheet" style="padding:24px;">
 
-            <!-- Header -->
-            <div class="modal-header">
-                <h3 class="modal-title">📷 Foto de perfil</h3>
-                <button class="modal-close" onclick="PanelPerfil.closeModal('modalFotoPerfil')">✕</button>
-            </div>
-
-            <!-- Preview circular -->
-            <div style="display:flex;justify-content:center;padding:20px 0 8px;">
-                <div style="position:relative;width:120px;height:120px;">
-
-                    <img id="avatarModalPreview" style="display:none;width:120px;height:120px;border-radius:50%;
-                    object-fit:cover;border:3px solid var(--primary);
-                    box-shadow:0 0 24px rgba(124,77,255,0.35);
-                    position:absolute;top:0;left:0;" alt="preview">
-
-                    <div id="avatarModalPlaceholder" style="width:120px;height:120px;border-radius:50%;
-                    background:#1a1040;border:3px dashed #7c4dff;
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:36px;">
-                        🏪
-                    </div>
-
-                </div>
-            </div>
-
-            <p style="text-align:center;font-size:12px;color:#888;margin:0 0 20px;">
-                La imagen se recortará en círculo
-            </p>
-
-            <!-- Botón elegir -->
-            <!-- DESPUÉS — label + input hidden, funciona en todos los dispositivos -->
-            <label id="btnPickAvatarImg" for="avatarFileInputHtml" style="width:100%;padding:14px;border-radius:14px;
-              border:1.5px solid #7c4dff;background:transparent;
-              color:#7c4dff;font-size:14px;font-weight:600;
-              cursor:pointer;margin-bottom:10px;box-sizing:border-box;
-              display:flex;align-items:center;justify-content:center;gap:8px;">
-                📁 Elegir foto de galería
-
-            </label>
-
-            <!-- Botón guardar — display:none con !important para que el JS lo pueda mostrar -->
-            <button id="btnSaveAvatarImg" style="width:100%;padding:14px;border-radius:14px;
-                   border:none;background:#7c4dff;
-                   color:#fff;font-size:14px;font-weight:700;
-                   cursor:pointer;
-                   align-items:center;justify-content:center;gap:8px;
-                   display:none;">
-                ✓ Guardar foto
-            </button>
-
-        </div>
-    </div>
-
-    <div id="modal-renovacion" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Renueva tu plan</h3>
-            <p>Selecciona plazo a renovar</p>
-
-            <div id="selector-planes" class="selector-planes"></div>
-
-            <div class="resumen-pago" id="resumen-pago" style="display:none;">
-                <p>Saldo actual:
-                    <span id="saldo-actual">0</span>
-                    <img src="../img/icon_monedas_3d.webp" class="coin-icon">
-                </p>
-                <div id="detalle-descuento"></div>
-                <div id="aviso-saldo-insuficiente" style="display:none; margin: 6px 0 4px;"></div>
-                <p>
-                    <span class="label-text">Saldo disponible restante:</span>
-                    <span class="valor-container">
-                        <span id="saldo-restante">0</span>
-                        <img src="../img/icon_monedas_3d.webp" class="coin-icon">
-                    </span>
-                </p>
-                <hr>
-                <p>Total:
-                    <span id="total-a-pagar">0</span>
-                    <img src="../img/icon_monedas_3d.webp" class="coin-icon">
-                </p>
-            </div>
-
-            <div class="acciones">
-                <button onclick="cerrarModal()">Cancelar</button>
-                <button id="btn-continuar" onclick="procesarPago()" disabled>Continuar</button>
-            </div>
-        </div>
-    </div>
-    <!-- ===== SKELETON SCREEN ===== -->
+    <!-- ===== SKELETON SCREEN (loader inicial del panel) ===== -->
     <div class="skeleton-overlay" id="skeletonOverlay">
 
-        <!-- Sidebar skeleton (PC) -->
         <div class="sk-sidebar">
             <div class="sk-sidebar-brand">
                 <div class="sk-block sk-circle" style="width:42px;height:42px;flex-shrink:0"></div>
@@ -1373,10 +419,8 @@
             </div>
         </div>
 
-        <!-- Main skeleton -->
         <div class="sk-main">
 
-            <!-- Banner + form -->
             <div class="sk-top-row">
                 <div class="sk-block sk-banner"></div>
                 <div class="sk-lines">
@@ -1391,14 +435,12 @@
                 </div>
             </div>
 
-            <!-- Expand sections -->
             <div class="sk-form-area">
                 <div class="sk-block sk-expand"></div>
                 <div class="sk-block sk-expand" style="opacity:.75"></div>
                 <div class="sk-block sk-expand" style="opacity:.55"></div>
             </div>
 
-            <!-- Contacto + pagos -->
             <div class="sk-two-col">
                 <div class="sk-card">
                     <div class="sk-block" style="height:11px;width:40%"></div>
@@ -1441,7 +483,6 @@
                 </div>
             </div>
 
-            <!-- Bottom bar mobile -->
             <div class="sk-bottom-bar">
                 <div class="sk-nav-item">
                     <div class="sk-block sk-circle" style="width:24px;height:24px"></div>
@@ -1456,71 +497,7 @@
         </div>
     </div>
 
-    <div id="uploadLoadingOverlay"
-        style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;align-items:center;justify-content:center;">
-        <div
-            style="background:#13101f;border-radius:24px;border:1px solid rgba(124,77,255,0.18);padding:40px 48px;display:flex;flex-direction:column;align-items:center;gap:20px;min-width:260px;position:relative;overflow:hidden;">
-
-            <div style="position:relative;width:64px;height:64px;">
-                <div id="uploadPulse"
-                    style="position:absolute;inset:0;border-radius:50%;background:rgba(124,77,255,0.08);animation:uploadPulse 2s ease-in-out infinite;">
-                </div>
-                <div style="position:absolute;inset:6px;border-radius:50%;border:2px solid rgba(124,77,255,0.12);">
-                </div>
-                <div
-                    style="position:absolute;inset:6px;border-radius:50%;border:2px solid transparent;border-top-color:#7c4dff;border-right-color:rgba(124,77,255,0.4);animation:uploadSpin 0.9s cubic-bezier(0.4,0,0.2,1) infinite;">
-                </div>
-                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c4dff" stroke-width="1.8"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <path d="M21 15l-5-5L5 21" />
-                    </svg>
-                </div>
-            </div>
-
-            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-                <p id="uploadLoadingMsg"
-                    style="color:#fff;font-size:15px;font-weight:500;margin:0;letter-spacing:0.01em;">Subiendo imagen
-                </p>
-                <p id="uploadLoadingSubMsg" style="color:rgba(255,255,255,0.38);font-size:12px;margin:0;">Comprimiendo y
-                    guardando<span id="uploadDots"></span></p>
-            </div>
-
-            <div style="width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
-                <div
-                    style="height:100%;background:#7c4dff;border-radius:99px;animation:uploadProgress 1.8s ease-in-out infinite;">
-                </div>
-            </div>
-
-        </div>
-
-        <div id="toast-renovacion" style="
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(30px);
-    background: #1a1a2e;
-    color: #fff;
-    padding: 14px 24px;
-    border-radius: 14px;
-    font-size: 14px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
-    opacity: 0;
-    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-    z-index: 9999;
-    pointer-events: none;
-    white-space: nowrap;
-">
-            <span id="toast-renovacion-icon">✅</span>
-            <span id="toast-renovacion-msg">Plan renovado correctamente</span>
-        </div>
-    </div>
+    <!-- ===== AUTH / SESIÓN ===== -->
     <script type="module">
         import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
         import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1539,21 +516,16 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        /* 🔥 ESPERA REAL DE FIREBASE AUTH */
         onAuthStateChanged(auth, (user) => {
-
             if (!user) {
                 sessionStorage.removeItem("tiendaId");
                 sessionStorage.removeItem("localidad");
                 sessionStorage.removeItem("correoVinculado");
-
                 window.location.replace("../index");
                 return;
             }
-
             console.log("Usuario logeado OK:", user.uid);
         });
-
 
         window.cerrarSesionPanel = async () => {
 
@@ -1610,21 +582,10 @@
             window.location.replace("../index");
         };
     </script>
-    <script>
-        (function () {
-            var d = document.getElementById("uploadDots");
-            if (d) d.innerHTML = "<span>.</span><span>.</span><span>.</span>";
-        })();
-    </script>
 
+    <!-- ===== IFRAME RECARGAS: volver / reenviar datos ===== -->
     <script>
-        // Guarda los datos de la tienda para reenviarlos cuando el iframe recargue
         window._datosParaIframe = null;
-
-        // Interceptar postMessage para guardar copia de los datos
-        const _originalPostMessage = window.postMessage.bind(window);
-        // En realidad los datos los manda el JS principal al iframe, 
-        // así que interceptamos desde panel_perfil.js
 
         function volverDesdeIframe() {
             const iframe = document.querySelector('#sec-recargas iframe');
@@ -1632,10 +593,8 @@
 
             document.getElementById('iframeBackBtn').classList.remove('visible');
 
-            // Recargar el iframe a recargas
             iframe.src = 'recargas';
 
-            // Cuando termine de cargar, reenviar los datos guardados
             iframe.addEventListener('load', function reenviar() {
                 iframe.removeEventListener('load', reenviar);
                 reenviarDatosAlIframe(iframe);
@@ -1652,10 +611,9 @@
                 } catch (e) {
                     console.warn('No se pudo reenviar datos:', e);
                 }
-            }, 300); // pequeño delay para que el iframe esté listo
+            }, 300);
         }
 
-        // Vigilar cuando el iframe navega
         (function () {
             const sec = document.getElementById('sec-recargas');
             const btn = document.getElementById('iframeBackBtn');
@@ -1674,157 +632,113 @@
                         btn.classList.remove('visible');
                     }
                 } catch (e) {
-                    // Cross-origin: mostrar botón
                     btn.classList.add('visible');
                 }
             });
         })();
     </script>
+
     <script>
         window.addEventListener('message', function (e) {
             const { tipo, seccion } = e.data || {};
             if (tipo !== 'NAVEGAR') return;
 
-            const iframe = document.querySelector('#sec-recargas iframe');
-
-            // ✅ Siempre matar el iframe primero
-            if (iframe) iframe.src = 'about:blank';
-
-            // ✅ Navegar la sección en el panel
             if (window.PanelPerfil && typeof PanelPerfil.showSection === 'function') {
                 PanelPerfil.showSection(seccion || 'perfil');
             }
 
-            // ✅ Si es recargas, recargar el iframe después
-            if (seccion === 'recargas' && iframe) {
-                setTimeout(() => {
-                    iframe.src = 'recargas';
-                    iframe.addEventListener('load', function () {
-                        setTimeout(() => {
-                            if (window._datosParaIframe) {
-                                iframe.contentWindow.postMessage(window._datosParaIframe, '*');
-                            }
-                        }, 300);
-                    }, { once: true });
-                }, 50);
+            // Solo tocar el iframe de Recargas si realmente vamos ahí
+            if (seccion === 'recargas') {
+                const iframe = document.querySelector('#sec-recargas iframe');
+                if (iframe) {
+                    iframe.src = 'about:blank';
+                    setTimeout(() => {
+                        iframe.src = 'recargas';
+                        iframe.addEventListener('load', function () {
+                            setTimeout(() => {
+                                if (window._datosParaIframe) {
+                                    iframe.contentWindow.postMessage(window._datosParaIframe, '*');
+                                }
+                            }, 300);
+                        }, { once: true });
+                    }, 50);
+                }
             }
         });
-
-
-
     </script>
-
     <script>
-        /* =========================================================
-           1) CAPTURAR ID Y LOCALIDAD (URL o sessionStorage)
-        ========================================================= */
-        const params = new URLSearchParams(window.location.search);
-
-        const TIENDA_ID = params.get("id") || sessionStorage.getItem("tiendaId");
-        const LOCALIDAD_TIENDA = params.get("localidad") || sessionStorage.getItem("localidad");
-
-        if (!TIENDA_ID || !LOCALIDAD_TIENDA) {
-            window.location.replace("../index");
-        } else {
-            sessionStorage.setItem("tiendaId", TIENDA_ID);
-            sessionStorage.setItem("localidad", LOCALIDAD_TIENDA);
-        }
-
-        // ⚠️ Merge, NO sobrescribir — por si panel_perfil.js ya puso métodos aquí
-        window.PanelPerfil = window.PanelPerfil || {};
-        window.PanelPerfil.TIENDA_ID = TIENDA_ID;
-        window.PanelPerfil.LOCALIDAD_TIENDA = LOCALIDAD_TIENDA;
-
-        /* =========================================================
-           2) PAYLOAD QUE SE MANDARÁ A LOS IFRAMES (recargas, etc.)
-        ========================================================= */
-        window._datosParaIframe = {
-            tipo: "DATOS_TIENDA",
-            tiendaId: TIENDA_ID,
-            localidad: LOCALIDAD_TIENDA
-        };
-
-        function reenviarDatosAlIframe(iframe) {
-            if (!window._datosParaIframe || !iframe?.contentWindow) return;
-            setTimeout(() => {
-                try {
-                    iframe.contentWindow.postMessage(window._datosParaIframe, '*');
-                    console.log('📤 Datos reenviados al iframe:', window._datosParaIframe);
-                } catch (e) {
-                    console.warn('No se pudo reenviar datos:', e);
-                }
-            }, 300);
-        }
-
-        function volverDesdeIframe() {
-            const iframe = document.querySelector('#sec-recargas iframe');
-            if (!iframe) return;
-
-            document.getElementById('iframeBackBtn')?.classList.remove('visible');
-            iframe.src = 'recargas';
-
-            iframe.addEventListener('load', function reenviar() {
-                iframe.removeEventListener('load', reenviar);
-                reenviarDatosAlIframe(iframe);
-            }, { once: true });
-        }
-
-        /* =========================================================
-           3) ENVIAR DATOS A **TODOS** LOS IFRAMES DEL PANEL AL CARGAR
-              (mismo origen: podrían leerlo de sessionStorage también,
-              pero esto sirve como refuerzo y para 'recargas' que es
-              tratado como cross-origin)
-        ========================================================= */
-        document.querySelectorAll('.section iframe').forEach((iframe) => {
-            iframe.addEventListener('load', () => reenviarDatosAlIframe(iframe));
-        });
-
-        /* =========================================================
-           4) VIGILAR NAVEGACIÓN DENTRO DEL IFRAME 'recargas'
-        ========================================================= */
         (function () {
-            const sec = document.getElementById('sec-recargas');
-            const btn = document.getElementById('iframeBackBtn');
-            if (!sec || !btn) return;
+            // Mapeo: id de sección del sidebar/menú móvil → permiso requerido
+            // (debe coincidir con las keys de PERMISOS_DISPONIBLES en inicio.html)
+            const PERMISOS_BOTON = {
+                perfil: "perfil",
+                publicidad: "publicidad",
+                qr: "qr",
+                productos: "productos",
+                historial: "pedidos", // no tiene permiso propio, se agrupa con "pedidos"
+                pedidos: "pedidos",
+                recargas: "recargas",
+            };
 
-            const iframe = sec.querySelector('iframe');
-            if (!iframe) return;
-
-            iframe.addEventListener('load', function () {
+            function getRolActivo() {
                 try {
-                    const iframeHref = iframe.contentWindow.location.href;
-                    const esRecargas = iframeHref.includes('recargas') || iframeHref === 'about:blank';
-                    btn.classList.toggle('visible', !esRecargas);
+                    return JSON.parse(sessionStorage.getItem("rolActivo") || "null");
                 } catch (e) {
-                    // Cross-origin: mostrar botón
-                    btn.classList.add('visible');
+                    return null;
+                }
+            }
+
+            function aplicarPermisosRol(sesion) {
+                // null → sin restricciones (admin) | [] → sin sesión, todo bloqueado
+                const permisos = sesion ? (sesion.esAdmin ? null : (sesion.permisos || [])) : [];
+
+                Object.keys(PERMISOS_BOTON).forEach((seccion) => {
+                    const permisoNecesario = PERMISOS_BOTON[seccion];
+                    const permitido = permisos === null || permisos.includes(permisoNecesario);
+
+                    [`sbb-${seccion}`, `mmb-${seccion}`].forEach((id) => {
+                        const btn = document.getElementById(id);
+                        if (!btn) return;
+                        btn.disabled = !permitido;
+                        btn.classList.toggle("sidebar-btn-disabled", !permitido);
+                        btn.title = permitido ? "" : "No tienes permiso para esta sección";
+                    });
+                });
+            }
+
+            // 1) Al cargar la página: aplica el rol ya guardado (si recargaron)
+            document.addEventListener("DOMContentLoaded", () => {
+                aplicarPermisosRol(getRolActivo());
+            });
+
+            // 2) En vivo: cuando inicio.html hace login/logout, nos avisa por postMessage
+            window.addEventListener("message", (e) => {
+                if (e.origin !== window.location.origin) return;
+                if (e.data?.type === "ROL_ACTIVO_UPDATE") {
+                    aplicarPermisosRol(e.data.rol);
                 }
             });
         })();
-
-        /* =========================================================
-           5) ESCUCHAR MENSAJES 'NAVEGAR' DESDE LOS HIJOS
-        ========================================================= */
-        window.addEventListener('message', function (e) {
-            const { tipo, seccion } = e.data || {};
-            if (tipo !== 'NAVEGAR') return;
-
-            const iframe = document.querySelector('#sec-recargas iframe');
-            if (iframe) iframe.src = 'about:blank';
-
-            if (window.PanelPerfil && typeof PanelPerfil.showSection === 'function') {
-                PanelPerfil.showSection(seccion || 'perfil');
-            }   
-
-            if (seccion === 'recargas' && iframe) {
-                setTimeout(() => {
-                    iframe.src = 'recargas';
-                    iframe.addEventListener('load', () => reenviarDatosAlIframe(iframe), { once: true });
-                }, 50);
-            }
-        });
     </script>
-    <input type="file" id="avatarFileInputHtml" accept="image/*" style="display:none;">
+
+    <script>
+  window.addEventListener('message', function (e) {
+    const tipo = e.data?.type;
+    if (!['SALDO_UPDATE', 'PUBLICIDAD_UPDATE', 'PLANES_UPDATE'].includes(tipo)) return;
+
+    // Actualizamos el saldo global del documento padre también
+    if (tipo === 'SALDO_UPDATE') {
+      window._saldoActual = e.data.saldo;
+    }
+
+    // Reenviar el mismo mensaje a TODOS los iframes hermanos (incluida Publicidad)
+    document.querySelectorAll('iframe').forEach((iframe) => {
+      try {
+        iframe.contentWindow.postMessage(e.data, '*');
+      } catch (err) {}
+    });
+  });
+</script>
 </body>
 
 </html>

@@ -68,6 +68,10 @@ if (!tiendaId || !localidad) {
         iframe.contentWindow.postMessage({ type: "SALDO_UPDATE", saldo }, "*");
       } catch (e) {}
     });
+    // 👈 NUEVO: reenviar al padre para que llegue a los iframes hermanos (Publicidad, etc.)
+    try {
+      window.parent.postMessage({ type: "SALDO_UPDATE", saldo }, "*");
+    } catch (e) {}
   }
 
   function broadcastPublicidad(publicidad) {
@@ -81,6 +85,10 @@ if (!tiendaId || !localidad) {
         );
       } catch (e) {}
     });
+    // 👈 NUEVO
+    try {
+      window.parent.postMessage({ type: "PUBLICIDAD_UPDATE", publicidad }, "*");
+    } catch (e) {}
   }
 
   function broadcastPlanes(planesActivacion, planesBotPromo, publicidad) {
@@ -105,6 +113,18 @@ if (!tiendaId || !localidad) {
         );
       } catch (e) {}
     });
+    // 👈 NUEVO
+    try {
+      window.parent.postMessage(
+        {
+          type: "PLANES_UPDATE",
+          planes_activacion: planesActivacion,
+          planes_bot_promo: planesBotPromo,
+          publicidad: publicidad,
+        },
+        "*",
+      );
+    } catch (e) {}
   }
 
   document.querySelectorAll("iframe").forEach((iframe) => {
@@ -428,7 +448,7 @@ if (!tiendaId || !localidad) {
   // ============================================================
   function bloquearExpandibles() {
     const targets = [
-      ...document.querySelectorAll("#sec-perfil .expand-section"),
+      ...document.querySelectorAll(".expand-section"),
       document.querySelector(".profile-top-row"),
     ].filter(Boolean);
 
@@ -455,7 +475,7 @@ if (!tiendaId || !localidad) {
 
   function desbloquearExpandibles() {
     const targets = [
-      ...document.querySelectorAll("#sec-perfil .expand-section"),
+      ...document.querySelectorAll(".expand-section"),
       document.querySelector(".profile-top-row"),
     ].filter(Boolean);
 

@@ -4667,29 +4667,98 @@ input:checked+.slider:before {
 /* Scrollbar totalmente oscura */
 /* 1. Estándar (Firefox y navegadores compatibles) */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: #2a2a2a #000000; /* [tirador] [fondo] */
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a2a #000000;
+    /* [tirador] [fondo] */
 }
 
 /* 2. WebKit (Chrome, Edge, Safari, Opera) */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+    width: 10px;
+    height: 10px;
 }
 
 /* Fondo del scroll (totalmente oscuro) */
 ::-webkit-scrollbar-track {
-  background: #000000;
+    background: #000000;
 }
 
 /* Barrita / Tirador (Gris oscuro visible, no blanco) */
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
-  border-radius: 5px;
-  border: 2px solid #000000; /* Espaciado estético alrededor del tirador */
+    background: #2a2a2a;
+    border-radius: 5px;
+    border: 2px solid #000000;
+    /* Espaciado estético alrededor del tirador */
 }
 
 /* Barrita al pasar el cursor (un poquitito más clara para dar respuesta visual) */
 ::-webkit-scrollbar-thumb:hover {
-  background: #3d3d3d;
+    background: #3d3d3d;
+}
+
+/* ===== PLAN VENCIDO — bloqueo total salvo Cuenta ===== */
+body.plan-vencido .profile-top-row,
+body.plan-vencido .expand-section,
+body.plan-vencido .wrapper .exp-card:not(#card-account) {
+    pointer-events: none;
+    opacity: .35;
+    filter: grayscale(60%);
+    user-select: none;
+}
+
+/* La tarjeta de Cuenta se mantiene 100% interactiva */
+body.plan-vencido #card-account {
+    opacity: 1;
+    pointer-events: auto;
+    filter: none;
+    position: relative;
+    z-index: 5;
+}
+
+/* Aviso flotante opcional arriba de todo */
+body.plan-vencido::before {
+    content: "⚠️ Tu plan venció. Renueva para seguir editando tu negocio.";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #ff4d4d;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    padding: 10px;
+    z-index: 99998;
+}
+
+
+/* ===== BOTONES DESHABILITADOS POR ROL ===== */
+.sidebar-btn:disabled,
+.sidebar-btn.sidebar-btn-disabled,
+.mobile-menu-item:disabled,
+.mobile-menu-item.sidebar-btn-disabled {
+    opacity: .35;
+    filter: grayscale(70%);
+    cursor: not-allowed;
+    pointer-events: none;
+    /* corta el click aunque el <button> no tenga disabled real */
+    color: var(--text3) !important;
+}
+
+.sidebar-btn:disabled:hover,
+.mobile-menu-item:disabled:hover {
+    background: transparent !important;
+}
+
+/* Badge "Pronto" que ya usás para Daniel/Cotiza, reutilizable */
+.badge-proximamente {
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, .08);
+    color: var(--text3);
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: auto;
+    text-transform: uppercase;
+    letter-spacing: .04em;
 }
