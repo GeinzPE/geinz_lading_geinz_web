@@ -387,10 +387,23 @@
 .np-cart-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;padding-top:10px;border-top:1px solid var(--line);margin-bottom:10px;}
 .np-confirmar-btn{width:100%;padding:12px 0;border-radius:12px;border:none;background:#22c55e;color:#04240f;font-weight:800;font-size:13px;cursor:pointer;}
 .np-confirmar-btn:disabled{opacity:.4;cursor:not-allowed;}
-.np-img-wrap{width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#1a1a20;display:flex;align-items:center;justify-content:center;}
+.np-img-wrap{width:100%;aspect-ratio:1;  border-radius:50%;overflow:hidden;background:#1a1a20;display:flex;align-items:center;justify-content:center;}
 .np-img-wrap img{width:100%;height:100%;object-fit:cover;}
-.np-noimg,.np-img-ph{background:linear-gradient(135deg,#1e1b2b,#2a2438);font-size:26px;opacity:.4;width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
-.np-opt-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;align-items:center;justify-content:center;}
+.np-noimg,.np-img-ph{
+  width:100%;
+  height:100%;
+  border-radius:50%;
+  background:radial-gradient(circle at center, rgba(124,92,255,.18), rgba(124,92,255,.04));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.np-noimg::after,.np-img-ph::after{
+  content:'';
+  width:58%;
+  height:58%;
+  background:url('../img/logo-geinz.png') center / contain no-repeat;
+}.np-opt-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;align-items:center;justify-content:center;}
 .np-opt-overlay.show{display:flex;}
 .np-opt-modal{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;width:340px;max-width:92vw;max-height:80vh;overflow-y:auto;}
 .np-opt-head{display:flex;justify-content:space-between;font-weight:800;margin-bottom:12px;}
@@ -399,6 +412,26 @@
 .np-opt-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
 .np-opt-btn{padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:transparent;color:#fff;font-size:12px;cursor:pointer;}
 .np-opt-btn.active{background:#7c5cff;border-color:#7c5cff;}
+.np-card img{width:100%;aspect-ratio:1;object-fit:cover;background:#1a1a20;}
+
+
+.np-card{transition:border-color .2s ease, box-shadow .2s ease;}
+.np-card.in-cart{border-color:rgba(124,92,255,.5); box-shadow:0 0 0 1px rgba(124,92,255,.25) inset;}
+@keyframes np-pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.np-add-btn,.np-qty-row{animation:np-pop .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes np-bump{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+.np-bump{animation:np-bump .25s cubic-bezier(.34,1.56,.64,1);}
+.np-cart-row{align-items:flex-start;}
+.npc-thumb{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#1a1a20;}
+.npc-thumb img{width:100%;height:100%;object-fit:cover;}
+.npc-thumb-ph{
+  width:100%;height:100%;
+  background:radial-gradient(circle at center, rgba(124,92,255,.18), rgba(124,92,255,.05)), #14101f;
+  display:flex;align-items:center;justify-content:center;
+}
+.npc-thumb-ph::after{content:'';width:60%;height:60%;background:url('../img/logo-geinz.png') center/contain no-repeat;}
+.npc-cat{color:#7c5cff !important;text-transform:uppercase;font-size:10px !important;font-weight:700 !important;letter-spacing:.03em;}
+.npc-subtotal{font-weight:800;flex-shrink:0;}
 `;
         styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
 
@@ -2335,6 +2368,7 @@
             metodoPago: "Efectivo",   // ← nuevo
             cargado: false,
 
+
             normalizeText(s) {
                 return (s || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
             },
@@ -2397,7 +2431,7 @@
                     this.add(p.id, seleccion);
                 }
                 this.cerrarOpciones();
-                this.renderGrid();
+                this.updateCardQty(p.id);
                 this.renderCarrito();
             },
             async cargarCatalogo() {
@@ -2462,6 +2496,35 @@
                 if (this.filtroTexto) res = res.filter((p) => p.nombreNorm.includes(this.filtroTexto));
                 return res;
             },
+            updateCardQty(productId) {
+                const card = document.querySelector(`.np-card[data-id="${productId}"]`);
+                const holder = card?.querySelector('.np-qty-holder');
+                const p = this.productosPorId.get(productId);
+                if (!p || !holder) return;
+
+                const tieneVariantes = p.condiciones?.length > 0;
+                let accion, enCarrito;
+
+                if (tieneVariantes) {
+                    const variantes = [...this.carrito.values()].filter((it) => it.id === p.id);
+                    const totalCant = variantes.reduce((s, v) => s + v.cantidad, 0);
+                    enCarrito = totalCant > 0;
+                    accion = totalCant === 0
+                        ? `<button class="np-add-btn" data-open-opt="${p.id}">Agregar</button>`
+                        : `<button class="np-add-btn" data-open-opt="${p.id}">${totalCant} en carrito · Agregar otra</button>`;
+                } else {
+                    const cant = this.carrito.get(p.id)?.cantidad || 0;
+                    enCarrito = cant > 0;
+                    accion = cant === 0
+                        ? `<button class="np-add-btn" data-add="${p.id}">Agregar</button>`
+                        : `<div class="np-qty-row"><button data-minus="${p.id}">−</button><span class="np-qty-num">${cant}</span><button data-plus="${p.id}">+</button></div>`;
+                }
+
+                holder.innerHTML = accion;
+                card.classList.toggle('in-cart', enCarrito);
+                const numEl = holder.querySelector('.np-qty-num');
+                if (numEl) numEl.classList.add('np-bump');
+            },
 
             renderGrid() {
                 const grid = document.getElementById("npGrid");
@@ -2481,7 +2544,7 @@
                     const tieneVariantes = p.condiciones?.length > 0;
                     const imgHtml = p.imagen
                         ? `<img src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" onerror="this.parentElement.classList.add('np-noimg');this.remove();">`
-                        : `<div class="np-img-ph">🍽️</div>`;
+                        : ``;
 
                     let accion;
                     if (tieneVariantes) {
@@ -2503,15 +2566,7 @@
     </div>`;
                 }).join("");
 
-                grid.querySelectorAll("[data-add],[data-plus]").forEach((btn) => {
-                    btn.addEventListener("click", () => this.add(btn.dataset.add || btn.dataset.plus));
-                });
-                grid.querySelectorAll("[data-minus]").forEach((btn) => {
-                    btn.addEventListener("click", () => this.remove(btn.dataset.minus));
-                });
-                grid.querySelectorAll("[data-open-opt]").forEach((btn) => {
-                    btn.addEventListener("click", () => this.abrirOpciones(this.productosPorId.get(btn.dataset.openOpt)));
-                });
+
             },
 
             add(id, seleccion = null) {
@@ -2522,7 +2577,7 @@
                 const entry = this.carrito.get(key);
                 if (entry) entry.cantidad += 1;
                 else this.carrito.set(key, { ...p, precio: this.calcPrecioFinal(p, seleccion), cantidad: 1, cartKey: key, seleccion });
-                this.renderGrid();
+                this.updateCardQty(id);      // ← antes: this.renderGrid()
                 this.renderCarrito();
             },
 
@@ -2530,8 +2585,9 @@
                 const entry = this.carrito.get(key);
                 if (!entry) return;
                 entry.cantidad -= 1;
+                const id = entry.id;
                 if (entry.cantidad <= 0) this.carrito.delete(key);
-                this.renderGrid();
+                this.updateCardQty(id);      // ← antes: this.renderGrid()
                 this.renderCarrito();
             },
 
@@ -2543,14 +2599,19 @@
                 wrap.innerHTML = items.length
                     ? items.map((it) => {
                         const opcTxt = it.seleccion ? Object.entries(it.seleccion).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
+                        const thumb = it.imagen
+                            ? `<img src="${it.imagen}" alt="">`
+                            : `<div class="npc-thumb-ph"></div>`;
                         return `
     <div class="np-cart-row">
+        <div class="npc-thumb">${thumb}</div>
         <div class="npc-name">
             <span class="n">${escapeHtml(it.nombre)}</span>
-            ${opcTxt ? `<span class="p" style="display:block;">${escapeHtml(opcTxt)}</span>` : ""}
+            ${it.categoria ? `<span class="p npc-cat">${escapeHtml(it.categoria)}</span>` : ""}
+            ${opcTxt ? `<span class="p">${escapeHtml(opcTxt)}</span>` : ""}
             <span class="p">${it.cantidad} × ${fmtMoney(it.precio)}</span>
         </div>
-        <span>${fmtMoney(it.cantidad * it.precio)}</span>
+        <span class="npc-subtotal">${fmtMoney(it.cantidad * it.precio)}</span>
     </div>`;
                     }).join("")
                     : `<p style="font-size:12px;color:var(--ink-faint);text-align:center;padding:20px 0;">Toca productos para agregarlos</p>`;
@@ -2617,6 +2678,16 @@
                         this.metodoPago = btn.dataset.pago;
                         document.querySelectorAll("#npPagoRow .np-pago-btn").forEach((b) => b.classList.toggle("active", b === btn));
                     });
+                });
+                document.getElementById("npGrid").addEventListener("click", (e) => {
+                    const addBtn = e.target.closest("[data-add]");
+                    const plusBtn = e.target.closest("[data-plus]");
+                    const minusBtn = e.target.closest("[data-minus]");
+                    const optBtn = e.target.closest("[data-open-opt]");
+                    if (addBtn) this.add(addBtn.dataset.add);
+                    else if (plusBtn) this.add(plusBtn.dataset.plus);
+                    else if (minusBtn) this.remove(minusBtn.dataset.minus);
+                    else if (optBtn) this.abrirOpciones(this.productosPorId.get(optBtn.dataset.openOpt));
                 });
             },
         };

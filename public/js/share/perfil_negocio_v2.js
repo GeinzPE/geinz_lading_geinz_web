@@ -1263,9 +1263,23 @@ function copyToClipboard(txt) {
     });
 }
 
-function createImageWithPlaceholder({ src, alt = "", onError, onClick }) {
+function createImageWithPlaceholder({
+  src,
+  alt = "",
+  onError,
+  onClick,
+  useLogoFallback = false,
+}) {
   const wrap = document.createElement("div");
   wrap.className = "img-ph-wrap";
+
+  // No hay imagen desde el inicio (producto sin foto) → placeholder de logo directo
+  if (!src && useLogoFallback) {
+    wrap.appendChild(createLogoPlaceholder(alt));
+    wrap.classList.add("loaded");
+    if (onClick) wrap.addEventListener("click", onClick);
+    return wrap;
+  }
 
   const img = document.createElement("img");
   img.alt = alt;
@@ -1276,6 +1290,12 @@ function createImageWithPlaceholder({ src, alt = "", onError, onClick }) {
     wrap.classList.add("loaded");
   };
   img.onerror = () => {
+    if (useLogoFallback) {
+      wrap.innerHTML = "";
+      wrap.appendChild(createLogoPlaceholder(alt));
+      wrap.classList.add("loaded");
+      return;
+    }
     if (onError) onError(wrap, img);
     else wrap.remove();
   };
@@ -1831,6 +1851,66 @@ const MESAS_CSS = `
 .mesa-reserva-hora-label{display:block;font-size:11px;color:#9c9ca3;margin:-4px 0 6px;text-transform:uppercase;letter-spacing:.06em;}
 .mesa-reserva-submit{width:100%;padding:13px;border:none;border-radius:12px;font-weight:700;font-size:14px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
 `;
+
+const LOGO_PLACEHOLDER_CSS = `
+.geinz-logo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(var(--dr),var(--dg),var(--db),.18), rgba(var(--dr),var(--dg),var(--db),.05));
+}
+.geinz-logo-placeholder img {
+  width: 90px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 50%;
+  background: #111;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.06);
+  opacity: .95;
+}
+.geinz-logo-placeholder .ph-letter {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: rgba(var(--dr),var(--dg),var(--db),.95);
+  background: rgba(var(--dr),var(--dg),var(--db),.12);
+  border: 1px solid rgba(var(--dr),var(--dg),var(--db),.3);
+}
+`;
+
+function injectLogoPlaceholderStyles() {
+  if (document.getElementById("logoPhStyle")) return;
+  const style = document.createElement("style");
+  style.id = "logoPhStyle";
+  style.textContent = LOGO_PLACEHOLDER_CSS;
+  document.head.appendChild(style);
+}
+
+function createLogoPlaceholder(alt = "") {
+  injectLogoPlaceholderStyles();
+  const wrap = document.createElement("div");
+  wrap.className = "geinz-logo-placeholder";
+  if (_bizLogoUrl) {
+    const img = document.createElement("img");
+    img.src = _bizLogoUrl;
+    img.alt = alt || _bizNombre || "Logo";
+    img.loading = "lazy";
+    wrap.appendChild(img);
+  } else {
+    const letter = document.createElement("span");
+    letter.className = "ph-letter";
+    letter.textContent = (_bizNombre || "?").trim().charAt(0).toUpperCase();
+    wrap.appendChild(letter);
+  }
+  return wrap;
+}
 function injectMesasStyles() {
   if (document.getElementById("mesasStyle")) return;
   const style = document.createElement("style");
@@ -2026,6 +2106,8 @@ let _waNumeroNegocio = "";
 let _horarioHoy = null;
 let _mesasCache = [];
 let _horaMaxReserva = null;
+let _bizLogoUrl = null;
+let _bizNombre = "";
 async function render(biz) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
   const categoria = biz.categoria_tienda || "—";
@@ -2043,7 +2125,8 @@ async function render(biz) {
   const promoImages = normalizePromos(biz.img_tienda);
   const amenities = normalizeAmenities(biz.servicios_comodidades);
   const logoUrl = biz.img_tienda?.logo_tienda || null;
-
+  _bizLogoUrl = logoUrl;
+  _bizNombre = nombre;
   // ── COLOR + LOGO: solo la primera vez ──
   if (!_colorReady) {
     applyDominantColor(colorFromName(nombre));
@@ -2555,7 +2638,6 @@ function renderProductosCatalogo(productos, localidad, id) {
 
   sec.style.display = "";
 
-  // Botón arriba, visible porque sí hay productos
   if (btnWrap) {
     btnWrap.innerHTML = `
       <a href="../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}"
@@ -2568,12 +2650,22 @@ function renderProductosCatalogo(productos, localidad, id) {
   productos.slice(0, 5).forEach((p) => {
     const row = document.createElement("div");
     row.className = "catalogo-row";
-    row.innerHTML = `
-      <img src="${p.imagen}" alt="${p.nombre}" loading="lazy" class="catalogo-row-img">
-      <div class="catalogo-row-info">
-        <span class="catalogo-row-nombre">${p.nombre}</span>
-        <span class="catalogo-row-precio">S/ ${p.precio.toFixed(2)}</span>
-      </div>`;
+
+    const imgWrap = createImageWithPlaceholder({
+      src: p.imagen,
+      alt: p.nombre,
+      useLogoFallback: true,
+    });
+    imgWrap.classList.add("catalogo-row-img");
+
+    const overlay = document.createElement("div");
+    overlay.className = "catalogo-row-overlay";
+    overlay.innerHTML = `
+      <span class="catalogo-row-nombre">${p.nombre}</span>
+      <span class="catalogo-row-precio">S/ ${p.precio.toFixed(2)}</span>`;
+
+    row.appendChild(imgWrap);
+    row.appendChild(overlay);
     list.appendChild(row);
   });
 }

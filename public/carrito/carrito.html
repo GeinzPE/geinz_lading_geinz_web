@@ -329,6 +329,7 @@
     let searchDebounce;
     let bizData = null;
     let bizNombre = "Catálogo";
+    let _bizLogoUrl = null;
     let pedidoActivoMesa = null;
     let grupoActivo = null;
     /* Estado del checkout */
@@ -660,7 +661,7 @@
             const row = document.createElement("div");
             row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
             row.innerHTML = `
-          <img src="${it.imagen}" class="w-14 h-14 rounded-xl object-cover bg-white/5 flex-shrink-0" loading="lazy" decoding="async">
+          ${imgOrLogoHTML(it.imagen, it.nombre, "w-14 h-14 rounded-xl bg-white/5 flex-shrink-0")}
           <div class="flex-1 min-w-0">
             <p class="font-bold text-[14px] truncate">${it.nombre}</p>
             <p class="text-[12.5px] text-gray-500">${it.cantidad} × S/ ${it.precio_unitario.toFixed(2)}</p>
@@ -677,7 +678,7 @@
           const row = document.createElement("div");
           row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
           row.innerHTML = `
-      <img src="${it.imagen}" class="w-14 h-14 rounded-xl object-cover bg-white/5 flex-shrink-0" loading="lazy" decoding="async">
+      ${imgOrLogoHTML(it.imagen, it.nombre, "w-14 h-14 rounded-xl bg-white/5 flex-shrink-0")}
       <div class="flex-1 min-w-0">
         <p class="font-bold text-[14px] truncate">${it.nombre}</p>
         <p class="text-[12.5px] text-gray-500">${it.cantidad} × S/ ${it.precio_unitario.toFixed(2)}</p>
@@ -775,6 +776,7 @@
               nombre,
               nombreNorm: normalizeText(nombre),
               precio: Number(d.precio) || 0,
+              imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
               imagen: d.imagenes?.[0]?.url || "",
               condiciones,
             });
@@ -805,6 +807,7 @@
       document.title = `Carrito · ${bizNombre}`;
 
       const logoUrl = biz?.img_tienda?.logo_tienda || null;
+      _bizLogoUrl = logoUrl; // se usa la URL directa; el navegador ya la cachea, no hace falta canvas
       const logoImg = document.getElementById("bizLogo");
       const logoPh = document.getElementById("bizLogoPh");
 
@@ -813,8 +816,6 @@
         logoImg.style.display = "block";
         logoPh.classList.add("hidden");
 
-        // Espera de verdad a que el color termine de calcularse antes de seguir,
-        // con un tope de tiempo por si la imagen tarda demasiado o nunca carga.
         await new Promise((resolve) => {
           let resuelto = false;
           const finalizar = () => { if (!resuelto) { resuelto = true; resolve(); } };
@@ -832,13 +833,13 @@
           };
           temp.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
 
-          // Salvavidas: si en 4s no cargó (red lenta, CORS, etc.), no bloqueamos el loader para siempre
           setTimeout(() => {
             if (!resuelto) applyColor(colorFromName(bizNombre));
             finalizar();
           }, 4000);
         });
       } else {
+        _bizLogoUrl = null;
         logoPh.classList.remove("hidden");
         logoPh.classList.add("flex");
         applyColor(colorFromName(bizNombre));
@@ -981,6 +982,109 @@
       lista.classList.toggle("hidden", sinResultados);
     }
 
+    /* ══════════════ Placeholder de logo (sin foto / foto rota) ══════════════ */
+    /* ══════════════ Placeholder de logo (sin foto / foto rota) ══════════════ */
+    function letraNegocio() {
+      return (bizNombre || "?").trim().charAt(0).toUpperCase();
+    }
+
+    function createLogoPlaceholderEl() {
+      const div = document.createElement("div");
+      div.className = "logo-ph-wrap";
+      const badge = document.createElement("div");
+      badge.className = "logo-ph-badge";
+
+      if (_bizLogoUrl) {
+        const img = document.createElement("img");
+        img.src = _bizLogoUrl;
+        img.alt = bizNombre;
+        img.loading = "lazy";
+        img.onerror = () => {
+          badge.innerHTML = `<span class="ph-letter">${letraNegocio()}</span>`;
+        };
+        badge.appendChild(img);
+      } else {
+        badge.innerHTML = `<span class="ph-letter">${letraNegocio()}</span>`;
+      }
+      div.appendChild(badge);
+      return div;
+    }
+
+    // Versión en string (para templates de innerHTML del carrito / pedido activo)
+    function logoPlaceholderHTML(imgClass) {
+      const badgeInner = _bizLogoUrl
+        ? `<img src="${_bizLogoUrl}" alt="${(bizNombre || "").replace(/"/g, "&quot;")}" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+        : `<span class="ph-letter">${letraNegocio()}</span>`;
+      return `<div class="${imgClass} logo-ph-wrap"><div class="logo-ph-badge">${badgeInner}</div></div>`;
+    }
+
+    // <img> normal con fallback automático al logo si falla la carga
+    function imgOrLogoHTML(src, alt, imgClass) {
+      const altSafe = (alt || "").replace(/"/g, "&quot;");
+      if (src) {
+        return `<img src="${src}" alt="${altSafe}" class="${imgClass}" loading="lazy" decoding="async" onerror="window.__geinzImgFallback(this)">`;
+      }
+      return logoPlaceholderHTML(imgClass);
+    }
+
+    window.__geinzImgFallback = function (imgEl) {
+      const cls = imgEl.className;
+      const wrap = document.createElement("div");
+      wrap.className = cls + " logo-ph-wrap";
+      wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
+        ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+        : `<span class="ph-letter">${letraNegocio()}</span>`
+        }</div>`;
+      imgEl.replaceWith(wrap);
+    };
+
+    /* ══════════════ Lightbox de imágenes del producto ══════════════ */
+    let _lightboxImages = [];
+    let _lightboxIdx = 0;
+
+    function openProductLightbox(images, idx = 0) {
+      _lightboxImages = images;
+      _lightboxIdx = idx;
+      let modal = document.getElementById("prodLightboxModal");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "prodLightboxModal";
+        modal.className = "prod-lightbox";
+        modal.innerHTML = `
+      <button class="prod-lightbox-close" id="prodLightboxClose">✕</button>
+      <button class="prod-lightbox-nav prod-lightbox-prev" id="prodLightboxPrev">‹</button>
+      <img id="prodLightboxImg" alt="">
+      <button class="prod-lightbox-nav prod-lightbox-next" id="prodLightboxNext">›</button>
+      <span class="prod-lightbox-counter" id="prodLightboxCounter"></span>
+    `;
+        document.body.appendChild(modal);
+        document.getElementById("prodLightboxClose").onclick = closeProductLightbox;
+        document.getElementById("prodLightboxPrev").onclick = () => moveLightbox(-1);
+        document.getElementById("prodLightboxNext").onclick = () => moveLightbox(1);
+        modal.addEventListener("click", (e) => { if (e.target === modal) closeProductLightbox(); });
+      }
+      paintLightbox();
+      modal.classList.add("show");
+      document.body.style.overflow = "hidden";
+    }
+
+    function moveLightbox(dir) {
+      _lightboxIdx = (_lightboxIdx + dir + _lightboxImages.length) % _lightboxImages.length;
+      paintLightbox();
+    }
+
+    function paintLightbox() {
+      document.getElementById("prodLightboxImg").src = _lightboxImages[_lightboxIdx];
+      document.getElementById("prodLightboxCounter").textContent = `${_lightboxIdx + 1} / ${_lightboxImages.length}`;
+      document.querySelectorAll(".prod-lightbox-nav").forEach((b) => {
+        b.style.display = _lightboxImages.length > 1 ? "flex" : "none";
+      });
+    }
+
+    function closeProductLightbox() {
+      document.getElementById("prodLightboxModal")?.classList.remove("show");
+      document.body.style.overflow = "";
+    }
     function productoCard(p, index = 0) {
       const card = document.createElement("div");
       card.id = `card-${p.id}`;
@@ -989,18 +1093,33 @@
 
       const imgWrap = document.createElement("div");
       imgWrap.className = "prod-img-wrap";
-      const img = document.createElement("img");
-      img.alt = p.nombre;
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.onload = () => img.classList.add("loaded");
       if (p.imagen) {
-        img.onerror = () => { imgWrap.classList.add("no-img"); imgWrap.innerHTML = `<div class="img-ph">🍽️</div>`; };
+        const img = document.createElement("img");
+        img.alt = p.nombre;
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.onload = () => img.classList.add("loaded");
+        img.onerror = () => {
+          imgWrap.innerHTML = "";
+          imgWrap.classList.add("no-img");
+          imgWrap.appendChild(createLogoPlaceholderEl());
+        };
         img.src = p.imagen;
         imgWrap.appendChild(img);
       } else {
         imgWrap.classList.add("no-img");
-        imgWrap.innerHTML = `<div class="img-ph">🍽️</div>`;
+        imgWrap.appendChild(createLogoPlaceholderEl());
+      }
+      const galeria = (p.imagenes && p.imagenes.length) ? p.imagenes : (p.imagen ? [p.imagen] : []);
+      if (galeria.length) {
+        imgWrap.style.cursor = "zoom-in";
+        imgWrap.addEventListener("click", () => openProductLightbox(galeria, 0));
+        if (galeria.length > 1) {
+          const badge = document.createElement("span");
+          badge.className = "prod-img-count";
+          badge.textContent = `📷 ${galeria.length}`;
+          imgWrap.appendChild(badge);
+        }
       }
 
       const info = document.createElement("div");
@@ -1361,47 +1480,71 @@
       if (count === 0) { closeDrawer(); closeCheckout(); }
     }
 
+    const cartRowElements = new Map(); // wrap -> Map(key -> rowEl)
+
     function renderCartList(wrap, items) {
-      wrap.innerHTML = "";
+      if (!cartRowElements.has(wrap)) cartRowElements.set(wrap, new Map());
+      const rowsMap = cartRowElements.get(wrap);
+
       if (!items.length) {
+        rowsMap.clear();
         wrap.innerHTML = `<p class="text-center text-gray-500 py-10 text-sm">Tu carrito está vacío</p>`;
         return;
       }
-      const frag = document.createDocumentFragment();
-      items.forEach((it) => {
+
+      if (!rowsMap.size && wrap.querySelector("p")) wrap.innerHTML = "";
+
+      const keysActuales = new Set(items.map((it) => it.cartKey || it.id));
+      rowsMap.forEach((rowEl, key) => {
+        if (!keysActuales.has(key)) { rowEl.remove(); rowsMap.delete(key); }
+      });
+
+      items.forEach((it, idx) => {
         const key = it.cartKey || it.id;
         const precioNum = Number(it.precio) || 0;
         const opcionesTxt = it.seleccion
           ? Object.entries(it.seleccion).map(([k, v]) => `${k}: ${v}`).join(" · ")
           : "";
-        const row = document.createElement("div");
-        row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
-        row.innerHTML = `
-      <img src="${it.imagen || ""}" class="w-14 h-14 rounded-xl object-cover bg-white/5 flex-shrink-0" loading="lazy" decoding="async">
-      <div class="flex-1 min-w-0">
-        <p class="font-bold text-[14px] truncate">${it.nombre || "Producto"}</p>
-        ${opcionesTxt ? `<p class="text-[11px] text-gray-500 truncate">${opcionesTxt}</p>` : ""}
-        <p class="text-[12.5px] text-gray-500 mb-2">S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span></p>
-       <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
-      </div>
-      <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${it.seleccion ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </button>` : ""}
-        <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
-        </button>
-      </div>
-    `;
-        frag.appendChild(row);
-      });
-      wrap.appendChild(frag);
 
-      items.forEach((it) => {
-        const key = it.cartKey || it.id;
-        const holder = Array.from(wrap.querySelectorAll("[data-qty-key]"))
-          .find((el) => el.dataset.qtyKey === key);
-        if (holder) renderQtyControls(holder, it, key);
+        let row = rowsMap.get(key);
+
+        if (!row) {
+          // Fila nueva: se crea UNA sola vez (con su <img>). De aquí en adelante solo se actualiza texto.
+          row = document.createElement("div");
+          row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
+          row.innerHTML = `
+        ${imgOrLogoHTML(it.imagen, it.nombre, "w-14 h-14 rounded-xl bg-white/5 flex-shrink-0")}
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-[14px] truncate cart-row-nombre">${it.nombre || "Producto"}</p>
+          <p class="text-[11px] text-gray-500 truncate cart-row-opciones"${opcionesTxt ? "" : ' style="display:none"'}>${opcionesTxt}</p>
+          <p class="text-[12.5px] text-gray-500 mb-2 cart-row-precio">S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span></p>
+          <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
+        </div>
+        <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
+          ${it.seleccion ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>` : ""}
+          <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+          </button>
+        </div>
+      `;
+          wrap.appendChild(row);
+          rowsMap.set(key, row);
+        } else {
+          // Fila ya existía: solo se actualiza texto/precio, el <img> NUNCA se toca
+          row.querySelector(".cart-row-nombre").textContent = it.nombre || "Producto";
+          const opcionesEl = row.querySelector(".cart-row-opciones");
+          opcionesEl.textContent = opcionesTxt;
+          opcionesEl.style.display = opcionesTxt ? "" : "none";
+          row.querySelector(".cart-row-precio").innerHTML =
+            `S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
+        }
+
+        if (wrap.children[idx] !== row) wrap.insertBefore(row, wrap.children[idx] || null);
+
+        const qtyHolder = row.querySelector(`[data-qty-key="${CSS.escape(key)}"]`);
+        if (qtyHolder) renderQtyControls(qtyHolder, it, key);
       });
     }
     /* ══════════════ Drawer (mobile) ══════════════ */

@@ -269,6 +269,57 @@ body {
     pointer-events: none;
 }
 
+/* ── placeholder de logo (sin foto / foto rota) ── */
+.logo-ph-wrap {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle, rgba(var(--dr), var(--dg), var(--db), .22), rgba(var(--dr), var(--dg), var(--db), .06));
+}
+
+.logo-ph-badge {
+    width: 60%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--dr), var(--dg), var(--db), .14);
+    border: 1px solid rgba(var(--dr), var(--dg), var(--db), .35);
+    box-shadow: 0 6px 16px -4px rgba(0, 0, 0, .5);
+    flex-shrink: 0;
+}
+
+.logo-ph-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 8%;
+    border-radius: 50%;
+    opacity: 1 !important;
+    /* ← anula el opacity:0 heredado de .prod-img-wrap img */
+}
+
+.logo-ph-badge .ph-letter {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: rgb(var(--dr), var(--dg), var(--db));
+}
+
+/* dentro de la tarjeta de producto (prod-img-wrap), el badge puede ser un poco más grande */
+.prod-img-wrap .logo-ph-badge {
+    width: 55%;
+}
+
+@media (min-width:640px) {
+    .prod-img-wrap .logo-ph-badge {
+        width: 50%;
+    }
+}
+
 .prod-info {
     margin-bottom: 10px;
     flex: 1;
@@ -831,4 +882,97 @@ body {
     #optionsModal {
         border-radius: 26px;
     }
+}
+
+
+/* logo placeholder ya lo tienes, solo agrega esto nuevo: */
+.prod-img-count {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, .65);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    backdrop-filter: blur(4px);
+    z-index: 2;
+}
+
+.prod-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, .92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .25s ease;
+}
+
+.prod-lightbox.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.prod-lightbox img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 14px;
+}
+
+.prod-lightbox-close {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.prod-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.prod-lightbox-prev {
+    left: 16px;
+}
+
+.prod-lightbox-next {
+    right: 16px;
+}
+
+.prod-lightbox-counter {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, .1);
+    color: #fff;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
 }
