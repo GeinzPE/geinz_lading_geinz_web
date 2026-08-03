@@ -1697,15 +1697,18 @@
                         // Stock de la variante/opción seleccionada, si el ítem trae esa info.
                         // ⚠️ Ajusta el nombre del campo abajo (opciones_seleccionadas) al que
                         // realmente use tu bot de WhatsApp al armar cada ítem del pedido.
-                        const seleccion = it.opciones_seleccionadas || it.seleccion || it.variantes || null;
-                        if (Array.isArray(seleccion) && Array.isArray(data.condiciones) && data.condiciones.length) {
+                     // Stock de la variante/opción seleccionada (ej: "Agua helada" vs "Agua sin helar").
+                        // El pedido guarda esto como un objeto { "Sabor": "Helada" }, NO como array,
+                        // tanto si viene del catálogo (WhatsApp) como de una mesa — mismo formato.
+                        const seleccion = it.opciones || null; // { nombreCondicion: nombreOpcionElegida }
+                        if (seleccion && typeof seleccion === "object" && Array.isArray(data.condiciones) && data.condiciones.length) {
                             updates.condiciones = data.condiciones.map((cond) => {
-                                const match = seleccion.find((s) => s.condicion === cond.nombre);
-                                if (!match) return cond;
+                                const opcionElegida = seleccion[cond.nombre];
+                                if (!opcionElegida) return cond;
                                 return {
                                     ...cond,
                                     opciones: (cond.opciones || []).map((op) => {
-                                        if (op.nombre !== match.opcion || typeof op.stock !== "number") return op;
+                                        if (op.nombre !== opcionElegida || typeof op.stock !== "number") return op;
                                         const nuevoStockOp = Math.max(0, op.stock - cantidad);
                                         return { ...op, stock: nuevoStockOp, activo: nuevoStockOp > 0 ? op.activo : false };
                                     }),

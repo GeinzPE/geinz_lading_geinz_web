@@ -342,7 +342,8 @@
     id="overlay-categoria">
     <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6">
       <h3 class="text-lg font-bold text-white mb-1">Nueva categoría</h3>
-      <p class="text-purple-300/60 text-xs mb-5" id="cat-ejemplo-text">Ejemplo: Jaleas, Chaufas, Bebidas, Promociones.</p>
+      <p class="text-purple-300/60 text-xs mb-5" id="cat-ejemplo-text">Ejemplo: Jaleas, Chaufas, Bebidas, Promociones.
+      </p>
       <form id="form-categoria">
         <div class="mb-5">
           <label for="input-cat-nombre"
@@ -403,6 +404,10 @@
             disponible (opcional)</label>
           <input type="number" id="input-prod-stock" placeholder="Déjalo vacío para no controlar stock" step="1" min="0"
             class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
+          <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+            📦 Es el total de unidades que tienes de <strong>este producto</strong>, sumando todas sus variantes.
+            Si más abajo defines "Stock" por cada variante (ej. sabor o talla), ese número debe sumar igual a este.
+          </p>
         </div>
 
         <div class="mb-5">
@@ -820,6 +825,37 @@
       }
     }
 
+    // Muestra una advertencia si el stock general no coincide con la suma de
+    // los stocks de las variantes — el error más común al llenar el formulario.
+    function validarConsistenciaStock() {
+      const avisoAnterior = document.getElementById('aviso-stock-inconsistente');
+      if (avisoAnterior) avisoAnterior.remove();
+
+      const stockGeneralRaw = document.getElementById('input-prod-stock').value;
+      if (stockGeneralRaw === '') return; // sin control de stock general, no hay nada que comparar
+
+      const stockGeneral = Math.max(0, parseInt(stockGeneralRaw, 10) || 0);
+
+      // Suma el stock de todas las opciones que sí tengan un número puesto
+      let sumaVariantes = 0;
+      let hayVariantesConStock = false;
+      condicionesSeleccionadas.forEach(cond => {
+        cond.opciones.forEach(op => {
+          if (typeof op.stock === 'number') {
+            hayVariantesConStock = true;
+            sumaVariantes += op.stock;
+          }
+        });
+      });
+
+      if (!hayVariantesConStock || sumaVariantes === stockGeneral) return;
+
+      const aviso = document.createElement('p');
+      aviso.id = 'aviso-stock-inconsistente';
+      aviso.className = 'text-[11px] text-amber-300 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2 mt-2 leading-relaxed';
+      aviso.textContent = `⚠️ El stock general (${stockGeneral}) no coincide con la suma del stock de las variantes (${sumaVariantes}). Revisa los números antes de guardar.`;
+      document.getElementById('condiciones-container').after(aviso);
+    }
     function renderCondiciones() {
       const cont = document.getElementById('condiciones-container');
       const btnAdd = document.getElementById('btn-add-condicion');
@@ -854,6 +890,19 @@
         head.appendChild(delCondBtn);
         box.appendChild(head);
 
+        // Encabezados de columna: sin esto, los campos de costo y stock son
+        // dos inputs numéricos idénticos y es fácil confundir uno con el otro.
+        const colHeaders = document.createElement('div');
+        colHeaders.className = 'flex items-center gap-2 mb-1 px-0.5';
+        colHeaders.innerHTML = `
+  <span class="flex-1 text-[9px] font-mono uppercase tracking-wider text-purple-400/40">Opción</span>
+  <span class="w-16 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Costo extra</span>
+  <span class="w-14 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Stock</span>
+  <span class="w-9 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Activo</span>
+  <span class="w-6"></span>
+`;
+        box.appendChild(colHeaders);
+
         const opcionesWrap = document.createElement('div');
         opcionesWrap.className = 'flex flex-col gap-1.5';
 
@@ -872,8 +921,8 @@
           costInput.type = 'number';
           costInput.step = '0.10';
           costInput.min = '0';
-          costInput.placeholder = '+S/';
-          costInput.title = 'Costo adicional (opcional)';
+          costInput.placeholder = '+S/ 0';
+          costInput.title = 'Costo adicional que se suma al precio base si el cliente elige esta opción';
           costInput.value = op.costoAdicional ? op.costoAdicional : '';
           costInput.className = 'w-16 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono';
           costInput.addEventListener('input', () => { op.costoAdicional = parseFloat(costInput.value) || 0; });
@@ -889,6 +938,7 @@
           stockOpInput.className = 'w-14 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono';
           stockOpInput.addEventListener('input', () => {
             op.stock = stockOpInput.value === '' ? null : Math.max(0, parseInt(stockOpInput.value, 10) || 0);
+            validarConsistenciaStock(); // ← esto faltaba
           });
 
           const toggleLabel = document.createElement('label');
@@ -929,6 +979,8 @@
 
         cont.appendChild(box);
       });
+
+      validarConsistenciaStock(); // ← esto faltaba, al final de la función
     }
 
     document.getElementById('btn-add-condicion').addEventListener('click', () => {
@@ -937,6 +989,7 @@
       renderCondiciones();
     });
 
+    document.getElementById('input-prod-stock').addEventListener('input', validarConsistenciaStock);
     document.getElementById('input-prod-imgs').addEventListener('change', (e) => {
       const file = e.target.files[0];
       const slot = parseInt(e.target.dataset.targetSlot || '0', 10);
