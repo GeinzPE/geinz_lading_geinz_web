@@ -500,6 +500,9 @@
   <div class="fixed bottom-5 right-5 left-5 sm:left-auto z-[200] flex flex-col gap-2 items-end" id="toast-wrap"></div>
 
   <script type="module">
+
+    import { initImportador } from '../js/dasboardjs/import_producto.js';
+
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getFirestore, collection, doc, getDoc, onSnapshot, query, orderBy, limit,
@@ -1372,6 +1375,14 @@
       }, (err) => {
         console.error(err);
         toast('Error al cargar productos.', 'error');
+      });
+      initImportador({
+        categoriasRef,
+        productosRef,
+        storage,
+        storagePathProducto,
+        toast,
+        getEsRestaurante: () => esRestaurante,
       });
     }
 

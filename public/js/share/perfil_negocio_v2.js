@@ -1,6 +1,6 @@
 import PhotoSwipeLightbox from "https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js";
 window.PhotoSwipeLightbox = PhotoSwipeLightbox;
-
+import { setFaviconCircular } from "../favicon/favicon.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
@@ -2494,47 +2494,6 @@ function setupHoverCarousel(wrapId, trackId) {
       rafId = null;
     }
   });
-}
-
-function setFaviconCircular(url) {
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    const size = 64; // resolución del favicon
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-
-    // Recorte circular
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-
-    // Dibuja la imagen cubriendo todo el círculo (cover)
-    const ratio = Math.max(size / img.width, size / img.height);
-    const w = img.width * ratio;
-    const h = img.height * ratio;
-    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-
-    const dataUrl = canvas.toDataURL("image/png");
-    applyFaviconLink(dataUrl);
-  };
-  img.onerror = () => {
-    // si falla (ej. CORS), usar la imagen original sin recorte
-    applyFaviconLink(url);
-  };
-  img.src = url;
-}
-
-function applyFaviconLink(href) {
-  document.querySelectorAll("link[rel~='icon']").forEach((el) => el.remove());
-  const link = document.createElement("link");
-  link.rel = "icon";
-  link.type = "image/png";
-  link.href = href;
-  document.head.appendChild(link);
 }
 
 async function loadProductosCatalogo({ localidad, id }) {

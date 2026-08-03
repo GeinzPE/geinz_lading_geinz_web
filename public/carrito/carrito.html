@@ -335,6 +335,10 @@
     let tipoEntrega = "Delivery";
     let metodoPago = "Yape / Plin";
 
+
+    import { setBusinessFaviconById } from "../js/favicon/favicon.js";
+
+    setBusinessFaviconById({ localidad: localidad, id: tiendaId });
     /* ══════════════ Normalización de texto (búsqueda inteligente) ══════════════ */
     function normalizeText(s) {
       return (s || "")
@@ -755,10 +759,12 @@
             const condiciones = (d.condiciones || [])
               .map((c) => ({
                 nombre: c.nombre,
-                opciones: (c.opciones || []).filter((o) => o.activo).map((o) => ({
-                  nombre: o.nombre,
-                  costoAdicional: Number(o.costoAdicional) || 0,
-                })),
+                opciones: (c.opciones || [])
+                  .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
+                  .map((o) => ({
+                    nombre: o.nombre,
+                    costoAdicional: Number(o.costoAdicional) || 0,
+                  })),
               }))
               .filter((c) => c.nombre && c.opciones.length > 0);
 
@@ -988,9 +994,14 @@
       img.loading = "lazy";
       img.decoding = "async";
       img.onload = () => img.classList.add("loaded");
-      img.onerror = () => { imgWrap.style.background = "#1a1826"; };
-      img.src = p.imagen;
-      imgWrap.appendChild(img);
+      if (p.imagen) {
+        img.onerror = () => { imgWrap.classList.add("no-img"); imgWrap.innerHTML = `<div class="img-ph">🍽️</div>`; };
+        img.src = p.imagen;
+        imgWrap.appendChild(img);
+      } else {
+        imgWrap.classList.add("no-img");
+        imgWrap.innerHTML = `<div class="img-ph">🍽️</div>`;
+      }
 
       const info = document.createElement("div");
       info.className = "flex-1 min-w-0 prod-info";

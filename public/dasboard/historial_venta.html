@@ -317,7 +317,8 @@
           <p class="text-[11px] text-inkfaint mt-1">por pedido entregado</p>
         </div>
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1" id="labelItemsVendidos">Platos vendidos</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1" id="labelItemsVendidos">Platos
+            vendidos</p>
           <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiItems">0</p>
           <p class="text-[11px] text-inkfaint mt-1">unidades totales</p>
         </div>
@@ -325,7 +326,8 @@
 
       <div class="grid sm:grid-cols-2 gap-3">
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3" id="labelBarCanal">Delivery vs. Mesa / Recojo</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3" id="labelBarCanal">Delivery vs.
+            Mesa / Recojo</p>
           <div class="space-y-2.5" id="barCanal"></div>
         </div>
         <div class="bg-panel border border-line rounded-2xl p-4">
@@ -345,7 +347,8 @@
 
       <div class="grid sm:grid-cols-3 gap-3">
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2" id="labelTopProducto">🏆 Producto más vendido</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2" id="labelTopProducto">🏆
+            Producto más vendido</p>
           <p class="font-display font-extrabold text-lg text-white leading-tight" id="topProductoNombre">—</p>
           <p class="text-xs text-inkfaint mt-1"><span id="topProductoCant">0</span> unidades en el rango</p>
         </div>
@@ -404,7 +407,8 @@
         </div>
 
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3" id="labelGananciaProducto">Ganancia por producto</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3" id="labelGananciaProducto">
+            Ganancia por producto</p>
           <div class="space-y-2 max-h-56 overflow-y-auto" id="gananciaProductoList"></div>
         </div>
       </div>
@@ -638,10 +642,9 @@
           nombreTienda = e.data.nombreTienda;
         }
         aplicarTextosPorCategoria();
-        // vuelve a ejecutar tu init aquí si hace falta
+        listenPedidos();
       });
     }
-    const RUTA_PEDIDOS = "Tiendas/localidad/localidad/tiendaId/pedidos";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -677,7 +680,7 @@
       if (unsubscribePedidos) { unsubscribePedidos(); unsubscribePedidos = null; }
 
       const [from, to] = getRangeBounds();
-      const col = collection(db, RUTA_PEDIDOS);
+      const col = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
       const q = query(
         col,
         where("timestamp", ">=", Timestamp.fromDate(from)),
@@ -1509,7 +1512,9 @@
     window.reimprimirTicket = reimprimirTicket;
     window.exportarTicketWhatsApp = exportarTicketWhatsApp;
 
-    listenPedidos();
+    if (tiendaId && localidad) {
+      listenPedidos();
+    }
   </script>
 </body>
 

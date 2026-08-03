@@ -161,6 +161,17 @@
                 <div id="npEmpty" class="np-empty" style="display:none;">Sin productos en el catálogo.</div>
             </div>
 
+            <div id="npOptOverlay" class="np-opt-overlay">
+                <div class="np-opt-modal">
+                    <div class="np-opt-head">
+                        <span id="npOptProdNombre">Opciones</span>
+                        <button id="npOptClose">✕</button>
+                    </div>
+                    <div id="npOptBody"></div>
+                    <button id="npOptConfirm" class="np-confirmar-btn">Agregar</button>
+                </div>
+            </div>
+
             <div class="np-cart-panel">
                 <div class="np-cart-head">🧾 Pedido nuevo</div>
                 <input type="text" id="npClienteNombre" placeholder="Nombre del cliente (opcional)"
@@ -376,6 +387,18 @@
 .np-cart-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;padding-top:10px;border-top:1px solid var(--line);margin-bottom:10px;}
 .np-confirmar-btn{width:100%;padding:12px 0;border-radius:12px;border:none;background:#22c55e;color:#04240f;font-weight:800;font-size:13px;cursor:pointer;}
 .np-confirmar-btn:disabled{opacity:.4;cursor:not-allowed;}
+.np-img-wrap{width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#1a1a20;display:flex;align-items:center;justify-content:center;}
+.np-img-wrap img{width:100%;height:100%;object-fit:cover;}
+.np-noimg,.np-img-ph{background:linear-gradient(135deg,#1e1b2b,#2a2438);font-size:26px;opacity:.4;width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.np-opt-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;align-items:center;justify-content:center;}
+.np-opt-overlay.show{display:flex;}
+.np-opt-modal{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;width:340px;max-width:92vw;max-height:80vh;overflow-y:auto;}
+.np-opt-head{display:flex;justify-content:space-between;font-weight:800;margin-bottom:12px;}
+.np-opt-head button{background:none;border:none;color:#fff;font-size:16px;cursor:pointer;}
+.np-opt-label{font-size:12px;font-weight:700;color:var(--ink-dim);margin-bottom:6px;}
+.np-opt-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.np-opt-btn{padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:transparent;color:#fff;font-size:12px;cursor:pointer;}
+.np-opt-btn.active{background:#7c5cff;border-color:#7c5cff;}
 `;
         styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
 
@@ -1697,7 +1720,7 @@
                         // Stock de la variante/opción seleccionada, si el ítem trae esa info.
                         // ⚠️ Ajusta el nombre del campo abajo (opciones_seleccionadas) al que
                         // realmente use tu bot de WhatsApp al armar cada ítem del pedido.
-                     // Stock de la variante/opción seleccionada (ej: "Agua helada" vs "Agua sin helar").
+                        // Stock de la variante/opción seleccionada (ej: "Agua helada" vs "Agua sin helar").
                         // El pedido guarda esto como un objeto { "Sabor": "Helada" }, NO como array,
                         // tanto si viene del catálogo (WhatsApp) como de una mesa — mismo formato.
                         const seleccion = it.opciones || null; // { nombreCondicion: nombreOpcionElegida }
@@ -2316,6 +2339,67 @@
                 return (s || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
             },
 
+            cartKeyFor(id, seleccion) {
+                if (!seleccion || !Object.keys(seleccion).length) return id;
+                return `${id}__${Object.keys(seleccion).sort().map(k => `${k}:${seleccion[k]}`).join("|")}`;
+            },
+            calcPrecioFinal(p, seleccion) {
+                let precio = Number(p.precio) || 0;
+                if (!seleccion) return precio;
+                (p.condiciones || []).forEach((cond) => {
+                    const op = cond.opciones.find((o) => o.nombre === seleccion[cond.nombre]);
+                    if (op?.costoAdicional) precio += op.costoAdicional;
+                });
+                return +precio.toFixed(2);
+            },
+            abrirOpciones(p, seleccionExistente = null, editKey = null) {
+                this._prodOpc = p;
+                this._editKey = editKey;
+                this._seleccion = seleccionExistente ? { ...seleccionExistente } : {};
+                p.condiciones.forEach((c) => { if (!this._seleccion[c.nombre]) this._seleccion[c.nombre] = c.opciones[0].nombre; });
+                document.getElementById("npOptProdNombre").textContent = p.nombre;
+                const body = document.getElementById("npOptBody");
+                body.innerHTML = p.condiciones.map((c) => `
+                    <div class="np-opt-group">
+                        <div class="np-opt-label">${escapeHtml(c.nombre)}</div>
+                        <div class="np-opt-row">
+                            ${c.opciones.map((o) => `
+                                <button type="button" class="np-opt-btn${this._seleccion[c.nombre] === o.nombre ? " active" : ""}"
+                                    data-cond="${escapeHtml(c.nombre)}" data-op="${escapeHtml(o.nombre)}">
+                                    ${escapeHtml(o.nombre)}${o.costoAdicional ? ` (+S/ ${o.costoAdicional.toFixed(2)})` : ""}
+                                </button>`).join("")}
+                        </div>
+                    </div>`).join("");
+                body.querySelectorAll(".np-opt-btn").forEach((btn) => {
+                    btn.addEventListener("click", () => {
+                        this._seleccion[btn.dataset.cond] = btn.dataset.op;
+                        body.querySelectorAll(`[data-cond="${btn.dataset.cond}"]`).forEach((b) => b.classList.remove("active"));
+                        btn.classList.add("active");
+                    });
+                });
+                document.getElementById("npOptOverlay").classList.add("show");
+            },
+            cerrarOpciones() {
+                document.getElementById("npOptOverlay").classList.remove("show");
+                this._prodOpc = null; this._editKey = null;
+            },
+            confirmarOpciones() {
+                if (!this._prodOpc) return;
+                const p = this._prodOpc, seleccion = { ...this._seleccion };
+                if (this._editKey) {
+                    const entry = this.carrito.get(this._editKey);
+                    const newKey = this.cartKeyFor(p.id, seleccion);
+                    this.carrito.delete(this._editKey);
+                    const existente = this.carrito.get(newKey);
+                    if (existente) existente.cantidad += entry.cantidad;
+                    else this.carrito.set(newKey, { ...p, precio: this.calcPrecioFinal(p, seleccion), cantidad: entry.cantidad, cartKey: newKey, seleccion });
+                } else {
+                    this.add(p.id, seleccion);
+                }
+                this.cerrarOpciones();
+                this.renderGrid();
+                this.renderCarrito();
+            },
             async cargarCatalogo() {
                 if (this.cargado) return;
                 const catRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "productos");
@@ -2329,6 +2413,14 @@
                         subSnap.forEach((pDoc) => {
                             const d = pDoc.data();
                             if (d.disponible === false) return;
+                            const condiciones = (d.condiciones || [])
+                                .map((c) => ({
+                                    nombre: c.nombre,
+                                    opciones: (c.opciones || [])
+                                        .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
+                                        .map((o) => ({ nombre: o.nombre, costoAdicional: Number(o.costoAdicional) || 0 })),
+                                }))
+                                .filter((c) => c.nombre && c.opciones.length > 0);
                             arr.push({
                                 id: pDoc.id,
                                 categoria,
@@ -2336,6 +2428,7 @@
                                 nombreNorm: this.normalizeText(d.nombre || ""),
                                 precio: Number(d.precio) || 0,
                                 imagen: d.imagenes?.[0]?.url || "",
+                                condiciones,
                             });
                         });
                         return arr;
@@ -2383,21 +2476,30 @@
                 empty.style.display = "none";
 
                 grid.innerHTML = filtrados.map((p) => {
-                    const cant = this.carrito.get(p.id)?.cantidad || 0;
+                    const variantes = [...this.carrito.values()].filter((it) => it.id === p.id);
+                    const totalCant = variantes.reduce((s, v) => s + v.cantidad, 0);
+                    const tieneVariantes = p.condiciones?.length > 0;
+                    const imgHtml = p.imagen
+                        ? `<img src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" onerror="this.parentElement.classList.add('np-noimg');this.remove();">`
+                        : `<div class="np-img-ph">🍽️</div>`;
+
+                    let accion;
+                    if (tieneVariantes) {
+                        accion = totalCant === 0
+                            ? `<button class="np-add-btn" data-open-opt="${p.id}">Agregar</button>`
+                            : `<button class="np-add-btn" data-open-opt="${p.id}">${totalCant} en carrito · Agregar otra</button>`;
+                    } else {
+                        const cant = this.carrito.get(p.id)?.cantidad || 0;
+                        accion = cant === 0
+                            ? `<button class="np-add-btn" data-add="${p.id}">Agregar</button>`
+                            : `<div class="np-qty-row"><button data-minus="${p.id}">−</button><span>${cant}</span><button data-plus="${p.id}">+</button></div>`;
+                    }
                     return `
     <div class="np-card" data-id="${p.id}">
-        <img src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy">
+        <div class="np-img-wrap${p.imagen ? "" : " np-noimg"}">${imgHtml}</div>
         <div class="np-name">${escapeHtml(p.nombre)}</div>
         <div class="np-price">${fmtMoney(p.precio)}</div>
-        <div class="np-qty-holder" data-holder="${p.id}">
-        ${cant === 0
-                            ? `<button class="np-add-btn" data-add="${p.id}">Agregar</button>`
-                            : `<div class="np-qty-row">
-                <button data-minus="${p.id}">−</button>
-                <span>${cant}</span>
-                <button data-plus="${p.id}">+</button>
-            </div>`}
-        </div>
+        <div class="np-qty-holder">${accion}</div>
     </div>`;
                 }).join("");
 
@@ -2407,23 +2509,28 @@
                 grid.querySelectorAll("[data-minus]").forEach((btn) => {
                     btn.addEventListener("click", () => this.remove(btn.dataset.minus));
                 });
+                grid.querySelectorAll("[data-open-opt]").forEach((btn) => {
+                    btn.addEventListener("click", () => this.abrirOpciones(this.productosPorId.get(btn.dataset.openOpt)));
+                });
             },
 
-            add(id) {
+            add(id, seleccion = null) {
                 const p = this.productosPorId.get(id);
                 if (!p) return;
-                const entry = this.carrito.get(id);
+                if (!seleccion && p.condiciones?.length) { this.abrirOpciones(p); return; }
+                const key = this.cartKeyFor(id, seleccion);
+                const entry = this.carrito.get(key);
                 if (entry) entry.cantidad += 1;
-                else this.carrito.set(id, { ...p, cantidad: 1 });
+                else this.carrito.set(key, { ...p, precio: this.calcPrecioFinal(p, seleccion), cantidad: 1, cartKey: key, seleccion });
                 this.renderGrid();
                 this.renderCarrito();
             },
 
-            remove(id) {
-                const entry = this.carrito.get(id);
+            remove(key) {
+                const entry = this.carrito.get(key);
                 if (!entry) return;
                 entry.cantidad -= 1;
-                if (entry.cantidad <= 0) this.carrito.delete(id);
+                if (entry.cantidad <= 0) this.carrito.delete(key);
                 this.renderGrid();
                 this.renderCarrito();
             },
@@ -2434,13 +2541,19 @@
                 const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
 
                 wrap.innerHTML = items.length
-                    ? items.map((it) => `
+                    ? items.map((it) => {
+                        const opcTxt = it.seleccion ? Object.entries(it.seleccion).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
+                        return `
     <div class="np-cart-row">
-        <div class="npc-name"><span class="n">${escapeHtml(it.nombre)}</span><span class="p">${it.cantidad} × ${fmtMoney(it.precio)}</span></div>
+        <div class="npc-name">
+            <span class="n">${escapeHtml(it.nombre)}</span>
+            ${opcTxt ? `<span class="p" style="display:block;">${escapeHtml(opcTxt)}</span>` : ""}
+            <span class="p">${it.cantidad} × ${fmtMoney(it.precio)}</span>
+        </div>
         <span>${fmtMoney(it.cantidad * it.precio)}</span>
-    </div>`).join("")
+    </div>`;
+                    }).join("")
                     : `<p style="font-size:12px;color:var(--ink-faint);text-align:center;padding:20px 0;">Toca productos para agregarlos</p>`;
-
                 document.getElementById("npCartTotal").textContent = fmtMoney(total);
                 document.getElementById("npConfirmarBtn").disabled = items.length === 0;
             },
@@ -2469,6 +2582,7 @@
                             id: it.id, nombre: it.nombre, categoria: it.categoria,
                             precio_unitario: it.precio, cantidad: it.cantidad,
                             subtotal: +(it.precio * it.cantidad).toFixed(2), imagen: it.imagen || "",
+                            opciones: it.seleccion || null,
                         })),
                         total_items: items.reduce((s, i) => s + i.cantidad, 0),
                         total: +total.toFixed(2),
@@ -2509,8 +2623,11 @@
 
 
 
-        document.getElementById("mesasGrupoReservarBtn")?.addEventListener("click", () => aplicarEstadoGrupal("reservada"));
-        document.getElementById("mesasGrupoOcuparBtn")?.addEventListener("click", () => aplicarEstadoGrupal("ocupado"));
+        document.getElementById("npOptClose")?.addEventListener("click", () => NuevoPedido.cerrarOpciones());
+        document.getElementById("npOptOverlay")?.addEventListener("click", (e) => { if (e.target.id === "npOptOverlay") NuevoPedido.cerrarOpciones(); });
+        document.getElementById("npOptConfirm")?.addEventListener("click", () => NuevoPedido.confirmarOpciones());
+
+        document.getElementById("mesasGrupoReservarBtn")?.addEventListener("click", () => aplicarEstadoGrupal("reservada")); document.getElementById("mesasGrupoOcuparBtn")?.addEventListener("click", () => aplicarEstadoGrupal("ocupado"));
         document.getElementById("mesasGrupoLiberarBtn")?.addEventListener("click", () => aplicarEstadoGrupal("libre"));
         document.getElementById("mesasGrupoDesagruparBtn")?.addEventListener("click", () => aplicarEstadoGrupal("desagrupar"));
         document.getElementById("mesasGrupoCancelarBtn")?.addEventListener("click", limpiarSeleccionMesas);
