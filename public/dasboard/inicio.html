@@ -25,7 +25,9 @@
             --radius: 20px;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
@@ -39,11 +41,23 @@
             padding: 28px 16px 60px;
         }
 
-        .display { font-family: 'Space Grotesk', sans-serif; }
-        .wrap { max-width: 820px; margin: 0 auto; }
-        .wrap-narrow { max-width: 380px; margin: 80px auto; }
+        .display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
 
-        .hidden { display: none !important; }
+        .wrap {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        .wrap-narrow {
+            max-width: 380px;
+            margin: 80px auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
 
         /* ── Sesión / auth cards ── */
         .card {
@@ -55,9 +69,18 @@
             box-shadow: 0 0 0 1px rgba(124, 77, 255, 0.04), 0 12px 30px -18px rgba(124, 77, 255, 0.4);
         }
 
-        h1.auth-title { font-size: 20px; margin: 0 0 6px; letter-spacing: -0.01em; }
+        h1.auth-title {
+            font-size: 20px;
+            margin: 0 0 6px;
+            letter-spacing: -0.01em;
+        }
 
-        .subtitle { font-size: 13px; color: var(--muted); margin: 0 0 22px; line-height: 1.5; }
+        .subtitle {
+            font-size: 13px;
+            color: var(--muted);
+            margin: 0 0 22px;
+            line-height: 1.5;
+        }
 
         label {
             display: block;
@@ -69,7 +92,9 @@
             letter-spacing: .04em;
         }
 
-        .field { margin-bottom: 14px; }
+        .field {
+            margin-bottom: 14px;
+        }
 
         input {
             width: 100%;
@@ -83,9 +108,13 @@
             outline: none;
             transition: border-color .15s ease;
         }
-        input:focus { border-color: var(--purple); }
 
-        .submit-btn, .primary-btn {
+        input:focus {
+            border-color: var(--purple);
+        }
+
+        .submit-btn,
+        .primary-btn {
             width: 100%;
             background: var(--purple);
             color: #fff;
@@ -98,140 +127,553 @@
             transition: filter .15s ease, transform .15s ease;
             box-shadow: 0 6px 18px -6px rgba(124, 77, 255, 0.6);
         }
-        .submit-btn:hover, .primary-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
-        .submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 
-        .msg { font-size: 13px; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; display: none; }
-        .msg.error { display: block; background: rgba(229,72,77,.1); color:#f27478; border:1px solid rgba(229,72,77,.25); }
-        .msg.info { display: block; background: rgba(124,77,255,.1); color:#c3b3ff; border:1px solid var(--border); }
+        .submit-btn:hover,
+        .primary-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
 
-        .footer-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.5; }
+        .submit-btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+            transform: none;
+        }
 
-        .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
-        .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--purple); box-shadow: 0 0 0 4px var(--purple-dim); }
+        .msg {
+            font-size: 13px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .msg.error {
+            display: block;
+            background: rgba(229, 72, 77, .1);
+            color: #f27478;
+            border: 1px solid rgba(229, 72, 77, .25);
+        }
+
+        .msg.info {
+            display: block;
+            background: rgba(124, 77, 255, .1);
+            color: #c3b3ff;
+            border: 1px solid var(--border);
+        }
+
+        .footer-note {
+            text-align: center;
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 18px;
+            line-height: 1.5;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--purple);
+            box-shadow: 0 0 0 4px var(--purple-dim);
+        }
 
         /* ── Barra de sesión ── */
-        .session-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 0 4px; }
-        .session-user { font-size: 12px; color: var(--muted); }
-        .session-user b { color: var(--text); }
+        .session-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+
+        .session-user {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .session-user b {
+            color: var(--text);
+        }
+
         .role-badge {
-            display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em;
-            padding: 2px 8px; border-radius: 99px; background: var(--purple-dim); color: #c3b3ff;
-            border: 1px solid var(--border); margin-left: 6px; text-transform: uppercase; vertical-align: middle;
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            padding: 2px 8px;
+            border-radius: 99px;
+            background: var(--purple-dim);
+            color: #c3b3ff;
+            border: 1px solid var(--border);
+            margin-left: 6px;
+            text-transform: uppercase;
+            vertical-align: middle;
         }
-        .logout-btn, .back-btn {
-            background: transparent; border: 1px solid var(--border); color: var(--muted);
-            font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 10px; cursor: pointer;
+
+        .logout-btn,
+        .back-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 10px;
+            cursor: pointer;
         }
-        .logout-btn:hover, .back-btn:hover { color: var(--text); border-color: var(--purple-soft); }
+
+        .logout-btn:hover,
+        .back-btn:hover {
+            color: var(--text);
+            border-color: var(--purple-soft);
+        }
 
         /* ── Header negocio ── */
         .header-card {
-            display: flex; align-items: center; gap: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
+
         .logo-wrap {
-            width: 56px; height: 56px; border-radius: 50%; background: var(--surface-2);
-            border: 1px solid var(--border); flex-shrink: 0; overflow: hidden;
-            display: flex; align-items: center; justify-content: center;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.08);
         }
-        .logo-wrap img { width: 100%; height: 100%; object-fit: cover; display: none; }
-        .logo-wrap img.loaded { display: block; }
-        .logo-fallback { font-size: 22px; color: var(--muted); }
-        .biz-info { flex: 1; min-width: 0; }
-        .biz-name { font-size: 19px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .status-pill {
-            display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
-            letter-spacing: .03em; padding: 5px 12px 5px 10px; border-radius: 99px;
-            background: rgba(62, 207, 142, 0.12); color: var(--green); border: 1px solid rgba(62, 207, 142, 0.25);
+
+        .logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
         }
-        .status-pill.closed { background: rgba(229, 72, 77, 0.1); color: #f27478; border-color: rgba(229, 72, 77, 0.25); }
-        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-        .status-pill.open .status-dot { animation: pulse 1.8s ease-in-out infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(62, 207, 142, .5); } 50% { opacity: .7; box-shadow: 0 0 0 5px rgba(62, 207, 142, 0); } }
+
+        .logo-wrap img.loaded {
+            display: block;
+        }
+
+        .logo-fallback {
+            font-size: 22px;
+            color: var(--muted);
+        }
+
+        .biz-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .biz-name {
+            font-size: 19px;
+            font-weight: 600;
+            margin: 0 0 6px;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: .03em;
+            padding: 5px 12px 5px 10px;
+            border-radius: 99px;
+            background: rgba(62, 207, 142, 0.12);
+            color: var(--green);
+            border: 1px solid rgba(62, 207, 142, 0.25);
+        }
+
+        .status-pill.closed {
+            background: rgba(229, 72, 77, 0.1);
+            color: #f27478;
+            border-color: rgba(229, 72, 77, 0.25);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .status-pill.open .status-dot {
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(62, 207, 142, .5);
+            }
+
+            50% {
+                opacity: .7;
+                box-shadow: 0 0 0 5px rgba(62, 207, 142, 0);
+            }
+        }
 
         /* ── Saldo ── */
         .balance-card {
             background: linear-gradient(140deg, #17102c 0%, var(--surface) 55%);
-            display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
         }
-        .balance-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
-        .balance-value { font-size: 34px; font-weight: 700; margin: 0; letter-spacing: -0.02em; color: #fff; }
-        .balance-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+        .balance-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            margin: 0 0 6px;
+            font-weight: 600;
+        }
+
+        .balance-value {
+            font-size: 34px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.02em;
+            color: #fff;
+        }
+
+        .balance-sub {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
         .recharge-btn {
-            background: var(--purple); color: #fff; border: none; font-weight: 700; font-size: 14px;
-            padding: 12px 20px; border-radius: 14px; cursor: pointer; white-space: nowrap;
-            transition: transform .15s ease, filter .15s ease; box-shadow: 0 6px 18px -6px rgba(124, 77, 255, 0.6);
+            background: var(--purple);
+            color: #fff;
+            border: none;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 12px 20px;
+            border-radius: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .15s ease, filter .15s ease;
+            box-shadow: 0 6px 18px -6px rgba(124, 77, 255, 0.6);
         }
-        .recharge-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        .recharge-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
 
         /* ── Stats ── */
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-        .stat-card {
-            background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--purple);
-            border-radius: 16px; padding: 16px 14px; position: relative; overflow: hidden;
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
         }
-        .stat-card.green { border-left-color: var(--green); }
-        .stat-card.urgent { border-left-color: var(--red); }
-        .stat-card.urgent.active { animation: urgentGlow 2s ease-in-out infinite; }
-        @keyframes urgentGlow { 0%,100% { box-shadow: inset 0 0 0 0 rgba(229, 72, 77, 0); } 50% { box-shadow: inset 0 0 24px -4px rgba(229, 72, 77, 0.35); } }
-        .stat-value { font-size: 22px; font-weight: 700; margin: 0 0 2px; letter-spacing: -0.01em; color: #fff; }
-        .stat-label { font-size: 12px; color: var(--muted); margin: 0; font-weight: 500; }
-        @media (max-width:560px) { .stats-grid { grid-template-columns: 1fr; } }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--purple);
+            border-radius: 16px;
+            padding: 16px 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card.green {
+            border-left-color: var(--green);
+        }
+
+        .stat-card.urgent {
+            border-left-color: var(--red);
+        }
+
+        .stat-card.urgent.active {
+            animation: urgentGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes urgentGlow {
+
+            0%,
+            100% {
+                box-shadow: inset 0 0 0 0 rgba(229, 72, 77, 0);
+            }
+
+            50% {
+                box-shadow: inset 0 0 24px -4px rgba(229, 72, 77, 0.35);
+            }
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 2px;
+            letter-spacing: -0.01em;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 0;
+            font-weight: 500;
+        }
+
+        @media (max-width:560px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
         /* ── Acciones rápidas ── */
-        .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin: 22px 4px 10px; display: flex; align-items: center; justify-content: space-between; }
-        .actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            font-weight: 700;
+            margin: 22px 4px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
         .action-btn {
-            background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 16px;
-            padding: 18px 12px; font-size: 13px; font-weight: 600; text-align: center; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 16px;
+            padding: 18px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
             transition: border-color .15s ease, background .15s ease, transform .15s ease;
         }
-        .action-btn.hidden-perm { display: none; }
-        .action-btn .icon { font-size: 22px; }
-        .action-btn:hover { border-color: var(--purple); background: var(--purple-dim); transform: translateY(-1px); }
-        @media (max-width:560px) { .actions-grid { grid-template-columns: 1fr 1fr; } }
+
+        .action-btn.hidden-perm {
+            display: none;
+        }
+
+        .action-btn .icon {
+            font-size: 22px;
+        }
+
+        .action-btn:hover {
+            border-color: var(--purple);
+            background: var(--purple-dim);
+            transform: translateY(-1px);
+        }
+
+        @media (max-width:560px) {
+            .actions-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
 
         .toast {
-            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
-            background: #161225; border: 1px solid var(--border); color: var(--text); padding: 12px 20px;
-            border-radius: 12px; font-size: 13px; font-weight: 500; opacity: 0;
-            transition: transform .3s ease, opacity .3s ease; z-index: 999;
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #161225;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0;
+            transition: transform .3s ease, opacity .3s ease;
+            z-index: 999;
             box-shadow: 0 10px 30px -10px rgba(124, 77, 255, 0.5);
         }
-        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
 
         /* ── Gestión de roles ── */
         .count-pill {
-            display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
-            padding: 5px 12px; border-radius: 99px; background: var(--purple-dim); color: #c3b3ff; border: 1px solid var(--border);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 99px;
+            background: var(--purple-dim);
+            color: #c3b3ff;
+            border: 1px solid var(--border);
         }
-        .perm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 18px; }
+
+        .perm-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
         .perm-chip {
-            display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--border);
-            border-radius: 12px; padding: 10px 12px; font-size: 13px; cursor: pointer; transition: border-color .15s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: border-color .15s ease;
         }
-        .perm-chip:has(input:checked) { border-color: var(--purple); background: var(--purple-dim); }
-        .perm-chip input { width: auto; accent-color: var(--purple); }
-        .role-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
-        .role-item:last-child { border-bottom: none; }
-        .role-name { font-weight: 600; font-size: 14px; margin: 0 0 4px; }
-        .role-user { font-size: 12px; color: var(--muted); margin: 0; }
-        .role-perms { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-        .perm-tag { font-size: 11px; padding: 3px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
-        .admin-tag { font-size: 11px; padding: 3px 8px; border-radius: 99px; background: rgba(62,207,142,.12); color: var(--green); border: 1px solid rgba(62,207,142,.25); }
-        .delete-btn { background: transparent; border: 1px solid var(--border); color: #f27478; font-size: 12px; font-weight: 600; padding: 8px 12px; border-radius: 10px; cursor: pointer; flex-shrink: 0; }
-        .delete-btn:hover { background: rgba(229,72,77,.1); }
-        .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 0; }
-        .denied { text-align: center; padding: 60px 20px; color: var(--muted); }
+
+        .perm-chip:has(input:checked) {
+            border-color: var(--purple);
+            background: var(--purple-dim);
+        }
+
+        .perm-chip input {
+            width: auto;
+            accent-color: var(--purple);
+        }
+
+        .role-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .role-item:last-child {
+            border-bottom: none;
+        }
+
+        .role-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin: 0 0 4px;
+        }
+
+        .role-user {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .role-perms {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        .perm-tag {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 99px;
+            background: var(--surface-2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .admin-tag {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 99px;
+            background: rgba(62, 207, 142, .12);
+            color: var(--green);
+            border: 1px solid rgba(62, 207, 142, .25);
+        }
+
+        .delete-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #f27478;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .delete-btn:hover {
+            background: rgba(229, 72, 77, .1);
+        }
+
+        .empty {
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .denied {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
 
         /* Scrollbar oscura */
-        * { scrollbar-width: thin; scrollbar-color: #2a2a2a #000000; }
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-track { background: #000000; }
-        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 5px; border: 2px solid #000000; }
-        ::-webkit-scrollbar-thumb:hover { background: #3d3d3d; }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #2a2a2a #000000;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a2a;
+            border-radius: 5px;
+            border: 2px solid #000000;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3d3d3d;
+        }
     </style>
 </head>
 
@@ -245,28 +687,37 @@
     <!-- ═══════════════════ VISTA: crear administrador ═══════════════════ -->
     <div class="wrap-narrow hidden" id="view-bootstrap">
         <div class="card">
-            <div class="brand"><span class="brand-dot"></span><span class="display" style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
+            <div class="brand"><span class="brand-dot"></span><span class="display"
+                    style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
             <div id="bsMsg" class="msg"></div>
             <form id="bootstrapForm">
                 <h1 class="auth-title display">Crea la cuenta principal</h1>
-                <p class="subtitle">Aún no hay administrador para este negocio. Esta cuenta tendrá acceso total y podrá crear los demás roles.</p>
-                <div class="field"><label>Tu nombre</label><input type="text" id="bsNombre" required placeholder="Ej: María"></div>
-                <div class="field"><label>Usuario</label><input type="text" id="bsUsuario" required placeholder="admin_negocio" autocomplete="off"></div>
-                <div class="field"><label>Contraseña</label><input type="password" id="bsPassword" required minlength="4" placeholder="••••••••" autocomplete="new-password"></div>
+                <p class="subtitle">Aún no hay administrador para este negocio. Esta cuenta tendrá acceso total y podrá
+                    crear los demás roles.</p>
+                <div class="field"><label>Tu nombre</label><input type="text" id="bsNombre" required
+                        placeholder="Ej: María"></div>
+                <div class="field"><label>Usuario</label><input type="text" id="bsUsuario" required
+                        placeholder="admin_negocio" autocomplete="off"></div>
+                <div class="field"><label>Contraseña</label><input type="password" id="bsPassword" required
+                        minlength="4" placeholder="••••••••" autocomplete="new-password"></div>
                 <button type="submit" class="submit-btn" id="bsSubmit">Crear cuenta de administrador</button>
             </form>
-            <p class="footer-note">El rol activo se guarda en esta sesión del navegador y se sincroniza con Firebase.</p>
+            <p class="footer-note">El rol activo se guarda en esta sesión del navegador y se sincroniza con Firebase.
+            </p>
         </div>
     </div>
 
     <!-- ═══════════════════ VISTA: mostrar código de recuperación (solo una vez) ═══════════════════ -->
     <div class="wrap-narrow hidden" id="view-recovery">
         <div class="card">
-            <div class="brand"><span class="brand-dot"></span><span class="display" style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
+            <div class="brand"><span class="brand-dot"></span><span class="display"
+                    style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
             <h1 class="auth-title display">Guarda tu código de recuperación</h1>
-            <p class="subtitle">Si algún día olvidas tu contraseña de administrador, es la única forma de recuperarla. No se volverá a mostrar. Guárdalo en un lugar seguro (una nota, tu correo, etc).</p>
+            <p class="subtitle">Si algún día olvidas tu contraseña de administrador, es la única forma de recuperarla.
+                No se volverá a mostrar. Guárdalo en un lugar seguro (una nota, tu correo, etc).</p>
             <div class="card" style="background:var(--surface-2);text-align:center;margin-bottom:16px;">
-                <p class="display" id="recoveryCodeText" style="font-size:20px;font-weight:700;letter-spacing:.05em;margin:0;">----</p>
+                <p class="display" id="recoveryCodeText"
+                    style="font-size:20px;font-weight:700;letter-spacing:.05em;margin:0;">----</p>
             </div>
             <button class="primary-btn" id="recoveryContinueBtn">Ya lo guardé, continuar</button>
         </div>
@@ -275,13 +726,17 @@
     <!-- ═══════════════════ VISTA: login ═══════════════════ -->
     <div class="wrap-narrow hidden" id="view-login">
         <div class="card">
-            <div class="brand"><span class="brand-dot"></span><span class="display" style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
+            <div class="brand"><span class="brand-dot"></span><span class="display"
+                    style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
             <div id="loMsg" class="msg"></div>
             <form id="loginForm">
                 <h1 class="auth-title display">Inicia sesión</h1>
-                <p class="subtitle">Ingresa con tu usuario y contraseña. El acceso a cada sección depende del rol asignado.</p>
-                <div class="field"><label>Usuario</label><input type="text" id="loUsuario" required autocomplete="username"></div>
-                <div class="field"><label>Contraseña</label><input type="password" id="loPassword" required autocomplete="current-password"></div>
+                <p class="subtitle">Ingresa con tu usuario y contraseña. El acceso a cada sección depende del rol
+                    asignado.</p>
+                <div class="field"><label>Usuario</label><input type="text" id="loUsuario" required
+                        autocomplete="username"></div>
+                <div class="field"><label>Contraseña</label><input type="password" id="loPassword" required
+                        autocomplete="current-password"></div>
                 <button type="submit" class="submit-btn" id="loSubmit">Ingresar</button>
             </form>
             <p class="footer-note">
@@ -294,32 +749,42 @@
     <!-- ═══════════════════ VISTA: recuperar contraseña (solo admin) ═══════════════════ -->
     <div class="wrap-narrow hidden" id="view-forgot">
         <div class="card">
-            <div class="brand"><span class="brand-dot"></span><span class="display" style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
+            <div class="brand"><span class="brand-dot"></span><span class="display"
+                    style="font-weight:700;font-size:15px;">Panel del negocio</span></div>
             <div id="fgMsg" class="msg"></div>
             <form id="forgotForm">
                 <h1 class="auth-title display">Recuperar contraseña</h1>
-                <p class="subtitle">Solo la cuenta de administrador puede recuperarse aquí, con el código que se generó al crearla. Si eres trabajador, pide a tu administrador que te asigne una nueva contraseña desde "Gestionar roles".</p>
-                <div class="field"><label>Usuario administrador</label><input type="text" id="fgUsuario" required autocomplete="off"></div>
-                <div class="field"><label>Código de recuperación</label><input type="text" id="fgCodigo" required placeholder="XXXX-XXXX-XXXX"></div>
-                <div class="field"><label>Nueva contraseña</label><input type="password" id="fgPassword" required minlength="4" autocomplete="new-password"></div>
+                <p class="subtitle">Solo la cuenta de administrador puede recuperarse aquí, con el código que se generó
+                    al crearla. Si eres trabajador, pide a tu administrador que te asigne una nueva contraseña desde
+                    "Gestionar roles".</p>
+                <div class="field"><label>Usuario administrador</label><input type="text" id="fgUsuario" required
+                        autocomplete="off"></div>
+                <div class="field"><label>Código de recuperación</label><input type="text" id="fgCodigo" required
+                        placeholder="XXXX-XXXX-XXXX"></div>
+                <div class="field"><label>Nueva contraseña</label><input type="password" id="fgPassword" required
+                        minlength="4" autocomplete="new-password"></div>
                 <button type="submit" class="submit-btn" id="fgSubmit">Restablecer contraseña</button>
             </form>
-            <p class="footer-note"><a href="#" id="backToLoginLink" style="color:var(--muted);">← Volver a iniciar sesión</a></p>
+            <p class="footer-note"><a href="#" id="backToLoginLink" style="color:var(--muted);">← Volver a iniciar
+                    sesión</a></p>
         </div>
     </div>
 
     <!-- ═══════════════════ VISTA: panel principal ═══════════════════ -->
     <div class="wrap hidden" id="view-panel">
         <div class="session-bar">
-            <span class="session-user">Conectado como <b id="sessionNombre">—</b><span class="role-badge" id="sessionRoleBadge">ROL</span></span>
+            <span class="session-user">Conectado como <b id="sessionNombre">—</b><span class="role-badge"
+                    id="sessionRoleBadge">ROL</span></span>
             <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
         </div>
 
         <div class="card header-card">
-            <div class="logo-wrap"><img id="logoImg" alt="Logo"><span class="logo-fallback" id="logoFallback">🏬</span></div>
+            <div class="logo-wrap"><img id="logoImg" alt="Logo"><span class="logo-fallback" id="logoFallback">🏬</span>
+            </div>
             <div class="biz-info">
                 <p class="biz-name display" id="bizName">Cargando…</p>
-                <span class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">—</span></span>
+                <span class="status-pill" id="statusPill"><span class="status-dot"></span><span
+                        id="statusText">—</span></span>
             </div>
         </div>
 
@@ -333,20 +798,34 @@
         </div>
 
         <div class="stats-grid">
-            <div class="stat-card"><p class="stat-value display" id="ventasValue">S/ 0.00</p><p class="stat-label">Ventas de hoy</p></div>
-            <div class="stat-card green"><p class="stat-value display" id="atendidosValue">0</p><p class="stat-label">Atendidos hoy</p></div>
-            <div class="stat-card urgent" id="urgentCard"><p class="stat-value display" id="cocinaValue">0</p><p class="stat-label">Atención urgente</p></div>
+            <div class="stat-card">
+                <p class="stat-value display" id="ventasValue">S/ 0.00</p>
+                <p class="stat-label">Ventas de hoy</p>
+            </div>
+            <div class="stat-card green">
+                <p class="stat-value display" id="atendidosValue">0</p>
+                <p class="stat-label">Atendidos hoy</p>
+            </div>
+            <div class="stat-card urgent" id="urgentCard">
+                <p class="stat-value display" id="cocinaValue">0</p>
+                <p class="stat-label">Atención urgente</p>
+            </div>
         </div>
 
         <p class="section-title">Acciones rápidas</p>
         <div class="actions-grid" id="actionsGrid">
             <button class="action-btn" id="btnPerfil" data-perm="perfil"><span class="icon">🧾</span> Perfil</button>
-            <button class="action-btn" id="btnPublicidad" data-perm="publicidad"><span class="icon">📣</span> Publicidad</button>
+            <button class="action-btn" id="btnPublicidad" data-perm="publicidad"><span class="icon">📣</span>
+                Publicidad</button>
             <button class="action-btn" id="btnQR" data-perm="qr"><span class="icon">📱</span> Ver mi QR</button>
-            <button class="action-btn" id="btnPedidosVivo" data-perm="pedidos"><span class="icon">📋</span> Pedidos en Vivo</button>
-            <button class="action-btn" id="btnProductos" data-perm="productos"><span class="icon">🛍️</span> Productos</button>
-            <button class="action-btn" id="btnRecargas" data-perm="recargas"><span class="icon">💳</span> Recargas</button>
-            <button class="action-btn" id="btnRoles" data-perm="__admin__"><span class="icon">🛡️</span> Gestionar roles</button>
+            <button class="action-btn" id="btnPedidosVivo" data-perm="pedidos"><span class="icon">📋</span> Pedidos en
+                Vivo</button>
+            <button class="action-btn" id="btnProductos" data-perm="productos"><span class="icon">🛍️</span>
+                Productos</button>
+            <button class="action-btn" id="btnRecargas" data-perm="recargas"><span class="icon">💳</span>
+                Recargas</button>
+            <button class="action-btn" id="btnRoles" data-perm="__admin__"><span class="icon">🛡️</span> Gestionar
+                roles</button>
         </div>
     </div>
 
@@ -364,9 +843,12 @@
                 <p class="section-title">Nuevo rol <span class="count-pill" id="countPill">0 / 5</span></p>
                 <div id="formMsg" class="msg"></div>
                 <form id="roleForm">
-                    <div class="field"><label>Nombre</label><input type="text" id="fNombre" required placeholder="Ej: Juan"></div>
-                    <div class="field"><label>Usuario</label><input type="text" id="fUsuario" required placeholder="juan_ventas" autocomplete="off"></div>
-                    <div class="field"><label>Contraseña</label><input type="password" id="fPassword" required minlength="4" autocomplete="new-password"></div>
+                    <div class="field"><label>Nombre</label><input type="text" id="fNombre" required
+                            placeholder="Ej: Juan"></div>
+                    <div class="field"><label>Usuario</label><input type="text" id="fUsuario" required
+                            placeholder="juan_ventas" autocomplete="off"></div>
+                    <div class="field"><label>Contraseña</label><input type="password" id="fPassword" required
+                            minlength="4" autocomplete="new-password"></div>
                     <label>Secciones permitidas</label>
                     <div class="perm-grid" id="permGrid"></div>
                     <button type="submit" class="submit-btn" id="formSubmit">Crear rol</button>
@@ -380,13 +862,16 @@
     </div>
 
     <!-- ═══════════════════ MODAL: restablecer contraseña de un trabajador ═══════════════════ -->
-    <div class="wrap-narrow hidden" id="view-reset-worker" style="position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,.6);height:100vh;margin:0;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div class="wrap-narrow hidden" id="view-reset-worker"
+        style="position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,.6);height:100vh;margin:0;display:flex;align-items:center;justify-content:center;padding:20px;">
         <div class="card" style="width:100%;max-width:360px;margin:0;">
             <h1 class="auth-title display">Nueva contraseña</h1>
-            <p class="subtitle">Para <b id="resetWorkerNombre">—</b>. Se la debes compartir tú mismo, no se envía automáticamente.</p>
+            <p class="subtitle">Para <b id="resetWorkerNombre">—</b>. Se la debes compartir tú mismo, no se envía
+                automáticamente.</p>
             <div id="rwMsg" class="msg"></div>
             <form id="resetWorkerForm">
-                <div class="field"><label>Nueva contraseña</label><input type="password" id="rwPassword" required minlength="4" autocomplete="new-password"></div>
+                <div class="field"><label>Nueva contraseña</label><input type="password" id="rwPassword" required
+                        minlength="4" autocomplete="new-password"></div>
                 <button type="submit" class="submit-btn" id="rwSubmit">Guardar nueva contraseña</button>
             </form>
             <button class="back-btn" id="rwCancel" style="width:100%;margin-top:10px;">Cancelar</button>
@@ -398,9 +883,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import {
-            getFirestore, doc, onSnapshot, collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, serverTimestamp
+            getFirestore, doc, getDoc, onSnapshot, collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, serverTimestamp
         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
         const firebaseConfig = {
             apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
             authDomain: "geinzworkapp.firebaseapp.com",
@@ -414,8 +898,43 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const LOCALIDAD = "barranca";
-        const NEGOCIO_ID = "fW7W8RsgkkQ3IYfxKHGR";
+        let tiendaId = sessionStorage.getItem("tiendaId");
+        let localidad = sessionStorage.getItem("localidad");
+
+        if (!tiendaId || !localidad) {
+            window.addEventListener("message", (e) => {
+                if (e.data?.tipo !== "DATOS_TIENDA") return;
+                tiendaId = e.data.tiendaId;
+                localidad = e.data.localidad;
+            });
+        }
+
+
+        let LOCALIDAD, NEGOCIO_ID;
+
+
+        function esperarDatosTienda() {
+            return new Promise((resolve) => {
+                if (tiendaId && localidad) {
+                    resolve();
+                    return;
+                }
+                window.addEventListener("message", function handler(e) {
+                    if (e.data?.tipo !== "DATOS_TIENDA") return;
+                    tiendaId = e.data.tiendaId;
+                    localidad = e.data.localidad;
+                    window.removeEventListener("message", handler);
+                    resolve();
+                });
+            });
+        }
+        // Exponer categoría de la tienda (se llena en listenNegocio)
+        window.PanelNegocio = window.PanelNegocio || {};
+        window.PanelNegocio.TIENDA_ID = NEGOCIO_ID;
+        window.PanelNegocio.LOCALIDAD_TIENDA = LOCALIDAD;
+        window.PanelNegocio.CATEGORIA_TIENDA = sessionStorage.getItem("categoriaTienda") || null;
+
+
         const CREDITO_A_SOLES = 0.012;
         const MAX_ROLES = 5; // máximo de roles NO admin
 
@@ -448,7 +967,7 @@
         function randomCode() {
             const bytes = crypto.getRandomValues(new Uint8Array(9));
             const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-            return `${hex.slice(0,4)}-${hex.slice(4,8)}-${hex.slice(8,12)}-${hex.slice(12,18)}`;
+            return `${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 18)}`;
         }
         function showView(id) {
             VIEWS.forEach(v => document.getElementById(v).classList.toggle("hidden", v !== id));
@@ -481,8 +1000,37 @@
         // ══════════════════════════════════════════
         let unsubNegocio = null, unsubPedidos = null;
 
+
         async function boot() {
             showView("view-loading");
+            await esperarDatosTienda();   // 👈 espera a que lleguen tiendaId y localidad
+
+            LOCALIDAD = localidad;
+            NEGOCIO_ID = tiendaId;
+            window.PanelNegocio.TIENDA_ID = NEGOCIO_ID;
+            window.PanelNegocio.LOCALIDAD_TIENDA = LOCALIDAD;
+
+            // ── ahora sí, recién aquí consultamos la categoría ──
+            let categoria = sessionStorage.getItem("categoriaTienda") || null;
+            if (!categoria) {
+                try {
+                    const negocioSnap = await getDoc(doc(db, "Tiendas", LOCALIDAD, LOCALIDAD, NEGOCIO_ID));
+                    if (negocioSnap.exists()) {
+                        categoria = negocioSnap.data().categoria_tienda || null;
+                        sessionStorage.setItem("categoriaTienda", categoria || "");
+                    }
+                } catch (err) {
+                    console.error("Error obteniendo categoría de la tienda:", err);
+                }
+            }
+            window.PanelNegocio.CATEGORIA_TIENDA = categoria;
+
+            const esRestaurante = (categoria || "").trim().toLowerCase() === "comida y restaurantes ";
+            if (!esRestaurante) {
+                enterPanelSinRoles();
+                return;
+            }
+
             const sesion = getSession();
             if (sesion) {
                 enterPanel(sesion);
@@ -497,7 +1045,6 @@
                 showView("view-login");
             }
         }
-
         // ══════════════════════════════════════════
         //  Crear administrador (primer uso)
         // ══════════════════════════════════════════
@@ -568,7 +1115,7 @@
 
                 updateDoc(doc(db, "Tiendas", LOCALIDAD, LOCALIDAD, NEGOCIO_ID, "roles", match.id), {
                     ultimoAcceso: serverTimestamp(),
-                }).catch(() => {});
+                }).catch(() => { });
 
                 setMsg("loMsg", `Bienvenido, ${data.nombre}. Ingresando…`, "info");
                 setTimeout(() => enterPanel(sesion), 400);
@@ -672,6 +1219,18 @@
             listenPedidos();
         }
 
+        function enterPanelSinRoles() {
+            document.getElementById("sessionNombre").textContent = "Propietario";
+            document.getElementById("sessionRoleBadge").textContent = "Acceso total";
+            document.querySelectorAll(".action-btn[data-perm]").forEach(btn => {
+                // Solo se oculta "Gestionar roles"; el resto queda visible con acceso completo
+                btn.classList.toggle("hidden-perm", btn.dataset.perm === "__admin__");
+            });
+            document.getElementById("rechargeBtn").style.display = "";
+            showView("view-panel");
+            listenNegocio();
+            listenPedidos();
+        }
         // ══════════════════════════════════════════
         //  HORARIO
         // ══════════════════════════════════════════
@@ -723,10 +1282,16 @@
                 const soles = puntos * CREDITO_A_SOLES;
                 document.getElementById("balanceValue").textContent = `S/ ${soles.toFixed(2)}`;
                 document.getElementById("balanceSub").textContent = `${puntos} créditos`;
+
+                // ── NUEVO: exponer categoría de la tienda ──
+                const categoria = biz.categoria_tienda || null;
+                sessionStorage.setItem("categoriaTienda", categoria || "");
+                window.PanelNegocio.CATEGORIA_TIENDA = categoria;
+
             }, (err) => console.error("Error escuchando negocio:", err));
 
             setInterval(() => {
-                onSnapshot(ref, (snap) => { if (snap.exists()) setStatus(calcOpenNow(snap.data().horario_atencion)); }, () => {});
+                onSnapshot(ref, (snap) => { if (snap.exists()) setStatus(calcOpenNow(snap.data().horario_atencion)); }, () => { });
             }, 30000);
         }
 
@@ -803,7 +1368,7 @@
                     : (data.permisos || []).map(p => {
                         const found = PERMISOS_DISPONIBLES.find(x => x.key === p);
                         return `<span class="perm-tag">${found ? found.label : p}</span>`;
-                      }).join("");
+                    }).join("");
                 return `
                     <div class="role-item">
                         <div>

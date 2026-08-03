@@ -566,7 +566,19 @@
       measurementId: "G-38J7RJP8HK",
     };
 
-    const RUTA_PEDIDOS = "Tiendas/barranca/barranca/fW7W8RsgkkQ3IYfxKHGR/pedidos";
+    let tiendaId = sessionStorage.getItem("tiendaId");
+    let localidad = sessionStorage.getItem("localidad");
+
+    if (!tiendaId || !localidad) {
+      // fallback por si el postMessage llega después
+      window.addEventListener("message", (e) => {
+        if (e.data?.tipo !== "DATOS_TIENDA") return;
+        tiendaId = e.data.tiendaId;
+        localidad = e.data.localidad;
+        // vuelve a ejecutar tu init aquí si hace falta
+      });
+    }
+    const RUTA_PEDIDOS = "Tiendas/localidad/localidad/tiendaId/pedidos";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);

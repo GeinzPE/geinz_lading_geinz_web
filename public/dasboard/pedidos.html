@@ -257,6 +257,23 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+
+        let tiendaId = sessionStorage.getItem("tiendaId");
+        let localidad = sessionStorage.getItem("localidad");
+
+        if (!tiendaId || !localidad) {
+            // fallback por si el postMessage llega después
+            window.addEventListener("message", (e) => {
+                if (e.data?.tipo !== "DATOS_TIENDA") return;
+                tiendaId = e.data.tiendaId;
+                localidad = e.data.localidad;
+                // vuelve a ejecutar tu init aquí si hace falta
+            }
+            )
+        };
+        const _params = new URLSearchParams(window.location.search);
+
+        const ID_PRUEBA = tiendaId;
         /* ══════════════ Colores fijos para grupos de mesas (ya no editable por el usuario) ══════════════ */
         const GROUP_COLOR_OCUPADA = "#f59e0b";   // ámbar, igual que una mesa ocupada individual
         const GROUP_COLOR_RESERVADA = "#7c5cff"; // violeta, igual que una mesa reservada individual
@@ -300,11 +317,9 @@
         styleTag.textContent = MESA_ADMIN_CSS;
         document.head.appendChild(styleTag);
 
+
         /* ══════════════ Identificación del negocio ══════════════ */
-        const _params = new URLSearchParams(window.location.search);
-        let tiendaId = _params.get("id") || null;
-        let localidad = (_params.get("localidad") || "barranca").toLowerCase();
-        const ID_PRUEBA = "fW7W8RsgkkQ3IYfxKHGR";
+
 
         const ESTADOS = ["pendiente", "en_proceso", "entregado", "rechazado"];
         const pedidosMap = new Map(); // id -> data

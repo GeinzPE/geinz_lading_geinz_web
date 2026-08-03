@@ -1709,6 +1709,120 @@
                 }, 50);
             }
         });
+
+
+
+    </script>
+
+    <script>
+        /* =========================================================
+           1) CAPTURAR ID Y LOCALIDAD (URL o sessionStorage)
+        ========================================================= */
+        const params = new URLSearchParams(window.location.search);
+
+        const TIENDA_ID = params.get("id") || sessionStorage.getItem("tiendaId");
+        const LOCALIDAD_TIENDA = params.get("localidad") || sessionStorage.getItem("localidad");
+
+        if (!TIENDA_ID || !LOCALIDAD_TIENDA) {
+            window.location.replace("../index");
+        } else {
+            sessionStorage.setItem("tiendaId", TIENDA_ID);
+            sessionStorage.setItem("localidad", LOCALIDAD_TIENDA);
+        }
+
+        // ⚠️ Merge, NO sobrescribir — por si panel_perfil.js ya puso métodos aquí
+        window.PanelPerfil = window.PanelPerfil || {};
+        window.PanelPerfil.TIENDA_ID = TIENDA_ID;
+        window.PanelPerfil.LOCALIDAD_TIENDA = LOCALIDAD_TIENDA;
+
+        /* =========================================================
+           2) PAYLOAD QUE SE MANDARÁ A LOS IFRAMES (recargas, etc.)
+        ========================================================= */
+        window._datosParaIframe = {
+            tipo: "DATOS_TIENDA",
+            tiendaId: TIENDA_ID,
+            localidad: LOCALIDAD_TIENDA
+        };
+
+        function reenviarDatosAlIframe(iframe) {
+            if (!window._datosParaIframe || !iframe?.contentWindow) return;
+            setTimeout(() => {
+                try {
+                    iframe.contentWindow.postMessage(window._datosParaIframe, '*');
+                    console.log('📤 Datos reenviados al iframe:', window._datosParaIframe);
+                } catch (e) {
+                    console.warn('No se pudo reenviar datos:', e);
+                }
+            }, 300);
+        }
+
+        function volverDesdeIframe() {
+            const iframe = document.querySelector('#sec-recargas iframe');
+            if (!iframe) return;
+
+            document.getElementById('iframeBackBtn')?.classList.remove('visible');
+            iframe.src = 'recargas';
+
+            iframe.addEventListener('load', function reenviar() {
+                iframe.removeEventListener('load', reenviar);
+                reenviarDatosAlIframe(iframe);
+            }, { once: true });
+        }
+
+        /* =========================================================
+           3) ENVIAR DATOS A **TODOS** LOS IFRAMES DEL PANEL AL CARGAR
+              (mismo origen: podrían leerlo de sessionStorage también,
+              pero esto sirve como refuerzo y para 'recargas' que es
+              tratado como cross-origin)
+        ========================================================= */
+        document.querySelectorAll('.section iframe').forEach((iframe) => {
+            iframe.addEventListener('load', () => reenviarDatosAlIframe(iframe));
+        });
+
+        /* =========================================================
+           4) VIGILAR NAVEGACIÓN DENTRO DEL IFRAME 'recargas'
+        ========================================================= */
+        (function () {
+            const sec = document.getElementById('sec-recargas');
+            const btn = document.getElementById('iframeBackBtn');
+            if (!sec || !btn) return;
+
+            const iframe = sec.querySelector('iframe');
+            if (!iframe) return;
+
+            iframe.addEventListener('load', function () {
+                try {
+                    const iframeHref = iframe.contentWindow.location.href;
+                    const esRecargas = iframeHref.includes('recargas') || iframeHref === 'about:blank';
+                    btn.classList.toggle('visible', !esRecargas);
+                } catch (e) {
+                    // Cross-origin: mostrar botón
+                    btn.classList.add('visible');
+                }
+            });
+        })();
+
+        /* =========================================================
+           5) ESCUCHAR MENSAJES 'NAVEGAR' DESDE LOS HIJOS
+        ========================================================= */
+        window.addEventListener('message', function (e) {
+            const { tipo, seccion } = e.data || {};
+            if (tipo !== 'NAVEGAR') return;
+
+            const iframe = document.querySelector('#sec-recargas iframe');
+            if (iframe) iframe.src = 'about:blank';
+
+            if (window.PanelPerfil && typeof PanelPerfil.showSection === 'function') {
+                PanelPerfil.showSection(seccion || 'perfil');
+            }   
+
+            if (seccion === 'recargas' && iframe) {
+                setTimeout(() => {
+                    iframe.src = 'recargas';
+                    iframe.addEventListener('load', () => reenviarDatosAlIframe(iframe), { once: true });
+                }, 50);
+            }
+        });
     </script>
     <input type="file" id="avatarFileInputHtml" accept="image/*" style="display:none;">
 </body>

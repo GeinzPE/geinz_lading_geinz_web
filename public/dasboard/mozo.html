@@ -1,654 +1,997 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Modo Mozo</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  :root{
-    --bg:#08060d; --surface:#0d0a17; --surface-2:#151027; --line:rgba(139,92,246,.16);
-    --ink:#f4f2fb; --ink-dim:#a89cc4; --ink-faint:#6b6088;
-    --violet:#7c5cff; --violet-soft:rgba(124,92,255,.14);
-    --amber:#f59e0b; --amber-soft:rgba(245,158,11,.14);
-    --blue:#3b82f6; --blue-soft:rgba(59,130,246,.14);
-    --purple:#c026d3; --purple-soft:rgba(192,38,211,.16);
-    --red:#ef4444; --red-soft:rgba(239,68,68,.14);
-    --green:#22c55e; --green-soft:rgba(34,197,94,.14);
-  }
-  *{-webkit-tap-highlight-color:transparent;}
-  html,body{background:var(--bg); color:var(--ink); font-family:'Inter',system-ui,-apple-system,sans-serif; overscroll-behavior-y:none;}
-  .mono{font-family:'SF Mono',ui-monospace,Menlo,monospace;}
-  .surface{background:var(--surface); border:1px solid var(--line);}
-  .surface-2{background:var(--surface-2); border:1px solid var(--line);}
-  ::-webkit-scrollbar{width:8px; height:8px;}
-  ::-webkit-scrollbar-thumb{background:rgba(139,92,246,.25); border-radius:8px;}
-  .thin-scroll::-webkit-scrollbar{width:5px;}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Modo Mozo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #08060d;
+      --surface: #0d0a17;
+      --surface-2: #151027;
+      --line: rgba(139, 92, 246, .16);
+      --ink: #f4f2fb;
+      --ink-dim: #a89cc4;
+      --ink-faint: #6b6088;
+      --violet: #7c5cff;
+      --violet-soft: rgba(124, 92, 255, .14);
+      --amber: #f59e0b;
+      --amber-soft: rgba(245, 158, 11, .14);
+      --blue: #3b82f6;
+      --blue-soft: rgba(59, 130, 246, .14);
+      --purple: #c026d3;
+      --purple-soft: rgba(192, 38, 211, .16);
+      --red: #ef4444;
+      --red-soft: rgba(239, 68, 68, .14);
+      --green: #22c55e;
+      --green-soft: rgba(34, 197, 94, .14);
+    }
 
-  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
-  .animate-fadeIn{animation:fadeIn .25s ease both;}
-  @keyframes pulseDot{0%,100%{opacity:1;} 50%{opacity:.35;}}
-  .pulse-dot{animation:pulseDot 1.6s ease-in-out infinite;}
-  @keyframes ring{0%,100%{transform:rotate(0);} 10%,30%{transform:rotate(-12deg);} 20%,40%{transform:rotate(12deg);}}
-  .ring-anim{animation:ring .5s ease-in-out;}
-  @keyframes toastIn{from{opacity:0; transform:translateY(10px) scale(.97);} to{opacity:1; transform:translateY(0) scale(1);}}
-  .toast-in{animation:toastIn .18s ease both;}
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
 
-  .overlay{position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(3,2,8,.82); backdrop-filter:blur(6px);}
-  .overlay.show{display:flex;}
-  .spinner{display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg);}}
+    html,
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overscroll-behavior-y: none;
+    }
 
-  .mesa-card{background:var(--surface); border:1.5px solid var(--line); border-radius:20px; padding:14px; cursor:pointer; transition:transform .12s ease, border-color .12s ease; position:relative; display:flex; flex-direction:column; gap:6px; min-height:140px;}
-  .mesa-card:active{transform:scale(.97);}
-  .mesa-card.st-libre{border-color:rgba(34,197,94,.25);}
-  .mesa-card.st-pendiente{border-color:rgba(245,158,11,.55); box-shadow:0 0 0 1px rgba(245,158,11,.2) inset;}
-  .mesa-card.st-preparacion{border-color:rgba(59,130,246,.5);}
-  .mesa-card.st-listo{border-color:rgba(192,38,211,.6); box-shadow:0 0 0 1px rgba(192,38,211,.25) inset;}
-  .mesa-card.st-cuenta{border-color:rgba(239,68,68,.6); box-shadow:0 0 0 1px rgba(239,68,68,.25) inset;}
-  .mesa-card.st-reservada{border-color:rgba(124,92,255,.5);}
+    .mono {
+      font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+    }
 
-  .chip{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.02em;}
-  .btn-primary{background:var(--violet); color:#fff; font-weight:700; border-radius:14px; padding:12px; transition:filter .12s; display:flex; align-items:center; justify-content:center; gap:8px;}
-  .btn-primary:hover{filter:brightness(1.1);}
-  .btn-primary:disabled{opacity:.4; cursor:not-allowed;}
-  .btn-ghost{background:rgba(255,255,255,.05); color:var(--ink); font-weight:600; border-radius:14px; padding:12px; transition:background .12s;}
-  .btn-ghost:hover{background:rgba(255,255,255,.09);}
-  .btn-danger{background:var(--red-soft); color:#fca5a5; font-weight:700; border-radius:14px; padding:12px; transition:filter .12s;}
-  .btn-danger:hover{filter:brightness(1.2);}
+    .surface {
+      background: var(--surface);
+      border: 1px solid var(--line);
+    }
 
-  .field-input{width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:13.5px; color:var(--ink); outline:none;}
-  .field-input:focus{border-color:var(--violet);}
-  .qty-btn{width:30px; height:30px; border-radius:10px; background:rgba(255,255,255,.06); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; color:var(--ink);}
-  .qty-btn:active{transform:scale(.9);}
+    .surface-2 {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+    }
 
-  .cat-chip{flex-shrink:0; font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-dim); white-space:nowrap; transition:all .12s;}
-  .cat-chip.active{background:var(--violet); color:#fff; border-color:var(--violet);}
-  .toggle-opt{font-size:12px; font-weight:700; padding:7px 12px; border-radius:12px; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-dim); cursor:pointer; transition:all .12s;}
-  .toggle-opt.active{background:var(--violet); color:#fff; border-color:var(--violet);}
-  .toggle-opt.agotado{opacity:.4; text-decoration:line-through; cursor:not-allowed;}
-  .stock-badge{font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:.02em;}
-  .stock-ok{background:var(--green-soft); color:#6ee7a0;}
-  .stock-bajo{background:var(--amber-soft); color:#fbbf6b;}
-  .stock-agotado{background:var(--red-soft); color:#fca5a5;}
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
 
-  #toastWrap{position:fixed; bottom:16px; right:16px; left:16px; z-index:300; display:flex; flex-direction:column; align-items:flex-end; gap:8px;}
-  @media(min-width:640px){#toastWrap{left:auto;}}
-</style>
+    ::-webkit-scrollbar-thumb {
+      background: rgba(139, 92, 246, .25);
+      border-radius: 8px;
+    }
+
+    .thin-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fadeIn {
+      animation: fadeIn .25s ease both;
+    }
+
+    @keyframes pulseDot {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .35;
+      }
+    }
+
+    .pulse-dot {
+      animation: pulseDot 1.6s ease-in-out infinite;
+    }
+
+    @keyframes ring {
+
+      0%,
+      100% {
+        transform: rotate(0);
+      }
+
+      10%,
+      30% {
+        transform: rotate(-12deg);
+      }
+
+      20%,
+      40% {
+        transform: rotate(12deg);
+      }
+    }
+
+    .ring-anim {
+      animation: ring .5s ease-in-out;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px) scale(.97);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .toast-in {
+      animation: toastIn .18s ease both;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(3, 2, 8, .82);
+      backdrop-filter: blur(6px);
+    }
+
+    .overlay.show {
+      display: flex;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, .3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .mesa-card {
+      background: var(--surface);
+      border: 1.5px solid var(--line);
+      border-radius: 20px;
+      padding: 14px;
+      cursor: pointer;
+      transition: transform .12s ease, border-color .12s ease;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 140px;
+    }
+
+    .mesa-card:active {
+      transform: scale(.97);
+    }
+
+    .mesa-card.st-libre {
+      border-color: rgba(34, 197, 94, .25);
+    }
+
+    .mesa-card.st-pendiente {
+      border-color: rgba(245, 158, 11, .55);
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, .2) inset;
+    }
+
+    .mesa-card.st-preparacion {
+      border-color: rgba(59, 130, 246, .5);
+    }
+
+    .mesa-card.st-listo {
+      border-color: rgba(192, 38, 211, .6);
+      box-shadow: 0 0 0 1px rgba(192, 38, 211, .25) inset;
+    }
+
+    .mesa-card.st-cuenta {
+      border-color: rgba(239, 68, 68, .6);
+      box-shadow: 0 0 0 1px rgba(239, 68, 68, .25) inset;
+    }
+
+    .mesa-card.st-reservada {
+      border-color: rgba(124, 92, 255, .5);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: .02em;
+    }
+
+    .btn-primary {
+      background: var(--violet);
+      color: #fff;
+      font-weight: 700;
+      border-radius: 14px;
+      padding: 12px;
+      transition: filter .12s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .btn-primary:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, .05);
+      color: var(--ink);
+      font-weight: 600;
+      border-radius: 14px;
+      padding: 12px;
+      transition: background .12s;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, .09);
+    }
+
+    .btn-danger {
+      background: var(--red-soft);
+      color: #fca5a5;
+      font-weight: 700;
+      border-radius: 14px;
+      padding: 12px;
+      transition: filter .12s;
+    }
+
+    .btn-danger:hover {
+      filter: brightness(1.2);
+    }
+
+    .field-input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13.5px;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .field-input:focus {
+      border-color: var(--violet);
+    }
+
+    .qty-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--ink);
+    }
+
+    .qty-btn:active {
+      transform: scale(.9);
+    }
+
+    .cat-chip {
+      flex-shrink: 0;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      color: var(--ink-dim);
+      white-space: nowrap;
+      transition: all .12s;
+    }
+
+    .cat-chip.active {
+      background: var(--violet);
+      color: #fff;
+      border-color: var(--violet);
+    }
+
+    .toggle-opt {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 12px;
+      border-radius: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      color: var(--ink-dim);
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .toggle-opt.active {
+      background: var(--violet);
+      color: #fff;
+      border-color: var(--violet);
+    }
+
+    .toggle-opt.agotado {
+      opacity: .4;
+      text-decoration: line-through;
+      cursor: not-allowed;
+    }
+
+    .stock-badge {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 6px;
+      letter-spacing: .02em;
+    }
+
+    .stock-ok {
+      background: var(--green-soft);
+      color: #6ee7a0;
+    }
+
+    .stock-bajo {
+      background: var(--amber-soft);
+      color: #fbbf6b;
+    }
+
+    .stock-agotado {
+      background: var(--red-soft);
+      color: #fca5a5;
+    }
+
+    #toastWrap {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      left: 16px;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    @media(min-width:640px) {
+      #toastWrap {
+        left: auto;
+      }
+    }
+  </style>
 </head>
+
 <body class="min-h-screen pb-10">
 
-<!-- ══════════════ Loader inicial ══════════════ -->
-<div id="pageLoader" class="fixed inset-0 z-[400] bg-[#08060d] flex flex-col items-center justify-center gap-3">
-  <div class="w-10 h-10 rounded-full border-2 border-violet-900 border-t-violet-400" style="animation:spin .7s linear infinite;"></div>
-  <p class="text-xs text-[var(--ink-faint)] font-mono">Cargando Modo Mozo…</p>
-</div>
-
-<!-- ══════════════ Selector de mozo (bloquea hasta elegir) ══════════════ -->
-<div id="mozoSelectOverlay" class="overlay" style="z-index:250;">
-  <div class="surface rounded-3xl p-6 w-full max-w-sm">
-    <h2 class="font-extrabold text-lg mb-1">¿Quién eres?</h2>
-    <p class="text-xs text-[var(--ink-dim)] mb-5">Elige tu nombre para empezar a atender mesas.</p>
-    <div id="mozoListWrap" class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto thin-scroll"></div>
-    <div id="mozoEmptyMsg" class="hidden text-xs text-[var(--ink-faint)] mb-4">Aún no hay mozos registrados. Agrega el primero abajo.</div>
-    <div class="flex gap-2">
-      <input id="inputNuevoMozo" type="text" placeholder="Nombre del nuevo mozo" maxlength="40"
-        class="field-input flex-1">
-      <button id="btnAgregarMozo" class="btn-primary px-4" style="width:auto;">
-        <span id="btnAgregarMozoLabel">+ Agregar</span>
-      </button>
-    </div>
+  <!-- ══════════════ Loader inicial ══════════════ -->
+  <div id="pageLoader" class="fixed inset-0 z-[400] bg-[#08060d] flex flex-col items-center justify-center gap-3">
+    <div class="w-10 h-10 rounded-full border-2 border-violet-900 border-t-violet-400"
+      style="animation:spin .7s linear infinite;"></div>
+    <p class="text-xs text-[var(--ink-faint)] font-mono">Cargando Modo Mozo…</p>
   </div>
-</div>
 
-<!-- ══════════════ App principal ══════════════ -->
-<div id="app" class="hidden">
-
-  <header class="sticky top-0 z-30 backdrop-blur-xl bg-black/85 border-b border-[var(--line)] px-4 sm:px-6 py-3">
-    <div class="max-w-[1400px] mx-auto flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-9 h-9 rounded-xl bg-violet-950/60 border border-violet-800/40 flex items-center justify-center text-base flex-shrink-0">🧑‍🍳</div>
-        <div class="min-w-0">
-          <h1 class="font-extrabold text-[15px] leading-tight">Modo Mozo</h1>
-          <p class="text-[11px] text-[var(--ink-faint)] truncate">Atendiendo como <span id="mozoActivoNombre" class="text-violet-300 font-semibold">—</span></p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <button id="btnSonido" title="Sonido" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-base">🔔</button>
-        <button id="btnCambiarMozo" class="text-[11px] font-semibold text-[var(--ink-dim)] hover:text-white px-3 py-2 rounded-xl bg-white/5">Cambiar</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-5">
-
-    <!-- Panel de indicadores -->
-    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-6">
-      <div class="surface rounded-2xl p-3.5">
-        <p class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-1">Mesas ocupadas</p>
-        <p class="text-2xl font-extrabold" id="ind-ocupadas">0</p>
-      </div>
-      <div class="surface rounded-2xl p-3.5" style="border-color:rgba(245,158,11,.3);">
-        <p class="text-[10px] uppercase tracking-wider font-bold text-amber-400/80 mb-1">Por confirmar</p>
-        <p class="text-2xl font-extrabold text-amber-400" id="ind-pendientes">0</p>
-      </div>
-      <div class="surface rounded-2xl p-3.5" style="border-color:rgba(239,68,68,.3);">
-        <p class="text-[10px] uppercase tracking-wider font-bold text-red-400/80 mb-1">Llamados</p>
-        <p class="text-2xl font-extrabold text-red-400" id="ind-llamados">0</p>
-      </div>
-      <div class="surface rounded-2xl p-3.5" style="border-color:rgba(192,38,211,.3);">
-        <p class="text-[10px] uppercase tracking-wider font-bold text-fuchsia-400/80 mb-1">Listos</p>
-        <p class="text-2xl font-extrabold text-fuchsia-400" id="ind-listos">0</p>
-      </div>
-      <div class="surface rounded-2xl p-3.5 col-span-2 sm:col-span-1" style="border-color:rgba(239,68,68,.3);">
-        <p class="text-[10px] uppercase tracking-wider font-bold text-red-400/80 mb-1">Piden cuenta</p>
-        <p class="text-2xl font-extrabold text-red-400" id="ind-cuenta">0</p>
-      </div>
-    </div>
-
-    <!-- Leyenda -->
-    <div class="flex flex-wrap gap-x-4 gap-y-1.5 mb-5 text-[11px] text-[var(--ink-dim)]">
-      <span>🟢 Libre</span>
-      <span>🟠 Por confirmar</span>
-      <span>🔵 En preparación</span>
-      <span>🟣 Listo</span>
-      <span>🔴 Pide la cuenta</span>
-      <span>🟣 Reservada</span>
-    </div>
-
-    <div id="mesaGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"></div>
-
-    <div id="emptyMesas" class="hidden flex-col items-center text-center py-24 gap-2">
-      <div class="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-2xl">🍽️</div>
-      <p class="font-bold text-[var(--ink-dim)]">Todavía no hay mesas registradas</p>
-    </div>
-  </main>
-</div>
-
-<!-- ══════════════ Modal detalle de mesa ══════════════ -->
-<div class="overlay" id="overlay-detalle">
-  <div class="surface rounded-3xl w-full max-w-lg max-h-[92vh] overflow-y-auto thin-scroll">
-    <div class="sticky top-0 surface z-10 px-5 pt-5 pb-4 border-b border-[var(--line)]">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h2 class="font-extrabold text-lg" id="det-titulo">Mesa —</h2>
-          <p class="text-[11.5px] text-[var(--ink-dim)] mt-0.5" id="det-subtitulo">—</p>
-        </div>
-        <button data-close="overlay-detalle" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
-      </div>
-      <div class="flex flex-wrap gap-2 mt-3">
-        <span class="chip" id="det-chip-estado" style="background:var(--surface-2); color:var(--ink-dim);">—</span>
-        <span class="chip" id="det-chip-tiempo" style="background:var(--surface-2); color:var(--ink-dim);">⏱ —</span>
-      </div>
-    </div>
-
-    <div class="px-5 py-4 flex flex-col gap-4">
-
-      <!-- Mozo asignado + personas -->
-      <div class="grid grid-cols-2 gap-2.5">
-        <div>
-          <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Mozo asignado</label>
-          <select id="det-mozo-select" class="field-input"></select>
-        </div>
-        <div>
-          <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Personas</label>
-          <input id="det-personas" type="number" min="0" placeholder="—" class="field-input">
-        </div>
-      </div>
-
-      <!-- Llamado activo -->
-      <div id="det-llamado-banner" class="hidden rounded-2xl p-3 flex items-center justify-between gap-3" style="background:var(--red-soft); border:1px solid rgba(239,68,68,.3);">
-        <div class="min-w-0">
-          <p class="text-[11px] font-bold text-red-300 uppercase tracking-wide">Solicitud del cliente</p>
-          <p class="text-sm font-semibold text-red-100" id="det-llamado-motivo">—</p>
-        </div>
-        <button id="det-llamado-atender" class="btn-ghost text-xs px-3 py-2 flex-shrink-0">Marcar atendido</button>
-      </div>
-
-      <!-- Productos -->
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-[11px] uppercase tracking-wider font-bold text-[var(--ink-faint)]">Productos del pedido</h3>
-          <button id="btn-agregar-producto" class="text-[11.5px] font-bold text-violet-300 hover:text-violet-200 flex items-center gap-1">
-            <span>+</span> Agregar
-          </button>
-        </div>
-        <div id="det-productos" class="flex flex-col gap-2"></div>
-        <p id="det-sin-productos" class="hidden text-xs text-[var(--ink-faint)] py-4 text-center">Sin productos todavía. Usa "+ Agregar" para iniciar el pedido.</p>
-      </div>
-
-      <!-- Nota del cliente -->
-      <div>
-        <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Nota del cliente</label>
-        <p class="text-sm text-[var(--ink-dim)] surface-2 rounded-xl px-3 py-2.5" id="det-nota-cliente">—</p>
-      </div>
-
-      <!-- Nota interna del mozo -->
-      <div>
-        <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Nota interna (no la ve el cliente)</label>
-        <textarea id="det-nota-interna" rows="2" placeholder="Ej. Cliente alérgico al maní, mesa VIP…" class="field-input resize-none"></textarea>
-      </div>
-
-      <!-- Total -->
-      <div class="flex items-center justify-between pt-2 border-t border-[var(--line)]">
-        <span class="text-sm font-semibold text-[var(--ink-dim)]">Total</span>
-        <span class="font-extrabold text-xl mono" id="det-total">S/ 0.00</span>
-      </div>
-    </div>
-
-    <!-- Acciones -->
-    <div class="px-5 pb-5 pt-1 flex flex-col gap-2 sticky bottom-0 surface">
-      <div class="grid grid-cols-2 gap-2">
-        <button id="det-btn-guardar" class="btn-ghost">Guardar cambios</button>
-        <button id="det-btn-confirmar" class="btn-primary">
-          <span id="det-btn-confirmar-label">Confirmar y enviar a cocina</span>
+  <!-- ══════════════ Selector de mozo (bloquea hasta elegir) ══════════════ -->
+  <div id="mozoSelectOverlay" class="overlay" style="z-index:250;">
+    <div class="surface rounded-3xl p-6 w-full max-w-sm">
+      <h2 class="font-extrabold text-lg mb-1">¿Quién eres?</h2>
+      <p class="text-xs text-[var(--ink-dim)] mb-5">Elige tu nombre para empezar a atender mesas.</p>
+      <div id="mozoListWrap" class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto thin-scroll"></div>
+      <div id="mozoEmptyMsg" class="hidden text-xs text-[var(--ink-faint)] mb-4">Aún no hay mozos registrados. Agrega el
+        primero abajo.</div>
+      <div class="flex gap-2">
+        <input id="inputNuevoMozo" type="text" placeholder="Nombre del nuevo mozo" maxlength="40"
+          class="field-input flex-1">
+        <button id="btnAgregarMozo" class="btn-primary px-4" style="width:auto;">
+          <span id="btnAgregarMozoLabel">+ Agregar</span>
         </button>
       </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button id="det-btn-cancelar-pedido" class="btn-danger text-xs">Cancelar pedido completo</button>
-        <button id="det-btn-liberar" class="btn-ghost text-xs">Liberar mesa</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ App principal ══════════════ -->
+  <div id="app" class="hidden">
+
+    <header class="sticky top-0 z-30 backdrop-blur-xl bg-black/85 border-b border-[var(--line)] px-4 sm:px-6 py-3">
+      <div class="max-w-[1400px] mx-auto flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div
+            class="w-9 h-9 rounded-xl bg-violet-950/60 border border-violet-800/40 flex items-center justify-center text-base flex-shrink-0">
+            🧑‍🍳</div>
+          <div class="min-w-0">
+            <h1 class="font-extrabold text-[15px] leading-tight">Modo Mozo</h1>
+            <p class="text-[11px] text-[var(--ink-faint)] truncate">Atendiendo como <span id="mozoActivoNombre"
+                class="text-violet-300 font-semibold">—</span></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button id="btnSonido" title="Sonido"
+            class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-base">🔔</button>
+          <button id="btnCambiarMozo"
+            class="text-[11px] font-semibold text-[var(--ink-dim)] hover:text-white px-3 py-2 rounded-xl bg-white/5">Cambiar</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-5">
+
+      <!-- Panel de indicadores -->
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-6">
+        <div class="surface rounded-2xl p-3.5">
+          <p class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-1">Mesas ocupadas</p>
+          <p class="text-2xl font-extrabold" id="ind-ocupadas">0</p>
+        </div>
+        <div class="surface rounded-2xl p-3.5" style="border-color:rgba(245,158,11,.3);">
+          <p class="text-[10px] uppercase tracking-wider font-bold text-amber-400/80 mb-1">Por confirmar</p>
+          <p class="text-2xl font-extrabold text-amber-400" id="ind-pendientes">0</p>
+        </div>
+        <div class="surface rounded-2xl p-3.5" style="border-color:rgba(239,68,68,.3);">
+          <p class="text-[10px] uppercase tracking-wider font-bold text-red-400/80 mb-1">Llamados</p>
+          <p class="text-2xl font-extrabold text-red-400" id="ind-llamados">0</p>
+        </div>
+        <div class="surface rounded-2xl p-3.5" style="border-color:rgba(192,38,211,.3);">
+          <p class="text-[10px] uppercase tracking-wider font-bold text-fuchsia-400/80 mb-1">Listos</p>
+          <p class="text-2xl font-extrabold text-fuchsia-400" id="ind-listos">0</p>
+        </div>
+        <div class="surface rounded-2xl p-3.5 col-span-2 sm:col-span-1" style="border-color:rgba(239,68,68,.3);">
+          <p class="text-[10px] uppercase tracking-wider font-bold text-red-400/80 mb-1">Piden cuenta</p>
+          <p class="text-2xl font-extrabold text-red-400" id="ind-cuenta">0</p>
+        </div>
+      </div>
+
+      <!-- Leyenda -->
+      <div class="flex flex-wrap gap-x-4 gap-y-1.5 mb-5 text-[11px] text-[var(--ink-dim)]">
+        <span>🟢 Libre</span>
+        <span>🟠 Por confirmar</span>
+        <span>🔵 En preparación</span>
+        <span>🟣 Listo</span>
+        <span>🔴 Pide la cuenta</span>
+        <span>🟣 Reservada</span>
+      </div>
+
+      <div id="mesaGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"></div>
+
+      <div id="emptyMesas" class="hidden flex-col items-center text-center py-24 gap-2">
+        <div class="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-2xl">🍽️</div>
+        <p class="font-bold text-[var(--ink-dim)]">Todavía no hay mesas registradas</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══════════════ Modal detalle de mesa ══════════════ -->
+  <div class="overlay" id="overlay-detalle">
+    <div class="surface rounded-3xl w-full max-w-lg max-h-[92vh] overflow-y-auto thin-scroll">
+      <div class="sticky top-0 surface z-10 px-5 pt-5 pb-4 border-b border-[var(--line)]">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="font-extrabold text-lg" id="det-titulo">Mesa —</h2>
+            <p class="text-[11.5px] text-[var(--ink-dim)] mt-0.5" id="det-subtitulo">—</p>
+          </div>
+          <button data-close="overlay-detalle"
+            class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <span class="chip" id="det-chip-estado" style="background:var(--surface-2); color:var(--ink-dim);">—</span>
+          <span class="chip" id="det-chip-tiempo" style="background:var(--surface-2); color:var(--ink-dim);">⏱ —</span>
+        </div>
+      </div>
+
+      <div class="px-5 py-4 flex flex-col gap-4">
+
+        <!-- Mozo asignado + personas -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Mozo
+              asignado</label>
+            <select id="det-mozo-select" class="field-input"></select>
+          </div>
+          <div>
+            <label
+              class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Personas</label>
+            <input id="det-personas" type="number" min="0" placeholder="—" class="field-input">
+          </div>
+        </div>
+
+        <!-- Llamado activo -->
+        <div id="det-llamado-banner" class="hidden rounded-2xl p-3 flex items-center justify-between gap-3"
+          style="background:var(--red-soft); border:1px solid rgba(239,68,68,.3);">
+          <div class="min-w-0">
+            <p class="text-[11px] font-bold text-red-300 uppercase tracking-wide">Solicitud del cliente</p>
+            <p class="text-sm font-semibold text-red-100" id="det-llamado-motivo">—</p>
+          </div>
+          <button id="det-llamado-atender" class="btn-ghost text-xs px-3 py-2 flex-shrink-0">Marcar atendido</button>
+        </div>
+
+        <!-- Productos -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[11px] uppercase tracking-wider font-bold text-[var(--ink-faint)]">Productos del pedido</h3>
+            <button id="btn-agregar-producto"
+              class="text-[11.5px] font-bold text-violet-300 hover:text-violet-200 flex items-center gap-1">
+              <span>+</span> Agregar
+            </button>
+          </div>
+          <div id="det-productos" class="flex flex-col gap-2"></div>
+          <p id="det-sin-productos" class="hidden text-xs text-[var(--ink-faint)] py-4 text-center">Sin productos
+            todavía. Usa "+ Agregar" para iniciar el pedido.</p>
+        </div>
+
+        <!-- Nota del cliente -->
+        <div>
+          <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Nota del
+            cliente</label>
+          <p class="text-sm text-[var(--ink-dim)] surface-2 rounded-xl px-3 py-2.5" id="det-nota-cliente">—</p>
+        </div>
+
+        <!-- Nota interna del mozo -->
+        <div>
+          <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Nota
+            interna (no la ve el cliente)</label>
+          <textarea id="det-nota-interna" rows="2" placeholder="Ej. Cliente alérgico al maní, mesa VIP…"
+            class="field-input resize-none"></textarea>
+        </div>
+
+        <!-- Total -->
+        <div class="flex items-center justify-between pt-2 border-t border-[var(--line)]">
+          <span class="text-sm font-semibold text-[var(--ink-dim)]">Total</span>
+          <span class="font-extrabold text-xl mono" id="det-total">S/ 0.00</span>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="px-5 pb-5 pt-1 flex flex-col gap-2 sticky bottom-0 surface">
+        <div class="grid grid-cols-2 gap-2">
+          <button id="det-btn-guardar" class="btn-ghost">Guardar cambios</button>
+          <button id="det-btn-confirmar" class="btn-primary">
+            <span id="det-btn-confirmar-label">Confirmar y enviar a cocina</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="det-btn-cancelar-pedido" class="btn-danger text-xs">Cancelar pedido completo</button>
+          <button id="det-btn-liberar" class="btn-ghost text-xs">Liberar mesa</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ══════════════ Modal agregar producto ══════════════ -->
-<div class="overlay" id="overlay-picker">
-  <div class="surface rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col">
-    <div class="px-5 pt-5 pb-3 border-b border-[var(--line)] flex items-center justify-between flex-shrink-0">
-      <h3 class="font-extrabold text-base">Agregar producto</h3>
-      <button data-close="overlay-picker" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center">✕</button>
-    </div>
-    <div class="px-5 pt-3 pb-2 flex-shrink-0">
-      <input id="picker-search" type="text" placeholder="Buscar producto…" class="field-input">
-    </div>
-    <div id="picker-categorias" class="flex gap-1.5 overflow-x-auto thin-scroll px-5 pb-3 flex-shrink-0"></div>
-    <div id="picker-lista" class="flex-1 overflow-y-auto thin-scroll px-5 pb-5 flex flex-col gap-2"></div>
-  </div>
-</div>
-
-<!-- ══════════════ Modal de opciones/condiciones del producto (ej. helada / sin helar) ══════════════ -->
-<div class="overlay" id="overlay-picker-opciones">
-  <div class="surface rounded-3xl w-full max-w-sm max-h-[85vh] overflow-y-auto thin-scroll">
-    <div class="px-5 pt-5 pb-3 border-b border-[var(--line)] flex items-center justify-between">
-      <div>
-        <h3 class="font-extrabold text-base" id="opciones-prod-nombre">Elige las opciones</h3>
-        <p class="text-[11px] text-[var(--ink-faint)] mt-0.5">Selecciona antes de agregar al pedido</p>
+  <!-- ══════════════ Modal agregar producto ══════════════ -->
+  <div class="overlay" id="overlay-picker">
+    <div class="surface rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col">
+      <div class="px-5 pt-5 pb-3 border-b border-[var(--line)] flex items-center justify-between flex-shrink-0">
+        <h3 class="font-extrabold text-base">Agregar producto</h3>
+        <button data-close="overlay-picker"
+          class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center">✕</button>
       </div>
-      <button data-close="overlay-picker-opciones" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
-    </div>
-    <div class="px-5 py-4 flex flex-col gap-4" id="opciones-body"></div>
-    <div class="px-5 pb-5">
-      <button id="opciones-btn-agregar" class="btn-primary w-full">Agregar al pedido</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════ Confirmación genérica ══════════════ -->
-<div class="overlay" id="overlay-confirm">
-  <div class="surface rounded-3xl w-full max-w-sm p-6 text-center">
-    <h3 class="font-extrabold text-base mb-1" id="confirm-title">¿Confirmar?</h3>
-    <p class="text-xs text-[var(--ink-dim)] mb-5" id="confirm-body">Esta acción no se puede deshacer.</p>
-    <div class="flex gap-2.5">
-      <button data-close="overlay-confirm" class="btn-ghost flex-1">Cancelar</button>
-      <button id="btn-confirm-action" class="btn-danger flex-1 flex items-center justify-center">
-        <span id="btn-confirm-action-label">Sí, continuar</span>
-      </button>
+      <div class="px-5 pt-3 pb-2 flex-shrink-0">
+        <input id="picker-search" type="text" placeholder="Buscar producto…" class="field-input">
+      </div>
+      <div id="picker-categorias" class="flex gap-1.5 overflow-x-auto thin-scroll px-5 pb-3 flex-shrink-0"></div>
+      <div id="picker-lista" class="flex-1 overflow-y-auto thin-scroll px-5 pb-5 flex flex-col gap-2"></div>
     </div>
   </div>
-</div>
 
-<div id="toastWrap"></div>
+  <!-- ══════════════ Modal de opciones/condiciones del producto (ej. helada / sin helar) ══════════════ -->
+  <div class="overlay" id="overlay-picker-opciones">
+    <div class="surface rounded-3xl w-full max-w-sm max-h-[85vh] overflow-y-auto thin-scroll">
+      <div class="px-5 pt-5 pb-3 border-b border-[var(--line)] flex items-center justify-between">
+        <div>
+          <h3 class="font-extrabold text-base" id="opciones-prod-nombre">Elige las opciones</h3>
+          <p class="text-[11px] text-[var(--ink-faint)] mt-0.5">Selecciona antes de agregar al pedido</p>
+        </div>
+        <button data-close="overlay-picker-opciones"
+          class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
+      </div>
+      <div class="px-5 py-4 flex flex-col gap-4" id="opciones-body"></div>
+      <div class="px-5 pb-5">
+        <button id="opciones-btn-agregar" class="btn-primary w-full">Agregar al pedido</button>
+      </div>
+    </div>
+  </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, setDoc, deleteField,
-  serverTimestamp, writeBatch, getDocs, query, orderBy, where, increment, arrayUnion, Timestamp
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  <!-- ══════════════ Confirmación genérica ══════════════ -->
+  <div class="overlay" id="overlay-confirm">
+    <div class="surface rounded-3xl w-full max-w-sm p-6 text-center">
+      <h3 class="font-extrabold text-base mb-1" id="confirm-title">¿Confirmar?</h3>
+      <p class="text-xs text-[var(--ink-dim)] mb-5" id="confirm-body">Esta acción no se puede deshacer.</p>
+      <div class="flex gap-2.5">
+        <button data-close="overlay-confirm" class="btn-ghost flex-1">Cancelar</button>
+        <button id="btn-confirm-action" class="btn-danger flex-1 flex items-center justify-center">
+          <span id="btn-confirm-action-label">Sí, continuar</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.firebasestorage.app",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+  <div id="toastWrap"></div>
 
-/* ══════════════ Identificación del negocio (misma convención que doc3/doc4) ══════════════ */
-const params = new URLSearchParams(window.location.search);
-let tiendaId = params.get("id");
-let localidad = (params.get("localidad") || "barranca").toLowerCase();
-const ID_PRUEBA = "fW7W8RsgkkQ3IYfxKHGR";
-if (!tiendaId) tiendaId = ID_PRUEBA;
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, setDoc, deleteField,
+      serverTimestamp, writeBatch, getDocs, query, orderBy, where, increment, arrayUnion, Timestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const tiendaRef = () => doc(db, "Tiendas", localidad, localidad, tiendaId);
-const mesasColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "mesas");
-const gruposColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas");
-const pedidosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
-const llamadosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "llamados_mesa");
-const mozosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "mozos");
-const productosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "productos");
+    const firebaseConfig = {
+      apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+      authDomain: "geinzworkapp.firebaseapp.com",
+      projectId: "geinzworkapp",
+      storageBucket: "geinzworkapp.firebasestorage.app",
+      messagingSenderId: "921389328767",
+      appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    let tiendaId = sessionStorage.getItem("tiendaId");
+    let localidad = sessionStorage.getItem("localidad");
 
-/* ══════════════ Utilidades compartidas (mismo estilo que doc2/doc3) ══════════════ */
-function escapeHtml(str) {
-  return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-function fmtMoney(n) { return "S/ " + Number(n || 0).toFixed(2); }
-function toDate(ts) { return ts && typeof ts.toDate === "function" ? ts.toDate() : null; }
-function timeAgoCorto(date) {
-  if (!date) return "—";
-  const min = Math.floor((Date.now() - date.getTime()) / 60000);
-  if (min < 1) return "recién";
-  if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  const restMin = min % 60;
-  return `${h}h ${restMin}m`;
-}
-function toast(msg, type = "") {
-  const wrap = document.getElementById("toastWrap");
-  const el = document.createElement("div");
-  const isError = type === "error";
-  el.className = `toast-in w-full sm:w-auto sm:min-w-[240px] rounded-2xl border px-4 py-3 text-xs font-semibold shadow-2xl backdrop-blur-md ${
-    isError ? "bg-red-950/90 border-red-500/40 text-red-200" : "bg-[#0d0a17]/95 border-violet-500/40 text-violet-100"
-  }`;
-  el.textContent = msg;
-  wrap.appendChild(el);
-  setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(6px)"; setTimeout(() => el.remove(), 200); }, 3200);
-}
-function openOverlay(id) { document.getElementById(id).classList.add("show"); }
-function closeOverlay(id) { document.getElementById(id).classList.remove("show"); }
-document.querySelectorAll("[data-close]").forEach((btn) => btn.addEventListener("click", () => closeOverlay(btn.dataset.close)));
-document.querySelectorAll(".overlay").forEach((ov) => ov.addEventListener("click", (e) => { if (e.target === ov) closeOverlay(ov.id); }));
+    if (!tiendaId || !localidad) {
+      // fallback por si el postMessage llega después
+      window.addEventListener("message", (e) => {
+        if (e.data?.tipo !== "DATOS_TIENDA") return;
+        tiendaId = e.data.tiendaId;
+        localidad = e.data.localidad;
+        // vuelve a ejecutar tu init aquí si hace falta
+      }
+      )
+    };
+    /* ══════════════ Identificación del negocio (misma convención que doc3/doc4) ══════════════ */
+    const ID_PRUEBA = tiendaId;
+    if (!tiendaId) tiendaId = ID_PRUEBA;
 
-let confirmCallback = null;
-function askConfirm(title, body, onConfirm, confirmLabel = "Sí, continuar") {
-  document.getElementById("confirm-title").textContent = title;
-  document.getElementById("confirm-body").textContent = body;
-  document.getElementById("btn-confirm-action-label").textContent = confirmLabel;
-  confirmCallback = onConfirm;
-  openOverlay("overlay-confirm");
-}
-document.getElementById("btn-confirm-action").addEventListener("click", async () => {
-  const btn = document.getElementById("btn-confirm-action");
-  const label = document.getElementById("btn-confirm-action-label");
-  const original = label.textContent;
-  btn.disabled = true;
-  label.innerHTML = '<span class="spinner"></span>';
-  try {
-    if (confirmCallback) await confirmCallback();
-    closeOverlay("overlay-confirm");
-  } catch (err) {
-    console.error(err);
-    toast("Ocurrió un error, intenta de nuevo.", "error");
-  } finally {
-    btn.disabled = false;
-    label.textContent = original;
-    confirmCallback = null;
-  }
-});
+    const tiendaRef = () => doc(db, "Tiendas", localidad, localidad, tiendaId);
+    const mesasColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "mesas");
+    const gruposColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "grupos_mesas");
+    const pedidosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
+    const llamadosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "llamados_mesa");
+    const mozosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "mozos");
+    const productosColRef = () => collection(db, "Tiendas", localidad, localidad, tiendaId, "productos");
 
-/* ══════════════ Sonido (Web Audio, mismo patrón que doc3) ══════════════ */
-let soundEnabled = localStorage.getItem("mozo_sound") !== "0";
-let audioCtx = null;
-function ensureAudio() {
-  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } }
-  if (audioCtx.state === "suspended") audioCtx.resume();
-  return audioCtx;
-}
-document.addEventListener("click", () => ensureAudio(), { once: true, capture: true });
-function playTone(freqs, type = "sine") {
-  if (!soundEnabled) return;
-  const ctx = ensureAudio();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  freqs.forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    const start = now + i * 0.12;
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.22, start + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(start); osc.stop(start + 0.52);
-  });
-}
-const soundPedidoNuevo = () => playTone([660, 880], "square");
-const soundLlamado = () => playTone([740, 622, 740], "triangle");
-const soundListo = () => playTone([880, 1108, 1318], "sine");
-const btnSonido = document.getElementById("btnSonido");
-function paintSonido() { btnSonido.textContent = soundEnabled ? "🔔" : "🔕"; }
-paintSonido();
-btnSonido.addEventListener("click", () => {
-  soundEnabled = !soundEnabled;
-  localStorage.setItem("mozo_sound", soundEnabled ? "1" : "0");
-  paintSonido();
-  if (soundEnabled) { ensureAudio(); playTone([880], "sine"); }
-  toast(soundEnabled ? "🔔 Sonido activado" : "🔕 Sonido desactivado");
-});
-function bellRing() { btnSonido.classList.remove("ring-anim"); void btnSonido.offsetWidth; btnSonido.classList.add("ring-anim"); }
+    /* ══════════════ Utilidades compartidas (mismo estilo que doc2/doc3) ══════════════ */
+    function escapeHtml(str) {
+      return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function fmtMoney(n) { return "S/ " + Number(n || 0).toFixed(2); }
+    function toDate(ts) { return ts && typeof ts.toDate === "function" ? ts.toDate() : null; }
+    function timeAgoCorto(date) {
+      if (!date) return "—";
+      const min = Math.floor((Date.now() - date.getTime()) / 60000);
+      if (min < 1) return "recién";
+      if (min < 60) return `${min} min`;
+      const h = Math.floor(min / 60);
+      const restMin = min % 60;
+      return `${h}h ${restMin}m`;
+    }
+    function toast(msg, type = "") {
+      const wrap = document.getElementById("toastWrap");
+      const el = document.createElement("div");
+      const isError = type === "error";
+      el.className = `toast-in w-full sm:w-auto sm:min-w-[240px] rounded-2xl border px-4 py-3 text-xs font-semibold shadow-2xl backdrop-blur-md ${isError ? "bg-red-950/90 border-red-500/40 text-red-200" : "bg-[#0d0a17]/95 border-violet-500/40 text-violet-100"
+        }`;
+      el.textContent = msg;
+      wrap.appendChild(el);
+      setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(6px)"; setTimeout(() => el.remove(), 200); }, 3200);
+    }
+    function openOverlay(id) { document.getElementById(id).classList.add("show"); }
+    function closeOverlay(id) { document.getElementById(id).classList.remove("show"); }
+    document.querySelectorAll("[data-close]").forEach((btn) => btn.addEventListener("click", () => closeOverlay(btn.dataset.close)));
+    document.querySelectorAll(".overlay").forEach((ov) => ov.addEventListener("click", (e) => { if (e.target === ov) closeOverlay(ov.id); }));
 
-/* ══════════════ Estado en memoria ══════════════ */
-const mesasMap = new Map();      // mesaDocId -> data
-const gruposMap = new Map();     // grupoId -> data
-const llamadosMap = new Map();   // llamadoId -> data
-const mozosMap = new Map();      // mozoId -> {nombre, activo}
-let catalogo = [];               // productos disponibles del negocio, cargado 1 vez
-let catalogoListo = false;
-let mozoActivo = null;           // {id, nombre}
-let mesaAbiertaId = null;        // mesaDocId de la mesa que está abierta en el modal
-let grupoAbiertoId = null;
-let pedidoEnEdicion = null;      // copia editable del pedido de la mesa/grupo abierto
-let firstMesasSnapshot = true;
-let firstLlamadosSnapshot = true;
-const mesaPedidoFirma = new Map(); // para detectar "pedido nuevo" real
-
-/* ══════════════ Sesión de mozo (selector simple, sin contraseña) ══════════════ */
-function pintarListaMozos() {
-  const wrap = document.getElementById("mozoListWrap");
-  const empty = document.getElementById("mozoEmptyMsg");
-  wrap.innerHTML = "";
-  const activos = [...mozosMap.entries()].filter(([, m]) => m.activo !== false);
-  empty.classList.toggle("hidden", activos.length > 0);
-  activos.forEach(([id, m]) => {
-    const btn = document.createElement("button");
-    btn.className = "w-full text-left px-4 py-3 rounded-2xl surface-2 hover:border-violet-600 border border-transparent font-semibold text-sm transition-all";
-    btn.textContent = m.nombre;
-    btn.addEventListener("click", () => seleccionarMozo(id, m.nombre));
-    wrap.appendChild(btn);
-  });
-}
-function seleccionarMozo(id, nombre) {
-  mozoActivo = { id, nombre };
-  sessionStorage.setItem("mozo_activo", JSON.stringify(mozoActivo));
-  document.getElementById("mozoActivoNombre").textContent = nombre;
-  closeOverlay("mozoSelectOverlay");
-  document.getElementById("app").classList.remove("hidden");
-  poblarSelectMozoEnDetalle();
-}
-document.getElementById("btnCambiarMozo").addEventListener("click", () => {
-  document.getElementById("app").classList.add("hidden");
-  openOverlay("mozoSelectOverlay");
-});
-document.getElementById("btnAgregarMozo").addEventListener("click", async () => {
-  const input = document.getElementById("inputNuevoMozo");
-  const nombre = input.value.trim();
-  if (!nombre) return;
-  const btn = document.getElementById("btnAgregarMozo");
-  const label = document.getElementById("btnAgregarMozoLabel");
-  btn.disabled = true; label.innerHTML = '<span class="spinner"></span>';
-  try {
-    const nuevoRef = doc(mozosColRef());
-    await setDoc(nuevoRef, { nombre, activo: true, creadoEn: serverTimestamp() });
-    input.value = "";
-    seleccionarMozo(nuevoRef.id, nombre);
-  } catch (err) {
-    console.error(err);
-    toast("No se pudo agregar el mozo.", "error");
-  } finally {
-    btn.disabled = false; label.textContent = "+ Agregar";
-  }
-});
-function iniciarListenerMozos() {
-  onSnapshot(mozosColRef(), (snap) => {
-    mozosMap.clear();
-    snap.forEach((d) => mozosMap.set(d.id, d.data()));
-    pintarListaMozos();
-    poblarSelectMozoEnDetalle();
-
-    const guardado = sessionStorage.getItem("mozo_activo");
-    if (!mozoActivo && guardado) {
+    let confirmCallback = null;
+    function askConfirm(title, body, onConfirm, confirmLabel = "Sí, continuar") {
+      document.getElementById("confirm-title").textContent = title;
+      document.getElementById("confirm-body").textContent = body;
+      document.getElementById("btn-confirm-action-label").textContent = confirmLabel;
+      confirmCallback = onConfirm;
+      openOverlay("overlay-confirm");
+    }
+    document.getElementById("btn-confirm-action").addEventListener("click", async () => {
+      const btn = document.getElementById("btn-confirm-action");
+      const label = document.getElementById("btn-confirm-action-label");
+      const original = label.textContent;
+      btn.disabled = true;
+      label.innerHTML = '<span class="spinner"></span>';
       try {
-        const parsed = JSON.parse(guardado);
-        if (mozosMap.has(parsed.id)) { seleccionarMozo(parsed.id, mozosMap.get(parsed.id).nombre); return; }
-      } catch {}
+        if (confirmCallback) await confirmCallback();
+        closeOverlay("overlay-confirm");
+      } catch (err) {
+        console.error(err);
+        toast("Ocurrió un error, intenta de nuevo.", "error");
+      } finally {
+        btn.disabled = false;
+        label.textContent = original;
+        confirmCallback = null;
+      }
+    });
+
+    /* ══════════════ Sonido (Web Audio, mismo patrón que doc3) ══════════════ */
+    let soundEnabled = localStorage.getItem("mozo_sound") !== "0";
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
     }
-    if (!mozoActivo) openOverlay("mozoSelectOverlay");
-  }, (err) => { console.error(err); toast("No se pudo cargar la lista de mozos.", "error"); });
-}
-function poblarSelectMozoEnDetalle() {
-  const sel = document.getElementById("det-mozo-select");
-  const actual = sel.value;
-  sel.innerHTML = `<option value="">Sin asignar</option>`;
-  [...mozosMap.entries()].filter(([, m]) => m.activo !== false).forEach(([id, m]) => {
-    const opt = document.createElement("option");
-    opt.value = id; opt.textContent = m.nombre;
-    sel.appendChild(opt);
-  });
-  if (actual) sel.value = actual;
-}
-
-/* ══════════════ Catálogo (para "Agregar producto") ══════════════ */
-async function cargarCatalogo() {
-  try {
-    const catSnap = await getDocs(productosColRef());
-    const porCategoria = await Promise.all(catSnap.docs.map(async (catDoc) => {
-      const categoria = catDoc.id;
-      const subSnap = await getDocs(collection(db, "Tiendas", localidad, localidad, tiendaId, "productos", categoria, categoria));
-      const arr = [];
-      subSnap.forEach((pDoc) => {
-        const d = pDoc.data();
-        if (d.disponible === false) return;
-        const condiciones = (d.condiciones || [])
-          .map((c) => ({
-            nombre: c.nombre,
-            opciones: (c.opciones || []).filter((o) => o.activo).map((o) => ({
-              nombre: o.nombre,
-              costoAdicional: Number(o.costoAdicional) || 0,
-              stock: typeof o.stock === "number" ? o.stock : null,
-            })),
-          }))
-          .filter((c) => c.nombre && c.opciones.length > 0);
-
-        arr.push({
-          id: pDoc.id, categoria, nombre: d.nombre || "Producto",
-          precio: Number(d.precio) || 0, imagen: d.imagenes?.[0]?.url || "",
-          stock: typeof d.stock === "number" ? d.stock : null,
-          condiciones,
-        });
+    document.addEventListener("click", () => ensureAudio(), { once: true, capture: true });
+    function playTone(freqs, type = "sine") {
+      if (!soundEnabled) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        const start = now + i * 0.12;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.22, start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start); osc.stop(start + 0.52);
       });
-      return arr;
-    }));
-    catalogo = porCategoria.flat();
-    catalogoListo = true;
-  } catch (err) {
-    console.error("Error cargando catálogo:", err);
-  }
-}
-
-/* ══════════════ Lectura de pedido activo por mesa (individual o agrupada) ══════════════
-   Mismo patrón que getPedidosDeMesa() de doc3, adaptado a "un pedido activo por mesa/grupo"
-   porque Modo Mozo solo necesita el pedido en curso, no el historial. */
-function getPedidoDeMesa(mesaDocId) {
-  const m = mesasMap.get(mesaDocId);
-  if (!m) return null;
-  if (m.grupoId) {
-    const grupo = gruposMap.get(m.grupoId);
-    if (!grupo || grupo.estado !== "activo" || !grupo.pedido) return null;
-    return { pedido: grupo.pedido, pedidoDocId: grupo.pedidoGrupoDocId || null, esGrupo: true, grupoId: m.grupoId, grupoRef: doc(gruposColRef(), m.grupoId) };
-  }
-  if (m.estado !== "ocupado" || !m.pedido) return null;
-  return { pedido: m.pedido, pedidoDocId: m.pedidoMesaDocId || null, esGrupo: false };
-}
-
-function getLlamadoActivo(mesaNumero) {
-  return [...llamadosMap.values()].find((l) => Number(l.mesaNumero) === Number(mesaNumero) && l.estado === "pendiente") || null;
-}
-
-/* ══════════════ Cálculo de estado visual de una mesa ══════════════ */
-const MOTIVO_LABEL = { confirmar_pedido: "Confirmar pedido", agregar_productos: "Agregar productos", cuenta: "Solicita la cuenta", ayuda: "Necesita ayuda" };
-
-function computeEstadoVisual(mesaDocId) {
-  const m = mesasMap.get(mesaDocId);
-  const info = getPedidoDeMesa(mesaDocId);
-  const llamado = getLlamadoActivo(m.numero_mesa);
-
-  if (llamado && llamado.motivo === "cuenta") return "cuenta";
-  if (m.estado === "reservada") return "reservada";
-  if (!info) return "libre";
-
-  const pedido = info.pedido;
-  if (pedido.estado === "listo") return "listo";
-  if (pedido.estadoMozo !== "confirmado") return "pendiente";
-  return "preparacion";
-}
-
-const ESTADO_META = {
-  libre: { label: "Libre", dot: "🟢", cls: "st-libre" },
-  pendiente: { label: "Por confirmar", dot: "🟠", cls: "st-pendiente" },
-  preparacion: { label: "En preparación", dot: "🔵", cls: "st-preparacion" },
-  listo: { label: "Listo", dot: "🟣", cls: "st-listo" },
-  cuenta: { label: "Pide la cuenta", dot: "🔴", cls: "st-cuenta" },
-  reservada: { label: "Reservada", dot: "🟣", cls: "st-reservada" },
-};
-
-/* ══════════════ Render del tablero de mesas ══════════════ */
-function renderMesaGrid() {
-  const grid = document.getElementById("mesaGrid");
-  const empty = document.getElementById("emptyMesas");
-  const todas = [...mesasMap.entries()].sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0));
-
-  if (!todas.length) {
-    grid.innerHTML = "";
-    empty.classList.remove("hidden"); empty.classList.add("flex");
-    actualizarIndicadores();
-    return;
-  }
-  empty.classList.add("hidden"); empty.classList.remove("flex");
-
-  const yaRenderizadas = new Set();
-  const bloques = [];
-  todas.forEach(([mesaDocId, m]) => {
-    if (yaRenderizadas.has(m.numero_mesa)) return;
-    if (m.grupoId) {
-      const delMismoGrupo = todas.filter(([, mm]) => mm.grupoId === m.grupoId);
-      delMismoGrupo.forEach(([, mm]) => yaRenderizadas.add(mm.numero_mesa));
-      bloques.push({ tipo: "grupo", grupoId: m.grupoId, integrantes: delMismoGrupo });
-    } else {
-      yaRenderizadas.add(m.numero_mesa);
-      bloques.push({ tipo: "single", mesaDocId, m });
     }
-  });
+    const soundPedidoNuevo = () => playTone([660, 880], "square");
+    const soundLlamado = () => playTone([740, 622, 740], "triangle");
+    const soundListo = () => playTone([880, 1108, 1318], "sine");
+    const btnSonido = document.getElementById("btnSonido");
+    function paintSonido() { btnSonido.textContent = soundEnabled ? "🔔" : "🔕"; }
+    paintSonido();
+    btnSonido.addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem("mozo_sound", soundEnabled ? "1" : "0");
+      paintSonido();
+      if (soundEnabled) { ensureAudio(); playTone([880], "sine"); }
+      toast(soundEnabled ? "🔔 Sonido activado" : "🔕 Sonido desactivado");
+    });
+    function bellRing() { btnSonido.classList.remove("ring-anim"); void btnSonido.offsetWidth; btnSonido.classList.add("ring-anim"); }
 
-  grid.innerHTML = "";
-  bloques.forEach((bloque) => {
-    const card = document.createElement("div");
-    if (bloque.tipo === "single") {
-      const { mesaDocId, m } = bloque;
-      const estado = computeEstadoVisual(mesaDocId);
-      const meta = ESTADO_META[estado];
+    /* ══════════════ Estado en memoria ══════════════ */
+    const mesasMap = new Map();      // mesaDocId -> data
+    const gruposMap = new Map();     // grupoId -> data
+    const llamadosMap = new Map();   // llamadoId -> data
+    const mozosMap = new Map();      // mozoId -> {nombre, activo}
+    let catalogo = [];               // productos disponibles del negocio, cargado 1 vez
+    let catalogoListo = false;
+    let mozoActivo = null;           // {id, nombre}
+    let mesaAbiertaId = null;        // mesaDocId de la mesa que está abierta en el modal
+    let grupoAbiertoId = null;
+    let pedidoEnEdicion = null;      // copia editable del pedido de la mesa/grupo abierto
+    let firstMesasSnapshot = true;
+    let firstLlamadosSnapshot = true;
+    const mesaPedidoFirma = new Map(); // para detectar "pedido nuevo" real
+
+    /* ══════════════ Sesión de mozo (selector simple, sin contraseña) ══════════════ */
+    function pintarListaMozos() {
+      const wrap = document.getElementById("mozoListWrap");
+      const empty = document.getElementById("mozoEmptyMsg");
+      wrap.innerHTML = "";
+      const activos = [...mozosMap.entries()].filter(([, m]) => m.activo !== false);
+      empty.classList.toggle("hidden", activos.length > 0);
+      activos.forEach(([id, m]) => {
+        const btn = document.createElement("button");
+        btn.className = "w-full text-left px-4 py-3 rounded-2xl surface-2 hover:border-violet-600 border border-transparent font-semibold text-sm transition-all";
+        btn.textContent = m.nombre;
+        btn.addEventListener("click", () => seleccionarMozo(id, m.nombre));
+        wrap.appendChild(btn);
+      });
+    }
+    function seleccionarMozo(id, nombre) {
+      mozoActivo = { id, nombre };
+      sessionStorage.setItem("mozo_activo", JSON.stringify(mozoActivo));
+      document.getElementById("mozoActivoNombre").textContent = nombre;
+      closeOverlay("mozoSelectOverlay");
+      document.getElementById("app").classList.remove("hidden");
+      poblarSelectMozoEnDetalle();
+    }
+    document.getElementById("btnCambiarMozo").addEventListener("click", () => {
+      document.getElementById("app").classList.add("hidden");
+      openOverlay("mozoSelectOverlay");
+    });
+    document.getElementById("btnAgregarMozo").addEventListener("click", async () => {
+      const input = document.getElementById("inputNuevoMozo");
+      const nombre = input.value.trim();
+      if (!nombre) return;
+      const btn = document.getElementById("btnAgregarMozo");
+      const label = document.getElementById("btnAgregarMozoLabel");
+      btn.disabled = true; label.innerHTML = '<span class="spinner"></span>';
+      try {
+        const nuevoRef = doc(mozosColRef());
+        await setDoc(nuevoRef, { nombre, activo: true, creadoEn: serverTimestamp() });
+        input.value = "";
+        seleccionarMozo(nuevoRef.id, nombre);
+      } catch (err) {
+        console.error(err);
+        toast("No se pudo agregar el mozo.", "error");
+      } finally {
+        btn.disabled = false; label.textContent = "+ Agregar";
+      }
+    });
+    function iniciarListenerMozos() {
+      onSnapshot(mozosColRef(), (snap) => {
+        mozosMap.clear();
+        snap.forEach((d) => mozosMap.set(d.id, d.data()));
+        pintarListaMozos();
+        poblarSelectMozoEnDetalle();
+
+        const guardado = sessionStorage.getItem("mozo_activo");
+        if (!mozoActivo && guardado) {
+          try {
+            const parsed = JSON.parse(guardado);
+            if (mozosMap.has(parsed.id)) { seleccionarMozo(parsed.id, mozosMap.get(parsed.id).nombre); return; }
+          } catch { }
+        }
+        if (!mozoActivo) openOverlay("mozoSelectOverlay");
+      }, (err) => { console.error(err); toast("No se pudo cargar la lista de mozos.", "error"); });
+    }
+    function poblarSelectMozoEnDetalle() {
+      const sel = document.getElementById("det-mozo-select");
+      const actual = sel.value;
+      sel.innerHTML = `<option value="">Sin asignar</option>`;
+      [...mozosMap.entries()].filter(([, m]) => m.activo !== false).forEach(([id, m]) => {
+        const opt = document.createElement("option");
+        opt.value = id; opt.textContent = m.nombre;
+        sel.appendChild(opt);
+      });
+      if (actual) sel.value = actual;
+    }
+
+    /* ══════════════ Catálogo (para "Agregar producto") ══════════════ */
+    async function cargarCatalogo() {
+      try {
+        const catSnap = await getDocs(productosColRef());
+        const porCategoria = await Promise.all(catSnap.docs.map(async (catDoc) => {
+          const categoria = catDoc.id;
+          const subSnap = await getDocs(collection(db, "Tiendas", localidad, localidad, tiendaId, "productos", categoria, categoria));
+          const arr = [];
+          subSnap.forEach((pDoc) => {
+            const d = pDoc.data();
+            if (d.disponible === false) return;
+            const condiciones = (d.condiciones || [])
+              .map((c) => ({
+                nombre: c.nombre,
+                opciones: (c.opciones || []).filter((o) => o.activo).map((o) => ({
+                  nombre: o.nombre,
+                  costoAdicional: Number(o.costoAdicional) || 0,
+                  stock: typeof o.stock === "number" ? o.stock : null,
+                })),
+              }))
+              .filter((c) => c.nombre && c.opciones.length > 0);
+
+            arr.push({
+              id: pDoc.id, categoria, nombre: d.nombre || "Producto",
+              precio: Number(d.precio) || 0, imagen: d.imagenes?.[0]?.url || "",
+              stock: typeof d.stock === "number" ? d.stock : null,
+              condiciones,
+            });
+          });
+          return arr;
+        }));
+        catalogo = porCategoria.flat();
+        catalogoListo = true;
+      } catch (err) {
+        console.error("Error cargando catálogo:", err);
+      }
+    }
+
+    /* ══════════════ Lectura de pedido activo por mesa (individual o agrupada) ══════════════
+       Mismo patrón que getPedidosDeMesa() de doc3, adaptado a "un pedido activo por mesa/grupo"
+       porque Modo Mozo solo necesita el pedido en curso, no el historial. */
+    function getPedidoDeMesa(mesaDocId) {
+      const m = mesasMap.get(mesaDocId);
+      if (!m) return null;
+      if (m.grupoId) {
+        const grupo = gruposMap.get(m.grupoId);
+        if (!grupo || grupo.estado !== "activo" || !grupo.pedido) return null;
+        return { pedido: grupo.pedido, pedidoDocId: grupo.pedidoGrupoDocId || null, esGrupo: true, grupoId: m.grupoId, grupoRef: doc(gruposColRef(), m.grupoId) };
+      }
+      if (m.estado !== "ocupado" || !m.pedido) return null;
+      return { pedido: m.pedido, pedidoDocId: m.pedidoMesaDocId || null, esGrupo: false };
+    }
+
+    function getLlamadoActivo(mesaNumero) {
+      return [...llamadosMap.values()].find((l) => Number(l.mesaNumero) === Number(mesaNumero) && l.estado === "pendiente") || null;
+    }
+
+    /* ══════════════ Cálculo de estado visual de una mesa ══════════════ */
+    const MOTIVO_LABEL = { confirmar_pedido: "Confirmar pedido", agregar_productos: "Agregar productos", cuenta: "Solicita la cuenta", ayuda: "Necesita ayuda" };
+
+    function computeEstadoVisual(mesaDocId) {
+      const m = mesasMap.get(mesaDocId);
       const info = getPedidoDeMesa(mesaDocId);
-      const total = info ? Number(info.pedido.total || 0) : 0;
-      const tsMs = info ? toDate(info.pedido.timestamp)?.getTime() : null;
-      const mozoNombre = m.mozoAsignado?.nombre || null;
+      const llamado = getLlamadoActivo(m.numero_mesa);
 
-      card.className = `mesa-card animate-fadeIn ${meta.cls}`;
-      card.innerHTML = `
+      if (llamado && llamado.motivo === "cuenta") return "cuenta";
+      if (m.estado === "reservada") return "reservada";
+      if (!info) return "libre";
+
+      const pedido = info.pedido;
+      if (pedido.estado === "listo") return "listo";
+      if (pedido.estadoMozo !== "confirmado") return "pendiente";
+      return "preparacion";
+    }
+
+    const ESTADO_META = {
+      libre: { label: "Libre", dot: "🟢", cls: "st-libre" },
+      pendiente: { label: "Por confirmar", dot: "🟠", cls: "st-pendiente" },
+      preparacion: { label: "En preparación", dot: "🔵", cls: "st-preparacion" },
+      listo: { label: "Listo", dot: "🟣", cls: "st-listo" },
+      cuenta: { label: "Pide la cuenta", dot: "🔴", cls: "st-cuenta" },
+      reservada: { label: "Reservada", dot: "🟣", cls: "st-reservada" },
+    };
+
+    /* ══════════════ Render del tablero de mesas ══════════════ */
+    function renderMesaGrid() {
+      const grid = document.getElementById("mesaGrid");
+      const empty = document.getElementById("emptyMesas");
+      const todas = [...mesasMap.entries()].sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0));
+
+      if (!todas.length) {
+        grid.innerHTML = "";
+        empty.classList.remove("hidden"); empty.classList.add("flex");
+        actualizarIndicadores();
+        return;
+      }
+      empty.classList.add("hidden"); empty.classList.remove("flex");
+
+      const yaRenderizadas = new Set();
+      const bloques = [];
+      todas.forEach(([mesaDocId, m]) => {
+        if (yaRenderizadas.has(m.numero_mesa)) return;
+        if (m.grupoId) {
+          const delMismoGrupo = todas.filter(([, mm]) => mm.grupoId === m.grupoId);
+          delMismoGrupo.forEach(([, mm]) => yaRenderizadas.add(mm.numero_mesa));
+          bloques.push({ tipo: "grupo", grupoId: m.grupoId, integrantes: delMismoGrupo });
+        } else {
+          yaRenderizadas.add(m.numero_mesa);
+          bloques.push({ tipo: "single", mesaDocId, m });
+        }
+      });
+
+      grid.innerHTML = "";
+      bloques.forEach((bloque) => {
+        const card = document.createElement("div");
+        if (bloque.tipo === "single") {
+          const { mesaDocId, m } = bloque;
+          const estado = computeEstadoVisual(mesaDocId);
+          const meta = ESTADO_META[estado];
+          const info = getPedidoDeMesa(mesaDocId);
+          const total = info ? Number(info.pedido.total || 0) : 0;
+          const tsMs = info ? toDate(info.pedido.timestamp)?.getTime() : null;
+          const mozoNombre = m.mozoAsignado?.nombre || null;
+
+          card.className = `mesa-card animate-fadeIn ${meta.cls}`;
+          card.innerHTML = `
         <div class="flex items-center justify-between">
           <span class="font-extrabold text-[15px]">${escapeHtml(m.nombre_alias || ("Mesa " + m.numero_mesa))}</span>
           <span class="text-base">${meta.dot}</span>
@@ -659,19 +1002,19 @@ function renderMesaGrid() {
         ${info ? `<span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>` : `<span class="text-[11px] text-[var(--ink-faint)]">Sin pedido</span>`}
         ${mozoNombre ? `<span class="text-[10.5px] text-[var(--ink-faint)] truncate">👤 ${escapeHtml(mozoNombre)}</span>` : ""}
       `;
-      card.addEventListener("click", () => abrirDetalleMesa(mesaDocId));
-    } else {
-      const primero = bloque.integrantes[0][1];
-      const grupo = gruposMap.get(bloque.grupoId);
-      const nombres = bloque.integrantes.map(([, mm]) => mm.nombre_alias || `Mesa ${mm.numero_mesa}`).join(" + ");
-      const estado = computeEstadoVisual(bloque.integrantes[0][0]);
-      const meta = ESTADO_META[estado];
-      const total = grupo?.pedido ? Number(grupo.pedido.total || 0) : 0;
-      const tsMs = grupo?.pedido ? toDate(grupo.pedido.timestamp)?.getTime() : null;
+          card.addEventListener("click", () => abrirDetalleMesa(mesaDocId));
+        } else {
+          const primero = bloque.integrantes[0][1];
+          const grupo = gruposMap.get(bloque.grupoId);
+          const nombres = bloque.integrantes.map(([, mm]) => mm.nombre_alias || `Mesa ${mm.numero_mesa}`).join(" + ");
+          const estado = computeEstadoVisual(bloque.integrantes[0][0]);
+          const meta = ESTADO_META[estado];
+          const total = grupo?.pedido ? Number(grupo.pedido.total || 0) : 0;
+          const tsMs = grupo?.pedido ? toDate(grupo.pedido.timestamp)?.getTime() : null;
 
-      card.className = `mesa-card animate-fadeIn ${meta.cls}`;
-      card.style.gridColumn = `span ${Math.min(bloque.integrantes.length, 2)}`;
-      card.innerHTML = `
+          card.className = `mesa-card animate-fadeIn ${meta.cls}`;
+          card.style.gridColumn = `span ${Math.min(bloque.integrantes.length, 2)}`;
+          card.innerHTML = `
         <div class="flex items-center justify-between">
           <span class="font-extrabold text-[14px] truncate">${escapeHtml(nombres)}</span>
           <span class="text-base flex-shrink-0">${meta.dot}</span>
@@ -681,124 +1024,124 @@ function renderMesaGrid() {
         <div class="flex-1"></div>
         <span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>
       `;
-      card.addEventListener("click", () => abrirDetalleMesa(bloque.integrantes[0][0]));
+          card.addEventListener("click", () => abrirDetalleMesa(bloque.integrantes[0][0]));
+        }
+        grid.appendChild(card);
+      });
+
+      actualizarIndicadores();
+
+      // si el modal de detalle está abierto, refrescarlo en vivo
+      if (mesaAbiertaId && document.getElementById("overlay-detalle").classList.contains("show")) {
+        pintarDetalleMesa(mesaAbiertaId);
+      }
     }
-    grid.appendChild(card);
-  });
 
-  actualizarIndicadores();
+    function actualizarIndicadores() {
+      let ocupadas = 0, pendientes = 0, listos = 0;
+      const idsVistos = new Set();
+      mesasMap.forEach((m, mesaDocId) => {
+        if (m.grupoId) {
+          if (idsVistos.has(m.grupoId)) return;
+          idsVistos.add(m.grupoId);
+        }
+        const info = getPedidoDeMesa(mesaDocId);
+        if (!info) return;
+        ocupadas++;
+        if (info.pedido.estadoMozo !== "confirmado") pendientes++;
+        if (info.pedido.estado === "listo") listos++;
+      });
+      const llamadosPendientes = [...llamadosMap.values()].filter((l) => l.estado === "pendiente");
+      const cuentaPendientes = llamadosPendientes.filter((l) => l.motivo === "cuenta").length;
 
-  // si el modal de detalle está abierto, refrescarlo en vivo
-  if (mesaAbiertaId && document.getElementById("overlay-detalle").classList.contains("show")) {
-    pintarDetalleMesa(mesaAbiertaId);
-  }
-}
-
-function actualizarIndicadores() {
-  let ocupadas = 0, pendientes = 0, listos = 0;
-  const idsVistos = new Set();
-  mesasMap.forEach((m, mesaDocId) => {
-    if (m.grupoId) {
-      if (idsVistos.has(m.grupoId)) return;
-      idsVistos.add(m.grupoId);
+      document.getElementById("ind-ocupadas").textContent = ocupadas;
+      document.getElementById("ind-pendientes").textContent = pendientes;
+      document.getElementById("ind-llamados").textContent = llamadosPendientes.length;
+      document.getElementById("ind-listos").textContent = listos;
+      document.getElementById("ind-cuenta").textContent = cuentaPendientes;
     }
-    const info = getPedidoDeMesa(mesaDocId);
-    if (!info) return;
-    ocupadas++;
-    if (info.pedido.estadoMozo !== "confirmado") pendientes++;
-    if (info.pedido.estado === "listo") listos++;
-  });
-  const llamadosPendientes = [...llamadosMap.values()].filter((l) => l.estado === "pendiente");
-  const cuentaPendientes = llamadosPendientes.filter((l) => l.motivo === "cuenta").length;
 
-  document.getElementById("ind-ocupadas").textContent = ocupadas;
-  document.getElementById("ind-pendientes").textContent = pendientes;
-  document.getElementById("ind-llamados").textContent = llamadosPendientes.length;
-  document.getElementById("ind-listos").textContent = listos;
-  document.getElementById("ind-cuenta").textContent = cuentaPendientes;
-}
+    /* ══════════════ Modal de detalle de mesa ══════════════ */
+    function abrirDetalleMesa(mesaDocId) {
+      mesaAbiertaId = mesaDocId;
+      const m = mesasMap.get(mesaDocId);
+      grupoAbiertoId = m?.grupoId || null;
+      pintarDetalleMesa(mesaDocId);
+      openOverlay("overlay-detalle");
+    }
 
-/* ══════════════ Modal de detalle de mesa ══════════════ */
-function abrirDetalleMesa(mesaDocId) {
-  mesaAbiertaId = mesaDocId;
-  const m = mesasMap.get(mesaDocId);
-  grupoAbiertoId = m?.grupoId || null;
-  pintarDetalleMesa(mesaDocId);
-  openOverlay("overlay-detalle");
-}
+    function pintarDetalleMesa(mesaDocId) {
+      const m = mesasMap.get(mesaDocId);
+      if (!m) { closeOverlay("overlay-detalle"); return; }
+      const info = getPedidoDeMesa(mesaDocId);
+      const estado = computeEstadoVisual(mesaDocId);
+      const meta = ESTADO_META[estado];
+      const llamado = getLlamadoActivo(m.numero_mesa);
 
-function pintarDetalleMesa(mesaDocId) {
-  const m = mesasMap.get(mesaDocId);
-  if (!m) { closeOverlay("overlay-detalle"); return; }
-  const info = getPedidoDeMesa(mesaDocId);
-  const estado = computeEstadoVisual(mesaDocId);
-  const meta = ESTADO_META[estado];
-  const llamado = getLlamadoActivo(m.numero_mesa);
+      document.getElementById("det-titulo").textContent = m.nombre_alias || `Mesa ${m.numero_mesa}`;
+      document.getElementById("det-subtitulo").textContent = info
+        ? `Pedido a las ${info.pedido.hora || "—"}`
+        : "Mesa sin pedido activo";
+      document.getElementById("det-chip-estado").textContent = `${meta.dot} ${meta.label}`;
+      const tsMs = info ? toDate(info.pedido.timestamp)?.getTime() : null;
+      document.getElementById("det-chip-tiempo").textContent = tsMs ? `⏱ ${timeAgoCorto(new Date(tsMs))} ocupada` : "⏱ —";
 
-  document.getElementById("det-titulo").textContent = m.nombre_alias || `Mesa ${m.numero_mesa}`;
-  document.getElementById("det-subtitulo").textContent = info
-    ? `Pedido a las ${info.pedido.hora || "—"}`
-    : "Mesa sin pedido activo";
-  document.getElementById("det-chip-estado").textContent = `${meta.dot} ${meta.label}`;
-  const tsMs = info ? toDate(info.pedido.timestamp)?.getTime() : null;
-  document.getElementById("det-chip-tiempo").textContent = tsMs ? `⏱ ${timeAgoCorto(new Date(tsMs))} ocupada` : "⏱ —";
+      poblarSelectMozoEnDetalle();
+      document.getElementById("det-mozo-select").value = m.mozoAsignado?.id || "";
+      document.getElementById("det-personas").value = m.personas ?? "";
 
-  poblarSelectMozoEnDetalle();
-  document.getElementById("det-mozo-select").value = m.mozoAsignado?.id || "";
-  document.getElementById("det-personas").value = m.personas ?? "";
+      const banner = document.getElementById("det-llamado-banner");
+      if (llamado) {
+        banner.classList.remove("hidden");
+        document.getElementById("det-llamado-motivo").textContent = MOTIVO_LABEL[llamado.motivo] || llamado.motivo;
+        document.getElementById("det-llamado-atender").onclick = () => marcarLlamadoAtendido(llamado);
+      } else {
+        banner.classList.add("hidden");
+      }
 
-  const banner = document.getElementById("det-llamado-banner");
-  if (llamado) {
-    banner.classList.remove("hidden");
-    document.getElementById("det-llamado-motivo").textContent = MOTIVO_LABEL[llamado.motivo] || llamado.motivo;
-    document.getElementById("det-llamado-atender").onclick = () => marcarLlamadoAtendido(llamado);
-  } else {
-    banner.classList.add("hidden");
-  }
+      // Copia editable en memoria: si no hay pedido, arrancamos uno vacío para permitir "tomar pedido" manual
+      pedidoEnEdicion = info ? JSON.parse(JSON.stringify(info.pedido)) : {
+        cliente: { nombre: "", tipo_entrega: "Mesa" }, pago: { metodo: "En mesa" },
+        estado: "pendiente", estadoMozo: "pendiente_revision",
+        productos: [], nota: "", notaInterna: "",
+        total: 0, total_items: 0,
+        fecha: new Date().toLocaleDateString("es-PE"), hora: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+      };
+      if (!pedidoEnEdicion.productos) pedidoEnEdicion.productos = [];
 
-  // Copia editable en memoria: si no hay pedido, arrancamos uno vacío para permitir "tomar pedido" manual
-  pedidoEnEdicion = info ? JSON.parse(JSON.stringify(info.pedido)) : {
-    cliente: { nombre: "", tipo_entrega: "Mesa" }, pago: { metodo: "En mesa" },
-    estado: "pendiente", estadoMozo: "pendiente_revision",
-    productos: [], nota: "", notaInterna: "",
-    total: 0, total_items: 0,
-    fecha: new Date().toLocaleDateString("es-PE"), hora: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
-  };
-  if (!pedidoEnEdicion.productos) pedidoEnEdicion.productos = [];
+      document.getElementById("det-nota-cliente").textContent = pedidoEnEdicion.nota || "Sin especificaciones";
+      document.getElementById("det-nota-interna").value = pedidoEnEdicion.notaInterna || "";
 
-  document.getElementById("det-nota-cliente").textContent = pedidoEnEdicion.nota || "Sin especificaciones";
-  document.getElementById("det-nota-interna").value = pedidoEnEdicion.notaInterna || "";
+      pintarProductosEdicion();
 
-  pintarProductosEdicion();
+      const yaConfirmado = pedidoEnEdicion.estadoMozo === "confirmado";
+      const btnConfirmar = document.getElementById("det-btn-confirmar");
+      document.getElementById("det-btn-confirmar-label").textContent = yaConfirmado ? "Ya enviado a cocina ✓" : "Confirmar y enviar a cocina";
+      btnConfirmar.disabled = yaConfirmado || pedidoEnEdicion.productos.length === 0;
+      btnConfirmar.style.opacity = btnConfirmar.disabled ? ".5" : "1";
 
-  const yaConfirmado = pedidoEnEdicion.estadoMozo === "confirmado";
-  const btnConfirmar = document.getElementById("det-btn-confirmar");
-  document.getElementById("det-btn-confirmar-label").textContent = yaConfirmado ? "Ya enviado a cocina ✓" : "Confirmar y enviar a cocina";
-  btnConfirmar.disabled = yaConfirmado || pedidoEnEdicion.productos.length === 0;
-  btnConfirmar.style.opacity = btnConfirmar.disabled ? ".5" : "1";
+      document.getElementById("det-btn-cancelar-pedido").style.display = info ? "" : "none";
+      document.getElementById("det-btn-liberar").style.display = info ? "" : "none";
+    }
 
-  document.getElementById("det-btn-cancelar-pedido").style.display = info ? "" : "none";
-  document.getElementById("det-btn-liberar").style.display = info ? "" : "none";
-}
+    function recalcularTotales() {
+      const items = pedidoEnEdicion.productos;
+      pedidoEnEdicion.total = +items.reduce((s, it) => s + Number(it.subtotal || 0), 0).toFixed(2);
+      pedidoEnEdicion.total_items = items.reduce((s, it) => s + Number(it.cantidad || 0), 0);
+    }
 
-function recalcularTotales() {
-  const items = pedidoEnEdicion.productos;
-  pedidoEnEdicion.total = +items.reduce((s, it) => s + Number(it.subtotal || 0), 0).toFixed(2);
-  pedidoEnEdicion.total_items = items.reduce((s, it) => s + Number(it.cantidad || 0), 0);
-}
+    function pintarProductosEdicion() {
+      const wrap = document.getElementById("det-productos");
+      const sinProductos = document.getElementById("det-sin-productos");
+      wrap.innerHTML = "";
+      const items = pedidoEnEdicion.productos;
+      sinProductos.classList.toggle("hidden", items.length > 0);
 
-function pintarProductosEdicion() {
-  const wrap = document.getElementById("det-productos");
-  const sinProductos = document.getElementById("det-sin-productos");
-  wrap.innerHTML = "";
-  const items = pedidoEnEdicion.productos;
-  sinProductos.classList.toggle("hidden", items.length > 0);
-
-  items.forEach((it, idx) => {
-    const row = document.createElement("div");
-    row.className = "surface-2 rounded-2xl p-3 flex flex-col gap-2";
-    const opcionesTxt = it.opciones ? Object.entries(it.opciones).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
-    row.innerHTML = `
+      items.forEach((it, idx) => {
+        const row = document.createElement("div");
+        row.className = "surface-2 rounded-2xl p-3 flex flex-col gap-2";
+        const opcionesTxt = it.opciones ? Object.entries(it.opciones).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
+        row.innerHTML = `
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <p class="font-bold text-[13.5px] truncate">${escapeHtml(it.nombre)}</p>
@@ -818,95 +1161,95 @@ function pintarProductosEdicion() {
       <input data-obs="${idx}" type="text" placeholder="Observación (ej. sin cebolla)" value="${escapeHtml(it.observacion || "")}"
         class="field-input text-[12px] py-1.5">
     `;
-    wrap.appendChild(row);
-  });
+        wrap.appendChild(row);
+      });
 
-  wrap.querySelectorAll("[data-plus]").forEach((b) => b.addEventListener("click", () => cambiarCantidad(+b.dataset.plus, +1)));
-  wrap.querySelectorAll("[data-minus]").forEach((b) => b.addEventListener("click", () => cambiarCantidad(+b.dataset.minus, -1)));
-  wrap.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => quitarProducto(+b.dataset.remove)));
-  wrap.querySelectorAll("[data-obs]").forEach((inp) => inp.addEventListener("input", () => {
-    pedidoEnEdicion.productos[+inp.dataset.obs].observacion = inp.value;
-  }));
+      wrap.querySelectorAll("[data-plus]").forEach((b) => b.addEventListener("click", () => cambiarCantidad(+b.dataset.plus, +1)));
+      wrap.querySelectorAll("[data-minus]").forEach((b) => b.addEventListener("click", () => cambiarCantidad(+b.dataset.minus, -1)));
+      wrap.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => quitarProducto(+b.dataset.remove)));
+      wrap.querySelectorAll("[data-obs]").forEach((inp) => inp.addEventListener("input", () => {
+        pedidoEnEdicion.productos[+inp.dataset.obs].observacion = inp.value;
+      }));
 
-  document.getElementById("det-total").textContent = fmtMoney(pedidoEnEdicion.total);
-}
+      document.getElementById("det-total").textContent = fmtMoney(pedidoEnEdicion.total);
+    }
 
-function cambiarCantidad(idx, delta) {
-  const it = pedidoEnEdicion.productos[idx];
-  if (!it) return;
-  it.cantidad = Math.max(1, (it.cantidad || 1) + delta);
-  it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
-  recalcularTotales();
-  pintarProductosEdicion();
-  refrescarBotonConfirmar();
-}
-function quitarProducto(idx) {
-  pedidoEnEdicion.productos.splice(idx, 1);
-  recalcularTotales();
-  pintarProductosEdicion();
-  refrescarBotonConfirmar();
-}
-function refrescarBotonConfirmar() {
-  const btn = document.getElementById("det-btn-confirmar");
-  const yaConfirmado = pedidoEnEdicion.estadoMozo === "confirmado";
-  btn.disabled = yaConfirmado || pedidoEnEdicion.productos.length === 0;
-  btn.style.opacity = btn.disabled ? ".5" : "1";
-}
+    function cambiarCantidad(idx, delta) {
+      const it = pedidoEnEdicion.productos[idx];
+      if (!it) return;
+      it.cantidad = Math.max(1, (it.cantidad || 1) + delta);
+      it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
+      recalcularTotales();
+      pintarProductosEdicion();
+      refrescarBotonConfirmar();
+    }
+    function quitarProducto(idx) {
+      pedidoEnEdicion.productos.splice(idx, 1);
+      recalcularTotales();
+      pintarProductosEdicion();
+      refrescarBotonConfirmar();
+    }
+    function refrescarBotonConfirmar() {
+      const btn = document.getElementById("det-btn-confirmar");
+      const yaConfirmado = pedidoEnEdicion.estadoMozo === "confirmado";
+      btn.disabled = yaConfirmado || pedidoEnEdicion.productos.length === 0;
+      btn.style.opacity = btn.disabled ? ".5" : "1";
+    }
 
-/* ══════════════ Agregar producto desde catálogo ══════════════ */
-let pickerFiltroCategoria = "Todos";
+    /* ══════════════ Agregar producto desde catálogo ══════════════ */
+    let pickerFiltroCategoria = "Todos";
 
-document.getElementById("btn-agregar-producto").addEventListener("click", async () => {
-  if (!catalogoListo) { toast("Cargando catálogo, un momento…"); await cargarCatalogo(); }
-  document.getElementById("picker-search").value = "";
-  pickerFiltroCategoria = "Todos";
-  pintarCategoriasPicker();
-  pintarPicker(catalogo);
-  openOverlay("overlay-picker");
-});
-document.getElementById("picker-search").addEventListener("input", aplicarFiltroPicker);
+    document.getElementById("btn-agregar-producto").addEventListener("click", async () => {
+      if (!catalogoListo) { toast("Cargando catálogo, un momento…"); await cargarCatalogo(); }
+      document.getElementById("picker-search").value = "";
+      pickerFiltroCategoria = "Todos";
+      pintarCategoriasPicker();
+      pintarPicker(catalogo);
+      openOverlay("overlay-picker");
+    });
+    document.getElementById("picker-search").addEventListener("input", aplicarFiltroPicker);
 
-function pintarCategoriasPicker() {
-  const categorias = [...new Set(catalogo.map((p) => p.categoria))];
-  const wrap = document.getElementById("picker-categorias");
-  wrap.innerHTML = "";
-  const makeChip = (label) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = label;
-    b.className = "cat-chip" + (label === pickerFiltroCategoria ? " active" : "");
-    b.addEventListener("click", () => { pickerFiltroCategoria = label; pintarCategoriasPicker(); aplicarFiltroPicker(); });
-    wrap.appendChild(b);
-  };
-  makeChip("Todos");
-  categorias.forEach(makeChip);
-}
-function aplicarFiltroPicker() {
-  const q = document.getElementById("picker-search").value.trim().toLowerCase();
-  let resultado = catalogo;
-  if (pickerFiltroCategoria !== "Todos") resultado = resultado.filter((p) => p.categoria === pickerFiltroCategoria);
-  if (q) resultado = resultado.filter((p) => p.nombre.toLowerCase().includes(q));
-  pintarPicker(resultado);
-}
+    function pintarCategoriasPicker() {
+      const categorias = [...new Set(catalogo.map((p) => p.categoria))];
+      const wrap = document.getElementById("picker-categorias");
+      wrap.innerHTML = "";
+      const makeChip = (label) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.className = "cat-chip" + (label === pickerFiltroCategoria ? " active" : "");
+        b.addEventListener("click", () => { pickerFiltroCategoria = label; pintarCategoriasPicker(); aplicarFiltroPicker(); });
+        wrap.appendChild(b);
+      };
+      makeChip("Todos");
+      categorias.forEach(makeChip);
+    }
+    function aplicarFiltroPicker() {
+      const q = document.getElementById("picker-search").value.trim().toLowerCase();
+      let resultado = catalogo;
+      if (pickerFiltroCategoria !== "Todos") resultado = resultado.filter((p) => p.categoria === pickerFiltroCategoria);
+      if (q) resultado = resultado.filter((p) => p.nombre.toLowerCase().includes(q));
+      pintarPicker(resultado);
+    }
 
-function stockBadgeHtml(stock) {
-  if (typeof stock !== "number") return "";
-  const cls = stock <= 0 ? "stock-agotado" : stock < 5 ? "stock-bajo" : "stock-ok";
-  const txt = stock <= 0 ? "Agotado" : `Stock: ${stock}`;
-  return `<span class="stock-badge ${cls}">${txt}</span>`;
-}
+    function stockBadgeHtml(stock) {
+      if (typeof stock !== "number") return "";
+      const cls = stock <= 0 ? "stock-agotado" : stock < 5 ? "stock-bajo" : "stock-ok";
+      const txt = stock <= 0 ? "Agotado" : `Stock: ${stock}`;
+      return `<span class="stock-badge ${cls}">${txt}</span>`;
+    }
 
-function pintarPicker(lista) {
-  const wrap = document.getElementById("picker-lista");
-  wrap.innerHTML = "";
-  if (!lista.length) { wrap.innerHTML = `<p class="text-xs text-[var(--ink-faint)] text-center py-8">Sin resultados</p>`; return; }
-  lista.forEach((p) => {
-    const agotado = typeof p.stock === "number" && p.stock <= 0;
-    const condTxt = (p.condiciones || []).map((c) => c.nombre).join(" · ");
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "flex items-center gap-3 surface-2 rounded-2xl p-2.5 text-left hover:border-violet-600 border border-transparent transition-all" + (agotado ? " opacity-50" : "");
-    row.innerHTML = `
+    function pintarPicker(lista) {
+      const wrap = document.getElementById("picker-lista");
+      wrap.innerHTML = "";
+      if (!lista.length) { wrap.innerHTML = `<p class="text-xs text-[var(--ink-faint)] text-center py-8">Sin resultados</p>`; return; }
+      lista.forEach((p) => {
+        const agotado = typeof p.stock === "number" && p.stock <= 0;
+        const condTxt = (p.condiciones || []).map((c) => c.nombre).join(" · ");
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "flex items-center gap-3 surface-2 rounded-2xl p-2.5 text-left hover:border-violet-600 border border-transparent transition-all" + (agotado ? " opacity-50" : "");
+        row.innerHTML = `
       <div class="w-11 h-11 rounded-xl bg-black/30 flex-shrink-0 overflow-hidden">${p.imagen ? `<img src="${p.imagen}" class="w-full h-full object-cover">` : ""}</div>
       <div class="flex-1 min-w-0">
         <p class="font-bold text-[13px] truncate">${escapeHtml(p.nombre)}</p>
@@ -915,352 +1258,353 @@ function pintarPicker(lista) {
       </div>
       <div class="flex-shrink-0">${stockBadgeHtml(p.stock)}</div>
     `;
-    row.addEventListener("click", () => {
-      if (agotado) { toast("Este producto está agotado", "error"); return; }
-      if (p.condiciones && p.condiciones.length) {
-        abrirOpcionesProducto(p);
-      } else {
-        agregarProductoAlPedido(p);
-        closeOverlay("overlay-picker");
-      }
+        row.addEventListener("click", () => {
+          if (agotado) { toast("Este producto está agotado", "error"); return; }
+          if (p.condiciones && p.condiciones.length) {
+            abrirOpcionesProducto(p);
+          } else {
+            agregarProductoAlPedido(p);
+            closeOverlay("overlay-picker");
+          }
+        });
+        wrap.appendChild(row);
+      });
+    }
+
+    /* ══════════════ Selector de opciones/condiciones (ej. helada / sin helar) ══════════════
+       Mismo criterio que el modal de opciones del carrito del cliente: precio base +
+       costo adicional de cada opción elegida, y se avisa si esa opción específica no tiene stock. */
+    let productoParaOpciones = null;
+    let seleccionOpcionesActual = {};
+
+    function abrirOpcionesProducto(p) {
+      productoParaOpciones = p;
+      seleccionOpcionesActual = {};
+      document.getElementById("opciones-prod-nombre").textContent = p.nombre;
+      const body = document.getElementById("opciones-body");
+      body.innerHTML = "";
+
+      p.condiciones.forEach((cond) => {
+        const wrap = document.createElement("div");
+        const label = document.createElement("p");
+        label.className = "text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-2";
+        label.textContent = cond.nombre;
+        wrap.appendChild(label);
+
+        const optsWrap = document.createElement("div");
+        optsWrap.className = "flex flex-wrap gap-2";
+        cond.opciones.forEach((op, oi) => {
+          const agotada = typeof op.stock === "number" && op.stock <= 0;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "toggle-opt" + (oi === 0 && !agotada ? " active" : "") + (agotada ? " agotado" : "");
+          btn.textContent = op.costoAdicional ? `${op.nombre} (+S/ ${op.costoAdicional.toFixed(2)})` : op.nombre;
+          if (agotada) { btn.disabled = true; }
+          else {
+            btn.addEventListener("click", () => {
+              optsWrap.querySelectorAll(".toggle-opt").forEach((o) => o.classList.remove("active"));
+              btn.classList.add("active");
+              seleccionOpcionesActual[cond.nombre] = op.nombre;
+            });
+          }
+          optsWrap.appendChild(btn);
+        });
+        wrap.appendChild(optsWrap);
+        body.appendChild(wrap);
+        const primeraDisponible = cond.opciones.find((o) => !(typeof o.stock === "number" && o.stock <= 0));
+        if (primeraDisponible) seleccionOpcionesActual[cond.nombre] = primeraDisponible.nombre;
+      });
+
+      openOverlay("overlay-picker-opciones");
+    }
+    document.getElementById("opciones-btn-agregar").addEventListener("click", () => {
+      if (!productoParaOpciones) return;
+      agregarProductoAlPedido(productoParaOpciones, { ...seleccionOpcionesActual });
+      closeOverlay("overlay-picker-opciones");
+      closeOverlay("overlay-picker");
     });
-    wrap.appendChild(row);
-  });
-}
 
-/* ══════════════ Selector de opciones/condiciones (ej. helada / sin helar) ══════════════
-   Mismo criterio que el modal de opciones del carrito del cliente: precio base +
-   costo adicional de cada opción elegida, y se avisa si esa opción específica no tiene stock. */
-let productoParaOpciones = null;
-let seleccionOpcionesActual = {};
+    function calcPrecioFinal(p, seleccion) {
+      let precio = Number(p.precio) || 0;
+      if (!seleccion) return precio;
+      (p.condiciones || []).forEach((cond) => {
+        const elegido = seleccion[cond.nombre];
+        if (!elegido) return;
+        const op = cond.opciones.find((o) => o.nombre === elegido);
+        if (op && op.costoAdicional) precio += op.costoAdicional;
+      });
+      return +precio.toFixed(2);
+    }
 
-function abrirOpcionesProducto(p) {
-  productoParaOpciones = p;
-  seleccionOpcionesActual = {};
-  document.getElementById("opciones-prod-nombre").textContent = p.nombre;
-  const body = document.getElementById("opciones-body");
-  body.innerHTML = "";
-
-  p.condiciones.forEach((cond) => {
-    const wrap = document.createElement("div");
-    const label = document.createElement("p");
-    label.className = "text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-2";
-    label.textContent = cond.nombre;
-    wrap.appendChild(label);
-
-    const optsWrap = document.createElement("div");
-    optsWrap.className = "flex flex-wrap gap-2";
-    cond.opciones.forEach((op, oi) => {
-      const agotada = typeof op.stock === "number" && op.stock <= 0;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "toggle-opt" + (oi === 0 && !agotada ? " active" : "") + (agotada ? " agotado" : "");
-      btn.textContent = op.costoAdicional ? `${op.nombre} (+S/ ${op.costoAdicional.toFixed(2)})` : op.nombre;
-      if (agotada) { btn.disabled = true; }
-      else {
-        btn.addEventListener("click", () => {
-          optsWrap.querySelectorAll(".toggle-opt").forEach((o) => o.classList.remove("active"));
-          btn.classList.add("active");
-          seleccionOpcionesActual[cond.nombre] = op.nombre;
+    function agregarProductoAlPedido(p, seleccion = null) {
+      const precioFinal = calcPrecioFinal(p, seleccion);
+      const clavesSeleccion = seleccion ? Object.keys(seleccion).sort().map((k) => `${k}:${seleccion[k]}`).join("|") : "";
+      const existente = pedidoEnEdicion.productos.find((it) => {
+        const itClaves = it.opciones ? Object.keys(it.opciones).sort().map((k) => `${k}:${it.opciones[k]}`).join("|") : "";
+        return it.id === p.id && itClaves === clavesSeleccion;
+      });
+      if (existente) {
+        existente.cantidad += 1;
+        existente.subtotal = +(existente.cantidad * existente.precio_unitario).toFixed(2);
+      } else {
+        pedidoEnEdicion.productos.push({
+          id: p.id, cartKey: p.id + "_" + Date.now(), nombre: p.nombre, categoria: p.categoria,
+          precio_unitario: precioFinal, cantidad: 1, subtotal: precioFinal, imagen: p.imagen || "",
+          opciones: seleccion || null, observacion: "",
         });
       }
-      optsWrap.appendChild(btn);
-    });
-    wrap.appendChild(optsWrap);
-    body.appendChild(wrap);
-    const primeraDisponible = cond.opciones.find((o) => !(typeof o.stock === "number" && o.stock <= 0));
-    if (primeraDisponible) seleccionOpcionesActual[cond.nombre] = primeraDisponible.nombre;
-  });
-
-  openOverlay("overlay-picker-opciones");
-}
-document.getElementById("opciones-btn-agregar").addEventListener("click", () => {
-  if (!productoParaOpciones) return;
-  agregarProductoAlPedido(productoParaOpciones, { ...seleccionOpcionesActual });
-  closeOverlay("overlay-picker-opciones");
-  closeOverlay("overlay-picker");
-});
-
-function calcPrecioFinal(p, seleccion) {
-  let precio = Number(p.precio) || 0;
-  if (!seleccion) return precio;
-  (p.condiciones || []).forEach((cond) => {
-    const elegido = seleccion[cond.nombre];
-    if (!elegido) return;
-    const op = cond.opciones.find((o) => o.nombre === elegido);
-    if (op && op.costoAdicional) precio += op.costoAdicional;
-  });
-  return +precio.toFixed(2);
-}
-
-function agregarProductoAlPedido(p, seleccion = null) {
-  const precioFinal = calcPrecioFinal(p, seleccion);
-  const clavesSeleccion = seleccion ? Object.keys(seleccion).sort().map((k) => `${k}:${seleccion[k]}`).join("|") : "";
-  const existente = pedidoEnEdicion.productos.find((it) => {
-    const itClaves = it.opciones ? Object.keys(it.opciones).sort().map((k) => `${k}:${it.opciones[k]}`).join("|") : "";
-    return it.id === p.id && itClaves === clavesSeleccion;
-  });
-  if (existente) {
-    existente.cantidad += 1;
-    existente.subtotal = +(existente.cantidad * existente.precio_unitario).toFixed(2);
-  } else {
-    pedidoEnEdicion.productos.push({
-      id: p.id, cartKey: p.id + "_" + Date.now(), nombre: p.nombre, categoria: p.categoria,
-      precio_unitario: precioFinal, cantidad: 1, subtotal: precioFinal, imagen: p.imagen || "",
-      opciones: seleccion || null, observacion: "",
-    });
-  }
-  recalcularTotales();
-  pintarProductosEdicion();
-  refrescarBotonConfirmar();
-  toast(`${p.nombre} agregado`);
-}
-
-/* ══════════════ Guardar cambios (sin confirmar aún) ══════════════
-   Escribe la copia editada en los MISMOS lugares que ya usa el carrito del cliente
-   (mesa.pedido / grupo.pedido / pedidos/{id}), replicando el patrón de doble escritura
-   de llamarMozo() en el carrito — así cocina y el propio carrito siguen leyendo de la
-   misma fuente sin que haya que tocar su lógica de lectura. */
-async function persistirPedido({ marcarConfirmado = false } = {}) {
-  const m = mesasMap.get(mesaAbiertaId);
-  if (!m) throw new Error("Mesa no encontrada");
-
-  pedidoEnEdicion.notaInterna = document.getElementById("det-nota-interna").value.trim();
-  const personasVal = document.getElementById("det-personas").value;
-  const mozoSelId = document.getElementById("det-mozo-select").value;
-  const mozoSelNombre = mozoSelId ? mozosMap.get(mozoSelId)?.nombre : null;
-  recalcularTotales();
-
-  if (marcarConfirmado) {
-    pedidoEnEdicion.estadoMozo = "confirmado";
-    pedidoEnEdicion.mozoConfirmo = mozoActivo;
-    pedidoEnEdicion.historial = arrayUnion({
-      accion: "confirmado", quien: mozoActivo?.nombre || "Mozo", cuando: new Date().toISOString(),
-    });
-    pedidoEnEdicion.caja = { notificado: true, notificadoEn: new Date().toISOString() };
-  }
-
-  const mozoAsignadoObj = mozoSelId ? { id: mozoSelId, nombre: mozoSelNombre } : null;
-  const personas = personasVal === "" ? null : Math.max(0, parseInt(personasVal, 10) || 0);
-
-  const batch = writeBatch(db);
-  const info = getPedidoDeMesa(mesaAbiertaId);
-
-  if (info && info.esGrupo) {
-    batch.set(info.grupoRef, { pedido: pedidoEnEdicion }, { merge: true });
-    if (info.pedidoDocId) {
-      batch.set(doc(pedidosColRef(), info.pedidoDocId), { ...pedidoEnEdicion, mozoAsignado: mozoAsignadoObj }, { merge: true });
+      recalcularTotales();
+      pintarProductosEdicion();
+      refrescarBotonConfirmar();
+      toast(`${p.nombre} agregado`);
     }
-    const grupo = gruposMap.get(grupoAbiertoId);
-    (grupo?.mesas || []).forEach((mm) => {
-      batch.set(doc(mesasColRef(), mm.id), { mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
-    });
-  } else if (info) {
-    batch.set(doc(mesasColRef(), mesaAbiertaId), { pedido: pedidoEnEdicion, mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
-    if (info.pedidoDocId) {
-      batch.set(doc(pedidosColRef(), info.pedidoDocId), { ...pedidoEnEdicion, mozoAsignado: mozoAsignadoObj }, { merge: true });
-    }
-  } else {
-    // Mesa sin pedido activo: el mozo está tomando un pedido manualmente (walk-in sin carrito)
-    if (!pedidoEnEdicion.productos.length) {
-      batch.set(doc(mesasColRef(), mesaAbiertaId), { mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
-    } else {
-      const nuevoPedidoRef = doc(pedidosColRef());
-      const pedidoFinal = {
-        ...pedidoEnEdicion,
-        mesa: { id: mesaAbiertaId, nombre: m.nombre_alias || null, numero: m.numero_mesa },
-        negocio: { id: tiendaId, nombre: "", localidad },
-        timestamp: serverTimestamp(),
-      };
-      batch.set(doc(mesasColRef(), mesaAbiertaId), {
-        estado: "ocupado", pago: "pendiente", pedido: pedidoFinal, pedidoMesaDocId: nuevoPedidoRef.id,
-        mozoAsignado: mozoAsignadoObj, personas,
-      }, { merge: true });
-      batch.set(nuevoPedidoRef, { ...pedidoFinal, mesaId: mesaAbiertaId });
-    }
-  }
 
-  await batch.commit();
-}
+    /* ══════════════ Guardar cambios (sin confirmar aún) ══════════════
+       Escribe la copia editada en los MISMOS lugares que ya usa el carrito del cliente
+       (mesa.pedido / grupo.pedido / pedidos/{id}), replicando el patrón de doble escritura
+       de llamarMozo() en el carrito — así cocina y el propio carrito siguen leyendo de la
+       misma fuente sin que haya que tocar su lógica de lectura. */
+    async function persistirPedido({ marcarConfirmado = false } = {}) {
+      const m = mesasMap.get(mesaAbiertaId);
+      if (!m) throw new Error("Mesa no encontrada");
 
-/* ══════════════ Descuento de inventario al confirmar ══════════════
-   Reutiliza el mismo documento de producto que administra el panel de catálogo
-   (productos/{categoria}/{categoria}/{productoId}.stock), con el mismo criterio
-   de "autoDesactivar" que ya existe ahí. No es atómico con el batch de arriba
-   (se hace después, producto por producto) porque necesita leer el stock actual
-   de cada producto antes de decidir si hay que desactivarlo. */
-async function descontarInventario(productos) {
-  for (const it of productos) {
-    if (!it.id || !it.categoria) continue;
-    try {
-      const prodRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "productos", it.categoria, it.categoria, it.id);
-      const snap = await getDoc(prodRef);
-      if (!snap.exists()) continue;
-      const data = snap.data();
-      if (typeof data.stock !== "number") continue; // producto sin control de stock, se ignora
-      const nuevoStock = Math.max(0, data.stock - Number(it.cantidad || 0));
-      const patch = { stock: nuevoStock };
-      if (data.autoDesactivar && nuevoStock === 0) patch.disponible = false;
-      await updateDoc(prodRef, patch);
-    } catch (err) {
-      console.warn("No se pudo descontar stock de", it.nombre, err);
-    }
-  }
-}
+      pedidoEnEdicion.notaInterna = document.getElementById("det-nota-interna").value.trim();
+      const personasVal = document.getElementById("det-personas").value;
+      const mozoSelId = document.getElementById("det-mozo-select").value;
+      const mozoSelNombre = mozoSelId ? mozosMap.get(mozoSelId)?.nombre : null;
+      recalcularTotales();
 
-/* ══════════════ Acciones de los botones del modal ══════════════ */
-document.getElementById("det-btn-guardar").addEventListener("click", async () => {
-  const btn = document.getElementById("det-btn-guardar");
-  btn.disabled = true; const original = btn.textContent; btn.textContent = "Guardando…";
-  try {
-    await persistirPedido({ marcarConfirmado: false });
-    toast("Cambios guardados");
-  } catch (err) {
-    console.error(err); toast("No se pudo guardar.", "error");
-  } finally {
-    btn.disabled = false; btn.textContent = original;
-  }
-});
+      if (marcarConfirmado) {
+        pedidoEnEdicion.estadoMozo = "confirmado";
+        pedidoEnEdicion.mozoConfirmo = mozoActivo;
+        pedidoEnEdicion.historial = arrayUnion({
+          accion: "confirmado", quien: mozoActivo?.nombre || "Mozo", cuando: new Date().toISOString(),
+        });
+        pedidoEnEdicion.caja = { notificado: true, notificadoEn: new Date().toISOString() };
+      }
 
-document.getElementById("det-btn-confirmar").addEventListener("click", () => {
-  if (!pedidoEnEdicion.productos.length) return;
-  askConfirm(
-    "¿Confirmar y enviar a cocina?",
-    "El pedido pasará a cocina, se descontará el inventario y no podrás editarlo desde aquí después.",
-    async () => {
-      await persistirPedido({ marcarConfirmado: true });
-      await descontarInventario(pedidoEnEdicion.productos);
-      toast("✅ Pedido enviado a cocina");
-      closeOverlay("overlay-detalle");
-    },
-    "Confirmar y enviar"
-  );
-});
+      const mozoAsignadoObj = mozoSelId ? { id: mozoSelId, nombre: mozoSelNombre } : null;
+      const personas = personasVal === "" ? null : Math.max(0, parseInt(personasVal, 10) || 0);
 
-document.getElementById("det-btn-cancelar-pedido").addEventListener("click", () => {
-  askConfirm(
-    "¿Cancelar pedido completo?",
-    "Se eliminará el pedido de esta mesa. Esta acción no se puede deshacer.",
-    async () => {
-      const info = getPedidoDeMesa(mesaAbiertaId);
       const batch = writeBatch(db);
-      if (info?.esGrupo) {
-        batch.set(info.grupoRef, { pedido: null, estado: "cerrado" }, { merge: true });
-        const grupo = gruposMap.get(grupoAbiertoId);
-        (grupo?.mesas || []).forEach((mm) => batch.set(doc(mesasColRef(), mm.id), { estado: "cancelado", grupoId: null, pago: "pendiente" }, { merge: true }));
-        if (info.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "cancelado" }, { merge: true });
-      } else {
-        batch.set(doc(mesasColRef(), mesaAbiertaId), { estado: "cancelado", pago: "pendiente", pedido: null }, { merge: true });
-        if (info?.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "cancelado" }, { merge: true });
-      }
-      await batch.commit();
-      toast("Pedido cancelado");
-      closeOverlay("overlay-detalle");
-    }
-  );
-});
-
-document.getElementById("det-btn-liberar").addEventListener("click", () => {
-  askConfirm(
-    "¿Liberar mesa?",
-    "Se marcará como pagada y quedará libre para el siguiente cliente.",
-    async () => {
       const info = getPedidoDeMesa(mesaAbiertaId);
-      const batch = writeBatch(db);
-      if (info?.esGrupo) {
+
+      if (info && info.esGrupo) {
+        batch.set(info.grupoRef, { pedido: pedidoEnEdicion }, { merge: true });
+        if (info.pedidoDocId) {
+          batch.set(doc(pedidosColRef(), info.pedidoDocId), { ...pedidoEnEdicion, mozoAsignado: mozoAsignadoObj }, { merge: true });
+        }
         const grupo = gruposMap.get(grupoAbiertoId);
-        batch.set(info.grupoRef, { estado: "cerrado" }, { merge: true });
-        (grupo?.mesas || []).forEach((mm) => batch.set(doc(mesasColRef(), mm.id), { estado: "libre", grupoId: null, pago: "pagado", pedido: null, mozoAsignado: null, personas: null }, { merge: true }));
-        if (info.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "entregado" }, { merge: true });
+        (grupo?.mesas || []).forEach((mm) => {
+          batch.set(doc(mesasColRef(), mm.id), { mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
+        });
+      } else if (info) {
+        batch.set(doc(mesasColRef(), mesaAbiertaId), { pedido: pedidoEnEdicion, mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
+        if (info.pedidoDocId) {
+          batch.set(doc(pedidosColRef(), info.pedidoDocId), { ...pedidoEnEdicion, mozoAsignado: mozoAsignadoObj }, { merge: true });
+        }
       } else {
-        batch.set(doc(mesasColRef(), mesaAbiertaId), { estado: "libre", pago: "pagado", pedido: null, mozoAsignado: null, personas: null }, { merge: true });
-        if (info?.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "entregado" }, { merge: true });
+        // Mesa sin pedido activo: el mozo está tomando un pedido manualmente (walk-in sin carrito)
+        if (!pedidoEnEdicion.productos.length) {
+          batch.set(doc(mesasColRef(), mesaAbiertaId), { mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
+        } else {
+          const nuevoPedidoRef = doc(pedidosColRef());
+          const pedidoFinal = {
+            ...pedidoEnEdicion,
+            mesa: { id: mesaAbiertaId, nombre: m.nombre_alias || null, numero: m.numero_mesa },
+            negocio: { id: tiendaId, nombre: "", localidad },
+            timestamp: serverTimestamp(),
+          };
+          batch.set(doc(mesasColRef(), mesaAbiertaId), {
+            estado: "ocupado", pago: "pendiente", pedido: pedidoFinal, pedidoMesaDocId: nuevoPedidoRef.id,
+            mozoAsignado: mozoAsignadoObj, personas,
+          }, { merge: true });
+          batch.set(nuevoPedidoRef, { ...pedidoFinal, mesaId: mesaAbiertaId });
+        }
       }
+
       await batch.commit();
-      toast("🍽️ Mesa liberada");
-      closeOverlay("overlay-detalle");
     }
-  );
-});
 
-/* ══════════════ Llamados del cliente (colección llamados_mesa) ══════════════ */
-async function marcarLlamadoAtendido(llamado) {
-  try {
-    await updateDoc(doc(llamadosColRef(), llamado.id), { estado: "atendido", atendidoPor: mozoActivo?.nombre || null, atendidoEn: serverTimestamp() });
-    toast("Solicitud marcada como atendida");
-  } catch (err) {
-    console.error(err); toast("No se pudo actualizar el llamado.", "error");
-  }
-}
-function iniciarListenerLlamados() {
-  onSnapshot(llamadosColRef(), (snap) => {
-    const nuevos = [];
-    snap.docChanges().forEach((change) => {
-      const data = { id: change.doc.id, ...change.doc.data() };
-      if (change.type === "removed") { llamadosMap.delete(change.doc.id); return; }
-      if (change.type === "added" && !firstLlamadosSnapshot && data.estado === "pendiente") nuevos.push(data);
-      llamadosMap.set(change.doc.id, data);
-    });
-    firstLlamadosSnapshot = false;
-    renderMesaGrid();
-    if (nuevos.length) {
-      soundLlamado(); bellRing();
-      nuevos.forEach((l) => toast(`🔔 Mesa ${l.mesaNumero}: ${MOTIVO_LABEL[l.motivo] || l.motivo}`));
-    }
-  }, (err) => console.error("Error escuchando llamados:", err));
-}
-
-/* ══════════════ Listener de mesas y grupos ══════════════ */
-function iniciarListenerMesas() {
-  const q = query(mesasColRef(), orderBy("numero_mesa"));
-  onSnapshot(q, (snap) => {
-    const nuevosPedidos = [];
-    const listosNuevos = [];
-    snap.forEach((d) => {
-      const data = d.data();
-      const anterior = mesasMap.get(d.id);
-      if (data.estado === "ocupado" && data.pedido) {
-        const firma = `${data.pedido.hora || ""}|${data.pedido.total_items || 0}`;
-        const firmaAnterior = mesaPedidoFirma.get(d.id);
-        if (!firstMesasSnapshot && firma !== firmaAnterior && data.pedido.estadoMozo !== "confirmado") nuevosPedidos.push(data);
-        if (anterior?.pedido?.estado !== "listo" && data.pedido.estado === "listo") listosNuevos.push(data);
-        mesaPedidoFirma.set(d.id, firma);
-      } else {
-        mesaPedidoFirma.delete(d.id);
+    /* ══════════════ Descuento de inventario al confirmar ══════════════
+       Reutiliza el mismo documento de producto que administra el panel de catálogo
+       (productos/{categoria}/{categoria}/{productoId}.stock), con el mismo criterio
+       de "autoDesactivar" que ya existe ahí. No es atómico con el batch de arriba
+       (se hace después, producto por producto) porque necesita leer el stock actual
+       de cada producto antes de decidir si hay que desactivarlo. */
+    async function descontarInventario(productos) {
+      for (const it of productos) {
+        if (!it.id || !it.categoria) continue;
+        try {
+          const prodRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "productos", it.categoria, it.categoria, it.id);
+          const snap = await getDoc(prodRef);
+          if (!snap.exists()) continue;
+          const data = snap.data();
+          if (typeof data.stock !== "number") continue; // producto sin control de stock, se ignora
+          const nuevoStock = Math.max(0, data.stock - Number(it.cantidad || 0));
+          const patch = { stock: nuevoStock };
+          if (data.autoDesactivar && nuevoStock === 0) patch.disponible = false;
+          await updateDoc(prodRef, patch);
+        } catch (err) {
+          console.warn("No se pudo descontar stock de", it.nombre, err);
+        }
       }
-      mesasMap.set(d.id, data);
+    }
+
+    /* ══════════════ Acciones de los botones del modal ══════════════ */
+    document.getElementById("det-btn-guardar").addEventListener("click", async () => {
+      const btn = document.getElementById("det-btn-guardar");
+      btn.disabled = true; const original = btn.textContent; btn.textContent = "Guardando…";
+      try {
+        await persistirPedido({ marcarConfirmado: false });
+        toast("Cambios guardados");
+      } catch (err) {
+        console.error(err); toast("No se pudo guardar.", "error");
+      } finally {
+        btn.disabled = false; btn.textContent = original;
+      }
     });
-    // limpiar mesas eliminadas
-    const idsActuales = new Set(); snap.forEach((d) => idsActuales.add(d.id));
-    [...mesasMap.keys()].forEach((id) => { if (!idsActuales.has(id)) mesasMap.delete(id); });
 
-    firstMesasSnapshot = false;
-    renderMesaGrid();
-    hideLoader();
+    document.getElementById("det-btn-confirmar").addEventListener("click", () => {
+      if (!pedidoEnEdicion.productos.length) return;
+      askConfirm(
+        "¿Confirmar y enviar a cocina?",
+        "El pedido pasará a cocina, se descontará el inventario y no podrás editarlo desde aquí después.",
+        async () => {
+          await persistirPedido({ marcarConfirmado: true });
+          await descontarInventario(pedidoEnEdicion.productos);
+          toast("✅ Pedido enviado a cocina");
+          closeOverlay("overlay-detalle");
+        },
+        "Confirmar y enviar"
+      );
+    });
 
-    if (nuevosPedidos.length) { soundPedidoNuevo(); bellRing(); nuevosPedidos.forEach((p) => toast(`🍽️ Pedido nuevo en ${p.mesa?.nombre || "una mesa"}`)); }
-    if (listosNuevos.length) { soundListo(); bellRing(); listosNuevos.forEach((p) => toast(`🟣 Pedido listo en ${p.pedido?.mesa?.nombre || "una mesa"}`)); }
-  }, (err) => { console.error(err); toast("Conexión interrumpida, reintentando…", "error"); hideLoader(); });
-}
-function iniciarListenerGrupos() {
-  onSnapshot(gruposColRef(), (snap) => {
-    gruposMap.clear();
-    snap.forEach((d) => gruposMap.set(d.id, { id: d.id, ...d.data() }));
-    renderMesaGrid();
-  }, (err) => console.error("Error escuchando grupos:", err));
-}
+    document.getElementById("det-btn-cancelar-pedido").addEventListener("click", () => {
+      askConfirm(
+        "¿Cancelar pedido completo?",
+        "Se eliminará el pedido de esta mesa. Esta acción no se puede deshacer.",
+        async () => {
+          const info = getPedidoDeMesa(mesaAbiertaId);
+          const batch = writeBatch(db);
+          if (info?.esGrupo) {
+            batch.set(info.grupoRef, { pedido: null, estado: "cerrado" }, { merge: true });
+            const grupo = gruposMap.get(grupoAbiertoId);
+            (grupo?.mesas || []).forEach((mm) => batch.set(doc(mesasColRef(), mm.id), { estado: "cancelado", grupoId: null, pago: "pendiente" }, { merge: true }));
+            if (info.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "cancelado" }, { merge: true });
+          } else {
+            batch.set(doc(mesasColRef(), mesaAbiertaId), { estado: "cancelado", pago: "pendiente", pedido: null }, { merge: true });
+            if (info?.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "cancelado" }, { merge: true });
+          }
+          await batch.commit();
+          toast("Pedido cancelado");
+          closeOverlay("overlay-detalle");
+        }
+      );
+    });
 
-function hideLoader() {
-  const loader = document.getElementById("pageLoader");
-  if (loader) loader.remove();
-}
+    document.getElementById("det-btn-liberar").addEventListener("click", () => {
+      askConfirm(
+        "¿Liberar mesa?",
+        "Se marcará como pagada y quedará libre para el siguiente cliente.",
+        async () => {
+          const info = getPedidoDeMesa(mesaAbiertaId);
+          const batch = writeBatch(db);
+          if (info?.esGrupo) {
+            const grupo = gruposMap.get(grupoAbiertoId);
+            batch.set(info.grupoRef, { estado: "cerrado" }, { merge: true });
+            (grupo?.mesas || []).forEach((mm) => batch.set(doc(mesasColRef(), mm.id), { estado: "libre", grupoId: null, pago: "pagado", pedido: null, mozoAsignado: null, personas: null }, { merge: true }));
+            if (info.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "entregado" }, { merge: true });
+          } else {
+            batch.set(doc(mesasColRef(), mesaAbiertaId), { estado: "libre", pago: "pagado", pedido: null, mozoAsignado: null, personas: null }, { merge: true });
+            if (info?.pedidoDocId) batch.set(doc(pedidosColRef(), info.pedidoDocId), { estado: "entregado" }, { merge: true });
+          }
+          await batch.commit();
+          toast("🍽️ Mesa liberada");
+          closeOverlay("overlay-detalle");
+        }
+      );
+    });
 
-/* ══════════════ Init ══════════════ */
-iniciarListenerMozos();
-iniciarListenerMesas();
-iniciarListenerGrupos();
-iniciarListenerLlamados();
-cargarCatalogo();
-</script>
+    /* ══════════════ Llamados del cliente (colección llamados_mesa) ══════════════ */
+    async function marcarLlamadoAtendido(llamado) {
+      try {
+        await updateDoc(doc(llamadosColRef(), llamado.id), { estado: "atendido", atendidoPor: mozoActivo?.nombre || null, atendidoEn: serverTimestamp() });
+        toast("Solicitud marcada como atendida");
+      } catch (err) {
+        console.error(err); toast("No se pudo actualizar el llamado.", "error");
+      }
+    }
+    function iniciarListenerLlamados() {
+      onSnapshot(llamadosColRef(), (snap) => {
+        const nuevos = [];
+        snap.docChanges().forEach((change) => {
+          const data = { id: change.doc.id, ...change.doc.data() };
+          if (change.type === "removed") { llamadosMap.delete(change.doc.id); return; }
+          if (change.type === "added" && !firstLlamadosSnapshot && data.estado === "pendiente") nuevos.push(data);
+          llamadosMap.set(change.doc.id, data);
+        });
+        firstLlamadosSnapshot = false;
+        renderMesaGrid();
+        if (nuevos.length) {
+          soundLlamado(); bellRing();
+          nuevos.forEach((l) => toast(`🔔 Mesa ${l.mesaNumero}: ${MOTIVO_LABEL[l.motivo] || l.motivo}`));
+        }
+      }, (err) => console.error("Error escuchando llamados:", err));
+    }
+
+    /* ══════════════ Listener de mesas y grupos ══════════════ */
+    function iniciarListenerMesas() {
+      const q = query(mesasColRef(), orderBy("numero_mesa"));
+      onSnapshot(q, (snap) => {
+        const nuevosPedidos = [];
+        const listosNuevos = [];
+        snap.forEach((d) => {
+          const data = d.data();
+          const anterior = mesasMap.get(d.id);
+          if (data.estado === "ocupado" && data.pedido) {
+            const firma = `${data.pedido.hora || ""}|${data.pedido.total_items || 0}`;
+            const firmaAnterior = mesaPedidoFirma.get(d.id);
+            if (!firstMesasSnapshot && firma !== firmaAnterior && data.pedido.estadoMozo !== "confirmado") nuevosPedidos.push(data);
+            if (anterior?.pedido?.estado !== "listo" && data.pedido.estado === "listo") listosNuevos.push(data);
+            mesaPedidoFirma.set(d.id, firma);
+          } else {
+            mesaPedidoFirma.delete(d.id);
+          }
+          mesasMap.set(d.id, data);
+        });
+        // limpiar mesas eliminadas
+        const idsActuales = new Set(); snap.forEach((d) => idsActuales.add(d.id));
+        [...mesasMap.keys()].forEach((id) => { if (!idsActuales.has(id)) mesasMap.delete(id); });
+
+        firstMesasSnapshot = false;
+        renderMesaGrid();
+        hideLoader();
+
+        if (nuevosPedidos.length) { soundPedidoNuevo(); bellRing(); nuevosPedidos.forEach((p) => toast(`🍽️ Pedido nuevo en ${p.mesa?.nombre || "una mesa"}`)); }
+        if (listosNuevos.length) { soundListo(); bellRing(); listosNuevos.forEach((p) => toast(`🟣 Pedido listo en ${p.pedido?.mesa?.nombre || "una mesa"}`)); }
+      }, (err) => { console.error(err); toast("Conexión interrumpida, reintentando…", "error"); hideLoader(); });
+    }
+    function iniciarListenerGrupos() {
+      onSnapshot(gruposColRef(), (snap) => {
+        gruposMap.clear();
+        snap.forEach((d) => gruposMap.set(d.id, { id: d.id, ...d.data() }));
+        renderMesaGrid();
+      }, (err) => console.error("Error escuchando grupos:", err));
+    }
+
+    function hideLoader() {
+      const loader = document.getElementById("pageLoader");
+      if (loader) loader.remove();
+    }
+
+    /* ══════════════ Init ══════════════ */
+    iniciarListenerMozos();
+    iniciarListenerMesas();
+    iniciarListenerGrupos();
+    iniciarListenerLlamados();
+    cargarCatalogo();
+  </script>
 </body>
+
 </html>
