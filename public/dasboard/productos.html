@@ -342,7 +342,7 @@
     id="overlay-categoria">
     <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6">
       <h3 class="text-lg font-bold text-white mb-1">Nueva categoría</h3>
-      <p class="text-purple-300/60 text-xs mb-5">Ejemplo: Jaleas, Chaufas, Bebidas, Promociones.</p>
+      <p class="text-purple-300/60 text-xs mb-5" id="cat-ejemplo-text">Ejemplo: Jaleas, Chaufas, Bebidas, Promociones.</p>
       <form id="form-categoria">
         <div class="mb-5">
           <label for="input-cat-nombre"
@@ -441,7 +441,7 @@
 
         <div class="mb-2">
           <div class="flex items-center justify-between mb-2">
-            <label
+            <label id="label-condiciones"
               class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Condiciones
               (máx. 3)</label>
             <button type="button" id="btn-add-condicion"
@@ -519,8 +519,62 @@
     const db = getFirestore(app);
     const storage = getStorage(app);
 
+    /* ---------------- Adaptación de textos según categoría de negocio ---------------- */
+    // Esto NO cambia la estructura de datos ni los campos: solo adapta los textos de
+    // ejemplo/placeholder para que el panel se sienta natural en cualquier rubro
+    // (licorerías, supermercados, panaderías, pastelerías, cafeterías, moda, tecnología,
+    // jardinería, mascotas, hogar, ferretería, belleza, etc.), no solo restaurantes.
+    function normalizarCategoria(cat) {
+      return (cat || "")
+        .normalize("NFKC")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
 
+    let categoriaTienda = sessionStorage.getItem("categoriaTienda") || null;
+    let esRestaurante = normalizarCategoria(categoriaTienda) === "comida y restaurantes";
 
+    const TEXTOS_RESTAURANTE = {
+      catEjemplo: "Ejemplo: Jaleas, Chaufas, Bebidas, Promociones.",
+      catPlaceholder: "Ej. Platos Marinos",
+      prodNombrePlaceholder: "Ej. Jalea Mixta",
+      prodDescPlaceholder: "Ej. Acompañado de yuca frita, sarsa criolla y tártara casera.",
+      condicionesLabel: "Condiciones",
+      condNombrePlaceholder: "Ej. Partes",
+      opcionPlaceholder: "Ej. Pecho",
+    };
+
+    // Textos genéricos: sirven para cualquier tipo de negocio (bodega, panadería,
+    // pastelería, cafetería, licorería, moda, tecnología, mascotas, hogar, belleza, etc.)
+    const TEXTOS_GENERAL = {
+      catEjemplo: "Ejemplo: Ofertas, Nuevos, Más vendidos, Combos.",
+      catPlaceholder: "Ej. Nombre de la categoría",
+      prodNombrePlaceholder: "Ej. Nombre del producto",
+      prodDescPlaceholder: "Ej. Marca, presentación o características del producto.",
+      condicionesLabel: "Variantes",
+      condNombrePlaceholder: "Ej. Talla, Color, Presentación",
+      opcionPlaceholder: "Ej. M",
+    };
+
+    function textosActuales() {
+      return esRestaurante ? TEXTOS_RESTAURANTE : TEXTOS_GENERAL;
+    }
+
+    function aplicarTextosPorCategoria() {
+      const t = textosActuales();
+      const catEjemploEl = document.getElementById('cat-ejemplo-text');
+      if (catEjemploEl) catEjemploEl.textContent = t.catEjemplo;
+      const catInput = document.getElementById('input-cat-nombre');
+      if (catInput) catInput.placeholder = t.catPlaceholder;
+      const prodNombreInput = document.getElementById('input-prod-nombre');
+      if (prodNombreInput) prodNombreInput.placeholder = t.prodNombrePlaceholder;
+      const prodDescInput = document.getElementById('input-prod-descripcion');
+      if (prodDescInput) prodDescInput.placeholder = t.prodDescPlaceholder;
+      const labelCondiciones = document.getElementById('label-condiciones');
+      if (labelCondiciones) labelCondiciones.textContent = `${t.condicionesLabel} (máx. 3)`;
+    }
+    aplicarTextosPorCategoria();
 
     let tiendaId = sessionStorage.getItem("tiendaId");
     let localidad = sessionStorage.getItem("localidad");
@@ -531,6 +585,11 @@
         if (e.data?.tipo !== "DATOS_TIENDA") return;
         tiendaId = e.data.tiendaId;
         localidad = e.data.localidad;
+        if (e.data.categoriaTienda) {
+          categoriaTienda = e.data.categoriaTienda;
+          esRestaurante = normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+          aplicarTextosPorCategoria();
+        }
         // vuelve a ejecutar tu init aquí si hace falta
       });
     }
@@ -776,7 +835,7 @@
 
         const nombreInput = document.createElement('input');
         nombreInput.type = 'text';
-        nombreInput.placeholder = 'Ej. Partes';
+        nombreInput.placeholder = textosActuales().condNombrePlaceholder;
         nombreInput.maxLength = 30;
         nombreInput.value = cond.nombre;
         nombreInput.className = 'flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600';
@@ -803,7 +862,7 @@
           row.className = 'flex items-center gap-2';
           const opInput = document.createElement('input');
           opInput.type = 'text';
-          opInput.placeholder = 'Ej. Pecho';
+          opInput.placeholder = textosActuales().opcionPlaceholder;
           opInput.maxLength = 30;
           opInput.value = op.nombre;
           opInput.className = 'flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600';
@@ -901,6 +960,7 @@
       document.getElementById('input-prod-auto-desactivar').checked = false;
       document.getElementById('producto-cat-hint').textContent = `Se incluirá en "${categoriaNombre}".`;
       document.getElementById('btn-guardar-producto-label').textContent = 'Crear producto';
+      aplicarTextosPorCategoria();
       renderImgDropSlots();
       renderCondiciones();
       openOverlay('overlay-producto');
@@ -931,6 +991,7 @@
       document.getElementById('input-prod-auto-desactivar').checked = !!data.autoDesactivar;
       document.getElementById('producto-cat-hint').textContent = `Editando producto.`;
       document.getElementById('btn-guardar-producto-label').textContent = 'Guardar cambios';
+      aplicarTextosPorCategoria();
       renderImgDropSlots();
       renderCondiciones();
       openOverlay('overlay-producto');

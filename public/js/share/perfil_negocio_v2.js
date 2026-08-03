@@ -618,28 +618,53 @@ async function loadActivePromos({ localidad, id }) {
 
     snap.forEach((docSnap) => {
       const data = docSnap.data();
-      if (data.estado !== "activo") return;
+      const fh = data.datos_hora_fecha || {}; // ← el mapa anidado real
 
-      const finMs = data.timestamp_fin?.toMillis
-        ? data.timestamp_fin.toMillis()
+      // ── Estado: "estado" está en la raíz, "activo" está dentro de datos_hora_fecha ──
+      const estadoOk = data.estado === "activo";
+      const activoOk = fh.activo !== false; // si no existe el campo, se asume true
+      if (!estadoOk || !activoOk) return;
+
+      // ── Inicio de vigencia ──
+      const inicioMs = fh.timestamp_inicio?.toMillis
+        ? fh.timestamp_inicio.toMillis()
+        : null;
+      if (inicioMs && inicioMs > now) return; // aún no empieza
+
+      // ── Fin de vigencia: prioriza timestamp_fin (fuente de verdad) ──
+      let finMs = fh.timestamp_fin?.toMillis
+        ? fh.timestamp_fin.toMillis()
         : null;
 
-      // Descartar si ya expiró
-      if (finMs && finMs < now) return;
+      // ── Respaldo: fecha_fin + hora_fin como texto, hora de Lima (UTC-5 fijo) ──
+      if (finMs === null && fh.fecha_fin) {
+        finMs = parseFechaHoraLima(fh.fecha_fin, fh.hora_fin);
+      }
+
+      if (finMs === null) return; // sin forma de determinar vigencia → se descarta
+
+      if (finMs < now) return; // ← ya venció
 
       promos.push({ id: docSnap.id, ...data, _finMs: finMs });
     });
 
-    // Las que vencen antes van primero
     promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
-
-    return promos.slice(0, 4); // máx 4, o menos si hay menos
+    return promos.slice(0, 4);
   } catch (e) {
     console.warn("No se pudieron cargar promociones activas:", e.message);
     return [];
   }
 }
-
+/* Convierte "dd/mm/yyyy" + "HH:mm" (hora de Lima, UTC-5 fijo) a milisegundos UTC.
+   Lima no tiene horario de verano, así que el offset es siempre -5. */
+function parseFechaHoraLima(fechaStr, horaStr) {
+  const [d, m, y] = (fechaStr || "").split("/").map(Number);
+  if (!d || !m || !y) return null;
+  const [hh, mm] = (horaStr || "23:59").split(":").map(Number);
+  const limaOffsetMs = -5 * 60 * 60 * 1000;
+  const fechaUTC = Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0);
+  return fechaUTC - limaOffsetMs;
+}
 function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   const sec = document.getElementById("secCarta");
   const filtersEl = document.getElementById("cartaFilters");
@@ -740,9 +765,19 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
     };
   }
 }
+
+function normalizarCategoria(cat) {
+  return (cat || "")
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function listenMesasRealtime({ localidad, id }, categoria) {
   const sec = document.getElementById("secMesas");
-  const esComida = (categoria || "").toLowerCase().includes("comida");
+  injectMesasStyles(); // ← SIEMPRE se inyecta el CSS, sin importar la categoría
+  const esComida = normalizarCategoria(categoria) === "comida y restaurantes";
   if (!esComida) {
     if (sec) sec.style.display = "none";
     return;

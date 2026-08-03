@@ -317,7 +317,7 @@
           <p class="text-[11px] text-inkfaint mt-1">por pedido entregado</p>
         </div>
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Platos vendidos</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1" id="labelItemsVendidos">Platos vendidos</p>
           <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiItems">0</p>
           <p class="text-[11px] text-inkfaint mt-1">unidades totales</p>
         </div>
@@ -325,7 +325,7 @@
 
       <div class="grid sm:grid-cols-2 gap-3">
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Delivery vs. Mesa / Recojo</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3" id="labelBarCanal">Delivery vs. Mesa / Recojo</p>
           <div class="space-y-2.5" id="barCanal"></div>
         </div>
         <div class="bg-panel border border-line rounded-2xl p-4">
@@ -345,7 +345,7 @@
 
       <div class="grid sm:grid-cols-3 gap-3">
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2">🏆 Producto más vendido</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-2" id="labelTopProducto">🏆 Producto más vendido</p>
           <p class="font-display font-extrabold text-lg text-white leading-tight" id="topProductoNombre">—</p>
           <p class="text-xs text-inkfaint mt-1"><span id="topProductoCant">0</span> unidades en el rango</p>
         </div>
@@ -404,7 +404,7 @@
         </div>
 
         <div class="bg-panel border border-line rounded-2xl p-4">
-          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Ganancia por producto</p>
+          <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3" id="labelGananciaProducto">Ganancia por producto</p>
           <div class="space-y-2 max-h-56 overflow-y-auto" id="gananciaProductoList"></div>
         </div>
       </div>
@@ -493,7 +493,7 @@
             class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
             <option value="todos">Todos</option>
             <option value="delivery">Delivery</option>
-            <option value="local">Mesa / Recojo</option>
+            <option value="local" id="optionLocal">Mesa / Recojo</option>
           </select>
         </div>
         <div class="flex-1 min-w-[180px] relative">
@@ -533,7 +533,7 @@
       <div class="md:hidden space-y-2.5" id="cardsBody"></div>
 
       <div id="emptyState" class="hidden text-center py-16 text-inkfaint">
-        <p class="text-3xl mb-2">🍽️</p>
+        <p class="text-3xl mb-2" id="emptyStateIcon">🍽️</p>
         <p class="font-medium text-white">No hay pedidos con estos filtros</p>
       </div>
     </section>
@@ -569,12 +569,75 @@
     let tiendaId = sessionStorage.getItem("tiendaId");
     let localidad = sessionStorage.getItem("localidad");
 
+    /* ---------------- Adaptación de textos según categoría de negocio ---------------- */
+    // Mismo patrón usado en el panel de productos: no cambia la lógica de pedidos,
+    // solo adapta un puñado de textos/íconos para que no se sienta "de restaurante"
+    // cuando el negocio es una licorería, bodega, tienda de ropa, ferretería, etc.
+    function normalizarCategoria(cat) {
+      return (cat || "")
+        .normalize("NFKC")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    let categoriaTienda = sessionStorage.getItem("categoriaTienda") || null;
+    let nombreTienda = sessionStorage.getItem("nombreTienda") || null;
+    let esRestaurante = normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+
+    const TEXTOS_RESTAURANTE = {
+      itemsVendidosLabel: "Platos vendidos",
+      topProductoLabel: "🏆 Plato más vendido",
+      gananciaProductoLabel: "Ganancia por plato",
+      barCanalLabel: "Delivery vs. Mesa / Recojo",
+      tipoLocalLabel: "Mesa / Recojo",
+      emptyStateIcon: "🍽️",
+    };
+
+    // Textos genéricos: sirven para cualquier tipo de negocio (licorería, bodega,
+    // panadería, pastelería, cafetería, moda, tecnología, mascotas, hogar, belleza, etc.)
+    const TEXTOS_GENERAL = {
+      itemsVendidosLabel: "Productos vendidos",
+      topProductoLabel: "🏆 Producto más vendido",
+      gananciaProductoLabel: "Ganancia por producto",
+      barCanalLabel: "Delivery vs. Tienda / Recojo",
+      tipoLocalLabel: "Tienda / Recojo",
+      emptyStateIcon: "📦",
+    };
+
+    function textosActuales() {
+      return esRestaurante ? TEXTOS_RESTAURANTE : TEXTOS_GENERAL;
+    }
+
+    function aplicarTextosPorCategoria() {
+      const t = textosActuales();
+      const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      };
+      setText('labelItemsVendidos', t.itemsVendidosLabel);
+      setText('labelTopProducto', t.topProductoLabel);
+      setText('labelGananciaProducto', t.gananciaProductoLabel);
+      setText('labelBarCanal', t.barCanalLabel);
+      setText('optionLocal', t.tipoLocalLabel);
+      setText('emptyStateIcon', t.emptyStateIcon);
+    }
+    aplicarTextosPorCategoria();
+
     if (!tiendaId || !localidad) {
       // fallback por si el postMessage llega después
       window.addEventListener("message", (e) => {
         if (e.data?.tipo !== "DATOS_TIENDA") return;
         tiendaId = e.data.tiendaId;
         localidad = e.data.localidad;
+        if (e.data.categoriaTienda) {
+          categoriaTienda = e.data.categoriaTienda;
+          esRestaurante = normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+        }
+        if (e.data.nombreTienda) {
+          nombreTienda = e.data.nombreTienda;
+        }
+        aplicarTextosPorCategoria();
         // vuelve a ejecutar tu init aquí si hace falta
       });
     }
@@ -699,7 +762,7 @@
       const t = (tipo || '').toLowerCase();
       let icon = '🏪', label = tipo || '—';
       if (t.includes('delivery')) { icon = '🛵'; }
-      else if (t.includes('mesa')) { icon = '🍽️'; }
+      else if (t.includes('mesa')) { icon = esRestaurante ? '🍽️' : '🏪'; }
       else if (t.includes('recojo') || t.includes('llevar')) { icon = '🥡'; }
       return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-panel2 text-white text-xs font-medium whitespace-nowrap border border-line">${icon} ${label}</span>`;
     }
@@ -799,7 +862,7 @@
       const localCount = count - deliveryCount;
       renderBarPair('barCanal',
         { label: '🛵 Delivery', value: deliveryCount, color: 'bg-primary' },
-        { label: '🏪 Mesa / Recojo', value: localCount, color: 'bg-primary/40' },
+        { label: `🏪 ${textosActuales().tipoLocalLabel}`, value: localCount, color: 'bg-primary/40' },
         count
       );
 
@@ -1328,7 +1391,11 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(20, 20, 20);
-      doc.text('Alonso Peña Restobar · Historial de Pedidos', 40, 40);
+      // Antes decía "Alonso Peña Restobar" fijo en el código. Ahora usa el nombre
+      // real de la tienda (guardado en sessionStorage por la app contenedora),
+      // así sirve para cualquier negocio sin tocar el código cada vez.
+      const nombreParaPdf = nombreTienda || 'Historial de Pedidos';
+      doc.text(nombreTienda ? `${nombreParaPdf} · Historial de Pedidos` : nombreParaPdf, 40, 40);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);

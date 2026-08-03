@@ -1217,9 +1217,13 @@
                 }
             }
 
-            const esRestaurante = (categoria || "").trim().toLowerCase() === "comida y restaurantes ";
+            const esRestaurante = (categoria || "")
+                .normalize("NFKC")
+                .replace(/\s+/g, " ")
+                .trim()
+                .toLowerCase() === "comida y restaurantes";
             console.log("🔎 [categoria] valor final usado:", JSON.stringify(categoria), "| ¿esRestaurante?:", esRestaurante);
-
+            console.log("longitud:", categoria.length, "códigos:", [...categoria].map(c => c.charCodeAt(0)));
             if (!esRestaurante) {
                 const tileCarta = document.getElementById("qrTileCarta");
                 if (tileCarta) tileCarta.style.display = "none";

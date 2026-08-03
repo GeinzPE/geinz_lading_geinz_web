@@ -150,6 +150,30 @@
 
         <div class="mesa-empty-banner" id="mesaEmptyBanner" style="display:none;"></div>
 
+
+        <div class="nuevo-pedido-wrap" id="nuevoPedidoWrap" style="display:none;">
+            <div class="np-panel">
+                <div class="np-search-wrap">
+                    <input type="text" id="npSearchInput" placeholder="Buscar producto…" />
+                </div>
+                <div id="npFiltros" class="np-filtros"></div>
+                <div id="npGrid" class="np-grid"></div>
+                <div id="npEmpty" class="np-empty" style="display:none;">Sin productos en el catálogo.</div>
+            </div>
+
+            <div class="np-cart-panel">
+                <div class="np-cart-head">🧾 Pedido nuevo</div>
+                <input type="text" id="npClienteNombre" placeholder="Nombre del cliente (opcional)"
+                    class="np-cliente-input" />
+                <div id="npCartItems" class="np-cart-items"></div>
+                <div class="np-cart-total">
+                    <span>Total</span>
+                    <span id="npCartTotal">S/ 0.00</span>
+                </div>
+                <button id="npConfirmarBtn" class="np-confirmar-btn" disabled>Registrar pedido</button>
+            </div>
+        </div>
+
         <div class="board" id="board">
             <div class="board-col col-active" data-status="pendiente">
                 <div class="col-head">
@@ -243,7 +267,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import {
-            getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, serverTimestamp, query, orderBy, where, Timestamp, writeBatch, setDoc
+            getFirestore, doc, getDoc, collection, onSnapshot, updateDoc, serverTimestamp, query, orderBy, where, Timestamp, writeBatch, setDoc, getDocs, addDoc, runTransaction
         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -317,6 +341,36 @@
         styleTag.textContent = MESA_ADMIN_CSS;
         document.head.appendChild(styleTag);
 
+
+        const NP_CSS = `
+.nuevo-pedido-wrap{display:flex;gap:14px;padding:14px;flex-wrap:wrap;}
+.np-panel{flex:2;min-width:280px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;}
+.np-search-wrap input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:13px;margin-bottom:10px;}
+.np-filtros{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;}
+.np-filtros .np-chip{padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;color:var(--ink-dim);}
+.np-filtros .np-chip.active{background:#7c5cff;color:#fff;border-color:#7c5cff;}
+.np-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;max-height:520px;overflow-y:auto;}
+.np-card{background:var(--bg,#0a0a0f);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;}
+.np-card img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#1a1a20;}
+.np-card .np-name{font-size:12px;font-weight:700;line-height:1.25;}
+.np-card .np-price{font-size:12.5px;font-weight:800;color:#7c5cff;}
+.np-qty-row{display:flex;align-items:center;justify-content:space-between;margin-top:2px;}
+.np-qty-row button{width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:#fff;font-weight:900;cursor:pointer;}
+.np-add-btn{width:100%;padding:7px 0;border-radius:8px;border:none;background:#7c5cff;color:#fff;font-weight:700;font-size:12px;cursor:pointer;}
+.np-empty{padding:30px;text-align:center;color:var(--ink-faint);font-size:13px;}
+.np-cart-panel{flex:1;min-width:240px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;max-height:600px;}
+.np-cart-head{font-weight:800;font-size:14px;margin-bottom:10px;}
+.np-cliente-input{width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:12.5px;margin-bottom:10px;}
+.np-cart-items{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.np-cart-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+.np-cart-row .npc-name{flex:1;min-width:0;}
+.np-cart-row .npc-name .n{font-weight:700;display:block;truncate;}
+.np-cart-row .npc-name .p{color:var(--ink-dim);font-size:11px;}
+.np-cart-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;padding-top:10px;border-top:1px solid var(--line);margin-bottom:10px;}
+.np-confirmar-btn{width:100%;padding:12px 0;border-radius:12px;border:none;background:#22c55e;color:#04240f;font-weight:800;font-size:13px;cursor:pointer;}
+.np-confirmar-btn:disabled{opacity:.4;cursor:not-allowed;}
+`;
+        styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
 
         /* ══════════════ Identificación del negocio ══════════════ */
 
@@ -1419,6 +1473,7 @@
                             estado: "entregado", actualizado: serverTimestamp(),
                         }, { merge: true });
                     }
+                    if (grupo?.pedido) await descontarStockPedido(grupo.pedido); // ← NUEVO, antes del commit
                     await batch.commit();
                     showToast("🍽️ Mesas agrupadas liberadas y pedido marcado como pagado");
                     closeDetail();
@@ -1437,15 +1492,16 @@
                     return;
                 }
 
-                await Promise.all(activos.map(([mesaDocId, pseudoPedido]) => {
+                await Promise.all(activos.map(async ([mesaDocId, pseudoPedido]) => {
                     const mesaRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "mesas", mesaDocId);
                     const tareas = [updateDoc(mesaRef, { estado: "libre", pago: "pagado", pedido: null, reservado_en: null, hora_reservada: null })];
+
+                    await descontarStockPedido(pseudoPedido);
 
                     if (pseudoPedido.pedidoDocId) {
                         const pedidoRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", pseudoPedido.pedidoDocId);
                         tareas.push(updateDoc(pedidoRef, {
-                            estado: "entregado",
-                            actualizado: serverTimestamp(),
+                            estado: "entregado", actualizado: serverTimestamp(), stock_descontado: true,
                         }));
                     }
                     return Promise.all(tareas);
@@ -1602,15 +1658,79 @@
             });
         }
 
+
+        /* ══════════════ Descuento de stock al entregar un pedido ══════════════
+   Se descuenta SOLO la primera vez que el pedido llega a "entregado".
+   - Si el producto tiene stock = null (sin control de stock), no se toca.
+   - Si el pedido se rechaza, se reabre o se reactiva, NO se restaura el stock:
+     el descuento es definitivo.
+   - Usa runTransaction para que sea seguro aunque lleguen varios pedidos a la vez. */
+        async function descontarStockPedido(pedido) {
+            const productos = Array.isArray(pedido.productos) ? pedido.productos : [];
+            for (const it of productos) {
+                if (!it.id || !it.categoria) continue; // ítem sin referencia al catálogo (ej. venta manual)
+                const cantidad = Number(it.cantidad) || 0;
+                if (cantidad <= 0) continue;
+
+                const prodRef = doc(db, "Tiendas", localidad, localidad, tiendaId, "productos", it.categoria, it.categoria, it.id);
+                try {
+                    await runTransaction(db, async (tx) => {
+                        const snap = await tx.get(prodRef);
+                        if (!snap.exists()) return;
+                        const data = snap.data();
+                        const updates = {};
+
+                        // Stock del producto principal
+                        if (typeof data.stock === "number") {
+                            const nuevoStock = Math.max(0, data.stock - cantidad);
+                            updates.stock = nuevoStock;
+                            if (data.autoDesactivar && nuevoStock <= 0) updates.disponible = false;
+                        }
+
+                        // Stock de la variante/opción seleccionada, si el ítem trae esa info.
+                        // ⚠️ Ajusta el nombre del campo abajo (opciones_seleccionadas) al que
+                        // realmente use tu bot de WhatsApp al armar cada ítem del pedido.
+                        const seleccion = it.opciones_seleccionadas || it.seleccion || it.variantes || null;
+                        if (Array.isArray(seleccion) && Array.isArray(data.condiciones) && data.condiciones.length) {
+                            updates.condiciones = data.condiciones.map((cond) => {
+                                const match = seleccion.find((s) => s.condicion === cond.nombre);
+                                if (!match) return cond;
+                                return {
+                                    ...cond,
+                                    opciones: (cond.opciones || []).map((op) => {
+                                        if (op.nombre !== match.opcion || typeof op.stock !== "number") return op;
+                                        const nuevoStockOp = Math.max(0, op.stock - cantidad);
+                                        return { ...op, stock: nuevoStockOp, activo: nuevoStockOp > 0 ? op.activo : false };
+                                    }),
+                                };
+                            });
+                        }
+
+                        if (Object.keys(updates).length) tx.update(prodRef, updates);
+                    });
+                } catch (err) {
+                    console.error(`No se pudo descontar stock de "${it.nombre || it.id}":`, err);
+                }
+            }
+        }
         /* ══════════════ Cambiar estado en Firestore ══════════════ */
         async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
             if (btnEl) btnEl.disabled = true;
             try {
                 const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "pedidos", pedidoId);
                 const payload = { estado: nuevoEstado, actualizado: serverTimestamp() };
-                // Si sale de "rechazado" (reactivación) limpiamos la marca de auto-rechazo
                 if (nuevoEstado !== "rechazado") payload.auto_rechazado = false;
                 if (opts.auto) payload.auto_rechazado = true;
+
+                // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
+                if (nuevoEstado === "entregado") {
+                    const pedidoActual = pedidosMap.get(pedidoId);
+                    if (pedidoActual && !pedidoActual.stock_descontado) {
+                        await descontarStockPedido(pedidoActual);
+                        payload.stock_descontado = true;
+                    }
+                }
+
                 await updateDoc(ref, payload);
                 if (!opts.auto) showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
             } catch (err) {
@@ -2171,6 +2291,205 @@
                 showToast("❌ No se pudo agregar la mesa al grupo", true);
             }
         }
+
+        /* ══════════════ NUEVO PEDIDO (POS directo, para negocios NO restaurante) ══════════════ */
+        const NuevoPedido = {
+            productos: [],
+            productosPorId: new Map(),
+            carrito: new Map(), // id -> { ...producto, cantidad }
+            filtroCat: "Todos",
+            filtroTexto: "",
+            cargado: false,
+
+            normalizeText(s) {
+                return (s || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+            },
+
+            async cargarCatalogo() {
+                if (this.cargado) return;
+                const catRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "productos");
+                const catSnap = await getDocs(catRef);
+                const porCategoria = await Promise.all(
+                    catSnap.docs.map(async (catDoc) => {
+                        const categoria = catDoc.id;
+                        const subRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "productos", categoria, categoria);
+                        const subSnap = await getDocs(subRef);
+                        const arr = [];
+                        subSnap.forEach((pDoc) => {
+                            const d = pDoc.data();
+                            if (d.disponible === false) return;
+                            arr.push({
+                                id: pDoc.id,
+                                categoria,
+                                nombre: d.nombre || "Producto",
+                                nombreNorm: this.normalizeText(d.nombre || ""),
+                                precio: Number(d.precio) || 0,
+                                imagen: d.imagenes?.[0]?.url || "",
+                            });
+                        });
+                        return arr;
+                    })
+                );
+                this.productos = porCategoria.flat();
+                this.productosPorId = new Map(this.productos.map((p) => [p.id, p]));
+                this.cargado = true;
+                this.renderFiltros();
+                this.renderGrid();
+            },
+
+            renderFiltros() {
+                const wrap = document.getElementById("npFiltros");
+                const cats = ["Todos", ...new Set(this.productos.map((p) => p.categoria))];
+                wrap.innerHTML = cats.map((c) =>
+                    `<div class="np-chip${c === this.filtroCat ? " active" : ""}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</div>`
+                ).join("");
+                wrap.querySelectorAll(".np-chip").forEach((chip) => {
+                    chip.addEventListener("click", () => {
+                        this.filtroCat = chip.dataset.cat;
+                        this.renderFiltros();
+                        this.renderGrid();
+                    });
+                });
+            },
+
+            getFiltrados() {
+                let res = this.productos;
+                if (this.filtroCat !== "Todos") res = res.filter((p) => p.categoria === this.filtroCat);
+                if (this.filtroTexto) res = res.filter((p) => p.nombreNorm.includes(this.filtroTexto));
+                return res;
+            },
+
+            renderGrid() {
+                const grid = document.getElementById("npGrid");
+                const empty = document.getElementById("npEmpty");
+                const filtrados = this.getFiltrados();
+
+                if (!filtrados.length) {
+                    grid.innerHTML = "";
+                    empty.style.display = "block";
+                    return;
+                }
+                empty.style.display = "none";
+
+                grid.innerHTML = filtrados.map((p) => {
+                    const cant = this.carrito.get(p.id)?.cantidad || 0;
+                    return `
+    <div class="np-card" data-id="${p.id}">
+        <img src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy">
+        <div class="np-name">${escapeHtml(p.nombre)}</div>
+        <div class="np-price">${fmtMoney(p.precio)}</div>
+        <div class="np-qty-holder" data-holder="${p.id}">
+        ${cant === 0
+                            ? `<button class="np-add-btn" data-add="${p.id}">Agregar</button>`
+                            : `<div class="np-qty-row">
+                <button data-minus="${p.id}">−</button>
+                <span>${cant}</span>
+                <button data-plus="${p.id}">+</button>
+            </div>`}
+        </div>
+    </div>`;
+                }).join("");
+
+                grid.querySelectorAll("[data-add],[data-plus]").forEach((btn) => {
+                    btn.addEventListener("click", () => this.add(btn.dataset.add || btn.dataset.plus));
+                });
+                grid.querySelectorAll("[data-minus]").forEach((btn) => {
+                    btn.addEventListener("click", () => this.remove(btn.dataset.minus));
+                });
+            },
+
+            add(id) {
+                const p = this.productosPorId.get(id);
+                if (!p) return;
+                const entry = this.carrito.get(id);
+                if (entry) entry.cantidad += 1;
+                else this.carrito.set(id, { ...p, cantidad: 1 });
+                this.renderGrid();
+                this.renderCarrito();
+            },
+
+            remove(id) {
+                const entry = this.carrito.get(id);
+                if (!entry) return;
+                entry.cantidad -= 1;
+                if (entry.cantidad <= 0) this.carrito.delete(id);
+                this.renderGrid();
+                this.renderCarrito();
+            },
+
+            renderCarrito() {
+                const wrap = document.getElementById("npCartItems");
+                const items = [...this.carrito.values()];
+                const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+
+                wrap.innerHTML = items.length
+                    ? items.map((it) => `
+    <div class="np-cart-row">
+        <div class="npc-name"><span class="n">${escapeHtml(it.nombre)}</span><span class="p">${it.cantidad} × ${fmtMoney(it.precio)}</span></div>
+        <span>${fmtMoney(it.cantidad * it.precio)}</span>
+    </div>`).join("")
+                    : `<p style="font-size:12px;color:var(--ink-faint);text-align:center;padding:20px 0;">Toca productos para agregarlos</p>`;
+
+                document.getElementById("npCartTotal").textContent = fmtMoney(total);
+                document.getElementById("npConfirmarBtn").disabled = items.length === 0;
+            },
+
+            async confirmar() {
+                const items = [...this.carrito.values()];
+                if (!items.length) return;
+                const nombre = document.getElementById("npClienteNombre").value.trim() || "Cliente en mostrador";
+                const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+                const now = new Date();
+                const btn = document.getElementById("npConfirmarBtn");
+                btn.disabled = true;
+                btn.textContent = "Registrando…";
+
+                try {
+                    const pedidosRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
+                    await addDoc(pedidosRef, {
+                        estado: "pendiente",
+                        fecha: now.toLocaleDateString("es-PE"),
+                        hora: now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+                        timestamp: serverTimestamp(),
+                        cliente: { nombre, tipo_entrega: "Venta directa", direccion: "" },
+                        pago: { metodo: "En mostrador", vuelto: "" },
+                        nota: "",
+                        productos: items.map((it) => ({
+                            id: it.id, nombre: it.nombre, categoria: it.categoria,
+                            precio_unitario: it.precio, cantidad: it.cantidad,
+                            subtotal: +(it.precio * it.cantidad).toFixed(2), imagen: it.imagen || "",
+                        })),
+                        total_items: items.reduce((s, i) => s + i.cantidad, 0),
+                        total: +total.toFixed(2),
+                        negocio: { id: tiendaId, nombre: bizNombreGlobal, localidad },
+                    });
+
+                    this.carrito.clear();
+                    document.getElementById("npClienteNombre").value = "";
+                    this.renderGrid();
+                    this.renderCarrito();
+                    showToast("✅ Pedido registrado");
+                } catch (err) {
+                    console.error("Error registrando pedido directo:", err);
+                    showToast("❌ No se pudo registrar el pedido", true);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "Registrar pedido";
+                }
+            },
+
+            async init() {
+                await this.cargarCatalogo();
+                document.getElementById("npSearchInput").addEventListener("input", (e) => {
+                    this.filtroTexto = this.normalizeText(e.target.value);
+                    this.renderGrid();
+                });
+                document.getElementById("npConfirmarBtn").addEventListener("click", () => this.confirmar());
+            },
+        };
+
+
+
         document.getElementById("mesasGrupoReservarBtn")?.addEventListener("click", () => aplicarEstadoGrupal("reservada"));
         document.getElementById("mesasGrupoOcuparBtn")?.addEventListener("click", () => aplicarEstadoGrupal("ocupado"));
         document.getElementById("mesasGrupoLiberarBtn")?.addEventListener("click", () => aplicarEstadoGrupal("libre"));
@@ -2367,13 +2686,56 @@
             );
         }
 
+        async function aplicarVisibilidadPorCategoriaPedidos() {
+            let categoria = sessionStorage.getItem("categoriaTienda") || null;
+            if (!categoria) {
+                try {
+                    const snap = await getDoc(doc(db, "Tiendas", localidad, localidad, tiendaId));
+                    if (snap.exists()) {
+                        categoria = snap.data().categoria_tienda || null;
+                        sessionStorage.setItem("categoriaTienda", categoria || "");
+                    }
+                } catch (err) { console.error("No se pudo obtener la categoría de la tienda.", err); }
+            }
+
+            const esRestaurante = (categoria || "")
+                .normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase() === "comida y restaurantes";
+
+            if (esRestaurante) return;
+
+            const chipMesas = document.querySelector('.origin-chip[data-origin="mesa"]');
+            if (chipMesas) chipMesas.remove();
+            if (autoresBtn) autoresBtn.style.display = "none";
+
+            const chipDirecto = document.createElement("div");
+            chipDirecto.className = "origin-chip";
+            chipDirecto.dataset.origin = "directo";
+            chipDirecto.textContent = "🧾 Nuevo pedido";
+            originBar.appendChild(chipDirecto);
+
+            chipDirecto.addEventListener("click", async () => {
+                originFilter = "directo";
+                originBar.querySelectorAll(".origin-chip").forEach((c) => c.classList.toggle("active", c === chipDirecto));
+                document.getElementById("board").style.display = "none";
+                document.getElementById("statusTabs").style.display = "none";
+                mesasStripWrap.style.display = "none";
+                document.getElementById("nuevoPedidoWrap").style.display = "flex";
+                await NuevoPedido.init();
+            });
+
+            document.querySelector('.origin-chip[data-origin="whatsapp"]')?.addEventListener("click", () => {
+                document.getElementById("nuevoPedidoWrap").style.display = "none";
+                document.getElementById("board").style.display = "grid";
+                document.getElementById("statusTabs").style.display = "flex";
+            });
+        }
+
         function iniciarListener() {
             if (!tiendaId) return;
             iniciarListenerMesas();
             iniciarListenerGrupos();
             suscribirPedidos();
         }
-
         /* ══════════════ Refresco periódico del filtro "Hoy" ══════════════
            Si el filtro activo es "Hoy" o "Esta semana" y el reloj cruza la medianoche
            mientras la pantalla sigue abierta, este intervalo vuelve a evaluar el rango
@@ -2394,7 +2756,7 @@
 
         /* ══════════════ Arranque: URL → mensaje del panel → ID de prueba ══════════════ */
         if (tiendaId) {
-            iniciarListener();
+            cargarNegocio().then(() => aplicarVisibilidadPorCategoriaPedidos()).finally(() => iniciarListener());
         } else {
             let resuelto = false;
             window.addEventListener("message", (e) => {
@@ -2403,14 +2765,14 @@
                     resuelto = true;
                     tiendaId = d.id;
                     localidad = (d.localidad || localidad).toLowerCase();
-                    iniciarListener();
+                    cargarNegocio().then(() => aplicarVisibilidadPorCategoriaPedidos()).finally(() => iniciarListener());
                 }
             });
             setTimeout(() => {
                 if (!resuelto) {
                     resuelto = true;
                     tiendaId = ID_PRUEBA;
-                    iniciarListener();
+                    cargarNegocio().then(() => aplicarVisibilidadPorCategoriaPedidos()).finally(() => iniciarListener());
                 }
             }, 900);
         }

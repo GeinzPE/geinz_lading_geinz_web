@@ -1025,7 +1025,7 @@
             }
             window.PanelNegocio.CATEGORIA_TIENDA = categoria;
 
-            const esRestaurante = (categoria || "").trim().toLowerCase() === "comida y restaurantes ";
+            const esRestaurante = (categoria || "").trim().toLowerCase() === "comida y restaurantes";
             if (!esRestaurante) {
                 enterPanelSinRoles();
                 return;
