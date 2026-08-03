@@ -653,6 +653,8 @@
 
     let unsubNegocio = null;
     let unsubPedido = null;
+    let colorListo = null;     // ← nuevo: Promise que resuelve cuando el color ya se aplicó (o falló/expiró)
+    let primeraVezMostrado = false; // ← nuevo: solo esperamos el color en el primer render
 
     if (!ids) {
       showEmpty();
@@ -687,7 +689,12 @@
           if (logoUrl) {
             el("logo-img").alt = nombre;
             el("logo-img").src = logoUrl;
-            enIdle(() => extraerColorDominante(logoUrl));
+            colorListo = new Promise((resolve) => {
+              enIdle(() => extraerColorDominante(logoUrl).then(resolve));
+              // Salvavidas: si por lo que sea nunca resuelve (imagen colgada, etc.),
+              // no bloqueamos el contenido para siempre.
+              setTimeout(resolve, 2500);
+            });
           }
         }, (error) => {
           console.error("[pedidos] Error de Firestore leyendo NEGOCIO:", error.code, error.message);
@@ -703,13 +710,23 @@
       unsubPedido = onSnapshot(
         pedidoRef,
         { includeMetadataChanges: true },
-        (snap) => {
+        async (snap) => {
           if (!snap.exists()) {
             console.warn("[pedidos] El documento del PEDIDO no existe");
             showEmpty();
             return;
           }
+
           renderPedido(snap.data());
+
+          // Solo la PRIMERA vez esperamos a que el color del logo termine de aplicarse,
+          // para no mostrar un parpadeo con el color por defecto y luego el real.
+          // Actualizaciones posteriores en tiempo real se pintan al instante.
+          if (!primeraVezMostrado) {
+            primeraVezMostrado = true;
+            if (colorListo) await colorListo;
+          }
+
           showContent();
           // fromCache=true mientras no hay red: el dato mostrado es el último conocido.
           mostrarBannerConexion(snap.metadata.fromCache);
@@ -874,78 +891,89 @@
 
     // ---- Color dominante del logo → variables CSS de acento ----
     function extraerColorDominante(url) {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          const size = 32; // suficiente para estimar el color y más barato de procesar
-          canvas.width = size;
-          canvas.height = size;
-          const ctx = canvas.getContext("2d", { willReadFrequently: true });
-          ctx.drawImage(img, 0, 0, size, size);
-          const data = ctx.getImageData(0, 0, size, size).data;
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            const size = 32;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, size, size);
+            const data = ctx.getImageData(0, 0, size, size).data;
 
-          const buckets = {};
-          for (let i = 0; i < data.length; i += 4) {
-            const alpha = data[i + 3];
-            if (alpha < 100) continue;
-            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const buckets = {};
+            for (let i = 0; i < data.length; i += 4) {
+              const alpha = data[i + 3];
+              if (alpha < 100) continue;
+              const r = data[i], g = data[i + 1], b = data[i + 2];
 
-            const max = Math.max(r, g, b), min = Math.min(r, g, b);
-            const lightness = (max + min) / 2;
-            const sat = max === min ? 0 : (max - min) / (255 - Math.abs(2 * lightness - 255));
+              const max = Math.max(r, g, b), min = Math.min(r, g, b);
+              const lightness = (max + min) / 2;
+              const sat = max === min ? 0 : (max - min) / (255 - Math.abs(2 * lightness - 255));
 
-            if (lightness > 235 || lightness < 18 || sat < 0.15) continue;
+              if (lightness > 235 || lightness < 18 || sat < 0.15) continue;
 
-            const key = `${Math.round(r / 24)}-${Math.round(g / 24)}-${Math.round(b / 24)}`;
-            if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, count: 0, sat: 0 };
-            buckets[key].r += r;
-            buckets[key].g += g;
-            buckets[key].b += b;
-            buckets[key].count += 1;
-            buckets[key].sat += sat;
+              const key = `${Math.round(r / 24)}-${Math.round(g / 24)}-${Math.round(b / 24)}`;
+              if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, count: 0, sat: 0 };
+              buckets[key].r += r;
+              buckets[key].g += g;
+              buckets[key].b += b;
+              buckets[key].count += 1;
+              buckets[key].sat += sat;
+            }
+
+            const bucketList = Object.values(buckets);
+            let chosen = null;
+            if (bucketList.length > 0) {
+              chosen = bucketList
+                .map((bk) => ({ ...bk, score: bk.count * (bk.sat / bk.count) }))
+                .sort((a, b) => b.score - a.score)[0];
+            }
+
+            let r, g, b;
+            if (chosen) {
+              r = Math.round(chosen.r / chosen.count);
+              g = Math.round(chosen.g / chosen.count);
+              b = Math.round(chosen.b / chosen.count);
+            } else {
+              r = 194; g = 112; b = 61; // naranja tostado por defecto
+            }
+
+            // Piso de brillo: este mismo color se usa como TEXTO sobre fondo oscuro
+            // (--bg / --card) en varios lugares (precios, subtotales, opciones, etc.),
+            // así que si sale muy oscuro (logo negro/gris oscuro) hay que aclararlo
+            // o el texto se vuelve invisible.
+            const brightness = (r + g + b) / 3;
+            const MIN_BRIGHTNESS = 110;
+            if (brightness < MIN_BRIGHTNESS) {
+              const boost = MIN_BRIGHTNESS / Math.max(brightness, 1);
+              r = Math.min(255, Math.round(r * boost));
+              g = Math.min(255, Math.round(g * boost));
+              b = Math.min(255, Math.round(b * boost));
+            }
+
+            const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
+            const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            const dark = `#${toHex(Math.round(r * 0.65))}${toHex(Math.round(g * 0.65))}${toHex(Math.round(b * 0.65))}`;
+            const soft = `#${toHex(Math.round(r * 0.18))}${toHex(Math.round(g * 0.18))}${toHex(Math.round(b * 0.18))}`;
+
+            document.documentElement.style.setProperty("--accent", hex);
+            document.documentElement.style.setProperty("--accent-dark", dark);
+            document.documentElement.style.setProperty("--accent-soft", soft);
+          } catch (e) {
+            console.warn("[pedidos] No se pudo extraer color del logo (posible CORS):", e);
           }
-
-          const bucketList = Object.values(buckets);
-          let chosen = null;
-          if (bucketList.length > 0) {
-            chosen = bucketList
-              .map((bk) => ({ ...bk, score: bk.count * (bk.sat / bk.count) }))
-              .sort((a, b) => b.score - a.score)[0];
-          }
-
-          let r, g, b;
-          if (chosen) {
-            r = Math.round(chosen.r / chosen.count);
-            g = Math.round(chosen.g / chosen.count);
-            b = Math.round(chosen.b / chosen.count);
-          } else {
-            r = 194; g = 112; b = 61; // naranja tostado por defecto
-          }
-
-          const brightness = (r + g + b) / 3;
-          if (brightness < 90) {
-            const boost = 90 / Math.max(brightness, 1);
-            r = Math.min(255, Math.round(r * boost));
-            g = Math.min(255, Math.round(g * boost));
-            b = Math.min(255, Math.round(b * boost));
-          }
-
-          const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
-          const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-          const dark = `#${toHex(Math.round(r * 0.65))}${toHex(Math.round(g * 0.65))}${toHex(Math.round(b * 0.65))}`;
-          const soft = `#${toHex(Math.round(r * 0.18))}${toHex(Math.round(g * 0.18))}${toHex(Math.round(b * 0.18))}`;
-
-          document.documentElement.style.setProperty("--accent", hex);
-          document.documentElement.style.setProperty("--accent-dark", dark);
-          document.documentElement.style.setProperty("--accent-soft", soft);
-        } catch (e) {
-          console.warn("[pedidos] No se pudo extraer color del logo (posible CORS):", e);
-        }
-      };
-      img.onerror = () => console.warn("[pedidos] No se pudo cargar el logo para extraer color");
-      img.src = url;
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn("[pedidos] No se pudo cargar el logo para extraer color");
+          resolve();
+        };
+        img.src = url;
+      });
     }
   </script>
 </body>

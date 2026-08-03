@@ -221,10 +221,6 @@
             <label class="field-label" for="clienteDireccion">Dirección / Referencia</label>
             <input id="clienteDireccion" class="field-input" type="text" placeholder="Av. Ejemplo 123, cerca de…"
               autocomplete="off">
-            <button type="button" id="getUbicacionBtn"
-              class="w-full mt-2 py-2.5 rounded-xl border border-white/10 text-gray-300 font-bold text-[13px] hover:bg-white/5 transition flex items-center justify-center gap-2">
-              📍 Obtener mi ubicación y dirección
-            </button>
           </div>
         </div>
 
@@ -248,8 +244,6 @@
           <textarea id="clienteNota" class="field-input" rows="2"
             placeholder="Ej: Sin cebolla, ají aparte, etc."></textarea>
         </div>
-
-        <p id="checkoutVerifyInfo" class="text-[11px] text-gray-500 leading-relaxed"></p>>
 
         <div class="glass rounded-2xl p-4">
           <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
@@ -366,6 +360,26 @@
       return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
     }
 
+    function relativeLuminance({ r, g, b }) {
+      const lin = (v) => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    }
+
+    function ensureLegible(color) {
+      let { r, g, b } = color;
+      const MIN_LUM = 0.26;
+      let intentos = 0;
+      while (relativeLuminance({ r, g, b }) < MIN_LUM && intentos < 10) {
+        r = Math.min(255, r + 16);
+        g = Math.min(255, g + 16);
+        b = Math.min(255, b + 16);
+        intentos++;
+      }
+      return { r, g, b };
+    }
     function getDominantColor(imgEl) {
       return new Promise((resolve) => {
         const canvas = document.createElement("canvas");
@@ -401,9 +415,10 @@
     }
 
     function applyColor({ r, g, b }) {
-      document.documentElement.style.setProperty("--dr", r);
-      document.documentElement.style.setProperty("--dg", g);
-      document.documentElement.style.setProperty("--db", b);
+      const legible = ensureLegible({ r, g, b });
+      document.documentElement.style.setProperty("--dr", legible.r);
+      document.documentElement.style.setProperty("--dg", legible.g);
+      document.documentElement.style.setProperty("--db", legible.b);
     }
 
 
@@ -675,8 +690,7 @@
 
     async function confirmarPedidoMesaDirecto() {
       if (!carrito.size) return;
-      const ok = await validarDisponibilidadCarrito();
-      if (!ok) return;
+
       const items = [...carrito.values()];
       const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
 
@@ -735,7 +749,6 @@
           subSnap.forEach((pDoc) => {
             const d = pDoc.data();
             if (d.disponible === false) return;
-            if (typeof d.stock === "number" && d.stock <= 0) return; // stock agotado = no se muestra
             const nombre = d.nombre || "Producto";
 
             // Solo se traen las condiciones/opciones marcadas como activas (true)
@@ -745,7 +758,6 @@
                 opciones: (c.opciones || []).filter((o) => o.activo).map((o) => ({
                   nombre: o.nombre,
                   costoAdicional: Number(o.costoAdicional) || 0,
-                  stock: typeof o.stock === "number" ? o.stock : null,
                 })),
               }))
               .filter((c) => c.nombre && c.opciones.length > 0);
@@ -758,7 +770,6 @@
               nombreNorm: normalizeText(nombre),
               precio: Number(d.precio) || 0,
               imagen: d.imagenes?.[0]?.url || "",
-              stock: typeof d.stock === "number" ? d.stock : null,
               condiciones,
             });
           });
@@ -796,21 +807,37 @@
         logoImg.style.display = "block";
         logoPh.classList.add("hidden");
 
-        const temp = new Image();
-        temp.crossOrigin = "anonymous";
-        temp.onload = async () => {
-          const color = await getDominantColor(temp);
-          applyColor(color || colorFromName(bizNombre));
-        };
-        temp.onerror = () => applyColor(colorFromName(bizNombre));
-        temp.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
+        // Espera de verdad a que el color termine de calcularse antes de seguir,
+        // con un tope de tiempo por si la imagen tarda demasiado o nunca carga.
+        await new Promise((resolve) => {
+          let resuelto = false;
+          const finalizar = () => { if (!resuelto) { resuelto = true; resolve(); } };
+
+          const temp = new Image();
+          temp.crossOrigin = "anonymous";
+          temp.onload = async () => {
+            const color = await getDominantColor(temp);
+            applyColor(color || colorFromName(bizNombre));
+            finalizar();
+          };
+          temp.onerror = () => {
+            applyColor(colorFromName(bizNombre));
+            finalizar();
+          };
+          temp.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
+
+          // Salvavidas: si en 4s no cargó (red lenta, CORS, etc.), no bloqueamos el loader para siempre
+          setTimeout(() => {
+            if (!resuelto) applyColor(colorFromName(bizNombre));
+            finalizar();
+          }, 4000);
+        });
       } else {
         logoPh.classList.remove("hidden");
         logoPh.classList.add("flex");
         applyColor(colorFromName(bizNombre));
       }
     }
-
     /* Cuando el carrito viene de una mesa (QR), el botón "atrás" ya no debe
        hacer history.back() (puede llevar a un sitio raro o no ir a ningún lado
        si la mesa fue la primera pantalla abierta). En su lugar, manda a la
@@ -975,7 +1002,6 @@
     <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
-    ${typeof p.stock === "number" ? `<p class="text-[10.5px] font-bold mt-0.5 ${p.stock < 5 ? "text-amber-400" : "text-emerald-400"}">Stock: ${p.stock}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
   `;
 
@@ -1053,14 +1079,7 @@
           editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
           editBtn.onclick = () => abrirOptionsModal(p, entry.seleccion, entry.cartKey);
 
-          const addOtherBtn = document.createElement("button");
-          addOtherBtn.type = "button";
-          addOtherBtn.className = "w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 flex-shrink-0";
-          addOtherBtn.title = "Agregar con otra opción";
-          addOtherBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`;
-          addOtherBtn.onclick = () => abrirOptionsModal(p);
-
-          wrap.append(stepper, editBtn, addOtherBtn);
+          wrap.append(stepper, editBtn);
           container.appendChild(wrap);
         } else {
           // Más de una variante (ej. "Pecho" y "Pierna" del mismo producto) -> se manejan desde el carrito
@@ -1198,38 +1217,30 @@
         optsWrap.className = "toggle-row flex-wrap";
 
         cond.opciones.forEach((op, oi) => {
-          const sinStock = typeof op.stock === "number" && op.stock <= 0;
           const valorPrevio = seleccionOpciones[cond.nombre];
-          const esActiva = !sinStock && (valorPrevio ? valorPrevio === op.nombre : oi === 0);
+          const esActiva = valorPrevio ? valorPrevio === op.nombre : oi === 0;
           const optBtn = document.createElement("div");
-          optBtn.className = "toggle-opt" + (esActiva ? " active" : "") + (sinStock ? " opacity-40" : "");
-          let txt = op.costoAdicional ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})` : op.nombre;
-          if (sinStock) txt += " · Agotado";
-          else if (typeof op.stock === "number" && op.stock < 5) txt += ` · Quedan ${op.stock}`;
-          optBtn.textContent = txt;
+          optBtn.className = "toggle-opt" + (esActiva ? " active" : "");
+          optBtn.textContent = op.costoAdicional
+            ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})`
+            : op.nombre;
           if (esActiva) optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
-          if (sinStock) {
-            optBtn.style.cursor = "not-allowed";
-            optBtn.style.pointerEvents = "none";
-          } else {
-            optBtn.onclick = () => {
-              optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
-                o.classList.remove("active");
-                o.style.background = "";
-              });
-              optBtn.classList.add("active");
-              optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
-              seleccionOpciones[cond.nombre] = op.nombre;
-            };
-          }
+          optBtn.onclick = () => {
+            optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
+              o.classList.remove("active");
+              o.style.background = "";
+            });
+            optBtn.classList.add("active");
+            optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
+            seleccionOpciones[cond.nombre] = op.nombre;
+          };
           optsWrap.appendChild(optBtn);
         });
 
         wrap.appendChild(optsWrap);
         body.appendChild(wrap);
         if (cond.opciones.length && !seleccionOpciones[cond.nombre]) {
-          const primeraConStock = cond.opciones.find((o) => !(typeof o.stock === "number" && o.stock <= 0));
-          if (primeraConStock) seleccionOpciones[cond.nombre] = primeraConStock.nombre;
+          seleccionOpciones[cond.nombre] = cond.opciones[0].nombre;
         }
       });
 
@@ -1360,7 +1371,7 @@
         <p class="font-bold text-[14px] truncate">${it.nombre || "Producto"}</p>
         ${opcionesTxt ? `<p class="text-[11px] text-gray-500 truncate">${opcionesTxt}</p>` : ""}
         <p class="text-[12.5px] text-gray-500 mb-2">S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span></p>
-       <div class="flex items-center gap-1.5" data-qty-holder="${key}"></div>
+       <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
       </div>
       <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
         ${it.seleccion ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
@@ -1377,7 +1388,8 @@
 
       items.forEach((it) => {
         const key = it.cartKey || it.id;
-        const holder = wrap.querySelector(`[data-qty-holder="${key}"]`);
+        const holder = Array.from(wrap.querySelectorAll("[data-qty-key]"))
+          .find((el) => el.dataset.qtyKey === key);
         if (holder) renderQtyControls(holder, it, key);
       });
     }
@@ -1433,18 +1445,9 @@
     const direccionCollapse = document.getElementById("direccionCollapse");
     const efectivoCollapse = document.getElementById("efectivoCollapse");
 
-    function renderVerifyInfo() {
-      const el = document.getElementById("checkoutVerifyInfo");
-      if (!el) return;
-      const numero = getBizWhatsapp();
-      el.textContent = numero
-        ? `🔒 Por tu seguridad: tu pedido debe llegar a "${bizNombre}" al número ${numero}. Si WhatsApp no se abre automáticamente, escríbenos directo a ese número para confirmar tu pedido.`
-        : `🔒 Por tu seguridad, verifica que tu pedido lo reciba "${bizNombre}".`;
-    }
     function openCheckout() {
       if (!carrito.size) return;
       renderCheckoutSummary();
-      renderVerifyInfo();
       checkoutOverlay.classList.add("show");
       requestAnimationFrame(() => checkoutModal.classList.add("show"));
       document.body.style.overflow = "hidden";
@@ -1479,49 +1482,6 @@
       document.getElementById("checkoutTotal").textContent = total.toFixed(2);
     }
     /* ══════════════ Guardar pedido en Firestore ══════════════ */
-
-    // Revalida contra Firestore justo antes de enviar: por si el negocio desactivó
-    // o se quedó sin stock un producto mientras el cliente tenía el carrito abierto.
-    async function validarDisponibilidadCarrito() {
-      const idsUnicos = [...new Set([...carrito.values()].map((it) => it.id))];
-      const categoriaPorId = new Map([...carrito.values()].map((it) => [it.id, it.categoria]));
-      const problemas = [];
-
-      await Promise.all(idsUnicos.map(async (id) => {
-        const categoria = categoriaPorId.get(id);
-        const ref = doc(db, "Tiendas", localidad, localidad, tiendaId, "productos", categoria, categoria, id);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) { problemas.push(id); return; }
-        const d = snap.data();
-        if (d.disponible === false) { problemas.push(id); return; }
-        const cantidadEnCarrito = [...carrito.values()].filter((it) => it.id === id).reduce((s, it) => s + it.cantidad, 0);
-        if (typeof d.stock === "number" && (d.stock <= 0 || d.stock < cantidadEnCarrito)) { problemas.push(id); return; }
-
-        // Validar también el stock de la opción elegida (ej. "Helada" con 2 unidades)
-        const itemsDeEsteProducto = [...carrito.values()].filter((it) => it.id === id);
-        for (const item of itemsDeEsteProducto) {
-          if (!item.seleccion) continue;
-          for (const [nombreCond, valorElegido] of Object.entries(item.seleccion)) {
-            const cond = (d.condiciones || []).find((c) => c.nombre === nombreCond);
-            const opcion = cond?.opciones?.find((o) => o.nombre === valorElegido);
-            if (opcion && typeof opcion.stock === "number" && (opcion.stock <= 0 || opcion.stock < item.cantidad)) {
-              problemas.push(id);
-            }
-          }
-        }
-      }));
-
-      if (problemas.length) {
-        problemas.forEach((id) => {
-          [...carrito.keys()].filter((k) => carrito.get(k).id === id).forEach((k) => carrito.delete(k));
-          syncMainListCard(id);
-        });
-        updateCartUI();
-        showToast("⚠️ Algunos productos ya no están disponibles y fueron quitados del carrito");
-        return false;
-      }
-      return true;
-    }
     async function guardarPedidoEnDB({ nombre, tipoEntrega, direccion, metodoPago, vuelto, nota, items, total }) {
       const pedidosRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
       const now = new Date();
@@ -1571,38 +1531,8 @@
         o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
       });
       direccionCollapse.classList.toggle("open", tipoEntrega === "Delivery");
-      direccionCollapse.style.display = tipoEntrega === "Delivery" ? "block" : "none";
-      direccionCollapse.style.maxHeight = tipoEntrega === "Delivery" ? "none" : "0";
-      direccionCollapse.style.overflow = tipoEntrega === "Delivery" ? "visible" : "hidden";
     });
 
-    document.getElementById("getUbicacionBtn").addEventListener("click", () => {
-      if (!navigator.geolocation) { showToast("Tu navegador no soporta geolocalización"); return; }
-      const btn = document.getElementById("getUbicacionBtn");
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = "Obteniendo ubicación…";
-
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-          const data = await res.json();
-          document.getElementById("clienteDireccion").value = data.display_name || `${latitude}, ${longitude}`;
-          showToast("Ubicación obtenida ✅");
-        } catch {
-          document.getElementById("clienteDireccion").value = `${latitude}, ${longitude}`;
-          showToast("Se usaron coordenadas (no se pudo obtener la dirección exacta)");
-        } finally {
-          btn.disabled = false;
-          btn.textContent = original;
-        }
-      }, () => {
-        showToast("No se pudo obtener tu ubicación, revisa los permisos");
-        btn.disabled = false;
-        btn.textContent = original;
-      });
-    });
     /* Toggle: método de pago */
     document.getElementById("pagoToggle").addEventListener("click", (e) => {
       const opt = e.target.closest(".toggle-opt");
@@ -1620,11 +1550,6 @@
     function paintToggleDefaults() {
       document.querySelector('#entregaToggle .toggle-opt.active').style.background = "rgb(var(--dr),var(--dg),var(--db))";
       document.querySelector('#pagoToggle .toggle-opt.active').style.background = "rgb(var(--dr),var(--dg),var(--db))";
-      if (tipoEntrega === "Delivery") {
-        direccionCollapse.style.display = "block";
-        direccionCollapse.style.maxHeight = "none";
-        direccionCollapse.style.overflow = "visible";
-      }
     }
 
     /* Envío final por WhatsApp */
@@ -1649,10 +1574,6 @@
         showToast("Falta la dirección de entrega");
         return;
       }
-
-      const ok = await validarDisponibilidadCarrito();
-      if (!ok) { showToast("Revisa tu carrito, algo cambió"); return; }
-
 
       const vuelto = document.getElementById("clienteVuelto").value.trim();
       const nota = document.getElementById("clienteNota").value.trim();

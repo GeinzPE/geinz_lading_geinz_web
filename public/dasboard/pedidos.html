@@ -165,6 +165,10 @@
                 <div class="np-cart-head">🧾 Pedido nuevo</div>
                 <input type="text" id="npClienteNombre" placeholder="Nombre del cliente (opcional)"
                     class="np-cliente-input" />
+                <div class="np-pago-row" id="npPagoRow">
+                    <button type="button" class="np-pago-btn active" data-pago="Efectivo">💵 Efectivo</button>
+                    <button type="button" class="np-pago-btn" data-pago="QR">📱 QR (Yape/Plin)</button>
+                </div>
                 <div id="npCartItems" class="np-cart-items"></div>
                 <div class="np-cart-total">
                     <span>Total</span>
@@ -343,6 +347,9 @@
 
 
         const NP_CSS = `
+        .np-pago-row{display:flex;gap:8px;margin-bottom:10px;}
+.np-pago-btn{flex:1;padding:8px 0;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:var(--ink-dim);font-weight:700;font-size:12.5px;cursor:pointer;}
+.np-pago-btn.active{background:#7c5cff;border-color:#7c5cff;color:#fff;}
 .nuevo-pedido-wrap{display:flex;gap:14px;padding:14px;flex-wrap:wrap;}
 .np-panel{flex:2;min-width:280px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;}
 .np-search-wrap input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:13px;margin-bottom:10px;}
@@ -2296,9 +2303,10 @@
         const NuevoPedido = {
             productos: [],
             productosPorId: new Map(),
-            carrito: new Map(), // id -> { ...producto, cantidad }
+            carrito: new Map(),
             filtroCat: "Todos",
             filtroTexto: "",
+            metodoPago: "Efectivo",   // ← nuevo
             cargado: false,
 
             normalizeText(s) {
@@ -2447,12 +2455,12 @@
                 try {
                     const pedidosRef = collection(db, "Tiendas", localidad, localidad, tiendaId, "pedidos");
                     await addDoc(pedidosRef, {
-                        estado: "pendiente",
+                        estado: "entregado",   // ← antes decía "pendiente"
                         fecha: now.toLocaleDateString("es-PE"),
                         hora: now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
                         timestamp: serverTimestamp(),
                         cliente: { nombre, tipo_entrega: "Venta directa", direccion: "" },
-                        pago: { metodo: "En mostrador", vuelto: "" },
+                        pago: { metodo: this.metodoPago, vuelto: "" },   // ← antes decía "En mostrador"
                         nota: "",
                         productos: items.map((it) => ({
                             id: it.id, nombre: it.nombre, categoria: it.categoria,
@@ -2466,6 +2474,8 @@
 
                     this.carrito.clear();
                     document.getElementById("npClienteNombre").value = "";
+                    this.metodoPago = "Efectivo";
+                    document.querySelectorAll("#npPagoRow .np-pago-btn").forEach((b) => b.classList.toggle("active", b.dataset.pago === "Efectivo"));
                     this.renderGrid();
                     this.renderCarrito();
                     showToast("✅ Pedido registrado");
@@ -2485,6 +2495,12 @@
                     this.renderGrid();
                 });
                 document.getElementById("npConfirmarBtn").addEventListener("click", () => this.confirmar());
+                document.querySelectorAll("#npPagoRow .np-pago-btn").forEach((btn) => {
+                    btn.addEventListener("click", () => {
+                        this.metodoPago = btn.dataset.pago;
+                        document.querySelectorAll("#npPagoRow .np-pago-btn").forEach((b) => b.classList.toggle("active", b === btn));
+                    });
+                });
             },
         };
 
