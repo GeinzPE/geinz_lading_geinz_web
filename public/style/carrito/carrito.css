@@ -817,13 +817,15 @@ body {
 }
 
 .collapse {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows .3s cubic-bezier(.2, .8, .2, 1);
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height .32s cubic-bezier(.2, .8, .2, 1), opacity .22s ease;
 }
 
 .collapse.open {
-    grid-template-rows: 1fr;
+    max-height: 260px;
+    opacity: 1;
 }
 
 .collapse-inner {

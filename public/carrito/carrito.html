@@ -1183,34 +1183,6 @@
           btn.textContent = "Agregar";
           btn.onclick = () => addToCart(p);
           container.appendChild(btn);
-        } else if (variantes.length === 1) {
-          // Una sola variante en el carrito -> stepper normal +/- y lápiz para cambiar la opción
-          const entry = variantes[0];
-          const wrap = document.createElement("div");
-          wrap.className = "flex items-center gap-1.5";
-
-          const stepper = document.createElement("div");
-          stepper.className = "qty-stepper pop";
-          const minus = document.createElement("button");
-          minus.className = "qty-btn"; minus.textContent = "−";
-          minus.onclick = () => removeFromCart(entry.cartKey, p.id);
-          const count = document.createElement("span");
-          count.className = "w-6 text-center font-black text-[15px] bump";
-          count.textContent = entry.cantidad;
-          const plus = document.createElement("button");
-          plus.className = "qty-btn"; plus.textContent = "+";
-          plus.onclick = () => addToCart(p, entry.seleccion);
-          stepper.append(minus, count, plus);
-
-          const editBtn = document.createElement("button");
-          editBtn.type = "button";
-          editBtn.className = "w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 flex-shrink-0";
-          editBtn.title = "Cambiar opciones";
-          editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
-          editBtn.onclick = () => abrirOptionsModal(p, entry.seleccion, entry.cartKey);
-
-          wrap.append(stepper, editBtn);
-          container.appendChild(wrap);
         } else {
           // Más de una variante (ej. "Pecho" y "Pierna" del mismo producto) -> se manejan desde el carrito
           const btn = document.createElement("button");
@@ -1598,7 +1570,10 @@
     const checkoutModal = document.getElementById("checkoutModal");
     const direccionCollapse = document.getElementById("direccionCollapse");
     const efectivoCollapse = document.getElementById("efectivoCollapse");
-
+    function setCollapseOpen(el, open) {
+      if (!el) return;
+      el.classList.toggle("open", open);
+    }
     function openCheckout() {
       if (!carrito.size) return;
       renderCheckoutSummary();
@@ -1684,7 +1659,7 @@
         o.classList.toggle("active", active);
         o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
       });
-      direccionCollapse.classList.toggle("open", tipoEntrega === "Delivery");
+      setCollapseOpen(direccionCollapse, tipoEntrega === "Delivery");
     });
 
     /* Toggle: método de pago */
@@ -1697,15 +1672,16 @@
         o.classList.toggle("active", active);
         o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
       });
-      efectivoCollapse.classList.toggle("open", metodoPago === "Efectivo");
+      setCollapseOpen(efectivoCollapse, metodoPago === "Efectivo");
     });
 
     /* Inicializar colores activos de los toggles al cargar */
     function paintToggleDefaults() {
       document.querySelector('#entregaToggle .toggle-opt.active').style.background = "rgb(var(--dr),var(--dg),var(--db))";
       document.querySelector('#pagoToggle .toggle-opt.active').style.background = "rgb(var(--dr),var(--dg),var(--db))";
+      setCollapseOpen(direccionCollapse, tipoEntrega === "Delivery");
+      setCollapseOpen(efectivoCollapse, metodoPago === "Efectivo");
     }
-
     /* Envío final por WhatsApp */
     document.getElementById("sendWhatsappBtn").addEventListener("click", async () => {
       const nombreInput = document.getElementById("clienteNombre");

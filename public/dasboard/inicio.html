@@ -29,6 +29,195 @@
             box-sizing: border-box;
         }
 
+        /* ── Motor de animaciones (liviano: solo opacity/transform, sin blur) ── */
+        @keyframes viewFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes riseIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(.97);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes modalBgFade {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes modalCardIn {
+            from {
+                opacity: 0;
+                transform: translateY(14px) scale(.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes valuePulse {
+            0% {
+                transform: scale(1.08);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Toda vista principal entra con un fade+rise suave al mostrarse */
+        .wrap:not(.hidden),
+        .wrap-narrow:not(.hidden) {
+            animation: viewFadeIn .34s cubic-bezier(.22, 1, .36, 1) both;
+        }
+
+        /* Cascada de tarjetas dentro del panel/roles: cada .card entra escalonada */
+        #view-panel .card,
+        #view-roles .card {
+            animation: riseIn .4s cubic-bezier(.22, 1, .36, 1) both;
+        }
+
+        #view-panel .card:nth-of-type(1) {
+            animation-delay: .02s;
+        }
+
+        #view-panel .card:nth-of-type(2) {
+            animation-delay: .07s;
+        }
+
+        #view-panel .stats-grid .stat-card:nth-child(1) {
+            animation: riseIn .38s cubic-bezier(.22, 1, .36, 1) both;
+            animation-delay: .1s;
+        }
+
+        #view-panel .stats-grid .stat-card:nth-child(2) {
+            animation: riseIn .38s cubic-bezier(.22, 1, .36, 1) both;
+            animation-delay: .14s;
+        }
+
+        #view-panel .stats-grid .stat-card:nth-child(3) {
+            animation: riseIn .38s cubic-bezier(.22, 1, .36, 1) both;
+            animation-delay: .18s;
+        }
+
+        #view-panel .actions-grid .action-btn {
+            animation: popIn .32s cubic-bezier(.22, 1, .36, 1) both;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(1) {
+            animation-delay: .18s;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(2) {
+            animation-delay: .21s;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(3) {
+            animation-delay: .24s;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(4) {
+            animation-delay: .27s;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(5) {
+            animation-delay: .3s;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(6) {
+            animation-delay: .33s;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(7) {
+            animation-delay: .36s;
+        }
+
+        #view-panel .actions-grid .action-btn:nth-child(8) {
+            animation-delay: .39s;
+        }
+
+        /* Tacto: feedback inmediato al presionar, ligero y barato (solo transform) */
+        .action-btn:active,
+        .submit-btn:not(:disabled):active,
+        .primary-btn:active,
+        .recharge-btn:active,
+        .delete-btn:active,
+        .back-btn:active,
+        .logout-btn:active {
+            transform: scale(.96);
+            transition: transform .08s ease;
+        }
+
+        /* Valor que cambia (saldo/ventas/etc.) hace un pequeño "pulso" en vez de saltar seco */
+        .value-pulse {
+            display: inline-block;
+            animation: valuePulse .35s cubic-bezier(.22, 1, .36, 1);
+        }
+
+        /* Transiciones de color/borde en elementos que cambian de estado dinámicamente */
+        .status-pill {
+            transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+        }
+
+        .logo-wrap img {
+            transition: opacity .3s ease;
+        }
+
+        .logo-fallback {
+            transition: opacity .2s ease;
+        }
+
+        /* Respeta a quienes prefieren menos movimiento, y ahorra ciclos en equipos muy limitados */
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: .001s !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .001s !important;
+            }
+        }
+
         body {
             margin: 0;
             min-height: 100vh;
@@ -244,6 +433,7 @@
         }
 
         .logo-wrap {
+            position: relative;
             width: 56px;
             height: 56px;
             border-radius: 50%;
@@ -261,11 +451,12 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            display: none;
+            opacity: 0;
+            position: absolute;
         }
 
         .logo-wrap img.loaded {
-            display: block;
+            opacity: 1;
         }
 
         .logo-fallback {
@@ -648,6 +839,18 @@
             text-align: center;
             padding: 60px 20px;
             color: var(--muted);
+            animation: viewFadeIn .3s ease both;
+        }
+
+        /* Modales: fondo se desvanece, tarjeta entra con un leve rebote */
+        #view-reset-worker:not(.hidden),
+        #view-edit-permisos:not(.hidden) {
+            animation: modalBgFade .18s ease both;
+        }
+
+        #view-reset-worker:not(.hidden) .card,
+        #view-edit-permisos:not(.hidden) .card {
+            animation: modalCardIn .28s cubic-bezier(.34, 1.56, .64, 1) both;
         }
 
         /* Scrollbar oscura */
@@ -681,7 +884,12 @@
 
     <!-- ═══════════════════ VISTA: cargando ═══════════════════ -->
     <div class="wrap-narrow" id="view-loading">
-        <p class="subtitle" style="text-align:center;">Verificando cuenta del negocio…</p>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+            <div
+                style="width:30px;height:30px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--purple);animation:spin .7s linear infinite;">
+            </div>
+            <p class="subtitle" style="text-align:center;margin:0;">Verificando cuenta del negocio…</p>
+        </div>
     </div>
 
     <!-- ═══════════════════ VISTA: crear administrador ═══════════════════ -->
@@ -822,6 +1030,8 @@
                 Vivo</button>
             <button class="action-btn" id="btnProductos" data-perm="productos"><span class="icon">🛍️</span>
                 Productos</button>
+            <button class="action-btn" id="btnHistorial" data-perm="historial"><span class="icon">🧾</span>
+                Historial de ventas</button>
             <button class="action-btn" id="btnRecargas" data-perm="recargas"><span class="icon">💳</span>
                 Recargas</button>
             <button class="action-btn" id="btnRoles" data-perm="__admin__"><span class="icon">🛡️</span> Gestionar
@@ -958,6 +1168,7 @@
             { key: "qr", label: "Mi QR" },
             { key: "productos", label: "Productos" },
             { key: "pedidos", label: "Pedidos / Ventas" },
+            { key: "historial", label: "Historial de ventas" },
             { key: "recargas", label: "Recargas" },
         ];
         const TODOS_LOS_PERMISOS = PERMISOS_DISPONIBLES.map(p => p.key);
@@ -993,6 +1204,16 @@
             t.classList.add("show");
             clearTimeout(t._timer);
             t._timer = setTimeout(() => t.classList.remove("show"), 2600);
+        }
+
+        // Actualiza el texto de un elemento y, solo si cambió, hace un pequeño
+        // "pulso" (transform, no layout) — barato incluso en equipos muy limitados.
+        function setTextPulse(el, newText) {
+            if (el.textContent === newText) return;
+            el.textContent = newText;
+            el.classList.remove("value-pulse");
+            void el.offsetWidth; // fuerza reflow para poder re-disparar la animación
+            el.classList.add("value-pulse");
         }
 
         function setMsg(boxId, text, type) {
@@ -1264,9 +1485,9 @@
         function setLogo(url) {
             const img = document.getElementById("logoImg");
             const fallback = document.getElementById("logoFallback");
-            if (!url) { img.classList.remove("loaded"); fallback.style.display = "flex"; return; }
-            img.onload = () => { img.classList.add("loaded"); fallback.style.display = "none"; };
-            img.onerror = () => { img.classList.remove("loaded"); fallback.style.display = "flex"; };
+            if (!url) { img.classList.remove("loaded"); fallback.style.opacity = "1"; return; }
+            img.onload = () => { img.classList.add("loaded"); fallback.style.opacity = "0"; };
+            img.onerror = () => { img.classList.remove("loaded"); fallback.style.opacity = "1"; };
             img.src = url;
         }
 
@@ -1280,7 +1501,7 @@
                 setStatus(calcOpenNow(biz.horario_atencion));
                 const puntos = Number(biz.puntos_tienda) || 0;
                 const soles = puntos * CREDITO_A_SOLES;
-                document.getElementById("balanceValue").textContent = `S/ ${soles.toFixed(2)}`;
+                setTextPulse(document.getElementById("balanceValue"), `S/ ${soles.toFixed(2)}`);
                 document.getElementById("balanceSub").textContent = `${puntos} créditos`;
             }, (err) => console.error("Error escuchando negocio:", err));
 
@@ -1309,9 +1530,9 @@
                     if (enCocina) cocina++;
                     else if (!rechazado) atendidos++;
                 });
-                document.getElementById("ventasValue").textContent = `S/ ${ventas.toFixed(2)}`;
-                document.getElementById("atendidosValue").textContent = atendidos;
-                document.getElementById("cocinaValue").textContent = cocina;
+                setTextPulse(document.getElementById("ventasValue"), `S/ ${ventas.toFixed(2)}`);
+                setTextPulse(document.getElementById("atendidosValue"), String(atendidos));
+                setTextPulse(document.getElementById("cocinaValue"), String(cocina));
                 document.getElementById("urgentCard").classList.toggle("active", cocina > 0);
             }, (err) => console.error("Error escuchando pedidos:", err));
         }
@@ -1342,6 +1563,7 @@
         document.getElementById("btnPublicidad").addEventListener("click", () => navigateTo("publicidad"));
         document.getElementById("btnPedidosVivo").addEventListener("click", () => navigateTo("pedidos"));
         document.getElementById("btnProductos").addEventListener("click", () => navigateTo("productos"));
+        document.getElementById("btnHistorial").addEventListener("click", () => navigateTo("historial"));
         document.getElementById("btnQR").addEventListener("click", () => navigateTo("qr"));
         document.getElementById("btnRecargas").addEventListener("click", () => navigateTo("recargas"));
         document.getElementById("btnRoles").addEventListener("click", () => navigateTo("roles"));

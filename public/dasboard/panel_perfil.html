@@ -361,15 +361,19 @@
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
                         <div class="mobile-menu-group-body">
-                            <button class="mobile-menu-item" id="mmb-daniel"
-                                onclick="PanelPerfil.showSection('daniel'); PanelPerfil.toggleMobileMenu()">
+                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-daniel" disabled
+                                title="Próximamente disponible"
+                                style="opacity:.5;cursor:not-allowed;pointer-events:none;">
                                 <span>🤖</span>
                                 <span>Asistente Daniel</span>
+                                <span class="badge-proximamente">Pronto</span>
                             </button>
-                            <button class="mobile-menu-item" id="mmb-cotiza"
-                                onclick="PanelPerfil.showSection('cotiza'); PanelPerfil.toggleMobileMenu()">
+                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-cotiza" disabled
+                                title="Próximamente disponible"
+                                style="opacity:.5;cursor:not-allowed;pointer-events:none;">
                                 <span>🔨</span>
                                 <span>Crea tu asistente</span>
+                                <span class="badge-proximamente">Pronto</span>
                             </button>
                             <button class="mobile-menu-item" id="mmb-recargas"
                                 onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
@@ -673,7 +677,7 @@
                 publicidad: "publicidad",
                 qr: "qr",
                 productos: "productos",
-                historial: "pedidos", // no tiene permiso propio, se agrupa con "pedidos"
+                historial: "historial", // no tiene permiso propio, se agrupa con "pedidos"
                 pedidos: "pedidos",
                 recargas: "recargas",
             };

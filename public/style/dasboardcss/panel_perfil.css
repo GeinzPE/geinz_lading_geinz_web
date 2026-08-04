@@ -3367,7 +3367,7 @@ input:checked+.slider:before {
     color: white;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 4px;
     padding: 0 16px;
     font-size: 15px;
     transition: .2s;

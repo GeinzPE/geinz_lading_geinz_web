@@ -2406,7 +2406,7 @@
             filtroTexto: "",
             metodoPago: "Efectivo",
             cargado: false,
-
+            listenersListos: false,
 
 
             normalizeText(s) {
@@ -2773,8 +2773,13 @@
                 }
             },
 
+
             async init() {
                 await this.cargarCatalogo();
+
+                if (this.listenersListos) return; // ← evita re-registrar listeners
+                this.listenersListos = true;
+
                 document.getElementById("npSearchInput").addEventListener("input", (e) => {
                     this.filtroTexto = this.normalizeText(e.target.value);
                     this.renderGrid();
@@ -2796,13 +2801,11 @@
                     else if (minusBtn) this.remove(minusBtn.dataset.minus);
                     else if (optBtn) this.abrirOpciones(this.productosPorId.get(optBtn.dataset.openOpt));
                 });
-
                 document.getElementById("npCartItems").addEventListener("click", (e) => {
                     const plusBtn = e.target.closest("[data-cart-plus]");
                     const minusBtn = e.target.closest("[data-cart-minus]");
                     const trashBtn = e.target.closest("[data-cart-trash]");
                     const editBtn = e.target.closest("[data-cart-edit]");
-
                     if (plusBtn) this.addByKey(plusBtn.dataset.cartPlus);
                     else if (minusBtn) this.removeByKey(minusBtn.dataset.cartMinus);
                     else if (trashBtn) this.eliminarByKey(trashBtn.dataset.cartTrash);
