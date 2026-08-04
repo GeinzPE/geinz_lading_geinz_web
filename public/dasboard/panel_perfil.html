@@ -17,6 +17,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
     <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
     <link rel="manifest" href="../img/icons/site.webmanifest">
+    <script src="../js/storage/storage.js"></script>
 </head>
 
 <body>
@@ -518,15 +519,12 @@
 
         onAuthStateChanged(auth, (user) => {
             if (!user) {
-                sessionStorage.removeItem("tiendaId");
-                sessionStorage.removeItem("localidad");
-                sessionStorage.removeItem("correoVinculado");
+                StorageCleaner.limpiarTodo();
                 window.location.replace("../index");
                 return;
             }
             console.log("Usuario logeado OK:", user.uid);
         });
-
         window.cerrarSesionPanel = async () => {
 
             const uid = auth.currentUser?.uid;
@@ -575,10 +573,10 @@
                 await signOut(auth);
             } catch (e) { }
 
-            sessionStorage.removeItem("tiendaId");
-            sessionStorage.removeItem("localidad");
-            sessionStorage.removeItem("correoVinculado");
-
+            // 🔥 Limpieza total: TODO localStorage y TODO sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            StorageCleaner.limpiarTodo();
             window.location.replace("../index");
         };
     </script>
@@ -722,23 +720,23 @@
     </script>
 
     <script>
-  window.addEventListener('message', function (e) {
-    const tipo = e.data?.type;
-    if (!['SALDO_UPDATE', 'PUBLICIDAD_UPDATE', 'PLANES_UPDATE'].includes(tipo)) return;
+        window.addEventListener('message', function (e) {
+            const tipo = e.data?.type;
+            if (!['SALDO_UPDATE', 'PUBLICIDAD_UPDATE', 'PLANES_UPDATE'].includes(tipo)) return;
 
-    // Actualizamos el saldo global del documento padre también
-    if (tipo === 'SALDO_UPDATE') {
-      window._saldoActual = e.data.saldo;
-    }
+            // Actualizamos el saldo global del documento padre también
+            if (tipo === 'SALDO_UPDATE') {
+                window._saldoActual = e.data.saldo;
+            }
 
-    // Reenviar el mismo mensaje a TODOS los iframes hermanos (incluida Publicidad)
-    document.querySelectorAll('iframe').forEach((iframe) => {
-      try {
-        iframe.contentWindow.postMessage(e.data, '*');
-      } catch (err) {}
-    });
-  });
-</script>
+            // Reenviar el mismo mensaje a TODOS los iframes hermanos (incluida Publicidad)
+            document.querySelectorAll('iframe').forEach((iframe) => {
+                try {
+                    iframe.contentWindow.postMessage(e.data, '*');
+                } catch (err) { }
+            });
+        });
+    </script>
 </body>
 
 </html>

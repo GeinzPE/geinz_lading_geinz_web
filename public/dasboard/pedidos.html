@@ -387,23 +387,46 @@
 .np-cart-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;padding-top:10px;border-top:1px solid var(--line);margin-bottom:10px;}
 .np-confirmar-btn{width:100%;padding:12px 0;border-radius:12px;border:none;background:#22c55e;color:#04240f;font-weight:800;font-size:13px;cursor:pointer;}
 .np-confirmar-btn:disabled{opacity:.4;cursor:not-allowed;}
-.np-img-wrap{width:100%;aspect-ratio:1;  border-radius:50%;overflow:hidden;background:#1a1a20;display:flex;align-items:center;justify-content:center;}
-.np-img-wrap img{width:100%;height:100%;object-fit:cover;}
-.np-noimg,.np-img-ph{
+
+.np-img-wrap{
   width:100%;
-  height:100%;
-  border-radius:50%;
-  background:radial-gradient(circle at center, rgba(124,92,255,.18), rgba(124,92,255,.04));
+  aspect-ratio:1;
+  border-radius:8px;
+  overflow:hidden;
+  background:#1a1a20;
   display:flex;
   align-items:center;
   justify-content:center;
 }
-.np-noimg::after,.np-img-ph::after{
-  content:'';
-  width:58%;
-  height:58%;
-  background:url('../img/logo-geinz.png') center / contain no-repeat;
-}.np-opt-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;align-items:center;justify-content:center;}
+.np-img-wrap img{width:100%;height:100%;object-fit:cover;}
+
+.np-noimg,.np-img-ph{
+  width:100%;
+  height:100%;
+  background:radial-gradient(circle at center, rgba(124,92,255,.18), rgba(124,92,255,.05));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.np-logo-circle{
+  width:52%;
+  aspect-ratio:1/1;
+  border-radius:50%;
+  overflow:hidden;
+  background:#14101f;
+  border:1px solid rgba(124,92,255,.35);
+  box-shadow:0 4px 14px rgba(0,0,0,.4);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+.np-logo-circle img {
+    object-fit: contain;
+    display: block;
+    border-radius: 50%;
+}
+.np-opt-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;align-items:center;justify-content:center;}
 .np-opt-overlay.show{display:flex;}
 .np-opt-modal{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;width:340px;max-width:92vw;max-height:80vh;overflow-y:auto;}
 .np-opt-head{display:flex;justify-content:space-between;font-weight:800;margin-bottom:12px;}
@@ -412,8 +435,6 @@
 .np-opt-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
 .np-opt-btn{padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:transparent;color:#fff;font-size:12px;cursor:pointer;}
 .np-opt-btn.active{background:#7c5cff;border-color:#7c5cff;}
-.np-card img{width:100%;aspect-ratio:1;object-fit:cover;background:#1a1a20;}
-
 
 .np-card{transition:border-color .2s ease, box-shadow .2s ease;}
 .np-card.in-cart{border-color:rgba(124,92,255,.5); box-shadow:0 0 0 1px rgba(124,92,255,.25) inset;}
@@ -421,20 +442,37 @@
 .np-add-btn,.np-qty-row{animation:np-pop .25s cubic-bezier(.34,1.56,.64,1);}
 @keyframes np-bump{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
 .np-bump{animation:np-bump .25s cubic-bezier(.34,1.56,.64,1);}
+
 .np-cart-row{align-items:flex-start;}
-.npc-thumb{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#1a1a20;}
+.npc-thumb{width:36px;height:36px;border-radius:15%;overflow:hidden;flex-shrink:0;background:#1a1a20;}
 .npc-thumb img{width:100%;height:100%;object-fit:cover;}
 .npc-thumb-ph{
   width:100%;height:100%;
   background:radial-gradient(circle at center, rgba(124,92,255,.18), rgba(124,92,255,.05)), #14101f;
   display:flex;align-items:center;justify-content:center;
 }
-.npc-thumb-ph::after{content:'';width:60%;height:60%;background:url('../img/logo-geinz.png') center/contain no-repeat;}
 .npc-cat{color:#7c5cff !important;text-transform:uppercase;font-size:10px !important;font-weight:700 !important;letter-spacing:.03em;}
 .npc-subtotal{font-weight:800;flex-shrink:0;}
-`;
-        styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
 
+.np-cart-row{position:relative;align-items:flex-start;}
+.npc-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+.npc-icons{display:flex;gap:4px;}
+.npc-ico{
+  width:22px;height:22px;border-radius:6px;border:1px solid var(--line);
+  background:var(--bg,#0a0a0f);color:#fff;font-size:12px;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
+}
+.npc-ico:hover{background:var(--line);}
+.npc-ico.danger{border-color:rgba(248,113,113,.35);color:#f87171;}
+.npc-ico.danger:hover{background:rgba(248,113,113,.15);}
+.npc-edit{
+  border:none;background:none;color:#7c5cff;font-size:11px;font-weight:700;
+  cursor:pointer;padding:0;
+}
+.npc-edit:hover{text-decoration:underline;}
+`;
+
+        styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
         /* ══════════════ Identificación del negocio ══════════════ */
 
 
@@ -2363,10 +2401,12 @@
             productos: [],
             productosPorId: new Map(),
             carrito: new Map(),
+            cartRowElements: new Map(),   // ← NUEVO: cartKey -> nodo <div> de la fila, se reutiliza siempre
             filtroCat: "Todos",
             filtroTexto: "",
-            metodoPago: "Efectivo",   // ← nuevo
+            metodoPago: "Efectivo",
             cargado: false,
+
 
 
             normalizeText(s) {
@@ -2543,8 +2583,8 @@
                     const totalCant = variantes.reduce((s, v) => s + v.cantidad, 0);
                     const tieneVariantes = p.condiciones?.length > 0;
                     const imgHtml = p.imagen
-                        ? `<img src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" onerror="this.parentElement.classList.add('np-noimg');this.remove();">`
-                        : ``;
+                        ? `<img src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" onerror="this.parentElement.classList.add('np-noimg');this.outerHTML='<div class=&quot;np-logo-circle&quot;><img src=&quot;../img/logo geinz.png&quot; alt=&quot;&quot;></div>';">`
+                        : `<div class="np-logo-circle"><img src="../img/logo geinz.png" alt=""></div>`;
 
                     let accion;
                     if (tieneVariantes) {
@@ -2590,31 +2630,98 @@
                 this.updateCardQty(id);      // ← antes: this.renderGrid()
                 this.renderCarrito();
             },
+            addByKey(key) {
+                const entry = this.carrito.get(key);
+                if (!entry) return;
+                entry.cantidad += 1;
+                this.updateCardQty(entry.id);
+                this.renderCarrito();
+            },
+
+            removeByKey(key) {
+                const entry = this.carrito.get(key);
+                if (!entry) return;
+                entry.cantidad -= 1;
+                const id = entry.id;
+                if (entry.cantidad <= 0) this.carrito.delete(key);
+                this.updateCardQty(id);
+                this.renderCarrito();
+            },
+
+            eliminarByKey(key) {
+                const entry = this.carrito.get(key);
+                if (!entry) return;
+                const id = entry.id;
+                this.carrito.delete(key);
+                this.updateCardQty(id);
+                this.renderCarrito();
+            },
 
             renderCarrito() {
                 const wrap = document.getElementById("npCartItems");
                 const items = [...this.carrito.values()];
                 const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
 
-                wrap.innerHTML = items.length
-                    ? items.map((it) => {
-                        const opcTxt = it.seleccion ? Object.entries(it.seleccion).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
-                        const thumb = it.imagen
-                            ? `<img src="${it.imagen}" alt="">`
-                            : `<div class="npc-thumb-ph"></div>`;
-                        return `
-    <div class="np-cart-row">
+                if (!items.length) {
+                    this.cartRowElements.clear();
+                    wrap.innerHTML = `<p style="font-size:12px;color:var(--ink-faint);text-align:center;padding:20px 0;">Toca productos para agregarlos</p>`;
+                    document.getElementById("npCartTotal").textContent = fmtMoney(0);
+                    document.getElementById("npConfirmarBtn").disabled = true;
+                    return;
+                }
+
+                // Si el panel estaba mostrando el mensaje "vacío", lo limpiamos antes de meter filas reales
+                if (!this.cartRowElements.size && wrap.querySelector("p")) wrap.innerHTML = "";
+
+                // Elimina filas de líneas que ya no existen en el carrito (se quitaron por trash o llegaron a 0)
+                const keysActuales = new Set(items.map((it) => it.cartKey));
+                this.cartRowElements.forEach((rowEl, key) => {
+                    if (!keysActuales.has(key)) { rowEl.remove(); this.cartRowElements.delete(key); }
+                });
+
+                items.forEach((it, idx) => {
+                    const key = it.cartKey;
+                    const opcTxt = it.seleccion ? Object.entries(it.seleccion).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
+                    const thumb = it.imagen
+                        ? `<img src="${it.imagen}" alt="" onerror="this.onerror=null;this.src='../img/logo geinz.png';">`
+                        : `<div class="npc-thumb-ph"><img src="../img/logo geinz.png" alt="" style="width:60%;height:60%;object-fit:contain;"></div>`;
+
+                    let row = this.cartRowElements.get(key);
+
+                    if (!row) {
+                        // Fila nueva: se crea UNA sola vez (con su <img>). Después solo se actualiza texto/cantidad.
+                        row = document.createElement("div");
+                        row.className = "np-cart-row";
+                        row.innerHTML = `
         <div class="npc-thumb">${thumb}</div>
         <div class="npc-name">
-            <span class="n">${escapeHtml(it.nombre)}</span>
+            <span class="n npc-nombre">${escapeHtml(it.nombre)}</span>
             ${it.categoria ? `<span class="p npc-cat">${escapeHtml(it.categoria)}</span>` : ""}
-            ${opcTxt ? `<span class="p">${escapeHtml(opcTxt)}</span>` : ""}
-            <span class="p">${it.cantidad} × ${fmtMoney(it.precio)}</span>
+            <span class="p npc-opciones"${opcTxt ? "" : ' style="display:none"'}>${escapeHtml(opcTxt)}</span>
+            <span class="p npc-linea">${it.cantidad} × ${fmtMoney(it.precio)}</span>
         </div>
-        <span class="npc-subtotal">${fmtMoney(it.cantidad * it.precio)}</span>
-    </div>`;
-                    }).join("")
-                    : `<p style="font-size:12px;color:var(--ink-faint);text-align:center;padding:20px 0;">Toca productos para agregarlos</p>`;
+        <div class="npc-right">
+            <div class="npc-icons">
+                <button type="button" class="npc-ico" data-cart-plus="${key}" title="Sumar 1">+</button>
+                <button type="button" class="npc-ico" data-cart-minus="${key}" title="Restar 1">−</button>
+                <button type="button" class="npc-ico danger" data-cart-trash="${key}" title="Quitar del carrito">🗑</button>
+            </div>
+            <span class="npc-subtotal">${fmtMoney(it.cantidad * it.precio)}</span>
+            ${it.seleccion ? `<button type="button" class="npc-edit" data-cart-edit="${key}" data-cart-edit-id="${it.id}" title="Cambiar opciones">✎ Editar</button>` : ""}
+        </div>
+      `;
+                        wrap.appendChild(row);
+                        this.cartRowElements.set(key, row);
+                    } else {
+                        // Fila ya existía: solo se actualiza texto/cantidad/subtotal, el <img> NUNCA se toca (evita el parpadeo)
+                        row.querySelector(".npc-linea").textContent = `${it.cantidad} × ${fmtMoney(it.precio)}`;
+                        row.querySelector(".npc-subtotal").textContent = fmtMoney(it.cantidad * it.precio);
+                    }
+
+                    // Mantiene el orden del carrito igual al orden de inserción/actualización
+                    if (wrap.children[idx] !== row) wrap.insertBefore(row, wrap.children[idx] || null);
+                });
+
                 document.getElementById("npCartTotal").textContent = fmtMoney(total);
                 document.getElementById("npConfirmarBtn").disabled = items.length === 0;
             },
@@ -2688,6 +2795,24 @@
                     else if (plusBtn) this.add(plusBtn.dataset.plus);
                     else if (minusBtn) this.remove(minusBtn.dataset.minus);
                     else if (optBtn) this.abrirOpciones(this.productosPorId.get(optBtn.dataset.openOpt));
+                });
+
+                document.getElementById("npCartItems").addEventListener("click", (e) => {
+                    const plusBtn = e.target.closest("[data-cart-plus]");
+                    const minusBtn = e.target.closest("[data-cart-minus]");
+                    const trashBtn = e.target.closest("[data-cart-trash]");
+                    const editBtn = e.target.closest("[data-cart-edit]");
+
+                    if (plusBtn) this.addByKey(plusBtn.dataset.cartPlus);
+                    else if (minusBtn) this.removeByKey(minusBtn.dataset.cartMinus);
+                    else if (trashBtn) this.eliminarByKey(trashBtn.dataset.cartTrash);
+                    else if (editBtn) {
+                        const key = editBtn.dataset.cartEdit;
+                        const id = editBtn.dataset.cartEditId;
+                        const entry = this.carrito.get(key);
+                        const p = this.productosPorId.get(id);
+                        if (entry && p) this.abrirOpciones(p, entry.seleccion, key);
+                    }
                 });
             },
         };
