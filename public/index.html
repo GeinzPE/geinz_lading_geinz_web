@@ -2461,6 +2461,130 @@
     .assistant-cta p {
       max-width: 560px;
     }
+
+    /* ===================================
+       RUBROS COMERCIALES
+    =================================== */
+    .rubro-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 26px;
+      background: rgba(13, 13, 20, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 34px 28px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .rubro-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(167, 139, 250, 0.35);
+      box-shadow: 0 25px 50px -18px rgba(124, 58, 237, 0.35);
+    }
+
+    .rubro-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: rgba(124, 58, 237, 0.1);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+    }
+
+    .rubro-tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 18px;
+    }
+
+    .rubro-tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    /* ===================================
+       DEMO INTERACTIVA
+    =================================== */
+    .demo-panel {
+      position: relative;
+      overflow: hidden;
+      border-radius: 30px;
+      background: linear-gradient(160deg, rgba(124, 58, 237, 0.08) 0%, rgba(3, 3, 7, 0.9) 55%);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      padding: 48px 40px;
+    }
+
+    @media (max-width: 768px) {
+      .demo-panel {
+        padding: 34px 22px;
+      }
+    }
+
+    .demo-option {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px 22px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      text-decoration: none;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .demo-option:hover {
+      border-color: rgba(167, 139, 250, 0.45);
+      background: rgba(124, 58, 237, 0.08);
+      transform: translateY(-3px);
+    }
+
+    .demo-emoji {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: rgba(124, 58, 237, 0.12);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      flex-shrink: 0;
+    }
+
+    /* ===================================
+       PRECIOS: TABS Créditos vs Pro
+    =================================== */
+    .price-toggle-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 100px;
+      background: rgba(124, 58, 237, 0.08);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #c084fc;
+    }
+
+    .model-mini-card {
+      background: rgba(13, 13, 20, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      padding: 22px;
+    }
   </style>
 </head>
 
@@ -2523,7 +2647,7 @@
               GEINZ TECH
             </h2>
             <p class="text-[8px] sm:text-[9px] text-purple-400 font-semibold uppercase tracking-widest mt-0.5">
-              Ecosistema Digital
+              Plataforma web
             </p>
           </div>
         </div>
@@ -2547,21 +2671,23 @@
         <div class="lg:col-span-7 space-y-6 md:space-y-8 text-left">
           <div
             class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/20 bg-purple-500/5 text-xs font-medium text-purple-300">
-            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> Entorno optimizado v2.6
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> Plataforma SaaS v2.6 · Perú
           </div>
           <h1
             class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.15] md:leading-[1.1] gradient-text">
-            Conecta, publicita<br>y escala tu negocio.
+            Crea tu tienda virtual en minutos y escala tus ventas en tiempo real.
           </h1>
           <p class="text-gray-400 text-sm md:text-base max-w-xl leading-relaxed font-light">
-            Automatizamos la visibilidad de marcas locales a través de Inteligencia Artificial y herramientas de
-            conversión integradas. El epicentro del comercio digital en Barranca.
+            Regístrate en un solo paso, sube tu catálogo y empieza a vender hoy mismo. Sin visitas presenciales, sin
+            esperas de aprobación: tu panel de control queda activo al instante, desde cualquier ciudad del Perú.
           </p>
           <div class="flex flex-wrap gap-4 pt-2">
-            <a href="#localidades"
-              class="btn-premium-action px-6 py-3.5 rounded-xl text-xs md:text-sm font-bold shadow-lg">Explorar
-              localidades</a>
-
+            <a href="registrogeinz.html"
+              class="btn-premium-action px-6 py-3.5 rounded-xl text-xs md:text-sm font-bold shadow-lg">Crear mi
+              tienda gratis</a>
+            <a href="#demo"
+              class="px-6 py-3.5 rounded-xl text-xs md:text-sm font-bold border border-purple-500/25 text-gray-200 hover:bg-purple-500/10 transition-all">Ver
+              demo sin registro</a>
           </div>
         </div>
 
@@ -2579,19 +2705,19 @@
   </section>
 
   <!-- ===================================
-       LOCALIDADES
+       NEGOCIOS ACTIVOS EN TODO EL PERÚ
   =================================== -->
   <section id="localidades" class="section-space reveal relative z-10">
     <div class="container-geinz">
       <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
         <div class="space-y-2">
-          <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Infraestructura Geográfica</p>
-          <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">Ciudades de cobertura
-          </h2>
+          <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Cobertura Nacional</p>
+          <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">Negocios activos en
+            todo el Perú</h2>
         </div>
         <p class="text-gray-400 text-sm max-w-md font-light leading-relaxed">
-          Infraestructura comercial unificada. Selecciona un distrito activo para desplegar el abanico de módulos y
-          promociones.
+          Geinz ya impulsa tiendas virtuales en distintas regiones del país. Así se ve la actividad comercial real
+          por zona.
         </p>
       </div>
 
@@ -2604,36 +2730,40 @@
           <div class="city-overlay"></div>
           <div class="absolute bottom-6 left-6 right-6 z-10">
             <h3 class="text-xl font-bold text-white tracking-tight">Barranca</h3>
+            <p class="text-[10px] text-gray-400 mt-1.5 font-light">Ropa, minimarkets y restaurantes activos</p>
             <span
               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-[9px] font-bold text-green-400 mt-3 uppercase tracking-wider">●
-              En
-              Línea</span>
+              Zona activa</span>
           </div>
         </div>
 
-        <div class="city-card not-available">
+        <div class="city-card" onclick="seleccionarLocalidad('lima')">
           <div class="city-sk" id="citySk2"></div>
           <div class="city-image"
             style="background-image:url('https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/geinz_work_turismo%2Fbarranca%2Fparamonga%2FFORTALEZA%20PGA.webp?alt=media&token=8a910e66-60f1-45ff-9dda-f042e1a0898e')">
           </div>
           <div class="city-overlay"></div>
           <div class="absolute bottom-6 left-6 right-6 z-10">
-            <h3 class="text-xl font-bold text-gray-400 tracking-tight">Paramonga</h3>
+            <h3 class="text-xl font-bold text-white tracking-tight">Lima</h3>
+            <p class="text-[10px] text-gray-400 mt-1.5 font-light">Moda y licorerías en expansión</p>
             <span
-              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-gray-400 mt-3 uppercase tracking-wider">Próximamente</span>
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-[9px] font-bold text-green-400 mt-3 uppercase tracking-wider">●
+              Zona activa</span>
           </div>
         </div>
 
-        <div class="city-card not-available">
+        <div class="city-card" onclick="seleccionarLocalidad('arequipa')">
           <div class="city-sk" id="citySk3"></div>
           <div class="city-image"
             style="background-image:url('https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/geinz_work_turismo%2Fbarranca%2Fpativilca%2FPATIVILCA%20MUSEO%20(1).webp?alt=media&token=de7d4cc9-0dcd-4945-a238-49c8df616193')">
           </div>
           <div class="city-overlay"></div>
           <div class="absolute bottom-6 left-6 right-6 z-10">
-            <h3 class="text-xl font-bold text-gray-400 tracking-tight">Pativilca</h3>
+            <h3 class="text-xl font-bold text-white tracking-tight">Arequipa</h3>
+            <p class="text-[10px] text-gray-400 mt-1.5 font-light">Nuevos comercios sumándose cada semana</p>
             <span
-              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-gray-400 mt-3 uppercase tracking-wider">Próximamente</span>
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-[9px] font-bold text-green-400 mt-3 uppercase tracking-wider">●
+              Zona activa</span>
           </div>
         </div>
 
@@ -2644,26 +2774,118 @@
           </div>
           <div class="city-overlay"></div>
           <div class="absolute bottom-6 left-6 right-6 z-10">
-            <h3 class="text-xl font-bold text-gray-400 tracking-tight">Supe</h3>
+            <h3 class="text-xl font-bold text-gray-400 tracking-tight">Tu ciudad</h3>
+            <p class="text-[10px] text-gray-500 mt-1.5 font-light">Sé el primer negocio registrado aquí</p>
             <span
-              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-gray-400 mt-3 uppercase tracking-wider">Próximamente</span>
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-gray-400 mt-3 uppercase tracking-wider">Disponible
+              para registro</span>
           </div>
         </div>
       </div>
 
       <div class="flex flex-wrap justify-center gap-3 mt-10 mb-20">
-        <button onclick="abrirCategoria('turismo')"
-          class="px-5 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 text-xs md:text-sm font-semibold text-gray-200 transition-all disabled:opacity-20 disabled:pointer-events-none"
-          id="btn-turismo">🏖️ Zonas Turísticas</button>
-        <button onclick="abrirCategoria('emergencia')"
-          class="px-5 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 text-xs md:text-sm font-semibold text-gray-200 transition-all disabled:opacity-20 disabled:pointer-events-none"
-          id="btn-emergencia">🚨 Central Emergencias</button>
         <button onclick="abrirCategoria('promociones')"
           class="px-5 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 text-xs md:text-sm font-semibold text-gray-200 transition-all disabled:opacity-20 disabled:pointer-events-none"
           id="btn-promos">🔥 Hub de Promociones</button>
         <button onclick="abrirCategoria('comercios')"
           class="px-5 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 text-xs md:text-sm font-semibold text-gray-200 transition-all disabled:opacity-20 disabled:pointer-events-none"
-          id="btn-promos">🏬 Explorar algunos negocios</button>
+          id="btn-comercios">🏬 Explorar negocios activos</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================
+       DEMO INTERACTIVA SIN REGISTRO
+  =================================== -->
+  <section id="demo" class="section-space reveal relative z-10">
+    <div class="container-geinz">
+      <div class="demo-panel">
+        <div class="grid lg:grid-cols-12 gap-10 items-center relative z-10">
+          <div class="lg:col-span-5 space-y-5">
+            <div class="price-toggle-note">🧪 Sin registro</div>
+            <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+              Prueba el panel antes de crear tu cuenta
+            </h2>
+            <p class="text-gray-400 text-sm leading-relaxed font-light">
+              Entra a un entorno de demostración precargado y manipula el panel como si fuera tuyo: agrega
+              productos, arma combos y revisa cómo se ve tu tienda. Ideal para decidir sin comprometerte todavía.
+            </p>
+          </div>
+          <div class="lg:col-span-7 grid sm:grid-cols-2 gap-4">
+            <a href="/demo/ropa" class="demo-option">
+              <div class="demo-emoji">👕</div>
+              <div>
+                <h4 class="text-sm font-bold text-white">Tienda de Ropa</h4>
+                <p class="text-gray-400 text-[11px] mt-1 font-light">Variantes de talla, color y stock por modelo</p>
+              </div>
+            </a>
+            <a href="/demo/licoreria" class="demo-option">
+              <div class="demo-emoji">🥂</div>
+              <div>
+                <h4 class="text-sm font-bold text-white">Licorería</h4>
+                <p class="text-gray-400 text-[11px] mt-1 font-light">Stock dinámico, combos y delivery rápido</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================
+       RUBROS COMERCIALES
+  =================================== -->
+  <section id="rubros" class="section-space reveal relative z-10">
+    <div class="container-geinz">
+      <div class="text-center max-w-2xl mx-auto mb-14 space-y-3">
+        <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Hecho para tu rubro</p>
+        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+          Un panel que <span class="gradient-text">habla el idioma</span> de tu negocio
+        </h2>
+        <p class="text-gray-400 text-sm md:text-base font-light leading-relaxed">
+          Cada rubro tiene necesidades distintas. Geinz se adapta a la forma en que ya vendes, no al revés.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="rubro-card">
+          <div class="rubro-icon">👕</div>
+          <h3 class="text-lg font-bold text-white mt-5">Ropa y Moda</h3>
+          <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
+            Publica cada prenda con sus variantes de talla y color, controla el stock por variante y evita vender lo
+            que ya no tienes.
+          </p>
+          <div class="rubro-tag-list">
+            <span class="rubro-tag">Variantes</span>
+            <span class="rubro-tag">Tallas</span>
+            <span class="rubro-tag">Colores</span>
+          </div>
+        </div>
+
+        <div class="rubro-card">
+          <div class="rubro-icon">🍾</div>
+          <h3 class="text-lg font-bold text-white mt-5">Licorerías y Minimarkets</h3>
+          <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
+            Stock que se actualiza en tiempo real, combos armados en segundos y pedidos que llegan directo a tu
+            WhatsApp.
+          </p>
+          <div class="rubro-tag-list">
+            <span class="rubro-tag">Stock dinámico</span>
+            <span class="rubro-tag">Combos</span>
+          </div>
+        </div>
+
+        <div class="rubro-card">
+          <div class="rubro-icon">🍔</div>
+          <h3 class="text-lg font-bold text-white mt-5">Comida</h3>
+          <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
+            Menú siempre actualizado, pedidos rápidos y notificación inmediata al recibir una orden nueva.
+          </p>
+          <div class="rubro-tag-list">
+            <span class="rubro-tag">Pedidos rápidos</span>
+            <span class="rubro-tag">Menú digital</span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -2692,28 +2914,28 @@
 
           <div class="relative z-10">
             <span class="help-badge help-badge-store">🏬 Para tu negocio</span>
-            <h3 class="text-2xl font-extrabold text-white tracking-tight mt-4 mb-6">Visibilidad que se convierte en
-              ventas</h3>
+            <h3 class="text-2xl font-extrabold text-white tracking-tight mt-4 mb-6">Tu tienda virtual, lista en
+              minutos</h3>
           </div>
 
           <div class="help-item">
-            <div class="help-icon-dot help-icon-store">📍</div>
+            <div class="help-icon-dot help-icon-store">🚀</div>
             <div>
-              <h4 class="text-sm font-bold text-white">Apareces frente a todo Barranca</h4>
+              <h4 class="text-sm font-bold text-white">Regístrate y vende hoy mismo</h4>
               <p class="text-gray-400 text-xs mt-1.5 leading-relaxed font-light">
-                Al registrarte gratis, tu negocio queda disponible en la app y en el asistente de WhatsApp, listo para
-                que cualquier vecino te encuentre en segundos.
+                Un solo formulario, sin visitas presenciales ni aprobaciones manuales. Al terminar tu registro entras
+                directo a tu panel de control.
               </p>
             </div>
           </div>
 
           <div class="help-item">
-            <div class="help-icon-dot help-icon-store">🤖</div>
+            <div class="help-icon-dot help-icon-store">📦</div>
             <div>
-              <h4 class="text-sm font-bold text-white">Daniel responde por ti, 24/7</h4>
+              <h4 class="text-sm font-bold text-white">Catálogo, stock y pedidos en un solo lugar</h4>
               <p class="text-gray-400 text-xs mt-1.5 leading-relaxed font-light">
-                El asistente de WhatsApp entrega tu horario en tiempo real, contacto directo, dirección, promociones
-                activas y aforo, sin que muevas un dedo.
+                Publica tus productos, controla tu inventario en tiempo real y recibe pedidos directo desde tu
+                tienda virtual, sin depender de terceros.
               </p>
             </div>
           </div>
@@ -2721,10 +2943,10 @@
           <div class="help-item">
             <div class="help-icon-dot help-icon-store">📈</div>
             <div>
-              <h4 class="text-sm font-bold text-white">Más ojos, más clientes</h4>
+              <h4 class="text-sm font-bold text-white">Más visibilidad, más clientes</h4>
               <p class="text-gray-400 text-xs mt-1.5 leading-relaxed font-light">
-                Esa visibilidad constante entre tus vecinos se traduce en más consultas y más ventas para tu negocio,
-                todos los días de la semana.
+                Tu negocio queda disponible dentro del ecosistema Geinz a nivel nacional, listo para que cualquier
+                cliente te encuentre en segundos.
               </p>
             </div>
           </div>
@@ -2739,8 +2961,8 @@
               <div class="lbl">De tu ganancia</div>
             </div>
             <div class="help-stat-chip">
-              <div class="num">24/7</div>
-              <div class="lbl">Visibilidad activa</div>
+              <div class="num">1 paso</div>
+              <div class="lbl">Para registrarte</div>
             </div>
           </div>
 
@@ -2749,7 +2971,7 @@
               🚀 Registra tu negocio gratis
             </a>
             <p class="text-gray-500 text-[11px] mt-3 font-light">
-              Sé visible para todo Barranca en cuestión de minutos.
+              Nombre, rubro, ciudad, WhatsApp y contraseña. Nada más.
             </p>
           </div>
         </div>
@@ -2760,28 +2982,28 @@
 
           <div class="relative z-10">
             <span class="help-badge help-badge-user">🙋 Para ti</span>
-            <h3 class="text-2xl font-extrabold text-white tracking-tight mt-4 mb-6">Todo Barranca, a una pregunta de
-              distancia</h3>
+            <h3 class="text-2xl font-extrabold text-white tracking-tight mt-4 mb-6">Encuentra negocios reales, en
+              tiempo real</h3>
           </div>
 
           <div class="help-item">
             <div class="help-icon-dot help-icon-user">💬</div>
             <div>
-              <h4 class="text-sm font-bold text-white">Pregunta y recibe el dato exacto</h4>
+              <h4 class="text-sm font-bold text-white">Consulta el dato exacto</h4>
               <p class="text-gray-400 text-xs mt-1.5 leading-relaxed font-light">
-                Desde la app o preguntándole a Daniel por WhatsApp, obtienes horario en tiempo real, contacto directo,
-                dirección, promociones y aforo del negocio que buscas.
+                Desde la app o la web obtienes horario en tiempo real, contacto directo, dirección, promociones y
+                disponibilidad del negocio que buscas.
               </p>
             </div>
           </div>
 
           <div class="help-item">
-            <div class="help-icon-dot help-icon-user">🚨</div>
+            <div class="help-icon-dot help-icon-user">🔎</div>
             <div>
-              <h4 class="text-sm font-bold text-white">Emergencias y turismo al instante</h4>
+              <h4 class="text-sm font-bold text-white">Explora por rubro y ciudad</h4>
               <p class="text-gray-400 text-xs mt-1.5 leading-relaxed font-light">
-                Pide contactos de emergencia, descubre lugares turísticos y entérate qué negocios están cerca de ti o
-                cerca de los puntos turísticos de la ciudad.
+                Filtra por lo que buscas y por dónde estás. Ropa, licorerías, comida y más, en las ciudades donde
+                Geinz ya está activo.
               </p>
             </div>
           </div>
@@ -2791,103 +3013,28 @@
             <div>
               <h4 class="text-sm font-bold text-white">Explora y aprovecha promociones</h4>
               <p class="text-gray-400 text-xs mt-1.5 leading-relaxed font-light">
-                Descubre negocios nuevos, revisa qué se mueve en Barranca y aprovecha promociones activas sin salir de
-                la conversación.
+                Descubre negocios nuevos, revisa qué se mueve en tu zona y aprovecha promociones activas sin salir de
+                la plataforma.
               </p>
             </div>
           </div>
 
           <div class="help-stat-strip">
             <div class="help-stat-chip">
-              <div class="num">1</div>
-              <div class="lbl">Mensaje de distancia</div>
-            </div>
-            <div class="help-stat-chip">
               <div class="num">100%</div>
               <div class="lbl">Info en tiempo real</div>
             </div>
             <div class="help-stat-chip">
               <div class="num">24/7</div>
-              <div class="lbl">Asistente disponible</div>
+              <div class="lbl">Plataforma disponible</div>
             </div>
           </div>
 
           <div class="mt-8 relative z-10">
-            <a href="https://wa.me/51962386529?text=%C2%A1Hola%20Daniel%21%20Necesito%20informaci%C3%B3n"
-              target="_blank"
-              class="inline-flex items-center gap-2.5 px-6 py-4 rounded-xl bg-[#25D366] hover:bg-[#1fbc57] text-white font-bold text-xs transition-all hover:-translate-y-0.5 shadow-lg shadow-emerald-500/10">
-              💬 Pregúntale a Daniel ahora
+            <a href="#localidades"
+              class="inline-flex items-center gap-2.5 px-6 py-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/40 text-white font-bold text-xs transition-all hover:-translate-y-0.5">
+              🔎 Explorar negocios activos
             </a>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <section class="section-space pt-0 reveal relative z-10">
-    <div class="container-geinz">
-      <div class="glass-card p-8 md:p-14 grid lg:grid-cols-12 gap-10 items-center relative overflow-hidden">
-
-        <!-- brillo decorativo de fondo -->
-        <div class="absolute -top-20 -left-20 w-72 h-72 bg-purple-600/10 blur-[90px] rounded-full pointer-events-none">
-        </div>
-
-        <!-- TEXTO -->
-        <div class="lg:col-span-7 space-y-6 relative z-10 order-2 lg:order-1">
-          <div
-            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-purple-500/10 border border-purple-500/20 text-[10px] font-bold text-purple-400 uppercase tracking-wider">
-            Descarga gratuita
-          </div>
-
-          <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Llévate Geinz<br>en tu bolsillo
-          </h2>
-
-          <p class="text-gray-400 leading-relaxed font-light text-sm md:text-base max-w-md">
-            Gestiona tu comercio, activa promociones y descubre lo que se mueve en Barranca directo desde tu celular.
-            Todo lo que ves aquí, pero más rápido.
-          </p>
-
-          <div class="pt-2">
-            <a href="https://play.google.com/store/apps/details?id=com.geinzz.geinzwork" target="_blank"
-              class="app-store-btn">
-              <svg class="play-icon" viewBox="0 0 24 24" fill="#7c3aed">
-                <path
-                  d="M3.18 23.76A2 2 0 0 1 2 22V2a2 2 0 0 1 1.18-1.76L13.54 12 3.18 23.76zM16.54 9L5.07.88l9.61 9.62L16.54 9zm0 6-1.86-1.5-9.61 9.62L16.54 15zm2.46-2.46L16.54 12l2.46-1.54L22 12l-3 .54z" />
-              </svg>
-              <span>
-                <div class="txt-top">Disponible en</div>
-                <div class="txt-bottom">Google Play</div>
-              </span>
-            </a>
-          </div>
-        </div>
-
-        <!-- MOCKUP TELÉFONO -->
-        <div class="lg:col-span-5 order-1 lg:order-2 relative z-10">
-          <div class="app-phone-wrap">
-            <div class="app-phone-glow"></div>
-
-            <div class="app-float-chip app-chip-rating">
-              <span style="font-size:16px">⭐</span>
-              <div>
-                <div class="num">4.2</div>
-                <div class="lbl">Valoración</div>
-              </div>
-            </div>
-
-            <div class="app-phone-frame">
-              <img src="img/logo geinz.png" alt="App Geinz">
-            </div>
-
-            <div class="app-float-chip app-chip-downloads">
-              <span style="font-size:16px">⬇️</span>
-              <div>
-                <div class="num">+100</div>
-                <div class="lbl">Descargas</div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -2896,207 +3043,158 @@
   </section>
 
   <!-- ===================================
-       AI WHATSAPP
+       PRECIOS Y SISTEMA DE CRÉDITOS
   =================================== -->
-  <section class="section-space reveal relative z-10">
+  <section id="precios" class="section-space reveal relative z-10">
     <div class="container-geinz">
-      <div class="glass-card p-8 md:p-12 grid lg:grid-cols-2 gap-12 items-center">
-        <div class="space-y-6 order-2 lg:order-1">
-          <div
-            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-purple-500/10 border border-purple-500/20 text-[10px] font-bold text-purple-400 uppercase tracking-wider">
-            🤖 DANIEL | ASISTENTE OFICIAL 24/7</div>
-          <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Tu guía oficial de Barranca directo en tu WhatsApp
-          </h2>
-          <p class="text-gray-400 leading-relaxed font-light text-sm md:text-base">
-            Encuentra números de emergencia, servicios públicos (SUNAT, Enel, Movistar), turismo, negocios locales y sus
-            promociones activas. Pregúntale a Daniel por texto o nota de voz y te responde al instante.
-          </p>
-          <div class="pt-2">
-            <a href="https://wa.me/51962386529?text=%C2%A1Hola%20Daniel%21%20Necesito%20informaci%C3%B3n"
-              target="_blank"
-              class="inline-flex items-center gap-2.5 px-6 py-4 rounded-xl bg-[#25D366] hover:bg-[#1fbc57] text-white font-bold text-xs md:text-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-emerald-500/10">
-
-              💬 Hablar con Daniel en WhatsApp
-
-            </a>
-          </div>
-        </div>
-        <div
-          class="order-1 lg:order-2 aspect-square w-full max-w-[460px] mx-auto rounded-2xl overflow-hidden border border-purple-500/10 relative group shadow-2xl">
-          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10"></div>
-          <img src="img/danierl_playa.webp"
-            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            alt="Daniel Asistente Virtual en Barranca">
-        </div>
-      </div>
-    </div>
-  </section>
-
-
-
-
-  <!-- ===================================
-     PRODUCTOS ADICIONALES GEINZ
-=================================== -->
-<!-- ===================================
-     PRODUCTOS ADICIONALES GEINZ
-=================================== -->
-<section class="section-space reveal relative z-10 mb-20">
-  <div class="container-geinz">
-
-    <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">B2B Core Finanzas</p>
-
-    <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
-      <div class="space-y-2">
-        <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Ecosistema Geinz</p>
+      <div class="text-center max-w-2xl mx-auto mb-6 space-y-3">
+        <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Planes</p>
         <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-          Productos adicionales de GEINZ
+          Paga por lo que usas, o pasa a <span class="gradient-text">Pro</span>
         </h2>
+        <p class="text-gray-400 text-sm md:text-base font-light leading-relaxed">
+          Empieza sin mensualidad con el sistema de créditos, y cuando tu negocio crezca, sube a Plan Pro con
+          herramientas ilimitadas.
+        </p>
       </div>
-      <p class="text-gray-400 text-sm max-w-md font-light leading-relaxed">
-        Herramientas independientes creadas por el mismo equipo, listas para sumarse a tu flujo de trabajo.
+
+      <div class="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto mt-10">
+        <div class="model-mini-card">
+          <span class="price-toggle-note">Pago por uso</span>
+          <h3 class="text-xl font-extrabold text-white mt-4">Plan Créditos</h3>
+          <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
+            S/ 0 de mensualidad. Compra créditos y úsalos solo cuando publiques, destaques o promociones un
+            producto.
+          </p>
+        </div>
+        <div class="model-mini-card" style="border-color: rgba(124,58,237,0.35);">
+          <span class="price-toggle-note">Mensual</span>
+          <h3 class="text-xl font-extrabold text-white mt-4">Plan Pro — S/ 40/mes</h3>
+          <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
+            Herramientas avanzadas de catálogo, promociones y estadísticas incluidas, sin preocuparte por créditos.
+          </p>
+        </div>
+      </div>
+
+      <p class="text-center text-gray-500 text-[11px] mt-6 font-light">
+        Módulo opcional de pasarela de pagos disponible para negocios que quieran cobrar en línea.
       </p>
     </div>
+  </section>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
-      <a href="https://geinztech.com/generatorqr.html" class="product-card group">
-        <div class="product-card-glow"></div>
 
-        <div class="flex items-start justify-between relative z-10">
-          <div class="product-icon-frame">
-            <span class="pc-corner pc-tl"></span>
-            <span class="pc-corner pc-tr"></span>
-            <span class="pc-corner pc-bl"></span>
-            <span class="pc-corner pc-br"></span>
-            <div class="product-mini-qr"></div>
-          </div>
-          <span
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-[9px] font-bold text-green-400 uppercase tracking-wider">●
-            Disponible gratis</span>
-        </div>
-
-        <div class="relative z-10 mt-6">
-          <h3 class="text-xl font-bold text-white tracking-tight">Geinz QR</h3>
-          <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
-            Genera códigos QR con degradados de marca, logo incrustado y marcos con diseño, listos para tu bio,
-            stories o vitrina.
-          </p>
-        </div>
-
-        <div
-          class="relative z-10 mt-6 flex items-center gap-2 text-xs font-semibold text-purple-300 group-hover:text-white transition-colors">
-          Explorar herramienta
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-            class="transition-transform group-hover:translate-x-1">
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
-        </div>
-      </a>
-
-      <div class="product-card product-card-soon">
-        <div class="flex items-start justify-between relative z-10">
-          <div class="product-icon-frame is-muted">
-            <div class="product-mini-qr is-muted"></div>
-          </div>
-          <span
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Próximamente</span>
-        </div>
-        <div class="relative z-10 mt-6">
-          <h3 class="text-xl font-bold text-gray-400 tracking-tight">Geinz Links</h3>
-          <p class="text-gray-600 text-xs mt-2 leading-relaxed font-light">
-            Un solo enlace para todas tus redes, promos y catálogos. En desarrollo.
-          </p>
-        </div>
-      </div>
-
-      <div class="product-card product-card-soon">
-        <div class="flex items-start justify-between relative z-10">
-          <div class="product-icon-frame is-muted">
-            <div class="product-mini-qr is-muted"></div>
-          </div>
-          <span
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Próximamente</span>
-        </div>
-        <div class="relative z-10 mt-6">
-          <h3 class="text-xl font-bold text-gray-400 tracking-tight">Geinz Studio</h3>
-          <p class="text-gray-600 text-xs mt-2 leading-relaxed font-light">
-            Plantillas y artes automáticos para tus promociones. En desarrollo.
-          </p>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
   <!-- ===================================
-     CREA TU ASISTENTE CON NOSOTROS
+     PRODUCTOS ADICIONALES GEINZ
+=================================== -->
+  <!-- ===================================
+     PRODUCTOS ADICIONALES GEINZ
 =================================== -->
   <section class="section-space reveal relative z-10 mb-20">
     <div class="container-geinz">
-      <div class="assistant-cta">
 
-        <div class="startup-tag">
-          <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse inline-block"></span>
-          Desarrollo a medida
+      <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">B2B Core Finanzas</p>
+
+      <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+        <div class="space-y-2">
+          <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Ecosistema Geinz</p>
+          <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+            Productos adicionales de GEINZ
+          </h2>
         </div>
+        <p class="text-gray-400 text-sm max-w-md font-light leading-relaxed">
+          Herramientas independientes creadas por el mismo equipo .
+        </p>
+      </div>
 
-        <div class="assistant-photo-wrap">
-          <div class="assistant-photo-glow"></div>
-          <div class="assistant-photo-ring"></div>
-          <div class="assistant-photo">
-            <img src="img/daniel_fuerte.webp" alt="Crea tu asistente con Geinz">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <a href="https://geinztech.com/generatorqr.html" class="product-card group">
+          <div class="product-card-glow"></div>
+
+          <div class="flex items-start justify-between relative z-10">
+            <div class="product-icon-frame">
+              <span class="pc-corner pc-tl"></span>
+              <span class="pc-corner pc-tr"></span>
+              <span class="pc-corner pc-bl"></span>
+              <span class="pc-corner pc-br"></span>
+              <div class="product-mini-qr"></div>
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-[9px] font-bold text-green-400 uppercase tracking-wider">●
+              Disponible gratis</span>
+          </div>
+
+          <div class="relative z-10 mt-6">
+            <h3 class="text-xl font-bold text-white tracking-tight">Geinz QR Tech</h3>
+            <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
+              Genera códigos QR con degradados de marca, logo incrustado y marcos con diseño. Incluye API abierta para
+              integrarlo directo en tus propios sistemas.
+            </p>
+          </div>
+
+          <div
+            class="relative z-10 mt-6 flex items-center gap-2 text-xs font-semibold text-purple-300 group-hover:text-white transition-colors">
+            Explorar herramienta
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+              class="transition-transform group-hover:translate-x-1">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </div>
+        </a>
+
+        <a href="https://scag.site/" target="_blank" rel="noopener noreferrer" class="product-card group">
+          <div class="product-card-glow"></div>
+
+          <div class="flex items-start justify-between relative z-10">
+            <div class="product-icon-frame">
+              <span class="pc-corner pc-tl"></span>
+              <span class="pc-corner pc-tr"></span>
+              <span class="pc-corner pc-bl"></span>
+              <span class="pc-corner pc-br"></span>
+              <div class="product-mini-qr"></div>
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-[9px] font-bold text-green-400 uppercase tracking-wider">●
+              Disponible</span>
+          </div>
+
+          <div class="relative z-10 mt-6">
+            <h3 class="text-xl font-bold text-white tracking-tight">Plataforma SCAG</h3>
+            <p class="text-gray-400 text-xs mt-2 leading-relaxed font-light">
+              Módulo de gestión académica y estudiantil para instituciones educativas.
+            </p>
+          </div>
+
+          <div
+            class="relative z-10 mt-6 flex items-center gap-2 text-xs font-semibold text-purple-300 group-hover:text-white transition-colors">
+            Explorar herramienta
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+              class="transition-transform group-hover:translate-x-1">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </div>
+        </a>
+        <div class="product-card product-card-soon">
+          <div class="flex items-start justify-between relative z-10">
+            <div class="product-icon-frame is-muted">
+              <div class="product-mini-qr is-muted"></div>
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Próximamente</span>
+          </div>
+          <div class="relative z-10 mt-6">
+            <h3 class="text-xl font-bold text-gray-400 tracking-tight">Geinz Studio</h3>
+            <p class="text-gray-600 text-xs mt-2 leading-relaxed font-light">
+              Plantillas y artes automáticos para tus promociones. En desarrollo.
+            </p>
           </div>
         </div>
 
-        <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-          Crea tu propio asistente de whatsapp<span class="gradient-text">con nosotros</span>
-        </h2>
-
-        <p class="text-gray-400 text-sm md:text-base font-light leading-relaxed">
-          ¿Tu negocio necesita algo más que Daniel? Diseñamos un asistente de IA a tu medida,
-          con tu marca, tu tono y tus procesos, listo para atender por WhatsApp, web o donde lo necesites.
-        </p>
-
-        <a href="asistentesgeinz.html" target="_blank" class="btn-register-free">
-          🤖 Quiero mi asistente personalizado
-        </a>
-
       </div>
     </div>
   </section>
 
-  <section class="section-space pt-0 reveal relative z-10 mb-20">
-    <div class="container-geinz">
-      <div class="text-center mb-10 space-y-1">
-        <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Asistente de whatsapp</p>
-        <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Crece con Daniel</h2>
-      </div>
-
-      <div class="photo-scatter">
-        <div class="photo-scatter-item">
-          <img src="img/daniel1.webp" alt="Vista 1">
-        </div>
-        <div class="photo-scatter-item">
-          <img src="img/playa_autentica.webp" alt="Vista 2">
-        </div>
-        <div class="photo-scatter-item">
-          <img src="img/plaza_armas.webp" alt="Vista 3">
-        </div>
-        <div class="photo-scatter-item">
-          <img src="img/daniel4.webp" alt="Vista 4">
-        </div>
-        <div class="photo-scatter-item">
-          <img src="img/daniel5.webp" alt="Vista 5">
-        </div>
-        <div class="photo-scatter-item">
-          <img src="img/daniel6.webp" alt="Vista 6">
-        </div>
-
-      </div>
-    </div>
-  </section>
   <!-- ===================================
        BANNER GEINZ STARTUP
   =================================== -->
@@ -3109,28 +3207,29 @@
 
           <div class="startup-flag">
             <span>🇵🇪</span>
-            <span>Startup Peruana · Barranca, Norte Chico</span>
+            <span>Startup Peruana · Cobertura nacional en expansión</span>
           </div>
 
           <div class="startup-tag">
             <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse inline-block"></span>
-            Revolucionando el comercio local
+            Revolucionando el comercio digital
           </div>
 
           <h2 class="banner-title">
             GEINZ
-            <span>La startup que el Norte Chico esperaba</span>
+            <span>La plataforma que todo negocio peruano necesitaba</span>
           </h2>
 
           <p class="banner-description">
-            Nacimos en Barranca con una misión clara: democratizar las herramientas tecnológicas para que cada negocio
-            local compita con las grandes marcas. IA, automatización y visibilidad digital al alcance de tu mano.
+            Nacimos en Barranca con una misión clara: democratizar las herramientas tecnológicas para que cada
+            negocio, sin importar su ciudad, tenga su propia tienda virtual y compita con las grandes marcas. IA,
+            automatización y visibilidad digital al alcance de tu mano.
           </p>
 
           <div class="banner-badge-row">
             <div class="banner-badge"><span class="dot"></span> Inteligencia Artificial</div>
-            <div class="banner-badge"><span class="dot"></span> Publicidad Automatizada</div>
-            <div class="banner-badge"><span class="dot"></span> Comercio Hiperlocal</div>
+            <div class="banner-badge"><span class="dot"></span> Tienda Virtual Propia</div>
+            <div class="banner-badge"><span class="dot"></span> Cobertura Nacional</div>
             <div class="banner-badge"><span class="dot"></span> App Nativa Android</div>
           </div>
 
@@ -3208,9 +3307,9 @@
         <div class="lg:col-span-2 space-y-4">
           <h5 class="text-xs font-bold text-gray-400 uppercase tracking-widest">Misión de Desarrollo</h5>
           <p class="text-xs text-gray-600 leading-relaxed font-light">
-            Estructurado con el fin de transformar la infraestructura publicitaria local. Proveemos herramientas
-            tecnológicas modulares para que microempresas de la región compitan con herramientas digitales de primer
-            nivel.
+            Estructurado con el fin de transformar la infraestructura de comercio digital del país. Proveemos
+            herramientas tecnológicas modulares para que microempresas de cualquier región compitan con herramientas
+            digitales de primer nivel.
           </p>
         </div>
       </div>
@@ -3577,7 +3676,7 @@
     };
 
     // ─── INIT ──────────────────────────────────────────────────
-    document.getElementById("btnSearch").addEventListener("click", window.buscarUsuario);
+    document.getElementById("btnSearch")?.addEventListener("click", window.buscarUsuario);
     cargarPlanes();
   </script>
 
@@ -3603,26 +3702,19 @@
       });
     });
     window.seleccionarLocalidad = (loc) => {
-      if (loc !== "barranca") {
-        alert("📍 Cobertura regional en desarrollo para este distrito.");
-        return;
-      }
       localidadSeleccionada = loc;
       document.querySelectorAll("button[id^='btn-']").forEach(btn => {
         btn.disabled = false;
         btn.classList.remove("opacity-20");
       });
-      document.getElementById("msgId").innerHTML =
-        `✅ Canal establecido en Barranca. Módulos de categoría desbloqueados de forma exitosa.`;
+      const nombres = { barranca: "Barranca", lima: "Lima", arequipa: "Arequipa" };
+      document.getElementById("msgId") && (document.getElementById("msgId").innerHTML =
+        `✅ Canal establecido en ${nombres[loc] || loc}. Módulos de categoría desbloqueados de forma exitosa.`);
     };
 
     window.abrirCategoria = (tipo) => {
-      if (tipo === "turismo") {
-        window.location.href = `/redirect/pantalla_turismo?loc=${localidadSeleccionada}`;
-      } else if (tipo === "emergencia") {
-        window.location.href = `/redirect/emergencia.html?loc=${localidadSeleccionada}`;
-      } else if (tipo === "promociones") {
-        window.location.href = `/scree/promos?loc=${localidadSeleccionada}`;;
+      if (tipo === "promociones") {
+        window.location.href = `/scree/promos?loc=${localidadSeleccionada}`;
       } else if (tipo === "comercios") {
         window.location.href = `/scree/categorias?loc=${localidadSeleccionada}`;
       }
