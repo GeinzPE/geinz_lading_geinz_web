@@ -249,27 +249,13 @@ if (!tiendaId || !localidad) {
   async function initRealtimeAccount() {
     console.log("🔍 [cuenta] Iniciando escucha en tiempo real...");
     try {
-      const { getFirestore, doc, onSnapshot } =
+      const { onSnapshot } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      const { initializeApp, getApps, getApp } =
-        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+      const { db } = await import("../db/db.js");
+      const { tiendaDoc } = await import("../rutas/rutas.js");
 
-      const app = getApps().length
-        ? getApp()
-        : initializeApp({
-            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-            authDomain: "geinzworkapp.firebaseapp.com",
-            projectId: "geinzworkapp",
-            storageBucket: "geinzworkapp.appspot.com",
-            messagingSenderId: "921389328767",
-            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-          });
-      const db = getFirestore(app);
-
-      const docRefOriginal = doc(db, "Tiendas", localidad, localidad, tiendaId);
-      const docRefServicios = doc(
-        db,
-        "Tiendas",
+      const docRefOriginal = tiendaDoc(localidad, "tiendas", tiendaId);
+      const docRefServicios = tiendaDoc(
         localidad,
         "tiendas_servicios_geinz_activos",
         tiendaId,
@@ -730,6 +716,8 @@ window.procesarPago = async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           data: {
+            pais:"",
+            provincia:"",
             precio_por_moneda: window._publicidad?.costo_por_moneda,
             id_tienda,
             localidad: localidad_pago, // 🔥 fix: ya no pisa la variable global

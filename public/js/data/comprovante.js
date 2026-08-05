@@ -1,19 +1,9 @@
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// Importamos app y db ya inicializados desde db.js
+import { app, db } from "../db/db.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-    authDomain: "geinzworkapp.firebaseapp.com",
-    projectId: "geinzworkapp",
-    storageBucket: "geinzworkapp.appspot.com",
-    messagingSenderId: "921389328767",
-    appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
+import { tiendaSubDoc } from "../rutas/rutas.js";
 /* ── helpers UI ── */
 const $ = id => document.getElementById(id);
 const show = el => el.style.display = "block";
@@ -47,7 +37,8 @@ async function cargar() {
     if (!idTransaccion) { mostrarError(); return; }
 
     try {
-        const ref = doc(db, "Tiendas", "barranca", "pagos_tiendas", idTransaccion);
+        const ref =
+        tiendaSubDoc(localidad,"pagos_tiendas",idTransaccion);
         const snap = await getDoc(ref);
 
         if (!snap.exists() || !snap.data().url_comprobante) {

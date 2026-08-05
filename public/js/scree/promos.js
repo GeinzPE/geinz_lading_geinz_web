@@ -1,6 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   collection,
   getDocs,
   query,
@@ -8,17 +6,9 @@ import {
   where,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-};
+import { app, db } from "../db/db.js";
+import { tiendaSubCol } from "../rutas/rutas.js";
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 const promosContainer = document.getElementById("promos-container");
 // Al inicio, después de las imports y config, agrega:
 const urlParams = new URLSearchParams(window.location.search);
@@ -40,8 +30,8 @@ if (backBtn) {
   });
 }
 async function fetchPromociones() {
-  const path = `Tiendas/${localidadParam}/promos_ofertas`;
-  const q = query(collection(db, path), where("estado", "==", "activo"));
+  const colRef = tiendaSubCol(localidadParam, "promos_ofertas");
+  const q = query(colRef, where("estado", "==", "activo"));
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {

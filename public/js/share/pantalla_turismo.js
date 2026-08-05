@@ -1,69 +1,20 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { db } from "../db/db.js";
+import { tiendaCol } from "../firebase/paths.js";
 
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  doc,
-  getDoc,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-<<<<<<< HEAD
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-
-import {
-    getFirestore,
-    collection,
-    getDocs,
-    doc,
-    getDoc
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-    authDomain: "geinzworkapp.firebaseapp.com",
-    projectId: "geinzworkapp",
-    storageBucket: "geinzworkapp.appspot.com",
-    messagingSenderId: "921389328767",
-    appId: "1:921389328767:web:dc6fffc43a51444f5b524a"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-=======
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
->>>>>>> db08dd3c7a303673ddb7f41242a2fc0634c36365
 let allPlaces = [];
 const params = new URLSearchParams(window.location.search);
 const localidad = params.get("loc") || "barranca";
 
 console.log(localidad);
+
 async function renderWithSmoothImages(data) {
-<<<<<<< HEAD
 
     const grid = document.getElementById("placesGrid");
 
     if (data.length === 0) {
 
         grid.innerHTML = `
-=======
-  const grid = document.getElementById("placesGrid");
-
-  if (data.length === 0) {
-    grid.innerHTML = `
->>>>>>> db08dd3c7a303673ddb7f41242a2fc0634c36365
                     <p style="
                         grid-column:1/-1;
                         text-align:center;
@@ -74,7 +25,6 @@ async function renderWithSmoothImages(data) {
                     </p>
                 `;
 
-<<<<<<< HEAD
         return;
     }
 
@@ -105,34 +55,6 @@ async function renderWithSmoothImages(data) {
                 <i class="fas fa-clock"></i>
                 Abierto 24 h
             </div>
-=======
-    return;
-  }
-
-  grid.innerHTML = data
-    .map((item, idx) => {
-      const imgUrl =
-        item.img?.principal ||
-        item.img ||
-        "https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz";
-
-      return `
-                
-                <div 
-                    class="card"
-                    data-id="${item.id}"
-                    onclick="window.location.href='turismo?id=${item.id}&l=${localidad}'"
-                    style="animation-delay:${Math.min(idx * 0.04, 0.5)}s"
-                >
-
-                    <div class="img-wrapper loading" id="img-wrapper-${item.id}">
-                        
-                        <img
-                            data-src="${imgUrl}"
-                            alt="${item.titulo || "Lugar"}"
-                            id="img-${item.id}"
-                        >
->>>>>>> db08dd3c7a303673ddb7f41242a2fc0634c36365
 
             <h3 class="card-title">
                 ${item.titulo || "Lugar turístico"}
@@ -156,18 +78,8 @@ async function renderWithSmoothImages(data) {
 
         const imgElement = document.getElementById(`img-${item.id}`);
 
-<<<<<<< HEAD
         const wrapperElement =
             document.getElementById(`img-wrapper-${item.id}`);
-=======
-                            ${(Array.isArray(item.categoria)
-                              ? item.categoria
-                              : [item.categoria]
-                            )
-                              .filter((c) => c)
-                              .map((c) => `<span class="tag">${c}</span>`)
-                              .join("")}
->>>>>>> db08dd3c7a303673ddb7f41242a2fc0634c36365
 
         if (!imgElement) continue;
 
@@ -175,7 +87,6 @@ async function renderWithSmoothImages(data) {
 
         const tempImg = new Image();
 
-<<<<<<< HEAD
         tempImg.onload = () => {
 
             imgElement.src = src;
@@ -219,12 +130,7 @@ async function startApp() {
             ),
 
             getDocs(
-                collection(
-                    db,
-                    "Tiendas",
-                    localidad,
-                    "lugares_turisticos"
-                )
+                tiendaCol(localidad, "lugares_turisticos")
             )
 
         ]);
@@ -282,87 +188,6 @@ async function startApp() {
         console.error(error);
 
         document.getElementById("fullscreenSkeleton").innerHTML = `
-=======
-                `;
-    })
-    .join("");
-
-  for (const item of data) {
-    const imgElement = document.getElementById(`img-${item.id}`);
-
-    const wrapperElement = document.getElementById(`img-wrapper-${item.id}`);
-
-    if (!imgElement) continue;
-
-    const src = imgElement.getAttribute("data-src");
-
-    const tempImg = new Image();
-
-    tempImg.onload = () => {
-      imgElement.src = src;
-
-      imgElement.classList.add("loaded");
-
-      wrapperElement?.classList.remove("loading");
-    };
-
-    tempImg.onerror = () => {
-      imgElement.src = "https://placehold.co/600x500/1a1a2e/8800F2?text=Geinz";
-
-      imgElement.classList.add("loaded");
-
-      wrapperElement?.classList.remove("loading");
-    };
-
-    tempImg.src = src;
-  }
-}
-
-async function startApp() {
-  try {
-    const [filterSnap, placesSnap] = await Promise.all([
-      getDoc(doc(db, "Tiendas", "categorias", "categorias", "turismo")),
-
-      getDocs(collection(db, "Tiendas", localidad, "lugares_turisticos")),
-    ]);
-
-    if (filterSnap.exists()) {
-      const subcats = filterSnap.data().subcategorias || [];
-
-      const container = document.getElementById("filterContainer");
-
-      subcats.forEach((cat) => {
-        const btn = document.createElement("button");
-
-        btn.className = "filter-btn";
-
-        btn.textContent = cat;
-
-        btn.setAttribute("data-filter", cat.toLowerCase());
-
-        btn.onclick = (e) => filterAction(e.target);
-
-        container.appendChild(btn);
-      });
-    }
-
-    allPlaces = placesSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    await renderWithSmoothImages(allPlaces);
-
-    document.getElementById("fullscreenSkeleton").style.display = "none";
-
-    document.getElementById("appContent").style.display = "block";
-
-    document.getElementById("placesGrid").classList.add("loaded");
-  } catch (error) {
-    console.error(error);
-
-    document.getElementById("fullscreenSkeleton").innerHTML = `
->>>>>>> db08dd3c7a303673ddb7f41242a2fc0634c36365
                 
                     <div style="
                         display:flex;
@@ -409,7 +234,6 @@ async function startApp() {
                     </div>
 
                 `;
-<<<<<<< HEAD
     }
 }
 
@@ -464,52 +288,5 @@ async function filterAction(btn) {
         behavior: "smooth"
     });
 }
-
-startApp();
-=======
-  }
-}
-
-async function filterAction(btn) {
-  document
-    .querySelectorAll(".filter-btn")
-    .forEach((b) => b.classList.remove("active"));
-
-  btn.classList.add("active");
-
-  const filterValue = btn.getAttribute("data-filter");
-
-  const grid = document.getElementById("placesGrid");
-
-  grid.style.opacity = "0";
-
-  setTimeout(async () => {
-    let filteredData;
-
-    if (filterValue === "todos") {
-      filteredData = allPlaces;
-    } else {
-      filteredData = allPlaces.filter((p) => {
-        if (!p.categoria) return false;
-
-        const categories = Array.isArray(p.categoria)
-          ? p.categoria.map((c) => c.toLowerCase())
-          : [p.categoria.toLowerCase()];
-
-        return categories.includes(filterValue);
-      });
-    }
-
-    await renderWithSmoothImages(filteredData);
-
-    grid.style.opacity = "1";
-  }, 150);
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
-}
->>>>>>> db08dd3c7a303673ddb7f41242a2fc0634c36365
 
 startApp();

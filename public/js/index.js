@@ -1,4 +1,24 @@
 /* ════════════════════════════════
+   FIREBASE CONFIG
+   ════════════════════════════════ */
+/* ════════════════════════════════
+   FIREBASE CONFIG
+   ════════════════════════════════ */
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  onSnapshot,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { tiendaSubDoc } from "../js/rutas/rutas.js";
+
+// Importamos app y db ya inicializados desde db.js
+import { app, db } from "../js/db/db.js";
+
+/* ════════════════════════════════
    LOADING STATE — shimmer + GEINZ
    ════════════════════════════════ */
 const LOADER_CSS = `
@@ -189,47 +209,17 @@ function hideBizLoader() {
 function toggleSectionVisibility(sectionId, hasData) {
   const section = document.getElementById(sectionId);
   if (!section) return;
-  
+
   if (hasData) {
     section.style.display = "";
     // Asegurar que la clase 'reveal' se mantenga para animación
-    if (!section.classList.contains('reveal')) {
-      section.classList.add('reveal');
+    if (!section.classList.contains("reveal")) {
+      section.classList.add("reveal");
     }
   } else {
     section.style.display = "none";
   }
 }
-
-
-/* ════════════════════════════════
-   FIREBASE CONFIG
-   ════════════════════════════════ */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  query,
-  where,
-  onSnapshot,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-  measurementId: "G-38J7RJP8HK",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 
 /* ════════════════════════════════
    URL PARAMS
@@ -239,12 +229,12 @@ function getParams() {
   return {
     localidad: p.get("localidad") || "barranca",
     subcol: p.get("subcol") || "barranca",
-    id: p.get("id") ,
+    id: p.get("id"),
   };
 }
 
 async function loadBusiness({ localidad, subcol, id }) {
-  const ref = doc(db, "Tiendas", localidad, subcol, id);
+  const ref = tiendaSubDoc(localidad, "tiendas", id);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("Negocio no encontrado");
   return { id: snap.id, ...snap.data() };
@@ -254,7 +244,7 @@ async function loadBusiness({ localidad, subcol, id }) {
    BUSINESS REALTIME
    ════════════════════════════════ */
 function listenBusinessRealtime({ localidad, subcol, id }) {
-  const ref = doc(db, "Tiendas", localidad, subcol, id);
+  const ref = tiendaSubDoc(localidad, "tiendas", id);
   return onSnapshot(ref, async (snap) => {
     if (!snap.exists()) return;
     const biz = { id: snap.id, ...snap.data() };
@@ -383,8 +373,10 @@ function normalizePagos(metodos_pago) {
    ════════════════════════════════ */
 function normalizeImages(img_tienda) {
   const lista = img_tienda?.lista_img || {};
-  const ambi     = Array.isArray(lista.ambientales)          ? lista.ambientales          : [];
-  const productos = Array.isArray(lista.servicios_productos) ? lista.servicios_productos : [];
+  const ambi = Array.isArray(lista.ambientales) ? lista.ambientales : [];
+  const productos = Array.isArray(lista.servicios_productos)
+    ? lista.servicios_productos
+    : [];
   const all = [...ambi, ...productos].filter(Boolean);
   return all.length ? all : null;
 }
@@ -951,25 +943,26 @@ function render(raw) {
   const images = normalizeImages(raw.img_tienda);
   const promoImages = normalizePromos(raw.img_tienda);
   const amenities = normalizeAmenities(raw.servicios_comodidades);
-  
+
   // Validar datos para cada sección
   const hasDescripcion = descripcion && descripcion !== "—";
-  const hasDireccion = (ubicacion.dirección && ubicacion.dirección !== "—") || 
-                       (ubicacion.referencia && ubicacion.referencia !== "—");
-  const hasHorario = horario.some(h => h.apertura !== null);
+  const hasDireccion =
+    (ubicacion.dirección && ubicacion.dirección !== "—") ||
+    (ubicacion.referencia && ubicacion.referencia !== "—");
+  const hasHorario = horario.some((h) => h.apertura !== null);
   const hasContacto = contactos.length > 0;
   const hasPagos = pagos.length > 0;
-  
+
   // OCULTAR/MOSTRAR SECCIONES según datos disponibles
   toggleSectionVisibility("secDesc", hasDescripcion);
   toggleSectionVisibility("secAddr", hasDireccion);
   toggleSectionVisibility("secSchedule", hasHorario);
   toggleSectionVisibility("secContact", hasContacto);
   toggleSectionVisibility("secPay", hasPagos);
-  
+
   const routeBtn = document.getElementById("routeBtn");
   const shareBtn = document.getElementById("shareBtn");
-  
+
   if (shareBtn) {
     shareBtn.onclick = () => {
       const cat = (raw.categoria_tienda || "")
@@ -977,15 +970,17 @@ function render(raw) {
         .replace(/\s+/g, "+");
       const shareUrl = `https://geinztech.com/api/share?t=ti&id=${raw.id}&l=${_params.localidad}&c=${cat}`;
       if (navigator.share) {
-        navigator.share({ title: nombre, url: shareUrl }).catch(() => copyToClipboard(shareUrl));
+        navigator
+          .share({ title: nombre, url: shareUrl })
+          .catch(() => copyToClipboard(shareUrl));
       } else {
         copyToClipboard(shareUrl);
       }
     };
   }
-  
+
   document.getElementById("refText").textContent = ubicacion.referencia || "—";
-  
+
   if (routeBtn) {
     routeBtn.onclick = () => {
       const lat = ubicacion.latitud;
@@ -998,24 +993,24 @@ function render(raw) {
       window.open(mapsUrl, "_blank");
     };
   }
-  
+
   document.getElementById("bizName").textContent = nombre;
   document.title = nombre;
-  
+
   const logoUrl = raw.img_tienda?.logo_tienda || null;
-  const bizLogoEl = document.getElementById('bizLogo');
-  const bizLogoPlaceholder = document.getElementById('bizLogoPlaceholder');
+  const bizLogoEl = document.getElementById("bizLogo");
+  const bizLogoPlaceholder = document.getElementById("bizLogoPlaceholder");
   if (bizLogoEl) {
     if (logoUrl) {
       bizLogoEl.src = logoUrl;
-      bizLogoEl.style.display = 'block';
-      if (bizLogoPlaceholder) bizLogoPlaceholder.style.display = 'none';
+      bizLogoEl.style.display = "block";
+      if (bizLogoPlaceholder) bizLogoPlaceholder.style.display = "none";
     } else {
-      bizLogoEl.style.display = 'none';
-      if (bizLogoPlaceholder) bizLogoPlaceholder.style.display = 'flex';
+      bizLogoEl.style.display = "none";
+      if (bizLogoPlaceholder) bizLogoPlaceholder.style.display = "flex";
     }
   }
-  
+
   document.getElementById("cats").innerHTML = `
     <span class="tag cat">${categoria}</span>
     ${subcategorias.map((s) => `<span class="tag sub">${s}</span>`).join("")}`;
@@ -1076,7 +1071,6 @@ function render(raw) {
   }
 }
 
-
 /* ════════════════════════════════
    ACCORDIONS
    ════════════════════════════════ */
@@ -1114,12 +1108,12 @@ window.toggleSection = toggleSection;
 /* ════════════════════════════════
    INIT
    ════════════════════════════════ */
-   let _params = {}; 
+let _params = {};
 (async () => {
   showBizLoader();
 
   const params = getParams();
-  _params = params;   
+  _params = params;
   try {
     // cargar negocio
     const biz = await loadBusiness(params);
@@ -1147,4 +1141,3 @@ window.toggleSection = toggleSection;
     document.getElementById("statusText").textContent = err.message;
   }
 })();
-

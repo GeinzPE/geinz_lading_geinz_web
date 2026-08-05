@@ -1,6 +1,7 @@
 import PhotoSwipeLightbox from "https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js";
 window.PhotoSwipeLightbox = PhotoSwipeLightbox;
 import { setFaviconCircular } from "../favicon/favicon.js";
+
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
@@ -439,28 +440,15 @@ function hideBizLoader() {
 // ══════════════════════════════════════════
 //  FIREBASE
 // ══════════════════════════════════════════
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   doc,
   getDoc,
   onSnapshot,
   collection,
   getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.firebasestorage.app",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-  measurementId: "G-38J7RJP8HK",
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
+import { db } from "../db/db.js";
+import { tiendaDoc, tiendaCol, tiendaSubCol } from "../rutas/rutas.js";
 async function getParams() {
   const path = window.location.pathname;
   const desdePath = path.startsWith("/perfil/");
@@ -525,14 +513,7 @@ async function getParams() {
 
 async function resolveMesaYRedirigir({ localidad, id }, mesaToken) {
   try {
-    const mesasRef = collection(
-      db,
-      "Tiendas",
-      localidad,
-      localidad,
-      id,
-      "mesas",
-    );
+    const mesasRef = tiendaSubCol(localidad, "tiendas", id, "mesas");
     const snap = await getDocs(mesasRef);
     let mesaDoc = null;
 
@@ -570,7 +551,7 @@ async function resolveMesaYRedirigir({ localidad, id }, mesaToken) {
   }
 }
 async function loadBusiness({ localidad, id }) {
-  const ref = doc(db, "Tiendas", localidad, localidad, id);
+  const ref = tiendaDoc(localidad, "tiendas", id);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("Negocio no encontrado");
   return { id: snap.id, ...snap.data() };
@@ -582,7 +563,7 @@ async function loadBusiness({ localidad, id }) {
 
 async function loadCarta({ localidad, id }) {
   try {
-    const ref = collection(db, "Tiendas", localidad, localidad, id, "carta");
+    const ref = tiendaSubCol(localidad, "tiendas", id, "carta");
     const snap = await getDocs(ref);
     const secciones = [];
     snap.forEach((docSnap) => {
@@ -604,14 +585,7 @@ async function loadCarta({ localidad, id }) {
 
 async function loadActivePromos({ localidad, id }) {
   try {
-    const ref = collection(
-      db,
-      "Tiendas",
-      localidad,
-      localidad,
-      id,
-      "promociones_geinz",
-    );
+    const ref = tiendaSubCol(localidad, "tiendas", id, "promociones_geinz");
     const snap = await getDocs(ref);
     const now = Date.now();
     const promos = [];
@@ -783,7 +757,7 @@ function listenMesasRealtime({ localidad, id }, categoria) {
     return;
   }
   if (_mesasUnsub) return;
-  const ref = collection(db, "Tiendas", localidad, localidad, id, "mesas");
+  const ref = tiendaSubCol(localidad, "tiendas", id, "mesas");
   _mesasUnsub = onSnapshot(ref, (snap) => renderMesas(snap));
 }
 
@@ -2451,7 +2425,7 @@ async function render(biz) {
 //  REALTIME
 // ══════════════════════════════════════════
 function listenBusinessRealtime({ localidad, id }) {
-  const ref = doc(db, "Tiendas", localidad, localidad, id);
+  const ref = tiendaDoc(localidad, "tiendas", id);
   return onSnapshot(ref, (snap) => {
     if (snap.exists()) {
       const changed = snap.metadata.hasPendingWrites === false; // vino del server
@@ -2581,29 +2555,22 @@ function setupHoverCarousel(wrapId, trackId) {
 
 async function loadProductosCatalogo({ localidad, id }) {
   try {
-    const catRef = collection(
-      db,
-      "Tiendas",
-      localidad,
-      localidad,
-      id,
-      "productos",
-    );
+    const catRef = tiendaSubCol(localidad, "tiendas", id, "productos");
+
     const catSnap = await getDocs(catRef);
     const productos = [];
 
     for (const catDoc of catSnap.docs) {
       const categoria = catDoc.id;
-      const subRef = collection(
-        db,
-        "Tiendas",
+      const subRef = tiendaSubCol(
         localidad,
-        localidad,
+        "tiendas",
         id,
         "productos",
         categoria,
         categoria,
       );
+
       const subSnap = await getDocs(subRef);
       subSnap.forEach((pDoc) => {
         const d = pDoc.data();

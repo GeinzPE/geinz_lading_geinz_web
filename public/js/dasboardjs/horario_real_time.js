@@ -4,48 +4,20 @@
 //   - Cálculo y visualización de estado actual (abierto/cerrado)
 //   - Editor de horario híbrido (horizontal en PC, colapsable en móvil)
 // ═══════════════════════════════════════════════════════════════════
-
+// DESPUÉS
 import {
-  initializeApp,
-  getApps,
-  getApp,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore,
-  doc,
   onSnapshot,
   updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ─────────────────────────────────────────────────────────────
-// Firebase Config (común)
-// ─────────────────────────────────────────────────────────────
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-};
+import { db } from "../db/db.js";
+import { tiendaDoc } from "../rutas/rutas.js";
+
 const params = new URLSearchParams(window.location.search); 
 const tiendaId = params.get("id") || sessionStorage.getItem("tiendaId");
 const localidad = params.get("localidad") || sessionStorage.getItem("localidad");
 
-let _app;
-try {
-  _app = getApp();
-} catch {
-  _app = initializeApp(FIREBASE_CONFIG);
-}
-const db = getFirestore(_app);
-
-// ─────────────────────────────────────────────────────────────
-// Referencia al documento (única)
-// ─────────────────────────────────────────────────────────────
-const TIENDA_PATH = `Tiendas/${localidad}/${localidad}/${tiendaId}`;
-const docRef = doc(db, TIENDA_PATH);
-
+const docRef = tiendaDoc(localidad, "tiendas", tiendaId);
 // ─────────────────────────────────────────────────────────────
 // ── 1. MÓDULO DE ESTADO (horario.js original)
 // ─────────────────────────────────────────────────────────────

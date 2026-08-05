@@ -11,15 +11,6 @@ import {
   httpsCallable,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-};
-
 const appPlanes = initializeApp(
   {
     apiKey: "AIzaSyA47YFtXgzUQe8w_Wb6AlfDcQSjOB5rT_U",
@@ -34,9 +25,9 @@ const appPlanes = initializeApp(
 
 const dbPlanes = getFirestore(appPlanes);
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
+// ✅ AGREGADO: reutiliza la instancia central
+import { db } from "../js/db/db.js";
+import { tiendaDoc } from "../js/rutas/rutas.js";
 function habilitarPlanes() {
   const botones = document.querySelectorAll(".btn-plan");
   botones.forEach((boton) => {
@@ -74,7 +65,7 @@ async function buscarUsuario() {
   msg.textContent = "Conectando con la base de datos...";
 
   try {
-    const docRef = doc(db, "Tiendas", "barranca", "barranca", idInput);
+    const docRef = tiendaDoc("barranca", "tiendas", idInput);
     progressBar.style.width = "50%";
     const docSnap = await getDoc(docRef);
 

@@ -1,19 +1,11 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   collection,
   getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const app = initializeApp({
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-});
-const db = getFirestore(app);
+// Importamos app y db ya inicializados desde db.js
+import { app, db } from "../db/db.js";
+import { tiendaSubCol } from "../rutas/rutas.js";
 
 const params = new URLSearchParams(location.search);
 const localidad = (params.get("localidad") || "").toLowerCase().trim();
@@ -262,7 +254,7 @@ async function cargar() {
       return;
     }
 
-    const locRef = collection(db, "Tiendas", localidad, localidad);
+    const locRef = tiendaSubCol(localidad, "tiendas");
     const snap = await getDocs(locRef);
     const tempArr = [];
 

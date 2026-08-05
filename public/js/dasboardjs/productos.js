@@ -1,0 +1,1252 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  writeBatch,
+  getDocs,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { db, storage } from "../db/db.js";
+import { tiendaDoc } from "../rutas/rutas.js";
+import { initImportador } from "../dasboardjs/import_producto.js";
+
+/* ---------------- Adaptación de textos según categoría de negocio ---------------- */
+// Esto NO cambia la estructura de datos ni los campos: solo adapta los textos de
+// ejemplo/placeholder para que el panel se sienta natural en cualquier rubro
+// (licorerías, supermercados, panaderías, pastelerías, cafeterías, moda, tecnología,
+// jardinería, mascotas, hogar, ferretería, belleza, etc.), no solo restaurantes.
+function normalizarCategoria(cat) {
+  return (cat || "")
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+let categoriaTienda = sessionStorage.getItem("categoriaTienda") || null;
+let esRestaurante =
+  normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+
+const TEXTOS_RESTAURANTE = {
+  catEjemplo: "Ejemplo: Jaleas, Chaufas, Bebidas, Promociones.",
+  catPlaceholder: "Ej. Platos Marinos",
+  prodNombrePlaceholder: "Ej. Jalea Mixta",
+  prodDescPlaceholder:
+    "Ej. Acompañado de yuca frita, sarsa criolla y tártara casera.",
+  condicionesLabel: "Condiciones",
+  condNombrePlaceholder: "Ej. Partes",
+  opcionPlaceholder: "Ej. Pecho",
+};
+
+// Textos genéricos: sirven para cualquier tipo de negocio (bodega, panadería,
+// pastelería, cafetería, licorería, moda, tecnología, mascotas, hogar, belleza, etc.)
+const TEXTOS_GENERAL = {
+  catEjemplo: "Ejemplo: Ofertas, Nuevos, Más vendidos, Combos.",
+  catPlaceholder: "Ej. Nombre de la categoría",
+  prodNombrePlaceholder: "Ej. Nombre del producto",
+  prodDescPlaceholder:
+    "Ej. Marca, presentación o características del producto.",
+  condicionesLabel: "Variantes",
+  condNombrePlaceholder: "Ej. Talla, Color, Presentación",
+  opcionPlaceholder: "Ej. M",
+};
+
+function textosActuales() {
+  return esRestaurante ? TEXTOS_RESTAURANTE : TEXTOS_GENERAL;
+}
+
+function aplicarTextosPorCategoria() {
+  const t = textosActuales();
+  const catEjemploEl = document.getElementById("cat-ejemplo-text");
+  if (catEjemploEl) catEjemploEl.textContent = t.catEjemplo;
+  const catInput = document.getElementById("input-cat-nombre");
+  if (catInput) catInput.placeholder = t.catPlaceholder;
+  const prodNombreInput = document.getElementById("input-prod-nombre");
+  if (prodNombreInput) prodNombreInput.placeholder = t.prodNombrePlaceholder;
+  const prodDescInput = document.getElementById("input-prod-descripcion");
+  if (prodDescInput) prodDescInput.placeholder = t.prodDescPlaceholder;
+  const labelCondiciones = document.getElementById("label-condiciones");
+  if (labelCondiciones)
+    labelCondiciones.textContent = `${t.condicionesLabel} (máx. 3)`;
+}
+aplicarTextosPorCategoria();
+
+let tiendaId = sessionStorage.getItem("tiendaId");
+let localidad = sessionStorage.getItem("localidad");
+
+if (!tiendaId || !localidad) {
+  // fallback por si el postMessage llega después
+  window.addEventListener("message", (e) => {
+    if (e.data?.tipo !== "DATOS_TIENDA") return;
+    tiendaId = e.data.tiendaId;
+    localidad = e.data.localidad;
+    if (e.data.categoriaTienda) {
+      categoriaTienda = e.data.categoriaTienda;
+      esRestaurante =
+        normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+      aplicarTextosPorCategoria();
+    }
+    // vuelve a ejecutar tu init aquí si hace falta
+  });
+}
+
+const TIENDA_ID_STORAGE = tiendaId;
+const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
+const categoriasRef = collection(tiendaDocRef, "productos");
+
+function productosRef(categoriaId) {
+  return collection(doc(categoriasRef, categoriaId), categoriaId);
+}
+function storagePathProducto(productoId) {
+  return `tiendas/${TIENDA_ID_STORAGE}/productos/${productoId}`;
+}
+
+/* ---------------- Notifications ---------------- */
+const toastWrap = document.getElementById("toast-wrap");
+function toast(msg, type = "") {
+  const isError = type === "error";
+  const el = document.createElement("div");
+  el.className = `pointer-events-auto animate-toastIn w-full sm:w-auto sm:min-w-[220px] rounded-xl border px-4 py-3 text-xs font-medium shadow-2xl backdrop-blur-md transition-all
+    ${
+      isError
+        ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
+        : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
+    }`;
+  el.textContent = msg;
+  toastWrap.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = "0";
+    el.style.transform = "translateY(6px)";
+    setTimeout(() => el.remove(), 200);
+  }, 3000);
+}
+
+/* ---------------- Modal Controls ---------------- */
+function openOverlay(id) {
+  document.getElementById(id).classList.add("show");
+}
+function closeOverlay(id) {
+  document.getElementById(id).classList.remove("show");
+}
+document.querySelectorAll("[data-close]").forEach((btn) => {
+  btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
+});
+document.querySelectorAll(".overlay").forEach((ov) => {
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov) closeOverlay(ov.id);
+  });
+});
+
+let confirmCallback = null;
+function askConfirm(title, body, onConfirm) {
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-body").textContent = body;
+  confirmCallback = onConfirm;
+  openOverlay("overlay-confirm");
+}
+
+// FIX: el botón de confirmar ahora muestra spinner mientras elimina,
+// y se re-habilita siempre (antes se quedaba "colgado" si el callback tardaba o el modal se cerraba a medias).
+document
+  .getElementById("btn-confirm-action")
+  .addEventListener("click", async () => {
+    const btn = document.getElementById("btn-confirm-action");
+    const label = document.getElementById("btn-confirm-action-label");
+    const originalText = label.textContent;
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>';
+    try {
+      if (confirmCallback) await confirmCallback();
+      closeOverlay("overlay-confirm");
+    } catch (err) {
+      console.error(err);
+      toast("Ocurrió un error al intentar eliminar.", "error");
+    } finally {
+      btn.disabled = false;
+      label.textContent = originalText;
+      confirmCallback = null;
+    }
+  });
+
+/* ---------------- Splash Screen Control ---------------- */
+const splashGallery = document.getElementById("splash-gallery");
+const splashTotalImgs = document.getElementById("splash-total-imgs");
+const splashTotalProds = document.getElementById("splash-total-prods");
+const loadedImageUrls = new Set();
+let splashDismissed = false;
+
+function updateSplashAndCheckDismiss() {
+  if (splashDismissed) return;
+
+  if (loadedImageUrls.size > 0) {
+    splashGallery.innerHTML = "";
+    const sliceImgs = Array.from(loadedImageUrls).slice(-5);
+    sliceImgs.forEach((url) => {
+      const img = document.createElement("img");
+      img.src = url;
+      img.loading = "lazy";
+      img.className =
+        "w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-2xl border border-purple-800/40 shadow-xl transition-all duration-300 animate-fadeIn";
+      splashGallery.appendChild(img);
+    });
+  }
+
+  setTimeout(() => {
+    const splash = document.getElementById("splash-screen");
+    if (splash && !splashDismissed) {
+      splashDismissed = true;
+      splash.classList.add("hide");
+    }
+  }, 1200);
+}
+
+/* ---------------- Estado de Filtros (Todos, Activos, Agotados, Stock bajo, Categorias) ---------------- */
+let filtroEstadoActual = "todos"; // 'todos' | 'activos' | 'agotados' | 'stockbajo' | 'categorias'
+const STOCK_BAJO_UMBRAL = 5; // productos con stock definido y menor a este número se consideran "stock bajo"
+
+const btnTodos = document.getElementById("btn-filter-todos");
+const btnActivos = document.getElementById("btn-filter-activos");
+const btnAgotados = document.getElementById("btn-filter-agotados");
+const btnStockBajo = document.getElementById("btn-filter-stockbajo");
+const btnCategorias = document.getElementById("btn-filter-categorias");
+
+function setFiltroEstado(nuevoEstado) {
+  filtroEstadoActual = nuevoEstado;
+  [btnTodos, btnActivos, btnAgotados, btnStockBajo, btnCategorias].forEach(
+    (b) =>
+      b.classList.remove(
+        "active-filter",
+        "ring-2",
+        "ring-violet-500",
+        "ring-emerald-500",
+        "ring-rose-500",
+        "ring-amber-500",
+        "ring-purple-500",
+      ),
+  );
+
+  if (nuevoEstado === "todos")
+    btnTodos.classList.add("active-filter", "ring-2", "ring-violet-500");
+  if (nuevoEstado === "activos")
+    btnActivos.classList.add("active-filter", "ring-2", "ring-emerald-500");
+  if (nuevoEstado === "agotados")
+    btnAgotados.classList.add("active-filter", "ring-2", "ring-rose-500");
+  if (nuevoEstado === "stockbajo")
+    btnStockBajo.classList.add("active-filter", "ring-2", "ring-amber-500");
+  if (nuevoEstado === "categorias")
+    btnCategorias.classList.add("active-filter", "ring-2", "ring-purple-500");
+
+  aplicarFiltroYMetricas();
+}
+
+btnTodos.addEventListener("click", () => setFiltroEstado("todos"));
+btnActivos.addEventListener("click", () => setFiltroEstado("activos"));
+btnAgotados.addEventListener("click", () => setFiltroEstado("agotados"));
+btnStockBajo.addEventListener("click", () => setFiltroEstado("stockbajo"));
+btnCategorias.addEventListener("click", () => setFiltroEstado("categorias"));
+
+/* ---------------- Categorías ---------------- */
+document
+  .getElementById("btn-nueva-categoria")
+  .addEventListener("click", () => openOverlay("overlay-categoria"));
+document
+  .getElementById("btn-nueva-categoria-empty")
+  ?.addEventListener("click", () => openOverlay("overlay-categoria"));
+
+// FIX PRINCIPAL #1: antes se usaba addDoc(), que SIEMPRE genera un ID aleatorio (ej. "sLQckf102FhuO4MUIXP5").
+// Ahora usamos setDoc(doc(categoriasRef, nombre), ...) para que el ID del documento sea
+// exactamente el nombre que escribes (igual que tus categorías "Entradas" o "Postres" creadas a mano).
+// También se valida que no exista ya una categoría con ese nombre, y se muestra spinner mientras guarda.
+document
+  .getElementById("form-categoria")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("input-cat-nombre");
+    const nombre = input.value.trim();
+    if (!nombre) return;
+
+    const btn = document.getElementById("btn-guardar-categoria");
+    const label = document.getElementById("btn-guardar-categoria-label");
+    const originalText = label.textContent;
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>';
+
+    try {
+      const catDocRef = doc(categoriasRef, nombre);
+      const existente = await getDoc(catDocRef);
+      if (existente.exists()) {
+        toast(`Ya existe una categoría llamada "${nombre}".`, "error");
+        return;
+      }
+
+      await setDoc(catDocRef, { nombre, createdAt: serverTimestamp() });
+      input.value = "";
+      closeOverlay("overlay-categoria");
+      toast(`Categoría "${nombre}" añadida.`);
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo guardar la categoría.", "error");
+    } finally {
+      btn.disabled = false;
+      label.textContent = originalText;
+    }
+  });
+
+async function eliminarCategoria(categoriaId, nombre) {
+  const prodSnap = await getDocs(productosRef(categoriaId));
+
+  for (const prodDoc of prodSnap.docs) {
+    const data = prodDoc.data();
+    const imagenes = data.imagenes || [];
+    await Promise.all(
+      imagenes.map((img) =>
+        deleteObject(storageRef(storage, img.path)).catch(() => {}),
+      ),
+    );
+  }
+
+  const batch = writeBatch(db);
+  prodSnap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+
+  await deleteDoc(doc(categoriasRef, categoriaId));
+  toast(`Categoría "${nombre}" eliminada.`);
+}
+
+/* ---------------- Productos ---------------- */
+let categoriaActivaParaProducto = null;
+let imagenesSeleccionadas = [null, null, null];
+let condicionesSeleccionadas = [];
+let productoEditandoId = null;
+let productoEditandoCategoriaId = null;
+let imagenesEnEdicionOriginal = [];
+
+function renderImgDropSlots() {
+  const row = document.getElementById("imgdrop-row");
+  row.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const slot = document.createElement("div");
+    slot.className =
+      "relative aspect-square rounded-xl border border-dashed border-purple-900/40 hover:border-violet-600 bg-[#05040a] flex items-center justify-center cursor-pointer overflow-hidden transition-all";
+    if (imagenesSeleccionadas[i]) {
+      const item = imagenesSeleccionadas[i];
+      const img = document.createElement("img");
+      img.src = item instanceof File ? URL.createObjectURL(item) : item.url;
+      img.className = "absolute inset-0 w-full h-full object-cover";
+      const x = document.createElement("div");
+      x.className =
+        "absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-black/80 hover:bg-rose-600 text-white text-[10px] flex items-center justify-center transition-colors";
+      x.textContent = "✕";
+      x.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        imagenesSeleccionadas[i] = null;
+        renderImgDropSlots();
+      });
+      slot.appendChild(img);
+      slot.appendChild(x);
+    } else {
+      slot.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`;
+      slot.addEventListener("click", () => {
+        document.getElementById("input-prod-imgs").dataset.targetSlot = i;
+        document.getElementById("input-prod-imgs").click();
+      });
+    }
+    row.appendChild(slot);
+  }
+}
+
+// Muestra una advertencia si el stock general no coincide con la suma de
+// los stocks de las variantes — el error más común al llenar el formulario.
+function validarConsistenciaStock() {
+  const avisoAnterior = document.getElementById("aviso-stock-inconsistente");
+  if (avisoAnterior) avisoAnterior.remove();
+
+  const stockGeneralRaw = document.getElementById("input-prod-stock").value;
+  if (stockGeneralRaw === "") return; // sin control de stock general, no hay nada que comparar
+
+  const stockGeneral = Math.max(0, parseInt(stockGeneralRaw, 10) || 0);
+
+  // Suma el stock de todas las opciones que sí tengan un número puesto
+  let sumaVariantes = 0;
+  let hayVariantesConStock = false;
+  condicionesSeleccionadas.forEach((cond) => {
+    cond.opciones.forEach((op) => {
+      if (typeof op.stock === "number") {
+        hayVariantesConStock = true;
+        sumaVariantes += op.stock;
+      }
+    });
+  });
+
+  if (!hayVariantesConStock || sumaVariantes === stockGeneral) return;
+
+  const aviso = document.createElement("p");
+  aviso.id = "aviso-stock-inconsistente";
+  aviso.className =
+    "text-[11px] text-amber-300 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2 mt-2 leading-relaxed";
+  aviso.textContent = `⚠️ El stock general (${stockGeneral}) no coincide con la suma del stock de las variantes (${sumaVariantes}). Revisa los números antes de guardar.`;
+  document.getElementById("condiciones-container").after(aviso);
+}
+function renderCondiciones() {
+  const cont = document.getElementById("condiciones-container");
+  const btnAdd = document.getElementById("btn-add-condicion");
+  cont.innerHTML = "";
+  btnAdd.style.display = condicionesSeleccionadas.length >= 3 ? "none" : "";
+
+  condicionesSeleccionadas.forEach((cond, ci) => {
+    const box = document.createElement("div");
+    box.className = "rounded-xl bg-[#05040a] border border-purple-900/30 p-3";
+
+    const head = document.createElement("div");
+    head.className = "flex items-center gap-2 mb-2";
+
+    const nombreInput = document.createElement("input");
+    nombreInput.type = "text";
+    nombreInput.placeholder = textosActuales().condNombrePlaceholder;
+    nombreInput.maxLength = 30;
+    nombreInput.value = cond.nombre;
+    nombreInput.className =
+      "flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600";
+    nombreInput.addEventListener("input", () => {
+      cond.nombre = nombreInput.value;
+    });
+
+    const delCondBtn = document.createElement("button");
+    delCondBtn.type = "button";
+    delCondBtn.className =
+      "w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-purple-400/50 hover:text-rose-400 hover:bg-rose-950/30 transition-colors";
+    delCondBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>`;
+    delCondBtn.addEventListener("click", () => {
+      condicionesSeleccionadas.splice(ci, 1);
+      renderCondiciones();
+    });
+
+    head.appendChild(nombreInput);
+    head.appendChild(delCondBtn);
+    box.appendChild(head);
+
+    // Encabezados de columna: sin esto, los campos de costo y stock son
+    // dos inputs numéricos idénticos y es fácil confundir uno con el otro.
+    const colHeaders = document.createElement("div");
+    colHeaders.className = "flex items-center gap-2 mb-1 px-0.5";
+    colHeaders.innerHTML = `
+  <span class="flex-1 text-[9px] font-mono uppercase tracking-wider text-purple-400/40">Opción</span>
+  <span class="w-16 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Costo extra</span>
+  <span class="w-14 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Stock</span>
+  <span class="w-9 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Activo</span>
+  <span class="w-6"></span>
+`;
+    box.appendChild(colHeaders);
+
+    const opcionesWrap = document.createElement("div");
+    opcionesWrap.className = "flex flex-col gap-1.5";
+
+    cond.opciones.forEach((op, oi) => {
+      const row = document.createElement("div");
+      row.className = "flex items-center gap-2";
+      const opInput = document.createElement("input");
+      opInput.type = "text";
+      opInput.placeholder = textosActuales().opcionPlaceholder;
+      opInput.maxLength = 30;
+      opInput.value = op.nombre;
+      opInput.className =
+        "flex-1 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2.5 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600";
+      opInput.addEventListener("input", () => {
+        op.nombre = opInput.value;
+      });
+
+      const costInput = document.createElement("input");
+      costInput.type = "number";
+      costInput.step = "0.10";
+      costInput.min = "0";
+      costInput.placeholder = "+S/ 0";
+      costInput.title =
+        "Costo adicional que se suma al precio base si el cliente elige esta opción";
+      costInput.value = op.costoAdicional ? op.costoAdicional : "";
+      costInput.className =
+        "w-16 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
+      costInput.addEventListener("input", () => {
+        op.costoAdicional = parseFloat(costInput.value) || 0;
+      });
+
+      const stockOpInput = document.createElement("input");
+      stockOpInput.type = "number";
+      stockOpInput.step = "1";
+      stockOpInput.min = "0";
+      stockOpInput.placeholder = "Stock";
+      stockOpInput.title = "Stock de esta opción (vacío = sin control)";
+      stockOpInput.value = typeof op.stock === "number" ? op.stock : "";
+      stockOpInput.className =
+        "w-14 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
+      stockOpInput.addEventListener("input", () => {
+        op.stock =
+          stockOpInput.value === ""
+            ? null
+            : Math.max(0, parseInt(stockOpInput.value, 10) || 0);
+        validarConsistenciaStock(); // ← esto faltaba
+      });
+
+      const toggleLabel = document.createElement("label");
+      toggleLabel.className = "relative inline-block w-9 h-5 shrink-0";
+      toggleLabel.innerHTML = `
+            <input type="checkbox" ${op.activo ? "checked" : ""} class="peer opacity-0 w-0 h-0">
+            <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+              before:content-[''] before:absolute before:w-3.5 before:h-3.5 before:left-0.5 before:top-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-4"></span>`;
+      toggleLabel.querySelector("input").addEventListener("change", (ev) => {
+        op.activo = ev.target.checked;
+      });
+
+      const delOpBtn = document.createElement("button");
+      delOpBtn.type = "button";
+      delOpBtn.className =
+        "w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 transition-colors text-xs";
+      delOpBtn.textContent = "✕";
+      delOpBtn.addEventListener("click", () => {
+        cond.opciones.splice(oi, 1);
+        renderCondiciones();
+      });
+      row.appendChild(opInput);
+      row.appendChild(costInput);
+      row.appendChild(stockOpInput);
+      row.appendChild(toggleLabel);
+      row.appendChild(delOpBtn);
+      opcionesWrap.appendChild(row);
+    });
+
+    box.appendChild(opcionesWrap);
+
+    const addOpBtn = document.createElement("button");
+    addOpBtn.type = "button";
+    addOpBtn.className =
+      "mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200";
+    addOpBtn.textContent = "+ Agregar opción";
+    addOpBtn.addEventListener("click", () => {
+      cond.opciones.push({
+        nombre: "",
+        activo: true,
+        costoAdicional: 0,
+        stock: null,
+      });
+      renderCondiciones();
+    });
+    box.appendChild(addOpBtn);
+
+    cont.appendChild(box);
+  });
+
+  validarConsistenciaStock(); // ← esto faltaba, al final de la función
+}
+
+document.getElementById("btn-add-condicion").addEventListener("click", () => {
+  if (condicionesSeleccionadas.length >= 3) return;
+  condicionesSeleccionadas.push({
+    nombre: "",
+    opciones: [{ nombre: "", activo: true, costoAdicional: 0, stock: null }],
+  });
+  renderCondiciones();
+});
+
+document
+  .getElementById("input-prod-stock")
+  .addEventListener("input", validarConsistenciaStock);
+document.getElementById("input-prod-imgs").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  const slot = parseInt(e.target.dataset.targetSlot || "0", 10);
+  if (file) {
+    imagenesSeleccionadas[slot] = file;
+    renderImgDropSlots();
+  }
+  e.target.value = "";
+});
+
+function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
+  categoriaActivaParaProducto = categoriaId;
+  productoEditandoId = null;
+  productoEditandoCategoriaId = null;
+  imagenesSeleccionadas = [null, null, null];
+  imagenesEnEdicionOriginal = [];
+  condicionesSeleccionadas = [];
+  document.getElementById("form-producto").reset();
+  document.getElementById("input-prod-disponible").checked = true;
+  document.getElementById("input-prod-stock").value = "";
+  document.getElementById("input-prod-auto-desactivar").checked = false;
+  document.getElementById("producto-cat-hint").textContent =
+    `Se incluirá en "${categoriaNombre}".`;
+  document.getElementById("btn-guardar-producto-label").textContent =
+    "Crear producto";
+  aplicarTextosPorCategoria();
+  renderImgDropSlots();
+  renderCondiciones();
+  openOverlay("overlay-producto");
+}
+
+function abrirModalEditarProducto(categoriaId, productoId, data) {
+  categoriaActivaParaProducto = categoriaId;
+  productoEditandoId = productoId;
+  productoEditandoCategoriaId = categoriaId;
+  imagenesSeleccionadas = [null, null, null];
+  const imgsExistentes = data.imagenes || [];
+  imagenesEnEdicionOriginal = imgsExistentes;
+  imgsExistentes.slice(0, 3).forEach((img, i) => {
+    imagenesSeleccionadas[i] = img;
+  });
+  condicionesSeleccionadas = (data.condiciones || []).map((c) => ({
+    nombre: c.nombre,
+    opciones: (c.opciones || []).map((o) => ({
+      nombre: o.nombre,
+      activo: !!o.activo,
+      costoAdicional: Number(o.costoAdicional) || 0,
+      stock: typeof o.stock === "number" ? o.stock : null,
+    })),
+  }));
+  document.getElementById("form-producto").reset();
+  document.getElementById("input-prod-nombre").value = data.nombre || "";
+  document.getElementById("input-prod-descripcion").value =
+    data.descripcion || "";
+  document.getElementById("input-prod-precio").value = data.precio ?? "";
+  document.getElementById("input-prod-disponible").checked = !!data.disponible;
+  // Si el producto no tiene stock definido (productos viejos), el campo queda vacío = "sin control de stock"
+  document.getElementById("input-prod-stock").value =
+    typeof data.stock === "number" ? data.stock : "";
+  document.getElementById("input-prod-auto-desactivar").checked =
+    !!data.autoDesactivar;
+  document.getElementById("producto-cat-hint").textContent =
+    `Editando producto.`;
+  document.getElementById("btn-guardar-producto-label").textContent =
+    "Guardar cambios";
+  aplicarTextosPorCategoria();
+  renderImgDropSlots();
+  renderCondiciones();
+  openOverlay("overlay-producto");
+}
+document
+  .getElementById("form-producto")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nombre = document.getElementById("input-prod-nombre").value.trim();
+    const descripcion = document
+      .getElementById("input-prod-descripcion")
+      .value.trim();
+    const precio = parseFloat(
+      document.getElementById("input-prod-precio").value,
+    );
+    let disponible = document.getElementById("input-prod-disponible").checked;
+
+    const stockRaw = document.getElementById("input-prod-stock").value;
+    // Si el campo está vacío, el producto queda "sin control de stock" (stock = null)
+    const stock =
+      stockRaw === "" ? null : Math.max(0, parseInt(stockRaw, 10) || 0);
+    const autoDesactivar = document.getElementById(
+      "input-prod-auto-desactivar",
+    ).checked;
+
+    // Si el usuario activó "desactivar automáticamente al llegar a 0" y el stock es 0,
+    // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
+    if (autoDesactivar && stock === 0) disponible = false;
+
+    if (!nombre || isNaN(precio)) return;
+
+    const condiciones = condicionesSeleccionadas
+      .filter((c) => c.nombre.trim())
+      .slice(0, 3)
+      .map((c) => ({
+        nombre: c.nombre.trim(),
+        opciones: c.opciones
+          .filter((o) => o.nombre.trim())
+          .map((o) => ({
+            nombre: o.nombre.trim(),
+            activo: !!o.activo,
+            costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
+            stock: typeof o.stock === "number" ? o.stock : null,
+          })),
+      }));
+
+    const btn = document.getElementById("btn-guardar-producto");
+    const label = document.getElementById("btn-guardar-producto-label");
+    const originalText = label.textContent;
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>';
+
+    try {
+      if (productoEditandoId) {
+        const docRef = doc(
+          productosRef(productoEditandoCategoriaId),
+          productoEditandoId,
+        );
+
+        const conservadas = imagenesSeleccionadas.filter(
+          (item) => item && !(item instanceof File),
+        );
+        const nuevas = imagenesSeleccionadas.filter(
+          (item) => item instanceof File,
+        );
+        const eliminadas = (imagenesEnEdicionOriginal || []).filter(
+          (orig) => !conservadas.some((c) => c.path === orig.path),
+        );
+        await Promise.all(
+          eliminadas.map((img) =>
+            deleteObject(storageRef(storage, img.path)).catch(() => {}),
+          ),
+        );
+
+        const subidas = [];
+        for (const file of nuevas) {
+          const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${file.name}`;
+          const ref = storageRef(storage, path);
+          await uploadBytes(ref, file);
+          const url = await getDownloadURL(ref);
+          subidas.push({ url, path });
+        }
+
+        await updateDoc(docRef, {
+          nombre,
+          descripcion,
+          precio,
+          disponible,
+          condiciones,
+          stock,
+          autoDesactivar,
+          imagenes: [...conservadas, ...subidas],
+        });
+
+        toast(`"${nombre}" actualizado.`);
+      } else {
+        const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
+        await setDoc(nuevoDocRef, {
+          nombre,
+          descripcion,
+          precio,
+          disponible,
+          condiciones,
+          stock,
+          autoDesactivar,
+          imagenes: [],
+          createdAt: serverTimestamp(),
+        });
+
+        const archivos = imagenesSeleccionadas.filter(Boolean);
+        const imagenes = [];
+        for (const file of archivos) {
+          const path = `${storagePathProducto(nuevoDocRef.id)}/${Date.now()}_${file.name}`;
+          const ref = storageRef(storage, path);
+          await uploadBytes(ref, file);
+          const url = await getDownloadURL(ref);
+          imagenes.push({ url, path });
+        }
+
+        if (imagenes.length) {
+          await updateDoc(nuevoDocRef, { imagenes });
+        }
+
+        toast(`"${nombre}" guardado.`);
+      }
+
+      closeOverlay("overlay-producto");
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo guardar el producto.", "error");
+    } finally {
+      btn.disabled = false;
+      label.textContent = productoEditandoId ? "Guardar cambios" : originalText;
+    }
+  });
+
+async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
+  await Promise.all(
+    (imagenes || []).map((img) =>
+      deleteObject(storageRef(storage, img.path)).catch(() => {}),
+    ),
+  );
+  await deleteDoc(doc(productosRef(categoriaId), productoId));
+  toast(`"${nombre}" eliminado.`);
+}
+
+/* ---------------- Render Tarjeta Producto ---------------- */
+function renderProductoCard(categoriaId, productoId, data) {
+  const card = document.createElement("div");
+  card.className =
+    "producto-card animate-fadeIn group relative flex flex-col rounded-2xl bg-[#0d0a17] border border-purple-900/20 overflow-hidden hover:border-purple-800/40 transition-all duration-200 hover:scale-[1.01] cursor-pointer";
+  card.dataset.nombre = (
+    data.nombre +
+    " " +
+    (data.descripcion || "")
+  ).toLowerCase();
+  card.dataset.disponible = data.disponible ? "true" : "false";
+  // 'stock' queda vacío en el dataset si el producto no tiene control de stock (data.stock === null/undefined)
+  card.dataset.stock = typeof data.stock === "number" ? String(data.stock) : "";
+
+  // FIX PRINCIPAL #2: ahora la tarjeta completa abre el modal de edición al hacer clic
+  // (antes solo funcionaba el ícono del lápiz). Se ignoran los clics hechos sobre botones
+  // internos (disponible / editar / eliminar) para no interferir con esas acciones.
+  card.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    abrirModalEditarProducto(categoriaId, productoId, data);
+  });
+
+  const imagenes = data.imagenes || [];
+  imagenes.forEach((img) => {
+    if (img.url) loadedImageUrls.add(img.url);
+  });
+
+  const imgWrap = document.createElement("div");
+  imgWrap.className =
+    "relative w-full aspect-square bg-[#05040a] overflow-hidden border-b border-purple-900/20";
+
+  if (imagenes.length === 0) {
+    imgWrap.innerHTML = `<div class="w-full h-full flex items-center justify-center text-purple-400/20"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></div>`;
+  } else {
+    const imgEl = document.createElement("img");
+    imgEl.src = imagenes[0].url;
+    imgEl.loading = "lazy";
+    imgEl.className =
+      "w-full h-full object-cover block group-hover:scale-105 transition-transform duration-300";
+    imgWrap.appendChild(imgEl);
+  }
+
+  const body = document.createElement("div");
+  body.className = "flex flex-col p-4 flex-1 justify-between gap-3";
+
+  const infoSection = document.createElement("div");
+
+  const nombreEl = document.createElement("h3");
+  nombreEl.className =
+    "font-bold text-[15px] text-white leading-snug line-clamp-1";
+  nombreEl.textContent = data.nombre;
+
+  const descEl = document.createElement("p");
+  descEl.className =
+    "text-xs text-purple-300/60 mt-1 line-clamp-2 leading-relaxed";
+  descEl.textContent = data.descripcion || "Sin descripción adicional.";
+
+  infoSection.appendChild(nombreEl);
+  infoSection.appendChild(descEl);
+
+  const condiciones = data.condiciones || [];
+  if (condiciones.length) {
+    const condWrap = document.createElement("div");
+    condWrap.className = "flex flex-col gap-1 mt-2";
+    condiciones.forEach((cond) => {
+      const activas = (cond.opciones || []).filter((o) => o.activo);
+      if (!activas.length) return;
+      const row = document.createElement("div");
+      row.className = "flex flex-wrap items-center gap-1";
+      const tag = document.createElement("span");
+      tag.className = "text-[10px] font-mono text-purple-400/60";
+      tag.textContent = `${cond.nombre}:`;
+      row.appendChild(tag);
+      activas.forEach((op) => {
+        const chip = document.createElement("span");
+        const stockBajo =
+          typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
+        const sinStock = typeof op.stock === "number" && op.stock <= 0;
+        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border ${
+          sinStock
+            ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
+            : stockBajo
+              ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
+              : "bg-purple-950/40 border-purple-800/30 text-purple-300"
+        }`;
+        let txt = op.costoAdicional
+          ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})`
+          : op.nombre;
+        if (typeof op.stock === "number") txt += ` · Stock: ${op.stock}`;
+        chip.textContent = txt;
+        row.appendChild(chip);
+      });
+      condWrap.appendChild(row);
+    });
+    infoSection.appendChild(condWrap);
+  }
+  const bottomSection = document.createElement("div");
+  bottomSection.className =
+    "pt-2 border-t border-purple-900/20 flex flex-col gap-2.5";
+
+  const priceRow = document.createElement("div");
+  priceRow.className = "flex items-center justify-between";
+
+  const precioEl = document.createElement("span");
+  precioEl.className = "font-mono text-base font-bold text-violet-300";
+  precioEl.textContent = `S/ ${Number(data.precio).toFixed(2)}`;
+
+  const codeEl = document.createElement("span");
+  codeEl.className =
+    "font-mono text-[10px] text-purple-400/40 bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-900/30";
+  codeEl.textContent = `#${productoId.slice(0, 5)}`;
+
+  priceRow.appendChild(precioEl);
+
+  if (typeof data.stock === "number") {
+    const stockEl = document.createElement("span");
+    const stockColor =
+      data.stock <= 0
+        ? "bg-rose-950/40 text-rose-400 border-rose-500/20"
+        : data.stock < STOCK_BAJO_UMBRAL
+          ? "bg-amber-950/40 text-amber-400 border-amber-500/20"
+          : "bg-emerald-950/40 text-emerald-400 border-emerald-500/20";
+    stockEl.className = `font-mono text-[10px] px-2 py-0.5 rounded-md border ${stockColor}`;
+    stockEl.textContent = `Stock: ${data.stock}`;
+    priceRow.appendChild(stockEl);
+  }
+
+  priceRow.appendChild(codeEl);
+
+  const actionRow = document.createElement("div");
+  actionRow.className = "flex items-center justify-between gap-2";
+
+  const estadoBtn = document.createElement("button");
+  estadoBtn.type = "button";
+  estadoBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
+    data.disponible
+      ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
+      : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
+  }`;
+  estadoBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${data.disponible ? "bg-emerald-400" : "bg-rose-400"}"></span><span>${data.disponible ? "Disponible" : "Agotado"}</span>`;
+  estadoBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    estadoBtn.disabled = true;
+    try {
+      await updateDoc(doc(productosRef(categoriaId), productoId), {
+        disponible: !data.disponible,
+      });
+    } catch (err) {
+      console.error(err);
+      toast("Error al cambiar disponibilidad.", "error");
+    } finally {
+      estadoBtn.disabled = false;
+    }
+  });
+
+  const delBtn = document.createElement("button");
+  delBtn.type = "button";
+  delBtn.className =
+    "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 hover:bg-rose-950/30 transition-colors";
+  delBtn.title = "Eliminar producto";
+  delBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>`;
+  delBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    askConfirm(
+      "¿Eliminar producto?",
+      `"${data.nombre}" será removido permanentemente.`,
+      () => {
+        return eliminarProducto(categoriaId, productoId, data.nombre, imagenes);
+      },
+    );
+  });
+
+  const editBtn = document.createElement("button");
+  editBtn.type = "button";
+  editBtn.className =
+    "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-violet-300 hover:bg-violet-950/30 transition-colors";
+  editBtn.title = "Editar producto";
+  editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+  editBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    abrirModalEditarProducto(categoriaId, productoId, data);
+  });
+
+  actionRow.appendChild(estadoBtn);
+  actionRow.appendChild(editBtn);
+  actionRow.appendChild(delBtn);
+
+  bottomSection.appendChild(priceRow);
+  bottomSection.appendChild(actionRow);
+
+  body.appendChild(infoSection);
+  body.appendChild(bottomSection);
+
+  card.appendChild(imgWrap);
+  card.appendChild(body);
+  return card;
+}
+
+/* ---------------- Render Categoria Shell ---------------- */
+const categoriasContainer = document.getElementById("categorias-container");
+const emptyGlobal = document.getElementById("empty-global");
+const emptySearch = document.getElementById("empty-search");
+const categoriaListeners = {};
+
+// FIX #4 (escalabilidad): en vez de traer TODOS los productos de una categoría de golpe
+// (lo cual se vuelve lento con miles de productos), se pide un límite inicial y se agrega
+// un botón "Cargar más" que amplía el límite bajo demanda.
+const PRODUCTOS_POR_PAGINA = 60;
+const categoriaLimite = {}; // categoriaId -> límite actual de productos cargados
+
+function suscribirProductos(categoriaId, grid, seccion) {
+  if (categoriaListeners[categoriaId]) categoriaListeners[categoriaId]();
+
+  const lim = categoriaLimite[categoriaId] || PRODUCTOS_POR_PAGINA;
+  const q = query(
+    productosRef(categoriaId),
+    orderBy("createdAt", "desc"),
+    limit(lim),
+  );
+
+  categoriaListeners[categoriaId] = onSnapshot(
+    q,
+    (snap) => {
+      grid.innerHTML = "";
+
+      const addCard = document.createElement("div");
+      addCard.className =
+        "btn-card-add group flex flex-col items-center justify-center gap-2 min-h-[260px] rounded-2xl border border-dashed border-purple-900/30 hover:border-violet-600 hover:bg-violet-950/10 cursor-pointer transition-all text-purple-400/50 hover:text-purple-200";
+      addCard.innerHTML = `
+        <div class="w-10 h-10 rounded-full bg-violet-950/50 group-hover:bg-violet-900/50 flex items-center justify-center transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <span class="text-xs font-medium">Nuevo Producto</span>`;
+      addCard.addEventListener("click", () =>
+        abrirModalNuevoProducto(categoriaId, seccion.dataset.catNombre),
+      );
+      grid.appendChild(addCard);
+
+      snap.forEach((prodDoc) => {
+        grid.appendChild(
+          renderProductoCard(categoriaId, prodDoc.id, prodDoc.data()),
+        );
+      });
+
+      // Botón "Cargar más" si hay indicios de que puede haber más productos
+      if (snap.size >= lim) {
+        const masBtn = document.createElement("button");
+        masBtn.type = "button";
+        masBtn.className =
+          "col-span-full mt-2 mx-auto rounded-xl px-4 py-2 text-xs font-medium text-violet-300 bg-violet-950/30 hover:bg-violet-900/40 border border-violet-800/30 transition-all";
+        masBtn.textContent = "Cargar más productos";
+        masBtn.addEventListener("click", () => {
+          categoriaLimite[categoriaId] = lim + PRODUCTOS_POR_PAGINA;
+          suscribirProductos(categoriaId, grid, seccion);
+        });
+        grid.appendChild(masBtn);
+      }
+
+      seccion.querySelector(".categoria-count").textContent =
+        `${snap.size}${snap.size >= lim ? "+" : ""} ${snap.size === 1 ? "producto" : "productos"}`;
+      aplicarFiltroYMetricas();
+      updateSplashAndCheckDismiss();
+    },
+    (err) => {
+      console.error(err);
+      toast("Error al cargar productos.", "error");
+    },
+  );
+  initImportador({
+    categoriasRef,
+    productosRef,
+    storage,
+    storagePathProducto,
+    toast,
+    getEsRestaurante: () => esRestaurante,
+  });
+}
+
+function renderCategoriaShell(categoriaId, data) {
+  let seccion = document.getElementById(`cat-${categoriaId}`);
+  if (!seccion) {
+    seccion = document.createElement("section");
+    seccion.className =
+      "categoria rounded-2xl bg-[#0d0a17] border border-purple-900/20 p-5 sm:p-6 shadow-xl transition-all duration-300";
+    seccion.id = `cat-${categoriaId}`;
+    seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
+    seccion.innerHTML = `
+      <div class="categoria-head flex flex-wrap items-center justify-between gap-3 mb-5 border-b border-purple-900/20 pb-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <h2 class="categoria-titulo text-lg sm:text-xl font-bold text-white tracking-tight truncate"></h2>
+          <span class="categoria-count font-mono text-xs px-2.5 py-0.5 rounded-full bg-purple-950/50 text-purple-300 border border-purple-800/30 shrink-0"></span>
+        </div>
+        <div class="categoria-actions flex items-center gap-2 shrink-0">
+          <button class="btn-add-producto inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-purple-200 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-800/30 transition-all active:scale-95">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Agregar producto
+          </button>
+          <button class="btn-del-categoria inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-rose-300 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/30 transition-all active:scale-95">
+            Eliminar
+          </button>
+        </div>
+      </div>
+      <div class="productos-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    `;
+    categoriasContainer.appendChild(seccion);
+
+    seccion.querySelector(".btn-add-producto").addEventListener("click", () => {
+      abrirModalNuevoProducto(categoriaId, data.nombre);
+    });
+    seccion
+      .querySelector(".btn-del-categoria")
+      .addEventListener("click", () => {
+        askConfirm(
+          "¿Eliminar categoría?",
+          `Se eliminara la categoría "${data.nombre}" y todos sus productos contenidos.`,
+          () => eliminarCategoria(categoriaId, data.nombre),
+        );
+      });
+
+    const grid = seccion.querySelector(".productos-grid");
+    suscribirProductos(categoriaId, grid, seccion);
+  }
+
+  seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
+  seccion.querySelector(".categoria-titulo").textContent = data.nombre;
+}
+
+/* ---------------- Filtro Combinado Avanzado ---------------- */
+const inputBusqueda = document.getElementById("input-busqueda");
+let debounceTimer = null;
+inputBusqueda.addEventListener("input", () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(aplicarFiltroYMetricas, 180); // debounce para no recalcular en cada tecla con catálogos grandes
+});
+
+function aplicarFiltroYMetricas() {
+  const queryText = inputBusqueda.value.trim().toLowerCase();
+  const categorias = document.querySelectorAll(".categoria");
+
+  let totalActivos = 0;
+  let totalAgotados = 0;
+  let totalStockBajo = 0;
+  let totalCategoriasVisibles = 0;
+  let algunElementoVisibleTotal = false;
+  let totalProductosProcesados = 0;
+
+  categorias.forEach((cat) => {
+    const nombreCategoria = cat.dataset.catNombre || "";
+    const coincideCategoriaTexto =
+      queryText.length > 0 && nombreCategoria.includes(queryText);
+
+    const cards = cat.querySelectorAll(".producto-card");
+    const addCardBtn = cat.querySelector(".btn-card-add");
+    let productosVisiblesEnCat = 0;
+
+    cards.forEach((card) => {
+      totalProductosProcesados++;
+      const nombreProducto = card.dataset.nombre || "";
+      const disponible = card.dataset.disponible === "true";
+      const stockValor = card.dataset.stock;
+      const tieneStockBajo =
+        stockValor !== "" && Number(stockValor) < STOCK_BAJO_UMBRAL;
+
+      if (disponible) totalActivos++;
+      else totalAgotados++;
+      if (tieneStockBajo) totalStockBajo++;
+
+      // Evaluar estado (Activo/Agotado/Stock bajo/Todos)
+      let cumpleEstado = true;
+      if (filtroEstadoActual === "activos") cumpleEstado = disponible;
+      if (filtroEstadoActual === "agotados") cumpleEstado = !disponible;
+      if (filtroEstadoActual === "stockbajo") cumpleEstado = tieneStockBajo;
+
+      // Evaluar Búsqueda de texto
+      let cumpleTexto =
+        queryText === "" ||
+        coincideCategoriaTexto ||
+        nombreProducto.includes(queryText);
+
+      if (cumpleEstado && cumpleTexto && filtroEstadoActual !== "categorias") {
+        card.style.display = "";
+        productosVisiblesEnCat++;
+      } else {
+        card.style.display = "none";
+      }
+    });
+
+    // Filtro rápido de 'Categorías': Muestra sólo las cabeceras de categorías sin productos estorbando
+    if (filtroEstadoActual === "categorias") {
+      if (addCardBtn) addCardBtn.style.display = "none";
+      const coincideCat =
+        queryText === "" || nombreCategoria.includes(queryText);
+      if (coincideCat) {
+        cat.style.display = "";
+        algunElementoVisibleTotal = true;
+        totalCategoriasVisibles++;
+      } else {
+        cat.style.display = "none";
+      }
+      return;
+    }
+
+    // Reglas normales de visualización para categorías
+    if (queryText.length > 0 || filtroEstadoActual !== "todos") {
+      if (addCardBtn) addCardBtn.style.display = "none";
+      if (
+        productosVisiblesEnCat > 0 ||
+        (coincideCategoriaTexto && filtroEstadoActual === "todos")
+      ) {
+        cat.style.display = "";
+        algunElementoVisibleTotal = true;
+        totalCategoriasVisibles++;
+      } else {
+        cat.style.display = "none";
+      }
+    } else {
+      if (addCardBtn) addCardBtn.style.display = "";
+      cat.style.display = "";
+      algunElementoVisibleTotal = true;
+      totalCategoriasVisibles++;
+    }
+  });
+
+  // Métricas
+  splashTotalProds.textContent = totalProductosProcesados;
+  splashTotalImgs.textContent = loadedImageUrls.size;
+
+  document.getElementById("stat-activos").textContent = totalActivos;
+  document.getElementById("stat-agotados").textContent = totalAgotados;
+  document.getElementById("stat-stockbajo").textContent = totalStockBajo;
+  document.getElementById("stat-categorias").textContent =
+    totalCategoriasVisibles;
+
+  const hayCategorias = categorias.length > 0;
+  if (hayCategorias && !algunElementoVisibleTotal) {
+    emptySearch.style.display = "block";
+  } else {
+    emptySearch.style.display = "none";
+  }
+}
+
+/* ---------------- Suscripción General ---------------- */
+const qCategorias = query(categoriasRef, orderBy("createdAt", "asc"));
+onSnapshot(
+  qCategorias,
+  (snap) => {
+    emptyGlobal.style.display = snap.empty ? "block" : "none";
+
+    if (snap.empty) {
+      updateSplashAndCheckDismiss();
+    }
+
+    const idsActuales = new Set();
+    snap.forEach((catDoc) => {
+      idsActuales.add(catDoc.id);
+      renderCategoriaShell(catDoc.id, catDoc.data());
+    });
+
+    document.querySelectorAll(".categoria").forEach((el) => {
+      const id = el.id.replace("cat-", "");
+      if (!idsActuales.has(id)) {
+        if (categoriaListeners[id]) categoriaListeners[id]();
+        delete categoriaListeners[id];
+        delete categoriaLimite[id];
+        el.remove();
+      }
+    });
+
+    aplicarFiltroYMetricas();
+  },
+  (err) => {
+    console.error(err);
+    toast("No se pudo establecer conexión.", "error");
+    updateSplashAndCheckDismiss();
+  },
+);

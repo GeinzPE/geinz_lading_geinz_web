@@ -8,13 +8,8 @@ console.log(
 );
 
 /* =========================================================
-   FIREBASE IMPORTS
+   FIREBASE AUTH (solo lo que falta, db/app viene de db.js)
 ========================================================= */
-import {
-  initializeApp,
-  getApps,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-
 import {
   getAuth,
   GoogleAuthProvider,
@@ -27,7 +22,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import {
-  getFirestore,
   doc,
   setDoc,
   getDoc,
@@ -38,24 +32,15 @@ import {
   getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* =========================================================
-   FIREBASE CONFIG
-========================================================= */
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.firebasestorage.app",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
+// Importamos app y db ya inicializados desde db.js (fuente única de verdad)
+import { app, db } from "../db/db.js";
+import { tiendaDoc } from "../rutas/rutas.js";
 
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 await setPersistence(auth, browserLocalPersistence);
+
 
 /* =========================================================
    GLOBALS
@@ -833,13 +818,8 @@ window.continuarPanel = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
-    const tiendaRef = doc(
-      db,
-      "Tiendas",
-      localidadSeleccionada,
-      localidadSeleccionada,
-      valor,
-    );
+    const tiendaRef =   tiendaDoc(localidadSeleccionada, "tiendas", valor);
+    
     const snap = await getDoc(tiendaRef);
 
     if (!snap.exists()) {
@@ -887,7 +867,7 @@ window.accederSocio = async () => {
 
   try {
     const snap = await getDoc(
-      doc(db, "Tiendas", localidad, localidad, idTienda),
+      tiendaDoc(localidad, "tiendas", idTienda)
     );
 
     if (!snap.exists()) {

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Migración temporal — Geinz (agregar distrito)</title>
+<style>
+  body { background:#0b0b12; color:#e5e5e5; font-family: monospace; padding:24px; }
+  h1 { color:#a78bfa; font-size:16px; }
+  button { background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none; padding:12px 20px; border-radius:10px; font-weight:700; cursor:pointer; margin-right:10px; margin-bottom:20px; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  #log { background:#14141f; border:1px solid #333; border-radius:10px; padding:16px; white-space:pre-wrap; font-size:12.5px; line-height:1.5; max-height:70vh; overflow-y:auto; }
+  .ok{color:#4ade80;} .err{color:#f87171;} .warn{color:#facc15;}
+</style>
+</head>
+<body>
+
+<h1>⚠️ Migración: .../provincia/barranca/* → .../provincia/barranca/distrito/barranca/*</h1>
+
+<button id="btnCopiar">1) Copiar todo agregando distrito</button>
+<button id="btnBorrar" disabled>2) Borrar original (solo tras verificar)</button>
+
+<div id="log">Esperando acción...</div>
+
+<script type="module">
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, getDocs, doc, writeBatch, deleteDoc,
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+    authDomain: "geinzworkapp.firebaseapp.com",
+    databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
+    projectId: "geinzworkapp",
+    storageBucket: "geinzworkapp.appspot.com",
+    messagingSenderId: "921389328767",
+    appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+    measurementId: "G-38J7RJP8HK",
+  };
+
+  const app = getApps().find(a => a.name === "[DEFAULT]") || initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const COLECCIONES = [
+    "cache_filtrado",
+    "lugares_turisticos",
+    "pagos_tiendas",
+    "promos_ofertas",
+    "salud_seguridad",
+    "servicios_basicos",
+    "tiendas",
+    "tiendas_servicios_geinz_activos",
+  ];
+
+  // ORIGEN: como quedó tras la migración anterior (departamento/provincia, sin distrito)
+  const ORIGEN = ["Tiendas", "peru", "departamento", "lima", "provincia", "barranca"];
+
+  // DESTINO: agrega el nivel distrito
+  const DESTINO = ["Tiendas", "peru", "departamento", "lima", "provincia", "barranca", "distrito", "barranca"];
+
+  const logEl = document.getElementById("log");
+  const btnCopiar = document.getElementById("btnCopiar");
+  const btnBorrar = document.getElementById("btnBorrar");
+
+  function log(msg, tipo = "") {
+    const span = document.createElement("div");
+    if (tipo) span.className = tipo;
+    span.textContent = msg;
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+  }
+  function limpiarLog() { logEl.innerHTML = ""; }
+
+  async function copiarColeccion(nombreColeccion) {
+    const origenRef = collection(db, ...ORIGEN, nombreColeccion);
+    const snap = await getDocs(origenRef);
+
+    if (snap.empty) {
+      log(`${nombreColeccion}: no hay documentos, se omite.`, "warn");
+      return 0;
+    }
+
+    log(`${nombreColeccion}: ${snap.size} documentos encontrados, copiando...`);
+
+    let batch = writeBatch(db);
+    let opsEnBatch = 0;
+    let totalCopiados = 0;
+
+    for (const docSnap of snap.docs) {
+      const destinoRef = doc(db, ...DESTINO, nombreColeccion, docSnap.id);
+      batch.set(destinoRef, docSnap.data());
+      opsEnBatch++;
+      totalCopiados++;
+
+      if (opsEnBatch === 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        opsEnBatch = 0;
+      }
+    }
+    if (opsEnBatch > 0) await batch.commit();
+
+    log(`✅ ${nombreColeccion}: ${totalCopiados} documentos copiados a ${DESTINO.join("/")}/${nombreColeccion}`, "ok");
+    return totalCopiados;
+  }
+
+  btnCopiar.addEventListener("click", async () => {
+    limpiarLog();
+    btnCopiar.disabled = true;
+    log("🚀 Iniciando migración (agregando distrito)...");
+
+    const resumen = {};
+    for (const nombreColeccion of COLECCIONES) {
+      try {
+        resumen[nombreColeccion] = await copiarColeccion(nombreColeccion);
+      } catch (err) {
+        log(`❌ Error copiando ${nombreColeccion}: ${err.message}`, "err");
+        resumen[nombreColeccion] = "ERROR";
+      }
+    }
+
+    log("🏁 Migración terminada. Resumen: " + JSON.stringify(resumen, null, 2));
+    log("⚠️ Verifica en Firebase Console que todo esté correcto antes de borrar el original.", "warn");
+    btnCopiar.disabled = false;
+    btnBorrar.disabled = false;
+  });
+
+  btnBorrar.addEventListener("click", async () => {
+    const confirmar = confirm("¿Seguro que quieres borrar los documentos originales en .../provincia/barranca/* (sin distrito)? Esta acción no se puede deshacer.");
+    if (!confirmar) return;
+
+    btnBorrar.disabled = true;
+    log("🗑️ Borrando documentos originales...", "warn");
+
+    const resumen = {};
+    for (const nombreColeccion of COLECCIONES) {
+      const origenRef = collection(db, ...ORIGEN, nombreColeccion);
+      const snap = await getDocs(origenRef);
+      let borrados = 0;
+      for (const docSnap of snap.docs) {
+        await deleteDoc(doc(db, ...ORIGEN, nombreColeccion, docSnap.id));
+        borrados++;
+      }
+      resumen[nombreColeccion] = borrados;
+      log(`${nombreColeccion}: ${borrados} documentos eliminados.`, "ok");
+    }
+    log("🏁 Borrado terminado. Resumen: " + JSON.stringify(resumen, null, 2));
+  });
+</script>
+
+</body>
+</html>

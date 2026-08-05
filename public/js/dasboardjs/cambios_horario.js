@@ -4,50 +4,15 @@
 // FIX: guardarDia ignora el snapshot de Firestore que viene tras guardar
 // ═══════════════════════════════════════════════════════════════════
 
-import {
-  initializeApp,
-  getApps,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-  updateDoc,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// ─────────────────────────────────────────────────────────────
-// Firebase Config
-// ─────────────────────────────────────────────────────────────
-const FB_CONFIG = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
-
+// DESPUÉS
+import { db } from "../db/db.js";
+import { tiendaDoc } from "../rutas/rutas.js";
 const params = new URLSearchParams(window.location.search); 
 const tiendaId = params.get("id") || sessionStorage.getItem("tiendaId");
 const localidad = params.get("localidad") || sessionStorage.getItem("localidad");
 
-function _getApp() {
-  const apps = getApps();
-  if (apps.length) return apps[0];
-  return initializeApp(FB_CONFIG);
-}
-
-const app = _getApp();
-const db = getFirestore(app);
-
-const refHorario = doc(
-  db,
-  "Tiendas",
-  localidad,
-  "barranca",
-  tiendaId,
-);
+// DESPUÉS
+const refHorario = tiendaDoc(localidad, "tiendas", tiendaId);
 
 // ─────────────────────────────────────────────────────────────
 // Config & Estado

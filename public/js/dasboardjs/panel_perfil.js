@@ -1,3 +1,21 @@
+import { app, db, storage } from "../db/db.js";
+import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  getDoc,
+  getDocs,
+  collection,
+  deleteField,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
 // ─────────────────────────────────────────────
 //  GEOFENCING
 // ─────────────────────────────────────────────

@@ -1,7 +1,5 @@
 // ── Firebase (módulos ESM) ──────────────────────────────
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   doc,
   getDoc,
   setDoc,
@@ -13,29 +11,21 @@ import {
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  getStorage,
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+// Importamos app, db y storage ya inicializados desde db.js
+import { app, db, storage } from "../db/db.js";
+import { tiendaSubDoc } from "../rutas/rutas.js";
 
 const _urlParams = new URLSearchParams(window.location.search);
 let tiendaId = _urlParams.get("id") || sessionStorage.getItem("tiendaId");
 let localidad =
   _urlParams.get("localidad") || sessionStorage.getItem("localidad");
 
-const app = initializeApp({
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-});
-
-const db = getFirestore(app);
 const auth = getAuth(app);
-const storage = getStorage(app);
 
 const CLOUD_FN_PUBLICAR_FB =
   "https://us-central1-geinzworkapp.cloudfunctions.net/publicarEnFacebookOrganico";
@@ -639,16 +629,9 @@ async function guardarImagenesEnFirestore(
 ) {
   const imgContainer = { lista_img: urls, logo_img: logo_url };
   const data = { img_container: imgContainer };
-  const ref1 = doc(db, "Tiendas", localidad, "promos_ofertas", id_promocion);
-  const ref2 = doc(
-    db,
-    "Tiendas",
-    localidad,
-    localidad,
-    id_tienda,
-    "promociones_geinz",
-    id_promocion,
-  );
+  const ref1 = tiendaSubDoc(localidad,"tiendas",id_tienda,"promos_ofertas",id_promocion),
+  const ref2 =
+  tiendaSubDoc(localidad,"tiendas",id_tienda,"promociones_geinz",id_promocion)
   await Promise.all([
     setDoc(ref1, data, { merge: true }),
     setDoc(ref2, data, { merge: true }),

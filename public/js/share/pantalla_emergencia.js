@@ -1,22 +1,11 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-
 import {
-  getFirestore,
   collection,
   getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Importamos app y db ya inicializados desde db.js
+import { app, db } from "../db/db.js";
+import { tiendaSubCol } from "../rutas/rutas.js";
 
 const grid = document.getElementById("containerGrid");
 
@@ -47,8 +36,9 @@ if (backBtn) {
 
 async function fetchDatabase() {
   try {
-    const colRef = collection(db, "Tiendas", "salud_seguridad", localidad);
-
+    const colRef = 
+    tiendaSubCol(localidad,"salud_seguridad");
+  
     const snapshot = await getDocs(colRef);
 
     listadoEmergencias = snapshot.docs.map((doc) => {

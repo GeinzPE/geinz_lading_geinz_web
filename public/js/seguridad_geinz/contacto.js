@@ -10,20 +10,23 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /* ═══════════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  increment,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* ═══════════════════════════════════════
    FIREBASE APPS
 ═══════════════════════════════════════ */
 
-const appGeinz = initializeApp(
-  {
-    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-    authDomain: "geinzworkapp.firebaseapp.com",
-    projectId: "geinzworkapp",
-    storageBucket: "geinzworkapp.appspot.com",
-    messagingSenderId: "921389328767",
-    appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-  },
-  "geinz",
-);
+// Geinz (centralizado desde db.js)
+import { app as appGeinz, db } from "../db/db.js";
+import { tiendaSubCol } from "../rutas/rutas.js";
 
 const appPlanes = initializeApp(
   {
@@ -37,9 +40,7 @@ const appPlanes = initializeApp(
   "planes",
 );
 
-const db = getFirestore(appGeinz);
 const dbPlanes = getFirestore(appPlanes);
-
 /* ═══════════════════════════════════════
    PARAMS
 ═══════════════════════════════════════ */
@@ -217,7 +218,8 @@ window.addEventListener("load", async () => {
          Todos los cálculos parten de aquí.
       ════════════════════════════════════════ */
       console.log("📡 Fetching tiendaGeinz (MAESTRA)...");
-      const tiendaGeinzRef  = doc(db, "Tiendas", localidad, localidad, idTienda);
+      const tiendaGeinzRef  = tiendaSubDoc(localidad, "tiendas", idTienda);
+       
       const tiendaGeinzSnap = await getDoc(tiendaGeinzRef);
       console.log("✅ tiendaGeinz ok, exists:", tiendaGeinzSnap.exists());
 
@@ -255,11 +257,9 @@ window.addEventListener("load", async () => {
       const precio_soles   = (monedas * costo_por_moneda).toFixed(2);
       const id_transaccion = crypto.randomUUID();
 
-      const historialFinancieroRef = doc(
-        db, "Tiendas", localidad, localidad, idTienda,
-        "historial_financiero", id_transaccion,
-      );
-
+      const historialFinancieroRef =
+      tiendaSubDoc(localidad, "tiendas", idTienda,"historial_financiero", id_transaccion);
+      
       /* ════════════════════════════════════════
          WRITES — saldo_restante va igual en ambas DBs
       ════════════════════════════════════════ */

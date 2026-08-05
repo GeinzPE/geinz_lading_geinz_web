@@ -1,28 +1,20 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   doc,
   getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getFunctions,
   httpsCallable,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
-// ─── Geinz ───
-const appGeinz = initializeApp(
-  {
-    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-    authDomain: "geinzworkapp.firebaseapp.com",
-    projectId: "geinzworkapp",
-    storageBucket: "geinzworkapp.appspot.com",
-    messagingSenderId: "921389328767",
-    appId: "1:921389328767:web:094e8a2a5fcd69395b524a",
-  },
-  "geinz",
-);
+// ─── Geinz (centralizado desde db.js) ───
+import { app as appGeinz, db as dbGeinz } from "../db/db.js";
 
-// ─── Planes ───
+import { tiendaSubDoc } from "../rutas/rutas.js";
+
+// ─── Planes (se mantiene igual) ───
 const appPlanes = initializeApp(
   {
     apiKey: "AIzaSyA47YFtXgzUQe8w_Wb6AlfDcQSjOB5rT_U",
@@ -35,7 +27,6 @@ const appPlanes = initializeApp(
   "planes",
 );
 
-const dbGeinz = getFirestore(appGeinz);
 const dbPlanes = getFirestore(appPlanes);
 const functions = getFunctions(appGeinz, "us-central1");
 const confirmarPagoFn = httpsCallable(functions, "confirmarPago");
@@ -353,16 +344,9 @@ async function buscarUsuario(orderId) {
   }
 
   try {
-    const docRef = doc(
-      dbGeinz,
-      "Tiendas",
-      "barranca",
-      "pagos_tiendas",
-      orderId,
-    );
+    const docRef = tiendaSubDoc("barranca", "pagos_tiendas", orderId);
     const docSnap = await getDoc(docRef);
 
-  
     if (!docSnap.exists()) {
       mostrarError("El ID no existe ❌");
       return;
@@ -434,7 +418,7 @@ async function renderPlan(datos) {
     mostrarError("No se recibió el plan");
     return;
   }
-console.error("🔍 datos completos:", JSON.stringify(datos));
+  console.error("🔍 datos completos:", JSON.stringify(datos));
   try {
     const docRef = doc(dbPlanes, "precios_planes_geinz", datos.plan_select);
     const docSnap = await getDoc(docRef);
