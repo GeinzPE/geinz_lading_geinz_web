@@ -2846,28 +2846,12 @@ const NuevoPedido = {
   },
   async cargarCatalogo() {
     if (this.cargado) return;
-    const catRef = collection(
-      db,
-      "Tiendas",
-      localidad,
-      localidad,
-      tiendaId,
-      "productos",
-    );
+    const catRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos");
     const catSnap = await getDocs(catRef);
     const porCategoria = await Promise.all(
       catSnap.docs.map(async (catDoc) => {
         const categoria = catDoc.id;
-        const subRef = collection(
-          db,
-          "Tiendas",
-          localidad,
-          localidad,
-          tiendaId,
-          "productos",
-          categoria,
-          categoria,
-        );
+        const subRef =  tiendaSubCol(localidad, "tiendas", tiendaId, "productos", categoria, categoria);
         const subSnap = await getDocs(subRef);
         const arr = [];
         subSnap.forEach((pDoc) => {
@@ -3166,14 +3150,7 @@ const NuevoPedido = {
     btn.textContent = "Registrando…";
 
     try {
-      const pedidosRef = collection(
-        db,
-        "Tiendas",
-        localidad,
-        localidad,
-        tiendaId,
-        "pedidos",
-      );
+      const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
       await addDoc(pedidosRef, {
         estado: "entregado", // ← antes decía "pendiente"
         fecha: now.toLocaleDateString("es-PE"),
@@ -3327,14 +3304,7 @@ function firmaPedidoMesa(pedido) {
 function iniciarListenerMesas() {
   if (!tiendaId || mesasListenerIniciado) return;
   mesasListenerIniciado = true;
-  const mesasRef = collection(
-    db,
-    "Tiendas",
-    localidad,
-    localidad,
-    tiendaId,
-    "mesas",
-  );
+const mesasRef = tiendaSubCol(localidad, "tiendas", tiendaId, "mesas");
   const q = query(mesasRef, orderBy("numero_mesa"));
   onSnapshot(
     q,
@@ -3406,14 +3376,7 @@ function suscribirPedidos() {
   }
 
   const [from, to] = getDateFilterRange();
-  const pedidosRef = collection(
-    db,
-    "Tiendas",
-    localidad,
-    localidad,
-    tiendaId,
-    "pedidos",
-  );
+ const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const q = query(
     pedidosRef,
     where("timestamp", ">=", Timestamp.fromDate(from)),
@@ -3507,14 +3470,7 @@ let gruposListenerIniciado = false;
 function iniciarListenerGrupos() {
   if (!tiendaId || gruposListenerIniciado) return;
   gruposListenerIniciado = true;
-  const gruposRef = collection(
-    db,
-    "Tiendas",
-    localidad,
-    localidad,
-    tiendaId,
-    "grupos_mesas",
-  );
+  const gruposRef = tiendaSubCol(localidad, "tiendas", tiendaId, "grupos_mesas");
   onSnapshot(
     gruposRef,
     (snap) => {

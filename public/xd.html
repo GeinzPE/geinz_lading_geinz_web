@@ -2,151 +2,133 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<title>Migración temporal — Geinz (agregar distrito)</title>
+<title>Actualizar Firestore - Lima / Barranca</title>
 <style>
-  body { background:#0b0b12; color:#e5e5e5; font-family: monospace; padding:24px; }
-  h1 { color:#a78bfa; font-size:16px; }
-  button { background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none; padding:12px 20px; border-radius:10px; font-weight:700; cursor:pointer; margin-right:10px; margin-bottom:20px; }
-  button:disabled { opacity:.4; cursor:not-allowed; }
-  #log { background:#14141f; border:1px solid #333; border-radius:10px; padding:16px; white-space:pre-wrap; font-size:12.5px; line-height:1.5; max-height:70vh; overflow-y:auto; }
-  .ok{color:#4ade80;} .err{color:#f87171;} .warn{color:#facc15;}
+  body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; background:#111; color:#eee; }
+  h1 { font-size: 20px; }
+  button {
+    background:#2563eb; color:#fff; border:none; padding:10px 16px;
+    border-radius:6px; cursor:pointer; font-size:14px; margin:6px 6px 6px 0;
+  }
+  button:disabled { background:#555; cursor:not-allowed; }
+  #log {
+    background:#000; color:#0f0; padding:12px; height:400px; overflow-y:auto;
+    font-family:monospace; font-size:13px; white-space:pre-wrap; border-radius:6px;
+    margin-top:16px; border:1px solid #333;
+  }
 </style>
 </head>
 <body>
 
-<h1>⚠️ Migración: .../provincia/barranca/* → .../provincia/barranca/distrito/barranca/*</h1>
+<h1>Actualizar campos de ubicacion en Firestore</h1>
+<p>Colecciones: <b>alias_tiendas</b> y <b>alias_turismo</b></p>
+<p>Se agregara: <code>departamento: "lima"</code>, <code>provincia: "barranca"</code>, <code>distrito: "barranca"</code></p>
+<p>Se eliminara el campo <code>capital</code> si existe.</p>
 
-<button id="btnCopiar">1) Copiar todo agregando distrito</button>
-<button id="btnBorrar" disabled>2) Borrar original (solo tras verificar)</button>
+<button id="btnTiendas">Actualizar alias_tiendas</button>
+<button id="btnTurismo">Actualizar alias_turismo</button>
+<button id="btnAmbas">Actualizar ambas colecciones</button>
 
-<div id="log">Esperando acción...</div>
+<div id="log">Listo. Presiona un boton para iniciar...\n</div>
 
 <script type="module">
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getFirestore, collection, getDocs, doc, writeBatch, deleteDoc,
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteField,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-    authDomain: "geinzworkapp.firebaseapp.com",
-    databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-    projectId: "geinzworkapp",
-    storageBucket: "geinzworkapp.appspot.com",
-    messagingSenderId: "921389328767",
-    appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-    measurementId: "G-38J7RJP8HK",
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+  authDomain: "geinzworkapp.firebaseapp.com",
+  databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
+  projectId: "geinzworkapp",
+  storageBucket: "geinzworkapp.appspot.com",
+  messagingSenderId: "921389328767",
+  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+  measurementId: "G-38J7RJP8HK",
+};
 
-  const app = getApps().find(a => a.name === "[DEFAULT]") || initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+const app = getApps().find((a) => a.name === "[DEFAULT]") || initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-  const COLECCIONES = [
-    "cache_filtrado",
-    "lugares_turisticos",
-    "pagos_tiendas",
-    "promos_ofertas",
-    "salud_seguridad",
-    "servicios_basicos",
-    "tiendas",
-    "tiendas_servicios_geinz_activos",
-  ];
+const logEl = document.getElementById("log");
+function log(msg) {
+  logEl.textContent += msg + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
 
-  // ORIGEN: como quedó tras la migración anterior (departamento/provincia, sin distrito)
-  const ORIGEN = ["Tiendas", "peru", "departamento", "lima", "provincia", "barranca"];
+async function actualizarColeccion(nombreColeccion) {
+  log(`\n=== Iniciando actualizacion de "${nombreColeccion}" ===`);
+  const colRef = collection(db, nombreColeccion);
+  const snapshot = await getDocs(colRef);
 
-  // DESTINO: agrega el nivel distrito
-  const DESTINO = ["Tiendas", "peru", "departamento", "lima", "provincia", "barranca", "distrito", "barranca"];
-
-  const logEl = document.getElementById("log");
-  const btnCopiar = document.getElementById("btnCopiar");
-  const btnBorrar = document.getElementById("btnBorrar");
-
-  function log(msg, tipo = "") {
-    const span = document.createElement("div");
-    if (tipo) span.className = tipo;
-    span.textContent = msg;
-    logEl.appendChild(span);
-    logEl.scrollTop = logEl.scrollHeight;
-    console.log(msg);
-  }
-  function limpiarLog() { logEl.innerHTML = ""; }
-
-  async function copiarColeccion(nombreColeccion) {
-    const origenRef = collection(db, ...ORIGEN, nombreColeccion);
-    const snap = await getDocs(origenRef);
-
-    if (snap.empty) {
-      log(`${nombreColeccion}: no hay documentos, se omite.`, "warn");
-      return 0;
-    }
-
-    log(`${nombreColeccion}: ${snap.size} documentos encontrados, copiando...`);
-
-    let batch = writeBatch(db);
-    let opsEnBatch = 0;
-    let totalCopiados = 0;
-
-    for (const docSnap of snap.docs) {
-      const destinoRef = doc(db, ...DESTINO, nombreColeccion, docSnap.id);
-      batch.set(destinoRef, docSnap.data());
-      opsEnBatch++;
-      totalCopiados++;
-
-      if (opsEnBatch === 450) {
-        await batch.commit();
-        batch = writeBatch(db);
-        opsEnBatch = 0;
-      }
-    }
-    if (opsEnBatch > 0) await batch.commit();
-
-    log(`✅ ${nombreColeccion}: ${totalCopiados} documentos copiados a ${DESTINO.join("/")}/${nombreColeccion}`, "ok");
-    return totalCopiados;
+  if (snapshot.empty) {
+    log(`No se encontraron documentos en "${nombreColeccion}".`);
+    return;
   }
 
-  btnCopiar.addEventListener("click", async () => {
-    limpiarLog();
-    btnCopiar.disabled = true;
-    log("🚀 Iniciando migración (agregando distrito)...");
+  log(`Encontrados ${snapshot.size} documentos. Actualizando...`);
 
-    const resumen = {};
-    for (const nombreColeccion of COLECCIONES) {
-      try {
-        resumen[nombreColeccion] = await copiarColeccion(nombreColeccion);
-      } catch (err) {
-        log(`❌ Error copiando ${nombreColeccion}: ${err.message}`, "err");
-        resumen[nombreColeccion] = "ERROR";
-      }
+  let actualizados = 0;
+  let errores = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const docRef = doc(db, nombreColeccion, docSnap.id);
+    const data = docSnap.data();
+
+    const cambios = {
+      departamento: "lima",
+      provincia: "barranca",
+      distrito: "barranca",
+    };
+
+    if (Object.prototype.hasOwnProperty.call(data, "capital")) {
+      cambios.capital = deleteField();
     }
 
-    log("🏁 Migración terminada. Resumen: " + JSON.stringify(resumen, null, 2));
-    log("⚠️ Verifica en Firebase Console que todo esté correcto antes de borrar el original.", "warn");
-    btnCopiar.disabled = false;
-    btnBorrar.disabled = false;
-  });
-
-  btnBorrar.addEventListener("click", async () => {
-    const confirmar = confirm("¿Seguro que quieres borrar los documentos originales en .../provincia/barranca/* (sin distrito)? Esta acción no se puede deshacer.");
-    if (!confirmar) return;
-
-    btnBorrar.disabled = true;
-    log("🗑️ Borrando documentos originales...", "warn");
-
-    const resumen = {};
-    for (const nombreColeccion of COLECCIONES) {
-      const origenRef = collection(db, ...ORIGEN, nombreColeccion);
-      const snap = await getDocs(origenRef);
-      let borrados = 0;
-      for (const docSnap of snap.docs) {
-        await deleteDoc(doc(db, ...ORIGEN, nombreColeccion, docSnap.id));
-        borrados++;
-      }
-      resumen[nombreColeccion] = borrados;
-      log(`${nombreColeccion}: ${borrados} documentos eliminados.`, "ok");
+    try {
+      await updateDoc(docRef, cambios);
+      actualizados++;
+      log(`OK -> ${docSnap.id}`);
+    } catch (err) {
+      errores++;
+      log(`ERROR -> ${docSnap.id}: ${err.message}`);
     }
-    log("🏁 Borrado terminado. Resumen: " + JSON.stringify(resumen, null, 2));
-  });
+  }
+
+  log(`\nResumen "${nombreColeccion}": ${actualizados} actualizados, ${errores} con error.`);
+}
+
+async function ejecutar(colecciones, boton) {
+  boton.disabled = true;
+  try {
+    for (const c of colecciones) {
+      await actualizarColeccion(c);
+    }
+    log("\nProceso finalizado.");
+  } catch (err) {
+    log(`ERROR GENERAL: ${err.message}`);
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+document.getElementById("btnTiendas").addEventListener("click", (e) => {
+  ejecutar(["alias_tiendas"], e.target);
+});
+
+document.getElementById("btnTurismo").addEventListener("click", (e) => {
+  ejecutar(["alias_turismo"], e.target);
+});
+
+document.getElementById("btnAmbas").addEventListener("click", (e) => {
+  ejecutar(["alias_tiendas", "alias_turismo"], e.target);
+});
 </script>
 
 </body>

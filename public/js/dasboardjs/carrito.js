@@ -46,7 +46,7 @@ let grupoActivo = null;
 let tipoEntrega = "Delivery";
 let metodoPago = "Yape / Plin";
 
-import { setBusinessFaviconById } from "../js/favicon/favicon.js";
+import { setBusinessFaviconById } from "../favicon/favicon.js";
 
 setBusinessFaviconById({ localidad: localidad, id: tiendaId });
 /* ══════════════ Normalización de texto (búsqueda inteligente) ══════════════ */

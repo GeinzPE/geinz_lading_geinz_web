@@ -3,8 +3,8 @@ import {
   onSnapshot,
   enableIndexedDbPersistence,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { db } from "../db/db.js";
-import { tiendaDoc, tiendaSubDoc } from "../rutas/rutas.js";
+import { db } from "/js/db/db.js";
+import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
 
 // Cache local: si el pedido se vuelve a abrir (o hay un corte de red breve),
 // se sirve desde disco al instante en vez de esperar a la red.

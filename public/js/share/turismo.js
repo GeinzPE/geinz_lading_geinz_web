@@ -1,27 +1,9 @@
-/* ════════════════════════════════
-   FIREBASE CONFIG
-   ════════════════════════════════ */
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   doc,
   getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-  measurementId: "G-38J7RJP8HK",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+import { db } from "../db/db.js";
+import { tiendaSubDoc } from "../rutas/rutas.js";
 
 /* ════════════════════════════════
    DOM ELEMENTS
@@ -103,6 +85,9 @@ async function resolveAlias(alias) {
     id: aliasData.id,
     localidad: aliasData.localidad,
     categoria: aliasData.categoria || "lugares_turisticos",
+    provincia: aliasData.provincia,
+    distrito: aliasData.distrito,
+    departamento: aliasData.departamento,
   };
 }
 
@@ -389,7 +374,8 @@ async function fetchPlaceData() {
 
       console.log("🔍 Resolviendo alias:", alias);
 
-      const { id, localidad, categoria } = await resolveAlias(alias);
+      const { id, localidad, categoria, provincia, distrito, departamento } =
+        await resolveAlias(alias);
 
       placeId = id;
       locationName = localidad;
@@ -417,13 +403,7 @@ async function fetchPlaceData() {
       placeId,
     );
 
-    const docRef = doc(
-      db,
-      "Tiendas",
-      locationName,
-      categoriaColeccion,
-      placeId,
-    );
+    const docRef = tiendaSubDoc(locationName, "lugares_turisticos", placeId);
 
     const docSnap = await getDoc(docRef);
 

@@ -1,24 +1,9 @@
 // ══════════════════════════════════════════
 //  FAVICON CIRCULAR — módulo reutilizable
 // ══════════════════════════════════════════
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.firebasestorage.app",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-  measurementId: "G-38J7RJP8HK",
-};
-
-// Reutiliza la app de Firebase si ya fue inicializada en otro archivo,
-// así evitamos el error "Firebase App named '[DEFAULT]' already exists".
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const db = getFirestore(app);
+import { getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { db } from "../db/db.js";
+import { tiendaDoc } from "../rutas/rutas.js";
 
 /**
  * Recorta una imagen en círculo y la aplica como favicon.
@@ -77,7 +62,7 @@ function applyFaviconLink(href) {
  */
 export async function setBusinessFaviconById({ localidad, id }) {
   try {
-    const ref = doc(db, "Tiendas", localidad, localidad, id);
+    const ref = tiendaDoc(localidad, "tiendas", id);
     const snap = await getDoc(ref);
     if (!snap.exists()) return;
 

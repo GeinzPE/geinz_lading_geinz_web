@@ -239,13 +239,8 @@ window.PanelPerfil = {
       this._getDownloadURL = stModule.getDownloadURL;
       this._deleteObject = stModule.deleteObject;
 
-      this.TIENDA_REF = this._doc(
-        this.db,
-        "Tiendas",
-        this.LOCALIDAD_TIENDA,
-        this.LOCALIDAD_TIENDA,
-        this.TIENDA_ID,
-      );
+      this.TIENDA_REF =
+tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas",  this.TIENDA_ID);
 
       this._initRealtime();
     } catch (err) {
@@ -598,6 +593,7 @@ window.PanelPerfil = {
         "categorias",
         "categorias",
       );
+
       const snap = await this._getDocs(colRef);
       if (snap.empty) {
         console.warn("No se encontraron categorías");
@@ -710,14 +706,8 @@ window.PanelPerfil = {
   async loadCartaColecciones() {
     if (!this.db) return;
     try {
-      const colRef = this._collection(
-        this.db,
-        "Tiendas",
-        this.LOCALIDAD_TIENDA,
-        this.LOCALIDAD_TIENDA,
-        this.TIENDA_ID,
-        "carta",
-      );
+      const colRef = 
+      tiendaSubCol( this.LOCALIDAD_TIENDA,"tiendas", this.TIENDA_ID, "carta");
       const snap = await this._getDocs(colRef);
 
       this.cartaColecciones = {};
@@ -872,15 +862,9 @@ window.PanelPerfil = {
     btn.classList.add("saving");
     btn.innerHTML = "Guardando...";
     try {
-      const ref = this._doc(
-        this.db,
-        "Tiendas",
-        this.LOCALIDAD_TIENDA,
-        this.LOCALIDAD_TIENDA,
-        this.TIENDA_ID,
-        "carta",
-        collId,
-      );
+      const ref = 
+tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas", this.TIENDA_ID,"carta",collId);
+      
       await this._updateDoc(ref, { texto: valor });
       coleccion.texto = valor;
 
@@ -1003,15 +987,8 @@ window.PanelPerfil = {
     try {
       const { setDoc } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      const ref = this._doc(
-        this.db,
-        "Tiendas",
-        this.LOCALIDAD_TIENDA,
-        this.LOCALIDAD_TIENDA,
-        this.TIENDA_ID,
-        "carta",
-        slug,
-      );
+      const ref = 
+       tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas", this.TIENDA_ID,"carta",slug);
       await setDoc(ref, { nombre: nombreLimpio, imagenes: [], texto: "" });
 
       this.cartaColecciones[slug] = {
@@ -1051,15 +1028,8 @@ window.PanelPerfil = {
 
       const { deleteDoc } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      const ref = this._doc(
-        this.db,
-        "Tiendas",
-        this.LOCALIDAD_TIENDA,
-        this.LOCALIDAD_TIENDA,
-        this.TIENDA_ID,
-        "carta",
-        collId,
-      );
+      const ref = 
+       tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas", this.TIENDA_ID,"carta",collId);
       await deleteDoc(ref);
 
       delete this.cartaColecciones[collId];
@@ -1112,15 +1082,8 @@ window.PanelPerfil = {
         while (nuevasImagenes.length <= slotIndex) nuevasImagenes.push(null);
         nuevasImagenes[slotIndex] = finalURL;
 
-        const ref = this._doc(
-          this.db,
-          "Tiendas",
-          this.LOCALIDAD_TIENDA,
-          this.LOCALIDAD_TIENDA,
-          this.TIENDA_ID,
-          "carta",
-          collId,
-        );
+        const ref = 
+          tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas", this.TIENDA_ID,"carta",collId);
         await this._updateDoc(ref, { imagenes: nuevasImagenes });
 
         coleccion.imagenes = nuevasImagenes;
@@ -1152,15 +1115,8 @@ window.PanelPerfil = {
       const nuevasImagenes = [...coleccion.imagenes];
       nuevasImagenes[slotIndex] = null;
 
-      const ref = this._doc(
-        this.db,
-        "Tiendas",
-        this.LOCALIDAD_TIENDA,
-        this.LOCALIDAD_TIENDA,
-        this.TIENDA_ID,
-        "carta",
-        collId,
-      );
+      const ref = 
+        tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas", this.TIENDA_ID,"carta",collId);
       await this._updateDoc(ref, { imagenes: nuevasImagenes });
 
       coleccion.imagenes = nuevasImagenes;
@@ -2254,13 +2210,10 @@ initMapbox() {
         try {
           const { arrayRemove } =
             await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-          const tiendaAnteriorRef = doc(
-            this.db,
-            "Tiendas",
-            this.LOCALIDAD_TIENDA,
-            this.LOCALIDAD_TIENDA,
-            tiendaAnterior,
-          );
+          const tiendaAnteriorRef =
+
+          tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas",tiendaAnterior)
+        
           await updateDoc(tiendaAnteriorRef, {
             propietario_id: arrayRemove(uid),
           });

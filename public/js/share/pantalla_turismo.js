@@ -1,6 +1,6 @@
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../db/db.js";
-import { tiendaCol } from "../firebase/paths.js";
+import { tiendaCol } from "../rutas/rutas.js";
 
 let allPlaces = [];
 const params = new URLSearchParams(window.location.search);

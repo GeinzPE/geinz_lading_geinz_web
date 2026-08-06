@@ -1,18 +1,11 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// 🔥 Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:094e8a2a5fcd69395b524a"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+import { db } from "../db/db.js";
 
 // 🔥 refs
 const form = document.getElementById("claimForm");
@@ -31,7 +24,7 @@ function mostrarError(inputId, mensaje) {
 }
 
 function limpiarErrores() {
-  document.querySelectorAll("input, textarea, select").forEach(el => {
+  document.querySelectorAll("input, textarea, select").forEach((el) => {
     el.style.border = "";
   });
 }
@@ -104,7 +97,7 @@ form.addEventListener("submit", async (e) => {
     detalle: getValue("detalle"),
     solucion: getValue("solucion"),
     estado: "Pendiente",
-    fecha: serverTimestamp()
+    fecha: serverTimestamp(),
   };
 
   // validar
@@ -122,7 +115,6 @@ form.addEventListener("submit", async (e) => {
     mostrarToast(ticketID);
 
     form.reset();
-
   } catch (error) {
     console.error("🔥 Error Firebase:", error);
     alert("❌ Error al enviar. Intenta nuevamente.");

@@ -629,9 +629,8 @@ async function guardarImagenesEnFirestore(
 ) {
   const imgContainer = { lista_img: urls, logo_img: logo_url };
   const data = { img_container: imgContainer };
-  const ref1 = tiendaSubDoc(localidad,"tiendas",id_tienda,"promos_ofertas",id_promocion),
-  const ref2 =
-  tiendaSubDoc(localidad,"tiendas",id_tienda,"promociones_geinz",id_promocion)
+  const ref1 = tiendaSubDoc(localidad,"tiendas",id_tienda,"promos_ofertas",id_promocion);
+  const ref2 = tiendaSubDoc(localidad,"tiendas",id_tienda,"promociones_geinz",id_promocion);
   await Promise.all([
     setDoc(ref1, data, { merge: true }),
     setDoc(ref2, data, { merge: true }),

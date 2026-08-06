@@ -1,29 +1,20 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   doc,
   getDoc,
   updateDoc,
   setDoc,
   serverTimestamp,
+  getFirestore,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
-  getStorage,
   ref,
   uploadBytesResumable,
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
-
 // ==================== SEGUNDA APP FIREBASE (planes) ====================
+// App independiente, nombrada "planes" — no interfiere con la app "geinz".
 const appPlanes = initializeApp(
   {
     apiKey: "AIzaSyA47YFtXgzUQe8w_Wb6AlfDcQSjOB5rT_U",
@@ -36,9 +27,9 @@ const appPlanes = initializeApp(
   "planes",
 );
 const dbPlanes = getFirestore(appPlanes);
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const storage = getStorage(app);
+
+import { app, db, storage } from "../db/db.js";
+import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
 
 // ── Al inicio, SIN llamar cargarTienda() aún ──
 const _urlParams = new URLSearchParams(window.location.search);
@@ -279,7 +270,7 @@ window.cambiarPlan = async function () {
 
   try {
     const refLugar = doc(db, "lugares", id);
-    const refTienda = doc(db, "Tiendas", localidad, localidad, id);
+    const refTienda = tiendaSubDoc(localidad, "tiendas", id);
     const refCreditos = doc(dbPlanes, "creditos_tienda", id);
 
     const updateData = {
@@ -497,7 +488,7 @@ window.generarDescripcionIA = async function () {
 
   try {
     // Leer datos frescos de la tienda
-    const refTienda = doc(db, "Tiendas", localidad, localidad, id);
+    const refTienda = tiendaSubDoc(localidad, "tiendas", id);
     const snap = await getDoc(refTienda);
 
     if (!snap.exists()) {
@@ -634,7 +625,7 @@ async function cargarTienda() {
     return;
   }
   try {
-    const refTienda = doc(db, "Tiendas", localidad, localidad, id);
+    const refTienda = tiendaSubDoc(localidad, "tiendas", id);
     const refLugar = doc(db, "lugares", id);
 
     const [snapTienda, snapLugar] = await Promise.all([

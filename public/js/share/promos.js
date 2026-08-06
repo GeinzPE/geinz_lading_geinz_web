@@ -1,23 +1,9 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore,
   doc,
   getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-  measurementId: "G-38J7RJP8HK",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+import { db } from "../db/db.js";
+import { tiendaSubDoc } from "../rutas/rutas.js";
 
 const params = new URLSearchParams(window.location.search);
 const idsRaw = params.get("ids") || "";
@@ -256,7 +242,7 @@ function buildCard(promo, id) {
     bizRow.addEventListener("click", async () => {
       try {
         const snapTienda = await getDoc(
-          doc(db, "Tiendas", localidad, localidad, tiendaId),
+          tiendaSubDoc(localidad, "tiendas", tiendaId),
         );
         const alias = snapTienda.exists() ? snapTienda.data().alias_key : null;
         if (alias) {
@@ -357,7 +343,7 @@ function buildSkeleton() {
 }
 
 async function loadPromoById(id) {
-  const ref = doc(db, "Tiendas", localidad, "promos_ofertas", id);
+  const ref = tiendaSubDoc(localidad, "promos_ofertas", id);
   const snap = await getDoc(ref);
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
