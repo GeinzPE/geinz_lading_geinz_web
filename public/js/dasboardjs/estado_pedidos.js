@@ -5,7 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "/js/db/db.js";
 import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
-
+import { setFaviconCircular } from "/js/favicon/favicon.js"; // ajusta la ruta a donde tengas el archivo
 // Cache local: si el pedido se vuelve a abrir (o hay un corte de red breve),
 // se sirve desde disco al instante en vez de esperar a la red.
 // Reduce lecturas repetidas a Firestore -> importante para escalar a miles de pedidos/negocios.
@@ -107,10 +107,10 @@ function init(negocioId, pedidoId) {
         if (logoUrl) {
           el("logo-img").alt = nombre;
           el("logo-img").src = logoUrl;
+          setFaviconCircular(logoUrl); // ← favicon del negocio, se actualiza en tiempo real si el logo cambia
+
           colorListo = new Promise((resolve) => {
             enIdle(() => extraerColorDominante(logoUrl).then(resolve));
-            // Salvavidas: si por lo que sea nunca resuelve (imagen colgada, etc.),
-            // no bloqueamos el contenido para siempre.
             setTimeout(resolve, 2500);
           });
         }
