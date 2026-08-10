@@ -864,7 +864,10 @@ if (imagenes.length === 0) {
     imgWrap.innerHTML = `
       <div class="img-placeholder-fallback">
         <img src="../img/logo geinz.png" alt="">
-      </div>`;
+      </div>`; 
+
+
+        
   } else {
     imgWrap.innerHTML = `
       <div class="img-placeholder-fallback">
