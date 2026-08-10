@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historial Financiero Pro</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+        <script type="module" src="../js/dasboardjs/historial_gasto.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            dark: {
+              bg: '#050505',
+              card: '#0d0d11',
+              cardHover: '#13131a',
+              border: 'rgba(255, 255, 255, 0.08)',
+              borderHover: 'rgba(139, 92, 246, 0.3)',
+            }
+          }
+        },
+      },
+    };
+  </script>
+
+  <style>
+    :root {
+      --bg: #040406;
+      --card-bg: #0d0d12;
+      --card-border: rgba(255, 255, 255, 0.07);
+    }
+
+    body {
+      background-color: var(--bg);
+      color: #f4f4f5;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    * { scrollbar-width: thin; scrollbar-color: #27272a transparent; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+    /* Cards Finas Dark */
+    .dark-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dark-card:hover {
+      border-color: rgba(139, 92, 246, 0.25);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Filter Pills */
+    .filter-pill {
+      transition: all 0.2s ease;
+    }
+    .filter-pill[data-active="true"] {
+      background: #ffffff;
+      color: #000000;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
+    }
+    .filter-pill[data-active="false"] {
+      background: rgba(255, 255, 255, 0.03);
+      color: #a1a1aa;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .filter-pill[data-active="false"]:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: #ffffff;
+    }
+
+    /* Pie Chart stroke animation */
+    .pie-segment {
+      transition: stroke-dasharray 0.8s cubic-bezier(0.16, 1, 0.3, 1), stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body class="min-h-screen relative overflow-x-hidden antialiased selection:bg-purple-500 selection:text-white">
+
+  <!-- Glow Neutro de fondo super discreto -->
+  <div class="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[1000px] h-[350px] bg-gradient-to-b from-zinc-800/10 via-purple-950/5 to-transparent blur-[120px]"></div>
+  </div>
+
+  <!-- Header Superior -->
+  <header class="sticky top-0 z-40 backdrop-blur-xl bg-[#040406]/85 border-b border-white/[0.08]">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-2 h-7 bg-purple-500 rounded-full shadow-[0_0_12px_rgba(168,85,247,0.5)]"></div>
+        <div>
+          <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Panel Financiero</p>
+          <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Historial de Transacciones</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 rounded-full bg-zinc-900 border border-zinc-800 px-4 py-1.5 shadow-inner">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-xs font-mono text-zinc-300 font-medium">1 Crédito = S/ 0.012</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-28">
+
+    <!-- Tarjetas KPI -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      
+      <!-- Gastado -->
+      <div class="dark-card rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-rose-400">Gastado</span>
+          <div class="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
+          </div>
+        </div>
+        <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-gastado">S/ 0.00</p>
+        <p class="text-[11px] text-zinc-500 mt-1 font-medium">Total consumido</p>
+      </div>
+
+      <!-- Recargado -->
+      <div class="dark-card rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Recargado</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+          </div>
+        </div>
+        <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-recargado">S/ 0.00</p>
+        <p class="text-[11px] text-zinc-500 mt-1 font-medium">Inversión total</p>
+      </div>
+
+      <!-- Saldo Actual -->
+      <div class="dark-card rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-400">Saldo Actual</span>
+          <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+        </div>
+        <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-saldo">0</p>
+        <p class="text-[11px] text-zinc-500 mt-1 font-medium">Créditos disponibles</p>
+      </div>
+
+      <!-- Movimientos -->
+      <div class="dark-card rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-zinc-400">Movimientos</span>
+          <div class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </div>
+        </div>
+        <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-total">0</p>
+        <p class="text-[11px] text-zinc-500 mt-1 font-medium">Transacciones</p>
+      </div>
+
+    </div>
+
+    <!-- Analytics Section: Gráfico de Pastel (Pie Chart) y Métricas de consumo -->
+    <div class="dark-card rounded-2xl p-6 mb-8">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        
+        <!-- Info del gráfico -->
+        <div class="w-full md:w-1/2">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+            <h2 class="text-base font-bold text-white tracking-wide">Distribución de Flujo (Gráfico de Pastel)</h2>
+          </div>
+          <p class="text-xs text-zinc-400 mb-6">Proporción comparativa en soles entre recargas efectuadas y saldo consumido.</p>
+
+          <!-- Leyendas -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+              <div class="flex items-center gap-2.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"></span>
+                <span class="text-xs font-semibold text-zinc-200">Gasto Total</span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold font-mono text-white" id="pie-gasto-val">S/ 0.00</span>
+                <span class="text-[10px] font-mono text-zinc-500 ml-2" id="pie-gasto-pct">(0%)</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+              <div class="flex items-center gap-2.5">
+                <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></span>
+                <span class="text-xs font-semibold text-zinc-200">Recargas Totales</span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold font-mono text-white" id="pie-recarga-val">S/ 0.00</span>
+                <span class="text-[10px] font-mono text-zinc-500 ml-2" id="pie-recarga-pct">(0%)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SVG Donut / Pie Chart -->
+        <div class="w-full md:w-1/2 flex items-center justify-center pt-2 md:pt-0">
+          <div class="relative w-48 h-48 flex items-center justify-center">
+            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+              <!-- Fondo del pastel -->
+              <path class="text-zinc-800" stroke-width="3.8" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <!-- Segmento Recarga (Verde) -->
+              <path id="pie-seg-recarga" class="pie-segment text-emerald-500" stroke-dasharray="0, 100" stroke-width="3.8" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <!-- Segmento Gasto (Rojo) -->
+              <path id="pie-seg-gasto" class="pie-segment text-rose-500" stroke-dasharray="0, 100" stroke-width="3.8" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+            </svg>
+            <div class="absolute flex flex-col items-center justify-center text-center">
+              <span class="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Balance</span>
+              <span class="text-sm font-extrabold font-mono text-white" id="pie-center-monto">S/ 0.00</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Filtros de Navegación -->
+    <div class="mb-8 flex flex-col md:flex-row gap-4 md:items-center md:justify-between bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800">
+      
+      <!-- Categoría -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+        <button type="button" data-tipo="todos" data-active="true" class="filter-pill rounded-xl px-4 py-2 text-xs font-bold">Todos</button>
+        <button type="button" data-tipo="recarga" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs font-bold flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Recargas
+        </button>
+        <button type="button" data-tipo="descuento" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs font-bold flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Descuentos
+        </button>
+      </div>
+
+      <!-- Rango Temporal -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pt-1 md:pt-0 border-t md:border-t-0 border-zinc-800">
+        <button type="button" data-rango="hoy" data-active="false" class="filter-pill rounded-xl px-3.5 py-1.5 text-xs font-semibold">Hoy</button>
+        <button type="button" data-rango="7" data-active="false" class="filter-pill rounded-xl px-3.5 py-1.5 text-xs font-semibold">7 días</button>
+        <button type="button" data-rango="30" data-active="false" class="filter-pill rounded-xl px-3.5 py-1.5 text-xs font-semibold">30 días</button>
+        <button type="button" data-rango="todo" data-active="true" class="filter-pill rounded-xl px-3.5 py-1.5 text-xs font-semibold">Todo</button>
+      </div>
+
+    </div>
+
+    <!-- Lista Agrupada -->
+    <div id="lista-container" class="flex flex-col gap-6"></div>
+
+    <!-- Estado Vacío -->
+    <div id="empty-state" class="text-center py-20 px-6 dark-card rounded-2xl hidden">
+      <div class="mx-auto w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-zinc-400">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+      </div>
+      <h3 class="text-white font-bold text-sm mb-1">Sin movimientos encontrados</h3>
+      <p class="text-zinc-500 text-xs max-w-xs mx-auto">No hay registros asociados a los filtros seleccionados actualmente.</p>
+    </div>
+
+    <!-- Cargar Más -->
+    <div class="flex justify-center mt-10">
+      <button type="button" id="btn-cargar-mas" class="hidden rounded-xl px-8 py-3 text-xs font-bold text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all shadow-lg active:scale-95">
+        <span id="btn-cargar-mas-label">Cargar más</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Lógica Firestore Firebase integrada -->
+
+</body>
+
+</html>

@@ -104,6 +104,54 @@
         .mesa-preview img.loaded {
             opacity: 1;
         }
+
+        /* ============================================================
+   Transición de modales: solo opacity + transform (GPU),
+   nunca propiedades que disparan layout/paint pesado.
+   Funciona igual de fluido en gama alta y gama baja.
+============================================================ */
+        #modalMultiples,
+        #modalAgregar,
+        #modalPreviewQr {
+            opacity: 0;
+            transition: opacity .22s cubic-bezier(.16, 1, .3, 1);
+        }
+
+        #modalMultiples.modal-open,
+        #modalAgregar.modal-open,
+        #modalPreviewQr.modal-open {
+            opacity: 1;
+        }
+
+        #modalMultiples>div,
+        #modalAgregar>div,
+        #modalPreviewQr>div {
+            transform: translateY(18px) scale(.985);
+            opacity: 0;
+            transition: transform .28s cubic-bezier(.16, 1, .3, 1),
+                opacity .22s cubic-bezier(.16, 1, .3, 1);
+        }
+
+        #modalMultiples.modal-open>div,
+        #modalAgregar.modal-open>div,
+        #modalPreviewQr.modal-open>div {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        /* Respeta la preferencia del sistema/usuario de reducir animaciones
+   (accesibilidad, y de paso alivia a equipos muy limitados) */
+        @media (prefers-reduced-motion: reduce) {
+
+            #modalMultiples,
+            #modalAgregar,
+            #modalPreviewQr,
+            #modalMultiples>div,
+            #modalAgregar>div,
+            #modalPreviewQr>div {
+                transition: none !important;
+            }
+        }
     </style>
 </head>
 

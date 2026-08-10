@@ -26,6 +26,45 @@ import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
 // localidad / id: se leen de la URL. Mientras no haya sesión
 // real conectada, caen a estos valores "por ahora".
 // ------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Cola global para llamadas a la Cloud Function de QR.
+// La función solo soporta 1 Chrome (Puppeteer) a la vez por
+// instancia; si el usuario clickea varios tiles/mesas seguidos,
+// esto evita mandar fetches en paralelo y que el server truene
+// con "Failed to launch the browser process".
+// ------------------------------------------------------------
+let _colaApiQr = Promise.resolve();
+
+function encolarLlamadaApiQr(payload) {
+  const tarea = _colaApiQr.then(() => _llamarApiQrInterno(payload));
+  // pase lo que pase (éxito o error), la cola sigue andando
+  _colaApiQr = tarea.then(
+    () => {},
+    () => {},
+  );
+  return tarea;
+}
+
+async function _llamarApiQrInterno(payload) {
+  const res = await fetch(QR_API_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let msg = `Error ${res.status}`;
+    try {
+      const j = await res.json();
+      if (j.error) msg = j.error;
+    } catch (_) {}
+    throw new Error(msg);
+  }
+
+  return await res.blob();
+}
+
 const params = new URLSearchParams(window.location.search);
 
 let tiendaId = sessionStorage.getItem("tiendaId");
@@ -313,7 +352,7 @@ const QrNegocio = {
 
       const payload = {
         url,
-        dotShape: "extra-rounded",
+        dotShape: "dots",
         onlyQr: true,
         autoColor: true,
         width: QR_REQUEST_SIZE,
@@ -321,22 +360,7 @@ const QrNegocio = {
         logo,
       };
 
-      const res = await fetch(QR_API_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        let msg = `Error ${res.status}`;
-        try {
-          const j = await res.json();
-          if (j.error) msg = j.error;
-        } catch (_) {}
-        throw new Error(msg);
-      }
-
-      const blobOriginal = await res.blob();
+ const blobOriginal = await encolarLlamadaApiQr(payload);
 
       await this._mostrarQrEnTile(tipo, blobOriginal, info);
       this._updateStoreChip(info);
@@ -545,21 +569,7 @@ const MesasNegocio = {
       logo,
     };
 
-    const res = await fetch(QR_API_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      let msg = `Error ${res.status}`;
-      try {
-        const j = await res.json();
-        if (j.error) msg = j.error;
-      } catch (_) {}
-      throw new Error(msg);
-    }
-    return await res.blob();
+   return await encolarLlamadaApiQr(payload);
   },
 
   async descargarHoja() {
@@ -1050,17 +1060,44 @@ const UI = {
     }
   },
 
-  openModal(id) {
-    const modal = document.getElementById(id);
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  },
+openModal(id) {
+  const modal = document.getElementById(id);
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  // fuerza reflow: sin esto el navegador puede "saltarse" el estado
+  // inicial y la transición no se ve (pasa mucho en Safari/iOS)
+  void modal.offsetWidth;
+  requestAnimationFrame(() => {
+    modal.classList.add("modal-open");
+  });
+},
+closeModal(id) {
+  const modal = document.getElementById(id);
+  modal.classList.remove("modal-open");
 
-  closeModal(id) {
-    const modal = document.getElementById(id);
+  const finalizar = () => {
     modal.classList.add("hidden");
     modal.classList.remove("flex");
-  },
+  };
+
+  let yaFinalizo = false;
+  const onEnd = (e) => {
+    if (e.target !== modal || yaFinalizo) return;
+    yaFinalizo = true;
+    modal.removeEventListener("transitionend", onEnd);
+    finalizar();
+  };
+  modal.addEventListener("transitionend", onEnd);
+
+  // fallback: si por lo que sea transitionend no dispara
+  // (reduce-motion, tab en background, etc.), igual se cierra
+  setTimeout(() => {
+    if (!yaFinalizo) {
+      yaFinalizo = true;
+      finalizar();
+    }
+  }, 320);
+},
 
   toast(msg, isError = false) {
     const el = document.getElementById("toast");
@@ -1096,33 +1133,37 @@ const PreviewQr = {
     carrito: { brand: "PRODUCTOS", sub: "Escanea para pedir directo" },
   },
 
-  async openNegocio(tipo) {
-    const estado = QrNegocio._estado[tipo];
-    if (!estado) return;
+async openNegocio(tipo) {
+  const estado = QrNegocio._estado[tipo];
+  if (!estado) return;
 
-    const info = estado.info;
-    const fixed = this._fixedLabels[tipo] || { brand: "SCAN ME", sub: "" };
+  const info = estado.info;
+  const fixed = this._fixedLabels[tipo] || { brand: "SCAN ME", sub: "" };
 
-    this._state = {
-      mode: "negocio",
-      tipo,
-      editable: false,
-      brand: fixed.brand,
-      caption: info.alias,
-      sub: fixed.sub,
-      urlLink: QrNegocio._armarUrl(tipo, info),
-      qrObjectUrl: URL.createObjectURL(estado.blobOriginal),
-      filenameBase: `qr-${tipo}-${info.alias}`,
-    };
+  this._state = {
+    mode: "negocio",
+    tipo,
+    editable: true,
+    brand: fixed.brand,
+    caption: info.alias,
+    sub: fixed.sub,
+    urlLink: QrNegocio._armarUrl(tipo, info),
+    qrObjectUrl: URL.createObjectURL(estado.blobOriginal),
+    filenameBase: `qr-${tipo}-${info.alias}`,
+  };
 
-    await this._render();
+  await this._render();
 
-    const fields = document.getElementById("previewFields");
-    fields.classList.add("hidden");
-    fields.classList.remove("flex");
+  document.getElementById("previewInputBrand").value = this._state.brand;
+  document.getElementById("previewInputCaption").value = this._state.caption;
+  document.getElementById("previewInputSub").value = this._state.sub;
 
-    UI.openModal("modalPreviewQr");
-  },
+  const fields = document.getElementById("previewFields");
+  fields.classList.remove("hidden");
+  fields.classList.add("flex");
+
+  UI.openModal("modalPreviewQr"); // 👈 AGREGAR ESTA LÍNEA
+},
 
   async openMesa(mesa) {
     const info = await QrNegocio._obtenerInfoTienda();

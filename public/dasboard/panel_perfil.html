@@ -50,17 +50,29 @@
                         <span class="sidebar-group-arrow">▼</span>
                     </button>
                     <div class="sidebar-group-body">
-                        <button class="sidebar-btn" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
+
+                         <button class="sidebar-btn" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
                             <span class="sbb-icon">🏪</span>
                             <span class="sbb-label">Perfil</span>
                         </button>
-                        <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
+
+                       <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
                             <span class="sbb-icon">📢</span>
                             <span class="sbb-label">Publicidad</span>
                         </button>
+
+                        <button class="sidebar-btn" id="sbb-mispublicaciones" onclick="PanelPerfil.loadMisPublicaciones()">
+                            <span class="sbb-icon">🗞️</span>
+                            <span class="sbb-label">Mis publicaciones</span>
+                        </button>
+
                         <button class="sidebar-btn" id="sbb-qr" onclick="PanelPerfil.loadQr()">
                             <span class="sbb-icon">🔲</span>
                             <span class="sbb-label">MI QR</span>
+                        </button>
+                        <button class="sidebar-btn" id="sbb-historialgasto" onclick="PanelPerfil.loadHistorialGasto()">
+                            <span class="sbb-icon">💸</span>
+                            <span class="sbb-label">Historial de gasto</span>
                         </button>
                     </div>
                 </div>
@@ -225,9 +237,35 @@
                     </iframe>
                 </div>
 
-                <!-- ===== MI QR ===== -->
+        <!-- ===== MI QR ===== -->
                 <div class="section" id="sec-qr">
                     <iframe id="iframeMiQr" src="miqr.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== MIS PUBLICACIONES ===== -->
+                <div class="section" id="sec-mispublicaciones">
+                    <iframe id="iframeMisPublicaciones" src="mis_publicaciones.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== HISTORIAL DE GASTO ===== -->
+                <div class="section" id="sec-historialgasto">
+                    <iframe id="iframeHistorialGasto" src="historial_gasto_geinz.html" style="
         width:100%;
         height:100vh;
         border:none;
@@ -311,7 +349,7 @@
                             <span>Mi negocio</span>
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
-                        <div class="mobile-menu-group-body">
+                       <div class="mobile-menu-group-body">
                             <button class="mobile-menu-item" id="mmb-perfil"
                                 onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
                                 <span>🏪</span>
@@ -322,10 +360,20 @@
                                 <span>📢</span>
                                 <span>Publicidad</span>
                             </button>
+                            <button class="mobile-menu-item" id="mmb-mispublicaciones"
+                                onclick="PanelPerfil.loadMisPublicaciones(); PanelPerfil.toggleMobileMenu()">
+                                <span>🗞️</span>
+                                <span>Mis publicaciones</span>
+                            </button>
                             <button class="mobile-menu-item" id="mmb-qr"
                                 onclick="PanelPerfil.loadQr(); PanelPerfil.toggleMobileMenu()">
                                 <span>🔲</span>
                                 <span>MI QR</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-historialgasto"
+                                onclick="PanelPerfil.loadHistorialGasto(); PanelPerfil.toggleMobileMenu()">
+                                <span>💸</span>
+                                <span>Historial de gasto</span>
                             </button>
                         </div>
                     </div>

@@ -47,8 +47,8 @@ await setPersistence(auth, browserLocalPersistence);
 ========================================================= */
 let GOOGLE_USER = null;
 let splashShown = false;
-let localidadSeleccionada = "barranca";
-
+let authProcesado = false;
+let localidadSeleccionada = "barranca"; // default: coincide con el chip que ya viene "active" en el HTML
 /* =========================================================
    PAÍSES
 ========================================================= */
@@ -238,8 +238,9 @@ function esMobileOWebview() {
 }
 
 async function procesarLoginGoogle(user) {
+  if (authProcesado) return;
+  authProcesado = true;
   GOOGLE_USER = user;
-
   const userRef = doc(
     db,
     "Trabajadores_Usuarios_Drivers",
@@ -924,10 +925,8 @@ window.validarCorreoGmail = (input) => {
 ========================================================= */
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
-  GOOGLE_USER = user;
-  showSplash(user);
+  await procesarLoginGoogle(user);
 });
-
 /* =========================================================
    RESULTADO DE REDIRECT (login Google en móvil)
 ========================================================= */

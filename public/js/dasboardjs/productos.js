@@ -20,7 +20,7 @@ import {
   deleteObject,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 import { db, storage } from "../db/db.js";
-import { tiendaDoc } from "../rutas/rutas.js";
+import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
 import { initImportador } from "../dasboardjs/import_producto.js";
 
 /* ---------------- Adaptación de textos según categoría de negocio ---------------- */
@@ -80,7 +80,7 @@ function aplicarTextosPorCategoria() {
   if (prodDescInput) prodDescInput.placeholder = t.prodDescPlaceholder;
   const labelCondiciones = document.getElementById("label-condiciones");
   if (labelCondiciones)
-    labelCondiciones.textContent = `${t.condicionesLabel} (máx. 3)`;
+    labelCondiciones.textContent = `${t.condicionesLabel} (máx. 5)`;
 }
 aplicarTextosPorCategoria();
 
@@ -99,7 +99,7 @@ if (!tiendaId || !localidad) {
         normalizarCategoria(categoriaTienda) === "comida y restaurantes";
       aplicarTextosPorCategoria();
     }
-    // vuelve a ejecutar tu init aquí si hace falta
+    actualizarVisibilidadCarta();
   });
 }
 
@@ -221,11 +221,12 @@ const btnTodos = document.getElementById("btn-filter-todos");
 const btnActivos = document.getElementById("btn-filter-activos");
 const btnAgotados = document.getElementById("btn-filter-agotados");
 const btnStockBajo = document.getElementById("btn-filter-stockbajo");
+const btnAgotadoHoy = document.getElementById("btn-filter-agotadohoy");
 const btnCategorias = document.getElementById("btn-filter-categorias");
 
 function setFiltroEstado(nuevoEstado) {
   filtroEstadoActual = nuevoEstado;
-  [btnTodos, btnActivos, btnAgotados, btnStockBajo, btnCategorias].forEach(
+  [btnTodos, btnActivos, btnAgotados, btnStockBajo, btnAgotadoHoy, btnCategorias].forEach(
     (b) =>
       b.classList.remove(
         "active-filter",
@@ -234,6 +235,7 @@ function setFiltroEstado(nuevoEstado) {
         "ring-emerald-500",
         "ring-rose-500",
         "ring-amber-500",
+        "ring-orange-500",
         "ring-purple-500",
       ),
   );
@@ -246,6 +248,8 @@ function setFiltroEstado(nuevoEstado) {
     btnAgotados.classList.add("active-filter", "ring-2", "ring-rose-500");
   if (nuevoEstado === "stockbajo")
     btnStockBajo.classList.add("active-filter", "ring-2", "ring-amber-500");
+  if (nuevoEstado === "agotadohoy")
+    btnAgotadoHoy.classList.add("active-filter", "ring-2", "ring-orange-500");
   if (nuevoEstado === "categorias")
     btnCategorias.classList.add("active-filter", "ring-2", "ring-purple-500");
 
@@ -256,7 +260,35 @@ btnTodos.addEventListener("click", () => setFiltroEstado("todos"));
 btnActivos.addEventListener("click", () => setFiltroEstado("activos"));
 btnAgotados.addEventListener("click", () => setFiltroEstado("agotados"));
 btnStockBajo.addEventListener("click", () => setFiltroEstado("stockbajo"));
+btnAgotadoHoy.addEventListener("click", () => setFiltroEstado("agotadohoy"));
 btnCategorias.addEventListener("click", () => setFiltroEstado("categorias"));
+
+/* ---------------- Categorías ---------------- */
+/* ---------------- Menú desplegable "Agregar" ---------------- */
+const toggleAccionesBtn = document.getElementById("btn-acciones-toggle");
+const menuAcciones = document.getElementById("panel-actions-menu");
+
+function cerrarMenuAcciones() {
+  menuAcciones.classList.add("hidden");
+  toggleAccionesBtn.classList.remove("open");
+}
+function toggleMenuAcciones() {
+  const abrir = menuAcciones.classList.contains("hidden");
+  menuAcciones.classList.toggle("hidden", !abrir);
+  toggleAccionesBtn.classList.toggle("open", abrir);
+}
+toggleAccionesBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleMenuAcciones();
+});
+document.addEventListener("click", (e) => {
+  if (!menuAcciones.contains(e.target) && e.target !== toggleAccionesBtn) {
+    cerrarMenuAcciones();
+  }
+});
+menuAcciones.addEventListener("click", (e) => {
+  if (e.target.closest(".panel-actions-item")) cerrarMenuAcciones();
+});
 
 /* ---------------- Categorías ---------------- */
 document
@@ -404,8 +436,7 @@ function renderCondiciones() {
   const cont = document.getElementById("condiciones-container");
   const btnAdd = document.getElementById("btn-add-condicion");
   cont.innerHTML = "";
-  btnAdd.style.display = condicionesSeleccionadas.length >= 3 ? "none" : "";
-
+  btnAdd.style.display = condicionesSeleccionadas.length >= 5 ? "none" : "";
   condicionesSeleccionadas.forEach((cond, ci) => {
     const box = document.createElement("div");
     box.className = "rounded-xl bg-[#05040a] border border-purple-900/30 p-3";
@@ -551,14 +582,13 @@ function renderCondiciones() {
 }
 
 document.getElementById("btn-add-condicion").addEventListener("click", () => {
-  if (condicionesSeleccionadas.length >= 3) return;
+  if (condicionesSeleccionadas.length >= 5) return;
   condicionesSeleccionadas.push({
     nombre: "",
     opciones: [{ nombre: "", activo: true, costoAdicional: 0, stock: null }],
   });
   renderCondiciones();
 });
-
 document
   .getElementById("input-prod-stock")
   .addEventListener("input", validarConsistenciaStock);
@@ -583,6 +613,10 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   document.getElementById("input-prod-disponible").checked = true;
   document.getElementById("input-prod-stock").value = "";
   document.getElementById("input-prod-auto-desactivar").checked = false;
+  document.getElementById("input-prod-agotado-hoy").checked = false;
+  document.getElementById("input-prod-unidad").value = "";
+  document.getElementById("input-prod-horario-desde").value = "";
+  document.getElementById("input-prod-horario-hasta").value = "";
   document.getElementById("producto-cat-hint").textContent =
     `Se incluirá en "${categoriaNombre}".`;
   document.getElementById("btn-guardar-producto-label").textContent =
@@ -621,8 +655,16 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   // Si el producto no tiene stock definido (productos viejos), el campo queda vacío = "sin control de stock"
   document.getElementById("input-prod-stock").value =
     typeof data.stock === "number" ? data.stock : "";
-  document.getElementById("input-prod-auto-desactivar").checked =
+document.getElementById("input-prod-auto-desactivar").checked =
     !!data.autoDesactivar;
+  document.getElementById("input-prod-agotado-hoy").checked =
+    !!data.agotadoHoy;
+  document.getElementById("input-prod-unidad").value =
+    data.unidadMedida || "";
+  document.getElementById("input-prod-horario-desde").value =
+    data.disponibleDesde || "";
+  document.getElementById("input-prod-horario-hasta").value =
+    data.disponibleHasta || "";
   document.getElementById("producto-cat-hint").textContent =
     `Editando producto.`;
   document.getElementById("btn-guardar-producto-label").textContent =
@@ -645,13 +687,19 @@ document
     );
     let disponible = document.getElementById("input-prod-disponible").checked;
 
-    const stockRaw = document.getElementById("input-prod-stock").value;
+const stockRaw = document.getElementById("input-prod-stock").value;
     // Si el campo está vacío, el producto queda "sin control de stock" (stock = null)
     const stock =
       stockRaw === "" ? null : Math.max(0, parseInt(stockRaw, 10) || 0);
     const autoDesactivar = document.getElementById(
       "input-prod-auto-desactivar",
     ).checked;
+    const agotadoHoy = document.getElementById("input-prod-agotado-hoy").checked;
+    const unidadMedida = document.getElementById("input-prod-unidad").value || null;
+    const disponibleDesde =
+      document.getElementById("input-prod-horario-desde").value || null;
+    const disponibleHasta =
+      document.getElementById("input-prod-horario-hasta").value || null;
 
     // Si el usuario activó "desactivar automáticamente al llegar a 0" y el stock es 0,
     // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
@@ -659,9 +707,9 @@ document
 
     if (!nombre || isNaN(precio)) return;
 
-    const condiciones = condicionesSeleccionadas
+  const condiciones = condicionesSeleccionadas
       .filter((c) => c.nombre.trim())
-      .slice(0, 3)
+      .slice(0, 5)
       .map((c) => ({
         nombre: c.nombre.trim(),
         opciones: c.opciones
@@ -711,7 +759,7 @@ document
           subidas.push({ url, path });
         }
 
-        await updateDoc(docRef, {
+ await updateDoc(docRef, {
           nombre,
           descripcion,
           precio,
@@ -719,12 +767,15 @@ document
           condiciones,
           stock,
           autoDesactivar,
+          agotadoHoy,
+          unidadMedida,
+          disponibleDesde,
+          disponibleHasta,
           imagenes: [...conservadas, ...subidas],
         });
-
         toast(`"${nombre}" actualizado.`);
       } else {
-        const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
+       const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
         await setDoc(nuevoDocRef, {
           nombre,
           descripcion,
@@ -733,6 +784,10 @@ document
           condiciones,
           stock,
           autoDesactivar,
+          agotadoHoy,
+          unidadMedida,
+          disponibleDesde,
+          disponibleHasta,
           imagenes: [],
           createdAt: serverTimestamp(),
         });
@@ -784,10 +839,10 @@ function renderProductoCard(categoriaId, productoId, data) {
     " " +
     (data.descripcion || "")
   ).toLowerCase();
-  card.dataset.disponible = data.disponible ? "true" : "false";
+card.dataset.disponible = data.disponible ? "true" : "false";
+  card.dataset.agotadoHoy = data.agotadoHoy ? "true" : "false";
   // 'stock' queda vacío en el dataset si el producto no tiene control de stock (data.stock === null/undefined)
   card.dataset.stock = typeof data.stock === "number" ? String(data.stock) : "";
-
   // FIX PRINCIPAL #2: ahora la tarjeta completa abre el modal de edición al hacer clic
   // (antes solo funcionaba el ícono del lápiz). Se ignoran los clics hechos sobre botones
   // internos (disponible / editar / eliminar) para no interferir con esas acciones.
@@ -805,14 +860,24 @@ function renderProductoCard(categoriaId, productoId, data) {
   imgWrap.className =
     "relative w-full aspect-square bg-[#05040a] overflow-hidden border-b border-purple-900/20";
 
-  if (imagenes.length === 0) {
-    imgWrap.innerHTML = `<div class="w-full h-full flex items-center justify-center text-purple-400/20"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></div>`;
+if (imagenes.length === 0) {
+    imgWrap.innerHTML = `
+      <div class="img-placeholder-fallback">
+        <img src="../img/logo geinz.png" alt="">
+      </div>`;
   } else {
+    imgWrap.innerHTML = `
+      <div class="img-placeholder-fallback">
+        <img src="../img/logo geinz.png" alt="">
+      </div>`;
     const imgEl = document.createElement("img");
     imgEl.src = imagenes[0].url;
     imgEl.loading = "lazy";
     imgEl.className =
-      "w-full h-full object-cover block group-hover:scale-105 transition-transform duration-300";
+      "img-real-foto w-full h-full object-cover block group-hover:scale-105 transition-transform duration-300";
+    imgEl.onerror = () => {
+      imgEl.classList.add("is-broken");
+    };
     imgWrap.appendChild(imgEl);
   }
 
@@ -906,7 +971,7 @@ function renderProductoCard(categoriaId, productoId, data) {
   const actionRow = document.createElement("div");
   actionRow.className = "flex items-center justify-between gap-2";
 
-  const estadoBtn = document.createElement("button");
+const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
   estadoBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
     data.disponible
@@ -926,6 +991,31 @@ function renderProductoCard(categoriaId, productoId, data) {
       toast("Error al cambiar disponibilidad.", "error");
     } finally {
       estadoBtn.disabled = false;
+    }
+  });
+
+  // Botón rápido "Agotado hoy": un clic, no abre el modal, no toca el stock.
+  const agotadoHoyBtn = document.createElement("button");
+  agotadoHoyBtn.type = "button";
+  agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (se acabó por hoy, mañana vuelve solo)";
+  agotadoHoyBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
+    data.agotadoHoy
+      ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
+      : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
+  }`;
+  agotadoHoyBtn.textContent = data.agotadoHoy ? "Agotado hoy ✓" : "Marcar agotado hoy";
+  agotadoHoyBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    agotadoHoyBtn.disabled = true;
+    try {
+      await updateDoc(doc(productosRef(categoriaId), productoId), {
+        agotadoHoy: !data.agotadoHoy,
+      });
+    } catch (err) {
+      console.error(err);
+      toast("Error al actualizar 'Agotado hoy'.", "error");
+    } finally {
+      agotadoHoyBtn.disabled = false;
     }
   });
 
@@ -957,7 +1047,8 @@ function renderProductoCard(categoriaId, productoId, data) {
     abrirModalEditarProducto(categoriaId, productoId, data);
   });
 
-  actionRow.appendChild(estadoBtn);
+actionRow.appendChild(estadoBtn);
+  actionRow.appendChild(agotadoHoyBtn);
   actionRow.appendChild(editBtn);
   actionRow.appendChild(delBtn);
 
@@ -1113,9 +1204,10 @@ function aplicarFiltroYMetricas() {
   const queryText = inputBusqueda.value.trim().toLowerCase();
   const categorias = document.querySelectorAll(".categoria");
 
-  let totalActivos = 0;
+let totalActivos = 0;
   let totalAgotados = 0;
   let totalStockBajo = 0;
+  let totalAgotadoHoy = 0;
   let totalCategoriasVisibles = 0;
   let algunElementoVisibleTotal = false;
   let totalProductosProcesados = 0;
@@ -1137,16 +1229,19 @@ function aplicarFiltroYMetricas() {
       const tieneStockBajo =
         stockValor !== "" && Number(stockValor) < STOCK_BAJO_UMBRAL;
 
+const esAgotadoHoy = card.dataset.agotadoHoy === "true";
+
       if (disponible) totalActivos++;
       else totalAgotados++;
       if (tieneStockBajo) totalStockBajo++;
+      if (esAgotadoHoy) totalAgotadoHoy++;
 
-      // Evaluar estado (Activo/Agotado/Stock bajo/Todos)
+      // Evaluar estado (Activo/Agotado/Stock bajo/Agotado hoy/Todos)
       let cumpleEstado = true;
       if (filtroEstadoActual === "activos") cumpleEstado = disponible;
       if (filtroEstadoActual === "agotados") cumpleEstado = !disponible;
       if (filtroEstadoActual === "stockbajo") cumpleEstado = tieneStockBajo;
-
+      if (filtroEstadoActual === "agotadohoy") cumpleEstado = esAgotadoHoy;
       // Evaluar Búsqueda de texto
       let cumpleTexto =
         queryText === "" ||
@@ -1201,9 +1296,10 @@ function aplicarFiltroYMetricas() {
   splashTotalProds.textContent = totalProductosProcesados;
   splashTotalImgs.textContent = loadedImageUrls.size;
 
-  document.getElementById("stat-activos").textContent = totalActivos;
+document.getElementById("stat-activos").textContent = totalActivos;
   document.getElementById("stat-agotados").textContent = totalAgotados;
   document.getElementById("stat-stockbajo").textContent = totalStockBajo;
+  document.getElementById("stat-agotadohoy").textContent = totalAgotadoHoy;
   document.getElementById("stat-categorias").textContent =
     totalCategoriasVisibles;
 
@@ -1250,3 +1346,376 @@ onSnapshot(
     updateSplashAndCheckDismiss();
   },
 );
+/* ---------------- Carta digital (solo Comida y Restaurantes) — versión liviana ---------------- */
+const CARTA_MAX_COLECCIONES = 5;
+const CARTA_MAX_FOTOS = 5;
+let cartaColecciones = {};
+let cartaLoaded = false;
+
+function cartaRef() {
+  return tiendaSubCol(localidad, "tiendas", tiendaId, "carta");
+}
+function cartaDocRef(id) {
+  return tiendaSubDoc(localidad, "tiendas", tiendaId, "carta", id);
+}
+
+function actualizarVisibilidadCarta() {
+  const section = document.getElementById("carta-digital-section");
+  if (!section) return;
+  if (esRestaurante) {
+    section.classList.remove("hidden");
+    if (!cartaLoaded) {
+      cartaLoaded = true;
+      cargarCartaColecciones();
+    }
+  } else {
+    section.classList.add("hidden");
+  }
+}
+
+async function cargarCartaColecciones() {
+  try {
+    const snap = await getDocs(cartaRef());
+    cartaColecciones = {};
+    snap.forEach((d) => {
+      const data = d.data() || {};
+      cartaColecciones[d.id] = {
+        nombre: data.nombre || d.id,
+        imagenes: Array.isArray(data.imagenes) ? data.imagenes : [],
+        texto: data.texto || "",
+      };
+    });
+    renderCartaColecciones();
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo cargar la carta digital.", "error");
+  }
+}
+
+// Construye todo el HTML de una vez como string (mucho más rápido que crear
+// nodos uno por uno con createElement, sobre todo con varias colecciones/fotos)
+function htmlColeccion(id, coleccion) {
+  const totalFotos = coleccion.imagenes.filter(Boolean).length;
+  const tieneTexto = !!(coleccion.texto && coleccion.texto.trim());
+  return `
+    <div class="carta-coleccion-card" data-carta-id="${id}">
+      <div class="carta-coleccion-head" data-carta-toggle>
+        <div style="min-width:0;flex:1;">
+          <p class="carta-coleccion-name">${coleccion.nombre}</p>
+          <p class="carta-coleccion-preview ${tieneTexto ? "" : "empty"}">${tieneTexto ? coleccion.texto : "Sin descripción"}</p>
+        </div>
+        <span class="carta-coleccion-count">${totalFotos}/${CARTA_MAX_FOTOS}</span>
+        <button type="button" class="carta-del-btn" data-carta-del title="Eliminar colección">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
+        </button>
+        <svg class="carta-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="carta-coleccion-body">
+        <textarea class="carta-textarea" rows="2" data-carta-textarea placeholder="Descripción (opcional)...">${coleccion.texto || ""}</textarea>
+        <button type="button" class="carta-save-text-btn" data-carta-save-texto>Guardar descripción</button>
+        <div class="carta-photo-grid" data-carta-grid></div>
+      </div>
+    </div>`;
+}
+
+function htmlFotoSlot(collId, i, url) {
+  if (url) {
+    return `
+      <div class="carta-photo-item" data-carta-slot="${i}" data-carta-coll="${collId}">
+        <img src="${url}" loading="lazy" decoding="async">
+        <button type="button" class="carta-photo-del" data-carta-foto-del title="Eliminar foto">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>`;
+  }
+  return `
+    <div class="carta-photo-item carta-photo-add" data-carta-slot="${i}" data-carta-coll="${collId}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Agregar</span>
+    </div>`;
+}
+
+function renderCartaGridHTML(collId) {
+  const coleccion = cartaColecciones[collId];
+  const urls = [...(coleccion.imagenes || [])].slice(0, CARTA_MAX_FOTOS);
+  while (urls.length < CARTA_MAX_FOTOS) urls.push(null);
+  return urls.map((url, i) => htmlFotoSlot(collId, i, url)).join("");
+}
+
+function renderCartaColecciones() {
+  const list = document.getElementById("carta-colecciones-list");
+  const sub = document.getElementById("carta-sub");
+  if (!list) return;
+
+  const ids = Object.keys(cartaColecciones);
+  if (sub) sub.textContent = `${ids.length} de ${CARTA_MAX_COLECCIONES} colecciones`;
+
+  if (!ids.length) {
+    list.innerHTML = `<p class="text-purple-300/40 text-xs italic py-2">Aún no tienes colecciones. Crea la primera con el botón de abajo.</p>`;
+    return;
+  }
+
+  // Una sola escritura al DOM (un solo reflow) en vez de ir agregando nodo por nodo
+  list.innerHTML = ids.map((id) => htmlColeccion(id, cartaColecciones[id])).join("");
+  ids.forEach((id) => {
+    const grid = list.querySelector(`[data-carta-id="${id}"] [data-carta-grid]`);
+    if (grid) grid.innerHTML = renderCartaGridHTML(id);
+  });
+}
+
+function actualizarContadorColeccion(collId) {
+  const coleccion = cartaColecciones[collId];
+  const card = document.querySelector(`[data-carta-id="${collId}"] .carta-coleccion-count`);
+  if (coleccion && card) {
+    card.textContent = `${coleccion.imagenes.filter(Boolean).length}/${CARTA_MAX_FOTOS}`;
+  }
+}
+
+async function guardarTextoColeccion(collId, valor, btn) {
+  const coleccion = cartaColecciones[collId];
+  if (!coleccion) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Guardando…";
+  try {
+    await updateDoc(cartaDocRef(collId), { texto: valor });
+    coleccion.texto = valor;
+    const preview = document.querySelector(`[data-carta-id="${collId}"] .carta-coleccion-preview`);
+    if (preview) {
+      const tiene = !!valor.trim();
+      preview.textContent = tiene ? valor : "Sin descripción";
+      preview.classList.toggle("empty", !tiene);
+    }
+    btn.classList.remove("visible");
+    toast("Descripción guardada.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo guardar.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function comprimirImagenCarta(dataURL, maxPx, calidad) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round((h * maxPx) / w); w = maxPx; }
+        else { w = Math.round((w * maxPx) / h); h = maxPx; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/webp", calidad));
+      canvas.width = 0; canvas.height = 0; // libera memoria del canvas
+    };
+    img.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    img.src = dataURL;
+  });
+}
+function dataURLtoBlobCarta(dataURL) {
+  const [header, data] = dataURL.split(",");
+  const mime = header.match(/:(.*?);/)[1];
+  const raw = atob(data);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+async function subirFotoCarta(collId, slotIndex, file) {
+  const coleccion = cartaColecciones[collId];
+  if (!coleccion) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    try {
+      toast("Subiendo foto…");
+      // maxPx bajado de 1024 a 800 y calidad a 0.75: menos datos que subir/bajar,
+      // clave si la conexión o el equipo del usuario son limitados
+      const comprimida = await comprimirImagenCarta(ev.target.result, 800, 0.75);
+      const blob = dataURLtoBlobCarta(comprimida);
+      const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
+      const ref = storageRef(storage, path);
+      await uploadBytes(ref, blob, { contentType: "image/webp" });
+      const finalURL = await getDownloadURL(ref);
+
+      const nuevasImagenes = [...coleccion.imagenes];
+      while (nuevasImagenes.length <= slotIndex) nuevasImagenes.push(null);
+      nuevasImagenes[slotIndex] = finalURL;
+
+      await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
+      coleccion.imagenes = nuevasImagenes;
+
+      const grid = document.querySelector(`[data-carta-id="${collId}"] [data-carta-grid]`);
+      if (grid) grid.innerHTML = renderCartaGridHTML(collId);
+      actualizarContadorColeccion(collId);
+      toast("Foto guardada.");
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo subir la foto.", "error");
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function eliminarFotoCarta(collId, slotIndex) {
+  const coleccion = cartaColecciones[collId];
+  if (!coleccion) return;
+  try {
+    const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
+    await deleteObject(storageRef(storage, path)).catch(() => {});
+    const nuevasImagenes = [...coleccion.imagenes];
+    nuevasImagenes[slotIndex] = null;
+    await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
+    coleccion.imagenes = nuevasImagenes;
+    const grid = document.querySelector(`[data-carta-id="${collId}"] [data-carta-grid]`);
+    if (grid) grid.innerHTML = renderCartaGridHTML(collId);
+    actualizarContadorColeccion(collId);
+    toast("Foto eliminada.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo eliminar.", "error");
+  }
+}
+
+async function eliminarColeccionCarta(collId) {
+  const coleccion = cartaColecciones[collId];
+  if (!coleccion) return;
+  try {
+    await Promise.all(
+      (coleccion.imagenes || []).map((url, i) => {
+        if (!url) return Promise.resolve();
+        const path = `tiendas/${tiendaId}/carta/${collId}/slot_${i}.webp`;
+        return deleteObject(storageRef(storage, path)).catch(() => {});
+      }),
+    );
+    await deleteDoc(cartaDocRef(collId));
+    delete cartaColecciones[collId];
+    renderCartaColecciones();
+    toast("Colección eliminada.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo eliminar la colección.", "error");
+  }
+}
+
+/* ---- Toggle del acordeón principal ---- */
+document.getElementById("carta-toggle")?.addEventListener("click", () => {
+  document.getElementById("carta-body").classList.toggle("open");
+  document.getElementById("carta-chevron").classList.toggle("open");
+});
+
+/* ---- Nueva colección ---- */
+document.getElementById("btn-nueva-coleccion")?.addEventListener("click", () => {
+  if (Object.keys(cartaColecciones).length >= CARTA_MAX_COLECCIONES) {
+    toast(`Máximo ${CARTA_MAX_COLECCIONES} colecciones.`, "error");
+    return;
+  }
+  openOverlay("overlay-carta");
+});
+
+document.getElementById("form-carta")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = document.getElementById("input-carta-nombre");
+  const nombre = input.value.trim();
+  if (!nombre) return;
+  if (Object.keys(cartaColecciones).length >= CARTA_MAX_COLECCIONES) {
+    toast(`Máximo ${CARTA_MAX_COLECCIONES} colecciones.`, "error");
+    return;
+  }
+  const slug =
+    nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `coleccion_${Date.now()}`;
+  if (cartaColecciones[slug]) {
+    toast("Ya existe una colección con ese nombre.", "error");
+    return;
+  }
+  const btn = document.getElementById("btn-guardar-carta");
+  const label = document.getElementById("btn-guardar-carta-label");
+  const originalText = label.textContent;
+  btn.disabled = true;
+  label.innerHTML = '<span class="spinner"></span>';
+  try {
+    await setDoc(cartaDocRef(slug), { nombre, imagenes: [], texto: "" });
+    cartaColecciones[slug] = { nombre, imagenes: [], texto: "" };
+    renderCartaColecciones();
+    input.value = "";
+    closeOverlay("overlay-carta");
+    toast(`Colección "${nombre}" creada.`);
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo crear.", "error");
+  } finally {
+    btn.disabled = false;
+    label.textContent = originalText;
+  }
+});
+
+/* ---- UN SOLO listener delegado para TODA la lista (abrir/cerrar, eliminar,
+   guardar texto, seleccionar foto, eliminar foto). Esto es lo que más ahorra
+   memoria: en vez de cientos de listeners sueltos, hay solo 2 fijos. ---- */
+const cartaListaEl = document.getElementById("carta-colecciones-list");
+
+cartaListaEl?.addEventListener("click", (e) => {
+  const card = e.target.closest("[data-carta-id]");
+  if (!card) return;
+  const collId = card.dataset.cartaId;
+
+  if (e.target.closest("[data-carta-del]")) {
+    const coleccion = cartaColecciones[collId];
+    askConfirm(
+      "¿Eliminar colección?",
+      `"${coleccion?.nombre}" y todas sus fotos se eliminarán permanentemente.`,
+      () => eliminarColeccionCarta(collId),
+    );
+    return;
+  }
+
+  if (e.target.closest("[data-carta-save-texto]")) {
+    const textarea = card.querySelector("[data-carta-textarea]");
+    guardarTextoColeccion(collId, textarea.value, e.target.closest("[data-carta-save-texto]"));
+    return;
+  }
+
+  const fotoDel = e.target.closest("[data-carta-foto-del]");
+  if (fotoDel) {
+    const slot = fotoDel.closest("[data-carta-slot]");
+    askConfirm("¿Eliminar foto?", "Esta foto se quitará de la colección.", () =>
+      eliminarFotoCarta(collId, parseInt(slot.dataset.cartaSlot, 10)),
+    );
+    return;
+  }
+
+  const slotEl = e.target.closest("[data-carta-slot]");
+  if (slotEl) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp";
+    input.onchange = (ev) => {
+      const file = ev.target.files[0];
+      if (file) subirFotoCarta(collId, parseInt(slotEl.dataset.cartaSlot, 10), file);
+    };
+    input.click();
+    return;
+  }
+
+  if (e.target.closest("[data-carta-toggle]")) {
+    const head = card.querySelector("[data-carta-toggle]");
+    const body = card.querySelector(".carta-coleccion-body");
+    body.classList.toggle("open");
+    head.classList.toggle("open");
+  }
+});
+
+cartaListaEl?.addEventListener("input", (e) => {
+  if (!e.target.matches("[data-carta-textarea]")) return;
+  const card = e.target.closest("[data-carta-id]");
+  const collId = card.dataset.cartaId;
+  const coleccion = cartaColecciones[collId];
+  const btn = card.querySelector("[data-carta-save-texto]");
+  btn.classList.toggle("visible", e.target.value !== (coleccion?.texto || ""));
+});
+
+actualizarVisibilidadCarta();
