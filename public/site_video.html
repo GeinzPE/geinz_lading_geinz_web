@@ -617,6 +617,91 @@
     video.hidden-canvas-src {
       display: none;
     }
+
+    /* ---- Interruptor Subir / Editor ---- */
+    .mode-switch {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      background: #171a21;
+      padding: 5px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      text-align: center;
+      padding: 9px 6px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #9aa0a6;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .mode-btn.active {
+      background: #1c2230;
+      color: #6ea8fe;
+    }
+
+    /* ---- Línea de tiempo para cortar ---- */
+    .timeline {
+      margin-top: 14px;
+    }
+
+    .timeline-track {
+      position: relative;
+      height: 34px;
+      background: #0f1115;
+      border: 1px solid #262b36;
+      border-radius: 8px;
+    }
+
+    .timeline-range {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: #1c2230;
+      border-top: 2px solid #6ea8fe;
+      border-bottom: 2px solid #6ea8fe;
+    }
+
+    .timeline-playhead {
+      position: absolute;
+      top: -4px;
+      bottom: -4px;
+      width: 2px;
+      background: #6ee7a0;
+      pointer-events: none;
+    }
+
+    .timeline-handle {
+      position: absolute;
+      top: -4px;
+      width: 16px;
+      height: 42px;
+      background: #6ea8fe;
+      color: #0f1115;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      cursor: ew-resize;
+      transform: translateX(-50%);
+      z-index: 2;
+      user-select: none;
+    }
+
+    .timeline-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: #6b7280;
+      margin-top: 6px;
+    }
   </style>
 </head>
 
@@ -625,13 +710,39 @@
   <h1>🎬 Media Pipeline</h1>
   <p class="sub">Arrastra tu video, elige el modo, y listo.</p>
 
-  <div class="card">
+  <div class="mode-switch" id="modeSwitch">
+    <div class="mode-btn active" data-mode="upload">⬆️ Subir y procesar</div>
+    <div class="mode-btn" data-mode="editor">✂️ Editor (video ya listo)</div>
+  </div>
+
+  <div class="card" id="uploadCard">
     <div class="dropzone" id="dropzone">
       <div class="icon">📁</div>
       <div>Arrastra tu video aquí o haz clic para elegirlo</div>
       <div class="filename" id="filename"></div>
       <div class="filesize" id="filesize"></div>
       <input type="file" id="fileInput" accept="video/*">
+    </div>
+    <div class="pre-preview" id="prePreview" style="display:none;">
+      <video id="preVideo" controls playsinline style="width:100%;border-radius:10px;margin-top:12px;"></video>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:10px;">
+        <input type="checkbox" id="preTrimEnable"> Recortar antes de procesar
+      </label>
+
+      <div class="timeline" id="preTrimTimeline" style="display:none;">
+        <div class="timeline-track" id="preTrack">
+          <div class="timeline-range" id="preRange"></div>
+          <div class="timeline-playhead" id="prePlayhead"></div>
+          <div class="timeline-handle" id="preHandleStart">⟨</div>
+          <div class="timeline-handle" id="preHandleEnd">⟩</div>
+        </div>
+        <div class="timeline-labels">
+          <span id="preTrimStartLabel">0.0s</span>
+          <span id="preTrimDurLabel"></span>
+          <span id="preTrimEndLabel">0.0s</span>
+        </div>
+      </div>
     </div>
 
     <div class="field">
@@ -695,6 +806,25 @@
     <div class="cost-box" id="costBox" style="display:none;"></div>
   </div>
 
+  <div class="card" id="editorCard" style="display:none;">
+    <div class="dropzone" id="editorDropzone">
+      <div class="icon">✂️</div>
+      <div>Arrastra un video ya listo/grabado aquí, o haz clic</div>
+      <div class="filename" id="editorFilename"></div>
+      <input type="file" id="editorFileInput" accept="video/*">
+    </div>
+    <div class="field">
+      <label for="editorSrtInput">Subtítulos existentes (.srt) — opcional</label>
+      <input type="file" id="editorSrtInput" accept=".srt">
+      <div class="hint">Si no tienes .srt, dale a "Transcribir automáticamente" o escribe los subtítulos tú mismo en el
+        editor.</div>
+    </div>
+    <button id="editorTranscribeBtn" class="btn-secondary" type="button" disabled>🎙️ Transcribir
+      automáticamente</button>
+    <div class="status" id="editorTranscribeStatus"></div>
+    <button id="editorOpenBtn" disabled>Abrir en el editor</button>
+  </div>
+
   <!-- Resultados: uno por segmento, con editor de subtítulos + export -->
   <div id="resultsWrap"></div>
 
@@ -750,12 +880,96 @@
       return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
     }
 
+    const prePreview = document.getElementById("prePreview");
+    const preVideo = document.getElementById("preVideo");
+    const preTrimEnable = document.getElementById("preTrimEnable");
+    const preTrimTimeline = document.getElementById("preTrimTimeline");
+    const preTrack = document.getElementById("preTrack");
+    const preRange = document.getElementById("preRange");
+    const prePlayhead = document.getElementById("prePlayhead");
+    const preHandleStart = document.getElementById("preHandleStart");
+    const preHandleEnd = document.getElementById("preHandleEnd");
+    const preTrimStartLabel = document.getElementById("preTrimStartLabel");
+    const preTrimEndLabel = document.getElementById("preTrimEndLabel");
+    const preTrimDurLabel = document.getElementById("preTrimDurLabel");
+
+    let preTrim = { start: 0, end: 0 };
+
     function setFile(file) {
       selectedFile = file;
       filenameEl.textContent = `✅ ${file.name}`;
       filesizeEl.textContent = formatBytes(file.size);
       submitBtn.disabled = false;
+
+      preVideo.src = URL.createObjectURL(file);
+      prePreview.style.display = "block";
+      preTrimEnable.checked = false;
+      preTrimTimeline.style.display = "none";
     }
+
+    preVideo.addEventListener("loadedmetadata", () => {
+      preTrim.start = 0;
+      preTrim.end = preVideo.duration;
+      refreshPreTimelineUI();
+    });
+
+    preTrimEnable.addEventListener("change", () => {
+      preTrimTimeline.style.display = preTrimEnable.checked ? "block" : "none";
+    });
+
+    function refreshPreTimelineUI() {
+      const dur = preVideo.duration || preTrim.end || 1;
+      const sPct = (preTrim.start / dur) * 100;
+      const ePct = (preTrim.end / dur) * 100;
+      preRange.style.left = sPct + "%";
+      preRange.style.width = (ePct - sPct) + "%";
+      preHandleStart.style.left = sPct + "%";
+      preHandleEnd.style.left = ePct + "%";
+      preTrimStartLabel.textContent = preTrim.start.toFixed(1) + "s";
+      preTrimEndLabel.textContent = preTrim.end.toFixed(1) + "s";
+      preTrimDurLabel.textContent = "(" + (preTrim.end - preTrim.start).toFixed(1) + "s)";
+    }
+
+    function prePctFromEvent(e) {
+      const rect = preTrack.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    }
+
+    let preDraggingHandle = null;
+    preHandleStart.addEventListener("mousedown", e => { preDraggingHandle = "start"; e.preventDefault(); });
+    preHandleEnd.addEventListener("mousedown", e => { preDraggingHandle = "end"; e.preventDefault(); });
+    preHandleStart.addEventListener("touchstart", () => { preDraggingHandle = "start"; }, { passive: true });
+    preHandleEnd.addEventListener("touchstart", () => { preDraggingHandle = "end"; }, { passive: true });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!preDraggingHandle) return;
+      const dur = preVideo.duration || preTrim.end || 1;
+      const t = prePctFromEvent(e) * dur;
+      if (preDraggingHandle === "start") preTrim.start = Math.min(t, preTrim.end - 0.1);
+      else preTrim.end = Math.max(t, preTrim.start + 0.1);
+      refreshPreTimelineUI();
+    });
+    window.addEventListener("touchmove", (e) => {
+      if (!preDraggingHandle) return;
+      const dur = preVideo.duration || preTrim.end || 1;
+      const t = prePctFromEvent(e) * dur;
+      if (preDraggingHandle === "start") preTrim.start = Math.min(t, preTrim.end - 0.1);
+      else preTrim.end = Math.max(t, preTrim.start + 0.1);
+      refreshPreTimelineUI();
+    }, { passive: true });
+    window.addEventListener("mouseup", () => { preDraggingHandle = null; });
+    window.addEventListener("touchend", () => { preDraggingHandle = null; });
+
+    preTrack.addEventListener("click", e => {
+      if (preDraggingHandle) return;
+      const dur = preVideo.duration || preTrim.end || 1;
+      preVideo.currentTime = prePctFromEvent(e) * dur;
+    });
+    preVideo.addEventListener("timeupdate", () => {
+      const dur = preVideo.duration || preTrim.end || 1;
+      prePlayhead.style.left = ((preVideo.currentTime / dur) * 100) + "%";
+    });
 
     function resetSteps() {
       [stepUpload, stepProcess, stepDone].forEach((s) => s.classList.remove("active", "done"));
@@ -765,6 +979,123 @@
       doneIds.forEach((id) => document.getElementById(id).classList.add("done"));
       if (activeId) document.getElementById(activeId).classList.add("active");
     }
+
+    // ---- Interruptor Subir / Editor ----
+    document.querySelectorAll("#modeSwitch .mode-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#modeSwitch .mode-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const mode = btn.dataset.mode;
+        document.getElementById("uploadCard").style.display = mode === "upload" ? "" : "none";
+        document.getElementById("editorCard").style.display = mode === "editor" ? "" : "none";
+        progressWrap.classList.remove("show");
+        statusEl.textContent = "";
+        costBox.style.display = "none";
+      });
+    });
+
+    let editorFile = null, editorCaptions = [];
+    const editorDropzone = document.getElementById("editorDropzone");
+    const editorFileInput = document.getElementById("editorFileInput");
+    const editorFilename = document.getElementById("editorFilename");
+    const editorSrtInput = document.getElementById("editorSrtInput");
+    const editorOpenBtn = document.getElementById("editorOpenBtn");
+
+    editorDropzone.addEventListener("click", () => editorFileInput.click());
+    editorDropzone.addEventListener("dragover", e => { e.preventDefault(); editorDropzone.classList.add("dragover"); });
+    editorDropzone.addEventListener("dragleave", () => editorDropzone.classList.remove("dragover"));
+    editorDropzone.addEventListener("drop", e => {
+      e.preventDefault();
+      editorDropzone.classList.remove("dragover");
+      if (e.dataTransfer.files.length) setEditorFile(e.dataTransfer.files[0]);
+    });
+    editorFileInput.addEventListener("change", () => {
+      if (editorFileInput.files.length) setEditorFile(editorFileInput.files[0]);
+    });
+    const editorTranscribeBtn = document.getElementById("editorTranscribeBtn");
+    const editorTranscribeStatus = document.getElementById("editorTranscribeStatus");
+
+    function setEditorFile(file) {
+      editorFile = file;
+      editorFilename.textContent = `✅ ${file.name}`;
+      editorOpenBtn.disabled = false;
+      editorTranscribeBtn.disabled = false;
+      editorTranscribeStatus.textContent = "";
+    }
+
+    editorTranscribeBtn.addEventListener("click", async () => {
+      if (!editorFile) return;
+      editorTranscribeBtn.disabled = true;
+      editorTranscribeStatus.className = "status";
+      editorTranscribeStatus.textContent = "⏳ Transcribiendo… puede tardar unos minutos según la duración.";
+      try {
+        const urlRes = await fetch(`${API_BASE}/get-upload-url`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(PIPELINE_API_KEY ? { "X-Pipeline-Key": PIPELINE_API_KEY } : {}),
+          },
+          body: JSON.stringify({ filename: editorFile.name, contentType: editorFile.type || "video/mp4" }),
+        });
+        const urlData = await urlRes.json();
+        if (!urlRes.ok || !urlData.ok) throw new Error(urlData.error || "No se pudo subir el video para transcribir.");
+
+        await fetch(urlData.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": editorFile.type || "video/mp4" },
+          body: editorFile,
+        });
+
+        const transRes = await fetch(`${API_BASE}/transcribe-only`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(PIPELINE_API_KEY ? { "X-Pipeline-Key": PIPELINE_API_KEY } : {}),
+          },
+          body: JSON.stringify({ bucketName: urlData.bucketName, videoPath: urlData.videoPath }),
+        });
+        const transData = await transRes.json();
+        if (!transRes.ok || !transData.ok) throw new Error(transData.error || "Fallo la transcripción.");
+
+        editorCaptions = (transData.segments || []).map((s, i) => ({
+          id: `auto-${i}`, start: s.start, end: s.end, text: s.text,
+        }));
+
+        editorTranscribeStatus.className = "status success";
+        editorTranscribeStatus.textContent = `✅ ${editorCaptions.length} líneas transcritas.`;
+      } catch (err) {
+        editorTranscribeStatus.className = "status error";
+        editorTranscribeStatus.textContent = "❌ " + err.message;
+      } finally {
+        editorTranscribeBtn.disabled = false;
+      }
+    });
+    editorSrtInput.addEventListener("change", async () => {
+      editorCaptions = editorSrtInput.files.length ? parseSrt(await editorSrtInput.files[0].text()) : [];
+    });
+
+    function parseSrt(text) {
+      return text.replace(/\r/g, "").split(/\n\n+/).filter(b => b.trim()).map((b, i) => {
+        const lines = b.split("\n");
+        const timeLine = lines.find(l => l.includes("-->"));
+        if (!timeLine) return null;
+        const [a, bnd] = timeLine.split("-->").map(s => s.trim());
+        const toSec = t => {
+          const [h, m, rest] = t.split(":");
+          const [s, ms] = rest.replace(",", ".").split(".");
+          return (+h) * 3600 + (+m) * 60 + (+s) + (+("0." + (ms || 0)));
+        };
+        return { id: `srt-${i}`, start: toSec(a), end: toSec(bnd), text: lines.slice(lines.indexOf(timeLine) + 1).join(" ").trim() };
+      }).filter(Boolean);
+    }
+
+    editorOpenBtn.addEventListener("click", () => {
+      if (!editorFile) return;
+      const seg = { downloadUrl: URL.createObjectURL(editorFile), captions: editorCaptions, durationSeconds: null };
+      resultsWrap.innerHTML = "";
+      resultsWrap.appendChild(buildResultCard(seg, 0));
+      resultsWrap.classList.add("show");
+    });
 
     submitBtn.addEventListener("click", async () => {
       if (!selectedFile) return;
@@ -845,7 +1176,10 @@
         if (voiceId) body.voiceId = voiceId;
         if (outputFolder) body.outputFolder = outputFolder;
         if (outputBucketName) body.outputBucketName = outputBucketName;
-
+        if (preTrimEnable.checked) {
+          body.trimStart = preTrim.start;
+          body.trimEnd = preTrim.end;
+        }
         const processRes = await fetch(`${API_BASE}/process-video`, {
           method: "POST",
           headers: {
@@ -901,6 +1235,9 @@
     // usuario lo pide explícitamente, dibujando el video + overlay en un
     // <canvas> y grabándolo con MediaRecorder — 100% en el navegador, sin
     // tocar el backend ni gastar créditos.
+    //
+    // La línea de tiempo permite marcar un tramo (inicio/fin) para
+    // recortar el video sin quemar subtítulos, también 100% en cliente.
     // ======================================================================
 
     const FONT_OPTIONS = [
@@ -977,6 +1314,24 @@
 </div>
       </div>
       ${!seg.downloadUrl ? '<div class="no-captions-note">Este segmento no trajo una URL de descarga (downloadUrl) del backend, así que no se puede previsualizar aquí.</div>' : ""}
+
+      <div class="timeline">
+        <div class="timeline-track" id="${uid}_track">
+          <div class="timeline-range" id="${uid}_range"></div>
+          <div class="timeline-playhead" id="${uid}_playhead"></div>
+          <div class="timeline-handle" id="${uid}_handleStart">⟨</div>
+          <div class="timeline-handle" id="${uid}_handleEnd">⟩</div>
+        </div>
+        <div class="timeline-labels">
+          <span id="${uid}_trimStartLabel">0.0s</span>
+          <span id="${uid}_trimDurLabel"></span>
+          <span id="${uid}_trimEndLabel">0.0s</span>
+        </div>
+        <div class="export-row" style="margin-top:8px;">
+          <button class="btn-secondary" id="${uid}_previewTrimBtn" type="button">▶️ Previsualizar corte</button>
+          <button class="btn-full" id="${uid}_cutBtn" type="button" ${seg.downloadUrl ? "" : "disabled"}>✂️ Cortar y descargar</button>
+        </div>
+      </div>
 
       <div class="speed-row">
         <span style="font-size:0.75rem;color:#9aa0a6;">Velocidad</span>
@@ -1115,6 +1470,18 @@
       const musicFileInput = card.querySelector(`#${uid}_musicfile`);
       const musicNameEl = card.querySelector(`#${uid}_musicname`);
       const musicVolInput = card.querySelector(`#${uid}_musicvol`);
+
+      // ---- refs de la línea de tiempo ----
+      const track = card.querySelector(`#${uid}_track`);
+      const rangeEl = card.querySelector(`#${uid}_range`);
+      const playhead = card.querySelector(`#${uid}_playhead`);
+      const handleStart = card.querySelector(`#${uid}_handleStart`);
+      const handleEnd = card.querySelector(`#${uid}_handleEnd`);
+      const trimStartLabel = card.querySelector(`#${uid}_trimStartLabel`);
+      const trimEndLabel = card.querySelector(`#${uid}_trimEndLabel`);
+      const trimDurLabel = card.querySelector(`#${uid}_trimDurLabel`);
+      const previewTrimBtn = card.querySelector(`#${uid}_previewTrimBtn`);
+      const cutBtn = card.querySelector(`#${uid}_cutBtn`);
 
       blurToggle.addEventListener("click", () => { blurToggle.classList.toggle("open"); blurPanel.classList.toggle("open"); });
       musicToggle.addEventListener("click", () => { musicToggle.classList.toggle("open"); musicPanel.classList.toggle("open"); });
@@ -1363,6 +1730,93 @@
         captionsListEl.innerHTML = '<div class="no-captions-note">Este segmento no trajo texto transcrito (silencio total o el backend no envió "captions").</div>';
       }
 
+      // ---- Línea de tiempo: recorte de inicio/fin ----
+      const trim = { start: 0, end: seg.durationSeconds || 0 };
+
+      function refreshTimelineUI() {
+        const dur = video.duration || trim.end || 1;
+        const sPct = (trim.start / dur) * 100;
+        const ePct = (trim.end / dur) * 100;
+        rangeEl.style.left = sPct + "%";
+        rangeEl.style.width = (ePct - sPct) + "%";
+        handleStart.style.left = sPct + "%";
+        handleEnd.style.left = ePct + "%";
+        trimStartLabel.textContent = trim.start.toFixed(1) + "s";
+        trimEndLabel.textContent = trim.end.toFixed(1) + "s";
+        trimDurLabel.textContent = "(" + (trim.end - trim.start).toFixed(1) + "s)";
+      }
+
+      video.addEventListener("loadedmetadata", () => {
+        if (!trim.end) trim.end = video.duration;
+        refreshTimelineUI();
+      });
+
+      function pctFromEvent(e) {
+        const rect = track.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+      }
+
+      let draggingHandle = null;
+      handleStart.addEventListener("mousedown", e => { draggingHandle = "start"; e.preventDefault(); });
+      handleEnd.addEventListener("mousedown", e => { draggingHandle = "end"; e.preventDefault(); });
+      handleStart.addEventListener("touchstart", () => { draggingHandle = "start"; }, { passive: true });
+      handleEnd.addEventListener("touchstart", () => { draggingHandle = "end"; }, { passive: true });
+
+      function onDragMove(e) {
+        if (!draggingHandle) return;
+        const dur = video.duration || trim.end || 1;
+        const t = pctFromEvent(e) * dur;
+        if (draggingHandle === "start") trim.start = Math.min(t, trim.end - 0.1);
+        else trim.end = Math.max(t, trim.start + 0.1);
+        refreshTimelineUI();
+      }
+      window.addEventListener("mousemove", onDragMove);
+      window.addEventListener("touchmove", onDragMove, { passive: true });
+      window.addEventListener("mouseup", () => { draggingHandle = null; });
+      window.addEventListener("touchend", () => { draggingHandle = null; });
+
+      track.addEventListener("click", e => {
+        if (draggingHandle) return;
+        const dur = video.duration || trim.end || 1;
+        video.currentTime = pctFromEvent(e) * dur;
+      });
+
+      video.addEventListener("timeupdate", () => {
+        const dur = video.duration || trim.end || 1;
+        playhead.style.left = ((video.currentTime / dur) * 100) + "%";
+      });
+
+      previewTrimBtn.addEventListener("click", () => {
+        video.currentTime = trim.start;
+        video.play();
+        const stopAt = () => {
+          if (video.currentTime >= trim.end) { video.pause(); video.removeEventListener("timeupdate", stopAt); }
+        };
+        video.addEventListener("timeupdate", stopAt);
+      });
+
+      cutBtn.addEventListener("click", async () => {
+        if (!seg.downloadUrl) return;
+        cutBtn.disabled = true;
+        exportProg.classList.add("show");
+        exportProg.textContent = "Preparando corte…";
+        try {
+          await burnCaptionsAndDownload({
+            video, captions, style, currentFont, blur, musicFile: null, musicVolume: 0,
+            trim, burnSubtitles: false,
+            filename: `segmento_${idx + 1}_recortado.webm`,
+            onProgress: (t) => { exportProg.textContent = `Cortando… ${t.toFixed(1)}s / ${trim.end.toFixed(1)}s`; },
+          });
+          exportProg.textContent = "✅ Recorte listo. Revisa tus descargas.";
+        } catch (err) {
+          exportProg.textContent = "❌ No se pudo cortar: " + err.message;
+        } finally {
+          cutBtn.disabled = false;
+          setTimeout(() => exportProg.classList.remove("show"), 6000);
+        }
+      });
+
       // ---- exportar .srt (con el texto ya editado por el usuario) ----
       srtBtn.addEventListener("click", () => {
         const blob = new Blob([buildSrt(captions.map((c) => ({ ...c, start: c.start - style.offset, end: c.end - style.offset })))], { type: "text/plain;charset=utf-8" });
@@ -1379,6 +1833,7 @@
           await burnCaptionsAndDownload({
             video, captions, style, currentFont,
             blur, musicFile, musicVolume: Number(musicVolInput.value),
+            trim, burnSubtitles: true,
             filename: `segmento_${idx + 1}_editado.webm`,
             onProgress: (t, dur) => { exportProg.textContent = `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
           });
@@ -1398,6 +1853,9 @@
     // frame a frame en un canvas, y graba el resultado con MediaRecorder.
     // No usa ninguna API externa: es lo que ElevenLabs ya devolvió, quemado
     // localmente solo si el usuario decide exportarlo así.
+    // Si se pasa "trim", solo se graba ese tramo del video.
+    // Si "burnSubtitles" es false, se exporta sin quemar subtítulos (usado
+    // por el botón de "Cortar y descargar" de la línea de tiempo).
 
     const audioGraphCache = new WeakMap();
     function getAudioGraphForVideo(video) {
@@ -1408,7 +1866,7 @@
       }
       return audioGraphCache.get(video);
     }
-    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, musicFile, musicVolume, filename, onProgress }) {
+    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, musicFile, musicVolume, filename, trim, burnSubtitles = true, onProgress }) {
       if (!("MediaRecorder" in window) || !video.captureStream) {
         throw new Error("Tu navegador no soporta grabación en el cliente (prueba con Chrome o Edge de escritorio).");
       }
@@ -1422,7 +1880,7 @@
       const wasPaused = video.paused;
       const originalTime = video.currentTime;
       video.pause();
-      video.currentTime = 0;
+      video.currentTime = trim ? trim.start : 0;
       await new Promise((res) => { video.onseeked = res; });
 
       // ---- Audio: mezcla audio original + música ----
@@ -1527,15 +1985,27 @@
           });
         }
 
-        if (blur.inFront) { paintCaptions(); paintBlur(); }
-        else { paintBlur(); paintCaptions(); }
+        if (burnSubtitles) {
+          if (blur.inFront) { paintCaptions(); paintBlur(); }
+          else { paintBlur(); paintCaptions(); }
+        } else if (blur.enabled) {
+          paintBlur();
+        }
 
         if (onProgress) onProgress(video.currentTime, video.duration || 0);
       }
       let rafId;
+      const limit = trim ? trim.end : (video.duration || Infinity);
+      function stopRecording() {
+        cancelAnimationFrame(rafId);
+        video.pause();
+        if (musicSourceNode) musicSourceNode.stop();
+        recorder.stop();
+      }
       function loop() {
         drawFrame();
-        if (!video.ended && !video.paused) rafId = requestAnimationFrame(loop);
+        if (video.ended || video.currentTime >= limit) { stopRecording(); return; }
+        rafId = requestAnimationFrame(loop);
       }
 
       recorder.start(250);
@@ -1543,12 +2013,6 @@
       video.muted = false;
       await video.play();
       loop();
-
-      video.onended = () => {
-        cancelAnimationFrame(rafId);
-        if (musicSourceNode) musicSourceNode.stop();
-        recorder.stop();
-      };
 
       await donePromise;
 
