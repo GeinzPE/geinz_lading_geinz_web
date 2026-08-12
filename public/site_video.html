@@ -315,6 +315,31 @@
       touch-action: none;
     }
 
+    .stage:fullscreen {
+      aspect-ratio: unset;
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stage-fullscreen-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 5;
+      width: auto;
+      margin: 0;
+      padding: 6px 10px;
+      font-size: 0.9rem;
+      background: #0f1115cc;
+      color: #eaeaea;
+      border: 1px solid #3a3f4b;
+      border-radius: 6px;
+    }
+
     .stage video {
       width: 100%;
       height: 100%;
@@ -781,6 +806,8 @@
         <label for="outputBucketName">Bucket de salida (si es distinto al de entrada)</label>
         <input type="text" id="outputBucketName" placeholder="Opcional">
       </div>
+
+      
     </div>
 
     <button id="submitBtn" disabled>Subir y procesar</button>
@@ -1281,6 +1308,24 @@
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
 
+    // Calcula el rectángulo real del video dentro del contenedor (object-fit: contain),
+    // para no dejar que subtítulos caigan en las barras negras.
+    function getContentRect(video, stage) {
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      const vw = video.videoWidth || sw, vh = video.videoHeight || sh;
+      if (!sw || !sh || !vw || !vh) return { left: 0, top: 0, width: 100, height: 100 };
+      const stageRatio = sw / sh, videoRatio = vw / vh;
+      let width, height, left, top;
+      if (videoRatio > stageRatio) {
+        width = 100; height = (stageRatio / videoRatio) * 100;
+        left = 0; top = (100 - height) / 2;
+      } else {
+        height = 100; width = (videoRatio / stageRatio) * 100;
+        top = 0; left = (100 - width) / 2;
+      }
+      return { left, top, width, height };
+    }
+
     function renderResults(successful) {
       resultsWrap.innerHTML = "";
       if (!successful.length) return;
@@ -1301,8 +1346,9 @@
       card.innerHTML = `
       <h3>Segmento ${idx + 1} <span class="dur">${seg.durationSeconds ? seg.durationSeconds.toFixed(1) + "s" : ""}</span></h3>
 
-      <div class="stage" id="${uid}_stage">
+<div class="stage" id="${uid}_stage">
         <video id="${uid}_video" ${seg.downloadUrl ? `src="${seg.downloadUrl}"` : ""} controls playsinline></video>
+        <button class="stage-fullscreen-btn" id="${uid}_fsbtn" type="button" title="Pantalla completa con subtítulos y marca de agua">⛶</button>
         <div class="caption-box" id="${uid}_capbox">
           <span class="drag-hint">arrastra para mover</span>
           <span class="cap-text"></span>
@@ -1385,15 +1431,35 @@
         </div>
         <div class="hint">Arrastra el subtítulo sobre el video para moverlo, y su esquina para redimensionarlo. Si el texto va adelantado o atrasado respecto al audio, ajusta la sincronía de arriba o los botones ±0.1s de cada línea.</div>
 
-        <div class="captions-list" id="${uid}_captions"></div>
+<div class="captions-list" id="${uid}_captions"></div>
+      </div>
+
+      <div class="subtoggle" id="${uid}_filtertoggle"><span class="arrow">▶</span> Filtros de video</div>
+      <div class="subpanel" id="${uid}_filterpanel">
+        <div class="style-grid" style="margin-top:8px;">
+          <div>
+            <label>Brillo</label>
+            <input type="range" id="${uid}_fbright" min="40" max="160" step="1" value="100">
+          </div>
+          <div>
+            <label>Contraste</label>
+            <input type="range" id="${uid}_fcontrast" min="40" max="160" step="1" value="100">
+          </div>
+          <div>
+            <label>Saturación</label>
+            <input type="range" id="${uid}_fsat" min="0" max="200" step="1" value="100">
+          </div>
+          <div>
+            <label>Opacidad (fundido a negro)</label>
+            <input type="range" id="${uid}_fopacity" min="20" max="100" step="1" value="100">
+          </div>
+        </div>
       </div>
 
       <div class="subtoggle" id="${uid}_blurtoggle"><span class="arrow">▶</span> Difuminado (blur)</div>
 <div class="subpanel" id="${uid}_blurpanel">
   <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:8px;">
-  <input type="checkbox" id="${uid}_blurinfront"> Blur por DELANTE de los subtítulos
-</label>
-  <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+
     <input type="checkbox" id="${uid}_blurenabled"> Activar caja de desenfoque
   </label>
   <div class="style-grid" style="margin-top:10px;">
@@ -1410,7 +1476,42 @@
       <input type="number" id="${uid}_blurend" min="0" step="0.1" value="${(seg.durationSeconds || 5).toFixed(1)}">
     </div>
   </div>
-  <div class="hint">Arrastra la caja sobre el video para moverla, y su esquina para cambiar el tamaño.</div>
+<div class="hint">Arrastra la caja sobre el video para moverla, y su esquina para cambiar el tamaño.</div>
+</div>
+
+<div class="subtoggle" id="${uid}_wmtoggle"><span class="arrow">▶</span> Marca de agua</div>
+<div class="subpanel" id="${uid}_wmpanel">
+  <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:8px;">
+    <input type="checkbox" id="${uid}_wmenabled"> Activar marca de agua
+  </label>
+  <input type="file" id="${uid}_wmfile" accept="image/*" style="margin-top:8px;">
+  <div class="hint" id="${uid}_wmname"></div>
+  <div class="style-grid" style="margin-top:10px;">
+    <div>
+      <label>Opacidad</label>
+      <input type="range" id="${uid}_wmopacity" min="0.05" max="1" step="0.05" value="0.5">
+    </div>
+    <div>
+      <label>Tamaño (% del video)</label>
+      <input type="range" id="${uid}_wmsize" min="4" max="40" step="1" value="15">
+    </div>
+    <div>
+      <label>Cantidad de copias</label>
+      <input type="number" id="${uid}_wmcount" min="1" max="24" value="1">
+    </div>
+  <div>
+      <label>Radio del círculo (%)</label>
+      <input type="range" id="${uid}_wmradius" min="10" max="48" step="1" value="30">
+    </div>
+    <div>
+      <label>Redondeo de bordes (%)</label>
+      <input type="range" id="${uid}_wmround" min="0" max="50" step="1" value="0">
+    </div>
+    <div class="full toggle-row">
+      <div class="chip active" id="${uid}_wmcircle">Repartir en círculo</div>
+    </div>
+  </div>
+  <div class="hint">Arrastra sobre el video para mover el centro del patrón. Con cantidad = 1 queda fija en ese punto (ignora el radio).</div>
 </div>
 
 <div class="subtoggle" id="${uid}_musictoggle"><span class="arrow">▶</span> Música de fondo</div>
@@ -1421,18 +1522,22 @@
     <label style="font-size:0.75rem;color:#9aa0a6;">Volumen de la música</label>
     <input type="range" id="${uid}_musicvol" min="0" max="1" step="0.05" value="0.25">
   </div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:10px;">
+    <input type="checkbox" id="${uid}_musicpreview" checked> Escuchar la música al reproducir en el editor
+  </label>
+  <div class="hint">Esto es solo para previsualizar aquí; no afecta el video original. Se mezcla de verdad recién al exportar.</div>
 </div>
 
-      <div class="export-row">
+  <div class="export-row">
         ${seg.downloadUrl ? `<a class="btnlike btn-secondary" href="${seg.downloadUrl}" target="_blank">⬇️ Video sin subtítulos</a>` : `<span></span>`}
         <button class="btn-secondary" id="${uid}_srtbtn" type="button">📄 Descargar .srt</button>
+        <button class="btn-secondary btn-full" id="${uid}_audiobtn" type="button" ${seg.downloadUrl ? "" : "disabled"}>🎧 Exportar solo audio (voz + música)</button>
         <button class="btn-full" id="${uid}_burnbtn" type="button" ${seg.downloadUrl ? "" : "disabled"}>🔥 Exportar video con subtítulos</button>
       </div>
       <div class="export-progress" id="${uid}_exportprog"></div>
     `;
 
       // ---- refs ----
-      const blurInFront = card.querySelector(`#${uid}_blurinfront`);
       const video = card.querySelector(`#${uid}_video`);
       const stage = card.querySelector(`#${uid}_stage`);
       const capbox = card.querySelector(`#${uid}_capbox`);
@@ -1486,8 +1591,13 @@
       blurToggle.addEventListener("click", () => { blurToggle.classList.toggle("open"); blurPanel.classList.toggle("open"); });
       musicToggle.addEventListener("click", () => { musicToggle.classList.toggle("open"); musicPanel.classList.toggle("open"); });
 
-      const blur = { enabled: false, x: 30, y: 30, w: 25, h: 25, intensity: 15, start: 0, end: seg.durationSeconds || 5, inFront: false };
-      blurInFront.addEventListener("change", () => { blur.inFront = blurInFront.checked; });
+      const fsBtn = card.querySelector(`#${uid}_fsbtn`);
+      fsBtn.addEventListener("click", () => {
+        if (document.fullscreenElement) { document.exitFullscreen(); return; }
+        const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
+        if (req) req.call(stage);
+      });
+      const blur = { enabled: false, x: 30, y: 30, w: 25, h: 25, intensity: 15, start: 0, end: seg.durationSeconds || 5 };
       let musicFile = null;
 
       function applyBlurBoxStyle() {
@@ -1535,10 +1645,128 @@
       });
       window.addEventListener("mouseup", () => { draggingBlur = false; resizingBlur = false; });
 
+ const audioBtn = card.querySelector(`#${uid}_audiobtn`);
+      const musicPreviewEnabled = card.querySelector(`#${uid}_musicpreview`);
+      const previewAudio = new Audio();
+      previewAudio.loop = true;
+      previewAudio.volume = Number(musicVolInput.value);
+
       musicFileInput.addEventListener("change", () => {
         musicFile = musicFileInput.files[0] || null;
         musicNameEl.textContent = musicFile ? `🎵 ${musicFile.name}` : "";
+        previewAudio.src = musicFile ? URL.createObjectURL(musicFile) : "";
+        if (musicFile && musicPreviewEnabled.checked && !video.paused) {
+          previewAudio.currentTime = video.currentTime % (previewAudio.duration || 1);
+          previewAudio.play().catch(() => {});
+        }
       });
+
+      musicVolInput.addEventListener("input", () => { previewAudio.volume = Number(musicVolInput.value); });
+      musicPreviewEnabled.addEventListener("change", () => {
+        if (!musicPreviewEnabled.checked) previewAudio.pause();
+        else if (musicFile && !video.paused) previewAudio.play().catch(() => {});
+      });
+      video.addEventListener("play", () => {
+        if (musicFile && musicPreviewEnabled.checked) {
+          previewAudio.currentTime = video.currentTime % (previewAudio.duration || 1);
+          previewAudio.play().catch(() => {});
+        }
+      });
+      video.addEventListener("pause", () => previewAudio.pause());
+      video.addEventListener("seeking", () => {
+        if (!previewAudio.paused) previewAudio.currentTime = video.currentTime % (previewAudio.duration || 1);
+      });
+
+      // ---- Marca de agua ----
+      const wmToggle = card.querySelector(`#${uid}_wmtoggle`);
+      const wmPanel = card.querySelector(`#${uid}_wmpanel`);
+      const wmEnabled = card.querySelector(`#${uid}_wmenabled`);
+      const wmFileInput = card.querySelector(`#${uid}_wmfile`);
+      const wmNameEl = card.querySelector(`#${uid}_wmname`);
+      const wmOpacity = card.querySelector(`#${uid}_wmopacity`);
+      const wmSize = card.querySelector(`#${uid}_wmsize`);
+      const wmCount = card.querySelector(`#${uid}_wmcount`);
+      const wmRadius = card.querySelector(`#${uid}_wmradius`);
+      const wmRoundInput = card.querySelector(`#${uid}_wmround`);
+      const wmCircleChip = card.querySelector(`#${uid}_wmcircle`);
+
+      wmToggle.addEventListener("click", () => { wmToggle.classList.toggle("open"); wmPanel.classList.toggle("open"); });
+
+      const watermark = {
+        enabled: false, img: null, opacity: 0.5, size: 15,
+        count: 1, radius: 30, circle: true, cx: 50, cy: 50, round: 0,
+      };
+
+      const wmPreview = document.createElement("div");
+      wmPreview.id = `${uid}_wmpreview`;
+      Object.assign(wmPreview.style, { position: "absolute", inset: "0", pointerEvents: "none" });
+      stage.appendChild(wmPreview);
+
+      function watermarkPositions() {
+        const n = Math.max(1, watermark.count);
+        if (n === 1 || !watermark.circle) return [{ x: watermark.cx, y: watermark.cy }];
+        const pts = [];
+        for (let i = 0; i < n; i++) {
+          const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+          pts.push({ x: watermark.cx + watermark.radius * Math.cos(angle), y: watermark.cy + watermark.radius * Math.sin(angle) });
+        }
+        return pts;
+      }
+
+      function renderWmPreview() {
+        wmPreview.innerHTML = "";
+        if (!watermark.enabled || !watermark.img) return;
+        watermarkPositions().forEach((p) => {
+          const im = document.createElement("img");
+          im.src = watermark.img.src;
+          Object.assign(im.style, {
+            position: "absolute",
+            left: p.x + "%", top: p.y + "%",
+            width: watermark.size + "%",
+            transform: "translate(-50%,-50%)",
+            opacity: watermark.opacity,
+            borderRadius: watermark.round + "%",
+            overflow: "hidden",
+            pointerEvents: "auto",
+            cursor: "move",
+          });
+          im.addEventListener("mousedown", startWmDrag);
+          im.addEventListener("touchstart", startWmDrag, { passive: false });
+          wmPreview.appendChild(im);
+        });
+      }
+
+      let draggingWm = false;
+      function startWmDrag(e) { draggingWm = true; e.preventDefault(); }
+      function wmPosFromEvent(e) {
+        const rect = stage.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+          x: Math.min(97, Math.max(3, ((clientX - rect.left) / rect.width) * 100)),
+          y: Math.min(97, Math.max(3, ((clientY - rect.top) / rect.height) * 100)),
+        };
+      }
+      window.addEventListener("mousemove", (e) => { if (draggingWm) { const p = wmPosFromEvent(e); watermark.cx = p.x; watermark.cy = p.y; renderWmPreview(); } });
+      window.addEventListener("touchmove", (e) => { if (draggingWm) { const p = wmPosFromEvent(e); watermark.cx = p.x; watermark.cy = p.y; renderWmPreview(); } }, { passive: true });
+      window.addEventListener("mouseup", () => { draggingWm = false; });
+      window.addEventListener("touchend", () => { draggingWm = false; });
+
+      wmEnabled.addEventListener("change", () => { watermark.enabled = wmEnabled.checked; renderWmPreview(); });
+      wmFileInput.addEventListener("change", () => {
+        const file = wmFileInput.files[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => { watermark.img = img; renderWmPreview(); };
+        img.src = URL.createObjectURL(file);
+        wmNameEl.textContent = `🖼️ ${file.name}`;
+      });
+      wmOpacity.addEventListener("input", () => { watermark.opacity = Number(wmOpacity.value); renderWmPreview(); });
+      wmSize.addEventListener("input", () => { watermark.size = Number(wmSize.value); renderWmPreview(); });
+      wmCount.addEventListener("input", () => { watermark.count = Math.max(1, Number(wmCount.value) || 1); renderWmPreview(); });
+      wmRadius.addEventListener("input", () => { watermark.radius = Number(wmRadius.value); renderWmPreview(); });
+      wmRoundInput.addEventListener("input", () => { watermark.round = Number(wmRoundInput.value); renderWmPreview(); });
+      wmCircleChip.addEventListener("click", () => { watermark.circle = !watermark.circle; wmCircleChip.classList.toggle("active", watermark.circle); renderWmPreview(); });
       // ---- fuentes ----
       FONT_OPTIONS.forEach((f) => {
         const opt = document.createElement("option");
@@ -1555,9 +1783,10 @@
       // ---- aplicar estilo visual al overlay ----
       function applyBoxStyle() {
         const f = currentFont();
-        capbox.style.left = style.posX + "%";
-        capbox.style.top = style.posY + "%";
-        capbox.style.width = style.capW + "%";
+        const content = getContentRect(video, stage);
+        capbox.style.left = (content.left + (style.posX / 100) * content.width) + "%";
+        capbox.style.top = (content.top + (style.posY / 100) * content.height) + "%";
+        capbox.style.width = ((style.capW / 100) * content.width) + "%";
         capbox.style.minHeight = style.capH + "%";
         capbox.style.fontFamily = f.css;
         capbox.style.fontWeight = f.weight;
@@ -1602,19 +1831,50 @@
       });
 
       // ---- toggle panel ----
+      // ---- toggle panel ----
       subtoggle.addEventListener("click", () => {
         subtoggle.classList.toggle("open");
         subpanel.classList.toggle("open");
       });
 
+      // ---- filtros de video ----
+      const filterToggle = card.querySelector(`#${uid}_filtertoggle`);
+      const filterPanel = card.querySelector(`#${uid}_filterpanel`);
+      filterToggle.addEventListener("click", () => { filterToggle.classList.toggle("open"); filterPanel.classList.toggle("open"); });
+
+      const fBright = card.querySelector(`#${uid}_fbright`);
+      const fContrast = card.querySelector(`#${uid}_fcontrast`);
+      const fSat = card.querySelector(`#${uid}_fsat`);
+      const fOpacity = card.querySelector(`#${uid}_fopacity`);
+      const filters = { brightness: 100, contrast: 100, saturation: 100, opacity: 100 };
+
+      function applyVideoFilterPreview() {
+        video.style.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) opacity(${filters.opacity}%)`;
+      }
+      [fBright, fContrast, fSat, fOpacity].forEach((el) => {
+        el.addEventListener("input", () => {
+          filters.brightness = Number(fBright.value);
+          filters.contrast = Number(fContrast.value);
+          filters.saturation = Number(fSat.value);
+          filters.opacity = Number(fOpacity.value);
+          applyVideoFilterPreview();
+        });
+      });
+
       // ---- arrastrar el subtítulo por toda la pantalla ----
+      // ---- arrastrar el subtítulo, siempre dentro del cuadro real del video ----
       let dragging = false;
       function posFromEvent(e) {
-        const rect = stage.getBoundingClientRect();
+        const stageRect = stage.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        let x = ((clientX - rect.left) / rect.width) * 100;
-        let y = ((clientY - rect.top) / rect.height) * 100;
+        const content = getContentRect(video, stage);
+        const leftPx = stageRect.width * (content.left / 100);
+        const topPx = stageRect.height * (content.top / 100);
+        const wPx = stageRect.width * (content.width / 100);
+        const hPx = stageRect.height * (content.height / 100);
+        let x = ((clientX - stageRect.left - leftPx) / wPx) * 100;
+        let y = ((clientY - stageRect.top - topPx) / hPx) * 100;
         x = Math.min(97, Math.max(3, x));
         y = Math.min(97, Math.max(3, y));
         return { x, y };
@@ -1803,7 +2063,8 @@
         exportProg.textContent = "Preparando corte…";
         try {
           await burnCaptionsAndDownload({
-            video, captions, style, currentFont, blur, musicFile: null, musicVolume: 0,
+            video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile: null, musicVolume: 0,
+
             trim, burnSubtitles: false,
             filename: `segmento_${idx + 1}_recortado.webm`,
             onProgress: (t) => { exportProg.textContent = `Cortando… ${t.toFixed(1)}s / ${trim.end.toFixed(1)}s`; },
@@ -1824,6 +2085,28 @@
       });
 
       // ---- exportar video con subtítulos quemados (100% cliente, sin backend) ----
+// ---- exportar solo audio (voz + música) ----
+      audioBtn.addEventListener("click", async () => {
+        if (!seg.downloadUrl) return;
+        audioBtn.disabled = true;
+        exportProg.classList.add("show");
+        exportProg.textContent = "Preparando audio…";
+        try {
+          await exportAudioOnly({
+            video, musicFile, musicVolume: Number(musicVolInput.value),
+            trim, filename: `segmento_${idx + 1}_audio.webm`,
+            onProgress: (t, dur) => { exportProg.textContent = `Exportando audio… ${t.toFixed(1)}s / ${(dur || trim.end).toFixed(1)}s`; },
+          });
+          exportProg.textContent = "✅ Audio exportado. Revisa tus descargas.";
+        } catch (err) {
+          exportProg.textContent = "❌ No se pudo exportar el audio: " + err.message;
+        } finally {
+          audioBtn.disabled = false;
+          setTimeout(() => exportProg.classList.remove("show"), 6000);
+        }
+      });
+
+      // ---- exportar video con subtítulos quemados (100% cliente, sin backend) ----
       burnBtn.addEventListener("click", async () => {
         if (!seg.downloadUrl) return;
         burnBtn.disabled = true;
@@ -1832,7 +2115,8 @@
         try {
           await burnCaptionsAndDownload({
             video, captions, style, currentFont,
-            blur, musicFile, musicVolume: Number(musicVolInput.value),
+            blur, watermark, watermarkPositions, filters,
+            musicFile, musicVolume: Number(musicVolInput.value),
             trim, burnSubtitles: true,
             filename: `segmento_${idx + 1}_editado.webm`,
             onProgress: (t, dur) => { exportProg.textContent = `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
@@ -1866,7 +2150,7 @@
       }
       return audioGraphCache.get(video);
     }
-    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, musicFile, musicVolume, filename, trim, burnSubtitles = true, onProgress }) {
+    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile, musicVolume, filename, trim, burnSubtitles = true, onProgress }) {
       if (!("MediaRecorder" in window) || !video.captureStream) {
         throw new Error("Tu navegador no soporta grabación en el cliente (prueba con Chrome o Edge de escritorio).");
       }
@@ -1891,18 +2175,25 @@
       videoSource.connect(dest);
       videoSource.connect(audioCtx.destination);
 
-      let musicSourceNode = null;
+   let musicSourceNode = null;
       if (musicFile) {
-        const arrayBuffer = await musicFile.arrayBuffer();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        musicSourceNode = audioCtx.createBufferSource();
-        musicSourceNode.buffer = audioBuffer;
-        musicSourceNode.loop = true;
-        const musicGain = audioCtx.createGain();
-        musicGain.gain.value = musicVolume ?? 0.25;
-        musicSourceNode.connect(musicGain).connect(dest);
+        try {
+          if (audioCtx.state === "suspended") await audioCtx.resume();
+          const arrayBuffer = await musicFile.arrayBuffer();
+          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+          musicSourceNode = audioCtx.createBufferSource();
+          musicSourceNode.buffer = audioBuffer;
+          musicSourceNode.loop = true;
+          const musicGain = audioCtx.createGain();
+          musicGain.gain.value = (musicVolume ?? 0.25) * 2; // se compensa: al mezclarse con la voz suele quedar bajo
+          musicSourceNode.connect(musicGain);
+          musicGain.connect(dest);
+        } catch (err) {
+          musicSourceNode = null;
+          console.error("No se pudo cargar la música:", err);
+          if (onProgress) onProgress(0, 0, "⚠️ No se pudo cargar la música, se exporta solo con la voz.");
+        }
       }
-
       const canvasStream = canvas.captureStream(30);
       const outStream = new MediaStream([...canvasStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
 
@@ -1923,7 +2214,13 @@
       }
 
       function drawFrame() {
+        ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = filters.opacity / 100;
         ctx.drawImage(video, 0, 0, w, h);
+        ctx.globalAlpha = 1;
+        ctx.filter = "none";
 
         function paintBlur() {
           if (blur && blur.enabled) {
@@ -1985,12 +2282,41 @@
           });
         }
 
+        function drawRoundedImage(img, x, y, iw, ih, radiusPct) {
+          const r = Math.min(iw, ih) * (radiusPct / 100) / 2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + iw, y, x + iw, y + ih, r);
+          ctx.arcTo(x + iw, y + ih, x, y + ih, r);
+          ctx.arcTo(x, y + ih, x, y, r);
+          ctx.arcTo(x, y, x + iw, y, r);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(img, x, y, iw, ih);
+          ctx.restore();
+        }
+        function paintWatermark() {
+          if (watermark && watermark.enabled && watermark.img) {
+            const positions = watermarkPositions ? watermarkPositions() : [{ x: watermark.cx, y: watermark.cy }];
+            const wmW = w * (watermark.size / 100);
+            const wmH = wmW * (watermark.img.naturalHeight / watermark.img.naturalWidth || 1);
+            ctx.save();
+            ctx.globalAlpha = watermark.opacity;
+            positions.forEach((p) => {
+              drawRoundedImage(watermark.img, w * (p.x / 100) - wmW / 2, h * (p.y / 100) - wmH / 2, wmW, wmH, watermark.round || 0);
+            });
+            ctx.restore();
+          }
+        }
+
         if (burnSubtitles) {
-          if (blur.inFront) { paintCaptions(); paintBlur(); }
-          else { paintBlur(); paintCaptions(); }
+          paintBlur();
+          paintCaptions();
         } else if (blur.enabled) {
           paintBlur();
         }
+        paintWatermark();
 
         if (onProgress) onProgress(video.currentTime, video.duration || 0);
       }
@@ -2017,6 +2343,72 @@
       await donePromise;
 
       const blob = new Blob(chunks, { type: mimeType || "video/webm" });
+      downloadBlob(blob, filename);
+
+video.currentTime = originalTime;
+      if (wasPaused) video.pause();
+    }
+
+    // Exporta solo la pista de audio (narración original + música), sin video.
+    async function exportAudioOnly({ video, musicFile, musicVolume, trim, filename, onProgress }) {
+      if (!("MediaRecorder" in window)) {
+        throw new Error("Tu navegador no soporta grabación en el cliente.");
+      }
+      const wasPaused = video.paused;
+      const originalTime = video.currentTime;
+      video.pause();
+      video.currentTime = trim ? trim.start : 0;
+      await new Promise((res) => { video.onseeked = res; });
+
+      const { audioCtx, source: videoSource } = getAudioGraphForVideo(video);
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+      const dest = audioCtx.createMediaStreamDestination();
+      try { videoSource.disconnect(); } catch (_) { }
+      videoSource.connect(dest);
+      videoSource.connect(audioCtx.destination);
+
+      let musicSourceNode = null;
+      if (musicFile) {
+        const arrayBuffer = await musicFile.arrayBuffer();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+        musicSourceNode = audioCtx.createBufferSource();
+        musicSourceNode.buffer = audioBuffer;
+        musicSourceNode.loop = true;
+        const musicGain = audioCtx.createGain();
+        musicGain.gain.value = (musicVolume ?? 0.25) * 2;
+        musicSourceNode.connect(musicGain).connect(dest);
+      }
+
+      const mimeCandidates = ["audio/webm;codecs=opus", "audio/webm"];
+      const mimeType = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m)) || "";
+      const recorder = new MediaRecorder(dest.stream, mimeType ? { mimeType } : undefined);
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      const donePromise = new Promise((resolve, reject) => {
+        recorder.onstop = resolve;
+        recorder.onerror = (e) => reject(e.error || new Error("Fallo el MediaRecorder"));
+      });
+
+      const limit = trim ? trim.end : (video.duration || Infinity);
+      recorder.start(250);
+      if (musicSourceNode) musicSourceNode.start(0);
+      video.muted = false;
+      await video.play();
+
+      function poll() {
+        if (onProgress) onProgress(video.currentTime, video.duration || 0);
+        if (video.ended || video.currentTime >= limit) {
+          video.pause();
+          if (musicSourceNode) musicSourceNode.stop();
+          recorder.stop();
+          return;
+        }
+        requestAnimationFrame(poll);
+      }
+      poll();
+
+      await donePromise;
+      const blob = new Blob(chunks, { type: mimeType || "audio/webm" });
       downloadBlob(blob, filename);
 
       video.currentTime = originalTime;
