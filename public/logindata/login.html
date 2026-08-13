@@ -41,8 +41,6 @@
   <!-- ===== PANTALLA PRINCIPAL ===== -->
   <div class="ui-root" id="mainUI">
 
-    <!-- COLUMNA IZQUIERDA: INFO DECORATIVA (solo desktop) -->
-
     <!-- COLUMNA DERECHA: TARJETA DE BIENVENIDA -->
     <main class="auth-column">
       <div class="welcome-card" id="welcomeScreen">
@@ -68,7 +66,6 @@
         <!-- ACCIONES -->
         <div class="actions-stack">
 
-          <!-- NUEVO: botón login email -->
           <button class="btn btn-email" onclick="openLoginModal()">
             <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -98,14 +95,13 @@
         <!-- DOTS DE LOCALIDADES -->
         <div class="locality-row" aria-hidden="true">
           <span class="locality-dot"></span>
-          <span class="locality-text">Barranca · Supe · Paramonga · Pativilca · Puerto Supe</span>
+          <span class="locality-text" id="localityText">Barranca · Supe · Paramonga · Pativilca · Puerto Supe</span>
         </div>
 
       </div>
     </main>
   </div>
 
-  <!-- ===== MODAL: LOGIN ===== -->
   <!-- ===== MODAL: LOGIN EMAIL ===== -->
   <div class="modal-overlay" id="loginModal" onclick="closeIfOutside(event,'loginModal')" role="dialog"
     aria-modal="true" aria-label="Iniciar sesión">
@@ -125,7 +121,6 @@
           <p class="dialog-sub">Ingresa con tu cuenta Geinz para continuar.</p>
         </div>
 
-        <!-- ESTADOS DEL FORMULARIO -->
         <!-- Estado 1: solo correo -->
         <div id="loginStepEmail">
           <div class="field-group">
@@ -150,7 +145,6 @@
 
         <!-- Estado 2: contraseña (oculto al inicio) -->
         <div id="loginStepPassword" style="display:none;">
-          <!-- Chip del correo confirmado -->
           <div class="login-email-chip" id="loginEmailChip">
             <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
             <span id="loginEmailChipText"></span>
@@ -187,8 +181,6 @@
   </div>
 
   <!-- ===== MODAL: REGISTRO ===== -->
-  <!-- ===== MODAL: REGISTRO ===== -->
-
   <div class="modal-overlay" id="registerModal" onclick="closeIfOutside(event,'registerModal')" role="dialog"
     aria-modal="true" aria-label="Crear cuenta">
     <div class="modal-scroll">
@@ -308,13 +300,11 @@
               </select>
               <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
             </div>
-            <!-- Campos ocultos que guarda el JS -->
             <input type="hidden" id="regCodPais" />
             <input type="hidden" id="regNombrePais" />
             <p class="field-error" id="errPais"></p>
           </div>
 
-          <!-- CORREO (solo lectura, viene de Google) -->
           <!-- CORREO ELECTRÓNICO -->
           <div class="field-group">
             <label class="field-label">Correo electrónico</label>
@@ -324,12 +314,12 @@
                 autocomplete="email" oninput="validarCorreoGmail(this)" />
             </div>
             <p class="field-error" id="errCorreo"></p>
-            <!-- Aviso informativo -->
             <p class="field-hint" id="hintCorreo" style="display:none;">
               <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">info</span>
               Si el correo es ficticio no podrás recuperar tu cuenta. Procura tener este correo activo.
             </p>
           </div>
+
           <!-- CONTRASEÑAS -->
           <div class="input-row-2">
             <div class="field-group">
@@ -415,16 +405,29 @@
           </div>
 
           <div class="field-group">
-            <label class="field-label" for="socioLocalidad">Localidad</label>
+            <label class="field-label">Departamento</label>
             <div class="input-box select-wrap">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">map</span>
-              <select id="socioLocalidad" class="custom-select" required>
-                <option value="" disabled selected hidden>Selecciona tu localidad</option>
-                <option value="barranca">Barranca</option>
-                <option value="supe">Supe</option>
-                <option value="puerto-supe">Puerto Supe</option>
-                <option value="paramonga">Paramonga</option>
-                <option value="pativilca">Pativilca</option>
+              <select id="socioDepartamento" class="custom-select">
+                <option value="" disabled selected hidden>Selecciona</option>
+              </select>
+              <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Provincia</label>
+            <div class="input-box select-wrap">
+              <select id="socioProvincia" class="custom-select" disabled>
+                <option value="" disabled selected hidden>Elige depto.</option>
+              </select>
+              <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Distrito</label>
+            <div class="input-box select-wrap">
+              <select id="socioDistrito" class="custom-select" disabled>
+                <option value="" disabled selected hidden>Elige provincia</option>
               </select>
               <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
             </div>
@@ -450,7 +453,6 @@
   <!-- ===== SPLASH: VERIFICACIÓN ===== -->
   <div id="splashScreen" role="status" aria-live="polite">
 
-    <!-- ESTADO: VALIDANDO -->
     <div id="sValidating">
       <div class="splash-logo" aria-hidden="true">
         <div class="splash-ring">
@@ -483,7 +485,6 @@
       </div>
     </div>
 
-    <!-- ESTADO: BIENVENIDA -->
     <div id="sWelcome">
       <div class="welcome-avatar-wrap" aria-hidden="true">
         <div class="welcome-avatar">
@@ -527,13 +528,27 @@
       </div>
 
       <div class="field-group" style="width:100%;max-width:400px;">
-        <label class="field-label">Selecciona tu localidad</label>
-        <div class="chips-wrap" role="group" aria-label="Localidades">
-          <button class="chip active" data-local="barranca">Barranca</button>
-          <button class="chip" data-local="supe">Supe</button>
-          <button class="chip" data-local="puerto-supe">Puerto Supe</button>
-          <button class="chip" data-local="paramonga">Paramonga</button>
-          <button class="chip" data-local="pativilca">Pativilca</button>
+        <label class="field-label">Departamento</label>
+        <div class="input-box select-wrap">
+          <select id="selectorDepartamento" class="custom-select">
+            <option value="" disabled selected hidden>Selecciona</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group" style="width:100%;max-width:400px;">
+        <label class="field-label">Provincia</label>
+        <div class="input-box select-wrap">
+          <select id="selectorProvincia" class="custom-select" disabled>
+            <option value="" disabled selected hidden>Elige depto.</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group" style="width:100%;max-width:400px;">
+        <label class="field-label">Distrito</label>
+        <div class="input-box select-wrap">
+          <select id="selectorDistrito" class="custom-select" disabled>
+            <option value="" disabled selected hidden>Elige provincia</option>
+          </select>
         </div>
       </div>
 

@@ -41,14 +41,16 @@ const provider = new GoogleAuthProvider();
 
 await setPersistence(auth, browserLocalPersistence);
 
-
 /* =========================================================
    GLOBALS
 ========================================================= */
 let GOOGLE_USER = null;
 let splashShown = false;
 let authProcesado = false;
-let localidadSeleccionada = "barranca"; // default: coincide con el chip que ya viene "active" en el HTML
+let departamentoSeleccionado = "";
+let provinciaSeleccionada = "";
+let distritoSeleccionado = "";
+
 /* =========================================================
    PAÍSES
 ========================================================= */
@@ -99,6 +101,142 @@ window.onNacionalidadChange = (sel) => {
   document.getElementById("regNombrePais").value =
     opt.dataset.nombre || opt.textContent.replace(/^\S+\s+/, "").trim();
 };
+
+/* =========================================================
+   UBICACIÓN (departamento / provincia / distrito) — Firestore
+   Ruta: Tiendas/peru/departamento/{dep}/provincia/{prov}/distrito/{dist}
+========================================================= */
+// ✅ PON esto en su lugar (mismo origen que ya funciona en el registro):
+const UBIGEO_BASE = "https://cdn.jsdelivr.net/gh/joseluisq/ubigeos-peru/json";
+let UBIGEO_DEPARTAMENTOS = [];
+let ubigeoProvinciasDe = () => [];
+let ubigeoDistritosDe = () => [];
+let ubigeoCargado = false;
+
+function crearLookupUbigeo(data) {
+  if (data && !Array.isArray(data) && typeof data === "object") {
+    const valores = Object.values(data);
+    if (valores.length && Array.isArray(valores[0])) {
+      return (parentId) => data[parentId] || data[String(parentId)] || [];
+    }
+    const plano = valores;
+    return (parentId) => plano.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
+  }
+  if (Array.isArray(data)) {
+    return (parentId) => data.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
+  }
+  return () => [];
+}
+
+async function cargarUbigeoGlobal() {
+  if (ubigeoCargado) return;
+  const [depRes, provRes, distRes] = await Promise.all([
+    fetch(UBIGEO_BASE + "/departamentos.json"),
+    fetch(UBIGEO_BASE + "/provincias.json"),
+    fetch(UBIGEO_BASE + "/distritos.json"),
+  ]);
+  const depData = await depRes.json();
+  UBIGEO_DEPARTAMENTOS = (Array.isArray(depData) ? depData : Object.values(depData))
+    .sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo));
+  ubigeoProvinciasDe = crearLookupUbigeo(await provRes.json());
+  ubigeoDistritosDe = crearLookupUbigeo(await distRes.json());
+  ubigeoCargado = true;
+}
+
+async function obtenerDepartamentos() {
+  await cargarUbigeoGlobal();
+  return UBIGEO_DEPARTAMENTOS.map((d) => ({ id: d.id_ubigeo, nombre: d.nombre_ubigeo }));
+}
+
+async function obtenerProvincias(depId) {
+  await cargarUbigeoGlobal();
+  return ubigeoProvinciasDe(depId)
+    .slice()
+    .sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo))
+    .map((p) => ({ id: p.id_ubigeo, nombre: p.nombre_ubigeo }));
+}
+
+async function obtenerDistritos(depId, provId) {
+  await cargarUbigeoGlobal();
+  return ubigeoDistritosDe(provId)
+    .slice()
+    .sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo))
+    .map((d) => ({ id: d.id_ubigeo, nombre: d.nombre_ubigeo }));
+}
+
+/**
+ * Inicializa los 3 selects en cascada (Departamento -> Provincia -> Distrito)
+ * prefix = "socio"    -> ids: socioDepartamento / socioProvincia / socioDistrito
+ * prefix = "selector" -> ids: selectorDepartamento / selectorProvincia / selectorDistrito
+ */
+async function inicializarSelectoresUbicacion(prefix) {
+  const selDep = document.getElementById(`${prefix}Departamento`);
+  const selProv = document.getElementById(`${prefix}Provincia`);
+  const selDist = document.getElementById(`${prefix}Distrito`);
+  if (!selDep || !selProv || !selDist) return;
+
+  try {
+    const departamentos = await obtenerDepartamentos();
+    selDep.innerHTML =
+      `<option value="" disabled selected hidden>Selecciona</option>` +
+      departamentos.map((d) => `<option value="${d.id}">${d.nombre}</option>`).join("");
+  } catch (err) {
+    console.error("Error cargando departamentos:", err);
+    selDep.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    return;
+  }
+
+  selDep.onchange = async () => {
+    departamentoSeleccionado = selDep.value;
+    provinciaSeleccionada = "";
+    distritoSeleccionado = "";
+    selProv.disabled = true;
+    selDist.disabled = true;
+    selDist.innerHTML = `<option value="" disabled selected hidden>Elige provincia</option>`;
+    selProv.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
+    try {
+      const provincias = await obtenerProvincias(selDep.value);
+      selProv.innerHTML =
+        `<option value="" disabled selected hidden>Selecciona</option>` +
+        provincias.map((p) => `<option value="${p.id}">${p.nombre}</option>`).join("");
+      selProv.disabled = false;
+    } catch (err) {
+      console.error("Error cargando provincias:", err);
+      selProv.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    }
+  };
+
+  selProv.onchange = async () => {
+    provinciaSeleccionada = selProv.value;
+    distritoSeleccionado = "";
+    selDist.disabled = true;
+    selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
+    try {
+      const distritos = await obtenerDistritos(departamentoSeleccionado, selProv.value);
+      selDist.innerHTML =
+        `<option value="" disabled selected hidden>Selecciona</option>` +
+        distritos.map((d) => `<option value="${d.id}">${d.nombre}</option>`).join("");
+      selDist.disabled = false;
+    } catch (err) {
+      console.error("Error cargando distritos:", err);
+      selDist.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    }
+  };
+
+  function slugify(texto) {
+    return texto
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")   // quita tildes
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-");             // espacios -> guiones
+  }
+
+  selDist.onchange = () => {
+    const opt = selDist.options[selDist.selectedIndex];
+    distritoSeleccionado = slugify(opt.textContent);   // 👈 ahora guarda "barranca", "puerto-supe", etc.
+  };
+}
 
 /* =========================================================
    SNACKBAR MODERNO — blanco, centrado, estilo Android
@@ -194,9 +332,7 @@ window.openLoginModal = () => {
 window.openRegisterModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("registerModal").classList.add("active");
-  // Inicializar al abrir
   cargarPaises();
-  // Límite de fecha máxima = hoy
   const fechaInput = document.getElementById("regFechaNac");
   if (fechaInput) fechaInput.max = new Date().toISOString().split("T")[0];
 };
@@ -204,6 +340,7 @@ window.openRegisterModal = () => {
 window.openSocioModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("socioModal").classList.add("active");
+  inicializarSelectoresUbicacion("socio");
 };
 
 window.closeModal = (id) => {
@@ -256,18 +393,16 @@ async function procesarLoginGoogle(user) {
     openRegisterModal();
   }
 }
+
 /* =========================================================
    LOGIN GOOGLE
 ========================================================= */
 window.loginGoogle = async () => {
   try {
     if (esMobileOWebview()) {
-      // En móvil: redirige en vez de abrir popup
       await signInWithRedirect(auth, provider);
-      return; // el resultado se procesa al recargar, ver más abajo
+      return;
     }
-
-    // En desktop: sigue usando popup normal
     const result = await signInWithPopup(auth, provider);
     await procesarLoginGoogle(result.user);
   } catch (err) {
@@ -285,7 +420,6 @@ window.openForgotPassword = async () => {
   if (!correo) {
     document.getElementById("loginEmailError").textContent =
       "Ingresa tu correo para recuperar la contraseña.";
-    // Volver al paso 1 si estaba en paso 2
     document.getElementById("loginStepPassword").style.display = "none";
     document.getElementById("loginStepEmail").style.display = "block";
     return;
@@ -297,7 +431,6 @@ window.openForgotPassword = async () => {
     return;
   }
 
-  // Confirmar antes de enviar
   const confirmar = confirm(`¿Enviar correo de recuperación a:\n${correo}?`);
   if (!confirmar) return;
 
@@ -326,13 +459,12 @@ window.openForgotPassword = async () => {
     }
   }
 };
+
 /* =========================================================
    REGISTER — validación completa
 ========================================================= */
 window.submitRegister = async (event) => {
   event.preventDefault();
-
-  const modal = document.getElementById("registerModal");
 
   // ── Leer campos ──────────────────────────────────────────
   const nombre = document.getElementById("regNombre").value.trim();
@@ -359,7 +491,6 @@ window.submitRegister = async (event) => {
   const pass2 = document.getElementById("registerPass2").value;
   const terminos = document.getElementById("termsCheck").checked;
 
-  // ── Helper de error ──────────────────────────────────────
   const setError = (id, msg) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -381,7 +512,6 @@ window.submitRegister = async (event) => {
     "errTerminos",
   ].forEach((id) => setError(id, ""));
 
-  // ── Validaciones ─────────────────────────────────────────
   let ok = true;
 
   if (!nombre || nombre.length < 2) {
@@ -469,14 +599,12 @@ window.submitRegister = async (event) => {
 
   if (!ok) return;
 
-  // ── Botón cargando ───────────────────────────────────────
   const btn = document.querySelector(".btn-register-submit");
   const btnOrig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Creando cuenta...`;
 
   try {
-    // ── Verificar username único ──────────────────────────
     const usernameRef = doc(
       db,
       "Trabajadores_Usuarios_Drivers",
@@ -490,7 +618,6 @@ window.submitRegister = async (event) => {
       return;
     }
 
-    // ── Verificar correo único en Firestore ───────────────
     const correosRef = collection(
       db,
       "Trabajadores_Usuarios_Drivers",
@@ -505,7 +632,6 @@ window.submitRegister = async (event) => {
       return;
     }
 
-    // ── Crear usuario en Firebase Auth ────────────────────
     const { createUserWithEmailAndPassword } =
       await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
 
@@ -530,13 +656,11 @@ window.submitRegister = async (event) => {
     const usernameFinal = "@" + username.replace(/^@/, "");
     const fechaRegistro = new Date().toLocaleDateString("es-PE");
 
-    // ── Guardar correo ────────────────────────────────────
     await setDoc(
       doc(db, "Trabajadores_Usuarios_Drivers", "users", "correos", uid),
       { correo, tipo: "email" },
     );
 
-    // ── Guardar username ──────────────────────────────────
     await setDoc(
       doc(
         db,
@@ -548,7 +672,6 @@ window.submitRegister = async (event) => {
       { id_registrado: uid, nombres_user: usernameFinal },
     );
 
-    // ── Guardar perfil completo ───────────────────────────
     await setDoc(
       doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid),
       {
@@ -574,7 +697,6 @@ window.submitRegister = async (event) => {
       },
     );
 
-    // ── Actualizar GOOGLE_USER para el splash ─────────────
     GOOGLE_USER = newUser;
 
     closeModal("registerModal");
@@ -640,7 +762,6 @@ window.checkEmailExists = async () => {
       return;
     }
 
-    // ✅ Existe → mostrar paso contraseña
     document.getElementById("loginStepEmail").style.display = "none";
     document.getElementById("loginStepPassword").style.display = "block";
     document.getElementById("loginEmailChipText").textContent = correo;
@@ -753,7 +874,6 @@ async function showSplash(user) {
 
   document.getElementById("sValidating").classList.add("fade-out");
   await delay(450);
-  // ✅ OCULTAR COMPLETAMENTE EL VALIDADOR (display: none)
   document.getElementById("sValidating").style.display = "none";
   document.getElementById("sWelcome").classList.add("visible");
 
@@ -762,54 +882,54 @@ async function showSplash(user) {
   document.getElementById("btnEnter").onclick = async () => {
     if (!idTienda) {
       showSnackbar("⚠️ No tienes un ID de tienda vinculado", "warning");
-      setTimeout(() => abrirPantallaSocio(user), 1200);
+      setTimeout(() => abrirPantallaSocio(), 1200);
       return;
     }
     try {
       const lugarSnap = await getDoc(doc(db, "lugares", idTienda));
       if (!lugarSnap.exists()) {
         showSnackbar("❌ Tu ID de tienda no existe o fue eliminado", "error");
-        setTimeout(() => abrirPantallaSocio(user), 1400);
+        setTimeout(() => abrirPantallaSocio(), 1400);
         return;
       }
-      const localidad = lugarSnap.data().localidad || "barranca";
+      const data2 = lugarSnap.data();
+      const departamento = data2.departamento || "lima";
+      const provincia = data2.provincia || "barranca";
+      const localidad = data2.localidad || "barranca";
       sessionStorage.setItem("tiendaId", idTienda);
+      sessionStorage.setItem("departamento", departamento);
+      sessionStorage.setItem("provincia", provincia);
       sessionStorage.setItem("localidad", localidad);
-      window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
+      window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&departamento=${encodeURIComponent(departamento)}&provincia=${encodeURIComponent(provincia)}&localidad=${encodeURIComponent(localidad)}`;
     } catch (err) {
       console.error(err);
       showSnackbar("Error al validar tu tienda", "error");
-      setTimeout(() => abrirPantallaSocio(user), 1400);
+      setTimeout(() => abrirPantallaSocio(), 1400);
     }
   };
 }
 
 /* =========================================================
-   PANTALLA SELECTOR DE TIENDA
+   PANTALLA SELECTOR DE TIENDA (sin ID vinculado)
 ========================================================= */
-function abrirPantallaSocio() {
+async function abrirPantallaSocio() {
   document.getElementById("splashScreen").style.display = "none";
   document.getElementById("selectorSocioScreen").classList.add("active");
-
-  document.querySelectorAll(".chip").forEach((chip) => {
-    chip.onclick = () => {
-      document
-        .querySelectorAll(".chip")
-        .forEach((c) => c.classList.remove("active"));
-      chip.classList.add("active");
-      localidadSeleccionada = chip.dataset.local;
-    };
-  });
+  await inicializarSelectoresUbicacion("selector");
 }
 
 /* =========================================================
-   CONTINUAR PANEL
+   CONTINUAR PANEL (desde selectorSocioScreen)
 ========================================================= */
 window.continuarPanel = async () => {
   const valor = document.getElementById("selectorInput").value.trim();
 
   if (!valor || valor.length < 4) {
     showSnackbar("⚠️ Ingresa un ID válido", "warning");
+    return;
+  }
+  if (!departamentoSeleccionado || !provinciaSeleccionada || !distritoSeleccionado) {
+    showSnackbar("⚠️ Selecciona departamento, provincia y distrito", "warning");
     return;
   }
 
@@ -819,21 +939,35 @@ window.continuarPanel = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
-    const tiendaRef =   tiendaDoc(localidadSeleccionada, "tiendas", valor);
-    
+    console.log("[continuarPanel] Valores usados para buscar tienda:", {
+      departamento: departamentoSeleccionado,
+      provincia: provinciaSeleccionada,
+      distrito: distritoSeleccionado,
+      idTienda: valor,
+    });
+
+    const tiendaRef = tiendaDoc(distritoSeleccionado, "tiendas", valor);
+
+
+    console.log("[continuarPanel] Path de tiendaRef:", tiendaRef.path);
+
     const snap = await getDoc(tiendaRef);
 
+    console.log("[continuarPanel] ¿Existe el documento?:", snap.exists());
+    if (snap.exists()) {
+      console.log("[continuarPanel] Data encontrada:", snap.data());
+    }
+
     if (!snap.exists()) {
-      showSnackbar(
-        "❌ Ese ID no existe. Verifica e intenta de nuevo.",
-        "error",
-      );
+      showSnackbar("❌ Ese ID no existe. Verifica e intenta de nuevo.", "error");
       return;
     }
 
-    sessionStorage.setItem("localidad", localidadSeleccionada);
+    sessionStorage.setItem("departamento", departamentoSeleccionado);
+    sessionStorage.setItem("provincia", provinciaSeleccionada);
+    sessionStorage.setItem("localidad", distritoSeleccionado);
     sessionStorage.setItem("tiendaId", valor);
-    window.location.href = `./../../dasboard/panel_perfil?id=${encodeURIComponent(valor)}&localidad=${encodeURIComponent(localidadSeleccionada)}`;
+    window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(valor)}&departamento=${encodeURIComponent(departamentoSeleccionado)}&provincia=${encodeURIComponent(provinciaSeleccionada)}&localidad=${encodeURIComponent(distritoSeleccionado)}`;
   } catch (err) {
     console.error(err);
     showSnackbar("Error al validar. Intenta de nuevo.", "error");
@@ -844,15 +978,15 @@ window.continuarPanel = async () => {
 };
 
 /* =========================================================
-   ACCEDER SOCIO (modal)
+   ACCEDER SOCIO (modal desde welcome screen)
 ========================================================= */
 window.accederSocio = async () => {
   const idTienda = document.getElementById("socioId").value.trim();
-  const localidad = document
-    .getElementById("socioLocalidad")
-    .value.toLowerCase();
+  const dep = document.getElementById("socioDepartamento").value;
+  const prov = document.getElementById("socioProvincia").value;
+  const dist = document.getElementById("socioDistrito").value;
 
-  if (!idTienda || !localidad) {
+  if (!idTienda || !dep || !prov || !dist) {
     showSnackbar("⚠️ Completa todos los campos", "warning");
     return;
   }
@@ -867,21 +1001,20 @@ window.accederSocio = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
-    const snap = await getDoc(
-      tiendaDoc(localidad, "tiendas", idTienda)
-    );
-
+    const snap = await getDoc(tiendaDoc(dist, "tiendas", idTienda));
     if (!snap.exists()) {
-      showSnackbar(
-        "❌ Ese ID no existe. Verifica e intenta de nuevo.",
-        "error",
-      );
+      showSnackbar("❌ Ese ID no existe. Verifica e intenta de nuevo.", "error");
       return;
     }
-
     sessionStorage.setItem("tiendaId", idTienda);
-    sessionStorage.setItem("localidad", localidad);
-    window.location.href = `./../../dasboard/panel_perfil?id=${encodeURIComponent(idTienda)}&localidad=${encodeURIComponent(localidad)}`;
+    sessionStorage.setItem("departamento", dep);
+    sessionStorage.setItem("provincia", prov);
+    sessionStorage.setItem("localidad", dist);
+
+    const rutaFinal = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&departamento=${dep}&provincia=${prov}&localidad=${dist}`;
+    console.log("[accederSocio] Redirigiendo a:", rutaFinal); // 👈 log agregado
+
+    window.location.href = rutaFinal;
   } catch (err) {
     console.error(err);
     showSnackbar("Error al validar. Intenta de nuevo.", "error");
@@ -907,14 +1040,12 @@ window.validarCorreoGmail = (input) => {
 
   if (!val) return;
 
-  // Solo Gmail
   if (val.includes("@") && !val.endsWith("@gmail.com")) {
     errorEl.textContent = "Solo se permiten correos @gmail.com.";
     errorEl.style.display = "block";
     return;
   }
 
-  // Si parece válido, mostrar aviso informativo
   if (/^[^\s@]+@gmail\.com$/.test(val)) {
     hintEl.style.display = "flex";
   }
@@ -927,6 +1058,7 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) return;
   await procesarLoginGoogle(user);
 });
+
 /* =========================================================
    RESULTADO DE REDIRECT (login Google en móvil)
 ========================================================= */
@@ -940,6 +1072,7 @@ getRedirectResult(auth)
     console.error("Error en redirect de Google:", err);
     showSnackbar("❌ Error al iniciar sesión con Google", "error");
   });
+
 /* =========================================================
    BACKGROUND SLIDER + DYNAMIC TITLE
 ========================================================= */
