@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trivia Forge — Generador de imágenes promocionales</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- html2canvas (CDN) para exportar la vista previa como imagen -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+  <!-- Tipografías -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" crossorigin="anonymous">
+
+  <style>
+    :root {
+      --bg: #05070d;
+      --panel: #0d1220;
+      --panel-line: #1c2333;
+      --amber: #fbbf24;
+      --cyan: #22d3ee;
+      --violet: #a78bfa;
+    }
+
+    html,
+    body {
+      background: var(--bg);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .font-mono-custom {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--panel);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #2a3348;
+      border-radius: 8px;
+    }
+
+    .aspect-9-16 {
+      aspect-ratio: 9 / 16;
+    }
+
+    .aspect-1-1 {
+      aspect-ratio: 1 / 1;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 9999px;
+      flex-shrink: 0;
+    }
+
+    .code-grid {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 26px 26px;
+    }
+
+    .glow-amber {
+      box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35), 0 0 40px -12px rgba(251, 191, 36, 0.55);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 40px -12px rgba(34, 211, 238, 0.55);
+    }
+
+    .glow-violet {
+      box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.35), 0 0 40px -12px rgba(167, 139, 250, 0.55);
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.45);
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.15);
+      border-top-color: var(--amber);
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .hidden-file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      overflow: hidden;
+    }
+
+    .editable-field {
+      border-radius: 4px;
+      padding: 1px 3px;
+      margin: -1px -3px;
+      cursor: text;
+      transition: box-shadow .15s ease;
+    }
+
+    .editable-field:hover {
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+    }
+
+    .editable-field:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.7);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    #bgImg {
+      transition: transform .05s linear;
+    }
+
+    .editable-field,
+    #rubroBadge,
+    #difBadge {
+      line-height: 1.4;
+    }
+
+    #codeCard .flex.items-center.px-3.py-2 {
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+
+    /* La capa de "seguridad": difumina lo que quede detrás (foto) para que
+     ningún texto/marca de agua original de la foto sea legible por OCR. */
+    #safetyOverlay {
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen text-slate-200">
+
+  <!-- ======================= HEADER ======================= -->
+  <header class="border-b border-[var(--panel-line)] bg-[var(--panel)]/70 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div
+          class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-mono-custom font-extrabold text-slate-950 text-sm">
+          {;}</div>
+        <div>
+          <h1 class="font-display font-bold text-lg leading-none text-white">Trivia Forge</h1>
+          <p class="text-[11px] text-slate-400 leading-none mt-1">Generador de posts con trivias para Facebook</p>
+        </div>
+      </div>
+      <span
+        class="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-400 font-mono-custom border border-[var(--panel-line)] rounded-full px-3 py-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> listo
+      </span>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6">
+
+    <!-- ======================= COLUMNA IZQUIERDA: CONTROLES ======================= -->
+    <section class="space-y-5">
+
+      <!-- --- Panel: API Keys --- -->
+      <div class="bg-[var(--panel)] border border-[var(--panel-line)] rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-display font-semibold text-white text-sm tracking-wide">01 · Motor de IA</h2>
+          <button id="toggleKeysBtn" type="button"
+            class="text-[11px] font-mono-custom text-amber-400 hover:text-amber-300">mostrar/ocultar</button>
+        </div>
+
+        <label class="block text-xs text-slate-400 mb-1.5">Proveedor</label>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <button type="button" data-provider="openai"
+            class="provider-btn text-sm font-medium rounded-lg py-2.5 border transition">OpenAI (GPT)</button>
+          <button type="button" data-provider="gemini"
+            class="provider-btn text-sm font-medium rounded-lg py-2.5 border transition">Google (Gemini)</button>
+        </div>
+
+        <div id="openaiFields" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">API Key de OpenAI</label>
+            <input id="openaiKey" type="password" placeholder="sk-..."
+              class="w-full bg-[#0a0e18] border border-[var(--panel-line)] rounded-lg px-3 py-2 text-sm font-mono-custom text-slate-100 placeholder-slate-600" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">Modelo</label>
+            <input id="openaiModel" type="text" placeholder="gpt-4o-mini"
+              class="w-full bg-[#0a0e18] border border-[var(--panel-line)] rounded-lg px-3 py-2 text-sm font-mono-custom text-slate-100 placeholder-slate-600" />
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button type="button"
+                class="model-preset text-[11px] font-mono-custom px-2 py-1 rounded-md bg-[#0a0e18] border border-[var(--panel-line)] hover:border-amber-400/60 text-slate-400"
+                data-model="gpt-4o-mini">gpt-4o-mini</button>
+              <button type="button"
+                class="model-preset text-[11px] font-mono-custom px-2 py-1 rounded-md bg-[#0a0e18] border border-[var(--panel-line)] hover:border-amber-400/60 text-slate-400"
+                data-model="gpt-4o">gpt-4o</button>
+              <button type="button"
+                class="model-preset text-[11px] font-mono-custom px-2 py-1 rounded-md bg-[#0a0e18] border border-[var(--panel-line)] hover:border-amber-400/60 text-slate-400"
+                data-model="gpt-4.1-mini">gpt-4.1-mini</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="geminiFields" class="space-y-3 hidden">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">API Key de Google AI (Gemini)</label>
+            <input id="geminiKey" type="password" placeholder="AIza..."
+              class="w-full bg-[#0a0e18] border border-[var(--panel-line)] rounded-lg px-3 py-2 text-sm font-mono-custom text-slate-100 placeholder-slate-600" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">Modelo</label>
+            <input id="geminiModel" type="text" placeholder="gemini-2.0-flash"
+              class="w-full bg-[#0a0e18] border border-[var(--panel-line)] rounded-lg px-3 py-2 text-sm font-mono-custom text-slate-100 placeholder-slate-600" />
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button type="button"
+                class="model-preset text-[11px] font-mono-custom px-2 py-1 rounded-md bg-[#0a0e18] border border-[var(--panel-line)] hover:border-amber-400/60 text-slate-400"
+                data-model="gemini-2.0-flash">gemini-2.0-flash</button>
+              <button type="button"
+                class="model-preset text-[11px] font-mono-custom px-2 py-1 rounded-md bg-[#0a0e18] border border-[var(--panel-line)] hover:border-amber-400/60 text-slate-400"
+                data-model="gemini-1.5-flash">gemini-1.5-flash</button>
+              <button type="button"
+                class="model-preset text-[11px] font-mono-custom px-2 py-1 rounded-md bg-[#0a0e18] border border-[var(--panel-line)] hover:border-amber-400/60 text-slate-400"
+                data-model="gemini-1.5-pro">gemini-1.5-pro</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">Las claves se guardan solo en el <span
+            class="font-mono-custom text-slate-400">localStorage</span> de tu navegador. Nunca se envían a ningún
+          servidor propio: las llamadas van directo desde tu navegador a OpenAI o Google.</p>
+      </div>
+
+      <!-- --- Panel: Imagen de fondo --- -->
+      <div class="bg-[var(--panel)] border border-[var(--panel-line)] rounded-2xl p-5">
+        <h2 class="font-display font-semibold text-white text-sm tracking-wide mb-4">02 · Imagen de fondo</h2>
+        <label for="bgImageInput"
+          class="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[var(--panel-line)] hover:border-amber-400/50 rounded-xl py-8 text-center transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-slate-500" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+          </svg>
+          <span class="text-sm text-slate-300">Toca para subir o tomar una foto</span>
+          <span class="text-[11px] text-slate-500">JPG o PNG · se usa como fondo del post</span>
+        </label>
+        <input id="bgImageInput" type="file" accept="image/*" class="hidden-file-input" />
+        <p id="imgFileName" class="text-[11px] font-mono-custom text-emerald-400 mt-2 hidden"></p>
+        <p id="imgProcessing" class="text-[11px] font-mono-custom text-amber-400 mt-2 hidden flex items-center gap-2">
+          <span class="spinner"></span> difuminando imagen de fondo…
+        </p>
+        <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">🔒 La foto se difumina automáticamente antes de
+          mostrarse y antes de descargarse, para que ningún texto o marca de agua de la imagen original quede legible.
+        </p>
+      </div>
+
+      <!-- --- Panel: Generación --- -->
+      <div class="bg-[var(--panel)] border border-[var(--panel-line)] rounded-2xl p-5">
+        <h2 class="font-display font-semibold text-white text-sm tracking-wide mb-4">03 · Contenido de la trivia</h2>
+
+        <label class="block text-xs text-slate-400 mb-1.5">Rubro</label>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <button type="button" data-rubro="Programación"
+            class="rubro-btn text-sm font-medium rounded-lg py-2.5 border transition">💻 Programación</button>
+          <button type="button" data-rubro="Matemática"
+            class="rubro-btn text-sm font-medium rounded-lg py-2.5 border transition">🧮 Matemática</button>
+        </div>
+
+        <label class="block text-xs text-slate-400 mb-1.5">Dificultad</label>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <button type="button" data-dif="Básico"
+            class="dif-btn text-xs font-medium rounded-lg py-2.5 border transition">Básico</button>
+          <button type="button" data-dif="Intermedio"
+            class="dif-btn text-xs font-medium rounded-lg py-2.5 border transition">Intermedio</button>
+          <button type="button" data-dif="Avanzado"
+            class="dif-btn text-xs font-medium rounded-lg py-2.5 border transition">Avanzado</button>
+        </div>
+
+        <label class="block text-xs text-slate-400 mb-1.5">Formato del post</label>
+        <div class="grid grid-cols-2 gap-2 mb-5">
+          <button type="button" data-ratio="9-16"
+            class="ratio-btn text-xs font-medium rounded-lg py-2.5 border transition">Vertical 9:16</button>
+          <button type="button" data-ratio="1-1"
+            class="ratio-btn text-xs font-medium rounded-lg py-2.5 border transition">Cuadrado 1:1</button>
+        </div>
+
+        <button id="generateBtn" type="button"
+          class="w-full flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold rounded-lg py-3 text-sm transition">
+          <span id="generateBtnLabel">✨ Generar problema</span>
+        </button>
+
+        <p id="errorMsg" class="text-[12px] text-red-400 mt-3 hidden leading-relaxed"></p>
+      </div>
+      <div class="bg-[var(--panel)] border border-[var(--panel-line)] rounded-2xl p-5">
+        <h2 class="font-display font-semibold text-white text-sm tracking-wide mb-4">02b · Marca de agua</h2>
+        <label for="watermarkInput"
+          class="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[var(--panel-line)] hover:border-amber-400/50 rounded-xl py-6 text-center transition">
+          <span class="text-sm text-slate-300">Toca para subir tu logo/marca</span>
+          <span class="text-[11px] text-slate-500">PNG con fondo transparente recomendado</span>
+        </label>
+        <input id="watermarkInput" type="file" accept="image/*" class="hidden-file-input" />
+        <p id="watermarkFileName" class="text-[11px] font-mono-custom text-emerald-400 mt-2 hidden"></p>
+
+        <div class="space-y-4 mt-4">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">Posición</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" data-wmpos="top-left"
+                class="wm-pos-btn text-xs font-medium rounded-lg py-2 border transition">↖ Sup. izq.</button>
+              <button type="button" data-wmpos="top-right"
+                class="wm-pos-btn text-xs font-medium rounded-lg py-2 border transition">↗ Sup. der.</button>
+              <button type="button" data-wmpos="bottom-left"
+                class="wm-pos-btn text-xs font-medium rounded-lg py-2 border transition">↙ Inf. izq.</button>
+              <button type="button" data-wmpos="bottom-right"
+                class="wm-pos-btn text-xs font-medium rounded-lg py-2 border transition">↘ Inf. der.</button>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Tamaño</label>
+              <span id="wmSizeValue" class="text-[11px] font-mono-custom text-slate-400">64px</span>
+            </div>
+            <input id="wmSizeRange" type="range" min="32" max="140" value="64" step="1"
+              class="w-full accent-amber-400" />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Redondeo de esquinas</label>
+              <span id="wmRadiusValue" class="text-[11px] font-mono-custom text-slate-400">12%</span>
+            </div>
+            <input id="wmRadiusRange" type="range" min="0" max="50" value="12" step="1"
+              class="w-full accent-amber-400" />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Opacidad</label>
+              <span id="wmOpacityValue" class="text-[11px] font-mono-custom text-slate-400">100%</span>
+            </div>
+            <input id="wmOpacityRange" type="range" min="20" max="100" value="100" step="1"
+              class="w-full accent-amber-400" />
+          </div>
+          <button id="removeWatermarkBtn" type="button"
+            class="w-full text-xs font-medium rounded-lg py-2 border border-[var(--panel-line)] text-slate-400 hover:text-white hover:border-slate-500 transition">Quitar
+            marca de agua</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= COLUMNA DERECHA: VISTA PREVIA ======================= -->
+    <section class="flex flex-col items-center gap-5">
+
+      <div class="w-full flex items-center justify-between">
+        <h2 class="font-display font-semibold text-white text-sm tracking-wide">Vista previa</h2>
+        <button id="downloadBtn" type="button"
+          class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold rounded-lg px-4 py-2 text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Descargar PNG
+        </button>
+      </div>
+
+      <!-- La tarjeta exportable -->
+      <div id="exportWrapper" class="w-full max-w-sm mx-auto">
+        <div id="cardPreview"
+          class="aspect-9-16 relative w-full rounded-2xl overflow-hidden bg-slate-900 border border-[var(--panel-line)]">
+
+          <!-- Fondo (ya difuminado en los píxeles, no depende de CSS live) -->
+          <img id="bgImg" src="" alt="" class="absolute inset-0 w-full h-full object-cover hidden" />
+          <div id="bgPlaceholder" class="absolute inset-0 flex items-center justify-center code-grid bg-[#0a0e18]">
+            <p class="text-slate-600 text-xs font-mono-custom text-center px-8">Sube una imagen de fondo<br>para verla
+              aquí</p>
+          </div>
+
+          <!-- Capa de seguridad: blur adicional en vivo + oscurecimiento -->
+          <div id="safetyOverlay" class="absolute inset-0"></div>
+          <div id="overlayLayer" class="absolute inset-0" style="background:rgba(0,0,0,0.6);"></div>
+          <img id="watermarkImg" alt="" class="absolute hidden object-cover"
+            style="z-index:20; box-shadow:0 2px 8px rgba(0,0,0,0.4);" />
+          <!-- Contenido -->
+          <div id="contentInner" class="absolute inset-0 flex flex-col z-10" style="padding: 16px;">
+            <!-- Encabezado: badges de rubro/dificultad, una sola fila limpia -->
+            <div class="relative flex items-center justify-between shrink-0 mb-3">
+              <span id="rubroBadge" class="font-mono-custom text-[11px] font-bold text-cyan-300 truncate mr-2">💻
+                PROGRAMACIÓN</span>
+              <span id="difBadge" class="font-mono-custom text-[11px] font-semibold text-white shrink-0">Básico</span>
+            </div>
+
+            <!-- Tarjeta de código estilo terminal: flex-1 + min-h-0 = nunca empuja el resto fuera del marco -->
+            <div id="codeCard"
+              class="glow-cyan bg-[#1e1e1e] border border-white/10 rounded-xl overflow-hidden flex flex-col"
+              style="max-height:55%;">
+              <div class="flex items-center px-3 py-2 border-b border-white/10 bg-white/[0.03] shrink-0">
+                <span class="dot bg-red-400/80 mr-1.5"></span>
+                <span class="dot bg-yellow-400/80 mr-1.5"></span>
+                <span class="dot bg-green-400/80"></span>
+                <span id="cardTitulo" contenteditable="true" spellcheck="false"
+                  class="editable-field ml-2 font-mono-custom text-slate-300 text-[11px] font-semibold truncate">Título
+                  del problema</span>
+              </div>
+              <div id="codeCardBody" class="p-3.5 min-h-0 overflow-hidden flex-1">
+                <pre id="cardCodigo" contenteditable="true" spellcheck="false"
+                  class="editable-field font-mono-custom text-emerald-300 text-[13px] leading-relaxed whitespace-pre-wrap m-0">// Sube una imagen y genera un problema
+// para ver el código aquí</pre>
+              </div>
+            </div>
+
+            <!-- Pregunta final: fuera de la tarjeta de código, siempre visible -->
+            <div id="preguntaBox"
+              class="shrink-0 mt-3 min-h-0 overflow-visible max-h-[6em] flex items-center justify-center">
+              <p id="cardPregunta" contenteditable="true" spellcheck="false"
+                class="editable-field font-display font-bold text-yellow-400 text-base text-center leading-snug">¿Cuál
+                es la respuesta?</p>
+            </div>
+
+            <!-- Banner inferior de CTA -->
+            <div class="text-center shrink-0 mt-3">
+              <span class="font-display font-extrabold text-amber-400 text-xs inline-flex items-center justify-center">
+                <span class="inline-block mr-1.5">👇</span>Deja tu respuesta en los comentarios
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-500 text-center max-w-sm leading-relaxed">✏️ Toca el título, el código o la
+        pregunta en la vista previa para editarlos directamente. La descarga se genera con <span
+          class="font-mono-custom">html2canvas</span> a partir de exactamente lo que ves aquí.</p>
+
+      <!-- --- Panel: Ajustes de la imagen de fondo --- -->
+      <div class="w-full max-w-sm mx-auto bg-[var(--panel)] border border-[var(--panel-line)] rounded-2xl p-5">
+        <h2 class="font-display font-semibold text-white text-sm tracking-wide mb-4">Ajustar imagen de fondo</h2>
+
+        <div class="space-y-4">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Zoom</label>
+              <span id="zoomValue" class="text-[11px] font-mono-custom text-slate-400">100%</span>
+            </div>
+            <input id="zoomRange" type="range" min="100" max="250" value="100" step="1"
+              class="w-full accent-amber-400" />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Posición horizontal</label>
+              <span id="posXValue" class="text-[11px] font-mono-custom text-slate-400">50%</span>
+            </div>
+            <input id="posXRange" type="range" min="0" max="100" value="50" step="1" class="w-full accent-amber-400" />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Posición vertical</label>
+              <span id="posYValue" class="text-[11px] font-mono-custom text-slate-400">50%</span>
+            </div>
+            <input id="posYRange" type="range" min="0" max="100" value="50" step="1" class="w-full accent-amber-400" />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Brillo</label>
+              <span id="brightnessValue" class="text-[11px] font-mono-custom text-slate-400">100%</span>
+            </div>
+            <input id="brightnessRange" type="range" min="40" max="160" value="100" step="1"
+              class="w-full accent-amber-400" />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Difuminado (seguridad OCR)</label>
+              <span id="blurValue" class="text-[11px] font-mono-custom text-slate-400">8px</span>
+            </div>
+            <input id="blurRange" type="range" min="2" max="20" value="4" step="1" class="w-full accent-amber-400" />
+            <p class="text-[10px] text-slate-500 mt-1">No se puede bajar a 0: evita que texto o marcas de agua de la
+              foto original sean legibles.</p>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs text-slate-400">Oscurecer overlay</label>
+              <span id="overlayValue" class="text-[11px] font-mono-custom text-slate-400">60%</span>
+            </div>
+            <input id="overlayRange" type="range" min="30" max="85" value="60" step="1"
+              class="w-full accent-amber-400" />
+          </div>
+          <button id="resetImageBtn" type="button"
+            class="w-full text-xs font-medium rounded-lg py-2 border border-[var(--panel-line)] text-slate-400 hover:text-white hover:border-slate-500 transition">Restablecer
+            ajustes de imagen</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 py-8 text-center text-[11px] text-slate-600">
+    Trivia Forge · genera y descarga contenido en tu propio navegador. Las llamadas a la IA usan tus propias API keys.
+  </footer>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* ======================================================
+         ESTADO GLOBAL
+      ====================================================== */
+      const state = {
+        provider: "openai",
+        rubro: "Programación",
+        dificultad: "Básico",
+        ratio: "9-16",
+        originalBgDataUrl: null,   // imagen original SIN difuminar, nunca se muestra ni se exporta directamente
+        watermarkDataUrl: null     // imagen de marca de agua, se dibuja como <img> real
+      };
+
+      const imgAdjust = { zoom: 100, posX: 50, posY: 50, brightness: 100, blur: 4, overlay: 60 };
+      const wmAdjust = { position: "bottom-right", size: 64, radius: 12, opacity: 100 };
+      /* ======================================================
+         REFERENCIAS DOM
+      ====================================================== */
+      const $ = (id) => document.getElementById(id);
+
+      const providerBtns = document.querySelectorAll(".provider-btn");
+      const openaiFields = $("openaiFields");
+      const geminiFields = $("geminiFields");
+      const openaiKeyInput = $("openaiKey");
+      const openaiModelInput = $("openaiModel");
+      const geminiKeyInput = $("geminiKey");
+      const geminiModelInput = $("geminiModel");
+      const toggleKeysBtn = $("toggleKeysBtn");
+
+      const bgImageInput = $("bgImageInput");
+      const imgFileName = $("imgFileName");
+      const imgProcessing = $("imgProcessing");
+      const bgImg = $("bgImg");
+      const bgPlaceholder = $("bgPlaceholder");
+
+      const rubroBtns = document.querySelectorAll(".rubro-btn");
+      const difBtns = document.querySelectorAll(".dif-btn");
+      const ratioBtns = document.querySelectorAll(".ratio-btn");
+
+      const generateBtn = $("generateBtn");
+      const generateBtnLabel = $("generateBtnLabel");
+      const errorMsg = $("errorMsg");
+
+      const cardPreview = $("cardPreview");
+      const rubroBadge = $("rubroBadge");
+      const difBadge = $("difBadge");
+      const cardTitulo = $("cardTitulo");
+      const cardCodigo = $("cardCodigo");
+      const cardPregunta = $("cardPregunta");
+      const codeCard = $("codeCard");
+      const codeCardBody = $("codeCardBody");
+      const preguntaBox = $("preguntaBox");
+      const overlayLayer = $("overlayLayer");
+      const contentInner = $("contentInner");
+      const downloadBtn = $("downloadBtn");
+
+      const zoomRange = $("zoomRange");
+      const posXRange = $("posXRange");
+      const posYRange = $("posYRange");
+      const brightnessRange = $("brightnessRange");
+      const blurRange = $("blurRange");
+      const overlayRange = $("overlayRange");
+      const zoomValue = $("zoomValue");
+      const posXValue = $("posXValue");
+      const posYValue = $("posYValue");
+      const brightnessValue = $("brightnessValue");
+      const blurValue = $("blurValue");
+      const overlayValue = $("overlayValue");
+      const resetImageBtn = $("resetImageBtn");
+      const watermarkInput = $("watermarkInput");
+      const watermarkFileName = $("watermarkFileName");
+      const watermarkImg = $("watermarkImg");
+      const wmPosBtns = document.querySelectorAll(".wm-pos-btn");
+      const wmSizeRange = $("wmSizeRange");
+      const wmRadiusRange = $("wmRadiusRange");
+      const wmOpacityRange = $("wmOpacityRange");
+      const wmSizeValue = $("wmSizeValue");
+      const wmRadiusValue = $("wmRadiusValue");
+      const wmOpacityValue = $("wmOpacityValue");
+      const removeWatermarkBtn = $("removeWatermarkBtn");
+      /* ======================================================
+         PERSISTENCIA (localStorage) — solo claves/modelo/proveedor
+      ====================================================== */
+      const STORAGE_KEY = "trivia_forge_settings_v2";
+
+      function loadSettings() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const saved = JSON.parse(raw);
+          if (saved.provider) state.provider = saved.provider;
+          if (saved.openaiKey) openaiKeyInput.value = saved.openaiKey;
+          if (saved.openaiModel) openaiModelInput.value = saved.openaiModel;
+          if (saved.geminiKey) geminiKeyInput.value = saved.geminiKey;
+          if (saved.geminiModel) geminiModelInput.value = saved.geminiModel;
+        } catch (e) {
+          console.warn("No se pudo leer la configuración guardada:", e);
+        }
+      }
+
+      function saveSettings() {
+        const data = {
+          provider: state.provider,
+          openaiKey: openaiKeyInput.value.trim(),
+          openaiModel: openaiModelInput.value.trim(),
+          geminiKey: geminiKeyInput.value.trim(),
+          geminiModel: geminiModelInput.value.trim()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
+
+      [openaiKeyInput, openaiModelInput, geminiKeyInput, geminiModelInput].forEach(input => {
+        input.addEventListener("input", saveSettings);
+      });
+
+      /* ======================================================
+         SELECTORES TIPO "PILL BUTTON"
+      ====================================================== */
+      function refreshProviderUI() {
+        providerBtns.forEach(btn => {
+          const active = btn.dataset.provider === state.provider;
+          btn.classList.toggle("bg-amber-400", active);
+          btn.classList.toggle("text-slate-950", active);
+          btn.classList.toggle("border-amber-400", active);
+          btn.classList.toggle("bg-[#0a0e18]", !active);
+          btn.classList.toggle("text-slate-300", !active);
+          btn.classList.toggle("border-[var(--panel-line)]", !active);
+        });
+        openaiFields.classList.toggle("hidden", state.provider !== "openai");
+        geminiFields.classList.toggle("hidden", state.provider !== "gemini");
+      }
+
+      providerBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.provider = btn.dataset.provider;
+          refreshProviderUI();
+          saveSettings();
+        });
+      });
+
+      function refreshRubroUI() {
+        rubroBtns.forEach(btn => {
+          const active = btn.dataset.rubro === state.rubro;
+          btn.classList.toggle("bg-cyan-400", active && state.rubro === "Programación");
+          btn.classList.toggle("bg-violet-400", active && state.rubro === "Matemática");
+          btn.classList.toggle("text-slate-950", active);
+          btn.classList.toggle("border-transparent", active);
+          btn.classList.toggle("bg-[#0a0e18]", !active);
+          btn.classList.toggle("text-slate-300", !active);
+          btn.classList.toggle("border-[var(--panel-line)]", !active);
+        });
+        updateBadges();
+      }
+
+      rubroBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.rubro = btn.dataset.rubro;
+          refreshRubroUI();
+        });
+      });
+
+      function refreshDifUI() {
+        difBtns.forEach(btn => {
+          const active = btn.dataset.dif === state.dificultad;
+          btn.classList.toggle("bg-amber-400", active);
+          btn.classList.toggle("text-slate-950", active);
+          btn.classList.toggle("border-transparent", active);
+          btn.classList.toggle("bg-[#0a0e18]", !active);
+          btn.classList.toggle("text-slate-300", !active);
+          btn.classList.toggle("border-[var(--panel-line)]", !active);
+        });
+        updateBadges();
+      }
+
+      difBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.dificultad = btn.dataset.dif;
+          refreshDifUI();
+        });
+      });
+
+      function refreshRatioUI() {
+        ratioBtns.forEach(btn => {
+          const active = btn.dataset.ratio === state.ratio;
+          btn.classList.toggle("bg-amber-400", active);
+          btn.classList.toggle("text-slate-950", active);
+          btn.classList.toggle("border-transparent", active);
+          btn.classList.toggle("bg-[#0a0e18]", !active);
+          btn.classList.toggle("text-slate-300", !active);
+          btn.classList.toggle("border-[var(--panel-line)]", !active);
+        });
+        cardPreview.classList.toggle("aspect-9-16", state.ratio === "9-16");
+        cardPreview.classList.toggle("aspect-1-1", state.ratio === "1-1");
+        scheduleFitAll();
+      }
+
+      ratioBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.ratio = btn.dataset.ratio;
+          refreshRatioUI();
+        });
+      });
+
+      function updateBadges() {
+        const isProg = state.rubro === "Programación";
+        rubroBadge.textContent = isProg ? "💻 PROGRAMACIÓN" : "🧮 MATEMÁTICA";
+        rubroBadge.classList.toggle("text-cyan-300", isProg);
+        rubroBadge.classList.toggle("text-violet-300", !isProg);
+        difBadge.textContent = state.dificultad;
+        codeCard.classList.toggle("glow-cyan", isProg);
+        codeCard.classList.toggle("glow-violet", !isProg);
+      }
+      toggleKeysBtn.addEventListener("click", () => {
+        [openaiKeyInput, geminiKeyInput].forEach(inp => {
+          inp.type = inp.type === "password" ? "text" : "password";
+        });
+      });
+
+      document.querySelectorAll(".model-preset").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const target = btn.closest("#openaiFields") ? openaiModelInput : geminiModelInput;
+          target.value = btn.dataset.model;
+          saveSettings();
+        });
+      });
+
+      /* ======================================================
+         CARGA + DIFUMINADO DE LA IMAGEN DE FONDO
+         La imagen visible/exportada NUNCA es la original: siempre
+         se hornea (bake) a través de un canvas con blur real en los
+         píxeles, para que el resultado sea idéntico en pantalla y
+         en el PNG descargado (html2canvas no soporta bien blur "en vivo").
+      ====================================================== */
+      function bakeBackgroundImage(sourceDataUrl, blurPx) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const maxDim = 1400;
+            let w = img.naturalWidth || 1;
+            let h = img.naturalHeight || 1;
+            const scaleDown = Math.min(1, maxDim / Math.max(w, h));
+            w = Math.max(1, Math.round(w * scaleDown));
+            h = Math.max(1, Math.round(h * scaleDown));
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            try {
+              ctx.filter = `blur(${blurPx}px)`;
+            } catch (e) { /* algunos navegadores viejos ignoran ctx.filter */ }
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.92));
+          };
+          img.onerror = () => reject(new Error("No se pudo procesar la imagen."));
+          img.src = sourceDataUrl;
+        });
+      }
+
+      let bakeToken = 0;
+      async function reapplyBlur() {
+        if (!state.originalBgDataUrl) return;
+        const myToken = ++bakeToken;
+        imgProcessing.classList.remove("hidden");
+        try {
+          const baked = await bakeBackgroundImage(state.originalBgDataUrl, imgAdjust.blur);
+          if (myToken !== bakeToken) return; // llegó una versión más nueva mientras tanto
+          bgImg.src = baked;
+          bgImg.classList.remove("hidden");
+          bgPlaceholder.classList.add("hidden");
+        } catch (err) {
+          console.error(err);
+          showError("No se pudo difuminar la imagen de fondo. Intenta con otra foto.");
+        } finally {
+          if (myToken === bakeToken) imgProcessing.classList.add("hidden");
+        }
+      }
+
+      let blurDebounceTimer = null;
+      function scheduleReapplyBlur() {
+        clearTimeout(blurDebounceTimer);
+        blurDebounceTimer = setTimeout(reapplyBlur, 180);
+      }
+
+      bgImageInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        clearError();
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          state.originalBgDataUrl = ev.target.result;
+          imgFileName.textContent = "✓ " + file.name;
+          imgFileName.classList.remove("hidden");
+          imgAdjust.zoom = 100; imgAdjust.posX = 50; imgAdjust.posY = 50; imgAdjust.brightness = 100;
+          zoomRange.value = 100; posXRange.value = 50; posYRange.value = 50; brightnessRange.value = 100;
+          applyLiveImageAdjustments();
+          reapplyBlur();
+        };
+        reader.onerror = () => {
+          showError("No se pudo leer la imagen seleccionada. Intenta con otro archivo.");
+        };
+        reader.readAsDataURL(file);
+      });
+
+      /* Ajustes en vivo que SÍ son seguros para html2canvas (transform, object-position, brightness) */
+      function applyLiveImageAdjustments() {
+        bgImg.style.objectPosition = `${imgAdjust.posX}% ${imgAdjust.posY}%`;
+        bgImg.style.transform = `scale(${imgAdjust.zoom / 100})`;
+        bgImg.style.filter = `brightness(${imgAdjust.brightness}%)`;
+        overlayLayer.style.background = `rgba(0,0,0,${imgAdjust.overlay / 100})`;
+
+        zoomValue.textContent = imgAdjust.zoom + "%";
+        posXValue.textContent = imgAdjust.posX + "%";
+        posYValue.textContent = imgAdjust.posY + "%";
+        brightnessValue.textContent = imgAdjust.brightness + "%";
+        blurValue.textContent = imgAdjust.blur + "px";
+        overlayValue.textContent = imgAdjust.overlay + "%";
+      }
+
+      zoomRange.addEventListener("input", () => { imgAdjust.zoom = Number(zoomRange.value); applyLiveImageAdjustments(); });
+      posXRange.addEventListener("input", () => { imgAdjust.posX = Number(posXRange.value); applyLiveImageAdjustments(); });
+      posYRange.addEventListener("input", () => { imgAdjust.posY = Number(posYRange.value); applyLiveImageAdjustments(); });
+      brightnessRange.addEventListener("input", () => { imgAdjust.brightness = Number(brightnessRange.value); applyLiveImageAdjustments(); });
+      overlayRange.addEventListener("input", () => { imgAdjust.overlay = Number(overlayRange.value); applyLiveImageAdjustments(); });
+      blurRange.addEventListener("input", () => {
+        imgAdjust.blur = Number(blurRange.value);
+        blurValue.textContent = imgAdjust.blur + "px";
+        scheduleReapplyBlur();
+      });
+
+      resetImageBtn.addEventListener("click", () => {
+        imgAdjust.zoom = 100; imgAdjust.posX = 50; imgAdjust.posY = 50; imgAdjust.brightness = 100; imgAdjust.blur = 4; imgAdjust.overlay = 60;
+        zoomRange.value = 100; posXRange.value = 50; posYRange.value = 50; brightnessRange.value = 100; blurRange.value = 4; overlayRange.value = 60;
+        applyLiveImageAdjustments();
+        reapplyBlur();
+      });
+      function refreshWmPosUI() {
+        wmPosBtns.forEach(btn => {
+          const active = btn.dataset.wmpos === wmAdjust.position;
+          btn.classList.toggle("bg-amber-400", active);
+          btn.classList.toggle("text-slate-950", active);
+          btn.classList.toggle("border-transparent", active);
+          btn.classList.toggle("bg-[#0a0e18]", !active);
+          btn.classList.toggle("text-slate-300", !active);
+          btn.classList.toggle("border-[var(--panel-line)]", !active);
+        });
+      }
+
+      function applyWatermarkStyles() {
+        if (!state.watermarkDataUrl) { watermarkImg.classList.add("hidden"); return; }
+        watermarkImg.classList.remove("hidden");
+        watermarkImg.style.width = wmAdjust.size + "px";
+        watermarkImg.style.height = wmAdjust.size + "px";
+        watermarkImg.style.borderRadius = wmAdjust.radius + "%";
+        watermarkImg.style.opacity = wmAdjust.opacity / 100;
+        watermarkImg.style.top = watermarkImg.style.bottom = watermarkImg.style.left = watermarkImg.style.right = "auto";
+        const margin = "14px";
+        if (wmAdjust.position.includes("top")) watermarkImg.style.top = margin; else watermarkImg.style.bottom = margin;
+        if (wmAdjust.position.includes("left")) watermarkImg.style.left = margin; else watermarkImg.style.right = margin;
+        wmSizeValue.textContent = wmAdjust.size + "px";
+        wmRadiusValue.textContent = wmAdjust.radius + "%";
+        wmOpacityValue.textContent = wmAdjust.opacity + "%";
+      }
+
+      watermarkInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          state.watermarkDataUrl = ev.target.result;
+          watermarkImg.src = state.watermarkDataUrl;
+          watermarkFileName.textContent = "✓ " + file.name;
+          watermarkFileName.classList.remove("hidden");
+          applyWatermarkStyles();
+        };
+        reader.readAsDataURL(file);
+      });
+
+      wmPosBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          wmAdjust.position = btn.dataset.wmpos;
+          refreshWmPosUI();
+          applyWatermarkStyles();
+        });
+      });
+
+      wmSizeRange.addEventListener("input", () => { wmAdjust.size = Number(wmSizeRange.value); applyWatermarkStyles(); });
+      wmRadiusRange.addEventListener("input", () => { wmAdjust.radius = Number(wmRadiusRange.value); applyWatermarkStyles(); });
+      wmOpacityRange.addEventListener("input", () => { wmAdjust.opacity = Number(wmOpacityRange.value); applyWatermarkStyles(); });
+
+      removeWatermarkBtn.addEventListener("click", () => {
+        state.watermarkDataUrl = null;
+        watermarkImg.removeAttribute("src");
+        watermarkFileName.classList.add("hidden");
+        applyWatermarkStyles();
+      });
+      /* ======================================================
+         AUTO-AJUSTE DE TEXTO: reduce el tamaño de fuente hasta que
+         el código y la pregunta quepan en sus cajas, para que nunca
+         empujen el banner de comentarios fuera del marco.
+      ====================================================== */
+      function makeFitter(containerEl, targetEl, baseSize, minScale) {
+        let raf = null;
+        function apply(scale) { targetEl.style.fontSize = (baseSize * scale) + "px"; }
+        function fit() {
+          let scale = 1;
+          apply(scale);
+          let guard = 0;
+          while (containerEl.scrollHeight > containerEl.clientHeight + 1 && scale > minScale && guard < 40) {
+            scale = Math.max(minScale, scale - 0.03);
+            apply(scale);
+            guard++;
+          }
+        }
+        return function schedule() {
+          if (raf) cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(fit);
+        };
+      }
+
+      const scheduleFitCode = makeFitter(codeCardBody, cardCodigo, 13, 0.55);
+      const scheduleFitPregunta = makeFitter(preguntaBox, cardPregunta, 16, 0.6);
+
+      function scheduleFitAll() { scheduleFitCode(); scheduleFitPregunta(); }
+      window.addEventListener("resize", scheduleFitAll);
+
+      [cardTitulo, cardCodigo, cardPregunta].forEach(el => {
+        el.addEventListener("paste", (e) => {
+          e.preventDefault();
+          const text = (e.clipboardData || window.clipboardData).getData("text/plain");
+          document.execCommand("insertText", false, text);
+        });
+        el.addEventListener("input", scheduleFitAll);
+      });
+
+      /* ======================================================
+         UTILIDADES DE ERROR / CARGA
+      ====================================================== */
+      function showError(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.classList.remove("hidden");
+      }
+      function clearError() {
+        errorMsg.classList.add("hidden");
+        errorMsg.textContent = "";
+      }
+      function setGenerating(isGenerating) {
+        generateBtn.disabled = isGenerating;
+        generateBtn.classList.toggle("opacity-60", isGenerating);
+        generateBtn.classList.toggle("cursor-not-allowed", isGenerating);
+        generateBtnLabel.innerHTML = isGenerating
+          ? '<span class="spinner"></span> Generando...'
+          : '✨ Generar problema';
+      }
+
+      /* ======================================================
+         CONSTRUCCIÓN DEL PROMPT (nuevo esquema: titulo / codigo / pregunta)
+      ====================================================== */
+      function buildSystemPrompt() {
+        return `Genera una trivia MUY CORTA de ${state.rubro} en nivel ${state.dificultad}, para una tarjeta pequeña de red social con estética de terminal de código. ` +
+          `Reglas estrictas de longitud: "titulo" máximo 5 palabras, sin punto final, sin comillas. "codigo" es un fragmento de código o expresión de 4 a 6 líneas COMO MÁXIMO, sin comentarios, sin explicaciones ni texto fuera del código; usa "\\n" para separar líneas. "pregunta" máximo 10 palabras, siempre termina en signo de interrogación, y no repite el título. ` +
+          `Prohibido incluir párrafos teóricos, contexto adicional o explicaciones de ningún tipo: solo el fragmento de código/expresión y la pregunta final ` +
+          `(ej. '¿Qué imprime esto?', '¿Dónde está el error?', '¿Cuál es el resultado?'). ` +
+          `Responde ÚNICAMENTE en formato JSON con la estructura: {"titulo": "...", "codigo": "...", "pregunta": "..."}. ` +
+          `No incluyas texto adicional fuera del JSON, ni bloques de código markdown (sin \`\`\`).`;
+      }
+
+      function extractJson(text) {
+        if (!text) throw new Error("Respuesta vacía del modelo.");
+        let cleaned = text.trim();
+        cleaned = cleaned.replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
+        if (start === -1 || end === -1) throw new Error("No se encontró un JSON en la respuesta del modelo.");
+        const jsonStr = cleaned.slice(start, end + 1);
+        return JSON.parse(jsonStr);
+      }
+
+      /* ======================================================
+         LLAMADAS A LAS APIs
+      ====================================================== */
+      async function callOpenAI() {
+        const apiKey = openaiKeyInput.value.trim();
+        const model = openaiModelInput.value.trim() || "gpt-4o-mini";
+        if (!apiKey) throw new Error("Ingresa tu API Key de OpenAI en la sección 01.");
+
+        const body = {
+          model: model,
+          messages: [
+            { role: "system", content: buildSystemPrompt() },
+            { role: "user", content: "Genera la trivia ahora, respondiendo solo con el JSON solicitado." }
+          ],
+          temperature: 0.9
+        };
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const msg = (errData && errData.error && errData.error.message) || `Error HTTP ${response.status} al llamar a OpenAI.`;
+          throw new Error(msg);
+        }
+
+        const data = await response.json();
+        const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        return extractJson(content);
+      }
+
+      async function callGemini() {
+        const apiKey = geminiKeyInput.value.trim();
+        const model = geminiModelInput.value.trim() || "gemini-2.0-flash";
+        if (!apiKey) throw new Error("Ingresa tu API Key de Google (Gemini) en la sección 01.");
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+        const body = {
+          contents: [
+            { role: "user", parts: [{ text: buildSystemPrompt() + "\n\nGenera la trivia ahora." }] }
+          ],
+          generationConfig: {
+            temperature: 0.9,
+            responseMimeType: "application/json"
+          }
+        };
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const msg = (errData && errData.error && errData.error.message) || `Error HTTP ${response.status} al llamar a Gemini.`;
+          throw new Error(msg);
+        }
+
+        const data = await response.json();
+        const candidate = data.candidates && data.candidates[0];
+        const content = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text;
+        return extractJson(content);
+      }
+
+      /* ======================================================
+         GENERAR PROBLEMA
+      ====================================================== */
+      generateBtn.addEventListener("click", async () => {
+        clearError();
+        setGenerating(true);
+        try {
+          const result = state.provider === "openai" ? await callOpenAI() : await callGemini();
+
+          let titulo = (result.titulo || "").toString().trim() || "Reto rápido";
+          let codigo = (result.codigo || "").toString();
+          let pregunta = (result.pregunta || "").toString().trim();
+
+          if (!pregunta) pregunta = "¿Cuál es la respuesta?";
+          if (!pregunta.includes("?") && !pregunta.includes("¿")) pregunta = pregunta + " ¿Cuál es la respuesta?";
+
+          // Red de seguridad: fuerza los límites aunque el modelo no los respete
+          let lines = codigo.split(/\r?\n/).map(l => l.replace(/\s+$/, ""));
+          if (lines.length > 6) lines = lines.slice(0, 6);
+          codigo = lines.join("\n");
+
+          if (titulo.length > 45) titulo = titulo.slice(0, 42).trim() + "...";
+          if (pregunta.length > 110) pregunta = pregunta.slice(0, 107).trim() + "...";
+
+          cardTitulo.textContent = titulo;
+          cardCodigo.textContent = codigo;
+          cardPregunta.textContent = pregunta;
+
+          downloadBtn.disabled = false;
+          scheduleFitAll();
+        } catch (err) {
+          console.error(err);
+          showError(err.message || "Ocurrió un error inesperado al generar el problema.");
+        } finally {
+          setGenerating(false);
+        }
+      });
+
+      /* ======================================================
+         DESCARGA CON html2canvas
+      ====================================================== */
+      downloadBtn.addEventListener("click", async () => {
+        clearError();
+        const original = downloadBtn.innerHTML;
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = '<span class="spinner"></span> Preparando imagen...';
+        try {
+          await document.fonts.ready;
+          await Promise.all(
+            Array.from(cardPreview.querySelectorAll("img"))
+              .filter(img => img.getAttribute("src") && !img.classList.contains("hidden"))
+              .map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; }))
+          );
+          await new Promise(r => setTimeout(r, 150));
+
+          const rect = cardPreview.getBoundingClientRect();
+
+          const dataUrl = await htmlToImage.toPng(cardPreview, {
+            pixelRatio: 3,
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            cacheBust: true,
+            skipFonts: false   // sí incrusta tus fuentes personalizadas, para que se vean idénticas
+          });
+
+          const link = document.createElement("a");
+          const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+          link.download = `trivia-forge-${stamp}.png`;
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (err) {
+          console.error(err);
+          showError("No se pudo generar la imagen para descargar. Intenta de nuevo.");
+        } finally {
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = original;
+        }
+      });
+
+      /* ======================================================
+         INICIALIZACIÓN
+      ====================================================== */
+      loadSettings();
+      refreshProviderUI();
+      refreshRubroUI();
+      refreshDifUI();
+      refreshRatioUI();
+      updateBadges();
+      applyLiveImageAdjustments();
+      refreshWmPosUI();
+      applyWatermarkStyles();
+      scheduleFitAll();
+
+    })();
+  </script>
+
+</body>
+
+</html>
