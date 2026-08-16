@@ -767,7 +767,7 @@
 
     /* ================= MIS MEJORAS DE DISEÑO ================= */
     /* Animaciones suaves, efectos hover, scrollbar personalizado y responsividad mejorada */
-    
+
     ::selection {
       background: rgba(110, 168, 254, 0.3);
       color: #fff;
@@ -807,12 +807,14 @@
     }
 
     /* Cards e inputs estilizados */
-    .card, .result-card {
+    .card,
+    .result-card {
       border: 1px solid #232834;
       transition: border-color 0.25s ease, box-shadow 0.25s ease;
     }
 
-    .card:hover, .result-card:hover {
+    .card:hover,
+    .result-card:hover {
       border-color: #2e3648;
     }
 
@@ -839,12 +841,16 @@
       background: rgba(28, 34, 48, 0.4);
     }
 
-    select, input[type=number], input[type=text] {
+    select,
+    input[type=number],
+    input[type=text] {
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
       outline: none;
     }
 
-    select:focus, input[type=number]:focus, input[type=text]:focus {
+    select:focus,
+    input[type=number]:focus,
+    input[type=text]:focus {
       border-color: #6ea8fe;
       box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.15);
     }
@@ -870,22 +876,26 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
-    .chip, .preset-chip {
+    .chip,
+    .preset-chip {
       transition: all 0.2s ease;
     }
 
-    .chip:hover, .preset-chip:hover {
+    .chip:hover,
+    .preset-chip:hover {
       transform: translateY(-1px);
     }
 
     /* Subpanels y toggles con mejor feedback */
-    .subtoggle, .advanced-toggle {
+    .subtoggle,
+    .advanced-toggle {
       padding: 6px 0;
       font-weight: 500;
       transition: color 0.2s ease;
     }
 
-    .subtoggle:hover, .advanced-toggle:hover {
+    .subtoggle:hover,
+    .advanced-toggle:hover {
       color: #92beff;
     }
 
@@ -894,17 +904,23 @@
       body {
         padding: 12px;
       }
-      .card, .result-card {
+
+      .card,
+      .result-card {
         padding: 18px;
         border-radius: 12px;
       }
+
       .style-grid {
         grid-template-columns: 1fr;
       }
+
       .export-row {
         grid-template-columns: 1fr;
       }
-      .export-row button, .export-row a.btnlike {
+
+      .export-row button,
+      .export-row a.btnlike {
         grid-column: 1 / -1;
       }
     }
@@ -1603,7 +1619,16 @@
 
       <div class="subtoggle" id="${uid}_subtoggle"><span class="arrow">▶</span> Subtítulos y estilo (${captions.length})</div>
       <div class="subpanel" id="${uid}_subpanel">
-
+<div class="subtoggle" id="${uid}_ctatoggle"><span class="arrow">▶</span> Bloques / llamados a la acción</div>
+<div class="subpanel" id="${uid}_ctapanel">
+  <div class="presets-row">
+    <div class="preset-chip" data-cta="Sígueme para más 🔔">Sígueme</div>
+    <div class="preset-chip" data-cta="Comenta 👇">Comenta</div>
+    <div class="preset-chip" data-cta="Comparte 🔁">Comparte</div>
+    <div class="preset-chip" data-cta="custom">+ Texto personalizado</div>
+  </div>
+  <div class="captions-list" id="${uid}_ctalist"></div>
+</div>
         <div class="presets-row" id="${uid}_presets">
           <div class="preset-chip" data-preset="tiktok">TikTok</div>
           <div class="preset-chip" data-preset="clasico">Clásico</div>
@@ -1770,6 +1795,96 @@
       // ---- refs ----
       const video = card.querySelector(`#${uid}_video`);
       const stage = card.querySelector(`#${uid}_stage`);
+      video.addEventListener("loadedmetadata", () => {
+        if (video.videoWidth && video.videoHeight) {
+          stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+        }
+      });
+
+      const stickers = [];
+      const ctaListEl = card.querySelector(`#${uid}_ctalist`);
+      const ctaToggle = card.querySelector(`#${uid}_ctatoggle`);
+      const ctaPanel = card.querySelector(`#${uid}_ctapanel`);
+      ctaToggle.addEventListener("click", () => { ctaToggle.classList.toggle("open"); ctaPanel.classList.toggle("open"); });
+
+      function addSticker(text) {
+        const s = { id: "cta-" + Math.random().toString(36).slice(2, 8), text, x: 50, y: 15, size: 5, color: "#ffffff", bg: "#000000", bgOpacity: 0.55 };
+        stickers.push(s);
+        renderStickerBox(s);
+        renderCtaList();
+      }
+
+      function renderCtaList() {
+        ctaListEl.innerHTML = "";
+        stickers.forEach(s => {
+          const row = document.createElement("div");
+          row.className = "cap-row";
+          row.innerHTML = `<textarea rows="1">${s.text}</textarea>`;
+          row.querySelector("textarea").addEventListener("input", (e) => {
+            s.text = e.target.value;
+            const box = card.querySelector(`#box_${s.id}`);
+            if (box) box.querySelector(".cap-text").textContent = s.text;
+          });
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "🗑️ Quitar";
+          delBtn.style.marginTop = "6px";
+          delBtn.addEventListener("click", () => {
+            card.querySelector(`#box_${s.id}`)?.remove();
+            stickers.splice(stickers.indexOf(s), 1);
+            renderCtaList();
+          });
+          row.appendChild(delBtn);
+          ctaListEl.appendChild(row);
+        });
+      }
+
+      function renderStickerBox(s) {
+        const box = document.createElement("div");
+        box.className = "caption-box visible";
+        box.id = `box_${s.id}`;
+        box.innerHTML = `<span class="drag-hint">arrastra para mover</span><span class="cap-text">${s.text}</span><div class="resize-handle"></div>`;
+        stage.appendChild(box);
+        const resizeHandle = box.querySelector(".resize-handle");
+
+        function apply() {
+          box.style.left = s.x + "%";
+          box.style.top = s.y + "%";
+          box.style.fontWeight = "800";
+          box.style.fontSize = (stage.clientHeight * (s.size / 100)) + "px";
+          box.style.color = s.color;
+          const bgHex = Math.round(s.bgOpacity * 255).toString(16).padStart(2, "0");
+          box.style.background = s.bgOpacity > 0 ? (s.bg + bgHex) : "transparent";
+        }
+        apply();
+
+        let dragging = false, resizing = false;
+        box.addEventListener("mousedown", (e) => { if (e.target === resizeHandle) return; dragging = true; e.preventDefault(); });
+        resizeHandle.addEventListener("mousedown", (e) => { resizing = true; e.preventDefault(); e.stopPropagation(); });
+
+        function posPct(e) {
+          const rect = stage.getBoundingClientRect();
+          return {
+            x: Math.min(97, Math.max(3, ((e.clientX - rect.left) / rect.width) * 100)),
+            y: Math.min(97, Math.max(3, ((e.clientY - rect.top) / rect.height) * 100)),
+          };
+        }
+        window.addEventListener("mousemove", (e) => {
+          if (dragging) { const p = posPct(e); s.x = p.x; s.y = p.y; apply(); }
+          else if (resizing) { const p = posPct(e); s.size = Math.min(12, Math.max(2, (p.y - s.y) * 0.6 + 4)); apply(); }
+        });
+        window.addEventListener("mouseup", () => { dragging = false; resizing = false; });
+      }
+
+      card.querySelectorAll(`#${uid}_ctapanel .preset-chip`).forEach(chip => {
+        chip.addEventListener("click", () => {
+          const val = chip.dataset.cta;
+          if (val === "custom") {
+            const text = prompt("Escribe el texto del bloque:", "");
+            if (text) addSticker(text);
+          } else addSticker(val);
+        });
+      });
+
       const capbox = card.querySelector(`#${uid}_capbox`);
       const capTextEl = capbox.querySelector(".cap-text");
       const capResizeHandle = card.querySelector(`#${uid}_capresize`);
@@ -1808,21 +1923,14 @@
 
       const dlOriginalBtn = card.querySelector(`#${uid}_dlOriginalBtn`);
       if (dlOriginalBtn) {
-        dlOriginalBtn.addEventListener("click", async () => {
-          dlOriginalBtn.disabled = true;
-          const original = dlOriginalBtn.textContent;
-          dlOriginalBtn.textContent = "Descargando…";
-          try {
-            const res = await fetch(seg.downloadUrl);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const blob = await res.blob();
-            downloadBlob(blob, `segmento_${idx + 1}_original.mp4`);
-          } catch (err) {
-            alert("No se pudo descargar: " + err.message + (err.message.includes("Failed to fetch") ? " (revisa la configuración CORS del bucket)" : ""));
-          } finally {
-            dlOriginalBtn.disabled = false;
-            dlOriginalBtn.textContent = original;
-          }
+        dlOriginalBtn.addEventListener("click", () => {
+          const a = document.createElement("a");
+          a.href = seg.downloadUrl;
+          a.download = `segmento_${idx + 1}_original.mp4`;
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
         });
       }
 
@@ -2108,7 +2216,7 @@
       wmRadius.addEventListener("input", () => { watermark.radius = Number(wmRadius.value); renderWmPreview(); });
       wmRoundInput.addEventListener("input", () => { watermark.round = Number(wmRoundInput.value); renderWmPreview(); });
       wmCircleChip.addEventListener("click", () => { watermark.circle = !watermark.circle; wmCircleChip.classList.toggle("active", watermark.circle); renderWmPreview(); });
-      
+
       // ---- fuentes ----
       FONT_OPTIONS.forEach((f) => {
         const opt = document.createElement("option");
@@ -2403,10 +2511,12 @@
         exportProg.textContent = "Preparando corte…";
         try {
           await burnCaptionsAndDownload({
-            video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile: null, musicVolume: 0,
-            trim, burnSubtitles: false,
-            filename: `segmento_${idx + 1}_recortado.webm`,
-            onProgress: (t) => { exportProg.textContent = `Cortando… ${t.toFixed(1)}s / ${trim.end.toFixed(1)}s`; },
+            video, captions, style, currentFont,
+            blur, watermark, watermarkPositions, filters,
+            musicFile, musicVolume: Number(musicVolInput.value),
+            trim, burnSubtitles: true, stickers,
+            filename: `segmento_${idx + 1}_editado.webm`,
+            onProgress: (t, dur) => { exportProg.textContent = `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
           });
           exportProg.textContent = "✅ Recorte listo. Revisa tus descargas.";
         } catch (err) {
@@ -2552,7 +2662,7 @@
       downloadBlob(blob, filename);
     }
 
-    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile, musicVolume, filename, trim, burnSubtitles = true, onProgress }) {
+    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile, musicVolume, filename, trim, burnSubtitles = true, stickers = [], onProgress }) {
       if (!("MediaRecorder" in window) || !video.captureStream) {
         throw new Error("Tu navegador no soporta grabación en el cliente (prueba con Chrome o Edge de escritorio).");
       }
@@ -2653,10 +2763,16 @@
               ctx.save();
               ctx.globalAlpha = watermark.opacity;
               if (watermark.shape === "circle" || watermark.round > 0) {
-                const r = watermark.shape === "circle" ? Math.min(wmW, wmH) / 2 : (Math.min(wmW, wmH) / 2) * (watermark.round / 50);
+                const r = watermark.shape === "circle"
+                  ? Math.min(wmW, wmH) / 2
+                  : Math.min(wmW, wmH) / 2 * (watermark.round / 50);
                 ctx.beginPath();
-                if (ctx.roundRect) ctx.roundRect(wmX, wmY, wmW, wmH, r);
-                else ctx.arc(wmX + wmW / 2, wmY + wmH / 2, r, 0, Math.PI * 2);
+                ctx.moveTo(wmX + r, wmY);
+                ctx.arcTo(wmX + wmW, wmY, wmX + wmW, wmY + wmH, r);
+                ctx.arcTo(wmX + wmW, wmY + wmH, wmX, wmY + wmH, r);
+                ctx.arcTo(wmX, wmY + wmH, wmX, wmY, r);
+                ctx.arcTo(wmX, wmY, wmX + wmW, wmY, r);
+                ctx.closePath();
                 ctx.clip();
               }
               ctx.drawImage(watermark.img, wmX, wmY, wmW, wmH);
@@ -2664,7 +2780,26 @@
             });
           }
         }
-
+        function paintStickers() {
+          stickers.forEach(s => {
+            const fontSizePx = h * (s.size / 100);
+            ctx.font = `800 ${fontSizePx}px -apple-system, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            const x = w * (s.x / 100), y = h * (s.y / 100);
+            if (s.bgOpacity > 0) {
+              const padX = fontSizePx * 0.6, padY = fontSizePx * 0.35;
+              const tw = ctx.measureText(s.text).width;
+              ctx.save();
+              ctx.globalAlpha = s.bgOpacity;
+              ctx.fillStyle = s.bg;
+              ctx.fillRect(x - tw / 2 - padX, y - fontSizePx / 2 - padY, tw + padX * 2, fontSizePx + padY * 2);
+              ctx.restore();
+            }
+            ctx.fillStyle = s.color;
+            ctx.fillText(s.text, x, y);
+          });
+        }
         function paintCaptions() {
           if (!burnSubtitles) return;
           const active = activeCaption(video.currentTime);
@@ -2724,9 +2859,9 @@
         }
 
         if (blur && blur.behindCaptions) {
-          paintBlur(); paintWatermark(); paintCaptions();
+          paintBlur(); paintWatermark(); paintCaptions(); paintStickers();
         } else {
-          paintWatermark(); paintCaptions(); paintBlur();
+          paintWatermark(); paintCaptions(); paintBlur(); paintStickers();
         }
       }
 
