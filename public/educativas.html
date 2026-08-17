@@ -15,7 +15,7 @@
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
         rel="stylesheet">
 
-    <style>
+<style>
         :root {
             --bg: #0A0C10;
             --panel: #12151C;
@@ -218,7 +218,6 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
         }
 
-        /* ---------- Stage ---------- */
         #stagePanel {
             position: relative;
             overflow: hidden;
@@ -233,7 +232,6 @@
             transition: background 1.2s ease;
         }
 
-        /* Phone bezel — signature element */
         #phoneBezel {
             width: 320px;
             padding: 14px 12px 22px;
@@ -274,7 +272,6 @@
         #slideCanvas {
             position: relative;
             overflow: hidden;
-
             box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset;
             transition: opacity .25s ease, transform .25s ease;
         }
@@ -479,23 +476,6 @@
 
         .tab-btn {
             transition: all .15s ease;
-        }
-
-        .cursor-blink::after {
-            content: '';
-            display: inline-block;
-            width: 6px;
-            height: 12px;
-            margin-left: 2px;
-            background: #08090C;
-            animation: blink 1s step-end infinite;
-            vertical-align: middle;
-        }
-
-        @keyframes blink {
-            50% {
-                opacity: 0;
-            }
         }
     </style>
 </head>
@@ -764,8 +744,19 @@
 
                 <div class="panel-soft rounded-xl p-3.5 space-y-3">
                     <div>
+                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Tipo de
+                            transición</label>
+                        <select id="videoTransitionSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <option value="fadeUp">Fade + subida (suave, actual)</option>
+                            <option value="slideHorizontal">Deslizamiento horizontal</option>
+                            <option value="zoomFade">Zoom + fade (cinematográfico)</option>
+                            <option value="wipeDiagonal">Barrido diagonal</option>
+                            <option value="crossfade">Crossfade simple</option>
+                        </select>
+                    </div>
+                    <div>
                         <div class="flex items-center justify-between mb-1">
-                            <label class="text-xs font-medium text-[var(--text-mid)]">Duración</label>
+                            <label class="text-xs font-medium text-[var(--text-mid)]">Duración por diapo</label>
                             <span id="videoDurationLabel" class="text-xs font-mono text-[var(--text-lo)]">5.0s</span>
                         </div>
                         <input type="range" id="videoDurationInput" min="3" max="15" step="0.5" value="5"
@@ -1186,10 +1177,11 @@ ${items.map((it, i) => `${i + 1}. ${it}`).join('\n')}
 Devuelve SOLO este objeto JSON (nada de texto fuera de él):
 {
   "caption": "texto corto para la publicación en redes con 2-3 hashtags relevantes, máximo 220 caracteres",
+  "intro_dialogo": "guion hablado de 1-2 frases para narrar la diapositiva de portada (bienvenida al tema)",
   "content_slides": [
-    { "titulo": "título corto del punto ${items[0] ? '1' : ''}", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real, MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea" }
+    { "titulo": "título corto del punto ${items[0] ? '1' : ''}", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real, MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion hablado de 2-3 frases que explica este punto en tono cercano, para narrar en voz alta" }
   ],
-  "reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio a resolver (máx 100 caracteres)", "codigo": "código base o de referencia del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres" }
+  "reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio a resolver (máx 100 caracteres)", "codigo": "código base o de referencia del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion hablado de 2-3 frases invitando a resolver el reto" }
 }
 
 Reglas estrictas:
@@ -1198,6 +1190,7 @@ Reglas estrictas:
 - CRÍTICO: cada bloque "codigo" debe tener MÁXIMO 3 líneas y cada línea MÁXIMO 28 caracteres. Si el código real necesita más espacio, usa nombres de variables cortos y quita comentarios para que quepa. Nunca superes ese límite.
 - Sé extremadamente conciso: nada de párrafos largos, solo frases cortas y directas.
 - No repitas el nombre "${tech}" dentro de cada título.
+- Los campos "dialogo" e "intro_dialogo" son guiones para ser LEÍDOS EN VOZ ALTA por una IA de voz (texto a voz). CRÍTICO: escribe SIEMPRE los números en palabras (ej. "tres" en vez de "3", "primero" en vez de "1º"), nunca uses dígitos, símbolos raros, ni abreviaturas, porque la voz IA los pronuncia mal o se traba.
 - JSON compacto, sin espacios innecesarios, sin comentarios.`;
             }
 
@@ -1217,7 +1210,8 @@ Reglas estrictas:
                 const data = await res.json();
                 const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
                 if (!text) throw new Error('Gemini no devolvió contenido. Verifica tu API Key o cuota.');
-                return text;
+                const usage = data?.usageMetadata || null;
+                return { text, usage };
             }
 
             async function callOpenAI(apiKey, systemPrompt, userPrompt) {
@@ -1240,7 +1234,8 @@ Reglas estrictas:
                 const data = await res.json();
                 const text = data?.choices?.[0]?.message?.content || '';
                 if (!text) throw new Error('OpenAI no devolvió contenido. Verifica tu API Key o cuota.');
-                return text;
+                const usage = data?.usage || null;
+                return { text, usage };
             }
 
             function safeParseJson(raw) {
@@ -1261,7 +1256,7 @@ Reglas estrictas:
                 const contentSlides = Array.isArray(json.content_slides) ? json.content_slides : [];
                 const reto = json.reto || {};
 
-             const slides = [];
+                const slides = [];
 
                 // Slide 1: Portada
                 slides.push({
@@ -1271,7 +1266,8 @@ Reglas estrictas:
                     titulo: $('techNameInput').value.trim() || 'Tecnología',
                     sub: isSingle ? trimText(scopedItems[0] || '', 60) : `Guía rápida · ${fullItems.length} conceptos clave`,
                     codigo: '',
-                    checkedCount: 0
+                    checkedCount: 0,
+                    dialogo: json.intro_dialogo || ''
                 });
 
                 // Content slides
@@ -1285,7 +1281,8 @@ Reglas estrictas:
                         titulo: trimText(src.titulo || item, 46),
                         sub: trimText(src.explicacion || '', 100),
                         codigo: trimCode(src.codigo || ''),
-                        checkedCount: posInFull + 1
+                        checkedCount: posInFull + 1,
+                        dialogo: src.dialogo || ''
                     });
                 });
 
@@ -1297,7 +1294,8 @@ Reglas estrictas:
                     titulo: trimText(reto.titulo || 'Ponlo en práctica', 46),
                     sub: trimText(reto.enunciado || '', 120),
                     codigo: trimCode(reto.codigo || ''),
-                    checkedCount: isSingle ? singleIndex + 1 : fullItems.length
+                    checkedCount: isSingle ? singleIndex + 1 : fullItems.length,
+                    dialogo: reto.dialogo || ''
                 });
 
                 return slides;
@@ -1323,12 +1321,13 @@ Reglas estrictas:
                 try {
                     const systemPrompt = buildSystemPrompt();
                     const userPrompt = buildUserPrompt();
-                    const raw = api === 'gemini' ? await callGemini(key, systemPrompt, userPrompt) : await callOpenAI(key, systemPrompt, userPrompt);
-                    const json = safeParseJson(raw);
+                    const result = api === 'gemini' ? await callGemini(key, systemPrompt, userPrompt) : await callOpenAI(key, systemPrompt, userPrompt);
+                    const json = safeParseJson(result.text);
 
                     state.carousel = json;
                     state.slides = buildSlides(json);
                     state.currentSlide = 0;
+                    registerGenerationUsage(api, result.usage);
 
                     $('captionOutput').value = json.caption || '';
                     $('emptyState').classList.add('hidden');
@@ -1337,6 +1336,8 @@ Reglas estrictas:
 
                     buildDots();
                     renderSlide();
+                    renderScriptPanel();
+                    renderCostPanel();
                     toast('Carrusel generado con éxito', 'success');
                 } catch (err) {
                     console.error(err);
@@ -1363,7 +1364,7 @@ Reglas estrictas:
                 state.slides.forEach((_, i) => {
                     const d = document.createElement('button');
                     d.className = 'slide-dot' + (i === state.currentSlide ? ' active' : '');
-                    d.addEventListener('click', () => { state.currentSlide = i; renderSlide(); });
+                    d.addEventListener('click', () => { state.currentSlide = i; renderSlide(); renderScriptPanel(); });
                     dots.appendChild(d);
                 });
             }
@@ -1376,6 +1377,7 @@ Reglas estrictas:
                 const n = state.slides.length;
                 state.currentSlide = (state.currentSlide + delta + n) % n;
                 renderSlide();
+                renderScriptPanel();
             }
 
             document.addEventListener('keydown', (e) => {
@@ -1644,12 +1646,32 @@ Reglas estrictas:
                 const originalLabel = label.innerHTML;
                 label.innerHTML = '<div class="spinner"></div> Capturando diapositiva…';
 
-                // Captura la diapositiva SIN el glow estático de fondo, porque
+                // Captura TODAS las diapositivas SIN el glow estático de fondo, porque
                 // el video dibuja su propia versión animada (con zoom) del logo.
                 setStaticGlowVisible(false);
-                const baseCanvas = await captureCurrentSlidePng();
+                const originalSlideForVideo = state.currentSlide;
+                const slideCanvases = [];
+                for (let i = 0; i < state.slides.length; i++) {
+                    state.currentSlide = i;
+                    renderSlide();
+                    buildDots();
+                    label.innerHTML = `<div class="spinner"></div> Capturando ${i + 1}/${state.slides.length}…`;
+                    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    try {
+                        const cap = await captureCurrentSlidePng();
+                        slideCanvases.push(cap);
+                    } catch (e) {
+                        console.error(`Fallo al capturar la diapositiva ${i + 1}`, e);
+                    }
+                }
+                if (slideCanvases.length < state.slides.length) {
+                    toast('Algunas diapositivas no se pudieron capturar, revisa la consola', 'error');
+                }
+                state.currentSlide = originalSlideForVideo;
+                renderSlide();
+                buildDots();
                 setStaticGlowVisible(true);
-                const W = baseCanvas.width, H = baseCanvas.height;
+                const W = slideCanvases[0].width, H = slideCanvases[0].height;
 
                 const canvas = document.createElement('canvas');
                 canvas.width = W; canvas.height = H;
@@ -1661,7 +1683,10 @@ Reglas estrictas:
                 while (colors.length < 3) { colors.push(FALLBACK_ACCENTS[fallbackIdx % FALLBACK_ACCENTS.length]); fallbackIdx++; }
 
                 const contrastPct = Number($('videoContrastInput').value) || 100;
-                const DURATION_MS = (Number($('videoDurationInput').value) || 5) * 1000;
+                const perSlideMs = (Number($('videoDurationInput').value) || 5) * 1000;
+                const transitionType = $('videoTransitionSelect').value || 'fadeUp';
+                const transitionMs = 700;
+                const totalMs = state.slides.length * perSlideMs;
 
                 let logoImg = null;
                 if (state.logo.blurredDataUrl) {
@@ -1730,13 +1755,142 @@ Reglas estrictas:
                 const startTime = performance.now();
                 let rafId;
 
-                function drawFrame(now) {
-                    const t = (now - startTime) / DURATION_MS;
+                function easeInOutCubic(x) {
+                    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+                }
 
-                    // Base: la diapositiva real, con todo su contenido
+                function drawTransitionFrame(type, curr, next, p) {
+                    switch (type) {
+
+                        case 'slideHorizontal': {
+                            // La saliente se va a la izquierda, la entrante llega desde la derecha
+                            if (curr) {
+                                ctx.save();
+                                ctx.translate(-p * W, 0);
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            ctx.save();
+                            ctx.translate((1 - p) * W, 0);
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'zoomFade': {
+                            // La saliente hace zoom-in y se desvanece; la entrante entra desde un
+                            // leve zoom-out con fade in — efecto cinematográfico de "punch"
+                            if (curr) {
+                                const scaleOut = 1 + p * 0.12;
+                                ctx.save();
+                                ctx.globalAlpha = 1 - p;
+                                ctx.translate(W / 2, H / 2);
+                                ctx.scale(scaleOut, scaleOut);
+                                ctx.translate(-W / 2, -H / 2);
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            const scaleIn = 1.08 - p * 0.08;
+                            ctx.save();
+                            ctx.globalAlpha = p;
+                            ctx.translate(W / 2, H / 2);
+                            ctx.scale(scaleIn, scaleIn);
+                            ctx.translate(-W / 2, -H / 2);
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'wipeDiagonal': {
+                            // Barrido diagonal: la entrante se revela con un clip en ángulo
+                            // que avanza de esquina superior-izquierda a inferior-derecha
+                            if (curr) ctx.drawImage(curr, 0, 0, W, H);
+
+                            const diag = W + H;
+                            const edge = -H + p * (diag + H * 0.6);
+
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.moveTo(0, edge + H);
+                            ctx.lineTo(W, edge + H - W);
+                            ctx.lineTo(W, H + diag);
+                            ctx.lineTo(-diag, H + diag);
+                            ctx.closePath();
+                            ctx.clip();
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+
+                            // línea de borde sutil siguiendo el barrido, le da un toque pro
+                            ctx.save();
+                            ctx.globalAlpha = 0.5 * (1 - Math.abs(p - 0.5) * 2);
+                            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+                            ctx.lineWidth = 3;
+                            ctx.beginPath();
+                            ctx.moveTo(0, edge + H);
+                            ctx.lineTo(W, edge + H - W);
+                            ctx.stroke();
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'crossfade': {
+                            // El más simple y elegante: disolución pura sin movimiento
+                            if (curr) {
+                                ctx.save();
+                                ctx.globalAlpha = 1 - p;
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            ctx.save();
+                            ctx.globalAlpha = p;
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'fadeUp':
+                        default: {
+                            // La original: fade + leve desplazamiento vertical
+                            if (curr) {
+                                ctx.save();
+                                ctx.globalAlpha = 1 - p;
+                                ctx.translate(0, -p * H * 0.06);
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            ctx.save();
+                            ctx.globalAlpha = p;
+                            ctx.translate(0, (1 - p) * H * 0.06);
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+                    }
+                }
+
+                function drawFrame(now) {
+                    const globalT = now - startTime;
+                    const t = globalT / totalMs; // para el glow de fondo, continuo en todo el video
+
+                    const slideIndex = Math.min(Math.floor(globalT / perSlideMs), slideCanvases.length - 1);
+                    const localT = globalT - slideIndex * perSlideMs;
+                    const isLast = slideIndex === slideCanvases.length - 1;
+                    const inTransition = !isLast && localT > perSlideMs - transitionMs;
+
+                    // Base: la(s) diapositiva(s) real(es), con transición suave entre ellas
                     ctx.save();
                     ctx.filter = `contrast(${contrastPct}%)`;
-                    ctx.drawImage(baseCanvas, 0, 0, W, H);
+
+                    const currentCanvas = slideCanvases[slideIndex];
+                    const nextCanvas = slideCanvases[slideIndex + 1];
+
+                    if (!inTransition || !nextCanvas) {
+                        if (currentCanvas) ctx.drawImage(currentCanvas, 0, 0, W, H);
+                    } else {
+                        const progress = (localT - (perSlideMs - transitionMs)) / transitionMs;
+                        const p = easeInOutCubic(progress);
+                        drawTransitionFrame(transitionType, currentCanvas, nextCanvas, p);
+                    }
                     ctx.restore();
 
                     // Zoom in/out suave del logo de fondo (efecto "respiración")
@@ -1771,7 +1925,7 @@ Reglas estrictas:
                     ctx.fillRect(0, 0, W, H);
                     ctx.restore();
 
-                    if (now - startTime < DURATION_MS) {
+                    if (now - startTime < totalMs) {
                         rafId = requestAnimationFrame(drawFrame);
                     } else {
                         recorder.stop();
@@ -1791,14 +1945,14 @@ Reglas estrictas:
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 const techSlug = ($('techNameInput').value.trim() || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                link.download = `${techSlug}-slide-${state.currentSlide + 1}-video.webm`;
+                link.download = `${techSlug}-carrusel-video.webm`; 
                 link.href = url;
                 link.click();
                 URL.revokeObjectURL(url);
 
                 label.innerHTML = originalLabel;
                 btn.disabled = false;
-                toast('Video de 5s generado y descargado', 'success');
+                toast(`Video de ${(totalMs / 1000).toFixed(1)}s generado y descargado`, 'success');
             }
             $('btnGenerateVideo').addEventListener('click', generateBackgroundVideo);
             $('videoDurationInput').addEventListener('input', (e) => {
