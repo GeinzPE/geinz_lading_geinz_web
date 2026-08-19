@@ -1543,6 +1543,58 @@
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
 
+    let ffmpegInstance = null;
+    async function getFFmpeg() {
+      if (ffmpegInstance) return ffmpegInstance;
+      console.log("[ffmpeg] importando paquetes locales...");
+      const { FFmpeg } = await import('./ffmpeg-vendor/ffmpeg/index.js');
+      const { fetchFile, toBlobURL } = await import('./ffmpeg-vendor/util/index.js');
+      const ffmpeg = new FFmpeg();
+      ffmpeg.on('log', ({ message }) => console.log("[ffmpeg log]", message));
+
+      console.log("[ffmpeg] cargando core local...");
+const coreURL = await toBlobURL('./ffmpeg-vendor/core/ffmpeg-core.js', 'text/javascript');
+const wasmURL = await toBlobURL('./ffmpeg-vendor/core/ffmpeg-core.wasm', 'application/wasm');
+const classWorkerURL = new URL('./ffmpeg-vendor/ffmpeg/worker.js', document.baseURI).href;
+
+console.log("[ffmpeg] llamando ffmpeg.load()...");
+const loadPromise = ffmpeg.load({ coreURL, wasmURL, classWorkerURL });
+      const loadTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("ffmpeg.load() colgado más de 30s")), 30000);
+      });
+      await Promise.race([loadPromise, loadTimeout]);
+      console.log("[ffmpeg] ✅ listo");
+
+      ffmpegInstance = { ffmpeg, fetchFile };
+      return ffmpegInstance;
+    }
+    async function webmBlobToMp4(webmBlob, onProgress) {
+      console.log("[ffmpeg] webmBlobToMp4: tamaño del blob =", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
+      const { ffmpeg, fetchFile } = await getFFmpeg();
+
+      const handler = ({ progress }) => {
+        console.log("[ffmpeg] progreso:", (progress * 100).toFixed(1) + "%");
+        onProgress && onProgress(progress);
+      };
+      ffmpeg.on('progress', handler);
+
+      console.log("[ffmpeg] escribiendo input.webm en el sistema de archivos virtual...");
+      await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+      console.log("[ffmpeg] input.webm escrito, ejecutando conversión...");
+
+      await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', 'output.mp4']);
+      console.log("[ffmpeg] ✅ conversión terminada, leyendo output.mp4...");
+
+      const data = await ffmpeg.readFile('output.mp4');
+      console.log("[ffmpeg] output.mp4 leído, tamaño =", (data.buffer.byteLength / 1024 / 1024).toFixed(2), "MB");
+
+      ffmpeg.off('progress', handler);
+      await ffmpeg.deleteFile('input.webm');
+      await ffmpeg.deleteFile('output.mp4');
+      console.log("[ffmpeg] limpieza hecha, retornando blob mp4");
+
+      return new Blob([data.buffer], { type: 'video/mp4' });
+    }
     function getContentRect(video, stage) {
       const sw = stage.clientWidth, sh = stage.clientHeight;
       const vw = video.videoWidth || sw, vh = video.videoHeight || sh;
@@ -1568,7 +1620,7 @@
 
     function buildResultCard(seg, idx) {
       const uid = `seg${idx}_${Math.random().toString(36).slice(2, 7)}`;
-      const captions = (seg.captions || (seg.segmentsPreview || []).map((s, i) => ({
+      let captions = (seg.captions || (seg.segmentsPreview || []).map((s, i) => ({
         id: `${idx}-${i}`, start: s.start, end: s.end, text: s.textPreview,
       }))).filter((c) => c.text).map((c) => ({ ...c }));
 
@@ -1580,7 +1632,9 @@
       <h3>Segmento ${idx + 1} <span class="dur">${seg.durationSeconds ? seg.durationSeconds.toFixed(1) + "s" : ""}</span></h3>
 
       <div class="stage" id="${uid}_stage">
-        <video id="${uid}_video" crossorigin="anonymous" ${seg.downloadUrl ? `src="${seg.downloadUrl}"` : ""} controls playsinline></video>
+     <video id="${uid}_video" crossorigin="anonymous" ${seg.downloadUrl ? `src="${seg.downloadUrl}"` : ""} playsinline style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+<button class="stage-fullscreen-btn" id="${uid}_playbtn" type="button" style="left:12px;right:auto;" title="Reproducir/Pausar">▶️</button>
+        <canvas id="${uid}_previewCanvas" style="width:100%;height:100%;display:block;border-radius:inherit;"></canvas>
         <button class="stage-fullscreen-btn" id="${uid}_fsbtn" type="button" title="Pantalla completa con subtítulos y marca de agua">⛶</button>
         <div class="caption-box" id="${uid}_capbox">
           <span class="drag-hint">arrastra para mover</span>
@@ -1610,11 +1664,15 @@
           <button class="btn-full" id="${uid}_cutBtn" type="button" ${seg.downloadUrl ? "" : "disabled"}>✂️ Cortar y descargar</button>
         </div>
       </div>
-
-      <div class="speed-row">
-        <span style="font-size:0.75rem;color:#9aa0a6;">Velocidad</span>
-        <input type="range" id="${uid}_speed" min="0.5" max="2" step="0.05" value="1">
-        <span class="speed-val" id="${uid}_speedval">1.00x</span>
+<div class="speed-row">
+  <span style="font-size:0.75rem;color:#9aa0a6;">Velocidad</span>
+  <input type="range" id="${uid}_speed" min="0.5" max="2" step="0.05" value="1">
+  <span class="speed-val" id="${uid}_speedval">1.00x</span>
+</div>
+         <div class="speed-row">
+        <span style="font-size:0.75rem;color:#9aa0a6;">Volumen del video</span>
+        <input type="range" id="${uid}_volume" min="0" max="1.5" step="0.05" value="1">
+        <span class="speed-val" id="${uid}_volumeval">100%</span>
       </div>
 
       <div class="subtoggle" id="${uid}_subtoggle"><span class="arrow">▶</span> Subtítulos y estilo (${captions.length})</div>
@@ -1671,7 +1729,10 @@
           <span id="${uid}_offsetval" style="min-width:44px;text-align:right;">0.00s</span>
         </div>
         <div class="hint">Arrastra el subtítulo sobre el video para moverlo, y su esquina para redimensionarlo. Si el texto va adelantado o atrasado respecto al audio, ajusta la sincronía de arriba o los botones ±0.1s de cada línea.</div>
-
+        <div class="full" style="margin-top:10px;">
+          <label style="font-size:0.75rem;color:#9aa0a6;">Importar tus propios subtítulos (.srt)</label>
+          <input type="file" id="${uid}_srtimport" accept=".srt" style="margin-top:6px;">
+        </div>
         <div class="captions-list" id="${uid}_captions"></div>
       </div>
 
@@ -1800,7 +1861,32 @@
           stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
         }
       });
+      const previewCanvas = card.querySelector(`#${uid}_previewCanvas`);
+      const pctx = previewCanvas.getContext("2d");
+      const filters = { brightness: 100, contrast: 100, saturation: 100, opacity: 100 };
 
+      function syncCanvasSize() {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (!vw || !vh) return;
+        if (previewCanvas.width !== vw || previewCanvas.height !== vh) {
+          previewCanvas.width = vw;
+          previewCanvas.height = vh;
+        }
+      }
+      video.addEventListener("loadedmetadata", syncCanvasSize);
+
+      let previewLoopId = null;
+      function previewDrawFrame() {
+        if (previewCanvas.width && previewCanvas.height) {
+          pctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`;
+          pctx.globalAlpha = filters.opacity / 100;
+          pctx.drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
+          pctx.globalAlpha = 1;
+          pctx.filter = "none";
+        }
+        previewLoopId = requestAnimationFrame(previewDrawFrame);
+      }
+      previewDrawFrame();
       const stickers = [];
       const ctaListEl = card.querySelector(`#${uid}_ctalist`);
       const ctaToggle = card.querySelector(`#${uid}_ctatoggle`);
@@ -1996,6 +2082,17 @@
       musicToggle.addEventListener("click", () => { musicToggle.classList.toggle("open"); musicPanel.classList.toggle("open"); });
 
       const fsBtn = card.querySelector(`#${uid}_fsbtn`);
+      const playBtn = card.querySelector(`#${uid}_playbtn`);
+      playBtn.addEventListener("click", () => {
+        if (video.paused) { video.play(); playBtn.textContent = "⏸️"; }
+        else { video.pause(); playBtn.textContent = "▶️"; }
+      });
+      video.addEventListener("play", () => { playBtn.textContent = "⏸️"; });
+      video.addEventListener("pause", () => { playBtn.textContent = "▶️"; });
+      previewCanvas.addEventListener("click", () => {
+        if (video.paused) video.play(); else video.pause();
+      });
+      previewCanvas.style.cursor = "pointer";
       fsBtn.addEventListener("click", () => {
         if (document.fullscreenElement) { document.exitFullscreen(); return; }
         const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
@@ -2233,10 +2330,9 @@
       // ---- aplicar estilo visual al overlay ----
       function applyBoxStyle() {
         const f = currentFont();
-        const content = getContentRect(video, stage);
-        capbox.style.left = (content.left + (style.posX / 100) * content.width) + "%";
-        capbox.style.top = (content.top + (style.posY / 100) * content.height) + "%";
-        capbox.style.width = ((style.capW / 100) * content.width) + "%";
+        capbox.style.left = style.posX + "%";
+        capbox.style.top = style.posY + "%";
+        capbox.style.width = style.capW + "%";
         capbox.style.minHeight = style.capH + "%";
         capbox.style.fontFamily = f.css;
         capbox.style.fontWeight = f.weight;
@@ -2295,7 +2391,6 @@
       const fContrast = card.querySelector(`#${uid}_fcontrast`);
       const fSat = card.querySelector(`#${uid}_fsat`);
       const fOpacity = card.querySelector(`#${uid}_fopacity`);
-      const filters = { brightness: 100, contrast: 100, saturation: 100, opacity: 100 };
 
       function applyVideoFilterPreview() {
         video.style.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) opacity(${filters.opacity}%)`;
@@ -2311,18 +2406,14 @@
       });
 
       // ---- arrastrar el subtítulo, siempre dentro del cuadro real del video ----
+
       let dragging = false;
       function posFromEvent(e) {
-        const stageRect = stage.getBoundingClientRect();
+        const rect = previewCanvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const content = getContentRect(video, stage);
-        const leftPx = stageRect.width * (content.left / 100);
-        const topPx = stageRect.height * (content.top / 100);
-        const wPx = stageRect.width * (content.width / 100);
-        const hPx = stageRect.height * (content.height / 100);
-        let x = ((clientX - stageRect.left - leftPx) / wPx) * 100;
-        let y = ((clientY - stageRect.top - topPx) / hPx) * 100;
+        let x = ((clientX - rect.left) / rect.width) * 100;
+        let y = ((clientY - rect.top) / rect.height) * 100;
         x = Math.min(97, Math.max(3, x));
         y = Math.min(97, Math.max(3, y));
         return { x, y };
@@ -2374,13 +2465,31 @@
         video.playbackRate = v;
         speedVal.textContent = v.toFixed(2) + "x";
       });
-
+      const volumeInput = card.querySelector(`#${uid}_volume`);
+      const volumeVal = card.querySelector(`#${uid}_volumeval`);
+      let videoGainNode = null; // se conecta luego, en la exportación
+      volumeInput.addEventListener("input", () => {
+        const v = Number(volumeInput.value);
+        video.volume = Math.min(1, v);
+        volumeVal.textContent = Math.round(v * 100) + "%";
+        if (videoGainNode) videoGainNode.gain.value = v;
+      });
       // ---- desfase global de sincronía ----
       offsetInput.addEventListener("input", () => {
         style.offset = Number(offsetInput.value);
         offsetVal.textContent = (style.offset >= 0 ? "+" : "") + style.offset.toFixed(2) + "s";
       });
 
+      const srtImportInput = card.querySelector(`#${uid}_srtimport`);
+      srtImportInput.addEventListener("change", async () => {
+        const file = srtImportInput.files[0];
+        if (!file) return;
+        const parsed = parseSrt(await file.text());
+        if (!parsed.length) { alert("No se pudo leer ese .srt."); return; }
+        captions = parsed;
+        renderCaptionsList();
+        tick();
+      });
       // ---- lista editable de subtítulos ----
       function renderCaptionsList() {
         captionsListEl.innerHTML = "";
@@ -2514,7 +2623,8 @@
             video, captions, style, currentFont,
             blur, watermark, watermarkPositions, filters,
             musicFile, musicVolume: Number(musicVolInput.value),
-            trim, burnSubtitles: true, stickers,
+            videoVolume: Number(volumeInput.value),   // 👈 agregar
+            trim, burnSubtitles: true,
             filename: `segmento_${idx + 1}_editado.webm`,
             onProgress: (t, dur) => { exportProg.textContent = `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
           });
@@ -2560,14 +2670,19 @@
         burnBtn.disabled = true;
         exportProg.classList.add("show");
         exportProg.textContent = "Preparando exportación…";
+        const safetyTimeout = setTimeout(() => {
+          exportProg.textContent = "⚠️ La exportación está tardando demasiado. Si la pestaña estuvo minimizada mucho tiempo, vuelve a intentarlo con la pestaña visible.";
+          burnBtn.disabled = false;
+        }, 5 * 60 * 1000); // 5 minutos como tope razonable
         try {
           await burnCaptionsAndDownload({
             video, captions, style, currentFont,
             blur, watermark, watermarkPositions, filters,
             musicFile, musicVolume: Number(musicVolInput.value),
+            videoVolume: Number(volumeInput.value),
             trim, burnSubtitles: true,
             filename: `segmento_${idx + 1}_editado.webm`,
-            onProgress: (t, dur) => { exportProg.textContent = `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
+            onProgress: (t, dur, msg) => { exportProg.textContent = msg || `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
           });
           exportProg.textContent = "✅ Exportado. Revisa tus descargas.";
         } catch (err) {
@@ -2658,11 +2773,20 @@
       await donePromise;
 
       if (wasPaused) video.pause();
-      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-      downloadBlob(blob, filename);
+      const webmBlob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      try {
+        const { ffmpeg, fetchFile } = await getFFmpeg();
+        await ffmpeg.writeFile('in.webm', await fetchFile(webmBlob));
+        await ffmpeg.exec(['-i', 'in.webm', '-c:a', 'aac', '-b:a', '160k', 'out.m4a']);
+        const data = await ffmpeg.readFile('out.m4a');
+        await ffmpeg.deleteFile('in.webm'); await ffmpeg.deleteFile('out.m4a');
+        downloadBlob(new Blob([data.buffer], { type: 'audio/mp4' }), filename.replace(/\.webm$/i, ".m4a"));
+      } catch (err) {
+        console.error("No se pudo convertir el audio, se descarga en WebM:", err);
+        downloadBlob(webmBlob, filename);
+      }
     }
-
-    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile, musicVolume, filename, trim, burnSubtitles = true, stickers = [], onProgress }) {
+    async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile, musicVolume, videoVolume, filename, trim, burnSubtitles = true, stickers = [], onProgress }) {
       if (!("MediaRecorder" in window) || !video.captureStream) {
         throw new Error("Tu navegador no soporta grabación en el cliente (prueba con Chrome o Edge de escritorio).");
       }
@@ -2685,9 +2809,11 @@
       if (audioCtx.state === "suspended") await audioCtx.resume();
       const dest = audioCtx.createMediaStreamDestination();
       try { videoSource.disconnect(); } catch (_) { }
-      videoSource.connect(dest);
-      videoSource.connect(audioCtx.destination);
-
+      const videoGain = audioCtx.createGain();
+      videoGain.gain.value = videoVolume ?? 1;
+      videoSource.connect(videoGain);
+      videoGain.connect(dest);
+      videoGain.connect(audioCtx.destination);
       let musicSourceNode = null;
       if (musicFile) {
         try {
@@ -2865,13 +2991,35 @@
         }
       }
 
-      let animId = null;
+      let vfcHandle = null;
+      let rafFallbackId = null;
+      const supportsVFC = "requestVideoFrameCallback" in video;
+
       function loop() {
         drawFrame();
         if (onProgress) onProgress(video.currentTime, endT);
         if (video.currentTime < endT && !video.ended) {
-          animId = requestAnimationFrame(loop);
+          if (supportsVFC) {
+            vfcHandle = video.requestVideoFrameCallback(loop);
+          } else {
+            rafFallbackId = requestAnimationFrame(loop);
+          }
         }
+      }
+
+      // Si el navegador pausa el <video> por estar la pestaña oculta mucho tiempo,
+      // lo reanudamos automáticamente para que la exportación no se quede colgada.
+      function keepAliveOnVisibilityChange() {
+        if (video.paused && video.currentTime < endT) {
+          video.play().catch(() => { });
+        }
+      }
+      document.addEventListener("visibilitychange", keepAliveOnVisibilityChange);
+
+      // Mantiene la pestaña "despierta" mientras se exporta, si el navegador lo soporta.
+      let wakeLock = null;
+      if ("wakeLock" in navigator) {
+        navigator.wakeLock.request("screen").then((wl) => { wakeLock = wl; }).catch(() => { });
       }
 
       recorder.start(100);
@@ -2889,15 +3037,38 @@
         video.addEventListener("timeupdate", checkTime);
       });
 
-      if (animId) cancelAnimationFrame(animId);
+      if (vfcHandle && supportsVFC) { try { video.cancelVideoFrameCallback(vfcHandle); } catch (_) { } }
+      if (rafFallbackId) cancelAnimationFrame(rafFallbackId);
+      document.removeEventListener("visibilitychange", keepAliveOnVisibilityChange);
+      if (wakeLock) { try { await wakeLock.release(); } catch (_) { } }
       video.pause();
       if (musicSourceNode) { try { musicSourceNode.stop(); } catch (_) { } }
       recorder.stop();
       await donePromise;
 
       if (wasPaused) { video.pause(); video.currentTime = originalTime; }
-      const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
-      downloadBlob(blob, filename);
+      const webmBlob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+      const mp4Filename = filename.replace(/\.webm$/i, ".mp4");
+      try {
+        if (onProgress) onProgress(endT, endT, "Preparando conversión a MP4…");
+        console.log("[export] iniciando conversión a MP4, blob webm de", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
+
+        const conversionPromise = webmBlobToMp4(webmBlob, (ratio) => {
+          if (onProgress) onProgress(endT, endT, `Convirtiendo a MP4… ${Math.round(ratio * 100)}%`);
+        });
+
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("La conversión a MP4 tardó demasiado (más de 3 min)")), 3 * 60 * 1000);
+        });
+
+        const mp4Blob = await Promise.race([conversionPromise, timeoutPromise]);
+        console.log("[export] ✅ MP4 listo, descargando...");
+        downloadBlob(mp4Blob, mp4Filename);
+      } catch (err) {
+        console.error("[export] ❌ No se pudo convertir a MP4, se descarga en WebM:", err);
+        if (onProgress) onProgress(endT, endT, "⚠️ Falló la conversión, descargando en WebM…");
+        downloadBlob(webmBlob, filename);
+      }
     }
   </script>
 </body>

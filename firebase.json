@@ -3,6 +3,7 @@
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "cleanUrls": true,
+ 
     "rewrites": [
       {
         "source": "/perfil/**",
@@ -42,7 +43,7 @@
         "function": "staticSSR"
       },
       {
-        "source": "**",
+        "source": "!/ffmpeg/**",
         "destination": "/index.html"
       }
     ]

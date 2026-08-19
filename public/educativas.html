@@ -554,12 +554,25 @@
                         class="field w-full rounded-xl px-3.5 py-2.5 text-sm" />
                 </div>
 
+                <!-- DESPUÉS -->
+                <!-- DESPUÉS -->
+                <!-- DESPUÉS -->
                 <div class="mt-3.5">
                     <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Marca de agua</label>
                     <input id="watermarkTextInput" type="text" placeholder="@aprendecodigo"
                         class="field w-full rounded-xl px-3.5 py-2.5 text-sm" />
+                    <div class="mt-2.5">
+                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Posición (arrastra el
+                            punto)</label>
+                        <div id="watermarkPositionStage"
+                            class="relative rounded-lg overflow-hidden border border-[var(--line)] bg-[#0D1015]"
+                            style="width:100%; aspect-ratio:9/16; max-width:140px; margin:0 auto; cursor:crosshair; touch-action:none;">
+                            <div id="watermarkPositionDot"
+                                class="absolute w-4 h-4 -ml-2 -mt-2 rounded-full bg-violet-400 border-2 border-white shadow-lg"
+                                style="left:82%; top:7.8%;"></div>
+                        </div>
+                    </div>
                 </div>
-
                 <div id="paletteRow" class="hidden mt-3.5">
                     <p class="text-xs text-[var(--text-lo)] mb-2">Paleta extraída del logo</p>
                     <div id="paletteSwatches" class="flex gap-1.5"></div>
@@ -570,8 +583,11 @@
             <div class="panel rounded-2xl p-5">
                 <p class="eyebrow mb-3.5 flex items-center gap-2"><span class="step-num">02</span> Temario</p>
 
+                <!-- DESPUÉS -->
                 <select id="temarioSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm mb-3">
-                    <option value="python">Python Básicos</option>
+                    <option value="python_basico">Python Básico</option>
+                    <option value="python_intermedio">Python Intermedio</option>
+                    <option value="python_avanzado">Python Avanzado</option>
                     <option value="sql">SQL Consultas</option>
                     <option value="js">JavaScript Moderno</option>
                     <option value="git">Git &amp; GitHub</option>
@@ -583,13 +599,24 @@
                     <option value="poo">Programación Orientada a Objetos</option>
                     <option value="docker">Docker Esencial</option>
                     <option value="estructuras">Estructuras de Datos</option>
-                    <option value="custom">Otro / Custom</option>
+                    <option value="bash">Bash &amp; Terminal</option>
+                    <option value="regex">Expresiones Regulares</option>
+                    <option value="seguridad_web">Seguridad Web Básica</option>
+                    <option value="custom">Otro / Lista manual</option>
+                    <option value="libre">Modo Libre (la IA decide)</option>
                 </select>
-
                 <div id="customTemarioWrap" class="hidden mb-3">
                     <textarea id="customTemarioInput" rows="5"
                         placeholder="Un punto por línea, ej.&#10;Sentencia SELECT&#10;Filtro WHERE&#10;Ordenamiento ORDER BY"
                         class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
+                </div>
+                <!-- AGREGA justo después -->
+                <div id="customLibreWrap" class="hidden mb-3">
+                    <textarea id="libreTopicInput" rows="5"
+                        placeholder="Describe libremente el tema, ej.&#10;Explica un ataque de inyección SQL y cómo prevenirlo&#10;&#10;La IA decidirá cuántas diapositivas necesita."
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
+                    <p class="text-xs text-[var(--text-lo)] mt-1.5 leading-relaxed">La cantidad de diapositivas la
+                        decide la IA según el tema.</p>
                 </div>
 
                 <div class="panel-soft rounded-xl p-3.5">
@@ -598,7 +625,8 @@
                     <ul id="temarioPreviewList" class="space-y-1.5"></ul>
                 </div>
 
-                <div class="mt-3.5">
+                <!-- DESPUÉS -->
+                <div id="scopeSection" class="mt-3.5">
                     <p class="text-xs font-medium text-[var(--text-mid)] mb-1.5">Alcance de la generación</p>
                     <div class="grid grid-cols-2 gap-2">
                         <button id="scopeAllBtn" data-scope="all"
@@ -721,12 +749,23 @@
                         <input type="checkbox" id="subtitlesEnabledInput" checked class="w-4 h-4 accent-cyan-400" />
                     </div>
                     <div>
-                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Posición</label>
-                        <select id="subtitlesPositionSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm">
-                            <option value="bottom">Abajo (estilo TikTok)</option>
-                            <option value="center">Centro</option>
-                            <option value="top">Arriba</option>
-                        </select>
+                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Posición (arrastra el
+                            punto)</label>
+                        <div id="subtitlePositionStage"
+                            class="relative rounded-lg overflow-hidden border border-[var(--line)] bg-[#0D1015]"
+                            style="width:100%; aspect-ratio:9/16; max-width:140px; margin:0 auto; cursor:crosshair; touch-action:none;">
+                            <div id="subtitlePositionDot"
+                                class="absolute w-4 h-4 -ml-2 -mt-2 rounded-full bg-cyan-400 border-2 border-white shadow-lg"
+                                style="left:50%; top:86%;"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5 mt-2">
+                            <button type="button" data-preset="top"
+                                class="subtitle-preset-btn btn-ghost rounded-lg py-1.5 text-[11px]">Arriba</button>
+                            <button type="button" data-preset="center"
+                                class="subtitle-preset-btn btn-ghost rounded-lg py-1.5 text-[11px]">Centro</button>
+                            <button type="button" data-preset="bottom"
+                                class="subtitle-preset-btn btn-ghost rounded-lg py-1.5 text-[11px]">Abajo</button>
+                        </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2.5">
@@ -913,8 +952,12 @@
             'use strict';
 
             /* ===================== PRESETS ===================== */
+            // ANTES
+            // DESPUÉS
             const PRESETS = {
-                python: { label: 'Python Básicos', tech: 'Python', items: ['Concepto de Variable', 'Asignación de valores', 'Tipos de datos', 'Convenciones'] },
+                python_basico: { label: 'Python Básico', tech: 'Python', items: ['Variables y tipos de datos', 'Operadores', 'Condicionales if/else', 'Bucles for y while'] },
+                python_intermedio: { label: 'Python Intermedio', tech: 'Python', items: ['Funciones y parámetros', 'Listas y comprensión de listas', 'Diccionarios y sets', 'Manejo de excepciones'] },
+                python_avanzado: { label: 'Python Avanzado', tech: 'Python', items: ['Decoradores', 'Generadores y yield', 'Programación asíncrona (async/await)', 'Context managers (with)'] },
                 sql: { label: 'SQL Consultas', tech: 'SQL', items: ['Sentencia SELECT', 'Filtro WHERE', 'Ordenamiento ORDER BY', 'Agrupación GROUP BY'] },
                 js: { label: 'JavaScript Moderno', tech: 'JavaScript', items: ['Let y Const', 'Arrow Functions', 'Template Literals', 'Desestructuración'] },
                 git: { label: 'Git & GitHub', tech: 'Git', items: ['git init / status', 'git add / commit', 'git branch / checkout', 'git push / pull'] },
@@ -925,7 +968,10 @@
                 mongodb: { label: 'MongoDB / NoSQL', tech: 'MongoDB', items: ['Documentos y colecciones', 'Operaciones CRUD', 'Filtros de consulta', 'Agregaciones'] },
                 poo: { label: 'Programación Orientada a Objetos', tech: 'POO', items: ['Clases y objetos', 'Herencia', 'Encapsulamiento', 'Polimorfismo'] },
                 docker: { label: 'Docker Esencial', tech: 'Docker', items: ['Imágenes vs contenedores', 'Dockerfile básico', 'docker build / run', 'Volúmenes y redes'] },
-                estructuras: { label: 'Estructuras de Datos', tech: 'Estructuras de Datos', items: ['Arrays y Listas', 'Pilas (Stacks)', 'Colas (Queues)', 'Árboles binarios'] }
+                estructuras: { label: 'Estructuras de Datos', tech: 'Estructuras de Datos', items: ['Arrays y Listas', 'Pilas (Stacks)', 'Colas (Queues)', 'Árboles binarios'] },
+                bash: { label: 'Bash & Terminal', tech: 'Bash', items: ['Navegación de directorios', 'Permisos de archivos', 'Pipes y redirección', 'Scripts básicos'] },
+                regex: { label: 'Expresiones Regulares', tech: 'Regex', items: ['Caracteres literales y especiales', 'Cuantificadores', 'Grupos y capturas', 'Lookahead / Lookbehind'] },
+                seguridad_web: { label: 'Seguridad Web Básica', tech: 'Seguridad Web', items: ['Inyección SQL', 'Cross-Site Scripting (XSS)', 'Autenticación segura', 'HTTPS y certificados'] }
             };
 
             /* ===================== STATE ===================== */
@@ -933,15 +979,18 @@
             const state = {
                 config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '' },
                 logo: { dataUrl: null, colors: [] },
-                temarioMode: 'python',
-                temarioItems: PRESETS.python.items.slice(),
+                // DESPUÉS
+                temarioMode: 'python_basico',
+                temarioItems: PRESETS.python_basico.items.slice(),
                 generationScope: 'all',        // 'all' | 'single'
                 generationSingleIndex: 0,
                 carousel: null,     // { caption, content_slides:[{titulo,explicacion,codigo}], reto:{titulo,enunciado,codigo} }
                 slides: [],          // flattened render-ready slides
                 currentSlide: 0,
+                // DESPUÉS
                 videoSlideSelection: [],
-                exportSettings: { speed: 1, musicVolume: 0.15, narrationVolume: 1, saturate: 100, style: 'suave', subtitlesEnabled: true, subtitlesPosition: 'bottom' }
+                watermarkPos: { xPct: 0.82, yPct: 0.078 },
+                exportSettings: { speed: 1, musicVolume: 0.15, narrationVolume: 1, saturate: 100, style: 'suave', subtitlesEnabled: true, subtitlePos: { xPct: 0.5, yPct: 0.86 } }
             };
 
             /* ===================== UTIL ===================== */
@@ -1178,13 +1227,20 @@
             }
 
             /* ===================== TEMARIO ===================== */
+            // DESPUÉS
             function updateTemarioMode(mode) {
                 state.temarioMode = mode;
+                $('customTemarioWrap').classList.toggle('hidden', mode !== 'custom');
+                $('customLibreWrap').classList.toggle('hidden', mode !== 'libre');
+                $('scopeSection').classList.toggle('hidden', mode === 'libre');
+
                 if (mode === 'custom') {
-                    $('customTemarioWrap').classList.remove('hidden');
                     syncCustomTemario();
+                } else if (mode === 'libre') {
+                    state.generationScope = 'all';
+                    state.temarioItems = [];
+                    updateScopeUI();
                 } else {
-                    $('customTemarioWrap').classList.add('hidden');
                     state.temarioItems = PRESETS[mode].items.slice();
                     if (!$('techNameInput').value.trim() || Object.values(PRESETS).some(p => p.tech === $('techNameInput')._lastAuto)) {
                         $('techNameInput').value = PRESETS[mode].tech;
@@ -1200,7 +1256,14 @@
                 renderTemarioPreview();
             }
 
+            // DESPUÉS
             function renderTemarioPreview() {
+                if (state.temarioMode === 'libre' && !state.temarioItems.length) {
+                    $('temarioPreviewList').innerHTML = `
+      <li class="text-[12px] text-[var(--text-lo)] italic">La IA leerá tu descripción libre y decidirá los puntos y la cantidad de diapositivas automáticamente.</li>
+    `;
+                    return;
+                }
                 $('temarioPreviewList').innerHTML = state.temarioItems.map((item, i) => `
       <li class="flex items-center gap-2 text-[12px] text-[var(--text-mid)]">
         <span class="w-4 h-4 rounded-full border border-[var(--line)] flex items-center justify-center text-[9px] font-mono text-[var(--text-lo)] shrink-0">${i + 1}</span>
@@ -1209,7 +1272,6 @@
     `).join('');
                 syncScopeSingleSelect();
             }
-
             $('temarioSelect').addEventListener('change', (e) => updateTemarioMode(e.target.value));
             $('customTemarioInput').addEventListener('input', syncCustomTemario);
 
@@ -1257,32 +1319,48 @@
                 return `Eres un generador de contenido educativo técnico para carruseles de redes sociales. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks. Nunca generes explicaciones fuera del JSON.`;
             }
 
-            function buildUserPrompt() {
-                const tech = $('techNameInput').value.trim() || 'Tecnología';
-                const items = getScopedItems();
-
-                return `Genera el contenido para un carrusel educativo sobre "${tech}".
-El temario a cubrir en esta generación, en este orden exacto:
-${items.map((it, i) => `${i + 1}. ${it}`).join('\n')}
-
-Devuelve SOLO este objeto JSON (nada de texto fuera de él):
+            // DESPUÉS
+            function buildJsonRulesBlock(tech) {
+                return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
 {
   "caption": "texto corto para la publicación en redes con 2-3 hashtags relevantes, máximo 220 caracteres",
   "intro_dialogo": "guion hablado de 1-2 frases para narrar la diapositiva de portada (bienvenida al tema)",
   "content_slides": [
-    { "titulo": "título corto del punto ${items[0] ? '1' : ''}", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real, MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion hablado de 2-3 frases que explica este punto en tono cercano, para narrar en voz alta" }
+    { "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real, MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion hablado de 2-3 frases que explica este punto en tono cercano, para narrar en voz alta" }
   ],
   "reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio a resolver (máx 100 caracteres)", "codigo": "código base o de referencia del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion hablado de 2-3 frases invitando a resolver el reto" }
 }
 
 Reglas estrictas:
-- "content_slides" debe tener EXACTAMENTE ${items.length} elementos, uno por cada punto listado arriba, en el mismo orden.
-- Cada "codigo" debe ser código real y funcional relacionado con "${tech}", sin relleno.
-- CRÍTICO: cada bloque "codigo" debe tener MÁXIMO 3 líneas y cada línea MÁXIMO 28 caracteres. Si el código real necesita más espacio, usa nombres de variables cortos y quita comentarios para que quepa. Nunca superes ese límite.
+- Cada "codigo" debe ser código o contenido técnico real relacionado con "${tech}", sin relleno.
+- CRÍTICO: cada bloque "codigo" debe tener MÁXIMO 3 líneas y cada línea MÁXIMO 28 caracteres. Si el contenido real necesita más espacio, usa nombres cortos y quita comentarios para que quepa. Nunca superes ese límite.
 - Sé extremadamente conciso: nada de párrafos largos, solo frases cortas y directas.
 - No repitas el nombre "${tech}" dentro de cada título.
 - Los campos "dialogo" e "intro_dialogo" son guiones para ser LEÍDOS EN VOZ ALTA por una IA de voz (texto a voz). CRÍTICO: escribe SIEMPRE los números en palabras (ej. "tres" en vez de "3", "primero" en vez de "1º"), nunca uses dígitos, símbolos raros, ni abreviaturas, porque la voz IA los pronuncia mal o se traba.
 - JSON compacto, sin espacios innecesarios, sin comentarios.`;
+            }
+
+            function buildUserPrompt() {
+                const tech = $('techNameInput').value.trim() || 'Tecnología';
+
+                if (state.temarioMode === 'libre') {
+                    const topic = $('libreTopicInput').value.trim() || tech;
+                    return `Genera el contenido para un carrusel educativo sobre "${tech}", a partir de esta petición libre escrita por el usuario (puede ser un tema, una pregunta o un caso concreto):
+"${topic}"
+
+Interpreta la intención real del usuario y organiza el contenido en el mismo formato que usa esta app para temarios estructurados (una portada, varios puntos de contenido y un reto final). TÚ decides cuántos puntos de contenido son necesarios para explicar bien el tema: usa entre 3 y 7 elementos en "content_slides", ni más ni menos de lo que el tema realmente requiera. Cada punto debe cubrir un aspecto claro, distinto y en un orden lógico de aprendizaje.
+
+${buildJsonRulesBlock(tech)}
+- "content_slides" debe tener entre 3 y 7 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario.`;
+                }
+
+                const items = getScopedItems();
+                return `Genera el contenido para un carrusel educativo sobre "${tech}".
+El temario a cubrir en esta generación, en este orden exacto:
+${items.map((it, i) => `${i + 1}. ${it}`).join('\n')}
+
+${buildJsonRulesBlock(tech)}
+- "content_slides" debe tener EXACTAMENTE ${items.length} elementos, uno por cada punto listado arriba, en el mismo orden.`;
             }
 
             /* ===================== AI CALLS ===================== */
@@ -1503,7 +1581,13 @@ Reglas estrictas:
                     $('configModal').classList.remove('hidden');
                     return;
                 }
-                if (!state.temarioItems.length) {
+                // DESPUÉS
+                if (state.temarioMode === 'libre') {
+                    if (!$('libreTopicInput').value.trim()) {
+                        toast('Describe el tema en modo libre antes de generar.', 'error');
+                        return;
+                    }
+                } else if (!state.temarioItems.length) {
                     toast('Define al menos un punto en el temario.', 'error');
                     return;
                 }
@@ -1514,6 +1598,13 @@ Reglas estrictas:
                     const userPrompt = buildUserPrompt();
                     const result = api === 'gemini' ? await callGemini(key, systemPrompt, userPrompt) : await callOpenAI(key, systemPrompt, userPrompt);
                     const json = safeParseJson(result.text);
+
+                    if (state.temarioMode === 'libre') {
+                        const aiItems = Array.isArray(json.content_slides) ? json.content_slides.map((s) => s.titulo || 'Punto') : [];
+                        state.temarioItems = aiItems.length ? aiItems : ['Contenido'];
+                        state.generationScope = 'all';
+                        renderTemarioPreview();
+                    }
 
                     state.carousel = json;
                     state.slides = buildSlides(json);
@@ -1637,9 +1728,13 @@ Reglas estrictas:
                     ? `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center overflow-hidden shrink-0">${state.logo.dataUrl ? `<img src="${state.logo.dataUrl}" class="w-full h-full object-contain p-1.5" />` : ''}</div>`
                     : `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center font-display font-bold text-[13px] text-white/80 shrink-0">${escapeHtml((tech || '?').charAt(0))}</div>`;
 
+                // DESPUÉS
                 const watermarkText = $('watermarkTextInput').value.trim();
+                const wmPos = state.watermarkPos;
                 const watermarkHtml = watermarkText
-                    ? `<span class="font-display text-[11px] font-medium text-white/55 tracking-wide">${escapeHtml(watermarkText)}</span>`
+                    ? `<div id="slideWatermark" class="absolute select-none" style="left:${(wmPos.xPct * 100).toFixed(2)}%; top:${(wmPos.yPct * 100).toFixed(2)}%; transform:translate(-50%,-50%); cursor:grab; touch-action:none;">
+           <span class="font-display text-[11px] font-medium text-white/55 tracking-wide">${escapeHtml(watermarkText)}</span>
+         </div>`
                     : '';
 
                 const badgeIsReto = slide.tipo === 'reto';
@@ -1685,11 +1780,12 @@ Reglas estrictas:
          </div>`
                     : '';
 
+                // DESPUÉS
                 $('slideContent').innerHTML = `
-      <div class="flex items-center justify-between px-5 pt-5">
+      <div class="flex items-center px-5 pt-5">
         ${logoHtml}
-        ${watermarkHtml}
       </div>
+      ${watermarkHtml}
 
       <div class="flex-1 flex flex-col justify-center px-5 pt-4 pb-4 min-h-0">
 <h2 class="font-display font-bold text-white leading-[1.18] tracking-tight" style="font-size:${ts.title}px">${escapeHtml(slide.titulo)}</h2>
@@ -1752,10 +1848,13 @@ Reglas estrictas:
                     setChecklistVisible(true);
                 }
             }
+            // DESPUÉS
             function computeSlidesSignature() {
                 const wm = $('watermarkTextInput').value.trim();
+                const wmPos = state.watermarkPos;
                 return JSON.stringify(state.slides.map(s => ({ t: s.titulo, s: s.sub, c: s.codigo })))
-                    + '|' + (state.logo.dataUrl ? state.logo.dataUrl.length : 0) + '|' + wm;
+                    + '|' + (state.logo.dataUrl ? state.logo.dataUrl.length : 0) + '|' + wm
+                    + '|' + wmPos.xPct.toFixed(3) + ',' + wmPos.yPct.toFixed(3);
             }
 
             /* ===================== DOWNLOAD PNG HD ===================== */
@@ -1911,7 +2010,18 @@ Reglas estrictas:
                 const activeCanvases = selectedIndices.map((i) => slideCanvases[i]);
 
                 const W = activeCanvases[0].width, H = activeCanvases[0].height;
-
+                const contrastPct = Number($('videoContrastInput').value) || 100;
+                const saturatePctForFilter = state.exportSettings.saturate || 100;
+                label.innerHTML = '<div class="spinner"></div> Aplicando filtros…';
+                const filteredCanvases = activeCanvases.map((c) => {
+                    const out = document.createElement('canvas');
+                    out.width = c.width; out.height = c.height;
+                    const octx = out.getContext('2d');
+                    octx.filter = `contrast(${contrastPct}%) saturate(${saturatePctForFilter}%)`;
+                    octx.drawImage(c, 0, 0);
+                    return out;
+                });
+                await new Promise((r) => requestAnimationFrame(r));
                 const canvas = document.createElement('canvas');
                 canvas.width = W; canvas.height = H;
                 const ctx = canvas.getContext('2d');
@@ -1921,7 +2031,7 @@ Reglas estrictas:
                 let fallbackIdx = 0;
                 while (colors.length < 3) { colors.push(FALLBACK_ACCENTS[fallbackIdx % FALLBACK_ACCENTS.length]); fallbackIdx++; }
 
-                const contrastPct = Number($('videoContrastInput').value) || 100;
+
                 const fallbackPerSlideMs = (Number($('videoDurationInput').value) || 5) * 1000;
                 const transitionType = $('videoTransitionSelect').value || 'fadeUp';
                 const transitionMs = 700;
@@ -2039,7 +2149,7 @@ Reglas estrictas:
                 const stream = canvas.captureStream(30);
                 if (audioTrack) stream.addTrack(audioTrack);
                 const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-                const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6000000 });
+                const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 });
                 const chunks = [];
                 recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
 
@@ -2175,7 +2285,7 @@ Reglas estrictas:
                     return lines;
                 }
 
-                function drawSubtitle(text, position, alpha = 1) {
+                function drawSubtitle(text, alpha = 1) {
                     if (!text) return;
                     const fontSize = Math.round(W * 0.042);
                     ctx.save();
@@ -2186,10 +2296,13 @@ Reglas estrictas:
                     const maxWidth = W * 0.86;
                     const lines = wrapCanvasText(ctx, text, maxWidth);
                     const blockHeight = lines.length * (fontSize * 1.35);
-                    let startY;
-                    if (position === 'top') startY = H * 0.16 + blockHeight / 2;
-                    else if (position === 'center') startY = H / 2 - blockHeight / 2 + fontSize * 0.7;
-                    else startY = H * 0.86 - blockHeight;
+
+                    const { xPct, yPct } = state.exportSettings.subtitlePos;
+                    const centerX = W * xPct;
+                    const minY = blockHeight / 2 + fontSize * 0.6;
+                    const maxY = H - blockHeight / 2 - fontSize * 0.6;
+                    const centerY = Math.min(maxY, Math.max(minY, H * yPct));
+                    const startY = centerY - blockHeight / 2 + fontSize * 0.7;
 
                     lines.forEach((line, i) => {
                         const y = startY + i * (fontSize * 1.35);
@@ -2197,16 +2310,16 @@ Reglas estrictas:
                         const padX = fontSize * 0.4, padY = fontSize * 0.22;
                         ctx.fillStyle = 'rgba(0,0,0,0.45)';
                         ctx.beginPath();
-                        ctx.roundRect(W / 2 - textWidth / 2 - padX, y - fontSize / 2 - padY, textWidth + padX * 2, fontSize + padY * 2, fontSize * 0.3);
+                        ctx.roundRect(centerX - textWidth / 2 - padX, y - fontSize / 2 - padY, textWidth + padX * 2, fontSize + padY * 2, fontSize * 0.3);
                         ctx.fill();
 
                         ctx.lineWidth = fontSize * 0.14;
                         ctx.strokeStyle = 'rgba(0,0,0,0.9)';
                         ctx.lineJoin = 'round';
-                        ctx.strokeText(line, W / 2, y);
+                        ctx.strokeText(line, centerX, y);
 
                         ctx.fillStyle = '#FFFFFF';
-                        ctx.fillText(line, W / 2, y);
+                        ctx.fillText(line, centerX, y);
                     });
                     ctx.restore();
                 }
@@ -2236,7 +2349,7 @@ Reglas estrictas:
                 const subtitleChunksBySlide = activeSlides.map((slide, i) => {
                     const chunks = buildSubtitleChunks(slide.dialogo, W * 0.86, 2);
                     if (!chunks.length) return [];
-                const durForCaptions = (slide.audioDurationMs ? slide.audioDurationMs / speed : perSlideDurations[i]);
+                    const durForCaptions = (slide.audioDurationMs ? slide.audioDurationMs / speed : perSlideDurations[i]);
                     const weights = chunks.map((c) => c.length);
                     const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
                     let acc = 0;
@@ -2259,11 +2372,8 @@ Reglas estrictas:
                     const isLast = slideIndex === activeCanvases.length - 1; const inTransition = !isLast && localT > currentSlideDur - transitionMs;
                     // Base: la(s) diapositiva(s) real(es), con transición suave entre ellas
                     ctx.save();
-                    const saturatePct = state.exportSettings.saturate || 100;
-                    ctx.filter = `contrast(${contrastPct}%) saturate(${saturatePct}%)`;
-
-                    const currentCanvas = activeCanvases[slideIndex];
-                    const nextCanvas = activeCanvases[slideIndex + 1];
+                    const currentCanvas = filteredCanvases[slideIndex];
+                    const nextCanvas = filteredCanvases[slideIndex + 1];
 
                     if (!inTransition || !nextCanvas) {
                         if (currentCanvas) ctx.drawImage(currentCanvas, 0, 0, W, H);
@@ -2315,7 +2425,7 @@ Reglas estrictas:
                             let alpha = 1;
                             if (localT - chunk.startMs < fadeMs) alpha = (localT - chunk.startMs) / fadeMs;
                             else if (chunk.endMs - localT < fadeMs) alpha = (chunk.endMs - localT) / fadeMs;
-                            drawSubtitle(chunk.text, state.exportSettings.subtitlesPosition, Math.max(0, Math.min(1, alpha)));
+                            drawSubtitle(chunk.text, Math.max(0, Math.min(1, alpha)));
                         }
                     }
 
@@ -2372,6 +2482,100 @@ Reglas estrictas:
                 state.exportSettings.narrationVolume = Number(e.target.value) / 100;
                 $('videoNarrationVolumeLabel').textContent = `${e.target.value}%`;
             });
+            function updateSubtitleDotUI() {
+                const dot = $('subtitlePositionDot');
+                dot.style.left = `${state.exportSettings.subtitlePos.xPct * 100}%`;
+                dot.style.top = `${state.exportSettings.subtitlePos.yPct * 100}%`;
+            }
+
+            function setSubtitlePosFromEvent(e, stage) {
+                const rect = stage.getBoundingClientRect();
+                let xPct = (e.clientX - rect.left) / rect.width;
+                let yPct = (e.clientY - rect.top) / rect.height;
+                xPct = Math.min(1, Math.max(0, xPct));
+                yPct = Math.min(1, Math.max(0, yPct));
+                state.exportSettings.subtitlePos = { xPct, yPct };
+                updateSubtitleDotUI();
+            }
+
+            (function setupSubtitleDrag() {
+                const stage = $('subtitlePositionStage');
+                let dragging = false;
+                stage.addEventListener('pointerdown', (e) => {
+                    dragging = true;
+                    stage.setPointerCapture(e.pointerId);
+                    setSubtitlePosFromEvent(e, stage);
+                });
+                stage.addEventListener('pointermove', (e) => { if (dragging) setSubtitlePosFromEvent(e, stage); });
+                stage.addEventListener('pointerup', () => { dragging = false; });
+                stage.addEventListener('pointercancel', () => { dragging = false; });
+            })();
+
+            function updateWatermarkDotUI() {
+                const dot = $('watermarkPositionDot');
+                if (!dot) return;
+                dot.style.left = `${state.watermarkPos.xPct * 100}%`;
+                dot.style.top = `${state.watermarkPos.yPct * 100}%`;
+            }
+
+            function setWatermarkPosFromEvent(e, stage) {
+                const rect = stage.getBoundingClientRect();
+                let xPct = (e.clientX - rect.left) / rect.width;
+                let yPct = (e.clientY - rect.top) / rect.height;
+                xPct = Math.min(1, Math.max(0, xPct));
+                yPct = Math.min(1, Math.max(0, yPct));
+                state.watermarkPos = { xPct, yPct };
+                updateWatermarkDotUI();
+                if (state.slides.length) renderSlide();
+            }
+
+            (function setupWatermarkStageDrag() {
+                const stage = $('watermarkPositionStage');
+                let dragging = false;
+                stage.addEventListener('pointerdown', (e) => {
+                    dragging = true;
+                    stage.setPointerCapture(e.pointerId);
+                    setWatermarkPosFromEvent(e, stage);
+                });
+                stage.addEventListener('pointermove', (e) => { if (dragging) setWatermarkPosFromEvent(e, stage); });
+                stage.addEventListener('pointerup', () => { dragging = false; });
+                stage.addEventListener('pointercancel', () => { dragging = false; });
+            })();
+
+            updateWatermarkDotUI();
+
+
+
+            const WATERMARK_PRESETS = {
+                'top-left': { xPct: 0.18, yPct: 0.078 },
+                'top-center': { xPct: 0.5, yPct: 0.078 },
+                'top-right': { xPct: 0.82, yPct: 0.078 },
+                'bottom-left': { xPct: 0.18, yPct: 0.94 },
+                'bottom-center': { xPct: 0.5, yPct: 0.94 },
+                'bottom-right': { xPct: 0.82, yPct: 0.94 }
+            };
+            document.querySelectorAll('.watermark-preset-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const preset = WATERMARK_PRESETS[btn.dataset.wmPreset];
+                    if (!preset) return;
+                    state.watermarkPos = { ...preset };
+                    if (state.slides.length) renderSlide();
+                });
+            });
+
+            document.querySelectorAll('.subtitle-preset-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const presets = {
+                        top: { xPct: 0.5, yPct: 0.18 },
+                        center: { xPct: 0.5, yPct: 0.5 },
+                        bottom: { xPct: 0.5, yPct: 0.86 }
+                    };
+                    state.exportSettings.subtitlePos = presets[btn.dataset.preset];
+                    updateSubtitleDotUI();
+                });
+            });
+
+            updateSubtitleDotUI();
             const STYLE_PRESETS = {
                 suave: { contrast: 100, saturate: 100, transition: 'fadeUp' },
                 tiktok: { contrast: 118, saturate: 130, transition: 'zoomFade' },
@@ -2387,8 +2591,9 @@ Reglas estrictas:
                 $('videoTransitionSelect').value = preset.transition;
             });
             /* ===================== INIT ===================== */
+            // DESPUÉS
             loadConfig();
-            updateTemarioMode('python');
+            updateTemarioMode('python_basico');
             updateScopeUI();
             updateStageGlow([]);
         })();
