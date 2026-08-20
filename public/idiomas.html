@@ -1505,6 +1505,7 @@ ${buildJsonRulesBlock(tech)}
                 scopedItems.forEach((item, i) => {
                     const src = contentSlides[i] || {};
                     const posInFull = isSingle ? singleIndex : i;
+                    const codigoWords = (src.codigo || '').toLowerCase().match(/[a-záéíóúñü']+/gi) || [];
                     slides.push({
                         tipo: 'contenido',
                         numero: i + 2,
@@ -1512,6 +1513,7 @@ ${buildJsonRulesBlock(tech)}
                         titulo: trimText(src.titulo || item, 46),
                         sub: trimText(src.explicacion || '', 100),
                         codigo: trimCode(src.codigo || ''),
+                        keywords: [...new Set(codigoWords)],
                         checkedCount: posInFull + 1,
                         dialogo: src.dialogo || ''
                     });
@@ -1801,11 +1803,9 @@ ${buildJsonRulesBlock(tech)}
                 $('slideLogoGlow').style.backgroundImage = state.logo.blurredDataUrl ? `url(${state.logo.blurredDataUrl})` : 'none';
                 document.querySelectorAll('.slide-dot').forEach((d, i) => d.classList.toggle('active', i === state.currentSlide));
                 $('slideLabel').textContent = `Diapositiva ${slide.numero} de ${total}`;
-
                 const logoHtml = state.logo.dataUrl
-                    ? `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center overflow-hidden shrink-0">${state.logo.dataUrl ? `<img src="${state.logo.dataUrl}" class="w-full h-full object-contain p-1.5" />` : ''}</div>`
+                    ? `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center overflow-hidden shrink-0"><img src="${state.logo.dataUrl}" class="w-full h-full object-cover rounded-xl" /></div>`
                     : `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center font-display font-bold text-[13px] text-white/80 shrink-0">${escapeHtml((tech || '?').charAt(0))}</div>`;
-
                 // DESPUÉS
                 const watermarkText = $('watermarkTextInput').value.trim();
                 const wmPos = state.watermarkPos;
@@ -1824,7 +1824,7 @@ ${buildJsonRulesBlock(tech)}
                 const cfs = codeFontSizeForLines(codeLines);
                 const ts = computeTextSizing(slide);
                 const codeBlock = slide.codigo
-                    ? `<div class="phrase-card mt-2 w-full px-3.5 py-3">
+                    ? `<div id="slidePhraseCard" class="phrase-card mt-2 w-full px-3.5 py-3">
            <div class="phrase-card-top mb-2">
              <span class="phrase-mark" style="font-size:20px">❝</span>
              <span class="phrase-lang-tag">${escapeHtml(tech)}</span>
@@ -1890,15 +1890,20 @@ ${buildJsonRulesBlock(tech)}
                 const el = document.getElementById('slideLogoGlow');
                 if (el) el.style.display = visible ? '' : 'none';
             }
+            function setPhraseCardVisible(visible) {
+                const el = document.getElementById('slidePhraseCard');
+                if (el) el.style.display = visible ? '' : 'none';
+            }
             /* ===================== EXPORT HELPERS ===================== */
             function setChecklistVisible(visible) {
                 const el = document.getElementById('slideChecklistBlock');
                 if (el) el.style.display = visible ? '' : 'none';
             }
 
-            async function captureCurrentSlidePng() {
+            async function captureCurrentSlidePng(hidePhraseCard = false) {
                 const node = $('slideCanvas');
                 setChecklistVisible(false);
+                if (hidePhraseCard) setPhraseCardVisible(false);
                 node.classList.add('capturing');
                 await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
                 try {
@@ -1908,6 +1913,7 @@ ${buildJsonRulesBlock(tech)}
                 } finally {
                     node.classList.remove('capturing');
                     setChecklistVisible(true);
+                    if (hidePhraseCard) setPhraseCardVisible(true);
                 }
             }
 
@@ -2096,14 +2102,14 @@ ${buildJsonRulesBlock(tech)}
 
                         let cap = null;
                         try {
-                            cap = await captureCurrentSlidePng();
+                            cap = await captureCurrentSlidePng(true);
                         } catch (e) {
                             console.error(`Fallo al capturar la diapositiva ${i + 1}, reintentando…`, e);
                             // Reintento único: si fue algo transitorio (fuente sin cargar, layout aún
                             // acomodándose, etc.) esto suele resolverlo sin desalinear el video.
                             try {
                                 await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-                                cap = await captureCurrentSlidePng();
+                                cap = await captureCurrentSlidePng(true);
                             } catch (e2) {
                                 console.error(`Reintento fallido en la diapositiva ${i + 1}`, e2);
                             }
@@ -2417,6 +2423,71 @@ ${buildJsonRulesBlock(tech)}
                     return lines;
                 }
 
+                function buildTimedPhraseWords(alignment, phraseText) {
+                    if (!alignment || !phraseText) return null;
+                    const timed = buildTimedSubtitleChunks(alignment, 999999, 999); // un solo "chunk" gigante = todas las palabras con tiempos
+                    if (!timed || !timed.length) return null;
+                    // Reusa el parser interno: extrae todas las palabras con tiempos de TODO el alignment
+                    const chars = alignment.characters, st = alignment.character_start_times_seconds, et = alignment.character_end_times_seconds;
+                    const words = [];
+                    let current = '', startIdx = null;
+                    for (let i = 0; i < chars.length; i++) {
+                        if (/\s/.test(chars[i])) {
+                            if (current) { words.push({ text: current, startMs: st[startIdx] * 1000, endMs: et[i - 1] * 1000 }); current = ''; startIdx = null; }
+                        } else { if (startIdx === null) startIdx = i; current += chars[i]; }
+                    }
+                    if (current) words.push({ text: current, startMs: st[startIdx] * 1000, endMs: et[chars.length - 1] * 1000 });
+                    return words;
+                }
+
+                function drawPhraseCard(slide, localT, x, y, maxWidth) {
+                    if (!slide.codigo) return;
+                    const lines = slide.codigo.split('\n');
+                    const fontSize = Math.round(W * 0.026);
+                    ctx.save();
+                    ctx.font = `600 ${fontSize}px 'Space Grotesk', sans-serif`;
+                    ctx.textBaseline = 'middle';
+
+                    // fondo de tarjeta
+                    const cardH = lines.length * fontSize * 1.6 + fontSize * 1.2;
+                    ctx.fillStyle = 'rgba(11,13,18,0.72)';
+                    ctx.strokeStyle = 'rgba(167,139,250,0.35)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, maxWidth, cardH, 16);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    const words = slide._phraseWords || (slide._phraseWords = buildTimedPhraseWords(slide.audioAlignment, slide.dialogo));
+                    const keywords = slide.keywords || [];
+
+                    lines.forEach((line, li) => {
+                        let cursorX = x + fontSize;
+                        const ly = y + fontSize * 1.1 + li * fontSize * 1.6;
+                        line.split(' ').forEach((word) => {
+                            const clean = word.toLowerCase().replace(/[.,!?¡¿]/g, '');
+                            const isKeyword = keywords.includes(clean);
+                            // ¿esta palabra se está diciendo justo ahora? (busca coincidencia aproximada en tiempo real)
+                            let isActive = false;
+                            if (words) {
+                                const match = words.find((w) => w.text.toLowerCase().includes(clean) && localT >= w.startMs - 80 && localT <= w.endMs + 200);
+                                isActive = !!match;
+                            }
+                            const w = ctx.measureText(word).width;
+                            if (isActive) {
+                                ctx.fillStyle = 'rgba(34,211,238,0.22)';
+                                ctx.beginPath();
+                                ctx.roundRect(cursorX - 4, ly - fontSize / 2 - 4, w + 8, fontSize + 8, 6);
+                                ctx.fill();
+                            }
+                            ctx.fillStyle = isKeyword ? '#22D3EE' : '#F2F4F8';
+                            ctx.fillText(word, cursorX, ly);
+                            cursorX += w + ctx.measureText(' ').width;
+                        });
+                    });
+                    ctx.restore();
+                }
+
                 function drawSubtitle(text, alpha = 1) {
                     if (!text) return;
                     const fontSize = Math.round(W * 0.042);
@@ -2542,6 +2613,12 @@ ${buildJsonRulesBlock(tech)}
                 const fontSizeForSubs = Math.round(W * 0.042);
                 ctx.font = `700 ${fontSizeForSubs}px 'Inter', sans-serif`;
                 const subtitleChunksBySlide = activeSlides.map((slide, i) => {
+                    const timed = buildTimedSubtitleChunks(slide.audioAlignment, W * 0.86, 2);
+                    if (timed) {
+                        // Escala los tiempos reales (que vienen a velocidad 1x) por la velocidad elegida
+                        return timed.map((c) => ({ text: c.text, startMs: c.startMs / speed, endMs: c.endMs / speed }));
+                    }
+                    // Fallback proporcional si no hay ElevenLabs configurado
                     const chunks = buildSubtitleChunks(slide.dialogo, W * 0.86, 2);
                     if (!chunks.length) return [];
                     const durForCaptions = perSlideDurations[i];
@@ -2612,6 +2689,10 @@ ${buildJsonRulesBlock(tech)}
                     ctx.fillRect(0, 0, W, H);
                     ctx.restore();
 
+                    const activeSlideForPhrase = activeSlides[slideIndex];
+                    if (activeSlideForPhrase && activeSlideForPhrase.codigo) {
+                        drawPhraseCard(activeSlideForPhrase, localT, W * 0.08, H * 0.5, W * 0.84);
+                    }
                     if (state.exportSettings.subtitlesEnabled) {
                         const chunks = subtitleChunksBySlide[slideIndex] || [];
                         const chunk = chunks.find((c) => localT >= c.startMs && localT < c.endMs);

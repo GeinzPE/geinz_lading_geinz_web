@@ -1565,44 +1565,48 @@
       const { FFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
       const { fetchFile, toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
 
+
       const ffmpeg = new FFmpeg();
       ffmpeg.on('log', ({ message }) => console.log("[ffmpeg log]", message));
 
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
       const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
       const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+      const classWorkerURL = await toBlobURL(
+        'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js',
+        'text/javascript'
+      );
 
-      await ffmpeg.load({ coreURL, wasmURL });
+      await ffmpeg.load({ coreURL, wasmURL, classWorkerURL });
 
       ffmpegInstance = { ffmpeg, fetchFile };
       return ffmpegInstance;
     }
     async function webmBlobToMp4(webmBlob, onProgress) {
-      console.log("[ffmpeg] webmBlobToMp4: tamaño del blob =", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
-      const { ffmpeg, fetchFile } = await getFFmpeg();
+      console.log("[convert] subiendo webm al servidor, tamaño =", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
+      if (onProgress) onProgress(0.05);
 
-      const handler = ({ progress }) => {
-        console.log("[ffmpeg] progreso:", (progress * 100).toFixed(1) + "%");
-        onProgress && onProgress(progress);
-      };
-      ffmpeg.on('progress', handler);
+      const formData = new FormData();
+      formData.append("file", webmBlob, "input.webm");
+      formData.append("filename", "video.mp4");
 
-      console.log("[ffmpeg] escribiendo input.webm en el sistema de archivos virtual...");
-      await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
-      console.log("[ffmpeg] input.webm escrito, ejecutando conversión...");
+      const res = await fetch(`${API_BASE}/convert-to-mp4`, {
+        method: "POST",
+        headers: PIPELINE_API_KEY ? { "X-Pipeline-Key": PIPELINE_API_KEY } : {},
+        body: formData,
+      });
 
-      await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', 'output.mp4']);
-      console.log("[ffmpeg] ✅ conversión terminada, leyendo output.mp4...");
+      if (onProgress) onProgress(0.7);
 
-      const data = await ffmpeg.readFile('output.mp4');
-      console.log("[ffmpeg] output.mp4 leído, tamaño =", (data.buffer.byteLength / 1024 / 1024).toFixed(2), "MB");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Fallo la conversión en el servidor (status ${res.status})`);
+      }
 
-      ffmpeg.off('progress', handler);
-      await ffmpeg.deleteFile('input.webm');
-      await ffmpeg.deleteFile('output.mp4');
-      console.log("[ffmpeg] limpieza hecha, retornando blob mp4");
-
-      return new Blob([data.buffer], { type: 'video/mp4' });
+      const mp4Blob = await res.blob();
+      if (onProgress) onProgress(1);
+      console.log("[convert] ✅ MP4 recibido, tamaño =", (mp4Blob.size / 1024 / 1024).toFixed(2), "MB");
+      return mp4Blob;
     }
     function getContentRect(video, stage) {
       const sw = stage.clientWidth, sh = stage.clientHeight;
@@ -1683,7 +1687,9 @@
         <input type="range" id="${uid}_volume" min="0" max="1.5" step="0.05" value="1">
         <span class="speed-val" id="${uid}_volumeval">100%</span>
       </div>
-
+<label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-bottom:10px;">
+  <input type="checkbox" id="${uid}_capsenabled" checked> Mostrar subtítulos en el video
+</label>
       <div class="subtoggle" id="${uid}_subtoggle"><span class="arrow">▶</span> Subtítulos y estilo (${captions.length})</div>
       <div class="subpanel" id="${uid}_subpanel">
 <div class="subtoggle" id="${uid}_ctatoggle"><span class="arrow">▶</span> Bloques / llamados a la acción</div>
@@ -1896,6 +1902,12 @@
         previewLoopId = requestAnimationFrame(previewDrawFrame);
       }
       previewDrawFrame();
+      function pausePreview() {
+        if (previewLoopId) { cancelAnimationFrame(previewLoopId); previewLoopId = null; }
+      }
+      function resumePreview() {
+        if (!previewLoopId) previewDrawFrame();
+      }
       const stickers = [];
       const ctaListEl = card.querySelector(`#${uid}_ctalist`);
       const ctaToggle = card.querySelector(`#${uid}_ctatoggle`);
@@ -2015,7 +2027,12 @@
       const musicFileInput = card.querySelector(`#${uid}_musicfile`);
       const musicNameEl = card.querySelector(`#${uid}_musicname`);
       const musicVolInput = card.querySelector(`#${uid}_musicvol`);
-
+      const capsEnabledInput = card.querySelector(`#${uid}_capsenabled`);
+      let captionsEnabled = true;
+      capsEnabledInput.addEventListener("change", () => {
+        captionsEnabled = capsEnabledInput.checked;
+        tick(); // refresca el preview de inmediato
+      });
       const dlOriginalBtn = card.querySelector(`#${uid}_dlOriginalBtn`);
       if (dlOriginalBtn) {
         dlOriginalBtn.addEventListener("click", () => {
@@ -2352,7 +2369,7 @@
         capbox.style.background = style.bgOpacity > 0 ? (style.bg + bgOpHex) : "transparent";
         capbox.style.textShadow = style.outline
           ? "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 4px rgba(0,0,0,.6)"
-          : "0 1px 3px rgba(0,0,0,.6)";
+          : "none";
         outlineChip.classList.toggle("active", style.outline);
         [alignL, alignC, alignR].forEach((el) => el.classList.remove("active"));
         ({ left: alignL, center: alignC, right: alignR }[style.align]).classList.add("active");
@@ -2537,7 +2554,8 @@
         return captions.find((c) => tt >= c.start && tt < c.end) || null;
       }
       function tick() {
-        const active = activeCaption(video.currentTime || 0);
+        const active = captionsEnabled ? activeCaption(video.currentTime || 0) : null;
+
         if (active) {
           capTextEl.textContent = active.text;
           capbox.classList.add("visible");
@@ -2627,13 +2645,14 @@
         cutBtn.disabled = true;
         exportProg.classList.add("show");
         exportProg.textContent = "Preparando corte…";
+        pausePreview();
         try {
           await burnCaptionsAndDownload({
             video, captions, style, currentFont,
             blur, watermark, watermarkPositions, filters,
             musicFile, musicVolume: Number(musicVolInput.value),
             videoVolume: Number(volumeInput.value),   // 👈 agregar
-            trim, burnSubtitles: true,
+            trim, burnSubtitles: captionsEnabled,
             filename: `segmento_${idx + 1}_editado.webm`,
             onProgress: (t, dur) => { exportProg.textContent = `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
           });
@@ -2658,6 +2677,7 @@
         audioBtn.disabled = true;
         exportProg.classList.add("show");
         exportProg.textContent = "Preparando audio…";
+        pausePreview();
         try {
           await exportAudioOnly({
             video, musicFile, musicVolume: Number(musicVolInput.value),
@@ -2689,7 +2709,7 @@
             blur, watermark, watermarkPositions, filters,
             musicFile, musicVolume: Number(musicVolInput.value),
             videoVolume: Number(volumeInput.value),
-            trim, burnSubtitles: true,
+            trim, burnSubtitles: captionsEnabled,
             filename: `segmento_${idx + 1}_editado.webm`,
             onProgress: (t, dur, msg) => { exportProg.textContent = msg || `Exportando… ${t.toFixed(1)}s / ${dur.toFixed(1)}s`; },
           });
@@ -2794,6 +2814,22 @@
         console.error("No se pudo convertir el audio, se descarga en WebM:", err);
         downloadBlob(webmBlob, filename);
       }
+    }
+    function wrapCanvasText(context, text, maxWidth) {
+      const words = text.split(' ');
+      const lines = [];
+      let current = '';
+      words.forEach((word) => {
+        const test = current ? current + ' ' + word : word;
+        if (context.measureText(test).width > maxWidth && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = test;
+        }
+      });
+      if (current) lines.push(current);
+      return lines;
     }
     async function burnCaptionsAndDownload({ video, captions, style, currentFont, blur, watermark, watermarkPositions, filters, musicFile, musicVolume, videoVolume, filename, trim, burnSubtitles = true, stickers = [], onProgress }) {
       if (!("MediaRecorder" in window) || !video.captureStream) {
@@ -2945,7 +2981,10 @@
           ctx.textAlign = style.align;
           ctx.textBaseline = "middle";
 
-          const lines = active.text.split("\n");
+          const maxWidth = w * (style.capW / 100); // el mismo ancho que ves en el editor
+          const lines = active.text
+            .split("\n")                                  // respeta tus saltos manuales
+            .flatMap((l) => wrapCanvasText(ctx, l, maxWidth)); // y ademas hace wrap automatico
           const lineHeight = fontSizePx * 1.25;
           const totalTextHeight = lines.length * lineHeight;
 
@@ -3067,7 +3106,7 @@
         });
 
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("La conversión a MP4 tardó demasiado (más de 3 min)")), 3 * 60 * 1000);
+          setTimeout(() => reject(new Error("La conversión a MP4 tardó demasiado (más de 5 min)")), 5 * 60 * 1000);
         });
 
         const mp4Blob = await Promise.race([conversionPromise, timeoutPromise]);
@@ -3151,9 +3190,45 @@
             row.innerHTML = `
     <div style="font-size:0.82rem;color:#eaeaea;word-break:break-all;">${f.name}</div>
     <div style="font-size:0.7rem;color:#6b7280;margin:2px 0 8px;">${sizeStr} · ${new Date(f.updated).toLocaleTimeString("es-PE")}</div>
-    ${isVideo ? `<video controls crossorigin="anonymous" style="width:100%;border-radius:8px;margin-bottom:8px;" src="${f.downloadUrl}"></video>` : ""}
-    <a class="btnlike btn-secondary" href="${f.downloadUrl}" download="${f.name.split('/').pop()}" style="display:block;text-align:center;padding:8px;border-radius:8px;text-decoration:none;font-size:0.8rem;">⬇️ Descargar</a>
+    ${isVideo ? `<video controls preload="metadata" style="width:100%;border-radius:8px;margin-bottom:4px;" src="${f.downloadUrl}"></video>
+    <div class="video-debug" style="font-size:0.7rem;color:#f87171;margin-bottom:8px;display:none;"></div>` : ""}
+    <button type="button" class="btn-secondary" style="width:100%;padding:8px;border-radius:8px;font-size:0.8rem;" data-url="${f.downloadUrl}" data-name="${f.name.split('/').pop()}">⬇️ Descargar</button>
   `;
+
+            if (isVideo) {
+              const vidEl = row.querySelector("video");
+              const debugEl = row.querySelector(".video-debug");
+              vidEl.addEventListener("error", async () => {
+                const err = vidEl.error;
+                const codeNames = { 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" };
+                let extra = "";
+                try {
+                  const resp = await fetch(f.downloadUrl, { method: "HEAD" });
+                  extra = ` | HEAD status: ${resp.status}`;
+                } catch (fetchErr) {
+                  extra = ` | fetch falló: ${fetchErr.message} (probablemente CORS)`;
+                }
+                const msg = `❌ Error de video: código ${err?.code} (${codeNames[err?.code] || "desconocido"})${extra}`;
+                debugEl.textContent = msg;
+                debugEl.style.display = "block";
+                console.error("[video error]", f.name, "url:", f.downloadUrl, "code:", err?.code, "message:", err?.message, extra);
+              });
+            }
+            const dlBtn = row.querySelector("button[data-url]");
+            dlBtn.addEventListener("click", async () => {
+              dlBtn.disabled = true;
+              dlBtn.textContent = "⏳ Descargando…";
+              try {
+                const resp = await fetch(dlBtn.dataset.url);
+                const blob = await resp.blob();
+                downloadBlob(blob, dlBtn.dataset.name);
+              } catch (err) {
+                alert("No se pudo descargar: " + err.message);
+              } finally {
+                dlBtn.disabled = false;
+                dlBtn.textContent = "⬇️ Descargar";
+              }
+            });
             dayBlock.appendChild(row);
           });
           filesListWrap.appendChild(dayBlock);

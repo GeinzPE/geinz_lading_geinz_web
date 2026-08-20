@@ -1316,27 +1316,26 @@
             }
 
             function buildSystemPrompt() {
-                return `Eres un generador de contenido educativo técnico para carruseles de redes sociales. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks. Nunca generes explicaciones fuera del JSON.`;
+                return `Eres un creador de contenido técnico para redes sociales (TikTok/Reels/Shorts), no un generador de fichas de referencia. Tu prioridad número uno es la RETENCIÓN: los primeros 1-2 segundos deciden si la persona se queda o se va, así que "intro_dialogo" y "caption" SIEMPRE deben empezar con un gancho — una pregunta directa, un error común, o una promesa concreta de lo que se va a aprender — nunca con saludos genéricos tipo "Hola" o "En este video". Explicas conceptos técnicos como lo haría un buen instructor: defines el concepto, muestras un ejemplo concreto y das un tip práctico para recordarlo, todo en tono cercano y directo, sin relleno. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks.`;
             }
-
-            // DESPUÉS
             function buildJsonRulesBlock(tech) {
                 return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
 {
-  "caption": "texto corto para la publicación en redes con 2-3 hashtags relevantes, máximo 220 caracteres",
-  "intro_dialogo": "guion hablado de 1-2 frases para narrar la diapositiva de portada (bienvenida al tema)",
+  "caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa de resultado), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
+  "intro_dialogo": "guion de EXACTAMENTE 2 frases cortas para narrar la portada. La primera frase es el gancho (nunca un saludo). La segunda dice qué se va a aprender. Máximo 30 palabras en total.",
   "content_slides": [
-    { "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real, MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion hablado de 2-3 frases que explica este punto en tono cercano, para narrar en voz alta" }
+    { "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real relacionado con \"${tech}\", MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion de EXACTAMENTE 3 a 4 frases cortas, tono de instructor cercano: (1) qué es este concepto en términos simples, (2) para qué sirve o cuándo se usa, con un ejemplo concreto de la vida real de programación, (3) un tip práctico para recordarlo. Máximo 55 palabras en total, sin relleno." }
   ],
-  "reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio a resolver (máx 100 caracteres)", "codigo": "código base o de referencia del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion hablado de 2-3 frases invitando a resolver el reto" }
+  "reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio (máx 100 caracteres)", "codigo": "código base del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion de EXACTAMENTE 2 a 3 frases: recuerda el concepto clave en una frase, dice qué debe hacer la persona, y la anima a pausar e intentarlo. Máximo 40 palabras en total." }
 }
 
 Reglas estrictas:
-- Cada "codigo" debe ser código o contenido técnico real relacionado con "${tech}", sin relleno.
-- CRÍTICO: cada bloque "codigo" debe tener MÁXIMO 3 líneas y cada línea MÁXIMO 28 caracteres. Si el contenido real necesita más espacio, usa nombres cortos y quita comentarios para que quepa. Nunca superes ese límite.
-- Sé extremadamente conciso: nada de párrafos largos, solo frases cortas y directas.
+- GANCHO OBLIGATORIO en "intro_dialogo" y "caption": pregunta directa, error común, o promesa concreta. Prohibido abrir con saludos o "En este carrusel vamos a ver...".
+- LÍMITES DE PALABRAS EN "dialogo": son estrictos porque el audio generado debe caber en el tiempo de lectura de la diapositiva sin sentirse atropellado ni alargarse de más. No los excedas.
+- Cada "codigo" debe ser código real y útil relacionado con "${tech}", MÁXIMO 3 líneas y 28 caracteres por línea. Si no cabe, simplifica nombres y quita comentarios.
+- Los campos visibles ("titulo", "explicacion", "codigo", "enunciado") deben ser extremadamente concisos.
+- Los campos "dialogo" e "intro_dialogo" son guiones para ser LEÍDOS EN VOZ ALTA. Escribe SIEMPRE los números en palabras (ej. "tres" en vez de "3"), nunca dígitos ni símbolos raros ni abreviaturas, porque la voz IA los pronuncia mal.
 - No repitas el nombre "${tech}" dentro de cada título.
-- Los campos "dialogo" e "intro_dialogo" son guiones para ser LEÍDOS EN VOZ ALTA por una IA de voz (texto a voz). CRÍTICO: escribe SIEMPRE los números en palabras (ej. "tres" en vez de "3", "primero" en vez de "1º"), nunca uses dígitos, símbolos raros, ni abreviaturas, porque la voz IA los pronuncia mal o se traba.
 - JSON compacto, sin espacios innecesarios, sin comentarios.`;
             }
 
@@ -1474,9 +1473,9 @@ ${buildJsonRulesBlock(tech)}
             $('btnGenerate').addEventListener('click', generateCarousel);
 
             async function callElevenLabsTTS(text, apiKey, voiceId) {
-                const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+                const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'xi-api-key': apiKey, 'Accept': 'audio/mpeg' },
+                    headers: { 'Content-Type': 'application/json', 'xi-api-key': apiKey, 'Accept': 'application/json' },
                     body: JSON.stringify({
                         text,
                         model_id: 'eleven_multilingual_v2',
@@ -1487,9 +1486,16 @@ ${buildJsonRulesBlock(tech)}
                     const errText = await res.text().catch(() => '');
                     throw new Error(`ElevenLabs error (${res.status}): ${errText.slice(0, 200)}`);
                 }
-                return await res.blob();
-            }
+                const data = await res.json();
+                if (!data.audio_base64) throw new Error('ElevenLabs no devolvió audio.');
 
+                const byteChars = atob(data.audio_base64);
+                const byteNumbers = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+                const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'audio/mpeg' });
+
+                return { blob, alignment: data.alignment || null };
+            }
             function getAudioDurationMs(blob) {
                 return new Promise((resolve) => {
                     const url = URL.createObjectURL(blob);
@@ -1509,19 +1515,33 @@ ${buildJsonRulesBlock(tech)}
                 const apiKey = state.config.elevenLabsKey;
                 const voiceId = state.config.elevenLabsVoiceId;
                 if (!apiKey || !voiceId) return;
+                if (!state.narrationCache) state.narrationCache = new Map();
 
                 state.lastElevenLabsChars = 0;
                 for (let i = 0; i < state.slides.length; i++) {
                     const slide = state.slides[i];
                     slide.audioBlob = null;
                     slide.audioDurationMs = null;
+                    slide.audioAlignment = null;
                     if (!slide.dialogo) continue;
+
+                    const cacheKey = voiceId + '|' + slide.dialogo;
+                    if (state.narrationCache.has(cacheKey)) {
+                        const cached = state.narrationCache.get(cacheKey);
+                        slide.audioBlob = cached.blob;
+                        slide.audioAlignment = cached.alignment;
+                        slide.audioDurationMs = cached.durationMs;
+                        continue; // no gasta créditos de nuevo
+                    }
 
                     $('genHint').textContent = `Generando narración ${i + 1}/${state.slides.length}…`;
                     try {
-                        const blob = await callElevenLabsTTS(slide.dialogo, apiKey, voiceId);
+                        const { blob, alignment } = await callElevenLabsTTS(slide.dialogo, apiKey, voiceId);
+                        const durationMs = await getAudioDurationMs(blob);
                         slide.audioBlob = blob;
-                        slide.audioDurationMs = await getAudioDurationMs(blob);
+                        slide.audioAlignment = alignment;
+                        slide.audioDurationMs = durationMs;
+                        state.narrationCache.set(cacheKey, { blob, alignment, durationMs });
                         state.lastElevenLabsChars += slide.dialogo.length;
                     } catch (e) {
                         console.error(`Fallo narración diapositiva ${i + 1}`, e);
@@ -2323,6 +2343,48 @@ ${buildJsonRulesBlock(tech)}
                     });
                     ctx.restore();
                 }
+                function buildTimedSubtitleChunks(alignment, maxWidth, maxLines) {
+                    if (!alignment || !Array.isArray(alignment.characters) || !alignment.characters.length) return null;
+                    const chars = alignment.characters;
+                    const startTimes = alignment.character_start_times_seconds;
+                    const endTimes = alignment.character_end_times_seconds;
+                    if (!Array.isArray(startTimes) || !Array.isArray(endTimes) || startTimes.length !== chars.length) return null;
+
+                    const words = [];
+                    let current = '', wordStartIdx = null;
+                    for (let i = 0; i < chars.length; i++) {
+                        const c = chars[i];
+                        if (/\s/.test(c)) {
+                            if (current) { words.push({ text: current, startMs: startTimes[wordStartIdx] * 1000, endMs: endTimes[i - 1] * 1000 }); current = ''; wordStartIdx = null; }
+                        } else {
+                            if (wordStartIdx === null) wordStartIdx = i;
+                            current += c;
+                        }
+                    }
+                    if (current) words.push({ text: current, startMs: startTimes[wordStartIdx] * 1000, endMs: endTimes[chars.length - 1] * 1000 });
+                    if (!words.length) return null;
+
+                    const chunks = [];
+                    let currentWords = [];
+                    words.forEach((w) => {
+                        const testWords = [...currentWords, w];
+                        const testText = testWords.map((x) => x.text).join(' ');
+                        const lines = wrapCanvasText(ctx, testText, maxWidth);
+                        if (lines.length > maxLines && currentWords.length) {
+                            chunks.push(currentWords);
+                            currentWords = [w];
+                        } else {
+                            currentWords = testWords;
+                        }
+                    });
+                    if (currentWords.length) chunks.push(currentWords);
+
+                    return chunks.map((wordsInChunk) => ({
+                        text: wordsInChunk.map((w) => w.text).join(' '),
+                        startMs: wordsInChunk[0].startMs,
+                        endMs: wordsInChunk[wordsInChunk.length - 1].endMs
+                    }));
+                }
                 function buildSubtitleChunks(text, maxWidth, maxLines) {
                     if (!text) return [];
                     const words = text.split(' ').filter(Boolean);
@@ -2347,6 +2409,10 @@ ${buildJsonRulesBlock(tech)}
                 const fontSizeForSubs = Math.round(W * 0.042);
                 ctx.font = `700 ${fontSizeForSubs}px 'Inter', sans-serif`;
                 const subtitleChunksBySlide = activeSlides.map((slide, i) => {
+                    const timed = buildTimedSubtitleChunks(slide.audioAlignment, W * 0.86, 2);
+                    if (timed) {
+                        return timed.map((c) => ({ text: c.text, startMs: c.startMs / speed, endMs: c.endMs / speed }));
+                    }
                     const chunks = buildSubtitleChunks(slide.dialogo, W * 0.86, 2);
                     if (!chunks.length) return [];
                     const durForCaptions = (slide.audioDurationMs ? slide.audioDurationMs / speed : perSlideDurations[i]);
