@@ -935,6 +935,7 @@
   <div class="mode-switch" id="modeSwitch">
     <div class="mode-btn active" data-mode="upload">⬆️ Subir y procesar</div>
     <div class="mode-btn" data-mode="editor">✂️ Editor (video ya listo)</div>
+    <div class="mode-btn" data-mode="files">🗂️ Mis archivos</div>
   </div>
 
   <div class="card" id="uploadCard">
@@ -1082,6 +1083,19 @@
     <button id="editorOpenBtn" disabled>Abrir en el editor</button>
   </div>
 
+  <div class="card" id="filesCard" style="display:none;">
+    <div class="field" style="margin-top:0;">
+      <label for="filesBucketName">Bucket</label>
+      <input type="text" id="filesBucketName" placeholder="Por defecto: el bucket configurado en el servidor">
+    </div>
+    <div class="field">
+      <label for="filesPrefix">Carpeta (opcional)</label>
+      <input type="text" id="filesPrefix" placeholder="ej: salidas/">
+    </div>
+    <button id="filesLoadBtn" type="button">🔄 Cargar archivos</button>
+    <div class="status" id="filesStatus"></div>
+    <div id="filesListWrap" style="margin-top:16px;"></div>
+  </div>
   <!-- Resultados: uno por segmento, con editor de subtítulos + export -->
   <div id="resultsWrap"></div>
 
@@ -1257,6 +1271,7 @@
         const mode = btn.dataset.mode;
         document.getElementById("uploadCard").style.display = mode === "upload" ? "" : "none";
         document.getElementById("editorCard").style.display = mode === "editor" ? "" : "none";
+        document.getElementById("filesCard").style.display = mode === "files" ? "" : "none"; // ← agregar esta línea
         progressWrap.classList.remove("show");
         statusEl.textContent = "";
         costBox.style.display = "none";
@@ -1546,24 +1561,18 @@
     let ffmpegInstance = null;
     async function getFFmpeg() {
       if (ffmpegInstance) return ffmpegInstance;
-      console.log("[ffmpeg] importando paquetes locales...");
-      const { FFmpeg } = await import('./ffmpeg-vendor/ffmpeg/index.js');
-      const { fetchFile, toBlobURL } = await import('./ffmpeg-vendor/util/index.js');
+
+      const { FFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+      const { fetchFile, toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
+
       const ffmpeg = new FFmpeg();
       ffmpeg.on('log', ({ message }) => console.log("[ffmpeg log]", message));
 
-      console.log("[ffmpeg] cargando core local...");
-const coreURL = await toBlobURL('./ffmpeg-vendor/core/ffmpeg-core.js', 'text/javascript');
-const wasmURL = await toBlobURL('./ffmpeg-vendor/core/ffmpeg-core.wasm', 'application/wasm');
-const classWorkerURL = new URL('./ffmpeg-vendor/ffmpeg/worker.js', document.baseURI).href;
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+      const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
 
-console.log("[ffmpeg] llamando ffmpeg.load()...");
-const loadPromise = ffmpeg.load({ coreURL, wasmURL, classWorkerURL });
-      const loadTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("ffmpeg.load() colgado más de 30s")), 30000);
-      });
-      await Promise.race([loadPromise, loadTimeout]);
-      console.log("[ffmpeg] ✅ listo");
+      await ffmpeg.load({ coreURL, wasmURL });
 
       ffmpegInstance = { ffmpeg, fetchFile };
       return ffmpegInstance;
@@ -3070,6 +3079,92 @@ const loadPromise = ffmpeg.load({ coreURL, wasmURL, classWorkerURL });
         downloadBlob(webmBlob, filename);
       }
     }
+
+    // ======================================================================
+    // LISTADO DE ARCHIVOS DEL BUCKET (agrupado por fecha)
+    // ======================================================================
+    const filesLoadBtn = document.getElementById("filesLoadBtn");
+    const filesStatus = document.getElementById("filesStatus");
+    const filesListWrap = document.getElementById("filesListWrap");
+    const filesBucketName = document.getElementById("filesBucketName");
+    const filesPrefix = document.getElementById("filesPrefix");
+
+    function formatDateHeader(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleDateString("es-PE", { year: "numeric", month: "long", day: "numeric" });
+    }
+
+    filesLoadBtn.addEventListener("click", async () => {
+      filesLoadBtn.disabled = true;
+      filesStatus.className = "status";
+      filesStatus.textContent = "⏳ Cargando…";
+      filesListWrap.innerHTML = "";
+
+      try {
+        const params = new URLSearchParams();
+        if (filesBucketName.value.trim()) params.set("bucketName", filesBucketName.value.trim());
+        if (filesPrefix.value.trim()) params.set("prefix", filesPrefix.value.trim());
+
+        const res = await fetch(`${API_BASE}/list-files?${params.toString()}`, {
+          headers: PIPELINE_API_KEY ? { "X-Pipeline-Key": PIPELINE_API_KEY } : {},
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "No se pudo listar el bucket.");
+
+        if (!data.files.length) {
+          filesStatus.className = "status";
+          filesStatus.textContent = "No hay archivos en ese bucket/carpeta.";
+          filesLoadBtn.disabled = false;
+          return;
+        }
+
+        filesStatus.className = "status success";
+        filesStatus.textContent = `✅ ${data.count} archivo(s) encontrados`;
+
+        // Agrupar por día
+        const groups = {};
+        data.files.forEach((f) => {
+          const dayKey = f.updated.slice(0, 10); // "2026-08-19"
+          if (!groups[dayKey]) groups[dayKey] = [];
+          groups[dayKey].push(f);
+        });
+
+        Object.keys(groups).sort().reverse().forEach((dayKey) => {
+          const dayBlock = document.createElement("div");
+          dayBlock.style.marginBottom = "18px";
+
+          const header = document.createElement("div");
+          header.style.cssText = "font-size:0.85rem;color:#6ea8fe;font-weight:600;margin-bottom:8px;";
+          header.textContent = formatDateHeader(groups[dayKey][0].updated);
+          dayBlock.appendChild(header);
+
+          groups[dayKey].forEach((f) => {
+            const row = document.createElement("div");
+            row.className = "cap-row";
+            row.style.cssText = "margin-bottom:10px;";
+            const sizeStr = f.sizeBytes < 1024 * 1024
+              ? (f.sizeBytes / 1024).toFixed(1) + " KB"
+              : (f.sizeBytes / (1024 * 1024)).toFixed(1) + " MB";
+
+            const isVideo = /\.(mp4|webm|mov)$/i.test(f.name);
+
+            row.innerHTML = `
+    <div style="font-size:0.82rem;color:#eaeaea;word-break:break-all;">${f.name}</div>
+    <div style="font-size:0.7rem;color:#6b7280;margin:2px 0 8px;">${sizeStr} · ${new Date(f.updated).toLocaleTimeString("es-PE")}</div>
+    ${isVideo ? `<video controls crossorigin="anonymous" style="width:100%;border-radius:8px;margin-bottom:8px;" src="${f.downloadUrl}"></video>` : ""}
+    <a class="btnlike btn-secondary" href="${f.downloadUrl}" download="${f.name.split('/').pop()}" style="display:block;text-align:center;padding:8px;border-radius:8px;text-decoration:none;font-size:0.8rem;">⬇️ Descargar</a>
+  `;
+            dayBlock.appendChild(row);
+          });
+          filesListWrap.appendChild(dayBlock);
+        });
+      } catch (err) {
+        filesStatus.className = "status error";
+        filesStatus.textContent = "❌ " + err.message;
+      } finally {
+        filesLoadBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 

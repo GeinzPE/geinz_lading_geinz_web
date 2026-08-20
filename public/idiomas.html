@@ -1,0 +1,2798 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carousel Studio — Generador de contenido de idiomas para redes</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #0A0C10;
+            --panel: #12151C;
+            --panel-2: #161A23;
+            --line: #212632;
+            --line-soft: #1A1F29;
+            --text-hi: #F2F4F8;
+            --text-mid: #93A0B4;
+            --text-lo: #565F73;
+            --cyan: #22D3EE;
+            --violet: #A78BFA;
+            --indigo: #8B5CF6;
+            --good: #34D399;
+            --warn: #F5B942;
+            --radius-lg: 34px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background:
+                radial-gradient(ellipse 1000px 560px at 10% -8%, rgba(34, 211, 238, .05), transparent 60%),
+                radial-gradient(ellipse 800px 560px at 105% 6%, rgba(139, 92, 246, .06), transparent 55%),
+                var(--bg);
+            color: var(--text-hi);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+
+        .font-display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1f2531;
+            border-radius: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #2a3140;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+        }
+
+        .panel-soft {
+            background: var(--panel-2);
+            border: 1px solid var(--line-soft);
+        }
+
+        .eyebrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: var(--text-lo);
+            font-weight: 500;
+        }
+
+        .step-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--cyan);
+            border: 1px solid rgba(34, 211, 238, .28);
+            background: rgba(34, 211, 238, .06);
+            width: 20px;
+            height: 20px;
+            border-radius: 7px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .field {
+            background: #090B0F;
+            border: 1px solid var(--line);
+            color: var(--text-hi);
+            transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+
+        .field:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 3.5px rgba(34, 211, 238, .13);
+            background: #0B0E13;
+        }
+
+        .field::placeholder {
+            color: #444c5f;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #22D3EE 0%, #8B5CF6 62%, #A78BFA 100%);
+            color: #08090C;
+            font-weight: 700;
+            letter-spacing: -.01em;
+            box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset, 0 12px 30px -12px rgba(34, 211, 238, .4);
+            transition: transform .15s cubic-bezier(.2, .8, .2, 1), box-shadow .15s ease, filter .15s ease;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.05);
+            box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 0 16px 36px -10px rgba(139, 92, 246, .5);
+        }
+
+        .btn-primary:active {
+            transform: scale(.98);
+        }
+
+        .btn-primary:disabled {
+            opacity: .4;
+            filter: none;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-ghost {
+            background: #0D1015;
+            border: 1px solid var(--line);
+            color: var(--text-mid);
+            font-weight: 500;
+            transition: all .15s ease;
+        }
+
+        .btn-ghost:hover {
+            background: #141822;
+            border-color: #2b3242;
+            color: var(--text-hi);
+        }
+
+        .btn-ghost.active {
+            background: rgba(34, 211, 238, .08);
+            border-color: rgba(34, 211, 238, .45);
+            color: #a5f3fc;
+        }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0D1015;
+            border: 1px solid var(--line);
+            color: var(--text-mid);
+            transition: all .15s ease;
+        }
+
+        .icon-btn:hover {
+            background: #141822;
+            color: var(--text-hi);
+            border-color: #2b3242;
+        }
+
+        .dropzone {
+            border: 1.5px dashed var(--line);
+            transition: all .18s ease;
+            cursor: pointer;
+        }
+
+        .dropzone:hover {
+            border-color: var(--cyan);
+            background: rgba(34, 211, 238, .04);
+        }
+
+        .dropzone.has-file {
+            border-style: solid;
+            border-color: rgba(52, 211, 153, .4);
+            background: rgba(52, 211, 153, .04);
+        }
+
+        .swatch {
+            width: 20px;
+            height: 20px;
+            border-radius: 7px;
+            border: 1px solid rgba(255, 255, 255, .14);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+        }
+
+        #stagePanel {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stage-glow {
+            position: absolute;
+            border-radius: 999px;
+            filter: blur(110px);
+            opacity: .35;
+            pointer-events: none;
+            transition: background 1.2s ease;
+        }
+
+        #phoneBezel {
+            width: 320px;
+            padding: 14px 12px 22px;
+            border-radius: 46px;
+            background: linear-gradient(165deg, #161A23, #0C0E13);
+            border: 1px solid #262c3a;
+            box-shadow:
+                0 50px 90px -30px rgba(0, 0, 0, .8),
+                0 0 0 1px rgba(255, 255, 255, .03) inset,
+                0 1px 0 rgba(255, 255, 255, .05) inset;
+        }
+
+        #bezelNotch {
+            width: 70px;
+            height: 16px;
+            border-radius: 10px;
+            background: #050608;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, .03) inset;
+        }
+
+        #bezelNotch .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #1c212c;
+        }
+
+        #slideFrame {
+            width: 100%;
+            aspect-ratio: 9/16;
+        }
+
+        #slideCanvas {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset;
+            transition: opacity .25s ease, transform .25s ease;
+        }
+
+        .slide-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            transition: background 1s ease;
+        }
+
+        .slide-logo-glow {
+            position: absolute;
+            inset: -18%;
+            z-index: 0;
+            pointer-events: none;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 60%;
+            opacity: .65;
+            transition: opacity .6s ease;
+        }
+
+        .slide-dark-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(180deg, rgba(6, 7, 10, .34) 0%, rgba(6, 7, 10, .18) 30%, rgba(6, 7, 10, .34) 68%, rgba(6, 7, 10, .62) 100%),
+                radial-gradient(circle at 50% 45%, transparent 0%, transparent 42%, rgba(4, 5, 8, .25) 100%);
+        }
+
+        .slide-grain {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            opacity: .04;
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .slide-vignette {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: linear-gradient(180deg, rgba(0, 0, 0, .25) 0%, transparent 16%, transparent 76%, rgba(0, 0, 0, .42) 100%);
+        }
+
+        .editor-window {
+            background: #0B0D12;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 14px;
+            box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .02) inset;
+        }
+
+        /* Tarjeta de frase/ejemplo de idioma (reemplaza el look de editor de código) */
+        .phrase-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(160deg, rgba(34, 211, 238, .08) 0%, rgba(139, 92, 246, .1) 100%), #0B0D12;
+            border: 1px solid rgba(167, 139, 250, .28);
+            border-radius: 18px;
+            box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .02) inset;
+            opacity: 0;
+            transform: translateY(6px) scale(.985);
+            animation: phraseIn .5s cubic-bezier(.2, .8, .2, 1) .08s forwards;
+        }
+
+        .phrase-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 14% 18%, rgba(34, 211, 238, .16), transparent 55%);
+            pointer-events: none;
+        }
+
+        @keyframes phraseIn {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .phrase-card-top {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .phrase-mark {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--violet);
+            opacity: .9;
+        }
+
+        .phrase-lang-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--cyan);
+            background: rgba(34, 211, 238, .1);
+            border: 1px solid rgba(34, 211, 238, .28);
+            padding: 2.5px 7px;
+            border-radius: 999px;
+        }
+
+        .phrase-text {
+            position: relative;
+            z-index: 1;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            color: var(--text-hi);
+            margin: 0;
+        }
+
+        .check-ring {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 1.4px solid rgba(255, 255, 255, .2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .3s ease;
+        }
+
+        .check-ring.done {
+            border-color: rgba(52, 211, 153, .9);
+            background: rgba(52, 211, 153, .14);
+            box-shadow: 0 0 10px rgba(52, 211, 153, .22);
+        }
+
+        .check-ring svg {
+            opacity: 0;
+            transform: scale(.5);
+            transition: all .25s ease;
+        }
+
+        .check-ring.done svg {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .slide-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #232838;
+            transition: all .25s cubic-bezier(.2, .8, .2, 1);
+        }
+
+        .slide-dot.active {
+            width: 18px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--cyan), var(--indigo));
+        }
+
+        .spinner {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 0, 0, .25);
+            border-top-color: #08090C;
+            animation: spin .65s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeSlide {
+            from {
+                opacity: 0;
+                transform: translateY(6px) scale(.99);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .anim-in {
+            animation: fadeSlide .35s cubic-bezier(.2, .8, .2, 1);
+        }
+
+        .modal-backdrop {
+            background: rgba(3, 5, 9, .78);
+            backdrop-filter: blur(4px);
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-card {
+            animation: modalIn .22s cubic-bezier(.2, .8, .2, 1);
+        }
+
+        .toast {
+            animation: toastIn .25s ease, toastOut .25s ease 2.6s forwards;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes toastOut {
+            to {
+                opacity: 0;
+                transform: translateX(12px);
+            }
+        }
+
+        select.field {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2393A0B4' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 34px;
+        }
+
+        input[type="range"] {
+            accent-color: var(--cyan);
+            height: 3px;
+        }
+
+        .tab-btn {
+            transition: all .15s ease;
+        }
+
+        #slideCanvas.capturing .editor-window,
+        #slideCanvas.capturing .phrase-card {
+            box-shadow: none !important;
+        }
+
+        #slideCanvas.capturing .phrase-card {
+            opacity: 1 !important;
+            transform: none !important;
+            animation: none !important;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <!-- ============ TOP BAR ============ -->
+    <header class="border-b border-[var(--line)] bg-[#0A0C10]/85 backdrop-blur-xl sticky top-0 z-30">
+        <div class="max-w-[1440px] mx-auto px-6 py-3.5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-violet-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#08090C" stroke-width="2.4">
+                        <rect x="3" y="4" width="6" height="16" rx="1.5" />
+                        <rect x="9.5" y="4" width="6" height="16" rx="1.5" opacity=".55" />
+                        <rect x="16" y="4" width="6" height="16" rx="1.5" opacity=".25" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-display font-bold text-[15px] leading-none tracking-tight">Carousel Studio</h1>
+                    <p class="eyebrow leading-none mt-1.5">contenido de idiomas para redes sociales</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2.5">
+                <span id="apiStatusPill"
+                    class="hidden sm:flex items-center gap-2 text-[11px] font-mono px-3 py-1.5 rounded-full border border-[var(--line)] text-[var(--text-mid)] bg-[#0D1015]"></span>
+                <button id="btnOpenConfig" class="btn-ghost text-sm px-3.5 py-2 rounded-xl flex items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.32.44.55.79.63.35.08.55.09.81.09H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                    </svg>
+                    <span class="hidden sm:inline">Configuración</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============ MAIN LAYOUT ============ -->
+    <main class="max-w-[1440px] mx-auto px-6 py-7 grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6">
+
+        <!-- ---------- LEFT: CONTROL RAIL ---------- -->
+        <section class="space-y-5">
+
+            <!-- Logo & marca -->
+            <div class="panel rounded-2xl p-5">
+                <p class="eyebrow mb-3.5 flex items-center gap-2"><span class="step-num">01</span> Logo &amp; marca</p>
+
+                <div id="logoDropzone" class="dropzone rounded-2xl p-4 flex items-center gap-3.5">
+                    <div id="logoPreviewWrap"
+                        class="w-12 h-12 rounded-xl bg-[#0D1015] border border-[var(--line)] flex items-center justify-center overflow-hidden shrink-0">
+                        <img id="logoPreview" class="hidden w-full h-full object-contain p-2" />
+                        <svg id="logoPlaceholderIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="#444c5f" stroke-width="1.6">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="M21 15l-5-5L5 21" />
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p id="logoDropText" class="text-sm text-[var(--text-hi)] font-medium truncate">Subir logo
+                            (PNG/SVG)</p>
+                        <p class="text-xs text-[var(--text-lo)] mt-0.5">Define la paleta y el tema visual</p>
+                    </div>
+                </div>
+                <input type="file" id="logoInput" accept="image/*" class="hidden" />
+
+                <div class="mt-3.5">
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Idioma a
+                        aprender</label>
+                    <input id="techNameInput" type="text" placeholder="Ej. Inglés, Francés, Alemán…"
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm" />
+                </div>
+
+                <!-- DESPUÉS -->
+                <!-- DESPUÉS -->
+                <!-- DESPUÉS -->
+                <div class="mt-3.5">
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Marca de agua</label>
+                    <input id="watermarkTextInput" type="text" placeholder="@aprendeidiomas"
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm" />
+                    <div class="mt-2.5">
+                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Posición (arrastra el
+                            punto)</label>
+                        <div id="watermarkPositionStage"
+                            class="relative rounded-lg overflow-hidden border border-[var(--line)] bg-[#0D1015]"
+                            style="width:100%; aspect-ratio:9/16; max-width:140px; margin:0 auto; cursor:crosshair; touch-action:none;">
+                            <div id="watermarkPositionDot"
+                                class="absolute w-4 h-4 -ml-2 -mt-2 rounded-full bg-violet-400 border-2 border-white shadow-lg"
+                                style="left:82%; top:7.8%;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="paletteRow" class="hidden mt-3.5">
+                    <p class="text-xs text-[var(--text-lo)] mb-2">Paleta extraída del logo</p>
+                    <div id="paletteSwatches" class="flex gap-1.5"></div>
+                </div>
+            </div>
+
+            <!-- Temario -->
+            <div class="panel rounded-2xl p-5">
+                <p class="eyebrow mb-3.5 flex items-center gap-2"><span class="step-num">02</span> Temario</p>
+
+                <!-- DESPUÉS -->
+                <select id="temarioSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm mb-3">
+                    <option value="english_basico">Inglés Básico</option>
+                    <option value="english_intermedio">Inglés Intermedio</option>
+                    <option value="english_avanzado">Inglés Avanzado</option>
+                    <option value="french_basico">Francés Básico</option>
+                    <option value="french_intermedio">Francés Intermedio</option>
+                    <option value="tiempos_verbales">Tiempos Verbales</option>
+                    <option value="vocabulario">Vocabulario Esencial</option>
+                    <option value="phrasal_verbs">Phrasal Verbs</option>
+                    <option value="pronunciacion">Pronunciación &amp; Fonética</option>
+                    <option value="conversacion">Conversación Cotidiana</option>
+                    <option value="idioma_negocios">Idioma de Negocios</option>
+                    <option value="false_friends">False Friends</option>
+                    <option value="preposiciones">Preposiciones</option>
+                    <option value="modismos">Modismos &amp; Expresiones</option>
+                    <option value="listening">Comprensión Auditiva</option>
+                    <option value="escritura">Escritura &amp; Redacción</option>
+                    <option value="viajes">Idioma para Viajar</option>
+                    <option value="custom">Otro / Lista manual</option>
+                    <option value="libre">Modo Libre (la IA decide)</option>
+                </select>
+                <div id="customTemarioWrap" class="hidden mb-3">
+                    <textarea id="customTemarioInput" rows="5"
+                        placeholder="Un punto por línea, ej.&#10;Presente simple&#10;Presente continuo&#10;Pasado simple"
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
+                </div>
+                <!-- AGREGA justo después -->
+                <div id="customLibreWrap" class="hidden mb-3">
+                    <textarea id="libreTopicInput" rows="5"
+                        placeholder="Describe libremente el tema, ej.&#10;Explica la diferencia entre 'for' y 'since' en inglés&#10;&#10;La IA decidirá cuántas diapositivas necesita."
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
+                    <p class="text-xs text-[var(--text-lo)] mt-1.5 leading-relaxed">La cantidad de diapositivas la
+                        decide la IA según el tema.</p>
+                </div>
+
+                <div class="panel-soft rounded-xl p-3.5">
+                    <p class="text-[10px] font-mono uppercase tracking-widest text-[var(--text-lo)] mb-2">Puntos a
+                        cubrir</p>
+                    <ul id="temarioPreviewList" class="space-y-1.5"></ul>
+                </div>
+
+                <!-- DESPUÉS -->
+                <div id="scopeSection" class="mt-3.5">
+                    <p class="text-xs font-medium text-[var(--text-mid)] mb-1.5">Alcance de la generación</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="scopeAllBtn" data-scope="all"
+                            class="scope-toggle-btn btn-ghost rounded-xl py-2.5 text-[12.5px]">Todo el temario</button>
+                        <button id="scopeSingleBtn" data-scope="single"
+                            class="scope-toggle-btn btn-ghost rounded-xl py-2.5 text-[12.5px]">Un solo punto</button>
+                    </div>
+                    <div id="scopeSingleWrap" class="hidden mt-2.5">
+                        <select id="scopeSingleSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm"></select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motor IA -->
+            <div class="panel rounded-2xl p-5">
+                <p class="eyebrow mb-3.5 flex items-center gap-2"><span class="step-num">03</span> Motor de IA</p>
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button data-api="gemini"
+                        class="api-toggle-btn btn-ghost rounded-xl py-2.5 text-[13px] flex items-center justify-center gap-1.5">
+                        <span>✨</span> Gemini 2.5 Flash
+                    </button>
+                    <button data-api="openai"
+                        class="api-toggle-btn btn-ghost rounded-xl py-2.5 text-[13px] flex items-center justify-center gap-1.5">
+                        <span>🤖</span> GPT-4o mini
+                    </button>
+                </div>
+                <button id="btnGenerate"
+                    class="btn-primary w-full rounded-xl py-3 text-sm flex items-center justify-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.2">
+                        <path d="M12 2l1.8 5.6L19 9l-5.2 1.4L12 16l-1.8-5.6L5 9l5.2-1.4L12 2z" />
+                    </svg>
+                    <span id="btnGenerateLabel">Generar carrusel</span>
+                </button>
+                <p id="genHint" class="text-xs text-[var(--text-lo)] mt-2.5 text-center min-h-[16px]"></p>
+            </div>
+
+        </section>
+
+        <!-- ---------- RIGHT: STAGE ---------- -->
+        <section class="space-y-5">
+
+            <div id="stagePanel"
+                class="panel rounded-[28px] p-8 flex flex-col items-center justify-center min-h-[660px]">
+                <div id="glowA" class="stage-glow w-[440px] h-[440px] -left-24 -top-16"
+                    style="background:radial-gradient(circle, rgba(34,211,238,.45), transparent 70%)"></div>
+                <div id="glowB" class="stage-glow w-[400px] h-[400px] -right-20 -bottom-16"
+                    style="background:radial-gradient(circle, rgba(139,92,246,.4), transparent 70%)"></div>
+
+                <div id="emptyState" class="relative z-10 text-center py-16 max-w-sm">
+                    <div
+                        class="w-16 h-16 rounded-2xl bg-[#0D1015] border border-[var(--line)] mx-auto flex items-center justify-center mb-5 shadow-xl">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#444c5f" stroke-width="1.6">
+                            <rect x="3" y="4" width="18" height="14" rx="2" />
+                            <path d="M3 9h18" />
+                            <circle cx="6.5" cy="6.5" r=".5" fill="#444c5f" />
+                        </svg>
+                    </div>
+                    <p class="font-display font-semibold text-[16px] text-[var(--text-hi)] mb-2">Tu carrusel aparecerá
+                        aquí</p>
+                    <p class="text-sm text-[var(--text-lo)] leading-relaxed">Sube un logo, elige un temario y genera el
+                        contenido con IA para previsualizar cada diapositiva en formato 9:16.</p>
+                </div>
+
+                <div id="slideCanvasContainer" class="hidden relative z-10 w-full flex flex-col items-center">
+                    <div id="phoneBezel">
+                        <div id="bezelNotch"><span class="dot"></span></div>
+                        <div id="slideFrame" class="relative">
+                            <div id="slideCanvas" class="w-full h-full">
+                                <div id="slideBg" class="slide-bg"></div>
+                                <div id="slideLogoGlow" class="slide-logo-glow"></div>
+                                <div class="slide-dark-overlay"></div>
+                                <div class="slide-grain"></div>
+                                <div class="slide-vignette"></div>
+                                <div id="slideContent" class="relative z-10 w-full h-full flex flex-col"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-5 mt-6">
+                        <button id="btnPrevSlide" class="icon-btn">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.3">
+                                <path d="M15 18l-6-6 6-6" />
+                            </svg>
+                        </button>
+                        <div id="slideDots" class="flex items-center gap-1.5"></div>
+                        <button id="btnNextSlide" class="icon-btn">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.3">
+                                <path d="M9 18l6-6-6-6" />
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="slideLabel" class="text-xs font-mono text-[var(--text-lo)] mt-2"></p>
+                </div>
+            </div>
+
+            <!-- Caption + export -->
+            <div id="exportPanel" class="hidden panel rounded-2xl p-5 space-y-3.5">
+                <div class="flex items-center justify-between">
+                    <p class="eyebrow flex items-center gap-2"><span class="step-num">04</span> Publicación</p>
+                    <span class="text-[10px] font-mono text-[var(--text-lo)]">1080 × 1920 px</span>
+                </div>
+                <textarea id="captionOutput" rows="3" readonly
+                    class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
+
+                <button id="btnCopyCaption"
+                    class="btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                    </svg>
+                    Copiar caption
+                </button>
+                <div class="panel-soft rounded-xl p-3.5 space-y-3">
+                    <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-1">Subtítulos</p>
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-medium text-[var(--text-mid)]">Quemar subtítulos en el video</label>
+                        <input type="checkbox" id="subtitlesEnabledInput" checked class="w-4 h-4 accent-cyan-400" />
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Posición (arrastra el
+                            punto)</label>
+                        <div id="subtitlePositionStage"
+                            class="relative rounded-lg overflow-hidden border border-[var(--line)] bg-[#0D1015]"
+                            style="width:100%; aspect-ratio:9/16; max-width:140px; margin:0 auto; cursor:crosshair; touch-action:none;">
+                            <div id="subtitlePositionDot"
+                                class="absolute w-4 h-4 -ml-2 -mt-2 rounded-full bg-cyan-400 border-2 border-white shadow-lg"
+                                style="left:50%; top:86%;"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5 mt-2">
+                            <button type="button" data-preset="top"
+                                class="subtitle-preset-btn btn-ghost rounded-lg py-1.5 text-[11px]">Arriba</button>
+                            <button type="button" data-preset="center"
+                                class="subtitle-preset-btn btn-ghost rounded-lg py-1.5 text-[11px]">Centro</button>
+                            <button type="button" data-preset="bottom"
+                                class="subtitle-preset-btn btn-ghost rounded-lg py-1.5 text-[11px]">Abajo</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button id="btnDownloadSlide"
+                        class="btn-ghost rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                            <path d="M7 10l5 5 5-5" />
+                            <path d="M12 15V3" />
+                        </svg>
+                        Diapositiva actual
+                    </button>
+                    <button id="btnDownloadAll"
+                        class="btn-primary rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 8v13H3V8" />
+                            <path d="M1 3h22v5H1z" />
+                            <path d="M10 12h4" />
+                        </svg>
+                        <span id="btnDownloadAllLabel">Descargar todo (ZIP)</span>
+                    </button>
+                </div>
+
+                <div class="panel-soft rounded-xl p-3.5 space-y-2">
+                    <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-1">Diapositivas en el
+                        video</p>
+                    <div id="slideSelectionList" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+                </div>
+
+                <button id="btnGenerateVideo"
+                    class="btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="4" width="14" height="16" rx="0" />
+                        <path d="M16 9l6-4v14l-6-4" />
+                    </svg>
+                    <span id="btnGenerateVideoLabel">Generar video de fondo</span>
+                </button>
+
+                <div class="panel-soft rounded-xl p-3.5 space-y-3">
+
+                    <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-1">Editor de exportación
+                    </p>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-medium text-[var(--text-mid)]">Velocidad de reproducción</label>
+                            <span id="videoSpeedLabel" class="text-xs font-mono text-[var(--text-lo)]">1.0x</span>
+                        </div>
+                        <input type="range" id="videoSpeedInput" min="0.5" max="2" step="0.1" value="1"
+                            class="w-full" />
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-medium text-[var(--text-mid)]">Volumen de música</label>
+                            <span id="videoMusicVolumeLabel" class="text-xs font-mono text-[var(--text-lo)]">15%</span>
+                        </div>
+                        <input type="range" id="videoMusicVolumeInput" min="0" max="100" step="5" value="15"
+                            class="w-full" />
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-medium text-[var(--text-mid)]">Volumen de narración</label>
+                            <span id="videoNarrationVolumeLabel"
+                                class="text-xs font-mono text-[var(--text-lo)]">100%</span>
+                        </div>
+                        <input type="range" id="videoNarrationVolumeInput" min="0" max="100" step="5" value="100"
+                            class="w-full" />
+                    </div>
+                </div>
+
+                <div class="panel-soft rounded-xl p-3.5 space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Tipo de
+                            transición</label>
+                        <select id="videoTransitionSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <option value="fadeUp">Fade + subida (suave, actual)</option>
+                            <option value="slideHorizontal">Deslizamiento horizontal</option>
+                            <option value="zoomFade">Zoom + fade (cinematográfico)</option>
+                            <option value="wipeDiagonal">Barrido diagonal</option>
+                            <option value="crossfade">Crossfade simple</option>
+                        </select>
+                        <div>
+                            <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Estilo visual</label>
+                            <select id="videoStyleSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm">
+                                <option value="suave">Suave (actual)</option>
+                                <option value="tiktok">TikTok / Reels (punchy)</option>
+                                <option value="cine">Cinematográfico</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-medium text-[var(--text-mid)]">Duración por diapo</label>
+                            <span id="videoDurationLabel" class="text-xs font-mono text-[var(--text-lo)]">5.0s</span>
+                        </div>
+                        <input type="range" id="videoDurationInput" min="3" max="15" step="0.5" value="5"
+                            class="w-full" />
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-medium text-[var(--text-mid)]">Contraste</label>
+                            <span id="videoContrastLabel" class="text-xs font-mono text-[var(--text-lo)]">100%</span>
+                        </div>
+                        <input type="range" id="videoContrastInput" min="60" max="160" step="5" value="100"
+                            class="w-full" />
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Música (opcional)</label>
+                        <input type="file" id="videoAudioInput" accept="audio/*"
+                            class="field w-full rounded-xl px-3.5 py-2 text-xs" />
+                    </div>
+                </div>
+
+                <p id="exportHint" class="text-xs text-[var(--text-lo)] text-center min-h-[16px]"></p>
+            </div>
+
+            <div id="usagePanel" class="hidden panel-soft rounded-xl p-3.5 space-y-1.5">
+                <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-1">Uso de esta generación
+                </p>
+                <p id="usageGeminiText" class="text-xs text-[var(--text-mid)]"></p>
+                <p id="usageElevenText" class="text-xs text-[var(--text-mid)]"></p>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- ============ CONFIG MODAL ============ -->
+    <div id="configModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+        <div class="modal-card panel rounded-3xl w-full max-w-md max-h-[88vh] overflow-y-auto">
+            <div
+                class="flex items-center justify-between px-6 py-5 border-b border-[var(--line)] sticky top-0 bg-[var(--panel)] z-10">
+                <h2 class="font-display font-bold text-[16px]">Configuración</h2>
+                <button id="btnCloseConfig" class="icon-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Gemini API Key <span
+                            class="font-mono text-[10px] text-[var(--text-lo)]">gemini-2.5-flash</span></label>
+                    <input id="geminiKeyInput" type="password" placeholder="AIza..."
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm font-mono" />
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">OpenAI API Key <span
+                            class="font-mono text-[10px] text-[var(--text-lo)]">gpt-4o-mini</span></label>
+                    <input id="openaiKeyInput" type="password" placeholder="sk-..."
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm font-mono" />
+                </div>
+
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">ElevenLabs API Key <span
+                            class="font-mono text-[10px] text-[var(--text-lo)]">text-to-speech</span></label>
+                    <input id="elevenLabsKeyInput" type="password" placeholder="xi-api-key..."
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm font-mono" />
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">ElevenLabs Voice ID</label>
+                    <input id="elevenLabsVoiceIdInput" type="text" placeholder="21m00Tcm4TlvDq8ikWAM"
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm font-mono" />
+                </div>
+
+                <p class="text-xs text-[var(--text-lo)] leading-relaxed">Las claves se guardan solo en el almacenamiento
+                    local de tu navegador (localStorage) y nunca se envían a ningún servidor propio de esta app.</p>
+            </div>
+
+            <div
+                class="px-6 py-5 border-t border-[var(--line)] flex justify-end gap-2.5 sticky bottom-0 bg-[var(--panel)]">
+                <button id="btnCancelConfig" class="btn-ghost rounded-xl px-4 py-2.5 text-sm">Cancelar</button>
+                <button id="btnSaveConfig" class="btn-primary rounded-xl px-4 py-2.5 text-sm">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="hiddenCanvas" class="hidden"></canvas>
+    <div id="toastHost" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2 items-end"></div>
+
+    <script>
+        (() => {
+            'use strict';
+
+            /* ===================== PRESETS ===================== */
+            // ANTES
+            // DESPUÉS
+            const PRESETS = {
+                english_basico: { label: 'Inglés Básico', tech: 'Inglés', items: ['Verb to be', 'Pronombres personales', 'Presente simple', 'Vocabulario cotidiano'] },
+                english_intermedio: { label: 'Inglés Intermedio', tech: 'Inglés', items: ['Presente perfecto', 'Comparativos y superlativos', 'Phrasal verbs comunes', 'Condicionales tipo 1 y 2'] },
+                english_avanzado: { label: 'Inglés Avanzado', tech: 'Inglés', items: ['Voz pasiva', 'Reported speech', 'Condicionales mixtos', 'Modismos idiomáticos'] },
+                french_basico: { label: 'Francés Básico', tech: 'Francés', items: ['Verbo être y avoir', 'Artículos definidos e indefinidos', 'Presente del indicativo', 'Vocabulario cotidiano'] },
+                french_intermedio: { label: 'Francés Intermedio', tech: 'Francés', items: ['Passé composé', 'Pronombres complemento', 'Futuro simple', 'Adjetivos posesivos'] },
+                tiempos_verbales: { label: 'Tiempos Verbales', tech: 'Inglés', items: ['Presente simple vs continuo', 'Pasado simple vs continuo', 'Futuro con will y going to', 'Presente perfecto'] },
+                vocabulario: { label: 'Vocabulario Esencial', tech: 'Inglés', items: ['Saludos y presentaciones', 'Números y fechas', 'Comida y restaurantes', 'Familia y relaciones'] },
+                phrasal_verbs: { label: 'Phrasal Verbs', tech: 'Inglés', items: ['Get up / get on / get by', 'Look for / look after / look up', 'Give up / give in / give away', 'Break down / break up / break out'] },
+                pronunciacion: { label: 'Pronunciación & Fonética', tech: 'Inglés', items: ['Sonidos vocálicos clave', 'Th sordo y sonoro', 'Acentuación de palabras', 'Entonación en preguntas'] },
+                conversacion: { label: 'Conversación Cotidiana', tech: 'Inglés', items: ['Small talk básico', 'Pedir en un restaurante', 'Dar direcciones', 'Hablar por teléfono'] },
+                idioma_negocios: { label: 'Idioma de Negocios', tech: 'Inglés', items: ['Vocabulario de reuniones', 'Redactar un email formal', 'Presentaciones efectivas', 'Negociación básica'] },
+                false_friends: { label: 'False Friends', tech: 'Inglés', items: ['Actually vs actualmente', 'Embarrassed vs embarazada', 'Library vs librería', 'Realize vs realizar'] },
+                preposiciones: { label: 'Preposiciones', tech: 'Inglés', items: ['Preposiciones de lugar', 'Preposiciones de tiempo', 'Preposiciones de movimiento', 'Verbos con preposición fija'] },
+                modismos: { label: 'Modismos & Expresiones', tech: 'Inglés', items: ['Break the ice', 'Piece of cake', 'Hit the books', 'Under the weather'] },
+                listening: { label: 'Comprensión Auditiva', tech: 'Inglés', items: ['Escuchar acentos distintos', 'Identificar palabras clave', 'Predecir contexto', 'Practicar con audios cortos'] },
+                escritura: { label: 'Escritura & Redacción', tech: 'Inglés', items: ['Estructura de un párrafo', 'Conectores de escritura', 'Email formal vs informal', 'Corrección de errores comunes'] },
+                viajes: { label: 'Idioma para Viajar', tech: 'Inglés', items: ['En el aeropuerto', 'Check-in en el hotel', 'Pedir ayuda y direcciones', 'Emergencias básicas'] }
+            };
+
+            /* ===================== STATE ===================== */
+            const STORAGE_KEY = 'carousel_studio_config_v3';
+            const state = {
+                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '' },
+                logo: { dataUrl: null, colors: [] },
+                // DESPUÉS
+                temarioMode: 'english_basico',
+                temarioItems: PRESETS.english_basico.items.slice(),
+                generationScope: 'all',        // 'all' | 'single'
+                generationSingleIndex: 0,
+                carousel: null,     // { caption, content_slides:[{titulo,explicacion,codigo}], reto:{titulo,enunciado,codigo} }
+                slides: [],          // flattened render-ready slides
+                currentSlide: 0,
+                // DESPUÉS
+                videoSlideSelection: [],
+                watermarkPos: { xPct: 0.82, yPct: 0.078 },
+                exportSettings: { speed: 1, musicVolume: 0.15, narrationVolume: 1, saturate: 100, style: 'suave', subtitlesEnabled: true, subtitlePos: { xPct: 0.5, yPct: 0.86 } }
+            };
+
+            /* ===================== UTIL ===================== */
+            const $ = (id) => document.getElementById(id);
+
+            function toast(msg, type = 'info') {
+                const colors = { info: '#22D3EE', error: '#ef4444', success: '#34d399' };
+                const el = document.createElement('div');
+                el.className = 'toast panel rounded-xl px-4 py-2.5 text-sm shadow-2xl';
+                el.style.borderLeft = `3px solid ${colors[type] || colors.info}`;
+                el.textContent = msg;
+                $('toastHost').appendChild(el);
+                setTimeout(() => el.remove(), 3000);
+            }
+
+            function escapeHtml(str) {
+                return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                }[c]));
+            }
+
+            function trimCode(str, maxLines = 3, maxCharsPerLine = 30) {
+                const lines = String(str ?? '').split('\n').slice(0, maxLines);
+                return lines.map((l) => trimText(l, maxCharsPerLine)).join('\n');
+            }
+            function trimText(str, maxLen) {
+                const s = String(str ?? '').trim();
+                return s.length > maxLen ? s.slice(0, maxLen - 1).trim() + '…' : s;
+            }
+
+            /* ===================== CONFIG PERSISTENCE ===================== */
+            function loadConfig() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) Object.assign(state.config, JSON.parse(raw));
+                } catch (e) { console.warn('No se pudo cargar la configuración', e); }
+                $('geminiKeyInput').value = state.config.geminiKey || '';
+                $('openaiKeyInput').value = state.config.openaiKey || '';
+                $('elevenLabsKeyInput').value = state.config.elevenLabsKey || '';
+                $('elevenLabsVoiceIdInput').value = state.config.elevenLabsVoiceId || '';
+                updateApiToggleUI();
+                updateApiStatusPill();
+            }
+
+            function saveConfigToStorage() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.config)); }
+
+            function updateApiStatusPill() {
+                const pill = $('apiStatusPill');
+                const hasKey = state.config.selectedApi === 'gemini' ? !!state.config.geminiKey : !!state.config.openaiKey;
+                const label = state.config.selectedApi === 'gemini' ? 'Gemini 2.5 Flash' : 'GPT-4o mini';
+                pill.classList.remove('hidden');
+                pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${hasKey ? 'bg-emerald-400' : 'bg-amber-400'}"></span>${label}`;
+            }
+
+            $('btnOpenConfig').addEventListener('click', () => $('configModal').classList.remove('hidden'));
+            $('btnCloseConfig').addEventListener('click', () => $('configModal').classList.add('hidden'));
+            $('btnCancelConfig').addEventListener('click', () => {
+                $('geminiKeyInput').value = state.config.geminiKey || '';
+                $('openaiKeyInput').value = state.config.openaiKey || '';
+                $('configModal').classList.add('hidden');
+            });
+
+            $('configModal').addEventListener('click', (e) => { if (e.target.id === 'configModal') $('configModal').classList.add('hidden'); });
+
+            $('btnSaveConfig').addEventListener('click', () => {
+                state.config.geminiKey = $('geminiKeyInput').value.trim();
+                state.config.openaiKey = $('openaiKeyInput').value.trim();
+                state.config.elevenLabsKey = $('elevenLabsKeyInput').value.trim();
+                state.config.elevenLabsVoiceId = $('elevenLabsVoiceIdInput').value.trim();
+                saveConfigToStorage();
+                updateApiStatusPill();
+                $('configModal').classList.add('hidden');
+                toast('Configuración guardada', 'success');
+            });
+
+            /* ===================== API TOGGLE ===================== */
+            function updateApiToggleUI() {
+                document.querySelectorAll('.api-toggle-btn').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.api === state.config.selectedApi);
+                });
+            }
+            document.querySelectorAll('.api-toggle-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    state.config.selectedApi = btn.dataset.api;
+                    saveConfigToStorage();
+                    updateApiToggleUI();
+                    updateApiStatusPill();
+                });
+            });
+
+            /* ===================== LOGO UPLOAD + PALETTE ===================== */
+            $('logoDropzone').addEventListener('click', () => $('logoInput').click());
+            $('logoInput').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => handleLogoLoaded(ev.target.result, file.name);
+                reader.readAsDataURL(file);
+            });
+
+            function handleLogoLoaded(dataUrl, fileName) {
+                state.logo.dataUrl = dataUrl;
+                $('logoPreview').src = dataUrl;
+                $('logoPreview').classList.remove('hidden');
+                $('logoPlaceholderIcon').classList.add('hidden');
+                $('logoDropzone').classList.add('has-file');
+                $('logoDropText').textContent = fileName;
+
+                if (!$('techNameInput').value.trim()) {
+                    const guess = fileName.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+                    $('techNameInput').value = guess.charAt(0).toUpperCase() + guess.slice(1);
+                }
+
+                const img = new Image();
+                img.onload = () => {
+                    const colors = extractPalette(img);
+                    state.logo.colors = colors;
+                    state.logo.blurredDataUrl = generateBlurredLogo(img);
+                    renderPaletteSwatches(colors);
+                    updateStageGlow(colors);
+                    if (state.slides.length) renderSlide();
+                };
+                img.onerror = () => toast('No se pudo procesar la imagen para extraer colores', 'error');
+                img.src = dataUrl;
+            }
+
+            function rgbToHsl(r, g, b) {
+                r /= 255; g /= 255; b /= 255;
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                let h = 0, s = 0;
+                const l = (max + min) / 2;
+                const d = max - min;
+                if (d !== 0) {
+                    s = d / (1 - Math.abs(2 * l - 1));
+                    switch (max) {
+                        case r: h = 60 * (((g - b) / d) % 6); break;
+                        case g: h = 60 * ((b - r) / d + 2); break;
+                        case b: h = 60 * ((r - g) / d + 4); break;
+                    }
+                    if (h < 0) h += 360;
+                }
+                return { h, s, l };
+            }
+
+            function generateBlurredLogo(img, size = 480) {
+                const canvas = document.createElement('canvas');
+                canvas.width = size; canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                try { ctx.filter = 'blur(26px) saturate(160%) brightness(1.1)'; } catch (e) { }
+                const ratio = Math.min(size / img.width, size / img.height) * 0.62;
+                const w = img.width * ratio, h = img.height * ratio;
+                ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+                return canvas.toDataURL('image/png');
+            }
+            function extractPalette(img) {
+                const canvas = $('hiddenCanvas');
+                const size = 100;
+                canvas.width = size; canvas.height = size;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.clearRect(0, 0, size, size);
+                const ratio = Math.min(size / img.width, size / img.height);
+                const w = img.width * ratio, h = img.height * ratio;
+                ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+
+                let data;
+                try { data = ctx.getImageData(0, 0, size, size).data; }
+                catch (e) { return ['#22D3EE', '#8B5CF6', '#A78BFA']; }
+
+                // Agrupa por matiz (hue) para que colores del logo con menor área
+                // (ej. el amarillo de Python) compitan como grupo aparte del azul,
+                // en vez de perderse contra el conteo bruto de píxeles.
+                const HUE_BINS = 24; // 15° por bin
+                const bins = new Map();
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                    if (a < 100) continue;
+
+                    const { h: hue, s, l } = rgbToHsl(r, g, b);
+                    // ignora casi-blanco, casi-negro y grises desaturados (típicamente fondo)
+                    if (l > 0.94 || l < 0.06 || s < 0.15) continue;
+
+                    const binIndex = Math.floor(hue / (360 / HUE_BINS)) % HUE_BINS;
+                    const quantKey = [Math.round(r / 16) * 16, Math.round(g / 16) * 16, Math.round(b / 16) * 16].join(',');
+
+                    if (!bins.has(binIndex)) bins.set(binIndex, { count: 0, colors: new Map() });
+                    const bin = bins.get(binIndex);
+                    bin.count++;
+                    bin.colors.set(quantKey, (bin.colors.get(quantKey) || 0) + 1);
+                }
+
+                if (bins.size === 0) return ['#22D3EE', '#8B5CF6', '#A78BFA'];
+
+                const sortedBins = [...bins.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+
+                return sortedBins.map(([, bin]) => {
+                    const [topKey] = [...bin.colors.entries()].sort((a, b) => b[1] - a[1])[0];
+                    const [r, g, b] = topKey.split(',').map(Number);
+                    return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+                });
+            }
+
+            function renderPaletteSwatches(colors) {
+                $('paletteRow').classList.remove('hidden');
+                $('paletteSwatches').innerHTML = colors.map((c) =>
+                    `<div class="swatch" style="background:${c}" title="${c}"></div>`
+                ).join('');
+            }
+
+            function hexToRgba(hex, alpha) {
+                const h = hex.replace('#', '');
+                const r = parseInt(h.substring(0, 2), 16) || 0;
+                const g = parseInt(h.substring(2, 4), 16) || 0;
+                const b = parseInt(h.substring(4, 6), 16) || 0;
+                return `rgba(${r},${g},${b},${alpha})`;
+            }
+
+            function buildGradientCss(colors) {
+                const base = colors && colors.length ? colors : ['#22D3EE', '#8B5CF6', '#0A0C10'];
+                const stops = base.slice(0, 3);
+                while (stops.length < 3) stops.push('#0A0C10');
+                return `
+      radial-gradient(circle at 12% 8%, ${hexToRgba(stops[0], 0.34)} 0%, ${hexToRgba(stops[0], 0.12)} 30%, transparent 55%),
+      radial-gradient(circle at 92% 18%, ${hexToRgba(stops[1], 0.26)} 0%, ${hexToRgba(stops[1], 0.09)} 28%, transparent 52%),
+      radial-gradient(circle at 45% 105%, ${hexToRgba(stops[2], 0.3)} 0%, ${hexToRgba(stops[2], 0.1)} 30%, transparent 60%),
+      linear-gradient(165deg, #0A0C10 0%, #0D1017 100%)
+    `;
+            }
+
+            function updateStageGlow(colors) {
+                const base = colors && colors.length ? colors : ['#22D3EE', '#8B5CF6'];
+                $('glowA').style.background = `radial-gradient(circle, ${hexToRgba(base[0], 0.45)}, transparent 70%)`;
+                $('glowB').style.background = `radial-gradient(circle, ${hexToRgba(base[1] || base[0], 0.38)}, transparent 70%)`;
+            }
+
+            /* ===================== TEMARIO ===================== */
+            // DESPUÉS
+            function updateTemarioMode(mode) {
+                state.temarioMode = mode;
+                $('customTemarioWrap').classList.toggle('hidden', mode !== 'custom');
+                $('customLibreWrap').classList.toggle('hidden', mode !== 'libre');
+                $('scopeSection').classList.toggle('hidden', mode === 'libre');
+
+                if (mode === 'custom') {
+                    syncCustomTemario();
+                } else if (mode === 'libre') {
+                    state.generationScope = 'all';
+                    state.temarioItems = [];
+                    updateScopeUI();
+                } else {
+                    state.temarioItems = PRESETS[mode].items.slice();
+                    if (!$('techNameInput').value.trim() || Object.values(PRESETS).some(p => p.tech === $('techNameInput')._lastAuto)) {
+                        $('techNameInput').value = PRESETS[mode].tech;
+                        $('techNameInput')._lastAuto = PRESETS[mode].tech;
+                    }
+                }
+                renderTemarioPreview();
+            }
+
+            function syncCustomTemario() {
+                const lines = $('customTemarioInput').value.split('\n').map((l) => l.trim()).filter(Boolean);
+                state.temarioItems = lines.length ? lines : ['Punto 1', 'Punto 2', 'Punto 3'];
+                renderTemarioPreview();
+            }
+
+            // DESPUÉS
+            function renderTemarioPreview() {
+                if (state.temarioMode === 'libre' && !state.temarioItems.length) {
+                    $('temarioPreviewList').innerHTML = `
+      <li class="text-[12px] text-[var(--text-lo)] italic">La IA leerá tu descripción libre y decidirá los puntos y la cantidad de diapositivas automáticamente.</li>
+    `;
+                    return;
+                }
+                $('temarioPreviewList').innerHTML = state.temarioItems.map((item, i) => `
+      <li class="flex items-center gap-2 text-[12px] text-[var(--text-mid)]">
+        <span class="w-4 h-4 rounded-full border border-[var(--line)] flex items-center justify-center text-[9px] font-mono text-[var(--text-lo)] shrink-0">${i + 1}</span>
+        <span class="truncate">${escapeHtml(item)}</span>
+      </li>
+    `).join('');
+                syncScopeSingleSelect();
+            }
+            $('temarioSelect').addEventListener('change', (e) => updateTemarioMode(e.target.value));
+            $('customTemarioInput').addEventListener('input', syncCustomTemario);
+
+            /* ===================== GENERATION SCOPE ===================== */
+            function updateScopeUI() {
+                document.querySelectorAll('.scope-toggle-btn').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.scope === state.generationScope);
+                });
+                $('scopeSingleWrap').classList.toggle('hidden', state.generationScope !== 'single');
+            }
+
+            function syncScopeSingleSelect() {
+                const sel = $('scopeSingleSelect');
+                const prev = Number(sel.value);
+                sel.innerHTML = state.temarioItems.map((item, i) =>
+                    `<option value="${i}">${i + 1}. ${escapeHtml(trimText(item, 40))}</option>`
+                ).join('');
+                const safeIndex = Number.isInteger(prev) && prev < state.temarioItems.length ? prev : 0;
+                sel.value = safeIndex;
+                state.generationSingleIndex = safeIndex;
+            }
+
+            document.querySelectorAll('.scope-toggle-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    state.generationScope = btn.dataset.scope;
+                    updateScopeUI();
+                });
+            });
+
+            $('scopeSingleSelect').addEventListener('change', (e) => {
+                state.generationSingleIndex = Number(e.target.value);
+            });
+
+            /* ===================== PROMPT BUILDING ===================== */
+            function getScopedItems() {
+                if (state.generationScope === 'single') {
+                    const idx = Math.min(state.generationSingleIndex, state.temarioItems.length - 1);
+                    const item = state.temarioItems[idx];
+                    return item ? [item] : state.temarioItems.slice(0, 1);
+                }
+                return state.temarioItems;
+            }
+
+            function buildSystemPrompt() {
+                return `Eres un generador de contenido educativo de idiomas para carruseles de redes sociales (Instagram Reels / TikTok). Tu prioridad número uno, antes que cualquier otra cosa, es la RETENCIÓN Y LA VIRALIDAD: los primeros 1-2 segundos deciden si la persona se queda viendo o se va, así que absolutamente todo lo que escribas para la portada ("intro_dialogo") y para el "caption" debe empezar como un GANCHO (hook) que enganche de inmediato — una pregunta directa, un error común que casi todos cometen, una promesa concreta de resultado, o una afirmación que rompa una creencia — y nunca, bajo ninguna circunstancia, con saludos genéricos tipo "Hola", "Bienvenido" o "En este video". Ayudas a personas a aprender inglés, francés u otros idiomas con explicaciones claras y ejemplos prácticos. El texto que se ve en pantalla debe ser breve, pero la narración hablada ("dialogo", "intro_dialogo") debe explicar de verdad cada punto, como el guion de un profesor en un video corto, sin desperdiciar palabras en relleno. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks. Nunca generes explicaciones fuera del JSON.`;
+            }
+
+            // DESPUÉS
+            function buildJsonRulesBlock(tech) {
+                return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
+{
+  "caption": "texto corto para la publicación en redes que EMPIECE directamente con un gancho (una pregunta intrigante, una promesa de resultado concreto, o una afirmación que rompa un mito o error común), sin saludos ni relleno al inicio, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
+  "intro_dialogo": "guion hablado de 2-3 frases para narrar la portada. La PRIMERA frase es el gancho (hook) y es la más importante de todo el carrusel: debe enganchar en el primer segundo con una pregunta directa, un error común que la gente comete, o una promesa concreta de lo que va a lograr — JAMÁS empieces con 'Hola', 'Bienvenido' u otro saludo genérico. Después del gancho, dice claramente qué va a aprender la persona en este carrusel y por qué le sirve, en tono cercano, directo y con energía, como el arranque de un video corto que busca viralizarse",
+  "content_slides": [
+    { "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 100 caracteres)", "codigo": "ejemplo real en el idioma \"${tech}\" (una frase, palabra o mini-diálogo de práctica), MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion hablado de 4 a 6 frases, con tono de profesor cercano explicando este punto como en un mini video educativo: qué es, cuándo o cómo se usa, y un tip práctico para recordarlo. Termina diciendo en voz alta la frase de ejemplo del campo codigo en \"${tech}\" tal cual, seguida de su traducción breve al español entre paréntesis" }
+  ],
+  "reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio a resolver (máx 100 caracteres)", "codigo": "frase o ejemplo base para el reto (ej. una frase a completar o traducir), MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion hablado de 3 a 4 frases: recuerda en una frase el concepto clave que se acaba de explicar, dice con claridad qué debe hacer la persona en el reto, y la anima a pausar e intentarlo" }
+}
+
+Reglas estrictas:
+- GANCHO OBLIGATORIO: "intro_dialogo" y "caption" deben empezar con un hook de viralidad (pregunta directa, error común, dato que sorprende, o promesa concreta de resultado). Está prohibido abrir con saludos ("Hola", "Bienvenido", "Hey") o frases de relleno tipo "En este carrusel/video vamos a ver...". Piensa como un guionista de contenido viral de TikTok/Reels, no como un locutor formal.
+- Cada "codigo" debe ser una frase, palabra o ejemplo real en el idioma "${tech}", útil para practicar, sin relleno.
+- CRÍTICO: cada bloque "codigo" debe tener MÁXIMO 3 líneas y cada línea MÁXIMO 28 caracteres. Si el contenido real necesita más espacio, usa frases cortas y directas para que quepa. Nunca superes ese límite.
+- Los campos que se VEN en pantalla ("titulo", "explicacion", "codigo", "enunciado") deben ser extremadamente concisos: frases cortas y directas, sin relleno.
+- Los campos "dialogo" e "intro_dialogo" (que solo se ESCUCHAN, no se muestran en pantalla) sí deben ser explicativos y pedagógicos, como la narración de un video educativo corto: prioriza que la persona entienda de verdad el concepto y para qué le sirve, sin relleno innecesario ni repetir literalmente lo que ya dice "explicacion". No te excedas de las 6 frases indicadas para no alargar demasiado el audio.
+- No repitas el nombre "${tech}" dentro de cada título.
+- Los campos "dialogo" e "intro_dialogo" son guiones para ser LEÍDOS EN VOZ ALTA por una IA de voz (texto a voz) que narra bien tanto en español como en "${tech}". CRÍTICO: escribe SIEMPRE los números en palabras (ej. "tres" en vez de "3", "primero" en vez de "1º"), nunca uses dígitos, símbolos raros, ni abreviaturas, porque la voz IA los pronuncia mal o se traba. Cuando incluyas una palabra o frase en "${tech}" dentro de un "dialogo", escríbela tal cual en ese idioma (no la traduzcas al escribirla, no la transliteres) y agrega su traducción al español entre paréntesis justo después, para que quien escucha entienda el significado.
+- JSON compacto, sin espacios innecesarios, sin comentarios.`;
+            }
+
+            function buildUserPrompt() {
+                const tech = $('techNameInput').value.trim() || 'Idioma';
+
+                if (state.temarioMode === 'libre') {
+                    const topic = $('libreTopicInput').value.trim() || tech;
+                    return `Genera el contenido para un carrusel educativo sobre "${tech}", a partir de esta petición libre escrita por el usuario (puede ser un tema, una pregunta o un caso concreto):
+"${topic}"
+
+Interpreta la intención real del usuario y organiza el contenido en el mismo formato que usa esta app para temarios estructurados (una portada, varios puntos de contenido y un reto final). TÚ decides cuántos puntos de contenido son necesarios para explicar bien el tema: usa entre 3 y 7 elementos en "content_slides", ni más ni menos de lo que el tema realmente requiera. Cada punto debe cubrir un aspecto claro, distinto y en un orden lógico de aprendizaje.
+
+${buildJsonRulesBlock(tech)}
+- "content_slides" debe tener entre 3 y 7 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario.`;
+                }
+
+                const items = getScopedItems();
+                return `Genera el contenido para un carrusel educativo sobre "${tech}".
+El temario a cubrir en esta generación, en este orden exacto:
+${items.map((it, i) => `${i + 1}. ${it}`).join('\n')}
+
+${buildJsonRulesBlock(tech)}
+- "content_slides" debe tener EXACTAMENTE ${items.length} elementos, uno por cada punto listado arriba, en el mismo orden.`;
+            }
+
+            /* ===================== AI CALLS ===================== */
+            async function callGemini(apiKey, systemPrompt, userPrompt) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+                const body = {
+                    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: { responseMimeType: 'application/json', temperature: 0.6 }
+                };
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    throw new Error(`Gemini API error (${res.status}): ${errText.slice(0, 200)}`);
+                }
+                const data = await res.json();
+                const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+                if (!text) throw new Error('Gemini no devolvió contenido. Verifica tu API Key o cuota.');
+                const usage = data?.usageMetadata || null;
+                return { text, usage };
+            }
+
+            async function callOpenAI(apiKey, systemPrompt, userPrompt) {
+                const url = 'https://api.openai.com/v1/chat/completions';
+                const body = {
+                    model: 'gpt-4o-mini',
+                    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.6
+                };
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify(body)
+                });
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    throw new Error(`OpenAI API error (${res.status}): ${errText.slice(0, 200)}`);
+                }
+                const data = await res.json();
+                const text = data?.choices?.[0]?.message?.content || '';
+                if (!text) throw new Error('OpenAI no devolvió contenido. Verifica tu API Key o cuota.');
+                const usage = data?.usage || null;
+                return { text, usage };
+            }
+
+            function safeParseJson(raw) {
+                let cleaned = raw.trim();
+                cleaned = cleaned.replace(/^```(json)?/i, '').replace(/```$/, '').trim();
+                const firstBrace = cleaned.indexOf('{');
+                const lastBrace = cleaned.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1) cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+                return JSON.parse(cleaned);
+            }
+
+            /* ===================== BUILD RENDER-READY SLIDES ===================== */
+            function buildSlides(json) {
+                const scopedItems = getScopedItems();
+                const fullItems = state.temarioItems;
+                const isSingle = state.generationScope === 'single';
+                const singleIndex = isSingle ? Math.min(state.generationSingleIndex, fullItems.length - 1) : null;
+                const contentSlides = Array.isArray(json.content_slides) ? json.content_slides : [];
+                const reto = json.reto || {};
+
+                const slides = [];
+
+                // Slide 1: Portada
+                slides.push({
+                    tipo: 'portada',
+                    numero: 1,
+                    badge: isSingle ? 'Punto destacado' : 'Introducción',
+                    titulo: $('techNameInput').value.trim() || 'Idioma',
+                    sub: isSingle ? trimText(scopedItems[0] || '', 60) : `Guía rápida · ${fullItems.length} conceptos clave`,
+                    codigo: '',
+                    checkedCount: 0,
+                    dialogo: json.intro_dialogo || ''
+                });
+
+                // Content slides
+                scopedItems.forEach((item, i) => {
+                    const src = contentSlides[i] || {};
+                    const posInFull = isSingle ? singleIndex : i;
+                    slides.push({
+                        tipo: 'contenido',
+                        numero: i + 2,
+                        badge: isSingle ? `Punto ${posInFull + 1} de ${fullItems.length}` : `Parte ${i + 1} de ${fullItems.length}`,
+                        titulo: trimText(src.titulo || item, 46),
+                        sub: trimText(src.explicacion || '', 100),
+                        codigo: trimCode(src.codigo || ''),
+                        checkedCount: posInFull + 1,
+                        dialogo: src.dialogo || ''
+                    });
+                });
+
+                // Final: reto
+                slides.push({
+                    tipo: 'reto',
+                    numero: scopedItems.length + 2,
+                    badge: 'Reto / Ejercicio',
+                    titulo: trimText(reto.titulo || 'Ponlo en práctica', 46),
+                    sub: trimText(reto.enunciado || '', 120),
+                    codigo: trimCode(reto.codigo || ''),
+                    checkedCount: isSingle ? singleIndex + 1 : fullItems.length,
+                    dialogo: reto.dialogo || ''
+                });
+
+                return slides;
+            }
+
+            /* ===================== GENERATE FLOW ===================== */
+            $('btnGenerate').addEventListener('click', generateCarousel);
+
+            async function callElevenLabsTTS(text, apiKey, voiceId) {
+                // Pedimos el endpoint "with-timestamps": además del audio, ElevenLabs devuelve
+                // el instante exacto (en segundos, a velocidad normal 1x) en que empieza y termina
+                // CADA carácter narrado. Con eso podemos sincronizar los subtítulos con la voz real
+                // en vez de repartir el tiempo de forma proporcional por cantidad de texto (que es
+                // una aproximación y se desincroniza más cuanto más se acelera el video).
+                const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'xi-api-key': apiKey, 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        text,
+                        model_id: 'eleven_multilingual_v2',
+                        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                    })
+                });
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    throw new Error(`ElevenLabs error (${res.status}): ${errText.slice(0, 200)}`);
+                }
+                const data = await res.json();
+                if (!data.audio_base64) throw new Error('ElevenLabs no devolvió audio.');
+
+                const byteChars = atob(data.audio_base64);
+                const byteNumbers = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+                const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'audio/mpeg' });
+
+                // alignment = { characters: [...], character_start_times_seconds: [...], character_end_times_seconds: [...] }
+                return { blob, alignment: data.alignment || null };
+            }
+
+            function getAudioDurationMs(blob) {
+                return new Promise((resolve) => {
+                    const url = URL.createObjectURL(blob);
+                    const audioEl = new Audio();
+                    audioEl.preload = 'metadata';
+                    audioEl.onloadedmetadata = () => {
+                        const ms = isFinite(audioEl.duration) ? audioEl.duration * 1000 : 4000;
+                        URL.revokeObjectURL(url);
+                        resolve(ms);
+                    };
+                    audioEl.onerror = () => { URL.revokeObjectURL(url); resolve(4000); };
+                    audioEl.src = url;
+                });
+            }
+
+            async function generateNarrationForSlides() {
+                const apiKey = state.config.elevenLabsKey;
+                const voiceId = state.config.elevenLabsVoiceId;
+                if (!apiKey || !voiceId) return;
+
+                state.lastElevenLabsChars = 0;
+                for (let i = 0; i < state.slides.length; i++) {
+                    const slide = state.slides[i];
+                    slide.audioBlob = null;
+                    slide.audioDurationMs = null;
+                    slide.audioAlignment = null;
+                    if (!slide.dialogo) continue;
+
+                    $('genHint').textContent = `Generando narración ${i + 1}/${state.slides.length}…`;
+                    try {
+                        const { blob, alignment } = await callElevenLabsTTS(slide.dialogo, apiKey, voiceId);
+                        slide.audioBlob = blob;
+                        slide.audioAlignment = alignment;
+                        slide.audioDurationMs = await getAudioDurationMs(blob);
+                        state.lastElevenLabsChars += slide.dialogo.length;
+                    } catch (e) {
+                        console.error(`Fallo narración diapositiva ${i + 1}`, e);
+                        toast(`No se pudo generar audio para la diapositiva ${i + 1}`, 'error');
+                    }
+                }
+                $('genHint').textContent = '';
+            }
+            /* ===================== USAGE / SCRIPT / COST (stubs mínimos) ===================== */
+            function registerGenerationUsage(api, usage) {
+                state.lastUsage = { api, usage: usage || null };
+            }
+
+
+            function renderScriptPanel() {
+                if (!state.slides.length) return;
+                // guion completo (intro + cada punto + reto) por si luego quieres mostrarlo en un panel
+                state.fullScript = state.slides
+                    .map((s) => s.dialogo)
+                    .filter(Boolean)
+                    .join('\n\n');
+            }
+
+
+            function renderCostPanel() {
+                const panel = $('usagePanel');
+                const gemEl = $('usageGeminiText');
+                const elEl = $('usageElevenText');
+                let hasData = false;
+
+                if (state.lastUsage && state.lastUsage.usage) {
+                    hasData = true;
+                    const u = state.lastUsage.usage;
+                    if (state.lastUsage.api === 'gemini') {
+                        gemEl.textContent = `Gemini: ${u.promptTokenCount ?? '—'} tokens entrada · ${u.candidatesTokenCount ?? '—'} salida · ${u.totalTokenCount ?? '—'} total`;
+                    } else {
+                        gemEl.textContent = `OpenAI: ${u.prompt_tokens ?? '—'} tokens entrada · ${u.completion_tokens ?? '—'} salida · ${u.total_tokens ?? '—'} total`;
+                    }
+                } else {
+                    gemEl.textContent = '';
+                }
+
+                if (state.lastElevenLabsChars) {
+                    hasData = true;
+                    elEl.textContent = `ElevenLabs: ${state.lastElevenLabsChars} caracteres narrados (revisa tu panel de ElevenLabs para ver los créditos exactos consumidos)`;
+                } else {
+                    elEl.textContent = '';
+                }
+
+                panel.classList.toggle('hidden', !hasData);
+            }
+            async function generateCarousel() {
+                const api = state.config.selectedApi;
+                const key = api === 'gemini' ? state.config.geminiKey : state.config.openaiKey;
+                if (!key) {
+                    toast(`Falta la API Key de ${api === 'gemini' ? 'Gemini' : 'OpenAI'}. Ábrela en Configuración.`, 'error');
+                    $('configModal').classList.remove('hidden');
+                    return;
+                }
+                // DESPUÉS
+                if (state.temarioMode === 'libre') {
+                    if (!$('libreTopicInput').value.trim()) {
+                        toast('Describe el tema en modo libre antes de generar.', 'error');
+                        return;
+                    }
+                } else if (!state.temarioItems.length) {
+                    toast('Define al menos un punto en el temario.', 'error');
+                    return;
+                }
+
+                setGenerating(true);
+                try {
+                    const systemPrompt = buildSystemPrompt();
+                    const userPrompt = buildUserPrompt();
+                    const result = api === 'gemini' ? await callGemini(key, systemPrompt, userPrompt) : await callOpenAI(key, systemPrompt, userPrompt);
+                    const json = safeParseJson(result.text);
+
+                    if (state.temarioMode === 'libre') {
+                        const aiItems = Array.isArray(json.content_slides) ? json.content_slides.map((s) => s.titulo || 'Punto') : [];
+                        state.temarioItems = aiItems.length ? aiItems : ['Contenido'];
+                        state.generationScope = 'all';
+                        renderTemarioPreview();
+                    }
+
+                    state.carousel = json;
+                    state.slides = buildSlides(json);
+                    state.currentSlide = 0;
+                    registerGenerationUsage(api, result.usage);
+
+                    if (state.config.elevenLabsKey && state.config.elevenLabsVoiceId) {
+                        await generateNarrationForSlides();
+                    }
+
+                    $('captionOutput').value = json.caption || '';
+                    $('emptyState').classList.add('hidden');
+                    $('slideCanvasContainer').classList.remove('hidden');
+                    $('exportPanel').classList.remove('hidden');
+
+                    buildDots();
+                    renderSlide();
+                    renderScriptPanel();
+                    renderCostPanel();
+                    renderSlideSelection();
+                    toast('Carrusel generado con éxito', 'success');
+                } catch (err) {
+                    console.error(err);
+                    toast(err.message || 'Error generando el contenido', 'error');
+                } finally {
+                    setGenerating(false);
+                }
+            }
+
+            function setGenerating(isLoading) {
+                const btn = $('btnGenerate');
+                btn.disabled = isLoading;
+                $('btnGenerateLabel').textContent = isLoading ? 'Generando…' : 'Generar carrusel';
+                let spin = btn.querySelector('.spinner');
+                if (isLoading && !spin) { spin = document.createElement('div'); spin.className = 'spinner'; btn.prepend(spin); }
+                else if (!isLoading && spin) { spin.remove(); }
+                $('genHint').textContent = isLoading ? 'Consultando al modelo, esto puede tardar unos segundos…' : '';
+            }
+
+            function renderSlideSelection() {
+                state.videoSlideSelection = state.slides.map(() => true);
+                const container = $('slideSelectionList');
+                container.innerHTML = state.slides.map((s, i) => `
+        <label class="flex items-center gap-2 text-xs text-[var(--text-mid)] cursor-pointer">
+            <input type="checkbox" data-slide-index="${i}" checked class="slide-select-checkbox w-3.5 h-3.5 accent-cyan-400 shrink-0" />
+            <span class="truncate">${i + 1}. ${escapeHtml(s.titulo)}</span>
+        </label>
+    `).join('');
+                container.querySelectorAll('.slide-select-checkbox').forEach((cb) => {
+                    cb.addEventListener('change', (e) => {
+                        const idx = Number(e.target.dataset.slideIndex);
+                        state.videoSlideSelection[idx] = e.target.checked;
+                    });
+                });
+            }
+            /* ===================== SLIDE NAV ===================== */
+            function buildDots() {
+                const dots = $('slideDots');
+                dots.innerHTML = '';
+                state.slides.forEach((_, i) => {
+                    const d = document.createElement('button');
+                    d.className = 'slide-dot' + (i === state.currentSlide ? ' active' : '');
+                    d.addEventListener('click', () => { state.currentSlide = i; renderSlide(); renderScriptPanel(); });
+                    dots.appendChild(d);
+                });
+            }
+
+            $('btnPrevSlide').addEventListener('click', () => stepSlide(-1));
+            $('btnNextSlide').addEventListener('click', () => stepSlide(1));
+
+            function stepSlide(delta) {
+                if (!state.slides.length) return;
+                const n = state.slides.length;
+                state.currentSlide = (state.currentSlide + delta + n) % n;
+                renderSlide();
+                renderScriptPanel();
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (!state.slides.length) return;
+                if (['TEXTAREA', 'INPUT', 'SELECT'].includes(document.activeElement.tagName)) return;
+                if (e.key === 'ArrowLeft') stepSlide(-1);
+                if (e.key === 'ArrowRight') stepSlide(1);
+            });
+
+            /* ===================== SLIDE RENDER ===================== */
+            function codeFontSizeForLines(n) {
+                if (n <= 3) return { code: '13px', gutter: '11.5px', lh: '1.6' };
+                if (n <= 4) return { code: '11px', gutter: '10px', lh: '1.5' };
+                return { code: '9.5px', gutter: '9px', lh: '1.4' };
+            }
+            function fontSizeForCount(n) {
+                if (n <= 4) return { text: '11px', ring: '14px', gap: 'gap-2', pad: 'py-1' };
+                if (n <= 6) return { text: '10.5px', ring: '13px', gap: 'gap-1.5', pad: 'py-0.5' };
+                return { text: '9.5px', ring: '12px', gap: 'gap-1', pad: 'py-0.5' };
+            }
+            function computeTextSizing(slide) {
+                const subLen = (slide.sub || '').length;
+                const codeLines = slide.codigo ? slide.codigo.split('\n').length : 0;
+                const isPortada = slide.tipo === 'portada';
+                const veryHeavy = subLen > 130 || codeLines >= 4;
+                const heavy = subLen > 100 || codeLines >= 3;
+
+                if (veryHeavy) return { title: isPortada ? 23 : 17, sub: 11.5 };
+                if (heavy) return { title: isPortada ? 24 : 18, sub: 12 };
+                return { title: isPortada ? 25 : 19, sub: 12.5 };
+            }
+            function renderSlide() {
+                if (!state.slides.length) return;
+                const slide = state.slides[state.currentSlide];
+                const tech = $('techNameInput').value.trim() || 'Idioma';
+                const items = state.temarioItems;
+                const total = state.slides.length;
+
+                $('slideBg').style.background = buildGradientCss(state.logo.colors);
+                $('slideLogoGlow').style.backgroundImage = state.logo.blurredDataUrl ? `url(${state.logo.blurredDataUrl})` : 'none';
+                document.querySelectorAll('.slide-dot').forEach((d, i) => d.classList.toggle('active', i === state.currentSlide));
+                $('slideLabel').textContent = `Diapositiva ${slide.numero} de ${total}`;
+
+                const logoHtml = state.logo.dataUrl
+                    ? `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center overflow-hidden shrink-0">${state.logo.dataUrl ? `<img src="${state.logo.dataUrl}" class="w-full h-full object-contain p-1.5" />` : ''}</div>`
+                    : `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center font-display font-bold text-[13px] text-white/80 shrink-0">${escapeHtml((tech || '?').charAt(0))}</div>`;
+
+                // DESPUÉS
+                const watermarkText = $('watermarkTextInput').value.trim();
+                const wmPos = state.watermarkPos;
+                const watermarkHtml = watermarkText
+                    ? `<div id="slideWatermark" class="absolute select-none" style="left:${(wmPos.xPct * 100).toFixed(2)}%; top:${(wmPos.yPct * 100).toFixed(2)}%; transform:translate(-50%,-50%); cursor:grab; touch-action:none;">
+           <span class="font-display text-[11px] font-medium text-white/55 tracking-wide">${escapeHtml(watermarkText)}</span>
+         </div>`
+                    : '';
+
+                const badgeIsReto = slide.tipo === 'reto';
+                const badgeColor = badgeIsReto
+                    ? 'bg-amber-400/12 text-amber-300 border-amber-400/25'
+                    : 'bg-cyan-400/12 text-cyan-300 border-cyan-400/25';
+
+                const codeLines = slide.codigo ? slide.codigo.split('\n').length : 0;
+                const cfs = codeFontSizeForLines(codeLines);
+                const ts = computeTextSizing(slide);
+                const codeBlock = slide.codigo
+                    ? `<div class="phrase-card mt-2 w-full px-3.5 py-3">
+           <div class="phrase-card-top mb-2">
+             <span class="phrase-mark" style="font-size:20px">❝</span>
+             <span class="phrase-lang-tag">${escapeHtml(tech)}</span>
+           </div>
+  <p class="phrase-text" style="font-size:${cfs.code}; line-height:${cfs.lh}">${escapeHtml(slide.codigo).replace(/\n/g, '<br/>')}</p>
+         </div>`
+                    : '';
+
+                const fs = fontSizeForCount(items.length);
+                const checklistHtml = items.length
+                    ? `<div id="slideChecklistBlock" class="editor-window mt-3 px-3.5 w-full ${fs.pad === 'py-0.5' ? 'py-2.5' : 'py-3'}">
+           <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-2">Temario</p>
+           <ul class="space-y-1.5">
+             ${items.map((it, i) => {
+                        const done = i < slide.checkedCount;
+                        return `<li class="flex items-center ${fs.gap}">
+                 <span class="check-ring ${done ? 'done' : ''}" style="width:${fs.ring};height:${fs.ring}">
+                   <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="3.5"><path d="M20 6L9 17l-5-5"/></svg>
+                 </span>
+                 <span class="truncate transition-colors" style="font-size:${fs.text}; color:${done ? 'rgba(255,255,255,.88)' : 'rgba(255,255,255,.38)'}">${escapeHtml(it)}</span>
+               </li>`;
+                    }).join('')}
+           </ul>
+         </div>`
+                    : '';
+
+                // DESPUÉS
+                $('slideContent').innerHTML = `
+      <div class="flex items-center px-5 pt-5">
+        ${logoHtml}
+      </div>
+      ${watermarkHtml}
+
+      <div class="flex-1 flex flex-col justify-center px-5 pt-4 pb-4 min-h-0">
+<h2 class="font-display font-bold text-white leading-[1.18] tracking-tight" style="font-size:${ts.title}px">${escapeHtml(slide.titulo)}</h2>
+        ${slide.sub ? `<p class="text-white/62 leading-relaxed mt-2" style="font-size:${ts.sub}px">${escapeHtml(slide.sub)}</p>` : ''}
+        ${codeBlock}
+        ${checklistHtml}
+      </div>
+
+   `;
+
+                $('slideCanvas').classList.remove('anim-in');
+                void $('slideCanvas').offsetWidth;
+                $('slideCanvas').classList.add('anim-in');
+            }
+
+            /* ===================== CAPTION COPY ===================== */
+            $('btnCopyCaption').addEventListener('click', async () => {
+                const text = $('captionOutput').value;
+                if (!text) { toast('No hay caption para copiar', 'error'); return; }
+                try {
+                    await navigator.clipboard.writeText(text);
+                    toast('Caption copiado al portapapeles', 'success');
+                } catch (e) {
+                    $('captionOutput').select();
+                    document.execCommand('copy');
+                    toast('Caption copiado', 'success');
+                }
+            });
+
+            function setStaticGlowVisible(visible) {
+                const el = document.getElementById('slideLogoGlow');
+                if (el) el.style.display = visible ? '' : 'none';
+            }
+            /* ===================== EXPORT HELPERS ===================== */
+            function setChecklistVisible(visible) {
+                const el = document.getElementById('slideChecklistBlock');
+                if (el) el.style.display = visible ? '' : 'none';
+            }
+
+            async function captureCurrentSlidePng() {
+                const node = $('slideCanvas');
+                setChecklistVisible(false);
+                node.classList.add('capturing');
+                await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+                try {
+                    const targetWidth = 1080;
+                    const scale = targetWidth / node.offsetWidth;
+                    return await html2canvas(node, { backgroundColor: '#0A0C10', scale, useCORS: true });
+                } finally {
+                    node.classList.remove('capturing');
+                    setChecklistVisible(true);
+                }
+            }
+
+            // Se usa solo si una diapositiva falla al capturarse incluso tras reintentar.
+            // Dibuja un frame simple con el título, para que el video no quede con una
+            // imagen vacía/rota y, sobre todo, para que el índice de esa diapositiva
+            // se mantenga alineado con su propio audio y subtítulo.
+            function buildFallbackSlideCanvas(slide) {
+                const node = $('slideCanvas');
+                const targetWidth = 1080;
+                const rect = node.getBoundingClientRect();
+                const ratio = rect.height && rect.width ? rect.height / rect.width : 16 / 9;
+                const canvas = document.createElement('canvas');
+                canvas.width = targetWidth;
+                canvas.height = Math.round(targetWidth * ratio);
+                const ctx = canvas.getContext('2d');
+                const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                grad.addColorStop(0, '#12151C');
+                grad.addColorStop(1, '#0A0C10');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#F2F4F8';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '700 44px "Space Grotesk", sans-serif';
+                const title = (slide && slide.titulo) ? slide.titulo : '';
+                const maxWidth = canvas.width * 0.82;
+                const words = title.split(' ');
+                const lines = [];
+                let current = '';
+                words.forEach((w) => {
+                    const test = current ? current + ' ' + w : w;
+                    if (ctx.measureText(test).width > maxWidth && current) { lines.push(current); current = w; }
+                    else current = test;
+                });
+                if (current) lines.push(current);
+                const lineHeight = 56;
+                const startY = canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, i) => ctx.fillText(line, canvas.width / 2, startY + i * lineHeight));
+                return canvas;
+            }
+
+            // DESPUÉS
+            function computeSlidesSignature() {
+                const wm = $('watermarkTextInput').value.trim();
+                const wmPos = state.watermarkPos;
+                return JSON.stringify(state.slides.map(s => ({ t: s.titulo, s: s.sub, c: s.codigo })))
+                    + '|' + (state.logo.dataUrl ? state.logo.dataUrl.length : 0) + '|' + wm
+                    + '|' + wmPos.xPct.toFixed(3) + ',' + wmPos.yPct.toFixed(3);
+            }
+
+            /* ===================== DOWNLOAD PNG HD ===================== */
+            $('btnDownloadSlide').addEventListener('click', async () => {
+                if (!state.slides.length) return;
+                const btn = $('btnDownloadSlide');
+                const original = btn.innerHTML;
+                btn.innerHTML = '<div class="spinner"></div> Generando…';
+                btn.disabled = true;
+                try {
+                    const canvas = await captureCurrentSlidePng();
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    const techSlug = ($('techNameInput').value.trim() || 'slide').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    link.download = `${techSlug}-slide-${state.currentSlide + 1}.png`;
+                    link.href = dataUrl;
+                    link.click();
+                    toast('Diapositiva descargada en HD', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo generar la imagen', 'error');
+                } finally {
+                    btn.innerHTML = original;
+                    btn.disabled = false;
+                }
+            });
+
+            /* ===================== DOWNLOAD ALL SLIDES (ZIP) ===================== */
+            $('btnDownloadAll').addEventListener('click', downloadAllSlides);
+
+            async function captureSlideAsPngBlob() {
+                const canvas = await captureCurrentSlidePng();
+                return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
+            }
+
+            async function downloadAllSlides() {
+                if (!state.slides.length) return;
+                if (typeof JSZip === 'undefined') { toast('No se pudo cargar el generador de ZIP', 'error'); return; }
+
+                const btn = $('btnDownloadAll');
+                const label = $('btnDownloadAllLabel');
+                const hint = $('exportHint');
+                const originalSlide = state.currentSlide;
+                const otherBtn = $('btnDownloadSlide');
+
+                btn.disabled = true;
+                otherBtn.disabled = true;
+                const originalLabel = label.innerHTML;
+                label.innerHTML = '<div class="spinner"></div> Preparando…';
+
+                try {
+                    const zip = new JSZip();
+                    const techSlug = ($('techNameInput').value.trim() || 'slide').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    const total = state.slides.length;
+
+                    for (let i = 0; i < total; i++) {
+                        state.currentSlide = i;
+                        renderSlide();
+                        buildDots();
+                        // dar tiempo al DOM/animación para pintar antes de capturar
+                        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+                        hint.textContent = `Generando diapositiva ${i + 1} de ${total}…`;
+                        label.innerHTML = `<div class="spinner"></div> ${i + 1}/${total}`;
+
+                        const blob = await captureSlideAsPngBlob();
+                        const num = String(i + 1).padStart(2, '0');
+                        zip.file(`${techSlug}-slide-${num}.png`, blob);
+                    }
+
+                    hint.textContent = 'Comprimiendo archivos…';
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(zipBlob);
+                    const link = document.createElement('a');
+                    link.download = `${techSlug}-carrusel.zip`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+
+                    toast(`${total} diapositivas descargadas en ZIP`, 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo generar el ZIP', 'error');
+                } finally {
+                    state.currentSlide = originalSlide;
+                    renderSlide();
+                    buildDots();
+                    label.innerHTML = originalLabel;
+                    hint.textContent = '';
+                    btn.disabled = false;
+                    otherBtn.disabled = false;
+                }
+            }
+
+            async function generateBackgroundVideo() {
+                if (typeof MediaRecorder === 'undefined') {
+                    toast('Tu navegador no soporta grabación de video', 'error');
+                    return;
+                }
+                if (!state.slides.length) {
+                    toast('Primero genera un carrusel', 'error');
+                    return;
+                }
+                const btn = $('btnGenerateVideo');
+                const label = $('btnGenerateVideoLabel');
+                btn.disabled = true;
+                const originalLabel = label.innerHTML;
+                label.innerHTML = '<div class="spinner"></div> Capturando diapositiva…';
+
+                // Espera a que las fuentes (Space Grotesk, Inter, JetBrains Mono) estén
+                // realmente listas. Si no, tanto html2canvas como el medidor de texto de
+                // los subtítulos pueden calcular anchos con la fuente de respaldo del
+                // sistema, lo que descuadra el wrap y el corte de los subtítulos.
+                try {
+                    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+                } catch (e) { /* si falla, seguimos con lo que haya cargado */ }
+
+                // Captura TODAS las diapositivas SIN el glow estático de fondo, porque
+                // el video dibuja su propia versión animada (con zoom) del logo.
+                setStaticGlowVisible(false);
+                const originalSlideForVideo = state.currentSlide;
+                const signature = computeSlidesSignature();
+                let slideCanvases;
+
+                if (state.videoCache && state.videoCache.signature === signature && state.videoCache.canvases.length === state.slides.length && state.videoCache.canvases.every(Boolean)) {
+                    slideCanvases = state.videoCache.canvases;
+                    label.innerHTML = '<div class="spinner"></div> Reutilizando diapositivas…';
+                } else {
+                    slideCanvases = [];
+                    let failedCount = 0;
+                    for (let i = 0; i < state.slides.length; i++) {
+                        state.currentSlide = i;
+                        renderSlide();
+                        buildDots();
+                        label.innerHTML = `<div class="spinner"></div> Capturando ${i + 1}/${state.slides.length}…`;
+                        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+                        let cap = null;
+                        try {
+                            cap = await captureCurrentSlidePng();
+                        } catch (e) {
+                            console.error(`Fallo al capturar la diapositiva ${i + 1}, reintentando…`, e);
+                            // Reintento único: si fue algo transitorio (fuente sin cargar, layout aún
+                            // acomodándose, etc.) esto suele resolverlo sin desalinear el video.
+                            try {
+                                await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+                                cap = await captureCurrentSlidePng();
+                            } catch (e2) {
+                                console.error(`Reintento fallido en la diapositiva ${i + 1}`, e2);
+                            }
+                        }
+                        if (!cap) {
+                            failedCount++;
+                            cap = buildFallbackSlideCanvas(state.slides[i]);
+                        }
+                        // CRÍTICO: siempre empujamos algo en cada vuelta del bucle, para que
+                        // slideCanvases[i] siga correspondiendo SIEMPRE a state.slides[i]. Si
+                        // aquí nos saltáramos un push por un fallo, todo lo que viene después
+                        // se recorre un índice y la imagen de cada diapositiva queda emparejada
+                        // con el audio/subtítulo de la diapositiva equivocada.
+                        slideCanvases.push(cap);
+                    }
+                    if (failedCount) {
+                        toast(`${failedCount} diapositiva(s) no se pudieron capturar bien; se usó una versión de respaldo para no desincronizar el video`, 'error');
+                    }
+                    // Solo cacheamos el resultado si todas las capturas fueron reales,
+                    // para no reutilizar de por vida una diapositiva de respaldo.
+                    state.videoCache = failedCount ? null : { signature, canvases: slideCanvases };
+                }
+                state.currentSlide = originalSlideForVideo;
+                renderSlide();
+                buildDots();
+                setStaticGlowVisible(true);
+
+                const selectedIndices = state.slides.map((_, i) => i).filter((i) => state.videoSlideSelection[i] !== false);
+                if (!selectedIndices.length) {
+                    toast('Selecciona al menos una diapositiva para el video', 'error');
+                    btn.disabled = false;
+                    label.innerHTML = originalLabel;
+                    return;
+                }
+                const activeSlides = selectedIndices.map((i) => state.slides[i]);
+                const activeCanvases = selectedIndices.map((i) => slideCanvases[i]);
+
+                const W = activeCanvases[0].width, H = activeCanvases[0].height;
+                const contrastPct = Number($('videoContrastInput').value) || 100;
+                const saturatePctForFilter = state.exportSettings.saturate || 100;
+                label.innerHTML = '<div class="spinner"></div> Aplicando filtros…';
+                const filteredCanvases = activeCanvases.map((c) => {
+                    const out = document.createElement('canvas');
+                    out.width = c.width; out.height = c.height;
+                    const octx = out.getContext('2d');
+                    octx.filter = `contrast(${contrastPct}%) saturate(${saturatePctForFilter}%)`;
+                    octx.drawImage(c, 0, 0);
+                    return out;
+                });
+                await new Promise((r) => requestAnimationFrame(r));
+                const canvas = document.createElement('canvas');
+                canvas.width = W; canvas.height = H;
+                const ctx = canvas.getContext('2d');
+
+                const FALLBACK_ACCENTS = ['#22D3EE', '#8B5CF6', '#A78BFA'];
+                const colors = (state.logo.colors && state.logo.colors.length) ? state.logo.colors.slice(0, 3) : FALLBACK_ACCENTS.slice();
+                let fallbackIdx = 0;
+                while (colors.length < 3) { colors.push(FALLBACK_ACCENTS[fallbackIdx % FALLBACK_ACCENTS.length]); fallbackIdx++; }
+
+
+                const fallbackPerSlideMs = (Number($('videoDurationInput').value) || 5) * 1000;
+                const transitionType = $('videoTransitionSelect').value || 'fadeUp';
+                const transitionMs = 700;
+
+                const speed = state.exportSettings.speed || 1;
+                const perSlideDurations = activeSlides.map((s) =>
+                    (s.audioDurationMs ? s.audioDurationMs + 300 : fallbackPerSlideMs) / speed
+                );
+                const slideStartTimes = [];
+                let accMs = 0;
+                perSlideDurations.forEach((d) => { slideStartTimes.push(accMs); accMs += d; });
+                const totalMs = accMs;
+
+                let logoImg = null;
+                if (state.logo.blurredDataUrl) {
+                    logoImg = await new Promise((resolve) => {
+                        const im = new Image();
+                        im.onload = () => resolve(im);
+                        im.onerror = () => resolve(null);
+                        im.src = state.logo.blurredDataUrl;
+                    });
+                }
+
+                // Mezcla de audio: narración por diapositiva (ElevenLabs) + música de fondo opcional
+                // Mezcla de audio: narración por diapositiva (ElevenLabs) + música de fondo opcional
+                // Usamos elementos <audio> con preservesPitch=true para que la velocidad
+                // NO altere el tono de la voz, solo su duración.
+                let audioCtx = null, audioTrack = null, musicEl = null;
+                const narrationEls = [];
+                const hasNarration = activeSlides.some((s) => s.audioBlob);
+                const audioFile = $('videoAudioInput').files[0];
+
+                function applyPreservePitch(el) {
+                    el.preservesPitch = true;
+                    el.mozPreservesPitch = true;
+                    el.webkitPreservesPitch = true;
+                }
+
+                if (hasNarration || audioFile) {
+                    try {
+                        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        const dest = audioCtx.createMediaStreamDestination();
+
+                        if (hasNarration) {
+                            const narrationGain = audioCtx.createGain();
+                            narrationGain.gain.value = state.exportSettings.narrationVolume;
+                            narrationGain.connect(dest);
+
+                            for (let i = 0; i < activeSlides.length; i++) {
+                                const blob = activeSlides[i].audioBlob;
+                                if (!blob) continue;
+                                const el = new Audio(URL.createObjectURL(blob));
+                                el.playbackRate = speed;
+                                applyPreservePitch(el);
+                                await new Promise((resolve) => {
+                                    el.onloadedmetadata = resolve;
+                                    el.onerror = resolve;
+                                });
+                                const src = audioCtx.createMediaElementSource(el);
+                                src.connect(narrationGain);
+                                el._scheduledOffsetMs = slideStartTimes[i];
+                                narrationEls.push(el);
+                            }
+                        }
+
+                        if (audioFile) {
+                            musicEl = new Audio(URL.createObjectURL(audioFile));
+                            musicEl.loop = true;
+                            musicEl.playbackRate = speed;
+                            applyPreservePitch(musicEl);
+                            await new Promise((resolve) => {
+                                musicEl.onloadedmetadata = resolve;
+                                musicEl.onerror = resolve;
+                            });
+                            const musicSource = audioCtx.createMediaElementSource(musicEl);
+                            const musicGain = audioCtx.createGain();
+                            musicGain.gain.value = state.exportSettings.musicVolume;
+                            musicSource.connect(musicGain);
+                            musicGain.connect(dest);
+                        }
+
+                        audioTrack = dest.stream.getAudioTracks()[0];
+                    } catch (e) {
+                        console.warn('No se pudo preparar el audio', e);
+                        audioCtx = null;
+                        audioTrack = null;
+                    }
+                }
+
+                // Ruido sutil (dithering) para evitar el "banding" — la línea visible
+                // que aparece cuando un degradado grande no tiene suficiente precisión de color.
+                const NOISE_SIZE = 128;
+                const noiseCanvas = document.createElement('canvas');
+                noiseCanvas.width = NOISE_SIZE; noiseCanvas.height = NOISE_SIZE;
+                const nctx = noiseCanvas.getContext('2d');
+                const nimg = nctx.createImageData(NOISE_SIZE, NOISE_SIZE);
+                for (let i = 0; i < nimg.data.length; i += 4) {
+                    const v = Math.random() * 255;
+                    nimg.data[i] = v; nimg.data[i + 1] = v; nimg.data[i + 2] = v; nimg.data[i + 3] = 14;
+                }
+                nctx.putImageData(nimg, 0, 0);
+                const noisePattern = ctx.createPattern(noiseCanvas, 'repeat');
+
+                function drawGlow(cx, cy, radius, hex, alpha) {
+                    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+                    grad.addColorStop(0, hexToRgba(hex, alpha));
+                    grad.addColorStop(0.55, hexToRgba(hex, alpha * 0.45));
+                    grad.addColorStop(1, hexToRgba(hex, 0));
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, W, H);
+                }
+
+                label.innerHTML = '<div class="spinner"></div> Grabando…';
+
+                const stream = canvas.captureStream(30);
+                if (audioTrack) stream.addTrack(audioTrack);
+                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+                const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 });
+                const chunks = [];
+                recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+
+                const startTime = performance.now();
+                let rafId;
+
+                function easeInOutCubic(x) {
+                    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+                }
+
+                function drawTransitionFrame(type, curr, next, p) {
+                    switch (type) {
+
+                        case 'slideHorizontal': {
+                            // La saliente se va a la izquierda, la entrante llega desde la derecha
+                            if (curr) {
+                                ctx.save();
+                                ctx.translate(-p * W, 0);
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            ctx.save();
+                            ctx.translate((1 - p) * W, 0);
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'zoomFade': {
+                            // La saliente hace zoom-in y se desvanece; la entrante entra desde un
+                            // leve zoom-out con fade in — efecto cinematográfico de "punch"
+                            if (curr) {
+                                const scaleOut = 1 + p * 0.12;
+                                ctx.save();
+                                ctx.globalAlpha = 1 - p;
+                                ctx.translate(W / 2, H / 2);
+                                ctx.scale(scaleOut, scaleOut);
+                                ctx.translate(-W / 2, -H / 2);
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            const scaleIn = 1.08 - p * 0.08;
+                            ctx.save();
+                            ctx.globalAlpha = p;
+                            ctx.translate(W / 2, H / 2);
+                            ctx.scale(scaleIn, scaleIn);
+                            ctx.translate(-W / 2, -H / 2);
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'wipeDiagonal': {
+                            // Barrido diagonal: la entrante se revela con un clip en ángulo
+                            // que avanza de esquina superior-izquierda a inferior-derecha
+                            if (curr) ctx.drawImage(curr, 0, 0, W, H);
+
+                            const diag = W + H;
+                            const edge = -H + p * (diag + H * 0.6);
+
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.moveTo(0, edge + H);
+                            ctx.lineTo(W, edge + H - W);
+                            ctx.lineTo(W, H + diag);
+                            ctx.lineTo(-diag, H + diag);
+                            ctx.closePath();
+                            ctx.clip();
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+
+                            // línea de borde sutil siguiendo el barrido, le da un toque pro
+                            ctx.save();
+                            ctx.globalAlpha = 0.5 * (1 - Math.abs(p - 0.5) * 2);
+                            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+                            ctx.lineWidth = 3;
+                            ctx.beginPath();
+                            ctx.moveTo(0, edge + H);
+                            ctx.lineTo(W, edge + H - W);
+                            ctx.stroke();
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'crossfade': {
+                            // El más simple y elegante: disolución pura sin movimiento
+                            if (curr) {
+                                ctx.save();
+                                ctx.globalAlpha = 1 - p;
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            ctx.save();
+                            ctx.globalAlpha = p;
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+
+                        case 'fadeUp':
+                        default: {
+                            // La original: fade + leve desplazamiento vertical
+                            if (curr) {
+                                ctx.save();
+                                ctx.globalAlpha = 1 - p;
+                                ctx.translate(0, -p * H * 0.06);
+                                ctx.drawImage(curr, 0, 0, W, H);
+                                ctx.restore();
+                            }
+                            ctx.save();
+                            ctx.globalAlpha = p;
+                            ctx.translate(0, (1 - p) * H * 0.06);
+                            ctx.drawImage(next, 0, 0, W, H);
+                            ctx.restore();
+                            break;
+                        }
+                    }
+                }
+                function wrapCanvasText(context, text, maxWidth) {
+                    const words = text.split(' ');
+                    const lines = [];
+                    let current = '';
+                    words.forEach((word) => {
+                        const test = current ? current + ' ' + word : word;
+                        if (context.measureText(test).width > maxWidth && current) {
+                            lines.push(current);
+                            current = word;
+                        } else {
+                            current = test;
+                        }
+                    });
+                    if (current) lines.push(current);
+                    return lines;
+                }
+
+                function drawSubtitle(text, alpha = 1) {
+                    if (!text) return;
+                    const fontSize = Math.round(W * 0.042);
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.font = `700 ${fontSize}px 'Inter', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const maxWidth = W * 0.86;
+                    const lines = wrapCanvasText(ctx, text, maxWidth);
+                    const blockHeight = lines.length * (fontSize * 1.35);
+
+                    const { xPct, yPct } = state.exportSettings.subtitlePos;
+                    const centerX = W * xPct;
+                    const minY = blockHeight / 2 + fontSize * 0.6;
+                    const maxY = H - blockHeight / 2 - fontSize * 0.6;
+                    const centerY = Math.min(maxY, Math.max(minY, H * yPct));
+                    const startY = centerY - blockHeight / 2 + fontSize * 0.7;
+
+                    lines.forEach((line, i) => {
+                        const y = startY + i * (fontSize * 1.35);
+                        const textWidth = ctx.measureText(line).width;
+                        const padX = fontSize * 0.4, padY = fontSize * 0.22;
+                        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                        ctx.beginPath();
+                        ctx.roundRect(centerX - textWidth / 2 - padX, y - fontSize / 2 - padY, textWidth + padX * 2, fontSize + padY * 2, fontSize * 0.3);
+                        ctx.fill();
+
+                        ctx.lineWidth = fontSize * 0.14;
+                        ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+                        ctx.lineJoin = 'round';
+                        ctx.strokeText(line, centerX, y);
+
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillText(line, centerX, y);
+                    });
+                    ctx.restore();
+                }
+                function buildSubtitleChunks(text, maxWidth, maxLines) {
+                    if (!text) return [];
+                    const words = text.split(' ').filter(Boolean);
+                    const chunks = [];
+                    let current = [];
+                    words.forEach((word) => {
+                        const test = [...current, word];
+                        const lines = wrapCanvasText(ctx, test.join(' '), maxWidth);
+                        if (lines.length > maxLines && current.length) {
+                            chunks.push(current.join(' '));
+                            current = [word];
+                        } else {
+                            current = test;
+                        }
+                    });
+                    if (current.length) chunks.push(current.join(' '));
+                    return chunks;
+                }
+
+                // Igual que buildSubtitleChunks, pero usando los timestamps REALES por carácter que
+                // devuelve ElevenLabs (endpoint with-timestamps), en vez de repartir el tiempo de forma
+                // proporcional por longitud de texto. Esto es lo que mantiene los subtítulos pegados a
+                // la voz exacta sin importar la velocidad de reproducción elegida (1x, 2x, 3x…), porque
+                // el desfase deja de ser una estimación y pasa a ser el instante real en que se dice cada
+                // palabra. Devuelve null si no hay alignment disponible (p.ej. sin ElevenLabs configurado),
+                // para que el llamador use el método proporcional como respaldo.
+                function buildTimedSubtitleChunks(alignment, maxWidth, maxLines) {
+                    if (!alignment || !Array.isArray(alignment.characters) || !alignment.characters.length) return null;
+                    const chars = alignment.characters;
+                    const startTimes = alignment.character_start_times_seconds;
+                    const endTimes = alignment.character_end_times_seconds;
+                    if (!Array.isArray(startTimes) || !Array.isArray(endTimes) || startTimes.length !== chars.length) return null;
+
+                    // Reconstruye las palabras y su rango de tiempo real a partir del propio stream de
+                    // caracteres alineado (más confiable que intentar volver a casarlo con slide.dialogo,
+                    // ya que ElevenLabs puede normalizar espacios o puntuación levemente).
+                    const words = [];
+                    let current = '';
+                    let wordStartIdx = null;
+                    for (let i = 0; i < chars.length; i++) {
+                        const c = chars[i];
+                        if (/\s/.test(c)) {
+                            if (current) {
+                                words.push({ text: current, startMs: startTimes[wordStartIdx] * 1000, endMs: endTimes[i - 1] * 1000 });
+                                current = '';
+                                wordStartIdx = null;
+                            }
+                        } else {
+                            if (wordStartIdx === null) wordStartIdx = i;
+                            current += c;
+                        }
+                    }
+                    if (current) {
+                        words.push({ text: current, startMs: startTimes[wordStartIdx] * 1000, endMs: endTimes[chars.length - 1] * 1000 });
+                    }
+                    if (!words.length) return null;
+
+                    const chunks = [];
+                    let currentWords = [];
+                    words.forEach((w) => {
+                        const testWords = [...currentWords, w];
+                        const testText = testWords.map((x) => x.text).join(' ');
+                        const lines = wrapCanvasText(ctx, testText, maxWidth);
+                        if (lines.length > maxLines && currentWords.length) {
+                            chunks.push(currentWords);
+                            currentWords = [w];
+                        } else {
+                            currentWords = testWords;
+                        }
+                    });
+                    if (currentWords.length) chunks.push(currentWords);
+
+                    return chunks.map((wordsInChunk) => ({
+                        text: wordsInChunk.map((w) => w.text).join(' '),
+                        startMs: wordsInChunk[0].startMs,
+                        endMs: wordsInChunk[wordsInChunk.length - 1].endMs
+                    }));
+                }
+
+                // Precalcula, por diapositiva, los fragmentos de subtítulo con su ventana de tiempo,
+                // repartida proporcionalmente según la longitud de cada fragmento (aprox. velocidad de lectura).
+                // Usamos perSlideDurations[i] (la MISMA duración que ya se usó para plantar la
+                // diapositiva y su audio en la línea de tiempo) para que el último fragmento de
+                // subtítulo termine justo cuando termina la diapositiva, ni antes ni después.
+                const fontSizeForSubs = Math.round(W * 0.042);
+                ctx.font = `700 ${fontSizeForSubs}px 'Inter', sans-serif`;
+                const subtitleChunksBySlide = activeSlides.map((slide, i) => {
+                    const chunks = buildSubtitleChunks(slide.dialogo, W * 0.86, 2);
+                    if (!chunks.length) return [];
+                    const durForCaptions = perSlideDurations[i];
+                    const weights = chunks.map((c) => c.length);
+                    const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+                    let acc = 0;
+                    return chunks.map((text, idx) => {
+                        const dur = (weights[idx] / totalWeight) * durForCaptions;
+                        const startMs = acc;
+                        acc += dur;
+                        return { text, startMs, endMs: acc };
+                    });
+                });
+                function drawFrame(now) {
+                    const globalT = now - startTime;
+                    const t = globalT / totalMs; // para el glow de fondo, continuo en todo el video
+                    let slideIndex = slideStartTimes.length - 1;
+                    for (let i = 0; i < slideStartTimes.length; i++) {
+                        if (globalT < slideStartTimes[i] + perSlideDurations[i]) { slideIndex = i; break; }
+                    }
+                    const localT = globalT - slideStartTimes[slideIndex];
+                    const currentSlideDur = perSlideDurations[slideIndex];
+                    const isLast = slideIndex === activeCanvases.length - 1; const inTransition = !isLast && localT > currentSlideDur - transitionMs;
+                    // Base: la(s) diapositiva(s) real(es), con transición suave entre ellas
+                    ctx.save();
+                    const currentCanvas = filteredCanvases[slideIndex];
+                    const nextCanvas = filteredCanvases[slideIndex + 1];
+
+                    if (!inTransition || !nextCanvas) {
+                        if (currentCanvas) ctx.drawImage(currentCanvas, 0, 0, W, H);
+                    } else {
+                        const progress = (localT - (currentSlideDur - transitionMs)) / transitionMs;
+                        const p = easeInOutCubic(progress);
+                        drawTransitionFrame(transitionType, currentCanvas, nextCanvas, p);
+                    }
+                    ctx.restore();
+
+                    // Zoom in/out suave del logo de fondo (efecto "respiración")
+                    if (logoImg) {
+                        const zoomT = (Math.sin(t * Math.PI * 2) + 1) / 2; // 0 → 1 → 0
+                        const scale = 1 + zoomT * 0.14;
+                        const baseSize = W * 0.6;
+                        const lw = baseSize * scale, lh = baseSize * scale;
+                        ctx.save();
+                        ctx.globalCompositeOperation = 'screen';
+                        ctx.globalAlpha = 0.5;
+                        ctx.drawImage(logoImg, (W - lw) / 2, H * 0.28 - lh / 2, lw, lh);
+                        ctx.restore();
+                    }
+
+                    // Wash de color animado encima, para dar sensación de movimiento
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'screen';
+                    const a1 = t * Math.PI * 2;
+                    const a2 = t * Math.PI * 2 + Math.PI * 0.66;
+                    const a3 = t * Math.PI * 2 + Math.PI * 1.33;
+                    drawGlow(W * 0.5 + Math.cos(a1) * W * 0.35, H * 0.3 + Math.sin(a1) * H * 0.18, W * 0.55, colors[0], 0.22);
+                    drawGlow(W * 0.5 + Math.cos(a2) * W * 0.33, H * 0.55 + Math.sin(a2) * H * 0.2, W * 0.5, colors[1], 0.18);
+                    drawGlow(W * 0.5 + Math.cos(a3) * W * 0.3, H * 0.75 + Math.sin(a3) * H * 0.16, W * 0.5, colors[2], 0.18);
+                    ctx.restore();
+
+                    // Ruido para disimular el banding de los degradados
+                    // Ruido para disimular el banding de los degradados
+                    ctx.save();
+                    ctx.globalAlpha = 1;
+                    ctx.globalCompositeOperation = 'overlay';
+                    ctx.fillStyle = noisePattern;
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.restore();
+
+                    if (state.exportSettings.subtitlesEnabled) {
+                        const chunks = subtitleChunksBySlide[slideIndex] || [];
+                        const chunk = chunks.find((c) => localT >= c.startMs && localT < c.endMs);
+                        if (chunk) {
+                            const fadeMs = 150;
+                            let alpha = 1;
+                            if (localT - chunk.startMs < fadeMs) alpha = (localT - chunk.startMs) / fadeMs;
+                            else if (chunk.endMs - localT < fadeMs) alpha = (chunk.endMs - localT) / fadeMs;
+                            drawSubtitle(chunk.text, Math.max(0, Math.min(1, alpha)));
+                        }
+                    }
+
+                    if (now - startTime < totalMs) {
+                        rafId = requestAnimationFrame(drawFrame);
+                    } else {
+                        recorder.stop();
+                    }
+                }
+
+                const donePromise = new Promise((resolve) => { recorder.onstop = resolve; });
+                recorder.start();
+                narrationEls.forEach((el) => {
+                    setTimeout(() => { el.currentTime = 0; el.play().catch(() => { }); }, el._scheduledOffsetMs);
+                });
+                if (musicEl) { try { musicEl.currentTime = 0; await musicEl.play(); } catch (e) { console.warn('Música no pudo reproducirse', e); } }
+                rafId = requestAnimationFrame(drawFrame);
+                await donePromise;
+                cancelAnimationFrame(rafId);
+                narrationEls.forEach((el) => el.pause());
+                if (musicEl) { musicEl.pause(); }
+                if (audioCtx) { audioCtx.close().catch(() => { }); }
+
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const techSlug = ($('techNameInput').value.trim() || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                link.download = `${techSlug}-carrusel-video.webm`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                label.innerHTML = originalLabel;
+                btn.disabled = false;
+                toast(`Video de ${(totalMs / 1000).toFixed(1)}s generado y descargado`, 'success');
+            }
+            $('btnGenerateVideo').addEventListener('click', generateBackgroundVideo);
+            $('videoDurationInput').addEventListener('input', (e) => {
+                $('videoDurationLabel').textContent = `${Number(e.target.value).toFixed(1)}s`;
+            });
+            $('videoContrastInput').addEventListener('input', (e) => {
+                $('videoContrastLabel').textContent = `${e.target.value}%`;
+            });
+
+            $('videoSpeedInput').addEventListener('input', (e) => {
+                state.exportSettings.speed = Number(e.target.value);
+                $('videoSpeedLabel').textContent = `${Number(e.target.value).toFixed(1)}x`;
+            });
+            $('videoMusicVolumeInput').addEventListener('input', (e) => {
+                state.exportSettings.musicVolume = Number(e.target.value) / 100;
+                $('videoMusicVolumeLabel').textContent = `${e.target.value}%`;
+            });
+            $('videoNarrationVolumeInput').addEventListener('input', (e) => {
+                state.exportSettings.narrationVolume = Number(e.target.value) / 100;
+                $('videoNarrationVolumeLabel').textContent = `${e.target.value}%`;
+            });
+            function updateSubtitleDotUI() {
+                const dot = $('subtitlePositionDot');
+                dot.style.left = `${state.exportSettings.subtitlePos.xPct * 100}%`;
+                dot.style.top = `${state.exportSettings.subtitlePos.yPct * 100}%`;
+            }
+
+            function setSubtitlePosFromEvent(e, stage) {
+                const rect = stage.getBoundingClientRect();
+                let xPct = (e.clientX - rect.left) / rect.width;
+                let yPct = (e.clientY - rect.top) / rect.height;
+                xPct = Math.min(1, Math.max(0, xPct));
+                yPct = Math.min(1, Math.max(0, yPct));
+                state.exportSettings.subtitlePos = { xPct, yPct };
+                updateSubtitleDotUI();
+            }
+
+            (function setupSubtitleDrag() {
+                const stage = $('subtitlePositionStage');
+                let dragging = false;
+                stage.addEventListener('pointerdown', (e) => {
+                    dragging = true;
+                    stage.setPointerCapture(e.pointerId);
+                    setSubtitlePosFromEvent(e, stage);
+                });
+                stage.addEventListener('pointermove', (e) => { if (dragging) setSubtitlePosFromEvent(e, stage); });
+                stage.addEventListener('pointerup', () => { dragging = false; });
+                stage.addEventListener('pointercancel', () => { dragging = false; });
+            })();
+
+            function updateWatermarkDotUI() {
+                const dot = $('watermarkPositionDot');
+                if (!dot) return;
+                dot.style.left = `${state.watermarkPos.xPct * 100}%`;
+                dot.style.top = `${state.watermarkPos.yPct * 100}%`;
+            }
+
+            function setWatermarkPosFromEvent(e, stage) {
+                const rect = stage.getBoundingClientRect();
+                let xPct = (e.clientX - rect.left) / rect.width;
+                let yPct = (e.clientY - rect.top) / rect.height;
+                xPct = Math.min(1, Math.max(0, xPct));
+                yPct = Math.min(1, Math.max(0, yPct));
+                state.watermarkPos = { xPct, yPct };
+                updateWatermarkDotUI();
+                if (state.slides.length) renderSlide();
+            }
+
+            (function setupWatermarkStageDrag() {
+                const stage = $('watermarkPositionStage');
+                let dragging = false;
+                stage.addEventListener('pointerdown', (e) => {
+                    dragging = true;
+                    stage.setPointerCapture(e.pointerId);
+                    setWatermarkPosFromEvent(e, stage);
+                });
+                stage.addEventListener('pointermove', (e) => { if (dragging) setWatermarkPosFromEvent(e, stage); });
+                stage.addEventListener('pointerup', () => { dragging = false; });
+                stage.addEventListener('pointercancel', () => { dragging = false; });
+            })();
+
+            updateWatermarkDotUI();
+
+
+
+            const WATERMARK_PRESETS = {
+                'top-left': { xPct: 0.18, yPct: 0.078 },
+                'top-center': { xPct: 0.5, yPct: 0.078 },
+                'top-right': { xPct: 0.82, yPct: 0.078 },
+                'bottom-left': { xPct: 0.18, yPct: 0.94 },
+                'bottom-center': { xPct: 0.5, yPct: 0.94 },
+                'bottom-right': { xPct: 0.82, yPct: 0.94 }
+            };
+            document.querySelectorAll('.watermark-preset-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const preset = WATERMARK_PRESETS[btn.dataset.wmPreset];
+                    if (!preset) return;
+                    state.watermarkPos = { ...preset };
+                    if (state.slides.length) renderSlide();
+                });
+            });
+
+            document.querySelectorAll('.subtitle-preset-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const presets = {
+                        top: { xPct: 0.5, yPct: 0.18 },
+                        center: { xPct: 0.5, yPct: 0.5 },
+                        bottom: { xPct: 0.5, yPct: 0.86 }
+                    };
+                    state.exportSettings.subtitlePos = presets[btn.dataset.preset];
+                    updateSubtitleDotUI();
+                });
+            });
+
+            updateSubtitleDotUI();
+            const STYLE_PRESETS = {
+                suave: { contrast: 100, saturate: 100, transition: 'fadeUp' },
+                tiktok: { contrast: 118, saturate: 130, transition: 'zoomFade' },
+                cine: { contrast: 108, saturate: 92, transition: 'crossfade' }
+            };
+
+            $('videoStyleSelect').addEventListener('change', (e) => {
+                const preset = STYLE_PRESETS[e.target.value] || STYLE_PRESETS.suave;
+                state.exportSettings.style = e.target.value;
+                state.exportSettings.saturate = preset.saturate;
+                $('videoContrastInput').value = preset.contrast;
+                $('videoContrastLabel').textContent = `${preset.contrast}%`;
+                $('videoTransitionSelect').value = preset.transition;
+            });
+            /* ===================== INIT ===================== */
+            // DESPUÉS
+            loadConfig();
+            updateTemarioMode('english_basico');
+            updateScopeUI();
+            updateStageGlow([]);
+        })();
+    </script>
+</body>
+
+</html>
