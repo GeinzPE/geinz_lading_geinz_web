@@ -481,7 +481,303 @@
         #slideCanvas.capturing .editor-window {
             box-shadow: none !important;
         }
+
+        /* ============ EFECTOS: typing, glow, progreso, fondo animado ============ */
+        @keyframes blinkCursor {
+
+            0%,
+            49% {
+                opacity: 1
+            }
+
+            50%,
+            100% {
+                opacity: 0
+            }
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #34D399;
+            margin-left: 1px;
+            vertical-align: -2px;
+            animation: blinkCursor .85s step-end infinite;
+        }
+
+        .code-line {
+            transition: opacity .35s ease, filter .35s ease;
+        }
+
+        .code-line.dim {
+            opacity: .28;
+            filter: blur(.4px);
+        }
+
+        .code-line.active {
+            opacity: 1;
+            filter: none;
+        }
+
+        .tok-kw {
+            color: #A78BFA;
+            font-weight: 600;
+        }
+
+        .tok-op {
+            color: #22D3EE;
+        }
+
+        @keyframes cardGlowPulse {
+            0% {
+                box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset, 0 0 0 rgba(34, 211, 238, 0);
+            }
+
+            40% {
+                box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset, 0 0 26px rgba(34, 211, 238, .35);
+            }
+
+            100% {
+                box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset, 0 0 0 rgba(34, 211, 238, 0);
+            }
+        }
+
+        .editor-window.glow-in {
+            animation: cardGlowPulse 1.1s ease;
+        }
+
+        @keyframes trafficPop {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            60% {
+                transform: scale(1.25);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .traffic-dot.pop {
+            animation: trafficPop .45s cubic-bezier(.2, .8, .2, 1) backwards;
+        }
+
+        .traffic-dot.pop:nth-child(1) {
+            animation-delay: .05s;
+        }
+
+        .traffic-dot.pop:nth-child(2) {
+            animation-delay: .15s;
+        }
+
+        .traffic-dot.pop:nth-child(3) {
+            animation-delay: .25s;
+        }
+
+        @keyframes cardPushIn {
+            from {
+                transform: scale(.92) translateY(6px);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .editor-window.push-in {
+            animation: cardPushIn .4s cubic-bezier(.2, .8, .2, 1);
+        }
+
+        .progress-track {
+            height: 3px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, .08);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--cyan), var(--indigo));
+            transition: width .5s cubic-bezier(.2, .8, .2, 1);
+        }
+
+        @keyframes bgDrift {
+            0% {
+                background-position: 0% 0%, 100% 0%, 50% 100%;
+            }
+
+            50% {
+                background-position: 8% 4%, 92% 6%, 46% 96%;
+            }
+
+            100% {
+                background-position: 0% 0%, 100% 0%, 50% 100%;
+            }
+        }
+
+        .slide-bg.animated {
+            background-size: 160% 160%;
+            animation: bgDrift 14s ease-in-out infinite;
+        }
     </style>
+
+    <!-- ============ FIREBASE (guardado en la nube) ============ -->
+    <script type="module">
+        import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import {
+            getFirestore, collection, doc, setDoc, getDoc, getDocs, query, orderBy, deleteDoc
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import {
+            getStorage, ref, uploadBytes, getDownloadURL, deleteObject
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
+            authDomain: "geinzworkapp.firebaseapp.com",
+            databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
+            projectId: "geinzworkapp",
+            storageBucket: "geinzworkapp.appspot.com",
+            messagingSenderId: "921389328767",
+            appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
+            measurementId: "G-38J7RJP8HK",
+        };
+
+        const app = getApps().find((a) => a.name === "[DEFAULT]") || initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        const GENERATIONS_COLLECTION = 'carousel_generations';
+        const SCHEDULED_COLLECTION = 'scheduled_publications';
+
+        const TOPICS_COLLECTION = 'temario_topics';
+
+        // Marca un temario (preset) como ya generado, para que desaparezca del selector
+        async function markTopicGenerated(topicKey) {
+            await setDoc(doc(db, TOPICS_COLLECTION, topicKey), {
+                generated: true, generatedAt: new Date().toISOString()
+            }, { merge: true });
+        }
+
+        // Devuelve los keys de temarios que ya tienen contenido generado
+        async function listGeneratedTopicKeys() {
+            const snap = await getDocs(collection(db, TOPICS_COLLECTION));
+            return snap.docs.filter((d) => d.data().generated).map((d) => d.id);
+        }
+
+        // Guarda el logo asociado a un temario (preset) para reusarlo después
+        async function saveTopicLogo(topicKey, logoBlob) {
+            const path = `${STORAGE_ROOT}/_topic_logos/${topicKey}.png`;
+            const logoUrl = await uploadBlobToStorage(path, logoBlob);
+            await setDoc(doc(db, TOPICS_COLLECTION, topicKey), {
+                logoUrl, logoStoragePath: path, updatedAt: new Date().toISOString()
+            }, { merge: true });
+            return logoUrl;
+        }
+
+        // Recupera el logo guardado de un temario, si existe
+        async function getTopicLogo(topicKey) {
+            const snap = await getDoc(doc(db, TOPICS_COLLECTION, topicKey));
+            return snap.exists() ? snap.data() : null;
+        }
+        // Carpeta raíz dentro de Storage donde vive todo lo de esta app.
+        const STORAGE_ROOT = 'carousel_studio';
+
+        async function uploadBlobToStorage(path, blob) {
+            const storageRef = ref(storage, path);
+            await uploadBytes(storageRef, blob);
+            return await getDownloadURL(storageRef);
+        }
+
+        // Guarda (crea o actualiza por merge) el documento de una generación.
+        async function saveGeneration(data) {
+            const id = data.id;
+            if (!id) throw new Error('saveGeneration requiere un id');
+            const docRef = doc(db, GENERATIONS_COLLECTION, id);
+            const payload = { ...data, updatedAt: new Date().toISOString() };
+            await setDoc(docRef, payload, { merge: true });
+            return id;
+        }
+
+        async function listGenerations() {
+            const q = query(collection(db, GENERATIONS_COLLECTION), orderBy('createdAt', 'desc'));
+            const snap = await getDocs(q);
+            return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        }
+
+        // Borra el documento en Firestore y, si se le pasa el item completo,
+        // también borra las imágenes/audio/video correspondientes en Storage.
+        async function deleteGeneration(id, item) {
+            if (item) {
+                const paths = [];
+                if (item.videoStoragePath) paths.push(item.videoStoragePath);
+                if (Array.isArray(item.slides)) {
+                    item.slides.forEach((s) => {
+                        if (s.imageStoragePath) paths.push(s.imageStoragePath);
+                        if (s.audioStoragePath) paths.push(s.audioStoragePath);
+                    });
+                }
+                await Promise.all(paths.map((p) => deleteObject(ref(storage, p)).catch(() => { })));
+            }
+            await deleteDoc(doc(db, GENERATIONS_COLLECTION, id));
+        }
+        function storagePathFor(generationId, filename) {
+            return `${STORAGE_ROOT}/${generationId}/${filename}`;
+        }
+
+        // Crea (o actualiza) un documento de publicación programada.
+        // Tu Cloud Function debe consultar esta colección periódicamente
+        // (por ejemplo cada 5-15 min con Cloud Scheduler) buscando:
+        //   status == 'pending' AND scheduledAt <= ahora
+        // y luego, por cada uno: enviar videoUrl + caption al chat de Telegram
+        // indicado en telegramChatId, y actualizar status a 'sent' (o 'error').
+        async function schedulePublication(data) {
+            const id = data.id || (crypto.randomUUID ? crypto.randomUUID() : 'sched-' + Date.now());
+            const docRef = doc(db, SCHEDULED_COLLECTION, id);
+            const payload = { ...data, id, createdAt: new Date().toISOString(), status: data.status || 'pending' };
+            await setDoc(docRef, payload, { merge: true });
+            return id;
+        }
+
+        async function listScheduledPublications() {
+            const q = query(collection(db, SCHEDULED_COLLECTION), orderBy('scheduledAt', 'asc'));
+            const snap = await getDocs(q);
+            return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        }
+
+        async function deleteScheduledPublication(id) {
+            await deleteDoc(doc(db, SCHEDULED_COLLECTION, id));
+        }
+        async function updateScheduledPublication(id, patch) {
+            await setDoc(doc(db, SCHEDULED_COLLECTION, id), { ...patch, updatedAt: new Date().toISOString() }, { merge: true });
+        }
+
+        window.CarouselCloud = {
+            ready: true,
+            uploadBlobToStorage,
+            saveGeneration,
+            listGenerations,
+            deleteGeneration,
+            storagePathFor,
+            schedulePublication,
+            listScheduledPublications,
+            deleteScheduledPublication,
+            updateScheduledPublication,   // 👈 nuevo
+            markTopicGenerated,
+            listGeneratedTopicKeys,
+            saveTopicLogo,
+            getTopicLogo,
+        };
+        window.dispatchEvent(new Event('carousel-cloud-ready'));
+    </script>
 </head>
 
 <body class="min-h-screen">
@@ -506,6 +802,15 @@
             <div class="flex items-center gap-2.5">
                 <span id="apiStatusPill"
                     class="hidden sm:flex items-center gap-2 text-[11px] font-mono px-3 py-1.5 rounded-full border border-[var(--line)] text-[var(--text-mid)] bg-[#0D1015]"></span>
+                <button id="btnOpenGallery" class="btn-ghost text-sm px-3.5 py-2 rounded-xl flex items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                    </svg>
+                    <span class="hidden sm:inline">Mis generaciones</span>
+                </button>
                 <button id="btnOpenConfig" class="btn-ghost text-sm px-3.5 py-2 rounded-xl flex items-center gap-2">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
@@ -731,6 +1036,15 @@
                     <p class="eyebrow flex items-center gap-2"><span class="step-num">04</span> Publicación</p>
                     <span class="text-[10px] font-mono text-[var(--text-lo)]">1080 × 1920 px</span>
                 </div>
+
+                <button id="btnGenerateAgain"
+                    class="btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6" />
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                    </svg>
+                    Generar otro contenido
+                </button>
                 <textarea id="captionOutput" rows="3" readonly
                     class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
 
@@ -804,6 +1118,16 @@
                         <path d="M16 9l6-4v14l-6-4" />
                     </svg>
                     <span id="btnGenerateVideoLabel">Generar video de fondo</span>
+                </button>
+
+                <button id="btnSchedulePublish"
+                    class="hidden btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                        <path d="M12 14v4M10 16h4" />
+                    </svg>
+                    Programar publicación en Telegram
                 </button>
 
                 <div class="panel-soft rounded-xl p-3.5 space-y-3">
@@ -906,6 +1230,14 @@
                 </button>
             </div>
 
+            <div class="flex items-center justify-between panel-soft rounded-xl px-3.5 py-3">
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] block">Modo prueba (usar granja)</label>
+                    <p class="text-[11px] text-[var(--text-lo)] mt-0.5">Genera la narración vía la Cloud Function de la
+                        granja, ignorando tu API Key/Voice ID de arriba.</p>
+                </div>
+                <input type="checkbox" id="testModeInput" class="w-4 h-4 accent-cyan-400 shrink-0" />
+            </div>
             <div class="p-6 space-y-5">
                 <div>
                     <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Gemini API Key <span
@@ -932,6 +1264,15 @@
                         class="field w-full rounded-xl px-3.5 py-2.5 text-sm font-mono" />
                 </div>
 
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Telegram Chat ID <span
+                            class="font-mono text-[10px] text-[var(--text-lo)]">para tu bot</span></label>
+                    <input id="telegramChatIdInput" type="text" placeholder="123456789"
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm font-mono" />
+                    <p class="text-xs text-[var(--text-lo)] mt-1.5 leading-relaxed">Se guarda junto a cada publicación
+                        programada, para que tu Cloud Function sepa a qué chat enviar el aviso.</p>
+                </div>
+
                 <p class="text-xs text-[var(--text-lo)] leading-relaxed">Las claves se guardan solo en el almacenamiento
                     local de tu navegador (localStorage) y nunca se envían a ningún servidor propio de esta app.</p>
             </div>
@@ -944,9 +1285,96 @@
         </div>
     </div>
 
+    <!-- ============ GALLERY MODAL ============ -->
+    <div id="galleryModal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+        <div class="modal-card panel rounded-3xl w-full max-w-lg max-h-[88vh] overflow-y-auto">
+            <div
+                class="flex items-center justify-between px-6 py-5 border-b border-[var(--line)] sticky top-0 bg-[var(--panel)] z-10">
+                <h2 class="font-display font-bold text-[16px]">Mis generaciones</h2>
+                <button id="btnCloseGallery" class="icon-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="px-6 pt-5 flex gap-2">
+                <button id="galleryTabGenerations"
+                    class="tab-btn btn-ghost active rounded-xl px-3.5 py-2 text-sm flex-1">🎬 Generaciones</button>
+                <button id="galleryTabScheduled" class="tab-btn btn-ghost rounded-xl px-3.5 py-2 text-sm flex-1">📅
+                    Programadas</button>
+            </div>
+
+            <div id="galleryGenerationsPanel" class="p-6">
+                <p id="galleryLoading" class="hidden text-sm text-[var(--text-lo)] text-center py-8">Cargando…</p>
+                <p id="galleryEmpty" class="hidden text-sm text-[var(--text-lo)] text-center py-8">Aún no tienes
+                    generaciones guardadas.</p>
+                <div id="galleryList" class="space-y-3"></div>
+            </div>
+
+            <div id="galleryScheduledPanel" class="hidden p-6">
+                <p id="scheduledLoading" class="hidden text-sm text-[var(--text-lo)] text-center py-8">Cargando…</p>
+                <p id="scheduledEmpty" class="hidden text-sm text-[var(--text-lo)] text-center py-8">No tienes
+                    publicaciones programadas.</p>
+                <div id="scheduledList" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ VIDEO PREVIEW MODAL ============ -->
+    <div id="videoPreviewModal" class="hidden fixed inset-0 z-[70] modal-backdrop flex items-center justify-center p-4">
+        <div class="modal-card panel rounded-3xl w-full max-w-sm overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
+                <h2 class="font-display font-bold text-[15px]">Vista previa del video</h2>
+                <button id="btnCloseVideoPreview" class="icon-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <video id="videoPreviewPlayer" controls autoplay class="w-full rounded-xl bg-black"
+                    style="max-height:70vh"></video>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ SCHEDULE PUBLISH MODAL ============ -->
+    <div id="scheduleModal" class="hidden fixed inset-0 z-[70] modal-backdrop flex items-center justify-center p-4">
+        <div class="modal-card panel rounded-3xl w-full max-w-sm overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
+                <h2 class="font-display font-bold text-[15px]">Programar publicación</h2>
+                <button id="btnCloseSchedule" class="icon-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-3.5">
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Fecha y hora de
+                        publicación</label>
+                    <input id="scheduleDatetimeInput" type="datetime-local"
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Descripción / caption</label>
+                    <textarea id="scheduleCaptionInput" rows="4"
+                        class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
+                </div>
+                <p class="text-xs text-[var(--text-lo)] leading-relaxed">Se guardará en Firestore junto al video. Tu
+                    Cloud Function debe leer la colección <span
+                        class="font-mono text-[11px]">scheduled_publications</span> y avisarte por Telegram a la hora
+                    indicada.</p>
+            </div>
+            <div class="px-5 py-4 border-t border-[var(--line)] flex justify-end gap-2.5">
+                <button id="btnCancelSchedule" class="btn-ghost rounded-xl px-4 py-2.5 text-sm">Cancelar</button>
+                <button id="btnConfirmSchedule" class="btn-primary rounded-xl px-4 py-2.5 text-sm">Programar</button>
+            </div>
+        </div>
+    </div>
+
     <canvas id="hiddenCanvas" class="hidden"></canvas>
     <div id="toastHost" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2 items-end"></div>
-
     <script>
         (() => {
             'use strict';
@@ -976,10 +1404,10 @@
 
             /* ===================== STATE ===================== */
             const STORAGE_KEY = 'carousel_studio_config_v3';
+            const GRANJA_TTS_URL = 'https://texttospeech-granja-eleven-oixttik5rq-uc.a.run.app';
             const state = {
-                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '' },
+                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false },
                 logo: { dataUrl: null, colors: [] },
-                // DESPUÉS
                 temarioMode: 'python_basico',
                 temarioItems: PRESETS.python_basico.items.slice(),
                 generationScope: 'all',        // 'all' | 'single'
@@ -990,7 +1418,10 @@
                 // DESPUÉS
                 videoSlideSelection: [],
                 watermarkPos: { xPct: 0.82, yPct: 0.078 },
-                exportSettings: { speed: 1, musicVolume: 0.15, narrationVolume: 1, saturate: 100, style: 'suave', subtitlesEnabled: true, subtitlePos: { xPct: 0.5, yPct: 0.86 } }
+                exportSettings: { speed: 1, musicVolume: 0.15, narrationVolume: 1, saturate: 100, style: 'suave', subtitlesEnabled: true, subtitlePos: { xPct: 0.5, yPct: 0.86 } },
+                cloud: { currentGenerationId: null, status: 'idle', lastVideoUrl: null, lastVideoStoragePath: null },
+                generatedTopics: new Set(),
+                topicLogosCache: {},
             };
 
             /* ===================== UTIL ===================== */
@@ -1031,6 +1462,8 @@
                 $('openaiKeyInput').value = state.config.openaiKey || '';
                 $('elevenLabsKeyInput').value = state.config.elevenLabsKey || '';
                 $('elevenLabsVoiceIdInput').value = state.config.elevenLabsVoiceId || '';
+                $('telegramChatIdInput').value = state.config.telegramChatId || '';
+                $('testModeInput').checked = !!state.config.testMode;
                 updateApiToggleUI();
                 updateApiStatusPill();
             }
@@ -1060,6 +1493,8 @@
                 state.config.openaiKey = $('openaiKeyInput').value.trim();
                 state.config.elevenLabsKey = $('elevenLabsKeyInput').value.trim();
                 state.config.elevenLabsVoiceId = $('elevenLabsVoiceIdInput').value.trim();
+                state.config.telegramChatId = $('telegramChatIdInput').value.trim();
+                state.config.testMode = $('testModeInput').checked;
                 saveConfigToStorage();
                 updateApiStatusPill();
                 $('configModal').classList.add('hidden');
@@ -1112,6 +1547,14 @@
                     renderPaletteSwatches(colors);
                     updateStageGlow(colors);
                     if (state.slides.length) renderSlide();
+                    if (window.CarouselCloud && state.temarioMode !== 'custom' && state.temarioMode !== 'libre') {
+                        try {
+                            const blob = dataUrlToBlob(dataUrl);
+                            window.CarouselCloud.saveTopicLogo(state.temarioMode, blob)
+                                .then((logoUrl) => { state.topicLogosCache[state.temarioMode] = { logoUrl }; })
+                                .catch((e) => console.warn('No se pudo guardar el logo del temario', e));
+                        } catch (e) { console.warn(e); }
+                    }
                 };
                 img.onerror = () => toast('No se pudo procesar la imagen para extraer colores', 'error');
                 img.src = dataUrl;
@@ -1228,6 +1671,76 @@
 
             /* ===================== TEMARIO ===================== */
             // DESPUÉS
+
+            function dataUrlToBlob(dataUrl) {
+                const [header, base64] = dataUrl.split(',');
+                const mime = header.match(/:(.*?);/)[1];
+                const bin = atob(base64);
+                const arr = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                return new Blob([arr], { type: mime });
+            }
+
+            function refreshTemarioSelectAvailability() {
+                const sel = $('temarioSelect');
+                Array.from(sel.options).forEach((opt) => {
+                    if (opt.value === 'custom' || opt.value === 'libre') return;
+                    const used = state.generatedTopics.has(opt.value);
+                    opt.disabled = used;
+                    opt.hidden = used;
+                });
+
+                // Si el tema actualmente seleccionado ya fue generado, salta al primero disponible
+                if (state.generatedTopics.has(state.temarioMode)) {
+                    const nextAvailable = Array.from(sel.options).find(
+                        (o) => o.value !== 'custom' && o.value !== 'libre' && !o.hidden
+                    );
+                    if (nextAvailable) {
+                        sel.value = nextAvailable.value;
+                        updateTemarioMode(nextAvailable.value);
+                    }
+                }
+            }
+
+            async function loadGeneratedTopicsAndFilter() {
+                if (!window.CarouselCloud) return;
+                try {
+                    const usedKeys = await window.CarouselCloud.listGeneratedTopicKeys();
+                    state.generatedTopics = new Set(usedKeys);
+                    refreshTemarioSelectAvailability();
+                } catch (e) { console.warn('No se pudieron cargar los temarios ya generados', e); }
+            }
+
+            function loadLogoFromUrl(url, fileName) {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    state.logo.dataUrl = url;
+                    $('logoPreview').src = url;
+                    $('logoPreview').classList.remove('hidden');
+                    $('logoPlaceholderIcon').classList.add('hidden');
+                    $('logoDropzone').classList.add('has-file');
+                    $('logoDropText').textContent = fileName;
+                    const colors = extractPalette(img);
+                    state.logo.colors = colors;
+                    state.logo.blurredDataUrl = generateBlurredLogo(img);
+                    renderPaletteSwatches(colors);
+                    updateStageGlow(colors);
+                    if (state.slides.length) renderSlide();
+                };
+                img.onerror = () => console.warn('No se pudo cargar el logo guardado del temario');
+                img.src = url;
+            }
+
+            async function loadTopicLogoIfAny(mode) {
+                if (mode === 'custom' || mode === 'libre' || !window.CarouselCloud) return;
+                if (state.topicLogosCache[mode] === undefined) {
+                    try { state.topicLogosCache[mode] = await window.CarouselCloud.getTopicLogo(mode); }
+                    catch (e) { state.topicLogosCache[mode] = null; }
+                }
+                const saved = state.topicLogosCache[mode];
+                if (saved && saved.logoUrl) loadLogoFromUrl(saved.logoUrl, `${PRESETS[mode]?.label || mode}-logo`);
+            }
             function updateTemarioMode(mode) {
                 state.temarioMode = mode;
                 $('customTemarioWrap').classList.toggle('hidden', mode !== 'custom');
@@ -1248,6 +1761,7 @@
                     }
                 }
                 renderTemarioPreview();
+                if (mode !== 'custom' && mode !== 'libre') loadTopicLogoIfAny(mode);
             }
 
             function syncCustomTemario() {
@@ -1468,7 +1982,35 @@ ${buildJsonRulesBlock(tech)}
 
                 return slides;
             }
+            $('btnGenerateAgain').addEventListener('click', resetForNewGeneration);
 
+            function resetForNewGeneration() {
+                state.carousel = null;
+                state.slides = [];
+                state.currentSlide = 0;
+                state.videoSlideSelection = [];
+                state.videoCache = null;
+                state.cloud.currentGenerationId = null;
+                state.cloud.status = 'idle';
+                state.cloud.lastVideoUrl = null;
+                state.cloud.lastVideoStoragePath = null;
+
+                $('captionOutput').value = '';
+                $('slideCanvasContainer').classList.add('hidden');
+                $('exportPanel').classList.add('hidden');
+                $('usagePanel').classList.add('hidden');
+                $('emptyState').classList.remove('hidden');
+                $('btnSchedulePublish').classList.add('hidden');
+                $('slideDots').innerHTML = '';
+                $('slideSelectionList').innerHTML = '';
+
+                // deja el campo listo para que elijas el próximo tema sin arrastrar el anterior
+                $('techNameInput').value = '';
+                $('techNameInput')._lastAuto = undefined;
+
+                toast('Listo para generar un nuevo contenido', 'info');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
             /* ===================== GENERATE FLOW ===================== */
             $('btnGenerate').addEventListener('click', generateCarousel);
 
@@ -1496,15 +2038,43 @@ ${buildJsonRulesBlock(tech)}
 
                 return { blob, alignment: data.alignment || null };
             }
+            async function callGranjaTTS(text, voiceId) {
+                const res = await fetch(GRANJA_TTS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(voiceId ? { texto: text, voiceId } : { texto: text })
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok || !data || data.status !== 'success' || !data.audioBase64) {
+                    throw new Error(data?.message || data?.detail || `Granja TTS error (${res.status})`);
+                }
+                const byteChars = atob(data.audioBase64);
+                const byteNumbers = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+                const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'audio/mpeg' });
+                return { blob, alignment: null }; // la granja no devuelve timestamps por palabra
+            }
             function getAudioDurationMs(blob) {
                 return new Promise((resolve) => {
                     const url = URL.createObjectURL(blob);
                     const audioEl = new Audio();
                     audioEl.preload = 'metadata';
                     audioEl.onloadedmetadata = () => {
-                        const ms = isFinite(audioEl.duration) ? audioEl.duration * 1000 : 4000;
-                        URL.revokeObjectURL(url);
-                        resolve(ms);
+                        if (audioEl.duration === Infinity || isNaN(audioEl.duration)) {
+                            // Bug conocido de Chrome con blobs: fuerza el cálculo real
+                            // buscando al final del archivo.
+                            audioEl.currentTime = 1e101;
+                            audioEl.ontimeupdate = () => {
+                                audioEl.ontimeupdate = null;
+                                const ms = isFinite(audioEl.duration) ? audioEl.duration * 1000 : 4000;
+                                URL.revokeObjectURL(url);
+                                resolve(ms);
+                            };
+                        } else {
+                            const ms = audioEl.duration * 1000;
+                            URL.revokeObjectURL(url);
+                            resolve(ms);
+                        }
                     };
                     audioEl.onerror = () => { URL.revokeObjectURL(url); resolve(4000); };
                     audioEl.src = url;
@@ -1512,9 +2082,10 @@ ${buildJsonRulesBlock(tech)}
             }
 
             async function generateNarrationForSlides() {
+                const useGranja = !!state.config.testMode;
                 const apiKey = state.config.elevenLabsKey;
                 const voiceId = state.config.elevenLabsVoiceId;
-                if (!apiKey || !voiceId) return;
+                if (!useGranja && (!apiKey || !voiceId)) return;
                 if (!state.narrationCache) state.narrationCache = new Map();
 
                 state.lastElevenLabsChars = 0;
@@ -1536,9 +2107,16 @@ ${buildJsonRulesBlock(tech)}
 
                     $('genHint').textContent = `Generando narración ${i + 1}/${state.slides.length}…`;
                     try {
-                        const { blob, alignment } = await callElevenLabsTTS(slide.dialogo, apiKey, voiceId);
-                        const durationMs = await getAudioDurationMs(blob);
+                        const { blob, alignment } = useGranja
+                            ? await callGranjaTTS(slide.dialogo)  // sin voiceId: la granja elige una voz random
+                            : await callElevenLabsTTS(slide.dialogo, apiKey, voiceId);
                         slide.audioBlob = blob;
+                        // TEMPORAL: para diagnosticar, descargá el audio crudo y escuchalo completo
+                        const debugUrl = URL.createObjectURL(blob);
+                        const debugLink = document.createElement('a');
+                        debugLink.href = debugUrl;
+                        debugLink.download = `debug-audio-slide-${i}.mp3`;
+                        debugLink.click();
                         slide.audioAlignment = alignment;
                         slide.audioDurationMs = durationMs;
                         state.narrationCache.set(cacheKey, { blob, alignment, durationMs });
@@ -1633,7 +2211,10 @@ ${buildJsonRulesBlock(tech)}
 
                     if (state.config.elevenLabsKey && state.config.elevenLabsVoiceId) {
                         await generateNarrationForSlides();
+                    } else {
+                        console.warn('[AUDIO DEBUG] No hay elevenLabsKey o elevenLabsVoiceId configurados, no se generará narración.');
                     }
+                    console.log('[AUDIO DEBUG] Slides con audioBlob:', state.slides.map((s, i) => `slide${i}: ${!!s.audioBlob}`));
 
                     $('captionOutput').value = json.caption || '';
                     $('emptyState').classList.add('hidden');
@@ -1645,7 +2226,14 @@ ${buildJsonRulesBlock(tech)}
                     renderScriptPanel();
                     renderCostPanel();
                     renderSlideSelection();
+                    const generatedTech = $('techNameInput').value.trim() || 'Tecnología';   // 👈 agregar esta línea
                     toast('Carrusel generado con éxito', 'success');
+                    if (state.temarioMode !== 'custom' && state.temarioMode !== 'libre') {
+                        state.generatedTopics.add(state.temarioMode);
+                        refreshTemarioSelectAvailability();
+                        if (window.CarouselCloud) window.CarouselCloud.markTopicGenerated(state.temarioMode).catch((e) => console.warn(e));
+                    }
+                    persistCarouselToCloud(generatedTech);   // 👈 cambiar esta línea (antes era persistCarouselToCloud() sin argumento)
                 } catch (err) {
                     console.error(err);
                     toast(err.message || 'Error generando el contenido', 'error');
@@ -1732,6 +2320,79 @@ ${buildJsonRulesBlock(tech)}
                 if (heavy) return { title: isPortada ? 24 : 18, sub: 12 };
                 return { title: isPortada ? 25 : 19, sub: 12.5 };
             }
+            let _typingToken = 0;
+            let _tickAudioCtx = null;
+
+            function playKeyTick() {
+                try {
+                    if (!_tickAudioCtx) _tickAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const ctx = _tickAudioCtx;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = 1400 + Math.random() * 700;
+                    gain.gain.setValueAtTime(0.035, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.035);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.04);
+                } catch (e) { /* el navegador puede bloquear audio sin interacción previa */ }
+            }
+
+            const CODE_KEYWORDS = ['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'import', 'from', 'export', 'async', 'await', 'def', 'class', 'SELECT', 'WHERE', 'FROM', 'GROUP', 'BY', 'ORDER'];
+
+            function highlightCodeChunk(text) {
+                let out = escapeHtml(text);
+                CODE_KEYWORDS.forEach((kw) => {
+                    const re = new RegExp(`\\b(${kw})\\b`, 'g');
+                    out = out.replace(re, '<span class="tok-kw">$1</span>');
+                });
+                out = out.replace(/(=&gt;|&amp;&amp;|\|\||===|==)/g, '<span class="tok-op">$1</span>');
+                return out;
+            }
+
+            function renderCodeInstant(code) {
+                const codeWrap = document.getElementById('typingCodeEl');
+                if (!codeWrap || !code) return;
+                _typingToken++; // cancela cualquier animación de typing en curso
+                const lines = code.split('\n');
+                codeWrap.innerHTML = lines.map((line) =>
+                    `<div class="code-line active">${highlightCodeChunk(line)}</div>`
+                ).join('');
+            }
+            function startTypingEffect(fullCode) {
+                const codeWrap = document.getElementById('typingCodeEl');
+                if (!codeWrap) return;
+                const myToken = ++_typingToken;
+                const lines = fullCode.split('\n');
+                codeWrap.innerHTML = lines.map((_, li) =>
+                    `<div class="code-line ${li === 0 ? 'active' : 'dim'}" data-line="${li}"></div>`
+                ).join('');
+                const lineEls = Array.from(codeWrap.children);
+
+                const totalChars = fullCode.length || 1;
+                const totalDurationMs = Math.min(2600, Math.max(900, totalChars * 22));
+                const stepMs = totalDurationMs / totalChars;
+
+                let li = 0, ci = 0;
+                function step() {
+                    if (myToken !== _typingToken) return; // la diapositiva cambió, cancela
+                    const line = lines[li] || '';
+                    ci++;
+                    lineEls[li].innerHTML = highlightCodeChunk(line.slice(0, ci)) + '<span class="typing-cursor"></span>';
+                    if (ci % 2 === 0) playKeyTick();
+
+                    if (ci >= line.length) {
+                        lineEls[li].innerHTML = highlightCodeChunk(line);
+                        lineEls[li].classList.remove('active'); lineEls[li].classList.add('dim');
+                        li++; ci = 0;
+                        if (li >= lines.length) return;
+                        lineEls[li].classList.remove('dim'); lineEls[li].classList.add('active');
+                    }
+                    setTimeout(step, stepMs);
+                }
+                setTimeout(step, stepMs);
+            }
             function renderSlide() {
                 if (!state.slides.length) return;
                 const slide = state.slides[state.currentSlide];
@@ -1765,21 +2426,23 @@ ${buildJsonRulesBlock(tech)}
                 const codeLines = slide.codigo ? slide.codigo.split('\n').length : 0;
                 const cfs = codeFontSizeForLines(codeLines);
                 const ts = computeTextSizing(slide);
+                const codeLinesArr = slide.codigo ? slide.codigo.split('\n') : [];
+                const gutterHtml = codeLinesArr.map((_, i) => `<div class="code-gutter" data-line="${i}">${i + 1}</div>`).join('');
                 const codeBlock = slide.codigo
-                    ? `<div class="editor-window overflow-hidden mt-2 w-full">
-    
-           <div class="flex items-center gap-1.5 px-3.5 py-2.5 border-b border-white/[.06]">
-             <span class="traffic-dot" style="background:#ff5f57"></span>
-             <span class="traffic-dot" style="background:#febc2e"></span>
-             <span class="traffic-dot" style="background:#28c840"></span>
-<span class="ml-2.5 font-mono text-[9px] text-white/30 tracking-wide leading-none">${escapeHtml(tech.toLowerCase().replace(/\s+/g, '-'))}${slide.tipo === 'reto' ? '-challenge' : ''}.${guessExt(tech)}</span>           </div>
-         <div class="px-3.5 py-2.5 flex gap-3">
-  <div class="font-mono shrink-0 select-none" style="font-size:${cfs.gutter}; line-height:${cfs.lh}">
-    ${slide.codigo.split('\n').map((_, i) => `<div class="code-gutter">${i + 1}</div>`).join('')}
+                    ? `<div id="editorCard" class="editor-window push-in overflow-hidden mt-2 w-full">
+       <div class="flex items-center gap-1.5 px-3.5 py-2.5 border-b border-white/[.06]">
+         <span class="traffic-dot pop" style="background:#ff5f57"></span>
+         <span class="traffic-dot pop" style="background:#febc2e"></span>
+         <span class="traffic-dot pop" style="background:#28c840"></span>
+<span class="ml-2.5 font-mono text-[9px] text-white/30 tracking-wide leading-none">${escapeHtml(tech.toLowerCase().replace(/\s+/g, '-'))}${slide.tipo === 'reto' ? '-challenge' : ''}.${guessExt(tech)}</span>
+       </div>
+     <div class="px-3.5 py-2.5 flex gap-3">
+  <div id="codeGutter" class="font-mono shrink-0 select-none" style="font-size:${cfs.gutter}; line-height:${cfs.lh}">
+    ${gutterHtml}
   </div>
-  <pre class="font-mono text-emerald-300/95 whitespace-pre-wrap break-words flex-1 m-0" style="font-size:${cfs.code}; line-height:${cfs.lh}">${escapeHtml(slide.codigo)}</pre>
+  <div id="typingCodeEl" class="font-mono text-emerald-300/95 flex-1 m-0" style="font-size:${cfs.code}; line-height:${cfs.lh}"></div>
 </div>
-         </div>`
+     </div>`
                     : '';
 
                 const fs = fontSizeForCount(items.length);
@@ -1801,9 +2464,15 @@ ${buildJsonRulesBlock(tech)}
                     : '';
 
                 // DESPUÉS
+                const total_ = state.slides.length;
+                const progressPct = total_ > 1 ? Math.round((slide.numero / total_) * 100) : 100;
+
                 $('slideContent').innerHTML = `
-      <div class="flex items-center px-5 pt-5">
+      <div class="flex items-center justify-between px-5 pt-5 gap-3">
         ${logoHtml}
+        <div class="progress-track flex-1">
+          <div class="progress-fill" style="width:${progressPct}%"></div>
+        </div>
       </div>
       ${watermarkHtml}
 
@@ -1813,12 +2482,18 @@ ${buildJsonRulesBlock(tech)}
         ${codeBlock}
         ${checklistHtml}
       </div>
-
    `;
+
+                $('slideBg').classList.add('animated');
 
                 $('slideCanvas').classList.remove('anim-in');
                 void $('slideCanvas').offsetWidth;
                 $('slideCanvas').classList.add('anim-in');
+
+                const editorCard = document.getElementById('editorCard');
+                if (editorCard) { void editorCard.offsetWidth; editorCard.classList.add('glow-in'); }
+
+                if (slide.codigo) startTypingEffect(slide.codigo);
             }
 
             function guessExt(tech) {
@@ -1854,8 +2529,23 @@ ${buildJsonRulesBlock(tech)}
                 if (el) el.style.display = visible ? '' : 'none';
             }
 
+            function getCodeCardRectRatio() {
+                const canvasEl = document.getElementById('slideCanvas');
+                const card = document.getElementById('editorCard');
+                if (!canvasEl || !card) return null;
+                const cRect = canvasEl.getBoundingClientRect();
+                const eRect = card.getBoundingClientRect();
+                return {
+                    x: (eRect.left - cRect.left) / cRect.width,
+                    y: (eRect.top - cRect.top) / cRect.height,
+                    w: eRect.width / cRect.width,
+                    h: eRect.height / cRect.height
+                };
+            }
             async function captureCurrentSlidePng() {
                 const node = $('slideCanvas');
+                const currentSlideData = state.slides[state.currentSlide];
+                if (currentSlideData && currentSlideData.codigo) renderCodeInstant(currentSlideData.codigo);
                 setChecklistVisible(false);
                 node.classList.add('capturing');
                 await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1908,6 +2598,24 @@ ${buildJsonRulesBlock(tech)}
             async function captureSlideAsPngBlob() {
                 const canvas = await captureCurrentSlidePng();
                 return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
+            }
+
+            async function captureAllSlidesAsBlobs(onProgress) {
+                const originalSlide = state.currentSlide;
+                const blobs = [];
+                for (let i = 0; i < state.slides.length; i++) {
+                    state.currentSlide = i;
+                    renderSlide();
+                    buildDots();
+                    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    if (onProgress) onProgress(i, state.slides.length);
+                    const blob = await captureSlideAsPngBlob();
+                    blobs.push(blob);
+                }
+                state.currentSlide = originalSlide;
+                renderSlide();
+                buildDots();
+                return blobs;
             }
 
             async function downloadAllSlides() {
@@ -1966,6 +2674,402 @@ ${buildJsonRulesBlock(tech)}
                     hint.textContent = '';
                     btn.disabled = false;
                     otherBtn.disabled = false;
+                }
+            }
+
+            /* ===================== GUARDADO EN LA NUBE (FIREBASE) ===================== */
+            function makeGenerationId() {
+                if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+                return 'gen-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+            }
+
+            async function persistCarouselToCloud(techOverride) {
+                if (!window.CarouselCloud) {
+                    console.warn('Firebase no está disponible: se omite el guardado en la nube.');
+                    return;
+                }
+                if (!state.slides.length) return;
+
+                const cloud = window.CarouselCloud;
+                const generationId = makeGenerationId();
+                state.cloud.currentGenerationId = generationId;
+                state.cloud.status = 'processing';
+
+                const tech = techOverride || $('techNameInput').value.trim() || 'Tecnología';
+
+                try {
+                    // 1) Documento inicial en Firestore, para que ya aparezca en "Mis generaciones"
+                    //    aunque la subida de imágenes tarde unos segundos.
+                    await cloud.saveGeneration({
+                        id: generationId,
+                        tech,
+                        caption: state.carousel?.caption || '',
+                        temarioMode: state.temarioMode,
+                        slidesCount: state.slides.length,
+                        status: 'processing',
+                        videoUrl: null,
+                        videoStoragePath: null,
+                        createdAt: new Date().toISOString(),
+                        slides: state.slides.map((s) => ({
+                            tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub,
+                            codigo: s.codigo, dialogo: s.dialogo,
+                            imageUrl: null, imageStoragePath: null, audioUrl: null, audioStoragePath: null
+                        }))
+                    });
+
+                    // 2) Captura cada diapositiva como PNG y sube imagen + audio de narración.
+                    const blobs = await captureAllSlidesAsBlobs((i, total) => {
+                        $('genHint').textContent = `Guardando diapositiva ${i + 1}/${total} en la nube…`;
+                    });
+
+                    const slidesMeta = [];
+                    for (let i = 0; i < state.slides.length; i++) {
+                        const s = state.slides[i];
+                        const num = String(i + 1).padStart(2, '0');
+
+                        const imgPath = cloud.storagePathFor(generationId, `slides/slide-${num}.png`);
+                        const imageUrl = await cloud.uploadBlobToStorage(imgPath, blobs[i]);
+
+                        let audioUrl = null, audioPath = null;
+                        if (s.audioBlob) {
+                            audioPath = cloud.storagePathFor(generationId, `audio/slide-${num}.mp3`);
+                            audioUrl = await cloud.uploadBlobToStorage(audioPath, s.audioBlob);
+                        }
+
+                        slidesMeta.push({
+                            tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub,
+                            codigo: s.codigo, dialogo: s.dialogo,
+                            imageUrl, imageStoragePath: imgPath, audioUrl, audioStoragePath: audioPath
+                        });
+                    }
+
+                    // 3) Marca la generación como lista.
+                    await cloud.saveGeneration({ id: generationId, status: 'ready', slides: slidesMeta });
+
+                    state.cloud.status = 'ready';
+                    $('genHint').textContent = '';
+                    toast('Generación guardada en la nube', 'success');
+                } catch (err) {
+                    console.error('Error guardando en la nube', err);
+                    state.cloud.status = 'error';
+                    $('genHint').textContent = '';
+                    toast('No se pudo guardar en la nube (revisa la consola / configuración de Firebase)', 'error');
+                }
+            }
+
+            /* ===================== GALERÍA "MIS GENERACIONES" ===================== */
+            let galleryCache = [];
+            let scheduledCache = [];
+            let scheduleContext = null; // { mode: 'new', item } | { mode: 'edit', schedId } | { mode: 'new-editor' }
+
+            $('btnOpenGallery').addEventListener('click', openGalleryModal);
+            $('btnCloseGallery').addEventListener('click', () => $('galleryModal').classList.add('hidden'));
+            $('galleryTabGenerations').addEventListener('click', () => switchGalleryTab('generations'));
+            $('galleryTabScheduled').addEventListener('click', () => switchGalleryTab('scheduled'));
+
+            function switchGalleryTab(tab) {
+                $('galleryTabGenerations').classList.toggle('active', tab === 'generations');
+                $('galleryTabScheduled').classList.toggle('active', tab === 'scheduled');
+                $('galleryGenerationsPanel').classList.toggle('hidden', tab !== 'generations');
+                $('galleryScheduledPanel').classList.toggle('hidden', tab !== 'scheduled');
+                if (tab === 'scheduled') loadScheduledPanel();
+            }
+            $('galleryModal').addEventListener('click', (e) => { if (e.target.id === 'galleryModal') $('galleryModal').classList.add('hidden'); });
+
+            async function openGalleryModal() {
+                $('galleryModal').classList.remove('hidden');
+                switchGalleryTab('generations');
+                $('galleryLoading').classList.remove('hidden');
+                $('galleryLoading').textContent = 'Cargando…';
+                $('galleryEmpty').classList.add('hidden');
+                $('galleryList').innerHTML = '';
+
+                if (!window.CarouselCloud) {
+                    $('galleryLoading').textContent = 'Firebase no está disponible en este momento.';
+                    return;
+                }
+                try {
+                    const items = await window.CarouselCloud.listGenerations();
+                    galleryCache = items;
+                    $('galleryLoading').classList.add('hidden');
+                    if (!items.length) { $('galleryEmpty').classList.remove('hidden'); return; }
+                    renderGalleryList(items);
+                } catch (e) {
+                    console.error(e);
+                    $('galleryLoading').textContent = 'No se pudieron cargar las generaciones guardadas.';
+                }
+            }
+
+            function renderGalleryList(items) {
+                $('galleryList').innerHTML = items.map((it) => {
+                    const thumb = it.slides && it.slides[0] && it.slides[0].imageUrl ? it.slides[0].imageUrl : '';
+                    const date = it.createdAt ? new Date(it.createdAt).toLocaleString() : '';
+                    const statusLabel = it.status === 'ready' ? 'Imágenes listas' : (it.status === 'error' ? 'Error al guardar' : 'Procesando…');
+                    const videoLabel = it.videoUrl ? ' · Video listo' : '';
+                    return `
+        <div class="panel-soft rounded-2xl p-3.5 flex gap-3.5">
+          ${thumb ? `<img src="${thumb}" class="w-16 h-28 object-cover rounded-lg border border-[var(--line)] shrink-0" />` : `<div class="w-16 h-28 rounded-lg border border-[var(--line)] bg-[#0D1015] shrink-0"></div>`}
+          <div class="flex-1 min-w-0">
+            <p class="font-display font-semibold text-sm truncate">${escapeHtml(it.tech || 'Sin nombre')}</p>
+            <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${it.slidesCount || (it.slides ? it.slides.length : 0)} diapositivas · ${statusLabel}${videoLabel}</p>
+           <div class="flex flex-wrap gap-1.5 mt-2">
+  <button class="gallery-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">✏️ Renombrar</button>
+  <button class="gallery-load-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">Cargar en editor</button>
+  <button class="gallery-download-zip-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">Descargar imágenes</button>
+             ${it.videoUrl ? `<button class="gallery-preview-video-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-video-url="${it.videoUrl}">▶ Ver video</button>
+<a href="${it.videoUrl}" target="_blank" rel="noopener" class="btn-ghost rounded-lg px-2.5 py-1.5 text-[11px] inline-block">Descargar video</a>
+<button class="gallery-schedule-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">📅 Programar</button>` : ''}        
+    <button class="gallery-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${it.id}">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      `;
+                }).join('');
+
+                $('galleryList').querySelectorAll('.gallery-load-btn').forEach((btn) => btn.addEventListener('click', () => loadGenerationIntoEditor(btn.dataset.id)));
+                $('galleryList').querySelectorAll('.gallery-download-zip-btn').forEach((btn) => btn.addEventListener('click', () => downloadGenerationImagesZip(btn.dataset.id)));
+                $('galleryList').querySelectorAll('.gallery-delete-btn').forEach((btn) => btn.addEventListener('click', () => deleteGenerationFromGallery(btn.dataset.id)));
+                $('galleryList').querySelectorAll('.gallery-preview-video-btn').forEach((btn) => btn.addEventListener('click', () => openVideoPreview(btn.dataset.videoUrl)));
+                $('galleryList').querySelectorAll('.gallery-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameGenerationInGallery(btn.dataset.id))); // 👈 nuevo
+                $('galleryList').querySelectorAll('.gallery-schedule-btn').forEach((btn) => btn.addEventListener('click', () => openScheduleModalForGeneration(btn.dataset.id)));
+            }
+
+            function openVideoPreview(url) {
+                $('videoPreviewPlayer').src = url;
+                $('videoPreviewModal').classList.remove('hidden');
+            }
+            $('btnCloseVideoPreview').addEventListener('click', () => {
+                $('videoPreviewPlayer').pause();
+                $('videoPreviewPlayer').src = '';
+                $('videoPreviewModal').classList.add('hidden');
+            });
+            $('videoPreviewModal').addEventListener('click', (e) => {
+                if (e.target.id === 'videoPreviewModal') {
+                    $('videoPreviewPlayer').pause();
+                    $('videoPreviewPlayer').src = '';
+                    $('videoPreviewModal').classList.add('hidden');
+                }
+            });
+
+            async function loadGenerationIntoEditor(id) {
+                const item = galleryCache.find((g) => g.id === id);
+                if (!item || !item.slides || !item.slides.length || !item.slides[0].imageUrl) {
+                    toast('Esta generación aún no tiene diapositivas listas para cargar', 'error');
+                    return;
+                }
+
+                $('techNameInput').value = item.tech || '';
+                state.carousel = { caption: item.caption || '' };
+                $('captionOutput').value = item.caption || '';
+
+                state.slides = item.slides.map((s) => ({
+                    tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub, codigo: s.codigo, dialogo: s.dialogo,
+                    checkedCount: s.numero, audioDurationMs: null, audioAlignment: null, audioBlob: null,
+                    _remoteAudioUrl: s.audioUrl || null
+                }));
+                state.temarioItems = item.slides.filter((s) => s.tipo === 'contenido').map((s) => s.titulo);
+                state.currentSlide = 0;
+                state.cloud.currentGenerationId = id;
+                state.cloud.status = item.status || 'ready';
+                state.cloud.lastVideoUrl = item.videoUrl || null;
+                state.cloud.lastVideoStoragePath = item.videoStoragePath || null;
+                $('btnSchedulePublish').classList.toggle('hidden', !item.videoUrl);
+
+                toast('Cargando audios de narración…', 'info');
+                for (const s of state.slides) {
+                    if (s._remoteAudioUrl) {
+                        try {
+                            const res = await fetch(s._remoteAudioUrl);
+                            s.audioBlob = await res.blob();
+                            s.audioDurationMs = await getAudioDurationMs(s.audioBlob);
+                        } catch (e) {
+                            console.warn('No se pudo recuperar el audio de una diapositiva', e);
+                        }
+                    }
+                }
+
+                $('emptyState').classList.add('hidden');
+                $('slideCanvasContainer').classList.remove('hidden');
+                $('exportPanel').classList.remove('hidden');
+                buildDots();
+                renderSlide();
+                renderSlideSelection();
+                $('galleryModal').classList.add('hidden');
+                toast('Generación cargada en el editor', 'success');
+            }
+
+            async function downloadGenerationImagesZip(id) {
+                const item = galleryCache.find((g) => g.id === id);
+                if (!item || !item.slides || !item.slides.length) { toast('No hay imágenes para descargar', 'error'); return; }
+                if (typeof JSZip === 'undefined') { toast('No se pudo cargar el generador de ZIP', 'error'); return; }
+                try {
+                    toast('Preparando ZIP…', 'info');
+                    const zip = new JSZip();
+                    const techSlug = (item.tech || 'carrusel').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    for (let i = 0; i < item.slides.length; i++) {
+                        const s = item.slides[i];
+                        if (!s.imageUrl) continue;
+                        const res = await fetch(s.imageUrl);
+                        const blob = await res.blob();
+                        const num = String(i + 1).padStart(2, '0');
+                        zip.file(`${techSlug}-slide-${num}.png`, blob);
+                    }
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(zipBlob);
+                    const link = document.createElement('a');
+                    link.download = `${techSlug}-carrusel.zip`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    toast('Imágenes descargadas', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudieron descargar las imágenes', 'error');
+                }
+            }
+
+            async function renameGenerationInGallery(id) {
+                const item = galleryCache.find((g) => g.id === id);
+                if (!item) return;
+
+                const newName = prompt('Nuevo nombre para esta generación:', item.tech || '');
+                if (newName === null) return; // canceló
+                const trimmed = newName.trim();
+                if (!trimmed || trimmed === item.tech) return;
+
+                if (!window.CarouselCloud) { toast('Firebase no está disponible', 'error'); return; }
+
+                try {
+                    await window.CarouselCloud.saveGeneration({ id, tech: trimmed });
+                    item.tech = trimmed;
+                    renderGalleryList(galleryCache);
+                    toast('Nombre actualizado', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo renombrar la generación', 'error');
+                }
+            }
+            async function loadScheduledPanel() {
+                $('scheduledLoading').classList.remove('hidden');
+                $('scheduledLoading').textContent = 'Cargando…';
+                $('scheduledEmpty').classList.add('hidden');
+                $('scheduledList').innerHTML = '';
+                if (!window.CarouselCloud) {
+                    $('scheduledLoading').textContent = 'Firebase no está disponible en este momento.';
+                    return;
+                }
+                try {
+                    const items = await window.CarouselCloud.listScheduledPublications();
+                    scheduledCache = items;
+                    $('scheduledLoading').classList.add('hidden');
+                    if (!items.length) { $('scheduledEmpty').classList.remove('hidden'); return; }
+                    renderScheduledList(items);
+                } catch (e) {
+                    console.error(e);
+                    $('scheduledLoading').textContent = 'No se pudieron cargar las publicaciones programadas.';
+                }
+            }
+
+            function renderScheduledList(items) {
+                const statusLabel = { pending: '🕓 Pendiente', notified: '🔔 Notificado', sent: '✅ Publicado', cancelled: '❌ Cancelado', error: '⚠️ Error' };
+                $('scheduledList').innerHTML = items.map((s) => {
+                    const date = s.scheduledAt ? new Date(s.scheduledAt).toLocaleString('es-PE', { dateStyle: 'full', timeStyle: 'short' }) : '—';
+                    return `
+    <div class="panel-soft rounded-2xl p-3.5">
+      <p class="font-display font-semibold text-sm truncate">${escapeHtml(s.tech || 'Sin nombre')}</p>
+      <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${statusLabel[s.status] || s.status}</p>
+      ${s.caption ? `<p class="text-xs text-[var(--text-mid)] mt-1.5">${escapeHtml(s.caption)}</p>` : ''}
+      <div class="flex flex-wrap gap-1.5 mt-2.5">
+  <button class="sched-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Renombrar</button>
+  ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">📅 Reprogramar</button>` : ''}
+      <div class="flex flex-wrap gap-1.5 mt-2.5">
+        ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Reprogramar</button>` : ''}
+        ${(s.status !== 'cancelled' && s.status !== 'sent') ? `<button class="sched-cancel-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">Cancelar</button>` : ''}
+        <button class="sched-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">🗑️ Eliminar</button>
+      </div>
+    </div>`;
+                }).join('');
+
+                $('scheduledList').querySelectorAll('.sched-reprogram-btn').forEach((btn) => btn.addEventListener('click', () => openReprogramModal(btn.dataset.id)));
+                $('scheduledList').querySelectorAll('.sched-cancel-btn').forEach((btn) => btn.addEventListener('click', () => cancelScheduledPublication(btn.dataset.id)));
+                $('scheduledList').querySelectorAll('.sched-delete-btn').forEach((btn) => btn.addEventListener('click', () => deleteScheduledPublicationFromGallery(btn.dataset.id)));
+                $('scheduledList').querySelectorAll('.sched-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameScheduledPublication(btn.dataset.id))); // 👈 nuevo
+            }
+
+            async function renameScheduledPublication(id) {
+                const sched = scheduledCache.find((s) => s.id === id);
+                if (!sched) return;
+
+                const newName = prompt('Nuevo nombre para esta publicación programada:', sched.tech || '');
+                if (newName === null) return; // canceló
+                const trimmed = newName.trim();
+                if (!trimmed || trimmed === sched.tech) return;
+
+                if (!window.CarouselCloud) { toast('Firebase no está disponible', 'error'); return; }
+
+                try {
+                    await window.CarouselCloud.updateScheduledPublication(id, { tech: trimmed });
+                    sched.tech = trimmed;
+                    renderScheduledList(scheduledCache);
+                    toast('Nombre actualizado', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo renombrar', 'error');
+                }
+            }
+            async function cancelScheduledPublication(id) {
+                if (!confirm('¿Cancelar esta publicación programada?')) return;
+                try {
+                    await window.CarouselCloud.updateScheduledPublication(id, { status: 'cancelled' });
+                    toast('Publicación cancelada', 'success');
+                    loadScheduledPanel();
+                } catch (e) { console.error(e); toast('No se pudo cancelar', 'error'); }
+            }
+
+            async function deleteScheduledPublicationFromGallery(id) {
+                if (!confirm('¿Eliminar esta publicación programada de forma permanente?')) return;
+                try {
+                    await window.CarouselCloud.deleteScheduledPublication(id);
+                    scheduledCache = scheduledCache.filter((s) => s.id !== id);
+                    renderScheduledList(scheduledCache);
+                    if (!scheduledCache.length) $('scheduledEmpty').classList.remove('hidden');
+                    toast('Publicación eliminada', 'success');
+                } catch (e) { console.error(e); toast('No se pudo eliminar', 'error'); }
+            }
+
+            function openReprogramModal(id) {
+                const sched = scheduledCache.find((s) => s.id === id);
+                if (!sched) return;
+                scheduleContext = { mode: 'edit', schedId: id };
+                const dt = sched.scheduledAt ? new Date(sched.scheduledAt) : new Date();
+                const localIso = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                $('scheduleDatetimeInput').value = localIso;
+                $('scheduleCaptionInput').value = sched.caption || '';
+                $('scheduleModal').classList.remove('hidden');
+            }
+
+            function openScheduleModalForGeneration(id) {
+                const item = galleryCache.find((g) => g.id === id);
+                if (!item || !item.videoUrl) { toast('Esta generación no tiene video para programar', 'error'); return; }
+                scheduleContext = { mode: 'new', item };
+                const now = new Date();
+                const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                $('scheduleDatetimeInput').value = localIso;
+                $('scheduleCaptionInput').value = item.caption || '';
+                $('scheduleModal').classList.remove('hidden');
+            }
+            async function deleteGenerationFromGallery(id) {
+                if (!confirm('¿Eliminar esta generación de forma permanente? Esta acción no se puede deshacer.')) return;
+                const item = galleryCache.find((g) => g.id === id);
+                try {
+                    await window.CarouselCloud.deleteGeneration(id, item);
+                    galleryCache = galleryCache.filter((g) => g.id !== id);
+                    renderGalleryList(galleryCache);
+                    if (!galleryCache.length) $('galleryEmpty').classList.remove('hidden');
+                    toast('Generación eliminada', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo eliminar la generación', 'error');
                 }
             }
 
@@ -2089,12 +3193,11 @@ ${buildJsonRulesBlock(tech)}
                     el.mozPreservesPitch = true;
                     el.webkitPreservesPitch = true;
                 }
-
                 if (hasNarration || audioFile) {
                     try {
                         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        await audioCtx.resume();
                         const dest = audioCtx.createMediaStreamDestination();
-
                         if (hasNarration) {
                             const narrationGain = audioCtx.createGain();
                             narrationGain.gain.value = state.exportSettings.narrationVolume;
@@ -2166,10 +3269,15 @@ ${buildJsonRulesBlock(tech)}
 
                 label.innerHTML = '<div class="spinner"></div> Grabando…';
 
+                console.log('[AUDIO DEBUG] hasNarration:', hasNarration, '| audioFile:', !!audioFile);
+                console.log('[AUDIO DEBUG] audioCtx state:', audioCtx ? audioCtx.state : 'null');
+                console.log('[AUDIO DEBUG] audioTrack:', audioTrack);
+                console.log('[AUDIO DEBUG] narrationEls count:', narrationEls.length);
+
                 const stream = canvas.captureStream(30);
                 if (audioTrack) stream.addTrack(audioTrack);
-                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-                const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 });
+                console.log('[AUDIO DEBUG] stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
+                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : (MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm'); const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 });
                 const chunks = [];
                 recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
 
@@ -2516,6 +3624,30 @@ ${buildJsonRulesBlock(tech)}
                 if (audioCtx) { audioCtx.close().catch(() => { }); }
 
                 const blob = new Blob(chunks, { type: 'video/webm' });
+                console.log('[AUDIO DEBUG] blob final size:', blob.size, 'chunks:', chunks.length);
+
+                // Sube el video generado a Firebase Storage y actualiza el documento en Firestore.
+                if (window.CarouselCloud && state.cloud.currentGenerationId) {
+                    try {
+                        label.innerHTML = '<div class="spinner"></div> Subiendo video a la nube…';
+                        const videoPath = window.CarouselCloud.storagePathFor(state.cloud.currentGenerationId, 'video.webm');
+                        const videoUrl = await window.CarouselCloud.uploadBlobToStorage(videoPath, blob);
+                        await window.CarouselCloud.saveGeneration({
+                            id: state.cloud.currentGenerationId,
+                            videoUrl,
+                            videoStoragePath: videoPath,
+                            videoDurationMs: totalMs
+                        });
+                        state.cloud.lastVideoUrl = videoUrl;
+                        state.cloud.lastVideoStoragePath = videoPath;
+                        $('btnSchedulePublish').classList.remove('hidden');
+                        toast('Video guardado en la nube', 'success');
+                    } catch (e) {
+                        console.error('Error subiendo el video a la nube', e);
+                        toast('El video se descargó, pero no se pudo subir a la nube', 'error');
+                    }
+                }
+
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 const techSlug = ($('techNameInput').value.trim() || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -2529,6 +3661,81 @@ ${buildJsonRulesBlock(tech)}
                 toast(`Video de ${(totalMs / 1000).toFixed(1)}s generado y descargado`, 'success');
             }
             $('btnGenerateVideo').addEventListener('click', generateBackgroundVideo);
+
+            $('btnSchedulePublish').addEventListener('click', () => {
+                if (!state.cloud.lastVideoUrl) {
+                    toast('Primero genera y sube el video', 'error');
+                    return;
+                }
+                scheduleContext = { mode: 'new-editor' }; // 👈 nuevo
+                const now = new Date();
+                const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                $('scheduleDatetimeInput').value = localIso;
+                $('scheduleCaptionInput').value = $('captionOutput').value || '';
+                $('scheduleModal').classList.remove('hidden');
+            });
+            $('btnCloseSchedule').addEventListener('click', () => { $('scheduleModal').classList.add('hidden'); scheduleContext = null; });
+            $('btnCancelSchedule').addEventListener('click', () => { $('scheduleModal').classList.add('hidden'); scheduleContext = null; });
+            $('scheduleModal').addEventListener('click', (e) => { if (e.target.id === 'scheduleModal') { $('scheduleModal').classList.add('hidden'); scheduleContext = null; } });
+
+            $('btnConfirmSchedule').addEventListener('click', async () => {
+                const datetimeStr = $('scheduleDatetimeInput').value;
+                const caption = $('scheduleCaptionInput').value.trim();
+                if (!datetimeStr) { toast('Elige una fecha y hora', 'error'); return; }
+                if (!window.CarouselCloud) { toast('La conexión con Firebase no está disponible', 'error'); return; }
+
+                const scheduledAtLocal = new Date(datetimeStr);
+                if (isNaN(scheduledAtLocal.getTime())) { toast('Fecha inválida', 'error'); return; }
+
+                const btn = $('btnConfirmSchedule');
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.innerHTML = '<div class="spinner"></div>';
+                try {
+                    if (scheduleContext && scheduleContext.mode === 'edit') {
+                        await window.CarouselCloud.updateScheduledPublication(scheduleContext.schedId, {
+                            caption,
+                            scheduledAt: scheduledAtLocal.toISOString(),
+                            status: 'pending'
+                        });
+                        toast('Publicación reprogramada', 'success');
+                        loadScheduledPanel();
+                    } else if (scheduleContext && scheduleContext.mode === 'new' && scheduleContext.item) {
+                        const item = scheduleContext.item;
+                        await window.CarouselCloud.schedulePublication({
+                            generationId: item.id,
+                            tech: item.tech || 'Tecnología',
+                            caption,
+                            videoUrl: item.videoUrl,
+                            videoStoragePath: item.videoStoragePath || null,
+                            scheduledAt: scheduledAtLocal.toISOString(),
+                            telegramChatId: state.config.telegramChatId || null,
+                            status: 'pending'
+                        });
+                        toast('Publicación programada', 'success');
+                    } else {
+                        await window.CarouselCloud.schedulePublication({
+                            generationId: state.cloud.currentGenerationId,
+                            tech: $('techNameInput').value.trim() || 'Tecnología',
+                            caption,
+                            videoUrl: state.cloud.lastVideoUrl,
+                            videoStoragePath: state.cloud.lastVideoStoragePath,
+                            scheduledAt: scheduledAtLocal.toISOString(),
+                            telegramChatId: state.config.telegramChatId || null,
+                            status: 'pending'
+                        });
+                        toast('Publicación programada', 'success');
+                    }
+                    $('scheduleModal').classList.add('hidden');
+                    scheduleContext = null;
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo guardar la publicación', 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            });
             $('videoDurationInput').addEventListener('input', (e) => {
                 $('videoDurationLabel').textContent = `${Number(e.target.value).toFixed(1)}s`;
             });
@@ -2662,6 +3869,8 @@ ${buildJsonRulesBlock(tech)}
             updateTemarioMode('python_basico');
             updateScopeUI();
             updateStageGlow([]);
+            window.addEventListener('carousel-cloud-ready', loadGeneratedTopicsAndFilter); // 👈 nuevo
+            if (window.CarouselCloud) loadGeneratedTopicsAndFilter(); // 👈 nuevo, por si ya estaba listo
         })();
     </script>
 </body>
