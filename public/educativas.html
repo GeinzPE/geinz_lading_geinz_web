@@ -482,6 +482,21 @@
             box-shadow: none !important;
         }
 
+        /* FIX: congela TODAS las animaciones de entrada en su estado final
+   mientras se captura con html2canvas. Sin esto, la captura ocurre
+   a mitad de camino de trafficPop/cardPushIn/glow-in, dejando el
+   código achicado y transparente, y los puntos de colores deformados. */
+        #slideCanvas.capturing * {
+            animation: none !important;
+            transition: none !important;
+        }
+
+        #slideCanvas.capturing .editor-window,
+        #slideCanvas.capturing .traffic-dot {
+            opacity: 1 !important;
+            transform: none !important;
+        }
+
         /* ============ EFECTOS: typing, glow, progreso, fondo animado ============ */
         @keyframes blinkCursor {
 
@@ -660,6 +675,7 @@
 
         const TOPICS_COLLECTION = 'temario_topics';
 
+        
         // Marca un temario (preset) como ya generado, para que desaparezca del selector
         async function markTopicGenerated(topicKey) {
             await setDoc(doc(db, TOPICS_COLLECTION, topicKey), {
@@ -1380,8 +1396,6 @@
             'use strict';
 
             /* ===================== PRESETS ===================== */
-            // ANTES
-            // DESPUÉS
             const PRESETS = {
                 python_basico: { label: 'Python Básico', tech: 'Python', items: ['Variables y tipos de datos', 'Operadores', 'Condicionales if/else', 'Bucles for y while'] },
                 python_intermedio: { label: 'Python Intermedio', tech: 'Python', items: ['Funciones y parámetros', 'Listas y comprensión de listas', 'Diccionarios y sets', 'Manejo de excepciones'] },
@@ -1405,9 +1419,9 @@
             /* ===================== STATE ===================== */
             const STORAGE_KEY = 'carousel_studio_config_v3';
             const GRANJA_TTS_URL = 'https://texttospeech-granja-eleven-oixttik5rq-uc.a.run.app';
+            const CONVERT_TO_MP4_URL = 'https://us-central1-geinzworkapp.cloudfunctions.net/convertToMp4';
             const state = {
-                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false },
-                logo: { dataUrl: null, colors: [] },
+                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false, watermarkText: '' }, logo: { dataUrl: null, colors: [] },
                 temarioMode: 'python_basico',
                 temarioItems: PRESETS.python_basico.items.slice(),
                 generationScope: 'all',        // 'all' | 'single'
@@ -1415,7 +1429,6 @@
                 carousel: null,     // { caption, content_slides:[{titulo,explicacion,codigo}], reto:{titulo,enunciado,codigo} }
                 slides: [],          // flattened render-ready slides
                 currentSlide: 0,
-                // DESPUÉS
                 videoSlideSelection: [],
                 watermarkPos: { xPct: 0.82, yPct: 0.078 },
                 exportSettings: { speed: 1, musicVolume: 0.15, narrationVolume: 1, saturate: 100, style: 'suave', subtitlesEnabled: true, subtitlePos: { xPct: 0.5, yPct: 0.86 } },
@@ -1464,6 +1477,7 @@
                 $('elevenLabsVoiceIdInput').value = state.config.elevenLabsVoiceId || '';
                 $('telegramChatIdInput').value = state.config.telegramChatId || '';
                 $('testModeInput').checked = !!state.config.testMode;
+                $('watermarkTextInput').value = state.config.watermarkText || '';
                 updateApiToggleUI();
                 updateApiStatusPill();
             }
@@ -1602,9 +1616,6 @@
                 try { data = ctx.getImageData(0, 0, size, size).data; }
                 catch (e) { return ['#22D3EE', '#8B5CF6', '#A78BFA']; }
 
-                // Agrupa por matiz (hue) para que colores del logo con menor área
-                // (ej. el amarillo de Python) compitan como grupo aparte del azul,
-                // en vez de perderse contra el conteo bruto de píxeles.
                 const HUE_BINS = 24; // 15° por bin
                 const bins = new Map();
 
@@ -1613,7 +1624,6 @@
                     if (a < 100) continue;
 
                     const { h: hue, s, l } = rgbToHsl(r, g, b);
-                    // ignora casi-blanco, casi-negro y grises desaturados (típicamente fondo)
                     if (l > 0.94 || l < 0.06 || s < 0.15) continue;
 
                     const binIndex = Math.floor(hue / (360 / HUE_BINS)) % HUE_BINS;
@@ -1656,11 +1666,11 @@
                 const stops = base.slice(0, 3);
                 while (stops.length < 3) stops.push('#0A0C10');
                 return `
-      radial-gradient(circle at 12% 8%, ${hexToRgba(stops[0], 0.34)} 0%, ${hexToRgba(stops[0], 0.12)} 30%, transparent 55%),
-      radial-gradient(circle at 92% 18%, ${hexToRgba(stops[1], 0.26)} 0%, ${hexToRgba(stops[1], 0.09)} 28%, transparent 52%),
-      radial-gradient(circle at 45% 105%, ${hexToRgba(stops[2], 0.3)} 0%, ${hexToRgba(stops[2], 0.1)} 30%, transparent 60%),
-      linear-gradient(165deg, #0A0C10 0%, #0D1017 100%)
-    `;
+  radial-gradient(circle at 12% 8%, ${hexToRgba(stops[0], 0.34)} 0%, ${hexToRgba(stops[0], 0.12)} 30%, transparent 55%),
+  radial-gradient(circle at 92% 18%, ${hexToRgba(stops[1], 0.26)} 0%, ${hexToRgba(stops[1], 0.09)} 28%, transparent 52%),
+  radial-gradient(circle at 45% 105%, ${hexToRgba(stops[2], 0.3)} 0%, ${hexToRgba(stops[2], 0.1)} 30%, transparent 60%),
+  linear-gradient(165deg, #0A0C10 0%, #0D1017 100%)
+`;
             }
 
             function updateStageGlow(colors) {
@@ -1670,8 +1680,6 @@
             }
 
             /* ===================== TEMARIO ===================== */
-            // DESPUÉS
-
             function dataUrlToBlob(dataUrl) {
                 const [header, base64] = dataUrl.split(',');
                 const mime = header.match(/:(.*?);/)[1];
@@ -1690,7 +1698,6 @@
                     opt.hidden = used;
                 });
 
-                // Si el tema actualmente seleccionado ya fue generado, salta al primero disponible
                 if (state.generatedTopics.has(state.temarioMode)) {
                     const nextAvailable = Array.from(sel.options).find(
                         (o) => o.value !== 'custom' && o.value !== 'libre' && !o.hidden
@@ -1770,23 +1777,27 @@
                 renderTemarioPreview();
             }
 
-            // DESPUÉS
             function renderTemarioPreview() {
                 if (state.temarioMode === 'libre' && !state.temarioItems.length) {
                     $('temarioPreviewList').innerHTML = `
-      <li class="text-[12px] text-[var(--text-lo)] italic">La IA leerá tu descripción libre y decidirá los puntos y la cantidad de diapositivas automáticamente.</li>
-    `;
+  <li class="text-[12px] text-[var(--text-lo)] italic">La IA leerá tu descripción libre y decidirá los puntos y la cantidad de diapositivas automáticamente.</li>
+`;
                     return;
                 }
                 $('temarioPreviewList').innerHTML = state.temarioItems.map((item, i) => `
-      <li class="flex items-center gap-2 text-[12px] text-[var(--text-mid)]">
-        <span class="w-4 h-4 rounded-full border border-[var(--line)] flex items-center justify-center text-[9px] font-mono text-[var(--text-lo)] shrink-0">${i + 1}</span>
-        <span class="truncate">${escapeHtml(item)}</span>
-      </li>
-    `).join('');
+  <li class="flex items-center gap-2 text-[12px] text-[var(--text-mid)]">
+    <span class="w-4 h-4 rounded-full border border-[var(--line)] flex items-center justify-center text-[9px] font-mono text-[var(--text-lo)] shrink-0">${i + 1}</span>
+    <span class="truncate">${escapeHtml(item)}</span>
+  </li>
+`).join('');
                 syncScopeSingleSelect();
             }
             $('temarioSelect').addEventListener('change', (e) => updateTemarioMode(e.target.value));
+            $('watermarkTextInput').addEventListener('input', (e) => {
+                state.config.watermarkText = e.target.value;
+                saveConfigToStorage();
+                if (state.slides.length) renderSlide();
+            });
             $('customTemarioInput').addEventListener('input', syncCustomTemario);
 
             /* ===================== GENERATION SCOPE ===================== */
@@ -1835,12 +1846,12 @@
             function buildJsonRulesBlock(tech) {
                 return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
 {
-  "caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa de resultado), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
-  "intro_dialogo": "guion de EXACTAMENTE 2 frases cortas para narrar la portada. La primera frase es el gancho (nunca un saludo). La segunda dice qué se va a aprender. Máximo 30 palabras en total.",
-  "content_slides": [
-    { "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real relacionado con \"${tech}\", MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion de EXACTAMENTE 3 a 4 frases cortas, tono de instructor cercano: (1) qué es este concepto en términos simples, (2) para qué sirve o cuándo se usa, con un ejemplo concreto de la vida real de programación, (3) un tip práctico para recordarlo. Máximo 55 palabras en total, sin relleno." }
-  ],
-  "reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio (máx 100 caracteres)", "codigo": "código base del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion de EXACTAMENTE 2 a 3 frases: recuerda el concepto clave en una frase, dice qué debe hacer la persona, y la anima a pausar e intentarlo. Máximo 40 palabras en total." }
+"caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa de resultado), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
+"intro_dialogo": "guion de EXACTAMENTE 2 frases cortas para narrar la portada. La primera frase es el gancho (nunca un saludo). La segunda dice qué se va a aprender. Máximo 30 palabras en total.",
+"content_slides": [
+{ "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real relacionado con \"${tech}\", MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion de EXACTAMENTE 3 a 4 frases cortas, tono de instructor cercano: (1) qué es este concepto en términos simples, (2) para qué sirve o cuándo se usa, con un ejemplo concreto de la vida real de programación, (3) un tip práctico para recordarlo. Máximo 55 palabras en total, sin relleno." }
+],
+"reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio (máx 100 caracteres)", "codigo": "código base del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion de EXACTAMENTE 2 a 3 frases: recuerda el concepto clave en una frase, dice qué debe hacer la persona, y la anima a pausar e intentarlo. Máximo 40 palabras en total." }
 }
 
 Reglas estrictas:
@@ -2004,7 +2015,6 @@ ${buildJsonRulesBlock(tech)}
                 $('slideDots').innerHTML = '';
                 $('slideSelectionList').innerHTML = '';
 
-                // deja el campo listo para que elijas el próximo tema sin arrastrar el anterior
                 $('techNameInput').value = '';
                 $('techNameInput')._lastAuto = undefined;
 
@@ -2081,6 +2091,11 @@ ${buildJsonRulesBlock(tech)}
                 });
             }
 
+            // ===================== FIX 1: duración real del audio =====================
+            // Se agrega el cálculo de `durationMs` con getAudioDurationMs(blob), que antes
+            // faltaba y provocaba un ReferenceError silencioso (capturado por el catch),
+            // dejando slide.audioDurationMs en null y forzando el fallback de 5s por
+            // diapositiva. Eso era lo que producía el solape de audio entre diapositivas.
             async function generateNarrationForSlides() {
                 const useGranja = !!state.config.testMode;
                 const apiKey = state.config.elevenLabsKey;
@@ -2108,15 +2123,13 @@ ${buildJsonRulesBlock(tech)}
                     $('genHint').textContent = `Generando narración ${i + 1}/${state.slides.length}…`;
                     try {
                         const { blob, alignment } = useGranja
-                            ? await callGranjaTTS(slide.dialogo)  // sin voiceId: la granja elige una voz random
+                            ? await callGranjaTTS(slide.dialogo)
                             : await callElevenLabsTTS(slide.dialogo, apiKey, voiceId);
+
+                        // ✅ calcular la duración real del audio antes de usarla
+                        const durationMs = await getAudioDurationMs(blob);
+
                         slide.audioBlob = blob;
-                        // TEMPORAL: para diagnosticar, descargá el audio crudo y escuchalo completo
-                        const debugUrl = URL.createObjectURL(blob);
-                        const debugLink = document.createElement('a');
-                        debugLink.href = debugUrl;
-                        debugLink.download = `debug-audio-slide-${i}.mp3`;
-                        debugLink.click();
                         slide.audioAlignment = alignment;
                         slide.audioDurationMs = durationMs;
                         state.narrationCache.set(cacheKey, { blob, alignment, durationMs });
@@ -2136,7 +2149,6 @@ ${buildJsonRulesBlock(tech)}
 
             function renderScriptPanel() {
                 if (!state.slides.length) return;
-                // guion completo (intro + cada punto + reto) por si luego quieres mostrarlo en un panel
                 state.fullScript = state.slides
                     .map((s) => s.dialogo)
                     .filter(Boolean)
@@ -2179,7 +2191,6 @@ ${buildJsonRulesBlock(tech)}
                     $('configModal').classList.remove('hidden');
                     return;
                 }
-                // DESPUÉS
                 if (state.temarioMode === 'libre') {
                     if (!$('libreTopicInput').value.trim()) {
                         toast('Describe el tema en modo libre antes de generar.', 'error');
@@ -2209,10 +2220,14 @@ ${buildJsonRulesBlock(tech)}
                     state.currentSlide = 0;
                     registerGenerationUsage(api, result.usage);
 
-                    if (state.config.elevenLabsKey && state.config.elevenLabsVoiceId) {
+                    // ===================== FIX 2: modo prueba (granja) también dispara narración =====================
+                    // Antes solo se generaba narración si había ElevenLabs Key + Voice ID configurados,
+                    // ignorando el checkbox "Modo prueba (usar granja)". generateNarrationForSlides()
+                    // ya contemplaba useGranja internamente, pero nunca se llegaba a invocar.
+                    if (state.config.testMode || (state.config.elevenLabsKey && state.config.elevenLabsVoiceId)) {
                         await generateNarrationForSlides();
                     } else {
-                        console.warn('[AUDIO DEBUG] No hay elevenLabsKey o elevenLabsVoiceId configurados, no se generará narración.');
+                        console.warn('[AUDIO DEBUG] No hay elevenLabsKey/voiceId ni modo prueba activado, no se generará narración.');
                     }
                     console.log('[AUDIO DEBUG] Slides con audioBlob:', state.slides.map((s, i) => `slide${i}: ${!!s.audioBlob}`));
 
@@ -2226,14 +2241,14 @@ ${buildJsonRulesBlock(tech)}
                     renderScriptPanel();
                     renderCostPanel();
                     renderSlideSelection();
-                    const generatedTech = $('techNameInput').value.trim() || 'Tecnología';   // 👈 agregar esta línea
+                    const generatedTech = $('techNameInput').value.trim() || 'Tecnología';
                     toast('Carrusel generado con éxito', 'success');
                     if (state.temarioMode !== 'custom' && state.temarioMode !== 'libre') {
                         state.generatedTopics.add(state.temarioMode);
                         refreshTemarioSelectAvailability();
                         if (window.CarouselCloud) window.CarouselCloud.markTopicGenerated(state.temarioMode).catch((e) => console.warn(e));
                     }
-                    persistCarouselToCloud(generatedTech);   // 👈 cambiar esta línea (antes era persistCarouselToCloud() sin argumento)
+                    persistCarouselToCloud(generatedTech);
                 } catch (err) {
                     console.error(err);
                     toast(err.message || 'Error generando el contenido', 'error');
@@ -2256,11 +2271,11 @@ ${buildJsonRulesBlock(tech)}
                 state.videoSlideSelection = state.slides.map(() => true);
                 const container = $('slideSelectionList');
                 container.innerHTML = state.slides.map((s, i) => `
-        <label class="flex items-center gap-2 text-xs text-[var(--text-mid)] cursor-pointer">
-            <input type="checkbox" data-slide-index="${i}" checked class="slide-select-checkbox w-3.5 h-3.5 accent-cyan-400 shrink-0" />
-            <span class="truncate">${i + 1}. ${escapeHtml(s.titulo)}</span>
-        </label>
-    `).join('');
+    <label class="flex items-center gap-2 text-xs text-[var(--text-mid)] cursor-pointer">
+        <input type="checkbox" data-slide-index="${i}" checked class="slide-select-checkbox w-3.5 h-3.5 accent-cyan-400 shrink-0" />
+        <span class="truncate">${i + 1}. ${escapeHtml(s.titulo)}</span>
+    </label>
+`).join('');
                 container.querySelectorAll('.slide-select-checkbox').forEach((cb) => {
                     cb.addEventListener('change', (e) => {
                         const idx = Number(e.target.dataset.slideIndex);
@@ -2409,13 +2424,12 @@ ${buildJsonRulesBlock(tech)}
                     ? `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center overflow-hidden shrink-0">${state.logo.dataUrl ? `<img src="${state.logo.dataUrl}" class="w-full h-full object-contain p-1.5" />` : ''}</div>`
                     : `<div class="w-10 h-10 rounded-xl bg-white/[.08] border border-white/[.1] flex items-center justify-center font-display font-bold text-[13px] text-white/80 shrink-0">${escapeHtml((tech || '?').charAt(0))}</div>`;
 
-                // DESPUÉS
                 const watermarkText = $('watermarkTextInput').value.trim();
                 const wmPos = state.watermarkPos;
                 const watermarkHtml = watermarkText
                     ? `<div id="slideWatermark" class="absolute select-none" style="left:${(wmPos.xPct * 100).toFixed(2)}%; top:${(wmPos.yPct * 100).toFixed(2)}%; transform:translate(-50%,-50%); cursor:grab; touch-action:none;">
-           <span class="font-display text-[11px] font-medium text-white/55 tracking-wide">${escapeHtml(watermarkText)}</span>
-         </div>`
+       <span class="font-display text-[11px] font-medium text-white/55 tracking-wide">${escapeHtml(watermarkText)}</span>
+     </div>`
                     : '';
 
                 const badgeIsReto = slide.tipo === 'reto';
@@ -2430,59 +2444,55 @@ ${buildJsonRulesBlock(tech)}
                 const gutterHtml = codeLinesArr.map((_, i) => `<div class="code-gutter" data-line="${i}">${i + 1}</div>`).join('');
                 const codeBlock = slide.codigo
                     ? `<div id="editorCard" class="editor-window push-in overflow-hidden mt-2 w-full">
-       <div class="flex items-center gap-1.5 px-3.5 py-2.5 border-b border-white/[.06]">
-         <span class="traffic-dot pop" style="background:#ff5f57"></span>
-         <span class="traffic-dot pop" style="background:#febc2e"></span>
-         <span class="traffic-dot pop" style="background:#28c840"></span>
-<span class="ml-2.5 font-mono text-[9px] text-white/30 tracking-wide leading-none">${escapeHtml(tech.toLowerCase().replace(/\s+/g, '-'))}${slide.tipo === 'reto' ? '-challenge' : ''}.${guessExt(tech)}</span>
-       </div>
-     <div class="px-3.5 py-2.5 flex gap-3">
-  <div id="codeGutter" class="font-mono shrink-0 select-none" style="font-size:${cfs.gutter}; line-height:${cfs.lh}">
+  <div class="flex items-center gap-2.5 px-4 py-3 border-b border-white/[.06]">
+     <span class="flex items-center gap-1.5 shrink-0">
+       <span class="traffic-dot pop" style="background:#ff5f57"></span>
+       <span class="traffic-dot pop" style="background:#febc2e"></span>
+       <span class="traffic-dot pop" style="background:#28c840"></span>
+     </span>
+     <span class="font-mono text-[9px] text-white/30 tracking-wide leading-none">${escapeHtml(tech.toLowerCase().replace(/\s+/g, '-'))}${slide.tipo === 'reto' ? '-challenge' : ''}.${guessExt(tech)}</span>
+   </div>
+ <div class="px-3.5 py-2.5 flex gap-3">
+<div id="codeGutter" class="font-mono shrink-0 select-none" style="font-size:${cfs.gutter}; line-height:${cfs.lh}">
     ${gutterHtml}
-  </div>
-  <div id="typingCodeEl" class="font-mono text-emerald-300/95 flex-1 m-0" style="font-size:${cfs.code}; line-height:${cfs.lh}"></div>
 </div>
-     </div>`
+<div id="typingCodeEl" class="font-mono text-emerald-300/95 flex-1 m-0" style="font-size:${cfs.code}; line-height:${cfs.lh}"></div>
+</div>
+ </div>`
                     : '';
 
                 const fs = fontSizeForCount(items.length);
                 const checklistHtml = items.length
                     ? `<div id="slideChecklistBlock" class="editor-window mt-3 px-3.5 w-full ${fs.pad === 'py-0.5' ? 'py-2.5' : 'py-3'}">
-           <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-2">Temario</p>
-           <ul class="space-y-1.5">
-             ${items.map((it, i) => {
+       <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-2">Temario</p>
+       <ul class="space-y-1.5">
+         ${items.map((it, i) => {
                         const done = i < slide.checkedCount;
                         return `<li class="flex items-center ${fs.gap}">
-                 <span class="check-ring ${done ? 'done' : ''}" style="width:${fs.ring};height:${fs.ring}">
-                   <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="3.5"><path d="M20 6L9 17l-5-5"/></svg>
-                 </span>
-                 <span class="truncate transition-colors" style="font-size:${fs.text}; color:${done ? 'rgba(255,255,255,.88)' : 'rgba(255,255,255,.38)'}">${escapeHtml(it)}</span>
-               </li>`;
+             <span class="check-ring ${done ? 'done' : ''}" style="width:${fs.ring};height:${fs.ring}">
+               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="3.5"><path d="M20 6L9 17l-5-5"/></svg>
+             </span>
+             <span class="truncate transition-colors" style="font-size:${fs.text}; color:${done ? 'rgba(255,255,255,.88)' : 'rgba(255,255,255,.38)'}">${escapeHtml(it)}</span>
+           </li>`;
                     }).join('')}
-           </ul>
-         </div>`
+       </ul>
+     </div>`
                     : '';
 
-                // DESPUÉS
-                const total_ = state.slides.length;
-                const progressPct = total_ > 1 ? Math.round((slide.numero / total_) * 100) : 100;
 
                 $('slideContent').innerHTML = `
-      <div class="flex items-center justify-between px-5 pt-5 gap-3">
-        ${logoHtml}
-        <div class="progress-track flex-1">
-          <div class="progress-fill" style="width:${progressPct}%"></div>
-        </div>
-      </div>
-      ${watermarkHtml}
+  <div class="flex items-center justify-between px-5 pt-5 gap-3">
+    ${logoHtml}
+  </div>
+  ${watermarkHtml}
 
-      <div class="flex-1 flex flex-col justify-center px-5 pt-4 pb-4 min-h-0">
+  <div class="flex-1 flex flex-col justify-center px-5 pt-4 pb-4 min-h-0">
 <h2 class="font-display font-bold text-white leading-[1.18] tracking-tight" style="font-size:${ts.title}px">${escapeHtml(slide.titulo)}</h2>
-        ${slide.sub ? `<p class="text-white/62 leading-relaxed mt-2" style="font-size:${ts.sub}px">${escapeHtml(slide.sub)}</p>` : ''}
-        ${codeBlock}
-        ${checklistHtml}
-      </div>
-   `;
+    ${slide.sub ? `<p class="text-white/62 leading-relaxed mt-2" style="font-size:${ts.sub}px">${escapeHtml(slide.sub)}</p>` : ''}
+    ${codeBlock}
+    ${checklistHtml}
+  </div>
+`;
 
                 $('slideBg').classList.add('animated');
 
@@ -2558,7 +2568,6 @@ ${buildJsonRulesBlock(tech)}
                     setChecklistVisible(true);
                 }
             }
-            // DESPUÉS
             function computeSlidesSignature() {
                 const wm = $('watermarkTextInput').value.trim();
                 const wmPos = state.watermarkPos;
@@ -2642,7 +2651,6 @@ ${buildJsonRulesBlock(tech)}
                         state.currentSlide = i;
                         renderSlide();
                         buildDots();
-                        // dar tiempo al DOM/animación para pintar antes de capturar
                         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
                         hint.textContent = `Generando diapositiva ${i + 1} de ${total}…`;
@@ -2698,8 +2706,6 @@ ${buildJsonRulesBlock(tech)}
                 const tech = techOverride || $('techNameInput').value.trim() || 'Tecnología';
 
                 try {
-                    // 1) Documento inicial en Firestore, para que ya aparezca en "Mis generaciones"
-                    //    aunque la subida de imágenes tarde unos segundos.
                     await cloud.saveGeneration({
                         id: generationId,
                         tech,
@@ -2717,7 +2723,6 @@ ${buildJsonRulesBlock(tech)}
                         }))
                     });
 
-                    // 2) Captura cada diapositiva como PNG y sube imagen + audio de narración.
                     const blobs = await captureAllSlidesAsBlobs((i, total) => {
                         $('genHint').textContent = `Guardando diapositiva ${i + 1}/${total} en la nube…`;
                     });
@@ -2743,7 +2748,6 @@ ${buildJsonRulesBlock(tech)}
                         });
                     }
 
-                    // 3) Marca la generación como lista.
                     await cloud.saveGeneration({ id: generationId, status: 'ready', slides: slidesMeta });
 
                     state.cloud.status = 'ready';
@@ -2807,30 +2811,30 @@ ${buildJsonRulesBlock(tech)}
                     const statusLabel = it.status === 'ready' ? 'Imágenes listas' : (it.status === 'error' ? 'Error al guardar' : 'Procesando…');
                     const videoLabel = it.videoUrl ? ' · Video listo' : '';
                     return `
-        <div class="panel-soft rounded-2xl p-3.5 flex gap-3.5">
-          ${thumb ? `<img src="${thumb}" class="w-16 h-28 object-cover rounded-lg border border-[var(--line)] shrink-0" />` : `<div class="w-16 h-28 rounded-lg border border-[var(--line)] bg-[#0D1015] shrink-0"></div>`}
-          <div class="flex-1 min-w-0">
-            <p class="font-display font-semibold text-sm truncate">${escapeHtml(it.tech || 'Sin nombre')}</p>
-            <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${it.slidesCount || (it.slides ? it.slides.length : 0)} diapositivas · ${statusLabel}${videoLabel}</p>
-           <div class="flex flex-wrap gap-1.5 mt-2">
-  <button class="gallery-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">✏️ Renombrar</button>
-  <button class="gallery-load-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">Cargar en editor</button>
-  <button class="gallery-download-zip-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">Descargar imágenes</button>
-             ${it.videoUrl ? `<button class="gallery-preview-video-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-video-url="${it.videoUrl}">▶ Ver video</button>
+    <div class="panel-soft rounded-2xl p-3.5 flex gap-3.5">
+      ${thumb ? `<img src="${thumb}" class="w-16 h-28 object-cover rounded-lg border border-[var(--line)] shrink-0" />` : `<div class="w-16 h-28 rounded-lg border border-[var(--line)] bg-[#0D1015] shrink-0"></div>`}
+      <div class="flex-1 min-w-0">
+        <p class="font-display font-semibold text-sm truncate">${escapeHtml(it.tech || 'Sin nombre')}</p>
+        <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${it.slidesCount || (it.slides ? it.slides.length : 0)} diapositivas · ${statusLabel}${videoLabel}</p>
+       <div class="flex flex-wrap gap-1.5 mt-2">
+<button class="gallery-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">✏️ Renombrar</button>
+<button class="gallery-load-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">Cargar en editor</button>
+<button class="gallery-download-zip-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">Descargar imágenes</button>
+         ${it.videoUrl ? `<button class="gallery-preview-video-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-video-url="${it.videoUrl}">▶ Ver video</button>
 <a href="${it.videoUrl}" target="_blank" rel="noopener" class="btn-ghost rounded-lg px-2.5 py-1.5 text-[11px] inline-block">Descargar video</a>
 <button class="gallery-schedule-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">📅 Programar</button>` : ''}        
-    <button class="gallery-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${it.id}">Eliminar</button>
-            </div>
-          </div>
+<button class="gallery-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${it.id}">Eliminar</button>
         </div>
-      `;
+      </div>
+    </div>
+  `;
                 }).join('');
 
                 $('galleryList').querySelectorAll('.gallery-load-btn').forEach((btn) => btn.addEventListener('click', () => loadGenerationIntoEditor(btn.dataset.id)));
                 $('galleryList').querySelectorAll('.gallery-download-zip-btn').forEach((btn) => btn.addEventListener('click', () => downloadGenerationImagesZip(btn.dataset.id)));
                 $('galleryList').querySelectorAll('.gallery-delete-btn').forEach((btn) => btn.addEventListener('click', () => deleteGenerationFromGallery(btn.dataset.id)));
                 $('galleryList').querySelectorAll('.gallery-preview-video-btn').forEach((btn) => btn.addEventListener('click', () => openVideoPreview(btn.dataset.videoUrl)));
-                $('galleryList').querySelectorAll('.gallery-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameGenerationInGallery(btn.dataset.id))); // 👈 nuevo
+                $('galleryList').querySelectorAll('.gallery-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameGenerationInGallery(btn.dataset.id)));
                 $('galleryList').querySelectorAll('.gallery-schedule-btn').forEach((btn) => btn.addEventListener('click', () => openScheduleModalForGeneration(btn.dataset.id)));
             }
 
@@ -2975,25 +2979,25 @@ ${buildJsonRulesBlock(tech)}
                 $('scheduledList').innerHTML = items.map((s) => {
                     const date = s.scheduledAt ? new Date(s.scheduledAt).toLocaleString('es-PE', { dateStyle: 'full', timeStyle: 'short' }) : '—';
                     return `
-    <div class="panel-soft rounded-2xl p-3.5">
-      <p class="font-display font-semibold text-sm truncate">${escapeHtml(s.tech || 'Sin nombre')}</p>
-      <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${statusLabel[s.status] || s.status}</p>
-      ${s.caption ? `<p class="text-xs text-[var(--text-mid)] mt-1.5">${escapeHtml(s.caption)}</p>` : ''}
-      <div class="flex flex-wrap gap-1.5 mt-2.5">
-  <button class="sched-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Renombrar</button>
-  ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">📅 Reprogramar</button>` : ''}
-      <div class="flex flex-wrap gap-1.5 mt-2.5">
-        ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Reprogramar</button>` : ''}
-        ${(s.status !== 'cancelled' && s.status !== 'sent') ? `<button class="sched-cancel-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">Cancelar</button>` : ''}
-        <button class="sched-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">🗑️ Eliminar</button>
-      </div>
-    </div>`;
+<div class="panel-soft rounded-2xl p-3.5">
+  <p class="font-display font-semibold text-sm truncate">${escapeHtml(s.tech || 'Sin nombre')}</p>
+  <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${statusLabel[s.status] || s.status}</p>
+  ${s.caption ? `<p class="text-xs text-[var(--text-mid)] mt-1.5">${escapeHtml(s.caption)}</p>` : ''}
+  <div class="flex flex-wrap gap-1.5 mt-2.5">
+<button class="sched-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Renombrar</button>
+${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">📅 Reprogramar</button>` : ''}
+  <div class="flex flex-wrap gap-1.5 mt-2.5">
+    ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Reprogramar</button>` : ''}
+    ${(s.status !== 'cancelled' && s.status !== 'sent') ? `<button class="sched-cancel-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">Cancelar</button>` : ''}
+    <button class="sched-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">🗑️ Eliminar</button>
+  </div>
+</div>`;
                 }).join('');
 
                 $('scheduledList').querySelectorAll('.sched-reprogram-btn').forEach((btn) => btn.addEventListener('click', () => openReprogramModal(btn.dataset.id)));
                 $('scheduledList').querySelectorAll('.sched-cancel-btn').forEach((btn) => btn.addEventListener('click', () => cancelScheduledPublication(btn.dataset.id)));
                 $('scheduledList').querySelectorAll('.sched-delete-btn').forEach((btn) => btn.addEventListener('click', () => deleteScheduledPublicationFromGallery(btn.dataset.id)));
-                $('scheduledList').querySelectorAll('.sched-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameScheduledPublication(btn.dataset.id))); // 👈 nuevo
+                $('scheduledList').querySelectorAll('.sched-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameScheduledPublication(btn.dataset.id)));
             }
 
             async function renameScheduledPublication(id) {
@@ -3073,6 +3077,17 @@ ${buildJsonRulesBlock(tech)}
                 }
             }
 
+            // ===================== FIX 3: scheduling de audio con AudioContext =====================
+            // Antes se usaba setTimeout + <audio>.play() para arrancar cada narración,
+            // lo cual no es preciso porque el hilo principal está saturado dibujando el
+            // canvas 30 veces por segundo (transiciones, glow, subtítulos, ruido, etc.).
+            // Cuando el hilo principal se traba un poco, el setTimeout se dispara tarde
+            // y las narraciones se solapan o desincronizan del video.
+            //
+            // La solución: decodificar cada audio a un AudioBuffer y programarlo con
+            // AudioBufferSourceNode.start(tiempoExacto), usando el reloj del propio
+            // AudioContext (audioCtx.currentTime). Ese scheduling corre en el hilo de
+            // audio nativo del navegador, inmune a que el hilo principal esté ocupado.
             async function generateBackgroundVideo() {
                 if (typeof MediaRecorder === 'undefined') {
                     toast('Tu navegador no soporta grabación de video', 'error');
@@ -3088,8 +3103,6 @@ ${buildJsonRulesBlock(tech)}
                 const originalLabel = label.innerHTML;
                 label.innerHTML = '<div class="spinner"></div> Capturando diapositiva…';
 
-                // Captura TODAS las diapositivas SIN el glow estático de fondo, porque
-                // el video dibuja su propia versión animada (con zoom) del logo.
                 setStaticGlowVisible(false);
                 const originalSlideForVideo = state.currentSlide;
                 const signature = computeSlidesSignature();
@@ -3155,7 +3168,6 @@ ${buildJsonRulesBlock(tech)}
                 let fallbackIdx = 0;
                 while (colors.length < 3) { colors.push(FALLBACK_ACCENTS[fallbackIdx % FALLBACK_ACCENTS.length]); fallbackIdx++; }
 
-
                 const fallbackPerSlideMs = (Number($('videoDurationInput').value) || 5) * 1000;
                 const transitionType = $('videoTransitionSelect').value || 'fadeUp';
                 const transitionMs = 700;
@@ -3179,12 +3191,10 @@ ${buildJsonRulesBlock(tech)}
                     });
                 }
 
-                // Mezcla de audio: narración por diapositiva (ElevenLabs) + música de fondo opcional
-                // Mezcla de audio: narración por diapositiva (ElevenLabs) + música de fondo opcional
-                // Usamos elementos <audio> con preservesPitch=true para que la velocidad
-                // NO altere el tono de la voz, solo su duración.
+                // ---- Preparación de audio: AudioContext + AudioBufferSourceNode ----
                 let audioCtx = null, audioTrack = null, musicEl = null;
-                const narrationEls = [];
+                let narrationGain = null;
+                const narrationBuffers = []; // { buffer, offsetMs }
                 const hasNarration = activeSlides.some((s) => s.audioBlob);
                 const audioFile = $('videoAudioInput').files[0];
 
@@ -3198,25 +3208,25 @@ ${buildJsonRulesBlock(tech)}
                         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                         await audioCtx.resume();
                         const dest = audioCtx.createMediaStreamDestination();
+
                         if (hasNarration) {
-                            const narrationGain = audioCtx.createGain();
+                            narrationGain = audioCtx.createGain();
                             narrationGain.gain.value = state.exportSettings.narrationVolume;
                             narrationGain.connect(dest);
 
+                            // Decodificamos cada audio a un AudioBuffer para poder
+                            // programarlo con precisión de muestra más adelante,
+                            // en vez de depender de setTimeout + <audio>.play().
                             for (let i = 0; i < activeSlides.length; i++) {
                                 const blob = activeSlides[i].audioBlob;
                                 if (!blob) continue;
-                                const el = new Audio(URL.createObjectURL(blob));
-                                el.playbackRate = speed;
-                                applyPreservePitch(el);
-                                await new Promise((resolve) => {
-                                    el.onloadedmetadata = resolve;
-                                    el.onerror = resolve;
-                                });
-                                const src = audioCtx.createMediaElementSource(el);
-                                src.connect(narrationGain);
-                                el._scheduledOffsetMs = slideStartTimes[i];
-                                narrationEls.push(el);
+                                try {
+                                    const arrayBuffer = await blob.arrayBuffer();
+                                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                                    narrationBuffers.push({ buffer: audioBuffer, offsetMs: slideStartTimes[i] });
+                                } catch (e) {
+                                    console.warn(`No se pudo decodificar el audio de la diapositiva ${i + 1}`, e);
+                                }
                             }
                         }
 
@@ -3272,16 +3282,17 @@ ${buildJsonRulesBlock(tech)}
                 console.log('[AUDIO DEBUG] hasNarration:', hasNarration, '| audioFile:', !!audioFile);
                 console.log('[AUDIO DEBUG] audioCtx state:', audioCtx ? audioCtx.state : 'null');
                 console.log('[AUDIO DEBUG] audioTrack:', audioTrack);
-                console.log('[AUDIO DEBUG] narrationEls count:', narrationEls.length);
+                console.log('[AUDIO DEBUG] narrationBuffers count:', narrationBuffers.length);
 
                 const stream = canvas.captureStream(30);
                 if (audioTrack) stream.addTrack(audioTrack);
                 console.log('[AUDIO DEBUG] stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
-                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : (MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm'); const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 });
+                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : (MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm');
+                const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 });
                 const chunks = [];
                 recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
 
-                const startTime = performance.now();
+                let startTime = performance.now();
                 let rafId;
 
                 function easeInOutCubic(x) {
@@ -3292,7 +3303,6 @@ ${buildJsonRulesBlock(tech)}
                     switch (type) {
 
                         case 'slideHorizontal': {
-                            // La saliente se va a la izquierda, la entrante llega desde la derecha
                             if (curr) {
                                 ctx.save();
                                 ctx.translate(-p * W, 0);
@@ -3307,8 +3317,6 @@ ${buildJsonRulesBlock(tech)}
                         }
 
                         case 'zoomFade': {
-                            // La saliente hace zoom-in y se desvanece; la entrante entra desde un
-                            // leve zoom-out con fade in — efecto cinematográfico de "punch"
                             if (curr) {
                                 const scaleOut = 1 + p * 0.12;
                                 ctx.save();
@@ -3331,8 +3339,6 @@ ${buildJsonRulesBlock(tech)}
                         }
 
                         case 'wipeDiagonal': {
-                            // Barrido diagonal: la entrante se revela con un clip en ángulo
-                            // que avanza de esquina superior-izquierda a inferior-derecha
                             if (curr) ctx.drawImage(curr, 0, 0, W, H);
 
                             const diag = W + H;
@@ -3349,7 +3355,6 @@ ${buildJsonRulesBlock(tech)}
                             ctx.drawImage(next, 0, 0, W, H);
                             ctx.restore();
 
-                            // línea de borde sutil siguiendo el barrido, le da un toque pro
                             ctx.save();
                             ctx.globalAlpha = 0.5 * (1 - Math.abs(p - 0.5) * 2);
                             ctx.strokeStyle = 'rgba(255,255,255,0.6)';
@@ -3363,7 +3368,6 @@ ${buildJsonRulesBlock(tech)}
                         }
 
                         case 'crossfade': {
-                            // El más simple y elegante: disolución pura sin movimiento
                             if (curr) {
                                 ctx.save();
                                 ctx.globalAlpha = 1 - p;
@@ -3379,7 +3383,6 @@ ${buildJsonRulesBlock(tech)}
 
                         case 'fadeUp':
                         default: {
-                            // La original: fade + leve desplazamiento vertical
                             if (curr) {
                                 ctx.save();
                                 ctx.globalAlpha = 1 - p;
@@ -3512,8 +3515,6 @@ ${buildJsonRulesBlock(tech)}
                     return chunks;
                 }
 
-                // Precalcula, por diapositiva, los fragmentos de subtítulo con su ventana de tiempo,
-                // repartida proporcionalmente según la longitud de cada fragmento (aprox. velocidad de lectura).
                 const fontSizeForSubs = Math.round(W * 0.042);
                 ctx.font = `700 ${fontSizeForSubs}px 'Inter', sans-serif`;
                 const subtitleChunksBySlide = activeSlides.map((slide, i) => {
@@ -3536,15 +3537,15 @@ ${buildJsonRulesBlock(tech)}
                 });
                 function drawFrame(now) {
                     const globalT = now - startTime;
-                    const t = globalT / totalMs; // para el glow de fondo, continuo en todo el video
+                    const t = globalT / totalMs;
                     let slideIndex = slideStartTimes.length - 1;
                     for (let i = 0; i < slideStartTimes.length; i++) {
                         if (globalT < slideStartTimes[i] + perSlideDurations[i]) { slideIndex = i; break; }
                     }
                     const localT = globalT - slideStartTimes[slideIndex];
                     const currentSlideDur = perSlideDurations[slideIndex];
-                    const isLast = slideIndex === activeCanvases.length - 1; const inTransition = !isLast && localT > currentSlideDur - transitionMs;
-                    // Base: la(s) diapositiva(s) real(es), con transición suave entre ellas
+                    const isLast = slideIndex === activeCanvases.length - 1;
+                    const inTransition = !isLast && localT > currentSlideDur - transitionMs;
                     ctx.save();
                     const currentCanvas = filteredCanvases[slideIndex];
                     const nextCanvas = filteredCanvases[slideIndex + 1];
@@ -3558,9 +3559,8 @@ ${buildJsonRulesBlock(tech)}
                     }
                     ctx.restore();
 
-                    // Zoom in/out suave del logo de fondo (efecto "respiración")
                     if (logoImg) {
-                        const zoomT = (Math.sin(t * Math.PI * 2) + 1) / 2; // 0 → 1 → 0
+                        const zoomT = (Math.sin(t * Math.PI * 2) + 1) / 2;
                         const scale = 1 + zoomT * 0.14;
                         const baseSize = W * 0.6;
                         const lw = baseSize * scale, lh = baseSize * scale;
@@ -3571,7 +3571,6 @@ ${buildJsonRulesBlock(tech)}
                         ctx.restore();
                     }
 
-                    // Wash de color animado encima, para dar sensación de movimiento
                     ctx.save();
                     ctx.globalCompositeOperation = 'screen';
                     const a1 = t * Math.PI * 2;
@@ -3582,8 +3581,6 @@ ${buildJsonRulesBlock(tech)}
                     drawGlow(W * 0.5 + Math.cos(a3) * W * 0.3, H * 0.75 + Math.sin(a3) * H * 0.16, W * 0.5, colors[2], 0.18);
                     ctx.restore();
 
-                    // Ruido para disimular el banding de los degradados
-                    // Ruido para disimular el banding de los degradados
                     ctx.save();
                     ctx.globalAlpha = 1;
                     ctx.globalCompositeOperation = 'overlay';
@@ -3611,54 +3608,95 @@ ${buildJsonRulesBlock(tech)}
                 }
 
                 const donePromise = new Promise((resolve) => { recorder.onstop = resolve; });
+
                 recorder.start();
-                narrationEls.forEach((el) => {
-                    setTimeout(() => { el.currentTime = 0; el.play().catch(() => { }); }, el._scheduledOffsetMs);
+
+                // Anclamos el mismo instante en dos relojes: el visual (performance.now(),
+                // usado por drawFrame) y el de audio (audioCtx.currentTime, inmune a que
+                // el hilo principal esté ocupado dibujando el canvas).
+                const clockAnchorPerf = performance.now();
+                const clockAnchorAudio = audioCtx ? audioCtx.currentTime : 0;
+
+                narrationBuffers.forEach(({ buffer, offsetMs }) => {
+                    const source = audioCtx.createBufferSource();
+                    source.buffer = buffer;
+                    source.playbackRate.value = speed; // a velocidades != 1x cambia el tono de la voz
+                    source.connect(narrationGain);
+                    source.start(clockAnchorAudio + offsetMs / 1000);
                 });
-                if (musicEl) { try { musicEl.currentTime = 0; await musicEl.play(); } catch (e) { console.warn('Música no pudo reproducirse', e); } }
+
+                if (musicEl) {
+                    try { musicEl.currentTime = 0; await musicEl.play(); }
+                    catch (e) { console.warn('Música no pudo reproducirse', e); }
+                }
+
+                startTime = clockAnchorPerf; // el timeline visual arranca en el mismo instante
                 rafId = requestAnimationFrame(drawFrame);
                 await donePromise;
                 cancelAnimationFrame(rafId);
-                narrationEls.forEach((el) => el.pause());
                 if (musicEl) { musicEl.pause(); }
                 if (audioCtx) { audioCtx.close().catch(() => { }); }
 
                 const blob = new Blob(chunks, { type: 'video/webm' });
                 console.log('[AUDIO DEBUG] blob final size:', blob.size, 'chunks:', chunks.length);
 
-                // Sube el video generado a Firebase Storage y actualiza el documento en Firestore.
+                const techSlug = ($('techNameInput').value.trim() || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                let finalBlob = blob;      // por defecto, el webm (fallback si algo falla)
+                let finalExt = 'webm';
+
                 if (window.CarouselCloud && state.cloud.currentGenerationId) {
                     try {
                         label.innerHTML = '<div class="spinner"></div> Subiendo video a la nube…';
                         const videoPath = window.CarouselCloud.storagePathFor(state.cloud.currentGenerationId, 'video.webm');
-                        const videoUrl = await window.CarouselCloud.uploadBlobToStorage(videoPath, blob);
+                        await window.CarouselCloud.uploadBlobToStorage(videoPath, blob);
+
+                        label.innerHTML = '<div class="spinner"></div> Convirtiendo a MP4…';
+                        const convertRes = await fetch(CONVERT_TO_MP4_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ storagePath: videoPath, quality: 'high' })
+                        });
+                        const convertData = await convertRes.json().catch(() => null);
+                        if (!convertRes.ok || !convertData || convertData.status !== 'success') {
+                            throw new Error(convertData?.message || `Error convirtiendo a MP4 (HTTP ${convertRes.status})`);
+                        }
+
+                        const { mp4Url, mp4StoragePath } = convertData;
+
+                        // A partir de aquí, el MP4 es "el video" de esta generación.
+                        // El webm queda en Storage por si acaso, pero ya no se usa en la app.
                         await window.CarouselCloud.saveGeneration({
                             id: state.cloud.currentGenerationId,
-                            videoUrl,
-                            videoStoragePath: videoPath,
+                            videoUrl: mp4Url,
+                            videoStoragePath: mp4StoragePath,
                             videoDurationMs: totalMs
                         });
-                        state.cloud.lastVideoUrl = videoUrl;
-                        state.cloud.lastVideoStoragePath = videoPath;
+                        state.cloud.lastVideoUrl = mp4Url;
+                        state.cloud.lastVideoStoragePath = mp4StoragePath;
                         $('btnSchedulePublish').classList.remove('hidden');
-                        toast('Video guardado en la nube', 'success');
+
+                        label.innerHTML = '<div class="spinner"></div> Descargando MP4…';
+                        const mp4Res = await fetch(mp4Url);
+                        finalBlob = await mp4Res.blob();
+                        finalExt = 'mp4';
+
+                        toast('Video convertido a MP4 y guardado en la nube', 'success');
                     } catch (e) {
-                        console.error('Error subiendo el video a la nube', e);
-                        toast('El video se descargó, pero no se pudo subir a la nube', 'error');
+                        console.error('Error subiendo/convirtiendo el video', e);
+                        toast('No se pudo convertir a MP4 — se descargó el WebM original', 'error');
                     }
                 }
 
-                const url = URL.createObjectURL(blob);
+                const downloadUrl = URL.createObjectURL(finalBlob);
                 const link = document.createElement('a');
-                const techSlug = ($('techNameInput').value.trim() || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                link.download = `${techSlug}-carrusel-video.webm`;
-                link.href = url;
+                link.download = `${techSlug}-carrusel-video.${finalExt}`;
+                link.href = downloadUrl;
                 link.click();
-                URL.revokeObjectURL(url);
+                URL.revokeObjectURL(downloadUrl);
 
                 label.innerHTML = originalLabel;
                 btn.disabled = false;
-                toast(`Video de ${(totalMs / 1000).toFixed(1)}s generado y descargado`, 'success');
+                toast(`Video de ${(totalMs / 1000).toFixed(1)}s listo (${finalExt.toUpperCase()})`, 'success');
             }
             $('btnGenerateVideo').addEventListener('click', generateBackgroundVideo);
 
@@ -3667,7 +3705,7 @@ ${buildJsonRulesBlock(tech)}
                     toast('Primero genera y sube el video', 'error');
                     return;
                 }
-                scheduleContext = { mode: 'new-editor' }; // 👈 nuevo
+                scheduleContext = { mode: 'new-editor' };
                 const now = new Date();
                 const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
                 $('scheduleDatetimeInput').value = localIso;
@@ -3817,8 +3855,6 @@ ${buildJsonRulesBlock(tech)}
 
             updateWatermarkDotUI();
 
-
-
             const WATERMARK_PRESETS = {
                 'top-left': { xPct: 0.18, yPct: 0.078 },
                 'top-center': { xPct: 0.5, yPct: 0.078 },
@@ -3864,15 +3900,20 @@ ${buildJsonRulesBlock(tech)}
                 $('videoTransitionSelect').value = preset.transition;
             });
             /* ===================== INIT ===================== */
-            // DESPUÉS
             loadConfig();
             updateTemarioMode('python_basico');
             updateScopeUI();
             updateStageGlow([]);
-            window.addEventListener('carousel-cloud-ready', loadGeneratedTopicsAndFilter); // 👈 nuevo
-            if (window.CarouselCloud) loadGeneratedTopicsAndFilter(); // 👈 nuevo, por si ya estaba listo
+            window.addEventListener('carousel-cloud-ready', loadGeneratedTopicsAndFilter);
+            if (window.CarouselCloud) loadGeneratedTopicsAndFilter();
         })();
+
+
+
+        
     </script>
+
+    
 </body>
 
 </html>
