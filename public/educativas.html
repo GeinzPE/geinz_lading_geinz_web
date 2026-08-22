@@ -14,6 +14,10 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
         rel="stylesheet">
+    <script type="module">
+        import { SoundTouch, SimpleFilter, WebAudioBufferSource } from "https://cdn.jsdelivr.net/npm/soundtouchjs@0.1.30/dist/soundtouch.js";
+        window.soundtouch = { SoundTouch, SimpleFilter, WebAudioBufferSource };
+    </script>
     <style>
         :root {
             --bg: #0A0C10;
@@ -2374,6 +2378,45 @@ ${buildJsonRulesBlock(tech)}
                     `<div class="code-line active">${highlightCodeChunk(line)}</div>`
                 ).join('');
             }
+
+            function timeStretchBuffer(audioCtx, audioBuffer, tempo) {
+                if (tempo === 1) return audioBuffer;
+
+                if (!window.soundtouch || !window.soundtouch.SoundTouch) {
+                    throw new Error('SoundTouchJS no está cargado todavía (window.soundtouch undefined)');
+                }
+
+                const { SoundTouch, SimpleFilter, WebAudioBufferSource } = window.soundtouch;
+                const st = new SoundTouch();
+                st.tempo = tempo;   // solo cambia la duración
+                st.pitch = 1;       // el tono se mantiene
+
+                const source = new WebAudioBufferSource(audioBuffer);
+                const filter = new SimpleFilter(source, st);
+
+                const BUFFER_SIZE = 4096;
+                const samples = new Float32Array(BUFFER_SIZE * 2);
+                const chunks = [];
+                let framesExtracted;
+                do {
+                    framesExtracted = filter.extract(samples, BUFFER_SIZE);
+                    if (framesExtracted > 0) chunks.push(samples.slice(0, framesExtracted * 2));
+                } while (framesExtracted > 0);
+
+                const totalFrames = chunks.reduce((sum, c) => sum + c.length / 2, 0);
+                const outBuffer = audioCtx.createBuffer(2, totalFrames, audioBuffer.sampleRate);
+                const left = outBuffer.getChannelData(0);
+                const right = outBuffer.getChannelData(1);
+                let offset = 0;
+                chunks.forEach((chunk) => {
+                    for (let i = 0; i < chunk.length / 2; i++) {
+                        left[offset + i] = chunk[i * 2];
+                        right[offset + i] = chunk[i * 2 + 1];
+                    }
+                    offset += chunk.length / 2;
+                });
+                return outBuffer;
+            }
             function startTypingEffect(fullCode) {
                 const codeWrap = document.getElementById('typingCodeEl');
                 if (!codeWrap) return;
@@ -3221,7 +3264,8 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
                                 if (!blob) continue;
                                 try {
                                     const arrayBuffer = await blob.arrayBuffer();
-                                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                                    let audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                                    audioBuffer = timeStretchBuffer(audioCtx, audioBuffer, speed); // 👈 estira sin distorsionar el tono
                                     narrationBuffers.push({ buffer: audioBuffer, offsetMs: slideStartTimes[i] });
                                 } catch (e) {
                                     console.warn(`No se pudo decodificar el audio de la diapositiva ${i + 1}`, e);
@@ -3619,11 +3663,10 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
                 narrationBuffers.forEach(({ buffer, offsetMs }) => {
                     const source = audioCtx.createBufferSource();
                     source.buffer = buffer;
-                    source.playbackRate.value = speed; // a velocidades != 1x cambia el tono de la voz
+                    source.playbackRate.value = 1; // 👈 ya viene ajustado por timeStretchBuffer, no lo dupliques
                     source.connect(narrationGain);
                     source.start(clockAnchorAudio + offsetMs / 1000);
                 });
-
                 if (musicEl) {
                     try { musicEl.currentTime = 0; await musicEl.play(); }
                     catch (e) { console.warn('Música no pudo reproducirse', e); }
