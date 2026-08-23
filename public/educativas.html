@@ -524,6 +524,43 @@
             animation: blinkCursor .85s step-end infinite;
         }
 
+
+        @keyframes overlayBounce {
+
+            0%,
+            100% {
+                transform: translate(-50%, -50%) translateY(0);
+            }
+
+            50% {
+                transform: translate(-50%, -50%) translateY(-8px);
+            }
+        }
+
+        .overlay-drag-dot.anim-bounce {
+            animation: overlayBounce 0.9s ease-in-out infinite;
+        }
+
+        @keyframes overlayHighlightSweep {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+            }
+
+            50% {
+                box-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+            }
+        }
+
+        .overlay-drag-dot.anim-highlight {
+            animation: overlayHighlightSweep 1.2s ease-in-out infinite;
+        }
+
+        .overlay-drag-dot.anim-highlight {
+            animation: overlayHighlightSweep 1.2s ease-in-out infinite;
+        }
+
         .code-line {
             transition: opacity .35s ease, filter .35s ease;
         }
@@ -1026,6 +1063,7 @@
                                 <div class="slide-grain"></div>
                                 <div class="slide-vignette"></div>
                                 <div id="slideContent" class="relative z-10 w-full h-full flex flex-col"></div>
+                                <div id="videoOverlayLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
                             </div>
                         </div>
                     </div>
@@ -1076,6 +1114,22 @@
                     Copiar caption
                 </button>
                 <div class="panel-soft rounded-xl p-3.5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30">Elementos overlay
+                            · solo portada del video</p>
+                        <button id="btnAddOverlay" type="button" class="btn-ghost rounded-lg px-2.5 py-1 text-[11px]">+
+                            Agregar</button>
+                    </div>
+                    <p class="text-[11px] text-[var(--text-lo)] leading-relaxed">Ej. "Sígueme", "Comenta qué te
+                        pareció". Solo se ven en el video, únicamente durante la diapositiva 1 (se desvanecen al
+                        pasar a la 2). No aparecen en las imágenes descargadas.</p>
+                    <div id="overlayList" class="space-y-2"></div>
+                    <p class="text-[11px] text-cyan-300/80 leading-relaxed">📱 Arrastra cada etiqueta directamente sobre
+                        la pantalla del teléfono (arriba). Ahí también verás, punteada, la zona donde caen los
+                        subtítulos, para que no se choquen.</p>
+                </div>
+                <div class="panel-soft rounded-xl p-3.5 space-y-3">
+
                     <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 mb-1">Subtítulos</p>
                     <div class="flex items-center justify-between">
                         <label class="text-xs font-medium text-[var(--text-mid)]">Quemar subtítulos en el video</label>
@@ -1438,6 +1492,7 @@
                 cloud: { currentGenerationId: null, status: 'idle', lastVideoUrl: null, lastVideoStoragePath: null },
                 generatedTopics: new Set(),
                 topicLogosCache: {},
+                videoOverlays: [],
             };
 
             /* ===================== UTIL ===================== */
@@ -1628,9 +1683,9 @@
 
                     const { h: hue, s, l } = rgbToHsl(r, g, b);
                     if (l > 0.94 || l < 0.06 || s < 0.15) continue;
-
                     const binIndex = Math.floor(hue / (360 / HUE_BINS)) % HUE_BINS;
-                    const quantKey = [Math.round(r / 16) * 16, Math.round(g / 16) * 16, Math.round(b / 16) * 16].join(',');
+                    const clampByte = (v) => Math.min(255, Math.round(v / 16) * 16); // evita 256 -> "100" en hex
+                    const quantKey = [clampByte(r), clampByte(g), clampByte(b)].join(',');
 
                     if (!bins.has(binIndex)) bins.set(binIndex, { count: 0, colors: new Map() });
                     const bin = bins.get(binIndex);
@@ -1676,6 +1731,23 @@
 `;
             }
 
+            function getOverlayColors() {
+                const FALLBACK_TINT = '#1E293B'; // slate oscuro por defecto, si no hay logo
+                const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+                const colors = (state.logo.colors || []).filter((c) => HEX_RE.test(c));
+                let tint = FALLBACK_TINT;
+                if (colors.length) {
+                    const withLum = colors.map((hex) => {
+                        const h = hex.replace('#', '');
+                        const r = parseInt(h.substring(0, 2), 16) || 0;
+                        const g = parseInt(h.substring(2, 4), 16) || 0;
+                        const b = parseInt(h.substring(4, 6), 16) || 0;
+                        return { hex, l: rgbToHsl(r, g, b).l };
+                    }).sort((a, b) => a.l - b.l); // el más oscuro primero
+                    tint = withLum[0].hex;
+                }
+                return { tint, textColor: '#FFFFFF' };
+            }
             function updateStageGlow(colors) {
                 const base = colors && colors.length ? colors : ['#22D3EE', '#8B5CF6'];
                 $('glowA').style.background = `radial-gradient(circle, ${hexToRgba(base[0], 0.45)}, transparent 70%)`;
@@ -1850,17 +1922,17 @@
                 return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
 {
 "caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa de resultado), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
-"intro_dialogo": "guion de EXACTAMENTE 2 frases cortas para narrar la portada. La primera frase es el gancho (nunca un saludo). La segunda dice qué se va a aprender. Máximo 30 palabras en total.",
-"content_slides": [
+"intro_dialogo": "guion de EXACTAMENTE 3 frases cortas para narrar la portada. La primera frase es el gancho (nunca un saludo). La segunda dice qué se va a aprender. La tercera es una invitación NATURAL y casual a dar like/seguir la cuenta si les interesa este tipo de contenido (ej. 'Si te gusta este tipo de contenido, dale like y sígueme para más' o 'Dale like si te sirve y sígueme para más tips así'), dicha como de pasada, sin sonar a anuncio forzado. Máximo 42 palabras en total.","content_slides": [
 { "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real relacionado con \"${tech}\", MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion de EXACTAMENTE 3 a 4 frases cortas, tono de instructor cercano: (1) qué es este concepto en términos simples, (2) para qué sirve o cuándo se usa, con un ejemplo concreto de la vida real de programación, (3) un tip práctico para recordarlo. Máximo 55 palabras en total, sin relleno." }
 ],
-"reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio (máx 100 caracteres)", "codigo": "código base del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion de EXACTAMENTE 2 a 3 frases: recuerda el concepto clave en una frase, dice qué debe hacer la persona, y la anima a pausar e intentarlo. Máximo 40 palabras en total." }
+"reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio (máx 100 caracteres)", "codigo": "código base del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion de EXACTAMENTE 3 frases: (1) recuerda el concepto clave, (2) dice qué debe hacer la persona con el reto y la anima a intentarlo, (3) CIERRA invitando explícitamente a seguir la cuenta para más contenido como este y a comentar su resultado o dudas. Máximo 45 palabras en total." }
 }
 
 Reglas estrictas:
 - GANCHO OBLIGATORIO en "intro_dialogo" y "caption": pregunta directa, error común, o promesa concreta. Prohibido abrir con saludos o "En este carrusel vamos a ver...".
-- LÍMITES DE PALABRAS EN "dialogo": son estrictos porque el audio generado debe caber en el tiempo de lectura de la diapositiva sin sentirse atropellado ni alargarse de más. No los excedas.
+- La invitación a dar like/seguir en "intro_dialogo" debe sonar como la diría un creador de contenido real hablando a cámara, integrada al ritmo de las otras frases — nunca como una frase robótica pegada al final ni repetida palabra por palabra en cada generación. Varía la forma de decirlo (dale like, sígueme, no te lo pierdas, etc.) para que no suene siempre igual.- LÍMITES DE PALABRAS EN "dialogo": son estrictos porque el audio generado debe caber en el tiempo de lectura de la diapositiva sin sentirse atropellado ni alargarse de más. No los excedas.
 - Cada "codigo" debe ser código real y útil relacionado con "${tech}", MÁXIMO 3 líneas y 28 caracteres por línea. Si no cabe, simplifica nombres y quita comentarios.
+- PROHIBIDO ABSOLUTO: el campo "codigo" debe ser código FUENTE PURO y NADA MÁS. Nunca incluyas etiquetas HTML, atributos como class="...", spans, ni ningún resto de resaltado de sintaxis (nada de <span>, class=, tok-kw, etc.). Si dudas, escribe el código tal como se vería en un editor de texto plano, sin ningún marcado.
 - Los campos visibles ("titulo", "explicacion", "codigo", "enunciado") deben ser extremadamente concisos.
 - Los campos "dialogo" e "intro_dialogo" son guiones para ser LEÍDOS EN VOZ ALTA. Escribe SIEMPRE los números en palabras (ej. "tres" en vez de "3"), nunca dígitos ni símbolos raros ni abreviaturas, porque la voz IA los pronuncia mal.
 - No repitas el nombre "${tech}" dentro de cada título.
@@ -1944,6 +2016,14 @@ ${buildJsonRulesBlock(tech)}
             }
 
             /* ===================== BUILD RENDER-READY SLIDES ===================== */
+            function sanitizeCodeSnippet(str) {
+                if (!str) return str;
+                return String(str)
+                    .replace(/class\s*=\s*"[^"]*"\s*>/gi, '')     // restos tipo class="tok-kw">
+                    .replace(/<\/?span[^>]*>/gi, '')               // etiquetas <span> sueltas
+                    .replace(/<\/?[a-z][a-z0-9]*(\s[^>]*)?>/gi, ''); // cualquier otra etiqueta HTML colada
+            }
+
             function buildSlides(json) {
                 const scopedItems = getScopedItems();
                 const fullItems = state.temarioItems;
@@ -1976,7 +2056,7 @@ ${buildJsonRulesBlock(tech)}
                         badge: isSingle ? `Punto ${posInFull + 1} de ${fullItems.length}` : `Parte ${i + 1} de ${fullItems.length}`,
                         titulo: trimText(src.titulo || item, 46),
                         sub: trimText(src.explicacion || '', 100),
-                        codigo: trimCode(src.codigo || ''),
+                        codigo: trimCode(sanitizeCodeSnippet(src.codigo || '')),
                         checkedCount: posInFull + 1,
                         dialogo: src.dialogo || ''
                     });
@@ -1989,7 +2069,7 @@ ${buildJsonRulesBlock(tech)}
                     badge: 'Reto / Ejercicio',
                     titulo: trimText(reto.titulo || 'Ponlo en práctica', 46),
                     sub: trimText(reto.enunciado || '', 120),
-                    codigo: trimCode(reto.codigo || ''),
+                    codigo: trimCode(sanitizeCodeSnippet(reto.codigo || '')),
                     checkedCount: isSingle ? singleIndex + 1 : fullItems.length,
                     dialogo: reto.dialogo || ''
                 });
@@ -2217,12 +2297,11 @@ ${buildJsonRulesBlock(tech)}
                         state.generationScope = 'all';
                         renderTemarioPreview();
                     }
-
                     state.carousel = json;
                     state.slides = buildSlides(json);
                     state.currentSlide = 0;
+                    applyDefaultOverlays(); // 👈 la portada siempre trae "dale like/sígueme" + "comenta"
                     registerGenerationUsage(api, result.usage);
-
                     // ===================== FIX 2: modo prueba (granja) también dispara narración =====================
                     // Antes solo se generaba narración si había ElevenLabs Key + Voice ID configurados,
                     // ignorando el checkbox "Modo prueba (usar granja)". generateNarrationForSlides()
@@ -2241,6 +2320,7 @@ ${buildJsonRulesBlock(tech)}
 
                     buildDots();
                     renderSlide();
+                    renderOverlayList(); // 👈 refleja los overlays por defecto en el panel
                     renderScriptPanel();
                     renderCostPanel();
                     renderSlideSelection();
@@ -2546,6 +2626,7 @@ ${buildJsonRulesBlock(tech)}
                 if (editorCard) { void editorCard.offsetWidth; editorCard.classList.add('glow-in'); }
 
                 if (slide.codigo) startTypingEffect(slide.codigo);
+                renderVideoOverlaysPreview();
             }
 
             function guessExt(tech) {
@@ -2599,6 +2680,7 @@ ${buildJsonRulesBlock(tech)}
                 const currentSlideData = state.slides[state.currentSlide];
                 if (currentSlideData && currentSlideData.codigo) renderCodeInstant(currentSlideData.codigo);
                 setChecklistVisible(false);
+                setVideoOverlaysVisible(false); // 👈 nuevo — nunca en las imágenes descargadas
                 node.classList.add('capturing');
                 await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
                 try {
@@ -2608,6 +2690,7 @@ ${buildJsonRulesBlock(tech)}
                 } finally {
                     node.classList.remove('capturing');
                     setChecklistVisible(true);
+                    setVideoOverlaysVisible(true); // 👈 nuevo
                 }
             }
             function computeSlidesSignature() {
@@ -3578,6 +3661,79 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
                         return { text, startMs, endMs: acc };
                     });
                 });
+                function drawOverlaySticker(text, xPct, yPct, alpha, animation, elapsedMs) {
+                    if (!text) return;
+                    const { tint, textColor } = getOverlayColors();
+                    const fontSize = Math.round(W * 0.038);
+                    ctx.font = `700 ${fontSize}px 'Inter', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    let cx = W * xPct;
+                    let cy = H * yPct;
+                    let displayText = text;
+                    let tintAlpha = 0.18;
+
+                    if (animation === 'bounce') {
+                        const bounceT = (elapsedMs % 900) / 900;
+                        cy += Math.sin(bounceT * Math.PI * 2) * (H * 0.012);
+                    } else if (animation === 'typewriter') {
+                        const charsPerSec = 12;
+                        const totalChars = text.length;
+                        const cycleMs = (totalChars / charsPerSec) * 1000 + 700;
+                        const t = elapsedMs % cycleMs;
+                        const visibleChars = Math.min(totalChars, Math.floor((t / 1000) * charsPerSec));
+                        const showCursor = visibleChars < totalChars && Math.floor(elapsedMs / 400) % 2 === 0;
+                        displayText = text.slice(0, visibleChars) + (showCursor ? '|' : '');
+                    } else if (animation === 'highlight') {
+                        const pulseT = (elapsedMs % 1200) / 1200;
+                        tintAlpha = 0.14 + Math.sin(pulseT * Math.PI * 2) * 0.12;
+                    }
+
+                    // mide con el texto COMPLETO para que la caja no cambie de tamaño con el typewriter
+                    const textWidth = ctx.measureText(text).width;
+                    const padX = fontSize * 0.75, padY = fontSize * 0.48;
+                    const boxW = textWidth + padX * 2;
+                    const boxH = fontSize + padY * 2;
+                    const boxX = cx - boxW / 2, boxY = cy - boxH / 2;
+
+                    // 1) blur real de lo que hay detrás del chip (efecto vidrio esmerilado)
+                    // 1) blur real de lo que hay detrás del chip (efecto vidrio esmerilado)
+                    const blurCanvas = document.createElement('canvas');
+                    blurCanvas.width = W; blurCanvas.height = H;
+                    const bctx = blurCanvas.getContext('2d');
+                    bctx.filter = 'blur(18px) saturate(180%) brightness(1.15)';
+                    bctx.drawImage(canvas, 0, 0, W, H);
+
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.beginPath();
+                    ctx.roundRect(boxX, boxY, boxW, boxH, boxH / 2);
+                    ctx.clip();
+                    ctx.drawImage(blurCanvas, 0, 0, W, H);
+                    // capa MUY sutil oscura + un toque del color del logo, encima del blur
+                    ctx.fillStyle = 'rgba(6,8,12,0.18)';
+                    ctx.fillRect(boxX, boxY, boxW, boxH);
+                    ctx.fillStyle = hexToRgba(tint, tintAlpha);
+                    ctx.fillRect(boxX, boxY, boxW, boxH);
+                    ctx.restore();
+
+                    // borde sutil tipo vidrio
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.roundRect(boxX, boxY, boxW, boxH, boxH / 2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // texto
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = textColor;
+                    ctx.fillText(displayText, cx, cy + fontSize * 0.02);
+                    ctx.restore();
+                }
                 function drawFrame(now) {
                     const globalT = now - startTime;
                     const t = globalT / totalMs;
@@ -3589,6 +3745,7 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
                     const currentSlideDur = perSlideDurations[slideIndex];
                     const isLast = slideIndex === activeCanvases.length - 1;
                     const inTransition = !isLast && localT > currentSlideDur - transitionMs;
+                    let transitionProgress = 0;
                     ctx.save();
                     const currentCanvas = filteredCanvases[slideIndex];
                     const nextCanvas = filteredCanvases[slideIndex + 1];
@@ -3597,8 +3754,8 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
                         if (currentCanvas) ctx.drawImage(currentCanvas, 0, 0, W, H);
                     } else {
                         const progress = (localT - (currentSlideDur - transitionMs)) / transitionMs;
-                        const p = easeInOutCubic(progress);
-                        drawTransitionFrame(transitionType, currentCanvas, nextCanvas, p);
+                        transitionProgress = easeInOutCubic(progress);
+                        drawTransitionFrame(transitionType, currentCanvas, nextCanvas, transitionProgress);
                     }
                     ctx.restore();
 
@@ -3631,6 +3788,18 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
                     ctx.fillRect(0, 0, W, H);
                     ctx.restore();
 
+                    // Overlays: solo en la diapositiva 1, se desvanecen en la transición a la 2
+                    if (slideIndex === 0 && state.videoOverlays && state.videoOverlays.length) {
+                        const overlayAlpha = inTransition ? Math.max(0, 1 - transitionProgress) : 1;
+                        if (overlayAlpha > 0) {
+                            state.videoOverlays.forEach((ov) => {
+                                if (ov.text && ov.text.trim()) {
+                                    const fullText = (ov.icon ? ov.icon + ' ' : '') + ov.text.trim();
+                                    drawOverlaySticker(fullText, ov.xPct, ov.yPct, overlayAlpha, ov.animation || 'none', localT);
+                                }
+                            });
+                        }
+                    }
                     if (state.exportSettings.subtitlesEnabled) {
                         const chunks = subtitleChunksBySlide[slideIndex] || [];
                         const chunk = chunks.find((c) => localT >= c.startMs && localT < c.endMs);
@@ -3864,6 +4033,185 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
                 stage.addEventListener('pointercancel', () => { dragging = false; });
             })();
 
+            /* ===================== VIDEO OVERLAYS (solo portada) ===================== */
+            function makeOverlayId() {
+                return 'ov_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            }
+
+
+            function applyDefaultOverlays() {
+                // Zona segura: arriba, debajo del logo/handle, ANTES de que empiece el título
+                // y el bloque de temario (que cambian de tamaño según el texto). Así el
+                // overlay nunca se monta encima de contenido dinámico ni "se corre" entre
+                // el editor y el video final.
+                state.videoOverlays = [
+                    { id: makeOverlayId(), text: 'Dale like y sígueme para más', icon: '❤️', animation: 'bounce', xPct: 0.5, yPct: 0.155 },
+                    { id: makeOverlayId(), text: 'Comenta tu duda', icon: '💬', animation: 'highlight', xPct: 0.5, yPct: 0.235 }
+                ];
+            }
+            function addVideoOverlay(presetText) {
+                state.videoOverlays.push({ id: makeOverlayId(), text: presetText || 'Sígueme para más', xPct: 0.5, yPct: 0.5, icon: '', animation: 'none' });
+                if (state.currentSlide !== 0 && state.slides.length) {
+                    state.currentSlide = 0;
+                    renderSlide();
+                    buildDots();
+                }
+                renderOverlayList();
+                renderVideoOverlaysPreview();
+            }
+
+            function removeVideoOverlay(id) {
+                state.videoOverlays = state.videoOverlays.filter((o) => o.id !== id);
+                renderOverlayList();
+                renderVideoOverlaysPreview();
+            }
+
+            function updateVideoOverlayText(id, text) {
+                const ov = state.videoOverlays.find((o) => o.id === id);
+                if (!ov) return;
+                ov.text = text;
+                renderVideoOverlaysPreview();
+            }
+
+            function updateVideoOverlayIcon(id, icon) {
+                const ov = state.videoOverlays.find((o) => o.id === id);
+                if (!ov) return;
+                ov.icon = icon;
+                renderVideoOverlaysPreview();
+            }
+
+            function updateVideoOverlayAnimation(id, animation) {
+                const ov = state.videoOverlays.find((o) => o.id === id);
+                if (!ov) return;
+                ov.animation = animation;
+                renderVideoOverlaysPreview();
+            }
+            function renderOverlayList() {
+                const container = $('overlayList');
+                if (!state.videoOverlays.length) {
+                    container.innerHTML = `<p class="text-[11px] text-[var(--text-lo)] italic">Sin elementos. Agrega uno con el botón de arriba.</p>`;
+                    return;
+                }
+                const ICONS = ['', '👉', '🔥', '⭐', '✅', '📌', '💬', '❤️', '👇', '🎯', '🚀'];
+                const ANIMS = [
+                    { v: 'none', l: 'Sin animación' },
+                    { v: 'bounce', l: '⬆️ Rebote' },
+                    { v: 'typewriter', l: '⌨️ Typewriter' },
+                    { v: 'highlight', l: '✨ Resaltado' }
+                ];
+                container.innerHTML = state.videoOverlays.map((ov) => `
+        <div class="panel-soft rounded-lg p-2.5 space-y-2">
+            <div class="flex items-center gap-2">
+                <select data-overlay-id="${ov.id}" class="overlay-icon-select field rounded-lg px-1.5 py-1.5 text-xs w-14">
+                    ${ICONS.map((ic) => `<option value="${ic}" ${ov.icon === ic ? 'selected' : ''}>${ic || '—'}</option>`).join('')}
+                </select>
+                <input type="text" data-overlay-id="${ov.id}" value="${escapeHtml(ov.text)}"
+                    class="overlay-text-input field flex-1 rounded-lg px-2.5 py-1.5 text-xs" />
+                <button data-overlay-id="${ov.id}" class="overlay-delete-btn icon-btn" style="width:30px;height:30px;color:#f87171">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <select data-overlay-id="${ov.id}" class="overlay-anim-select field w-full rounded-lg px-2.5 py-1.5 text-xs">
+                ${ANIMS.map((a) => `<option value="${a.v}" ${(ov.animation || 'none') === a.v ? 'selected' : ''}>${a.l}</option>`).join('')}
+            </select>
+        </div>
+    `).join('');
+                container.querySelectorAll('.overlay-text-input').forEach((inp) => {
+                    inp.addEventListener('input', (e) => updateVideoOverlayText(e.target.dataset.overlayId, e.target.value));
+                });
+                container.querySelectorAll('.overlay-icon-select').forEach((sel) => {
+                    sel.addEventListener('change', (e) => updateVideoOverlayIcon(e.target.dataset.overlayId, e.target.value));
+                });
+                container.querySelectorAll('.overlay-anim-select').forEach((sel) => {
+                    sel.addEventListener('change', (e) => updateVideoOverlayAnimation(e.target.dataset.overlayId, e.target.value));
+                });
+                container.querySelectorAll('.overlay-delete-btn').forEach((btn) => {
+                    btn.addEventListener('click', () => removeVideoOverlay(btn.dataset.overlayId));
+                });
+            }
+            // Vista previa en vivo dentro del teléfono — solo visible cuando estás en la diapositiva 1
+            function renderVideoOverlaysPreview() {
+                const layer = $('videoOverlayLayer');
+                if (!layer) return;
+                if (state.currentSlide !== 0) { layer.innerHTML = ''; return; }
+
+                const { tint, textColor } = getOverlayColors();
+                const subPos = state.exportSettings.subtitlePos;
+
+                // Medimos el ancho REAL del lienzo en pantalla y aplicamos EXACTAMENTE
+                // la misma fórmula que usa el canvas al exportar el video
+                // (fontSize = ancho * 0.038, padX = fontSize*0.75, padY = fontSize*0.48).
+                // Antes la vista previa usaba clases fijas de Tailwind (text-[11px] px-3 py-1.5)
+                // que NO escalan igual que el canvas de 1080x1920 — por eso se corría.
+                // Ahora hay una sola fórmula compartida: editor y video quedan atados matemáticamente.
+                const canvasRect = $('slideCanvas').getBoundingClientRect();
+                const cw = canvasRect.width || 296;
+                const previewFontSize = cw * 0.038;
+                const previewPadX = previewFontSize * 0.75;
+                const previewPadY = previewFontSize * 0.48;
+
+                const subtitleGhostHtml = state.exportSettings.subtitlesEnabled
+                    ? `<div class="absolute border border-dashed border-white/25 rounded-lg pointer-events-none"
+                style="left:${(subPos.xPct * 100).toFixed(2)}%; top:${(subPos.yPct * 100).toFixed(2)}%; width:78%; height:15%; transform:translate(-50%,-50%);">
+             <span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] font-mono text-white/35 whitespace-nowrap">zona subtítulos</span>
+           </div>`
+                    : '';
+
+                const overlaysHtml = state.videoOverlays.map((ov) => {
+                    const anim = ov.animation || 'none';
+                    const animClass = anim === 'bounce' ? 'anim-bounce' : anim === 'highlight' ? 'anim-highlight' : '';
+                    const label = `${ov.icon ? ov.icon + ' ' : ''}${escapeHtml(ov.text)}${anim === 'typewriter' ? '<span class="typing-cursor"></span>' : ''}`;
+                    return `
+        <div class="overlay-drag-dot absolute rounded-full font-bold shadow-lg select-none ${animClass}"
+             data-overlay-id="${ov.id}"
+             style="left:${(ov.xPct * 100).toFixed(2)}%; top:${(ov.yPct * 100).toFixed(2)}%; transform:translate(-50%,-50%);
+                    font-size:${previewFontSize.toFixed(2)}px;
+                    padding:${previewPadY.toFixed(2)}px ${previewPadX.toFixed(2)}px;
+                    background:linear-gradient(135deg, ${hexToRgba(tint, 0.16)}, rgba(8,10,14,0.22));
+                    backdrop-filter: blur(16px) saturate(180%) brightness(1.15); -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.15);
+                    border:1px solid rgba(255,255,255,.22);
+                    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 8px 20px -6px rgba(0,0,0,.5);
+                    color:${textColor}; white-space:nowrap; cursor:grab; touch-action:none; pointer-events:auto;">
+            ${label}
+        </div>
+    `;
+                }).join('');
+
+                layer.innerHTML = subtitleGhostHtml + overlaysHtml;
+
+                layer.querySelectorAll('.overlay-drag-dot').forEach((dot) => {
+                    let dragging = false;
+                    dot.addEventListener('pointerdown', (e) => {
+                        dragging = true;
+                        dot.setPointerCapture(e.pointerId);
+                        dot.style.cursor = 'grabbing';
+                        e.stopPropagation();
+                    });
+                    dot.addEventListener('pointermove', (e) => {
+                        if (!dragging) return;
+                        const stageRect = $('slideCanvas').getBoundingClientRect();
+                        let xPct = (e.clientX - stageRect.left) / stageRect.width;
+                        let yPct = (e.clientY - stageRect.top) / stageRect.height;
+                        xPct = Math.min(1, Math.max(0, xPct));
+                        yPct = Math.min(1, Math.max(0, yPct));
+                        const ov = state.videoOverlays.find((o) => o.id === dot.dataset.overlayId);
+                        if (ov) { ov.xPct = xPct; ov.yPct = yPct; }
+                        dot.style.left = `${xPct * 100}%`;
+                        dot.style.top = `${yPct * 100}%`;
+                    });
+                    dot.addEventListener('pointerup', () => { dragging = false; dot.style.cursor = 'grab'; });
+                    dot.addEventListener('pointercancel', () => { dragging = false; dot.style.cursor = 'grab'; });
+                });
+            }
+            // Oculta la capa de overlay durante la captura de PNG (nunca debe salir en las imágenes)
+            function setVideoOverlaysVisible(visible) {
+                const el = document.getElementById('videoOverlayLayer');
+                if (el) el.style.display = visible ? '' : 'none';
+            }
+
+            $('btnAddOverlay').addEventListener('click', () => addVideoOverlay('Sígueme para más'));
             function updateWatermarkDotUI() {
                 const dot = $('watermarkPositionDot');
                 if (!dot) return;
@@ -3946,6 +4294,8 @@ ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-re
             updateTemarioMode('python_basico');
             updateScopeUI();
             updateStageGlow([]);
+            renderOverlayList();          // 👈 nuevo
+            renderVideoOverlaysPreview(); // pinta overlays existentes al cargar (si hay)
             window.addEventListener('carousel-cloud-ready', loadGeneratedTopicsAndFilter);
             if (window.CarouselCloud) loadGeneratedTopicsAndFilter();
         })();
