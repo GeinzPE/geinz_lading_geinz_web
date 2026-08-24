@@ -120,10 +120,12 @@ function crearLookupUbigeo(data) {
       return (parentId) => data[parentId] || data[String(parentId)] || [];
     }
     const plano = valores;
-    return (parentId) => plano.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
+    return (parentId) =>
+      plano.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
   }
   if (Array.isArray(data)) {
-    return (parentId) => data.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
+    return (parentId) =>
+      data.filter((item) => String(item.id_padre_ubigeo) === String(parentId));
   }
   return () => [];
 }
@@ -136,8 +138,9 @@ async function cargarUbigeoGlobal() {
     fetch(UBIGEO_BASE + "/distritos.json"),
   ]);
   const depData = await depRes.json();
-  UBIGEO_DEPARTAMENTOS = (Array.isArray(depData) ? depData : Object.values(depData))
-    .sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo));
+  UBIGEO_DEPARTAMENTOS = (
+    Array.isArray(depData) ? depData : Object.values(depData)
+  ).sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo));
   ubigeoProvinciasDe = crearLookupUbigeo(await provRes.json());
   ubigeoDistritosDe = crearLookupUbigeo(await distRes.json());
   ubigeoCargado = true;
@@ -145,7 +148,10 @@ async function cargarUbigeoGlobal() {
 
 async function obtenerDepartamentos() {
   await cargarUbigeoGlobal();
-  return UBIGEO_DEPARTAMENTOS.map((d) => ({ id: d.id_ubigeo, nombre: d.nombre_ubigeo }));
+  return UBIGEO_DEPARTAMENTOS.map((d) => ({
+    id: d.id_ubigeo,
+    nombre: d.nombre_ubigeo,
+  }));
 }
 
 async function obtenerProvincias(depId) {
@@ -179,7 +185,9 @@ async function inicializarSelectoresUbicacion(prefix) {
     const departamentos = await obtenerDepartamentos();
     selDep.innerHTML =
       `<option value="" disabled selected hidden>Selecciona</option>` +
-      departamentos.map((d) => `<option value="${d.id}">${d.nombre}</option>`).join("");
+      departamentos
+        .map((d) => `<option value="${d.id}">${d.nombre}</option>`)
+        .join("");
   } catch (err) {
     console.error("Error cargando departamentos:", err);
     selDep.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
@@ -198,7 +206,9 @@ async function inicializarSelectoresUbicacion(prefix) {
       const provincias = await obtenerProvincias(selDep.value);
       selProv.innerHTML =
         `<option value="" disabled selected hidden>Selecciona</option>` +
-        provincias.map((p) => `<option value="${p.id}">${p.nombre}</option>`).join("");
+        provincias
+          .map((p) => `<option value="${p.id}">${p.nombre}</option>`)
+          .join("");
       selProv.disabled = false;
     } catch (err) {
       console.error("Error cargando provincias:", err);
@@ -212,10 +222,15 @@ async function inicializarSelectoresUbicacion(prefix) {
     selDist.disabled = true;
     selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
     try {
-      const distritos = await obtenerDistritos(departamentoSeleccionado, selProv.value);
+      const distritos = await obtenerDistritos(
+        departamentoSeleccionado,
+        selProv.value,
+      );
       selDist.innerHTML =
         `<option value="" disabled selected hidden>Selecciona</option>` +
-        distritos.map((d) => `<option value="${d.id}">${d.nombre}</option>`).join("");
+        distritos
+          .map((d) => `<option value="${d.id}">${d.nombre}</option>`)
+          .join("");
       selDist.disabled = false;
     } catch (err) {
       console.error("Error cargando distritos:", err);
@@ -226,15 +241,15 @@ async function inicializarSelectoresUbicacion(prefix) {
   function slugify(texto) {
     return texto
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")   // quita tildes
+      .replace(/[\u0300-\u036f]/g, "") // quita tildes
       .toLowerCase()
       .trim()
-      .replace(/\s+/g, "-");             // espacios -> guiones
+      .replace(/\s+/g, "-"); // espacios -> guiones
   }
 
   selDist.onchange = () => {
     const opt = selDist.options[selDist.selectedIndex];
-    distritoSeleccionado = slugify(opt.textContent);   // 👈 ahora guarda "barranca", "puerto-supe", etc.
+    distritoSeleccionado = slugify(opt.textContent); // 👈 ahora guarda "barranca", "puerto-supe", etc.
   };
 }
 
@@ -316,6 +331,116 @@ function showSnackbar(msg, tipo = "default") {
 }
 
 /* =========================================================
+   COOL SELECT (con buscador) — envuelve <select> nativo
+========================================================= */
+function upgradeCoolSelect(select) {
+  if (!select || select._cool) return;
+  select._cool = true;
+
+  select.classList.add("real-select-hidden");
+
+  const wrap = document.createElement("div");
+  wrap.className = "cool-select";
+  select.parentNode.insertBefore(wrap, select.nextSibling);
+
+  wrap.innerHTML = `
+    <button type="button" class="cool-select-trigger">
+      <span class="cool-select-value is-placeholder">Selecciona...</span>
+      <svg class="cool-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="cool-select-panel">
+      <div class="cool-select-search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" class="cool-select-search" placeholder="Buscar...">
+      </div>
+      <div class="cool-select-options"></div>
+    </div>
+  `;
+
+  const trigger = wrap.querySelector(".cool-select-trigger");
+  const valueEl = wrap.querySelector(".cool-select-value");
+  const search = wrap.querySelector(".cool-select-search");
+  const optionsWrap = wrap.querySelector(".cool-select-options");
+
+  function getItems() {
+    return [...select.options]
+      .filter((o) => o.value !== "")
+      .map((o) => ({ value: o.value, label: o.textContent }));
+  }
+
+  function renderTrigger() {
+    const hasValue = select.value !== "";
+    const selected = select.selectedOptions[0];
+    valueEl.textContent = hasValue
+      ? selected.textContent
+      : select.options[0]?.textContent || "Selecciona...";
+    valueEl.classList.toggle("is-placeholder", !hasValue);
+    trigger.disabled = select.disabled;
+    wrap.classList.toggle("is-disabled", select.disabled);
+  }
+
+  function renderOptions(filter) {
+    const f = (filter || "").trim().toLowerCase();
+    const items = getItems();
+    const filtered = f
+      ? items.filter((i) => i.label.toLowerCase().includes(f))
+      : items;
+    optionsWrap.innerHTML = filtered.length
+      ? filtered
+          .map(
+            (i) => `
+        <div class="cool-select-option ${select.value === i.value ? "is-selected" : ""}" data-value="${i.value}">
+          <span>${i.label}</span>
+          <svg class="cool-select-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>`,
+          )
+          .join("")
+      : `<div class="cool-select-empty">Sin resultados</div>`;
+  }
+
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (select.disabled) return;
+    document.querySelectorAll(".cool-select.open").forEach((el) => {
+      if (el !== wrap) el.classList.remove("open");
+    });
+    const willOpen = !wrap.classList.contains("open");
+    wrap.classList.toggle("open", willOpen);
+    if (willOpen) {
+      renderOptions("");
+      search.value = "";
+      setTimeout(() => search.focus(), 60);
+    }
+  });
+
+  search.addEventListener("input", () => renderOptions(search.value));
+
+  optionsWrap.addEventListener("click", (e) => {
+    const opt = e.target.closest(".cool-select-option");
+    if (!opt) return;
+    select.value = opt.dataset.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    wrap.classList.remove("open");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!wrap.contains(e.target)) wrap.classList.remove("open");
+  });
+
+  // Se actualiza solo cuando tu JS reescribe las <option> (departamento->provincia->distrito)
+  new MutationObserver(renderTrigger).observe(select, {
+    childList: true,
+    attributes: true,
+  });
+  select.addEventListener("change", renderTrigger);
+
+  renderTrigger();
+}
+
+function upgradeAllCoolSelects(root = document) {
+  root.querySelectorAll(".custom-select").forEach(upgradeCoolSelect);
+}
+/* =========================================================
    HELPERS
 ========================================================= */
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -333,6 +458,7 @@ window.openRegisterModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("registerModal").classList.add("active");
   cargarPaises();
+  upgradeAllCoolSelects(document.getElementById("registerModal")); // 👈
   const fechaInput = document.getElementById("regFechaNac");
   if (fechaInput) fechaInput.max = new Date().toISOString().split("T")[0];
 };
@@ -341,6 +467,7 @@ window.openSocioModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("socioModal").classList.add("active");
   inicializarSelectoresUbicacion("socio");
+  upgradeAllCoolSelects(document.getElementById("socioModal")); // 👈
 };
 
 window.closeModal = (id) => {
@@ -916,8 +1043,8 @@ async function abrirPantallaSocio() {
   document.getElementById("splashScreen").style.display = "none";
   document.getElementById("selectorSocioScreen").classList.add("active");
   await inicializarSelectoresUbicacion("selector");
+  upgradeAllCoolSelects(document.getElementById("selectorSocioScreen")); // 👈
 }
-
 /* =========================================================
    CONTINUAR PANEL (desde selectorSocioScreen)
 ========================================================= */
@@ -928,7 +1055,11 @@ window.continuarPanel = async () => {
     showSnackbar("⚠️ Ingresa un ID válido", "warning");
     return;
   }
-  if (!departamentoSeleccionado || !provinciaSeleccionada || !distritoSeleccionado) {
+  if (
+    !departamentoSeleccionado ||
+    !provinciaSeleccionada ||
+    !distritoSeleccionado
+  ) {
     showSnackbar("⚠️ Selecciona departamento, provincia y distrito", "warning");
     return;
   }
@@ -948,7 +1079,6 @@ window.continuarPanel = async () => {
 
     const tiendaRef = tiendaDoc(distritoSeleccionado, "tiendas", valor);
 
-
     console.log("[continuarPanel] Path de tiendaRef:", tiendaRef.path);
 
     const snap = await getDoc(tiendaRef);
@@ -959,7 +1089,10 @@ window.continuarPanel = async () => {
     }
 
     if (!snap.exists()) {
-      showSnackbar("❌ Ese ID no existe. Verifica e intenta de nuevo.", "error");
+      showSnackbar(
+        "❌ Ese ID no existe. Verifica e intenta de nuevo.",
+        "error",
+      );
       return;
     }
 
@@ -1003,7 +1136,10 @@ window.accederSocio = async () => {
   try {
     const snap = await getDoc(tiendaDoc(dist, "tiendas", idTienda));
     if (!snap.exists()) {
-      showSnackbar("❌ Ese ID no existe. Verifica e intenta de nuevo.", "error");
+      showSnackbar(
+        "❌ Ese ID no existe. Verifica e intenta de nuevo.",
+        "error",
+      );
       return;
     }
     sessionStorage.setItem("tiendaId", idTienda);

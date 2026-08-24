@@ -2160,3 +2160,304 @@ svg.input-icon {
   align-items: center;
   gap: 10px;
 }
+.custom-select {
+  color: var(--text-2); /* placeholder gris por defecto */
+}
+.custom-select:valid,
+.custom-select option:checked {
+  color: var(--text-1);
+}
+.select-wrap:hover .custom-select {
+  border-color: rgba(168,85,247,0.3);
+}
+.custom-select:focus {
+  transform: translateY(-1px);
+}
+.select-chevron {
+  transition: transform 0.25s var(--ease-out), color 0.25s ease;
+}
+.custom-select:focus ~ .select-chevron {
+  transform: translateY(-50%) rotate(180deg);
+  color: #a855f7;
+}
+/* Firefox sí permite pintar las opciones */
+.custom-select option {
+  background: #110e1a;
+  color: #f0edf8;
+  padding: 10px;
+}
+/* Oculta el select real pero lo mantiene funcional/accesible */
+.real-select-hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fake-select {
+  position: relative;
+  width: 100%;
+  padding: 13px 36px 13px 40px;
+  background: var(--surface-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fake-select:hover {
+  border-color: rgba(168,85,247,0.3);
+}
+.fake-select.open {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(168,85,247,0.12);
+}
+.fake-select.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.fake-select-label {
+  color: var(--text-1);
+}
+.fake-select-label.placeholder {
+  color: var(--text-3);
+}
+.fake-select::after {
+  content: "expand_more";
+  font-family: "Material Symbols Outlined";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--text-3);
+  transition: transform 0.25s var(--ease-out);
+}
+.fake-select.open::after {
+  transform: translateY(-50%) rotate(180deg);
+  color: #a855f7;
+}
+
+.fake-select-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #110e1a;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 30;
+}
+.fake-select.open .fake-select-list {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.fake-select-item {
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.fake-select-item:hover {
+  background: rgba(168,85,247,0.1);
+  color: var(--text-1);
+}
+.fake-select-item.active {
+  color: #c084fc;
+  font-weight: 600;
+  background: rgba(168,85,247,0.08);
+}
+/* ============================================================
+   COOL SELECT (con buscador) — reemplaza <select> nativo
+   ============================================================ */
+.real-select-hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cool-select {
+  position: relative;
+  width: 100%;
+}
+
+.cool-select-trigger {
+  width: 100%;
+  background: var(--surface-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 13px 14px;   /* 👈 padding parejo, sin hueco */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  transition: all .25s var(--ease-out);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.cool-select-trigger:hover:not(:disabled) {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: rgba(124, 58, 237, .05);
+}
+
+.cool-select.open .cool-select-trigger {
+  border-color: var(--border-focus);
+  background: rgba(9, 7, 15, 0.9);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, .12);
+}
+
+.cool-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.cool-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-1);
+}
+
+.cool-select-value.is-placeholder {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.cool-select-chevron {
+  flex-shrink: 0;
+  color: #a855f7;
+  transition: transform .25s var(--ease-out);
+}
+
+.cool-select.open .cool-select-chevron {
+  transform: rotate(180deg);
+}
+
+.cool-select-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: rgba(13, 11, 20, .97);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .5);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  z-index: 60;
+  padding: 8px;
+  opacity: 0;
+  transform: translateY(-8px) scale(.98);
+  pointer-events: none;
+  transition: all .2s var(--ease-out);
+}
+
+.cool-select.open .cool-select-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.cool-select-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+  color: #a855f7;
+}
+
+.cool-select-search {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-1);
+  font-size: 12.5px;
+  width: 100%;
+  font-family: var(--font-body);
+}
+
+.cool-select-search::placeholder {
+  color: var(--text-3);
+}
+
+.cool-select-options {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.cool-select-options::-webkit-scrollbar {
+  width: 5px;
+}
+
+.cool-select-options::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, .35);
+  border-radius: 10px;
+}
+
+.cool-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.cool-select-option:hover {
+  background: rgba(168, 85, 247, .15);
+  color: var(--text-1);
+}
+
+.cool-select-option.is-selected {
+  background: rgba(168, 85, 247, .2);
+  color: var(--text-1);
+  font-weight: 700;
+}
+
+.cool-select-check {
+  color: #a855f7;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.cool-select-option.is-selected .cool-select-check {
+  opacity: 1;
+}
+
+.cool-select-empty {
+  padding: 16px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.cool-select.is-disabled .cool-select-trigger {
+  opacity: .5;
+  cursor: not-allowed;
+}

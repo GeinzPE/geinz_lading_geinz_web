@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Probador — Whisper Cloud Run</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script>
+        // Promesa que se resuelve cuando soundtouchjs terminó de cargar. La usamos
+        // antes de estirar audio para NUNCA caer en el fallback de playbackRate
+        // nativo (que cambia el tono y puede sonar "lento/grave") solo porque el
+        // import del módulo todavía no había terminado.
+        window.soundtouchReady = new Promise(resolve => { window._resolveSoundtouchReady = resolve; });
+    </script>
+    <script type="module">
+        import { SoundTouch, SimpleFilter, WebAudioBufferSource } from "https://cdn.jsdelivr.net/npm/soundtouchjs@0.1.30/dist/soundtouch.js";
+        window.soundtouch = { SoundTouch, SimpleFilter, WebAudioBufferSource };
+        window._resolveSoundtouchReady();
+    </script>
+    <style>
+        :root {
+            --bg: #0b0d13;
+            --panel: #12141c;
+            --panel-2: #171a24;
+            --border: #262a38;
+            --text: #eef0f5;
+            --muted: #8b90a1;
+            --accent: #6c8cff;
+            --accent-hover: #8aa3ff;
+            --accent-soft: rgba(108, 140, 255, 0.12);
+            --accent-2: #ffb454;
+            --accent-2-soft: rgba(255, 180, 84, 0.12);
+            --ok: #4ade80;
+            --err: #f87171;
+            --radius: 14px;
+            --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(900px 500px at 15% -10%, rgba(108, 140, 255, 0.10), transparent 60%),
+                radial-gradient(700px 400px at 100% 0%, rgba(255, 180, 84, 0.06), transparent 55%),
+                var(--bg);
+            color: var(--text);
+            font-family: var(--font-body);
+            display: flex;
+            justify-content: center;
+            padding: 48px 16px 80px;
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: 660px;
+        }
+
+        header.page-head {
+            margin-bottom: 36px;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent);
+            background: var(--accent-soft);
+            border: 1px solid rgba(108, 140, 255, 0.3);
+            padding: 4px 10px;
+            border-radius: 999px;
+            margin-bottom: 14px;
+        }
+
+        .eyebrow::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 3px rgba(108, 140, 255, 0.25);
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.7rem;
+            letter-spacing: -0.01em;
+            margin: 0 0 6px;
+        }
+
+        p.sub {
+            color: var(--muted);
+            margin: 0;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            max-width: 52ch;
+        }
+
+        /* --- Pipeline / stage rail: the tool is a literal 3-step sequence, so the
+           numbering encodes real order, not decoration. --- */
+        .pipeline {
+            position: relative;
+            padding-left: 46px;
+        }
+
+        .pipeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 6px;
+            bottom: 6px;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--accent), var(--accent-2));
+            opacity: 0.35;
+        }
+
+        .stage {
+            position: relative;
+            margin-bottom: 22px;
+        }
+
+        .stage:last-child {
+            margin-bottom: 0;
+        }
+
+        .stage-num {
+            position: absolute;
+            left: -46px;
+            top: 2px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--panel-2);
+            border: 2px solid var(--stage-color, var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--stage-color, var(--accent));
+            z-index: 1;
+        }
+
+        .stage-head {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .stage-title {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.02rem;
+        }
+
+        .stage-hint {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px;
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 12px 30px -20px rgba(0, 0, 0, 0.6);
+        }
+
+        .card.accent-2 {
+            border-color: rgba(255, 180, 84, 0.28);
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+            margin-top: 16px;
+            font-weight: 500;
+        }
+
+        label:first-of-type {
+            margin-top: 0;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0d0f16;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: var(--text);
+            font-size: 0.93rem;
+            font-family: var(--font-body);
+            transition: border-color 0.15s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="url"]:focus,
+        input[type="password"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        select {
+            appearance: none;
+            cursor: pointer;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        .dropzone {
+            margin-top: 6px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 26px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .dropzone:hover,
+        .dropzone.drag {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .dropzone p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .dropzone .filename {
+            color: var(--text);
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .dropzone .filetype {
+            color: var(--muted);
+            font-size: 0.78rem;
+            margin-top: 2px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .row>div {
+            flex: 1;
+        }
+
+        .hint-small {
+            color: var(--muted);
+            font-size: 0.76rem;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        button {
+            margin-top: 22px;
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: #0b0d13;
+            border: none;
+            border-radius: 9px;
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        button.secondary-accent {
+            background: var(--accent-2);
+            color: #201202;
+        }
+
+        button.secondary-accent:hover:not(:disabled) {
+            background: #ffc576;
+        }
+
+        button.ghost-btn {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid rgba(108, 140, 255, 0.4);
+        }
+
+        button.ghost-btn:hover:not(:disabled) {
+            background: var(--accent-soft);
+        }
+
+        .status {
+            margin-top: 14px;
+            font-size: 0.85rem;
+            color: var(--muted);
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .result {
+            margin-top: 18px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result-box {
+            background: #0d0f16;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+            line-height: 1.55;
+        }
+
+        .meta {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .badge {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid rgba(108, 140, 255, 0.3);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+        }
+
+        .badge.badge-2 {
+            background: var(--accent-2-soft);
+            color: var(--accent-2);
+            border-color: rgba(255, 180, 84, 0.3);
+        }
+
+        .error-box {
+            background: rgba(248, 113, 113, 0.08);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: var(--err);
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 0.9rem;
+        }
+
+        audio.preview {
+            width: 100%;
+            margin-top: 10px;
+            display: none;
+        }
+
+        audio.preview.show {
+            display: block;
+        }
+
+        #videoPreviewWrap {
+            position: relative;
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #videoPreview {
+            width: 100%;
+            display: block;
+            border-radius: 10px;
+        }
+
+        #subtitleOverlay {
+            position: absolute;
+            left: 50%;
+            top: 88%;
+            transform: translate(-50%, -50%);
+            max-width: 88%;
+            text-align: center;
+            color: #fff;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.05rem;
+            line-height: 1.25;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+            opacity: 0;
+            transition: opacity 0.12s ease;
+            padding: 6px 12px;
+            border-radius: 8px;
+            pointer-events: none;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            white-space: normal;
+        }
+
+        #subtitleOverlay.has-bg {
+            background: rgba(0, 0, 0, 0.55);
+        }
+
+        #subtitlePositionStage {
+            position: relative;
+            width: 132px;
+            margin: 0 auto 10px;
+            aspect-ratio: 9 / 16;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: #05060a;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        #miniPreviewVideo {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.5;
+        }
+
+        #subtitlePositionDot {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            margin-left: -8px;
+            margin-top: -8px;
+            border-radius: 50%;
+            background: var(--accent-2);
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            left: 50%;
+            top: 88%;
+        }
+
+        #subtitlePositionPreviewText {
+            position: absolute;
+            left: 50%;
+            top: 88%;
+            transform: translate(-50%, -50%);
+            max-width: 88%;
+            text-align: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 10.5px;
+            line-height: 1.2;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+            pointer-events: none;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .subtitle-preset-btn {
+            margin-top: 0;
+            padding: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: var(--font-body);
+            background: #0d0f16;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .subtitle-preset-btn:hover {
+            border-color: var(--accent-2);
+        }
+
+        #segmentsList {
+            margin-top: 4px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+
+        .seg-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .seg-row .badge {
+            white-space: nowrap;
+            margin-top: 8px;
+        }
+
+        .seg-row textarea {
+            flex: 1;
+            resize: vertical;
+            background: #0d0f16;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            padding: 8px 10px;
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .seg-row textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .toggle-row span {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 8px;
+        }
+
+        @media (max-width: 480px) {
+            .pipeline {
+                padding-left: 38px;
+            }
+
+            .stage-num {
+                left: -38px;
+                width: 28px;
+                height: 28px;
+                font-size: 0.7rem;
+            }
+
+            .row {
+                flex-direction: column;
+                gap: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header class="page-head">
+            <span class="eyebrow">Pipeline de doblaje</span>
+            <h1>🎙️ Probador Whisper — Cloud Run</h1>
+            <p class="sub">Sube un video o audio, edita los subtítulos con timestamps reales, y genera una voz
+                sincronizada. Si subes un video, la pista de audio se extrae aquí mismo en tu navegador antes de
+                enviarla al servicio.</p>
+        </header>
+
+        <div class="pipeline">
+
+            <!-- Etapa 1 — Transcripción -->
+            <div class="stage" style="--stage-color: var(--accent);">
+                <span class="stage-num">01</span>
+                <div class="stage-head">
+                    <span class="stage-title">Transcribir</span>
+                    <span class="stage-hint">Whisper vía Cloud Run</span>
+                </div>
+                <div class="card">
+                    <label for="serviceUrl">URL del servicio (Cloud Run)</label>
+                    <input type="url" id="serviceUrl" placeholder="https://whisper-service-xxxx.us-central1.run.app"
+                        value="https://whisper-service-921389328767.us-central1.run.app">
+
+                    <label>Archivo de video o audio</label>
+                    <div class="dropzone" id="dropzone">
+                        <p>Arrastra un video o audio aquí, o haz clic para seleccionar</p>
+                        <p class="filename" id="filename"></p>
+                        <p class="filetype" id="filetype"></p>
+                    </div>
+                    <input type="file" id="fileInput" accept="video/*,audio/*">
+                    <audio class="preview" id="audioPreview" controls></audio>
+
+                    <div class="row">
+                        <div>
+                            <label for="sourceLang">Idioma de origen</label>
+                            <select id="sourceLang">
+                                <option value="auto" selected>Auto-detectar</option>
+                                <option value="es">Español</option>
+                                <option value="en">Inglés</option>
+                                <option value="pt">Portugués</option>
+                                <option value="fr">Francés</option>
+                                <option value="de">Alemán</option>
+                                <option value="it">Italiano</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="targetLang">Traducir a (opcional)</label>
+                            <select id="targetLang">
+                                <option value="" selected>Sin traducción</option>
+                                <option value="en">Inglés</option>
+                                <option value="es">Español</option>
+                                <option value="pt">Portugués</option>
+                                <option value="fr">Francés</option>
+                                <option value="de">Alemán</option>
+                                <option value="it">Italiano</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <label for="modelSize">Tamaño de modelo</label>
+                    <select id="modelSize">
+                        <option value="tiny">tiny (más rápido)</option>
+                        <option value="base" selected>base (recomendado)</option>
+                        <option value="small">small (más preciso, más lento)</option>
+                    </select>
+
+                    <button id="submitBtn">Transcribir</button>
+
+                    <div class="status" id="status">
+                        <span class="spinner"></span><span id="statusText">Procesando...</span>
+                    </div>
+
+                    <div class="result" id="result">
+                        <div class="result-box" id="resultText"></div>
+                        <div class="meta" id="resultMeta"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Etapa 1.5 — Corrección con Gemini -->
+            <div class="stage" style="--stage-color: var(--accent);">
+                <span class="stage-num">01<span style="font-size:0.6em;">b</span></span>
+                <div class="stage-head">
+                    <span class="stage-title">Corregir con Gemini</span>
+                    <span class="stage-hint">Opcional — ajusta el texto al contexto real del video</span>
+                </div>
+                <div class="card">
+                    <label for="geminiApiKey">Clave de API de Gemini</label>
+                    <input type="password" id="geminiApiKey" placeholder="AIza...">
+                    <p class="hint-small">Se guarda solo en este navegador (localStorage), nunca se envía a ningún
+                        lado excepto a Google al llamar a Gemini.</p>
+
+                    <label for="geminiContext">¿De qué trata el video? (contexto para Gemini)</label>
+                    <textarea id="geminiContext" rows="3"
+                        placeholder="Ej: Es un video sobre finanzas personales para principiantes, tono cercano y coloquial, se mencionan marcas y términos como 'ETF', 'staking', etc."></textarea>
+
+                    <label class="toggle-row" style="margin-left:0;">
+                        <input type="checkbox" id="useGeminiToggle" checked>
+                        <span>Usar Gemini para corregir/adaptar la transcripción automáticamente</span>
+                    </label>
+
+                    <button id="geminiCorrectBtn" type="button" class="ghost-btn" disabled>Corregir con Gemini
+                        ahora</button>
+                    <div class="status" id="geminiStatus"><span class="spinner"></span><span
+                            id="geminiStatusText"></span></div>
+                </div>
+            </div>
+
+            <!-- Etapa 2 — Edición de subtítulos -->
+            <div class="stage" id="subtitlesEditor" style="--stage-color: var(--accent); display:none;">
+                <span class="stage-num">02</span>
+                <div class="stage-head">
+                    <span class="stage-title">Editar y ubicar subtítulos</span>
+                    <span class="stage-hint">Máx. 2 líneas por subtítulo</span>
+                </div>
+                <div class="card">
+                    <div id="videoPreviewWrap">
+                        <video id="videoPreview" muted></video>
+                        <div id="subtitleOverlay" class="pos-bottom"></div>
+                    </div>
+                    <button type="button" id="expandPreviewBtn" class="subtitle-preset-btn"
+                        style="width:100%; margin-top:8px;">⤢ Ver en grande</button>
+                    <canvas id="renderCanvas" style="display:none;"></canvas>
+
+                    <label>Posición del subtítulo (arrastra el punto)</label>
+                    <div id="subtitlePositionStage">
+                        <video id="miniPreviewVideo" muted></video>
+                        <div id="subtitlePositionDot"></div>
+                        <div id="subtitlePositionPreviewText"></div>
+                    </div>
+                    <div class="row" style="margin-top:0;">
+                        <button type="button" class="subtitle-preset-btn" data-preset="top">Arriba</button>
+                        <button type="button" class="subtitle-preset-btn" data-preset="center">Centro</button>
+                        <button type="button" class="subtitle-preset-btn" data-preset="bottom">Abajo</button>
+                    </div>
+
+                    <label class="toggle-row" style="margin-left:0;">
+                        <input type="checkbox" id="subtitleBgToggle" checked>
+                        <span>Fondo detrás del subtítulo</span>
+                    </label>
+                    <label class="toggle-row" style="margin-left:0;">
+                        <input type="checkbox" id="subtitlesEnabledToggle" checked>
+                        <span>Quemar subtítulos en el video</span>
+                    </label>
+
+                    <label>Subtítulos (edítalos antes de generar la voz)</label>
+                    <div id="segmentsList"></div>
+                </div>
+            </div>
+
+            <!-- Etapa 3 — Voz y render -->
+            <div class="stage" style="--stage-color: var(--accent-2); display:none;" id="voiceStage">
+                <span class="stage-num">03</span>
+                <div class="stage-head">
+                    <span class="stage-title">Voz sincronizada y render</span>
+                    <span class="stage-hint">Voz y video quedan al mismo ritmo</span>
+                </div>
+                <div class="card accent-2">
+                    <div class="row">
+                        <div>
+                            <label for="voiceId">Voz (ElevenLabs)</label>
+                            <select id="voiceId">
+                                <option value="">Voz por defecto</option>
+                                <option value="voice_id_1">Voz 1</option>
+                                <option value="voice_id_2">Voz 2</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="speedRange">Ritmo (<span id="speedValue">1.0x</span>)</label>
+                            <input type="range" id="speedRange" min="0.5" max="2" step="0.05" value="1">
+                        </div>
+                    </div>
+                    <p class="sub" style="margin-top:10px; font-size:0.78rem;">El ritmo mueve la voz y el video
+                        juntos — así los subtítulos, el audio y la imagen quedan siempre sincronizados,
+                        aunque aceleres o desaceleres.</p>
+
+                    <button id="generateVoiceBtn" type="button" class="secondary-accent">Generar voz
+                        sincronizada</button>
+                    <div class="status" id="voiceStatus"><span class="spinner"></span><span id="voiceStatusText"></span>
+                    </div>
+
+                    <button id="previewFullBtn" type="button" class="ghost-btn">▶ Vista previa completa (voz +
+                        subtítulos)</button>
+                    <button id="stopPreviewBtn" type="button" class="ghost-btn" style="display:none;">⏹ Detener
+                        vista previa</button>
+                    <p class="hint-small">Reproduce el video con la voz sincronizada y los subtítulos tal como
+                        quedarían al exportar, sin generar ningún archivo. Si aún no generaste la voz, se
+                        reproduce con el audio original solo para revisar los subtítulos.</p>
+
+                    <button id="downloadBtn" type="button" disabled>Descargar video final (MP4)</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const GRANJA_TTS_URL = 'https://texttospeech-granja-eleven-oixttik5rq-uc.a.run.app';
+        const CONVERT_TO_MP4_URL = 'https://us-central1-geinzworkapp.cloudfunctions.net/convertToMp4';
+        const GEMINI_MODEL = 'gemini-2.5-flash';
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+        let segments = [];
+        let originalVideoFile = null; // guarda el video original si el input fue video
+        let synthesizedSegments = [];
+
+        // --- Persistencia local de la clave de Gemini y el contexto del video ---
+        const geminiApiKeyInput = document.getElementById('geminiApiKey');
+        const geminiContextInput = document.getElementById('geminiContext');
+        const useGeminiToggle = document.getElementById('useGeminiToggle');
+        const geminiCorrectBtn = document.getElementById('geminiCorrectBtn');
+        const geminiStatus = document.getElementById('geminiStatus');
+        const geminiStatusText = document.getElementById('geminiStatusText');
+
+        geminiApiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
+        geminiContextInput.value = localStorage.getItem('gemini_context') || '';
+
+        geminiApiKeyInput.addEventListener('input', () => {
+            localStorage.setItem('gemini_api_key', geminiApiKeyInput.value.trim());
+        });
+        geminiContextInput.addEventListener('input', () => {
+            localStorage.setItem('gemini_context', geminiContextInput.value);
+        });
+
+        // Cuando el backend no manda timestamps por segmento, partimos el texto en
+        // oraciones y les repartimos la duración del video proporcionalmente a su
+        // longitud. No es tan preciso como timestamps reales de Whisper, pero deja
+        // de mandar todo pegado en un bloque de 0:00–0:00.
+        async function buildFallbackSegments(text, videoFile) {
+            const sentences = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(s => s.trim()).filter(Boolean);
+
+            let duration = 0;
+            if (videoFile) {
+                duration = await new Promise(resolve => {
+                    const v = document.createElement('video');
+                    v.preload = 'metadata';
+                    v.src = URL.createObjectURL(videoFile);
+                    v.onloadedmetadata = () => { resolve(v.duration); URL.revokeObjectURL(v.src); };
+                    v.onerror = () => resolve(0);
+                });
+            }
+            if (!duration) {
+                duration = sentences.join(' ').split(/\s+/).length / 2.5; // ~2.5 palabras/seg
+            }
+
+            const totalChars = sentences.reduce((a, s) => a + s.length, 0) || 1;
+            let cursor = 0;
+            return sentences.map((s, i) => {
+                const segDuration = duration * (s.length / totalChars);
+                const seg = { id: i, start: cursor, end: cursor + segDuration, text: s };
+                cursor += segDuration;
+                return seg;
+            });
+        }
+
+        // --- Corrección/adaptación del texto transcrito usando Gemini ---
+        function buildGeminiPrompt(context, sourceLangCode, targetLangCode) {
+            const langNames = {
+                auto: 'detectado automáticamente', es: 'español', en: 'inglés', pt: 'portugués',
+                fr: 'francés', de: 'alemán', it: 'italiano', '': 'sin traducción'
+            };
+            const sourceLangName = langNames[sourceLangCode] || sourceLangCode;
+            const targetLangName = targetLangCode ? (langNames[targetLangCode] || targetLangCode) : null;
+
+            let instructions = `Eres un corrector ortográfico y gramatical de transcripciones automáticas de video (generadas por Whisper). Recibirás una lista de fragmentos en formato JSON, cada uno con un "id" y un "text".
+
+Contexto del video (para que sepas qué nombres propios, términos técnicos o jerga pueden aparecer y no los "corrijas" mal): ${context ? context : '(sin contexto adicional proporcionado)'}
+
+Idioma del audio: ${sourceLangName}.`;
+
+            if (targetLangName) {
+                instructions += ` Además, traduce cada fragmento al ${targetLangName}, de forma literal y fiel, sin embellecer ni resumir.`;
+            } else {
+                instructions += ` No traduzcas: el texto debe quedar en el mismo idioma.`;
+            }
+
+            instructions += `
+
+REGLAS ESTRICTAS — cambia lo MÍNIMO posible, palabra por palabra:
+1. Corrige SOLO errores evidentes de transcripción: palabras que Whisper entendió mal y no tienen sentido en el contexto, faltas de ortografía y puntuación claramente incorrecta, y mayúsculas obvias (inicio de oración, nombres propios).
+2. NO reformules ni reescribas frases que ya estén bien dichas. NO cambies el orden de las palabras si no hace falta. NO reemplaces palabras por sinónimos "para que suene mejor" o más formal.
+3. NO agregues información que no esté en el audio, NO resumas, NO cambies el sentido de lo que se dijo.
+4. Ante la duda de si una palabra está mal o es simplemente coloquial/informal, DÉJALA COMO ESTÁ. Es preferible no tocar nada a "mejorar" algo que ya estaba bien.
+5. Mantén el mismo tono (formal/informal) y una longitud casi idéntica a la del fragmento original — son subtítulos cortos.
+6. ${targetLangName ? `Al traducir, aplica estas mismas reglas de fidelidad: traducción literal y natural, sin adornos.` : ''}
+7. Devuelve EXACTAMENTE el mismo número de fragmentos, en el mismo orden, conservando cada "id" tal cual.
+
+Responde SOLO con un JSON válido: un array de objetos con "id" (número) y "text" (string). Sin texto adicional, sin markdown, sin explicaciones.`;
+
+            return instructions;
+        }
+
+        async function callGeminiCorrection(segs, context, sourceLangCode, targetLangCode, apiKey) {
+            const promptInstructions = buildGeminiPrompt(context, sourceLangCode, targetLangCode);
+            const payloadSegments = segs.map(s => ({ id: s.id, text: s.text }));
+
+            const body = {
+                contents: [{
+                    role: 'user',
+                    parts: [{ text: `${promptInstructions}\n\nFragmentos:\n${JSON.stringify(payloadSegments)}` }]
+                }],
+                generationConfig: {
+                    temperature: 0.1,
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'ARRAY',
+                        items: {
+                            type: 'OBJECT',
+                            properties: {
+                                id: { type: 'NUMBER' },
+                                text: { type: 'STRING' }
+                            },
+                            required: ['id', 'text']
+                        }
+                    }
+                }
+            };
+
+            const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(apiKey)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json().catch(() => null);
+            if (!res.ok) {
+                throw new Error(data?.error?.message || `Gemini respondió con error HTTP ${res.status}`);
+            }
+
+            const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!textOut) throw new Error('Gemini no devolvió texto en la respuesta.');
+
+            let parsed;
+            try {
+                parsed = JSON.parse(textOut);
+            } catch (e) {
+                throw new Error('No se pudo interpretar la respuesta de Gemini como JSON.');
+            }
+            if (!Array.isArray(parsed)) throw new Error('La respuesta de Gemini no fue una lista de fragmentos.');
+
+            const byId = new Map(parsed.map(p => [Number(p.id), p.text]));
+            return segs.map(s => ({
+                ...s,
+                text: byId.has(s.id) && typeof byId.get(s.id) === 'string' && byId.get(s.id).trim()
+                    ? byId.get(s.id)
+                    : s.text // si Gemini no devolvió ese id, dejamos el texto original de Whisper
+            }));
+        }
+
+        async function runGeminiCorrection() {
+            const apiKey = geminiApiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('Ingresa tu clave de API de Gemini primero.');
+                return false;
+            }
+            if (!segments.length) {
+                alert('Todavía no hay una transcripción para corregir.');
+                return false;
+            }
+
+            const context = geminiContextInput.value.trim();
+            const sourceLangCode = document.getElementById('sourceLang').value;
+            const targetLangCode = document.getElementById('targetLang').value;
+
+            geminiStatus.classList.add('show');
+            geminiStatusText.textContent = 'Corrigiendo transcripción con Gemini...';
+            geminiCorrectBtn.disabled = true;
+
+            try {
+                segments = await callGeminiCorrection(segments, context, sourceLangCode, targetLangCode, apiKey);
+                geminiStatusText.textContent = 'Corregido con Gemini ✔';
+                return true;
+            } catch (err) {
+                alert('Error al corregir con Gemini: ' + (err?.message || String(err)) +
+                    '\n\nSe mantiene el texto original de Whisper.');
+                return false;
+            } finally {
+                geminiCorrectBtn.disabled = false;
+                setTimeout(() => geminiStatus.classList.remove('show'), 1500);
+            }
+        }
+
+        geminiCorrectBtn.addEventListener('click', async () => {
+            const ok = await runGeminiCorrection();
+            if (ok) renderSegmentsEditor();
+        });
+
+        function renderSegmentsEditor() {
+            const list = document.getElementById('segmentsList');
+            list.innerHTML = '';
+            segments.forEach(seg => {
+                const row = document.createElement('div');
+                row.className = 'seg-row';
+                row.innerHTML = `
+      <span class="badge">${fmtTime(seg.start)}–${fmtTime(seg.end)}</span>
+      <textarea data-id="${seg.id}" rows="2">${seg.text}</textarea>`;
+                list.appendChild(row);
+            });
+            list.querySelectorAll('textarea').forEach(ta => {
+                ta.addEventListener('input', e => {
+                    segments[Number(e.target.dataset.id)].text = e.target.value;
+                    refreshCaptionChunks();
+                });
+            });
+            document.getElementById('subtitlesEditor').style.display = 'block';
+            document.getElementById('voiceStage').style.display = 'block';
+            geminiCorrectBtn.disabled = false;
+            refreshCaptionChunks();
+            if (originalVideoFile) {
+                const video = document.getElementById('videoPreview');
+                video.src = URL.createObjectURL(originalVideoFile);
+                document.getElementById('miniPreviewVideo').src = URL.createObjectURL(originalVideoFile);
+                setupLivePreview();
+            }
+        }
+
+        // Whisper a veces entrega segmentos con timestamps que se solapan un poco
+        // entre sí. Recorta cada segmento para que nunca invada el inicio del
+        // siguiente, eliminando ese "eco"/voz doble por solape de tiempos.
+        function sanitizeSegmentTimings(segs) {
+            const sorted = [...segs].sort((a, b) => a.start - b.start);
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const cur = sorted[i];
+                const next = sorted[i + 1];
+                if (cur.end > next.start) {
+                    cur.end = Math.max(next.start, cur.start + 0.15);
+                }
+            }
+            return sorted.map((s, i) => ({ ...s, id: i }));
+        }
+
+        // Elimina segmentos duplicados o casi idénticos (por texto o por
+        // solapamiento de tiempo) antes de generar voz.
+        function normalizeForCompare(text) {
+            return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+        }
+
+        function dedupeSegments(segs) {
+            const result = [];
+            let removed = 0;
+            for (const seg of segs) {
+                const normalized = normalizeForCompare(seg.text);
+
+                const dupIndex = result.findIndex(r =>
+                    normalized.length > 0 && normalizeForCompare(r.text) === normalized
+                );
+
+                const overlapIndex = dupIndex === -1 ? result.findIndex(r => {
+                    const overlap = Math.min(r.end, seg.end) - Math.max(r.start, seg.start);
+                    const segLen = seg.end - seg.start;
+                    return overlap > 0 && (overlap / Math.max(segLen, 0.001)) > 0.5;
+                }) : -1;
+
+                if (dupIndex !== -1) {
+                    result[dupIndex].end = Math.max(result[dupIndex].end, seg.end);
+                    removed++;
+                } else if (overlapIndex !== -1) {
+                    result[overlapIndex].end = Math.max(result[overlapIndex].end, seg.end);
+                    removed++;
+                } else {
+                    result.push({ ...seg });
+                }
+            }
+            if (removed > 0) {
+                console.warn(`⚠️ Se detectaron y eliminaron ${removed} segmento(s) duplicado(s)/solapado(s).`);
+            }
+            return result.map((s, i) => ({ ...s, id: i }));
+        }
+
+        // Divide segmentos largos de Whisper en bloques más cortos por oración,
+        // repartiendo tiempo proporcionalmente a la longitud del texto. Evita
+        // mandarle a ElevenLabs párrafos enteros que se leen mucho más rápido
+        // que la ventana de tiempo original.
+        const MAX_SECONDS_PER_TTS_SEGMENT = 8;
+
+        function resegmentForTTS(segs) {
+            const result = [];
+            segs.forEach(seg => {
+                const duration = seg.end - seg.start;
+                if (duration <= MAX_SECONDS_PER_TTS_SEGMENT) {
+                    result.push(seg);
+                    return;
+                }
+                let parts = (seg.text.match(/[^.!?]+[.!?]*/g) || [seg.text]).map(s => s.trim()).filter(Boolean);
+                if (parts.length === 1) {
+                    parts = seg.text.split(/,\s*/).filter(Boolean);
+                }
+                const totalChars = parts.reduce((a, p) => a + p.length, 0) || 1;
+                let cursor = seg.start;
+                parts.forEach(text => {
+                    const partDuration = duration * (text.length / totalChars);
+                    result.push({ start: cursor, end: cursor + partDuration, text });
+                    cursor += partDuration;
+                });
+            });
+            return result.map((s, i) => ({ ...s, id: i }));
+        }
+
+        // Algunas palabras sueltas de relleno ("Well", "okay") quedan con ventanas
+        // de tiempo minúsculas. Forzar que ElevenLabs quepa ahí exige un
+        // playbackRate extremo, y SoundTouch produce artefactos de fase que
+        // suenan a "eco" en compresiones tan agresivas sobre clips cortos.
+        // Fusionamos cualquier segmento demasiado corto con el siguiente.
+        const MIN_SEGMENT_SECONDS = 0.6;
+
+        function mergeTinySegments(segs) {
+            const result = [];
+            for (let i = 0; i < segs.length; i++) {
+                const seg = segs[i];
+                const duration = seg.end - seg.start;
+                const next = segs[i + 1];
+
+                if (duration < MIN_SEGMENT_SECONDS && next) {
+                    segs[i + 1] = {
+                        start: seg.start,
+                        end: next.end,
+                        text: `${seg.text} ${next.text}`.trim()
+                    };
+                    continue;
+                }
+                result.push(seg);
+            }
+            return result.map((s, i) => ({ ...s, id: i }));
+        }
+
+        function fmtTime(s) {
+            const m = Math.floor(s / 60), sec = (s % 60).toFixed(1);
+            return `${m}:${sec.padStart(4, '0')}`;
+        }
+
+        // Convierte los segmentos en "chunks" cortos de pocas palabras, para que
+        // el subtítulo vaya cambiando cada pocas fracciones de segundo, tipo
+        // TikTok/CapCut, en vez de mostrar la oración entera fija.
+        const WORDS_PER_CAPTION_CHUNK = 4;
+
+        function buildCaptionChunks(segs, wordsPerChunk = WORDS_PER_CAPTION_CHUNK) {
+            const chunks = [];
+            segs.forEach(seg => {
+                const words = seg.text.trim().split(/\s+/).filter(Boolean);
+                if (!words.length) return;
+
+                const groups = [];
+                for (let i = 0; i < words.length; i += wordsPerChunk) {
+                    groups.push(words.slice(i, i + wordsPerChunk).join(' '));
+                }
+
+                const totalChars = groups.reduce((a, g) => a + g.length, 0) || 1;
+                const windowDuration = Math.max(seg.end - seg.start, 0.2);
+                let cursor = seg.start;
+
+                groups.forEach(text => {
+                    const dur = windowDuration * (text.length / totalChars);
+                    chunks.push({ start: cursor, end: cursor + dur, text });
+                    cursor += dur;
+                });
+            });
+            return chunks;
+        }
+
+        let captionChunks = [];
+
+        // Posición del subtítulo como porcentaje (0-1) del frame.
+        let subtitlePos = { xPct: 0.5, yPct: 0.88 };
+
+        function updateSubtitlePositionDotUI() {
+            const dot = document.getElementById('subtitlePositionDot');
+            const label = document.getElementById('subtitlePositionPreviewText');
+            dot.style.left = `${subtitlePos.xPct * 100}%`;
+            dot.style.top = `${subtitlePos.yPct * 100}%`;
+            label.style.left = `${subtitlePos.xPct * 100}%`;
+            label.style.top = `${subtitlePos.yPct * 100}%`;
+        }
+
+        function setSubtitlePosFromEvent(e, stage) {
+            const rect = stage.getBoundingClientRect();
+            let xPct = (e.clientX - rect.left) / rect.width;
+            let yPct = (e.clientY - rect.top) / rect.height;
+            xPct = Math.min(1, Math.max(0, xPct));
+            yPct = Math.min(1, Math.max(0, yPct));
+            subtitlePos = { xPct, yPct };
+            updateSubtitlePositionDotUI();
+        }
+
+        (function setupSubtitlePositionDrag() {
+            const stage = document.getElementById('subtitlePositionStage');
+            let dragging = false;
+            stage.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                stage.setPointerCapture(e.pointerId);
+                setSubtitlePosFromEvent(e, stage);
+            });
+            stage.addEventListener('pointermove', (e) => { if (dragging) setSubtitlePosFromEvent(e, stage); });
+            stage.addEventListener('pointerup', () => { dragging = false; });
+            stage.addEventListener('pointercancel', () => { dragging = false; });
+        })();
+
+        document.querySelectorAll('.subtitle-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const presets = {
+                    top: { xPct: 0.5, yPct: 0.14 },
+                    center: { xPct: 0.5, yPct: 0.5 },
+                    bottom: { xPct: 0.5, yPct: 0.88 }
+                };
+                subtitlePos = presets[btn.dataset.preset];
+                updateSubtitlePositionDotUI();
+            });
+        });
+
+        updateSubtitlePositionDotUI();
+
+        function refreshCaptionChunks() {
+            captionChunks = buildCaptionChunks(segments);
+        }
+
+        function setupLivePreview() {
+            const video = document.getElementById('videoPreview');
+            const overlay = document.getElementById('subtitleOverlay');
+            const bgToggle = document.getElementById('subtitleBgToggle');
+            const subsToggle = document.getElementById('subtitlesEnabledToggle');
+            const miniLabel = document.getElementById('subtitlePositionPreviewText');
+
+            video.ontimeupdate = () => {
+                const t = video.currentTime;
+                const chunk = captionChunks.find(c => t >= c.start && t <= c.end);
+                const text = chunk ? chunk.text : '';
+
+                if (!subsToggle.checked) {
+                    overlay.style.opacity = '0';
+                } else {
+                    overlay.textContent = text;
+                    overlay.style.opacity = text ? '1' : '0';
+                    overlay.className = (bgToggle.checked ? 'has-bg' : '');
+                    overlay.style.left = `${subtitlePos.xPct * 100}%`;
+                    overlay.style.top = `${subtitlePos.yPct * 100}%`;
+                }
+
+                miniLabel.textContent = text;
+            };
+        }
+
+        document.getElementById('expandPreviewBtn').addEventListener('click', () => {
+            const wrap = document.getElementById('videoPreviewWrap');
+            if (wrap.requestFullscreen) wrap.requestFullscreen();
+            else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen();
+        });
+
+        document.getElementById('speedRange').addEventListener('input', e => {
+            document.getElementById('speedValue').textContent = `${Number(e.target.value).toFixed(2)}x`;
+        });
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const filenameEl = document.getElementById('filename');
+        const filetypeEl = document.getElementById('filetype');
+        const audioPreview = document.getElementById('audioPreview');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusEl = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const resultEl = document.getElementById('result');
+
+        let selectedFile = null;
+
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('drag');
+            if (e.dataTransfer.files.length) handleFileSelected(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) handleFileSelected(fileInput.files[0]);
+        });
+
+        function handleFileSelected(file) {
+            selectedFile = file;
+            filenameEl.textContent = file.name;
+            const isVideo = isVideoFile(file);
+            filetypeEl.textContent = isVideo
+                ? 'Video detectado — se extraerá la pista de audio antes de enviar'
+                : 'Audio detectado — se enviará directamente';
+            audioPreview.classList.remove('show');
+            audioPreview.src = '';
+
+            originalVideoFile = isVideo ? file : null;
+        }
+
+        function isVideoFile(file) {
+            if (file.type) return file.type.startsWith('video/');
+            return /\.(mp4|mov|mkv|avi|webm|m4v|wmv|3gp)$/i.test(file.name);
+        }
+
+        const TARGET_SAMPLE_RATE = 16000;
+        const MAX_UPLOAD_BYTES = 28 * 1024 * 1024;
+
+        async function extractAudioAsWav(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const decodeCtx = new AudioCtx();
+            let originalBuffer;
+            try {
+                originalBuffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
+            } finally {
+                decodeCtx.close();
+            }
+
+            const duration = originalBuffer.duration;
+            const offlineCtx = new OfflineAudioContext(
+                1,
+                Math.ceil(duration * TARGET_SAMPLE_RATE),
+                TARGET_SAMPLE_RATE
+            );
+            const source = offlineCtx.createBufferSource();
+            source.buffer = originalBuffer;
+            source.connect(offlineCtx.destination);
+            source.start(0);
+            const resampledBuffer = await offlineCtx.startRendering();
+
+            return audioBufferToWavBlob(resampledBuffer);
+        }
+
+        function audioBufferToWavBlob(audioBuffer) {
+            const numChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+            const bitDepth = 16;
+
+            let interleaved;
+            if (numChannels === 2) {
+                interleaved = interleaveStereo(audioBuffer.getChannelData(0), audioBuffer.getChannelData(1));
+            } else {
+                interleaved = audioBuffer.getChannelData(0);
+            }
+
+            const dataLength = interleaved.length * (bitDepth / 8);
+            const buffer = new ArrayBuffer(44 + dataLength);
+            const view = new DataView(buffer);
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataLength, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+            view.setUint16(32, numChannels * (bitDepth / 8), true);
+            view.setUint16(34, bitDepth, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataLength, true);
+
+            floatTo16BitPCM(view, 44, interleaved);
+
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        function interleaveStereo(left, right) {
+            const length = left.length + right.length;
+            const result = new Float32Array(length);
+            let index = 0, inputIndex = 0;
+            while (index < length) {
+                result[index++] = left[inputIndex];
+                result[index++] = right[inputIndex];
+                inputIndex++;
+            }
+            return result;
+        }
+
+        function floatTo16BitPCM(view, offset, input) {
+            for (let i = 0; i < input.length; i++, offset += 2) {
+                const s = Math.max(-1, Math.min(1, input[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+            }
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        submitBtn.addEventListener('click', async () => {
+            const serviceUrl = document.getElementById('serviceUrl').value.trim().replace(/\/$/, '');
+            const sourceLang = document.getElementById('sourceLang').value;
+            const targetLang = document.getElementById('targetLang').value;
+            const modelSize = document.getElementById('modelSize').value;
+
+            resultEl.classList.remove('show');
+
+            if (!serviceUrl) { alert('Ingresa la URL del servicio.'); return; }
+            if (!selectedFile) { alert('Selecciona un archivo de video o audio primero.'); return; }
+
+            submitBtn.disabled = true;
+            statusEl.classList.add('show');
+
+            let fileToSend = selectedFile;
+
+            try {
+                if (isVideoFile(selectedFile)) {
+                    statusText.textContent = 'Extrayendo audio del video en el navegador...';
+                    const wavBlob = await extractAudioAsWav(selectedFile);
+                    const baseName = selectedFile.name.replace(/\.[^/.]+$/, '');
+                    fileToSend = new File([wavBlob], `${baseName}.wav`, { type: 'audio/wav' });
+
+                    audioPreview.src = URL.createObjectURL(wavBlob);
+                    audioPreview.classList.add('show');
+                }
+
+                if (fileToSend.size > MAX_UPLOAD_BYTES) {
+                    const mb = (fileToSend.size / (1024 * 1024)).toFixed(1);
+                    throw new Error(
+                        `El audio a enviar pesa ${mb}MB, y Cloud Run rechaza peticiones de más de 32MB ` +
+                        `(este límite lo impone Google, no el servicio). Prueba con un video más corto, ` +
+                        `o recorta el clip antes de subirlo.`
+                    );
+                }
+
+                const formData = new FormData();
+                formData.append('file', fileToSend);
+                formData.append('source_language', sourceLang);
+                if (targetLang) formData.append('target_language', targetLang);
+                formData.append('model_size', modelSize);
+                formData.append('response_format', 'verbose_json');
+
+                statusText.textContent = 'Enviando y transcribiendo... esto puede tardar hasta un minuto (más en la primera carga del modelo).';
+
+                const response = await fetch(`${serviceUrl}/transcribe`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const contentType = response.headers.get('content-type') || '';
+                let data;
+                if (contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    await response.text();
+                    throw new Error(
+                        `El servidor respondió con estado ${response.status} y contenido no-JSON. ` +
+                        `Suele pasar cuando el archivo supera el límite de 32MB de Cloud Run, la URL del ` +
+                        `servicio está mal, o el servicio tardó demasiado. Revisa el tamaño del archivo y la URL.`
+                    );
+                }
+
+                if (!response.ok) throw new Error(data.detail || `Error HTTP ${response.status}`);
+
+                resultEl.innerHTML = `
+        <div class="result-box" id="resultText"></div>
+        <div class="meta" id="resultMeta"></div>
+      `;
+                document.getElementById('resultText').textContent = data.text || '(sin texto)';
+
+                const metaEl = document.getElementById('resultMeta');
+                const badges = [
+                    data.detected_language ? `Idioma detectado: ${data.detected_language}` : null,
+                    data.language_probability != null ? `Confianza: ${(data.language_probability * 100).toFixed(1)}%` : null,
+                    data.translated ? `Traducido a: ${data.target_language}` : 'Sin traducción',
+                    data.model_size ? `Modelo: ${data.model_size}` : null,
+                ].filter(Boolean);
+
+                badges.forEach(text => {
+                    const span = document.createElement('span');
+                    span.className = 'badge';
+                    span.textContent = text;
+                    metaEl.appendChild(span);
+                });
+
+                resultEl.classList.add('show');
+
+                if (Array.isArray(data.segments) && data.segments.length) {
+                    segments = data.segments.map((s, i) => ({ id: i, start: s.start, end: s.end, text: s.text.trim() }));
+                } else {
+                    segments = await buildFallbackSegments(data.text || '', originalVideoFile);
+                }
+                segments = dedupeSegments(sanitizeSegmentTimings(segments));
+                segments = resegmentForTTS(segments);
+                segments = mergeTinySegments(segments);
+                console.log(`Whisper devolvió ${segments.length} segmento(s) finales (después de sanear/deduplicar/resegmentar/fusionar):`, segments);
+
+                const segCountBadge = document.createElement('span');
+                segCountBadge.className = 'badge badge-2';
+                segCountBadge.textContent = `Segmentos: ${segments.length}`;
+                metaEl.appendChild(segCountBadge);
+
+                if (useGeminiToggle.checked && geminiApiKeyInput.value.trim()) {
+                    statusText.textContent = 'Corrigiendo transcripción con Gemini...';
+                    await runGeminiCorrection();
+                }
+
+                renderSegmentsEditor();
+
+            } catch (err) {
+                resultEl.innerHTML = `<div class="error-box">Error: ${err.message}</div>`;
+                resultEl.classList.add('show');
+            } finally {
+                submitBtn.disabled = false;
+                statusEl.classList.remove('show');
+            }
+        });
+
+        // --- Generación de voz por segmento (ElevenLabs vía Cloud Run) ---
+        let isGeneratingVoice = false;
+
+        document.getElementById('generateVoiceBtn').addEventListener('click', async () => {
+            if (isGeneratingVoice) return;
+            isGeneratingVoice = true;
+
+            const genBtn = document.getElementById('generateVoiceBtn');
+            genBtn.disabled = true;
+            const originalGenLabel = genBtn.textContent;
+
+            const voiceId = document.getElementById('voiceId').value || undefined;
+            const voiceStatus = document.getElementById('voiceStatus');
+            voiceStatus.classList.add('show');
+            synthesizedSegments = [];
+
+            console.log(`Generando voz para ${segments.length} segmentos (esto es lo que se le cobra a ElevenLabs — si este número está duplicado, el problema viene de Whisper, no de aquí):`, segments);
+
+            Promise.race([window.soundtouchReady, new Promise(r => setTimeout(r, 8000))])
+                .then(() => {
+                    if (!window.soundtouch?.SoundTouch) {
+                        console.warn('soundtouchjs no cargó a tiempo — el estiramiento de audio usará fallback (puede cambiar el tono).');
+                    }
+                });
+
+            try {
+                for (const [idx, seg] of segments.entries()) {
+                    if (!seg.text.trim()) continue;
+                    document.getElementById('voiceStatusText').textContent = `Generando voz ${seg.id + 1}/${segments.length}...`;
+                    const res = await fetch(GRANJA_TTS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(voiceId ? { texto: seg.text, voiceId } : { texto: seg.text })
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok || !data || data.status !== 'success' || !data.audioBase64) {
+                        throw new Error(data?.message || data?.detail || `Granja TTS error en segmento ${seg.id + 1} (HTTP ${res.status})`);
+                    }
+                    const byteChars = atob(data.audioBase64);
+                    const byteNumbers = new Array(byteChars.length);
+                    for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+                    const audioBlob = new Blob([new Uint8Array(byteNumbers)], { type: 'audio/mpeg' });
+
+                    const naturalDuration = await getAudioDuration(audioBlob);
+                    const windowDuration = Math.max(seg.end - seg.start, 0.3);
+                    let playbackRate = naturalDuration / windowDuration;
+
+                    // Limitamos cuánto se puede estirar/comprimir la voz. Fuera de este
+                    // rango (0.85–1.2) el estiramiento se nota artificial.
+                    const MIN_RATE = 0.85, MAX_RATE = 1.2;
+                    playbackRate = Math.min(MAX_RATE, Math.max(MIN_RATE, playbackRate));
+
+                    // GUARDIA ANTI-SOLAPE: nunca permitir que este audio invada el
+                    // inicio del siguiente segmento, aunque haya que comprimir más
+                    // de lo que el clamp de calidad preferiría.
+                    const nextSeg = segments[idx + 1];
+                    if (nextSeg) {
+                        const availableWindow = Math.max(nextSeg.start - seg.start, 0.3);
+                        const predictedDuration = naturalDuration / playbackRate;
+                        if (predictedDuration > availableWindow) {
+                            const safeRate = naturalDuration / availableWindow;
+                            const oldRate = playbackRate;
+                            playbackRate = Math.max(playbackRate, safeRate);
+                            console.warn(`Seg ${seg.id}: rate ${oldRate.toFixed(3)} habría invadido el siguiente segmento. Forzado a ${playbackRate.toFixed(3)} para evitar eco.`);
+                        }
+                    }
+
+                    console.log(`Seg ${seg.id}: natural=${naturalDuration.toFixed(2)}s, ventana=${windowDuration.toFixed(2)}s, playbackRate=${playbackRate.toFixed(3)}`);
+                    synthesizedSegments.push({
+                        id: seg.id, start: seg.start, end: seg.end,
+                        audioBlob, playbackRate
+                    });
+                }
+                document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('voiceStatusText').textContent = 'Voz generada y sincronizada ✔';
+            } catch (err) {
+                alert(err?.message || String(err));
+            } finally {
+                setTimeout(() => voiceStatus.classList.remove('show'), 1200);
+                genBtn.disabled = false;
+                genBtn.textContent = originalGenLabel;
+                isGeneratingVoice = false;
+            }
+        });
+
+        function getAudioDuration(blob) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio();
+                audio.addEventListener('loadedmetadata', () => {
+                    resolve(audio.duration);
+                    URL.revokeObjectURL(url);
+                });
+                audio.addEventListener('error', () => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error(`No se pudo leer el audio generado (tipo: ${blob.type || 'desconocido'}, ${blob.size} bytes). El endpoint de voz devolvió algo que el navegador no puede reproducir.`));
+                });
+                audio.src = url;
+            });
+        }
+
+        function timeStretchBuffer(audioCtx, audioBuffer, tempo) {
+            if (Math.abs(tempo - 1) < 0.01) return audioBuffer;
+
+            if (!window.soundtouch || !window.soundtouch.SoundTouch) {
+                console.warn('SoundTouchJS no está cargado, se usará playbackRate normal (cambia el tono).');
+                return null;
+            }
+
+            const { SoundTouch, SimpleFilter, WebAudioBufferSource } = window.soundtouch;
+            const st = new SoundTouch();
+            st.tempo = tempo;
+            st.pitch = 1;
+
+            const source = new WebAudioBufferSource(audioBuffer);
+            const filter = new SimpleFilter(source, st);
+
+            const BUFFER_SIZE = 4096;
+            const samples = new Float32Array(BUFFER_SIZE * 2);
+            const chunks = [];
+            let framesExtracted;
+            do {
+                framesExtracted = filter.extract(samples, BUFFER_SIZE);
+                if (framesExtracted > 0) chunks.push(samples.slice(0, framesExtracted * 2));
+            } while (framesExtracted > 0);
+
+            const totalFrames = chunks.reduce((sum, c) => sum + c.length / 2, 0);
+            const outBuffer = audioCtx.createBuffer(2, totalFrames || 1, audioBuffer.sampleRate);
+            const left = outBuffer.getChannelData(0);
+            const right = outBuffer.getChannelData(1);
+            let offset = 0;
+            chunks.forEach((chunk) => {
+                for (let i = 0; i < chunk.length / 2; i++) {
+                    left[offset + i] = chunk[i * 2];
+                    right[offset + i] = chunk[i * 2 + 1];
+                }
+                offset += chunk.length / 2;
+            });
+            return outBuffer;
+        }
+
+        // Antes se armaba la mezcla completa en tiempo original y se estiraba TODA
+        // junta al final. SoundTouch procesa en bloques con overlap-add, y al
+        // estirar una mezcla larga llena de silencios/discontinuidades entre
+        // segmentos, el desfase se va acumulando — eso es lo que hacía que a
+        // velocidades altas los subtítulos (exactos) se vieran "adelantados"
+        // respecto al audio (con drift acumulado).
+        //
+        // Ahora estiramos cada segmento de voz POR SEPARADO (son clips limpios,
+        // sin huecos internos, así que SoundTouch los procesa sin drift) aplicando
+        // el rate combinado (ajuste de ventana × ritmo global), y lo colocamos
+        // directamente en su posición ya escalada al tiempo real. Así no hace
+        // falta un segundo paso de estiramiento global.
+        async function buildMixedAudioBuffer(totalDuration, speed = 1) {
+            const sampleRate = 44100;
+            const scaledDuration = totalDuration / speed;
+            const offline = new OfflineAudioContext(2, Math.ceil(scaledDuration * sampleRate) + sampleRate, sampleRate);
+
+            for (const seg of synthesizedSegments) {
+                const arrBuf = await seg.audioBlob.arrayBuffer();
+                let decoded = await offline.decodeAudioData(arrBuf.slice(0));
+
+                // Rate combinado: el ajuste de ventana original (para que quepa en
+                // su segmento) MULTIPLICADO por el ritmo global elegido por el
+                // usuario. Ambos se aplican en una sola pasada sobre el clip limpio.
+                const combinedRate = seg.playbackRate * speed;
+                const stretched = timeStretchBuffer(offline, decoded, combinedRate);
+                const src = offline.createBufferSource();
+
+                if (stretched) {
+                    src.buffer = stretched;
+                    src.playbackRate.value = 1;
+                } else {
+                    src.buffer = decoded;
+                    src.playbackRate.value = combinedRate;
+                }
+
+                src.connect(offline.destination);
+                // Posición ya escalada al tiempo real: el mismo punto donde el
+                // video (a playbackRate = speed) va a estar mostrando ese frame.
+                src.start(seg.start / speed);
+            }
+
+            return offline.startRendering();
+        }
+        function wrapText(ctx, text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let line = '';
+            for (const w of words) {
+                const test = line ? line + ' ' + w : w;
+                if (ctx.measureText(test).width > maxWidth && line) {
+                    lines.push(line);
+                    line = w;
+                } else {
+                    line = test;
+                }
+            }
+            if (line) lines.push(line);
+            return lines;
+        }
+
+        const MAX_SUBTITLE_LINES = 2;
+
+        function drawSubtitleOnCanvas(ctx, canvas, t) {
+            const chunk = captionChunks.find(c => t >= c.start && t <= c.end);
+            if (!chunk || !chunk.text.trim()) return;
+
+            const fadeWindow = Math.min(0.08, (chunk.end - chunk.start) * 0.25);
+            let alpha = 1;
+            if (t < chunk.start + fadeWindow) alpha = (t - chunk.start) / fadeWindow;
+            if (t > chunk.end - fadeWindow) alpha = (chunk.end - t) / fadeWindow;
+            alpha = Math.max(0, Math.min(1, alpha));
+
+            const showBg = document.getElementById('subtitleBgToggle')?.checked;
+            const maxWidth = canvas.width * 0.86;
+
+            let fontSize = Math.round(canvas.height * 0.05);
+            const minFontSize = Math.round(canvas.height * 0.024);
+            let lines;
+            do {
+                ctx.font = `700 ${fontSize}px 'Space Grotesk', -apple-system, "Segoe UI", Roboto, sans-serif`;
+                lines = wrapText(ctx, chunk.text, maxWidth);
+                if (lines.length <= MAX_SUBTITLE_LINES) break;
+                fontSize -= 1;
+            } while (fontSize > minFontSize);
+
+            if (lines.length > MAX_SUBTITLE_LINES) {
+                lines = lines.slice(0, MAX_SUBTITLE_LINES);
+                lines[MAX_SUBTITLE_LINES - 1] = lines[MAX_SUBTITLE_LINES - 1].replace(/\s*\S*$/, '') + '…';
+            }
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const lineHeight = fontSize * 1.22;
+            const totalTextHeight = lineHeight * lines.length;
+            const centerX = canvas.width * subtitlePos.xPct;
+            const minY = totalTextHeight / 2 + fontSize * 0.3;
+            const maxY = canvas.height - totalTextHeight / 2 - fontSize * 0.3;
+            const centerY = Math.min(maxY, Math.max(minY, canvas.height * subtitlePos.yPct));
+
+            const widestLine = Math.max(...lines.map(l => ctx.measureText(l).width));
+
+            ctx.globalAlpha = alpha;
+
+            if (showBg) {
+                const padX = fontSize * 0.55;
+                const padY = fontSize * 0.4;
+                const boxW = widestLine + padX * 2;
+                const boxH = totalTextHeight + padY * 2 - (lineHeight - fontSize);
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(centerX - boxW / 2, centerY - boxH / 2, boxW, boxH, boxH * 0.18);
+                } else {
+                    ctx.rect(centerX - boxW / 2, centerY - boxH / 2, boxW, boxH);
+                }
+                ctx.fill();
+            }
+
+            lines.forEach((line, i) => {
+                const ly = centerY - totalTextHeight / 2 + lineHeight * i + lineHeight / 2;
+                if (!showBg) {
+                    ctx.lineWidth = fontSize * 0.16;
+                    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+                    ctx.strokeText(line, centerX, ly);
+                }
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(line, centerX, ly);
+            });
+
+            ctx.globalAlpha = 1;
+        }
+
+        let previewAudioCtx = null;
+        let previewAudioSource = null;
+
+        async function stopPreviewPlayback() {
+            const video = document.getElementById('videoPreview');
+            video.pause();
+            if (previewAudioSource) {
+                try { previewAudioSource.onended = null; previewAudioSource.stop(); } catch (e) { }
+                previewAudioSource = null;
+            }
+            if (previewAudioCtx) {
+                await previewAudioCtx.close().catch(() => { });
+                previewAudioCtx = null;
+            }
+            video.playbackRate = 1;
+            document.getElementById('stopPreviewBtn').style.display = 'none';
+            document.getElementById('previewFullBtn').style.display = '';
+        }
+
+        async function playFullPreview() {
+            const video = document.getElementById('videoPreview');
+            if (!video.src) { alert('Primero sube y transcribe un video.'); return; }
+
+            await stopPreviewPlayback();
+
+            const previewBtn = document.getElementById('previewFullBtn');
+            const stopBtn = document.getElementById('stopPreviewBtn');
+            const speed = Number(document.getElementById('speedRange').value) || 1;
+
+            video.currentTime = 0;
+            video.playbackRate = speed;
+
+            if (synthesizedSegments.length) {
+                previewBtn.disabled = true;
+                previewBtn.textContent = 'Preparando vista previa...';
+
+                await Promise.race([
+                    window.soundtouchReady,
+                    new Promise(resolve => setTimeout(resolve, 8000))
+                ]);
+
+                let mixedBuffer = await buildMixedAudioBuffer(video.duration, speed);
+                video.muted = true;
+                previewAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                previewAudioSource = previewAudioCtx.createBufferSource();
+                previewAudioSource.buffer = mixedBuffer;
+                previewAudioSource.connect(previewAudioCtx.destination);
+                previewAudioSource.onended = () => stopPreviewPlayback();
+                previewAudioSource.start();
+
+                previewBtn.disabled = false;
+                previewBtn.textContent = '▶ Vista previa completa (voz + subtítulos)';
+            } else {
+                video.muted = false;
+            }
+
+            previewBtn.style.display = 'none';
+            stopBtn.style.display = '';
+            await video.play();
+
+            video.onended = () => stopPreviewPlayback();
+        }
+
+        document.getElementById('previewFullBtn').addEventListener('click', playFullPreview);
+        document.getElementById('stopPreviewBtn').addEventListener('click', stopPreviewPlayback);
+
+        async function renderFinalVideo() {
+            await Promise.race([
+                window.soundtouchReady,
+                new Promise(resolve => setTimeout(resolve, 8000))
+            ]);
+
+            const video = document.getElementById('videoPreview');
+            const canvas = document.getElementById('renderCanvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+
+            const speed = Number(document.getElementById('speedRange').value) || 1;
+
+            let mixedBuffer = await buildMixedAudioBuffer(video.duration, speed);
+
+            const liveCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const dest = liveCtx.createMediaStreamDestination();
+            const audioSrc = liveCtx.createBufferSource();
+            audioSrc.buffer = mixedBuffer;
+            audioSrc.connect(dest);
+
+            const canvasStream = canvas.captureStream(30);
+            const finalStream = new MediaStream([
+                ...canvasStream.getVideoTracks(),
+                ...dest.stream.getAudioTracks()
+            ]);
+
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+                ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+            const recorder = new MediaRecorder(finalStream, { mimeType });
+            const chunks = [];
+            recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+            const stopped = new Promise(resolve => { recorder.onstop = resolve; });
+
+            video.currentTime = 0;
+            video.muted = true;
+            video.playbackRate = speed;
+
+            recorder.start();
+            audioSrc.start();
+            await video.play();
+
+            const subsEnabled = document.getElementById('subtitlesEnabledToggle').checked;
+            function drawFrame() {
+                if (video.paused || video.ended) return;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                if (subsEnabled) drawSubtitleOnCanvas(ctx, canvas, video.currentTime);
+                requestAnimationFrame(drawFrame);
+            }
+            drawFrame();
+
+            await new Promise(resolve => { video.onended = resolve; });
+            recorder.stop();
+            await stopped;
+            liveCtx.close();
+            video.playbackRate = 1;
+
+            return new Blob(chunks, { type: 'video/webm' });
+        }
+
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            await stopPreviewPlayback();
+
+            const btn = document.getElementById('downloadBtn');
+            btn.disabled = true;
+            const originalLabel = btn.textContent;
+            btn.textContent = 'Renderizando video final...';
+
+            try {
+                const finalBlob = await renderFinalVideo();
+                const url = URL.createObjectURL(finalBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'video-subtitulado.webm';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Error al generar el video final: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalLabel;
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1120,6 +1120,8 @@
                         <button id="btnAddOverlay" type="button" class="btn-ghost rounded-lg px-2.5 py-1 text-[11px]">+
                             Agregar</button>
                     </div>
+
+
                     <p class="text-[11px] text-[var(--text-lo)] leading-relaxed">Ej. "Sígueme", "Comenta qué te
                         pareció". Solo se ven en el video, únicamente durante la diapositiva 1 (se desvanecen al
                         pasar a la 2). No aparecen en las imágenes descargadas.</p>
@@ -1287,6 +1289,38 @@
                 <p id="usageElevenText" class="text-xs text-[var(--text-mid)]"></p>
             </div>
 
+
+
+            <div class="panel-soft rounded-xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-white/30">Imagen con IA</p>
+                    <span id="aiImageModelBadge" class="text-[10px] font-mono text-[var(--text-lo)]"></span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button data-image-api="gemini"
+                        class="image-api-toggle-btn btn-ghost rounded-xl py-2 text-[12px] flex items-center justify-center gap-1.5">
+                        <span>🍌</span> Nano Banana
+                    </button>
+                    <button data-image-api="openai"
+                        class="image-api-toggle-btn btn-ghost rounded-xl py-2 text-[12px] flex items-center justify-center gap-1.5">
+                        <span>🤖</span> GPT Image (mini)
+                    </button>
+                </div>
+                <textarea id="aiImagePromptInput" rows="3" placeholder="Detalles extra para la imagen (opcional)…"
+                    class="field w-full rounded-xl px-3.5 py-2.5 text-sm resize-none leading-relaxed"></textarea>
+                <button id="btnGenerateAIImage"
+                    class="btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                    <span id="btnGenerateAIImageLabel">Generar imagen con IA</span>
+                </button>
+                <div id="aiImageResultWrap" class="hidden space-y-2">
+                    <img id="aiImageResultImg" class="w-full rounded-xl border border-[var(--line)]" />
+                    <p id="aiImageCostText" class="text-[11px] text-[var(--text-lo)] text-center"></p>
+                    <a id="aiImageDownloadLink" download="imagen-ia.png"
+                        class="btn-ghost w-full rounded-xl py-2 text-xs flex items-center justify-center">Descargar
+                        imagen</a>
+                </div>
+            </div>
+
         </section>
     </main>
 
@@ -1320,9 +1354,13 @@
                 </div>
                 <div>
                     <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">OpenAI API Key <span
-                            class="font-mono text-[10px] text-[var(--text-lo)]">gpt-4o-mini</span></label>
+                            class="font-mono text-[10px] text-[var(--text-lo)]">gpt-4o-mini ·
+                            gpt-image-1-mini</span></label>
                     <input id="openaiKeyInput" type="password" placeholder="sk-..."
                         class="field w-full rounded-xl px-3.5 py-2.5 text-sm font-mono" />
+                    <p class="text-xs text-[var(--text-lo)] mt-1.5 leading-relaxed">Esta misma clave se usa tanto para
+                        generar el guion (gpt-4o-mini) como para generar imágenes con GPT Image, en el panel de
+                        "Imagen con IA".</p>
                 </div>
 
                 <div>
@@ -1370,14 +1408,26 @@
                     </svg>
                 </button>
             </div>
-            <div class="px-6 pt-5 flex gap-2">
+            <div class="px-6 pt-5 flex gap-2" style="display: none;">
                 <button id="galleryTabGenerations"
                     class="tab-btn btn-ghost active rounded-xl px-3.5 py-2 text-sm flex-1">🎬 Generaciones</button>
                 <button id="galleryTabScheduled" class="tab-btn btn-ghost rounded-xl px-3.5 py-2 text-sm flex-1">📅
                     Programadas</button>
             </div>
 
+            <div class="px-6 pt-3 flex items-center gap-1.5 flex-wrap">
+                <button data-gallery-filter="all"
+                    class="gallery-filter-btn btn-ghost active rounded-lg px-3 py-1.5 text-[11px]">Todas</button>
+                <button data-gallery-filter="published"
+                    class="gallery-filter-btn btn-ghost rounded-lg px-3 py-1.5 text-[11px]">✅ Publicadas</button>
+                <button data-gallery-filter="archived"
+                    class="gallery-filter-btn btn-ghost rounded-lg px-3 py-1.5 text-[11px]">📦 Archivadas</button>
+                <button data-gallery-filter="scheduled"
+                    class="gallery-filter-btn btn-ghost rounded-lg px-3 py-1.5 text-[11px]">📅 Programadas</button>
+            </div>
+
             <div id="galleryGenerationsPanel" class="p-6">
+
                 <p id="galleryLoading" class="hidden text-sm text-[var(--text-lo)] text-center py-8">Cargando…</p>
                 <p id="galleryEmpty" class="hidden text-sm text-[var(--text-lo)] text-center py-8">Aún no tienes
                     generaciones guardadas.</p>
@@ -1478,7 +1528,7 @@
             const GRANJA_TTS_URL = 'https://texttospeech-granja-eleven-oixttik5rq-uc.a.run.app';
             const CONVERT_TO_MP4_URL = 'https://us-central1-geinzworkapp.cloudfunctions.net/convertToMp4';
             const state = {
-                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false, watermarkText: '' }, logo: { dataUrl: null, colors: [] },
+                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', selectedImageApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false, watermarkText: '' }, logo: { dataUrl: null, colors: [] },
                 temarioMode: 'python_basico',
                 temarioItems: PRESETS.python_basico.items.slice(),
                 generationScope: 'all',        // 'all' | 'single'
@@ -1514,7 +1564,7 @@
                 }[c]));
             }
 
-            function trimCode(str, maxLines = 3, maxCharsPerLine = 30) {
+            function trimCode(str, maxLines = 4, maxCharsPerLine = 32) {
                 const lines = String(str ?? '').split('\n').slice(0, maxLines);
                 return lines.map((l) => trimText(l, maxCharsPerLine)).join('\n');
             }
@@ -1538,6 +1588,7 @@
                 $('watermarkTextInput').value = state.config.watermarkText || '';
                 updateApiToggleUI();
                 updateApiStatusPill();
+                updateImageApiToggleUI();
             }
 
             function saveConfigToStorage() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.config)); }
@@ -1585,6 +1636,26 @@
                     saveConfigToStorage();
                     updateApiToggleUI();
                     updateApiStatusPill();
+                });
+            });
+
+            /* ===================== IMAGE API TOGGLE (Nano Banana vs GPT Image) ===================== */
+            function updateImageApiToggleUI() {
+                document.querySelectorAll('.image-api-toggle-btn').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.imageApi === state.config.selectedImageApi);
+                });
+                const badge = $('aiImageModelBadge');
+                if (badge) {
+                    badge.textContent = state.config.selectedImageApi === 'openai'
+                        ? 'gpt-image-1-mini · low'
+                        : 'gemini-2.5-flash-image';
+                }
+            }
+            document.querySelectorAll('.image-api-toggle-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    state.config.selectedImageApi = btn.dataset.imageApi;
+                    saveConfigToStorage();
+                    updateImageApiToggleUI();
                 });
             });
 
@@ -1658,7 +1729,12 @@
                 const ratio = Math.min(size / img.width, size / img.height) * 0.62;
                 const w = img.width * ratio, h = img.height * ratio;
                 ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-                return canvas.toDataURL('image/png');
+                try {
+                    return canvas.toDataURL('image/png');
+                } catch (e) {
+                    console.warn('No se pudo generar el glow del logo (canvas contaminado)', e);
+                    return null;
+                }
             }
             function extractPalette(img) {
                 const canvas = $('hiddenCanvas');
@@ -1794,24 +1870,29 @@
             }
 
             function loadLogoFromUrl(url, fileName) {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    state.logo.dataUrl = url;
-                    $('logoPreview').src = url;
-                    $('logoPreview').classList.remove('hidden');
-                    $('logoPlaceholderIcon').classList.add('hidden');
-                    $('logoDropzone').classList.add('has-file');
-                    $('logoDropText').textContent = fileName;
-                    const colors = extractPalette(img);
-                    state.logo.colors = colors;
-                    state.logo.blurredDataUrl = generateBlurredLogo(img);
-                    renderPaletteSwatches(colors);
-                    updateStageGlow(colors);
-                    if (state.slides.length) renderSlide();
-                };
-                img.onerror = () => console.warn('No se pudo cargar el logo guardado del temario');
-                img.src = url;
+                fetch(url)
+                    .then((res) => res.blob())
+                    .then((blob) => {
+                        const objectUrl = URL.createObjectURL(blob);
+                        const img = new Image();
+                        img.onload = () => {
+                            state.logo.dataUrl = objectUrl;
+                            $('logoPreview').src = objectUrl;
+                            $('logoPreview').classList.remove('hidden');
+                            $('logoPlaceholderIcon').classList.add('hidden');
+                            $('logoDropzone').classList.add('has-file');
+                            $('logoDropText').textContent = fileName;
+                            const colors = extractPalette(img);
+                            state.logo.colors = colors;
+                            state.logo.blurredDataUrl = generateBlurredLogo(img);
+                            renderPaletteSwatches(colors);
+                            updateStageGlow(colors);
+                            if (state.slides.length) renderSlide();
+                        };
+                        img.onerror = () => console.warn('No se pudo cargar el logo guardado del temario (blob)');
+                        img.src = objectUrl;
+                    })
+                    .catch((e) => console.warn('No se pudo descargar el logo guardado del temario', e));
             }
 
             async function loadTopicLogoIfAny(mode) {
@@ -1921,22 +2002,30 @@
             function buildJsonRulesBlock(tech) {
                 return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
 {
-"caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa de resultado), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
-"intro_dialogo": "guion de EXACTAMENTE 3 frases cortas para narrar la portada. La primera frase es el gancho (nunca un saludo). La segunda dice qué se va a aprender. La tercera es una invitación NATURAL y casual a dar like/seguir la cuenta si les interesa este tipo de contenido (ej. 'Si te gusta este tipo de contenido, dale like y sígueme para más' o 'Dale like si te sirve y sígueme para más tips así'), dicha como de pasada, sin sonar a anuncio forzado. Máximo 42 palabras en total.","content_slides": [
-{ "titulo": "título corto del punto", "explicacion": "explicación breve en una frase (máx 80 caracteres)", "codigo": "snippet de código real relacionado con \"${tech}\", MÁXIMO 3 líneas, cada línea máximo 28 caracteres, usa \\n para saltos de línea", "dialogo": "guion de EXACTAMENTE 3 a 4 frases cortas, tono de instructor cercano: (1) qué es este concepto en términos simples, (2) para qué sirve o cuándo se usa, con un ejemplo concreto de la vida real de programación, (3) un tip práctico para recordarlo. Máximo 55 palabras en total, sin relleno." }
+"caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
+"intro_dialogo": "guion de EXACTAMENTE 3 frases cortas para la portada. (1) Gancho sin saludo, (2) Qué aprenderán, (3) Llamado casual a seguir/dar like. Máximo 42 palabras en total.",
+"content_slides": [
+{
+  "titulo": "título corto del punto",
+  "explicacion": "explicación breve en una frase (máx 80 caracteres)",
+  "codigo": "snippet de código FUENTE PURO en ${tech}, MÁXIMO 4 líneas y máximo 40 caracteres por línea. Debe ser código sintácticamente VÁLIDO. Usa \\n para saltos de línea.",
+  "dialogo": "guion de EXACTAMENTE 3 a 4 frases leídas en voz alta: (1) Qué es en términos simples, (2) Caso de uso real en producción, (3) Pro-tip técnico. Máximo 55 palabras."
+}
 ],
-"reto": { "titulo": "título corto del reto", "enunciado": "consigna breve del ejercicio (máx 100 caracteres)", "codigo": "código base del reto, MÁXIMO 3 líneas, cada línea máximo 28 caracteres", "dialogo": "guion de EXACTAMENTE 3 frases: (1) recuerda el concepto clave, (2) dice qué debe hacer la persona con el reto y la anima a intentarlo, (3) CIERRA invitando explícitamente a seguir la cuenta para más contenido como este y a comentar su resultado o dudas. Máximo 45 palabras en total." }
+"reto": {
+  "titulo": "título corto del reto",
+  "enunciado": "consigna breve (máx 100 caracteres)",
+  "codigo": "código base del reto en ${tech}, MÁXIMO 4 líneas y 40 caracteres por línea",
+  "dialogo": "guion de EXACTAMENTE 3 frases: (1) Recordatorio clave, (2) Instrucción del reto, (3) Cierre invitando a comentar su respuesta y seguir la cuenta. Máximo 45 palabras."
+}
 }
 
-Reglas estrictas:
-- GANCHO OBLIGATORIO en "intro_dialogo" y "caption": pregunta directa, error común, o promesa concreta. Prohibido abrir con saludos o "En este carrusel vamos a ver...".
-- La invitación a dar like/seguir en "intro_dialogo" debe sonar como la diría un creador de contenido real hablando a cámara, integrada al ritmo de las otras frases — nunca como una frase robótica pegada al final ni repetida palabra por palabra en cada generación. Varía la forma de decirlo (dale like, sígueme, no te lo pierdas, etc.) para que no suene siempre igual.- LÍMITES DE PALABRAS EN "dialogo": son estrictos porque el audio generado debe caber en el tiempo de lectura de la diapositiva sin sentirse atropellado ni alargarse de más. No los excedas.
-- Cada "codigo" debe ser código real y útil relacionado con "${tech}", MÁXIMO 3 líneas y 28 caracteres por línea. Si no cabe, simplifica nombres y quita comentarios.
-- PROHIBIDO ABSOLUTO: el campo "codigo" debe ser código FUENTE PURO y NADA MÁS. Nunca incluyas etiquetas HTML, atributos como class="...", spans, ni ningún resto de resaltado de sintaxis (nada de <span>, class=, tok-kw, etc.). Si dudas, escribe el código tal como se vería en un editor de texto plano, sin ningún marcado.
-- Los campos visibles ("titulo", "explicacion", "codigo", "enunciado") deben ser extremadamente concisos.
-- Los campos "dialogo" e "intro_dialogo" son guiones para ser LEÍDOS EN VOZ ALTA. Escribe SIEMPRE los números en palabras (ej. "tres" en vez de "3"), nunca dígitos ni símbolos raros ni abreviaturas, porque la voz IA los pronuncia mal.
-- No repitas el nombre "${tech}" dentro de cada título.
-- JSON compacto, sin espacios innecesarios, sin comentarios.`;
+REGLAS DE CÓDIGO Y CALIDAD TÉCNICA (ESTRICTAS):
+1. MÁXIMO 4 LÍNEAS DE CÓDIGO: El campo "codigo" NUNCA debe superar las 4 líneas. Si un concepto requiere más código, MUESTRA SOLO LA PARTE CRÍTICA del snippet, pero que sea sintácticamente válida.
+2. EL CÓDIGO DEBE COMPILAR: Prohibido inventar sintaxis (como 'String...'), usar '...' dentro del código o dejar palabras a la mitad. Si usas funciones suspend de Kotlin, muestra la firma de la función para que no rompa las reglas del lenguaje.
+3. CÓDIGO PURO: Sin HTML, sin etiquetas <span>, sin atributos class, sin markdown. Solo texto plano.
+4. GUIONES PARA VOZ: Escribe SIEMPRE los números con palabras (ej. "tres" en vez de "3") en "dialogo" e "intro_dialogo".
+- JSON compacto, sin comentarios.`;
             }
 
             function buildUserPrompt() {
@@ -1949,8 +2038,11 @@ Reglas estrictas:
 
 Interpreta la intención real del usuario y organiza el contenido en el mismo formato que usa esta app para temarios estructurados (una portada, varios puntos de contenido y un reto final). TÚ decides cuántos puntos de contenido son necesarios para explicar bien el tema: usa entre 3 y 7 elementos en "content_slides", ni más ni menos de lo que el tema realmente requiera. Cada punto debe cubrir un aspecto claro, distinto y en un orden lógico de aprendizaje.
 
+Como aquí NO hay un temario predefinido que guíe el nivel de detalle, es CRÍTICO que cada "codigo" sea 100% funcional y directamente ejecutable (sin pseudocódigo, sin "...", sin funciones a medio definir), y que sea el ejemplo MÁS claro y directo posible del concepto — el tipo de snippet que alguien podría copiar, pegar y correr para entender el punto de un solo vistazo, sin contexto adicional.
+
 ${buildJsonRulesBlock(tech)}
-- "content_slides" debe tener entre 3 y 7 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario.`;
+- "content_slides" debe tener entre 3 y 7 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario.
+- Modo libre: cada "codigo" debe ser un ejemplo real y funcional que ilustre el punto de forma autocontenida — evita fragmentos ambiguos o que dependan de contexto no mostrado.`;
                 }
 
                 const items = getScopedItems();
@@ -1982,6 +2074,183 @@ ${buildJsonRulesBlock(tech)}
                 return { text, usage };
             }
 
+
+            /* ===================== GENERACIÓN DE IMÁGENES CON GEMINI (Nano Banana) ===================== */
+            const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'; // "Nano Banana" — el más barato activo — Imagen 4 Fast fue descontinuado 17-ago-2026
+            const GEMINI_IMAGE_TOKEN_PRICE_PER_1M = 30;   // USD por 1M tokens de imagen de salida (tarifa especial, no la de texto)
+            const GEMINI_IMAGE_TOKENS_PER_IMAGE = 1290;   // tokens fijos que consume cada imagen 1024x1024 generada
+
+            /* ===================== GENERACIÓN DE IMÁGENES CON GPT IMAGE (OpenAI) ===================== */
+            const OPENAI_IMAGE_MODEL = 'gpt-image-1-mini'; // el modelo de imágenes más barato de OpenAI activo
+            const OPENAI_IMAGE_QUALITY = 'low';            // low/medium/high — 'low' es la opción más económica
+            // Costo aproximado por imagen 1024x1536 (retrato) en calidad "low" con gpt-image-1-mini.
+            // OpenAI cobra por tokens de imagen de salida; usamos una estimación fija de referencia
+            // ya que la respuesta de /images/edits y /images/generations no siempre trae el desglose
+            // de tokens exacto. Si la respuesta sí trae "usage", se recalcula con el dato real.
+            const OPENAI_IMAGE_APROX_COST_USD = 0.02;
+
+            function buildAIImagePrompt(userExtra) {
+                const tech = $('techNameInput').value.trim() || 'Tecnología';
+                const watermark = $('watermarkTextInput').value.trim();
+                return [
+                    `Genera una imagen vertical 9:16, estilo tecnológico oscuro y moderno, para una publicación educativa sobre "${tech}".`,
+                    `Usa el logo que te adjunto e intégralo de forma elegante en la esquina superior izquierda, sin distorsionarlo ni pixelarlo.`,
+                    watermark ? `Incluye también el texto "${watermark}" como marca de agua discreta en una esquina.` : '',
+                    userExtra ? `Detalles adicionales: ${userExtra}` : ''
+                ].filter(Boolean).join(' ');
+            }
+
+            function getLogoAsPngDataUrl(maxSize = 512) {
+                return new Promise((resolve, reject) => {
+                    if (!state.logo.dataUrl) return resolve(null);
+                    const img = new Image();
+                    img.onload = () => {
+                        const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+                        const w = Math.max(1, Math.round(img.width * ratio));
+                        const h = Math.max(1, Math.round(img.height * ratio));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/png')); // 👈 siempre PNG, sin importar el formato original
+                    };
+                    img.onerror = () => reject(new Error('No se pudo leer el logo para convertirlo a PNG.'));
+                    img.src = state.logo.dataUrl;
+                });
+            }
+            async function callGeminiImageGeneration(promptText, logoDataUrl) {
+                const apiKey = state.config.geminiKey;
+                if (!apiKey) throw new Error('Falta tu API Key de Gemini. Ábrela en Configuración.');
+
+                const parts = [{ text: promptText }];
+                if (logoDataUrl) {
+                    const [header, base64] = logoDataUrl.split(',');
+                    const mime = header.match(/:(.*?);/)?.[1] || 'image/png';
+                    parts.push({ inline_data: { mime_type: mime, data: base64 } });
+                }
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                const body = {
+                    contents: [{ role: 'user', parts }],
+                    generationConfig: {
+                        responseModalities: ['TEXT', 'IMAGE'], // este modelo exige ambos, no solo IMAGE
+                        imageConfig: { aspectRatio: '9:16' }
+                    }
+                };
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    throw new Error(`Gemini Image API error (${res.status}): ${errText.slice(0, 200)}`);
+                }
+                const data = await res.json();
+                const parts2 = data?.candidates?.[0]?.content?.parts || [];
+                const imagePart = parts2.find((p) => p.inlineData || p.inline_data);
+                const inline = imagePart?.inlineData || imagePart?.inline_data;
+                if (!inline?.data) throw new Error('Gemini no devolvió ninguna imagen. Revisa el prompt, tu cuota, o si el logo es muy pesado.');
+
+                const usage = data?.usageMetadata || null;
+                const imageTokens = usage?.candidatesTokenCount || GEMINI_IMAGE_TOKENS_PER_IMAGE;
+                const costUsd = (imageTokens / 1_000_000) * GEMINI_IMAGE_TOKEN_PRICE_PER_1M;
+
+                return {
+                    dataUrl: `data:${inline.mimeType || inline.mime_type || 'image/png'};base64,${inline.data}`,
+                    costUsd,
+                    imageTokens,
+                    modelLabel: 'Nano Banana (gemini-2.5-flash-image)'
+                };
+            }
+
+            // Convierte un dataURL (base64) a un objeto File, para poder mandarlo
+            // como parte de un FormData multipart/form-data al endpoint de OpenAI.
+            function dataUrlToFile(dataUrl, filename) {
+                const blob = dataUrlToBlob(dataUrl);
+                return new File([blob], filename, { type: blob.type });
+            }
+
+            async function callOpenAIImageGeneration(promptText, logoDataUrl) {
+                const apiKey = state.config.openaiKey;
+                if (!apiKey) throw new Error('Falta tu API Key de OpenAI. Ábrela en Configuración.');
+
+                const formData = new FormData();
+                formData.append('model', OPENAI_IMAGE_MODEL);
+                formData.append('prompt', promptText);
+                formData.append('size', '1024x1536'); // el más cercano a 9:16 que soporta GPT Image
+                formData.append('quality', OPENAI_IMAGE_QUALITY);
+                formData.append('n', '1');
+
+                // Si hay logo, usamos el endpoint de edición (/images/edits) para que
+                // el modelo lo tome como referencia/base, igual que hacemos con Gemini.
+                // Si no hay logo, usamos /images/generations (texto puro).
+                const usingEdit = !!logoDataUrl;
+                const url = usingEdit
+                    ? 'https://api.openai.com/v1/images/edits'
+                    : 'https://api.openai.com/v1/images/generations';
+
+                if (usingEdit) {
+                    formData.append('image', dataUrlToFile(logoDataUrl, 'logo.png'));
+                }
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${apiKey}` }, // NO poner Content-Type: fetch lo arma solo con boundary
+                    body: formData
+                });
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    throw new Error(`OpenAI Image API error (${res.status}): ${errText.slice(0, 300)}`);
+                }
+                const data = await res.json();
+                const first = data?.data?.[0];
+                if (!first?.b64_json) throw new Error('OpenAI no devolvió ninguna imagen. Revisa el prompt, tu cuota, o el tamaño del logo.');
+
+                // Si la API devuelve desglose real de uso, lo usamos; si no, caemos al estimado fijo.
+                let costUsd = OPENAI_IMAGE_APROX_COST_USD;
+                if (data?.usage?.total_tokens) {
+                    // gpt-image-1-mini cobra salida de imagen a una tarifa especial; sin el
+                    // desglose exacto por tipo de token en la respuesta, mantenemos el
+                    // estimado fijo como referencia más confiable para calidad "low".
+                    costUsd = OPENAI_IMAGE_APROX_COST_USD;
+                }
+
+                return {
+                    dataUrl: `data:image/png;base64,${first.b64_json}`,
+                    costUsd,
+                    imageTokens: null,
+                    modelLabel: `GPT Image (${OPENAI_IMAGE_MODEL} · ${OPENAI_IMAGE_QUALITY})`
+                };
+            }
+
+            $('btnGenerateAIImage').addEventListener('click', async () => {
+                const btn = $('btnGenerateAIImage');
+                const label = $('btnGenerateAIImageLabel');
+                const original = label.textContent;
+                btn.disabled = true;
+                label.innerHTML = '<div class="spinner"></div> Generando…';
+                try {
+                    const extra = $('aiImagePromptInput').value.trim();
+                    const promptText = buildAIImagePrompt(extra);
+                    const logoPng = await getLogoAsPngDataUrl(); // 👈 convierte SVG/lo que sea a PNG
+
+                    const useOpenAI = state.config.selectedImageApi === 'openai';
+                    const result = useOpenAI
+                        ? await callOpenAIImageGeneration(promptText, logoPng)
+                        : await callGeminiImageGeneration(promptText, logoPng);
+
+                    $('aiImageResultImg').src = result.dataUrl;
+                    $('aiImageDownloadLink').href = result.dataUrl;
+                    const tokensPart = result.imageTokens ? ` (${result.imageTokens} tokens de imagen)` : '';
+                    $('aiImageCostText').textContent = `${result.modelLabel} · Costo estimado: $${result.costUsd.toFixed(4)} USD${tokensPart}`;
+                    $('aiImageResultWrap').classList.remove('hidden');
+                    toast('Imagen generada con IA', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast(e.message || 'No se pudo generar la imagen', 'error');
+                } finally {
+                    btn.disabled = false;
+                    label.textContent = original;
+                }
+            });
             async function callOpenAI(apiKey, systemPrompt, userPrompt) {
                 const url = 'https://api.openai.com/v1/chat/completions';
                 const body = {
@@ -2680,17 +2949,39 @@ ${buildJsonRulesBlock(tech)}
                 const currentSlideData = state.slides[state.currentSlide];
                 if (currentSlideData && currentSlideData.codigo) renderCodeInstant(currentSlideData.codigo);
                 setChecklistVisible(false);
-                setVideoOverlaysVisible(false); // 👈 nuevo — nunca en las imágenes descargadas
+                setVideoOverlaysVisible(false);
                 node.classList.add('capturing');
                 await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
                 try {
                     const targetWidth = 1080;
+                    const targetHeight = Math.round(targetWidth * 16 / 9); // 1920 — fijo, jamás medido
                     const scale = targetWidth / node.offsetWidth;
-                    return await html2canvas(node, { backgroundColor: '#0A0C10', scale, useCORS: true });
+
+                    const raw = await html2canvas(node, {
+                        backgroundColor: '#0A0C10',
+                        scale,
+                        useCORS: true,
+                        width: node.offsetWidth,
+                        height: Math.round(node.offsetWidth * 16 / 9),
+                        windowWidth: node.offsetWidth,
+                        windowHeight: Math.round(node.offsetWidth * 16 / 9),
+                    });
+
+                    if (raw.width !== targetWidth || raw.height !== targetHeight) {
+                        const fixed = document.createElement('canvas');
+                        fixed.width = targetWidth;
+                        fixed.height = targetHeight;
+                        const fctx = fixed.getContext('2d');
+                        fctx.fillStyle = '#0A0C10';
+                        fctx.fillRect(0, 0, targetWidth, targetHeight);
+                        fctx.drawImage(raw, 0, 0, raw.width, raw.height, 0, 0, targetWidth, targetHeight);
+                        return fixed;
+                    }
+                    return raw;
                 } finally {
                     node.classList.remove('capturing');
                     setChecklistVisible(true);
-                    setVideoOverlaysVisible(true); // 👈 nuevo
+                    setVideoOverlaysVisible(true);
                 }
             }
             function computeSlidesSignature() {
@@ -2905,9 +3196,22 @@ ${buildJsonRulesBlock(tech)}
             }
             $('galleryModal').addEventListener('click', (e) => { if (e.target.id === 'galleryModal') $('galleryModal').classList.add('hidden'); });
 
+            let galleryFilter = 'all';
+            let scheduledGenerationIds = new Set(); // ids de generaciones con una programación pendiente/notificada
+
+            document.querySelectorAll('.gallery-filter-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    galleryFilter = btn.dataset.galleryFilter;
+                    document.querySelectorAll('.gallery-filter-btn').forEach((b) => b.classList.toggle('active', b === btn));
+                    renderGalleryList(galleryCache);
+                });
+            });
+
             async function openGalleryModal() {
                 $('galleryModal').classList.remove('hidden');
                 switchGalleryTab('generations');
+                galleryFilter = 'all';
+                document.querySelectorAll('.gallery-filter-btn').forEach((b) => b.classList.toggle('active', b.dataset.galleryFilter === 'all'));
                 $('galleryLoading').classList.remove('hidden');
                 $('galleryLoading').textContent = 'Cargando…';
                 $('galleryEmpty').classList.add('hidden');
@@ -2918,10 +3222,15 @@ ${buildJsonRulesBlock(tech)}
                     return;
                 }
                 try {
-                    const items = await window.CarouselCloud.listGenerations();
+                    const [items, scheduled] = await Promise.all([
+                        window.CarouselCloud.listGenerations(),
+                        window.CarouselCloud.listScheduledPublications().catch(() => [])
+                    ]);
                     galleryCache = items;
+                    scheduledGenerationIds = new Set(
+                        scheduled.filter((s) => s.status === 'pending' || s.status === 'notified').map((s) => s.generationId)
+                    );
                     $('galleryLoading').classList.add('hidden');
-                    if (!items.length) { $('galleryEmpty').classList.remove('hidden'); return; }
                     renderGalleryList(items);
                 } catch (e) {
                     console.error(e);
@@ -2930,16 +3239,46 @@ ${buildJsonRulesBlock(tech)}
             }
 
             function renderGalleryList(items) {
-                $('galleryList').innerHTML = items.map((it) => {
+                const withFlags = items.map((it) => ({ ...it, _isScheduled: scheduledGenerationIds.has(it.id) }));
+
+                const visibleItems = withFlags.filter((it) => {
+                    if (galleryFilter === 'published') return !!it.published;
+                    if (galleryFilter === 'archived') return !!it.archived;
+                    if (galleryFilter === 'scheduled') return !!it._isScheduled;
+                    return !it.archived; // "Todas" oculta archivadas para no saturar; usa el chip Archivadas para verlas
+                });
+
+                $('galleryEmpty').classList.toggle('hidden', visibleItems.length > 0);
+                const emptyMsgs = {
+                    all: 'Aún no tienes generaciones guardadas.',
+                    published: 'No tienes generaciones marcadas como publicadas.',
+                    archived: 'No tienes generaciones archivadas.',
+                    scheduled: 'No tienes generaciones con una publicación programada.'
+                };
+                if (!visibleItems.length) {
+                    $('galleryEmpty').textContent = emptyMsgs[galleryFilter] || emptyMsgs.all;
+                    $('galleryList').innerHTML = '';
+                    return;
+                }
+
+                $('galleryList').innerHTML = visibleItems.map((it) => {
                     const thumb = it.slides && it.slides[0] && it.slides[0].imageUrl ? it.slides[0].imageUrl : '';
                     const date = it.createdAt ? new Date(it.createdAt).toLocaleString() : '';
                     const statusLabel = it.status === 'ready' ? 'Imágenes listas' : (it.status === 'error' ? 'Error al guardar' : 'Procesando…');
                     const videoLabel = it.videoUrl ? ' · Video listo' : '';
+                    const isPublished = !!it.published;
+                    const isArchived = !!it.archived;
+                    const isScheduled = !!it._isScheduled;
                     return `
-    <div class="panel-soft rounded-2xl p-3.5 flex gap-3.5">
+    <div class="panel-soft rounded-2xl p-3.5 flex gap-3.5 ${isPublished || isArchived ? 'opacity-60' : ''}">
       ${thumb ? `<img src="${thumb}" class="w-16 h-28 object-cover rounded-lg border border-[var(--line)] shrink-0" />` : `<div class="w-16 h-28 rounded-lg border border-[var(--line)] bg-[#0D1015] shrink-0"></div>`}
       <div class="flex-1 min-w-0">
-        <p class="font-display font-semibold text-sm truncate">${escapeHtml(it.tech || 'Sin nombre')}</p>
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="font-display font-semibold text-sm truncate">${escapeHtml(it.tech || 'Sin nombre')}</p>
+          ${isPublished ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-400/30 text-emerald-300 bg-emerald-400/10 shrink-0">PUBLICADO</span>' : ''}
+          ${isArchived ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/15 text-white/50 bg-white/5 shrink-0">📦 ARCHIVADO</span>' : ''}
+          ${isScheduled ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full border border-cyan-400/30 text-cyan-300 bg-cyan-400/10 shrink-0">📅 PROGRAMADO</span>' : ''}
+        </div>
         <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${it.slidesCount || (it.slides ? it.slides.length : 0)} diapositivas · ${statusLabel}${videoLabel}</p>
        <div class="flex flex-wrap gap-1.5 mt-2">
 <button class="gallery-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">✏️ Renombrar</button>
@@ -2947,7 +3286,9 @@ ${buildJsonRulesBlock(tech)}
 <button class="gallery-download-zip-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">Descargar imágenes</button>
          ${it.videoUrl ? `<button class="gallery-preview-video-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-video-url="${it.videoUrl}">▶ Ver video</button>
 <a href="${it.videoUrl}" target="_blank" rel="noopener" class="btn-ghost rounded-lg px-2.5 py-1.5 text-[11px] inline-block">Descargar video</a>
-<button class="gallery-schedule-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">📅 Programar</button>` : ''}        
+<button class="gallery-schedule-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">📅 Programar</button>` : ''}
+<button class="gallery-toggle-published-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}" style="${isPublished ? 'color:#34D399' : ''}">${isPublished ? '↩️ Desmarcar' : '✅ Marcar publicada'}</button>
+<button class="gallery-toggle-archived-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${it.id}">${isArchived ? '📤 Desarchivar' : '📦 Archivar'}</button>
 <button class="gallery-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${it.id}">Eliminar</button>
         </div>
       </div>
@@ -2961,8 +3302,60 @@ ${buildJsonRulesBlock(tech)}
                 $('galleryList').querySelectorAll('.gallery-preview-video-btn').forEach((btn) => btn.addEventListener('click', () => openVideoPreview(btn.dataset.videoUrl)));
                 $('galleryList').querySelectorAll('.gallery-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameGenerationInGallery(btn.dataset.id)));
                 $('galleryList').querySelectorAll('.gallery-schedule-btn').forEach((btn) => btn.addEventListener('click', () => openScheduleModalForGeneration(btn.dataset.id)));
+                $('galleryList').querySelectorAll('.gallery-toggle-published-btn').forEach((btn) => btn.addEventListener('click', () => togglePublishedStatus(btn.dataset.id)));
+                $('galleryList').querySelectorAll('.gallery-toggle-archived-btn').forEach((btn) => btn.addEventListener('click', () => toggleArchivedStatus(btn.dataset.id)));
+            }
+            async function togglePublishedStatus(id) {
+                const item = galleryCache.find((g) => g.id === id);
+                if (!item) return;
+                if (!window.CarouselCloud) { toast('Firebase no está disponible', 'error'); return; }
+
+                const newValue = !item.published;
+                try {
+                    await window.CarouselCloud.saveGeneration({ id, published: newValue });
+                    item.published = newValue;
+                    renderGalleryList(galleryCache);
+                    toast(newValue ? 'Marcada como publicada' : 'Desmarcada', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo actualizar el estado', 'error');
+                }
             }
 
+            async function toggleArchivedStatus(id) {
+                const item = galleryCache.find((g) => g.id === id);
+                if (!item) return;
+                if (!window.CarouselCloud) { toast('Firebase no está disponible', 'error'); return; }
+
+                const newValue = !item.archived;
+                try {
+                    await window.CarouselCloud.saveGeneration({ id, archived: newValue, archivedAt: newValue ? new Date().toISOString() : null });
+                    item.archived = newValue;
+                    renderGalleryList(galleryCache);
+                    toast(newValue ? 'Generación archivada' : 'Generación desarchivada', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo actualizar el archivo', 'error');
+                }
+            }
+
+
+            async function togglePublishedStatus(id) {
+                const item = galleryCache.find((g) => g.id === id);
+                if (!item) return;
+                if (!window.CarouselCloud) { toast('Firebase no está disponible', 'error'); return; }
+
+                const newValue = !item.published;
+                try {
+                    await window.CarouselCloud.saveGeneration({ id, published: newValue });
+                    item.published = newValue;
+                    renderGalleryList(galleryCache);
+                    toast(newValue ? 'Marcada como publicada' : 'Desmarcada', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast('No se pudo actualizar el estado', 'error');
+                }
+            }
             function openVideoPreview(url) {
                 $('videoPreviewPlayer').src = url;
                 $('videoPreviewModal').classList.remove('hidden');
@@ -3100,31 +3493,49 @@ ${buildJsonRulesBlock(tech)}
             }
 
             function renderScheduledList(items) {
-                const statusLabel = { pending: '🕓 Pendiente', notified: '🔔 Notificado', sent: '✅ Publicado', cancelled: '❌ Cancelado', error: '⚠️ Error' };
-                $('scheduledList').innerHTML = items.map((s) => {
+                const statusLabel = { pending: '🕓 Pendiente', notified: '🔔 Notificado', sent: '✅ Ya publicada', cancelled: '❌ Cancelado', error: '⚠️ Error' };
+
+                function renderCard(s) {
+                    const isSent = s.status === 'sent';
                     const date = s.scheduledAt ? new Date(s.scheduledAt).toLocaleString('es-PE', { dateStyle: 'full', timeStyle: 'short' }) : '—';
+
+                    // Solo tiene sentido reprogramar/cancelar si aún no se ha publicado
+                    const canReprogram = !isSent && (s.status === 'pending' || s.status === 'notified');
+                    const canCancel = !isSent && s.status !== 'cancelled';
+
                     return `
-<div class="panel-soft rounded-2xl p-3.5">
-  <p class="font-display font-semibold text-sm truncate">${escapeHtml(s.tech || 'Sin nombre')}</p>
+<div class="panel-soft rounded-2xl p-3.5 ${isSent ? 'opacity-55' : ''}">
+  <div class="flex items-center gap-2">
+    <p class="font-display font-semibold text-sm truncate">${escapeHtml(s.tech || 'Sin nombre')}</p>
+    ${isSent ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-400/30 text-emerald-300 bg-emerald-400/10 shrink-0">PUBLICADA</span>' : ''}
+  </div>
   <p class="text-xs text-[var(--text-lo)] mt-0.5">${escapeHtml(date)} · ${statusLabel[s.status] || s.status}</p>
   ${s.caption ? `<p class="text-xs text-[var(--text-mid)] mt-1.5">${escapeHtml(s.caption)}</p>` : ''}
   <div class="flex flex-wrap gap-1.5 mt-2.5">
-<button class="sched-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Renombrar</button>
-${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">📅 Reprogramar</button>` : ''}
-  <div class="flex flex-wrap gap-1.5 mt-2.5">
-    ${(s.status === 'pending' || s.status === 'notified') ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Reprogramar</button>` : ''}
-    ${(s.status !== 'cancelled' && s.status !== 'sent') ? `<button class="sched-cancel-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">Cancelar</button>` : ''}
+    <button class="sched-rename-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">✏️ Renombrar</button>
+    ${canReprogram ? `<button class="sched-reprogram-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" data-id="${s.id}">📅 Reprogramar</button>` : ''}
+    ${canCancel ? `<button class="sched-cancel-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">Cancelar</button>` : ''}
     <button class="sched-delete-btn btn-ghost rounded-lg px-2.5 py-1.5 text-[11px]" style="color:#f87171" data-id="${s.id}">🗑️ Eliminar</button>
   </div>
 </div>`;
-                }).join('');
+                }
+
+                const pendingItems = items.filter((s) => s.status !== 'sent');
+                const sentItems = items.filter((s) => s.status === 'sent');
+
+                let html = pendingItems.map(renderCard).join('');
+                if (sentItems.length) {
+                    html += `<p class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-lo)] pt-3 pb-1">Ya publicadas</p>`;
+                    html += sentItems.map(renderCard).join('');
+                }
+
+                $('scheduledList').innerHTML = html || '';
 
                 $('scheduledList').querySelectorAll('.sched-reprogram-btn').forEach((btn) => btn.addEventListener('click', () => openReprogramModal(btn.dataset.id)));
                 $('scheduledList').querySelectorAll('.sched-cancel-btn').forEach((btn) => btn.addEventListener('click', () => cancelScheduledPublication(btn.dataset.id)));
                 $('scheduledList').querySelectorAll('.sched-delete-btn').forEach((btn) => btn.addEventListener('click', () => deleteScheduledPublicationFromGallery(btn.dataset.id)));
                 $('scheduledList').querySelectorAll('.sched-rename-btn').forEach((btn) => btn.addEventListener('click', () => renameScheduledPublication(btn.dataset.id)));
             }
-
             async function renameScheduledPublication(id) {
                 const sched = scheduledCache.find((s) => s.id === id);
                 if (!sched) return;
