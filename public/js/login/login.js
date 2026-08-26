@@ -200,6 +200,8 @@ async function inicializarSelectoresUbicacion(prefix) {
     distritoSeleccionado = "";
     selProv.disabled = true;
     selDist.disabled = true;
+    setCoolSelectLoading(selProv, true);           // 👈 nuevo
+
     selDist.innerHTML = `<option value="" disabled selected hidden>Elige provincia</option>`;
     selProv.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
     try {
@@ -213,6 +215,9 @@ async function inicializarSelectoresUbicacion(prefix) {
     } catch (err) {
       console.error("Error cargando provincias:", err);
       selProv.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    }
+    finally {
+      setCoolSelectLoading(selProv, false);         // 👈 nuevo
     }
   };
 
@@ -330,6 +335,20 @@ function showSnackbar(msg, tipo = "default") {
   }
 }
 
+function setCoolSelectLoading(select, loading) {
+  const wrap = select?.nextElementSibling; // el .cool-select generado
+  if (!wrap || !wrap.classList.contains("cool-select")) return;
+  wrap.classList.toggle("is-loading", loading);
+
+  let bar = wrap.querySelector(".cool-select-loadbar");
+  if (loading && !bar) {
+    bar = document.createElement("div");
+    bar.className = "cool-select-loadbar";
+    wrap.appendChild(bar);
+  } else if (!loading && bar) {
+    bar.remove();
+  }
+}
 /* =========================================================
    COOL SELECT (con buscador) — envuelve <select> nativo
 ========================================================= */
@@ -387,19 +406,20 @@ function upgradeCoolSelect(select) {
       : items;
     optionsWrap.innerHTML = filtered.length
       ? filtered
-          .map(
-            (i) => `
+        .map(
+          (i) => `
         <div class="cool-select-option ${select.value === i.value ? "is-selected" : ""}" data-value="${i.value}">
           <span>${i.label}</span>
           <svg class="cool-select-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
         </div>`,
-          )
-          .join("")
+        )
+        .join("")
       : `<div class="cool-select-empty">Sin resultados</div>`;
   }
 
   trigger.addEventListener("click", (e) => {
     e.stopPropagation();
+    if (wrap.classList.contains("is-loading")) return;
     if (select.disabled) return;
     document.querySelectorAll(".cool-select.open").forEach((el) => {
       if (el !== wrap) el.classList.remove("open");

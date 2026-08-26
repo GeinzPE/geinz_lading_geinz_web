@@ -683,6 +683,81 @@
             background-size: 160% 160%;
             animation: bgDrift 14s ease-in-out infinite;
         }
+
+        /* ===== Tarjeta de frase de idioma ===== */
+        .phrase-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(160deg, rgba(34, 211, 238, .08) 0%, rgba(139, 92, 246, .1) 100%), #0B0D12;
+            border: 1px solid rgba(167, 139, 250, .28);
+            border-radius: 18px;
+            box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .02) inset;
+            opacity: 0;
+            transform: translateY(6px) scale(.985);
+            animation: phraseIn .5s cubic-bezier(.2, .8, .2, 1) .08s forwards;
+        }
+
+        .phrase-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 14% 18%, rgba(34, 211, 238, .16), transparent 55%);
+            pointer-events: none;
+        }
+
+        @keyframes phraseIn {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .phrase-card-top {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .phrase-mark {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--violet);
+            opacity: .9;
+        }
+
+        .phrase-lang-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: .06em;
+            color: var(--cyan);
+            background: rgba(34, 211, 238, .1);
+            border: 1px solid rgba(34, 211, 238, .28);
+            padding: 3px 8px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .phrase-text {
+            position: relative;
+            z-index: 1;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            color: var(--text-hi);
+            margin: 0;
+        }
+
+        #slideCanvas.capturing .phrase-card {
+            opacity: 1 !important;
+            transform: none !important;
+            animation: none !important;
+            box-shadow: none !important;
+        }
     </style>
 
     <!-- ============ FIREBASE (guardado en la nube) ============ -->
@@ -909,7 +984,8 @@
                 <input type="file" id="logoInput" accept="image/*" class="hidden" />
 
                 <div class="mt-3.5">
-                    <label class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Nombre de la
+                    <label id="techNameLabel" class="text-xs font-medium text-[var(--text-mid)] mb-1.5 block">Nombre de
+                        la
                         tecnología</label>
                     <input id="techNameInput" type="text" placeholder="Ej. Python, SQL, JavaScript…"
                         class="field w-full rounded-xl px-3.5 py-2.5 text-sm" />
@@ -943,28 +1019,19 @@
             <!-- Temario -->
             <div class="panel rounded-2xl p-5">
                 <p class="eyebrow mb-3.5 flex items-center gap-2"><span class="step-num">02</span> Temario</p>
-
+                <div class="grid grid-cols-2 gap-2 mb-3.5">
+                    <button data-category="tech"
+                        class="category-toggle-btn btn-ghost rounded-xl py-2.5 text-[12.5px] flex items-center justify-center gap-1.5">
+                        <span>💻</span> Tecnología
+                    </button>
+                    <button data-category="idiomas"
+                        class="category-toggle-btn btn-ghost rounded-xl py-2.5 text-[12.5px] flex items-center justify-center gap-1.5">
+                        <span>🌐</span> Idiomas
+                    </button>
+                </div>
                 <!-- DESPUÉS -->
                 <select id="temarioSelect" class="field w-full rounded-xl px-3.5 py-2.5 text-sm mb-3">
-                    <option value="python_basico">Python Básico</option>
-                    <option value="python_intermedio">Python Intermedio</option>
-                    <option value="python_avanzado">Python Avanzado</option>
-                    <option value="sql">SQL Consultas</option>
-                    <option value="js">JavaScript Moderno</option>
-                    <option value="git">Git &amp; GitHub</option>
-                    <option value="html_css">HTML &amp; CSS</option>
-                    <option value="react">React Básico</option>
-                    <option value="ts">TypeScript</option>
-                    <option value="node">Node.js &amp; APIs</option>
-                    <option value="mongodb">MongoDB / NoSQL</option>
-                    <option value="poo">Programación Orientada a Objetos</option>
-                    <option value="docker">Docker Esencial</option>
-                    <option value="estructuras">Estructuras de Datos</option>
-                    <option value="bash">Bash &amp; Terminal</option>
-                    <option value="regex">Expresiones Regulares</option>
-                    <option value="seguridad_web">Seguridad Web Básica</option>
-                    <option value="custom">Otro / Lista manual</option>
-                    <option value="libre">Modo Libre (la IA decide)</option>
+
                 </select>
                 <div id="customTemarioWrap" class="hidden mb-3">
                     <textarea id="customTemarioInput" rows="5"
@@ -1194,6 +1261,14 @@
                     </svg>
                     <span id="btnGenerateVideoLabel">Generar video de fondo</span>
                 </button>
+                <button id="btnGenerateNarration"
+                    class="hidden btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                    <span id="btnGenerateNarrationLabel">🎙️ Generar voz</span>
+                </button>
+                <button id="btnSaveToCloud"
+                    class="hidden btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
+                    <span id="btnSaveToCloudLabel">☁️ Guardar en la nube</span>
+                </button>
 
                 <button id="btnSchedulePublish"
                     class="hidden btn-ghost w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2">
@@ -1322,6 +1397,9 @@
             </div>
 
         </section>
+
+
+
     </main>
 
     <!-- ============ CONFIG MODAL ============ -->
@@ -1503,7 +1581,8 @@
             'use strict';
 
             /* ===================== PRESETS ===================== */
-            const PRESETS = {
+            const PRESETS_TECH = {
+
                 python_basico: { label: 'Python Básico', tech: 'Python', items: ['Variables y tipos de datos', 'Operadores', 'Condicionales if/else', 'Bucles for y while'] },
                 python_intermedio: { label: 'Python Intermedio', tech: 'Python', items: ['Funciones y parámetros', 'Listas y comprensión de listas', 'Diccionarios y sets', 'Manejo de excepciones'] },
                 python_avanzado: { label: 'Python Avanzado', tech: 'Python', items: ['Decoradores', 'Generadores y yield', 'Programación asíncrona (async/await)', 'Context managers (with)'] },
@@ -1523,14 +1602,39 @@
                 seguridad_web: { label: 'Seguridad Web Básica', tech: 'Seguridad Web', items: ['Inyección SQL', 'Cross-Site Scripting (XSS)', 'Autenticación segura', 'HTTPS y certificados'] }
             };
 
+
+            const PRESETS_IDIOMAS = {
+                english_basico: { label: 'Inglés Básico', tech: 'Inglés', items: ['Verb to be', 'Pronombres personales', 'Presente simple', 'Vocabulario cotidiano'] },
+                english_intermedio: { label: 'Inglés Intermedio', tech: 'Inglés', items: ['Presente perfecto', 'Comparativos y superlativos', 'Phrasal verbs comunes', 'Condicionales tipo 1 y 2'] },
+                english_avanzado: { label: 'Inglés Avanzado', tech: 'Inglés', items: ['Voz pasiva', 'Reported speech', 'Condicionales mixtos', 'Modismos idiomáticos'] },
+                french_basico: { label: 'Francés Básico', tech: 'Francés', items: ['Verbo être y avoir', 'Artículos definidos e indefinidos', 'Presente del indicativo', 'Vocabulario cotidiano'] },
+                french_intermedio: { label: 'Francés Intermedio', tech: 'Francés', items: ['Passé composé', 'Pronombres complemento', 'Futuro simple', 'Adjetivos posesivos'] },
+                tiempos_verbales: { label: 'Tiempos Verbales', tech: 'Inglés', items: ['Presente simple vs continuo', 'Pasado simple vs continuo', 'Futuro con will y going to', 'Presente perfecto'] },
+                vocabulario: { label: 'Vocabulario Esencial', tech: 'Inglés', items: ['Saludos y presentaciones', 'Números y fechas', 'Comida y restaurantes', 'Familia y relaciones'] },
+                phrasal_verbs: { label: 'Phrasal Verbs', tech: 'Inglés', items: ['Get up / get on / get by', 'Look for / look after / look up', 'Give up / give in / give away', 'Break down / break up / break out'] },
+                pronunciacion: { label: 'Pronunciación & Fonética', tech: 'Inglés', items: ['Sonidos vocálicos clave', 'Th sordo y sonoro', 'Acentuación de palabras', 'Entonación en preguntas'] },
+                conversacion: { label: 'Conversación Cotidiana', tech: 'Inglés', items: ['Small talk básico', 'Pedir en un restaurante', 'Dar direcciones', 'Hablar por teléfono'] },
+                idioma_negocios: { label: 'Idioma de Negocios', tech: 'Inglés', items: ['Vocabulario de reuniones', 'Redactar un email formal', 'Presentaciones efectivas', 'Negociación básica'] },
+                false_friends: { label: 'False Friends', tech: 'Inglés', items: ['Actually vs actualmente', 'Embarrassed vs embarazada', 'Library vs librería', 'Realize vs realizar'] },
+                preposiciones: { label: 'Preposiciones', tech: 'Inglés', items: ['Preposiciones de lugar', 'Preposiciones de tiempo', 'Preposiciones de movimiento', 'Verbos con preposición fija'] },
+                modismos: { label: 'Modismos & Expresiones', tech: 'Inglés', items: ['Break the ice', 'Piece of cake', 'Hit the books', 'Under the weather'] },
+                listening: { label: 'Comprensión Auditiva', tech: 'Inglés', items: ['Escuchar acentos distintos', 'Identificar palabras clave', 'Predecir contexto', 'Practicar con audios cortos'] },
+                escritura: { label: 'Escritura & Redacción', tech: 'Inglés', items: ['Estructura de un párrafo', 'Conectores de escritura', 'Email formal vs informal', 'Corrección de errores comunes'] },
+                viajes: { label: 'Idioma para Viajar', tech: 'Inglés', items: ['En el aeropuerto', 'Check-in en el hotel', 'Pedir ayuda y direcciones', 'Emergencias básicas'] }
+            };
+
+            function currentPresets() {
+                return state.contentCategory === 'idiomas' ? PRESETS_IDIOMAS : PRESETS_TECH;
+            }
             /* ===================== STATE ===================== */
             const STORAGE_KEY = 'carousel_studio_config_v3';
             const GRANJA_TTS_URL = 'https://texttospeech-granja-eleven-oixttik5rq-uc.a.run.app';
             const CONVERT_TO_MP4_URL = 'https://us-central1-geinzworkapp.cloudfunctions.net/convertToMp4';
             const state = {
                 config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', selectedImageApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false, watermarkText: '' }, logo: { dataUrl: null, colors: [] },
+                contentCategory: 'tech',
                 temarioMode: 'python_basico',
-                temarioItems: PRESETS.python_basico.items.slice(),
+                temarioItems: PRESETS_TECH.python_basico.items.slice(),
                 generationScope: 'all',        // 'all' | 'single'
                 generationSingleIndex: 0,
                 carousel: null,     // { caption, content_slides:[{titulo,explicacion,codigo}], reto:{titulo,enunciado,codigo} }
@@ -1543,6 +1647,9 @@
                 generatedTopics: new Set(),
                 topicLogosCache: {},
                 videoOverlays: [],
+                whisperSegments: [],
+                whisperOriginalFile: null,
+
             };
 
             /* ===================== UTIL ===================== */
@@ -1572,7 +1679,10 @@
                 const s = String(str ?? '').trim();
                 return s.length > maxLen ? s.slice(0, maxLen - 1).trim() + '…' : s;
             }
-
+            function trimCodeLines(str, maxLines = 4) {
+                const lines = String(str ?? '').split('\n').slice(0, maxLines);
+                return lines.map((l) => l.trimEnd()).join('\n');
+            }
             /* ===================== CONFIG PERSISTENCE ===================== */
             function loadConfig() {
                 try {
@@ -1859,7 +1969,46 @@
                     }
                 }
             }
+            function renderTemarioOptions() {
+                const sel = $('temarioSelect');
+                const presets = currentPresets();
+                sel.innerHTML = Object.entries(presets).map(([key, p]) =>
+                    `<option value="${key}">${escapeHtml(p.label)}</option>`
+                ).join('') + `
+            <option value="custom">Otro / Lista manual</option>
+            <option value="libre">Modo Libre (la IA decide)</option>
+        `;
+                refreshTemarioSelectAvailability();
+            }
 
+            function updateCategoryToggleUI() {
+                document.querySelectorAll('.category-toggle-btn').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.category === state.contentCategory);
+                });
+                const isIdiomas = state.contentCategory === 'idiomas';
+                $('techNameLabel').textContent = isIdiomas ? 'Idioma a aprender' : 'Nombre de la tecnología';
+                $('techNameInput').placeholder = isIdiomas ? 'Ej. Inglés, Francés, Alemán…' : 'Ej. Python, SQL, JavaScript…';
+                $('customTemarioInput').placeholder = isIdiomas
+                    ? 'Un punto por línea, ej.\nPresente simple\nPresente continuo\nPasado simple'
+                    : 'Un punto por línea, ej.\nSentencia SELECT\nFiltro WHERE\nOrdenamiento ORDER BY';
+                $('libreTopicInput').placeholder = isIdiomas
+                    ? "Describe libremente el tema, ej.\nExplica la diferencia entre 'for' y 'since' en inglés\n\nLa IA decidirá cuántas diapositivas necesita."
+                    : 'Describe libremente el tema, ej.\nExplica un ataque de inyección SQL y cómo prevenirlo\n\nLa IA decidirá cuántas diapositivas necesita.';
+            }
+
+            document.querySelectorAll('.category-toggle-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    if (btn.dataset.category === state.contentCategory) return;
+                    state.contentCategory = btn.dataset.category;
+                    updateCategoryToggleUI();
+                    renderTemarioOptions();
+                    const firstKey = Object.keys(currentPresets())[0];
+                    $('temarioSelect').value = firstKey;
+                    $('techNameInput')._lastAuto = undefined;
+                    $('techNameInput').value = '';
+                    updateTemarioMode(firstKey);
+                });
+            });
             async function loadGeneratedTopicsAndFilter() {
                 if (!window.CarouselCloud) return;
                 try {
@@ -1902,7 +2051,7 @@
                     catch (e) { state.topicLogosCache[mode] = null; }
                 }
                 const saved = state.topicLogosCache[mode];
-                if (saved && saved.logoUrl) loadLogoFromUrl(saved.logoUrl, `${PRESETS[mode]?.label || mode}-logo`);
+                if (saved && saved.logoUrl) loadLogoFromUrl(saved.logoUrl, `${currentPresets()[mode]?.label || mode}-logo`);
             }
             function updateTemarioMode(mode) {
                 state.temarioMode = mode;
@@ -1917,10 +2066,10 @@
                     state.temarioItems = [];
                     updateScopeUI();
                 } else {
-                    state.temarioItems = PRESETS[mode].items.slice();
-                    if (!$('techNameInput').value.trim() || Object.values(PRESETS).some(p => p.tech === $('techNameInput')._lastAuto)) {
-                        $('techNameInput').value = PRESETS[mode].tech;
-                        $('techNameInput')._lastAuto = PRESETS[mode].tech;
+                    state.temarioItems = currentPresets()[mode].items.slice();
+                    if (!$('techNameInput').value.trim() || Object.values(currentPresets()).some(p => p.tech === $('techNameInput')._lastAuto)) {
+                        $('techNameInput').value = currentPresets()[mode].tech;
+                        $('techNameInput')._lastAuto = currentPresets()[mode].tech;
                     }
                 }
                 renderTemarioPreview();
@@ -1997,34 +2146,89 @@
             }
 
             function buildSystemPrompt() {
+                if (state.contentCategory === 'idiomas') {
+                    return `Eres un generador de contenido educativo de idiomas para carruseles de redes sociales (Instagram Reels / TikTok). Tu prioridad número uno es la RETENCIÓN Y LA VIRALIDAD: los primeros 1-2 segundos deciden si la persona se queda o se va, así que "intro_dialogo" y "caption" SIEMPRE deben empezar con un gancho (pregunta directa, error común, o promesa concreta de resultado), nunca con saludos genéricos tipo "Hola" o "Bienvenido". Ayudas a personas a aprender idiomas con explicaciones claras y ejemplos prácticos. El texto en pantalla es breve, pero la narración ("dialogo", "intro_dialogo") explica de verdad cada punto, como el guion de un profesor. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks.`;
+                }
                 return `Eres un creador de contenido técnico para redes sociales (TikTok/Reels/Shorts), no un generador de fichas de referencia. Tu prioridad número uno es la RETENCIÓN: los primeros 1-2 segundos deciden si la persona se queda o se va, así que "intro_dialogo" y "caption" SIEMPRE deben empezar con un gancho — una pregunta directa, un error común, o una promesa concreta de lo que se va a aprender — nunca con saludos genéricos tipo "Hola" o "En este video". Explicas conceptos técnicos como lo haría un buen instructor: defines el concepto, muestras un ejemplo concreto y das un tip práctico para recordarlo, todo en tono cercano y directo, sin relleno. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks.`;
             }
-            function buildJsonRulesBlock(tech) {
+            function computeSpeechBudget(totalContentSlides) {
+                const TARGET_TOTAL_SECONDS = 50; // deja margen para quedar bajo 60s con transiciones
+                const WORDS_PER_SECOND = 2.3;    // ritmo natural hablado en español
+                const introSeconds = 6;
+                const retoSeconds = 7;
+                const remaining = Math.max(8, TARGET_TOTAL_SECONDS - introSeconds - retoSeconds);
+                const perContentSeconds = remaining / Math.max(1, totalContentSlides);
+                return {
+                    introMaxWords: Math.round(introSeconds * WORDS_PER_SECOND),
+                    contentMaxWords: Math.max(8, Math.round(perContentSeconds * WORDS_PER_SECOND)),
+                    retoMaxWords: Math.round(retoSeconds * WORDS_PER_SECOND),
+                    totalSeconds: TARGET_TOTAL_SECONDS,
+                    wordsPerSecond: WORDS_PER_SECOND
+                };
+            }
+
+            function buildJsonRulesBlock(tech, slideCount) {
+                const budget = computeSpeechBudget(slideCount || 5);
+
+                if (state.contentCategory === 'idiomas') {
+                    return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
+{
+"caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
+"intro_dialogo": "guion hablado de máximo 2 frases cortas para la portada: (1) gancho sin saludo, (2) una frase diciendo el tema. Nada de teoría aquí, solo enganchar. Máximo ${budget.introMaxWords} palabras.",
+"content_slides": [
+{
+  "titulo": "título corto del punto gramatical o léxico (ej. 'El Verbo TO BE', 'Phrasal Verb: Get up')",
+  "explicacion": "LA REGLA en sí, explicada de forma clara y completa como la escribirías en un cuaderno de apuntes de clase: qué formas existen, para qué pronombre o contexto se usa cada una, y cualquier excepción importante. Máximo 140 caracteres, pero que sea información real y útil, no relleno vago. Esto se MUESTRA EN PANTALLA, aquí sí va toda la teoría.",
+  "codigo": "de 2 a 3 frases de ejemplo REALES y variadas en ${tech} que ilustren distintos casos de la regla (no la misma estructura repetida), MÁXIMO 3 líneas, máximo 28 caracteres por línea. Usa \\n para saltos de línea. Puede incluir espacios en blanco con guion bajo (ej. '____ helped ____.') si el ejercicio lo pide, ya que esto solo se ve en pantalla, no se lee en voz alta.",
+  "dialogo": "guion hablado de MÁXIMO ${budget.contentMaxWords} palabras. PROHIBIDO explicar la regla gramatical, PROHIBIDO leer el título o la teoría que ya está en pantalla. La voz SOLO debe: (1) pronunciar cada frase de ejemplo del campo codigo, una por una, en ${tech} tal cual (sin leer guiones bajos ni símbolos, si el ejemplo tiene un espacio en blanco simplemente omite esa parte al leerlo), seguida cada una de su traducción al español entre paréntesis, y (2) cerrar con una pregunta corta y directa en español relacionada al tema, para generar interacción. Nada de rodeos."
+}
+],
+"reto": {
+  "titulo": "título corto del reto",
+  "enunciado": "consigna breve y clara de qué debe hacer el estudiante (completar, traducir, transformar una frase, etc), máx 100 caracteres. Se MUESTRA EN PANTALLA.",
+  "codigo": "frase o ejercicio base del reto en ${tech} (ej. una frase con un espacio en blanco marcado con guion bajo, o una frase en español para traducir), MÁXIMO 3 líneas y 28 caracteres por línea. Se MUESTRA EN PANTALLA.",
+  "dialogo": "guion hablado de MÁXIMO ${budget.retoMaxWords} palabras, con esta idea EXACTA y sin rodeos: pide directamente que el usuario escriba en los comentarios la traducción de UNA frase corta y concreta en ${tech} relacionada al tema (ejemplo de tono: 'Escribe en los comentarios cómo se dice en inglés: Él la ayudó a ella. Te leo.'). PROHIBIDO pedir que 'revisen la explicación anterior' o dar instrucciones largas o técnicas. PROHIBIDO leer el campo codigo tal cual si tiene guiones bajos o símbolos."
+}
+}
+ 
+REGLAS ESTRICTAS:
+1. GANCHO OBLIGATORIO en "intro_dialogo" y "caption": nada de saludos ni "en este video vamos a ver...".
+2. LA TEORÍA VA EN PANTALLA, NO EN VOZ: "explicacion" (contenido) y "enunciado" (reto) deben tener la regla gramatical o el dato léxico concreto y completo, tipo ficha de estudio. Pero "dialogo" en ambos casos NUNCA repite ni lee esa teoría — la voz es corta, práctica y va directo a ejemplos/pregunta o a pedir la traducción.
+3. Cada "codigo" son ejemplos REALES, variados entre sí (no repitas la misma estructura de frase tres veces), MÁXIMO 3 líneas, 28 caracteres por línea.
+4. DURACIÓN TOTAL OBLIGATORIA: este carrusel se convierte en un Reel/TikTok de MENOS DE UN MINUTO. Respeta el límite de palabras de cada "dialogo" indicado arriba aunque sientas que "falta explicar más" — prioriza lo esencial. La suma de todo el guion hablado no puede superar ${budget.totalSeconds} segundos a ritmo de ${budget.wordsPerSecond} palabras/segundo.
+5. "dialogo" e "intro_dialogo" son para VOZ: escribe los números en palabras (ej. "tres"), nunca dígitos, nunca guiones bajos, asteriscos ni símbolos sueltos. Cuando incluyas una frase en ${tech}, escríbela tal cual y agrega su traducción al español entre paréntesis justo después.
+6. CÓDIGO 100% PLANO: prohibido cualquier resto de resaltado de sintaxis (<span>, class="...", className="...", tok-kw, tok-op, tok-num, tok-str, o cualquier etiqueta HTML). Escribe el código exactamente como se vería pegado en un editor de texto plano.
+7. COHERENCIA ENTRE SLIDES: todo nombre, ruta o expresión que aparezca en más de un "codigo" del mismo carrusel debe ser idéntico en todos los slides donde se repita.
+- JSON compacto, sin comentarios.`;
+                }
                 return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
 {
 "caption": "texto corto que EMPIECE con un gancho (pregunta, error común, o promesa), sin saludos, seguido de 2-3 hashtags relevantes, máximo 220 caracteres",
-"intro_dialogo": "guion de EXACTAMENTE 3 frases cortas para la portada. (1) Gancho sin saludo, (2) Qué aprenderán, (3) Llamado casual a seguir/dar like. Máximo 42 palabras en total.",
+"intro_dialogo": "guion de EXACTAMENTE 3 frases cortas para la portada. (1) Gancho sin saludo, (2) Qué aprenderán, (3) Llamado casual a seguir/dar like. Máximo ${budget.introMaxWords} palabras en total.",
 "content_slides": [
 {
   "titulo": "título corto del punto",
   "explicacion": "explicación breve en una frase (máx 80 caracteres)",
-  "codigo": "snippet de código FUENTE PURO en ${tech}, MÁXIMO 4 líneas y máximo 40 caracteres por línea. Debe ser código sintácticamente VÁLIDO. Usa \\n para saltos de línea.",
-  "dialogo": "guion de EXACTAMENTE 3 a 4 frases leídas en voz alta: (1) Qué es en términos simples, (2) Caso de uso real en producción, (3) Pro-tip técnico. Máximo 55 palabras."
+  "codigo": "snippet de código FUENTE PURO en ${tech}, MÁXIMO 4 líneas y máximo 40 caracteres por línea. Debe ser código sintácticamente VÁLIDO y COMPLETO. Usa \\n para saltos de línea.",
+  "dialogo": "guion de 3 a 4 frases leídas en voz alta: (1) Qué es en términos simples, (2) Caso de uso real en producción, (3) Pro-tip técnico. Máximo ${budget.contentMaxWords} palabras."
 }
 ],
 "reto": {
   "titulo": "título corto del reto",
   "enunciado": "consigna breve (máx 100 caracteres)",
-  "codigo": "código base del reto en ${tech}, MÁXIMO 4 líneas y 40 caracteres por línea",
-  "dialogo": "guion de EXACTAMENTE 3 frases: (1) Recordatorio clave, (2) Instrucción del reto, (3) Cierre invitando a comentar su respuesta y seguir la cuenta. Máximo 45 palabras."
+  "codigo": "código base del reto en ${tech}, MÁXIMO 4 líneas y 40 caracteres por línea, sintácticamente válido y completo",
+  "dialogo": "guion de 3 frases: (1) Recordatorio clave, (2) Instrucción del reto, (3) Cierre invitando a comentar su respuesta y seguir la cuenta. Máximo ${budget.retoMaxWords} palabras."
 }
 }
-
-REGLAS DE CÓDIGO Y CALIDAD TÉCNICA (ESTRICTAS):
-1. MÁXIMO 4 LÍNEAS DE CÓDIGO: El campo "codigo" NUNCA debe superar las 4 líneas. Si un concepto requiere más código, MUESTRA SOLO LA PARTE CRÍTICA del snippet, pero que sea sintácticamente válida.
-2. EL CÓDIGO DEBE COMPILAR: Prohibido inventar sintaxis (como 'String...'), usar '...' dentro del código o dejar palabras a la mitad. Si usas funciones suspend de Kotlin, muestra la firma de la función para que no rompa las reglas del lenguaje.
-3. CÓDIGO PURO: Sin HTML, sin etiquetas <span>, sin atributos class, sin markdown. Solo texto plano.
-4. GUIONES PARA VOZ: Escribe SIEMPRE los números con palabras (ej. "tres" en vez de "3") en "dialogo" e "intro_dialogo".
+REGLAS DE CÓDIGO, DURACIÓN Y CALIDAD TÉCNICA (ESTRICTAS):
+1. MÁXIMO 4 LÍNEAS DE CÓDIGO: El campo "codigo" NUNCA debe superar las 4 líneas. Si un concepto requiere más código, MUESTRA SOLO LA PARTE CRÍTICA del snippet, pero que sea sintácticamente válida y completa.
+2. EL CÓDIGO DEBE COMPILAR: Prohibido inventar sintaxis, usar '...' dentro del código o dejar palabras/líneas a la mitad. Si usas funciones suspend de Kotlin, muestra la firma de la función para que no rompa las reglas del lenguaje.
+3. CÓDIGO PURO: El campo "codigo" es SOLO el código fuente tal cual se vería en un editor de texto plano, sin absolutamente ningún marcado visual. PROHIBIDO cualquier atributo tipo nombre="valor" (class, className, style, o cualquier otro) y cualquier etiqueta entre < >. Si al escribir una línea de código sientes el impulso de agregar comillas y un signo igual antes del código real, es una señal de que estás mezclando resaltado de sintaxis — no lo hagas, escribe solo el código puro.
+4. LÍNEAS COMPLETAS: cada línea debe ser código válido y completo por sí sola, sin cortarla a la mitad ni terminarla en "...". Prohibido que una línea muestre solo un cierre suelto (ej. "} />") sin su apertura visible en el mismo bloque. Si no cabe en 40 caracteres, resume la línea o pásala a la siguiente, pero nunca la dejes incompleta.
+4.1. GUIONES PARA VOZ: Escribe SIEMPRE los números con palabras (ej. "tres" en vez de "3") en "dialogo" e "intro_dialogo".
+4.2. ANTES DE RESPONDER: relee cada "codigo" del carrusel completo y confirma que toda ruta, nombre de componente o variable que se repite en más de un slide es EXACTAMENTE igual, letra por letra, en todos los slides donde aparece.
+5. COHERENCIA ENTRE SLIDES: todo nombre de ruta, variable, componente o función que aparezca en más de un "codigo" del mismo carrusel DEBE ser idéntico en todos los slides donde se repita (ej. si defines la ruta "/nosotros" en un slide, ningún otro slide puede usar "/about" ni "/acerca"). Usa siempre nombres en español si el resto del contenido está en español.
+6. DURACIÓN TOTAL OBLIGATORIA: este carrusel se convierte en un Reel/TikTok/Short de MENOS DE UN MINUTO. Respeta el límite de palabras de cada "dialogo" indicado arriba aunque sientas que "falta explicar más" — prioriza lo esencial y recorta antes de excederte. La suma de todo el guion hablado (intro + content_slides + reto) no puede superar ${budget.totalSeconds} segundos a un ritmo de ${budget.wordsPerSecond} palabras por segundo.
 - JSON compacto, sin comentarios.`;
             }
 
@@ -2035,22 +2239,24 @@ REGLAS DE CÓDIGO Y CALIDAD TÉCNICA (ESTRICTAS):
                     const topic = $('libreTopicInput').value.trim() || tech;
                     return `Genera el contenido para un carrusel educativo sobre "${tech}", a partir de esta petición libre escrita por el usuario (puede ser un tema, una pregunta o un caso concreto):
 "${topic}"
-
-Interpreta la intención real del usuario y organiza el contenido en el mismo formato que usa esta app para temarios estructurados (una portada, varios puntos de contenido y un reto final). TÚ decides cuántos puntos de contenido son necesarios para explicar bien el tema: usa entre 3 y 7 elementos en "content_slides", ni más ni menos de lo que el tema realmente requiera. Cada punto debe cubrir un aspecto claro, distinto y en un orden lógico de aprendizaje.
-
+ 
+Interpreta la intención real del usuario y organiza el contenido en el mismo formato que usa esta app para temarios estructurados (una portada, varios puntos de contenido y un reto final).TÚ decides cuántos puntos de contenido son necesarios para explicar bien el tema: usa entre 3 y 5 elementos en "content_slides", ni más ni menos de lo que el tema realmente requiera. Cada punto debe cubrir un aspecto claro, distinto y en un orden lógico de aprendizaje.
+ 
 Como aquí NO hay un temario predefinido que guíe el nivel de detalle, es CRÍTICO que cada "codigo" sea 100% funcional y directamente ejecutable (sin pseudocódigo, sin "...", sin funciones a medio definir), y que sea el ejemplo MÁS claro y directo posible del concepto — el tipo de snippet que alguien podría copiar, pegar y correr para entender el punto de un solo vistazo, sin contexto adicional.
-
-${buildJsonRulesBlock(tech)}
-- "content_slides" debe tener entre 3 y 7 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario.
-- Modo libre: cada "codigo" debe ser un ejemplo real y funcional que ilustre el punto de forma autocontenida — evita fragmentos ambiguos o que dependan de contexto no mostrado.`;
+ 
+${buildJsonRulesBlock(tech, 5)}
+- content_slides" debe tener entre 3 y 5 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario. Cuantos más elementos elijas, MÁS CORTO debe ser cada "dialogo" individual para no romper el límite total de duración.
+- ${state.contentCategory === 'idiomas'
+                            ? 'Modo libre: cada "codigo" debe ser una frase o ejemplo real en el idioma, útil para practicar, sin ambigüedad.'
+                            : 'Modo libre: cada "codigo" debe ser un ejemplo real y funcional que ilustre el punto de forma autocontenida — evita fragmentos ambiguos o que dependan de contexto no mostrado.'}`;
                 }
 
                 const items = getScopedItems();
                 return `Genera el contenido para un carrusel educativo sobre "${tech}".
 El temario a cubrir en esta generación, en este orden exacto:
 ${items.map((it, i) => `${i + 1}. ${it}`).join('\n')}
-
-${buildJsonRulesBlock(tech)}
+ 
+${buildJsonRulesBlock(tech, items.length)}
 - "content_slides" debe tener EXACTAMENTE ${items.length} elementos, uno por cada punto listado arriba, en el mismo orden.`;
             }
 
@@ -2060,7 +2266,7 @@ ${buildJsonRulesBlock(tech)}
                 const body = {
                     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                     systemInstruction: { parts: [{ text: systemPrompt }] },
-                    generationConfig: { responseMimeType: 'application/json', temperature: 0.6 }
+                    generationConfig: { responseMimeType: 'application/json', temperature: 0.35 }
                 };
                 const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                 if (!res.ok) {
@@ -2257,7 +2463,7 @@ ${buildJsonRulesBlock(tech)}
                     model: 'gpt-4o-mini',
                     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
                     response_format: { type: 'json_object' },
-                    temperature: 0.6
+                    temperature: 0.35
                 };
                 const res = await fetch(url, {
                     method: 'POST',
@@ -2287,10 +2493,71 @@ ${buildJsonRulesBlock(tech)}
             /* ===================== BUILD RENDER-READY SLIDES ===================== */
             function sanitizeCodeSnippet(str) {
                 if (!str) return str;
-                return String(str)
-                    .replace(/class\s*=\s*"[^"]*"\s*>/gi, '')     // restos tipo class="tok-kw">
-                    .replace(/<\/?span[^>]*>/gi, '')               // etiquetas <span> sueltas
-                    .replace(/<\/?[a-z][a-z0-9]*(\s[^>]*)?>/gi, ''); // cualquier otra etiqueta HTML colada
+                let out = String(str);
+                const original = out;
+
+                // 1) SOLO borra <span ...> y </span> — son las etiquetas que realmente
+                //    usa el resaltado de sintaxis en esta app. Nunca toca <ul>, <li>,
+                //    <div>, etc. que pueden ser JSX real dentro del código generado.
+                out = out.replace(/<\/?span\b[^>]*>/gi, '');
+
+                // 2) Cualquier tag (del tipo que sea) que lleve class="tok-xxx" o
+                //    className="tok-xxx" — esto sí es inequívocamente basura de
+                //    resaltado, sin importar el nombre del tag.
+                out = out.replace(/<[a-z][a-z0-9]*\b[^>]*\b(?:class|className)\s*=\s*(["'])[^"']*tok-[^"']*\1[^>]*>/gi, '');
+
+                // 3) class=/className= sueltos con valor tok-xxx, con o sin comillas,
+                //    con o sin el ">" de cierre (versiones truncadas por la IA)
+                out = out.replace(/\b(?:class|className)\s*=\s*(["']?)tok-[\w-]*\1\s*>?/gi, '');
+
+                // 4) Nombres de clase sueltos que se colaron como texto plano
+                out = out.replace(/\btok-(?:kw|op|num|str)\b/gi, '');
+
+                // 5) Restos huérfanos de un tag de resaltado cuya apertura ya se filtró
+                //    (ej. un ">" solo al inicio de línea que venía después de un
+                //    class="tok-kw" truncado)
+                out = out.split('\n')
+                    .map(line => line.replace(/^\s*\/?>\s*(?=[a-zA-Z{])/, ''))
+                    .join('\n');
+
+                const cleaned = out.trim();
+                if (cleaned !== original) {
+                    console.log('%c[SANITIZE] limpió algo:', 'color:#F5B942;font-weight:bold',
+                        { antes: original, despues: cleaned }
+                    );
+                }
+                return cleaned;
+            }
+            function validateCodeQuality(code) {
+                if (!code) return { ok: true, issues: [] };
+                const issues = [];
+
+                if (/class(Name)?\s*=|tok-(kw|op|num|str)/i.test(code)) {
+                    issues.push('Restos de resaltado de sintaxis');
+                }
+
+                code.split('\n').forEach((l) => {
+                    const t = l.trim();
+                    // Solo marca como truncada una línea que sea "} />" o "/>" sueltos
+                    // (JSX cortado a la mitad, ej: un cierre de etiqueta sin su apertura
+                    // visible). Un "}" simple es el cierre normal de una función/bloque
+                    // y NO debe marcarse — por eso aquí "/" y ">" ya NO son opcionales.
+                    if (/^\}\s*\/>\s*$/.test(t) || /^\/>\s*$/.test(t)) {
+                        issues.push(`Línea truncada: "${t}"`);
+                    }
+                });
+
+                const opens = (code.match(/[{(]/g) || []).length;
+                const closes = (code.match(/[})]/g) || []).length;
+                if (Math.abs(opens - closes) > 1) issues.push('Llaves/paréntesis desbalanceados');
+
+                const result = { ok: issues.length === 0, issues };
+
+                if (!result.ok) {
+                    console.log('%c[VALIDATE] código sospechoso:', 'color:#ef4444;font-weight:bold', { code, issues: result.issues });
+                }
+
+                return result;
             }
 
             function buildSlides(json) {
@@ -2325,9 +2592,12 @@ ${buildJsonRulesBlock(tech)}
                         badge: isSingle ? `Punto ${posInFull + 1} de ${fullItems.length}` : `Parte ${i + 1} de ${fullItems.length}`,
                         titulo: trimText(src.titulo || item, 46),
                         sub: trimText(src.explicacion || '', 100),
-                        codigo: trimCode(sanitizeCodeSnippet(src.codigo || '')),
+                        codigo: state.contentCategory === 'idiomas'
+                            ? trimCodeLines(src.codigo || '', 3)
+                            : trimCodeLines(sanitizeCodeSnippet(src.codigo || ''), 4),
                         checkedCount: posInFull + 1,
-                        dialogo: src.dialogo || ''
+                        dialogo: src.dialogo || '',
+                        codeWarning: validateCodeQuality(state.contentCategory === 'idiomas' ? (src.codigo || '') : sanitizeCodeSnippet(src.codigo || '')).issues.join(' · ') || null
                     });
                 });
 
@@ -2338,9 +2608,12 @@ ${buildJsonRulesBlock(tech)}
                     badge: 'Reto / Ejercicio',
                     titulo: trimText(reto.titulo || 'Ponlo en práctica', 46),
                     sub: trimText(reto.enunciado || '', 120),
-                    codigo: trimCode(sanitizeCodeSnippet(reto.codigo || '')),
+                    codigo: state.contentCategory === 'idiomas'
+                        ? trimCodeLines(reto.codigo || '', 3)
+                        : trimCodeLines(sanitizeCodeSnippet(reto.codigo || ''), 4),
                     checkedCount: isSingle ? singleIndex + 1 : fullItems.length,
-                    dialogo: reto.dialogo || ''
+                    dialogo: reto.dialogo || '',
+                    codeWarning: validateCodeQuality(state.contentCategory === 'idiomas' ? (reto.codigo || '') : sanitizeCodeSnippet(reto.codigo || '')).issues.join(' · ') || null
                 });
 
                 return slides;
@@ -2364,6 +2637,8 @@ ${buildJsonRulesBlock(tech)}
                 $('usagePanel').classList.add('hidden');
                 $('emptyState').classList.remove('hidden');
                 $('btnSchedulePublish').classList.add('hidden');
+                $('btnGenerateNarration').classList.add('hidden');
+                $('btnSaveToCloud').classList.add('hidden');
                 $('slideDots').innerHTML = '';
                 $('slideSelectionList').innerHTML = '';
 
@@ -2443,6 +2718,18 @@ ${buildJsonRulesBlock(tech)}
                 });
             }
 
+            // Limpia el texto antes de mandarlo a la voz: los guiones bajos, asteriscos
+            // y guiones sueltos (ej. "____ helped ____.") la IA de voz los pronuncia como
+            // ruido o palabras raras. Los quitamos/normalizamos solo para el audio; el
+            // texto que se VE en pantalla (slide.codigo) no se toca.
+            function sanitizeForSpeech(text) {
+                if (!text) return text;
+                return String(text)
+                    .replace(/[_*]+/g, ' ')          // guiones bajos y asteriscos -> espacio
+                    .replace(/(?<=\s)-(?=\s)/g, ' ')  // guiones sueltos entre espacios -> espacio
+                    .replace(/\s{2,}/g, ' ')          // colapsa espacios dobles
+                    .trim();
+            }
             // ===================== FIX 1: duración real del audio =====================
             // Se agrega el cálculo de `durationMs` con getAudioDurationMs(blob), que antes
             // faltaba y provocaba un ReferenceError silencioso (capturado por el catch),
@@ -2463,7 +2750,8 @@ ${buildJsonRulesBlock(tech)}
                     slide.audioAlignment = null;
                     if (!slide.dialogo) continue;
 
-                    const cacheKey = voiceId + '|' + slide.dialogo;
+                    const speechText = sanitizeForSpeech(slide.dialogo);
+                    const cacheKey = voiceId + '|' + speechText;
                     if (state.narrationCache.has(cacheKey)) {
                         const cached = state.narrationCache.get(cacheKey);
                         slide.audioBlob = cached.blob;
@@ -2475,9 +2763,8 @@ ${buildJsonRulesBlock(tech)}
                     $('genHint').textContent = `Generando narración ${i + 1}/${state.slides.length}…`;
                     try {
                         const { blob, alignment } = useGranja
-                            ? await callGranjaTTS(slide.dialogo)
-                            : await callElevenLabsTTS(slide.dialogo, apiKey, voiceId);
-
+                            ? await callGranjaTTS(speechText)
+                            : await callElevenLabsTTS(speechText, apiKey, voiceId);
                         // ✅ calcular la duración real del audio antes de usarla
                         const durationMs = await getAudioDurationMs(blob);
 
@@ -2485,7 +2772,7 @@ ${buildJsonRulesBlock(tech)}
                         slide.audioAlignment = alignment;
                         slide.audioDurationMs = durationMs;
                         state.narrationCache.set(cacheKey, { blob, alignment, durationMs });
-                        state.lastElevenLabsChars += slide.dialogo.length;
+                        state.lastElevenLabsChars += speechText.length;
                     } catch (e) {
                         console.error(`Fallo narración diapositiva ${i + 1}`, e);
                         toast(`No se pudo generar audio para la diapositiva ${i + 1}`, 'error');
@@ -2558,8 +2845,15 @@ ${buildJsonRulesBlock(tech)}
                     const systemPrompt = buildSystemPrompt();
                     const userPrompt = buildUserPrompt();
                     const result = api === 'gemini' ? await callGemini(key, systemPrompt, userPrompt) : await callOpenAI(key, systemPrompt, userPrompt);
+
+                    console.log('%c[RAW IA RESPONSE]', 'color:#22D3EE;font-weight:bold', result.text); // 👈 AQUÍ
+
                     const json = safeParseJson(result.text);
 
+                    console.log('%c[PARSED JSON codigo fields]', 'color:#A78BFA;font-weight:bold',
+                        json.content_slides?.map(s => s.codigo),
+                        json.reto?.codigo
+                    ); // 👈 AQUÍ
                     if (state.temarioMode === 'libre') {
                         const aiItems = Array.isArray(json.content_slides) ? json.content_slides.map((s) => s.titulo || 'Punto') : [];
                         state.temarioItems = aiItems.length ? aiItems : ['Contenido'];
@@ -2575,18 +2869,17 @@ ${buildJsonRulesBlock(tech)}
                     // Antes solo se generaba narración si había ElevenLabs Key + Voice ID configurados,
                     // ignorando el checkbox "Modo prueba (usar granja)". generateNarrationForSlides()
                     // ya contemplaba useGranja internamente, pero nunca se llegaba a invocar.
-                    if (state.config.testMode || (state.config.elevenLabsKey && state.config.elevenLabsVoiceId)) {
-                        await generateNarrationForSlides();
-                    } else {
-                        console.warn('[AUDIO DEBUG] No hay elevenLabsKey/voiceId ni modo prueba activado, no se generará narración.');
+                    const brokenSlides = state.slides.filter(s => s.codeWarning);
+                    if (brokenSlides.length) {
+                        toast(`⚠️ ${brokenSlides.length} diapositiva(s) con código sospechoso. Revísalas antes de generar voz o guardar en la nube.`, 'error');
                     }
-                    console.log('[AUDIO DEBUG] Slides con audioBlob:', state.slides.map((s, i) => `slide${i}: ${!!s.audioBlob}`));
 
                     $('captionOutput').value = json.caption || '';
                     $('emptyState').classList.add('hidden');
                     $('slideCanvasContainer').classList.remove('hidden');
                     $('exportPanel').classList.remove('hidden');
-
+                    $('btnGenerateNarration').classList.remove('hidden');
+                    $('btnSaveToCloud').classList.remove('hidden');
                     buildDots();
                     renderSlide();
                     renderOverlayList(); // 👈 refleja los overlays por defecto en el panel
@@ -2595,12 +2888,7 @@ ${buildJsonRulesBlock(tech)}
                     renderSlideSelection();
                     const generatedTech = $('techNameInput').value.trim() || 'Tecnología';
                     toast('Carrusel generado con éxito', 'success');
-                    if (state.temarioMode !== 'custom' && state.temarioMode !== 'libre') {
-                        state.generatedTopics.add(state.temarioMode);
-                        refreshTemarioSelectAvailability();
-                        if (window.CarouselCloud) window.CarouselCloud.markTopicGenerated(state.temarioMode).catch((e) => console.warn(e));
-                    }
-                    persistCarouselToCloud(generatedTech);
+
                 } catch (err) {
                     console.error(err);
                     toast(err.message || 'Error generando el contenido', 'error');
@@ -2717,11 +3005,11 @@ ${buildJsonRulesBlock(tech)}
                 out = out.replace(/(=&gt;|&amp;&amp;|\|\||===|==)/g, '<span class="tok-op">$1</span>');
                 return out;
             }
-
             function renderCodeInstant(code) {
                 const codeWrap = document.getElementById('typingCodeEl');
                 if (!codeWrap || !code) return;
-                _typingToken++; // cancela cualquier animación de typing en curso
+                console.log('%c[INSTANT] código recibido:', 'color:#34D399;font-weight:bold', code); // 👈 AQUÍ
+                _typingToken++;
                 const lines = code.split('\n');
                 codeWrap.innerHTML = lines.map((line) =>
                     `<div class="code-line active">${highlightCodeChunk(line)}</div>`
@@ -2769,6 +3057,7 @@ ${buildJsonRulesBlock(tech)}
             function startTypingEffect(fullCode) {
                 const codeWrap = document.getElementById('typingCodeEl');
                 if (!codeWrap) return;
+                console.log('%c[TYPING] código recibido para tipear:', 'color:#34D399;font-weight:bold', fullCode); // 👈 AQUÍ
                 const myToken = ++_typingToken;
                 const lines = fullCode.split('\n');
                 codeWrap.innerHTML = lines.map((_, li) =>
@@ -2833,8 +3122,17 @@ ${buildJsonRulesBlock(tech)}
                 const ts = computeTextSizing(slide);
                 const codeLinesArr = slide.codigo ? slide.codigo.split('\n') : [];
                 const gutterHtml = codeLinesArr.map((_, i) => `<div class="code-gutter" data-line="${i}">${i + 1}</div>`).join('');
-                const codeBlock = slide.codigo
-                    ? `<div id="editorCard" class="editor-window push-in overflow-hidden mt-2 w-full">
+                const isIdiomas = state.contentCategory === 'idiomas';
+
+                const codeBlock = !slide.codigo ? '' : (isIdiomas
+                    ? `<div id="slidePhraseCard" class="phrase-card mt-2 w-full px-3.5 py-3">
+         <div class="phrase-card-top mb-2">
+           <span class="phrase-mark" style="font-size:20px">❝</span>
+                <span class="phrase-lang-tag">${escapeHtml(tech.toUpperCase())}</span>
+         </div>
+         <p class="phrase-text" style="font-size:${cfs.code}; line-height:${cfs.lh}">${escapeHtml(slide.codigo).replace(/\n/g, '<br/>')}</p>
+       </div>`
+                    : `<div id="editorCard" class="editor-window push-in overflow-hidden mt-2 w-full">
   <div class="flex items-center gap-2.5 px-4 py-3 border-b border-white/[.06]">
      <span class="flex items-center gap-1.5 shrink-0">
        <span class="traffic-dot pop" style="background:#ff5f57"></span>
@@ -2849,8 +3147,7 @@ ${buildJsonRulesBlock(tech)}
 </div>
 <div id="typingCodeEl" class="font-mono text-emerald-300/95 flex-1 m-0" style="font-size:${cfs.code}; line-height:${cfs.lh}"></div>
 </div>
- </div>`
-                    : '';
+ </div>`);
 
                 const fs = fontSizeForCount(items.length);
                 const checklistHtml = items.length
@@ -2876,7 +3173,7 @@ ${buildJsonRulesBlock(tech)}
     ${logoHtml}
   </div>
   ${watermarkHtml}
-
+ 
   <div class="flex-1 flex flex-col justify-center px-5 pt-4 pb-4 min-h-0">
 <h2 class="font-display font-bold text-white leading-[1.18] tracking-tight" style="font-size:${ts.title}px">${escapeHtml(slide.titulo)}</h2>
     ${slide.sub ? `<p class="text-white/62 leading-relaxed mt-2" style="font-size:${ts.sub}px">${escapeHtml(slide.sub)}</p>` : ''}
@@ -3107,6 +3404,66 @@ ${buildJsonRulesBlock(tech)}
                 return 'gen-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
             }
 
+            async function persistNarrationToCloud() {
+                if (!window.CarouselCloud || !state.cloud.currentGenerationId) {
+                    toast('No hay una generación activa en la nube para guardar el audio', 'error');
+                    return;
+                }
+                const cloud = window.CarouselCloud;
+                const generationId = state.cloud.currentGenerationId;
+                const baseMeta = state.cloud.lastSlidesMeta || state.slides.map((s) => ({
+                    tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub, codigo: s.codigo, dialogo: s.dialogo,
+                    imageUrl: null, imageStoragePath: null
+                }));
+
+                const slidesMeta = [];
+                for (let i = 0; i < state.slides.length; i++) {
+                    const s = state.slides[i];
+                    const num = String(i + 1).padStart(2, '0');
+                    let audioUrl = null, audioPath = null;
+                    if (s.audioBlob) {
+                        audioPath = cloud.storagePathFor(generationId, `audio/slide-${num}.mp3`);
+                        audioUrl = await cloud.uploadBlobToStorage(audioPath, s.audioBlob);
+                    }
+                    const prev = baseMeta[i] || {};
+                    slidesMeta.push({ ...prev, audioUrl, audioStoragePath: audioPath });
+                }
+
+                await cloud.saveGeneration({ id: generationId, slides: slidesMeta });
+                state.cloud.lastSlidesMeta = slidesMeta;
+            }
+            $('btnSaveToCloud').addEventListener('click', async () => {
+                if (!state.slides.length) { toast('Primero genera un carrusel', 'error'); return; }
+                const btn = $('btnSaveToCloud');
+                const label = $('btnSaveToCloudLabel');
+                const original = label.textContent;
+                btn.disabled = true;
+                label.innerHTML = '<div class="spinner"></div> Guardando…';
+                const generatedTech = $('techNameInput').value.trim() || 'Tecnología';
+                await persistCarouselToCloud(generatedTech);
+                btn.disabled = false;
+                label.textContent = original;
+            });
+            $('btnGenerateNarration').addEventListener('click', async () => {
+                if (!state.slides.length) { toast('Primero genera un carrusel', 'error'); return; }
+                const btn = $('btnGenerateNarration');
+                const label = $('btnGenerateNarrationLabel');
+                const original = label.textContent;
+                btn.disabled = true;
+                label.innerHTML = '<div class="spinner"></div> Generando voz…';
+                try {
+                    await generateNarrationForSlides();
+                    renderCostPanel();
+                    await persistNarrationToCloud();
+                    toast('Narración generada y guardada en la nube', 'success');
+                } catch (e) {
+                    console.error(e);
+                    toast(e.message || 'No se pudo generar la narración', 'error');
+                } finally {
+                    btn.disabled = false;
+                    label.textContent = original;
+                }
+            });
             async function persistCarouselToCloud(techOverride) {
                 if (!window.CarouselCloud) {
                     console.warn('Firebase no está disponible: se omite el guardado en la nube.');
@@ -3166,6 +3523,7 @@ ${buildJsonRulesBlock(tech)}
 
                     await cloud.saveGeneration({ id: generationId, status: 'ready', slides: slidesMeta });
 
+                    state.cloud.lastSlidesMeta = slidesMeta;
                     state.cloud.status = 'ready';
                     $('genHint').textContent = '';
                     toast('Generación guardada en la nube', 'success');
@@ -3339,23 +3697,6 @@ ${buildJsonRulesBlock(tech)}
                 }
             }
 
-
-            async function togglePublishedStatus(id) {
-                const item = galleryCache.find((g) => g.id === id);
-                if (!item) return;
-                if (!window.CarouselCloud) { toast('Firebase no está disponible', 'error'); return; }
-
-                const newValue = !item.published;
-                try {
-                    await window.CarouselCloud.saveGeneration({ id, published: newValue });
-                    item.published = newValue;
-                    renderGalleryList(galleryCache);
-                    toast(newValue ? 'Marcada como publicada' : 'Desmarcada', 'success');
-                } catch (e) {
-                    console.error(e);
-                    toast('No se pudo actualizar el estado', 'error');
-                }
-            }
             function openVideoPreview(url) {
                 $('videoPreviewPlayer').src = url;
                 $('videoPreviewModal').classList.remove('hidden');
@@ -3383,9 +3724,12 @@ ${buildJsonRulesBlock(tech)}
                 $('techNameInput').value = item.tech || '';
                 state.carousel = { caption: item.caption || '' };
                 $('captionOutput').value = item.caption || '';
-
+                // FIX: sanitiza el código al cargar generaciones antiguas de la nube
+                // que puedan tener restos de resaltado de sintaxis guardados de antes.
                 state.slides = item.slides.map((s) => ({
-                    tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub, codigo: s.codigo, dialogo: s.dialogo,
+                    tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub,
+                    codigo: state.contentCategory === 'idiomas' ? s.codigo : sanitizeCodeSnippet(s.codigo || ''),
+                    dialogo: s.dialogo,
                     checkedCount: s.numero, audioDurationMs: null, audioAlignment: null, audioBlob: null,
                     _remoteAudioUrl: s.audioUrl || null
                 }));
@@ -3395,6 +3739,7 @@ ${buildJsonRulesBlock(tech)}
                 state.cloud.status = item.status || 'ready';
                 state.cloud.lastVideoUrl = item.videoUrl || null;
                 state.cloud.lastVideoStoragePath = item.videoStoragePath || null;
+                state.cloud.lastSlidesMeta = item.slides;
                 $('btnSchedulePublish').classList.toggle('hidden', !item.videoUrl);
 
                 toast('Cargando audios de narración…', 'info');
@@ -3613,17 +3958,7 @@ ${buildJsonRulesBlock(tech)}
                 }
             }
 
-            // ===================== FIX 3: scheduling de audio con AudioContext =====================
-            // Antes se usaba setTimeout + <audio>.play() para arrancar cada narración,
-            // lo cual no es preciso porque el hilo principal está saturado dibujando el
-            // canvas 30 veces por segundo (transiciones, glow, subtítulos, ruido, etc.).
-            // Cuando el hilo principal se traba un poco, el setTimeout se dispara tarde
-            // y las narraciones se solapan o desincronizan del video.
-            //
-            // La solución: decodificar cada audio a un AudioBuffer y programarlo con
-            // AudioBufferSourceNode.start(tiempoExacto), usando el reloj del propio
-            // AudioContext (audioCtx.currentTime). Ese scheduling corre en el hilo de
-            // audio nativo del navegador, inmune a que el hilo principal esté ocupado.
+            // ===================== FIX: scheduling de audio con AudioContext =====================
             async function generateBackgroundVideo() {
                 if (typeof MediaRecorder === 'undefined') {
                     toast('Tu navegador no soporta grabación de video', 'error');
@@ -3750,9 +4085,6 @@ ${buildJsonRulesBlock(tech)}
                             narrationGain.gain.value = state.exportSettings.narrationVolume;
                             narrationGain.connect(dest);
 
-                            // Decodificamos cada audio a un AudioBuffer para poder
-                            // programarlo con precisión de muestra más adelante,
-                            // en vez de depender de setTimeout + <audio>.play().
                             for (let i = 0; i < activeSlides.length; i++) {
                                 const blob = activeSlides[i].audioBlob;
                                 if (!blob) continue;
@@ -3791,8 +4123,6 @@ ${buildJsonRulesBlock(tech)}
                     }
                 }
 
-                // Ruido sutil (dithering) para evitar el "banding" — la línea visible
-                // que aparece cuando un degradado grande no tiene suficiente precisión de color.
                 const NOISE_SIZE = 128;
                 const noiseCanvas = document.createElement('canvas');
                 noiseCanvas.width = NOISE_SIZE; noiseCanvas.height = NOISE_SIZE;
@@ -3816,14 +4146,8 @@ ${buildJsonRulesBlock(tech)}
 
                 label.innerHTML = '<div class="spinner"></div> Grabando…';
 
-                console.log('[AUDIO DEBUG] hasNarration:', hasNarration, '| audioFile:', !!audioFile);
-                console.log('[AUDIO DEBUG] audioCtx state:', audioCtx ? audioCtx.state : 'null');
-                console.log('[AUDIO DEBUG] audioTrack:', audioTrack);
-                console.log('[AUDIO DEBUG] narrationBuffers count:', narrationBuffers.length);
-
                 const stream = canvas.captureStream(30);
                 if (audioTrack) stream.addTrack(audioTrack);
-                console.log('[AUDIO DEBUG] stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
                 const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : (MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm');
                 const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 });
                 const chunks = [];
@@ -4100,15 +4424,12 @@ ${buildJsonRulesBlock(tech)}
                         tintAlpha = 0.14 + Math.sin(pulseT * Math.PI * 2) * 0.12;
                     }
 
-                    // mide con el texto COMPLETO para que la caja no cambie de tamaño con el typewriter
                     const textWidth = ctx.measureText(text).width;
                     const padX = fontSize * 0.75, padY = fontSize * 0.48;
                     const boxW = textWidth + padX * 2;
                     const boxH = fontSize + padY * 2;
                     const boxX = cx - boxW / 2, boxY = cy - boxH / 2;
 
-                    // 1) blur real de lo que hay detrás del chip (efecto vidrio esmerilado)
-                    // 1) blur real de lo que hay detrás del chip (efecto vidrio esmerilado)
                     const blurCanvas = document.createElement('canvas');
                     blurCanvas.width = W; blurCanvas.height = H;
                     const bctx = blurCanvas.getContext('2d');
@@ -4121,14 +4442,12 @@ ${buildJsonRulesBlock(tech)}
                     ctx.roundRect(boxX, boxY, boxW, boxH, boxH / 2);
                     ctx.clip();
                     ctx.drawImage(blurCanvas, 0, 0, W, H);
-                    // capa MUY sutil oscura + un toque del color del logo, encima del blur
                     ctx.fillStyle = 'rgba(6,8,12,0.18)';
                     ctx.fillRect(boxX, boxY, boxW, boxH);
                     ctx.fillStyle = hexToRgba(tint, tintAlpha);
                     ctx.fillRect(boxX, boxY, boxW, boxH);
                     ctx.restore();
 
-                    // borde sutil tipo vidrio
                     ctx.save();
                     ctx.globalAlpha = alpha;
                     ctx.strokeStyle = 'rgba(255,255,255,0.16)';
@@ -4138,7 +4457,6 @@ ${buildJsonRulesBlock(tech)}
                     ctx.stroke();
                     ctx.restore();
 
-                    // texto
                     ctx.save();
                     ctx.globalAlpha = alpha;
                     ctx.fillStyle = textColor;
@@ -4199,7 +4517,6 @@ ${buildJsonRulesBlock(tech)}
                     ctx.fillRect(0, 0, W, H);
                     ctx.restore();
 
-                    // Overlays: solo en la diapositiva 1, se desvanecen en la transición a la 2
                     if (slideIndex === 0 && state.videoOverlays && state.videoOverlays.length) {
                         const overlayAlpha = inTransition ? Math.max(0, 1 - transitionProgress) : 1;
                         if (overlayAlpha > 0) {
@@ -4234,9 +4551,6 @@ ${buildJsonRulesBlock(tech)}
 
                 recorder.start();
 
-                // Anclamos el mismo instante en dos relojes: el visual (performance.now(),
-                // usado por drawFrame) y el de audio (audioCtx.currentTime, inmune a que
-                // el hilo principal esté ocupado dibujando el canvas).
                 const clockAnchorPerf = performance.now();
                 const clockAnchorAudio = audioCtx ? audioCtx.currentTime : 0;
 
@@ -4260,7 +4574,6 @@ ${buildJsonRulesBlock(tech)}
                 if (audioCtx) { audioCtx.close().catch(() => { }); }
 
                 const blob = new Blob(chunks, { type: 'video/webm' });
-                console.log('[AUDIO DEBUG] blob final size:', blob.size, 'chunks:', chunks.length);
 
                 const techSlug = ($('techNameInput').value.trim() || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
                 let finalBlob = blob;      // por defecto, el webm (fallback si algo falla)
@@ -4285,8 +4598,6 @@ ${buildJsonRulesBlock(tech)}
 
                         const { mp4Url, mp4StoragePath } = convertData;
 
-                        // A partir de aquí, el MP4 es "el video" de esta generación.
-                        // El webm queda en Storage por si acaso, pero ya no se usa en la app.
                         await window.CarouselCloud.saveGeneration({
                             id: state.cloud.currentGenerationId,
                             videoUrl: mp4Url,
@@ -4451,10 +4762,6 @@ ${buildJsonRulesBlock(tech)}
 
 
             function applyDefaultOverlays() {
-                // Zona segura: arriba, debajo del logo/handle, ANTES de que empiece el título
-                // y el bloque de temario (que cambian de tamaño según el texto). Así el
-                // overlay nunca se monta encima de contenido dinámico ni "se corre" entre
-                // el editor y el video final.
                 state.videoOverlays = [
                     { id: makeOverlayId(), text: 'Dale like y sígueme para más', icon: '❤️', animation: 'bounce', xPct: 0.5, yPct: 0.155 },
                     { id: makeOverlayId(), text: 'Comenta tu duda', icon: '💬', animation: 'highlight', xPct: 0.5, yPct: 0.235 }
@@ -4551,12 +4858,6 @@ ${buildJsonRulesBlock(tech)}
                 const { tint, textColor } = getOverlayColors();
                 const subPos = state.exportSettings.subtitlePos;
 
-                // Medimos el ancho REAL del lienzo en pantalla y aplicamos EXACTAMENTE
-                // la misma fórmula que usa el canvas al exportar el video
-                // (fontSize = ancho * 0.038, padX = fontSize*0.75, padY = fontSize*0.48).
-                // Antes la vista previa usaba clases fijas de Tailwind (text-[11px] px-3 py-1.5)
-                // que NO escalan igual que el canvas de 1080x1920 — por eso se corría.
-                // Ahora hay una sola fórmula compartida: editor y video quedan atados matemáticamente.
                 const canvasRect = $('slideCanvas').getBoundingClientRect();
                 const cw = canvasRect.width || 296;
                 const previewFontSize = cw * 0.038;
@@ -4702,18 +5003,15 @@ ${buildJsonRulesBlock(tech)}
             });
             /* ===================== INIT ===================== */
             loadConfig();
+            updateCategoryToggleUI();
+            renderTemarioOptions();
             updateTemarioMode('python_basico');
             updateScopeUI();
             updateStageGlow([]);
             renderOverlayList();          // 👈 nuevo
             renderVideoOverlaysPreview(); // pinta overlays existentes al cargar (si hay)
-            window.addEventListener('carousel-cloud-ready', loadGeneratedTopicsAndFilter);
-            if (window.CarouselCloud) loadGeneratedTopicsAndFilter();
+
         })();
-
-
-
-
     </script>
 
 

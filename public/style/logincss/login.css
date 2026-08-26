@@ -2461,3 +2461,29 @@ svg.input-icon {
   opacity: .5;
   cursor: not-allowed;
 }
+
+.cool-select.is-loading .cool-select-trigger {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.cool-select-loadbar {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 2px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0 0 8px 8px;
+}
+.cool-select-loadbar::after {
+  content: "";
+  position: absolute;
+  height: 100%;
+  width: 40%;
+  background: currentColor;
+  animation: coolLoadSlide 1s infinite ease-in-out;
+}
+@keyframes coolLoadSlide {
+  0%   { left: -40%; }
+  100% { left: 100%; }
+}
+.cool-select { position: relative; }
