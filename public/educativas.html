@@ -1582,7 +1582,6 @@
 
             /* ===================== PRESETS ===================== */
             const PRESETS_TECH = {
-
                 python_basico: { label: 'Python Básico', tech: 'Python', items: ['Variables y tipos de datos', 'Operadores', 'Condicionales if/else', 'Bucles for y while'] },
                 python_intermedio: { label: 'Python Intermedio', tech: 'Python', items: ['Funciones y parámetros', 'Listas y comprensión de listas', 'Diccionarios y sets', 'Manejo de excepciones'] },
                 python_avanzado: { label: 'Python Avanzado', tech: 'Python', items: ['Decoradores', 'Generadores y yield', 'Programación asíncrona (async/await)', 'Context managers (with)'] },
@@ -1601,7 +1600,6 @@
                 regex: { label: 'Expresiones Regulares', tech: 'Regex', items: ['Caracteres literales y especiales', 'Cuantificadores', 'Grupos y capturas', 'Lookahead / Lookbehind'] },
                 seguridad_web: { label: 'Seguridad Web Básica', tech: 'Seguridad Web', items: ['Inyección SQL', 'Cross-Site Scripting (XSS)', 'Autenticación segura', 'HTTPS y certificados'] }
             };
-
 
             const PRESETS_IDIOMAS = {
                 english_basico: { label: 'Inglés Básico', tech: 'Inglés', items: ['Verb to be', 'Pronombres personales', 'Presente simple', 'Vocabulario cotidiano'] },
@@ -1626,19 +1624,23 @@
             function currentPresets() {
                 return state.contentCategory === 'idiomas' ? PRESETS_IDIOMAS : PRESETS_TECH;
             }
+
             /* ===================== STATE ===================== */
             const STORAGE_KEY = 'carousel_studio_config_v3';
             const GRANJA_TTS_URL = 'https://texttospeech-granja-eleven-oixttik5rq-uc.a.run.app';
             const CONVERT_TO_MP4_URL = 'https://us-central1-geinzworkapp.cloudfunctions.net/convertToMp4';
             const state = {
-                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', selectedImageApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false, watermarkText: '' }, logo: { dataUrl: null, colors: [] },
+                config: { geminiKey: '', openaiKey: '', selectedApi: 'gemini', selectedImageApi: 'gemini', elevenLabsKey: '', elevenLabsVoiceId: '', telegramChatId: '', testMode: false, watermarkText: '' },
+                logo: { dataUrl: null, colors: [] },
                 contentCategory: 'tech',
                 temarioMode: 'python_basico',
                 temarioItems: PRESETS_TECH.python_basico.items.slice(),
-                generationScope: 'all',        // 'all' | 'single'
+                generationScope: 'all',
                 generationSingleIndex: 0,
-                carousel: null,     // { caption, content_slides:[{titulo,explicacion,codigo}], reto:{titulo,enunciado,codigo} }
-                slides: [],          // flattened render-ready slides
+                carousel: null,
+                generationPalette: null,
+                lastPaletteIndex: -1,
+                slides: [],
                 currentSlide: 0,
                 videoSlideSelection: [],
                 watermarkPos: { xPct: 0.82, yPct: 0.078 },
@@ -1649,7 +1651,6 @@
                 videoOverlays: [],
                 whisperSegments: [],
                 whisperOriginalFile: null,
-
             };
 
             /* ===================== UTIL ===================== */
@@ -1679,10 +1680,14 @@
                 const s = String(str ?? '').trim();
                 return s.length > maxLen ? s.slice(0, maxLen - 1).trim() + '…' : s;
             }
+            // FIX #2: ya no truncamos con "…" a mitad de línea (eso rompía la sintaxis).
+            // Solo recortamos a N líneas máximo y quitamos espacios sobrantes al final
+            // de cada línea; el prompt es responsable de respetar el límite de caracteres.
             function trimCodeLines(str, maxLines = 4) {
                 const lines = String(str ?? '').split('\n').slice(0, maxLines);
                 return lines.map((l) => l.trimEnd()).join('\n');
             }
+
             /* ===================== CONFIG PERSISTENCE ===================== */
             function loadConfig() {
                 try {
@@ -1860,7 +1865,7 @@
                 try { data = ctx.getImageData(0, 0, size, size).data; }
                 catch (e) { return ['#22D3EE', '#8B5CF6', '#A78BFA']; }
 
-                const HUE_BINS = 24; // 15° por bin
+                const HUE_BINS = 24;
                 const bins = new Map();
 
                 for (let i = 0; i < data.length; i += 4) {
@@ -1870,7 +1875,7 @@
                     const { h: hue, s, l } = rgbToHsl(r, g, b);
                     if (l > 0.94 || l < 0.06 || s < 0.15) continue;
                     const binIndex = Math.floor(hue / (360 / HUE_BINS)) % HUE_BINS;
-                    const clampByte = (v) => Math.min(255, Math.round(v / 16) * 16); // evita 256 -> "100" en hex
+                    const clampByte = (v) => Math.min(255, Math.round(v / 16) * 16);
                     const quantKey = [clampByte(r), clampByte(g), clampByte(b)].join(',');
 
                     if (!bins.has(binIndex)) bins.set(binIndex, { count: 0, colors: new Map() });
@@ -1905,6 +1910,47 @@
                 return `rgba(${r},${g},${b},${alpha})`;
             }
 
+            // FIX: librería de paletas de acento para que el fondo NO se repita siempre
+            // igual (cian/violeta) entre generaciones distintas, aunque se use el mismo
+            // logo o ninguno. Se combina con los colores reales del logo cuando existen.
+            const ACCENT_PALETTE_LIBRARY = [
+                ['#22D3EE', '#8B5CF6', '#0A0C10'], // cian / violeta (original)
+                ['#F97316', '#EF4444', '#0A0C10'], // naranja / rojo
+                ['#34D399', '#0EA5E9', '#0A0C10'], // verde / azul
+                ['#F472B6', '#A78BFA', '#0A0C10'], // rosa / violeta
+                ['#FBBF24', '#F43F5E', '#0A0C10'], // dorado / rosado fuerte
+                ['#60A5FA', '#22D3EE', '#0A0C10'], // azul / cian
+                ['#A3E635', '#10B981', '#0A0C10'], // lima / esmeralda
+                ['#C084FC', '#F472B6', '#0A0C10'], // púrpura / rosa
+                ['#FB923C', '#FACC15', '#0A0C10'], // naranja / amarillo
+                ['#38BDF8', '#818CF8', '#0A0C10'], // celeste / índigo
+            ];
+
+            function pickRandomAccentPalette() {
+                let idx;
+                do {
+                    idx = Math.floor(Math.random() * ACCENT_PALETTE_LIBRARY.length);
+                } while (ACCENT_PALETTE_LIBRARY.length > 1 && idx === state.lastPaletteIndex);
+                state.lastPaletteIndex = idx;
+                return ACCENT_PALETTE_LIBRARY[idx].slice();
+            }
+
+            // Calcula la paleta a usar para ESTA generación: si hay logo con colores
+            // reales, mezcla uno o dos de esos colores con un acento aleatorio de la
+            // librería (variedad); si no hay logo, usa una paleta random completa.
+            function computeGenerationPalette() {
+                const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+                const logoColors = (state.logo.colors || []).filter((c) => HEX_RE.test(c));
+                const accent = pickRandomAccentPalette();
+
+                if (logoColors.length >= 2) {
+                    return [logoColors[0], logoColors[1], accent[0]];
+                }
+                if (logoColors.length === 1) {
+                    return [logoColors[0], accent[0], accent[1]];
+                }
+                return accent;
+            }
             function buildGradientCss(colors) {
                 const base = colors && colors.length ? colors : ['#22D3EE', '#8B5CF6', '#0A0C10'];
                 const stops = base.slice(0, 3);
@@ -1918,7 +1964,7 @@
             }
 
             function getOverlayColors() {
-                const FALLBACK_TINT = '#1E293B'; // slate oscuro por defecto, si no hay logo
+                const FALLBACK_TINT = '#1E293B';
                 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
                 const colors = (state.logo.colors || []).filter((c) => HEX_RE.test(c));
                 let tint = FALLBACK_TINT;
@@ -1929,7 +1975,7 @@
                         const g = parseInt(h.substring(2, 4), 16) || 0;
                         const b = parseInt(h.substring(4, 6), 16) || 0;
                         return { hex, l: rgbToHsl(r, g, b).l };
-                    }).sort((a, b) => a.l - b.l); // el más oscuro primero
+                    }).sort((a, b) => a.l - b.l);
                     tint = withLum[0].hex;
                 }
                 return { tint, textColor: '#FFFFFF' };
@@ -2145,15 +2191,18 @@
                 return state.temarioItems;
             }
 
+            // FIX #4: se añade la exigencia de identificadores en inglés técnico dentro
+            // del código, mientras diálogos/explicaciones se mantienen en español.
             function buildSystemPrompt() {
                 if (state.contentCategory === 'idiomas') {
                     return `Eres un generador de contenido educativo de idiomas para carruseles de redes sociales (Instagram Reels / TikTok). Tu prioridad número uno es la RETENCIÓN Y LA VIRALIDAD: los primeros 1-2 segundos deciden si la persona se queda o se va, así que "intro_dialogo" y "caption" SIEMPRE deben empezar con un gancho (pregunta directa, error común, o promesa concreta de resultado), nunca con saludos genéricos tipo "Hola" o "Bienvenido". Ayudas a personas a aprender idiomas con explicaciones claras y ejemplos prácticos. El texto en pantalla es breve, pero la narración ("dialogo", "intro_dialogo") explica de verdad cada punto, como el guion de un profesor. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks.`;
                 }
-                return `Eres un creador de contenido técnico para redes sociales (TikTok/Reels/Shorts), no un generador de fichas de referencia. Tu prioridad número uno es la RETENCIÓN: los primeros 1-2 segundos deciden si la persona se queda o se va, así que "intro_dialogo" y "caption" SIEMPRE deben empezar con un gancho — una pregunta directa, un error común, o una promesa concreta de lo que se va a aprender — nunca con saludos genéricos tipo "Hola" o "En este video". Explicas conceptos técnicos como lo haría un buen instructor: defines el concepto, muestras un ejemplo concreto y das un tip práctico para recordarlo, todo en tono cercano y directo, sin relleno. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks.`;
+                return `Eres un creador de contenido técnico para redes sociales (TikTok/Reels/Shorts), no un generador de fichas de referencia. Tu prioridad número uno es la RETENCIÓN: los primeros 1-2 segundos deciden si la persona se queda o se va, así que "intro_dialogo" y "caption" SIEMPRE deben empezar con un gancho — una pregunta directa, un error común, o una promesa concreta de lo que se va a aprender — nunca con saludos genéricos tipo "Hola" o "En este video". Explicas conceptos técnicos como lo haría un buen instructor: defines el concepto, muestras un ejemplo concreto y das un tip práctico para recordarlo, todo en tono cercano y directo, sin relleno. IMPORTANTE: todo identificador dentro del campo "codigo" (variables, funciones, hooks, props, componentes, nombres de rutas) debe estar en INGLÉS técnico estándar (ej. count, setCount, handleClick, isLoading, fetchData, UserCard) — nunca en español, aunque el resto del contenido ("dialogo", "explicacion", "caption", "enunciado") sí vaya en español. Respondes ÚNICAMENTE con un objeto JSON válido, compacto y sin texto adicional, sin markdown, sin backticks.`;
             }
+
             function computeSpeechBudget(totalContentSlides) {
-                const TARGET_TOTAL_SECONDS = 50; // deja margen para quedar bajo 60s con transiciones
-                const WORDS_PER_SECOND = 2.3;    // ritmo natural hablado en español
+                const TARGET_TOTAL_SECONDS = 50;
+                const WORDS_PER_SECOND = 2.3;
                 const introSeconds = 6;
                 const retoSeconds = 7;
                 const remaining = Math.max(8, TARGET_TOTAL_SECONDS - introSeconds - retoSeconds);
@@ -2167,6 +2216,9 @@
                 };
             }
 
+            // FIX #2: código autocontenido (lógica + JSX en el mismo bloque), máximo
+            // 4 líneas x 45 caracteres, y el reto SIEMPRE debe traer un placeholder
+            // literal '___' para generar comentarios/engagement.
             function buildJsonRulesBlock(tech, slideCount) {
                 const budget = computeSpeechBudget(slideCount || 5);
 
@@ -2186,11 +2238,11 @@
 "reto": {
   "titulo": "título corto del reto",
   "enunciado": "consigna breve y clara de qué debe hacer el estudiante (completar, traducir, transformar una frase, etc), máx 100 caracteres. Se MUESTRA EN PANTALLA.",
-  "codigo": "frase o ejercicio base del reto en ${tech} (ej. una frase con un espacio en blanco marcado con guion bajo, o una frase en español para traducir), MÁXIMO 3 líneas y 28 caracteres por línea. Se MUESTRA EN PANTALLA.",
+  "codigo": "frase o ejercicio base del reto en ${tech} (ej. una frase con un espacio en blanco marcado con guion bajo, o una frase en español para traducir), MÁXIMO 3 líneas y 28 caracteres por línea. DEBE contener literalmente '___' en el lugar del elemento que el usuario debe completar. Se MUESTRA EN PANTALLA.",
   "dialogo": "guion hablado de MÁXIMO ${budget.retoMaxWords} palabras, con esta idea EXACTA y sin rodeos: pide directamente que el usuario escriba en los comentarios la traducción de UNA frase corta y concreta en ${tech} relacionada al tema (ejemplo de tono: 'Escribe en los comentarios cómo se dice en inglés: Él la ayudó a ella. Te leo.'). PROHIBIDO pedir que 'revisen la explicación anterior' o dar instrucciones largas o técnicas. PROHIBIDO leer el campo codigo tal cual si tiene guiones bajos o símbolos."
 }
 }
- 
+
 REGLAS ESTRICTAS:
 1. GANCHO OBLIGATORIO en "intro_dialogo" y "caption": nada de saludos ni "en este video vamos a ver...".
 2. LA TEORÍA VA EN PANTALLA, NO EN VOZ: "explicacion" (contenido) y "enunciado" (reto) deben tener la regla gramatical o el dato léxico concreto y completo, tipo ficha de estudio. Pero "dialogo" en ambos casos NUNCA repite ni lee esa teoría — la voz es corta, práctica y va directo a ejemplos/pregunta o a pedir la traducción.
@@ -2199,6 +2251,7 @@ REGLAS ESTRICTAS:
 5. "dialogo" e "intro_dialogo" son para VOZ: escribe los números en palabras (ej. "tres"), nunca dígitos, nunca guiones bajos, asteriscos ni símbolos sueltos. Cuando incluyas una frase en ${tech}, escríbela tal cual y agrega su traducción al español entre paréntesis justo después.
 6. CÓDIGO 100% PLANO: prohibido cualquier resto de resaltado de sintaxis (<span>, class="...", className="...", tok-kw, tok-op, tok-num, tok-str, o cualquier etiqueta HTML). Escribe el código exactamente como se vería pegado en un editor de texto plano.
 7. COHERENCIA ENTRE SLIDES: todo nombre, ruta o expresión que aparezca en más de un "codigo" del mismo carrusel debe ser idéntico en todos los slides donde se repita.
+8. PLACEHOLDER OBLIGATORIO EN EL RETO: "reto.codigo" SIEMPRE debe incluir literalmente '___' en lugar de un elemento que el usuario deba completar — nunca entregues el ejercicio ya resuelto.
 - JSON compacto, sin comentarios.`;
                 }
                 return `Devuelve SOLO este objeto JSON (nada de texto fuera de él):
@@ -2209,26 +2262,29 @@ REGLAS ESTRICTAS:
 {
   "titulo": "título corto del punto",
   "explicacion": "explicación breve en una frase (máx 80 caracteres)",
-  "codigo": "snippet de código FUENTE PURO en ${tech}, MÁXIMO 4 líneas y máximo 40 caracteres por línea. Debe ser código sintácticamente VÁLIDO y COMPLETO. Usa \\n para saltos de línea.",
+  "codigo": "snippet AUTOCONTENIDO en ${tech}: la lógica (useState, función, cálculo, etc.) y el JSX o valor de retorno DEBEN estar en el MISMO snippet. NO muestres imports ni firmas de función largas si eso quita espacio al código clave. MÁXIMO 4 líneas, MÁXIMO 45 caracteres por línea. Código sintácticamente VÁLIDO y COMPLETO, nunca cortado a la mitad. Usa \\n para saltos de línea.",
   "dialogo": "guion de 3 a 4 frases leídas en voz alta: (1) Qué es en términos simples, (2) Caso de uso real en producción, (3) Pro-tip técnico. Máximo ${budget.contentMaxWords} palabras."
 }
 ],
 "reto": {
   "titulo": "título corto del reto",
   "enunciado": "consigna breve (máx 100 caracteres)",
-  "codigo": "código base del reto en ${tech}, MÁXIMO 4 líneas y 40 caracteres por línea, sintácticamente válido y completo",
+  "codigo": "código base del reto en ${tech}, MÁXIMO 4 líneas y 45 caracteres por línea, autocontenido (lógica + JSX/retorno en el mismo bloque), sintácticamente válido salvo por el placeholder. DEBE contener literalmente '___' en el nombre de una variable, función o valor que el usuario tenga que completar o corregir en los comentarios — nunca entregues el reto ya resuelto.",
   "dialogo": "guion de 3 frases: (1) Recordatorio clave, (2) Instrucción del reto, (3) Cierre invitando a comentar su respuesta y seguir la cuenta. Máximo ${budget.retoMaxWords} palabras."
 }
 }
 REGLAS DE CÓDIGO, DURACIÓN Y CALIDAD TÉCNICA (ESTRICTAS):
-1. MÁXIMO 4 LÍNEAS DE CÓDIGO: El campo "codigo" NUNCA debe superar las 4 líneas. Si un concepto requiere más código, MUESTRA SOLO LA PARTE CRÍTICA del snippet, pero que sea sintácticamente válida y completa.
+1. MÁXIMO 4 LÍNEAS DE CÓDIGO: El campo "codigo" NUNCA debe superar las 4 líneas ni los 45 caracteres por línea. Si un concepto requiere más código, MUESTRA SOLO LA PARTE CRÍTICA del snippet, pero que sea sintácticamente válida y completa.
 2. EL CÓDIGO DEBE COMPILAR: Prohibido inventar sintaxis, usar '...' dentro del código o dejar palabras/líneas a la mitad. Si usas funciones suspend de Kotlin, muestra la firma de la función para que no rompa las reglas del lenguaje.
 3. CÓDIGO PURO: El campo "codigo" es SOLO el código fuente tal cual se vería en un editor de texto plano, sin absolutamente ningún marcado visual. PROHIBIDO cualquier atributo tipo nombre="valor" (class, className, style, o cualquier otro) y cualquier etiqueta entre < >. Si al escribir una línea de código sientes el impulso de agregar comillas y un signo igual antes del código real, es una señal de que estás mezclando resaltado de sintaxis — no lo hagas, escribe solo el código puro.
-4. LÍNEAS COMPLETAS: cada línea debe ser código válido y completo por sí sola, sin cortarla a la mitad ni terminarla en "...". Prohibido que una línea muestre solo un cierre suelto (ej. "} />") sin su apertura visible en el mismo bloque. Si no cabe en 40 caracteres, resume la línea o pásala a la siguiente, pero nunca la dejes incompleta.
+4. LÍNEAS COMPLETAS: cada línea debe ser código válido y completo por sí sola, sin cortarla a la mitad ni terminarla en "...". Prohibido que una línea muestre solo un cierre suelto (ej. "} />") sin su apertura visible en el mismo bloque. Si no cabe en 45 caracteres, resume la línea o pásala a la siguiente, pero nunca la dejes incompleta.
 4.1. GUIONES PARA VOZ: Escribe SIEMPRE los números con palabras (ej. "tres" en vez de "3") en "dialogo" e "intro_dialogo".
 4.2. ANTES DE RESPONDER: relee cada "codigo" del carrusel completo y confirma que toda ruta, nombre de componente o variable que se repite en más de un slide es EXACTAMENTE igual, letra por letra, en todos los slides donde aparece.
-5. COHERENCIA ENTRE SLIDES: todo nombre de ruta, variable, componente o función que aparezca en más de un "codigo" del mismo carrusel DEBE ser idéntico en todos los slides donde se repita (ej. si defines la ruta "/nosotros" en un slide, ningún otro slide puede usar "/about" ni "/acerca"). Usa siempre nombres en español si el resto del contenido está en español.
+5. COHERENCIA ENTRE SLIDES: todo nombre de ruta, variable, componente o función que aparezca en más de un "codigo" del mismo carrusel DEBE ser idéntico en todos los slides donde se repita (ej. si defines la ruta "/about" en un slide, ningún otro slide puede usar otro nombre para la misma ruta).
 6. DURACIÓN TOTAL OBLIGATORIA: este carrusel se convierte en un Reel/TikTok/Short de MENOS DE UN MINUTO. Respeta el límite de palabras de cada "dialogo" indicado arriba aunque sientas que "falta explicar más" — prioriza lo esencial y recorta antes de excederte. La suma de todo el guion hablado (intro + content_slides + reto) no puede superar ${budget.totalSeconds} segundos a un ritmo de ${budget.wordsPerSecond} palabras por segundo.
+7. AUTOCONTENIDO: cada "codigo" debe poder leerse y entenderse sin contexto externo — incluye la línea de lógica (ej. "const [count, setCount] = useState(0);") junto con el JSX o valor que la usa, en el mismo snippet de máximo 4 líneas. No gastes líneas en imports.
+8. PLACEHOLDER OBLIGATORIO EN EL RETO: "reto.codigo" SIEMPRE debe incluir literalmente '___' en lugar de un nombre, valor o expresión que el usuario deba adivinar o corregir — nunca entregues el reto ya resuelto.
+9. IDIOMA DEL CÓDIGO: todo nombre de variable, función, hook, prop o componente en "codigo" debe estar en INGLÉS técnico estándar (count, setCount, handleClick, isLoading, fetchData, UserCard, etc.). Los comentarios dentro del código, si los hay, también van en inglés o se omiten. Español SOLO en dialogo/explicacion/enunciado/caption.
 - JSON compacto, sin comentarios.`;
             }
 
@@ -2239,13 +2295,13 @@ REGLAS DE CÓDIGO, DURACIÓN Y CALIDAD TÉCNICA (ESTRICTAS):
                     const topic = $('libreTopicInput').value.trim() || tech;
                     return `Genera el contenido para un carrusel educativo sobre "${tech}", a partir de esta petición libre escrita por el usuario (puede ser un tema, una pregunta o un caso concreto):
 "${topic}"
- 
-Interpreta la intención real del usuario y organiza el contenido en el mismo formato que usa esta app para temarios estructurados (una portada, varios puntos de contenido y un reto final).TÚ decides cuántos puntos de contenido son necesarios para explicar bien el tema: usa entre 3 y 5 elementos en "content_slides", ni más ni menos de lo que el tema realmente requiera. Cada punto debe cubrir un aspecto claro, distinto y en un orden lógico de aprendizaje.
- 
+
+Interpreta la intención real del usuario y organiza el contenido en el mismo formato que usa esta app para temarios estructurados (una portada, varios puntos de contenido y un reto final). TÚ decides cuántos puntos de contenido son necesarios para explicar bien el tema: usa entre 3 y 5 elementos en "content_slides", ni más ni menos de lo que el tema realmente requiera. Cada punto debe cubrir un aspecto claro, distinto y en un orden lógico de aprendizaje.
+
 Como aquí NO hay un temario predefinido que guíe el nivel de detalle, es CRÍTICO que cada "codigo" sea 100% funcional y directamente ejecutable (sin pseudocódigo, sin "...", sin funciones a medio definir), y que sea el ejemplo MÁS claro y directo posible del concepto — el tipo de snippet que alguien podría copiar, pegar y correr para entender el punto de un solo vistazo, sin contexto adicional.
- 
+
 ${buildJsonRulesBlock(tech, 5)}
-- content_slides" debe tener entre 3 y 5 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario. Cuantos más elementos elijas, MÁS CORTO debe ser cada "dialogo" individual para no romper el límite total de duración.
+- "content_slides" debe tener entre 3 y 5 elementos, decididos por ti según la complejidad del tema, cada uno con un "titulo" corto que sirva como punto de temario. Cuantos más elementos elijas, MÁS CORTO debe ser cada "dialogo" individual para no romper el límite total de duración.
 - ${state.contentCategory === 'idiomas'
                             ? 'Modo libre: cada "codigo" debe ser una frase o ejemplo real en el idioma, útil para practicar, sin ambigüedad.'
                             : 'Modo libre: cada "codigo" debe ser un ejemplo real y funcional que ilustre el punto de forma autocontenida — evita fragmentos ambiguos o que dependan de contexto no mostrado.'}`;
@@ -2255,7 +2311,7 @@ ${buildJsonRulesBlock(tech, 5)}
                 return `Genera el contenido para un carrusel educativo sobre "${tech}".
 El temario a cubrir en esta generación, en este orden exacto:
 ${items.map((it, i) => `${i + 1}. ${it}`).join('\n')}
- 
+
 ${buildJsonRulesBlock(tech, items.length)}
 - "content_slides" debe tener EXACTAMENTE ${items.length} elementos, uno por cada punto listado arriba, en el mismo orden.`;
             }
@@ -2280,19 +2336,14 @@ ${buildJsonRulesBlock(tech, items.length)}
                 return { text, usage };
             }
 
-
             /* ===================== GENERACIÓN DE IMÁGENES CON GEMINI (Nano Banana) ===================== */
-            const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'; // "Nano Banana" — el más barato activo — Imagen 4 Fast fue descontinuado 17-ago-2026
-            const GEMINI_IMAGE_TOKEN_PRICE_PER_1M = 30;   // USD por 1M tokens de imagen de salida (tarifa especial, no la de texto)
-            const GEMINI_IMAGE_TOKENS_PER_IMAGE = 1290;   // tokens fijos que consume cada imagen 1024x1024 generada
+            const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
+            const GEMINI_IMAGE_TOKEN_PRICE_PER_1M = 30;
+            const GEMINI_IMAGE_TOKENS_PER_IMAGE = 1290;
 
             /* ===================== GENERACIÓN DE IMÁGENES CON GPT IMAGE (OpenAI) ===================== */
-            const OPENAI_IMAGE_MODEL = 'gpt-image-1-mini'; // el modelo de imágenes más barato de OpenAI activo
-            const OPENAI_IMAGE_QUALITY = 'low';            // low/medium/high — 'low' es la opción más económica
-            // Costo aproximado por imagen 1024x1536 (retrato) en calidad "low" con gpt-image-1-mini.
-            // OpenAI cobra por tokens de imagen de salida; usamos una estimación fija de referencia
-            // ya que la respuesta de /images/edits y /images/generations no siempre trae el desglose
-            // de tokens exacto. Si la respuesta sí trae "usage", se recalcula con el dato real.
+            const OPENAI_IMAGE_MODEL = 'gpt-image-1-mini';
+            const OPENAI_IMAGE_QUALITY = 'low';
             const OPENAI_IMAGE_APROX_COST_USD = 0.02;
 
             function buildAIImagePrompt(userExtra) {
@@ -2319,7 +2370,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                         const ctx = canvas.getContext('2d');
                         ctx.clearRect(0, 0, w, h);
                         ctx.drawImage(img, 0, 0, w, h);
-                        resolve(canvas.toDataURL('image/png')); // 👈 siempre PNG, sin importar el formato original
+                        resolve(canvas.toDataURL('image/png'));
                     };
                     img.onerror = () => reject(new Error('No se pudo leer el logo para convertirlo a PNG.'));
                     img.src = state.logo.dataUrl;
@@ -2340,7 +2391,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const body = {
                     contents: [{ role: 'user', parts }],
                     generationConfig: {
-                        responseModalities: ['TEXT', 'IMAGE'], // este modelo exige ambos, no solo IMAGE
+                        responseModalities: ['TEXT', 'IMAGE'],
                         imageConfig: { aspectRatio: '9:16' }
                     }
                 };
@@ -2367,8 +2418,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                 };
             }
 
-            // Convierte un dataURL (base64) a un objeto File, para poder mandarlo
-            // como parte de un FormData multipart/form-data al endpoint de OpenAI.
             function dataUrlToFile(dataUrl, filename) {
                 const blob = dataUrlToBlob(dataUrl);
                 return new File([blob], filename, { type: blob.type });
@@ -2381,13 +2430,10 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const formData = new FormData();
                 formData.append('model', OPENAI_IMAGE_MODEL);
                 formData.append('prompt', promptText);
-                formData.append('size', '1024x1536'); // el más cercano a 9:16 que soporta GPT Image
+                formData.append('size', '1024x1536');
                 formData.append('quality', OPENAI_IMAGE_QUALITY);
                 formData.append('n', '1');
 
-                // Si hay logo, usamos el endpoint de edición (/images/edits) para que
-                // el modelo lo tome como referencia/base, igual que hacemos con Gemini.
-                // Si no hay logo, usamos /images/generations (texto puro).
                 const usingEdit = !!logoDataUrl;
                 const url = usingEdit
                     ? 'https://api.openai.com/v1/images/edits'
@@ -2399,7 +2445,7 @@ ${buildJsonRulesBlock(tech, items.length)}
 
                 const res = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${apiKey}` }, // NO poner Content-Type: fetch lo arma solo con boundary
+                    headers: { 'Authorization': `Bearer ${apiKey}` },
                     body: formData
                 });
                 if (!res.ok) {
@@ -2410,12 +2456,8 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const first = data?.data?.[0];
                 if (!first?.b64_json) throw new Error('OpenAI no devolvió ninguna imagen. Revisa el prompt, tu cuota, o el tamaño del logo.');
 
-                // Si la API devuelve desglose real de uso, lo usamos; si no, caemos al estimado fijo.
                 let costUsd = OPENAI_IMAGE_APROX_COST_USD;
                 if (data?.usage?.total_tokens) {
-                    // gpt-image-1-mini cobra salida de imagen a una tarifa especial; sin el
-                    // desglose exacto por tipo de token en la respuesta, mantenemos el
-                    // estimado fijo como referencia más confiable para calidad "low".
                     costUsd = OPENAI_IMAGE_APROX_COST_USD;
                 }
 
@@ -2436,7 +2478,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 try {
                     const extra = $('aiImagePromptInput').value.trim();
                     const promptText = buildAIImagePrompt(extra);
-                    const logoPng = await getLogoAsPngDataUrl(); // 👈 convierte SVG/lo que sea a PNG
+                    const logoPng = await getLogoAsPngDataUrl();
 
                     const useOpenAI = state.config.selectedImageApi === 'openai';
                     const result = useOpenAI
@@ -2496,29 +2538,15 @@ ${buildJsonRulesBlock(tech, items.length)}
                 let out = String(str);
                 const original = out;
 
-                // 1) SOLO borra <span ...> y </span> — son las etiquetas que realmente
-                //    usa el resaltado de sintaxis en esta app. Nunca toca <ul>, <li>,
-                //    <div>, etc. que pueden ser JSX real dentro del código generado.
                 out = out.replace(/<\/?span\b[^>]*>/gi, '');
-
-                // 2) Cualquier tag (del tipo que sea) que lleve class="tok-xxx" o
-                //    className="tok-xxx" — esto sí es inequívocamente basura de
-                //    resaltado, sin importar el nombre del tag.
                 out = out.replace(/<[a-z][a-z0-9]*\b[^>]*\b(?:class|className)\s*=\s*(["'])[^"']*tok-[^"']*\1[^>]*>/gi, '');
-
-                // 3) class=/className= sueltos con valor tok-xxx, con o sin comillas,
-                //    con o sin el ">" de cierre (versiones truncadas por la IA)
                 out = out.replace(/\b(?:class|className)\s*=\s*(["']?)tok-[\w-]*\1\s*>?/gi, '');
-
-                // 4) Nombres de clase sueltos que se colaron como texto plano
-                out = out.replace(/\btok-(?:kw|op|num|str)\b/gi, '');
-
-                // 5) Restos huérfanos de un tag de resaltado cuya apertura ya se filtró
-                //    (ej. un ">" solo al inicio de línea que venía después de un
-                //    class="tok-kw" truncado)
+                out = out.replace(/\btok-(?:kw|op|num|str|comp)\b/gi, '');
                 out = out.split('\n')
                     .map(line => line.replace(/^\s*\/?>\s*(?=[a-zA-Z{])/, ''))
                     .join('\n');
+                // segunda pasada por si el residuo quedó pegado a mitad de línea
+                out = out.replace(/\b(?:class|className)\s*=\s*(["']?)tok-[\w-]*\1\s*>?/gi, '');
 
                 const cleaned = out.trim();
                 if (cleaned !== original) {
@@ -2532,16 +2560,12 @@ ${buildJsonRulesBlock(tech, items.length)}
                 if (!code) return { ok: true, issues: [] };
                 const issues = [];
 
-                if (/class(Name)?\s*=|tok-(kw|op|num|str)/i.test(code)) {
+                if (/class(Name)?\s*=|tok-(kw|op|num|str|comp)/i.test(code)) {
                     issues.push('Restos de resaltado de sintaxis');
                 }
 
                 code.split('\n').forEach((l) => {
                     const t = l.trim();
-                    // Solo marca como truncada una línea que sea "} />" o "/>" sueltos
-                    // (JSX cortado a la mitad, ej: un cierre de etiqueta sin su apertura
-                    // visible). Un "}" simple es el cierre normal de una función/bloque
-                    // y NO debe marcarse — por eso aquí "/" y ">" ya NO son opcionales.
                     if (/^\}\s*\/>\s*$/.test(t) || /^\/>\s*$/.test(t)) {
                         issues.push(`Línea truncada: "${t}"`);
                     }
@@ -2601,9 +2625,11 @@ ${buildJsonRulesBlock(tech, items.length)}
                     });
                 });
 
-                // Final: reto
+                // Final: reto — FIX #1: se guarda explícitamente marcado con isReto para
+                // que renderSlide() nunca pueda confundirlo con el slide anterior.
                 slides.push({
                     tipo: 'reto',
+                    isReto: true,
                     numero: scopedItems.length + 2,
                     badge: 'Reto / Ejercicio',
                     titulo: trimText(reto.titulo || 'Ponlo en práctica', 46),
@@ -2630,6 +2656,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 state.cloud.status = 'idle';
                 state.cloud.lastVideoUrl = null;
                 state.cloud.lastVideoStoragePath = null;
+                state.generationPalette = null; // FIX: se recalcula al generar el próximo carrusel
 
                 $('captionOutput').value = '';
                 $('slideCanvasContainer').classList.add('hidden');
@@ -2689,7 +2716,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const byteNumbers = new Array(byteChars.length);
                 for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
                 const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'audio/mpeg' });
-                return { blob, alignment: null }; // la granja no devuelve timestamps por palabra
+                return { blob, alignment: null };
             }
             function getAudioDurationMs(blob) {
                 return new Promise((resolve) => {
@@ -2698,8 +2725,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                     audioEl.preload = 'metadata';
                     audioEl.onloadedmetadata = () => {
                         if (audioEl.duration === Infinity || isNaN(audioEl.duration)) {
-                            // Bug conocido de Chrome con blobs: fuerza el cálculo real
-                            // buscando al final del archivo.
                             audioEl.currentTime = 1e101;
                             audioEl.ontimeupdate = () => {
                                 audioEl.ontimeupdate = null;
@@ -2718,23 +2743,14 @@ ${buildJsonRulesBlock(tech, items.length)}
                 });
             }
 
-            // Limpia el texto antes de mandarlo a la voz: los guiones bajos, asteriscos
-            // y guiones sueltos (ej. "____ helped ____.") la IA de voz los pronuncia como
-            // ruido o palabras raras. Los quitamos/normalizamos solo para el audio; el
-            // texto que se VE en pantalla (slide.codigo) no se toca.
             function sanitizeForSpeech(text) {
                 if (!text) return text;
                 return String(text)
-                    .replace(/[_*]+/g, ' ')          // guiones bajos y asteriscos -> espacio
-                    .replace(/(?<=\s)-(?=\s)/g, ' ')  // guiones sueltos entre espacios -> espacio
-                    .replace(/\s{2,}/g, ' ')          // colapsa espacios dobles
+                    .replace(/[_*]+/g, ' ')
+                    .replace(/(?<=\s)-(?=\s)/g, ' ')
+                    .replace(/\s{2,}/g, ' ')
                     .trim();
             }
-            // ===================== FIX 1: duración real del audio =====================
-            // Se agrega el cálculo de `durationMs` con getAudioDurationMs(blob), que antes
-            // faltaba y provocaba un ReferenceError silencioso (capturado por el catch),
-            // dejando slide.audioDurationMs en null y forzando el fallback de 5s por
-            // diapositiva. Eso era lo que producía el solape de audio entre diapositivas.
             async function generateNarrationForSlides() {
                 const useGranja = !!state.config.testMode;
                 const apiKey = state.config.elevenLabsKey;
@@ -2757,7 +2773,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                         slide.audioBlob = cached.blob;
                         slide.audioAlignment = cached.alignment;
                         slide.audioDurationMs = cached.durationMs;
-                        continue; // no gasta créditos de nuevo
+                        continue;
                     }
 
                     $('genHint').textContent = `Generando narración ${i + 1}/${state.slides.length}…`;
@@ -2765,7 +2781,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                         const { blob, alignment } = useGranja
                             ? await callGranjaTTS(speechText)
                             : await callElevenLabsTTS(speechText, apiKey, voiceId);
-                        // ✅ calcular la duración real del audio antes de usarla
                         const durationMs = await getAudioDurationMs(blob);
 
                         slide.audioBlob = blob;
@@ -2780,11 +2795,10 @@ ${buildJsonRulesBlock(tech, items.length)}
                 }
                 $('genHint').textContent = '';
             }
-            /* ===================== USAGE / SCRIPT / COST (stubs mínimos) ===================== */
+            /* ===================== USAGE / SCRIPT / COST ===================== */
             function registerGenerationUsage(api, usage) {
                 state.lastUsage = { api, usage: usage || null };
             }
-
 
             function renderScriptPanel() {
                 if (!state.slides.length) return;
@@ -2793,7 +2807,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                     .filter(Boolean)
                     .join('\n\n');
             }
-
 
             function renderCostPanel() {
                 const panel = $('usagePanel');
@@ -2846,14 +2859,14 @@ ${buildJsonRulesBlock(tech, items.length)}
                     const userPrompt = buildUserPrompt();
                     const result = api === 'gemini' ? await callGemini(key, systemPrompt, userPrompt) : await callOpenAI(key, systemPrompt, userPrompt);
 
-                    console.log('%c[RAW IA RESPONSE]', 'color:#22D3EE;font-weight:bold', result.text); // 👈 AQUÍ
+                    console.log('%c[RAW IA RESPONSE]', 'color:#22D3EE;font-weight:bold', result.text);
 
                     const json = safeParseJson(result.text);
 
                     console.log('%c[PARSED JSON codigo fields]', 'color:#A78BFA;font-weight:bold',
                         json.content_slides?.map(s => s.codigo),
                         json.reto?.codigo
-                    ); // 👈 AQUÍ
+                    );
                     if (state.temarioMode === 'libre') {
                         const aiItems = Array.isArray(json.content_slides) ? json.content_slides.map((s) => s.titulo || 'Punto') : [];
                         state.temarioItems = aiItems.length ? aiItems : ['Contenido'];
@@ -2863,12 +2876,10 @@ ${buildJsonRulesBlock(tech, items.length)}
                     state.carousel = json;
                     state.slides = buildSlides(json);
                     state.currentSlide = 0;
-                    applyDefaultOverlays(); // 👈 la portada siempre trae "dale like/sígueme" + "comenta"
+                    state.generationPalette = computeGenerationPalette(); // FIX: nueva paleta por generación
+                    applyDefaultOverlays();
                     registerGenerationUsage(api, result.usage);
-                    // ===================== FIX 2: modo prueba (granja) también dispara narración =====================
-                    // Antes solo se generaba narración si había ElevenLabs Key + Voice ID configurados,
-                    // ignorando el checkbox "Modo prueba (usar granja)". generateNarrationForSlides()
-                    // ya contemplaba useGranja internamente, pero nunca se llegaba a invocar.
+
                     const brokenSlides = state.slides.filter(s => s.codeWarning);
                     if (brokenSlides.length) {
                         toast(`⚠️ ${brokenSlides.length} diapositiva(s) con código sospechoso. Revísalas antes de generar voz o guardar en la nube.`, 'error');
@@ -2882,7 +2893,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                     $('btnSaveToCloud').classList.remove('hidden');
                     buildDots();
                     renderSlide();
-                    renderOverlayList(); // 👈 refleja los overlays por defecto en el panel
+                    renderOverlayList();
                     renderScriptPanel();
                     renderCostPanel();
                     renderSlideSelection();
@@ -2954,10 +2965,12 @@ ${buildJsonRulesBlock(tech, items.length)}
             });
 
             /* ===================== SLIDE RENDER ===================== */
+            // FIX #3: fuentes más pequeñas y compactas cuando hay 4 líneas de código,
+            // para que la última línea y los cierres nunca queden tapados.
             function codeFontSizeForLines(n) {
-                if (n <= 3) return { code: '13px', gutter: '11.5px', lh: '1.6' };
-                if (n <= 4) return { code: '11px', gutter: '10px', lh: '1.5' };
-                return { code: '9.5px', gutter: '9px', lh: '1.4' };
+                if (n <= 2) return { code: '13px', gutter: '11.5px', lh: '1.6' };
+                if (n === 3) return { code: '11.5px', gutter: '10.5px', lh: '1.55' };
+                return { code: '10px', gutter: '9px', lh: '1.5' }; // 4 líneas: compacto, con aire real
             }
             function fontSizeForCount(n) {
                 if (n <= 4) return { text: '11px', ring: '14px', gap: 'gap-2', pad: 'py-1' };
@@ -2994,21 +3007,45 @@ ${buildJsonRulesBlock(tech, items.length)}
                 } catch (e) { /* el navegador puede bloquear audio sin interacción previa */ }
             }
 
-            const CODE_KEYWORDS = ['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'import', 'from', 'export', 'async', 'await', 'def', 'class', 'SELECT', 'WHERE', 'FROM', 'GROUP', 'BY', 'ORDER'];
+            // FIX #3: hooks de React agregados a las keywords resaltadas.
+            const CODE_KEYWORDS = [
+                'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while',
+                'import', 'from', 'export', 'async', 'await', 'def', 'class',
+                'useState', 'useEffect', 'useRef', 'useMemo', 'useCallback', 'useContext', 'useReducer',
+                'SELECT', 'WHERE', 'FROM', 'GROUP', 'BY', 'ORDER'
+            ];
 
+            // FIX (bug crítico): resaltado en UNA sola pasada sobre el texto ya
+            // escapado. Antes se iteraba keyword por keyword sobre una cadena que
+            // se iba mutando con HTML propio (incluía "class"), y como "class"
+            // también es keyword, terminaba re-matcheando el atributo class="tok-kw"
+            // que el propio resaltador acababa de insertar, generando HTML roto que
+            // se veía como texto crudo en pantalla. Con un único regex combinado
+            // sobre el string original, eso ya no puede pasar. También se agrega
+            // detección de componentes React (identificador capitalizado).
             function highlightCodeChunk(text) {
-                let out = escapeHtml(text);
-                CODE_KEYWORDS.forEach((kw) => {
-                    const re = new RegExp(`\\b(${kw})\\b`, 'g');
-                    out = out.replace(re, '<span class="tok-kw">$1</span>');
+                const escaped = escapeHtml(text);
+
+                const kwPattern = CODE_KEYWORDS
+                    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                    .join('|');
+
+                const combined = new RegExp(
+                    `\\b(${kwPattern})\\b|\\b([A-Z][a-zA-Z0-9]*)\\b|(=&gt;|&amp;&amp;|\\|\\||===|==)`,
+                    'g'
+                );
+
+                return escaped.replace(combined, (match, kw, comp, op) => {
+                    if (kw) return `<span class="tok-kw">${kw}</span>`;
+                    if (comp) return `<span class="tok-comp">${comp}</span>`;
+                    return `<span class="tok-op">${op}</span>`;
                 });
-                out = out.replace(/(=&gt;|&amp;&amp;|\|\||===|==)/g, '<span class="tok-op">$1</span>');
-                return out;
             }
             function renderCodeInstant(code) {
                 const codeWrap = document.getElementById('typingCodeEl');
                 if (!codeWrap || !code) return;
-                console.log('%c[INSTANT] código recibido:', 'color:#34D399;font-weight:bold', code); // 👈 AQUÍ
+                code = sanitizeCodeSnippet(code); // red de seguridad final
+                console.log('%c[INSTANT] código recibido:', 'color:#34D399;font-weight:bold', code);
                 _typingToken++;
                 const lines = code.split('\n');
                 codeWrap.innerHTML = lines.map((line) =>
@@ -3025,8 +3062,8 @@ ${buildJsonRulesBlock(tech, items.length)}
 
                 const { SoundTouch, SimpleFilter, WebAudioBufferSource } = window.soundtouch;
                 const st = new SoundTouch();
-                st.tempo = tempo;   // solo cambia la duración
-                st.pitch = 1;       // el tono se mantiene
+                st.tempo = tempo;
+                st.pitch = 1;
 
                 const source = new WebAudioBufferSource(audioBuffer);
                 const filter = new SimpleFilter(source, st);
@@ -3057,7 +3094,8 @@ ${buildJsonRulesBlock(tech, items.length)}
             function startTypingEffect(fullCode) {
                 const codeWrap = document.getElementById('typingCodeEl');
                 if (!codeWrap) return;
-                console.log('%c[TYPING] código recibido para tipear:', 'color:#34D399;font-weight:bold', fullCode); // 👈 AQUÍ
+                fullCode = sanitizeCodeSnippet(fullCode); // red de seguridad final
+                console.log('%c[TYPING] código recibido para tipear:', 'color:#34D399;font-weight:bold', fullCode);
                 const myToken = ++_typingToken;
                 const lines = fullCode.split('\n');
                 codeWrap.innerHTML = lines.map((_, li) =>
@@ -3071,7 +3109,7 @@ ${buildJsonRulesBlock(tech, items.length)}
 
                 let li = 0, ci = 0;
                 function step() {
-                    if (myToken !== _typingToken) return; // la diapositiva cambió, cancela
+                    if (myToken !== _typingToken) return;
                     const line = lines[li] || '';
                     ci++;
                     lineEls[li].innerHTML = highlightCodeChunk(line.slice(0, ci)) + '<span class="typing-cursor"></span>';
@@ -3090,12 +3128,30 @@ ${buildJsonRulesBlock(tech, items.length)}
             }
             function renderSlide() {
                 if (!state.slides.length) return;
-                const slide = state.slides[state.currentSlide];
+                let slide = state.slides[state.currentSlide];
+
+                // FIX #1: blindaje del slide de reto. Si el slide activo es de tipo
+                // "reto", se re-deriva SIEMPRE desde state.carousel.reto en vez de
+                // confiar en el objeto cacheado en state.slides. Así, aunque algo
+                // deje ese array desincronizado (edición manual, carga desde
+                // galería, etc.), el reto nunca puede mostrar el código de otro slide.
+                if (slide.tipo === 'reto' && state.carousel?.reto) {
+                    const reto = state.carousel.reto;
+                    slide = {
+                        ...slide,
+                        titulo: trimText(reto.titulo || 'Ponlo en práctica', 46),
+                        sub: trimText(reto.enunciado || '', 120),
+                        codigo: state.contentCategory === 'idiomas'
+                            ? trimCodeLines(reto.codigo || '', 3)
+                            : trimCodeLines(sanitizeCodeSnippet(reto.codigo || ''), 4),
+                    };
+                }
+
                 const tech = $('techNameInput').value.trim() || 'Tecnología';
                 const items = state.temarioItems;
                 const total = state.slides.length;
 
-                $('slideBg').style.background = buildGradientCss(state.logo.colors);
+                $('slideBg').style.background = buildGradientCss(state.generationPalette || state.logo.colors);
                 $('slideLogoGlow').style.backgroundImage = state.logo.blurredDataUrl ? `url(${state.logo.blurredDataUrl})` : 'none';
                 document.querySelectorAll('.slide-dot').forEach((d, i) => d.classList.toggle('active', i === state.currentSlide));
                 $('slideLabel').textContent = `Diapositiva ${slide.numero} de ${total}`;
@@ -3124,6 +3180,8 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const gutterHtml = codeLinesArr.map((_, i) => `<div class="code-gutter" data-line="${i}">${i + 1}</div>`).join('');
                 const isIdiomas = state.contentCategory === 'idiomas';
 
+                // FIX #3: más padding inferior (pb-3.5 en vez de py-2.5) para que el
+                // cierre de la 4ta línea nunca quede pegado/tapado por el borde.
                 const codeBlock = !slide.codigo ? '' : (isIdiomas
                     ? `<div id="slidePhraseCard" class="phrase-card mt-2 w-full px-3.5 py-3">
          <div class="phrase-card-top mb-2">
@@ -3141,7 +3199,7 @@ ${buildJsonRulesBlock(tech, items.length)}
      </span>
      <span class="font-mono text-[9px] text-white/30 tracking-wide leading-none">${escapeHtml(tech.toLowerCase().replace(/\s+/g, '-'))}${slide.tipo === 'reto' ? '-challenge' : ''}.${guessExt(tech)}</span>
    </div>
- <div class="px-3.5 py-2.5 flex gap-3">
+ <div class="px-3.5 pt-2.5 pb-3.5 flex gap-3">
 <div id="codeGutter" class="font-mono shrink-0 select-none" style="font-size:${cfs.gutter}; line-height:${cfs.lh}">
     ${gutterHtml}
 </div>
@@ -3167,13 +3225,12 @@ ${buildJsonRulesBlock(tech, items.length)}
      </div>`
                     : '';
 
-
                 $('slideContent').innerHTML = `
   <div class="flex items-center justify-between px-5 pt-5 gap-3">
     ${logoHtml}
   </div>
   ${watermarkHtml}
- 
+
   <div class="flex-1 flex flex-col justify-center px-5 pt-4 pb-4 min-h-0">
 <h2 class="font-display font-bold text-white leading-[1.18] tracking-tight" style="font-size:${ts.title}px">${escapeHtml(slide.titulo)}</h2>
     ${slide.sub ? `<p class="text-white/62 leading-relaxed mt-2" style="font-size:${ts.sub}px">${escapeHtml(slide.sub)}</p>` : ''}
@@ -3251,7 +3308,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
                 try {
                     const targetWidth = 1080;
-                    const targetHeight = Math.round(targetWidth * 16 / 9); // 1920 — fijo, jamás medido
+                    const targetHeight = Math.round(targetWidth * 16 / 9);
                     const scale = targetWidth / node.offsetWidth;
 
                     const raw = await html2canvas(node, {
@@ -3472,7 +3529,11 @@ ${buildJsonRulesBlock(tech, items.length)}
                 if (!state.slides.length) return;
 
                 const cloud = window.CarouselCloud;
-                const generationId = makeGenerationId();
+                // FIX: reutiliza el generationId actual si ya existe (por ejemplo si ya
+                // se había guardado antes o ya se había generado un video), en vez de
+                // crear siempre uno nuevo. Así fotos, audio y video quedan en el MISMO
+                // documento en lugar de dispersarse en registros distintos.
+                const generationId = state.cloud.currentGenerationId || makeGenerationId();
                 state.cloud.currentGenerationId = generationId;
                 state.cloud.status = 'processing';
 
@@ -3486,8 +3547,10 @@ ${buildJsonRulesBlock(tech, items.length)}
                         temarioMode: state.temarioMode,
                         slidesCount: state.slides.length,
                         status: 'processing',
-                        videoUrl: null,
-                        videoStoragePath: null,
+                        // FIX: ya no se fuerza videoUrl/videoStoragePath a null aquí.
+                        // saveGeneration usa merge:true, así que si no se envían estos
+                        // campos, Firestore conserva el video que ya estuviera guardado
+                        // (por ejemplo si esta generación ya tenía un video previo).
                         createdAt: new Date().toISOString(),
                         slides: state.slides.map((s) => ({
                             tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub,
@@ -3534,11 +3597,10 @@ ${buildJsonRulesBlock(tech, items.length)}
                     toast('No se pudo guardar en la nube (revisa la consola / configuración de Firebase)', 'error');
                 }
             }
-
             /* ===================== GALERÍA "MIS GENERACIONES" ===================== */
             let galleryCache = [];
             let scheduledCache = [];
-            let scheduleContext = null; // { mode: 'new', item } | { mode: 'edit', schedId } | { mode: 'new-editor' }
+            let scheduleContext = null;
 
             $('btnOpenGallery').addEventListener('click', openGalleryModal);
             $('btnCloseGallery').addEventListener('click', () => $('galleryModal').classList.add('hidden'));
@@ -3555,7 +3617,7 @@ ${buildJsonRulesBlock(tech, items.length)}
             $('galleryModal').addEventListener('click', (e) => { if (e.target.id === 'galleryModal') $('galleryModal').classList.add('hidden'); });
 
             let galleryFilter = 'all';
-            let scheduledGenerationIds = new Set(); // ids de generaciones con una programación pendiente/notificada
+            let scheduledGenerationIds = new Set();
 
             document.querySelectorAll('.gallery-filter-btn').forEach((btn) => {
                 btn.addEventListener('click', () => {
@@ -3603,7 +3665,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                     if (galleryFilter === 'published') return !!it.published;
                     if (galleryFilter === 'archived') return !!it.archived;
                     if (galleryFilter === 'scheduled') return !!it._isScheduled;
-                    return !it.archived; // "Todas" oculta archivadas para no saturar; usa el chip Archivadas para verlas
+                    return !it.archived;
                 });
 
                 $('galleryEmpty').classList.toggle('hidden', visibleItems.length > 0);
@@ -3724,8 +3786,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                 $('techNameInput').value = item.tech || '';
                 state.carousel = { caption: item.caption || '' };
                 $('captionOutput').value = item.caption || '';
-                // FIX: sanitiza el código al cargar generaciones antiguas de la nube
-                // que puedan tener restos de resaltado de sintaxis guardados de antes.
                 state.slides = item.slides.map((s) => ({
                     tipo: s.tipo, numero: s.numero, titulo: s.titulo, sub: s.sub,
                     codigo: state.contentCategory === 'idiomas' ? s.codigo : sanitizeCodeSnippet(s.codigo || ''),
@@ -3800,7 +3860,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 if (!item) return;
 
                 const newName = prompt('Nuevo nombre para esta generación:', item.tech || '');
-                if (newName === null) return; // canceló
+                if (newName === null) return;
                 const trimmed = newName.trim();
                 if (!trimmed || trimmed === item.tech) return;
 
@@ -3843,8 +3903,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                 function renderCard(s) {
                     const isSent = s.status === 'sent';
                     const date = s.scheduledAt ? new Date(s.scheduledAt).toLocaleString('es-PE', { dateStyle: 'full', timeStyle: 'short' }) : '—';
-
-                    // Solo tiene sentido reprogramar/cancelar si aún no se ha publicado
                     const canReprogram = !isSent && (s.status === 'pending' || s.status === 'notified');
                     const canCancel = !isSent && s.status !== 'cancelled';
 
@@ -3886,7 +3944,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 if (!sched) return;
 
                 const newName = prompt('Nuevo nombre para esta publicación programada:', sched.tech || '');
-                if (newName === null) return; // canceló
+                if (newName === null) return;
                 const trimmed = newName.trim();
                 if (!trimmed || trimmed === sched.tech) return;
 
@@ -3958,7 +4016,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 }
             }
 
-            // ===================== FIX: scheduling de audio con AudioContext =====================
+            /* ===================== GENERACIÓN DE VIDEO ===================== */
             async function generateBackgroundVideo() {
                 if (typeof MediaRecorder === 'undefined') {
                     toast('Tu navegador no soporta grabación de video', 'error');
@@ -3968,6 +4026,19 @@ ${buildJsonRulesBlock(tech, items.length)}
                     toast('Primero genera un carrusel', 'error');
                     return;
                 }
+
+                // FIX: si aún no existe un registro en la nube (no se clicó "Guardar en
+                // la nube" antes), lo creamos ahora automáticamente subiendo las fotos,
+                // así el video generado más abajo SÍ tiene un generationId al cual
+                // asociarse y no se queda solo en descarga local.
+                if (window.CarouselCloud && !state.cloud.currentGenerationId) {
+                    toast('Guardando fotos en la nube antes del video…', 'info');
+                    await persistCarouselToCloud();
+                    if (!state.cloud.currentGenerationId) {
+                        toast('No se pudo crear el registro en la nube, el video solo se descargará localmente', 'error');
+                    }
+                }
+
                 const btn = $('btnGenerateVideo');
                 const label = $('btnGenerateVideoLabel');
                 btn.disabled = true;
@@ -4034,10 +4105,9 @@ ${buildJsonRulesBlock(tech, items.length)}
                 canvas.width = W; canvas.height = H;
                 const ctx = canvas.getContext('2d');
 
-                const FALLBACK_ACCENTS = ['#22D3EE', '#8B5CF6', '#A78BFA'];
-                const colors = (state.logo.colors && state.logo.colors.length) ? state.logo.colors.slice(0, 3) : FALLBACK_ACCENTS.slice();
-                let fallbackIdx = 0;
-                while (colors.length < 3) { colors.push(FALLBACK_ACCENTS[fallbackIdx % FALLBACK_ACCENTS.length]); fallbackIdx++; }
+                const colors = (state.generationPalette && state.generationPalette.length)
+                    ? state.generationPalette.slice(0, 3)
+                    : ['#22D3EE', '#8B5CF6', '#A78BFA'];
 
                 const fallbackPerSlideMs = (Number($('videoDurationInput').value) || 5) * 1000;
                 const transitionType = $('videoTransitionSelect').value || 'fadeUp';
@@ -4062,10 +4132,9 @@ ${buildJsonRulesBlock(tech, items.length)}
                     });
                 }
 
-                // ---- Preparación de audio: AudioContext + AudioBufferSourceNode ----
                 let audioCtx = null, audioTrack = null, musicEl = null;
                 let narrationGain = null;
-                const narrationBuffers = []; // { buffer, offsetMs }
+                const narrationBuffers = [];
                 const hasNarration = activeSlides.some((s) => s.audioBlob);
                 const audioFile = $('videoAudioInput').files[0];
 
@@ -4091,7 +4160,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                                 try {
                                     const arrayBuffer = await blob.arrayBuffer();
                                     let audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                                    audioBuffer = timeStretchBuffer(audioCtx, audioBuffer, speed); // 👈 estira sin distorsionar el tono
+                                    audioBuffer = timeStretchBuffer(audioCtx, audioBuffer, speed);
                                     narrationBuffers.push({ buffer: audioBuffer, offsetMs: slideStartTimes[i] });
                                 } catch (e) {
                                     console.warn(`No se pudo decodificar el audio de la diapositiva ${i + 1}`, e);
@@ -4162,7 +4231,6 @@ ${buildJsonRulesBlock(tech, items.length)}
 
                 function drawTransitionFrame(type, curr, next, p) {
                     switch (type) {
-
                         case 'slideHorizontal': {
                             if (curr) {
                                 ctx.save();
@@ -4176,7 +4244,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                             ctx.restore();
                             break;
                         }
-
                         case 'zoomFade': {
                             if (curr) {
                                 const scaleOut = 1 + p * 0.12;
@@ -4198,13 +4265,10 @@ ${buildJsonRulesBlock(tech, items.length)}
                             ctx.restore();
                             break;
                         }
-
                         case 'wipeDiagonal': {
                             if (curr) ctx.drawImage(curr, 0, 0, W, H);
-
                             const diag = W + H;
                             const edge = -H + p * (diag + H * 0.6);
-
                             ctx.save();
                             ctx.beginPath();
                             ctx.moveTo(0, edge + H);
@@ -4215,7 +4279,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                             ctx.clip();
                             ctx.drawImage(next, 0, 0, W, H);
                             ctx.restore();
-
                             ctx.save();
                             ctx.globalAlpha = 0.5 * (1 - Math.abs(p - 0.5) * 2);
                             ctx.strokeStyle = 'rgba(255,255,255,0.6)';
@@ -4227,7 +4290,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                             ctx.restore();
                             break;
                         }
-
                         case 'crossfade': {
                             if (curr) {
                                 ctx.save();
@@ -4241,7 +4303,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                             ctx.restore();
                             break;
                         }
-
                         case 'fadeUp':
                         default: {
                             if (curr) {
@@ -4557,7 +4618,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 narrationBuffers.forEach(({ buffer, offsetMs }) => {
                     const source = audioCtx.createBufferSource();
                     source.buffer = buffer;
-                    source.playbackRate.value = 1; // 👈 ya viene ajustado por timeStretchBuffer, no lo dupliques
+                    source.playbackRate.value = 1;
                     source.connect(narrationGain);
                     source.start(clockAnchorAudio + offsetMs / 1000);
                 });
@@ -4566,7 +4627,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                     catch (e) { console.warn('Música no pudo reproducirse', e); }
                 }
 
-                startTime = clockAnchorPerf; // el timeline visual arranca en el mismo instante
+                startTime = clockAnchorPerf;
                 rafId = requestAnimationFrame(drawFrame);
                 await donePromise;
                 cancelAnimationFrame(rafId);
@@ -4576,7 +4637,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 const blob = new Blob(chunks, { type: 'video/webm' });
 
                 const techSlug = ($('techNameInput').value.trim() || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                let finalBlob = blob;      // por defecto, el webm (fallback si algo falla)
+                let finalBlob = blob;
                 let finalExt = 'webm';
 
                 if (window.CarouselCloud && state.cloud.currentGenerationId) {
@@ -4760,7 +4821,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                 return 'ov_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
             }
 
-
             function applyDefaultOverlays() {
                 state.videoOverlays = [
                     { id: makeOverlayId(), text: 'Dale like y sígueme para más', icon: '❤️', animation: 'bounce', xPct: 0.5, yPct: 0.155 },
@@ -4849,7 +4909,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                     btn.addEventListener('click', () => removeVideoOverlay(btn.dataset.overlayId));
                 });
             }
-            // Vista previa en vivo dentro del teléfono — solo visible cuando estás en la diapositiva 1
             function renderVideoOverlaysPreview() {
                 const layer = $('videoOverlayLayer');
                 if (!layer) return;
@@ -4917,7 +4976,6 @@ ${buildJsonRulesBlock(tech, items.length)}
                     dot.addEventListener('pointercancel', () => { dragging = false; dot.style.cursor = 'grab'; });
                 });
             }
-            // Oculta la capa de overlay durante la captura de PNG (nunca debe salir en las imágenes)
             function setVideoOverlaysVisible(visible) {
                 const el = document.getElementById('videoOverlayLayer');
                 if (el) el.style.display = visible ? '' : 'none';
@@ -5001,6 +5059,7 @@ ${buildJsonRulesBlock(tech, items.length)}
                 $('videoContrastLabel').textContent = `${preset.contrast}%`;
                 $('videoTransitionSelect').value = preset.transition;
             });
+
             /* ===================== INIT ===================== */
             loadConfig();
             updateCategoryToggleUI();
@@ -5008,8 +5067,8 @@ ${buildJsonRulesBlock(tech, items.length)}
             updateTemarioMode('python_basico');
             updateScopeUI();
             updateStageGlow([]);
-            renderOverlayList();          // 👈 nuevo
-            renderVideoOverlaysPreview(); // pinta overlays existentes al cargar (si hay)
+            renderOverlayList();
+            renderVideoOverlaysPreview();
 
         })();
     </script>
