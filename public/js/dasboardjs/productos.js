@@ -226,18 +226,24 @@ const btnCategorias = document.getElementById("btn-filter-categorias");
 
 function setFiltroEstado(nuevoEstado) {
   filtroEstadoActual = nuevoEstado;
-  [btnTodos, btnActivos, btnAgotados, btnStockBajo, btnAgotadoHoy, btnCategorias].forEach(
-    (b) =>
-      b.classList.remove(
-        "active-filter",
-        "ring-2",
-        "ring-violet-500",
-        "ring-emerald-500",
-        "ring-rose-500",
-        "ring-amber-500",
-        "ring-orange-500",
-        "ring-purple-500",
-      ),
+  [
+    btnTodos,
+    btnActivos,
+    btnAgotados,
+    btnStockBajo,
+    btnAgotadoHoy,
+    btnCategorias,
+  ].forEach((b) =>
+    b.classList.remove(
+      "active-filter",
+      "ring-2",
+      "ring-violet-500",
+      "ring-emerald-500",
+      "ring-rose-500",
+      "ring-amber-500",
+      "ring-orange-500",
+      "ring-purple-500",
+    ),
   );
 
   if (nuevoEstado === "todos")
@@ -655,12 +661,10 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   // Si el producto no tiene stock definido (productos viejos), el campo queda vacío = "sin control de stock"
   document.getElementById("input-prod-stock").value =
     typeof data.stock === "number" ? data.stock : "";
-document.getElementById("input-prod-auto-desactivar").checked =
+  document.getElementById("input-prod-auto-desactivar").checked =
     !!data.autoDesactivar;
-  document.getElementById("input-prod-agotado-hoy").checked =
-    !!data.agotadoHoy;
-  document.getElementById("input-prod-unidad").value =
-    data.unidadMedida || "";
+  document.getElementById("input-prod-agotado-hoy").checked = !!data.agotadoHoy;
+  document.getElementById("input-prod-unidad").value = data.unidadMedida || "";
   document.getElementById("input-prod-horario-desde").value =
     data.disponibleDesde || "";
   document.getElementById("input-prod-horario-hasta").value =
@@ -687,15 +691,18 @@ document
     );
     let disponible = document.getElementById("input-prod-disponible").checked;
 
-const stockRaw = document.getElementById("input-prod-stock").value;
+    const stockRaw = document.getElementById("input-prod-stock").value;
     // Si el campo está vacío, el producto queda "sin control de stock" (stock = null)
     const stock =
       stockRaw === "" ? null : Math.max(0, parseInt(stockRaw, 10) || 0);
     const autoDesactivar = document.getElementById(
       "input-prod-auto-desactivar",
     ).checked;
-    const agotadoHoy = document.getElementById("input-prod-agotado-hoy").checked;
-    const unidadMedida = document.getElementById("input-prod-unidad").value || null;
+    const agotadoHoy = document.getElementById(
+      "input-prod-agotado-hoy",
+    ).checked;
+    const unidadMedida =
+      document.getElementById("input-prod-unidad").value || null;
     const disponibleDesde =
       document.getElementById("input-prod-horario-desde").value || null;
     const disponibleHasta =
@@ -707,7 +714,7 @@ const stockRaw = document.getElementById("input-prod-stock").value;
 
     if (!nombre || isNaN(precio)) return;
 
-  const condiciones = condicionesSeleccionadas
+    const condiciones = condicionesSeleccionadas
       .filter((c) => c.nombre.trim())
       .slice(0, 5)
       .map((c) => ({
@@ -759,7 +766,7 @@ const stockRaw = document.getElementById("input-prod-stock").value;
           subidas.push({ url, path });
         }
 
- await updateDoc(docRef, {
+        await updateDoc(docRef, {
           nombre,
           descripcion,
           precio,
@@ -775,7 +782,7 @@ const stockRaw = document.getElementById("input-prod-stock").value;
         });
         toast(`"${nombre}" actualizado.`);
       } else {
-       const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
+        const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
         await setDoc(nuevoDocRef, {
           nombre,
           descripcion,
@@ -829,6 +836,18 @@ async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
   toast(`"${nombre}" eliminado.`);
 }
 
+function skeletonCardHTML() {
+  return `
+    <div class="skeleton-card">
+      <div class="skeleton-img"></div>
+      <div class="skeleton-line" style="width:70%"></div>
+      <div class="skeleton-line" style="width:40%"></div>
+      <div class="skeleton-line" style="width:55%;margin-top:16px;"></div>
+    </div>`;
+}
+function renderSkeletons(grid, count = 8) {
+  grid.innerHTML = Array.from({ length: count }, skeletonCardHTML).join("");
+}
 /* ---------------- Render Tarjeta Producto ---------------- */
 function renderProductoCard(categoriaId, productoId, data) {
   const card = document.createElement("div");
@@ -839,7 +858,7 @@ function renderProductoCard(categoriaId, productoId, data) {
     " " +
     (data.descripcion || "")
   ).toLowerCase();
-card.dataset.disponible = data.disponible ? "true" : "false";
+  card.dataset.disponible = data.disponible ? "true" : "false";
   card.dataset.agotadoHoy = data.agotadoHoy ? "true" : "false";
   // 'stock' queda vacío en el dataset si el producto no tiene control de stock (data.stock === null/undefined)
   card.dataset.stock = typeof data.stock === "number" ? String(data.stock) : "";
@@ -860,14 +879,11 @@ card.dataset.disponible = data.disponible ? "true" : "false";
   imgWrap.className =
     "relative w-full aspect-square bg-[#05040a] overflow-hidden border-b border-purple-900/20";
 
-if (imagenes.length === 0) {
+  if (imagenes.length === 0) {
     imgWrap.innerHTML = `
       <div class="img-placeholder-fallback">
         <img src="../img/logo geinz.png" alt="">
-      </div>`; 
-
-
-        
+      </div>`;
   } else {
     imgWrap.innerHTML = `
       <div class="img-placeholder-fallback">
@@ -974,7 +990,7 @@ if (imagenes.length === 0) {
   const actionRow = document.createElement("div");
   actionRow.className = "flex items-center justify-between gap-2";
 
-const estadoBtn = document.createElement("button");
+  const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
   estadoBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
     data.disponible
@@ -1000,13 +1016,16 @@ const estadoBtn = document.createElement("button");
   // Botón rápido "Agotado hoy": un clic, no abre el modal, no toca el stock.
   const agotadoHoyBtn = document.createElement("button");
   agotadoHoyBtn.type = "button";
-  agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (se acabó por hoy, mañana vuelve solo)";
+  agotadoHoyBtn.title =
+    "Marcar/quitar 'Agotado hoy' (se acabó por hoy, mañana vuelve solo)";
   agotadoHoyBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
     data.agotadoHoy
       ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
       : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
   }`;
-  agotadoHoyBtn.textContent = data.agotadoHoy ? "Agotado hoy ✓" : "Marcar agotado hoy";
+  agotadoHoyBtn.textContent = data.agotadoHoy
+    ? "Agotado hoy ✓"
+    : "Marcar agotado hoy";
   agotadoHoyBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     agotadoHoyBtn.disabled = true;
@@ -1050,7 +1069,7 @@ const estadoBtn = document.createElement("button");
     abrirModalEditarProducto(categoriaId, productoId, data);
   });
 
-actionRow.appendChild(estadoBtn);
+  actionRow.appendChild(estadoBtn);
   actionRow.appendChild(agotadoHoyBtn);
   actionRow.appendChild(editBtn);
   actionRow.appendChild(delBtn);
@@ -1081,6 +1100,10 @@ const categoriaLimite = {}; // categoriaId -> límite actual de productos cargad
 function suscribirProductos(categoriaId, grid, seccion) {
   if (categoriaListeners[categoriaId]) categoriaListeners[categoriaId]();
 
+  if (!seccion.dataset.cargado) {
+    renderSkeletons(grid, 8); // 👈 nuevo
+  }
+
   const lim = categoriaLimite[categoriaId] || PRODUCTOS_POR_PAGINA;
   const q = query(
     productosRef(categoriaId),
@@ -1091,6 +1114,7 @@ function suscribirProductos(categoriaId, grid, seccion) {
   categoriaListeners[categoriaId] = onSnapshot(
     q,
     (snap) => {
+      seccion.dataset.cargado = "1";
       grid.innerHTML = "";
 
       const addCard = document.createElement("div");
@@ -1202,12 +1226,41 @@ inputBusqueda.addEventListener("input", () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(aplicarFiltroYMetricas, 180); // debounce para no recalcular en cada tecla con catálogos grandes
 });
-
+function mostrarCard(card) {
+  if (card.style.display === "none") card.style.display = "";
+  requestAnimationFrame(() => card.classList.remove("filtro-oculto"));
+}
+function ocultarCard(card) {
+  card.classList.add("filtro-oculto");
+  setTimeout(() => {
+    if (card.classList.contains("filtro-oculto")) card.style.display = "none";
+  }, 220);
+}
+function animarContador(el, nuevoValor) {
+  if (!el) return;
+  const actual = parseInt(el.textContent, 10) || 0;
+  if (actual === nuevoValor) return;
+  const duracion = 260;
+  const inicio = performance.now();
+  el.classList.add("stat-bump");
+  function paso(t) {
+    const p = Math.min((t - inicio) / duracion, 1);
+    const val = Math.round(actual + (nuevoValor - actual) * p);
+    el.textContent = val;
+    if (p < 1) {
+      requestAnimationFrame(paso);
+    } else {
+      el.textContent = nuevoValor;
+      setTimeout(() => el.classList.remove("stat-bump"), 200);
+    }
+  }
+  requestAnimationFrame(paso);
+}
 function aplicarFiltroYMetricas() {
   const queryText = inputBusqueda.value.trim().toLowerCase();
   const categorias = document.querySelectorAll(".categoria");
 
-let totalActivos = 0;
+  let totalActivos = 0;
   let totalAgotados = 0;
   let totalStockBajo = 0;
   let totalAgotadoHoy = 0;
@@ -1232,7 +1285,7 @@ let totalActivos = 0;
       const tieneStockBajo =
         stockValor !== "" && Number(stockValor) < STOCK_BAJO_UMBRAL;
 
-const esAgotadoHoy = card.dataset.agotadoHoy === "true";
+      const esAgotadoHoy = card.dataset.agotadoHoy === "true";
 
       if (disponible) totalActivos++;
       else totalAgotados++;
@@ -1252,10 +1305,10 @@ const esAgotadoHoy = card.dataset.agotadoHoy === "true";
         nombreProducto.includes(queryText);
 
       if (cumpleEstado && cumpleTexto && filtroEstadoActual !== "categorias") {
-        card.style.display = "";
+        mostrarCard(card);
         productosVisiblesEnCat++;
       } else {
-        card.style.display = "none";
+        ocultarCard(card);
       }
     });
 
@@ -1299,12 +1352,14 @@ const esAgotadoHoy = card.dataset.agotadoHoy === "true";
   splashTotalProds.textContent = totalProductosProcesados;
   splashTotalImgs.textContent = loadedImageUrls.size;
 
-document.getElementById("stat-activos").textContent = totalActivos;
-  document.getElementById("stat-agotados").textContent = totalAgotados;
-  document.getElementById("stat-stockbajo").textContent = totalStockBajo;
-  document.getElementById("stat-agotadohoy").textContent = totalAgotadoHoy;
-  document.getElementById("stat-categorias").textContent =
-    totalCategoriasVisibles;
+  animarContador(document.getElementById("stat-activos"), totalActivos);
+  animarContador(document.getElementById("stat-agotados"), totalAgotados);
+  animarContador(document.getElementById("stat-stockbajo"), totalStockBajo);
+  animarContador(document.getElementById("stat-agotadohoy"), totalAgotadoHoy);
+  animarContador(
+    document.getElementById("stat-categorias"),
+    totalCategoriasVisibles,
+  );
 
   const hayCategorias = categorias.length > 0;
   if (hayCategorias && !algunElementoVisibleTotal) {
@@ -1451,7 +1506,8 @@ function renderCartaColecciones() {
   if (!list) return;
 
   const ids = Object.keys(cartaColecciones);
-  if (sub) sub.textContent = `${ids.length} de ${CARTA_MAX_COLECCIONES} colecciones`;
+  if (sub)
+    sub.textContent = `${ids.length} de ${CARTA_MAX_COLECCIONES} colecciones`;
 
   if (!ids.length) {
     list.innerHTML = `<p class="text-purple-300/40 text-xs italic py-2">Aún no tienes colecciones. Crea la primera con el botón de abajo.</p>`;
@@ -1459,16 +1515,22 @@ function renderCartaColecciones() {
   }
 
   // Una sola escritura al DOM (un solo reflow) en vez de ir agregando nodo por nodo
-  list.innerHTML = ids.map((id) => htmlColeccion(id, cartaColecciones[id])).join("");
+  list.innerHTML = ids
+    .map((id) => htmlColeccion(id, cartaColecciones[id]))
+    .join("");
   ids.forEach((id) => {
-    const grid = list.querySelector(`[data-carta-id="${id}"] [data-carta-grid]`);
+    const grid = list.querySelector(
+      `[data-carta-id="${id}"] [data-carta-grid]`,
+    );
     if (grid) grid.innerHTML = renderCartaGridHTML(id);
   });
 }
 
 function actualizarContadorColeccion(collId) {
   const coleccion = cartaColecciones[collId];
-  const card = document.querySelector(`[data-carta-id="${collId}"] .carta-coleccion-count`);
+  const card = document.querySelector(
+    `[data-carta-id="${collId}"] .carta-coleccion-count`,
+  );
   if (coleccion && card) {
     card.textContent = `${coleccion.imagenes.filter(Boolean).length}/${CARTA_MAX_FOTOS}`;
   }
@@ -1483,7 +1545,9 @@ async function guardarTextoColeccion(collId, valor, btn) {
   try {
     await updateDoc(cartaDocRef(collId), { texto: valor });
     coleccion.texto = valor;
-    const preview = document.querySelector(`[data-carta-id="${collId}"] .carta-coleccion-preview`);
+    const preview = document.querySelector(
+      `[data-carta-id="${collId}"] .carta-coleccion-preview`,
+    );
     if (preview) {
       const tiene = !!valor.trim();
       preview.textContent = tiene ? valor : "Sin descripción";
@@ -1506,14 +1570,21 @@ function comprimirImagenCarta(dataURL, maxPx, calidad) {
     img.onload = () => {
       let { width: w, height: h } = img;
       if (w > maxPx || h > maxPx) {
-        if (w >= h) { h = Math.round((h * maxPx) / w); w = maxPx; }
-        else { w = Math.round((w * maxPx) / h); h = maxPx; }
+        if (w >= h) {
+          h = Math.round((h * maxPx) / w);
+          w = maxPx;
+        } else {
+          w = Math.round((w * maxPx) / h);
+          h = maxPx;
+        }
       }
       const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
+      canvas.width = w;
+      canvas.height = h;
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL("image/webp", calidad));
-      canvas.width = 0; canvas.height = 0; // libera memoria del canvas
+      canvas.width = 0;
+      canvas.height = 0; // libera memoria del canvas
     };
     img.onerror = () => reject(new Error("No se pudo leer la imagen"));
     img.src = dataURL;
@@ -1537,7 +1608,11 @@ async function subirFotoCarta(collId, slotIndex, file) {
       toast("Subiendo foto…");
       // maxPx bajado de 1024 a 800 y calidad a 0.75: menos datos que subir/bajar,
       // clave si la conexión o el equipo del usuario son limitados
-      const comprimida = await comprimirImagenCarta(ev.target.result, 800, 0.75);
+      const comprimida = await comprimirImagenCarta(
+        ev.target.result,
+        800,
+        0.75,
+      );
       const blob = dataURLtoBlobCarta(comprimida);
       const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
       const ref = storageRef(storage, path);
@@ -1551,7 +1626,9 @@ async function subirFotoCarta(collId, slotIndex, file) {
       await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
       coleccion.imagenes = nuevasImagenes;
 
-      const grid = document.querySelector(`[data-carta-id="${collId}"] [data-carta-grid]`);
+      const grid = document.querySelector(
+        `[data-carta-id="${collId}"] [data-carta-grid]`,
+      );
       if (grid) grid.innerHTML = renderCartaGridHTML(collId);
       actualizarContadorColeccion(collId);
       toast("Foto guardada.");
@@ -1573,7 +1650,9 @@ async function eliminarFotoCarta(collId, slotIndex) {
     nuevasImagenes[slotIndex] = null;
     await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
     coleccion.imagenes = nuevasImagenes;
-    const grid = document.querySelector(`[data-carta-id="${collId}"] [data-carta-grid]`);
+    const grid = document.querySelector(
+      `[data-carta-id="${collId}"] [data-carta-grid]`,
+    );
     if (grid) grid.innerHTML = renderCartaGridHTML(collId);
     actualizarContadorColeccion(collId);
     toast("Foto eliminada.");
@@ -1611,13 +1690,15 @@ document.getElementById("carta-toggle")?.addEventListener("click", () => {
 });
 
 /* ---- Nueva colección ---- */
-document.getElementById("btn-nueva-coleccion")?.addEventListener("click", () => {
-  if (Object.keys(cartaColecciones).length >= CARTA_MAX_COLECCIONES) {
-    toast(`Máximo ${CARTA_MAX_COLECCIONES} colecciones.`, "error");
-    return;
-  }
-  openOverlay("overlay-carta");
-});
+document
+  .getElementById("btn-nueva-coleccion")
+  ?.addEventListener("click", () => {
+    if (Object.keys(cartaColecciones).length >= CARTA_MAX_COLECCIONES) {
+      toast(`Máximo ${CARTA_MAX_COLECCIONES} colecciones.`, "error");
+      return;
+    }
+    openOverlay("overlay-carta");
+  });
 
 document.getElementById("form-carta")?.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1629,8 +1710,12 @@ document.getElementById("form-carta")?.addEventListener("submit", async (e) => {
     return;
   }
   const slug =
-    nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `coleccion_${Date.now()}`;
+    nombre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || `coleccion_${Date.now()}`;
   if (cartaColecciones[slug]) {
     toast("Ya existe una colección con ese nombre.", "error");
     return;
@@ -1678,7 +1763,11 @@ cartaListaEl?.addEventListener("click", (e) => {
 
   if (e.target.closest("[data-carta-save-texto]")) {
     const textarea = card.querySelector("[data-carta-textarea]");
-    guardarTextoColeccion(collId, textarea.value, e.target.closest("[data-carta-save-texto]"));
+    guardarTextoColeccion(
+      collId,
+      textarea.value,
+      e.target.closest("[data-carta-save-texto]"),
+    );
     return;
   }
 
@@ -1698,7 +1787,8 @@ cartaListaEl?.addEventListener("click", (e) => {
     input.accept = "image/png,image/jpeg,image/webp";
     input.onchange = (ev) => {
       const file = ev.target.files[0];
-      if (file) subirFotoCarta(collId, parseInt(slotEl.dataset.cartaSlot, 10), file);
+      if (file)
+        subirFotoCarta(collId, parseInt(slotEl.dataset.cartaSlot, 10), file);
     };
     input.click();
     return;

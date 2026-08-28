@@ -21,13 +21,14 @@
     <script type="module" src="../js/dasboardjs/creditos_data_tienda.js"></script>
     <script type="module" src="../js/dasboardjs/horario_real_time.js"></script>
     <style>
-  html, body {
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto !important;
-    overflow-x: hidden;
-  }
-</style>
+        html,
+        body {
+            height: auto;
+            min-height: 100%;
+            overflow-y: auto !important;
+            overflow-x: hidden;
+        }
+    </style>
 </head>
 
 <body>
@@ -60,7 +61,7 @@
             <div class="form-field">
                 <label class="form-label" for="businessDesc">Descripción</label>
                 <textarea class="form-input" id="businessDesc" rows="2" placeholder="¿Qué ofrece tu negocio?"
-                    oninput="PanelPerfil.updateDesc(this.value);"></textarea>
+                    oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'; PanelPerfil.updateDesc(this.value);"></textarea>
             </div>
 
             <div class="form-field">
@@ -273,12 +274,11 @@
             </div>
             <div class="expand-arrow">▼</div>
         </div>
-    <div class="expand-body">
+        <div class="expand-body">
             <div class="map-wrapper">
                 <div id="mapBoxPerfil"></div>
             </div>
-            <button type="button" id="btnUbicacionActual" onclick="PanelPerfil.obtenerUbicacionActual()"
-                style="width:100%;padding:12px 16px;margin:0 0 14px;border-radius:14px;border:1.5px solid #7c4dff;
+            <button type="button" id="btnUbicacionActual" onclick="PanelPerfil.obtenerUbicacionActual()" style="width:100%;padding:12px 16px;margin:0 0 14px;border-radius:14px;border:1.5px solid #7c4dff;
                 background:transparent;color:#7c4dff;font-size:14px;font-weight:600;cursor:pointer;
                 display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;">
                 📍 Usar mi ubicación actual
@@ -296,7 +296,7 @@
         </div>
     </div>
 
-    <!-- Horario --> 
+    <!-- Horario -->
     <div class="expand-section">
         <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
             <div class="expand-header-icon icon-green">🕐</div>

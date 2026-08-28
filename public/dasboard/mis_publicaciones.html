@@ -9,8 +9,11 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
 
+<script src="../js/graficos/chart.umd.min.js"></script>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module" src="../js/dasboardjs/mis_publicaciones.js"></script>
@@ -50,11 +53,28 @@
       font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }
 
-    * { scrollbar-width: thin; scrollbar-color: #27272a transparent; }
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 99px; }
-    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #27272a transparent;
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 99px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
 
     /* Glass Effect UI */
     .glass-card {
@@ -62,6 +82,7 @@
       border: 1px solid var(--card-border);
       transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     }
+
     .glass-card:hover {
       border-color: rgba(168, 85, 247, 0.3);
       box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.8);
@@ -71,17 +92,20 @@
     .filter-pill {
       transition: all 0.18s ease;
     }
+
     .filter-pill[data-active="true"] {
       background: #ffffff;
       color: #000000;
       font-weight: 700;
       box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
     }
+
     .filter-pill[data-active="false"] {
       background: rgba(255, 255, 255, 0.03);
       color: #a1a1aa;
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
+
     .filter-pill[data-active="false"]:hover {
       background: rgba(255, 255, 255, 0.07);
       color: #ffffff;
@@ -91,18 +115,23 @@
     .promo-card {
       transition: transform 0.22s ease, border-color 0.22s ease;
     }
+
     .promo-card:hover {
       transform: translateY(-3px);
     }
+
     .promo-img-wrap {
       aspect-ratio: 4/5;
       position: relative;
+      /* 👈 asegurate que esté */
       overflow: hidden;
       background-color: #050508;
     }
+
     .promo-img-wrap img {
       transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
+
     .promo-card:hover .promo-img-wrap img {
       transform: scale(1.05);
     }
@@ -113,6 +142,7 @@
       background: rgba(5, 5, 8, 0.75);
       border: 1px solid rgba(255, 255, 255, 0.12);
     }
+
     .timer-chip.expired {
       background: rgba(225, 29, 72, 0.25);
       border-color: rgba(244, 63, 94, 0.4);
@@ -127,17 +157,26 @@
       pointer-events: none;
       transition: opacity 0.2s ease;
     }
+
     .modal-overlay.show {
       opacity: 1;
       pointer-events: auto;
     }
-    
+
     .animate-modal-in {
       animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
+
     @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.95) translateY(12px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
     }
 
     .tag-chip {
@@ -149,14 +188,77 @@
       color: #d8b4fe;
       border: 1px solid rgba(168, 85, 247, 0.25);
     }
+
+    /* Estado base de cada card de promoción */
+    /* Transición de grid al filtrar */
+    #promos-grid {
+      transition: opacity 0.15s ease;
+    }
+
+    #promos-grid.grid-fading {
+      opacity: 0;
+    }
+
+    .promo-card {
+      transition: transform 0.22s ease, border-color 0.22s ease;
+
+    }
+
+    .promo-card.card-enter {
+      animation: cardIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes cardIn {
+      from {
+        opacity: 0;
+        transform: scale(0.94) translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    /* Skeleton de imagen */
+    .img-skeleton {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #101014 0%, #1c1c22 50%, #101014 100%);
+      background-size: 200% 100%;
+      animation: skeletonShine 1.3s ease infinite;
+    }
+
+    @keyframes skeletonShine {
+      0% {
+        background-position: 200% 0;
+      }
+
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    .promo-img-wrap img {
+      opacity: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .promo-img-wrap img.loaded {
+      opacity: 1;
+    }
   </style>
 </head>
 
-<body class="font-sans antialiased min-h-screen relative overflow-x-hidden selection:bg-purple-500 selection:text-white">
+<body
+  class="font-sans antialiased min-h-screen relative overflow-x-hidden selection:bg-purple-500 selection:text-white">
 
   <!-- Glows de Fondo Neutros -->
   <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-gradient-to-b from-purple-900/10 via-indigo-950/5 to-transparent blur-[140px]"></div>
+    <div
+      class="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-gradient-to-b from-purple-900/10 via-indigo-950/5 to-transparent blur-[140px]">
+    </div>
   </div>
 
   <!-- Header Superior -->
@@ -169,7 +271,8 @@
           <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Mis Publicaciones</h1>
         </div>
       </div>
-      <div class="hidden sm:flex items-center gap-2 rounded-full bg-zinc-900/80 border border-zinc-800 px-4 py-1.5 shadow-inner">
+      <div
+        class="hidden sm:flex items-center gap-2 rounded-full bg-zinc-900/80 border border-zinc-800 px-4 py-1.5 shadow-inner">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span class="text-xs font-mono text-zinc-300 font-medium" id="reloj-peru">--:--:--</span>
       </div>
@@ -217,21 +320,41 @@
       </div>
     </div>
 
+    <!-- Panel de Estadísticas Generales -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+      <div class="glass-card rounded-2xl p-5 lg:col-span-1">
+        <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Distribución</p>
+        <div class="relative h-48 flex items-center justify-center">
+          <canvas id="chart-distribucion"></canvas>
+        </div>
+      </div>
+      <div class="glass-card rounded-2xl p-5 lg:col-span-2">
+<p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Top Publicaciones (por vistas)</p>
+        <div class="relative h-48">
+          <canvas id="chart-categorias"></canvas>
+        </div>
+      </div>
+    </div>
+
     <!-- Controles de Filtros -->
     <div class="mb-8 flex flex-col gap-3 bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800/80">
       <div class="flex items-center gap-2 flex-wrap">
-        <button type="button" data-estado="todos" data-active="true" class="filter-pill rounded-xl px-4 py-2 text-xs">Todas</button>
-        <button type="button" data-estado="activo" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
+        <button type="button" data-estado="todos" data-active="true"
+          class="filter-pill rounded-xl px-4 py-2 text-xs">Todas</button>
+        <button type="button" data-estado="activo" data-active="false"
+          class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Activas
         </button>
-        <button type="button" data-estado="expirado" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
+        <button type="button" data-estado="expirado" data-active="false"
+          class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Expiradas
         </button>
-        <button type="button" data-estado="exclusivo" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
+        <button type="button" data-estado="exclusivo" data-active="false"
+          class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Exclusivas
         </button>
       </div>
-      <div class="flex items-center gap-2 flex-wrap empty:hidden pt-1 border-t border-zinc-800/60" id="cat-filters"></div>
+
     </div>
 
     <!-- Grid de Promociones -->
@@ -239,18 +362,21 @@
 
     <!-- Estado Vacío -->
     <div id="empty-state" class="text-center py-20 px-6 glass-card rounded-2xl hidden">
-      <div class="mx-auto w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-2xl">
+      <div
+        class="mx-auto w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-2xl">
         📢
       </div>
       <h3 class="text-white font-bold text-sm mb-1">Sin publicaciones registradas</h3>
-      <p class="text-zinc-500 text-xs max-w-xs mx-auto">No hay registros asociados al filtro seleccionado actualmente.</p>
+      <p class="text-zinc-500 text-xs max-w-xs mx-auto">No hay registros asociados al filtro seleccionado actualmente.
+      </p>
     </div>
 
   </main>
 
   <!-- Modal Detalle -->
   <div class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" id="overlay-detalle">
-    <div class="modal-box w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0b0b10] border border-zinc-800 shadow-2xl relative">
+    <div
+      class="modal-box w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0b0b10] border border-zinc-800 shadow-2xl relative">
       <div id="modal-content"></div>
     </div>
   </div>

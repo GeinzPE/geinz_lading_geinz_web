@@ -2349,6 +2349,12 @@ textarea.form-input {
     line-height: 1.5;
     min-height: 44px;
     height: auto;
+
+    #businessDesc {
+        font-size: 16px;
+        line-height: 1.6;
+    }
+
     /* ← agrega esto */
 }
 
@@ -4761,4 +4767,60 @@ body.plan-vencido::before {
     margin-left: auto;
     text-transform: uppercase;
     letter-spacing: .04em;
+}
+
+@media (min-width: 768px) {
+    .profile-top-row .profile-avatar .avatar-img {
+        object-fit: cover;
+        object-position: center center;
+        /* ← centra y cropea en ambos ejes */
+    }
+
+    .profile-top-row {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 0;
+        margin: 24px 24px 0;
+        border-radius: var(--r);
+        overflow: visible;
+        /* 👈 antes: hidden — eso recortaba el form-section cuando crecía */
+        border: 1px solid var(--border-light);
+        box-shadow: var(--shadow);
+    }
+
+    /* En PC: avatar ocupa la mitad izquierda, misma altura que el form */
+    .profile-top-row .profile-avatar {
+        width: 50%;
+        height: auto;
+        min-height: 260px;
+        border-radius: 0 var(--r) var(--r) 0;
+        /* 👈 redondea su propia esquina, ya que el padre no recorta más */
+        overflow: hidden;
+        /* 👈 esto sí recorta SOLO la imagen del avatar, no el form */
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+
+    .profile-top-row .form-section {
+        flex: 1;
+        margin: 0;
+        border-radius: var(--r) 0 0 var(--r);
+        /* 👈 redondea su propia esquina */
+        border: none;
+        box-shadow: none;
+        border-left: 1px solid var(--border-light);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: visible;
+        /* 👈 nunca recorta su propio contenido */
+    }
+
+    .profile-top-row .form-section {
+        order: 1;
+    }
+
+    .profile-top-row .profile-avatar {
+        order: 2;
+    }
 }

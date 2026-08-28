@@ -233,8 +233,11 @@ window.PanelPerfil = {
       this._getDownloadURL = stModule.getDownloadURL;
       this._deleteObject = stModule.deleteObject;
 
-      this.TIENDA_REF =
-tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas",  this.TIENDA_ID);
+      this.TIENDA_REF = tiendaSubDoc(
+        this.LOCALIDAD_TIENDA,
+        "tiendas",
+        this.TIENDA_ID,
+      );
 
       this._initRealtime();
     } catch (err) {
@@ -249,15 +252,15 @@ tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas",  this.TIENDA_ID);
 
     // Aseguramos que la tarjeta de Cuenta quede abierta automáticamente
     if (vencido) {
-        const header = document.querySelector("#card-account .exp-header");
-        const body = document.querySelector("#card-account .exp-body");
-        const card = document.getElementById("card-account");
-        card?.classList.add("open");
-        header?.classList.add("open");
-        // fuerza el max-height si tu .exp-body usa max-height fijo
-        if (body) body.style.maxHeight = "1000px";
+      const header = document.querySelector("#card-account .exp-header");
+      const body = document.querySelector("#card-account .exp-body");
+      const card = document.getElementById("card-account");
+      card?.classList.add("open");
+      header?.classList.add("open");
+      // fuerza el max-height si tu .exp-body usa max-height fijo
+      if (body) body.style.maxHeight = "1000px";
     }
-},
+  },
   _geohashFromLatLng(lat, lng) {
     const PRECISION = 12;
     const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
@@ -755,9 +758,18 @@ tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas",  this.TIENDA_ID);
         });
       });
 
-    document
-      .querySelectorAll("textarea.form-input")
-      .forEach((el) => this.autoResize(el));
+ document.querySelectorAll("textarea.form-input").forEach((el) => {
+  this.autoResize(el);
+  el.addEventListener("input", () => this.autoResize(el));
+  el.addEventListener("focus", () => this.autoResize(el)); // 👈 nuevo
+});
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        document
+          .querySelectorAll("textarea.form-input")
+          .forEach((el) => this.autoResize(el));
+      });
+    }
   },
 
   // ═══════════════════════════════════════════
@@ -970,7 +982,7 @@ tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas",  this.TIENDA_ID);
   // ═══════════════════════════════════════════
   //  MAPBOX — dos pins (actual + pendiente)
   // ═══════════════════════════════════════════
-initMapbox() {
+  initMapbox() {
     const container = document.getElementById("mapBoxPerfil");
     if (!container || typeof mapboxgl === "undefined") return; // 👈 evita el crash cuando este script corre en panel_negocio.html (documento padre), donde no existe ni el div ni la librería de Mapbox
 
@@ -1800,10 +1812,12 @@ initMapbox() {
         try {
           const { arrayRemove } =
             await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-          const tiendaAnteriorRef =
+          const tiendaAnteriorRef = tiendaSubDoc(
+            this.LOCALIDAD_TIENDA,
+            "tiendas",
+            tiendaAnterior,
+          );
 
-          tiendaSubDoc(this.LOCALIDAD_TIENDA,"tiendas",tiendaAnterior)
-        
           await updateDoc(tiendaAnteriorRef, {
             propietario_id: arrayRemove(uid),
           });
@@ -1892,12 +1906,17 @@ initMapbox() {
     document.getElementById(`bb-${name}`)?.classList.add("active");
     document.getElementById(`sbb-${name}`)?.classList.add("active");
     document.getElementById(`mmb-${name}`)?.classList.add("active");
+      requestAnimationFrame(() => {
+    document
+      .querySelectorAll(`#sec-${name} textarea.form-input`)
+      .forEach((el) => this.autoResize(el));
+  });
   },
 
   // ═══════════════════════════════════════════
   //  MI QR
   // ═══════════════════════════════════════════
- loadQr() {
+  loadQr() {
     this.showSection("qr");
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
   },
@@ -1962,15 +1981,25 @@ initMapbox() {
   // ═══════════════════════════════════════════
   //  HELPERS GENERALES
   // ═══════════════════════════════════════════
-  setField(id, val) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.value = val ?? "";
-    if (el.tagName === "TEXTAREA") {
-      el.style.height = "auto";
-      el.style.height = el.scrollHeight + "px";
-    }
-  },
+setField(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = val ?? "";
+  if (el.tagName === "TEXTAREA") {
+    this._resizeSafely(el);
+    // doble rAF: espera a que el navegador termine el layout
+    // antes de medir scrollHeight (evita medir "a medias")
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this._resizeSafely(el));
+    });
+  }
+},
+
+_resizeSafely(el) {
+  if (el.offsetParent === null) return; // oculto, no medir
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+},
 
   _updateNameSilent(val) {
     const v = val || "Mi Negocio";
@@ -2107,10 +2136,11 @@ initMapbox() {
   focusField(id) {
     document.getElementById(id)?.focus();
   },
-  autoResize(el) {
-    el.style.height = "auto";
-  },
-
+autoResize(el) {
+  if (el.offsetParent === null) return; // no medir si está oculto
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+},
   toggleSidebar() {
     const sb = document.querySelector(".sidebar");
     const btn = document.getElementById("sidebarToggle");

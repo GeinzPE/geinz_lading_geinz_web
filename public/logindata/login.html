@@ -262,22 +262,39 @@
               </div>
               <p class="field-error" id="errGenero"></p>
             </div>
+            <div class="input-row-2">
+              <div class="field-group">
+                <label class="field-label">Departamento</label>
+                <div class="input-box select-wrap">
+                  <select id="regDepartamento" class="custom-select">
+                    <option value="" disabled selected hidden>Selecciona</option>
+                  </select>
+                  <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
+                </div>
+                <p class="field-error" id="errDepartamento"></p>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Provincia</label>
+                <div class="input-box select-wrap">
+                  <select id="regProvincia" class="custom-select" disabled>
+                    <option value="" disabled selected hidden>Elige depto.</option>
+                  </select>
+                  <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
+                </div>
+                <p class="field-error" id="errProvincia"></p>
+              </div>
+            </div>
             <div class="field-group">
-              <label class="field-label" for="regLocalidad">Localidad</label>
+              <label class="field-label">Distrito</label>
               <div class="input-box select-wrap">
-                <span class="material-symbols-outlined input-icon" aria-hidden="true">location_on</span>
-                <select id="regLocalidad" class="custom-select">
-                  <option value="" disabled selected hidden>Seleccionar</option>
-                  <option value="Barranca">Barranca</option>
-                  <option value="Supe">Supe</option>
-                  <option value="Puerto Supe">Puerto Supe</option>
-                  <option value="Paramonga">Paramonga</option>
-                  <option value="Pativilca">Pativilca</option>
+                <select id="regDistrito" class="custom-select" disabled>
+                  <option value="" disabled selected hidden>Elige provincia</option>
                 </select>
                 <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
               </div>
-              <p class="field-error" id="errLocalidad"></p>
+              <p class="field-error" id="errDistrito"></p>
             </div>
+
           </div>
 
           <!-- FECHA DE NACIMIENTO -->

@@ -47,9 +47,11 @@ await setPersistence(auth, browserLocalPersistence);
 let GOOGLE_USER = null;
 let splashShown = false;
 let authProcesado = false;
-let departamentoSeleccionado = "";
-let provinciaSeleccionada = "";
-let distritoSeleccionado = "";
+const seleccionUbicacion = {
+  socio: { dep: "", prov: "", dist: "" },
+  selector: { dep: "", prov: "", dist: "" },
+  reg: { dep: "", prov: "", dist: "" },
+};
 
 /* =========================================================
    PAÍSES
@@ -181,6 +183,13 @@ async function inicializarSelectoresUbicacion(prefix) {
   const selDist = document.getElementById(`${prefix}Distrito`);
   if (!selDep || !selProv || !selDist) return;
 
+  // Garantiza que exista el wrapper .cool-select ANTES de tocar el loading,
+  // sin importar si upgradeAllCoolSelects ya corrió o no.
+  upgradeCoolSelect(selDep);
+  upgradeCoolSelect(selProv);
+  upgradeCoolSelect(selDist);
+
+  setCoolSelectLoading(selDep, true);
   try {
     const departamentos = await obtenerDepartamentos();
     selDep.innerHTML =
@@ -191,16 +200,19 @@ async function inicializarSelectoresUbicacion(prefix) {
   } catch (err) {
     console.error("Error cargando departamentos:", err);
     selDep.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    setCoolSelectLoading(selDep, false);
     return;
+  } finally {
+    setCoolSelectLoading(selDep, false);
   }
 
   selDep.onchange = async () => {
-    departamentoSeleccionado = selDep.value;
-    provinciaSeleccionada = "";
-    distritoSeleccionado = "";
+    seleccionUbicacion[prefix].dep = selDep.value;
+    seleccionUbicacion[prefix].prov = "";
+    seleccionUbicacion[prefix].dist = "";
     selProv.disabled = true;
     selDist.disabled = true;
-    setCoolSelectLoading(selProv, true);           // 👈 nuevo
+    setCoolSelectLoading(selProv, true);
 
     selDist.innerHTML = `<option value="" disabled selected hidden>Elige provincia</option>`;
     selProv.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
@@ -215,20 +227,20 @@ async function inicializarSelectoresUbicacion(prefix) {
     } catch (err) {
       console.error("Error cargando provincias:", err);
       selProv.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
-    }
-    finally {
-      setCoolSelectLoading(selProv, false);         // 👈 nuevo
+    } finally {
+      setCoolSelectLoading(selProv, false);
     }
   };
 
   selProv.onchange = async () => {
-    provinciaSeleccionada = selProv.value;
-    distritoSeleccionado = "";
+    seleccionUbicacion[prefix].prov = selProv.value;
+    seleccionUbicacion[prefix].dist = "";
     selDist.disabled = true;
     selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
+    setCoolSelectLoading(selDist, true);
     try {
       const distritos = await obtenerDistritos(
-        departamentoSeleccionado,
+        seleccionUbicacion[prefix].dep,
         selProv.value,
       );
       selDist.innerHTML =
@@ -240,6 +252,8 @@ async function inicializarSelectoresUbicacion(prefix) {
     } catch (err) {
       console.error("Error cargando distritos:", err);
       selDist.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    } finally {
+      setCoolSelectLoading(selDist, false);
     }
   };
 
@@ -254,10 +268,9 @@ async function inicializarSelectoresUbicacion(prefix) {
 
   selDist.onchange = () => {
     const opt = selDist.options[selDist.selectedIndex];
-    distritoSeleccionado = slugify(opt.textContent); // 👈 ahora guarda "barranca", "puerto-supe", etc.
+    seleccionUbicacion[prefix].dist = slugify(opt.textContent);
   };
 }
-
 /* =========================================================
    SNACKBAR MODERNO — blanco, centrado, estilo Android
 ========================================================= */
@@ -406,14 +419,14 @@ function upgradeCoolSelect(select) {
       : items;
     optionsWrap.innerHTML = filtered.length
       ? filtered
-        .map(
-          (i) => `
+          .map(
+            (i) => `
         <div class="cool-select-option ${select.value === i.value ? "is-selected" : ""}" data-value="${i.value}">
           <span>${i.label}</span>
           <svg class="cool-select-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
         </div>`,
-        )
-        .join("")
+          )
+          .join("")
       : `<div class="cool-select-empty">Sin resultados</div>`;
   }
 
@@ -478,7 +491,8 @@ window.openRegisterModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("registerModal").classList.add("active");
   cargarPaises();
-  upgradeAllCoolSelects(document.getElementById("registerModal")); // 👈
+  inicializarSelectoresUbicacion("reg"); // 👈 agregar esta línea
+  upgradeAllCoolSelects(document.getElementById("registerModal"));
   const fechaInput = document.getElementById("regFechaNac");
   if (fechaInput) fechaInput.max = new Date().toISOString().split("T")[0];
 };
@@ -626,7 +640,7 @@ window.submitRegister = async (event) => {
     .value.trim()
     .replace(/\D/g, "");
   const genero = document.getElementById("regGenero").value;
-  const localidad = document.getElementById("regLocalidad").value;
+  const { dep: depReg, prov: provReg, dist: distReg } = seleccionUbicacion.reg;
   const fechaNac = document.getElementById("regFechaNac").value;
   const codPais = document.getElementById("regCodPais").value;
   const nombrePais = document.getElementById("regNombrePais").value;
@@ -687,8 +701,8 @@ window.submitRegister = async (event) => {
     setError("errGenero", "Selecciona tu género.");
     ok = false;
   }
-  if (!localidad) {
-    setError("errLocalidad", "Selecciona tu localidad.");
+  if (!depReg || !provReg || !distReg) {
+    setError("errDistrito", "Selecciona departamento, provincia y distrito.");
     ok = false;
   }
   if (!fechaNac) {
@@ -828,7 +842,9 @@ window.submitRegister = async (event) => {
         nombre_user: usernameFinal,
         id_user: uid,
         genero,
-        localidad,
+        departamento: depReg,
+        provincia: provReg,
+        localidad: distReg,
         fecha_nac: fechaNac,
         fecha_registrada: fechaRegistro,
         puntos: 500,
@@ -1076,9 +1092,9 @@ window.continuarPanel = async () => {
     return;
   }
   if (
-    !departamentoSeleccionado ||
-    !provinciaSeleccionada ||
-    !distritoSeleccionado
+    !seleccionUbicacion.selector.dep ||
+    !seleccionUbicacion.selector.prov ||
+    !seleccionUbicacion.selector.dist
   ) {
     showSnackbar("⚠️ Selecciona departamento, provincia y distrito", "warning");
     return;
@@ -1090,14 +1106,14 @@ window.continuarPanel = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
-    console.log("[continuarPanel] Valores usados para buscar tienda:", {
-      departamento: departamentoSeleccionado,
-      provincia: provinciaSeleccionada,
-      distrito: distritoSeleccionado,
-      idTienda: valor,
-    });
+console.log("[continuarPanel] Valores usados para buscar tienda:", {
+  departamento: seleccionUbicacion.selector.dep,
+  provincia: seleccionUbicacion.selector.prov,
+  distrito: seleccionUbicacion.selector.dist,
+  idTienda: valor,
+});
 
-    const tiendaRef = tiendaDoc(distritoSeleccionado, "tiendas", valor);
+const tiendaRef = tiendaDoc(seleccionUbicacion.selector.dist, "tiendas", valor);
 
     console.log("[continuarPanel] Path de tiendaRef:", tiendaRef.path);
 
@@ -1116,11 +1132,11 @@ window.continuarPanel = async () => {
       return;
     }
 
-    sessionStorage.setItem("departamento", departamentoSeleccionado);
-    sessionStorage.setItem("provincia", provinciaSeleccionada);
-    sessionStorage.setItem("localidad", distritoSeleccionado);
-    sessionStorage.setItem("tiendaId", valor);
-    window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(valor)}&departamento=${encodeURIComponent(departamentoSeleccionado)}&provincia=${encodeURIComponent(provinciaSeleccionada)}&localidad=${encodeURIComponent(distritoSeleccionado)}`;
+   sessionStorage.setItem("departamento", seleccionUbicacion.selector.dep);
+sessionStorage.setItem("provincia", seleccionUbicacion.selector.prov);
+sessionStorage.setItem("localidad", seleccionUbicacion.selector.dist);
+sessionStorage.setItem("tiendaId", valor);
+window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(valor)}&departamento=${encodeURIComponent(seleccionUbicacion.selector.dep)}&provincia=${encodeURIComponent(seleccionUbicacion.selector.prov)}&localidad=${encodeURIComponent(seleccionUbicacion.selector.dist)}`;
   } catch (err) {
     console.error(err);
     showSnackbar("Error al validar. Intenta de nuevo.", "error");
