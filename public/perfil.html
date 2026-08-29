@@ -29,6 +29,46 @@
     <link rel="icon" type="image/png" sizes="16x16" href="./img/icons/favicon-16x16.png">
     <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
     <link rel="manifest" href="./img/icons/site.webmanifest">
+    <style>
+        .addr-virtual-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 280px;
+            padding: 40px 24px;
+            border-radius: 24px;
+            background: rgba(var(--dr), var(--dg), var(--db), .08);
+            border: 1px dashed rgba(var(--dr), var(--dg), var(--db), .35);
+        }
+
+        .addr-virtual-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            background: rgba(var(--dr), var(--dg), var(--db), .15);
+            margin-bottom: 18px;
+        }
+
+        .addr-virtual-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .addr-virtual-desc {
+            font-size: 14px;
+            color: var(--muted, #9c9ca3);
+            max-width: 320px;
+            line-height: 1.6;
+        }
+    </style>
 </head>
 
 <body>
@@ -69,7 +109,7 @@
         <img src="../img/icons/favicon-96x96.png" alt="Geinz" class="geinz-header-logo" />
         <span class="geinz-header-name">GEINZ</span>
     </a>
-    <main class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6 pt-24 md:pt-24">
+<main id="mainContent" class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6 pt-24 md:pt-24">
 
         <!-- HERO -->
         <section class="grid xl:grid-cols-[1fr_.9fr] gap-14 items-center mb-24">
@@ -92,7 +132,7 @@
 
                 <div class="flex flex-wrap gap-4">
                     <button id="routeBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Cómo llegar</button>
-                    <button id="shareBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Compartir</button>
+                    <button id="shareBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Compartir Perfil</button>
                 </div>
                 <div id="quickNavRow" class="flex flex-wrap gap-3 mt-5"></div>
             </div>
@@ -143,15 +183,15 @@
 
 
 
-        <section id="secAmbientes" class="mb-20 reveal">
-            <div class="mb-8">
-                <p class="uppercase tracking-[5px] accent text-sm mb-3">AMBIENTES</p>
-                <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Espacios y experiencia</h2>
-            </div>
-            <div class="gallery-carousel-wrap" id="ambientesCarouselWrap">
-                <div id="ambientesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
-            </div>
-        </section>
+      <section id="secAmbientes" class="mb-20 reveal">
+    <div class="mb-8">
+        <p id="ambientesEyebrow" class="uppercase tracking-[5px] accent text-sm mb-3">AMBIENTES</p>
+        <h2 id="ambientesTitle" class="text-4xl md:text-6xl font-black leading-[.95]">Espacios y experiencia</h2>
+    </div>
+    <div class="gallery-carousel-wrap" id="ambientesCarouselWrap">
+        <div id="ambientesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
+    </div>
+</section>
 
         <section id="secCarta" class="mb-20 reveal" style="display:none;">
             <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -182,26 +222,34 @@
         <section class="grid xl:grid-cols-[1fr_.8fr] gap-8 mb-10">
             <section id="secAddr" class="section glass reveal">
                 <div class="section-header">Ubicación </div>
-                <div class="section-body space-y-8">
+                <div class="section-body">
 
+                    <div id="addrRealContent" class="space-y-8">
+                        <div>
+                            <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Dirección</h3>
+                            <p id="addrText" class="text-4xl md:text-5xl font-black leading-tight"></p>
+                        </div>
+                        <div>
+                            <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Referencia</h3>
+                            <p id="refText" class="text-gray-300 text-lg leading-relaxed"></p>
+                        </div>
 
-                    <div>
-                        <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Dirección</h3>
-                        <p id="addrText" class="text-4xl md:text-5xl font-black leading-tight"></p>
+                        <div id="zonaSection">
+                            <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Zona y Aforo</h3>
+                            <p style="font-size:11px;color:var(--muted);margin-top:6px;opacity:.6;">
+                                Zona aproximada según el cuadrante comercial de Geinz
+                            </p>
+                            <p id="zonaText" class="text-gray-300 text-lg leading-relaxed"></p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Referencia</h3>
-                        <p id="refText" class="text-gray-300 text-lg leading-relaxed"></p>
+
+                    <div id="addrVirtualContent" class="addr-virtual-badge" style="display:none;">
+                        <div class="addr-virtual-icon">🚚</div>
+                        <h3 class="addr-virtual-title">Venta 100% Delivery</h3>
+                        <p class="addr-virtual-desc">Este negocio no cuenta con local físico. Todos los pedidos se
+                            coordinan y entregan directamente donde tú estés.</p>
                     </div>
 
-                    <div id="zonaSection">
-                        <h3 class="text-sm uppercase tracking-[3px] text-gray-500 mb-3">Zona y Aforo</h3>
-                        <p style="font-size:11px;color:var(--muted);margin-top:6px;opacity:.6;">
-                            Zona aproximada según el cuadrante comercial de Geinz
-                        </p>
-
-                        <p id="zonaText" class="text-gray-300 text-lg leading-relaxed"></p>
-                    </div>
                 </div>
             </section>
 
@@ -242,7 +290,7 @@
             <div id="promoCarousel"></div>
         </section>
 
-        <section class="pb-20 reveal">
+        <section id="secCtaExplore" class="pb-20 reveal">
             <div id="ctaBanner" class="relative overflow-hidden rounded-[42px] border border-white/10">
                 <div id="ctaGradient" class="absolute inset-0 transition-all duration-700"
                     style="background: linear-gradient(135deg, rgba(var(--dr),var(--dg),var(--db),.55) 0%, #0a0010 60%, #000 100%)">

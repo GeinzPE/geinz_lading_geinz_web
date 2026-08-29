@@ -748,11 +748,11 @@ function normalizarCategoria(cat) {
     .toLowerCase();
 }
 
-function listenMesasRealtime({ localidad, id }, categoria) {
+function listenMesasRealtime({ localidad, id }, categoria, esPresencial) {
   const sec = document.getElementById("secMesas");
   injectMesasStyles(); // ← SIEMPRE se inyecta el CSS, sin importar la categoría
   const esComida = normalizarCategoria(categoria) === "comida y restaurantes";
-  if (!esComida) {
+  if (!esComida || !esPresencial) {
     if (sec) sec.style.display = "none";
     return;
   }
@@ -2091,6 +2091,9 @@ async function render(biz) {
   const horario = normalizeSchedule(biz.horario_atencion);
   const mapDiaHoy = [6, 0, 1, 2, 3, 4, 5];
   _horarioHoy = horario[mapDiaHoy[new Date().getDay()]];
+  const esPresencial = biz.modelo_negocio !== false; // true/undefined = presencial, false = delivery
+  const plan = (biz.plan_seleccionado || "basico").toLowerCase();
+  const esPremium = plan === "emprendedor" || plan === "empresa";
   const contactos = normalizeContactos(biz.metodo_contacto);
   const waContacto = contactos.find((c) => c.tipo === "whatsapp");
   _waNumeroNegocio = waContacto ? waContacto.valor.replace(/\D/g, "") : "";
@@ -2141,6 +2144,17 @@ async function render(biz) {
   document.title = nombre;
   const prodTitleEl = document.getElementById("productosTitle");
   if (prodTitleEl) prodTitleEl.textContent = `Lo mejor de ${nombre}`;
+  const ambientesEyebrowEl = document.getElementById("ambientesEyebrow");
+  const ambientesTitleEl = document.getElementById("ambientesTitle");
+  if (ambientesEyebrowEl && ambientesTitleEl) {
+    if (esPresencial) {
+      ambientesEyebrowEl.textContent = "AMBIENTES";
+      ambientesTitleEl.textContent = "Espacios y experiencia";
+    } else {
+      ambientesEyebrowEl.textContent = "GALERÍA";
+      ambientesTitleEl.textContent = "Nuestros productos";
+    }
+  }
   document.getElementById("cats").innerHTML =
     `<span class="tag cat">${categoria}</span>${subcategorias.map((s) => `<span class="tag sub">${s}</span>`).join("")}`;
 
@@ -2150,26 +2164,40 @@ async function render(biz) {
   _schedInterval = setInterval(() => calcStatus(horario), 30000);
 
   document.getElementById("descText").textContent = descripcion;
-  document.getElementById("addrText").textContent = ubicacion.dirección || "—";
-  document.getElementById("refText").textContent = ubicacion.referencia || "—";
 
-  const zonaSection = document.getElementById("zonaSection");
-  if (zonaSection) {
-    const aforoMax = biz.aforo_max;
-    const zonaTexto = ubicacion.zona
-      ? aforoMax
-        ? `${ubicacion.zona} / Aforo máx. ${aforoMax} personas`
-        : ubicacion.zona
-      : aforoMax
-        ? `Aforo máx. ${aforoMax} personas`
-        : null;
+  const addrReal = document.getElementById("addrRealContent");
+  const addrVirtual = document.getElementById("addrVirtualContent");
 
-    if (zonaTexto) {
-      document.getElementById("zonaText").textContent = zonaTexto;
-      zonaSection.style.display = "";
-    } else {
-      zonaSection.style.display = "none";
+  if (esPresencial) {
+    if (addrReal) addrReal.style.display = "";
+    if (addrVirtual) addrVirtual.style.display = "none";
+
+    document.getElementById("addrText").textContent =
+      ubicacion.dirección || "—";
+    document.getElementById("refText").textContent =
+      ubicacion.referencia || "—";
+
+    const zonaSection = document.getElementById("zonaSection");
+    if (zonaSection) {
+      const aforoMax = biz.aforo_max;
+      const zonaTexto = ubicacion.zona
+        ? aforoMax
+          ? `${ubicacion.zona} / Aforo máx. ${aforoMax} personas`
+          : ubicacion.zona
+        : aforoMax
+          ? `Aforo máx. ${aforoMax} personas`
+          : null;
+
+      if (zonaTexto) {
+        document.getElementById("zonaText").textContent = zonaTexto;
+        zonaSection.style.display = "";
+      } else {
+        zonaSection.style.display = "none";
+      }
     }
+  } else {
+    if (addrReal) addrReal.style.display = "none";
+    if (addrVirtual) addrVirtual.style.display = "flex";
   }
   // Horario
   const gridSched = document.getElementById("schedGrid");
@@ -2419,8 +2447,29 @@ async function render(biz) {
     const cat = (biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+");
     exploreBtn.href = `https://geinztech.com/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
   }
+
+  // ── Reglas por plan y modelo de negocio ──
+  // ── Reglas por plan y modelo de negocio ──
+  // ── Reglas por plan y modelo de negocio ──
+  // ── Reglas por plan y modelo de negocio ──
+  document
+    .getElementById("geinzHeader")
+    ?.style.setProperty("display", esPremium ? "none" : "");
+  document
+    .getElementById("secCtaExplore")
+    ?.style.setProperty("display", esPremium ? "none" : "");
+  document
+    .getElementById("mainContent")
+    ?.style.setProperty("padding-top", esPremium ? "1.55rem" : "");
+  document
+    .getElementById("secAmenities")
+    ?.style.setProperty("display", esPresencial ? "" : "none");
+  document
+    .getElementById("routeBtn")
+    ?.style.setProperty("display", esPresencial ? "" : "none");
 }
 
+// ── Reglas por plan y modlo de negocio ──
 // ══════════════════════════════════════════
 //  REALTIME
 // ══════════════════════════════════════════
@@ -2449,7 +2498,11 @@ function listenBusinessRealtime({ localidad, id }) {
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
-    listenMesasRealtime(params, biz.categoria_tienda);
+    listenMesasRealtime(
+      params,
+      biz.categoria_tienda,
+      biz.modelo_negocio !== false,
+    );
 
     // Promociones activas (no bloquea el render principal)
     loadActivePromos(params).then((promos) =>

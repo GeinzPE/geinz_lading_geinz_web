@@ -51,17 +51,23 @@
                     </button>
                     <div class="sidebar-group-body">
 
-                         <button class="sidebar-btn" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
+                        <button class="sidebar-btn" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
                             <span class="sbb-icon">🏪</span>
                             <span class="sbb-label">Perfil</span>
                         </button>
 
-                       <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
+                        <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
                             <span class="sbb-icon">📢</span>
                             <span class="sbb-label">Publicidad</span>
                         </button>
 
-                        <button class="sidebar-btn" id="sbb-mispublicaciones" onclick="PanelPerfil.loadMisPublicaciones()">
+                        <button class="sidebar-btn" id="sbb-fidelizacion" onclick="PanelPerfil.loadFidelizacion()">
+                            <span class="sbb-icon">💳</span>
+                            <span class="sbb-label">Fidelizacion</span>
+                        </button>
+
+                        <button class="sidebar-btn" id="sbb-mispublicaciones"
+                            onclick="PanelPerfil.loadMisPublicaciones()">
                             <span class="sbb-icon">🗞️</span>
                             <span class="sbb-label">Mis publicaciones</span>
                         </button>
@@ -237,7 +243,7 @@
                     </iframe>
                 </div>
 
-        <!-- ===== MI QR ===== -->
+                <!-- ===== MI QR ===== -->
                 <div class="section" id="sec-qr">
                     <iframe id="iframeMiQr" src="miqr.html" style="
         width:100%;
@@ -314,6 +320,21 @@
                     </iframe>
                 </div>
 
+
+
+                <div class="section" id="sec-fidelizacion">
+                    <iframe id="iffidelizacion" src="fidelizacion.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#fff;
+    ">
+                    </iframe>
+                </div>
+
+
             </div><!-- /content -->
 
             <!-- BOTON MENU MOBILE -->
@@ -349,7 +370,7 @@
                             <span>Mi negocio</span>
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
-                       <div class="mobile-menu-group-body">
+                        <div class="mobile-menu-group-body">
                             <button class="mobile-menu-item" id="mmb-perfil"
                                 onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
                                 <span>🏪</span>
@@ -359,6 +380,12 @@
                                 onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
                                 <span>📢</span>
                                 <span>Publicidad</span>
+                            </button>
+
+                            <button class="mobile-menu-item" id="mmb-fidelizacion"
+                                onclick="PanelPerfil.loadFidelizacion(); PanelPerfil.toggleMobileMenu()">
+                                <span>💳</span>
+                                <span>Fidelizacion</span>
                             </button>
                             <button class="mobile-menu-item" id="mmb-mispublicaciones"
                                 onclick="PanelPerfil.loadMisPublicaciones(); PanelPerfil.toggleMobileMenu()">

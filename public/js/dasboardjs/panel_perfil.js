@@ -1944,6 +1944,14 @@ window.PanelPerfil = {
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
   },
 
+   loadHistorialGasto() {
+    this.showSection("historialgasto");
+    // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
+  },
+
+  loadFidelizacion(){
+    this.showSection("fidelizacion")
+  },
   // ═══════════════════════════════════════════
   //  PUBLICIDAD
   // ═══════════════════════════════════════════
@@ -2152,6 +2160,8 @@ autoResize(el) {
     document.getElementById("mobileMenu")?.classList.toggle("open");
     document.getElementById("mobileMenuOverlay")?.classList.toggle("show");
   },
+
+
 
   toggleSidebarGroup(header) {
     const body = header.nextElementSibling;
