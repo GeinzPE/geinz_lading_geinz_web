@@ -29,7 +29,7 @@ watchUserSession(
       img.src = user.foto || "img/icons/favicon-96x96.png"; // fallback si no tiene foto (login por email)
       wrap.style.display = "block";
       wrap.onclick = () => {
-        window.location.href = "./perfil_usuario.html"; // ajusta a tu ruta real de perfil
+        window.location.href = "../logindata/login.html"; // ajusta a tu ruta real de perfil
       };
     }
     // opcional: ocultar el botón "Iniciar sesión en Geinz"

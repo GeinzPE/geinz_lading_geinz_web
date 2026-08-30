@@ -1045,40 +1045,67 @@ async function showSplash(user) {
   document.getElementById("wUser").textContent = username;
   document.getElementById("wPoints").textContent = data.puntos ?? 500;
 
+  // 🔑 Todo lo necesario ya viene en el doc del usuario:
+  // tienda_propietario = { departamento, provincia, distrito, id_negocio }
+  const tienda = data.tienda_propietario;
+  const tieneTienda = !!(tienda && tienda.id_negocio);
+
+  const storeCard = document.getElementById("wStoreCard");
+  const storeLoc = document.getElementById("wStoreLoc");
+  const btnLabel = document.getElementById("btnEnterLabel");
+  const hintEl = document.getElementById("wHint");
+  const linkVincular = document.getElementById("wLinkVincular");
+
+  if (tieneTienda) {
+    if (storeCard) {
+      storeCard.style.display = "flex";
+      if (storeLoc) {
+        const partes = [tienda.distrito, tienda.provincia, tienda.departamento]
+          .filter(Boolean)
+          .map((s) => s.charAt(0).toUpperCase() + s.slice(1));
+        storeLoc.textContent = partes.join(" · ") || "Ubicación registrada";
+      }
+    }
+    if (btnLabel) btnLabel.textContent = "Entrar al panel de tu tienda";
+    if (hintEl) hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
+    if (linkVincular) linkVincular.style.display = "none";
+  } else {
+    if (storeCard) storeCard.style.display = "none";
+    if (btnLabel) btnLabel.textContent = "Continuar a Geinz";
+    if (hintEl) hintEl.textContent = "Todo listo. Tu sesión es segura.";
+    if (linkVincular) {
+      linkVincular.style.display = "block";
+      linkVincular.onclick = (e) => {
+        e.preventDefault();
+        abrirPantallaSocio();
+      };
+    }
+  }
+
   document.getElementById("sValidating").classList.add("fade-out");
   await delay(450);
   document.getElementById("sValidating").style.display = "none";
   document.getElementById("sWelcome").classList.add("visible");
 
-  const idTienda = data.id_tienda_propietario?.trim();
-
-  document.getElementById("btnEnter").onclick = async () => {
-    if (!idTienda) {
-      showSnackbar("⚠️ No tienes un ID de tienda vinculado", "warning");
-      setTimeout(() => abrirPantallaSocio(), 1200);
+  document.getElementById("btnEnter").onclick = () => {
+    if (!tieneTienda) {
+      // Usuario normal, sin negocio vinculado
+      window.location.href = "../index.html";
       return;
     }
-    try {
-      const lugarSnap = await getDoc(doc(db, "lugares", idTienda));
-      if (!lugarSnap.exists()) {
-        showSnackbar("❌ Tu ID de tienda no existe o fue eliminado", "error");
-        setTimeout(() => abrirPantallaSocio(), 1400);
-        return;
-      }
-      const data2 = lugarSnap.data();
-      const departamento = data2.departamento || "lima";
-      const provincia = data2.provincia || "barranca";
-      const localidad = data2.localidad || "barranca";
-      sessionStorage.setItem("tiendaId", idTienda);
-      sessionStorage.setItem("departamento", departamento);
-      sessionStorage.setItem("provincia", provincia);
-      sessionStorage.setItem("localidad", localidad);
-      window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&departamento=${encodeURIComponent(departamento)}&provincia=${encodeURIComponent(provincia)}&localidad=${encodeURIComponent(localidad)}`;
-    } catch (err) {
-      console.error(err);
-      showSnackbar("Error al validar tu tienda", "error");
-      setTimeout(() => abrirPantallaSocio(), 1400);
-    }
+
+    // Todo precargado desde tienda_propietario, entra directo sin pedir nada
+    const idNegocio = tienda.id_negocio;
+    const departamento = tienda.departamento || "";
+    const provincia = tienda.provincia || "";
+    const localidad = tienda.distrito || "";
+
+    sessionStorage.setItem("tiendaId", idNegocio);
+    sessionStorage.setItem("departamento", departamento);
+    sessionStorage.setItem("provincia", provincia);
+    sessionStorage.setItem("localidad", localidad);
+
+    window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(departamento)}&provincia=${encodeURIComponent(provincia)}&localidad=${encodeURIComponent(localidad)}`;
   };
 }
 
