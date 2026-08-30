@@ -443,12 +443,16 @@ function hideBizLoader() {
 import {
   doc,
   getDoc,
+  setDoc,
+  deleteDoc,
+  serverTimestamp,
   onSnapshot,
   collection,
   getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { db } from "../db/db.js";
+import { db, auth } from "../db/db.js";
 import { tiendaDoc, tiendaCol, tiendaSubCol } from "../rutas/rutas.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 async function getParams() {
   const path = window.location.pathname;
   const desdePath = path.startsWith("/perfil/");
@@ -859,6 +863,92 @@ function closeMesaReservaModal() {
   if (multiInput) multiInput.value = "";
 }
 
+function bindFollowButton({ localidad, id }, biz) {
+  const btn = document.getElementById("followBtn");
+  const icon = document.getElementById("followIcon");
+  const text = document.getElementById("followText");
+  if (!btn) return;
+
+  let isFollowing = false;
+  let isBusy = false;
+
+  function setFollowUI(following) {
+    isFollowing = following;
+    btn.classList.toggle("following", following);
+    icon.textContent = following ? "✅" : "➕";
+    text.textContent = following ? "Siguiendo" : "Seguir";
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    const uid = user?.uid || null;
+
+    if (!uid) {
+      btn.onclick = () => {
+        window.location.href = "../logindata/login.html";
+      };
+      _followReady = true;      // NUEVO: no hay nada que esperar, ya "sabemos" el estado
+      tryHideLoader();          // NUEVO
+      return;
+    }
+
+    const seguidorRef = doc(tiendaSubCol(localidad, "tiendas", id, "seguidores"), uid);
+    const favoritoRef = doc(
+      db,
+      "Trabajadores_Usuarios_Drivers",
+      "users",
+      "users",
+      uid,
+      "favoritos",
+      id,
+    );
+
+    const snap = await getDoc(seguidorRef);
+    setFollowUI(snap.exists());
+    _followReady = true;        // NUEVO
+    tryHideLoader();            // NUEVO
+
+    btn.onclick = async () => {
+      if (isBusy) return;
+      isBusy = true;
+
+      const nextState = !isFollowing;
+      setFollowUI(nextState);
+      if (nextState) {
+        btn.classList.add("pulse");
+        setTimeout(() => btn.classList.remove("pulse"), 500);
+      }
+
+      try {
+        if (nextState) {
+          const ubicacion = biz.ubicacion || {};
+          await Promise.all([
+            setDoc(seguidorRef, { uid, timestamp: serverTimestamp() }),
+            setDoc(favoritoRef, {
+              id_tienda_lugar: id,
+              img_tienda_lugar: biz.img_tienda?.logo_tienda || "",
+              latitud: ubicacion.latitud ?? null,
+              longitud: ubicacion.longitud ?? null,
+              localidad_lugar_tienda: localidad,
+              nombre_lugar_tienda: biz.nombre_tienda || biz.nombre || "",
+              timesLap_local: String(Date.now()),
+            }),
+          ]);
+        } else {
+          await Promise.all([
+            deleteDoc(seguidorRef),
+            deleteDoc(favoritoRef),
+          ]);
+        }
+      } catch (e) {
+        console.error("Error al actualizar seguidor:", e);
+        setFollowUI(!nextState);
+        showToast("No se pudo actualizar, intenta de nuevo");
+      } finally {
+        isBusy = false;
+      }
+    };
+  });
+}
 function bindMesaReservaEvents() {
   document
     .getElementById("mesaReservaClose")
@@ -1029,8 +1119,8 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-          `${waMsg}: ${shareUrl}`,
-        )}`
+        `${waMsg}: ${shareUrl}`,
+      )}`
       : null;
 
     const card = document.createElement("div");
@@ -1069,7 +1159,7 @@ function renderActivePromos(promos, localidad) {
       if (navigator.share) {
         try {
           await navigator.share({ text: fullText });
-        } catch (e) {}
+        } catch (e) { }
       } else {
         copyToClipboard(fullText);
       }
@@ -1089,6 +1179,32 @@ const DAY_KEYS = [
   { key: "sábado", label: "Sábado" },
   { key: "domingo", label: "Domingo" },
 ];
+function renderFidelizacion(f) {
+  const meta = document.getElementById("fidelizacionMeta");
+  if (!meta) return;
+  meta.innerHTML = "";
+
+  const chips = [];
+
+  if (f.vencimientoActivo) {
+    chips.push(`<span class="fidel-chip">⏳ Puntos válidos por ${f.diasVencimiento} días</span>`);
+    chips.push(`<span class="fidel-chip warn">🔔 Aviso ${f.diasAviso} días antes de vencer</span>`);
+  } else {
+    chips.push(`<span class="fidel-chip">♾️ Tus puntos no vencen</span>`);
+  }
+
+  meta.innerHTML = chips.join("");
+}
+function normalizeFidelizacion(f) {
+  if (!f || f.activo !== true) return null;
+  return {
+    diasAviso: f.diasAviso ?? 4,
+    diasVencimiento: f.diasVencimiento ?? 100,
+    vencimientoActivo: f.vencimientoActivo === true,
+    mensajeInactivo: f.mensajeInactivo || "",
+  };
+}
+
 // Reemplaza normalizeSchedule en el archivo 2
 function normalizeSchedule(h) {
   return DAY_KEYS.map(({ key, label }) => {
@@ -2072,7 +2188,7 @@ let _navState = {
   ambientes: false,
   carta: false,
 };
-let _colorReady = false;
+
 let _schedInterval = null; // evitar setInterval duplicados
 let _mesasUnsub = null;
 let _mesaSeleccionada = null;
@@ -2082,6 +2198,13 @@ let _mesasCache = [];
 let _horaMaxReserva = null;
 let _bizLogoUrl = null;
 let _bizNombre = "";
+let _colorReady = false;   // ya existe más arriba, no la dupliques si ya está
+let _followReady = false;  // NUEVO: true cuando ya sabemos si el user sigue o no
+function tryHideLoader() {
+  if (_colorReady && _followReady) {
+    hideBizLoader();
+  }
+}
 async function render(biz) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
   const categoria = biz.categoria_tienda || "—";
@@ -2124,18 +2247,18 @@ async function render(biz) {
         getDominantColor(tempImg).then((color) => {
           if (color) applyDominantColor(color);
           _colorReady = true;
-          hideBizLoader();
+          tryHideLoader();
         });
       };
       tempImg.onerror = () => {
         _colorReady = true;
-        hideBizLoader();
+        tryHideLoader();
       };
       tempImg.src =
         logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
     } else {
       _colorReady = true;
-      hideBizLoader();
+      tryHideLoader();
     }
   }
 
@@ -2369,7 +2492,7 @@ async function render(biz) {
       card.innerHTML = `<div class="promo-card-img-wrap"><div class="promo-overlay-actions">${
         /* deja aquí igual los botones de WhatsApp y Compartir */
         `<a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>`
-      }</div></div>`;
+        }</div></div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
         src: promo.url,
@@ -2385,7 +2508,7 @@ async function render(biz) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) {}
+          } catch (e) { }
         else copyToClipboard(fullText);
       });
     });
@@ -2449,9 +2572,15 @@ async function render(biz) {
   }
 
   // ── Reglas por plan y modelo de negocio ──
-  // ── Reglas por plan y modelo de negocio ──
-  // ── Reglas por plan y modelo de negocio ──
-  // ── Reglas por plan y modelo de negocio ──
+
+  const fidelizacion = normalizeFidelizacion(biz.fidelizacion);
+  const secFidel = document.getElementById("secFidelizacion");
+  if (fidelizacion) {
+    secFidel.style.display = "";
+    renderFidelizacion(fidelizacion);
+  } else {
+    secFidel.style.display = "none";
+  }
   document
     .getElementById("geinzHeader")
     ?.style.setProperty("display", esPremium ? "none" : "");
@@ -2467,6 +2596,13 @@ async function render(biz) {
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
+  document.getElementById("fidelizacionBtn")?.addEventListener("click", () => {
+    const url = new URL("../fidelizacion/fidelizacion.html", window.location.href);
+    url.searchParams.set("localidad", _params.localidad);
+    url.searchParams.set("id", _params.id);
+    window.location.href = url.toString();
+  });
+
 }
 
 // ── Reglas por plan y modlo de negocio ──
@@ -2498,11 +2634,8 @@ function listenBusinessRealtime({ localidad, id }) {
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
-    listenMesasRealtime(
-      params,
-      biz.categoria_tienda,
-      biz.modelo_negocio !== false,
-    );
+    listenMesasRealtime(params, biz.categoria_tienda, biz.modelo_negocio !== false);
+    bindFollowButton(params, biz);   // ← ya está bien ubicado, no cambies el orden
 
     // Promociones activas (no bloquea el render principal)
     loadActivePromos(params).then((promos) =>
@@ -2662,7 +2795,7 @@ function renderProductosCatalogo(productos, localidad, id) {
     btnWrap.innerHTML = `
       <a href="../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}"
          class="btn-primary px-6 py-3 rounded-2xl font-bold inline-flex items-center gap-2">
-        🛒 Ver catálogo y agregar al carrito
+        🛒 Ver productos
       </a>`;
   }
 

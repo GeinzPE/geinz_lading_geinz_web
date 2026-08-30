@@ -109,7 +109,7 @@
         <img src="../img/icons/favicon-96x96.png" alt="Geinz" class="geinz-header-logo" />
         <span class="geinz-header-name">GEINZ</span>
     </a>
-<main id="mainContent" class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6 pt-24 md:pt-24">
+    <main id="mainContent" class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6 pt-24 md:pt-24">
 
         <!-- HERO -->
         <section class="grid xl:grid-cols-[1fr_.9fr] gap-14 items-center mb-24">
@@ -133,6 +133,10 @@
                 <div class="flex flex-wrap gap-4">
                     <button id="routeBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Cómo llegar</button>
                     <button id="shareBtn" class="btn-primary px-8 py-4 rounded-2xl font-bold">Compartir Perfil</button>
+                    <button id="followBtn" class="follow-btn">
+                        <span id="followIcon" class="follow-icon">➕</span>
+                        <span id="followText">Seguir</span>
+                    </button>
                 </div>
                 <div id="quickNavRow" class="flex flex-wrap gap-3 mt-5"></div>
             </div>
@@ -183,15 +187,16 @@
 
 
 
-      <section id="secAmbientes" class="mb-20 reveal">
-    <div class="mb-8">
-        <p id="ambientesEyebrow" class="uppercase tracking-[5px] accent text-sm mb-3">AMBIENTES</p>
-        <h2 id="ambientesTitle" class="text-4xl md:text-6xl font-black leading-[.95]">Espacios y experiencia</h2>
-    </div>
-    <div class="gallery-carousel-wrap" id="ambientesCarouselWrap">
-        <div id="ambientesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
-    </div>
-</section>
+        <section id="secAmbientes" class="mb-20 reveal">
+            <div class="mb-8">
+                <p id="ambientesEyebrow" class="uppercase tracking-[5px] accent text-sm mb-3">AMBIENTES</p>
+                <h2 id="ambientesTitle" class="text-4xl md:text-6xl font-black leading-[.95]">Espacios y experiencia
+                </h2>
+            </div>
+            <div class="gallery-carousel-wrap" id="ambientesCarouselWrap">
+                <div id="ambientesGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
+            </div>
+        </section>
 
         <section id="secCarta" class="mb-20 reveal" style="display:none;">
             <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -282,6 +287,22 @@
             </div>
         </section>
 
+        <section id="secFidelizacion" class="section glass mb-10 reveal" style="display:none;">
+            <div class="section-header">Programa de fidelización</div>
+            <div class="section-body">
+                <div id="fidelizacionCard" class="fidelizacion-card">
+                    <div class="fidelizacion-top">
+                        <div class="fidelizacion-icon">🎁</div>
+                        <div class="fidelizacion-text">
+                            <h3>Obtén tu tarjeta de fidelización</h3>
+                            <p>Consigue recompensas y descuentos exclusivos en este negocio</p>
+                        </div>
+                        <div class="fidelizacion-arrow">→</div>
+                    </div>
+                    <div id="fidelizacionMeta" class="fidelizacion-meta"></div>
+                </div>
+            </div>
+        </section>
         <section id="secPromos" class="mb-28 reveal" style="display:none;">
             <div class="mb-10">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PROMOCIONES</p>

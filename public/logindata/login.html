@@ -43,8 +43,31 @@
 
     <!-- COLUMNA DERECHA: TARJETA DE BIENVENIDA -->
     <main class="auth-column">
-      <div class="welcome-card" id="welcomeScreen">
+      <div class="welcome-card" id="selectTypeScreen">
+        <a href="../index.html" class="brand-link">
+          <div class="brand-row">
+            <div class="logo-mark"><img src="../img/logo geinz.png" alt="Logo"></div>
+            <span class="brand-name">Geinz</span>
+          </div>
+        </a>
 
+        <div class="title-wrap">
+          <h1 class="dynamic-title">¿Cómo quieres ingresar?</h1>
+        </div>
+        <p class="welcome-sub">Elige tu tipo de acceso para continuar.</p>
+
+        <div class="actions-stack">
+          <button class="btn btn-email" onclick="chooseAccessType('usuario')">
+            <span class="material-symbols-outlined" aria-hidden="true">person</span>
+            Ingresar como usuario
+          </button>
+          <button class="btn btn-google" onclick="chooseAccessType('negocio')">
+            <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
+            Ingresar como negocio
+          </button>
+        </div>
+      </div>
+    <div class="welcome-card" id="welcomeScreen" style="display:none;">
         <!-- LOGO -->
         <a href="../index.html" class="brand-link">
           <div class="brand-row">

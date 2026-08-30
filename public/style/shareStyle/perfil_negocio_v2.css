@@ -286,12 +286,14 @@ body {
 }
 
 /* ----------------------------------------------
-   8. PROMOCIONES (botones reducidos y altura responsiva)
+   8. PROMOCIONES (rectángulo fijo, sin estirar)
 -------------------------------------------------- */
 #promoCarousel {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 1.75rem;
+    align-items: start;
+    /* evita que las tarjetas se estiren para igualar la más alta */
 }
 
 .promo-card {
@@ -311,12 +313,16 @@ body {
 .promo-card-img-wrap {
     position: relative;
     overflow: hidden;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    /* rectángulo fijo, mismo tamaño siempre */
+    background: #0d0d0d;
 }
 
+.promo-card-img-wrap img,
 .promo-card img {
     width: 100%;
-    height: 280px;
-    /* móvil */
+    height: 100%;
     object-fit: cover;
     display: block;
     transition: transform 0.4s ease;
@@ -324,14 +330,6 @@ body {
 
 .promo-card:hover img {
     transform: scale(1.03);
-}
-
-/* Desktop: altura de imagen de promo más equilibrada */
-@media (min-width: 1024px) {
-    .promo-card img {
-        height: 490px;
-
-    }
 }
 
 .promo-overlay-actions {
@@ -355,29 +353,38 @@ body {
     font-weight: 600;
     font-size: 0.9rem;
     cursor: pointer;
-    transition: var(--transition);
     text-align: center;
     backdrop-filter: blur(12px);
     border: none;
     line-height: 1.2;
 }
 
+/* WhatsApp — degradado verde suave y elegante, con transición propia */
 .promo-btn-wa {
-    background: rgba(34, 197, 94, 0.92);
+    background: linear-gradient(135deg, #34d399, #10b981);
     color: white;
     text-decoration: none;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
+    transition: transform .3s cubic-bezier(.4, 0, .2, 1),
+        filter .3s ease,
+        box-shadow .3s ease;
+}
+
+.promo-btn-wa:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, .35);
 }
 
 .promo-btn-share {
     background: rgba(var(--dr), var(--dg), var(--db), 0.92);
     color: white;
+    transition: var(--transition);
 }
 
-.promo-btn-wa:hover,
 .promo-btn-share:hover {
     transform: translateY(-2px);
     filter: brightness(1.05);
@@ -1285,7 +1292,8 @@ html.geinz-loading #geinzHeader {
     position: relative;
     z-index: 1;
     width: 100%;
-
+    height: 100%;
+    /* FIX: sin esto, object-fit:cover no llenaba la tarjeta (ej. catálogo) */
     object-fit: cover;
     display: block;
     opacity: 0;
@@ -1443,58 +1451,6 @@ html.geinz-loading #geinzHeader {
 }
 
 
-
-
-
-
-/* ----------------------------------------------
-   8. PROMOCIONES (rectángulo fijo, sin estirar)
--------------------------------------------------- */
-#promoCarousel {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.75rem;
-    align-items: start;
-    /* evita que las tarjetas se estiren para igualar la más alta */
-}
-
-.promo-card {
-    border-radius: 1.75rem;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border);
-    transition: var(--transition);
-}
-
-.promo-card:hover {
-    transform: translateY(-6px);
-    border-color: rgba(var(--dr), var(--dg), var(--db), 0.4);
-    box-shadow: 0 20px 35px rgba(var(--dr), var(--dg), var(--db), 0.12);
-}
-
-.promo-card-img-wrap {
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    /* rectángulo fijo, mismo tamaño siempre */
-    background: #0d0d0d;
-}
-
-.promo-card-img-wrap img,
-.promo-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.4s ease;
-}
-
-.promo-card:hover img {
-    transform: scale(1.03);
-}
-
-
 /* ----------------------------------------------
    CATÁLOGO DE PRODUCTOS — tarjetas horizontales estilo carrusel
 -------------------------------------------------- */
@@ -1541,25 +1497,60 @@ html.geinz-loading #geinzHeader {
     height: 100%;
 }
 
+/* FIX: la imagen (y su wrapper) ahora llenan TODA la tarjeta del catálogo,
+   igual que en la referencia (foto completa + shadow abajo) */
+.catalogo-row-img,
+.catalogo-row-img .img-ph-wrap,
+.catalogo-row-img .img-ph-wrap img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    z-index: 0;
+}
+
 .catalogo-row:hover .catalogo-row-img img {
     transform: scale(1.06);
 }
 
+/* Shadow inferior más fuerte y con más cobertura, para que el texto/precio
+   resalten incluso sobre fondos claros (ej. un plato blanco) */
 .catalogo-row-overlay {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 2;
-    padding: 16px 14px 14px;
+    padding: 22px 14px 16px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     background: linear-gradient(to top,
-            rgba(0, 0, 0, 0.9) 0%,
-            rgba(0, 0, 0, 0.55) 45%,
+            rgba(0, 0, 0, 0.98) 0%,
+            rgba(0, 0, 0, 0.92) 20%,
+            rgba(0, 0, 0, 0.6) 50%,
+            rgba(0, 0, 0, 0.15) 80%,
             transparent 100%);
     pointer-events: none;
+}
+
+/* Capa extra fija al fondo de la tarjeta: asegura contraste
+   incluso si la imagen es muy clara en la parte baja */
+.catalogo-row::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 55%;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(to top,
+            rgba(0, 0, 0, 0.85) 0%,
+            rgba(0, 0, 0, 0.5) 40%,
+            transparent 100%);
 }
 
 .catalogo-row-nombre {
@@ -1583,48 +1574,6 @@ html.geinz-loading #geinzHeader {
     padding: 5px 14px;
     border-radius: 999px;
     box-shadow: 0 6px 16px rgba(var(--dr), var(--dg), var(--db), 0.35);
-}
-
-.catalogo-row-info {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 14px 16px 16px;
-    flex: 1;
-}
-
-.catalogo-row-nombre {
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: -0.01em;
-    line-height: 1.3;
-    color: var(--text-primary);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.catalogo-row-desc {
-    font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.catalogo-row-precio {
-    align-self: flex-start;
-    font-size: 13px;
-    font-weight: 800;
-    color: white;
-    background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), 0.7));
-    padding: 6px 16px;
-    border-radius: 999px;
-    margin-top: 4px;
-    box-shadow: 0 6px 16px rgba(var(--dr), var(--dg), var(--db), 0.3);
 }
 
 /* Botón "Ver catálogo completo" u otro CTA, bien redondeado */
@@ -1656,10 +1605,6 @@ html.geinz-loading #geinzHeader {
         flex: 0 0 240px;
         width: 240px;
     }
-
-    .catalogo-row-img {
-        height: 240px;
-    }
 }
 
 @media (max-width: 480px) {
@@ -1676,4 +1621,140 @@ html.geinz-loading #geinzHeader {
         font-size: 11px;
         padding: 4px 12px;
     }
+}
+
+.fidelizacion-card {
+    width: 100%;
+    padding: 18px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    background: rgba(var(--dr), var(--dg), var(--db), .1);
+    border: 1px solid rgba(var(--dr), var(--dg), var(--db), .35);
+    color: #fff;
+    text-align: left;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.fidelizacion-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px rgba(var(--dr), var(--dg), var(--db), .3);
+}
+
+.fidelizacion-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.fidelizacion-icon {
+    font-size: 28px;
+}
+
+.fidelizacion-text {
+    flex: 1;
+}
+
+.fidelizacion-text h3 {
+    font-size: 16px;
+    font-weight: 800;
+    margin: 0 0 4px;
+}
+
+.fidelizacion-text p {
+    font-size: 13px;
+    color: var(--muted, #9c9ca3);
+    margin: 0;
+}
+
+.fidelizacion-arrow {
+    font-size: 20px;
+    opacity: .7;
+}
+
+.fidelizacion-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+}
+
+.fidel-chip {
+    padding: 8px 14px;
+    border-radius: 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .08);
+    color: #d4d4d8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fidel-chip.warn {
+    background: rgba(255, 180, 60, .12);
+    border-color: rgba(255, 180, 60, .3);
+    color: #ffcf8a;
+}
+
+/* ----------------------------------------------
+   BOTÓN SEGUIR — transición de color suave y elegante
+   (antes escalaba/rotaba bruscamente con .pulse; ahora solo brilla)
+-------------------------------------------------- */
+.follow-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 26px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 15px;
+    cursor: pointer;
+    color: #fff;
+    background: transparent;
+    border: 2px solid rgba(var(--dr), var(--dg), var(--db), .6);
+    transition: background .5s cubic-bezier(.4, 0, .2, 1),
+        border-color .5s cubic-bezier(.4, 0, .2, 1),
+        box-shadow .5s cubic-bezier(.4, 0, .2, 1),
+        transform .25s ease;
+}
+
+.follow-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 22px rgba(var(--dr), var(--dg), var(--db), .35);
+}
+
+.follow-btn.following {
+    background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .7));
+    border-color: transparent;
+    box-shadow: 0 0 24px rgba(var(--dr), var(--dg), var(--db), .4);
+}
+
+.follow-btn.pulse {
+    animation: followGlow .6s cubic-bezier(.4, 0, .2, 1);
+}
+
+@keyframes followGlow {
+    0% {
+        box-shadow: 0 0 0 rgba(var(--dr), var(--dg), var(--db), 0);
+    }
+
+    50% {
+        box-shadow: 0 0 32px rgba(var(--dr), var(--dg), var(--db), .6);
+    }
+
+    100% {
+        box-shadow: 0 0 24px rgba(var(--dr), var(--dg), var(--db), .4);
+    }
+}
+
+.follow-icon {
+    display: inline-block;
+    transition: transform .4s cubic-bezier(.4, 0, .2, 1), opacity .3s ease;
+}
+
+.follow-btn.following .follow-icon {
+    transform: scale(1.1);
 }

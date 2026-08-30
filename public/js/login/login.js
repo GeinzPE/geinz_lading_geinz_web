@@ -503,6 +503,16 @@ window.openSocioModal = () => {
   inicializarSelectoresUbicacion("socio");
   upgradeAllCoolSelects(document.getElementById("socioModal")); // 👈
 };
+window.chooseAccessType = (tipo) => {
+  document.getElementById("selectTypeScreen").style.display = "none";
+
+  if (tipo === "usuario") {
+    document.getElementById("welcomeScreen").style.display = "";
+  } else {
+    openSocioModal();
+  }
+};
+
 
 window.closeModal = (id) => {
   document.getElementById(id)?.classList.remove("active");
