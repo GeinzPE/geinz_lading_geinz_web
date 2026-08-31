@@ -128,6 +128,10 @@ const _urlParams = new URLSearchParams(window.location.search);
 let tiendaId = _urlParams.get("id") || sessionStorage.getItem("tiendaId");
 let localidad =
   _urlParams.get("localidad") || sessionStorage.getItem("localidad");
+let departamentoTienda =
+  _urlParams.get("departamento") || sessionStorage.getItem("departamento") || "";
+let provinciaTienda =
+  _urlParams.get("provincia") || sessionStorage.getItem("provincia") || "";
 
 if (!tiendaId || !localidad) {
   console.warn("⚠️ Parámetros inválidos, redirigiendo al login...");
@@ -167,8 +171,11 @@ window.PanelPerfil = {
   mapMarkerActual: null,
 
   // ── IDs / refs Firebase ─────────────────────
+  // ── IDs / refs Firebase ─────────────────────
   TIENDA_ID: tiendaId,
   LOCALIDAD_TIENDA: localidad,
+  DEPARTAMENTO_TIENDA: departamentoTienda,
+  PROVINCIA_TIENDA: provinciaTienda,
   TIENDA_REF: null,
   _firebaseApp: null,
 
@@ -1764,11 +1771,14 @@ window.PanelPerfil = {
     if (wrap) wrap.style.display = mostrar ? "flex" : "none";
   },
 
-  async vincularCuenta() {
+   async vincularCuenta() {
+    const btn = document.querySelector(".sidebar-vincular-btn");
+    const btnOrig = btn ? btn.innerHTML : "";
+
     try {
       const { getAuth } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-      const { arrayUnion, doc, getDoc, updateDoc } =
+      const { arrayUnion, arrayRemove, doc, getDoc, updateDoc } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
       const auth = getAuth(this._firebaseApp);
@@ -1796,7 +1806,7 @@ window.PanelPerfil = {
       );
       const userSnap = await getDoc(userRef);
       const userData = userSnap.exists() ? userSnap.data() : {};
-      const tiendaAnterior = userData?.id_tienda_propietario || null;
+      const tiendaAnterior = userData?.tienda_propietario?.id_negocio || null;
 
       let mensajeConfirm =
         "¿Vincular tu cuenta actual a este negocio?\n\nPodrás acceder sin necesidad del enlace la próxima vez.";
@@ -1808,12 +1818,18 @@ window.PanelPerfil = {
       const confirmar = confirm(mensajeConfirm);
       if (!confirmar) return;
 
+      // ── Estado de carga en el botón ──
+      this._injectVincularSpinnerStyles();
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="vincular-spinner"></span> Vinculando...`;
+      }
+
       if (tiendaAnterior && tiendaAnterior !== this.TIENDA_ID) {
         try {
-          const { arrayRemove } =
-            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+          const distritoAnterior = userData?.tienda_propietario?.distrito || this.LOCALIDAD_TIENDA;
           const tiendaAnteriorRef = tiendaSubDoc(
-            this.LOCALIDAD_TIENDA,
+            distritoAnterior,
             "tiendas",
             tiendaAnterior,
           );
@@ -1829,7 +1845,16 @@ window.PanelPerfil = {
       await this._updateDoc(this.TIENDA_REF, {
         propietario_id: arrayUnion(uid),
       });
-      await updateDoc(userRef, { id_tienda_propietario: this.TIENDA_ID });
+
+      // ── Guardamos el mapa tienda_propietario, igual que en el login ──
+      await updateDoc(userRef, {
+        tienda_propietario: {
+          departamento: this.DEPARTAMENTO_TIENDA || "",
+          provincia: this.PROVINCIA_TIENDA || "",
+          distrito: this.LOCALIDAD_TIENDA || "",
+          id_negocio: this.TIENDA_ID,
+        },
+      });
 
       if (!this.currentData.propietario_id)
         this.currentData.propietario_id = [];
@@ -1840,7 +1865,32 @@ window.PanelPerfil = {
     } catch (e) {
       console.error("Error vincularCuenta:", e);
       this.showToast("❌ Error al vincular cuenta");
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = btnOrig;
+      }
     }
+  },
+
+  _injectVincularSpinnerStyles() {
+    if (document.getElementById("vincular-spinner-styles")) return;
+    const style = document.createElement("style");
+    style.id = "vincular-spinner-styles";
+    style.textContent = `
+      .vincular-spinner {
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        border: 2px solid rgba(255,255,255,0.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: vincularSpin .7s linear infinite;
+        vertical-align: middle;
+        margin-right: 4px;
+      }
+      @keyframes vincularSpin { to { transform: rotate(360deg); } }
+    `;
+    document.head.appendChild(style);
   },
 
   // ═══════════════════════════════════════════

@@ -2586,6 +2586,87 @@
       border-radius: 18px;
       padding: 22px;
     }
+
+    .avatar-skeleton {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(124, 58, 237, 0.15);
+      overflow: hidden;
+      transition: opacity 0.4s ease;
+    }
+
+    .avatar-skeleton::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.15), transparent);
+      animation: shimmer 1.6s infinite;
+    }
+
+    .avatar-skeleton.loaded {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .user-nav-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 16px 6px 6px;
+      border-radius: 99px;
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      background: rgba(124, 58, 237, 0.05);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: fit-content;
+    }
+
+    .user-nav-pill:hover {
+      background: rgba(124, 58, 237, 0.1);
+      border-color: rgba(124, 58, 237, 0.4);
+    }
+
+    .user-nav-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #f3f4f6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+    }
+
+    @media (max-width: 480px) {
+      .user-nav-pill {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
+
+    /* Cuando viene del login, mostramos un fade rápido en vez del loader pesado */
+    html.skip-heavy-loader #page-skeleton {
+      transition: opacity 0.25s ease, visibility 0.25s ease !important;
+    }
+
+    html.skip-heavy-loader .gz-loader {
+      animation: none !important;
+    }
+
+    html.skip-heavy-loader .gz-wordmark span,
+    html.skip-heavy-loader .gz-sub,
+    html.skip-heavy-loader .gz-progress-row {
+      opacity: 1 !important;
+      animation: none !important;
+      transform: none !important;
+    }
+
+    html.skip-heavy-loader .gz-progress-fill {
+      animation: none !important;
+      width: 100% !important;
+    }
   </style>
 </head>
 
@@ -2664,10 +2745,13 @@
             <span class="hidden" style="display:none" id="nav-short">Panel</span>
             Iniciar sesión en Geinz
           </button>
-
-          <div id="userAvatarWrap" style="display:none;">
-            <img id="userAvatarImg" alt="Perfil"
-              style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(124,58,237,.5);cursor:pointer;" />
+          <div id="userAvatarWrap" style="display:none;" class="user-nav-pill">
+            <div style="position:relative;width:32px;height:32px;flex-shrink:0;">
+              <div id="userAvatarSk" class="avatar-skeleton"></div>
+              <img id="userAvatarImg" alt="Perfil"
+                style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid rgba(124,58,237,.5);position:relative;z-index:2;opacity:0;transition:opacity .4s ease;" />
+            </div>
+            <span id="userAvatarName" class="user-nav-name">Usuario</span>
           </div>
         </div>
 

@@ -14,30 +14,100 @@ import { app, db } from "../js/db/db.js";
 import { tiendaSubDoc } from "../js/rutas/rutas.js";
 import { watchUserSession } from "./session/session.js";
 
+// ─── DETECCIÓN: ¿viene del login? ───────────────────────────
+const vieneDeLogin = document.referrer.includes("/logindata/") ||
+  document.referrer.includes("login.html");
+
+if (vieneDeLogin) {
+  document.documentElement.classList.add("skip-heavy-loader");
+}
+
 const appPlanes = initializeApp({
   apiKey: "AIzaSyA47YFtXgzUQe8w_Wb6AlfDcQSjOB5rT_U",
   authDomain: "proyectolista-95172.firebaseapp.com",
   projectId: "proyectolista-95172",
 }, "planes");
 
+// ─── SKELETON: espera carga de página + verificación de sesión ─────
+let pageLoaded = false;
+let authResolved = false;
+let skeletonOcultado = false;
+
+function intentarOcultarSkeleton() {
+  if (skeletonOcultado) return;
+  if (pageLoaded && authResolved) {
+    skeletonOcultado = true;
+    document.getElementById("page-skeleton")?.classList.add("hidden-sk");
+  }
+}
+
+window.addEventListener("load", () => {
+  pageLoaded = true;
+  intentarOcultarSkeleton();
+});
+
+// Fallback de seguridad: si algo tarda demasiado (red lenta, Firebase caído, etc.)
+// igual ocultamos el skeleton para no dejar al usuario atrapado.
+setTimeout(() => {
+  pageLoaded = true;
+  authResolved = true;
+  intentarOcultarSkeleton();
+}, vieneDeLogin ? 1500 : 4000);
+
+// Si viene del login, forzamos que se sienta más rápido de todos modos
+// una vez que ambas condiciones reales se cumplan.
+if (vieneDeLogin) {
+  setTimeout(() => intentarOcultarSkeleton(), 400);
+}
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});
+
 watchUserSession(
   (user) => {
-    // Es un USUARIO logueado -> mostramos avatar, ocultamos botón de login
+    console.log("🔥 LLEGA A INDEXV2:", user);
     const wrap = document.getElementById("userAvatarWrap");
     const img = document.getElementById("userAvatarImg");
+    const sk = document.getElementById("userAvatarSk");
+    const nameEl = document.getElementById("userAvatarName");
+
     if (wrap && img) {
-      img.src = user.foto || "img/icons/favicon-96x96.png"; // fallback si no tiene foto (login por email)
-      wrap.style.display = "block";
+      const fotoUrl = user.foto || "img/icons/favicon-96x96.png";
+      console.log("🖼️ fotoUrl calculada:", fotoUrl);
+
+      if (nameEl) {
+        nameEl.textContent = user.nombre || user.nombre_user || "Mi cuenta";
+      }
+
+      const marcarCargada = () => {
+        img.style.opacity = "1";
+        sk?.classList.add("loaded");
+      };
+
+      img.addEventListener("load", marcarCargada, { once: true });
+      img.addEventListener("error", marcarCargada, { once: true });
+      img.src = fotoUrl;
+
+      wrap.style.display = "flex";
       wrap.onclick = () => {
-        window.location.href = "../logindata/login.html"; // ajusta a tu ruta real de perfil
+        window.location.href = "../logindata/login.html";
       };
     }
-    // opcional: ocultar el botón "Iniciar sesión en Geinz"
     document.querySelector('button[onclick="openBusinessPanel()"]')?.style.setProperty("display", "none");
+
+    // 👇 la sesión ya resolvió (SÍ hay usuario) — recién ahora dejamos ocultar el skeleton
+    authResolved = true;
+    intentarOcultarSkeleton();
   },
   () => {
-    // No hay sesión de usuario -> avatar oculto, botón de login normal
     document.getElementById("userAvatarWrap")?.style.setProperty("display", "none");
+
+    // 👇 la sesión ya resolvió (NO hay usuario) — recién ahora dejamos ocultar el skeleton
+    authResolved = true;
+    intentarOcultarSkeleton();
   }
 );
 
@@ -237,6 +307,7 @@ async function agendar_pago(obj_plan, btn) {
 // ─── CARGAR PLANES ─────────────────────────────────────────
 async function cargarPlanes() {
   const wrapper = document.getElementById("pricingWrapper");
+  if (!wrapper) return;
   wrapper.innerHTML = Array(4).fill(0).map(() =>
     `<div class="plan-card skeleton h-96"></div>`
   ).join("");
@@ -351,14 +422,6 @@ window.culqi = async () => {
     document.getElementById("paymentOverlay").classList.add("hidden");
   }
 };
-
-// ─── SKELETON GLOBAL ────────────────────────────────────────
-window.addEventListener("load", () => {
-  document.getElementById("page-skeleton")?.classList.add("hidden-sk");
-});
-setTimeout(() => {
-  document.getElementById("page-skeleton")?.classList.add("hidden-sk");
-}, 3000);
 
 // ─── LOCALIDADES ─────────────────────────────────────────────
 let localidadSeleccionada = "barranca";

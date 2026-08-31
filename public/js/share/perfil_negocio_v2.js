@@ -449,6 +449,9 @@ import {
   onSnapshot,
   collection,
   getDocs,
+  query,
+  where,
+  limit,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db, auth } from "../db/db.js";
 import { tiendaDoc, tiendaCol, tiendaSubCol } from "../rutas/rutas.js";
@@ -862,7 +865,56 @@ function closeMesaReservaModal() {
   const multiInput = document.getElementById("mesasMultiInput");
   if (multiInput) multiInput.value = "";
 }
+async function ensureClienteRecord({ localidad, id }, uid) {
+  try {
+    const clientesRef = tiendaSubCol(localidad, "tiendas", id, "clientes");
+    const q = query(clientesRef, where("id_usuario", "==", uid), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) return; // ya existe, no duplicar
 
+    const newDocRef = doc(clientesRef);
+    await setDoc(newDocRef, {
+      id: newDocRef.id,
+      id_usuario: uid,
+      fecha_inicio: serverTimestamp(),
+      ultimo_consumo: serverTimestamp(), // arranca igual a fecha_inicio, el SAS lo va actualizando después
+    });
+  } catch (e) {
+    console.warn("No se pudo crear el registro de cliente:", e.message);
+  }
+}
+async function loadPuntosCliente({ localidad, id }, uid) {
+  try {
+    const clientesRef = tiendaSubCol(localidad, "tiendas", id, "clientes");
+    const q = query(clientesRef, where("id_usuario", "==", uid), limit(1));
+    const snap = await getDocs(q);
+    if (snap.empty) return renderPuntosBadge(0);
+    const data = snap.docs[0].data();
+    renderPuntosBadge(Number(data.puntos) || 0);
+  } catch (e) {
+    console.warn("No se pudieron cargar los puntos:", e.message);
+  }
+}
+
+function renderPuntosBadge(puntos) {
+  const badge = document.getElementById("puntosBadge");
+  if (!badge) return;
+  if (!puntos || puntos <= 0) {
+    badge.style.display = "none";
+    return;
+  }
+  badge.style.display = "inline-flex";
+  badge.innerHTML = `<span class="puntos-badge-icon">🎁</span> Tienes ${puntos} puntos en ${_bizNombre || "este negocio"} · mostrar tarjeta `;
+}
+
+function bindPuntosBadgeEvents({ localidad, id }) {
+  document.getElementById("puntosBadge")?.addEventListener("click", () => {
+    const url = new URL("../fidelizacion/fidelizacion.html", window.location.href);
+    url.searchParams.set("localidad", localidad);
+    url.searchParams.set("id", id);
+    window.location.href = url.toString();
+  });
+}
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
   const icon = document.getElementById("followIcon");
@@ -884,13 +936,12 @@ function bindFollowButton({ localidad, id }, biz) {
 
     if (!uid) {
       btn.onclick = () => {
-        window.location.href = "../logindata/login.html";
+        openLoginPromptModal();
       };
-      _followReady = true;      // NUEVO: no hay nada que esperar, ya "sabemos" el estado
-      tryHideLoader();          // NUEVO
+      _followReady = true;
+      tryHideLoader();
       return;
     }
-
     const seguidorRef = doc(tiendaSubCol(localidad, "tiendas", id, "seguidores"), uid);
     const favoritoRef = doc(
       db,
@@ -901,11 +952,13 @@ function bindFollowButton({ localidad, id }, biz) {
       "favoritos",
       id,
     );
-
     const snap = await getDoc(seguidorRef);
     setFollowUI(snap.exists());
-    _followReady = true;        // NUEVO
-    tryHideLoader();            // NUEVO
+    _followReady = true;
+    tryHideLoader();
+
+    loadPuntosCliente({ localidad, id }, uid);
+    bindPuntosBadgeEvents({ localidad, id });
 
     btn.onclick = async () => {
       if (isBusy) return;
@@ -933,6 +986,7 @@ function bindFollowButton({ localidad, id }, biz) {
               timesLap_local: String(Date.now()),
             }),
           ]);
+          ensureClienteRecord({ localidad, id }, uid); // no bloquea el follow, corre aparte
         } else {
           await Promise.all([
             deleteDoc(seguidorRef),
@@ -1941,6 +1995,125 @@ const MESAS_CSS = `
 .mesa-reserva-hora-label{display:block;font-size:11px;color:#9c9ca3;margin:-4px 0 6px;text-transform:uppercase;letter-spacing:.06em;}
 .mesa-reserva-submit{width:100%;padding:13px;border:none;border-radius:12px;font-weight:700;font-size:14px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
 `;
+const LOGIN_PROMPT_CSS = `
+.login-prompt-modal{
+  position:fixed;inset:0;z-index:10002;
+  background:rgba(3,3,3,.75);
+  backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;visibility:hidden;
+  transition:opacity .28s ease;
+  padding:20px;
+}
+.login-prompt-modal.open{opacity:1;visibility:visible;}
+.login-prompt-box{
+  width:100%;max-width:360px;
+  background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+  border-radius:28px;
+  padding:32px 26px 26px;
+  position:relative;
+  text-align:center;
+  overflow:hidden;
+  transform:scale(.94);
+  transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 25px 60px -12px rgba(0,0,0,.7), 0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.35);
+}
+.login-prompt-modal.open .login-prompt-box{transform:scale(1);}
+.login-prompt-close{
+  position:absolute;top:14px;right:14px;
+  width:32px;height:32px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.08);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.login-prompt-glow{
+  position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+  width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle, rgba(var(--dr),var(--dg),var(--db),.45), transparent 70%);
+  filter:blur(10px);
+  pointer-events:none;
+}
+.login-prompt-logo{
+  width:88px;height:88px;border-radius:50%;
+  object-fit:cover;margin:0 auto 18px;
+  border:2px solid rgba(var(--dr),var(--dg),var(--db),.6);
+  box-shadow:0 0 25px rgba(var(--dr),var(--dg),var(--db),.4);
+  position:relative;z-index:1;background:#111;display:block;
+}
+.login-prompt-letter{
+  width:88px;height:88px;border-radius:50%;margin:0 auto 18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;font-weight:800;
+  color:rgba(var(--dr),var(--dg),var(--db),.95);
+  background:rgba(var(--dr),var(--dg),var(--db),.15);
+  border:2px solid rgba(var(--dr),var(--dg),var(--db),.5);
+  position:relative;z-index:1;
+}
+.login-prompt-title{font-size:19px;font-weight:800;color:#fff;margin:0 0 8px;position:relative;z-index:1;}
+.login-prompt-desc{font-size:13.5px;color:#9c9ca3;line-height:1.55;margin:0 0 24px;position:relative;z-index:1;}
+.login-prompt-actions{display:flex;flex-direction:column;gap:10px;position:relative;z-index:1;}
+.login-prompt-btn-primary{
+  padding:13px;border:none;border-radius:14px;font-weight:700;font-size:14px;color:#fff;
+  cursor:pointer;text-decoration:none;display:block;
+  background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
+  box-shadow:0 8px 20px -6px rgba(var(--dr),var(--dg),var(--db),.5);
+}
+.login-prompt-btn-secondary{
+  padding:13px;border-radius:14px;font-weight:600;font-size:13.5px;cursor:pointer;
+  background:rgba(255,255,255,.06);color:#d4d4d8;border:1px solid rgba(255,255,255,.1);
+}
+`;
+
+function injectLoginPromptStyles() {
+  if (document.getElementById("loginPromptStyle")) return;
+  const style = document.createElement("style");
+  style.id = "loginPromptStyle";
+  style.textContent = LOGIN_PROMPT_CSS;
+  document.head.appendChild(style);
+}
+
+function openLoginPromptModal() {
+  injectLoginPromptStyles();
+  const modal = document.getElementById("loginPromptModal");
+  if (!modal) return;
+
+  const logoWrap = document.getElementById("loginPromptLogoWrap");
+  const nameSpan = document.getElementById("loginPromptBizName");
+  if (nameSpan) nameSpan.textContent = _bizNombre || "este negocio";
+
+  if (logoWrap) {
+    logoWrap.innerHTML = "";
+    if (_bizLogoUrl) {
+      const img = document.createElement("img");
+      img.crossOrigin = "anonymous"; // ← clave: usa la misma caché que bizLogoHero
+      img.src = _bizLogoUrl;
+      img.alt = _bizNombre || "Logo";
+      img.className = "login-prompt-logo";
+      logoWrap.appendChild(img);
+    } else {
+      const letter = document.createElement("div");
+      letter.className = "login-prompt-letter";
+      letter.textContent = (_bizNombre || "?").trim().charAt(0).toUpperCase();
+      logoWrap.appendChild(letter);
+    }
+  }
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeLoginPromptModal() {
+  document.getElementById("loginPromptModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function bindLoginPromptEvents() {
+  document.getElementById("loginPromptClose")?.addEventListener("click", closeLoginPromptModal);
+  document.getElementById("loginPromptCancel")?.addEventListener("click", closeLoginPromptModal);
+  document.getElementById("loginPromptModal")?.addEventListener("click", (e) => {
+    if (e.target.id === "loginPromptModal") closeLoginPromptModal();
+  });
+}
 
 const LOGO_PLACEHOLDER_CSS = `
 .geinz-logo-placeholder {
@@ -2596,7 +2769,7 @@ async function render(biz) {
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
-  document.getElementById("fidelizacionBtn")?.addEventListener("click", () => {
+  document.getElementById("fidelizacionCard")?.addEventListener("click", () => {
     const url = new URL("../fidelizacion/fidelizacion.html", window.location.href);
     url.searchParams.set("localidad", _params.localidad);
     url.searchParams.set("id", _params.id);
@@ -2678,6 +2851,7 @@ function listenBusinessRealtime({ localidad, id }) {
 })();
 injectLightboxStyles();
 bindMesaReservaEvents();
+bindLoginPromptEvents();
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(

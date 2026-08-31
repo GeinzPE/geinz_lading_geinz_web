@@ -21,6 +21,30 @@
 </head>
 
 <body class="dark-mode">
+  <a href="../index.html" class="btn-back-geinz" id="btnBackGeinz">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+      stroke-linejoin="round" aria-hidden="true">
+      <path d="m12 19-7-7 7-7" />
+      <path d="M19 12H5" />
+    </svg>
+    Regresar a Geinz
+  </a>
+  <div id="authChecking">
+    <div class="ac-inner">
+      <div class="ac-ring-wrap">
+        <div class="ac-glow"></div>
+        <div class="ac-ring-outer"></div>
+        <div class="ac-ring-spin"></div>
+        <div class="ac-logo-circle">
+          <img src="../img/logo geinz.png" alt="Geinz">
+        </div>
+      </div>
+      <p class="ac-text" id="acText">Verificando tu sesión</p>
+      <div class="ac-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
 
   <!-- FONDO: SLIDER DE IMÁGENES -->
   <div class="slider-wrapper" aria-hidden="true">
@@ -39,35 +63,11 @@
   <div class="overlay-gradient" aria-hidden="true"></div>
 
   <!-- ===== PANTALLA PRINCIPAL ===== -->
-  <div class="ui-root" id="mainUI">
+  <div class="ui-root" id="mainUI" style="display:none;">
 
     <!-- COLUMNA DERECHA: TARJETA DE BIENVENIDA -->
     <main class="auth-column">
-      <div class="welcome-card" id="selectTypeScreen">
-        <a href="../index.html" class="brand-link">
-          <div class="brand-row">
-            <div class="logo-mark"><img src="../img/logo geinz.png" alt="Logo"></div>
-            <span class="brand-name">Geinz</span>
-          </div>
-        </a>
-
-        <div class="title-wrap">
-          <h1 class="dynamic-title">¿Cómo quieres ingresar?</h1>
-        </div>
-        <p class="welcome-sub">Elige tu tipo de acceso para continuar.</p>
-
-        <div class="actions-stack">
-          <button class="btn btn-email" onclick="chooseAccessType('usuario')">
-            <span class="material-symbols-outlined" aria-hidden="true">person</span>
-            Ingresar como usuario
-          </button>
-          <button class="btn btn-google" onclick="chooseAccessType('negocio')">
-            <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
-            Ingresar como negocio
-          </button>
-        </div>
-      </div>
-    <div class="welcome-card" id="welcomeScreen" style="display:none;">
+      <div class="welcome-card" id="welcomeScreen">
         <!-- LOGO -->
         <a href="../index.html" class="brand-link">
           <div class="brand-row">
@@ -256,19 +256,29 @@
           </div>
 
           <!-- TELÉFONO -->
+                   <div class="field-group">
+            <label class="field-label">País</label>
+            <div class="input-box select-wrap">
+              <span class="material-symbols-outlined input-icon" aria-hidden="true">public</span>
+              <select id="editPais" class="custom-select" onchange="onEditPaisChange(this)">
+                <option value="" disabled selected hidden>Seleccionar país</option>
+              </select>
+              <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
+            </div>
+          </div>
+
           <div class="field-group">
             <label class="field-label">Número de teléfono</label>
             <div class="phone-row">
-              <div class="country-prefix" aria-label="Perú +51">
-                <span class="flag" aria-hidden="true">🇵🇪</span>
-                <span class="prefix-code">+51</span>
+              <div class="country-prefix" id="editPrefixBox" aria-label="Código de país">
+                <span class="flag" id="editPrefixFlag" aria-hidden="true">🇵🇪</span>
+                <span class="prefix-code" id="editPrefixCode">+51</span>
               </div>
-              <input id="regTelefono" type="tel" class="input-field phone-input" placeholder="987 654 321"
+              <input id="editTelefono" type="tel" class="input-field phone-input" placeholder="987 654 321"
                 autocomplete="tel-national" oninput="this.value=this.value.replace(/\D/g,'')" maxlength="12" />
             </div>
-            <p class="field-error" id="errTelefono"></p>
+            <p class="field-error" id="errEditTelefono"></p>
           </div>
-
           <!-- GÉNERO Y LOCALIDAD -->
           <div class="input-row-2">
             <div class="field-group">
@@ -414,6 +424,72 @@
       </div>
     </div>
   </div>
+  <!-- ===== MODAL: EDITAR PERFIL ===== -->
+  <div class="modal-overlay" id="editProfileModal" onclick="closeIfOutside(event,'editProfileModal')" role="dialog"
+    aria-modal="true" aria-label="Editar perfil">
+    <div class="modal-scroll">
+      <div class="dialog">
+
+        <button class="btn-back-modal" onclick="closeModal('editProfileModal')" aria-label="Regresar">
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_back_ios</span>
+          Regresar
+        </button>
+
+        <div class="dialog-header">
+          <div class="dialog-icon-wrap">
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+          </div>
+          <h2 class="dialog-title">Editar perfil</h2>
+          <p class="dialog-sub">Actualiza tu nombre, apellido y número de teléfono.</p>
+        </div>
+
+        <form onsubmit="submitEditProfile(event)" novalidate>
+
+          <div class="input-row-2">
+            <div class="field-group">
+              <label class="field-label" for="editNombre">Nombre</label>
+              <div class="input-box">
+                <input id="editNombre" type="text" class="input-field input-no-icon" placeholder="Nombre"
+                  autocomplete="given-name" />
+              </div>
+              <p class="field-error" id="errEditNombre"></p>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="editApellido">Apellido</label>
+              <div class="input-box">
+                <input id="editApellido" type="text" class="input-field input-no-icon" placeholder="Apellido"
+                  autocomplete="family-name" />
+              </div>
+              <p class="field-error" id="errEditApellido"></p>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Número de teléfono</label>
+            <div class="phone-row">
+              <div class="country-prefix" aria-label="Perú +51">
+                <span class="flag" aria-hidden="true">🇵🇪</span>
+                <span class="prefix-code">+51</span>
+              </div>
+              <input id="editTelefono" type="tel" class="input-field phone-input" placeholder="987 654 321"
+                autocomplete="tel-national" oninput="this.value=this.value.replace(/\D/g,'')" maxlength="12" />
+            </div>
+            <p class="field-error" id="errEditTelefono"></p>
+          </div>
+
+          <div class="dialog-actions">
+            <button type="submit" class="btn btn-primary full-width" id="btnSaveProfile">
+              <span class="material-symbols-outlined" aria-hidden="true">save</span>
+              Guardar cambios
+            </button>
+            <button type="button" class="btn btn-ghost full-width"
+              onclick="closeModal('editProfileModal')">Cancelar</button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== MODAL: SOCIO GEINZ ===== -->
   <div class="modal-overlay" id="socioModal" onclick="closeIfOutside(event,'socioModal')" role="dialog"
@@ -525,54 +601,120 @@
       </div>
     </div>
 
- <div id="sWelcome">
-  <div class="welcome-avatar-wrap" aria-hidden="true">
-    <div class="welcome-avatar">
-      <span class="material-symbols-outlined">person</span>
-    </div>
-    <div class="avatar-checkmark">
-      <span class="material-symbols-outlined">check</span>
-    </div>
-  </div>
+    <div id="sWelcome">
+      <div class="wb-profile-grid">
 
-  <p class="wb-greeting">¡Bienvenido de vuelta!</p>
-  <h1 class="wb-name" id="wName">Usuario</h1>
-  <p class="wb-username" id="wUser">@username</p>
+        <div class="wb-profile-left">
+          <div class="wb-avatar-wrap" id="wAvatarWrap">
+            <img id="wAvatarImg" src="" alt="Foto de perfil" />
+            <div class="wb-avatar-spinner" id="wAvatarSpinner">
+              <div class="spinner-ring"></div>
+            </div>
+            <button type="button" class="wb-avatar-edit" id="wAvatarEdit" aria-label="Cambiar foto de perfil">
+              <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
+            </button>
+            <input type="file" id="wAvatarInput" accept="image/*" style="display:none;">
+          </div>
 
-  <div class="wb-points-pill">
-    <span class="material-symbols-outlined" aria-hidden="true">stars</span>
-    <span id="wPoints">500</span>
-    <span>puntos Geinz</span>
-  </div>
+          <p class="wb-greeting">¡Bienvenido de vuelta!</p>
+          <div class="wb-name-row">
+            <h1 class="wb-name" id="wName">Usuario</h1>
+            <button type="button" class="wb-edit-btn" id="btnEditProfile" aria-label="Editar perfil">
+              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+            </button>
+          </div>
+            <p class="wb-username" id="wUser">@username</p>
+      <p class="wb-phone" id="wPhone"></p>
 
-  <!-- Tarjeta de negocio vinculado: solo visible si el usuario tiene tienda_propietario -->
-  <div id="wStoreCard" style="display:none; align-items:center; gap:10px; margin-top:14px;
-       padding:10px 14px; border-radius:14px; background:rgba(124,58,237,0.08);
-       border:1px solid rgba(124,58,237,0.25); max-width:320px; width:100%;">
-    <span class="material-symbols-outlined" aria-hidden="true" style="color:#c084fc;">storefront</span>
-    <div style="text-align:left; overflow:hidden;">
-      <div style="font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#c084fc;">
-        Negocio vinculado
+      <div class="wb-points-pill">
+            <span class="material-symbols-outlined" aria-hidden="true">stars</span>
+            <span id="wPoints">500</span>
+            <span>puntos Geinz</span>
+          </div>
+
+          <button type="button" class="wb-logout-btn" id="btnCerrarSesion" onclick="cerrarSesion()">
+            <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+            Cerrar sesión
+          </button>
+        </div>
+
+        <div class="wb-profile-right">
+
+          <div id="wStoreCard" class="wb-store-card" style="display:none;">
+            <span class="material-symbols-outlined wb-store-icon" aria-hidden="true">storefront</span>
+            <div class="wb-store-info">
+              <div class="wb-store-label">Negocio vinculado</div>
+              <div class="wb-store-loc" id="wStoreLoc">—</div>
+            </div>
+          </div>
+
+          <!-- Estado: TIENE negocio (queda igual, se muestra/oculta por JS) -->
+          <div id="wNoStoreCard" class="wb-nostore-card" style="display:none;">
+            <span class="material-symbols-outlined wb-store-icon" aria-hidden="true">storefront</span>
+            <div class="wb-store-info">
+              <div class="wb-store-label">Sin negocio vinculado</div>
+              <div class="wb-store-loc">Selecciona tu ubicación e ingresa tu ID</div>
+            </div>
+          </div>
+
+          <!-- Botón principal: solo se usa cuando SÍ tiene tienda vinculada -->
+          <button class="btn-enter-panel" id="btnEnter" style="display:none;">
+            <span class="btn-enter-label" id="btnEnterLabel">Entrar al panel de tu negocio</span>
+            <span class="material-symbols-outlined btn-enter-icon" aria-hidden="true">rocket_launch</span>
+          </button>
+
+          <!-- Formulario inline: solo aparece si NO tiene negocio vinculado -->
+          <div id="wVincularForm" style="display:none; width:100%; max-width:340px;">
+
+            <div class="field-group" style="margin-top:10px;">
+              <label class="field-label">Departamento</label>
+              <div class="input-box select-wrap">
+                <select id="welcomeDepartamento" class="custom-select">
+                  <option value="" disabled selected hidden>Selecciona</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Provincia</label>
+              <div class="input-box select-wrap">
+                <select id="welcomeProvincia" class="custom-select" disabled>
+                  <option value="" disabled selected hidden>Elige depto.</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Distrito</label>
+              <div class="input-box select-wrap">
+                <select id="welcomeDistrito" class="custom-select" disabled>
+                  <option value="" disabled selected hidden>Elige provincia</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="welcomeIdNegocio">ID de tu negocio</label>
+              <div class="input-box">
+                <span class="material-symbols-outlined input-icon" aria-hidden="true">vpn_key</span>
+                <input id="welcomeIdNegocio" type="text" class="input-field" placeholder="Pega aquí tu ID único" />
+              </div>
+            </div>
+
+            <button class="btn-enter-panel" id="btnVincularInline" style="width:100%;">
+              <span class="btn-enter-label">Acceder al panel</span>
+              <span class="material-symbols-outlined btn-enter-icon" aria-hidden="true">login</span>
+            </button>
+
+
+          </div>
+
+          <p class="wb-hint" id="wHint">Todo listo. Tu sesión es segura.</p>
+
+        </div>
+
       </div>
-      <div id="wStoreLoc" style="font-size:12px; color:rgba(255,255,255,.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-        —
-      </div>
     </div>
-  </div>
-
-  <button class="btn-enter-panel" id="btnEnter">
-    <span class="btn-enter-label" id="btnEnterLabel">Continuar a Geinz</span>
-    <span class="material-symbols-outlined btn-enter-icon" aria-hidden="true">rocket_launch</span>
-  </button>
-
-  <p class="wb-hint" id="wHint">Todo listo. Tu sesión es segura.</p>
-
-  <!-- Solo aparece si NO tiene negocio vinculado -->
-  <a href="#" id="wLinkVincular" style="display:none; margin-top:6px; font-size:12px;
-     color:rgba(255,255,255,.5); text-decoration:underline;">
-    ¿Tienes un negocio? Vincúlalo con tu ID aquí
-  </a>
-</div>
 
   </div>
 

@@ -28,7 +28,7 @@ export function watchUserSession(onLogged, onLoggedOut) {
       uid: user.uid,
       nombre: data.nombre || "Usuario",
       username: data.nombre_user || "",
-      foto: user.photoURL || null,
+      foto: data.foto || null,
       puntos: data.puntos ?? 0,
     });
   });

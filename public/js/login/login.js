@@ -19,6 +19,7 @@ import {
   onAuthStateChanged,
   browserLocalPersistence,
   setPersistence,
+  signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import {
@@ -32,12 +33,20 @@ import {
   getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
 // Importamos app y db ya inicializados desde db.js (fuente única de verdad)
 import { app, db } from "../db/db.js";
 import { tiendaDoc } from "../rutas/rutas.js";
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const storage = getStorage(app);
 
 await setPersistence(auth, browserLocalPersistence);
 
@@ -51,6 +60,7 @@ const seleccionUbicacion = {
   socio: { dep: "", prov: "", dist: "" },
   selector: { dep: "", prov: "", dist: "" },
   reg: { dep: "", prov: "", dist: "" },
+  welcome: { dep: "", prov: "", dist: "" },
 };
 
 /* =========================================================
@@ -102,6 +112,30 @@ window.onNacionalidadChange = (sel) => {
   document.getElementById("regCodPais").value = sel.value;
   document.getElementById("regNombrePais").value =
     opt.dataset.nombre || opt.textContent.replace(/^\S+\s+/, "").trim();
+};
+
+/* =========================================================
+   PAÍSES — selector para editar perfil
+========================================================= */
+function cargarPaisesEdit() {
+  const select = document.getElementById("editPais");
+  if (!select || select.options.length > 1) return; // ya cargado
+
+  PAISES.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p.cod;
+    opt.textContent = `${p.flag}  ${p.nombre}`;
+    opt.dataset.nombre = p.nombre;
+    opt.dataset.flag = p.flag;
+    opt.dataset.tel = p.tel;
+    select.appendChild(opt);
+  });
+}
+
+window.onEditPaisChange = (sel) => {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById("editPrefixFlag").textContent = opt.dataset.flag;
+  document.getElementById("editPrefixCode").textContent = opt.dataset.tel;
 };
 
 /* =========================================================
@@ -419,14 +453,14 @@ function upgradeCoolSelect(select) {
       : items;
     optionsWrap.innerHTML = filtered.length
       ? filtered
-          .map(
-            (i) => `
+        .map(
+          (i) => `
         <div class="cool-select-option ${select.value === i.value ? "is-selected" : ""}" data-value="${i.value}">
           <span>${i.label}</span>
           <svg class="cool-select-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
         </div>`,
-          )
-          .join("")
+        )
+        .join("")
       : `<div class="cool-select-empty">Sin resultados</div>`;
   }
 
@@ -503,15 +537,6 @@ window.openSocioModal = () => {
   inicializarSelectoresUbicacion("socio");
   upgradeAllCoolSelects(document.getElementById("socioModal")); // 👈
 };
-window.chooseAccessType = (tipo) => {
-  document.getElementById("selectTypeScreen").style.display = "none";
-
-  if (tipo === "usuario") {
-    document.getElementById("welcomeScreen").style.display = "";
-  } else {
-    openSocioModal();
-  }
-};
 
 
 window.closeModal = (id) => {
@@ -559,12 +584,17 @@ async function procesarLoginGoogle(user) {
   const snap = await getDoc(userRef);
 
   if (snap.exists()) {
+    // Va directo al splash — showSplash() se encarga de ocultar authChecking
+    // en el instante exacto en que toma el control, sin dejar hueco.
     showSplash(user);
   } else {
+    // No tiene cuenta creada: recién aquí es seguro mostrar mainUI
+    // (para montar el modal de registro) y ocultar el loader.
+    document.getElementById("authChecking")?.classList.add("hidden");
+    document.getElementById("mainUI").style.display = "flex";
     openRegisterModal();
   }
 }
-
 /* =========================================================
    LOGIN GOOGLE
 ========================================================= */
@@ -884,6 +914,11 @@ window.submitRegister = async (event) => {
     btn.innerHTML = btnOrig;
   }
 };
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});
 
 /* =========================================================
    LOGIN EMAIL — paso 1: verificar correo
@@ -1015,11 +1050,89 @@ function _resetLoginModal() {
 }
 
 /* =========================================================
+   OPTIMIZADOR DE IMÁGENES (avatar) -> WebP comprimido y cuadrado
+========================================================= */
+function _dibujarYRecortarCuadrado(img, maxSize) {
+  const size = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = (img.naturalWidth - size) / 2;
+  const sy = (img.naturalHeight - size) / 2;
+  const outSize = Math.min(maxSize, size);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outSize;
+  canvas.height = outSize;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, size, size, 0, 0, outSize, outSize);
+  return canvas;
+}
+
+function optimizarImagenDesdeArchivo(file, maxSize = 512, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = _dibujarYRecortarCuadrado(img, maxSize);
+          canvas.toBlob(
+            (blob) => (blob ? resolve(blob) : reject(new Error("No se pudo procesar la imagen"))),
+            "image/webp",
+            quality,
+          );
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = () => reject(new Error("Archivo de imagen inválido"));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("Error leyendo el archivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function optimizarImagenDesdeURL(url, maxSize = 512, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = _dibujarYRecortarCuadrado(img, maxSize);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("No se pudo procesar la imagen"))),
+          "image/webp",
+          quality,
+        );
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => reject(new Error("No se pudo cargar la imagen de origen (CORS o URL rota)"));
+    img.src = url;
+  });
+}
+
+async function subirYGuardarAvatar(uid, blob) {
+  const avatarRef = ref(storage, `avatars/${uid}.webp`);
+  await uploadBytes(avatarRef, blob, { contentType: "image/webp" });
+  const url = await getDownloadURL(avatarRef);
+  await setDoc(
+    doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid),
+    { foto: url },
+    { merge: true },
+  );
+  return url;
+}
+/* =========================================================
    SPLASH SCREEN
 ========================================================= */
 async function showSplash(user) {
   if (splashShown) return;
   splashShown = true;
+
+  // 👇 Ocultamos authChecking JUSTO AQUÍ, cuando splashScreen toma el relevo.
+  document.getElementById("authChecking")?.classList.add("hidden");
 
   document.getElementById("mainUI").style.display = "none";
   document.getElementById("splashScreen").classList.add("visible");
@@ -1038,75 +1151,150 @@ async function showSplash(user) {
   await delay(700);
 
   const data = snap.exists() ? snap.data() : {};
+  window._perfilActual = data; // 👈 nuevo: usado para precargar el modal de edición
+  console.log("📦 DATA DEL USUARIO:", data);
+  console.log("🏬 tienda_propietario:", data.tienda_propietario);
   const nombre = data.nombre || user.displayName || "Usuario";
+  const apellido = data.apellido || "";
   const username = data.nombre_user || "@" + user.email.split("@")[0];
 
-  document.getElementById("wName").textContent = nombre;
+  document.getElementById("wName").textContent = apellido ? `${nombre} ${apellido}` : nombre;
   document.getElementById("wUser").textContent = username;
   document.getElementById("wPoints").textContent = data.puntos ?? 500;
 
-  // 🔑 Todo lo necesario ya viene en el doc del usuario:
-  // tienda_propietario = { departamento, provincia, distrito, id_negocio }
+  // 👇 nuevo: mostrar el teléfono actual
+  const wPhoneEl = document.getElementById("wPhone");
+  if (wPhoneEl) {
+    const codTel = data.contacto?.cod_telefonico || "+51";
+    const numTel = data.contacto?.numero_user;
+    wPhoneEl.textContent = numTel ? `${codTel} ${numTel}` : "";
+  }
+
+  const avatarImg = document.getElementById("wAvatarImg");
+  const avatarWrap = document.getElementById("wAvatarWrap");
+  let fotoUrl = data.foto || "";
+
+  if (avatarImg) {
+    avatarImg.src = fotoUrl || user.photoURL || "../img/icons/favicon-96x96.png";
+  }
+
+  if (!fotoUrl && user.photoURL) {
+    avatarWrap?.classList.add("is-uploading");
+    try {
+      const blob = await optimizarImagenDesdeURL(user.photoURL, 512, 0.85);
+      fotoUrl = await subirYGuardarAvatar(user.uid, blob);
+      if (avatarImg) avatarImg.src = fotoUrl;
+    } catch (err) {
+      console.warn("No se pudo optimizar/guardar la foto de Google:", err);
+    } finally {
+      avatarWrap?.classList.remove("is-uploading");
+    }
+  }
   const tienda = data.tienda_propietario;
   const tieneTienda = !!(tienda && tienda.id_negocio);
 
   const storeCard = document.getElementById("wStoreCard");
+  const noStoreCard = document.getElementById("wNoStoreCard");
   const storeLoc = document.getElementById("wStoreLoc");
-  const btnLabel = document.getElementById("btnEnterLabel");
+  const btnEnter = document.getElementById("btnEnter");
+  const vincularForm = document.getElementById("wVincularForm");
   const hintEl = document.getElementById("wHint");
-  const linkVincular = document.getElementById("wLinkVincular");
 
   if (tieneTienda) {
-    if (storeCard) {
-      storeCard.style.display = "flex";
-      if (storeLoc) {
-        const partes = [tienda.distrito, tienda.provincia, tienda.departamento]
-          .filter(Boolean)
-          .map((s) => s.charAt(0).toUpperCase() + s.slice(1));
-        storeLoc.textContent = partes.join(" · ") || "Ubicación registrada";
-      }
+    // ── TIENE negocio vinculado: mostramos tarjeta + botón directo ──
+    if (storeCard) storeCard.style.display = "flex";
+    if (noStoreCard) noStoreCard.style.display = "none";
+    if (vincularForm) vincularForm.style.display = "none";
+    if (btnEnter) btnEnter.style.display = "flex";
+    if (storeLoc) {
+      const partes = [tienda.distrito, tienda.provincia, tienda.departamento]
+        .filter(Boolean)
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1));
+      storeLoc.textContent = partes.join(" · ") || "Ubicación registrada";
     }
-    if (btnLabel) btnLabel.textContent = "Entrar al panel de tu tienda";
     if (hintEl) hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
-    if (linkVincular) linkVincular.style.display = "none";
+
+    document.getElementById("sValidating").classList.add("fade-out");
+    await delay(450);
+    document.getElementById("sValidating").style.display = "none";
+    document.getElementById("sWelcome").classList.add("visible");
+
+    if (btnEnter) {
+      btnEnter.onclick = () => {
+        const idNegocio = tienda.id_negocio;
+        const departamento = tienda.departamento || "";
+        const provincia = tienda.provincia || "";
+        const localidad = tienda.distrito || "";
+
+        sessionStorage.setItem("tiendaId", idNegocio);
+        sessionStorage.setItem("departamento", departamento);
+        sessionStorage.setItem("provincia", provincia);
+        sessionStorage.setItem("localidad", localidad);
+
+        window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(departamento)}&provincia=${encodeURIComponent(provincia)}&localidad=${encodeURIComponent(localidad)}`;
+      };
+    }
   } else {
+    // ── NO tiene negocio: mostramos el formulario de siempre (dep/prov/dist + ID) ──
     if (storeCard) storeCard.style.display = "none";
-    if (btnLabel) btnLabel.textContent = "Continuar a Geinz";
-    if (hintEl) hintEl.textContent = "Todo listo. Tu sesión es segura.";
-    if (linkVincular) {
-      linkVincular.style.display = "block";
-      linkVincular.onclick = (e) => {
-        e.preventDefault();
-        abrirPantallaSocio();
+    if (noStoreCard) noStoreCard.style.display = "flex";
+    if (btnEnter) btnEnter.style.display = "none";
+    if (vincularForm) vincularForm.style.display = "block";
+    if (hintEl) hintEl.textContent = "Vincula tu negocio o continúa como usuario.";
+
+    document.getElementById("sValidating").classList.add("fade-out");
+    await delay(450);
+    document.getElementById("sValidating").style.display = "none";
+    document.getElementById("sWelcome").classList.add("visible");
+
+    // Cargamos los selects dep/prov/dist con prefix "welcome"
+    await inicializarSelectoresUbicacion("welcome");
+    upgradeAllCoolSelects(document.getElementById("wVincularForm"));
+
+
+
+    const btnVincularInline = document.getElementById("btnVincularInline");
+    if (btnVincularInline) {
+      btnVincularInline.onclick = async () => {
+        const idNegocio = document.getElementById("welcomeIdNegocio").value.trim();
+        const { dep, prov, dist } = seleccionUbicacion.welcome;
+
+        if (!idNegocio || idNegocio.length < 4) {
+          showSnackbar("⚠️ Ingresa un ID válido", "warning");
+          return;
+        }
+        if (!dep || !prov || !dist) {
+          showSnackbar("⚠️ Selecciona departamento, provincia y distrito", "warning");
+          return;
+        }
+
+        const btnOrig = btnVincularInline.innerHTML;
+        btnVincularInline.disabled = true;
+        btnVincularInline.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
+
+        try {
+          const snapTienda = await getDoc(tiendaDoc(dist, "tiendas", idNegocio));
+          if (!snapTienda.exists()) {
+            showSnackbar("❌ Ese ID no existe. Verifica e intenta de nuevo.", "error");
+            return;
+          }
+
+          sessionStorage.setItem("tiendaId", idNegocio);
+          sessionStorage.setItem("departamento", dep);
+          sessionStorage.setItem("provincia", prov);
+          sessionStorage.setItem("localidad", dist);
+
+          window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(dep)}&provincia=${encodeURIComponent(prov)}&localidad=${encodeURIComponent(dist)}`;
+        } catch (err) {
+          console.error(err);
+          showSnackbar("Error al validar. Intenta de nuevo.", "error");
+        } finally {
+          btnVincularInline.disabled = false;
+          btnVincularInline.innerHTML = btnOrig;
+        }
       };
     }
   }
-
-  document.getElementById("sValidating").classList.add("fade-out");
-  await delay(450);
-  document.getElementById("sValidating").style.display = "none";
-  document.getElementById("sWelcome").classList.add("visible");
-
-  document.getElementById("btnEnter").onclick = () => {
-    if (!tieneTienda) {
-      // Usuario normal, sin negocio vinculado
-      window.location.href = "../index.html";
-      return;
-    }
-
-    // Todo precargado desde tienda_propietario, entra directo sin pedir nada
-    const idNegocio = tienda.id_negocio;
-    const departamento = tienda.departamento || "";
-    const provincia = tienda.provincia || "";
-    const localidad = tienda.distrito || "";
-
-    sessionStorage.setItem("tiendaId", idNegocio);
-    sessionStorage.setItem("departamento", departamento);
-    sessionStorage.setItem("provincia", provincia);
-    sessionStorage.setItem("localidad", localidad);
-
-    window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(departamento)}&provincia=${encodeURIComponent(provincia)}&localidad=${encodeURIComponent(localidad)}`;
-  };
 }
 
 /* =========================================================
@@ -1143,14 +1331,14 @@ window.continuarPanel = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
-console.log("[continuarPanel] Valores usados para buscar tienda:", {
-  departamento: seleccionUbicacion.selector.dep,
-  provincia: seleccionUbicacion.selector.prov,
-  distrito: seleccionUbicacion.selector.dist,
-  idTienda: valor,
-});
+    console.log("[continuarPanel] Valores usados para buscar tienda:", {
+      departamento: seleccionUbicacion.selector.dep,
+      provincia: seleccionUbicacion.selector.prov,
+      distrito: seleccionUbicacion.selector.dist,
+      idTienda: valor,
+    });
 
-const tiendaRef = tiendaDoc(seleccionUbicacion.selector.dist, "tiendas", valor);
+    const tiendaRef = tiendaDoc(seleccionUbicacion.selector.dist, "tiendas", valor);
 
     console.log("[continuarPanel] Path de tiendaRef:", tiendaRef.path);
 
@@ -1169,11 +1357,11 @@ const tiendaRef = tiendaDoc(seleccionUbicacion.selector.dist, "tiendas", valor);
       return;
     }
 
-   sessionStorage.setItem("departamento", seleccionUbicacion.selector.dep);
-sessionStorage.setItem("provincia", seleccionUbicacion.selector.prov);
-sessionStorage.setItem("localidad", seleccionUbicacion.selector.dist);
-sessionStorage.setItem("tiendaId", valor);
-window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(valor)}&departamento=${encodeURIComponent(seleccionUbicacion.selector.dep)}&provincia=${encodeURIComponent(seleccionUbicacion.selector.prov)}&localidad=${encodeURIComponent(seleccionUbicacion.selector.dist)}`;
+    sessionStorage.setItem("departamento", seleccionUbicacion.selector.dep);
+    sessionStorage.setItem("provincia", seleccionUbicacion.selector.prov);
+    sessionStorage.setItem("localidad", seleccionUbicacion.selector.dist);
+    sessionStorage.setItem("tiendaId", valor);
+    window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(valor)}&departamento=${encodeURIComponent(seleccionUbicacion.selector.dep)}&provincia=${encodeURIComponent(seleccionUbicacion.selector.prov)}&localidad=${encodeURIComponent(seleccionUbicacion.selector.dist)}`;
   } catch (err) {
     console.error(err);
     showSnackbar("Error al validar. Intenta de nuevo.", "error");
@@ -1233,11 +1421,157 @@ window.accederSocio = async () => {
   }
 };
 
+/* =========================================================
+   CERRAR SESIÓN
+========================================================= */
+window.cerrarSesion = async () => {
+  const btn = document.getElementById("btnCerrarSesion");
+  const btnOrig = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Cerrando sesión...`;
+  }
+
+  try {
+    await signOut(auth);
+    sessionStorage.clear();
+    window.location.href = "../index.html";
+  } catch (err) {
+    console.error("Error al cerrar sesión:", err);
+    showSnackbar("❌ Error al cerrar sesión. Intenta de nuevo.", "error");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = btnOrig;
+    }
+  }
+};
+/* =========================================================
+   EDITAR PERFIL
+========================================================= */
+window.openEditProfileModal = () => {
+  cargarPaisesEdit();
+
+  document.getElementById("editNombre").value = (window._perfilActual?.nombre || "").trim();
+  document.getElementById("editApellido").value = (window._perfilActual?.apellido || "").trim();
+  document.getElementById("editTelefono").value = window._perfilActual?.contacto?.numero_user || "";
+
+  // 👇 nuevo: precargar el país actual guardado en Firestore
+  const codPaisActual = window._perfilActual?.cod_pais || "pe";
+  const paisSelect = document.getElementById("editPais");
+  if (paisSelect) {
+    paisSelect.value = codPaisActual;
+    const optActual = paisSelect.options[paisSelect.selectedIndex];
+    if (optActual) {
+      document.getElementById("editPrefixFlag").textContent = optActual.dataset.flag || "🇵🇪";
+      document.getElementById("editPrefixCode").textContent = optActual.dataset.tel || "+51";
+    }
+  }
+
+  document.body.classList.add("blur-active");
+  document.getElementById("editProfileModal").classList.add("active");
+  upgradeAllCoolSelects(document.getElementById("editProfileModal"));
+};
+
+document.getElementById("btnEditProfile")?.addEventListener("click", openEditProfileModal);
+window.submitEditProfile = async (event) => {
+  event.preventDefault();
+
+  const nombre = document.getElementById("editNombre").value.trim();
+  const apellido = document.getElementById("editApellido").value.trim();
+  const telefono = document.getElementById("editTelefono").value.trim();
+
+  const setError = (id, msg) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = msg ? "block" : "none";
+  };
+
+  ["errEditNombre", "errEditApellido", "errEditTelefono"].forEach((id) => setError(id, ""));
+
+  let ok = true;
+
+  if (!nombre || nombre.length < 2) {
+    setError("errEditNombre", "Ingresa un nombre válido (mín. 2 caracteres).");
+    ok = false;
+  }
+  if (!apellido || apellido.length < 2) {
+    setError("errEditApellido", "Ingresa un apellido válido (mín. 2 caracteres).");
+    ok = false;
+  }
+  if (!telefono || !/^\d{7,15}$/.test(telefono)) {
+    setError("errEditTelefono", "Número inválido (7–15 dígitos).");
+    ok = false;
+  }
+
+  if (!ok) return;
+  if (!GOOGLE_USER) {
+    showSnackbar("❌ No se encontró tu sesión. Recarga la página.", "error");
+    return;
+  }
+
+  const btn = document.getElementById("btnSaveProfile");
+  const btnOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Guardando...`;
+
+  const paisSelect = document.getElementById("editPais");
+  const paisOpt = paisSelect?.options[paisSelect.selectedIndex];
+  const codPais = paisSelect?.value || "pe";
+  const nombrePais = paisOpt?.dataset.nombre || "Perú";
+  const codTelefonico = paisOpt?.dataset.tel || "+51";
+
+  try {
+    await setDoc(
+      doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", GOOGLE_USER.uid),
+      {
+        nombre,
+        apellido,
+        cod_pais: codPais,
+        nacionalidad_nacimiento: nombrePais,
+        contacto: {
+          cod_telefonico: codTelefonico,
+          nombre_pais_numero: nombrePais,
+          numero_user: Number(telefono),
+        },
+      },
+      { merge: true },
+    );
+
+    document.getElementById("wName").textContent = `${nombre} ${apellido}`;
+    if (window._perfilActual) {
+      window._perfilActual.nombre = nombre;
+      window._perfilActual.apellido = apellido;
+      window._perfilActual.cod_pais = codPais;
+      window._perfilActual.nacionalidad_nacimiento = nombrePais;
+      window._perfilActual.contacto = {
+        cod_telefonico: codTelefonico,
+        nombre_pais_numero: nombrePais,
+        numero_user: Number(telefono),
+      };
+    }
+
+    // 👇 reflejar el teléfono y país actualizados en pantalla al instante
+    const wPhoneEl = document.getElementById("wPhone");
+    if (wPhoneEl) {
+      wPhoneEl.textContent = `${codTelefonico} ${telefono}`;
+    }
+
+    closeModal("editProfileModal");
+    showSnackbar("✅ Perfil actualizado correctamente", "success");
+  } catch (err) {
+    console.error("Error al actualizar perfil:", err);
+    showSnackbar("❌ Error al guardar. Intenta de nuevo.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = btnOrig;
+  }
+};
+
 window.switchToUserLogin = () => {
   closeModal("socioModal");
   openLoginModal();
 };
-
 window.validarCorreoGmail = (input) => {
   const val = input.value.trim().toLowerCase();
   const errorEl = document.getElementById("errCorreo");
@@ -1264,10 +1598,20 @@ window.validarCorreoGmail = (input) => {
    AUTH STATE — auto-login si ya hay sesión
 ========================================================= */
 onAuthStateChanged(auth, async (user) => {
-  if (!user) return;
+  const authChecking = document.getElementById("authChecking");
+  const acText = document.getElementById("acText");
+
+  if (!user) {
+    document.getElementById("mainUI").style.display = "flex";
+    authChecking?.classList.add("hidden");
+    return;
+  }
+
+  if (acText) acText.textContent = "Sesión encontrada, cargando perfil...";
+  // 👇 YA NO se oculta authChecking aquí. Se oculta solo cuando sabemos
+  // exactamente a dónde va el usuario (splash o registro).
   await procesarLoginGoogle(user);
 });
-
 /* =========================================================
    RESULTADO DE REDIRECT (login Google en móvil)
 ========================================================= */
@@ -1324,3 +1668,32 @@ document.addEventListener("keydown", (e) => {
 document
   .getElementById("btnAccederSocio")
   ?.addEventListener("click", accederSocio);
+
+/* =========================================================
+   AVATAR — click para cambiar foto
+========================================================= */
+document.getElementById("wAvatarEdit")?.addEventListener("click", () => {
+  document.getElementById("wAvatarInput")?.click();
+});
+
+document.getElementById("wAvatarInput")?.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file || !GOOGLE_USER) return;
+
+  const wrap = document.getElementById("wAvatarWrap");
+  wrap?.classList.add("is-uploading");
+
+  try {
+    const blob = await optimizarImagenDesdeArchivo(file, 512, 0.85);
+    const url = await subirYGuardarAvatar(GOOGLE_USER.uid, blob);
+    const imgEl = document.getElementById("wAvatarImg");
+    if (imgEl) imgEl.src = url;
+    showSnackbar("✅ Foto de perfil actualizada", "success");
+  } catch (err) {
+    console.error("Error subiendo avatar:", err);
+    showSnackbar("❌ No se pudo actualizar tu foto", "error");
+  } finally {
+    wrap?.classList.remove("is-uploading");
+    e.target.value = "";
+  }
+});

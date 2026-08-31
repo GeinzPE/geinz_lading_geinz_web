@@ -395,10 +395,42 @@ body {
 -------------------------------------------------- */
 .sched-row {
     display: flex;
+    align-items: flex-start;
+    /* clave: ya no centra verticalmente */
     justify-content: space-between;
-    align-items: center;
-    padding: 0.875rem 0;
-    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, .08));
+}
+
+.sched-row .day-name {
+    flex: 0 0 auto;
+    padding-top: 2px;
+    /* alinea ópticamente con la primera línea de hours */
+    white-space: nowrap;
+}
+
+.sched-row .hours,
+.sched-row .closed-day {
+    flex: 1 1 auto;
+    text-align: right;
+    white-space: normal;
+    /* permite el salto de línea sin overlap */
+    line-height: 1.5;
+}
+
+/* En pantallas muy angostas, apila en vez de forzar 2 líneas comprimidas */
+@media (max-width: 400px) {
+    .sched-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .sched-row .hours,
+    .sched-row .closed-day {
+        text-align: left;
+    }
 }
 
 .sched-row.today {
@@ -1028,6 +1060,7 @@ body {
         width: 100%;
         overflow: hidden;
         border-radius: 30px;
+        height: 400px;
         /* mantén el mismo radio que ya usas */
     }
 
@@ -1704,57 +1737,102 @@ html.geinz-loading #geinzHeader {
    (antes escalaba/rotaba bruscamente con .pulse; ahora solo brilla)
 -------------------------------------------------- */
 .follow-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 16px 26px;
+    gap: 9px;
+    padding: 15px 26px;
     border-radius: 16px;
-    font-weight: 800;
-    font-size: 15px;
-    cursor: pointer;
+    border: 1.5px solid rgba(var(--dr), var(--dg), var(--db), .5);
+    background: rgba(var(--dr), var(--dg), var(--db), .1);
     color: #fff;
-    background: transparent;
-    border: 2px solid rgba(var(--dr), var(--dg), var(--db), .6);
-    transition: background .5s cubic-bezier(.4, 0, .2, 1),
-        border-color .5s cubic-bezier(.4, 0, .2, 1),
-        box-shadow .5s cubic-bezier(.4, 0, .2, 1),
-        transform .25s ease;
+    font-weight: 700;
+    font-size: 14.5px;
+    cursor: pointer;
+    transition:
+        background .35s cubic-bezier(.4, 0, .2, 1),
+        border-color .35s cubic-bezier(.4, 0, .2, 1),
+        box-shadow .35s cubic-bezier(.4, 0, .2, 1),
+        transform .2s cubic-bezier(.34, 1.4, .4, 1);
 }
 
 .follow-btn:hover {
+    background: rgba(var(--dr), var(--dg), var(--db), .18);
+    border-color: rgba(var(--dr), var(--dg), var(--db), .8);
+    box-shadow: 0 8px 22px -8px rgba(var(--dr), var(--dg), var(--db), .5);
     transform: translateY(-2px);
-    box-shadow: 0 0 22px rgba(var(--dr), var(--dg), var(--db), .35);
 }
 
+.follow-btn:active {
+    transform: translateY(0) scale(.97);
+}
+
+.follow-btn .follow-icon {
+    display: inline-flex;
+    transition: transform .35s cubic-bezier(.34, 1.4, .4, 1);
+}
+
+.follow-btn:hover .follow-icon {
+    transform: rotate(90deg);
+}
+
+/* ── Estado: ya siguiendo ── */
 .follow-btn.following {
-    background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .7));
+    background: linear-gradient(135deg,
+            rgb(var(--dr), var(--dg), var(--db)),
+            rgba(var(--dr), var(--dg), var(--db), .7));
     border-color: transparent;
-    box-shadow: 0 0 24px rgba(var(--dr), var(--dg), var(--db), .4);
+    box-shadow: 0 8px 22px -8px rgba(var(--dr), var(--dg), var(--db), .55);
 }
 
-.follow-btn.pulse {
-    animation: followGlow .6s cubic-bezier(.4, 0, .2, 1);
-}
-
-@keyframes followGlow {
-    0% {
-        box-shadow: 0 0 0 rgba(var(--dr), var(--dg), var(--db), 0);
-    }
-
-    50% {
-        box-shadow: 0 0 32px rgba(var(--dr), var(--dg), var(--db), .6);
-    }
-
-    100% {
-        box-shadow: 0 0 24px rgba(var(--dr), var(--dg), var(--db), .4);
-    }
-}
-
-.follow-icon {
-    display: inline-block;
-    transition: transform .4s cubic-bezier(.4, 0, .2, 1), opacity .3s ease;
+.follow-btn.following:hover {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
 }
 
 .follow-btn.following .follow-icon {
-    transform: scale(1.1);
+    transform: none;
+}
+
+/* ── Pulso al hacer follow (ya tienes btn.classList.add("pulse") en el JS) ── */
+.follow-btn.pulse {
+    animation: followPulse .5s cubic-bezier(.4, 0, .2, 1);
+}
+
+@keyframes followPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    40% {
+        transform: scale(1.08);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.puntos-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    margin-bottom: 20px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    background: linear-gradient(135deg, rgba(var(--dr), var(--dg), var(--db), .9), rgba(var(--dr), var(--dg), var(--db), .6));
+    box-shadow: 0 8px 20px -6px rgba(var(--dr), var(--dg), var(--db), .5);
+    transition: transform .25s cubic-bezier(.34, 1.4, .4, 1), box-shadow .25s ease;
+}
+
+.puntos-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px -6px rgba(var(--dr), var(--dg), var(--db), .6);
+}
+
+.puntos-badge-icon {
+    font-size: 15px;
 }
