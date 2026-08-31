@@ -36,3 +36,17 @@ export function tiendaSubCol(localidad, ...resto) {
 export function tiendaPathStr(localidad, ...resto) {
   return buildPath(localidad, ...resto).join("/");
 }
+
+export function data_user_logeado(uid){
+  return doc(db,"Trabajadores_Usuarios_Drivers","users","users",uid)
+}
+export function card_follow(uid,localidad,resto){
+  return doc(db,...buildPath(localidad, ...resto,...uid) )
+}
+export function tiendaDescuentosCol(localidad, negocioId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "descuentos");
+}
+
+export function tiendaDescuentoDoc(localidad, negocioId, productoId) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "descuentos", productoId);
+}

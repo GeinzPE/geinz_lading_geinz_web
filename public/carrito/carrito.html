@@ -215,13 +215,27 @@
             <div class="toggle-opt active" data-val="Delivery">🛵 Delivery</div>
             <div class="toggle-opt" data-val="Recojo en local">🏬 Recojo en local</div>
           </div>
+          <div id="soloDeliveryBanner" class="hidden text-[12px] mt-2 px-3 py-2 rounded-xl"
+            style="background: rgba(var(--dr),var(--dg),var(--db),.12); color: rgb(var(--dr),var(--dg),var(--db));">
+            📦 Este negocio no cuenta con local físico, todos los pedidos se realizan por delivery.
+          </div>
         </div>
 
-        <div class="collapse open" id="direccionCollapse">
+             <div class="collapse open" id="direccionCollapse">
           <div class="collapse-inner">
             <label class="field-label" for="clienteDireccion">Dirección / Referencia</label>
             <input id="clienteDireccion" class="field-input" type="text" placeholder="Av. Ejemplo 123, cerca de…"
               autocomplete="off">
+            <button type="button" id="obtenerUbicacionBtn"
+              class="w-full mt-2.5 py-2.5 rounded-xl border border-white/10 bg-white/[.04] text-[13px] font-bold text-gray-300 flex items-center justify-center gap-2 hover:bg-white/[.08] transition">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Z" />
+                <circle cx="12" cy="9" r="2.5" />
+              </svg>
+              <span id="ubicacionBtnTexto">Usar mi ubicación (más precisión)</span>
+            </button>
+            <p id="ubicacionStatus" class="text-[11px] text-gray-500 mt-1.5 hidden"></p>
           </div>
         </div>
 

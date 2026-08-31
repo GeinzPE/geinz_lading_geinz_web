@@ -15,6 +15,7 @@
 <!-- QR con estilo de puntos (misma librería/CDN que ya te funciona en el generador) -->
 <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
 
+<script type="module" src="../js/fidelizacion.js/fidelizacion.js"></script>
 <style>
   :root {
     --brand-vivid: #8b5cf6;
@@ -307,7 +308,61 @@
 
 <body class="min-h-screen text-white sm:py-6">
 
+  <!-- ============ SKELETON DE PANTALLA COMPLETA ============ -->
+<div id="fullSkeleton" class="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-[#060709] px-4 py-10">
   <div class="w-full max-w-md mx-auto">
+
+    <!-- Skeleton de la tarjeta -->
+    <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] flex flex-col items-center px-6 py-8 mb-8">
+      <div class="skeleton w-[74px] h-[74px] rounded-full"></div>
+      <div class="skeleton h-4 w-32 rounded mt-4"></div>
+      <div class="skeleton h-3 w-16 rounded-full mt-3"></div>
+
+      <div class="w-full h-px bg-white/5 my-6"></div>
+
+      <div class="skeleton h-3 w-24 rounded mb-2"></div>
+      <div class="skeleton h-5 w-36 rounded mb-6"></div>
+      <div class="skeleton h-3 w-28 rounded mb-2"></div>
+      <div class="skeleton h-12 w-28 rounded"></div>
+
+      <div class="w-full h-px bg-white/5 my-6"></div>
+
+      <div class="skeleton h-7 w-full max-w-[220px] rounded"></div>
+    </div>
+
+    <!-- Skeleton del título de recompensas -->
+    <div class="flex items-center justify-between mb-3.5 px-1">
+      <div class="skeleton h-3.5 w-28 rounded"></div>
+      <div class="skeleton h-3 w-12 rounded"></div>
+    </div>
+
+    <!-- Skeleton del grid de recompensas -->
+    <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
+      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+        <div class="skeleton h-3 w-2/3 rounded"></div>
+      </div>
+      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+        <div class="skeleton h-3 w-2/3 rounded"></div>
+      </div>
+      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+        <div class="skeleton h-3 w-2/3 rounded"></div>
+      </div>
+      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+        <div class="skeleton h-3 w-2/3 rounded"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div id="appContent" class="w-full max-w-md mx-auto" style="opacity:0; pointer-events:none; transition: opacity .5s ease;">
 
     <!-- ============ TARJETA DE FIDELIZACIÓN (con flip a QR) ============ -->
     <div class="card-scene mb-8 sm:mb-10">
@@ -359,7 +414,7 @@
 
             <div class="perforation"></div>
 
-            <div class="relative z-10 flex flex-col items-center pt-5">
+            <div class="relative z-10 flex flex-col items-center pt-5" style="display: none;">
               <svg id="barcodeSvg" class="barcode-svg hidden" preserveAspectRatio="none"></svg>
               <div id="barcodeSkeleton" class="skeleton rounded w-full max-w-[220px] h-[28px]"></div>
               <p id="clientCode" class="font-mono-card fluid-code text-white/50 tracking-[0.25em] mt-2.5">
@@ -396,7 +451,7 @@
     <div class="flex items-center justify-between mb-3.5 px-1">
       <h2 class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase flex items-center gap-2">
         <span id="titleDot" class="w-2 h-2 rounded-full shrink-0" style="background: var(--brand-vivid); box-shadow: 0 0 10px var(--brand-vivid);"></span>
-        Tus Recompensas
+        Canjea tus puntos
       </h2>
       <span id="pointsHint" class="text-[11px] sm:text-xs text-white/50 font-mono-card">-- pts</span>
     </div>
@@ -408,451 +463,5 @@
     <p id="errorBox" class="hidden mt-6 text-xs text-red-400/80 bg-red-500/5 border border-red-500/20 rounded-xl p-3 text-center"></p>
   </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-    authDomain: "geinzworkapp.firebaseapp.com",
-    databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
-    projectId: "geinzworkapp",
-    storageBucket: "geinzworkapp.appspot.com",
-    messagingSenderId: "921389328767",
-    appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-    measurementId: "G-38J7RJP8HK",
-  };
-
-  const CLIENTE_PATH = "Tiendas/peru/departamento/lima/provincia/barranca/distrito/barranca/tiendas/fW7W8RsgkkQ3IYfxKHGR/clientes/WaYGGnbU2UMzBno1dMDO";
-  const USUARIOS_ROOT = "Trabajadores_Usuarios_Drivers/users/users";
-  const LOGO_FALLBACK_URL = "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
-
-  const NIVELES = [
-    { min: 0,   label: "Nivel Bronce" },
-    { min: 150, label: "Nivel Plata"  },
-    { min: 400, label: "Nivel Oro VIP" },
-  ];
-
-  const PRODUCTOS = [
-    { nombre: "Café Espresso Gratis",  puntos: 50,  emoji: "☕" },
-    { nombre: "Postre a Elección",    puntos: 80,  emoji: "🍰" },
-    { nombre: "Plato de la Casa",     puntos: 150, emoji: "🍱" },
-    { nombre: "Descuento S/10 Directo", puntos: 200, emoji: "🏷️" },
-  ];
-
-  const app = initializeApp(FIREBASE_CONFIG);
-  const db  = getFirestore(app);
-
-  /* Estado compartido: el QR necesita el código del cliente Y el color
-     de marca (que llegan por caminos async distintos); se pinta recién
-     cuando ambos están listos. */
-  let brandDarkHex = "#2e1065"; // fallback inicial, coincide con --brand-dark por defecto
-  const qrState = { code: null, colorReady: false, rendered: false };
-
-  function tiendaPathFromClientePath(clientePath){
-    const segments = clientePath.split("/").filter(Boolean);
-    return segments.slice(0, -2).join("/");
-  }
-
-  function calcularNivel(puntos){
-    let elegido = NIVELES[0];
-    for(const n of NIVELES){ if(puntos >= n.min) elegido = n; }
-    return elegido.label;
-  }
-
-  function capitalizar(texto){
-    return String(texto || "")
-      .trim()
-      .toLowerCase()
-      .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
-  }
-
-  function formatearFechaInicio(timestamp){
-    try{
-      const fecha = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-      return new Intl.DateTimeFormat("es-PE", { month: "short", year: "numeric" }).format(fecha);
-    }catch{
-      return null;
-    }
-  }
-
-  function showError(msg){
-    const box = document.getElementById("errorBox");
-    box.textContent = msg;
-    box.classList.remove("hidden");
-  }
-
-  function getDominantColor(imgEl){
-    return new Promise((resolve) => {
-      const canvas = document.createElement("canvas");
-      const SIZE = 100;
-      canvas.width = SIZE; canvas.height = SIZE;
-      const ctx = canvas.getContext("2d");
-
-      try{
-        ctx.drawImage(imgEl, 0, 0, SIZE, SIZE);
-        const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
-        const buckets = {};
-
-        for(let i = 0; i < data.length; i += 4){
-          const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
-          if(a < 128) continue;
-
-          const rn = r/255, gn = g/255, bn = b/255;
-          const max = Math.max(rn,gn,bn), min = Math.min(rn,gn,bn);
-          const l = (max+min)/2;
-          const s = max===min ? 0 : (l>0.5 ? (max-min)/(2-max-min) : (max-min)/(max+min));
-
-          if(l > 0.8 || l < 0.1 || s < 0.25) continue; 
-
-          const br = r >> 4, bg = g >> 4, bb = b >> 4;
-          const key = `${br},${bg},${bb}`;
-          if(!buckets[key]) buckets[key] = { count:0, r:0, g:0, b:0 };
-          buckets[key].count++;
-          buckets[key].r += r; buckets[key].g += g; buckets[key].b += b;
-        }
-
-        const sorted = Object.values(buckets).sort((a,b) => b.count - a.count);
-        if(!sorted.length){ resolve(null); return; }
-
-        const top = sorted[0];
-        resolve({
-          r: Math.round(top.r / top.count),
-          g: Math.round(top.g / top.count),
-          b: Math.round(top.b / top.count),
-        });
-      }catch(e){
-        resolve(null);
-      }
-    });
-  }
-
-  function colorFromName(name){
-    let hash = 0;
-    const str = name || "Fidelidad";
-    for(let i = 0; i < str.length; i++){
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
-    }
-    const hue = Math.abs(hash % 360);
-    return hslToRgb(hue/360, 0.65, 0.5);
-  }
-
-  function rgbToHex(r,g,b){
-    return "#" + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join("");
-  }
-  function rgbToHsl(r,g,b){
-    r/=255; g/=255; b/=255;
-    const max=Math.max(r,g,b), min=Math.min(r,g,b);
-    let h,s,l=(max+min)/2;
-    if(max===min){ h=s=0; }
-    else{
-      const d = max-min;
-      s = l>0.5 ? d/(2-max-min) : d/(max+min);
-      switch(max){
-        case r: h=(g-b)/d + (g<b?6:0); break;
-        case g: h=(b-r)/d + 2; break;
-        case b: h=(r-g)/d + 4; break;
-      }
-      h/=6;
-    }
-    return {h,s,l};
-  }
-  function hslToRgb(h,s,l){
-    let r,g,b;
-    if(s===0){ r=g=b=l; }
-    else{
-      const hue2rgb=(p,q,t)=>{
-        if(t<0)t+=1; if(t>1)t-=1;
-        if(t<1/6) return p+(q-p)*6*t;
-        if(t<1/2) return q;
-        if(t<2/3) return p+(q-p)*(2/3-t)*6;
-        return p;
-      };
-      const q = l<0.5 ? l*(1+s) : l+s-l*s;
-      const p = 2*l-q;
-      r = hue2rgb(p,q,h+1/3); g = hue2rgb(p,q,h); b = hue2rgb(p,q,h-1/3);
-    }
-    return { r:r*255, g:g*255, b:b*255 };
-  }
-
-  /* Aplica el color de marca a la tarjeta Y guarda el hex "dark"
-     (variante oscura, separada del vivid) para pintar los puntos del QR */
-  function aplicarColorMarca({ r, g, b }){
-    if(r == null) return;
-    const { h, s } = rgbToHsl(r, g, b);
-
-    const vivid = hslToRgb(h, Math.max(s, 0.6), 0.50); 
-    document.documentElement.style.setProperty("--brand-vivid", rgbToHex(vivid.r, vivid.g, vivid.b));
-
-    const glow = hslToRgb(h, Math.max(s, 0.65), 0.35);
-    document.documentElement.style.setProperty("--brand-glow", rgbToHex(glow.r, glow.g, glow.b));
-
-    const dark = hslToRgb(h, Math.max(s, 0.5), 0.12);
-    const darkHex = rgbToHex(dark.r, dark.g, dark.b);
-    document.documentElement.style.setProperty("--brand-dark", darkHex);
-
-    brandDarkHex = darkHex;
-    qrState.colorReady = true;
-    tryRenderQR();
-  }
-
-  /* Tilt 3D */
-  function initTilt(){
-    const scene = document.querySelector(".card-scene");
-    const card  = document.getElementById("cardTilt");
-    const max = 6;
-
-    function updateTilt(clientX, clientY){
-      const rect = scene.getBoundingClientRect();
-      const px = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-      const py = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
-      const rotY = (px - 0.5) * max * 2;
-      const rotX = (0.5 - py) * max * 2;
-      card.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.015)`;
-      card.style.setProperty("--mx", `${px*100}%`);
-      card.style.setProperty("--my", `${py*100}%`);
-    }
-    function resetTilt(){
-      card.style.transform = "rotateX(0deg) rotateY(0deg) scale(1)";
-    }
-
-    scene.addEventListener("mousemove", (e) => updateTilt(e.clientX, e.clientY));
-    scene.addEventListener("mouseleave", resetTilt);
-
-    scene.addEventListener("touchstart", (e) => {
-      scene.classList.add("is-active");
-      updateTilt(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-    scene.addEventListener("touchmove", (e) => {
-      updateTilt(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-    scene.addEventListener("touchend", () => {
-      scene.classList.remove("is-active");
-      resetTilt();
-    });
-  }
-
-  /* Flip a QR */
-  function initFlip(){
-    const flipper = document.getElementById("cardFlipper");
-    const toggle = () => flipper.classList.toggle("is-flipped");
-
-    flipper.addEventListener("click", toggle);
-    flipper.addEventListener("keydown", (e) => {
-      if(e.key === "Enter" || e.key === " "){
-        e.preventDefault();
-        toggle();
-      }
-    });
-  }
-
-  /* Barcode decorativo del frente */
-  function renderBarcode(seedStr){
-    const svg = document.getElementById("barcodeSvg");
-    const width = 220, height = 28;
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    svg.innerHTML = "";
-
-    let seed = 0;
-    for(let i=0; i<seedStr.length; i++) seed += seedStr.charCodeAt(i) * (i + 7);
-    if(seed === 0) seed = 42;
-    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-
-    let x = 0;
-    while(x < width){
-      const w = 1 + Math.floor(rand() * 2.5);
-      if(rand() > 0.2){
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", x); rect.setAttribute("y", 0);
-        rect.setAttribute("width", w); rect.setAttribute("height", height);
-        rect.setAttribute("fill", "currentColor");
-        rect.setAttribute("opacity", (0.45 + rand() * 0.55).toFixed(2));
-        svg.appendChild(rect);
-      }
-      x += w + 1 + Math.floor(rand() * 2);
-    }
-
-    document.getElementById("barcodeSkeleton").classList.add("hidden");
-    svg.classList.remove("hidden");
-  }
-
-  /* Dibuja la matriz QR real como puntos (estilo IG/WhatsApp): los 3
-     cuadros de esquina (finder patterns) se mantienen como cuadrados
-     sólidos -porque el escáner los necesita para "engancharse" al código-
-     y el resto de los módulos de datos como puntos, igual que en tu
-     generador de QR. */
-  function crearQREstilizado(codigoStr, colorHex){
-    return new window.QRCodeStyling({
-      width: 300,
-      height: 300,
-      type: "canvas",
-      data: codigoStr,
-      margin: 10,
-      qrOptions: { errorCorrectionLevel: "H" },
-      dotsOptions: {
-        type: "dots",
-        color: colorHex
-      },
-      cornersSquareOptions: {
-        type: "extra-rounded",
-        color: colorHex
-      },
-      cornersDotOptions: {
-        type: "dot",
-        color: colorHex
-      },
-      backgroundOptions: {
-        color: "#fdfdfd"
-      }
-    });
-  }
-
-  /* QR del reverso. Si la librería no cargó (red bloqueada, CDN caído),
-     cae a un QR plano coloreado vía API pública, para que la tarjeta
-     nunca se quede rota. */
-  function pintarQR(codigoStr, colorHex){
-    const canvasHost = document.getElementById("qrCanvas");
-    const fallbackImg = document.getElementById("qrFallbackImg");
-
-    if(typeof window.QRCodeStyling === "function"){
-      canvasHost.innerHTML = "";
-      const qr = crearQREstilizado(codigoStr, colorHex);
-      qr.append(canvasHost);
-      document.getElementById("qrSkeleton")?.remove();
-      canvasHost.classList.remove("hidden");
-    } else {
-      const hexClean = colorHex.replace("#", "");
-      fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=6&color=${hexClean}&bgcolor=ffffff&data=${encodeURIComponent(codigoStr)}`;
-      fallbackImg.onload = () => {
-        document.getElementById("qrSkeleton")?.remove();
-        fallbackImg.classList.remove("hidden");
-      };
-    }
-
-    document.getElementById("qrCodeText").textContent = "ID: " + codigoStr;
-  }
-
-  function tryRenderQR(){
-    if(qrState.rendered || !qrState.code) return;
-    // No bloqueamos indefinidamente esperando el color: si en 1.2s no llegó
-    // (logo lento o sin CORS), pintamos igual con el color por defecto.
-    pintarQR(qrState.code, brandDarkHex);
-    qrState.rendered = true;
-  }
-
-  /* Render Canjes */
-  function renderRecompensas(puntosCliente){
-    const grid = document.getElementById("rewardsGrid");
-    grid.innerHTML = "";
-    PRODUCTOS.forEach(p => {
-      const alcanza = puntosCliente >= p.puntos;
-      const el = document.createElement("div");
-      el.className = "reward-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between";
-      el.innerHTML = `
-        <div class="min-w-0">
-          <div class="reward-icon text-base sm:text-lg mb-2.5">${p.emoji}</div>
-          <p class="font-display text-[12.5px] sm:text-xs font-semibold leading-tight text-white break-words">${p.nombre}</p>
-          <p class="font-mono-card text-[10.5px] sm:text-xs text-white/40 mt-1">${p.puntos} pts</p>
-        </div>
-        <button class="btn-redeem mt-3 sm:mt-4 text-[11px] font-mono-card font-semibold rounded-lg py-2 w-full active:scale-[0.97]" ${alcanza ? "" : "disabled"}>
-          ${alcanza ? "CANJEAR" : "BLOQUEADO"}
-        </button>
-      `;
-      grid.appendChild(el);
-    });
-  }
-
-  /* Carga Firestore */
-  async function cargarDatos(){
-    const tiendaPath = tiendaPathFromClientePath(CLIENTE_PATH);
-
-    try{
-      const [tiendaSnap, clienteSnap] = await Promise.all([
-        getDoc(doc(db, tiendaPath)),
-        getDoc(doc(db, CLIENTE_PATH)),
-      ]);
-
-      if(!clienteSnap.exists()){
-        throw new Error("Cliente no registrado.");
-      }
-      const cliente = clienteSnap.data();
-
-      const tienda = tiendaSnap.exists() ? tiendaSnap.data() : {};
-      const nombreTienda = tienda.nombre || tienda.nombreComercial || "Mi Negocio";
-      const logoURL = tienda.logoURL || tienda.logo || tienda.urlLogo || LOGO_FALLBACK_URL;
-
-      document.getElementById("storeName").textContent = nombreTienda;
-
-      if(logoURL){
-        const img = document.getElementById("logoImg");
-        img.src = logoURL;
-        img.onload = async () => {
-          img.classList.remove("hidden");
-          document.getElementById("logoSkeleton").remove();
-          let color = await getDominantColor(img);
-          if (!color) color = colorFromName(nombreTienda);
-          aplicarColorMarca(color);
-        };
-        img.onerror = () => {
-          document.getElementById("logoSkeleton")?.remove();
-          aplicarColorMarca(colorFromName(nombreTienda));
-        };
-      } else {
-        document.getElementById("logoSkeleton")?.remove();
-        aplicarColorMarca(colorFromName(nombreTienda));
-      }
-
-      let usuario = {};
-      if(cliente.id_usuario){
-        const usuarioSnap = await getDoc(doc(db, `${USUARIOS_ROOT}/${cliente.id_usuario}`));
-        if(usuarioSnap.exists()) usuario = usuarioSnap.data();
-      }
-
-      const nombreCliente = [capitalizar(usuario.nombre), capitalizar(usuario.apellido)]
-        .filter(Boolean).join(" ") || usuario.nombre_user || "Cliente Frecuente";
-
-      const puntos = Number(cliente.puntos ?? 0);
-      const nivel = calcularNivel(puntos);
-      const codigo = cliente.id || clienteSnap.id;
-      const clienteDesde = formatearFechaInicio(cliente.fecha_inicio);
-
-      document.getElementById("clientName").textContent = nombreCliente;
-      document.getElementById("clientPoints").textContent = puntos.toLocaleString("es-PE");
-      document.getElementById("clientCode").textContent = "ID: " + codigo;
-      document.getElementById("tierBadge").textContent = nivel;
-      document.getElementById("pointsHint").textContent = `${puntos.toLocaleString("es-PE")} pts`;
-      renderBarcode(String(codigo));
-
-      qrState.code = String(codigo);
-      // Si el color de marca ya llegó (o llega en breve), tryRenderQR lo dispara.
-      // Damos un pequeño margen por si el logo tarda más que el resto de datos.
-      setTimeout(tryRenderQR, 1200);
-      tryRenderQR();
-
-      if(clienteDesde){
-        const p = document.createElement("p");
-        p.className = "fluid-eyebrow text-white/30 mt-1.5 font-mono-card uppercase";
-        p.textContent = `Cliente desde ${clienteDesde}`;
-        document.getElementById("clientPoints").insertAdjacentElement("afterend", p);
-      }
-
-      renderRecompensas(puntos);
-
-    }catch(err){
-      console.error(err);
-      showError("No se pudieron cargar los datos.");
-      document.getElementById("logoSkeleton")?.remove();
-      renderBarcode("demo");
-      qrState.code = "demo";
-      tryRenderQR();
-      renderRecompensas(0);
-    }
-  }
-
-  initTilt();
-  initFlip();
-  cargarDatos();
-</script>
 </body>
 </html>

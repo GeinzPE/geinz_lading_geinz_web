@@ -1297,8 +1297,8 @@
     <div>
       <header class="topbar">
         <div>
-          <div class="topbar-title" id="topbarTitle">Activar / desactivar</div>
-          <div class="topbar-sub" id="topbarSub">Controla si la tarjeta de fidelidad está disponible para tus clientes.
+          <div class="topbar-title" id="topbarTitle">Programa de fidelidad</div>
+          <div class="topbar-sub" id="topbarSub">Activa la tarjeta, controla el vencimiento de puntos y revisa el resumen del distrito.
           </div>
         </div>
         <div class="topbar-right">
@@ -1332,14 +1332,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M5 12l4 4L19 6" />
             </svg>
-            Activar / desactivar
-          </div>
-          <div class="nav-item" data-panel="vencimiento">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="12" cy="13" r="8" />
-              <path d="M12 9v4l2.5 2.5M9 2h6" />
-            </svg>
-            Vencimiento de puntos
+            Estado y vencimiento
           </div>
 
           <div class="tab-divider"></div>
@@ -1374,7 +1367,7 @@
 
       <main>
 
-        <!-- ===== ACTIVAR / DESACTIVAR ===== -->
+        <!-- ===== ESTADO Y VENCIMIENTO (unidos) ===== -->
         <section class="panel active" id="panel-estado">
           <div class="grid grid-2">
             <div class="card">
@@ -1401,6 +1394,40 @@
                 <div class="desc">Este texto es lo único que ve el cliente en la app mientras la tarjeta está apagada.
                   Escribe algo corto y amable, como si le avisaras en persona.</div>
               </div>
+
+              <div style="height:1px;background:var(--border-soft);margin:20px 0;"></div>
+
+              <h3>Vencimiento de puntos</h3>
+              <p class="hint">Configura si los puntos acumulados caducan tras un periodo de inactividad.</p>
+              <div class="toggle-row" style="margin-bottom:16px;">
+                <div>
+                  <div class="t-title">Activar vencimiento</div>
+                  <div class="t-sub">Los puntos sin uso caducan automáticamente</div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="toggleVencimiento">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <p class="hint" style="margin-top:-8px;">Si está apagado, los puntos de tus clientes nunca expiran, sin
+                importar cuánto tiempo dejen de comprar.</p>
+              <div class="row-2">
+                <div class="field">
+                  <label>Vencen después de</label>
+                  <div class="suffix-input"><input type="number" id="diasVencimiento" value="90" min="1"><span>días</span>
+                  </div>
+                  <div class="desc">Días completos sin que el cliente sume o canjee puntos. Al cumplirse, su saldo vuelve
+                    a 0. Ej: 90 = si no vuelve en 3 meses, pierde lo acumulado.</div>
+                </div>
+                <div class="field">
+                  <label>Aviso previo al cliente</label>
+                  <div class="suffix-input"><input type="number" id="diasAviso" value="7" min="0"><span>días antes</span>
+                  </div>
+                  <div class="desc">Con cuántos días de anticipación le avisas que sus puntos están por vencer, para que
+                    tenga tiempo de venir a canjearlos. Pon 0 si no quieres avisarle.</div>
+                </div>
+              </div>
+
               <div class="actions-row">
                 <button class="btn btn-primary" data-save="estado">Guardar cambios</button>
                 <span class="badge on" id="estadoBadge">Activa</span>
@@ -1435,45 +1462,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ===== VENCIMIENTO ===== -->
-        <section class="panel" id="panel-vencimiento">
-          <div class="card" style="max-width:760px;">
-            <h3>Vencimiento de puntos</h3>
-            <p class="hint">Configura si los puntos acumulados caducan tras un periodo de inactividad.</p>
-            <div class="toggle-row" style="margin-bottom:16px;">
-              <div>
-                <div class="t-title">Activar vencimiento</div>
-                <div class="t-sub">Los puntos sin uso caducan automáticamente</div>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="toggleVencimiento">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <p class="hint" style="margin-top:-8px;">Si está apagado, los puntos de tus clientes nunca expiran, sin
-              importar cuánto tiempo dejen de comprar.</p>
-            <div class="row-2">
-              <div class="field">
-                <label>Vencen después de</label>
-                <div class="suffix-input"><input type="number" id="diasVencimiento" value="90" min="1"><span>días</span>
-                </div>
-                <div class="desc">Días completos sin que el cliente sume o canjee puntos. Al cumplirse, su saldo vuelve
-                  a 0. Ej: 90 = si no vuelve en 3 meses, pierde lo acumulado.</div>
-              </div>
-              <div class="field">
-                <label>Aviso previo al cliente</label>
-                <div class="suffix-input"><input type="number" id="diasAviso" value="7" min="0"><span>días antes</span>
-                </div>
-                <div class="desc">Con cuántos días de anticipación le avisas que sus puntos están por vencer, para que
-                  tenga tiempo de venir a canjearlos. Pon 0 si no quieres avisarle.</div>
-              </div>
-            </div>
-            <div class="actions-row">
-              <button class="btn btn-primary" data-save="vencimiento">Guardar</button>
             </div>
           </div>
         </section>
@@ -1526,10 +1514,61 @@
                     <div class="item-sub" id="prodPreviewPrecio">—</div>
                   </div>
                 </div>
+
+                <div class="field">
+                  <label>¿Cómo se aplica el beneficio?</label>
+                  <div class="desc" style="margin-top:0;margin-bottom:8px;">Elige si el cliente canjea el producto completamente gratis, o si solo obtiene un descuento sobre su precio (útil para comida, bebidas o artículos que quieres seguir cobrando en parte).</div>
+                  <select class="field-input" id="tipoBeneficioCatalogo">
+                    <option value="gratis">Gratis (canje total por puntos)</option>
+                    <option value="monto">Descuento en soles (S/)</option>
+                    <option value="porcentaje">Descuento en porcentaje (%)</option>
+                    <option value="cantidad">Descuento por cantidad (ej: 2x1, lleva 3 paga 2)</option>
+                  </select>
+                </div>
+
+                <div class="row-2" id="camposDescuentoMontoCatalogo" style="display:none;">
+                  <div class="field">
+                    <label>Descuento (S/)</label>
+                    <input type="number" id="descuentoMontoCatalogo" placeholder="Ej: 5" min="0" step="0.10">
+                    <div class="desc">Cuántos soles se descuentan del precio original al canjear con puntos.</div>
+                  </div>
+                </div>
+
+                <div class="row-2" id="camposDescuentoPorcentajeCatalogo" style="display:none;">
+                  <div class="field">
+                    <label>Descuento (%)</label>
+                    <input type="number" id="descuentoPorcentajeCatalogo" placeholder="Ej: 20" min="0" max="100">
+                    <div class="desc">Porcentaje que se descuenta del precio original al canjear con puntos.</div>
+                  </div>
+                </div>
+
+                <div class="row-2" id="camposDescuentoCantidadCatalogo" style="display:none;">
+                  <div class="field">
+                    <label>Compra (unidades)</label>
+                    <input type="number" id="descuentoCantidadCompra" placeholder="Ej: 3" min="1">
+                    <div class="desc">Cuántas unidades tiene que llevar el cliente.</div>
+                  </div>
+                  <div class="field">
+                    <label>Paga (unidades)</label>
+                    <input type="number" id="descuentoCantidadPaga" placeholder="Ej: 2" min="1">
+                    <div class="desc">De esas unidades, cuántas paga realmente (el resto es el descuento). Ej: 3 y 2 = "3x2".</div>
+                  </div>
+                </div>
+
+                <div class="item-row" id="previewPrecioFinalCatalogo" style="display:none; margin-bottom:14px;">
+                  <div class="item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  </div>
+                  <div class="item-main">
+                    <div class="item-title">Precio con descuento estimado</div>
+                    <div class="item-sub" id="previewPrecioFinalTexto">—</div>
+                  </div>
+                </div>
+
                 <div class="field">
                   <label>Costo en puntos</label>
                   <input type="number" id="descCostoCatalogo" placeholder="Ej: 50" min="0">
-                  <div class="desc">Cuántos puntos necesita juntar el cliente para canjear este producto gratis. Ej: si
+                  <div class="desc">Cuántos puntos necesita juntar el cliente para acceder a este beneficio. Ej: si
                     pones 50, un cliente con 80 puntos podrá canjearlo y le quedarán 30. Debe ser un número acorde a
                     cuánto suelen acumular tus clientes por compra.</div>
                 </div>
@@ -1786,6 +1825,22 @@
     let descuentosCache = []; // productos/recompensas a canjear de la tienda actual, para el modal de canje
     let clientesDataCache = []; // clientes ya resueltos (con nombre/teléfono), para exportar a CSV
     let historialDataCache = []; // filas del historial ya renderizadas, para exportar a CSV
+    let editandoDescuentoId = null; // si no es null, el próximo "agregar" hace update en vez de create
+
+    function validarCamposBeneficio(tipo) {
+      if (tipo === "monto") {
+        const v = Number(document.getElementById("descuentoMontoCatalogo").value);
+        if (!v || v <= 0) return "Ingresa el monto de descuento (S/)";
+      } else if (tipo === "porcentaje") {
+        const v = Number(document.getElementById("descuentoPorcentajeCatalogo").value);
+        if (!v || v <= 0 || v > 100) return "Ingresa un porcentaje válido (1–100)";
+      } else if (tipo === "cantidad") {
+        const compra = Number(document.getElementById("descuentoCantidadCompra").value);
+        const paga = Number(document.getElementById("descuentoCantidadPaga").value);
+        if (!compra || !paga || paga >= compra) return "Ingresa unidades de compra y paga válidas (paga menor que compra)";
+      }
+      return null;
+    }// filas del historial ya renderizadas, para exportar a CSV
     /* Tienda que se selecciona por defecto al cargar, si existe en la lista */
     const TIENDA_ID_POR_DEFECTO = "fW7W8RsgkkQ3IYfxKHGR";
 
@@ -1808,8 +1863,7 @@
        NAVEGACIÓN
        =================================================================== */
     const titles = {
-      estado: ["Activar / desactivar", "Controla si la tarjeta de fidelidad está disponible para tus clientes."],
-      vencimiento: ["Vencimiento de puntos", "Controla la caducidad de los puntos acumulados."],
+      estado: ["Estado y vencimiento", "Activa la tarjeta de fidelidad y controla la caducidad de los puntos acumulados."],
       descuentos: ["Productos a canjear", "Crea y administra lo que tus clientes pueden canjear con puntos."],
       clientes: ["Clientes y puntos", "Consulta el saldo de puntos y sellos de cada cliente."],
       historial: ["Historial de canjes", "Revisa las recompensas ya canjeadas."],
@@ -1917,18 +1971,10 @@
       await saveField({
         activo: document.getElementById("toggleActivo").checked,
         mensajeInactivo: document.getElementById("mensajeInactivo").value,
-      }, "Estado del programa");
-      restore();
-    });
-
-    /* ---- Vencimiento ---- */
-    document.querySelector('[data-save="vencimiento"]').addEventListener("click", async (e) => {
-      const restore = setBtnBusy(e.currentTarget, "Guardando…");
-      await saveField({
         vencimientoActivo: document.getElementById("toggleVencimiento").checked,
         diasVencimiento: Number(document.getElementById("diasVencimiento").value),
         diasAviso: Number(document.getElementById("diasAviso").value),
-      }, "Vencimiento de puntos");
+      }, "Estado y vencimiento");
       restore();
     });
 
@@ -1944,6 +1990,52 @@
         document.getElementById("modo-manual").style.display = origen === "manual" ? "block" : "none";
       });
     });
+
+    /* ---- Tipo de beneficio (gratis / monto / porcentaje / cantidad) ---- */
+    function actualizarCamposTipoBeneficio() {
+      const tipo = document.getElementById("tipoBeneficioCatalogo").value;
+      document.getElementById("camposDescuentoMontoCatalogo").style.display = tipo === "monto" ? "grid" : "none";
+      document.getElementById("camposDescuentoPorcentajeCatalogo").style.display = tipo === "porcentaje" ? "grid" : "none";
+      document.getElementById("camposDescuentoCantidadCatalogo").style.display = tipo === "cantidad" ? "grid" : "none";
+      actualizarPreviewPrecioFinal();
+    }
+    document.getElementById("tipoBeneficioCatalogo").addEventListener("change", actualizarCamposTipoBeneficio);
+    ["descuentoMontoCatalogo", "descuentoPorcentajeCatalogo", "descuentoCantidadCompra", "descuentoCantidadPaga"].forEach(id => {
+      document.getElementById(id).addEventListener("input", actualizarPreviewPrecioFinal);
+    });
+
+    function actualizarPreviewPrecioFinal() {
+      const wrap = document.getElementById("previewPrecioFinalCatalogo");
+      const texto = document.getElementById("previewPrecioFinalTexto");
+      const prodSel = document.getElementById("prodDelCatalogo");
+      const id = prodSel.value;
+      const tipo = document.getElementById("tipoBeneficioCatalogo").value;
+      if (!id || !productosCache[id] || productosCache[id].precio == null) { wrap.style.display = "none"; return; }
+      const precio = Number(productosCache[id].precio);
+      if (tipo === "gratis") {
+        texto.textContent = `Precio original S/ ${precio.toFixed(2)} · el cliente lo lleva gratis con sus puntos`;
+        wrap.style.display = "flex";
+      } else if (tipo === "monto") {
+        const desc = Number(document.getElementById("descuentoMontoCatalogo").value) || 0;
+        const final = Math.max(0, precio - desc);
+        texto.textContent = `Precio original S/ ${precio.toFixed(2)} → paga S/ ${final.toFixed(2)} (descuento S/ ${desc.toFixed(2)})`;
+        wrap.style.display = "flex";
+      } else if (tipo === "porcentaje") {
+        const pct = Number(document.getElementById("descuentoPorcentajeCatalogo").value) || 0;
+        const final = Math.max(0, precio * (1 - pct / 100));
+        texto.textContent = `Precio original S/ ${precio.toFixed(2)} → paga S/ ${final.toFixed(2)} (${pct}% de descuento)`;
+        wrap.style.display = "flex";
+      } else if (tipo === "cantidad") {
+        const compra = Number(document.getElementById("descuentoCantidadCompra").value) || 0;
+        const paga = Number(document.getElementById("descuentoCantidadPaga").value) || 0;
+        if (compra > 0 && paga > 0) {
+          texto.textContent = `Ej: ${compra}x${paga} · lleva ${compra} unidades y paga solo ${paga} (precio unitario S/ ${precio.toFixed(2)})`;
+        } else {
+          texto.textContent = `Precio unitario S/ ${precio.toFixed(2)} · define cuántas lleva y cuántas paga`;
+        }
+        wrap.style.display = "flex";
+      }
+    }
 
     /* ===================================================================
        TIENDAS / CATÁLOGO DE PRODUCTOS (lectura desde Firestore)
@@ -1979,25 +2071,25 @@
         tiendaId = existeDefault ? TIENDA_ID_POR_DEFECTO : primera;
         sel.value = tiendaId;
         console.log("[fidelizacion] Tienda seleccionada por defecto:", tiendaId, existeDefault ? "(coincide con TIENDA_ID_POR_DEFECTO)" : "(no se encontró la tienda por defecto, se usó la primera de la lista)");
-        updatePathChip();
+            updatePathChip();
         loadCategorias();
         loadDescuentos();
         loadConfig();
-        loadClientes();
+        watchClientesRealtime();
         loadHistorial();
       } catch (err) {
         console.error(err);
         sel.innerHTML = '<option value="">Error al cargar tiendas</option>';
       }
     }
-    document.getElementById("tiendaSelect").addEventListener("change", (e) => {
+     document.getElementById("tiendaSelect").addEventListener("change", (e) => {
       tiendaId = e.target.value;
       console.log("[fidelizacion] Tienda seleccionada:", tiendaId);
       updatePathChip();
       loadCategorias();
       loadDescuentos();
       loadConfig();
-      loadClientes();
+      watchClientesRealtime();
       loadHistorial();
     });
 
@@ -2011,6 +2103,7 @@
       prodSel.innerHTML = '<option value="">Elige una categoría primero</option>';
       prodSel.disabled = true;
       document.getElementById("prodPreview").style.display = "none";
+      document.getElementById("previewPrecioFinalCatalogo").style.display = "none";
       productosCache = {};
     }
 
@@ -2051,6 +2144,7 @@
     async function loadProductosDeCategoria() {
       const prodSel = document.getElementById("prodDelCatalogo");
       document.getElementById("prodPreview").style.display = "none";
+      document.getElementById("previewPrecioFinalCatalogo").style.display = "none";
       if (!categoriaSeleccionada || !tiendaId) {
         prodSel.innerHTML = '<option value="">Elige una categoría primero</option>';
         prodSel.disabled = true;
@@ -2086,7 +2180,10 @@
         prodSel.innerHTML = '<option value="">Error al cargar productos</option>';
       }
     }
-    document.getElementById("prodDelCatalogo").addEventListener("change", mostrarPreviewProducto);
+    document.getElementById("prodDelCatalogo").addEventListener("change", () => {
+      mostrarPreviewProducto();
+      actualizarPreviewPrecioFinal();
+    });
 
     function mostrarPreviewProducto() {
       const prodSel = document.getElementById("prodDelCatalogo");
@@ -2121,53 +2218,101 @@
       const valor = document.getElementById("descValor").value.trim();
       const costo = document.getElementById("descCosto").value;
       if (!nombre) { showToast("Escribe un nombre para el descuento", true); return; }
+      if (!costo || Number(costo) <= 0) { showToast("Ingresa el costo en puntos", true); return; }
       if (!tiendaId) { showToast("Elige una tienda arriba primero", true); return; }
       if (!firebaseReady) { showToast("Configura Firebase primero", true); return; }
-      const restore = setBtnBusy(e.currentTarget, "Agregando…");
+      const restore = setBtnBusy(e.currentTarget, editandoDescuentoId ? "Guardando…" : "Agregando…");
       showLoading();
       try {
-        await addDoc(descuentosCol(distrito, tiendaId), {
-          origen: "manual",
-          nombre, valor, costoPuntos: Number(costo) || 0, creado: new Date().toISOString()
-        });
+        const payload = { origen: "manual", nombre, valor, costoPuntos: Number(costo) || 0 };
+        if (editandoDescuentoId) {
+          await updateDoc(descuentoDoc(distrito, tiendaId, editandoDescuentoId), payload);
+          showToast("Descuento actualizado");
+          editandoDescuentoId = null;
+          document.getElementById("btnAgregarDescuento").textContent = "Agregar producto";
+        } else {
+          payload.creado = new Date().toISOString();
+          await addDoc(descuentosCol(distrito, tiendaId), payload);
+          showToast("Descuento agregado");
+        }
         document.getElementById("descNombre").value = "";
         document.getElementById("descValor").value = "";
         document.getElementById("descCosto").value = "";
-        showToast("Descuento agregado");
         await loadDescuentos();
       } catch (err) { showToast("Error: " + err.message, true); }
       finally { hideLoading(); restore(); }
     });
 
-    document.getElementById("btnAgregarDesdeCatalogo").addEventListener("click", async (e) => {
+       document.getElementById("btnAgregarDesdeCatalogo").addEventListener("click", async (e) => {
       const prodSel = document.getElementById("prodDelCatalogo");
       const id = prodSel.value;
       const costo = document.getElementById("descCostoCatalogo").value;
-      if (!id || !productosCache[id]) { showToast("Elige un producto del catálogo", true); return; }
+      const tipoBeneficio = document.getElementById("tipoBeneficioCatalogo").value;
+      if (!editandoDescuentoId && (!id || !productosCache[id])) { showToast("Elige un producto del catálogo", true); return; }
+      if (!costo || Number(costo) <= 0) { showToast("Ingresa el costo en puntos", true); return; }
+      const errorBeneficio = validarCamposBeneficio(tipoBeneficio);
+      if (errorBeneficio) { showToast(errorBeneficio, true); return; }
       if (!tiendaId) { showToast("Elige una tienda arriba primero", true); return; }
       if (!firebaseReady) { showToast("Configura Firebase primero", true); return; }
-      const p = productosCache[id];
+       const p = productosCache[id] || {};
       const imgUrl = (Array.isArray(p.imagenes) && p.imagenes[0] && p.imagenes[0].url) ? p.imagenes[0].url : "";
-      const restore = setBtnBusy(e.currentTarget, "Agregando…");
+      const precioOriginal = p.precio != null ? Number(p.precio) : null;
+      // Construye el bloque de descuento según el tipo elegido
+      let descuento = { tipo: tipoBeneficio };
+      let precioFinalEstimado = precioOriginal;
+      if (tipoBeneficio === "monto") {
+        const monto = Number(document.getElementById("descuentoMontoCatalogo").value) || 0;
+        descuento.monto = monto;
+        if (precioOriginal != null) precioFinalEstimado = Math.max(0, precioOriginal - monto);
+      } else if (tipoBeneficio === "porcentaje") {
+        const pct = Number(document.getElementById("descuentoPorcentajeCatalogo").value) || 0;
+        descuento.porcentaje = pct;
+        if (precioOriginal != null) precioFinalEstimado = Math.max(0, precioOriginal * (1 - pct / 100));
+      } else if (tipoBeneficio === "cantidad") {
+        const compra = Number(document.getElementById("descuentoCantidadCompra").value) || 0;
+        const paga = Number(document.getElementById("descuentoCantidadPaga").value) || 0;
+        descuento.compraUnidades = compra;
+        descuento.pagaUnidades = paga;
+      } else {
+        precioFinalEstimado = 0; // gratis
+      }
+
+           const restore = setBtnBusy(e.currentTarget, editandoDescuentoId ? "Guardando…" : "Agregando…");
       showLoading();
       try {
-        await addDoc(descuentosCol(distrito, tiendaId), {
-          origen: "catalogo",
-          productoId: id,
-          categoria: categoriaSeleccionada,
-          nombre: p.nombre || "(sin nombre)",
-          precio: p.precio ?? null,
-          imagenUrl: imgUrl,
-          costoPuntos: Number(costo) || 0,
-          creado: new Date().toISOString()
-        });
+        const payload = {
+          tipoBeneficio,       // "gratis" | "monto" | "porcentaje" | "cantidad"
+          descuento,           // detalle según el tipo (monto, porcentaje, o compra/paga)
+          precioFinalEstimado,
+          costoPuntos: Number(costo) || 0
+        };
+        if (editandoDescuentoId) {
+          await updateDoc(descuentoDoc(distrito, tiendaId, editandoDescuentoId), payload);
+          showToast("Producto actualizado");
+          editandoDescuentoId = null;
+          document.getElementById("btnAgregarDesdeCatalogo").textContent = "Agregar desde catálogo";
+        } else {
+          await addDoc(descuentosCol(distrito, tiendaId), {
+            origen: "catalogo",
+            productoId: id,
+            categoria: categoriaSeleccionada,
+            nombre: p.nombre || "(sin nombre)",
+            precioOriginal,
+            imagenUrl: imgUrl,
+            creado: new Date().toISOString(),
+            ...payload
+          });
+          showToast("Producto agregado desde catálogo");
+        }
         document.getElementById("descCostoCatalogo").value = "";
-        showToast("Producto agregado desde catálogo");
+        document.getElementById("descuentoMontoCatalogo").value = "";
+        document.getElementById("descuentoPorcentajeCatalogo").value = "";
+        document.getElementById("descuentoCantidadCompra").value = "";
+        document.getElementById("descuentoCantidadPaga").value = "";
         await loadDescuentos();
       } catch (err) { showToast("Error: " + err.message, true); }
       finally { hideLoading(); restore(); }
     });
-
     async function loadDescuentos() {
       const cont = document.getElementById("listaDescuentos");
       descuentosCache = [];
@@ -2193,9 +2338,28 @@
           const origenBadge = esCatalogo
             ? '<span class="badge neutral">Catálogo</span>'
             : '<span class="badge neutral">Texto libre</span>';
-          const precioTxt = data.precio != null ? `S/ ${data.precio}` : (data.valor || "");
-          cont.insertAdjacentHTML("beforeend", `
-        <div class="item-row">
+
+          // Texto de precio: si tiene precioOriginal + tipoBeneficio, muestra el detalle del descuento
+          let precioTxt = "";
+          if (esCatalogo && data.precioOriginal != null) {
+            const orig = Number(data.precioOriginal);
+            if (data.tipoBeneficio === "monto") {
+              precioTxt = `S/ ${orig.toFixed(2)} → S/ ${Number(data.precioFinalEstimado ?? orig).toFixed(2)} (–S/ ${Number(data.descuento?.monto || 0).toFixed(2)})`;
+            } else if (data.tipoBeneficio === "porcentaje") {
+              precioTxt = `S/ ${orig.toFixed(2)} → S/ ${Number(data.precioFinalEstimado ?? orig).toFixed(2)} (–${data.descuento?.porcentaje || 0}%)`;
+            } else if (data.tipoBeneficio === "cantidad") {
+              precioTxt = `S/ ${orig.toFixed(2)} c/u · ${data.descuento?.compraUnidades || "?"}x${data.descuento?.pagaUnidades || "?"}`;
+            } else {
+              precioTxt = `S/ ${orig.toFixed(2)} · gratis con puntos`;
+            }
+          } else if (data.precio != null) {
+            precioTxt = `S/ ${data.precio}`;
+          } else if (data.valor) {
+            precioTxt = data.valor;
+          }
+
+             cont.insertAdjacentHTML("beforeend", `
+        <div class="item-row" data-id="${d.id}" style="cursor:pointer;">
           <div class="item-icon">${iconContent}</div>
           <div class="item-main">
             <div class="item-title">${escapeHtml(data.nombre)} ${origenBadge}</div>
@@ -2205,12 +2369,14 @@
         </div>`);
         });
         wireRemoveButtons();
+        wireEditRows();
       } catch (err) { console.error(err); }
     }
 
-    function wireRemoveButtons() {
+      function wireRemoveButtons() {
       document.querySelectorAll(".item-remove").forEach(btn => {
-        btn.onclick = async () => {
+        btn.onclick = async (ev) => {
+          ev.stopPropagation(); // no disparar la edición del item-row al eliminar
           btn.style.pointerEvents = "none";
           btn.style.opacity = "0.4";
           showLoading();
@@ -2224,6 +2390,48 @@
       });
     }
 
+    function wireEditRows() {
+      document.querySelectorAll("#listaDescuentos .item-row[data-id]").forEach(row => {
+        row.onclick = (ev) => {
+          if (ev.target.closest(".item-remove")) return;
+          const data = descuentosCache.find(d => d.id === row.dataset.id);
+          if (data) cargarDescuentoParaEditar(data);
+        };
+      });
+    }
+
+    function cargarDescuentoParaEditar(data) {
+      editandoDescuentoId = data.id;
+      const esCatalogo = data.origen === "catalogo";
+
+      document.querySelectorAll(".mode-card").forEach(c => c.classList.remove("selected"));
+      if (esCatalogo) {
+        document.getElementById("origenCatalogo").classList.add("selected");
+        document.getElementById("modo-catalogo").style.display = "block";
+        document.getElementById("modo-manual").style.display = "none";
+
+        document.getElementById("tipoBeneficioCatalogo").value = data.tipoBeneficio || "gratis";
+        actualizarCamposTipoBeneficio();
+        document.getElementById("descuentoMontoCatalogo").value = data.descuento?.monto ?? "";
+        document.getElementById("descuentoPorcentajeCatalogo").value = data.descuento?.porcentaje ?? "";
+        document.getElementById("descuentoCantidadCompra").value = data.descuento?.compraUnidades ?? "";
+        document.getElementById("descuentoCantidadPaga").value = data.descuento?.pagaUnidades ?? "";
+        document.getElementById("descCostoCatalogo").value = data.costoPuntos ?? "";
+        document.getElementById("btnAgregarDesdeCatalogo").textContent = "Guardar cambios";
+      } else {
+        document.getElementById("origenManual").classList.add("selected");
+        document.getElementById("modo-catalogo").style.display = "none";
+        document.getElementById("modo-manual").style.display = "block";
+
+        document.getElementById("descNombre").value = data.nombre || "";
+        document.getElementById("descValor").value = data.valor || "";
+        document.getElementById("descCosto").value = data.costoPuntos ?? "";
+        document.getElementById("btnAgregarDescuento").textContent = "Guardar cambios";
+      }
+
+      document.getElementById("origenCatalogo").scrollIntoView({ behavior: "smooth", block: "center" });
+      showToast("Editando: " + (data.nombre || "producto"));
+    }
     /* ===================================================================
        AGREGAR CLIENTE MANUALMENTE
        Para clientes que compran en tienda sin usar la app: se crea el doc
@@ -2432,59 +2640,89 @@
        (la misma ruta que usa fidelizacion_cliente.html para un cliente puntual).
        El nombre y teléfono reales viven en el usuario vinculado por "id_usuario".
        =================================================================== */
-    async function loadClientes() {
+      let unsubscribeClientes = null;
+    let clientesListoInicial = false;
+
+    function watchClientesRealtime() {
+      if (unsubscribeClientes) { unsubscribeClientes(); unsubscribeClientes = null; }
+      clientesListoInicial = false;
+
       const tbody = document.getElementById("tablaClientes");
       if (!firebaseReady) return;
-      clientesDataCache = [];
       if (!tiendaId) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Elige una tienda arriba primero.</td></tr>';
         updateStats("—", "—", "—", "—");
         return;
       }
+
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Cargando…</td></tr>';
       const rutaClientes = tiendaSubPathStr(distrito, "tiendas", tiendaId, "clientes");
-      console.log("[fidelizacion] Consultando clientes en:", rutaClientes);
-      try {
-        const snap = await getDocs(clientesCol(distrito, tiendaId));
-        console.log(`[fidelizacion] Clientes encontrados (${snap.size}):`, snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        if (snap.empty) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">No hay clientes registrados en esta tienda.</td></tr>';
-          updateStats(0, 0, 0, 0);
+      console.log("[fidelizacion] Escuchando clientes en:", rutaClientes);
+
+      unsubscribeClientes = onSnapshot(clientesCol(distrito, tiendaId), async (snap) => {
+        const huboNuevo = clientesListoInicial &&
+          snap.docChanges().some(ch => ch.type === "added");
+
+        await pintarTablaClientes(snap);
+
+        if (!clientesListoInicial) {
+          clientesListoInicial = true;
           return;
         }
 
-        const clientesData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        // Resolver nombre / teléfono reales desde el usuario vinculado (id_usuario),
-        // igual que hace fidelizacion_cliente.html. Los clientes creados manualmente
-        // desde este panel no tienen id_usuario, así que usan sus propios campos.
-        const usuarios = await Promise.all(clientesData.map(async (c) => {
-          if (!c.id_usuario) return null;
+        if (huboNuevo) {
           try {
-            const uSnap = await getDoc(usuarioDoc(c.id_usuario));
-            return uSnap.exists() ? uSnap.data() : null;
-          } catch (e) {
-            console.warn("[fidelizacion] No se pudo leer usuario", c.id_usuario, e);
-            return null;
-          }
-        }));
+            window.parent.postMessage(
+              { type: "NUEVO_CLIENTE_FIDELIZACION", tiendaId, distrito },
+              window.location.origin
+            );
+          } catch (e) { console.warn("No se pudo notificar al panel:", e); }
+        }
+      }, (err) => {
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger);">Error: ${escapeHtml(err.message)}</td></tr>`;
+      });
+    }
 
-        let rows = "", totalPuntos = 0, cerca = 0;
-        clientesData.forEach((c, i) => {
-          const usuario = usuarios[i] || {};
-          const nombre = [capitalizar(usuario.nombre), capitalizar(usuario.apellido)].filter(Boolean).join(" ")
-            || usuario.nombre_user || c.nombre || "Sin nombre";
-          const contacto = usuario.contacto || {};
-          const codPais = contacto.cod_telefonico ? `+${contacto.cod_telefonico.replace(/\D/g, "")} ` : "";
-          const telefono = contacto.numero_user ? `${codPais}${contacto.numero_user}` : (usuario.telefono || usuario.celular || c.telefono || "—");
-          const puntos = Number(c.puntos ?? c.sellos ?? 0);
-          totalPuntos += puntos || 0;
-          if (puntos >= (c.metaCantidad || 80)) cerca++;
-          const iniciales = (nombre.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("") || "?").toUpperCase();
-          const ultimaVisita = c.ultimaVisita ? formatearFecha(c.ultimaVisita) : (c.fecha_inicio ? formatearFecha(c.fecha_inicio) : "—");
-          const estadoTexto = c.activo === false ? "Inactivo" : "Activo";
-          const nombreAttr = escapeHtml(nombre).replace(/"/g, "&quot;");
-          rows += `<tr>
+    async function pintarTablaClientes(snap) {
+      const tbody = document.getElementById("tablaClientes");
+      clientesDataCache = [];
+
+      if (snap.empty) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">No hay clientes registrados en esta tienda.</td></tr>';
+        updateStats(0, 0, 0, 0);
+        return;
+      }
+
+      const clientesData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const usuarios = await Promise.all(clientesData.map(async (c) => {
+        if (!c.id_usuario) return null;
+        try {
+          const uSnap = await getDoc(usuarioDoc(c.id_usuario));
+          return uSnap.exists() ? uSnap.data() : null;
+        } catch (e) {
+          console.warn("[fidelizacion] No se pudo leer usuario", c.id_usuario, e);
+          return null;
+        }
+      }));
+
+      let rows = "", totalPuntos = 0, cerca = 0;
+      clientesData.forEach((c, i) => {
+        const usuario = usuarios[i] || {};
+        const nombre = [capitalizar(usuario.nombre), capitalizar(usuario.apellido)].filter(Boolean).join(" ")
+          || usuario.nombre_user || c.nombre || "Sin nombre";
+        const contacto = usuario.contacto || {};
+        const codPais = contacto.cod_telefonico ? `+${contacto.cod_telefonico.replace(/\D/g, "")} ` : "";
+        const telefono = contacto.numero_user ? `${codPais}${contacto.numero_user}` : (usuario.telefono || usuario.celular || c.telefono || "—");
+        const puntos = Number(c.puntos ?? c.sellos ?? 0);
+        totalPuntos += puntos || 0;
+        if (puntos >= (c.metaCantidad || 80)) cerca++;
+        const iniciales = (nombre.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("") || "?").toUpperCase();
+        const ultimaVisita = c.ultimaVisita ? formatearFecha(c.ultimaVisita) : (c.fecha_inicio ? formatearFecha(c.fecha_inicio) : "—");
+        const estadoTexto = c.activo === false ? "Inactivo" : "Activo";
+        const nombreAttr = escapeHtml(nombre).replace(/"/g, "&quot;");
+        rows += `<tr>
         <td class="cell-name"><span class="avatar">${iniciales}</span>${escapeHtml(nombre)}</td>
         <td>${escapeHtml(String(telefono))}</td>
         <td>${puntos}</td>
@@ -2495,15 +2733,11 @@
           <button class="btn btn-sm btn-primary" data-action="canjear" data-id="${c.id}" data-nombre="${nombreAttr}" data-puntos="${puntos}">Canjear</button>
         </td>
       </tr>`;
-          clientesDataCache.push({ nombre, telefono, puntos, ultimaVisita, estado: estadoTexto });
-        });
-        tbody.innerHTML = rows;
-        updateStats(clientesData.length, totalPuntos, "—", cerca);
-        wireClienteActions();
-      } catch (err) {
-        console.error(err);
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger);">Error: ${escapeHtml(err.message)}</td></tr>`;
-      }
+        clientesDataCache.push({ nombre, telefono, puntos, ultimaVisita, estado: estadoTexto });
+      });
+      tbody.innerHTML = rows;
+      updateStats(clientesData.length, totalPuntos, "—", cerca);
+      wireClienteActions();
     }
 
     function wireClienteActions() {
@@ -2520,7 +2754,7 @@
       document.getElementById("statCanjes").textContent = canjes;
       document.getElementById("statCerca").textContent = cerca;
     }
-    document.getElementById("btnRecargarClientes").addEventListener("click", loadClientes);
+    document.getElementById("btnRecargarClientes").addEventListener("click", watchClientesRealtime);
     document.getElementById("buscarCliente").addEventListener("input", (e) => {
       const term = e.target.value.toLowerCase();
       document.querySelectorAll("#tablaClientes tr").forEach(tr => {

@@ -163,6 +163,7 @@ window.PanelPerfil = {
   saveTimer: null,
   publicidadLoaded: false,
   _qrLoaded: false,
+  _notifAudio: null,
   selectedCat: "",
   selectedSubcats: [],
   categoriasDB: {},
@@ -197,11 +198,44 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   //  INIT
   // ═══════════════════════════════════════════
-  init() {
+   init() {
     this._bindEvents();
     this._injectFieldSaveBtnStyles();
     this._initDraggableBtn();
     this._initFirebase();
+
+    // "Calienta" el audio con el primer click del usuario (los navegadores
+    // bloquean el autoplay hasta que hay interacción)
+    document.addEventListener("click", () => {
+      const a = this._ensureNotifAudio();
+      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+    }, { once: true });
+  },
+
+  _ensureNotifAudio() {
+    if (!this._notifAudio) {
+this._notifAudio = new Audio("../../sounds/notificacion.mp3");
+      this._notifAudio.volume = 0.6;
+    }
+    return this._notifAudio;
+  },
+
+  playNotifSound() {
+    try {
+      const audio = this._ensureNotifAudio();
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch (e) { console.warn("No se pudo reproducir sonido:", e); }
+  },
+
+  showFidelizacionBadge() {
+    document.getElementById("dot-fidelizacion")?.classList.add("show");
+    document.getElementById("dot-fidelizacion-mobile")?.classList.add("show");
+  },
+
+  hideFidelizacionBadge() {
+    document.getElementById("dot-fidelizacion")?.classList.remove("show");
+    document.getElementById("dot-fidelizacion-mobile")?.classList.remove("show");
   },
 
   async _initFirebase() {
@@ -2000,7 +2034,8 @@ window.PanelPerfil = {
   },
 
   loadFidelizacion(){
-    this.showSection("fidelizacion")
+    this.showSection("fidelizacion");
+    this.hideFidelizacionBadge();
   },
   // ═══════════════════════════════════════════
   //  PUBLICIDAD
@@ -2383,9 +2418,17 @@ function enviarPatchAFrames(diff) {
 // ═══════════════════════════════════════════
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
+
   if (e.data?.type === "VOLVER_PANEL") {
     const iframe = document.getElementById("iframeRecargas");
     if (iframe) iframe.src = "recargas";
+  }
+
+  if (e.data?.type === "NUEVO_CLIENTE_FIDELIZACION") {
+    if (window.PanelPerfil.activeSection !== "fidelizacion") {
+      window.PanelPerfil.showFidelizacionBadge();
+    }
+    window.PanelPerfil.playNotifSound();
   }
 });
 

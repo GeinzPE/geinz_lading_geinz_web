@@ -107,20 +107,24 @@
         .login-prompt-modal.open .login-prompt-box {
             transform: scale(1) translateY(0);
         }
+
         .fidelizacion-card {
-  cursor: pointer;
-  transition: transform .25s cubic-bezier(.34,1.4,.4,1), box-shadow .25s ease;
-}
-.fidelizacion-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px -6px rgba(var(--dr), var(--dg), var(--db), .4);
-}
-.fidelizacion-arrow {
-  transition: transform .25s cubic-bezier(.34,1.4,.4,1);
-}
-.fidelizacion-card:hover .fidelizacion-arrow {
-  transform: translateX(4px);
-}
+            cursor: pointer;
+            transition: transform .25s cubic-bezier(.34, 1.4, .4, 1), box-shadow .25s ease;
+        }
+
+        .fidelizacion-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 26px -6px rgba(var(--dr), var(--dg), var(--db), .4);
+        }
+
+        .fidelizacion-arrow {
+            transition: transform .25s cubic-bezier(.34, 1.4, .4, 1);
+        }
+
+        .fidelizacion-card:hover .fidelizacion-arrow {
+            transform: translateX(4px);
+        }
     </style>
 </head>
 
@@ -441,6 +445,19 @@
                 <a id="loginPromptLoginBtn" href="../logindata/login.html" class="login-prompt-btn-primary">Iniciar
                     sesión</a>
                 <button id="loginPromptCancel" class="login-prompt-btn-secondary">Ahora no</button>
+            </div>
+        </div>
+    </div>
+    <div id="unfollowConfirmModal" class="login-prompt-modal">
+        <div class="login-prompt-box">
+            <button id="unfollowConfirmClose" class="login-prompt-close" aria-label="Cerrar">✕</button>
+            <div class="login-prompt-glow"></div>
+            <div class="login-prompt-letter">⚠️</div>
+            <h3 class="login-prompt-title">¿Dejar de seguir?</h3>
+            <p class="login-prompt-desc" id="unfollowConfirmDesc"></p>
+            <div class="login-prompt-actions">
+                <button id="unfollowConfirmAccept" class="login-prompt-btn-primary">Sí, dejar de seguir</button>
+                <button id="unfollowConfirmCancel" class="login-prompt-btn-secondary">Cancelar</button>
             </div>
         </div>
     </div>

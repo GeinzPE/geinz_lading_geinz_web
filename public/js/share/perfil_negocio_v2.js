@@ -5,6 +5,7 @@ import { setFaviconCircular } from "../favicon/favicon.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
+let _currentUid = null; // NUEVO
 function showNotFoundScreen(message = "") {
   hideBizLoader();
   document.body.innerHTML = "";
@@ -885,18 +886,19 @@ async function ensureClienteRecord({ localidad, id }, uid) {
 }
 async function loadPuntosCliente({ localidad, id }, uid) {
   try {
-    const clientesRef = tiendaSubCol(localidad, "tiendas", id, "clientes");
-    const q = query(clientesRef, where("id_usuario", "==", uid), limit(1));
-    const snap = await getDocs(q);
-    if (snap.empty) return renderPuntosBadge(0);
-    const data = snap.docs[0].data();
-    renderPuntosBadge(Number(data.puntos) || 0);
+    const clienteRef = doc(
+      tiendaSubCol(localidad, "tiendas", id, "clientes"),
+      uid,
+    );
+    const snap = await getDoc(clienteRef);
+    if (!snap.exists()) return renderPuntosBadge(0);
+    renderPuntosBadge(Number(snap.data().puntos) || 0);
   } catch (e) {
     console.warn("No se pudieron cargar los puntos:", e.message);
   }
 }
-
 function renderPuntosBadge(puntos) {
+  _currentPuntos = Number(puntos) || 0;
   const badge = document.getElementById("puntosBadge");
   if (!badge) return;
   if (!puntos || puntos <= 0) {
@@ -907,14 +909,16 @@ function renderPuntosBadge(puntos) {
   badge.innerHTML = `<span class="puntos-badge-icon">🎁</span> Tienes ${puntos} puntos en ${_bizNombre || "este negocio"} · mostrar tarjeta `;
 }
 
-function bindPuntosBadgeEvents({ localidad, id }) {
-  document.getElementById("puntosBadge")?.addEventListener("click", () => {
-    const url = new URL("../fidelizacion/fidelizacion.html", window.location.href);
-    url.searchParams.set("localidad", localidad);
-    url.searchParams.set("id", id);
-    window.location.href = url.toString();
-  });
-}
+document.getElementById("puntosBadge")?.addEventListener("click", () => {
+  const url = new URL(
+    "../../fidelizacion/fidelizacion_client.html",
+    window.location.href,
+  );
+  url.searchParams.set("id", id);
+  url.searchParams.set("uid", uid); // NUEVO
+  window.location.href = url.toString();
+});
+
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
   const icon = document.getElementById("followIcon");
@@ -933,7 +937,7 @@ function bindFollowButton({ localidad, id }, biz) {
 
   onAuthStateChanged(auth, async (user) => {
     const uid = user?.uid || null;
-
+    _currentUid = uid;
     if (!uid) {
       btn.onclick = () => {
         openLoginPromptModal();
@@ -942,7 +946,7 @@ function bindFollowButton({ localidad, id }, biz) {
       tryHideLoader();
       return;
     }
-    const seguidorRef = doc(tiendaSubCol(localidad, "tiendas", id, "seguidores"), uid);
+
     const favoritoRef = doc(
       db,
       "Trabajadores_Usuarios_Drivers",
@@ -952,53 +956,86 @@ function bindFollowButton({ localidad, id }, biz) {
       "favoritos",
       id,
     );
-    const snap = await getDoc(seguidorRef);
+    const clienteRef = doc(
+      tiendaSubCol(localidad, "tiendas", id, "clientes"),
+      uid,
+    );
+    const snap = await getDoc(clienteRef);
     setFollowUI(snap.exists());
     _followReady = true;
     tryHideLoader();
 
     loadPuntosCliente({ localidad, id }, uid);
-    bindPuntosBadgeEvents({ localidad, id });
 
     btn.onclick = async () => {
       if (isBusy) return;
-      isBusy = true;
 
       const nextState = !isFollowing;
-      setFollowUI(nextState);
-      if (nextState) {
-        btn.classList.add("pulse");
-        setTimeout(() => btn.classList.remove("pulse"), 500);
+
+      // Si va a dejar de seguir y tiene puntos, pedir confirmación primero
+      if (!nextState && _currentPuntos > 0) {
+        openUnfollowConfirmModal(() => ejecutarUnfollow());
+        return;
       }
 
-      try {
-        if (nextState) {
-          const ubicacion = biz.ubicacion || {};
-          await Promise.all([
-            setDoc(seguidorRef, { uid, timestamp: serverTimestamp() }),
-            setDoc(favoritoRef, {
-              id_tienda_lugar: id,
-              img_tienda_lugar: biz.img_tienda?.logo_tienda || "",
-              latitud: ubicacion.latitud ?? null,
-              longitud: ubicacion.longitud ?? null,
-              localidad_lugar_tienda: localidad,
-              nombre_lugar_tienda: biz.nombre_tienda || biz.nombre || "",
-              timesLap_local: String(Date.now()),
-            }),
-          ]);
-          ensureClienteRecord({ localidad, id }, uid); // no bloquea el follow, corre aparte
-        } else {
-          await Promise.all([
-            deleteDoc(seguidorRef),
-            deleteDoc(favoritoRef),
-          ]);
+      await ejecutarToggle(nextState);
+
+      async function ejecutarToggle(next) {
+        isBusy = true;
+        setFollowUI(next);
+        if (next)
+          (btn.classList.add("pulse"),
+            setTimeout(() => btn.classList.remove("pulse"), 500));
+
+        try {
+          if (next) {
+            const ubicacion = biz.ubicacion || {};
+            const yaExiste = await getDoc(clienteRef);
+            const dataCliente = {
+              id: uid,
+              id_usuario: uid,
+              fecha_inicio: serverTimestamp(),
+              ultimo_consumo: serverTimestamp(),
+            };
+            if (!yaExiste.exists()) dataCliente.puntos = 0;
+
+            await Promise.all([
+              setDoc(favoritoRef, {
+                id_tienda_lugar: id,
+                img_tienda_lugar: biz.img_tienda?.logo_tienda || "",
+                latitud: ubicacion.latitud ?? null,
+                longitud: ubicacion.longitud ?? null,
+                localidad_lugar_tienda: localidad,
+                nombre_lugar_tienda: biz.nombre_tienda || biz.nombre || "",
+                timesLap_local: String(Date.now()),
+              }),
+              setDoc(clienteRef, dataCliente, { merge: true }),
+            ]);
+          } else {
+            await ejecutarUnfollow();
+          }
+        } catch (e) {
+          console.error("Error al actualizar seguidor:", e);
+          setFollowUI(!next);
+          showToast("No se pudo actualizar, intenta de nuevo");
+        } finally {
+          isBusy = false;
         }
-      } catch (e) {
-        console.error("Error al actualizar seguidor:", e);
-        setFollowUI(!nextState);
-        showToast("No se pudo actualizar, intenta de nuevo");
-      } finally {
-        isBusy = false;
+      }
+
+      async function ejecutarUnfollow() {
+        isBusy = true;
+        setFollowUI(false);
+        try {
+          await Promise.all([deleteDoc(favoritoRef), deleteDoc(clienteRef)]);
+          renderPuntosBadge(0);
+        } catch (e) {
+          console.error("Error al dejar de seguir:", e);
+          setFollowUI(true);
+          showToast("No se pudo actualizar, intenta de nuevo");
+        } finally {
+          isBusy = false;
+        }
       }
     };
   });
@@ -1173,8 +1210,8 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-        `${waMsg}: ${shareUrl}`,
-      )}`
+          `${waMsg}: ${shareUrl}`,
+        )}`
       : null;
 
     const card = document.createElement("div");
@@ -1213,7 +1250,7 @@ function renderActivePromos(promos, localidad) {
       if (navigator.share) {
         try {
           await navigator.share({ text: fullText });
-        } catch (e) { }
+        } catch (e) {}
       } else {
         copyToClipboard(fullText);
       }
@@ -1241,8 +1278,12 @@ function renderFidelizacion(f) {
   const chips = [];
 
   if (f.vencimientoActivo) {
-    chips.push(`<span class="fidel-chip">⏳ Puntos válidos por ${f.diasVencimiento} días</span>`);
-    chips.push(`<span class="fidel-chip warn">🔔 Aviso ${f.diasAviso} días antes de vencer</span>`);
+    chips.push(
+      `<span class="fidel-chip">⏳ Puntos válidos por ${f.diasVencimiento} días</span>`,
+    );
+    chips.push(
+      `<span class="fidel-chip warn">🔔 Aviso ${f.diasAviso} días antes de vencer</span>`,
+    );
   } else {
     chips.push(`<span class="fidel-chip">♾️ Tus puntos no vencen</span>`);
   }
@@ -2072,6 +2113,44 @@ function injectLoginPromptStyles() {
   document.head.appendChild(style);
 }
 
+function openUnfollowConfirmModal(onConfirm) {
+  injectLoginPromptStyles();
+  const modal = document.getElementById("unfollowConfirmModal");
+  const desc = document.getElementById("unfollowConfirmDesc");
+  if (!modal) return;
+
+  desc.textContent = `Tienes ${_currentPuntos} puntos en ${_bizNombre || "este negocio"}. Si dejas de seguir, tus puntos se eliminarán permanentemente.`;
+
+  const acceptBtn = document.getElementById("unfollowConfirmAccept");
+  const newAccept = acceptBtn.cloneNode(true); // limpia listeners viejos
+  acceptBtn.replaceWith(newAccept);
+  newAccept.addEventListener("click", () => {
+    closeUnfollowConfirmModal();
+    onConfirm();
+  });
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeUnfollowConfirmModal() {
+  document.getElementById("unfollowConfirmModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function bindUnfollowConfirmEvents() {
+  document
+    .getElementById("unfollowConfirmClose")
+    ?.addEventListener("click", closeUnfollowConfirmModal);
+  document
+    .getElementById("unfollowConfirmCancel")
+    ?.addEventListener("click", closeUnfollowConfirmModal);
+  document
+    .getElementById("unfollowConfirmModal")
+    ?.addEventListener("click", (e) => {
+      if (e.target.id === "unfollowConfirmModal") closeUnfollowConfirmModal();
+    });
+}
 function openLoginPromptModal() {
   injectLoginPromptStyles();
   const modal = document.getElementById("loginPromptModal");
@@ -2108,11 +2187,17 @@ function closeLoginPromptModal() {
 }
 
 function bindLoginPromptEvents() {
-  document.getElementById("loginPromptClose")?.addEventListener("click", closeLoginPromptModal);
-  document.getElementById("loginPromptCancel")?.addEventListener("click", closeLoginPromptModal);
-  document.getElementById("loginPromptModal")?.addEventListener("click", (e) => {
-    if (e.target.id === "loginPromptModal") closeLoginPromptModal();
-  });
+  document
+    .getElementById("loginPromptClose")
+    ?.addEventListener("click", closeLoginPromptModal);
+  document
+    .getElementById("loginPromptCancel")
+    ?.addEventListener("click", closeLoginPromptModal);
+  document
+    .getElementById("loginPromptModal")
+    ?.addEventListener("click", (e) => {
+      if (e.target.id === "loginPromptModal") closeLoginPromptModal();
+    });
 }
 
 const LOGO_PLACEHOLDER_CSS = `
@@ -2371,8 +2456,9 @@ let _mesasCache = [];
 let _horaMaxReserva = null;
 let _bizLogoUrl = null;
 let _bizNombre = "";
-let _colorReady = false;   // ya existe más arriba, no la dupliques si ya está
-let _followReady = false;  // NUEVO: true cuando ya sabemos si el user sigue o no
+let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
+let _followReady = false;
+let _currentPuntos = 0; // NUEVO: true cuando ya sabemos si el user sigue o no
 function tryHideLoader() {
   if (_colorReady && _followReady) {
     hideBizLoader();
@@ -2665,7 +2751,7 @@ async function render(biz) {
       card.innerHTML = `<div class="promo-card-img-wrap"><div class="promo-overlay-actions">${
         /* deja aquí igual los botones de WhatsApp y Compartir */
         `<a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>`
-        }</div></div>`;
+      }</div></div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
         src: promo.url,
@@ -2681,7 +2767,7 @@ async function render(biz) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -2770,12 +2856,15 @@ async function render(biz) {
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
   document.getElementById("fidelizacionCard")?.addEventListener("click", () => {
-    const url = new URL("../fidelizacion/fidelizacion.html", window.location.href);
+    const url = new URL(
+      "../../fidelizacion/fidelizacion_client.html",
+      window.location.href,
+    );
     url.searchParams.set("localidad", _params.localidad);
     url.searchParams.set("id", _params.id);
+    if (_currentUid) url.searchParams.set("uid", _currentUid);
     window.location.href = url.toString();
   });
-
 }
 
 // ── Reglas por plan y modlo de negocio ──
@@ -2807,8 +2896,12 @@ function listenBusinessRealtime({ localidad, id }) {
     const biz = await loadBusiness(params);
     await render(biz);
     listenBusinessRealtime(params);
-    listenMesasRealtime(params, biz.categoria_tienda, biz.modelo_negocio !== false);
-    bindFollowButton(params, biz);   // ← ya está bien ubicado, no cambies el orden
+    listenMesasRealtime(
+      params,
+      biz.categoria_tienda,
+      biz.modelo_negocio !== false,
+    );
+    bindFollowButton(params, biz); // ← ya está bien ubicado, no cambies el orden
 
     // Promociones activas (no bloquea el render principal)
     loadActivePromos(params).then((promos) =>
@@ -2852,6 +2945,7 @@ function listenBusinessRealtime({ localidad, id }) {
 injectLightboxStyles();
 bindMesaReservaEvents();
 bindLoginPromptEvents();
+bindUnfollowConfirmEvents();
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(

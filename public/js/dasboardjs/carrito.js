@@ -11,9 +11,17 @@ import {
   writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import { db } from "../db/db.js";
+import {
+  tiendaDoc,
+  tiendaSubDoc,
+  tiendaSubCol,
+  data_user_logeado,
+} from "../rutas/rutas.js";
 
-import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 /* ══════════════ Config de enlaces ══════════════
        DASHBOARD_BASE_URL: a donde apunta el link que se manda por WhatsApp.
@@ -45,6 +53,15 @@ let grupoActivo = null;
 /* Estado del checkout */
 let tipoEntrega = "Delivery";
 let metodoPago = "Yape / Plin";
+
+/* ══════════════ Usuario logeado ══════════════ */
+/* ══════════════ Usuario logeado ══════════════ */
+let usuarioLogeado = null;
+let nombreUsuarioLogeado = "";
+
+/* ══════════════ Ubicación GPS del cliente (opcional, para precisión del driver) ══════════════ */
+let clienteLat = null;
+let clienteLng = null;
 
 import { setBusinessFaviconById } from "../favicon/favicon.js";
 
@@ -319,7 +336,12 @@ async function llamarMozo({ nombre, nota, items, total }) {
   /* ═══ CASO 1: mesa dentro de un grupo activo ═══ */
   if (grupoActivo) {
     const pedido = {
-      cliente: { nombre: nombreFinal, tipo_entrega: "Mesa", direccion: "" },
+      cliente: {
+        id_cliente: usuarioLogeado?.id || null,
+        nombre: nombreFinal,
+        tipo_entrega: "Mesa",
+        direccion: "",
+      },
       estado: "pendiente",
       pago: { metodo: "En mesa", vuelto: "" },
       mesas: grupoActivo.mesas || [],
@@ -368,7 +390,12 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const mesaDataActual = mesaSnapActual.exists() ? mesaSnapActual.data() : {};
 
   const pedido = {
-    cliente: { nombre: nombreFinal, tipo_entrega: "Mesa", direccion: "" },
+    cliente: {
+      id_cliente: usuarioLogeado?.id || null,
+      nombre: nombreFinal,
+      tipo_entrega: "Mesa",
+      direccion: "",
+    },
     estado: "pendiente",
     pago: { metodo: "En mesa", vuelto: "" },
     mesa: {
@@ -561,7 +588,12 @@ async function confirmarPedidoMesaDirecto() {
   });
 
   try {
-    const pedido = await llamarMozo({ nombre: "", nota: "", items, total });
+    const pedido = await llamarMozo({
+      nombre: nombreUsuarioLogeado || "",
+      nota: "",
+      items,
+      total,
+    });
     pedidoActivoMesa = pedido;
     carrito.clear();
     updateCartUI();
@@ -594,6 +626,33 @@ function ajustarTextosMesa() {
   );
 }
 
+function cargarUsuarioLogeado() {
+  return new Promise((resolve) => {
+    const auth = getAuth();
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        usuarioLogeado = null;
+        nombreUsuarioLogeado = "";
+        resolve(null);
+        return;
+      }
+      try {
+        const ref = data_user_logeado(user.uid);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const d = snap.data();
+          usuarioLogeado = { id: user.uid, ...d };
+          const nombre = (d.nombre || "").trim();
+          const apellido = (d.apellido || "").trim();
+          nombreUsuarioLogeado = `${nombre} ${apellido}`.trim();
+        }
+      } catch (err) {
+        console.error("Error cargando usuario logeado:", err);
+      }
+      resolve(usuarioLogeado);
+    });
+  });
+}
 /* ══════════════ Datos (una sola carga) ══════════════ */
 async function loadTienda() {
   try {
@@ -676,6 +735,61 @@ function pintarMesaBadge() {
   badge.classList.add("flex");
 }
 
+function aplicarModeloNegocio(biz) {
+  console.log(
+    "[DEBUG modelo_negocio] valor:",
+    biz?.modelo_negocio,
+    "| mesaId:",
+    mesaId,
+  );
+
+  // En modo mesa (QR / dine-in) no aplica: ahí no se usa dirección ni este toggle.
+  if (mesaId) return;
+
+  const esSoloDelivery = biz?.modelo_negocio === false;
+  const pickupBtn = document.querySelector(
+    '#entregaToggle .toggle-opt[data-val="Recojo en local"]',
+  );
+  const bannerEl = document.getElementById("soloDeliveryBanner");
+  const direccionEl = document.getElementById("direccionCollapse");
+
+  console.log(
+    "[DEBUG modelo_negocio] esSoloDelivery:",
+    esSoloDelivery,
+    "| direccionEl:",
+    direccionEl,
+  );
+
+  if (esSoloDelivery) {
+    if (pickupBtn) pickupBtn.classList.add("hidden");
+    tipoEntrega = "Delivery";
+    document.querySelectorAll("#entregaToggle .toggle-opt").forEach((o) => {
+      const active = o.dataset.val === "Delivery";
+      o.classList.toggle("active", active);
+      o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
+    });
+     if (direccionEl) {
+      // Se saca del sistema "collapse" por completo, así no depende de
+      // ninguna clase/transición CSS que pueda estar fallando.
+      direccionEl.classList.remove("hidden", "collapse", "open");
+      direccionEl.style.setProperty("display", "block", "important");
+      direccionEl.style.setProperty("max-height", "none", "important");
+      direccionEl.style.setProperty("opacity", "1", "important");
+      direccionEl.style.setProperty("overflow", "visible", "important");
+      direccionEl.style.setProperty("margin-top", "4px", "important");
+
+      const inner = direccionEl.querySelector(".collapse-inner");
+      if (inner) {
+        inner.style.setProperty("display", "block", "important");
+        inner.style.setProperty("overflow", "visible", "important");
+      }
+    }
+    if (bannerEl) bannerEl.classList.remove("hidden");
+  } else {
+    if (pickupBtn) pickupBtn.classList.remove("hidden");
+    if (bannerEl) bannerEl.classList.add("hidden");
+  }
+}
 async function renderTienda(biz) {
   bizData = biz;
   bizNombre = biz?.nombre_tienda || biz?.nombre || "Catálogo";
@@ -1522,9 +1636,57 @@ function setCollapseOpen(el, open) {
   if (!el) return;
   el.classList.toggle("open", open);
 }
+function obtenerUbicacionCliente() {
+  const btn = document.getElementById("obtenerUbicacionBtn");
+  const btnTexto = document.getElementById("ubicacionBtnTexto");
+  const statusEl = document.getElementById("ubicacionStatus");
+
+  if (!navigator.geolocation) {
+    statusEl.textContent = "Tu navegador no soporta geolocalización.";
+    statusEl.classList.remove("hidden");
+    return;
+  }
+
+  btn.disabled = true;
+  btnTexto.textContent = "Obteniendo ubicación…";
+  statusEl.classList.add("hidden");
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      clienteLat = pos.coords.latitude;
+      clienteLng = pos.coords.longitude;
+      btn.disabled = false;
+      btnTexto.textContent = "Ubicación obtenida ✓";
+      btn.classList.add("border-green-500/40", "text-green-400");
+      statusEl.textContent = `📍 Lat: ${clienteLat.toFixed(5)}, Lng: ${clienteLng.toFixed(5)}`;
+      statusEl.classList.remove("hidden");
+      showToast("Ubicación agregada al pedido 📍");
+    },
+    (err) => {
+      clienteLat = null;
+      clienteLng = null;
+      btn.disabled = false;
+      btnTexto.textContent = "Usar mi ubicación (más precisión)";
+      statusEl.textContent =
+        err.code === err.PERMISSION_DENIED
+          ? "Permiso de ubicación denegado. Puedes activarlo en los ajustes del navegador."
+          : "No se pudo obtener tu ubicación, intenta de nuevo.";
+      statusEl.classList.remove("hidden");
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+  );
+}
+
+document
+  .getElementById("obtenerUbicacionBtn")
+  .addEventListener("click", obtenerUbicacionCliente);
 function openCheckout() {
   if (!carrito.size) return;
   renderCheckoutSummary();
+  const nombreInput = document.getElementById("clienteNombre");
+  if (nombreUsuarioLogeado && nombreInput && !nombreInput.value.trim()) {
+    nombreInput.value = nombreUsuarioLogeado;
+  }
   checkoutOverlay.classList.add("show");
   requestAnimationFrame(() => checkoutModal.classList.add("show"));
   document.body.style.overflow = "hidden";
@@ -1590,13 +1752,16 @@ async function guardarPedidoEnDB({
       minute: "2-digit",
     }),
     timestamp: serverTimestamp(),
-
     cliente: {
+      id_cliente: usuarioLogeado?.id || null,
       nombre,
       tipo_entrega: tipoEntrega,
       direccion: tipoEntrega === "Delivery" ? direccion : "",
+      ubicacion:
+        tipoEntrega === "Delivery" && clienteLat != null && clienteLng != null
+          ? { lat: clienteLat, lng: clienteLng }
+          : null,
     },
-
     mesa: mesaId
       ? {
           id: mesaId,
@@ -1732,8 +1897,17 @@ document
     window.open(url, "_blank");
     closeCheckout();
     showToast("Abriendo WhatsApp…");
-  });
 
+    // Reset para el próximo pedido
+    clienteLat = null;
+    clienteLng = null;
+    const btnUbic = document.getElementById("obtenerUbicacionBtn");
+    const btnUbicTexto = document.getElementById("ubicacionBtnTexto");
+    const statusUbic = document.getElementById("ubicacionStatus");
+    if (btnUbic) btnUbic.classList.remove("border-green-500/40", "text-green-400");
+    if (btnUbicTexto) btnUbicTexto.textContent = "Usar mi ubicación (más precisión)";
+    if (statusUbic) statusUbic.classList.add("hidden");
+  });
 /* ══════════════ Toast ══════════════ */
 let toastTimer;
 function showToast(msg) {
@@ -1819,10 +1993,11 @@ async function init() {
     loadTienda(),
     loadProductosCatalogo(),
     loadPedidoMesa(),
+    cargarUsuarioLogeado(),
   ]);
   await renderTienda(biz);
   aplicarComportamientoBotonAtras();
-
+  aplicarModeloNegocio(biz);
   productosGlobal = productos;
   productosPorId = new Map(productos.map((p) => [p.id, p]));
   document.getElementById("totalCount").textContent = productos.length;

@@ -9,7 +9,28 @@
         href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="../style/dasboardcss/panel_perfil.css">
-
+    <style>
+      .sidebar-btn, .mobile-menu-item { position: relative; }
+      .notif-dot {
+        display: none;
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #ff3b3b;
+      }
+      .notif-dot.show {
+        display: block;
+        animation: notifPulse 1.4s infinite;
+      }
+      @keyframes notifPulse {
+        0%   { box-shadow: 0 0 0 0 rgba(255,59,59,.55); }
+        70%  { box-shadow: 0 0 0 7px rgba(255,59,59,0); }
+        100% { box-shadow: 0 0 0 0 rgba(255,59,59,0); }
+      }
+    </style>
 
     <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
@@ -64,6 +85,7 @@
                         <button class="sidebar-btn" id="sbb-fidelizacion" onclick="PanelPerfil.loadFidelizacion()">
                             <span class="sbb-icon">💳</span>
                             <span class="sbb-label">Fidelizacion</span>
+                            <span class="notif-dot" id="dot-fidelizacion"></span>
                         </button>
 
                         <button class="sidebar-btn" id="sbb-mispublicaciones"
@@ -386,6 +408,7 @@
                                 onclick="PanelPerfil.loadFidelizacion(); PanelPerfil.toggleMobileMenu()">
                                 <span>💳</span>
                                 <span>Fidelizacion</span>
+                                <span class="notif-dot" id="dot-fidelizacion-mobile"></span>
                             </button>
                             <button class="mobile-menu-item" id="mmb-mispublicaciones"
                                 onclick="PanelPerfil.loadMisPublicaciones(); PanelPerfil.toggleMobileMenu()">
