@@ -27,6 +27,7 @@
       --accent: #c2703d;
       --accent-dark: #8f4e28;
       --accent-soft: #2a1f18;
+      --accent-glow: rgba(194, 112, 61, .35);
       --bg: #0a0a0b;
       --card: #131315;
       --card-border: #232326;
@@ -36,6 +37,16 @@
       --radius-lg: 1rem;
       --radius-xl: 1.25rem;
       --space: clamp(0.9rem, 2vw, 1.5rem);
+
+      /* Colores de estado — cálidos y suaves, nada estridente */
+      --state-pendiente: #c2703d;
+      --state-en_proceso: #d9a441;
+      --state-entregado: #5fae7a;
+      --state-rechazado: #c25b5b;
+
+      /* Curva de movimiento "elegante": entra rápido, se asienta suave */
+      --ease-silk: cubic-bezier(.22, 1, .36, 1);
+      --ease-soft: cubic-bezier(.16, .84, .44, 1);
     }
 
     * {
@@ -148,6 +159,7 @@
       /* Se pinta bajo demanda: menos trabajo de layout/paint inicial en pantallas pequeñas */
       content-visibility: auto;
       contain-intrinsic-size: auto 200px;
+      transition: border-color .5s var(--ease-soft), box-shadow .5s var(--ease-soft);
     }
 
     header.top {
@@ -164,6 +176,7 @@
       border: 1px solid var(--card-border);
       background-color: var(--card);
       flex-shrink: 0;
+      transition: border-color .4s var(--ease-soft);
     }
 
     h1 {
@@ -204,6 +217,35 @@
       border-radius: 50%;
       background-color: var(--accent);
       flex-shrink: 0;
+      transition: background-color .55s var(--ease-soft), box-shadow .55s var(--ease-soft);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+
+    /* Estados por atributo (si el JS lo setea vía data-status en #status-dot),
+       y también por clase (por si se manejan como .is-pendiente, etc.) —
+       ambos caminos quedan cubiertos sin romper nada si no se usan. */
+    .status-dot[data-status="pendiente"],
+    .status-dot.is-pendiente {
+      background-color: var(--state-pendiente);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--state-pendiente) 14%, transparent);
+    }
+
+    .status-dot[data-status="en_proceso"],
+    .status-dot.is-en_proceso {
+      background-color: var(--state-en_proceso);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--state-en_proceso) 14%, transparent);
+    }
+
+    .status-dot[data-status="entregado"],
+    .status-dot.is-entregado {
+      background-color: var(--state-entregado);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--state-entregado) 14%, transparent);
+    }
+
+    .status-dot[data-status="rechazado"],
+    .status-dot.is-rechazado {
+      background-color: var(--state-rechazado);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--state-rechazado) 14%, transparent);
     }
 
     .status-dot.pulse::after {
@@ -212,16 +254,16 @@
       inset: 0;
       border-radius: 50%;
       box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
-      animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      animation: pulse-ring 2.2s var(--ease-soft) infinite;
     }
 
     @keyframes pulse-ring {
       0% {
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
       }
 
       70% {
-        box-shadow: 0 0 0 10px transparent;
+        box-shadow: 0 0 0 12px transparent;
       }
 
       100% {
@@ -229,9 +271,51 @@
       }
     }
 
+    /* Pequeño "respiro" del punto mientras está activo — sutil, no ansioso */
+    .status-dot.pulse {
+      animation: dot-breathe 2.6s var(--ease-soft) infinite;
+    }
+
+    @keyframes dot-breathe {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.12);
+      }
+    }
+
     .status-label {
       font-size: clamp(1rem, 3vw, 1.15rem);
       font-weight: 600;
+      display: inline-block;
+      transition: color .5s var(--ease-soft);
+    }
+
+    /* Truco sin JS extra: cada vez que cambie el texto dentro de #status-label,
+       si el propio script le vuelve a asignar la misma clase "status-label",
+       el navegador puede reiniciar esta animación (se agrega también una variante
+       manual .refresh que el JS puede togglear si se desea un respiro extra). */
+    .status-label,
+    .status-label.refresh {
+      animation: label-in .5s var(--ease-silk) both;
+    }
+
+    @keyframes label-in {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+        filter: blur(2px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+      }
     }
 
     /* ---------- Timeline ---------- */
@@ -253,10 +337,29 @@
       margin-top: 0.35rem;
       background-color: var(--card-border);
       flex-shrink: 0;
+      transition: background-color .5s var(--ease-soft), box-shadow .5s var(--ease-soft), transform .45s var(--ease-silk);
     }
 
     .tl-dot.active {
       background-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+      animation: tl-dot-pop .5s var(--ease-silk) both;
+    }
+
+    @keyframes tl-dot-pop {
+      0% {
+        transform: scale(.4);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
+      }
+
+      60% {
+        transform: scale(1.35);
+      }
+
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+      }
     }
 
     .tl-line {
@@ -265,10 +368,23 @@
       margin: 0.25rem 0;
       background-color: var(--card-border);
       min-height: 1.25rem;
+      position: relative;
+      overflow: hidden;
     }
 
-    .tl-line.active {
+    /* La línea "se llena" de arriba hacia abajo en vez de cambiar de color de golpe */
+    .tl-line::after {
+      content: "";
+      position: absolute;
+      inset: 0;
       background-color: var(--accent);
+      transform: scaleY(0);
+      transform-origin: top;
+      transition: transform .6s var(--ease-silk);
+    }
+
+    .tl-line.active::after {
+      transform: scaleY(1);
     }
 
     .tl-text {
@@ -276,6 +392,7 @@
       margin-top: -0.1rem;
       font-size: 0.9rem;
       color: var(--text-muted);
+      transition: color .5s var(--ease-soft), transform .5s var(--ease-silk);
     }
 
     .tl-text.active {
@@ -305,6 +422,7 @@
       font-weight: 600;
       margin: 0;
       word-break: break-word;
+      transition: color .4s var(--ease-soft);
     }
 
     .divider-top {
@@ -364,6 +482,7 @@
       font-size: clamp(1.1rem, 3.5vw, 1.35rem);
       font-weight: 600;
       color: var(--accent);
+      transition: color .4s var(--ease-soft);
     }
 
     /* ---------- Skeleton ---------- */
@@ -381,6 +500,27 @@
 
       100% {
         background-position: 400px 0;
+      }
+    }
+
+    /* Transición suave entre skeleton → contenido real */
+    #skeleton {
+      transition: opacity .35s var(--ease-soft);
+    }
+
+    #content {
+      animation: content-in .55s var(--ease-silk) both;
+    }
+
+    @keyframes content-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
 
@@ -416,6 +556,7 @@
       border: 1px solid var(--card-border);
       border-radius: 0.7rem;
       padding: 0.55rem 0.85rem;
+      transition: opacity .4s var(--ease-soft), transform .4s var(--ease-soft);
     }
 
     .conn-dot {
@@ -424,6 +565,7 @@
       border-radius: 50%;
       background-color: #e5484d;
       flex-shrink: 0;
+      animation: dot-breathe 1.8s var(--ease-soft) infinite;
     }
 
     .foot-note {
@@ -434,13 +576,30 @@
     }
 
     .fade-in {
-      animation: fadeIn .45s ease both;
+      animation: fadeIn .55s var(--ease-silk) both;
+    }
+
+    /* Cascada muy sutil entre tarjetas para que la carga se sienta orquestada, no golpeada */
+    header.top.fade-in {
+      animation-delay: .02s;
+    }
+
+    section.card.fade-in:nth-of-type(1) {
+      animation-delay: .07s;
+    }
+
+    section.card.fade-in:nth-of-type(2) {
+      animation-delay: .13s;
+    }
+
+    section.card.fade-in:nth-of-type(3) {
+      animation-delay: .19s;
     }
 
     @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(6px);
+        transform: translateY(8px);
       }
 
       to {
@@ -465,9 +624,18 @@
     @media (prefers-reduced-motion: reduce) {
 
       .status-dot.pulse::after,
+      .status-dot.pulse,
       .skel,
-      .fade-in {
+      .fade-in,
+      #content,
+      .status-label,
+      .tl-dot.active,
+      .conn-dot {
         animation: none !important;
+      }
+
+      .tl-line::after {
+        transition: none !important;
       }
     }
 

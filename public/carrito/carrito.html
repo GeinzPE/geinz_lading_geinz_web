@@ -128,6 +128,7 @@
           <span class="text-gray-400 font-semibold text-sm">Total</span>
           <span class="display font-extrabold text-2xl">S/ <span id="sidebarTotal">0.00</span></span>
         </div>
+                <p id="sidebarPuntos" class="hidden text-[12px] text-amber-300 font-semibold text-right"></p>
         <button id="checkoutBtnDesktop" class="btn-whatsapp" disabled>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path
@@ -154,6 +155,10 @@
           <p class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Tu carrito</p>
           <p class="font-black text-[15px] truncate"><span id="cartCount">0</span> producto(s) · S/ <span
               id="cartTotal">0.00</span></p>
+                      <div class="text-left min-w-0">
+        
+          <p id="cartPuntos" class="hidden text-[10px] text-amber-300 font-bold"></p>
+        </div>
         </div>
       </div>
       <span class="text-[13px] font-bold accent flex-shrink-0">Ver →</span>
@@ -175,6 +180,7 @@
         <span class="text-gray-400 font-semibold text-sm">Total</span>
         <span class="display font-extrabold text-2xl">S/ <span id="drawerTotal">0.00</span></span>
       </div>
+            <p id="drawerPuntos" class="hidden text-[12px] text-amber-300 font-semibold text-right"></p>
       <button id="checkoutBtnMobile" class="btn-whatsapp" disabled>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path
@@ -269,6 +275,15 @@
           </div>
         </div>
       </div>
+              <div class="glass rounded-2xl p-4">
+          <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
+          <div id="checkoutSummary" class="flex flex-col"></div>
+          <div class="flex items-center justify-between pt-3 mt-2 border-t border-white/[.07]">
+            <span class="text-gray-400 font-semibold text-sm">Total</span>
+            <span class="display font-extrabold text-xl">S/ <span id="checkoutTotal">0.00</span></span>
+          </div>
+          <p id="checkoutPuntos" class="hidden text-[12px] text-amber-300 font-semibold mt-2 text-right"></p>
+        </div>
 
       <div class="px-5 sm:px-6 py-5 border-t border-white/[.06] flex-shrink-0">
         <button id="sendWhatsappBtn" class="btn-whatsapp">

@@ -446,33 +446,26 @@ async function aplicarVisibilidadPorCategoria() {
     "🔎 [categoria] valor en sessionStorage:",
     JSON.stringify(categoria),
   );
+  let modeloNegocio = sessionStorage.getItem("modeloNegocio"); 
 
   // Si por algún motivo no llegó desde el panel, la buscamos directo
-  if (!categoria) {
+   if (!categoria || modeloNegocio === null) {
     try {
       const negocioSnap = await getDoc(
         tiendaDoc(localidad, "tiendas", tiendaId),
       );
       if (negocioSnap.exists()) {
-        categoria = negocioSnap.data().categoria_tienda || null;
-        console.log(
-          "🔎 [categoria] valor obtenido directo de Firestore:",
-          JSON.stringify(categoria),
-        );
+        const data = negocioSnap.data();
+        categoria = categoria || data.categoria_tienda || null;
+        modeloNegocio = data.modelo_negocio; // 👈 nuevo (true/false)
         sessionStorage.setItem("categoriaTienda", categoria || "");
-      } else {
-        console.warn(
-          "⚠️ [categoria] el doc de la tienda no existe en Tiendas/" +
-            localidad +
-            "/" +
-            localidad +
-            "/" +
-            tiendaId,
-        );
+        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio)); // 👈 nuevo
       }
     } catch (err) {
-      console.error("❌ No se pudo obtener la categoría de la tienda.", err);
+      console.error("❌ No se pudo obtener la categoría/modelo de la tienda.", err);
     }
+  } else {
+    modeloNegocio = modeloNegocio === "true"; // sessionStorage guarda strings
   }
 
   const esRestaurante =
@@ -496,9 +489,13 @@ async function aplicarVisibilidadPorCategoria() {
   if (!esRestaurante) {
     const tileCarta = document.getElementById("qrTileCarta");
     if (tileCarta) tileCarta.style.display = "none";
+  }
 
-    const mesasSection = document.getElementById("mesasSection");
-    if (mesasSection) mesasSection.style.display = "none";
+  // mesasSection depende de categoría Y de modelo_negocio (local físico)
+  const mesasSection = document.getElementById("mesasSection");
+  if (mesasSection) {
+    const debeMostrarMesas = esRestaurante && modeloNegocio === true;
+    mesasSection.style.display = debeMostrarMesas ? "" : "none";
   }
 }
 window.QrNegocio = QrNegocio;

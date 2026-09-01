@@ -198,7 +198,7 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   //  INIT
   // ═══════════════════════════════════════════
-   init() {
+  init() {
     this._bindEvents();
     this._injectFieldSaveBtnStyles();
     this._initDraggableBtn();
@@ -208,13 +208,13 @@ window.PanelPerfil = {
     // bloquean el autoplay hasta que hay interacción)
     document.addEventListener("click", () => {
       const a = this._ensureNotifAudio();
-      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => { });
     }, { once: true });
   },
 
   _ensureNotifAudio() {
     if (!this._notifAudio) {
-this._notifAudio = new Audio("../../sounds/notificacion.mp3");
+      this._notifAudio = new Audio("../../sounds/notificacion.mp3");
       this._notifAudio.volume = 0.6;
     }
     return this._notifAudio;
@@ -224,7 +224,7 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
     try {
       const audio = this._ensureNotifAudio();
       audio.currentTime = 0;
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     } catch (e) { console.warn("No se pudo reproducir sonido:", e); }
   },
 
@@ -233,6 +233,11 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
     document.getElementById("dot-fidelizacion-mobile")?.classList.add("show");
   },
 
+  aplicarVisibilidadUbicacion(modeloNegocio) {
+    const seccion = document.getElementById("expUbicacionSection");
+    if (!seccion) return;
+    seccion.style.display = modeloNegocio === true ? "" : "none";
+  },
   hideFidelizacionBadge() {
     document.getElementById("dot-fidelizacion")?.classList.remove("show");
     document.getElementById("dot-fidelizacion-mobile")?.classList.remove("show");
@@ -439,6 +444,7 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
       } else if (key === "aforo_max") {
         this.setField("fieldAforo", val);
         this._originalValues["fieldAforo"] = String(val ?? "");
+
       } else if (key === "ubicacion.dirección") {
         this.setField("fieldDireccion", val || "");
         this._originalValues["fieldDireccion"] = val || "";
@@ -487,7 +493,10 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
         } else if (tipo === "promociones") {
           this.populatePromocionesGrid("promocionesGrid", val || {}, 3);
         }
+      } else if (key === "modelo_negocio") {              // 👈 NUEVO
+        this.aplicarVisibilidadUbicacion(val === true);
       }
+
     }
   },
 
@@ -516,7 +525,7 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
     this._updateDescSilent(data.descripcion || "");
 
     this.loadAvatar(data.img_tienda?.logo_tienda || data.logo_tienda || "");
-
+    this.aplicarVisibilidadUbicacion(data.modelo_negocio === true);
     if (data.categoria_tienda) this.selectedCat = data.categoria_tienda;
 
     if (Array.isArray(data.subcategoria) && data.subcategoria.length) {
@@ -799,11 +808,11 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
         });
       });
 
- document.querySelectorAll("textarea.form-input").forEach((el) => {
-  this.autoResize(el);
-  el.addEventListener("input", () => this.autoResize(el));
-  el.addEventListener("focus", () => this.autoResize(el)); // 👈 nuevo
-});
+    document.querySelectorAll("textarea.form-input").forEach((el) => {
+      this.autoResize(el);
+      el.addEventListener("input", () => this.autoResize(el));
+      el.addEventListener("focus", () => this.autoResize(el)); // 👈 nuevo
+    });
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => {
         document
@@ -1805,7 +1814,7 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
     if (wrap) wrap.style.display = mostrar ? "flex" : "none";
   },
 
-   async vincularCuenta() {
+  async vincularCuenta() {
     const btn = document.querySelector(".sidebar-vincular-btn");
     const btnOrig = btn ? btn.innerHTML : "";
 
@@ -1990,11 +1999,11 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
     document.getElementById(`bb-${name}`)?.classList.add("active");
     document.getElementById(`sbb-${name}`)?.classList.add("active");
     document.getElementById(`mmb-${name}`)?.classList.add("active");
-      requestAnimationFrame(() => {
-    document
-      .querySelectorAll(`#sec-${name} textarea.form-input`)
-      .forEach((el) => this.autoResize(el));
-  });
+    requestAnimationFrame(() => {
+      document
+        .querySelectorAll(`#sec-${name} textarea.form-input`)
+        .forEach((el) => this.autoResize(el));
+    });
   },
 
   // ═══════════════════════════════════════════
@@ -2028,12 +2037,12 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
   },
 
-   loadHistorialGasto() {
+  loadHistorialGasto() {
     this.showSection("historialgasto");
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
   },
 
-  loadFidelizacion(){
+  loadFidelizacion() {
     this.showSection("fidelizacion");
     this.hideFidelizacionBadge();
   },
@@ -2074,25 +2083,25 @@ this._notifAudio = new Audio("../../sounds/notificacion.mp3");
   // ═══════════════════════════════════════════
   //  HELPERS GENERALES
   // ═══════════════════════════════════════════
-setField(id, val) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.value = val ?? "";
-  if (el.tagName === "TEXTAREA") {
-    this._resizeSafely(el);
-    // doble rAF: espera a que el navegador termine el layout
-    // antes de medir scrollHeight (evita medir "a medias")
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => this._resizeSafely(el));
-    });
-  }
-},
+  setField(id, val) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = val ?? "";
+    if (el.tagName === "TEXTAREA") {
+      this._resizeSafely(el);
+      // doble rAF: espera a que el navegador termine el layout
+      // antes de medir scrollHeight (evita medir "a medias")
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => this._resizeSafely(el));
+      });
+    }
+  },
 
-_resizeSafely(el) {
-  if (el.offsetParent === null) return; // oculto, no medir
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
-},
+  _resizeSafely(el) {
+    if (el.offsetParent === null) return; // oculto, no medir
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  },
 
   _updateNameSilent(val) {
     const v = val || "Mi Negocio";
@@ -2229,11 +2238,11 @@ _resizeSafely(el) {
   focusField(id) {
     document.getElementById(id)?.focus();
   },
-autoResize(el) {
-  if (el.offsetParent === null) return; // no medir si está oculto
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
-},
+  autoResize(el) {
+    if (el.offsetParent === null) return; // no medir si está oculto
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  },
   toggleSidebar() {
     const sb = document.querySelector(".sidebar");
     const btn = document.getElementById("sidebarToggle");

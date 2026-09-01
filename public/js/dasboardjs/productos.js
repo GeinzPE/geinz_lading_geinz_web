@@ -107,6 +107,19 @@ const TIENDA_ID_STORAGE = tiendaId;
 const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
 const categoriasRef = collection(tiendaDocRef, "productos");
 
+let fidelizacionActiva = false;
+
+async function cargarFidelizacion() {
+  try {
+    const snap = await getDoc(tiendaDocRef);
+    const data = snap.data() || {};
+    fidelizacionActiva = !!data.fidelizacion?.activo;
+    document.getElementById("puntos-section")?.classList.toggle("hidden", !fidelizacionActiva);
+  } catch (err) {
+    console.error(err);
+  }
+}
+cargarFidelizacion();
 function productosRef(categoriaId) {
   return collection(doc(categoriasRef, categoriaId), categoriaId);
 }
@@ -120,10 +133,9 @@ function toast(msg, type = "") {
   const isError = type === "error";
   const el = document.createElement("div");
   el.className = `pointer-events-auto animate-toastIn w-full sm:w-auto sm:min-w-[220px] rounded-xl border px-4 py-3 text-xs font-medium shadow-2xl backdrop-blur-md transition-all
-    ${
-      isError
-        ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
-        : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
+    ${isError
+      ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
+      : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
     }`;
   el.textContent = msg;
   toastWrap.appendChild(el);
@@ -351,7 +363,7 @@ async function eliminarCategoria(categoriaId, nombre) {
     const imagenes = data.imagenes || [];
     await Promise.all(
       imagenes.map((img) =>
-        deleteObject(storageRef(storage, img.path)).catch(() => {}),
+        deleteObject(storageRef(storage, img.path)).catch(() => { }),
       ),
     );
   }
@@ -598,6 +610,9 @@ document.getElementById("btn-add-condicion").addEventListener("click", () => {
 document
   .getElementById("input-prod-stock")
   .addEventListener("input", validarConsistenciaStock);
+document.getElementById("input-prod-puntos-activo")?.addEventListener("change", (e) => {
+  document.getElementById("puntos-detalle").classList.toggle("hidden", !e.target.checked);
+});
 document.getElementById("input-prod-imgs").addEventListener("change", (e) => {
   const file = e.target.files[0];
   const slot = parseInt(e.target.dataset.targetSlot || "0", 10);
@@ -620,6 +635,10 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   document.getElementById("input-prod-stock").value = "";
   document.getElementById("input-prod-auto-desactivar").checked = false;
   document.getElementById("input-prod-agotado-hoy").checked = false;
+  document.getElementById("input-prod-puntos-activo").checked = false;
+  document.getElementById("puntos-detalle").classList.add("hidden");
+  document.getElementById("input-prod-puntos-cantidad").value = "";
+  document.getElementById("input-prod-puntos-descripcion").value = "";
   document.getElementById("input-prod-unidad").value = "";
   document.getElementById("input-prod-horario-desde").value = "";
   document.getElementById("input-prod-horario-hasta").value = "";
@@ -664,6 +683,11 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   document.getElementById("input-prod-auto-desactivar").checked =
     !!data.autoDesactivar;
   document.getElementById("input-prod-agotado-hoy").checked = !!data.agotadoHoy;
+  const puntos = data.puntos || {};
+  document.getElementById("input-prod-puntos-activo").checked = !!puntos.activo;
+  document.getElementById("puntos-detalle").classList.toggle("hidden", !puntos.activo);
+  document.getElementById("input-prod-puntos-cantidad").value = puntos.cantidad ?? "";
+  document.getElementById("input-prod-puntos-descripcion").value = puntos.descripcion || "";
   document.getElementById("input-prod-unidad").value = data.unidadMedida || "";
   document.getElementById("input-prod-horario-desde").value =
     data.disponibleDesde || "";
@@ -703,6 +727,18 @@ document
     ).checked;
     const unidadMedida =
       document.getElementById("input-prod-unidad").value || null;
+    const puntosActivo = document.getElementById("input-prod-puntos-activo").checked;
+    const puntosCantidad = puntosActivo
+      ? Math.max(0, parseInt(document.getElementById("input-prod-puntos-cantidad").value, 10) || 0)
+      : 0;
+    const puntosDescripcion = puntosActivo
+      ? document.getElementById("input-prod-puntos-descripcion").value.trim()
+      : "";
+    const puntos = {
+      activo: puntosActivo && puntosCantidad > 0,
+      cantidad: puntosCantidad,
+      descripcion: puntosDescripcion,
+    };
     const disponibleDesde =
       document.getElementById("input-prod-horario-desde").value || null;
     const disponibleHasta =
@@ -753,7 +789,7 @@ document
         );
         await Promise.all(
           eliminadas.map((img) =>
-            deleteObject(storageRef(storage, img.path)).catch(() => {}),
+            deleteObject(storageRef(storage, img.path)).catch(() => { }),
           ),
         );
 
@@ -775,6 +811,7 @@ document
           stock,
           autoDesactivar,
           agotadoHoy,
+          puntos,
           unidadMedida,
           disponibleDesde,
           disponibleHasta,
@@ -792,13 +829,13 @@ document
           stock,
           autoDesactivar,
           agotadoHoy,
+          puntos,
           unidadMedida,
           disponibleDesde,
           disponibleHasta,
           imagenes: [],
           createdAt: serverTimestamp(),
         });
-
         const archivos = imagenesSeleccionadas.filter(Boolean);
         const imagenes = [];
         for (const file of archivos) {
@@ -829,7 +866,7 @@ document
 async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
   await Promise.all(
     (imagenes || []).map((img) =>
-      deleteObject(storageRef(storage, img.path)).catch(() => {}),
+      deleteObject(storageRef(storage, img.path)).catch(() => { }),
     ),
   );
   await deleteDoc(doc(productosRef(categoriaId), productoId));
@@ -936,13 +973,12 @@ function renderProductoCard(categoriaId, productoId, data) {
         const stockBajo =
           typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
         const sinStock = typeof op.stock === "number" && op.stock <= 0;
-        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border ${
-          sinStock
-            ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
-            : stockBajo
-              ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
-              : "bg-purple-950/40 border-purple-800/30 text-purple-300"
-        }`;
+        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border ${sinStock
+          ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
+          : stockBajo
+            ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
+            : "bg-purple-950/40 border-purple-800/30 text-purple-300"
+          }`;
         let txt = op.costoAdicional
           ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})`
           : op.nombre;
@@ -992,11 +1028,10 @@ function renderProductoCard(categoriaId, productoId, data) {
 
   const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
-  estadoBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
-    data.disponible
-      ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
-      : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
-  }`;
+  estadoBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${data.disponible
+    ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
+    : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
+    }`;
   estadoBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${data.disponible ? "bg-emerald-400" : "bg-rose-400"}"></span><span>${data.disponible ? "Disponible" : "Agotado"}</span>`;
   estadoBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
@@ -1018,11 +1053,10 @@ function renderProductoCard(categoriaId, productoId, data) {
   agotadoHoyBtn.type = "button";
   agotadoHoyBtn.title =
     "Marcar/quitar 'Agotado hoy' (se acabó por hoy, mañana vuelve solo)";
-  agotadoHoyBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
-    data.agotadoHoy
-      ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
-      : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
-  }`;
+  agotadoHoyBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${data.agotadoHoy
+    ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
+    : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
+    }`;
   agotadoHoyBtn.textContent = data.agotadoHoy
     ? "Agotado hoy ✓"
     : "Marcar agotado hoy";
@@ -1645,7 +1679,7 @@ async function eliminarFotoCarta(collId, slotIndex) {
   if (!coleccion) return;
   try {
     const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
-    await deleteObject(storageRef(storage, path)).catch(() => {});
+    await deleteObject(storageRef(storage, path)).catch(() => { });
     const nuevasImagenes = [...coleccion.imagenes];
     nuevasImagenes[slotIndex] = null;
     await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
@@ -1670,7 +1704,7 @@ async function eliminarColeccionCarta(collId) {
       (coleccion.imagenes || []).map((url, i) => {
         if (!url) return Promise.resolve();
         const path = `tiendas/${tiendaId}/carta/${collId}/slot_${i}.webp`;
-        return deleteObject(storageRef(storage, path)).catch(() => {});
+        return deleteObject(storageRef(storage, path)).catch(() => { });
       }),
     );
     await deleteDoc(cartaDocRef(collId));

@@ -15,11 +15,12 @@ import {
   getDocs,
   addDoc,
   runTransaction,
+  increment,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import { db } from "../db/db.js";
 
-import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
+import { tiendaDoc, tiendaSubDoc, tiendaSubCol, data_user_logeado } from "../rutas/rutas.js";
 
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
@@ -201,6 +202,7 @@ const ESTADOS = ["pendiente", "en_proceso", "entregado", "rechazado"];
 const pedidosMap = new Map(); // id -> data
 const mesasMap = new Map(); // docId -> data (numero_mesa, nombre_alias, ...)
 const gruposMap = new Map();
+const clientesSeguidoresCache = new Map(); // uid -> true/false (existe en /clientes)
 const prevMoney = { pendiente: 0, en_proceso: 0, entregado: 0, rechazado: 0 };
 let activeTab = "pendiente";
 let activeModalId = null;
@@ -1171,13 +1173,15 @@ function buildCard(id, p) {
 
   const hitArea = document.createElement("div");
   hitArea.className = "oc-hit";
+  const esSeguidor = clientesSeguidoresCache.get(cliente.id_cliente) === true;
   hitArea.innerHTML = `
     <div class="oc-top">
       <span class="oc-id mono">#${id.slice(0, 6).toUpperCase()}</span>
       <span class="oc-time${esUrgente ? " urgent" : ""}" ${tsMs ? `data-ts="${tsMs}"` : ""}><span class="pulse"></span><span class="ts-label">${fecha ? timeAgo(fecha) : "—"}</span></span>
     </div>
-    <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}</div>
+    <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
+       ${p.puntos_ganados > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${p.puntos_ganados} pts al cliente</div>` : ""}
     <div class="oc-summary">
       <span class="oc-summary-left">${origenTagHtml(p)}</span>
       <div class="oc-summary-right">
@@ -1332,10 +1336,17 @@ function renderMesaDetail(numeroMesa) {
             <div class="dm-section-title">Detalle completo de la mesa</div>
             ${bloquesDePedidos}
         </div>
-        <div class="dm-total-row">
-            <span class="dm-total-lbl">Total a pagar</span>
-            <span class="dm-total-val">${fmtMoney(total)}</span>
-        </div>`;
+        ${p.puntos_ganados > 0 ? `
+    <div class="dm-meta-item full" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:10px 12px;">
+      <div class="dm-meta-label">🎁 Puntos a otorgar</div>
+      <div class="dm-meta-value" style="color:#fbbf24;font-weight:800;">+${p.puntos_ganados} puntos${p.estado === "entregado" ? " · ya acreditados" : " · se acreditan al marcar como entregado"}</div>
+    </div>` : ""}
+
+    <div class="dm-total-row">
+      <span class="dm-total-lbl">Total del pedido</span>
+      <span class="dm-total-val">${fmtMoney(p.total)}</span>
+    </div>
+  `;
 
   const dmActions = document.getElementById("dmActions");
   dmActions.innerHTML = "";
@@ -1700,8 +1711,9 @@ function renderDetail(id) {
   detailModal.dataset.status = estado;
   document.getElementById("dmId").innerHTML =
     `#${id.slice(0, 8).toUpperCase()} ${origenTagHtml(p)}`;
-  document.getElementById("dmName").textContent =
-    cliente.nombre || "Cliente sin nombre";
+  const esSeguidorDetalle = clientesSeguidoresCache.get(cliente.id_cliente) === true;
+  document.getElementById("dmName").innerHTML =
+    `${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidorDetalle ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}`;
   const dmTime = document.getElementById("dmTime");
   if (tsMs) {
     dmTime.dataset.ts = tsMs;
@@ -1925,11 +1937,28 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (opts.auto) payload.auto_rechazado = true;
 
     // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
+     // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
     if (nuevoEstado === "entregado") {
       const pedidoActual = pedidosMap.get(pedidoId);
       if (pedidoActual && !pedidoActual.stock_descontado) {
         await descontarStockPedido(pedidoActual);
         payload.stock_descontado = true;
+      }
+
+      // Acredita los puntos de fidelización al cliente (solo una vez)
+      if (pedidoActual && !pedidoActual.puntos_acreditados) {
+        const uid = pedidoActual.cliente?.id_cliente;
+        const puntosGanados = Number(pedidoActual.puntos_ganados) || 0;
+        if (uid && puntosGanados > 0) {
+          try {
+            await updateDoc(data_user_logeado(uid), {
+              [`puntos.${tiendaId}`]: increment(puntosGanados),
+            });
+            payload.puntos_acreditados = true;
+          } catch (err) {
+            console.error("No se pudieron acreditar los puntos:", err);
+          }
+        }
       }
     }
 
@@ -1942,6 +1971,33 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (opts.auto) autoRejectingIds.delete(pedidoId);
   }
 }
+async function verificarSeguidor(uid) {
+  if (!uid) return false;
+  if (clientesSeguidoresCache.has(uid)) return clientesSeguidoresCache.get(uid);
+  try {
+    const snap = await getDoc(data_user_logeado(uid));
+    const existe = snap.exists();
+    clientesSeguidoresCache.set(uid, existe);
+    return existe;
+  } catch (err) {
+    console.error("Error verificando seguidor:", err);
+    return false;
+  }
+}
+
+async function precargarSeguidores() {
+  const pendientes = [];
+  pedidosMap.forEach((p) => {
+    const uid = p.cliente?.id_cliente;
+    if (uid && !clientesSeguidoresCache.has(uid)) pendientes.push(uid);
+  });
+  const unicos = [...new Set(pendientes)];
+  if (!unicos.length) return;
+  await Promise.all(unicos.map((uid) => verificarSeguidor(uid)));
+  renderBoard(); // repinta ya con el badge de seguidor listo
+}
+
+
 function labelEstado(e) {
   return (
     {
@@ -3389,16 +3445,16 @@ function suscribirPedidos() {
     (snap) => {
       // Primera carga de este rango: solo llenamos el mapa, sin disparar
       // notificaciones de pedidos "nuevos" (evita spam de sonido al cambiar de fecha).
-      if (isFirstSnapshot) {
+        if (isFirstSnapshot) {
         pedidosMap.clear();
         snap.forEach((d) => pedidosMap.set(d.id, d.data()));
         isFirstSnapshot = false;
         renderBoard();
         hideLoader();
         chequearAutoRechazo();
+        precargarSeguidores();
         return;
       }
-
       const nuevosPendientes = [];
 
       snap.docChanges().forEach((change) => {
@@ -3435,8 +3491,8 @@ function suscribirPedidos() {
         } else pedidosMap.set(id, data);
       });
 
+      precargarSeguidores();
       renderBoard();
-
       if (nuevosPendientes.length) {
         playChime();
         bellRingFeedback();
@@ -3487,16 +3543,23 @@ function iniciarListenerGrupos() {
 
 async function aplicarVisibilidadPorCategoriaPedidos() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
-  if (!categoria) {
+  let modeloNegocio = sessionStorage.getItem("modeloNegocio"); // 👈 NUEVO
+
+  if (!categoria || modeloNegocio === null) {
     try {
       const snap = await getDoc(tiendaDoc(localidad, "tiendas", tiendaId));
       if (snap.exists()) {
-        categoria = snap.data().categoria_tienda || null;
+        const data = snap.data();
+        categoria = categoria || data.categoria_tienda || null;
+        modeloNegocio = data.modelo_negocio; // 👈 NUEVO (true/false)
         sessionStorage.setItem("categoriaTienda", categoria || "");
+        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio)); // 👈 NUEVO
       }
     } catch (err) {
       console.error("No se pudo obtener la categoría de la tienda.", err);
     }
+  } else {
+    modeloNegocio = modeloNegocio === "true"; // sessionStorage guarda strings
   }
 
   const esRestaurante =
@@ -3506,8 +3569,12 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       .trim()
       .toLowerCase() === "comida y restaurantes";
 
-  if (esRestaurante) return;
+  // Mesas solo se muestran si es restaurante Y tiene local físico
+  const debeMostrarMesas = esRestaurante && modeloNegocio === true; // 👈 NUEVO
 
+  if (debeMostrarMesas) return; // 👈 cambiado: antes era "if (esRestaurante) return;"
+
+  // ── Todo lo de abajo ya existía: oculta chip "Mesas" y reemplaza por "Nuevo pedido" ──
   const chipMesas = document.querySelector('.origin-chip[data-origin="mesa"]');
   if (chipMesas) chipMesas.remove();
   if (autoresBtn) autoresBtn.style.display = "none";

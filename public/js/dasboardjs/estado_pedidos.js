@@ -65,17 +65,33 @@ const enIdle = (fn) => {
     window.requestIdleCallback(fn, { timeout: 1500 });
   else setTimeout(fn, 200);
 };
-
 let unsubNegocio = null;
 let unsubPedido = null;
-let colorListo = null; // ← nuevo: Promise que resuelve cuando el color ya se aplicó (o falló/expiró)
-let primeraVezMostrado = false; // ← nuevo: solo esperamos el color en el primer render
+let colorListo = null;
+let primeraVezMostrado = false;
+let estadoAnterior = null;       // 👈 NUEVO: para detectar el cambio
+let primerRenderPedido = true;   // 👈 NUEVO: evita notificar en la carga inicial
 
 if (!ids) {
   showEmpty();
 } else {
   init(ids.negocioId, ids.pedidoId);
 }
+if (ids) {
+  init(ids.negocioId, ids.pedidoId);
+}
+
+// 👇 NUEVO: pide permiso de notificaciones en la primera interacción del cliente
+// (los navegadores bloquean el prompt automático si no hay gesto del usuario)
+document.addEventListener(
+  "click",
+  () => {
+    if (window.Notification && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => { });
+    }
+  },
+  { once: true },
+);
 
 // Limpia los listeners activos de Firestore si la pestaña se cierra o el
 // usuario navega fuera. Evita fugas de memoria/lecturas fantasma a escala.
@@ -98,7 +114,7 @@ function init(negocioId, pedidoId) {
           return;
         }
         const data = snap.data();
-        const nombre = data.nombre || "Negocio";
+        const nombre = data.nombre_tienda || data.nombre || "Negocio";
         const logoUrl = data.img_tienda?.logo_tienda || "";
         el("negocio-nombre").textContent = nombre;
         el("negocio-localidad").textContent = LOCALIDAD_FIJA;
@@ -146,18 +162,25 @@ function init(negocioId, pedidoId) {
         return;
       }
 
-      renderPedido(snap.data());
+      const data = snap.data();
+      const nuevoEstado = normalizarEstado(data.estado); // 👈 NUEVO
 
-      // Solo la PRIMERA vez esperamos a que el color del logo termine de aplicarse,
-      // para no mostrar un parpadeo con el color por defecto y luego el real.
-      // Actualizaciones posteriores en tiempo real se pintan al instante.
+      renderPedido(data);
+
+      // 👇 NUEVO: si el estado cambió respecto al anterior (y no es la primera carga),
+      // dispara la notificación push del navegador.
+      if (!primerRenderPedido && estadoAnterior !== null && nuevoEstado !== estadoAnterior) {
+        notificarCambioEstado(nuevoEstado, data);
+      }
+      estadoAnterior = nuevoEstado;
+      primerRenderPedido = false;
+
       if (!primeraVezMostrado) {
         primeraVezMostrado = true;
         if (colorListo) await colorListo;
       }
 
       showContent();
-      // fromCache=true mientras no hay red: el dato mostrado es el último conocido.
       mostrarBannerConexion(snap.metadata.fromCache);
     },
     (error) => {
@@ -190,6 +213,40 @@ function normalizarEstado(estado) {
   if (e === "entregado" || e.includes("entreg")) return "entregado";
   if (e === "en_proceso" || e.includes("proceso")) return "en_proceso";
   return "pendiente";
+}
+
+// 👇 NUEVO
+function notificarCambioEstado(nuevoEstado, data) {
+  if (!window.Notification || Notification.permission !== "granted") return;
+
+  const MENSAJES = {
+    pendiente: "Tu pedido está pendiente de confirmación.",
+    en_proceso: "¡Tu pedido está en preparación!",
+    entregado: "Tu pedido fue entregado. ¡Gracias por tu compra!",
+    rechazado: "Tu pedido fue rechazado.",
+  };
+
+  const nombreNegocio = el("negocio-nombre")?.textContent || "Geinz";
+  const logoUrl = el("logo-img")?.src || undefined;
+
+  try {
+    const n = new Notification(
+      `${nombreNegocio} · ${ESTADOS_LABEL[nuevoEstado] || nuevoEstado}`,
+      {
+        body: MENSAJES[nuevoEstado] || "El estado de tu pedido cambió.",
+        icon: logoUrl,
+        badge: logoUrl,
+        tag: "geinz-seguimiento-" + Date.now(),
+        requireInteraction: false,
+      },
+    );
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch (e) {
+    console.warn("[pedidos] No se pudo mostrar la notificación:", e);
+  }
 }
 
 function renderPedido(data) {

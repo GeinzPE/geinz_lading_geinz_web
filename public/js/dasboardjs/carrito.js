@@ -494,7 +494,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 function renderPedidoActivoMesa(pedido) {
@@ -664,8 +664,7 @@ async function loadTienda() {
     return null;
   }
 }
-
-async function loadProductosCatalogo() {
+async function loadProductosCatalogo(biz) {
   const catRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos");
   const catSnap = await getDocs(catRef);
 
@@ -703,7 +702,7 @@ async function loadProductosCatalogo() {
           }))
           .filter((c) => c.nombre && c.opciones.length > 0);
 
-        arr.push({
+            arr.push({
           id: pDoc.id,
           categoria,
           categoriaNorm: normalizeText(categoria),
@@ -713,6 +712,10 @@ async function loadProductosCatalogo() {
           imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
           imagen: d.imagenes?.[0]?.url || "",
           condiciones,
+          puntos:
+            biz?.fidelizacion?.activo && d.puntos?.activo && d.puntos?.cantidad > 0
+              ? { cantidad: d.puntos.cantidad, descripcion: d.puntos.descripcion || "" }
+              : null,
         });
       });
       return arr;
@@ -768,7 +771,7 @@ function aplicarModeloNegocio(biz) {
       o.classList.toggle("active", active);
       o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
     });
-     if (direccionEl) {
+    if (direccionEl) {
       // Se saca del sistema "collapse" por completo, así no depende de
       // ninguna clase/transición CSS que pueda estar fallando.
       direccionEl.classList.remove("hidden", "collapse", "open");
@@ -1037,11 +1040,10 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${
-    _bizLogoUrl
+  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
       ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
       : `<span class="ph-letter">${letraNegocio()}</span>`
-  }</div>`;
+    }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -1144,11 +1146,12 @@ function productoCard(p, index = 0) {
     .map((c) => `${c.nombre}: ${c.opciones.map((o) => o.nombre).join(", ")}`)
     .join(" · ");
 
-  info.innerHTML = `
+   info.innerHTML = `
     <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
+    ${p.puntos ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>` : ""}
   `;
 
   const qtyWrap = document.createElement("div");
@@ -1463,6 +1466,10 @@ function animateTotal(el, end) {
 
 let prevCartCount = 0;
 
+function calcularPuntosTotales(items) {
+  return items.reduce((s, it) => s + (it.puntos ? it.puntos.cantidad * it.cantidad : 0), 0);
+}
+
 function updateCartUI() {
   const items = [...carrito.values()];
   const count = items.reduce((s, i) => s + i.cantidad, 0);
@@ -1492,7 +1499,16 @@ function updateCartUI() {
   animateTotal(document.getElementById("sidebarTotal"), total);
   document.getElementById("sidebarCount").textContent =
     `${count} item${count === 1 ? "" : "s"}`;
-
+  const puntosTotales = calcularPuntosTotales(items);
+  [
+    document.getElementById("cartPuntos"),
+    document.getElementById("drawerPuntos"),
+    document.getElementById("sidebarPuntos"),
+  ].forEach((el) => {
+    if (!el) return;
+    el.textContent = puntosTotales > 0 ? `🎁 Ganas ${puntosTotales} puntos` : "";
+    el.classList.toggle("hidden", puntosTotales === 0);
+  });
   document.getElementById("cartBar").classList.toggle("show", count > 0);
   document.getElementById("checkoutBtnMobile").disabled = count === 0;
   document.getElementById("checkoutBtnDesktop").disabled = count === 0;
@@ -1530,8 +1546,8 @@ function renderCartList(wrap, items) {
     const precioNum = Number(it.precio) || 0;
     const opcionesTxt = it.seleccion
       ? Object.entries(it.seleccion)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ")
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(" · ")
       : "";
 
     let row = rowsMap.get(key);
@@ -1549,13 +1565,12 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
         <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-          ${
-            it.seleccion
-              ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
+          ${it.seleccion
+          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>`
-              : ""
-          }
+          : ""
+        }
           <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>
@@ -1716,8 +1731,8 @@ function renderCheckoutSummary() {
     .map((it) => {
       const opcionesTxt = it.seleccion
         ? Object.entries(it.seleccion)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
         : "";
       return `
     <div class="step-summary-row">
@@ -1728,7 +1743,15 @@ function renderCheckoutSummary() {
     })
     .join("");
   document.getElementById("checkoutTotal").textContent = total.toFixed(2);
+
+  const puntosTotales = calcularPuntosTotales(items);
+  const puntosEl = document.getElementById("checkoutPuntos");
+  if (puntosEl) {
+    puntosEl.textContent = puntosTotales > 0 ? `🎁 Ganas ${puntosTotales} puntos con este pedido` : "";
+    puntosEl.classList.toggle("hidden", puntosTotales === 0);
+  }
 }
+
 /* ══════════════ Guardar pedido en Firestore ══════════════ */
 async function guardarPedidoEnDB({
   nombre,
@@ -1764,10 +1787,10 @@ async function guardarPedidoEnDB({
     },
     mesa: mesaId
       ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+        id: mesaId,
+        nombre: mesaNombre || null,
+        numero: mesaNumero ? Number(mesaNumero) : null,
+      }
       : null,
 
     pago: {
@@ -1989,9 +2012,9 @@ async function init() {
     return;
   }
 
-  const [biz, productos, pedidoMesa] = await Promise.all([
-    loadTienda(),
-    loadProductosCatalogo(),
+  const biz = await loadTienda();
+  const [productos, pedidoMesa] = await Promise.all([
+    loadProductosCatalogo(biz),
     loadPedidoMesa(),
     cargarUsuarioLogeado(),
   ]);
