@@ -2236,6 +2236,7 @@ window.addEventListener("message", (event) => {
       ubicacion: d.ubicacion,
       saldo_tienda: d.saldo_tienda,
       facebook_page: d.facebook_page,
+      modelo_negocio: d.modelo_negocio,
     };
     _aplicarDatosTienda(datosTienda);
     actualizarEstadoBotonPublicar();
@@ -2299,6 +2300,20 @@ function _aplicarDatosTienda(d) {
     d.saldo_tienda = window._saldoPendiente;
     delete window._saldoPendiente;
   }
+
+  // Cercanía solo aplica a negocios con local físico (modelo_negocio !== false)
+  const esPresencial = d.modelo_negocio !== false;
+  const boxGeo = document.getElementById("paramBoxGeo");
+  if (boxGeo) {
+    boxGeo.style.display = esPresencial ? "" : "none";
+    if (!esPresencial) {
+      const geoSwitch = boxGeo.querySelector('.param-row input[type="checkbox"]');
+      const geoPanel = document.getElementById("geo");
+      if (geoSwitch) geoSwitch.checked = false;
+      if (geoPanel) geoPanel.classList.remove("open");
+    }
+  }
+
   const numeroWp = d.metodo_contacto?.whatsapp?.numero || "";
   const wpInput = document.querySelector('#wp input[type="text"]');
   if (wpInput && numeroWp) wpInput.value = numeroWp;

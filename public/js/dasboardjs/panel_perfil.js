@@ -511,6 +511,7 @@ window.PanelPerfil = {
       metodo_contacto: this.currentData?.metodo_contacto || {},
       metodos_pago: this.currentData?.metodos_pago || {},
       ubicacion: this.currentData?.ubicacion || {},
+      modelo_negocio: this.currentData?.modelo_negocio,
     };
   },
 
