@@ -20,7 +20,12 @@ import {
 
 import { db } from "../db/db.js";
 
-import { tiendaDoc, tiendaSubDoc, tiendaSubCol, data_user_logeado } from "../rutas/rutas.js";
+import {
+  tiendaDoc,
+  tiendaSubDoc,
+  tiendaSubCol,
+  data_user_logeado,
+} from "../rutas/rutas.js";
 
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
@@ -75,12 +80,27 @@ const MESA_ADMIN_CSS = `
         .mb-check{display:none;position:absolute;top:14px;left:14px;width:22px;height:22px;border-radius:50%;background:#7c5cff;color:#fff;align-items:center;justify-content:center;font-size:12px;font-weight:900;box-shadow:0 0 0 2px var(--bg,#08080c);}
         .mesa-box.selected .mb-check{display:flex;}
         .oc-btn.v-amber{background:var(--amber,#f59e0b);color:#1a1200;}
+        
         `;
 const styleTag = document.createElement("style");
 styleTag.textContent = MESA_ADMIN_CSS;
 document.head.appendChild(styleTag);
 
 const NP_CSS = `
+.oc-puntos-aceptar{
+  width:100%;
+  font-size:11.5px;
+  font-weight:700;
+  color:#fbbf24;
+  background:rgba(251,191,36,.1);
+  border:1px solid rgba(251,191,36,.25);
+  border-radius:10px;
+  padding:8px 10px;
+  margin-bottom:8px;
+}
+.oc-puntos-aceptar strong{
+  color:#fcd34d;
+}
         .np-pago-row{display:flex;gap:8px;margin-bottom:10px;}
 .np-pago-btn{flex:1;padding:8px 0;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:var(--ink-dim);font-weight:700;font-size:12.5px;cursor:pointer;}
 .np-pago-btn.active{background:#7c5cff;border-color:#7c5cff;color:#fff;}
@@ -1152,6 +1172,79 @@ function origenTagHtml(p) {
   return `<span class="oc-origin-tag">💬 WhatsApp</span>`;
 }
 
+/* ══════════════ Cálculo de puntos por pedido (respaldo) ══════════════
+   Si el pedido no trae "puntos_ganados" guardado (ej. el bot de WhatsApp no lo
+   calculó), se calcula aquí revisando la config real de cada producto en el
+   catálogo (producto.puntos.activo / puntos.cantidad). Se cachea para no
+   volver a consultar Firestore innecesariamente. */
+const productoPuntosCache = new Map(); // "categoria::id" -> {activo, cantidad} | null
+const puntosPedidoCache = new Map(); // pedidoId -> number ya calculado
+const puntosPedidoCalculando = new Set(); // evita fetches duplicados
+
+async function obtenerPuntosProducto(categoria, id) {
+  const key = `${categoria}::${id}`;
+  if (productoPuntosCache.has(key)) return productoPuntosCache.get(key);
+  try {
+    const ref = tiendaSubDoc(
+      localidad,
+      "tiendas",
+      tiendaId,
+      "productos",
+      categoria,
+      categoria,
+      id,
+    );
+    const snap = await getDoc(ref);
+    const puntos = snap.exists() ? snap.data().puntos || null : null;
+    productoPuntosCache.set(key, puntos);
+    return puntos;
+  } catch {
+    productoPuntosCache.set(key, null);
+    return null;
+  }
+}
+
+async function calcularPuntosPedidoAsync(pedidoId, p) {
+  if (puntosPedidoCalculando.has(pedidoId)) return;
+  puntosPedidoCalculando.add(pedidoId);
+  try {
+    const productos = Array.isArray(p.productos) ? p.productos : [];
+    let total = 0;
+    for (const it of productos) {
+      if (!it.id || !it.categoria) continue;
+      const conf = await obtenerPuntosProducto(it.categoria, it.id);
+      if (conf?.activo && Number(conf.cantidad) > 0) {
+        total += Number(conf.cantidad) * (Number(it.cantidad) || 0);
+      }
+    }
+    puntosPedidoCache.set(pedidoId, total);
+    if (total > 0) renderBoard(); // repinta ya con los puntos listos
+  } finally {
+    puntosPedidoCalculando.delete(pedidoId);
+  }
+}
+
+/* Puntos que da UN ítem específico del carrito, leyendo la caché ya poblada
+   por calcularPuntosPedidoAsync(). Si el producto aún no se consultó,
+   devuelve 0 (se repintará solo cuando la caché tenga el dato real). */
+function getPuntosItemDesdeCache(it) {
+  if (!it.id || !it.categoria) return 0;
+  const conf = productoPuntosCache.get(`${it.categoria}::${it.id}`);
+  if (conf?.activo && Number(conf.cantidad) > 0) {
+    return Number(conf.cantidad) * (Number(it.cantidad) || 0);
+  }
+  return 0;
+}
+/* Devuelve los puntos a mostrar: usa el valor guardado en el pedido si existe;
+   si no, dispara el cálculo (una sola vez) y mientras tanto devuelve lo que
+   ya esté en caché (0 la primera vez, luego el valor real). */
+function getPuntosPedido(pedidoId, p) {
+  const guardados = Number(p.puntos_ganados) || 0;
+  if (guardados > 0) return guardados;
+  if (puntosPedidoCache.has(pedidoId)) return puntosPedidoCache.get(pedidoId);
+  calcularPuntosPedidoAsync(pedidoId, p);
+  return 0;
+}
 function buildCard(id, p) {
   const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
   const fecha = toDate(p.timestamp);
@@ -1181,8 +1274,7 @@ function buildCard(id, p) {
     </div>
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
-       ${p.puntos_ganados > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${p.puntos_ganados} pts al cliente</div>` : ""}
-    <div class="oc-summary">
+       ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}    <div class="oc-summary">
       <span class="oc-summary-left">${origenTagHtml(p)}</span>
       <div class="oc-summary-right">
         <span class="oc-summary-total">${fmtMoney(p.total)}</span>
@@ -1203,7 +1295,13 @@ function buildCard(id, p) {
 function renderCardActions(container, id, estado, p) {
   container.innerHTML = "";
   if (estado === "pendiente") {
+    const puntosCalc = getPuntosPedido(id, p);
+    const puntosNota =
+      puntosCalc > 0
+        ? `<div class="oc-puntos-aceptar">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
+        : "";
     container.innerHTML = `
+      ${puntosNota}
       <div class="oc-actions">
         <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
         <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar →</button>
@@ -1304,16 +1402,18 @@ function renderMesaDetail(numeroMesa) {
           Array.isArray(p.bloques) && p.bloques.length
             ? bloquesHtml(p.bloques)
             : `<div class="dm-products">${productos
-                .map(
-                  (it) => `
+                .map((it) => {
+                  const ptsItem = getPuntosItemDesdeCache(it);
+                  return `
           <div class="dm-prod-row">
             <div>
               <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
               <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
+              ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
             </div>
             <div class="dm-prod-price">S/ ${Number(it.subtotal || 0).toFixed(2)}</div>
-          </div>`,
-                )
+          </div>`;
+                })
                 .join("")}</div>`;
 
         return `
@@ -1336,11 +1436,15 @@ function renderMesaDetail(numeroMesa) {
             <div class="dm-section-title">Detalle completo de la mesa</div>
             ${bloquesDePedidos}
         </div>
-        ${p.puntos_ganados > 0 ? `
+        ${
+          p.puntos_ganados > 0
+            ? `
     <div class="dm-meta-item full" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:10px 12px;">
       <div class="dm-meta-label">🎁 Puntos a otorgar</div>
       <div class="dm-meta-value" style="color:#fbbf24;font-weight:800;">+${p.puntos_ganados} puntos${p.estado === "entregado" ? " · ya acreditados" : " · se acreditan al marcar como entregado"}</div>
-    </div>` : ""}
+    </div>`
+            : ""
+        }
 
     <div class="dm-total-row">
       <span class="dm-total-lbl">Total del pedido</span>
@@ -1673,16 +1777,18 @@ function bloquesHtml(bloques) {
       <div class="dm-prod-cat" style="margin-bottom:6px;">${idx === 0 ? "Pedido inicial" : "Agregado"} · ${escapeHtml(bloque.hora)}${bloque.mesaOrigenNombre ? ` · 🪑 ${escapeHtml(bloque.mesaOrigenNombre)}` : ""}</div>
       <div class="dm-products">
         ${bloque.items
-          .map(
-            (it) => `
+          .map((it) => {
+            const ptsItem = getPuntosItemDesdeCache(it);
+            return `
           <div class="dm-prod-row">
             <div>
               <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
               <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
+              ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
             </div>
             <div class="dm-prod-price">S/ ${Number(it.subtotal || 0).toFixed(2)}</div>
-          </div>`,
-          )
+          </div>`;
+          })
           .join("")}
       </div>
     </div>`,
@@ -1711,7 +1817,8 @@ function renderDetail(id) {
   detailModal.dataset.status = estado;
   document.getElementById("dmId").innerHTML =
     `#${id.slice(0, 8).toUpperCase()} ${origenTagHtml(p)}`;
-  const esSeguidorDetalle = clientesSeguidoresCache.get(cliente.id_cliente) === true;
+  const esSeguidorDetalle =
+    clientesSeguidoresCache.get(cliente.id_cliente) === true;
   document.getElementById("dmName").innerHTML =
     `${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidorDetalle ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}`;
   const dmTime = document.getElementById("dmTime");
@@ -1727,18 +1834,20 @@ function renderDetail(id) {
 
   const prodRows =
     productos
-      .map(
-        (it) => `
+      .map((it) => {
+        const ptsItem = getPuntosItemDesdeCache(it);
+        return `
     <div class="dm-prod-row">
       <div>
         <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
         ${it.categoria ? `<div class="dm-prod-cat">${escapeHtml(it.categoria)}</div>` : ""}
         <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
+        ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
       </div>
       <div class="dm-prod-price">S/ ${Number(it.subtotal ?? it.precio_unitario * it.cantidad ?? 0).toFixed(2)}</div>
     </div>
-  `,
-      )
+  `;
+      })
       .join("") ||
     `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
 
@@ -1816,7 +1925,13 @@ function renderDetail(id) {
 function renderModalActions(container, id, estado, p) {
   container.innerHTML = "";
   if (estado === "pendiente") {
+    const puntosCalc = getPuntosPedido(id, p);
+    const puntosNota =
+      puntosCalc > 0
+        ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
+        : "";
     container.innerHTML = `
+      ${puntosNota}
       <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
       <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar pedido →</button>`;
   } else if (estado === "en_proceso") {
@@ -1920,6 +2035,60 @@ async function descontarStockPedido(pedido) {
     }
   }
 }
+
+/* ══════════════ Acreditar puntos al cliente en el doc de la TIENDA ══════════════
+   Ruta: Tiendas/.../tiendas/{tiendaId}/clientes/{uid}
+   - Si el doc no existe, crea fecha_inicio (primera vez que compra en esta tienda).
+   - "puntos" se acumula con increment (atómico, no se pisa entre pedidos simultáneos).
+   - "ultimo_consumo" se actualiza siempre.
+   - Guarda además un historial de compras en clientes/{uid}/historial para que la
+     tienda vea qué compró cada cliente y quién invierte más. */
+async function acreditarPuntosCliente(uid, tiendaId, puntosGanados, pedidoId, pedidoActual) {
+  const clienteRef = tiendaSubDoc(localidad, "tiendas", tiendaId, "clientes", uid);
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(clienteRef);
+      const updates = {
+        id: uid,
+        id_usuario: uid,
+        puntos: increment(puntosGanados),
+        ultimo_consumo: serverTimestamp(),
+      };
+      if (!snap.exists()) updates.fecha_inicio = serverTimestamp();
+      tx.set(clienteRef, updates, { merge: true });
+    });
+
+    const historialRef = tiendaSubCol(
+      localidad,
+      "tiendas",
+      tiendaId,
+      "clientes",
+      uid,
+      "historial",
+    );
+    await addDoc(historialRef, {
+      pedidoId,
+      fecha: serverTimestamp(),
+      total: Number(pedidoActual.total) || 0,
+      puntos_ganados: puntosGanados,
+      tipo_entrega: pedidoActual.cliente?.tipo_entrega || null,
+      productos: (pedidoActual.productos || []).map((it) => ({
+        id: it.id || null,
+        nombre: it.nombre || "",
+        categoria: it.categoria || null,
+        cantidad: it.cantidad || 0,
+        precio_unitario: Number(it.precio_unitario) || 0,
+        subtotal: Number(it.subtotal) || 0,
+      })),
+    });
+
+    return true;
+  } catch (err) {
+    console.error("No se pudieron acreditar los puntos al cliente (doc tienda):", err);
+    return false;
+  }
+}
 /* ══════════════ Cambiar estado en Firestore ══════════════ */
 async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
   if (btnEl) btnEl.disabled = true;
@@ -1937,7 +2106,7 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (opts.auto) payload.auto_rechazado = true;
 
     // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
-     // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
+    // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
     if (nuevoEstado === "entregado") {
       const pedidoActual = pedidosMap.get(pedidoId);
       if (pedidoActual && !pedidoActual.stock_descontado) {
@@ -1946,14 +2115,24 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
       }
 
       // Acredita los puntos de fidelización al cliente (solo una vez)
+      // Acredita los puntos de fidelización al cliente (solo una vez)
+          // Acredita los puntos de fidelización al cliente (solo una vez)
       if (pedidoActual && !pedidoActual.puntos_acreditados) {
         const uid = pedidoActual.cliente?.id_cliente;
-        const puntosGanados = Number(pedidoActual.puntos_ganados) || 0;
+        const puntosGanados =
+          Number(pedidoActual.puntos_ganados) ||
+          puntosPedidoCache.get(pedidoId) ||
+          0;
         if (uid && puntosGanados > 0) {
           try {
+            // 1) Perfil global del usuario (como ya lo tenías)
             await updateDoc(data_user_logeado(uid), {
               [`puntos.${tiendaId}`]: increment(puntosGanados),
             });
+
+            // 2) NUEVO: doc del cliente dentro de LA TIENDA + historial de compra
+            await acreditarPuntosCliente(uid, tiendaId, puntosGanados, pedidoId, pedidoActual);
+
             payload.puntos_acreditados = true;
           } catch (err) {
             console.error("No se pudieron acreditar los puntos:", err);
@@ -1996,7 +2175,6 @@ async function precargarSeguidores() {
   await Promise.all(unicos.map((uid) => verificarSeguidor(uid)));
   renderBoard(); // repinta ya con el badge de seguidor listo
 }
-
 
 function labelEstado(e) {
   return (
@@ -2907,7 +3085,14 @@ const NuevoPedido = {
     const porCategoria = await Promise.all(
       catSnap.docs.map(async (catDoc) => {
         const categoria = catDoc.id;
-        const subRef =  tiendaSubCol(localidad, "tiendas", tiendaId, "productos", categoria, categoria);
+        const subRef = tiendaSubCol(
+          localidad,
+          "tiendas",
+          tiendaId,
+          "productos",
+          categoria,
+          categoria,
+        );
         const subSnap = await getDocs(subRef);
         const arr = [];
         subSnap.forEach((pDoc) => {
@@ -3206,7 +3391,12 @@ const NuevoPedido = {
     btn.textContent = "Registrando…";
 
     try {
-      const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
+      const pedidosRef = tiendaSubCol(
+        localidad,
+        "tiendas",
+        tiendaId,
+        "pedidos",
+      );
       await addDoc(pedidosRef, {
         estado: "entregado", // ← antes decía "pendiente"
         fecha: now.toLocaleDateString("es-PE"),
@@ -3360,7 +3550,7 @@ function firmaPedidoMesa(pedido) {
 function iniciarListenerMesas() {
   if (!tiendaId || mesasListenerIniciado) return;
   mesasListenerIniciado = true;
-const mesasRef = tiendaSubCol(localidad, "tiendas", tiendaId, "mesas");
+  const mesasRef = tiendaSubCol(localidad, "tiendas", tiendaId, "mesas");
   const q = query(mesasRef, orderBy("numero_mesa"));
   onSnapshot(
     q,
@@ -3432,7 +3622,7 @@ function suscribirPedidos() {
   }
 
   const [from, to] = getDateFilterRange();
- const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
+  const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const q = query(
     pedidosRef,
     where("timestamp", ">=", Timestamp.fromDate(from)),
@@ -3445,7 +3635,7 @@ function suscribirPedidos() {
     (snap) => {
       // Primera carga de este rango: solo llenamos el mapa, sin disparar
       // notificaciones de pedidos "nuevos" (evita spam de sonido al cambiar de fecha).
-        if (isFirstSnapshot) {
+      if (isFirstSnapshot) {
         pedidosMap.clear();
         snap.forEach((d) => pedidosMap.set(d.id, d.data()));
         isFirstSnapshot = false;
@@ -3526,7 +3716,12 @@ let gruposListenerIniciado = false;
 function iniciarListenerGrupos() {
   if (!tiendaId || gruposListenerIniciado) return;
   gruposListenerIniciado = true;
-  const gruposRef = tiendaSubCol(localidad, "tiendas", tiendaId, "grupos_mesas");
+  const gruposRef = tiendaSubCol(
+    localidad,
+    "tiendas",
+    tiendaId,
+    "grupos_mesas",
+  );
   onSnapshot(
     gruposRef,
     (snap) => {

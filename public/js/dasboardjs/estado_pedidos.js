@@ -219,10 +219,15 @@ function normalizarEstado(estado) {
 function notificarCambioEstado(nuevoEstado, data) {
   if (!window.Notification || Notification.permission !== "granted") return;
 
+  const puntosGanados = Number(data.puntos_ganados) || 0;
+
   const MENSAJES = {
     pendiente: "Tu pedido está pendiente de confirmación.",
     en_proceso: "¡Tu pedido está en preparación!",
-    entregado: "Tu pedido fue entregado. ¡Gracias por tu compra!",
+    entregado:
+      puntosGanados > 0
+        ? `Tu pedido fue entregado. ¡Ganaste +${puntosGanados} puntos! 🎁`
+        : "Tu pedido fue entregado. ¡Gracias por tu compra!",
     rechazado: "Tu pedido fue rechazado.",
   };
 
@@ -249,6 +254,33 @@ function notificarCambioEstado(nuevoEstado, data) {
   }
 }
 
+function renderPuntos(data, estadoActual, esRechazado) {
+  const wrap = el("puntos-wrap");
+  const texto = el("puntos-texto");
+  if (!wrap || !texto) return;
+
+  const puntosGanados = Number(data.puntos_ganados) || 0;
+
+  if (esRechazado || puntosGanados <= 0) {
+    wrap.classList.add("hidden");
+    return;
+  }
+
+  wrap.classList.remove("hidden");
+
+  if (estadoActual === "entregado") {
+    if (data.puntos_acreditados) {
+      texto.textContent = `+${puntosGanados} puntos acreditados a tu cuenta`;
+    } else {
+      // Ya está "entregado" en pantalla pero el acreditado aún no llegó
+      // en este snapshot (puede tardar un instante); se actualiza solo.
+      texto.textContent = `Acreditando +${puntosGanados} puntos…`;
+    }
+  } else {
+    // pendiente / en_proceso: aviso de lo que ganará al completarse
+    texto.textContent = `Ganarás +${puntosGanados} puntos al completar tu pedido`;
+  }
+}
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
@@ -286,9 +318,12 @@ function renderPedido(data) {
   if (data.nota) el("nota-texto").textContent = data.nota;
 
   // Pago
+  // Pago
   el("pago-metodo").textContent = data.pago?.metodo || "—";
   el("pedido-total").textContent = Number(data.total || 0).toFixed(2);
 
+  // Puntos de fidelización
+  renderPuntos(data, estadoActual, esRechazado);
   // Productos (se reconstruye con nodos DOM en vez de innerHTML con datos
   // dinámicos: evita problemas de escape/XSS si un nombre trae caracteres especiales)
   const cont = el("productos-list");

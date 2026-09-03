@@ -315,7 +315,6 @@ function crearQREstilizado(codigoStr, colorHex){
 /* QR del reverso. Si la librería no cargó, cae a un QR plano vía API pública. */
 function pintarQR(codigoStr, colorHex){
   const canvasHost = document.getElementById("qrCanvas");
-  const fallbackImg = document.getElementById("qrFallbackImg");
 
   if(typeof window.QRCodeStyling === "function"){
     canvasHost.innerHTML = "";
@@ -325,11 +324,7 @@ function pintarQR(codigoStr, colorHex){
     canvasHost.classList.remove("hidden");
   } else {
     const hexClean = colorHex.replace("#", "");
-    fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=6&color=${hexClean}&bgcolor=ffffff&data=${encodeURIComponent(codigoStr)}`;
-    fallbackImg.onload = () => {
-      document.getElementById("qrSkeleton")?.remove();
-      fallbackImg.classList.remove("hidden");
-    };
+   
   }
 
   document.getElementById("qrCodeText").textContent = "ID: " + codigoStr;

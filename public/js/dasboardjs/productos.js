@@ -162,6 +162,18 @@ document.querySelectorAll(".overlay").forEach((ov) => {
   });
 });
 
+/* ---------------- Tabs del modal de producto (Básico / Avanzado) ---------------- */
+function activarTabProducto(targetId) {
+  document.querySelectorAll(".tab-btn-form").forEach((b) =>
+    b.classList.toggle("active-tab", b.dataset.tabTarget === targetId),
+  );
+  document.querySelectorAll(".tab-panel-form").forEach((p) =>
+    p.classList.toggle("active-tab-panel", p.id === targetId),
+  );
+}
+document.querySelectorAll(".tab-btn-form").forEach((btn) => {
+  btn.addEventListener("click", () => activarTabProducto(btn.dataset.tabTarget));
+});
 let confirmCallback = null;
 function askConfirm(title, body, onConfirm) {
   document.getElementById("confirm-title").textContent = title;
@@ -645,10 +657,11 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   document.getElementById("producto-cat-hint").textContent =
     `Se incluirá en "${categoriaNombre}".`;
   document.getElementById("btn-guardar-producto-label").textContent =
-    "Crear producto";
+    "Guardar cambios";
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
+  activarTabProducto("tab-basico"); // ← faltaba esto
   openOverlay("overlay-producto");
 }
 

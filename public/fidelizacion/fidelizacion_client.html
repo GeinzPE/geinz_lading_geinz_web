@@ -223,15 +223,15 @@
   }
 
   /* ---------- Reverso: QR estilo puntos (IG) ---------- */
-  .qr-frame{
+.qr-frame{
     background: #ffffff;
-    border-radius: 18px;
-    padding: 14px;
+    border-radius: 20px;
+    padding: 16px;
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--brand-vivid) 45%, transparent),
       0 20px 45px -15px color-mix(in srgb, var(--brand-vivid) 45%, transparent);
-    width: clamp(150px, 46vw, 200px);
-    height: clamp(150px, 46vw, 200px);
+    width: clamp(220px, 62vw, 280px);
+    height: clamp(220px, 62vw, 280px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -432,7 +432,6 @@
 
             <div class="qr-frame relative z-10">
               <div id="qrCanvas" class="hidden"></div>
-              <img id="qrFallbackImg" alt="Código QR del cliente" class="hidden">
               <div id="qrSkeleton" class="skeleton qr-skeleton-box"></div>
             </div>
 

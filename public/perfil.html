@@ -29,6 +29,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="./img/icons/favicon-16x16.png">
     <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
     <link rel="manifest" href="./img/icons/site.webmanifest">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
     <style>
         .addr-virtual-badge {
             display: flex;
@@ -125,6 +131,325 @@
         .fidelizacion-card:hover .fidelizacion-arrow {
             transform: translateX(4px);
         }
+
+        .banner-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10003;
+            background: rgba(3, 3, 3, .8);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .35s ease, visibility .35s ease;
+            padding: 20px;
+        }
+
+        .banner-modal.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .banner-modal-box {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            border-radius: 32px;
+            overflow: hidden;
+            background: #0b0b0d;
+            border: 1px solid rgba(var(--dr), var(--dg), var(--db), .3);
+            box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .8), 0 0 50px -12px rgba(var(--dr), var(--dg), var(--db), .35);
+            transform: scale(.92) translateY(10px);
+            transition: transform .35s cubic-bezier(.34, 1.15, .4, 1);
+        }
+
+        .banner-modal.open .banner-modal-box {
+            transform: scale(1) translateY(0);
+        }
+
+        .banner-modal-media {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 5;
+        }
+
+        .banner-modal-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .banner-modal-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, .5) 88%, rgba(0, 0, 0, .7) 100%);
+        }
+
+        .banner-modal-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(0, 0, 0, .45);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            backdrop-filter: blur(4px);
+            transition: background .2s ease, transform .15s ease;
+        }
+
+        .banner-modal-close:hover {
+            background: rgba(0, 0, 0, .7);
+            transform: scale(1.06);
+        }
+
+        @media (max-width: 480px) {
+            .banner-modal-box {
+                max-width: 100%;
+                border-radius: 24px;
+            }
+        }
+
+        .geinz-footer {
+            position: relative;
+            margin-top: 80px;
+            padding: 90px 0 32px;
+            background: transparent;
+            overflow: hidden;
+        }
+
+
+        .geinz-footer-inner {
+            position: relative;
+            z-index: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        @media (min-width: 768px) {
+            .geinz-footer-inner {
+                padding: 0 32px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .geinz-footer-inner {
+                padding: 0 40px;
+            }
+        }
+
+        .geinz-footer-top {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            padding-bottom: 40px;
+            margin-bottom: 32px;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+        }
+
+        @media (min-width: 900px) {
+            .geinz-footer-top {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+        }
+
+        .geinz-footer-brand {
+            max-width: 380px;
+        }
+
+        .geinz-footer-logo-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .geinz-footer-logo-img {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(var(--dr), var(--dg), var(--db), .5);
+            box-shadow: 0 0 18px rgba(var(--dr), var(--dg), var(--db), .35);
+            background: #111;
+        }
+
+        .geinz-footer-bizname {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -.01em;
+        }
+
+        .geinz-footer-tagline {
+            font-size: 13.5px;
+            color: #86868c;
+            line-height: 1.6;
+        }
+
+        .geinz-footer-cols {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 32px;
+        }
+
+        @media (min-width: 640px) {
+            .geinz-footer-cols {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 900px) {
+            .geinz-footer-cols {
+                grid-template-columns: repeat(3, minmax(150px, 1fr));
+                gap: 48px;
+            }
+        }
+
+        .geinz-footer-col-title {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: rgba(var(--dr), var(--dg), var(--db), .95);
+            margin-bottom: 16px;
+        }
+
+        .geinz-footer-links {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+        }
+
+        .geinz-footer-links a {
+            font-size: 13.5px;
+            color: #b4b4ba;
+            text-decoration: none;
+            transition: color .18s ease, padding-left .18s ease;
+            display: inline-block;
+        }
+
+        .geinz-footer-links a:hover {
+            color: #fff;
+            padding-left: 3px;
+        }
+
+        .geinz-footer-social {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .geinz-footer-social a {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid rgba(255, 255, 255, .08);
+            color: #cfcfd4;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background .2s ease, transform .18s ease, color .2s ease;
+        }
+
+        .geinz-footer-social a:hover {
+            background: rgba(var(--dr), var(--dg), var(--db), .18);
+            border-color: rgba(var(--dr), var(--dg), var(--db), .5);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+        .geinz-footer-bottom {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            align-items: center;
+            text-align: center;
+        }
+
+        @media (min-width: 700px) {
+            .geinz-footer-bottom {
+                flex-direction: row;
+                justify-content: space-between;
+                text-align: left;
+            }
+        }
+
+        .geinz-footer-copy {
+            font-size: 12px;
+            color: #6c6c72;
+        }
+
+        .geinz-footer-copy strong {
+            color: #9c9ca3;
+        }
+
+        .geinz-footer-powered {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            color: #6c6c72;
+        }
+
+        .geinz-footer-powered img {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            opacity: .85;
+        }
+
+        .geinz-footer-powered b {
+            color: rgba(var(--dr), var(--dg), var(--db), .95);
+            font-weight: 700;
+        }
+
+        .geinz-footer-legal-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            justify-content: center;
+        }
+
+        @media (min-width: 700px) {
+            .geinz-footer-legal-row {
+                justify-content: flex-end;
+            }
+        }
+
+        .geinz-footer-legal-row a {
+            font-size: 12px;
+            color: #7a7a80;
+            text-decoration: none;
+            transition: color .18s ease;
+        }
+
+        .geinz-footer-legal-row a:hover {
+            color: #fff;
+        }
+
+        .geinz-footer-legal-row span {
+            color: #3a3a3f;
+        }
     </style>
 </head>
 
@@ -215,6 +540,7 @@
                 </div>
             </div>
         </section>
+
 
 
         <section id="secPromosActivas" class="mb-20 reveal" style="display:none;">
@@ -362,6 +688,32 @@
                 </div>
             </div>
         </section>
+        <section id="secReviews" class="section glass mb-10 reveal">
+            <div class="section-header">Reseñas y calificaciones</div>
+            <div class="section-body">
+                <div class="reviews-summary" id="reviewsSummary">
+                    <div class="reviews-summary-score">
+                        <div class="reviews-avg" id="reviewsAvgNum">0.0</div>
+                        <span class="reviews-word">Excelente</span>
+                    </div>
+                    <div class="reviews-summary-right">
+                        <div class="reviews-stars-display" id="reviewsAvgStars"></div>
+                        <div class="reviews-count" id="reviewsCountText">Sin reseñas todavía</div>
+                    </div>
+                    <button class="reviews-cta-btn" id="btnAbrirReview">
+                        <i class="fa-solid fa-pen"></i> <span id="btnAbrirReviewLabel">Dejar una reseña</span>
+                    </button>
+                </div>
+                <div class="reviews-list" id="reviewsList"></div>
+                <div class="reviews-gallery-wrap" id="reviewsGalleryWrap" style="display:none;">
+                    <p class="reviews-gallery-title">Fotos de la comunidad</p>
+                    <div id="reviewsGalleryGrid" class="reviews-gallery-grid"></div>
+                </div>
+                <div class="reviews-empty" id="reviewsEmpty" style="display:none;">
+                    Sé el primero en dejar una reseña de este negocio ⭐
+                </div>
+            </div>
+        </section>
         <section id="secPromos" class="mb-28 reveal" style="display:none;">
             <div class="mb-10">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PROMOCIONES</p>
@@ -379,7 +731,7 @@
                     style="background: rgba(var(--dr),var(--dg),var(--db),.3)"></div>
                 <div class="relative z-10 p-8 md:p-16 flex flex-col xl:flex-row gap-10 xl:items-center justify-between">
                     <div class="max-w-4xl">
-                        <p class="uppercase tracking-[5px] accent text-sm mb-5">Powered by GEINZ</p>
+                        <p class="uppercase tracking-[5px] text-sm mb-5" style="color: #fff;">Powered by GEINZ</p>
                         <h2 class="text-5xl md:text-7xl font-black leading-[.95] mb-6">Descubre más negocios,
                             promociones y servicios.</h2>
                         <p class="text-gray-300 text-lg">Explora negocios modernos y experiencias increíbles dentro de
@@ -394,6 +746,68 @@
         </section>
     </main>
 
+    <footer class="geinz-footer" id="geinzFooter">
+        <div class="geinz-footer-inner">
+            <div class="geinz-footer-top">
+                <div class="geinz-footer-brand">
+                    <div class="geinz-footer-logo-row">
+                        <img id="footerLogoImg" class="geinz-footer-logo-img" src="" alt="" style="display:none;" />
+                        <span id="footerBizName" class="geinz-footer-bizname">Negocio</span>
+                    </div>
+                    <p class="geinz-footer-tagline">
+                        Perfil digital creado con Geinz — la plataforma que conecta negocios locales con sus clientes.
+                    </p>
+                    <div class="geinz-footer-social" id="footerSocialRow"></div>
+                </div>
+
+                <div class="geinz-footer-cols">
+                    <div>
+                        <div class="geinz-footer-col-title">Negocio</div>
+                        <ul class="geinz-footer-links">
+                            <li><a href="#secDesc">Sobre el negocio</a></li>
+                            <li><a href="#secProductos">Productos y servicios</a></li>
+                            <li><a href="#secAddr">Ubicación y horario</a></li>
+                            <li><a href="#secContact">Contacto</a></li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <div class="geinz-footer-col-title">Legal</div>
+                        <ul class="geinz-footer-links">
+                            <li><a href="#" id="linkLibroReclamaciones" target="_blank" rel="noopener">Libro de
+                                    Reclamaciones</a></li>
+                            <li><a href="#" id="linkTerminos" target="_blank" rel="noopener">Términos y condiciones</a>
+                            </li>
+                            <li><a href="#" id="linkPrivacidad" target="_blank" rel="noopener">Política de
+                                    privacidad</a></li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <div class="geinz-footer-col-title">Geinz</div>
+                        <ul class="geinz-footer-links">
+                            <li><a href="https://geinztech.com" target="_blank" rel="noopener">Explorar Geinz</a></li>
+                            <li><a href="https://geinztech.com/soporte" target="_blank" rel="noopener">Soporte</a></li>
+                            <li><a href="https://geinztech.com/registro-negocio" target="_blank" rel="noopener">Registra
+                                    tu negocio</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="geinz-footer-bottom">
+                <p class="geinz-footer-copy">
+                    © <span id="footerYear"></span> <strong id="footerCopyName">Negocio</strong>. Todos los derechos
+                    reservados.
+                </p>
+                <div class="geinz-footer-legal-row">
+                    <span class="geinz-footer-powered">
+                        <img src="./img/icons/favicon-96x96.png" alt="Geinz" /> Powered by <b>GEINZ</b>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </footer>
     <div id="toast">Copiado correctamente</div>
 
     <div id="lightboxModal" class="lightbox-modal">
@@ -433,6 +847,15 @@
             <button id="mesaReservaSubmit" class="mesa-reserva-submit">Reservar</button>
         </div>
     </div>
+    <div id="bannerModal" class="banner-modal">
+        <div class="banner-modal-box">
+            <button id="bannerModalClose" class="banner-modal-close" aria-label="Cerrar">✕</button>
+            <div class="banner-modal-media">
+                <img id="bannerImg" src="" alt="Promoción" />
+                <div class="banner-modal-overlay"></div>
+            </div>
+        </div>
+    </div>
     <div id="loginPromptModal" class="login-prompt-modal">
         <div class="login-prompt-box">
             <button id="loginPromptClose" class="login-prompt-close" aria-label="Cerrar">✕</button>
@@ -459,6 +882,29 @@
                 <button id="unfollowConfirmAccept" class="login-prompt-btn-primary">Sí, dejar de seguir</button>
                 <button id="unfollowConfirmCancel" class="login-prompt-btn-secondary">Cancelar</button>
             </div>
+        </div>
+    </div>
+    <div id="reviewModal" class="mesa-reserva-modal">
+        <div class="mesa-reserva-box review-modal-box">
+            <button id="reviewModalClose" class="mesa-reserva-close" aria-label="Cerrar">✕</button>
+            <h3 id="reviewModalTitle">Deja tu reseña</h3>
+            <p class="mesa-reserva-sub">Cuéntale a otros cómo fue tu experiencia</p>
+
+            <div class="review-stars-picker" id="reviewStarsPicker">
+                <span class="review-star" data-val="1">★</span>
+                <span class="review-star" data-val="2">★</span>
+                <span class="review-star" data-val="3">★</span>
+                <span class="review-star" data-val="4">★</span>
+                <span class="review-star" data-val="5">★</span>
+            </div>
+
+            <textarea id="reviewDescInput" placeholder="Escribe tu experiencia..." maxlength="500"></textarea>
+
+            <div class="review-img-grid" id="reviewImgGrid"></div>
+            <input type="file" id="reviewImgInput" accept="image/*" style="display:none;">
+
+            <p id="reviewModalError" class="mesa-reserva-error"></p>
+            <button id="reviewSubmitBtn" class="mesa-reserva-submit">Publicar reseña</button>
         </div>
     </div>
 </body>

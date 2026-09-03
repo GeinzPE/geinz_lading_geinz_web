@@ -6,6 +6,10 @@ import { setFaviconCircular } from "../favicon/favicon.js";
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
 let _currentUid = null; // NUEVO
+let _fidelizacionActiva = false;
+let _bannerShown = false;
+let _fidelizacionMensajeInactivo =
+  "Este negocio no tiene el programa de fidelización activo por el momento.";
 function showNotFoundScreen(message = "") {
   hideBizLoader();
   document.body.innerHTML = "";
@@ -438,9 +442,6 @@ function hideBizLoader() {
   }
 }
 
-// ══════════════════════════════════════════
-//  FIREBASE
-// ══════════════════════════════════════════
 import {
   doc,
   getDoc,
@@ -454,8 +455,19 @@ import {
   where,
   limit,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { db, auth } from "../db/db.js";
-import { tiendaDoc, tiendaCol, tiendaSubCol } from "../rutas/rutas.js";
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { db, auth, storage } from "../db/db.js";
+import {
+  tiendaDoc,
+  tiendaCol,
+  tiendaSubCol,
+  tiendaSubDoc,
+  data_user_logeado,
+} from "../rutas/rutas.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 async function getParams() {
   const path = window.location.pathname;
@@ -591,50 +603,77 @@ async function loadCarta({ localidad, id }) {
   }
 }
 
-async function loadActivePromos({ localidad, id }) {
+function listenCartaRealtime({ localidad, id }, categoria, aliasKey, nombreNegocio, onFirstLoad) {
+  try {
+    const ref = tiendaSubCol(localidad, "tiendas", id, "carta");
+    let isFirst = true;
+    return onSnapshot(ref, (snap) => {
+      const secciones = [];
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const imgs = (data.imagenes || []).filter(Boolean);
+        if (imgs.length)
+          secciones.push({
+            nombre: data.nombre || docSnap.id,
+            imagenes: imgs,
+            texto: data.texto || "",
+          });
+      });
+      renderCarta(secciones, categoria, aliasKey, nombreNegocio);
+      if (isFirst) {
+        isFirst = false;
+        if (typeof onFirstLoad === "function") onFirstLoad(secciones);
+      }
+    });
+  } catch (e) {
+    console.warn("No se pudo escuchar la carta en tiempo real:", e.message);
+  }
+}
+
+function listenActivePromosRealtime({ localidad, id }) {
   try {
     const ref = tiendaSubCol(localidad, "tiendas", id, "promociones_geinz");
-    const snap = await getDocs(ref);
-    const now = Date.now();
-    const promos = [];
+    return onSnapshot(ref, (snap) => {
+      const now = Date.now();
+      const promos = [];
 
-    snap.forEach((docSnap) => {
-      const data = docSnap.data();
-      const fh = data.datos_hora_fecha || {}; // ← el mapa anidado real
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const fh = data.datos_hora_fecha || {}; // ← el mapa anidado real
 
-      // ── Estado: "estado" está en la raíz, "activo" está dentro de datos_hora_fecha ──
-      const estadoOk = data.estado === "activo";
-      const activoOk = fh.activo !== false; // si no existe el campo, se asume true
-      if (!estadoOk || !activoOk) return;
+        // ── Estado: "estado" está en la raíz, "activo" está dentro de datos_hora_fecha ──
+        const estadoOk = data.estado === "activo";
+        const activoOk = fh.activo !== false; // si no existe el campo, se asume true
+        if (!estadoOk || !activoOk) return;
 
-      // ── Inicio de vigencia ──
-      const inicioMs = fh.timestamp_inicio?.toMillis
-        ? fh.timestamp_inicio.toMillis()
-        : null;
-      if (inicioMs && inicioMs > now) return; // aún no empieza
+        // ── Inicio de vigencia ──
+        const inicioMs = fh.timestamp_inicio?.toMillis
+          ? fh.timestamp_inicio.toMillis()
+          : null;
+        if (inicioMs && inicioMs > now) return; // aún no empieza
 
-      // ── Fin de vigencia: prioriza timestamp_fin (fuente de verdad) ──
-      let finMs = fh.timestamp_fin?.toMillis
-        ? fh.timestamp_fin.toMillis()
-        : null;
+        // ── Fin de vigencia: prioriza timestamp_fin (fuente de verdad) ──
+        let finMs = fh.timestamp_fin?.toMillis
+          ? fh.timestamp_fin.toMillis()
+          : null;
 
-      // ── Respaldo: fecha_fin + hora_fin como texto, hora de Lima (UTC-5 fijo) ──
-      if (finMs === null && fh.fecha_fin) {
-        finMs = parseFechaHoraLima(fh.fecha_fin, fh.hora_fin);
-      }
+        // ── Respaldo: fecha_fin + hora_fin como texto, hora de Lima (UTC-5 fijo) ──
+        if (finMs === null && fh.fecha_fin) {
+          finMs = parseFechaHoraLima(fh.fecha_fin, fh.hora_fin);
+        }
 
-      if (finMs === null) return; // sin forma de determinar vigencia → se descarta
+        if (finMs === null) return; // sin forma de determinar vigencia → se descarta
 
-      if (finMs < now) return; // ← ya venció
+        if (finMs < now) return; // ← ya venció
 
-      promos.push({ id: docSnap.id, ...data, _finMs: finMs });
+        promos.push({ id: docSnap.id, ...data, _finMs: finMs });
+      });
+
+      promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
+      renderActivePromos(promos.slice(0, 4), localidad);
     });
-
-    promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
-    return promos.slice(0, 4);
   } catch (e) {
-    console.warn("No se pudieron cargar promociones activas:", e.message);
-    return [];
+    console.warn("No se pudieron escuchar promociones activas:", e.message);
   }
 }
 /* Convierte "dd/mm/yyyy" + "HH:mm" (hora de Lima, UTC-5 fijo) a milisegundos UTC.
@@ -910,15 +949,20 @@ function renderPuntosBadge(puntos) {
 }
 
 document.getElementById("puntosBadge")?.addEventListener("click", () => {
+  if (!_fidelizacionActiva) {
+    showToast(_fidelizacionMensajeInactivo); // muestra el mensaje real desde la DB
+    return;
+  }
+
   const url = new URL(
     "../../fidelizacion/fidelizacion_client.html",
     window.location.href,
   );
-  url.searchParams.set("id", id);
-  url.searchParams.set("uid", uid); // NUEVO
+  url.searchParams.set("localidad", _params.localidad);
+  url.searchParams.set("id", _params.id);
+  if (_currentUid) url.searchParams.set("uid", _currentUid);
   window.location.href = url.toString();
 });
-
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
   const icon = document.getElementById("followIcon");
@@ -1876,7 +1920,7 @@ const LIGHTBOX_CSS = `
     justify-content: center;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.28s ease;
+ transition: opacity 0.28s ease, visibility 0.28s ease;
     touch-action: none;
     overscroll-behavior: contain;
 }
@@ -2024,7 +2068,7 @@ const MESAS_CSS = `
 .mesa-chip.mesa-libre{cursor:pointer;border-color:rgba(var(--dr),var(--dg),var(--db),.55);background:rgba(var(--dr),var(--dg),var(--db),.12);}
 .mesa-chip.mesa-libre:hover{transform:translateY(-2px);box-shadow:0 0 18px rgba(var(--dr),var(--dg),var(--db),.35);border-color:rgba(var(--dr),var(--dg),var(--db),.8);}
 .mesa-chip.mesa-ocupada,.mesa-chip.mesa-reservada{cursor:not-allowed;opacity:.45;}
-.mesa-reserva-modal{position:fixed;inset:0;z-index:10001;background:rgba(3,3,3,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s ease;padding:20px;}
+.mesa-reserva-modal{position:fixed;inset:0;z-index:10001;background:rgba(3,3,3,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s ease, visibility .25s ease;padding:20px;}
 .mesa-reserva-modal.open{opacity:1;visibility:visible;}
 .mesa-reserva-box{width:100%;max-width:340px;background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.35);border-radius:24px;padding:24px 22px;position:relative;transform:scale(.96);transition:transform .25s ease;}
 .mesa-reserva-modal.open .mesa-reserva-box{transform:scale(1);}
@@ -2186,6 +2230,37 @@ function closeLoginPromptModal() {
   document.body.style.overflow = "";
 }
 
+function showPromoBanner(biz) {
+  if (_bannerShown) return;
+  const bannerModal = document.getElementById("bannerModal");
+  const bannerImg = document.getElementById("bannerImg");
+  if (!bannerModal || !bannerImg) return;
+
+  const banner = biz.banner || {};
+  if (banner.activo === true && banner.imagen) {
+    bannerImg.onload = () => {
+      bannerModal.classList.add("open");
+      document.body.style.overflow = "hidden";
+      _bannerShown = true;
+    };
+    bannerImg.onerror = () => {};
+    bannerImg.src = banner.imagen;
+  }
+}
+
+function bindBannerModalEvents() {
+  const modal = document.getElementById("bannerModal");
+  const closeBanner = () => {
+    modal?.classList.remove("open");
+    document.body.style.overflow = "";
+  };
+  document
+    .getElementById("bannerModalClose")
+    ?.addEventListener("click", closeBanner);
+  modal?.addEventListener("click", (e) => {
+    if (e.target.id === "bannerModal") closeBanner();
+  });
+}
 function bindLoginPromptEvents() {
   document
     .getElementById("loginPromptClose")
@@ -2464,7 +2539,7 @@ function tryHideLoader() {
     hideBizLoader();
   }
 }
-async function render(biz) {
+async function render(biz, isInitial = true) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
   const categoria = biz.categoria_tienda || "—";
   const subcategorias = Array.isArray(biz.subcategoria) ? biz.subcategoria : [];
@@ -2486,6 +2561,68 @@ async function render(biz) {
   const logoUrl = biz.img_tienda?.logo_tienda || null;
   _bizLogoUrl = logoUrl;
   _bizNombre = nombre;
+  // Footer dinámico
+  const footerBizName = document.getElementById("footerBizName");
+  const footerCopyName = document.getElementById("footerCopyName");
+  const footerYear = document.getElementById("footerYear");
+  const footerLogoImg = document.getElementById("footerLogoImg");
+
+  if (footerBizName) footerBizName.textContent = nombre;
+  if (footerCopyName) footerCopyName.textContent = nombre;
+  if (footerYear) footerYear.textContent = new Date().getFullYear();
+  if (footerLogoImg) {
+    if (logoUrl) {
+      footerLogoImg.src = logoUrl;
+      footerLogoImg.style.display = "block";
+    } else {
+      footerLogoImg.style.display = "none";
+    }
+  }
+
+  // Redes sociales en el footer (reutiliza los contactos ya normalizados)
+  const footerSocialRow = document.getElementById("footerSocialRow");
+  if (footerSocialRow) {
+    footerSocialRow.innerHTML = "";
+    const socialIcons = {
+      whatsapp: "fa-brands fa-whatsapp",
+      facebook: "fa-brands fa-facebook-f",
+      instagram: "fa-brands fa-instagram",
+      tiktok: "fa-brands fa-tiktok",
+      web: "fa-solid fa-globe",
+    };
+    contactos.forEach((c) => {
+      if (!socialIcons[c.tipo]) return;
+      const meta = CONTACT_META[c.tipo];
+      const a = document.createElement("a");
+      a.href = meta ? meta.getHref(c) : c.valor;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.innerHTML = `<i class="${socialIcons[c.tipo]}"></i>`;
+      footerSocialRow.appendChild(a);
+    });
+  }
+
+  // Links legales (por ahora estáticos; luego se activan/desactivan desde biz.legal.*)
+  const legal = biz.legal || {};
+  const linkLibro = document.getElementById("linkLibroReclamaciones");
+  const linkTerminos = document.getElementById("linkTerminos");
+  const linkPrivacidad = document.getElementById("linkPrivacidad");
+
+  if (linkLibro) {
+    linkLibro.style.display =
+      legal.libroReclamacionesActivo !== false ? "" : "none";
+    if (legal.libroReclamacionesUrl)
+      linkLibro.href = legal.libroReclamacionesUrl;
+  }
+  if (linkTerminos) {
+    linkTerminos.style.display = legal.terminosActivo !== false ? "" : "none";
+    if (legal.terminosUrl) linkTerminos.href = legal.terminosUrl;
+  }
+  if (linkPrivacidad) {
+    linkPrivacidad.style.display =
+      legal.privacidadActivo !== false ? "" : "none";
+    if (legal.privacidadUrl) linkPrivacidad.href = legal.privacidadUrl;
+  }
   // ── COLOR + LOGO: solo la primera vez ──
   if (!_colorReady) {
     applyDominantColor(colorFromName(nombre));
@@ -2547,41 +2684,44 @@ async function render(biz) {
 
   document.getElementById("descText").textContent = descripcion;
 
-  const addrReal = document.getElementById("addrRealContent");
-  const addrVirtual = document.getElementById("addrVirtualContent");
+  // ── UBICACIÓN: solo se pinta en la carga inicial / recarga normal (NO tiempo real) ──
+  if (isInitial) {
+    const addrReal = document.getElementById("addrRealContent");
+    const addrVirtual = document.getElementById("addrVirtualContent");
 
-  if (esPresencial) {
-    if (addrReal) addrReal.style.display = "";
-    if (addrVirtual) addrVirtual.style.display = "none";
+    if (esPresencial) {
+      if (addrReal) addrReal.style.display = "";
+      if (addrVirtual) addrVirtual.style.display = "none";
 
-    document.getElementById("addrText").textContent =
-      ubicacion.dirección || "—";
-    document.getElementById("refText").textContent =
-      ubicacion.referencia || "—";
+      document.getElementById("addrText").textContent =
+        ubicacion.dirección || "—";
+      document.getElementById("refText").textContent =
+        ubicacion.referencia || "—";
 
-    const zonaSection = document.getElementById("zonaSection");
-    if (zonaSection) {
-      const aforoMax = biz.aforo_max;
-      const zonaTexto = ubicacion.zona
-        ? aforoMax
-          ? `${ubicacion.zona} / Aforo máx. ${aforoMax} personas`
-          : ubicacion.zona
-        : aforoMax
-          ? `Aforo máx. ${aforoMax} personas`
-          : null;
+      const zonaSection = document.getElementById("zonaSection");
+      if (zonaSection) {
+        const aforoMax = biz.aforo_max;
+        const zonaTexto = ubicacion.zona
+          ? aforoMax
+            ? `${ubicacion.zona} / Aforo máx. ${aforoMax} personas`
+            : ubicacion.zona
+          : aforoMax
+            ? `Aforo máx. ${aforoMax} personas`
+            : null;
 
-      if (zonaTexto) {
-        document.getElementById("zonaText").textContent = zonaTexto;
-        zonaSection.style.display = "";
-      } else {
-        zonaSection.style.display = "none";
+        if (zonaTexto) {
+          document.getElementById("zonaText").textContent = zonaTexto;
+          zonaSection.style.display = "";
+        } else {
+          zonaSection.style.display = "none";
+        }
       }
+    } else {
+      if (addrReal) addrReal.style.display = "none";
+      if (addrVirtual) addrVirtual.style.display = "flex";
     }
-  } else {
-    if (addrReal) addrReal.style.display = "none";
-    if (addrVirtual) addrVirtual.style.display = "flex";
   }
-  // Horario
+  // Horario (SÍ tiempo real)
   const gridSched = document.getElementById("schedGrid");
   if (gridSched) {
     gridSched.innerHTML = "";
@@ -2609,10 +2749,10 @@ async function render(biz) {
     });
   }
 
-  // Contactos
-  if (contactos.length) renderContactDetail(contactos);
+  // Contactos (NO tiempo real)
+  if (isInitial && contactos.length) renderContactDetail(contactos);
 
-  // Pagos
+  // Pagos (SÍ tiempo real)
   const payGrid = document.getElementById("payGrid");
   if (payGrid && pagos.length) {
     payGrid.innerHTML = "";
@@ -2624,9 +2764,9 @@ async function render(biz) {
     });
   }
 
-  // Amenities
+  // Amenities / servicios y comodidades (NO tiempo real)
   const amenitiesGrid = document.getElementById("amenitiesGrid");
-  if (amenitiesGrid && amenities.length) {
+  if (isInitial && amenitiesGrid && amenities.length) {
     amenitiesGrid.innerHTML = "";
     amenities.forEach(({ name, icon }) => {
       const chip = document.createElement("div");
@@ -2636,9 +2776,9 @@ async function render(biz) {
     });
   }
 
-  // Productos Grid
+  // Productos Grid (imágenes → NO tiempo real)
   const prodGrid = document.getElementById("productosGrid");
-  if (prodGrid && productos.length) {
+  if (isInitial && prodGrid && productos.length) {
     prodGrid.innerHTML = "";
 
     // Grid dinámico según cantidad real visible
@@ -2678,9 +2818,9 @@ async function render(biz) {
     });
   }
 
-  // Ambientes Grid
+  // Ambientes Grid (imágenes → NO tiempo real)
   const ambGrid = document.getElementById("ambientesGrid");
-  if (ambGrid && ambientales.length) {
+  if (isInitial && ambGrid && ambientales.length) {
     ambGrid.innerHTML = "";
 
     const isMobileAmb = window.matchMedia("(max-width: 767px)").matches;
@@ -2719,10 +2859,10 @@ async function render(biz) {
     });
   }
 
-  // Carrusel completo
-  if (todas.length) buildFullGallery(todas);
+  // Carrusel completo (imágenes → NO tiempo real)
+  if (isInitial && todas.length) buildFullGallery(todas);
 
-  // Promociones
+  // Promociones (SÍ tiempo real)
   const promosSec = document.getElementById("secPromos");
   const promoCarousel = document.getElementById("promoCarousel");
   if (promoImages.length && promosSec && promoCarousel) {
@@ -2803,26 +2943,29 @@ async function render(biz) {
       else copyToClipboard(fullText);
     };
 
-  // Ocultar secciones vacías
-  if (!productos.length)
-    document
-      .getElementById("secProductos")
-      ?.style.setProperty("display", "none");
-  if (!ambientales.length)
-    document
-      .getElementById("secAmbientes")
-      ?.style.setProperty("display", "none");
-  _navState.productos = productos.length > 0;
-  _navState.ambientes = ambientales.length > 0;
-  updateQuickNav();
-  if (!contactos.length)
-    document.getElementById("secContact")?.style.setProperty("display", "none");
+  // Ocultar secciones vacías (solo en la carga inicial, ya que dependen de datos NO tiempo real)
+  if (isInitial) {
+    if (!productos.length)
+      document
+        .getElementById("secProductos")
+        ?.style.setProperty("display", "none");
+    if (!ambientales.length)
+      document
+        .getElementById("secAmbientes")
+        ?.style.setProperty("display", "none");
+    _navState.productos = productos.length > 0;
+    _navState.ambientes = ambientales.length > 0;
+    updateQuickNav();
+    if (!contactos.length)
+      document.getElementById("secContact")?.style.setProperty("display", "none");
+    if (!amenities.length)
+      document
+        .getElementById("secAmenities")
+        ?.style.setProperty("display", "none");
+  }
   if (!pagos.length)
     document.getElementById("secPay")?.style.setProperty("display", "none");
-  if (!amenities.length)
-    document
-      .getElementById("secAmenities")
-      ?.style.setProperty("display", "none");
+  else document.getElementById("secPay")?.style.setProperty("display", "");
 
   const exploreBtn = document.getElementById("exploreBtn");
   if (exploreBtn) {
@@ -2832,7 +2975,12 @@ async function render(biz) {
 
   // ── Reglas por plan y modelo de negocio ──
 
-  const fidelizacion = normalizeFidelizacion(biz.fidelizacion);
+  const fidelizacionRaw = biz.fidelizacion || {};
+  const fidelizacion = normalizeFidelizacion(fidelizacionRaw);
+  _fidelizacionActiva = !!fidelizacion; // NUEVO
+  _fidelizacionMensajeInactivo =
+    fidelizacionRaw.mensajeInactivo ||
+    "Este negocio no tiene el programa de fidelización activo por el momento."; // NUEVO
   const secFidel = document.getElementById("secFidelizacion");
   if (fidelizacion) {
     secFidel.style.display = "";
@@ -2876,25 +3024,1135 @@ function listenBusinessRealtime({ localidad, id }) {
   return onSnapshot(ref, (snap) => {
     if (snap.exists()) {
       const changed = snap.metadata.hasPendingWrites === false; // vino del server
-      render({ id: snap.id, ...snap.data() });
+      render({ id: snap.id, ...snap.data() }, false);
     }
   });
+}
+// ══════════════════════════════════════════
+//  RESEÑAS
+// ══════════════════════════════════════════
+let _reviewsUnsub = null;
+let _reviewsCache = [];
+let _misReview = null;
+let _reviewImagesData = [null, null, null, null, null];
+let _reviewSelectedSlot = null;
+let _reviewCalificacion = 0;
+let _reviewUserNameCache = {};
+let _galleryLoadedOnce = false; // la galería de fotos de la comunidad solo se carga una vez (no en tiempo real)
+const REVIEWS_CSS = `
+.reviews-summary{display:flex;align-items:stretch;gap:28px;flex-wrap:wrap;padding:26px 28px;border-radius:22px;background:linear-gradient(135deg, rgba(var(--dr),var(--dg),var(--db),.08), rgba(255,255,255,.02));border:1px solid rgba(var(--dr),var(--dg),var(--db),.25);margin-bottom:22px;}
+.reviews-avg{font-weight:900;font-size:44px;color:#fff;line-height:1;}
+.reviews-summary-right{display:flex;flex-direction:column;gap:5px;}
+.reviews-stars-display{font-size:16px;letter-spacing:2px;color:#2c2c33;}
+.reviews-stars-display .star-fill{color:#fbbf24;}
+.reviews-count{font-size:12.5px;color:var(--muted,#9c9ca3);}
+.reviews-cta-btn{margin-left:auto;display:flex;align-items:center;gap:8px;padding:12px 20px;border:none;border-radius:14px;font-weight:700;font-size:13.5px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));box-shadow:0 8px 20px -6px rgba(var(--dr),var(--dg),var(--db),.5);white-space:nowrap;}
+
+.reviews-list{display:flex;flex-direction:column;gap:14px;}
+
+.review-item{
+  padding:20px 22px;
+  border-radius:18px;
+  background:var(--surface,rgba(255,255,255,.02));
+  border:1px solid var(--border,rgba(255,255,255,.06));
+  opacity:0;
+  transform:translateY(10px);
+  transition: opacity .4s ease, transform .4s cubic-bezier(.22,.85,.32,1), border-color .25s ease, background .25s ease;
+}
+  .review-item.in{
+  opacity:1;
+  transform:translateY(0);
+}
+  .reviews-list-more-wrap{ display:flex; justify-content:center; margin-top:8px; }
+.reviews-list-more-btn{
+  padding:11px 22px;border-radius:999px;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+  background:rgba(var(--dr),var(--dg),var(--db),.1);
+  color:#fff;font-weight:700;font-size:13px;cursor:pointer;
+  transition:background .2s ease, border-color .2s ease, transform .15s ease;
+}
+.reviews-list-more-btn:hover{
+  background:rgba(var(--dr),var(--dg),var(--db),.22);
+  transform:translateY(-1px);
+}
+.review-item:hover,
+.review-item:focus-within{
+  border-color:rgba(var(--dr),var(--dg),var(--db),.35);
+  background:rgba(255,255,255,.035);
+}
+
+.review-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}
+.review-item-who{display:flex;align-items:center;gap:11px;min-width:0;}
+.review-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13.5px;color:#fff;background:linear-gradient(135deg,rgba(var(--dr),var(--dg),var(--db),.9),rgba(var(--dr),var(--dg),var(--db),.4));}
+.review-item-name{font-size:13.5px;font-weight:700;color:#fff;line-height:1.3;}
+.review-item-date{font-size:11.5px;color:var(--muted,#9c9ca3);margin-top:1px;}
+
+.review-item-badge{
+  flex-shrink:0;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 11px;border-radius:999px;
+  background:rgba(var(--dr),var(--dg),var(--db),.13);
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.35);
+  color:#fff;font-size:12.5px;font-weight:700;
+}
+.review-item-badge .badge-star{color:#fbbf24;font-size:12px;}
+
+.review-item-desc{
+  font-size:14px;line-height:1.65;color:#d4d4d8;
+  margin:0 0 14px;white-space:pre-wrap;
+}
+.review-item-desc.clamped{
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+.review-item-more{
+  background:none;border:none;padding:0;margin:-8px 0 14px;
+  font-size:12.5px;font-weight:700;cursor:pointer;
+  color:rgba(var(--dr),var(--dg),var(--db),.95);
+}
+
+.reviews-empty{font-size:13px;color:var(--muted,#9c9ca3);text-align:center;padding:28px 0;}
+.review-modal-box{max-width:400px;}
+.review-stars-picker{display:flex;gap:10px;justify-content:center;margin:6px 0 18px;}
+.review-star{font-size:34px;color:#2c2c33;cursor:pointer;transition:color .15s ease,transform .15s ease;user-select:none;}
+.review-star.active{color:#fbbf24;transform:scale(1.08);}
+#reviewDescInput{width:100%;min-height:90px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#fff;font-size:13.5px;font-family:inherit;resize:vertical;margin-bottom:14px;box-sizing:border-box;}
+.review-img-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
+.review-img-slot{aspect-ratio:1;border-radius:12px;border:1.5px dashed rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;background:rgba(255,255,255,.03);}
+.review-img-slot img{width:100%;height:100%;object-fit:cover;display:none;}
+.review-img-slot.filled img{display:block;}
+.review-img-slot.filled .review-img-plus{display:none;}
+.review-img-plus{font-size:16px;color:var(--muted,#9c9ca3);}
+.review-img-remove{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;border:none;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;}
+.review-img-slot.filled .review-img-remove{display:flex;}
+
+/* ── Galería de reseñas — estilo premium tipo TripAdvisor ── */
+.reviews-gallery-title{
+  font-size:14px;
+  font-weight:700;
+  color:#fff;
+  margin:2px 0 16px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  letter-spacing:.01em;
+}
+.reviews-gallery-title{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top: 20px;}
+.reviews-gallery-count{ color:var(--muted,#9c9ca3); font-weight:600; font-size:13px; }
+.reviews-gallery-seeall{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 16px;
+  border-radius:999px;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+  background:rgba(var(--dr),var(--dg),var(--db),.1);
+  cursor:pointer;
+  font-size:12.5px;
+  font-weight:700;
+  color:#fff;
+  letter-spacing:.01em;
+  transition:background .2s ease, border-color .2s ease, transform .15s ease;
+}
+/* Fila horizontal tipo TripAdvisor */
+.reviews-gallery-row{
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  scroll-snap-type:x proximity;
+  padding-bottom:2px;
+  margin-bottom:28px;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+  margin-top: 20px;
+}
+.reviews-gallery-row::-webkit-scrollbar{ display:none; }
+.reviews-gallery-row::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:10px; }
+
+.reviews-gallery-item{
+  position:relative;
+  flex:0 0 140px;
+  width:140px;
+  height:140px;
+  scroll-snap-align:start;
+  cursor:pointer;
+  overflow:hidden;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.08);
+  background:#0b0b0d;
+  transition:transform .25s ease, border-color .25s ease;
+}
+.reviews-gallery-item:hover{
+  transform:translateY(-3px);
+  border-color:rgba(var(--dr),var(--dg),var(--db),.55);
+}
+.reviews-gallery-item img{ width:100%; height:100%; object-fit:cover; display:block; }
+.reviews-gallery-more{
+  position:absolute; inset:0;
+  background:rgba(4,4,6,.68);
+  backdrop-filter:blur(4px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; font-size:20px; font-weight:800; color:#fff;
+}
+.reviews-gallery-more span{ font-size:11px; font-weight:600; opacity:.85; }
+
+@media (max-width:640px){
+  .reviews-gallery-item{ flex-basis:104px; width:104px; height:104px; border-radius:14px; }
+}
+
+/* Modal "ver todas" — grid responsive elegante */
+.reviews-gallery-modal{
+  position:fixed; inset:0; z-index:10003;
+  background:rgba(3,3,3,.85);
+  backdrop-filter:blur(8px);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; visibility:hidden;
+ transition:opacity .25s ease, visibility .25s ease;
+  padding:24px;
+}
+  .reviews-gallery-seeall:hover{
+  background:rgba(var(--dr),var(--dg),var(--db),.22);
+  border-color:rgba(var(--dr),var(--dg),var(--db),.7);
+  transform:translateY(-1px);
+}
+.reviews-gallery-modal.open{ opacity:1; visibility:visible; }
+.reviews-gallery-modal-box{
+  width:100%; max-width:960px; max-height:86vh;
+  background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.3);
+  border-radius:24px;
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  transform:scale(.96);
+  transition:transform .25s ease;
+}
+.reviews-gallery-modal.open .reviews-gallery-modal-box{ transform:scale(1); }
+.reviews-gallery-modal-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 22px; border-bottom:1px solid rgba(255,255,255,.08);
+}
+.reviews-gallery-modal-header h3{ margin:0; font-size:16px; font-weight:800; color:#fff; }
+#reviewsGalleryModalCount{ color:var(--muted,#9c9ca3); font-weight:600; font-size:13px; margin-left:6px; }
+.reviews-gallery-modal-close{
+  width:34px; height:34px; border:none; border-radius:50%;
+  background:rgba(255,255,255,.08); color:#fff; cursor:pointer; font-size:14px;
+}
+.reviews-gallery-modal-grid{
+  padding:20px 22px; overflow-y:auto;
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+  gap:10px;
+}
+.reviews-gallery-modal-item{
+  aspect-ratio:1; border-radius:14px; overflow:hidden; cursor:pointer;
+  border:1px solid rgba(255,255,255,.06);
+  transition:transform .2s ease, border-color .2s ease;
+}
+  .reviews-gallery-modal-item{
+  opacity: 0;
+  transform: scale(.94) translateY(8px);
+}
+.reviews-gallery-modal-item.in{
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+.reviews-gallery-modal-item:hover{ transform:scale(1.03); border-color:rgba(var(--dr),var(--dg),var(--db),.5); }
+.reviews-gallery-modal-item img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+@media (max-width:640px){
+  .reviews-gallery-modal{ padding:0; }
+  .reviews-gallery-modal-box{ max-width:100%; max-height:100vh; border-radius:0; height:100%; }
+  .reviews-gallery-modal-grid{ grid-template-columns:repeat(3,1fr); }
+}.rv-lightbox{
+  position:fixed;inset:0;z-index:10005;
+  background:#000;
+  display:flex;flex-direction:column;
+  opacity:0;visibility:hidden;
+  transition:opacity .25s ease, visibility .25s ease;
+}
+.rv-lightbox.open{opacity:1;visibility:visible;}
+.rv-lightbox-topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;
+  background:#0b0b0d;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  flex-shrink:0;
+}
+.rv-lightbox-back{
+  background:none;border:1px solid rgba(255,255,255,.15);color:#fff;
+  padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:6px;
+}
+.rv-lightbox-back:hover{background:rgba(255,255,255,.08);}
+.rv-lightbox-close{
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:15px;
+  flex-shrink:0;
+}
+.rv-lightbox-body{ flex:1;display:flex;overflow:hidden; }
+.rv-lightbox-sidebar{
+  width:340px;flex-shrink:0;
+  padding:26px 24px;
+  overflow-y:auto;
+  border-right:1px solid rgba(255,255,255,.08);
+  background:#0b0b0d;
+}
+.rv-lightbox-avatar{
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:16px;color:#fff;
+  background:linear-gradient(135deg,rgba(var(--dr),var(--dg),var(--db),.9),rgba(var(--dr),var(--dg),var(--db),.4));
+  margin-bottom:12px;
+}
+.rv-lightbox-name{font-size:15px;font-weight:700;color:#fff;margin-bottom:8px;}
+.rv-lightbox-stars{color:#2c2c33;font-size:15px;letter-spacing:2px;margin-bottom:14px;}
+.rv-lightbox-stars .star-fill{color:#fbbf24;}
+.rv-lightbox-desc{font-size:14px;line-height:1.65;color:#d4d4d8;margin:0 0 6px;white-space:pre-wrap;}
+.rv-lightbox-desc.clamped{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;}
+.rv-lightbox-readmore{
+  background:none;border:none;padding:0;margin-bottom:16px;
+  font-size:12.5px;font-weight:700;cursor:pointer;
+  color:rgba(var(--dr),var(--dg),var(--db),.95);
+}
+.rv-lightbox-date{font-size:12px;color:var(--muted,#9c9ca3);}
+.rv-lightbox-stage{
+  flex:1;position:relative;display:flex;align-items:center;justify-content:center;
+  background:#000;padding:20px;
+}
+.rv-lightbox-stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;}
+.rv-lightbox-counter{
+  position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  font-size:12.5px;font-weight:600;color:rgba(255,255,255,.8);
+  background:rgba(255,255,255,.08);padding:5px 14px;border-radius:20px;
+}
+.rv-lightbox-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:46px;height:46px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:20px;
+  display:flex;align-items:center;justify-content:center;
+}
+.rv-lightbox-nav:hover{background:rgba(255,255,255,.18);}
+.rv-lightbox-prev{left:16px;}
+.rv-lightbox-next{right:16px;}
+
+@media (max-width:767px){
+  .rv-lightbox-body{flex-direction:column;}
+  .rv-lightbox-sidebar{
+    width:100%;order:2;border-right:none;
+    border-top:1px solid rgba(255,255,255,.08);
+    padding:16px 18px 24px;
+  }
+  .rv-lightbox-stage{order:1;flex:0 0 auto;height:44vh;padding:0;}
+  .rv-lightbox-nav{width:38px;height:38px;font-size:16px;}
+  .rv-lightbox-back span{display:none;}
+  .rv-lightbox-topbar{padding:12px 14px;}
+}
+`;
+let _rvPhotos = [];
+let _rvIndex = 0;
+let _rvBackContext = null;
+
+function bindReviewsLightboxEvents() {
+  if (document.getElementById("reviewsLightboxModal")) return;
+  injectReviewsStyles();
+
+  const modal = document.createElement("div");
+  modal.id = "reviewsLightboxModal";
+  modal.className = "rv-lightbox";
+  modal.innerHTML = `
+    <div class="rv-lightbox-topbar">
+      <button class="rv-lightbox-back" id="rvLightboxBack">‹ <span>Volver a la galería</span></button>
+      <button class="rv-lightbox-close" id="rvLightboxClose">✕</button>
+    </div>
+    <div class="rv-lightbox-body">
+      <div class="rv-lightbox-sidebar">
+        <div class="rv-lightbox-avatar" id="rvLightboxAvatar"></div>
+        <div class="rv-lightbox-name" id="rvLightboxName"></div>
+        <div class="rv-lightbox-stars" id="rvLightboxStars"></div>
+        <p class="rv-lightbox-desc" id="rvLightboxDesc"></p>
+        <button class="rv-lightbox-readmore" id="rvLightboxReadMore" style="display:none">Leer más</button>
+        <div class="rv-lightbox-date" id="rvLightboxDate"></div>
+      </div>
+      <div class="rv-lightbox-stage">
+        <div class="rv-lightbox-counter" id="rvLightboxCounter"></div>
+        <button class="rv-lightbox-nav rv-lightbox-prev" id="rvLightboxPrev">‹</button>
+        <img id="rvLightboxImg" alt="">
+        <button class="rv-lightbox-nav rv-lightbox-next" id="rvLightboxNext">›</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById("rvLightboxClose").addEventListener("click", closeReviewsLightbox);
+  document.getElementById("rvLightboxBack").addEventListener("click", () => {
+    closeReviewsLightbox();
+    if (_rvBackContext) _rvBackContext();
+  });
+  document.getElementById("rvLightboxPrev").addEventListener("click", () => rvGoTo(_rvIndex - 1));
+  document.getElementById("rvLightboxNext").addEventListener("click", () => rvGoTo(_rvIndex + 1));
+
+  document.addEventListener("keydown", (e) => {
+    if (!modal.classList.contains("open")) return;
+    if (e.key === "Escape") closeReviewsLightbox();
+    if (e.key === "ArrowRight") rvGoTo(_rvIndex + 1);
+    if (e.key === "ArrowLeft") rvGoTo(_rvIndex - 1);
+  });
+
+  let touchStartX = 0;
+  const stage = modal.querySelector(".rv-lightbox-stage");
+  stage.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener("touchend", (e) => {
+    const diff = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(diff) > 50) diff > 0 ? rvGoTo(_rvIndex - 1) : rvGoTo(_rvIndex + 1);
+  }, { passive: true });
+}
+
+function openReviewsLightbox(photos, index, backContext = null) {
+  bindReviewsLightboxEvents();
+  _rvPhotos = photos;
+  _rvIndex = index;
+  _rvBackContext = backContext;
+
+  const modal = document.getElementById("reviewsLightboxModal");
+  modal.querySelectorAll(".rv-lightbox-nav").forEach(
+    (b) => (b.style.display = photos.length > 1 ? "flex" : "none")
+  );
+
+  rvRender();
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeReviewsLightbox() {
+  document.getElementById("reviewsLightboxModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function rvGoTo(n) {
+  if (!_rvPhotos.length) return;
+  _rvIndex = ((n % _rvPhotos.length) + _rvPhotos.length) % _rvPhotos.length;
+  rvRender();
+}
+
+function rvRender() {
+  const photo = _rvPhotos[_rvIndex];
+  if (!photo) return;
+
+  document.getElementById("rvLightboxImg").src = photo.url;
+  document.getElementById("rvLightboxCounter").textContent =
+    `${_rvIndex + 1} de ${_rvPhotos.length}`;
+
+  document.getElementById("rvLightboxAvatar").textContent =
+    (photo.nombre || "?").trim().charAt(0).toUpperCase();
+  document.getElementById("rvLightboxName").textContent = photo.nombre || "Usuario Geinz";
+  document.getElementById("rvLightboxStars").innerHTML = starsHTML(photo.calificacion || 0);
+
+  const descEl = document.getElementById("rvLightboxDesc");
+  const moreBtn = document.getElementById("rvLightboxReadMore");
+  const esLarga = (photo.descripcion || "").length > 240;
+
+  descEl.textContent = photo.descripcion || "";
+  descEl.classList.toggle("clamped", esLarga);
+  moreBtn.style.display = esLarga ? "inline-block" : "none";
+  moreBtn.textContent = "Leer más";
+  moreBtn.onclick = () => {
+    const expandido = !descEl.classList.contains("clamped");
+    descEl.classList.toggle("clamped", expandido);
+    moreBtn.textContent = expandido ? "Leer más" : "Leer menos";
+  };
+
+  const fecha = photo.timestamp?.toDate
+    ? photo.timestamp.toDate().toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+    : "";
+  document.getElementById("rvLightboxDate").textContent = fecha;
+}
+function renderReviewsBreakdown(reviews) {
+  let container = document.getElementById("reviewsBreakdown");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "reviewsBreakdown";
+    container.className = "reviews-breakdown";
+    const summaryRight = document.querySelector(".reviews-summary-right");
+    if (summaryRight) summaryRight.after(container);
+  }
+
+  const buckets = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  reviews.forEach((r) => {
+    const n = Math.round(Number(r.calificacion) || 0);
+    if (buckets[n] !== undefined) buckets[n]++;
+  });
+
+  const labels = {
+    5: "Excelente",
+    4: "Bueno",
+    3: "Promedio",
+    2: "Malo",
+    1: "Terrible",
+  };
+
+  const total = reviews.length || 1;
+
+  container.innerHTML = [5, 4, 3, 2, 1]
+    .map((n) => {
+      const count = buckets[n];
+      const pct = Math.round((count / total) * 100);
+      return `
+        <div class="reviews-breakdown-row">
+          <span class="reviews-breakdown-label">${labels[n]}</span>
+          <div class="reviews-breakdown-bar">
+            <div class="reviews-breakdown-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="reviews-breakdown-count">${count}</span>
+        </div>`;
+    })
+    .join("");
+}
+function injectReviewsStyles() {
+  if (document.getElementById("reviewsStyle")) return;
+  const style = document.createElement("style");
+  style.id = "reviewsStyle";
+  style.textContent = REVIEWS_CSS;
+  document.head.appendChild(style);
+}
+
+function comprimirImagenReview(dataURL, maxPx = 1024, calidad = 0.82) {
+  return new Promise((resolve, reject) => {
+    const imgEl = new Image();
+    imgEl.onload = () => {
+      let { width, height } = imgEl;
+      if (width > maxPx || height > maxPx) {
+        if (width >= height) {
+          height = Math.round((height * maxPx) / width);
+          width = maxPx;
+        } else {
+          width = Math.round((width * maxPx) / height);
+          height = maxPx;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(imgEl, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", calidad));
+    };
+    imgEl.onerror = () => reject(new Error("No se pudo leer imagen"));
+    imgEl.src = dataURL;
+  });
+}
+
+function dataURLtoBlobReview(dataURL) {
+  const [header, base64] = dataURL.split(",");
+  const mime = header.match(/:(.*?);/)[1];
+  const binary = atob(base64);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+// ⚠️ Ajusta los nombres de campo si tu doc de usuario usa otro nombre
+async function getUserDisplayName(uid) {
+  if (_reviewUserNameCache[uid]) return _reviewUserNameCache[uid];
+  try {
+    const snap = await getDoc(data_user_logeado(uid));
+    const d = snap.exists() ? snap.data() : {};
+    const nombre =
+      d.nombre_completo ||
+      d.nombre ||
+      d.displayName ||
+      auth.currentUser?.displayName ||
+      "Usuario Geinz";
+    _reviewUserNameCache[uid] = nombre;
+    return nombre;
+  } catch {
+    return "Usuario Geinz";
+  }
+}
+
+function tiltFromId(id = "") {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 1000;
+  return (h % 9) - 4; // rango -4° a 4°
+}
+function starsHTML(rating, max = 5) {
+  let html = "";
+  for (let i = 1; i <= max; i++) {
+    html += `<span class="${i <= Math.round(rating) ? "star-fill" : ""}">★</span>`;
+  }
+  return html;
+}
+
+function listenReviewsRealtime({ localidad, id }) {
+  if (_reviewsUnsub) _reviewsUnsub();
+  const ref = tiendaSubCol(localidad, "tiendas", id, "review");
+  _reviewsUnsub = onSnapshot(ref, async (snap) => {
+    const reviews = [];
+    snap.forEach((d) => reviews.push({ id: d.id, ...d.data() }));
+    reviews.sort(
+      (a, b) =>
+        (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0),
+    );
+
+    const uid = auth.currentUser?.uid;
+    _misReview = uid ? reviews.find((r) => r.id === uid) || null : null;
+
+    _reviewsCache = reviews;
+    await renderReviewsSection(reviews);
+  });
+}
+
+let _galleryModalKeyBound = false;
+
+const REVIEWS_GALLERY_BATCH = 24;
+let _galleryAllImages = [];
+let _galleryRenderedCount = 0;
+let _galleryObserver = null;
+
+function openReviewsGalleryModal(images) {
+  injectReviewsStyles();
+  let modal = document.getElementById("reviewsGalleryModal");
+
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "reviewsGalleryModal";
+    modal.className = "reviews-gallery-modal";
+    modal.innerHTML = `
+      <div class="reviews-gallery-modal-box">
+        <div class="reviews-gallery-modal-header">
+          <h3>Fotos de la comunidad <span id="reviewsGalleryModalCount"></span></h3>
+          <button class="reviews-gallery-modal-close" id="reviewsGalleryModalClose">✕</button>
+        </div>
+        <div class="reviews-gallery-modal-grid" id="reviewsGalleryModalGrid"></div>
+        <div id="reviewsGalleryModalSentinel" style="height:1px;"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.addEventListener("click", (e) => {
+      if (e.target.id === "reviewsGalleryModal") closeReviewsGalleryModal();
+    });
+    document
+      .getElementById("reviewsGalleryModalClose")
+      .addEventListener("click", closeReviewsGalleryModal);
+  }
+
+  if (!_galleryModalKeyBound) {
+    _galleryModalKeyBound = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open")) {
+        closeReviewsGalleryModal();
+      }
+    });
+  }
+
+  document.getElementById("reviewsGalleryModalCount").textContent =
+    `(${images.length})`;
+
+  _galleryAllImages = images;
+  _galleryRenderedCount = 0;
+  document.getElementById("reviewsGalleryModalGrid").innerHTML = "";
+
+  appendGalleryBatch();
+  setupGalleryObserver();
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function appendGalleryBatch() {
+  const gridModal = document.getElementById("reviewsGalleryModalGrid");
+  if (!gridModal) return;
+  const start = _galleryRenderedCount;
+  const end = Math.min(start + REVIEWS_GALLERY_BATCH, _galleryAllImages.length);
+
+  for (let idx = start; idx < end; idx++) {
+    const photo = _galleryAllImages[idx];
+    const card = document.createElement("div");
+    card.className = "reviews-gallery-modal-item";
+    const imgWrap = createImageWithPlaceholder({
+      src: photo.url,
+      alt: `Foto de ${photo.nombre || "usuario"}`,
+      onError: () => { card.style.display = "none"; },
+    });
+    card.appendChild(imgWrap);
+    card.addEventListener("click", () =>
+      openReviewsLightbox(_galleryAllImages, idx, () => openReviewsGalleryModal(_galleryAllImages))
+    );
+    gridModal.appendChild(card);
+
+    // Entrada escalonada, no todo de golpe
+    const delay = (idx - start) * 25;
+    requestAnimationFrame(() => {
+      setTimeout(() => card.classList.add("in"), delay);
+    });
+  }
+
+  _galleryRenderedCount = end;
+}
+
+function setupGalleryObserver() {
+  const sentinel = document.getElementById("reviewsGalleryModalSentinel");
+  if (!sentinel) return;
+  if (_galleryObserver) _galleryObserver.disconnect();
+
+  _galleryObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting && _galleryRenderedCount < _galleryAllImages.length) {
+        appendGalleryBatch();
+      }
+    });
+  }, { root: document.querySelector(".reviews-gallery-modal-box"), rootMargin: "200px" });
+
+  _galleryObserver.observe(sentinel);
+}
+
+function closeReviewsGalleryModal() {
+  document.getElementById("reviewsGalleryModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+  if (_galleryObserver) {
+    _galleryObserver.disconnect();
+    _galleryObserver = null;
+  }
+}
+
+
+function renderReviewsGallery(reviews) {
+  const wrap = document.getElementById("reviewsGalleryWrap");
+  const grid = document.getElementById("reviewsGalleryGrid");
+  if (!wrap || !grid) return;
+
+  const photoMap = new Map();
+  reviews.forEach((r) => {
+    (r.lista_img_url || []).forEach((url) => {
+      if (!url || photoMap.has(url)) return;
+      photoMap.set(url, {
+        url,
+        nombre: r.nombre_usuario || "Usuario Geinz",
+        id_user: r.id_user,
+        timestamp: r.timestamp,
+        calificacion: r.calificacion || 0,
+        descripcion: r.descripcion || "",
+      });
+    });
+  });
+  const allPhotos = [...photoMap.values()];
+
+  if (!allPhotos.length) {
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "block";
+
+  const titleEl = wrap.querySelector(".reviews-gallery-title");
+  if (titleEl) {
+    titleEl.innerHTML = `Fotos de la comunidad <span class="reviews-gallery-count">(${allPhotos.length})</span>`;
+    let seeAllBtn = wrap.querySelector(".reviews-gallery-seeall");
+    if (!seeAllBtn) {
+      seeAllBtn = document.createElement("button");
+      seeAllBtn.className = "reviews-gallery-seeall";
+      seeAllBtn.textContent = "Ver todas";
+      titleEl.after(seeAllBtn);
+    }
+    seeAllBtn.onclick = () => openReviewsGalleryModal(allPhotos);
+  }
+
+  grid.className = "reviews-gallery-row";
+  grid.innerHTML = "";
+
+  const MAX_ROW = 10;
+  const visible = allPhotos.slice(0, MAX_ROW);
+  const hiddenCount = allPhotos.length - MAX_ROW;
+
+  visible.forEach((photo, idx) => {
+    const card = document.createElement("div");
+    card.className = "reviews-gallery-item";
+    card.title = photo.nombre;
+
+    const imgWrap = createImageWithPlaceholder({
+      src: photo.url,
+      alt: `Foto de ${photo.nombre}`,
+      onError: () => { card.style.display = "none"; },
+    });
+    card.appendChild(imgWrap);
+
+    const isLastWithMore = idx === visible.length - 1 && hiddenCount > 0;
+    if (isLastWithMore) {
+      const overlay = document.createElement("div");
+      overlay.className = "reviews-gallery-more";
+      overlay.innerHTML = `+${hiddenCount}<span>Ver todas</span>`;
+      card.appendChild(overlay);
+      card.addEventListener("click", () => openReviewsGalleryModal(allPhotos));
+    } else {
+      card.addEventListener("click", () =>
+        openReviewsLightbox(allPhotos, idx, () => openReviewsGalleryModal(allPhotos))
+      );
+    }
+
+    grid.appendChild(card);
+  });
+}
+const REVIEWS_LIST_BATCH = 5;
+let _reviewsAllData = [];
+let _reviewsRenderedCount = 0;
+
+async function renderReviewsSection(reviews) {
+  // La galería de "Fotos de la comunidad" solo se carga UNA vez (no en tiempo real)
+  if (!_galleryLoadedOnce) {
+    renderReviewsGallery(reviews);
+    _galleryLoadedOnce = true;
+  }
+
+  const avgEl = document.getElementById("reviewsAvgNum");
+  const starsEl = document.getElementById("reviewsAvgStars");
+  const countEl = document.getElementById("reviewsCountText");
+  const listEl = document.getElementById("reviewsList");
+  const emptyEl = document.getElementById("reviewsEmpty");
+  const btnLabel = document.getElementById("btnAbrirReviewLabel");
+  if (!listEl) return;
+
+  if (btnLabel)
+    btnLabel.textContent = _misReview ? "Editar mi reseña" : "Dejar una reseña";
+
+  if (!reviews.length) {
+    if (avgEl) avgEl.textContent = "0.0";
+    if (starsEl) starsEl.innerHTML = starsHTML(0);
+    if (countEl) countEl.textContent = `${reviews.length} reseñas`;
+    renderReviewsBreakdown(reviews);
+    listEl.innerHTML = "";
+    document.getElementById("reviewsListMoreWrap")?.remove();
+    if (emptyEl) emptyEl.style.display = "block";
+    updateHeroRatingBadge(0, 0);
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = "none";
+
+  const avg =
+    reviews.reduce((s, r) => s + (Number(r.calificacion) || 0), 0) / reviews.length;
+  if (avgEl) avgEl.textContent = avg.toFixed(1);
+  const wordEl = document.getElementById("reviewsWordLabel");
+  if (wordEl) {
+    wordEl.textContent =
+      avg >= 4.5 ? "Excelente" : avg >= 3.5 ? "Muy bueno" : avg >= 2.5 ? "Bueno" : avg >= 1.5 ? "Regular" : "Malo";
+  }
+  if (starsEl) starsEl.innerHTML = starsHTML(avg);
+  if (countEl)
+    countEl.textContent = `${reviews.length} reseña${reviews.length !== 1 ? "s" : ""}`;
+
+  updateHeroRatingBadge(avg, reviews.length);
+
+  // reset de paginación cada vez que llega data nueva (realtime)
+  _reviewsAllData = reviews;
+  _reviewsRenderedCount = 0;
+  listEl.innerHTML = "";
+  document.getElementById("reviewsListMoreWrap")?.remove();
+
+  await appendReviewsBatch();
+}
+
+// ══════════════════════════════════════════
+//  BADGE DE REPUTACIÓN (debajo de "Sobre el negocio")
+// ══════════════════════════════════════════
+function updateHeroRatingBadge(avg, count) {
+  const wrap = document.getElementById("secReputacion");
+  if (!wrap) return;
+  const starsEl = document.getElementById("reputacionStars");
+  const avgEl = document.getElementById("reputacionAvg");
+  const countEl = document.getElementById("reputacionCount");
+
+  if (!count) {
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "";
+  if (starsEl) starsEl.innerHTML = starsHTML(avg);
+  if (avgEl) avgEl.textContent = avg.toFixed(1);
+  if (countEl) countEl.textContent = `${count} reseña${count !== 1 ? "s" : ""}`;
+}
+
+function bindReputacionBadgeClick() {
+  document.getElementById("secReputacion")?.addEventListener("click", () => {
+    document
+      .getElementById("secReviews")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+async function appendReviewsBatch() {
+  const listEl = document.getElementById("reviewsList");
+  if (!listEl) return;
+
+  const start = _reviewsRenderedCount;
+  const end = Math.min(start + REVIEWS_LIST_BATCH, _reviewsAllData.length);
+
+  for (let i = start; i < end; i++) {
+    const r = _reviewsAllData[i];
+    const nombre = r.nombre_usuario || (await getUserDisplayName(r.id_user));
+    const fecha = r.timestamp?.toDate ? r.timestamp.toDate().toLocaleDateString("es-PE") : "";
+    const desc = (r.descripcion || "").replace(/</g, "&lt;");
+    const esLarga = desc.length > 220;
+
+    const item = document.createElement("div");
+    item.className = "review-item";
+    item.tabIndex = 0;
+    item.innerHTML = `
+      <div class="review-item-top">
+        <div class="review-item-who">
+          <div class="review-avatar">${nombre.trim().charAt(0).toUpperCase()}</div>
+          <div>
+            <div class="review-item-name">${nombre}</div>
+            <div class="review-item-date">${fecha}</div>
+          </div>
+        </div>
+        <div class="review-item-badge">${(r.calificacion || 0).toFixed(1)} <span class="badge-star">★</span></div>
+      </div>
+      <p class="review-item-desc${esLarga ? " clamped" : ""}">${desc}</p>
+      ${esLarga ? `<button class="review-item-more">Leer más</button>` : ""}
+    `;
+
+    if (esLarga) {
+      const descEl = item.querySelector(".review-item-desc");
+      const btn = item.querySelector(".review-item-more");
+      btn.addEventListener("click", () => {
+        const expandido = !descEl.classList.contains("clamped");
+        descEl.classList.toggle("clamped", expandido);
+        btn.textContent = expandido ? "Leer más" : "Leer menos";
+      });
+    }
+
+    listEl.appendChild(item);
+
+    const delay = (i - start) * 40;
+    requestAnimationFrame(() => setTimeout(() => item.classList.add("in"), delay));
+  }
+
+  _reviewsRenderedCount = end;
+  renderReviewsMoreButton();
+}
+
+function renderReviewsMoreButton() {
+  const listEl = document.getElementById("reviewsList");
+  let wrap = document.getElementById("reviewsListMoreWrap");
+  const quedan = _reviewsAllData.length - _reviewsRenderedCount;
+
+  if (quedan <= 0) { wrap?.remove(); return; }
+
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "reviewsListMoreWrap";
+    wrap.className = "reviews-list-more-wrap";
+    listEl.after(wrap);
+  }
+  wrap.innerHTML = `<button class="reviews-list-more-btn" id="reviewsListMoreBtn">Ver ${Math.min(quedan, REVIEWS_LIST_BATCH)} reseña${quedan !== 1 ? "s" : ""} más</button>`;
+  document.getElementById("reviewsListMoreBtn").addEventListener("click", appendReviewsBatch);
+}
+function buildReviewImgSlots() {
+  const grid = document.getElementById("reviewImgGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  for (let i = 0; i < 5; i++) {
+    const slot = document.createElement("div");
+    slot.className = "review-img-slot";
+    slot.dataset.index = i;
+    slot.innerHTML = `<span class="review-img-plus">+</span><img><button class="review-img-remove">✕</button>`;
+    slot.addEventListener("click", (e) => {
+      if (e.target.classList.contains("review-img-remove")) return;
+      if (_reviewImagesData[i]) return;
+      _reviewSelectedSlot = i;
+      document.getElementById("reviewImgInput").click();
+    });
+    slot.querySelector(".review-img-remove").addEventListener("click", (e) => {
+      e.stopPropagation();
+      _reviewImagesData[i] = null;
+      paintReviewSlot(i);
+    });
+    grid.appendChild(slot);
+  }
+}
+
+function paintReviewSlot(i) {
+  const slot = document.querySelector(`.review-img-slot[data-index="${i}"]`);
+  if (!slot) return;
+  const data = _reviewImagesData[i];
+  const img = slot.querySelector("img");
+  if (data) {
+    slot.classList.add("filled");
+    img.src = typeof data === "string" ? data : data.data;
+  } else {
+    slot.classList.remove("filled");
+    img.src = "";
+  }
+}
+
+function setReviewStars(n) {
+  _reviewCalificacion = n;
+  document.querySelectorAll("#reviewStarsPicker .review-star").forEach((s) => {
+    s.classList.toggle("active", Number(s.dataset.val) <= n);
+  });
+}
+
+function openReviewModal() {
+  if (!auth.currentUser) {
+    openLoginPromptModal();
+    return;
+  }
+  injectReviewsStyles();
+  const modal = document.getElementById("reviewModal");
+  if (!modal) return;
+
+  buildReviewImgSlots();
+  _reviewImagesData = [null, null, null, null, null];
+
+  if (_misReview) {
+    document.getElementById("reviewModalTitle").textContent =
+      "Editar tu reseña";
+    document.getElementById("reviewDescInput").value =
+      _misReview.descripcion || "";
+    setReviewStars(_misReview.calificacion || 0);
+    (_misReview.lista_img_url || []).slice(0, 5).forEach((url, i) => {
+      _reviewImagesData[i] = url;
+      paintReviewSlot(i);
+    });
+  } else {
+    document.getElementById("reviewModalTitle").textContent = "Deja tu reseña";
+    document.getElementById("reviewDescInput").value = "";
+    setReviewStars(0);
+    for (let i = 0; i < 5; i++) paintReviewSlot(i);
+  }
+  document.getElementById("reviewModalError").textContent = "";
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeReviewModal() {
+  document.getElementById("reviewModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function bindReviewEvents() {
+  document
+    .getElementById("btnAbrirReview")
+    ?.addEventListener("click", openReviewModal);
+  document
+    .getElementById("reviewModalClose")
+    ?.addEventListener("click", closeReviewModal);
+  document.getElementById("reviewModal")?.addEventListener("click", (e) => {
+    if (e.target.id === "reviewModal") closeReviewModal();
+  });
+
+  document.querySelectorAll("#reviewStarsPicker .review-star").forEach((s) => {
+    s.addEventListener("click", () => setReviewStars(Number(s.dataset.val)));
+  });
+
+  document
+    .getElementById("reviewImgInput")
+    ?.addEventListener("change", function () {
+      const file = this.files[0];
+      if (!file || _reviewSelectedSlot === null) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        _reviewImagesData[_reviewSelectedSlot] = { data: e.target.result };
+        paintReviewSlot(_reviewSelectedSlot);
+        _reviewSelectedSlot = null;
+        this.value = "";
+      };
+      reader.readAsDataURL(file);
+    });
+
+  document
+    .getElementById("reviewSubmitBtn")
+    ?.addEventListener("click", submitReview);
+}
+
+async function submitReview() {
+  const errorEl = document.getElementById("reviewModalError");
+  const btn = document.getElementById("reviewSubmitBtn");
+  const desc = document.getElementById("reviewDescInput").value.trim();
+  const uid = auth.currentUser?.uid;
+
+  if (!uid) {
+    openLoginPromptModal();
+    return;
+  }
+  if (_reviewCalificacion < 1) {
+    errorEl.textContent = "Selecciona una calificación en estrellas";
+    return;
+  }
+  if (desc.length < 5) {
+    errorEl.textContent = "Escribe una breve descripción de tu experiencia";
+    return;
+  }
+
+  errorEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "Publicando...";
+
+  try {
+    const nombre = await getUserDisplayName(uid);
+    const urls = [];
+
+    for (let i = 0; i < _reviewImagesData.length; i++) {
+      const item = _reviewImagesData[i];
+      if (!item) continue;
+      if (typeof item === "string") {
+        urls.push(item);
+        continue;
+      }
+      const comprimida = await comprimirImagenReview(item.data);
+      const blob = dataURLtoBlobReview(comprimida);
+      const nombreImg = crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}_${i}`;
+      const sRef = storageRef(
+        storage,
+        `tiendas/${_params.id}/review/${uid}/${nombreImg}`,
+      );
+      await uploadBytes(sRef, blob, { contentType: "image/jpeg" });
+      const url = await getDownloadURL(sRef);
+      urls.push(url);
+    }
+
+    const reviewRef = tiendaSubDoc(
+      _params.localidad,
+      "tiendas",
+      _params.id,
+      "review",
+      uid,
+    );
+    await setDoc(reviewRef, {
+      calificacion: _reviewCalificacion,
+      descripcion: desc,
+      id_user: uid,
+      nombre_usuario: nombre,
+      lista_img_url: urls,
+      timestamp: serverTimestamp(),
+    });
+
+    closeReviewModal();
+    showToast("¡Gracias por tu reseña! ⭐");
+  } catch (e) {
+    console.error("Error publicando reseña:", e);
+    errorEl.textContent = "No se pudo publicar tu reseña, intenta de nuevo";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Publicar reseña";
+  }
 }
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
 (async () => {
   try {
-    const params = await getParams(); // ← si falla aquí
+    const params = await getParams();
     _params = params;
 
     if (params.mesaToken) {
       await resolveMesaYRedirigir(params, params.mesaToken);
-      return; // no seguimos cargando el perfil normal, ya redirigimos
+      return;
     }
 
     const biz = await loadBusiness(params);
-    await render(biz);
+    showPromoBanner(biz); // ← se dispara ANTES de todo el resto del render
+    await render(biz, true);
+
     listenBusinessRealtime(params);
     listenMesasRealtime(
       params,
@@ -2902,38 +4160,38 @@ function listenBusinessRealtime({ localidad, id }) {
       biz.modelo_negocio !== false,
     );
     bindFollowButton(params, biz); // ← ya está bien ubicado, no cambies el orden
-
-    // Promociones activas (no bloquea el render principal)
-    loadActivePromos(params).then((promos) =>
-      renderActivePromos(promos, params.localidad),
-    );
-    // Carta digital (solo aplica si es "comida y restaurantes")
-    loadCarta(params).then((secciones) => {
-      renderCarta(
-        secciones,
-        biz.categoria_tienda,
-        biz.alias_key,
-        biz.nombre_tienda || biz.nombre,
-      );
-
-      if (params.wantsCarta) {
-        const esComida = (biz.categoria_tienda || "")
-          .toLowerCase()
-          .includes("comida");
-        if (esComida && secciones.length > 0) {
-          setTimeout(() => {
-            document
-              .getElementById("secCarta")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 350);
-        } else {
-          const nombreNegocio =
-            biz.nombre_tienda || biz.nombre || "Este negocio";
-          showSnackbar(`${nombreNegocio} no tiene carta digital disponible`);
+    injectReviewsStyles();
+    bindReputacionBadgeClick();
+    listenReviewsRealtime(params);
+    // Ofertas activas (promociones_geinz) → tiempo real
+    listenActivePromosRealtime(params);
+    // Carta digital (solo aplica si es "comida y restaurantes") → tiempo real
+    listenCartaRealtime(
+      params,
+      biz.categoria_tienda,
+      biz.alias_key,
+      biz.nombre_tienda || biz.nombre,
+      (secciones) => {
+        if (params.wantsCarta) {
+          const esComida = (biz.categoria_tienda || "")
+            .toLowerCase()
+            .includes("comida");
+          if (esComida && secciones.length > 0) {
+            setTimeout(() => {
+              document
+                .getElementById("secCarta")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 350);
+          } else {
+            const nombreNegocio =
+              biz.nombre_tienda || biz.nombre || "Este negocio";
+            showSnackbar(`${nombreNegocio} no tiene carta digital disponible`);
+          }
         }
-      }
-    });
+      },
+    );
 
+    // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
     loadProductosCatalogo(params).then((productos) => {
       renderProductosCatalogo(productos, params.localidad, params.id);
     });
@@ -2945,7 +4203,9 @@ function listenBusinessRealtime({ localidad, id }) {
 injectLightboxStyles();
 bindMesaReservaEvents();
 bindLoginPromptEvents();
+bindBannerModalEvents();
 bindUnfollowConfirmEvents();
+bindReviewEvents(); //
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(

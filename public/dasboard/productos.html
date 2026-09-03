@@ -377,6 +377,34 @@
     .panel-actions-item:active {
       background: rgba(139, 92, 246, 0.2);
     }
+    .tab-btn-form {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  color: rgba(196, 181, 253, .5);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all .15s ease;
+}
+
+.tab-btn-form.active-tab {
+  color: #fff;
+  background: rgba(139, 92, 246, .18);
+  border-color: rgba(139, 92, 246, .35);
+}
+
+.tab-panel-form {
+  display: none;
+}
+
+.tab-panel-form.active-tab-panel {
+  display: block;
+  animation: fadeIn .2s ease;
+}
 
     @media (max-width: 480px) {
       .panel-actions-menu {
@@ -928,163 +956,178 @@
       <h3 class="text-lg font-bold text-white mb-1">Nuevo producto</h3>
       <p class="text-purple-300/60 text-xs mb-5" id="producto-cat-hint">Se agregará a la categoría seleccionada.</p>
 
+      <div class="flex gap-2 mb-5 p-1 rounded-xl bg-[#05040a] border border-purple-900/20">
+        <button type="button" class="tab-btn-form active-tab" data-tab-target="tab-basico">Básico</button>
+        <button type="button" class="tab-btn-form" data-tab-target="tab-avanzado">Avanzado</button>
+      </div>
+
       <form id="form-producto">
-        <div class="mb-4">
-          <label for="input-prod-nombre"
-            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Nombre
-            del producto</label>
-          <input type="text" id="input-prod-nombre" placeholder="Ej. Jalea Mixta" required maxlength="60"
-            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
-        </div>
 
-        <div class="mb-4">
-          <label for="input-prod-descripcion"
-            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Descripción
-            breve</label>
-          <textarea id="input-prod-descripcion" rows="2"
-            placeholder="Ej. Acompañado de yuca frita, sarsa criolla y tártara casera." maxlength="140"
-            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all resize-none thin-scroll"></textarea>
-        </div>
+        <div id="tab-basico" class="tab-panel-form active-tab-panel">
 
-        <div class="mb-4">
-          <label for="input-prod-precio"
-            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Precio
-            (S/)</label>
-          <input type="number" id="input-prod-precio" placeholder="0.00" step="0.10" min="0" required
-            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
-        </div>
-
-        <div class="mb-4">
-          <label for="input-prod-stock"
-            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Stock
-            disponible (opcional)</label>
-          <input type="number" id="input-prod-stock" placeholder="Déjalo vacío para no controlar stock" step="1" min="0"
-            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
-          <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
-            📦 Es el total de unidades que tienes de <strong>este producto</strong>, sumando todas sus variantes.
-            Si más abajo defines "Stock" por cada variante (ej. sabor o talla), ese número debe sumar igual a este.
-          </p>
-        </div>
-
-        <div class="mb-5">
-          <div
-            class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-            <span class="text-sm font-medium text-purple-100">Disponible para la venta</span>
-            <label class="relative inline-block w-11 h-6 shrink-0">
-              <input type="checkbox" id="input-prod-disponible" checked class="peer opacity-0 w-0 h-0">
-              <span
-                class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-              before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="mb-5">
-          <div
-            class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-            <span class="text-sm font-medium text-purple-100">Desactivar automáticamente al llegar a 0</span>
-            <label class="relative inline-block w-11 h-6 shrink-0">
-              <input type="checkbox" id="input-prod-auto-desactivar" class="peer opacity-0 w-0 h-0">
-              <span
-                class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-              before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="mb-5 hidden" id="puntos-section">
-          <div
-            class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-            <span class="text-sm font-medium text-purple-100">Regalar puntos por esta compra</span>
-            <label class="relative inline-block w-11 h-6 shrink-0">
-              <input type="checkbox" id="input-prod-puntos-activo" class="peer opacity-0 w-0 h-0">
-              <span
-                class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-            </label>
-          </div>
-
-          <div id="puntos-detalle" class="hidden mt-3 flex flex-col gap-2.5">
-            <input type="number" id="input-prod-puntos-cantidad" min="1" step="1" placeholder="Ej. 10"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
-            <input type="text" id="input-prod-puntos-descripcion" maxlength="60"
-              placeholder="Descripción corta (ej. Duplica puntos esta semana)"
+          <div class="mb-4">
+            <label for="input-prod-nombre"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Nombre
+              del producto</label>
+            <input type="text" id="input-prod-nombre" placeholder="Ej. Jalea Mixta" required maxlength="60"
               class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
           </div>
-        </div>
-        <div class="mb-5">
-          <div
-            class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-orange-900/20">
-            <span class="text-sm font-medium text-purple-100">Agotado hoy</span>
-            <label class="relative inline-block w-11 h-6 shrink-0">
-              <input type="checkbox" id="input-prod-agotado-hoy" class="peer opacity-0 w-0 h-0">
-              <span
-                class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-orange-600 peer-checked:border-orange-500 cursor-pointer transition-colors duration-200
-              before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-            </label>
-          </div>
-          <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
-            🔸 Se acaba HOY (ej: se terminó el plato del día). Mañana lo puedes reactivar con un clic, sin tocar el
-            resto del producto.
-          </p>
-        </div>
 
-        <div class="mb-4">
-          <label for="input-prod-unidad"
-            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Unidad
-            de medida (opcional)</label>
-          <select id="input-prod-unidad"
-            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all">
-            <option value="">Sin especificar</option>
-            <option value="unidad">Unidad</option>
-            <option value="botella">Botella</option>
-            <option value="copa">Copa</option>
-            <option value="litro">Litro</option>
-            <option value="porcion">Porción</option>
-            <option value="kg">Kg</option>
-          </select>
-        </div>
-
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Horario
-              de disponibilidad (opcional)</label>
+          <div class="mb-4">
+            <label for="input-prod-descripcion"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Descripción
+              breve</label>
+            <textarea id="input-prod-descripcion" rows="2"
+              placeholder="Ej. Acompañado de yuca frita, sarsa criolla y tártara casera." maxlength="140"
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all resize-none thin-scroll"></textarea>
           </div>
-          <div class="grid grid-cols-2 gap-2.5">
-            <input type="time" id="input-prod-horario-desde"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
-            <input type="time" id="input-prod-horario-hasta"
-              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
-          </div>
-          <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
-            🕐 Déjalo vacío para que esté disponible siempre. Útil para happy hour, desayunos, etc.
-          </p>
-        </div>
 
-        <div class="mb-2">
-          <label
-            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-2 font-mono">Fotos
-            (máx. 3)</label>
-          <div class="grid grid-cols-3 gap-2.5" id="imgdrop-row"></div>
-          <input type="file" id="input-prod-imgs" accept="image/*" style="display:none;">
-        </div>
-
-        <div class="mb-2">
-          <div class="flex items-center justify-between mb-2">
-            <label id="label-condiciones"
-              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Condiciones
-              (máx. 5)</label>
-            <button type="button" id="btn-add-condicion"
-              class="text-[11px] font-medium text-violet-300 hover:text-violet-200 flex items-center gap-1">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-                stroke-linecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Agregar
-            </button>
+          <div class="mb-4">
+            <label for="input-prod-precio"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Precio
+              (S/)</label>
+            <input type="number" id="input-prod-precio" placeholder="0.00" step="0.10" min="0" required
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
           </div>
-          <div id="condiciones-container" class="flex flex-col gap-3"></div>
-        </div>
+
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <span class="text-sm font-medium text-purple-100">Disponible para la venta</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-disponible" checked class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <label
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-2 font-mono">Fotos
+              (máx. 3)</label>
+            <div class="grid grid-cols-3 gap-2.5" id="imgdrop-row"></div>
+            <input type="file" id="input-prod-imgs" accept="image/*" style="display:none;">
+          </div>
+
+        </div><!-- /tab-basico -->
+
+        <div id="tab-avanzado" class="tab-panel-form">
+
+          <div class="mb-4">
+            <label for="input-prod-stock"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Stock
+              disponible (opcional)</label>
+            <input type="number" id="input-prod-stock" placeholder="Déjalo vacío para no controlar stock" step="1" min="0"
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
+            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+              📦 Es el total de unidades que tienes de <strong>este producto</strong>, sumando todas sus variantes.
+              Si más abajo defines "Stock" por cada variante (ej. sabor o talla), ese número debe sumar igual a este.
+            </p>
+          </div>
+
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <span class="text-sm font-medium text-purple-100">Desactivar automáticamente al llegar a 0</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-auto-desactivar" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-5 hidden" id="puntos-section">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <span class="text-sm font-medium text-purple-100">Regalar puntos por esta compra</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-puntos-activo" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+          before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+
+            <div id="puntos-detalle" class="hidden mt-3 flex flex-col gap-2.5">
+              <input type="number" id="input-prod-puntos-cantidad" min="1" step="1" placeholder="Ej. 10"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
+              <input type="text" id="input-prod-puntos-descripcion" maxlength="60"
+                placeholder="Descripción corta (ej. Duplica puntos esta semana)"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-orange-900/20">
+              <span class="text-sm font-medium text-purple-100">Agotado hoy</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-agotado-hoy" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-orange-600 peer-checked:border-orange-500 cursor-pointer transition-colors duration-200
+                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+              🔸 Se acaba HOY (ej: se terminó el plato del día). Mañana lo puedes reactivar con un clic, sin tocar el
+              resto del producto.
+            </p>
+          </div>
+
+          <div class="mb-4">
+            <label for="input-prod-unidad"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Unidad
+              de medida (opcional)</label>
+            <select id="input-prod-unidad"
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all">
+              <option value="">Sin especificar</option>
+              <option value="unidad">Unidad</option>
+              <option value="botella">Botella</option>
+              <option value="copa">Copa</option>
+              <option value="litro">Litro</option>
+              <option value="porcion">Porción</option>
+              <option value="kg">Kg</option>
+            </select>
+          </div>
+
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Horario
+                de disponibilidad (opcional)</label>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <input type="time" id="input-prod-horario-desde"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
+              <input type="time" id="input-prod-horario-hasta"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
+            </div>
+            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+              🕐 Déjalo vacío para que esté disponible siempre. Útil para happy hour, desayunos, etc.
+            </p>
+          </div>
+
+          <div class="mb-2">
+            <div class="flex items-center justify-between mb-2">
+              <label id="label-condiciones"
+                class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Condiciones
+                (máx. 5)</label>
+              <button type="button" id="btn-add-condicion"
+                class="text-[11px] font-medium text-violet-300 hover:text-violet-200 flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                  stroke-linecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Agregar
+              </button>
+            </div>
+            <div id="condiciones-container" class="flex flex-col gap-3"></div>
+          </div>
+
+        </div><!-- /tab-avanzado -->
 
         <div class="flex justify-end gap-2.5 mt-6">
           <button type="button" data-close="overlay-producto"

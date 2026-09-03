@@ -629,10 +629,16 @@ async function guardarImagenesEnFirestore(
 ) {
   const imgContainer = { lista_img: urls, logo_img: logo_url };
   const data = { img_container: imgContainer };
- const ref1 = tiendaSubDoc(localidad,"promos_ofertas",id_promocion);
-  const ref2 = tiendaSubDoc(localidad,"tiendas",id_tienda,"promociones_geinz",id_promocion);
+  const ref1 = tiendaSubDoc(localidad, "promos_ofertas", id_promocion);
+  const ref2 = tiendaSubDoc(
+    localidad,
+    "tiendas",
+    id_tienda,
+    "promociones_geinz",
+    id_promocion,
+  );
   await Promise.all([
-  setDoc(ref1, data, { merge: true }),
+    setDoc(ref1, data, { merge: true }),
     setDoc(ref2, data, { merge: true }),
   ]);
   return imgContainer;
@@ -2307,7 +2313,9 @@ function _aplicarDatosTienda(d) {
   if (boxGeo) {
     boxGeo.style.display = esPresencial ? "" : "none";
     if (!esPresencial) {
-      const geoSwitch = boxGeo.querySelector('.param-row input[type="checkbox"]');
+      const geoSwitch = boxGeo.querySelector(
+        '.param-row input[type="checkbox"]',
+      );
       const geoPanel = document.getElementById("geo");
       if (geoSwitch) geoSwitch.checked = false;
       if (geoPanel) geoPanel.classList.remove("open");
@@ -2454,6 +2462,7 @@ const CLOUD_FN_CONECTAR_FB =
       xfbml: false,
       version: "v21.0",
     });
+    console.log("✅ FB SDK inicializado correctamente, versión v21.0");
   };
 
   const script = document.createElement("script");
@@ -2465,19 +2474,35 @@ const CLOUD_FN_CONECTAR_FB =
 
 // ── Función principal: se llama al presionar "Conectar mi Fanpage" ──
 window.conectarMiFanpage = function () {
+  console.log("🔵 Iniciando FB.login con scope");
+
   FB.login(
     function (response) {
+      console.log("🟢 Respuesta completa de FB.login:", response);
       if (response.authResponse) {
         const userAccessToken = response.authResponse.accessToken;
+
+        // 👇 Reemplaza el log anterior por esto:
+        FB.api("/me/permissions", function (permResponse) {
+          console.log("📋 Permisos reales:", permResponse.data);
+        });
+
         obtenerPaginasYMostrarSelector(userAccessToken);
       } else {
+        console.error(
+          "❌ No hubo authResponse:",
+          JSON.stringify(response, null, 2),
+        );
         mostrarToast(
           "Cancelaste el login de Facebook o no diste los permisos",
           "error",
         );
       }
     },
-    { config_id: "27931022663160133" },
+    {
+      scope:
+        "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement",
+    },
   );
 };
 
@@ -2487,11 +2512,12 @@ function obtenerPaginasYMostrarSelector(userAccessToken) {
     "GET",
     { access_token: userAccessToken },
     function (res) {
+      console.log("🟣 Respuesta cruda /me/accounts:", res); // ← AGREGA ESTO
       if (!res || res.error) {
+        console.error("🔴 Error de /me/accounts:", res?.error); // ← Y ESTO
         mostrarToast("No se pudo obtener la lista de páginas", "error");
         return;
       }
-
       const paginas = res.data || [];
       if (paginas.length === 0) {
         mostrarToast(
