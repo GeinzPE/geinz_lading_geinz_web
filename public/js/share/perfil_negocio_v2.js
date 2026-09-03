@@ -1,7 +1,7 @@
 import PhotoSwipeLightbox from "https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js";
 window.PhotoSwipeLightbox = PhotoSwipeLightbox;
 import { setFaviconCircular } from "../favicon/favicon.js";
-
+import { registrarTokenWeb } from "../../notificaciones.js"; 
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
@@ -1024,48 +1024,53 @@ function bindFollowButton({ localidad, id }, biz) {
 
       await ejecutarToggle(nextState);
 
-      async function ejecutarToggle(next) {
-        isBusy = true;
-        setFollowUI(next);
-        if (next)
-          (btn.classList.add("pulse"),
-            setTimeout(() => btn.classList.remove("pulse"), 500));
+    async function ejecutarToggle(next) {
+  isBusy = true;
+  setFollowUI(next);
+  if (next)
+    (btn.classList.add("pulse"),
+      setTimeout(() => btn.classList.remove("pulse"), 500));
 
-        try {
-          if (next) {
-            const ubicacion = biz.ubicacion || {};
-            const yaExiste = await getDoc(clienteRef);
-            const dataCliente = {
-              id: uid,
-              id_usuario: uid,
-              fecha_inicio: serverTimestamp(),
-              ultimo_consumo: serverTimestamp(),
-            };
-            if (!yaExiste.exists()) dataCliente.puntos = 0;
+  try {
+    if (next) {
+      // 👇 AGREGAR ESTA LÍNEA — pide permiso y guarda el token FCM
+      registrarTokenWeb(uid).catch((e) =>
+        console.warn("No se pudo registrar token FCM:", e.message)
+      );
 
-            await Promise.all([
-              setDoc(favoritoRef, {
-                id_tienda_lugar: id,
-                img_tienda_lugar: biz.img_tienda?.logo_tienda || "",
-                latitud: ubicacion.latitud ?? null,
-                longitud: ubicacion.longitud ?? null,
-                localidad_lugar_tienda: localidad,
-                nombre_lugar_tienda: biz.nombre_tienda || biz.nombre || "",
-                timesLap_local: String(Date.now()),
-              }),
-              setDoc(clienteRef, dataCliente, { merge: true }),
-            ]);
-          } else {
-            await ejecutarUnfollow();
-          }
-        } catch (e) {
-          console.error("Error al actualizar seguidor:", e);
-          setFollowUI(!next);
-          showToast("No se pudo actualizar, intenta de nuevo");
-        } finally {
-          isBusy = false;
-        }
-      }
+      const ubicacion = biz.ubicacion || {};
+      const yaExiste = await getDoc(clienteRef);
+      const dataCliente = {
+        id: uid,
+        id_usuario: uid,
+        fecha_inicio: serverTimestamp(),
+        ultimo_consumo: serverTimestamp(),
+      };
+      if (!yaExiste.exists()) dataCliente.puntos = 0;
+
+      await Promise.all([
+        setDoc(favoritoRef, {
+          id_tienda_lugar: id,
+          img_tienda_lugar: biz.img_tienda?.logo_tienda || "",
+          latitud: ubicacion.latitud ?? null,
+          longitud: ubicacion.longitud ?? null,
+          localidad_lugar_tienda: localidad,
+          nombre_lugar_tienda: biz.nombre_tienda || biz.nombre || "",
+          timesLap_local: String(Date.now()),
+        }),
+        setDoc(clienteRef, dataCliente, { merge: true }),
+      ]);
+    } else {
+      await ejecutarUnfollow();
+    }
+  } catch (e) {
+    console.error("Error al actualizar seguidor:", e);
+    setFollowUI(!next);
+    showToast("No se pudo actualizar, intenta de nuevo");
+  } finally {
+    isBusy = false;
+  }
+}
 
       async function ejecutarUnfollow() {
         isBusy = true;

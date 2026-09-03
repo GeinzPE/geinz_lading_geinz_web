@@ -6,7 +6,7 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-aut
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
+  authDomain: "geinztech.com",
   databaseURL: "https://geinzworkapp-default-rtdb.firebaseio.com",
   projectId: "geinzworkapp",
   storageBucket: "geinzworkapp.appspot.com",

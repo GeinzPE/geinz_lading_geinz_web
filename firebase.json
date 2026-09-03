@@ -1,9 +1,23 @@
 {
   "hosting": {
     "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "cleanUrls": true,
- 
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          }
+        ]
+      }
+    ],
     "rewrites": [
       {
         "source": "/perfil/**",
@@ -29,7 +43,6 @@
         "source": "/pedidos/**",
         "destination": "/pedidos/pedidos.html"
       },
-
       {
         "source": "/logindata/login",
         "function": "staticSSR"
@@ -48,4 +61,4 @@
       }
     ]
   }
-}
+} 

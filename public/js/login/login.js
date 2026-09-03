@@ -56,6 +56,7 @@ await setPersistence(auth, browserLocalPersistence);
 let GOOGLE_USER = null;
 let splashShown = false;
 let authProcesado = false;
+let modoRegistroGoogle = false;
 const seleccionUbicacion = {
   socio: { dep: "", prov: "", dist: "" },
   selector: { dep: "", prov: "", dist: "" },
@@ -117,8 +118,8 @@ window.onNacionalidadChange = (sel) => {
 /* =========================================================
    PAÍSES — selector para editar perfil
 ========================================================= */
-function cargarPaisesEdit() {
-  const select = document.getElementById("editPais");
+function cargarPaisesEdit(selectId = "editPais") {
+  const select = document.getElementById(selectId);
   if (!select || select.options.length > 1) return; // ya cargado
 
   PAISES.forEach((p) => {
@@ -136,6 +137,12 @@ window.onEditPaisChange = (sel) => {
   const opt = sel.options[sel.selectedIndex];
   document.getElementById("editPrefixFlag").textContent = opt.dataset.flag;
   document.getElementById("editPrefixCode").textContent = opt.dataset.tel;
+};
+
+window.onRegPaisChange = (sel) => {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById("regPrefixFlag").textContent = opt.dataset.flag;
+  document.getElementById("regPrefixCode").textContent = opt.dataset.tel;
 };
 
 /* =========================================================
@@ -525,12 +532,12 @@ window.openRegisterModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("registerModal").classList.add("active");
   cargarPaises();
-  inicializarSelectoresUbicacion("reg"); // 👈 agregar esta línea
+  cargarPaisesEdit("regPaisTel"); // 👈 llena el select de país del teléfono
+  inicializarSelectoresUbicacion("reg");
   upgradeAllCoolSelects(document.getElementById("registerModal"));
   const fechaInput = document.getElementById("regFechaNac");
   if (fechaInput) fechaInput.max = new Date().toISOString().split("T")[0];
 };
-
 window.openSocioModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("socioModal").classList.add("active");
@@ -563,17 +570,21 @@ window.togglePassword = (id, btn) => {
   if (ico) ico.textContent = isPass ? "visibility_off" : "visibility";
 };
 
-function esMobileOWebview() {
+function esWebviewEmbebido() {
   const ua = navigator.userAgent || "";
-  const esMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-  const esWebview = /FBAN|FBAV|Instagram|Line\//i.test(ua); // apps embebidas
-  return esMobile || esWebview;
+  return /FBAN|FBAV|Instagram|Line\//i.test(ua); // apps embebidas: Google bloquea el login ahí
+}
+
+function esMobile() {
+  const ua = navigator.userAgent || "";
+  return /Android|iPhone|iPad|iPod/i.test(ua);
 }
 
 async function procesarLoginGoogle(user) {
   if (authProcesado) return;
   authProcesado = true;
   GOOGLE_USER = user;
+
   const userRef = doc(
     db,
     "Trabajadores_Usuarios_Drivers",
@@ -584,34 +595,73 @@ async function procesarLoginGoogle(user) {
   const snap = await getDoc(userRef);
 
   if (snap.exists()) {
-    // Va directo al splash — showSplash() se encarga de ocultar authChecking
-    // en el instante exacto en que toma el control, sin dejar hueco.
+    // Ya tiene perfil guardado → directo al splash, sin pedir nada.
     showSplash(user);
-  } else {
-    // No tiene cuenta creada: recién aquí es seguro mostrar mainUI
-    // (para montar el modal de registro) y ocultar el loader.
-    document.getElementById("authChecking")?.classList.add("hidden");
-    document.getElementById("mainUI").style.display = "flex";
-    openRegisterModal();
+    return;
   }
+
+  // Ya está autenticado con Google, pero le falta completar su perfil.
+  document.getElementById("authChecking")?.classList.add("hidden");
+  document.getElementById("mainUI").style.display = "flex";
+  abrirCompletarPerfilGoogle(user);
+}
+
+function abrirCompletarPerfilGoogle(user) {
+  modoRegistroGoogle = true;
+  openRegisterModal();
+
+  // Prellenar con los datos que ya trae Google
+  const partes = (user.displayName || "").trim().split(" ");
+  const nombre = partes[0] || "";
+  const apellido = partes.slice(1).join(" ") || "";
+
+  const elNombre = document.getElementById("regNombre");
+  const elApellido = document.getElementById("regApellido");
+  const elCorreo = document.getElementById("regCorreo");
+
+  if (elNombre) elNombre.value = nombre;
+  if (elApellido) elApellido.value = apellido;
+  if (elCorreo) {
+    elCorreo.value = user.email || "";
+    elCorreo.readOnly = true; // ya viene validado por Google, no se edita
+  }
+
+  // Ocultar el bloque de contraseñas: no aplica, ya está autenticado
+  const passRow = document.getElementById("passRow");
+  if (passRow) passRow.style.display = "none";
 }
 /* =========================================================
    LOGIN GOOGLE
 ========================================================= */
 window.loginGoogle = async () => {
+  if (esWebviewEmbebido()) {
+    showSnackbar("⚠️ Abre este enlace en Chrome o Safari para continuar con Google.", "warning");
+    return;
+  }
+
   try {
-    if (esMobileOWebview()) {
+    if (esMobile()) {
       await signInWithRedirect(auth, provider);
-      return;
+      return; // el resultado se procesa en getRedirectResult() al volver
     }
+
     const result = await signInWithPopup(auth, provider);
     await procesarLoginGoogle(result.user);
-  } catch (err) {
+   } catch (err) {
     console.error(err);
+    if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+      return; // el usuario canceló, no muestres error
+    }
+    if (err.code === "auth/account-exists-with-different-credential") {
+      showSnackbar(
+        "⚠️ Ese correo ya tiene una cuenta creada con contraseña. Inicia sesión con correo y contraseña.",
+        "warning",
+      );
+      return;
+    }
     showSnackbar("❌ Error al iniciar sesión con Google", "error");
   }
 };
-
 window.openForgotPassword = async () => {
   const correo = document
     .getElementById("loginEmail")
@@ -679,6 +729,9 @@ window.submitRegister = async (event) => {
     .getElementById("regTelefono")
     .value.trim()
     .replace(/\D/g, "");
+  const paisTelSelect = document.getElementById("regPaisTel");
+  const paisTelOpt = paisTelSelect?.options[paisTelSelect.selectedIndex];
+  const prefijoTel = paisTelOpt?.dataset.tel || "+51";
   const genero = document.getElementById("regGenero").value;
   const { dep: depReg, prov: provReg, dist: distReg } = seleccionUbicacion.reg;
   const fechaNac = document.getElementById("regFechaNac").value;
@@ -688,10 +741,9 @@ window.submitRegister = async (event) => {
     .getElementById("regCorreo")
     .value.trim()
     .toLowerCase();
-  const pass1 = document.getElementById("registerPass1").value;
-  const pass2 = document.getElementById("registerPass2").value;
+    const pass1 = modoRegistroGoogle ? "" : document.getElementById("registerPass1").value;
+  const pass2 = modoRegistroGoogle ? "" : document.getElementById("registerPass2").value;
   const terminos = document.getElementById("termsCheck").checked;
-
   const setError = (id, msg) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -705,7 +757,7 @@ window.submitRegister = async (event) => {
     "errUsername",
     "errTelefono",
     "errGenero",
-    "errLocalidad",
+    "errDistrito",
     "errFecha",
     "errPais",
     "errCorreo",
@@ -783,15 +835,17 @@ window.submitRegister = async (event) => {
     setError("errCorreo", "Solo se permiten correos @gmail.com.");
     ok = false;
   }
-  if (!pass1 || pass1.length < 8) {
-    setError("errPass", "La contraseña debe tener al menos 8 caracteres.");
-    ok = false;
-  } else if (!/(?=.*[A-Z])/.test(pass1) && !/(?=.*[0-9])/.test(pass1)) {
-    setError("errPass", "Incluye al menos una mayúscula o un número.");
-    ok = false;
-  } else if (pass1 !== pass2) {
-    setError("errPass", "Las contraseñas no coinciden.");
-    ok = false;
+  if (!modoRegistroGoogle) {
+    if (!pass1 || pass1.length < 8) {
+      setError("errPass", "La contraseña debe tener al menos 8 caracteres.");
+      ok = false;
+    } else if (!/(?=.*[A-Z])/.test(pass1) && !/(?=.*[0-9])/.test(pass1)) {
+      setError("errPass", "Incluye al menos una mayúscula o un número.");
+      ok = false;
+    } else if (pass1 !== pass2) {
+      setError("errPass", "Las contraseñas no coinciden.");
+      ok = false;
+    }
   }
   if (!terminos) {
     setError("errTerminos", "Debes aceptar los términos para continuar.");
@@ -819,47 +873,61 @@ window.submitRegister = async (event) => {
       return;
     }
 
-    const correosRef = collection(
-      db,
-      "Trabajadores_Usuarios_Drivers",
-      "users",
-      "correos",
-    );
-    const correoSnap = await getDocs(
-      query(correosRef, where("correo", "==", correo)),
-    );
-    if (!correoSnap.empty) {
-      setError("errCorreo", "Este correo ya tiene una cuenta. Inicia sesión.");
-      return;
-    }
-
-    const { createUserWithEmailAndPassword } =
-      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-
     let newUser;
-    try {
-      const result = await createUserWithEmailAndPassword(auth, correo, pass1);
-      newUser = result.user;
-    } catch (authErr) {
-      if (authErr.code === "auth/email-already-in-use") {
-        setError("errCorreo", "Este correo ya está registrado. Inicia sesión.");
-      } else if (authErr.code === "auth/invalid-email") {
-        setError("errCorreo", "Correo inválido.");
-      } else if (authErr.code === "auth/weak-password") {
-        setError("errPass", "Contraseña muy débil. Usa al menos 8 caracteres.");
-      } else {
-        showSnackbar("❌ Error al crear cuenta. Intenta de nuevo.", "error");
+    let tipoLogin;
+
+    if (modoRegistroGoogle) {
+      // Ya está autenticado con Google — no crear otra cuenta, solo usar la que ya existe.
+      if (!GOOGLE_USER) {
+        showSnackbar("❌ No se encontró tu sesión de Google. Vuelve a intentar el login.", "error");
+        return;
       }
-      return;
+      newUser = GOOGLE_USER;
+      tipoLogin = "google";
+    } else {
+      // Registro tradicional por correo/contraseña
+      const correosRef = collection(
+        db,
+        "Trabajadores_Usuarios_Drivers",
+        "users",
+        "correos",
+      );
+      const correoSnap = await getDocs(
+        query(correosRef, where("correo", "==", correo)),
+      );
+      if (!correoSnap.empty) {
+        setError("errCorreo", "Este correo ya tiene una cuenta. Inicia sesión.");
+        return;
+      }
+
+      const { createUserWithEmailAndPassword } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+
+      try {
+        const result = await createUserWithEmailAndPassword(auth, correo, pass1);
+        newUser = result.user;
+        tipoLogin = "email";
+      } catch (authErr) {
+        if (authErr.code === "auth/email-already-in-use") {
+          setError("errCorreo", "Este correo ya está registrado. Inicia sesión.");
+        } else if (authErr.code === "auth/invalid-email") {
+          setError("errCorreo", "Correo inválido.");
+        } else if (authErr.code === "auth/weak-password") {
+          setError("errPass", "Contraseña muy débil. Usa al menos 8 caracteres.");
+        } else {
+          showSnackbar("❌ Error al crear cuenta. Intenta de nuevo.", "error");
+        }
+        return;
+      }
     }
 
     const uid = newUser.uid;
     const usernameFinal = "@" + username.replace(/^@/, "");
     const fechaRegistro = new Date().toLocaleDateString("es-PE");
 
-    await setDoc(
+      await setDoc(
       doc(db, "Trabajadores_Usuarios_Drivers", "users", "correos", uid),
-      { correo, tipo: "email" },
+      { correo, tipo: tipoLogin },
     );
 
     await setDoc(
@@ -890,9 +958,9 @@ window.submitRegister = async (event) => {
         puntos: 500,
         cod_pais: codPais,
         nacionalidad_nacimiento: nombrePais,
-        tipo_login: "email",
+        tipo_login: tipoLogin,
         contacto: {
-          cod_telefonico: codPais,
+          cod_telefonico: prefijoTel,
           nombre_pais_numero: nombrePais,
           numero_user: Number(telefono),
         },
@@ -900,7 +968,9 @@ window.submitRegister = async (event) => {
       },
     );
 
-    GOOGLE_USER = newUser;
+
+       GOOGLE_USER = newUser;
+    modoRegistroGoogle = false;
 
     closeModal("registerModal");
     showSnackbar("🎉 ¡Cuenta creada! Bienvenido a Geinz", "success");

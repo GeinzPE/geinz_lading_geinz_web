@@ -255,12 +255,12 @@
             <p class="field-error" id="errUsername"></p>
           </div>
 
-          <!-- TELÉFONO -->
-                   <div class="field-group">
+                 <!-- TELÉFONO -->
+          <div class="field-group">
             <label class="field-label">País</label>
             <div class="input-box select-wrap">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">public</span>
-              <select id="editPais" class="custom-select" onchange="onEditPaisChange(this)">
+              <select id="regPaisTel" class="custom-select" onchange="onRegPaisChange(this)">
                 <option value="" disabled selected hidden>Seleccionar país</option>
               </select>
               <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
@@ -270,14 +270,14 @@
           <div class="field-group">
             <label class="field-label">Número de teléfono</label>
             <div class="phone-row">
-              <div class="country-prefix" id="editPrefixBox" aria-label="Código de país">
-                <span class="flag" id="editPrefixFlag" aria-hidden="true">🇵🇪</span>
-                <span class="prefix-code" id="editPrefixCode">+51</span>
+              <div class="country-prefix" id="regPrefixBox" aria-label="Código de país">
+                <span class="flag" id="regPrefixFlag" aria-hidden="true">🇵🇪</span>
+                <span class="prefix-code" id="regPrefixCode">+51</span>
               </div>
-              <input id="editTelefono" type="tel" class="input-field phone-input" placeholder="987 654 321"
+              <input id="regTelefono" type="tel" class="input-field phone-input" placeholder="987 654 321"
                 autocomplete="tel-national" oninput="this.value=this.value.replace(/\D/g,'')" maxlength="12" />
             </div>
-            <p class="field-error" id="errEditTelefono"></p>
+            <p class="field-error" id="errTelefono"></p>
           </div>
           <!-- GÉNERO Y LOCALIDAD -->
           <div class="input-row-2">
@@ -371,7 +371,7 @@
           </div>
 
           <!-- CONTRASEÑAS -->
-          <div class="input-row-2">
+            <div class="input-row-2" id="passRow">
             <div class="field-group">
               <label class="field-label" for="registerPass1">Contraseña</label>
               <div class="input-box">
@@ -623,10 +623,10 @@
               <span class="material-symbols-outlined" aria-hidden="true">edit</span>
             </button>
           </div>
-            <p class="wb-username" id="wUser">@username</p>
-      <p class="wb-phone" id="wPhone"></p>
+          <p class="wb-username" id="wUser">@username</p>
+          <p class="wb-phone" id="wPhone"></p>
 
-      <div class="wb-points-pill">
+          <div class="wb-points-pill">
             <span class="material-symbols-outlined" aria-hidden="true">stars</span>
             <span id="wPoints">500</span>
             <span>puntos Geinz</span>
