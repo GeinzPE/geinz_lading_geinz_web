@@ -1516,9 +1516,11 @@ function htmlColeccion(id, coleccion) {
         <svg class="carta-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <div class="carta-coleccion-body">
-        <textarea class="carta-textarea" rows="2" data-carta-textarea placeholder="Descripción (opcional)...">${coleccion.texto || ""}</textarea>
-        <button type="button" class="carta-save-text-btn" data-carta-save-texto>Guardar descripción</button>
-        <div class="carta-photo-grid" data-carta-grid></div>
+        <div class="carta-body-inner">
+          <textarea class="carta-textarea" rows="2" data-carta-textarea placeholder="Descripción (opcional)...">${coleccion.texto || ""}</textarea>
+          <button type="button" class="carta-save-text-btn" data-carta-save-texto>Guardar descripción</button>
+          <div class="carta-photo-grid" data-carta-grid></div>
+        </div>
       </div>
     </div>`;
 }

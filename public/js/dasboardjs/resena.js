@@ -148,12 +148,20 @@ async function cargarPagina(reset = false) {
   cargando = false;
 }
 
+function escapeHtml(str = "") {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 /* ---------------- Render de una card ---------------- */
 function renderReviewCard(review) {
-  const nombre = review.nombre_usuario || "Usuario"; // CAMPO: nombre_usuario
+  const nombre = escapeHtml(review.nombre_usuario || "Usuario"); // CAMPO: nombre_usuario
   const inicial = nombre.trim().charAt(0).toUpperCase() || "?";
   const estrellas = Number(review.calificacion) || 0; // CAMPO: calificacion
-  const comentario = review.descripcion || ""; // CAMPO: descripcion
+  const comentario = escapeHtml(review.descripcion || ""); // CAMPO: descripcion
   const fecha = review.timestamp?.toDate ? review.timestamp.toDate() : null; // CAMPO: timestamp
   const fechaStr = fecha
     ? fecha.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" })
@@ -202,11 +210,8 @@ function renderReviewCard(review) {
   `;
 
   // Eventos del form de respuesta (si no está respondida aún)
-  if (!yaRespondida) {
-    const btn = card.querySelector("[data-btn-responder]");
-    const textarea = card.querySelector("[data-textarea-respuesta]");
-    btn?.addEventListener("click", () => enviarRespuesta(review.id, textarea, card));
-  }
+  card.dataset.yaRespondida = yaRespondida ? "true" : "false";
+  attachRespuestaListeners(card, review.id);
 
   el("reviews-list")?.appendChild(card);
 
@@ -229,15 +234,27 @@ function renderEstrellas(n) {
   return out;
 }
 
-function renderFormRespuesta() {
+function renderFormRespuesta(textoPrevio = "") {
   return `
-    <textarea class="reply-input" placeholder="Responder a este cliente..." data-textarea-respuesta></textarea>
-    <div class="flex justify-end mt-2">
-      <button class="btn-primary" data-btn-responder>Responder</button>
+<textarea class="reply-input" placeholder="Responder a este cliente..." data-textarea-respuesta>${escapeHtml(textoPrevio)}</textarea>    <div class="flex justify-end mt-2">
+      <button class="btn-primary" data-btn-responder>${textoPrevio ? "Guardar cambios" : "Responder"}</button>
     </div>
   `;
 }
+function attachRespuestaListeners(card, reviewId) {
+  const btn = card.querySelector("[data-btn-responder]");
+  const textarea = card.querySelector("[data-textarea-respuesta]");
+  btn?.addEventListener("click", () => enviarRespuesta(reviewId, textarea, card));
 
+  const btnEditar = card.querySelector("[data-btn-editar-respuesta]");
+  btnEditar?.addEventListener("click", () => {
+    const textoActual = card.querySelector("[data-texto-respuesta]")?.textContent || "";
+    const wrap = card.querySelector(".respuesta-wrap");
+    wrap.innerHTML = renderFormRespuesta(textoActual);
+    attachRespuestaListeners(card, reviewId);
+    wrap.querySelector("[data-textarea-respuesta]")?.focus();
+  });
+}
 function renderRespuestaGuardada(respuesta) {
   const fecha = respuesta.fecha?.toDate ? respuesta.fecha.toDate() : null;
   const fechaStr = fecha
@@ -245,9 +262,11 @@ function renderRespuestaGuardada(respuesta) {
     : "";
   return `
     <div class="respuesta-box p-3">
-      <p class="text-[10px] font-bold text-purple-300 uppercase tracking-wide mb-1">Tu respuesta · ${fechaStr}</p>
-      <p class="text-xs text-zinc-200 leading-relaxed">${respuesta.texto}</p>
-    </div>
+      <div class="flex items-start justify-between gap-2">
+        <p class="text-[10px] font-bold text-purple-300 uppercase tracking-wide mb-1">Tu respuesta · ${fechaStr}</p>
+        <button type="button" class="text-[10px] font-semibold text-zinc-400 hover:text-white transition-colors" data-btn-editar-respuesta>Editar</button>
+      </div>
+<p class="text-xs text-zinc-200 leading-relaxed" data-texto-respuesta>${escapeHtml(respuesta.texto)}</p>    </div>
   `;
 }
 
@@ -258,6 +277,8 @@ async function enviarRespuesta(reviewId, textarea, card) {
     textarea.focus();
     return;
   }
+
+  const esPrimeraRespuesta = card.dataset.yaRespondida !== "true";
 
   const btn = card.querySelector("[data-btn-responder]");
   btn.disabled = true;
@@ -275,8 +296,10 @@ async function enviarRespuesta(reviewId, textarea, card) {
     // Actualizamos la card en pantalla sin recargar todo
     const wrap = card.querySelector(".respuesta-wrap");
     wrap.innerHTML = renderRespuestaGuardada({ texto, fecha: { toDate: () => new Date() } });
+    card.dataset.yaRespondida = "true";
+    attachRespuestaListeners(card, reviewId);
 
-    actualizarContadorSinResponder();
+    if (esPrimeraRespuesta) actualizarContadorSinResponder();
   } catch (err) {
     console.error("Error respondiendo reseña:", err);
     btn.disabled = false;
