@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reseñas - Dashboard</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" src="../js/dasboardjs/resena.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            dark: {
+              bg: '#030305',
+              surface: '#09090d',
+              card: '#0f0f15',
+              border: 'rgba(255, 255, 255, 0.07)',
+            }
+          }
+        },
+      },
+    };
+  </script>
+
+  <style>
+    :root {
+      --bg: #030305;
+      --surface: #09090d;
+      --card-bg: #0e0e14;
+      --card-border: rgba(255, 255, 255, 0.08);
+    }
+
+    body {
+      background-color: var(--bg);
+      color: #f4f4f5;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #27272a transparent;
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+    /* Glass Effect UI */
+    .glass-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(168, 85, 247, 0.3);
+      box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Filter Pills */
+    .filter-pill { transition: all 0.18s ease; }
+
+    .filter-pill[data-active="true"] {
+      background: #ffffff;
+      color: #000000;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
+    }
+
+    .filter-pill[data-active="false"] {
+      background: rgba(255, 255, 255, 0.03);
+      color: #a1a1aa;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .filter-pill[data-active="false"]:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: #ffffff;
+    }
+
+    /* Estrellas */
+    .stars { color: #fbbf24; letter-spacing: 1px; font-size: 13px; }
+    .stars .off { color: #3f3f46; }
+
+    /* Card de review */
+    .review-card {
+      transition: transform 0.18s ease, border-color 0.18s ease;
+    }
+
+    .review-card.card-enter {
+      animation: cardIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .avatar-fallback {
+      width: 38px; height: 38px; border-radius: 999px;
+      background: linear-gradient(135deg, #a855f7, #6d28d9);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 14px; color: #fff; flex-shrink: 0;
+    }
+
+    .respuesta-box {
+      background: rgba(168, 85, 247, 0.06);
+      border: 1px solid rgba(168, 85, 247, 0.18);
+      border-radius: 12px;
+    }
+
+    textarea.reply-input {
+      width: 100%;
+      background: #101018;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 13px;
+      resize: vertical;
+      min-height: 60px;
+    }
+    textarea.reply-input:focus { outline: none; border-color: #a855f7; }
+
+    .btn-primary {
+      background: #a855f7; color: #fff; font-weight: 700; font-size: 12px;
+      padding: 8px 16px; border-radius: 10px; border: none; cursor: pointer;
+      transition: background .18s ease;
+    }
+    .btn-primary:hover { background: #9333ea; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: rgba(255,255,255,.04); color: #d4d4d8; font-weight: 600; font-size: 12px;
+      padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); cursor: pointer;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.08); }
+
+    #btn-cargar-mas:disabled { opacity: .5; cursor: not-allowed; }
+
+    .skeleton-line {
+      background: linear-gradient(90deg, #101014 0%, #1c1c22 50%, #101014 100%);
+      background-size: 200% 100%;
+      animation: skeletonShine 1.3s ease infinite;
+      border-radius: 6px;
+    }
+    @keyframes skeletonShine {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+</head>
+
+<body
+  class="font-sans antialiased min-h-screen relative overflow-x-hidden selection:bg-purple-500 selection:text-white">
+
+  <!-- Glows de Fondo -->
+  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+    <div
+      class="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-gradient-to-b from-purple-900/10 via-indigo-950/5 to-transparent blur-[140px]">
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 backdrop-blur-xl bg-[#030305]/80 border-b border-white/[0.08]">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-2 h-7 bg-purple-500 rounded-full shadow-[0_0_12px_rgba(168,85,247,0.5)]"></div>
+        <div>
+          <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Marketing & Promociones</p>
+          <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Reseñas de mi tienda</h1>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-28">
+
+    <!-- Resumen -->
+    <div class="grid grid-cols-2 gap-4 mb-8">
+      <div class="glass-card rounded-2xl p-5">
+        <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Promedio</p>
+        <div class="flex items-baseline gap-2">
+          <p class="text-3xl font-black text-white font-mono" id="stat-promedio">0.0</p>
+          <span class="stars" id="stat-promedio-stars"></span>
+        </div>
+        <p class="text-[11px] text-zinc-500 mt-1" id="stat-total-reviews">0 reseñas</p>
+      </div>
+      <div class="glass-card rounded-2xl p-5">
+        <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Sin responder</p>
+        <p class="text-3xl font-black text-amber-400 font-mono" id="stat-sin-responder">0</p>
+        <p class="text-[11px] text-zinc-500 mt-1">Esperan tu respuesta</p>
+      </div>
+    </div>
+
+    <!-- Filtros por estrellas -->
+    <div class="mb-6 flex items-center gap-2 flex-wrap bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800/80">
+      <button type="button" data-estrellas="todas" data-active="true"
+        class="filter-pill rounded-xl px-4 py-2 text-xs">Todas</button>
+      <button type="button" data-estrellas="5" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★★★★★</button>
+      <button type="button" data-estrellas="4" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★★★★☆</button>
+      <button type="button" data-estrellas="3" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★★★☆☆</button>
+      <button type="button" data-estrellas="2" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★★☆☆☆</button>
+      <button type="button" data-estrellas="1" data-active="false" class="filter-pill rounded-xl px-4 py-2 text-xs">★☆☆☆☆</button>
+    </div>
+
+    <!-- Lista de reseñas -->
+    <div id="reviews-list" class="flex flex-col gap-4"></div>
+
+    <!-- Skeleton de carga inicial -->
+    <div id="reviews-skeleton" class="flex flex-col gap-4">
+      <div class="glass-card rounded-2xl p-4 h-24 skeleton-line"></div>
+      <div class="glass-card rounded-2xl p-4 h-24 skeleton-line"></div>
+      <div class="glass-card rounded-2xl p-4 h-24 skeleton-line"></div>
+    </div>
+
+    <!-- Estado vacío -->
+    <div id="empty-state" class="text-center py-20 px-6 glass-card rounded-2xl hidden">
+      <div
+        class="mx-auto w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-2xl">
+        ⭐
+      </div>
+      <h3 class="text-white font-bold text-sm mb-1">Sin reseñas todavía</h3>
+      <p class="text-zinc-500 text-xs max-w-xs mx-auto">Cuando tus clientes dejen reseñas, aparecerán acá.</p>
+    </div>
+
+    <!-- Cargar más -->
+    <div class="flex justify-center mt-6">
+      <button id="btn-cargar-mas" class="btn-ghost hidden">Cargar más reseñas</button>
+    </div>
+
+  </main>
+
+</body>
+
+</html>

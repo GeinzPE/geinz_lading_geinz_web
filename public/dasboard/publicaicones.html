@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es" class="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Publicaciones</title>
+
+    <!-- ── CSS propio del formulario "Publicar" (no se toca) ── -->
     <link rel="stylesheet" href="../style/dasboardcss/publicaciones.css">
-    <script type="module" src="../js/dasboardjs/publicaciones.js"></script>
+
     <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
@@ -15,19 +17,289 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         rel="stylesheet" />
+
+    <!-- ── Fuentes exactas de "Mis Publicaciones" ── -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- ── Chart.js (Mis Publicaciones) ── -->
+    <script src="../js/graficos/chart.umd.min.js"></script>
+
+    <!-- ── Tailwind CDN (mismo config que mis_publicaciones.html) ── -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            // preflight:false para que el reset de Tailwind no pise los estilos
+            // ya existentes del formulario "Publicar" (.btn, .card, inputs, etc).
+            // Las clases utilitarias (grid, flex, colores, etc) funcionan igual.
+            corePlugins: { preflight: false },
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        dark: {
+                            bg: '#030305',
+                            surface: '#09090d',
+                            card: '#0f0f15',
+                            border: 'rgba(255, 255, 255, 0.07)',
+                        }
+                    }
+                },
+            },
+        };
+    </script>
+
+    <!-- ── Estilos EXACTOS copiados de mis_publicaciones.html, con el bloque
+         envuelto bajo #vista-mis para que no afecte a "Publicar" ── -->
+    <style>
+        #vista-mis {
+            --bg: #030305;
+            --surface: #09090d;
+            --card-bg: #0e0e14;
+            --card-border: rgba(255, 255, 255, 0.08);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #f4f4f5;
+            font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+        }
+
+        #vista-mis * {
+            scrollbar-width: thin;
+            scrollbar-color: #27272a transparent;
+        }
+
+        #vista-mis ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        #vista-mis ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #vista-mis ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 99px;
+        }
+
+        #vista-mis ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+
+        /* Glass Effect UI */
+        #vista-mis .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #vista-mis .glass-card:hover {
+            border-color: rgba(168, 85, 247, 0.3);
+            box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Filter Pills */
+        #vista-mis .filter-pill {
+            transition: all 0.18s ease;
+        }
+
+        #vista-mis .filter-pill[data-active="true"] {
+            background: #ffffff;
+            color: #000000;
+            font-weight: 700;
+            box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
+        }
+
+        #vista-mis .filter-pill[data-active="false"] {
+            background: rgba(255, 255, 255, 0.03);
+            color: #a1a1aa;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        #vista-mis .filter-pill[data-active="false"]:hover {
+            background: rgba(255, 255, 255, 0.07);
+            color: #ffffff;
+        }
+
+        /* Card Pro Image Wrapper */
+        #vista-mis .promo-card {
+            transition: transform 0.22s ease, border-color 0.22s ease;
+        }
+
+        #vista-mis .promo-card:hover {
+            transform: translateY(-3px);
+        }
+
+        #vista-mis .promo-img-wrap {
+            aspect-ratio: 4/5;
+            position: relative;
+            overflow: hidden;
+            background-color: #050508;
+        }
+
+        #vista-mis .promo-img-wrap img {
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #vista-mis .promo-card:hover .promo-img-wrap img {
+            transform: scale(1.05);
+        }
+
+        /* Timers & Chips */
+        #vista-mis .timer-chip {
+            backdrop-filter: blur(12px);
+            background: rgba(5, 5, 8, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        #vista-mis .timer-chip.expired {
+            background: rgba(225, 29, 72, 0.25);
+            border-color: rgba(244, 63, 94, 0.4);
+            color: #fecdd3;
+        }
+
+        /* Modal Overlay */
+        #overlay-detalle.modal-overlay {
+            background: rgba(2, 2, 4, 0.85);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        #overlay-detalle.modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #overlay-detalle .animate-modal-in {
+            animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        #overlay-detalle .tag-chip {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 99px;
+            background: rgba(168, 85, 247, 0.12);
+            color: #d8b4fe;
+            border: 1px solid rgba(168, 85, 247, 0.25);
+        }
+
+        #promos-grid {
+            transition: opacity 0.15s ease;
+        }
+
+        #promos-grid.grid-fading {
+            opacity: 0;
+        }
+
+        #vista-mis .promo-card.card-enter {
+            animation: cardIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes cardIn {
+            from {
+                opacity: 0;
+                transform: scale(0.94) translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        /* Skeleton de imagen */
+        #vista-mis .img-skeleton {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, #101014 0%, #1c1c22 50%, #101014 100%);
+            background-size: 200% 100%;
+            animation: skeletonShine 1.3s ease infinite;
+        }
+
+        @keyframes skeletonShine {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        #vista-mis .promo-img-wrap img {
+            opacity: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        #vista-mis .promo-img-wrap img.loaded {
+            opacity: 1;
+        }
+
+        /* ── Switch de vistas (Publicar / Mis publicaciones) ── */
+        .vista-switch {
+            display: flex;
+            gap: 8px;
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid rgba(255, 255, 255, .08);
+            padding: 5px;
+            border-radius: 14px;
+            width: fit-content;
+            margin: 0 auto 22px;
+        }
+
+        .vista-tab {
+            border: none;
+            background: transparent;
+            color: #a1a1aa;
+            padding: 9px 18px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: .18s;
+        }
+
+        .vista-tab.active {
+            background: #fff;
+            color: #000;
+        }
+    </style>
 </head>
 
 <body>
     <div id="fb-root"></div>
     <div class="wrap">
 
-
-
         <div class="hdr">
             <div class="hdr-top">
                 <div class="hdr-left">
                     <h1>
-                        Promociones
+                        Crea tus promociones
                         <i class="ti ti-sparkles hdr-icon" aria-hidden="true"></i>
                     </h1>
                     <p>Selecciona hasta 5 imágenes que quieras mostrar en tu publicación</p>
@@ -48,478 +320,623 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="grid">
+        <!-- ── SWITCH DE VISTAS ── -->
+        <div class="vista-switch" id="vistaSwitch">
+            <button type="button" class="vista-tab active" data-vista="publicar">
+                <i class="ti ti-send" aria-hidden="true"></i> Publicar
+            </button>
+            <button type="button" class="vista-tab" data-vista="mis">
+                <i class="ti ti-list-details" aria-hidden="true"></i> Mis publicaciones
+            </button>
+        </div>
 
-                <!-- IZQUIERDA -->
-                <div class="col">
+        <!-- ══════════════════════ VISTA 1: PUBLICAR ══════════════════════ -->
+        <div id="vista-publicar">
+            <div class="card">
+                <div class="grid">
 
-                    <!-- Upload -->
-                    <!-- Upload -->
-                    <div class="ig" style="overflow: hidden;">
-                        <label class="lbl">Selecciona hasta 5 imágenes</label>
+                    <!-- IZQUIERDA -->
+                    <div class="col">
 
-                        <div class="image-grid-selector" id="imageGridSelector">
-                            <div class="image-slot" data-index="0" onclick="selectImage(0)">
-                                <div class="image-slot-content">
-                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
-                                    <span>Añadir imagen</span>
+                        <!-- Upload -->
+                        <div class="ig" style="overflow: hidden;">
+                            <label class="lbl">Selecciona hasta 5 imágenes</label>
+
+                            <div class="image-grid-selector" id="imageGridSelector">
+                                <div class="image-slot" data-index="0" onclick="selectImage(0)">
+                                    <div class="image-slot-content">
+                                        <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                        <span>Añadir imagen</span>
+                                    </div>
+                                    <img class="image-slot-preview" style="display:none;">
+                                    <button class="image-slot-remove"
+                                        onclick="event.stopPropagation(); removeImage(0)">✕</button>
                                 </div>
-                                <img class="image-slot-preview" style="display:none;">
-                                <button class="image-slot-remove"
-                                    onclick="event.stopPropagation(); removeImage(0)">✕</button>
-                            </div>
-                            <div class="image-slot" data-index="1" onclick="selectImage(1)">
-                                <div class="image-slot-content">
-                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
-                                    <span>Añadir imagen</span>
+                                <div class="image-slot" data-index="1" onclick="selectImage(1)">
+                                    <div class="image-slot-content">
+                                        <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                        <span>Añadir imagen</span>
+                                    </div>
+                                    <img class="image-slot-preview" style="display:none;">
+                                    <button class="image-slot-remove"
+                                        onclick="event.stopPropagation(); removeImage(1)">✕</button>
                                 </div>
-                                <img class="image-slot-preview" style="display:none;">
-                                <button class="image-slot-remove"
-                                    onclick="event.stopPropagation(); removeImage(1)">✕</button>
-                            </div>
-                            <div class="image-slot" data-index="2" onclick="selectImage(2)">
-                                <div class="image-slot-content">
-                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
-                                    <span>Añadir imagen</span>
+                                <div class="image-slot" data-index="2" onclick="selectImage(2)">
+                                    <div class="image-slot-content">
+                                        <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                        <span>Añadir imagen</span>
+                                    </div>
+                                    <img class="image-slot-preview" style="display:none;">
+                                    <button class="image-slot-remove"
+                                        onclick="event.stopPropagation(); removeImage(2)">✕</button>
                                 </div>
-                                <img class="image-slot-preview" style="display:none;">
-                                <button class="image-slot-remove"
-                                    onclick="event.stopPropagation(); removeImage(2)">✕</button>
-                            </div>
-                            <div class="image-slot" data-index="3" onclick="selectImage(3)">
-                                <div class="image-slot-content">
-                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
-                                    <span>Añadir imagen</span>
+                                <div class="image-slot" data-index="3" onclick="selectImage(3)">
+                                    <div class="image-slot-content">
+                                        <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                        <span>Añadir imagen</span>
+                                    </div>
+                                    <img class="image-slot-preview" style="display:none;">
+                                    <button class="image-slot-remove"
+                                        onclick="event.stopPropagation(); removeImage(3)">✕</button>
                                 </div>
-                                <img class="image-slot-preview" style="display:none;">
-                                <button class="image-slot-remove"
-                                    onclick="event.stopPropagation(); removeImage(3)">✕</button>
-                            </div>
-                            <div class="image-slot" data-index="4" onclick="selectImage(4)">
-                                <div class="image-slot-content">
-                                    <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
-                                    <span>Añadir imagen</span>
+                                <div class="image-slot" data-index="4" onclick="selectImage(4)">
+                                    <div class="image-slot-content">
+                                        <i class="ti ti-plus" style="font-size: 28px; color: var(--text-light);"></i>
+                                        <span>Añadir imagen</span>
+                                    </div>
+                                    <img class="image-slot-preview" style="display:none;">
+                                    <button class="image-slot-remove"
+                                        onclick="event.stopPropagation(); removeImage(4)">✕</button>
                                 </div>
-                                <img class="image-slot-preview" style="display:none;">
-                                <button class="image-slot-remove"
-                                    onclick="event.stopPropagation(); removeImage(4)">✕</button>
                             </div>
+
+                            <input type="file" id="imageInput" accept="image/*" style="display:none;"
+                                onchange="handleFiles(this)">
+
+                            <!-- ↓ ZONA IA IMAGEN ↓ -->
+                            <div class="ia-zona-imagen" id="iaZonaImagen" style="display:none">
+                                <p class="ia-zona-hint">Evita escribir título y descripción y haz que la IA de Geinz
+                                    lo escriba
+                                    por ti (la IA de Geinz solo utilizará la imagen número 1)</p>
+                                <div class="ia-tipo-row">
+                                    <button class="ia-tipo-chip active" data-tipo="venta"
+                                        onclick="selectTipoImagen(this)">
+                                        Venta
+                                    </button>
+                                    <button class="ia-tipo-chip" data-tipo="llamado" onclick="selectTipoImagen(this)">
+                                        Llamado de atención
+                                    </button>
+                                    <button class="ia-tipo-chip" data-tipo="informativo"
+                                        onclick="selectTipoImagen(this)">
+                                        Informativo
+                                    </button>
+                                </div>
+                                <button class="ia-zona-btn" id="btnImagenIA">
+                                    <span id="loadingImagenIA" class="loading-dots" style="display:none">
+                                        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                                    </span>
+
+                                    <span id="btnImagenIALabel">Generar contenido
+                                    </span>
+                                    <span class="btn-price">
+                                        <span class="ia-zona-btn-price" id="precioImagenIA">80</span>
+                                        <img src="../img/icon_monedas_3d.webp" class="price-icon">
+                                    </span>
+                                </button>
+                            </div>
+                            <!-- ↑ fin zona IA imagen ↑ -->
+
                         </div>
 
-                        <input type="file" id="imageInput" accept="image/*" style="display:none;"
-                            onchange="handleFiles(this)">
 
-                        <!-- ↓ ZONA IA IMAGEN — aquí, justo debajo del grid ↓ -->
-                        <div class="ia-zona-imagen" id="iaZonaImagen" style="display:none">
-                            <p class="ia-zona-hint">Evita escribir título y descripción y haz que la IA de Geinz lo
-                                escriba
-                                por ti (la IA de Geinz solo utilizará la imagen número 1)</p>
+                        <!-- Título -->
+                        <div class="ig">
+                            <label class="lbl">Título</label>
+                            <input type="text" id="tituloInput" placeholder="Título de la publicación">
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="ig">
+                            <label class="lbl">Descripción</label>
+                            <textarea id="descripcionInput" placeholder="Descripción de publicación"></textarea>
+                        </div>
+
+                        <!-- ZONA IA TEXTO -->
+                        <div class="ia-zona-texto" id="iaZonaTexto" style="display:none">
+                            <div class="ia-zona-header">
+                                <p class="ia-zona-title">Potencia tus publicaciones con la IA de Geinz</p>
+                                <p class="ia-zona-sub">Deja que la IA de Geinz mejore tu contenido de forma rápida y
+                                    profesional</p>
+                            </div>
+                            <p class="ia-zona-label">Selecciona el tipo de contenido que quieres generar</p>
                             <div class="ia-tipo-row">
-                                <button class="ia-tipo-chip active" data-tipo="venta" onclick="selectTipoImagen(this)">
+                                <button class="ia-tipo-chip active" data-tipo="venta" onclick="selectTipoTexto(this)">
                                     Venta
                                 </button>
-                                <button class="ia-tipo-chip" data-tipo="llamado" onclick="selectTipoImagen(this)">
+                                <button class="ia-tipo-chip" data-tipo="llamado" onclick="selectTipoTexto(this)">
                                     Llamado de atención
                                 </button>
-                                <button class="ia-tipo-chip" data-tipo="informativo" onclick="selectTipoImagen(this)">
+                                <button class="ia-tipo-chip" data-tipo="informativo" onclick="selectTipoTexto(this)">
                                     Informativo
                                 </button>
                             </div>
-                            <button class="ia-zona-btn" id="btnImagenIA">
-                                <span id="loadingImagenIA" class="loading-dots" style="display:none">
-                                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-                                </span>
+                            <div class="ia-bullets" id="iaBullets"></div>
+                            <button class="ia-zona-btn" id="btnDescripcionIA">
+                                Mejorar título y descripción con IA
 
-                                <span id="btnImagenIALabel">Generar contenido
-                                </span>
                                 <span class="btn-price">
-                                    <span class="ia-zona-btn-price" id="precioImagenIA">80</span>
+                                    <span class="ia-zona-btn-price">0</span>
                                     <img src="../img/icon_monedas_3d.webp" class="price-icon">
                                 </span>
                             </button>
+                            <div id="resultadoIAContainer" class="ia-results"></div>
                         </div>
-                        <!-- ↑ fin zona IA imagen ↑ -->
 
                     </div>
 
+                    <!-- DERECHA -->
+                    <div class="col">
 
-                    <!-- Título -->
-                    <div class="ig">
-                        <label class="lbl">Título</label>
-                        <input type="text" id="tituloInput" placeholder="Título de la publicación">
-                    </div>
-
-                    <!-- Descripción -->
-                    <div class="ig">
-                        <label class="lbl">Descripción</label>
-                        <textarea id="descripcionInput" placeholder="Descripción de publicación"></textarea>
-                    </div>
-
-                    <!-- ZONA IA TEXTO -->
-                    <!-- ZONA IA TEXTO -->
-                    <div class="ia-zona-texto" id="iaZonaTexto" style="display:none">
-                        <div class="ia-zona-header">
-                            <p class="ia-zona-title">Potencia tus publicaciones con la IA de Geinz</p>
-                            <p class="ia-zona-sub">Deja que la IA de Geinz mejore tu contenido de forma rápida y
-                                profesional</p>
+                        <div>
+                            <h3 class="sec-title">Parámetros de publicación</h3>
+                            <p class="sec-sub">Personaliza tu publicación y mejora sus resultados.</p>
                         </div>
-                        <p class="ia-zona-label">Selecciona el tipo de contenido que quieres generar</p>
-                        <div class="ia-tipo-row">
-                            <button class="ia-tipo-chip active" data-tipo="venta" onclick="selectTipoTexto(this)">
-                                Venta
-                            </button>
-                            <button class="ia-tipo-chip" data-tipo="llamado" onclick="selectTipoTexto(this)">
-                                Llamado de atención
-                            </button>
-                            <button class="ia-tipo-chip" data-tipo="informativo" onclick="selectTipoTexto(this)">
-                                Informativo
-                            </button>
+
+                        <div class="param-list">
+
+                            <!-- WhatsApp -->
+                            <div class="param-box">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/whatsapp_icon.png" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>WhatsApp</h4>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" onchange="toggle('wp',this)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="sub-panel" id="wp">
+                                    <p class="sec-sub">Tu Numero de contato</p>
+                                    <input type="text" placeholder="Número">
+                                    <p class="sec-sub">Mensaje predeterminado</p>
+                                    <input type="text" id="mensajeWpInput"
+                                        value="Hola, quiero esta oferta que vi en Geinz">
+                                    <div class="ai-zone">
+                                        <button class="ai-btn" id="btnMensajeWpIA">
+                                            <i class="ti ti-message-chatbot btn-icon" aria-hidden="true"></i>
+                                            <span class="btn-label">Mejorar mensaje WhatsApp</span>
+
+                                            <span class="btn-price">
+                                                <span id="precioMensajeWpIA">0</span>
+                                                <img src="../img/icon_monedas_3d.webp" class="price-icon">
+                                            </span>
+
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Compartir -->
+                            <div class="param-box">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/compartir_icon_rojo.webp" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>Compartir</h4>
+                                    </div>
+                                    <label class="switch"><input type="checkbox" onchange="toggle('share',this)"><span
+                                            class="slider"></span></label>
+                                </div>
+                                <div class="sub-panel" id="share">
+                                    <p class="sec-sub">Mensaje predeterminado</p>
+                                    <input type="text" id="mensajeShareInput" value="Mira esta promo en Geinz 🎁">
+                                    <div class="ai-zone">
+                                        <button class="ai-btn-full" id="btnMensajeShareIA" style="margin-top:4px;">
+                                            <i class="ti ti-sparkles btn-icon" aria-hidden="true"></i>
+
+                                            <span class="btn-label">Mejorar mensaje para compartir</span>
+
+                                            <span class="btn-price">
+                                                <span id="precioShareIA">0</span>
+                                                <img src="../img/icon_monedas_3d.webp" class="price-icon">
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cercanía -->
+                            <div class="param-box" id="paramBoxGeo">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/google_maps_icono.webp" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>Cercanía</h4>
+                                    </div>
+                                    <label class="switch"><input type="checkbox" onchange="toggle('geo',this)"><span
+                                            class="slider"></span></label>
+                                </div>
+                                <div class="sub-panel" id="geo">
+                                    <p class="sec-sub">Permite que tu publicacion se muestre a usuarios que activen
+                                        el
+                                        filtro de cercanía y se encuentren cerca de tu negocio físico.</p>
+                                    <input type="text" value="Jr. Manco Capac, Barranca" readonly>
+                                    <input type="text" value="Jr. Manco Capac, Barranca" readonly>
+                                </div>
+                            </div>
+
+                            <!-- Precio -->
+                            <div class="param-box">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/efectivo_logo.webp" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>Precio</h4>
+                                    </div>
+
+                                    <label class="switch"><input type="checkbox" onchange="toggle('price',this)"><span
+                                            class="slider"></span></label>
+                                </div>
+                                <div class="sub-panel" id="price">
+                                    <p class="sec-sub">El precio se detecta automáticamente para mejorar la
+                                        visibilidad de
+                                        tu publicación. Si no se detecta, puedes ingresarlo manualmente.</p>
+                                    <input type="text" id="precioInput" placeholder="20">
+                                </div>
+                            </div>
+
+                            <!-- Horario -->
+                            <div class="param-box">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/reloj_icon_hora_3d.webp" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>Horario</h4>
+                                    </div>
+                                    <label class="switch"><input type="checkbox" onchange="toggle('hours',this)"><span
+                                            class="slider"></span></label>
+                                </div>
+                                <div class="sub-panel" id="hours">
+                                    <p class="sec-sub">Elige en qué horario quieres que tu publicación sea visible
+                                        para los
+                                        compradores: mañana, tarde, noche o todos los turnos según tu preferencia.
+                                    </p>
+                                    <select>
+                                        <option>Todo el día</option>
+                                        <option>Mañana</option>
+                                        <option>Tarde</option>
+                                        <option>Noche</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Pagos -->
+                            <div class="param-box">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/yape_logo.webp" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>Métodos de pago</h4>
+                                    </div>
+                                    <label class="switch"><input type="checkbox"
+                                            onchange="toggle('payments',this)"><span class="slider"></span></label>
+                                </div>
+                                <div class="sub-panel" id="payments">
+                                    <p class="sec-sub">Selecciona el método de pago para que tu publicación esté
+                                        mejor
+                                        segmentada y llegue al público correcto.
+                                    </p>
+                                    <div class="pay-grid">
+                                        <div class="pay-item">
+                                            <span class="pay-lbl">
+                                                <img src="../img/yape_logo.webp" alt="Yape"
+                                                    style="width: 24px; height: 24px; border-radius: 8px;">
+                                                Yape
+                                            </span>
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="pay-item">
+                                            <span class="pay-lbl">
+                                                <img src="../img/logo_plin.webp" alt="Plin"
+                                                    style="width: 24px; height: 24px; border-radius: 8px;">
+                                                Plin
+                                            </span>
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="pay-item">
+                                            <span class="pay-lbl">
+                                                <img src="../img/logo_agora.webp" alt="Agora"
+                                                    style="width: 24px; height: 24px; border-radius: 8px;">
+                                                Agora
+                                            </span>
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="pay-item">
+                                            <span class="pay-lbl">
+                                                <img src="../img/efectivo_logo.webp" alt="Efectivo"
+                                                    style="width: 24px; height: 24px; border-radius: 8px;">
+                                                Efectivo
+                                            </span>
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="pay-item">
+                                            <span class="pay-lbl">
+                                                <img src="../img/visa_logo.webp" alt="Visa"
+                                                    style="width: 24px; height: 24px; border-radius: 8px;">
+                                                Visa
+                                            </span>
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="pay-item">
+                                            <span class="pay-lbl">
+                                                <img src="../img/master_car_logo.webp" alt="Mastercard"
+                                                    style="width: 24px; height: 24px; border-radius: 8px;">
+                                                Mastercard
+                                            </span>
+                                            <label class="switch">
+                                                <input type="checkbox" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <div class="param-box">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/facebook_icon.webp" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>Fanpage de Facebook</h4>
+                                    </div>
+
+                                    <button class="btn" id="btnConectarFb" onclick="conectarMiFanpage()"
+                                        style="padding:8px 16px;font-size:13px; display:none;">
+                                        Conectar
+                                    </button>
+
+                                    <label class="switch" id="fbPublicarSwitchWrap" style="display:none;">
+                                        <input type="checkbox" id="fbPublicarSwitch" onchange="toggleFbPublicar(this)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="sub-panel" id="fbPublicarPanel">
+                                    <p class="sec-sub" id="fbPageNameText">Conectado a: —</p>
+                                    <p class="sec-sub">Si activas esto, tu promoción también se publicará
+                                        automáticamente en
+                                        tu Fanpage de Facebook, con la imagen, título, descripción y el link de
+                                        Geinz.</p>
+                                </div>
+                            </div>
+
                         </div>
-                        <div class="ia-bullets" id="iaBullets"></div>
-                        <button class="ia-zona-btn" id="btnDescripcionIA">
-                            Mejorar título y descripción con IA
 
-                            <span class="btn-price">
-                                <span class="ia-zona-btn-price">0</span>
-                                <img src="../img/icon_monedas_3d.webp" class="price-icon">
-                            </span>
-                        </button>
-                        <div id="resultadoIAContainer" class="ia-results"></div>
+                        <!-- Plazo -->
+                        <div class="plazo">
+                            <h3 class="sec-title">Plazo de publicación</h3>
+                            <p class="sec-sub">Selecciona cuánto tiempo estará activa.</p>
+
+                            <div class="plazo-sel">
+
+                                <label class="plazo-chip">
+                                    <input type="radio" name="plazo" value="horas" onchange="tipoPlazo()">
+                                    <div class="plazo-chip-inner">
+                                        <img src="../img/reloj_icon_hora_3d.webp"
+                                            style="width:28px;height:28px;object-fit:contain;">
+                                        <span>Horas</span>
+                                    </div>
+                                </label>
+
+                                <label class="plazo-chip">
+                                    <input type="radio" name="plazo" value="dias" checked onchange="tipoPlazo()">
+                                    <div class="plazo-chip-inner">
+                                        <img src="../img/por_dias_icon_3d.webp"
+                                            style="width:28px;height:28px;object-fit:contain;">
+                                        <span>Días</span>
+                                    </div>
+                                </label>
+
+                            </div>
+
+                            <div id="boxHoras" style="display:none">
+                                <div class="ig">
+                                    <label class="lbl">Cantidad de horas (1–20)</label>
+
+                                    <input type="number" id="inputHoras" min="1" max="20" value="1">
+                                </div>
+
+                                <div id="duracionHorasContainer" style="display:none;"></div>
+                            </div>
+
+                            <div id="boxFechas">
+
+                                <div class="date-grid">
+
+                                    <div class="ig">
+                                        <label class="lbl">Fecha inicial</label>
+
+                                        <input type="date" id="fechaInicio" readonly>
+                                    </div>
+
+                                    <div class="ig">
+                                        <label class="lbl">Fecha final</label>
+
+                                        <input type="date" id="fechaFin">
+                                    </div>
+
+                                </div>
+
+                                <div id="duracionDiasContainer" style="display:none;"></div>
+
+                            </div>
+                        </div>
+
                     </div>
-
-
-
                 </div>
 
-                <!-- DERECHA -->
-                <div class="col">
-
-                    <div>
-                        <h3 class="sec-title">Parámetros de publicación</h3>
-                        <p class="sec-sub">Personaliza tu publicación y mejora sus resultados.</p>
-                    </div>
-
-                    <div class="param-list">
-
-                        <!-- WhatsApp -->
-                        <!-- WhatsApp -->
-                        <div class="param-box">
-                            <div class="param-row">
-                                <div class="param-info">
-                                    <img src="../img/whatsapp_icon.png" alt="icono"
-                                        style="width: 23px; height: 23px; margin-left: 6px;">
-                                    <h4>WhatsApp</h4>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" onchange="toggle('wp',this)">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-
-                            <div class="sub-panel" id="wp">
-                                <p class="sec-sub">Tu Numero de contato</p>
-                                <input type="text" placeholder="Número">
-                                <p class="sec-sub">Mensaje predeterminado</p>
-                                <input type="text" id="mensajeWpInput" value="Hola, quiero esta oferta que vi en Geinz">
-                                <div class="ai-zone">
-                                    <button class="ai-btn" id="btnMensajeWpIA">
-                                        <i class="ti ti-message-chatbot btn-icon" aria-hidden="true"></i>
-                                        <span class="btn-label">Mejorar mensaje WhatsApp</span>
-
-                                        <span class="btn-price">
-                                            <span id="precioMensajeWpIA">0</span>
-                                            <img src="../img/icon_monedas_3d.webp" class="price-icon">
-                                        </span>
-
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Compartir -->
-                        <div class="param-box">
-                            <div class="param-row">
-                                <div class="param-info">
-                                    <img src="../img/compartir_icon_rojo.webp" alt="icono"
-                                        style="width: 23px; height: 23px; margin-left: 6px;">
-                                    <h4>Compartir</h4>
-                                </div>
-                                <label class="switch"><input type="checkbox" onchange="toggle('share',this)"><span
-                                        class="slider"></span></label>
-                            </div>
-                            <div class="sub-panel" id="share">
-                                <p class="sec-sub">Mensaje predeterminado</p>
-                                <input type="text" id="mensajeShareInput" value="Mira esta promo en Geinz 🎁">
-                                <div class="ai-zone">
-                                    <button class="ai-btn-full" id="btnMensajeShareIA" style="margin-top:4px;">
-                                        <i class="ti ti-sparkles btn-icon" aria-hidden="true"></i>
-
-                                        <span class="btn-label">Mejorar mensaje para compartir</span>
-
-                                        <span class="btn-price">
-                                            <span id="precioShareIA">0</span>
-                                            <img src="../img/icon_monedas_3d.webp" class="price-icon">
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Cercanía -->
-                                         <!-- Cercanía -->
-                        <div class="param-box" id="paramBoxGeo">
-                            <div class="param-row">
-                                <div class="param-info">
-                                    <img src="../img/google_maps_icono.webp" alt="icono"
-                                        style="width: 23px; height: 23px; margin-left: 6px;">
-                                    <h4>Cercanía</h4>
-                                </div>
-                                <label class="switch"><input type="checkbox" onchange="toggle('geo',this)"><span
-                                        class="slider"></span></label>
-                            </div>
-                            <div class="sub-panel" id="geo">
-                                <p class="sec-sub">Permite que tu publicacion se muestre a usuarios que activen el
-                                    filtro de cercanía y se encuentren cerca de tu negocio físico.</p>
-                                <input type="text" value="Jr. Manco Capac, Barranca" readonly>
-                                <input type="text" value="Jr. Manco Capac, Barranca" readonly>
-                            </div>
-                        </div>
-
-                        <!-- Precio -->
-                        <div class="param-box">
-                            <div class="param-row">
-                                <div class="param-info">
-                                    <img src="../img/efectivo_logo.webp" alt="icono"
-                                        style="width: 23px; height: 23px; margin-left: 6px;">
-                                    <h4>Precio</h4>
-                                </div>
-
-                                <label class="switch"><input type="checkbox" onchange="toggle('price',this)"><span
-                                        class="slider"></span></label>
-                            </div>
-                            <div class="sub-panel" id="price">
-                                <p class="sec-sub">El precio se detecta automáticamente para mejorar la visibilidad de
-                                    tu publicación. Si no se detecta, puedes ingresarlo manualmente.</p>
-                                <input type="text" id="precioInput" placeholder="20">
-                            </div>
-                        </div>
-
-                        <!-- Horario -->
-                        <div class="param-box">
-                            <div class="param-row">
-                                <div class="param-info">
-                                    <img src="../img/reloj_icon_hora_3d.webp" alt="icono"
-                                        style="width: 23px; height: 23px; margin-left: 6px;">
-                                    <h4>Horario</h4>
-                                </div>
-                                <label class="switch"><input type="checkbox" onchange="toggle('hours',this)"><span
-                                        class="slider"></span></label>
-                            </div>
-                            <div class="sub-panel" id="hours">
-                                <p class="sec-sub">Elige en qué horario quieres que tu publicación sea visible para los
-                                    compradores: mañana, tarde, noche o todos los turnos según tu preferencia.
-                                </p>
-                                <select>
-                                    <option>Todo el día</option>
-                                    <option>Mañana</option>
-                                    <option>Tarde</option>
-                                    <option>Noche</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Pagos -->
-                        <div class="param-box">
-                            <div class="param-row">
-                                <div class="param-info">
-                                    <img src="../img/yape_logo.webp" alt="icono"
-                                        style="width: 23px; height: 23px; margin-left: 6px;">
-                                    <h4>Métodos de pago</h4>
-                                </div>
-                                <label class="switch"><input type="checkbox" onchange="toggle('payments',this)"><span
-                                        class="slider"></span></label>
-                            </div>
-                            <div class="sub-panel" id="payments">
-                                <p class="sec-sub">Selecciona el método de pago para que tu publicación esté mejor
-                                    segmentada y llegue al público correcto.
-                                </p>
-                                <div class="pay-grid">
-                                    <div class="pay-item">
-                                        <span class="pay-lbl">
-                                            <img src="../img/yape_logo.webp" alt="Yape"
-                                                style="width: 24px; height: 24px; border-radius: 8px;">
-                                            Yape
-                                        </span>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-
-                                    <div class="pay-item">
-                                        <span class="pay-lbl">
-                                            <img src="../img/logo_plin.webp" alt="Plin"
-                                                style="width: 24px; height: 24px; border-radius: 8px;">
-                                            Plin
-                                        </span>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-
-                                    <div class="pay-item">
-                                        <span class="pay-lbl">
-                                            <img src="../img/logo_agora.webp" alt="Agora"
-                                                style="width: 24px; height: 24px; border-radius: 8px;">
-                                            Agora
-                                        </span>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-
-                                    <div class="pay-item">
-                                        <span class="pay-lbl">
-                                            <img src="../img/efectivo_logo.webp" alt="Efectivo"
-                                                style="width: 24px; height: 24px; border-radius: 8px;">
-                                            Efectivo
-                                        </span>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-
-                                    <div class="pay-item">
-                                        <span class="pay-lbl">
-                                            <img src="../img/visa_logo.webp" alt="Visa"
-                                                style="width: 24px; height: 24px; border-radius: 8px;">
-                                            Visa
-                                        </span>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-
-                                    <div class="pay-item">
-                                        <span class="pay-lbl">
-                                            <img src="../img/master_car_logo.webp" alt="Mastercard"
-                                                style="width: 24px; height: 24px; border-radius: 8px;">
-                                            Mastercard
-                                        </span>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-
-                        <div class="param-box">
-                            <div class="param-row">
-                                <div class="param-info">
-                                    <img src="../img/facebook_icon.webp" alt="icono"
-                                        style="width: 23px; height: 23px; margin-left: 6px;">
-                                    <h4>Fanpage de Facebook</h4>
-                                </div>
-
-                                <button class="btn" id="btnConectarFb" onclick="conectarMiFanpage()"
-                                    style="padding:8px 16px;font-size:13px;">
-                                    Conectar
-                                </button>
-
-                                <label class="switch" id="fbPublicarSwitchWrap" style="display:none;">
-                                    <input type="checkbox" id="fbPublicarSwitch" onchange="toggleFbPublicar(this)">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-
-                            <div class="sub-panel" id="fbPublicarPanel">
-                                <p class="sec-sub" id="fbPageNameText">Conectado a: —</p>
-                                <p class="sec-sub">Si activas esto, tu promoción también se publicará automáticamente en
-                                    tu Fanpage de Facebook, con la imagen, título, descripción y el link de Geinz.</p>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- Plazo -->
-                    <div class="plazo">
-                        <h3 class="sec-title">Plazo de publicación</h3>
-                        <p class="sec-sub">Selecciona cuánto tiempo estará activa.</p>
-
-                        <div class="plazo-sel">
-
-                            <label class="plazo-chip">
-                                <input type="radio" name="plazo" value="horas" onchange="tipoPlazo()">
-                                <div class="plazo-chip-inner">
-                                    <img src="../img/reloj_icon_hora_3d.webp"
-                                        style="width:28px;height:28px;object-fit:contain;">
-                                    <span>Horas</span>
-                                </div>
-                            </label>
-
-                            <label class="plazo-chip">
-                                <input type="radio" name="plazo" value="dias" checked onchange="tipoPlazo()">
-                                <div class="plazo-chip-inner">
-                                    <img src="../img/por_dias_icon_3d.webp"
-                                        style="width:28px;height:28px;object-fit:contain;">
-                                    <span>Días</span>
-                                </div>
-                            </label>
-
-                        </div>
-
-                        <div id="boxHoras" style="display:none">
-                            <div class="ig">
-                                <label class="lbl">Cantidad de horas (1–20)</label>
-
-                                <input type="number" id="inputHoras" min="1" max="20" value="1">
-                            </div>
-
-                            <div id="duracionHorasContainer" style="display:none;"></div>
-                        </div>
-
-                        <div id="boxFechas">
-
-                            <div class="date-grid">
-
-                                <div class="ig">
-                                    <label class="lbl">Fecha inicial</label>
-
-                                    <input type="date" id="fechaInicio" readonly>
-                                </div>
-
-                                <div class="ig">
-                                    <label class="lbl">Fecha final</label>
-
-                                    <input type="date" id="fechaFin">
-                                </div>
-
-                            </div>
-
-                            <div id="duracionDiasContainer" style="display:none;"></div>
-
-                        </div>
-                    </div>
-
+                <div class="footer">
+                    <button class="btn btn-submit"><i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i>
+                        Publicar
+                        promoción</button>
                 </div>
-            </div>
-
-            <div class="footer">
-                <button class="btn btn-submit"><i class="ti ti-send" style="font-size:15px" aria-hidden="true"></i>
-                    Publicar
-                    promoción</button>
             </div>
         </div>
+        <!-- ══════════════════════ FIN VISTA 1 ══════════════════════ -->
+
+
+        <!-- ══════════════════════ VISTA 2: MIS PUBLICACIONES ══════════════════════ -->
+        <!-- Copiado TAL CUAL del <main> de mis_publicaciones.html, mismas clases Tailwind -->
+        <main id="vista-mis" class="font-sans antialiased max-w-6xl mx-auto pt-4 pb-28" style="display:none">
+
+            <!-- Tarjetas de Métricas -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Activas</span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
+                    </div>
+                    <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-activas">0
+                    </p>
+                    <p class="text-[11px] text-zinc-500 mt-1 font-medium">Publicaciones en circulación</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-rose-400">Expiradas</span>
+                        <span class="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
+                    </div>
+                    <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-expiradas">0
+                    </p>
+                    <p class="text-[11px] text-zinc-500 mt-1 font-medium">Tiempo de vigencia concluido</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Exclusivas</span>
+                        <span class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]"></span>
+                    </div>
+                    <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-exclusivas">
+                        0</p>
+                    <p class="text-[11px] text-zinc-500 mt-1 font-medium">Contenido destacado o VIP</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-purple-400">Total</span>
+                        <span class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]"></span>
+                    </div>
+                    <p class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight" id="stat-total">0</p>
+                    <p class="text-[11px] text-zinc-500 mt-1 font-medium">Histórico de campañas</p>
+                </div>
+            </div>
+
+            <!-- Panel de Estadísticas Generales -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+                <div class="glass-card rounded-2xl p-5 lg:col-span-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Distribución</p>
+                    <div class="relative h-48 flex items-center justify-center">
+                        <canvas id="chart-distribucion"></canvas>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-5 lg:col-span-2">
+                    <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Top Publicaciones (por
+                        vistas)</p>
+                    <div class="relative h-48">
+                        <canvas id="chart-categorias"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controles de Filtros -->
+            <div class="mb-8 flex flex-col gap-3 bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800/80">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" data-estado="todos" data-active="true"
+                        class="filter-pill rounded-xl px-4 py-2 text-xs">Todas</button>
+                    <button type="button" data-estado="activo" data-active="false"
+                        class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Activas
+                    </button>
+                    <button type="button" data-estado="expirado" data-active="false"
+                        class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Expiradas
+                    </button>
+                    <button type="button" data-estado="exclusivo" data-active="false"
+                        class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Exclusivas
+                    </button>
+                </div>
+            </div>
+
+            <!-- Grid de Promociones -->
+            <div id="promos-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+
+            <!-- Estado Vacío -->
+            <div id="empty-state" class="text-center py-20 px-6 glass-card rounded-2xl hidden">
+                <div
+                    class="mx-auto w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-2xl">
+                    📢
+                </div>
+                <h3 class="text-white font-bold text-sm mb-1">Sin publicaciones registradas</h3>
+                <p class="text-zinc-500 text-xs max-w-xs mx-auto">No hay registros asociados al filtro seleccionado
+                    actualmente.
+                </p>
+            </div>
+
+        </main>
+        <!-- ══════════════════════ FIN VISTA 2 ══════════════════════ -->
+
     </div>
+
+    <!-- Modal Detalle (Mis Publicaciones) -->
+    <div class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" id="overlay-detalle">
+        <div
+            class="modal-box w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0b0b10] border border-zinc-800 shadow-2xl relative">
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script type="module" src="../js/dasboardjs/publicaciones.js"></script>
+    <script type="module" src="../js/dasboardjs/mis_publicaciones.js"></script>
+
+    <!-- ── Lógica del switch de vistas ── -->
+    <script>
+        document.querySelectorAll('.vista-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.vista-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const vista = tab.dataset.vista;
+                document.getElementById('vista-publicar').style.display = vista === 'publicar' ? 'block' : 'none';
+                document.getElementById('vista-mis').style.display = vista === 'mis' ? 'block' : 'none';
+            });
+        });
+    </script>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </body>
 
 </html>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>

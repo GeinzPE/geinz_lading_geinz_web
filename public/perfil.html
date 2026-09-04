@@ -450,6 +450,46 @@
         .geinz-footer-legal-row span {
             color: #3a3a3f;
         }
+        .mesa-reserva-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    background: rgba(3, 3, 3, .75);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .25s ease, visibility .25s ease;
+    padding: 20px;
+}
+
+.mesa-reserva-modal.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.lightbox-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(3, 3, 3, 0.94);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s ease, visibility 0.28s ease;
+    touch-action: none;
+    overscroll-behavior: contain;
+}
+
+.lightbox-modal.open {
+    opacity: 1;
+    visibility: visible;
+}
     </style>
 </head>
 
@@ -688,7 +728,7 @@
                 </div>
             </div>
         </section>
-        <section id="secReviews" class="section glass mb-10 reveal">
+        <section id="secReviews" class="section glass mb-10 reveal" style="visibility:hidden;">
             <div class="section-header">Reseñas y calificaciones</div>
             <div class="section-body">
                 <div class="reviews-summary" id="reviewsSummary">

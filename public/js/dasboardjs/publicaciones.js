@@ -2347,6 +2347,8 @@ function _aplicarDatosTienda(d) {
   actualizarBotonesIA();
   if (d.facebook_page && d.facebook_page.page_id) {
     mostrarFbConectado(d.facebook_page.page_name || "tu Fanpage");
+  } else {
+    mostrarFbDesconectado();
   }
 }
 
@@ -2474,6 +2476,10 @@ const CLOUD_FN_CONECTAR_FB =
 
 // ── Función principal: se llama al presionar "Conectar mi Fanpage" ──
 window.conectarMiFanpage = function () {
+  if (fbConectado) {
+    mostrarToast("Ya tienes una Fanpage conectada ✅", "error");
+    return;
+  }
   console.log("🔵 Iniciando FB.login con scope");
 
   FB.login(
@@ -2594,6 +2600,16 @@ window.toggleFbPublicar = function (cb) {
   if (panel) panel.classList.toggle("open", cb.checked);
 };
 
+function mostrarFbDesconectado() {
+  fbConectado = false;
+  const btn = document.getElementById("btnConectarFb");
+  const switchWrap = document.getElementById("fbPublicarSwitchWrap");
+  const nameText = document.getElementById("fbPageNameText");
+  if (btn) btn.style.display = "inline-block";
+  if (switchWrap) switchWrap.style.display = "none";
+  if (nameText) nameText.textContent = "Conectado a: —";
+}
+window.mostrarFbDesconectado = mostrarFbDesconectado;
 function mostrarFbConectado(pageName) {
   fbConectado = true;
   const btn = document.getElementById("btnConectarFb");

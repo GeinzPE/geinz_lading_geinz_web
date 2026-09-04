@@ -231,16 +231,24 @@ body {
 -------------------------------------------------- */
 #productosGrid,
 #ambientesGrid {
-    display: grid;
-    gap: 1.5rem;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    gap: 1.25rem !important;
+    padding: .5rem 1rem 1.5rem;
+    scrollbar-width: none;
+
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
 }
 
-/* Móvil por defecto */
-#productosGrid,
-#ambientesGrid {
-    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+#productosGrid::-webkit-scrollbar,
+#ambientesGrid::-webkit-scrollbar {
+    display: none;
 }
-
 .gallery-card {
     position: relative;
     overflow: hidden;
@@ -269,21 +277,6 @@ body {
     transform: scale(1.08);
 }
 
-/* Desktop: tarjetas más grandes */
-/* Después */
-@media (min-width: 1024px) {
-
-    #productosGrid,
-    #ambientesGrid {
-        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-        gap: 2rem;
-    }
-
-    .gallery-card {
-        height: 420px;
-        border-radius: 2rem;
-    }
-}
 
 /* ----------------------------------------------
    8. PROMOCIONES (rectángulo fijo, sin estirar)
@@ -977,24 +970,14 @@ body {
 
 @media (min-width: 1024px) {
 
-    .gallery-carousel-wrap {
+       .gallery-carousel-wrap {
         margin: 0 -8px;
         padding: 0 8px;
     }
 
-    /* Fade real con mask-image (siempre visible, no solo en hover) */
     #productosGrid,
     #ambientesGrid {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scroll-behavior: smooth;
-        scroll-snap-type: x proximity;
         gap: 1.75rem !important;
-        padding: .5rem 1rem 1.5rem;
-        scrollbar-width: none;
-
         -webkit-mask-image: linear-gradient(90deg,
                 transparent 0,
                 #000 40px,
@@ -1007,11 +990,6 @@ body {
                 transparent 100%);
     }
 
-    #productosGrid::-webkit-scrollbar,
-    #ambientesGrid::-webkit-scrollbar {
-        display: none;
-    }
-
     #productosGrid .gallery-card,
     #ambientesGrid .gallery-card {
         flex: 0 0 340px;
@@ -1022,6 +1000,13 @@ body {
         box-shadow: 0 18px 35px -10px rgba(0, 0, 0, .55),
             0 0 0 1px rgba(255, 255, 255, .05) inset;
         transition: transform .35s ease, box-shadow .35s ease;
+    }
+
+    #productosGrid .gallery-card:hover,
+    #ambientesGrid .gallery-card:hover {
+        transform: translateY(-6px) scale(1.02);
+        box-shadow: 0 25px 45px -8px rgba(0, 0, 0, .65),
+            0 0 0 1px rgba(255, 255, 255, .08) inset;
     }
 
     #productosGrid .gallery-card:hover,
@@ -1055,13 +1040,14 @@ body {
 
 
 @media (max-width: 767px) {
-    .gallery-card {
-        aspect-ratio: 1 / 1;
-        width: 100%;
-        overflow: hidden;
+   #productosGrid .gallery-card,
+    #ambientesGrid .gallery-card {
+        flex: 0 0 240px;
+        width: 240px;
+        height: 300px;
+        scroll-snap-align: center;
         border-radius: 30px;
-        height: 400px;
-        /* mantén el mismo radio que ya usas */
+        overflow: hidden;
     }
 
     #cartaGrid .gallery-card {
@@ -1413,52 +1399,50 @@ html.geinz-loading #geinzHeader {
    CARTA DIGITAL — MISMO ESTILO QUE PRODUCTOS/AMBIENTES
 -------------------------------------------------- */
 #cartaGrid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    gap: 1.25rem !important;
+    padding: .5rem 1rem 1.5rem;
+    scrollbar-width: none;
+
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+
+#cartaGrid::-webkit-scrollbar {
+    display: none;
+}
+
+#cartaGrid .gallery-card {
+    flex: 0 0 220px;
+    width: 220px;
+    height: 340px;
+    scroll-snap-align: center;
+    border-radius: 1.5rem;
+    box-shadow: 0 18px 35px -10px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .05) inset;
+    transition: transform .35s ease, box-shadow .35s ease;
+}
+
+#cartaGrid .gallery-card:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 25px 45px -8px rgba(0, 0, 0, .65), 0 0 0 1px rgba(255, 255, 255, .08) inset;
 }
 
 @media (min-width: 1024px) {
     #cartaGrid {
-        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-        gap: 2rem;
-    }
-}
-
-/* Reusa el carrusel horizontal desktop igual que productos/ambientes */
-@media (min-width: 1024px) {
-    #cartaGrid {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scroll-behavior: smooth;
-        scroll-snap-type: x proximity;
         gap: 1.75rem !important;
-        padding: .5rem 1rem 1.5rem;
-        scrollbar-width: none;
-
         -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
         mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
-    }
-
-    #cartaGrid::-webkit-scrollbar {
-        display: none;
     }
 
     #cartaGrid .gallery-card {
         flex: 0 0 260px;
         width: 260px;
         height: 400px;
-        scroll-snap-align: center;
-        border-radius: 1.5rem;
-        box-shadow: 0 18px 35px -10px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .05) inset;
-        transition: transform .35s ease, box-shadow .35s ease;
-    }
-
-    #cartaGrid .gallery-card:hover {
-        transform: translateY(-6px) scale(1.02);
-        box-shadow: 0 25px 45px -8px rgba(0, 0, 0, .65), 0 0 0 1px rgba(255, 255, 255, .08) inset;
     }
 }
 

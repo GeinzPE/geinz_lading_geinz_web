@@ -2407,7 +2407,6 @@ function openLightbox(images, index) {
   if (!images?.length) return;
   injectLightboxStyles();
   bindLightboxEvents();
-
   _lightboxImages = images;
   _lightboxIndex = index;
 
@@ -2538,9 +2537,10 @@ let _bizLogoUrl = null;
 let _bizNombre = "";
 let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
 let _followReady = false;
+let _reviewsReady = false;
 let _currentPuntos = 0; // NUEVO: true cuando ya sabemos si el user sigue o no
 function tryHideLoader() {
-  if (_colorReady && _followReady) {
+  if (_colorReady && _followReady && _reviewsReady) {
     hideBizLoader();
   }
 }
@@ -3054,7 +3054,35 @@ const REVIEWS_CSS = `
 .reviews-cta-btn{margin-left:auto;display:flex;align-items:center;gap:8px;padding:12px 20px;border:none;border-radius:14px;font-weight:700;font-size:13.5px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));box-shadow:0 8px 20px -6px rgba(var(--dr),var(--dg),var(--db),.5);white-space:nowrap;}
 
 .reviews-list{display:flex;flex-direction:column;gap:14px;}
-
+.review-item-reply{
+  margin-top:14px;
+  padding:14px 16px;
+  border-radius:14px;
+  background:rgba(var(--dr),var(--dg),var(--db),.08);
+  border-left:3px solid rgba(var(--dr),var(--dg),var(--db),.6);
+}
+.review-item-reply-header{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:6px;
+  font-size:12.5px;
+  font-weight:700;
+  color:rgba(var(--dr),var(--dg),var(--db),.95);
+}
+.review-item-reply-date{
+  font-size:11px;
+  font-weight:500;
+  color:var(--muted,#9c9ca3);
+  margin-left:auto;
+}
+.review-item-reply-text{
+  font-size:13.5px;
+  line-height:1.6;
+  color:#d4d4d8;
+  white-space:pre-wrap;
+  margin:0;
+}
 .review-item{
   padding:20px 22px;
   border-radius:18px;
@@ -3585,16 +3613,15 @@ function starsHTML(rating, max = 5) {
   }
   return html;
 }
-
 function listenReviewsRealtime({ localidad, id }) {
   if (_reviewsUnsub) _reviewsUnsub();
   const ref = tiendaSubCol(localidad, "tiendas", id, "review");
+  let isFirst = true;
   _reviewsUnsub = onSnapshot(ref, async (snap) => {
     const reviews = [];
     snap.forEach((d) => reviews.push({ id: d.id, ...d.data() }));
     reviews.sort(
-      (a, b) =>
-        (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0),
+      (a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0),
     );
 
     const uid = auth.currentUser?.uid;
@@ -3602,6 +3629,12 @@ function listenReviewsRealtime({ localidad, id }) {
 
     _reviewsCache = reviews;
     await renderReviewsSection(reviews);
+
+    if (isFirst) {
+      isFirst = false;
+      _reviewsReady = true;
+      tryHideLoader();
+    }
   });
 }
 
@@ -3801,6 +3834,8 @@ let _reviewsRenderedCount = 0;
 
 async function renderReviewsSection(reviews) {
   // La galería de "Fotos de la comunidad" solo se carga UNA vez (no en tiempo real)
+    document.getElementById("secReviews").style.visibility = "visible";
+
   if (!_galleryLoadedOnce) {
     renderReviewsGallery(reviews);
     _galleryLoadedOnce = true;
@@ -3895,6 +3930,28 @@ async function appendReviewsBatch() {
     const desc = (r.descripcion || "").replace(/</g, "&lt;");
     const esLarga = desc.length > 220;
 
+    const respuesta = r.respuesta_tienda || null;
+    const respuestaTexto = respuesta?.texto
+      ? String(respuesta.texto).replace(/</g, "&lt;")
+      : "";
+    const respuestaFecha = respuesta?.fecha?.toDate
+      ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : "";
+    const respuestaHTML = respuestaTexto
+      ? `
+      <div class="review-item-reply">
+        <div class="review-item-reply-header">
+          <span>💬 Respuesta del negocio</span>
+          ${respuestaFecha ? `<span class="review-item-reply-date">${respuestaFecha}</span>` : ""}
+        </div>
+        <p class="review-item-reply-text">${respuestaTexto}</p>
+      </div>`
+      : "";
+
     const item = document.createElement("div");
     item.className = "review-item";
     item.tabIndex = 0;
@@ -3911,6 +3968,7 @@ async function appendReviewsBatch() {
       </div>
       <p class="review-item-desc${esLarga ? " clamped" : ""}">${desc}</p>
       ${esLarga ? `<button class="review-item-more">Leer más</button>` : ""}
+      ${respuestaHTML}
     `;
 
     if (esLarga) {
@@ -4206,11 +4264,12 @@ async function submitReview() {
   }
 })();
 injectLightboxStyles();
+injectMesasStyles();
 bindMesaReservaEvents();
 bindLoginPromptEvents();
 bindBannerModalEvents();
 bindUnfollowConfirmEvents();
-bindReviewEvents(); //
+bindReviewEvents();
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(

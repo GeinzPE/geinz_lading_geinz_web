@@ -50,3 +50,12 @@ export function tiendaDescuentosCol(localidad, negocioId) {
 export function tiendaDescuentoDoc(localidad, negocioId, productoId) {
   return tiendaSubDoc(localidad, "tiendas", negocioId, "descuentos", productoId);
 }
+
+// ── Reviews de la tienda ──
+export function tiendaReviewsCol(localidad, negocioId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "review");
+}
+
+export function tiendaReviewDoc(localidad, negocioId, reviewId) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "review", reviewId);
+}
