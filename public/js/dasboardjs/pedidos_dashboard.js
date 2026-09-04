@@ -1431,24 +1431,30 @@ function renderMesaDetail(numeroMesa) {
       .join("") ||
     `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Esta mesa no tiene pedidos pendientes de pago.</p>`;
 
+   // Suma los puntos de TODOS los pedidos activos de la mesa (no solo uno)
+  const totalPuntosGanados = activos.reduce(
+    (s, [, pOrder]) => s + (Number(pOrder.puntos_ganados) || 0),
+    0,
+  );
+
   document.getElementById("dmBody").innerHTML = `
         <div>
             <div class="dm-section-title">Detalle completo de la mesa</div>
             ${bloquesDePedidos}
         </div>
         ${
-          p.puntos_ganados > 0
+          totalPuntosGanados > 0
             ? `
     <div class="dm-meta-item full" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:10px 12px;">
       <div class="dm-meta-label">🎁 Puntos a otorgar</div>
-      <div class="dm-meta-value" style="color:#fbbf24;font-weight:800;">+${p.puntos_ganados} puntos${p.estado === "entregado" ? " · ya acreditados" : " · se acreditan al marcar como entregado"}</div>
+      <div class="dm-meta-value" style="color:#fbbf24;font-weight:800;">+${totalPuntosGanados} puntos en total</div>
     </div>`
             : ""
         }
 
     <div class="dm-total-row">
       <span class="dm-total-lbl">Total del pedido</span>
-      <span class="dm-total-val">${fmtMoney(p.total)}</span>
+      <span class="dm-total-val">${fmtMoney(total)}</span>
     </div>
   `;
 
