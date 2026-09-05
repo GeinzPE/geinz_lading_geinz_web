@@ -1,9 +1,17 @@
-import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
-import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+import {
+  doc,
+  setDoc,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { app, db } from "./js/db/db.js";
 
 const messaging = getMessaging(app);
-const VAPID_KEY = "BHZ1cDOCNN3vIm8tUtSrvCgn-e4jIgR8wl8XloY-pLClHf3JrJpm2J29MPAQscFIM4SHzQtg_lkfo_P1ALeEuWQ";// Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
+const VAPID_KEY =
+  "BHZ1cDOCNN3vIm8tUtSrvCgn-e4jIgR8wl8XloY-pLClHf3JrJpm2J29MPAQscFIM4SHzQtg_lkfo_P1ALeEuWQ"; // Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
 
 function idDispositivoWeb() {
   // clave estable por navegador, sin depender de Android
@@ -24,25 +32,51 @@ export async function registrarTokenWeb(uid) {
   }
   if (permiso !== "granted") return null;
 
-  const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+  const registration = await navigator.serviceWorker.register(
+    "/firebase-messaging-sw.js",
+  );
 
   const token = await getToken(messaging, {
     vapidKey: VAPID_KEY,
-    serviceWorkerRegistration: registration
+    serviceWorkerRegistration: registration,
   });
+  console.log("TOKEN GENERADO:", token);
 
   if (!token) return null;
 
   const nombreDispositivo = idDispositivoWeb();
 
-  const docRef = doc(db, "Trabajadores_Usuarios_Drivers", "users", "tokens", uid);
-  await setDoc(docRef, {
-    tokens: { [nombreDispositivo]: token }
-  }, { merge: true });
+  const docRef = doc(
+    db,
+    "Trabajadores_Usuarios_Drivers",
+    "users",
+    "tokens",
+    uid,
+  );
+  await setDoc(
+    docRef,
+    {
+      tokens: { [nombreDispositivo]: token },
+    },
+    { merge: true },
+  );
 
   return token;
 }
 
 // notificaciones con la pestaña abierta (foreground)
+// notificaciones con la pestaña abierta (foreground)
 onMessage(messaging, (payload) => {
-  });
+  const { title, body, icon } = payload.notification || {};
+  if (!title) return;
+
+  new Notification(title, {
+    body: body || "",
+    icon: icon || "/img/icons/favicon-96x96.png",
+    data: payload.data || {},
+  }).onclick = function () {
+    window.focus();
+    const link = this.data?.link;
+    if (link) window.location.href = link;
+  };
+});

@@ -96,3 +96,15 @@ export function canjesCol(localidad, negocioId) {
 export function canjeDoc(localidad, negocioId, canjeId) {
   return tiendaSubDoc(localidad, "tiendas", negocioId, "canjes", canjeId);
 }
+
+export function tokenFcmDoc(uid) {
+  return doc(db, "Trabajadores_Usuarios_Drivers", "users", "tokens", uid);
+}
+
+export function clienteHistorialCol(localidad, negocioId, clienteId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "clientes", clienteId, "historial");
+}
+ 
+export function clienteHistorialDoc(localidad, negocioId, clienteId, pedidoId) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "clientes", clienteId, "historial", pedidoId);
+}

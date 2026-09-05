@@ -280,11 +280,28 @@
     </div>
 
     <div id="pausaOverlay" class="np-opt-overlay">
-  <div class="np-opt-modal">
-    <div class="np-opt-head"><span>⏸️ Pausar pedido</span><button id="pausaClose">✕</button></div>
-    <div id="pausaBody"></div>
-  </div>
-</div>
+        <div class="np-opt-modal">
+            <div class="np-opt-head"><span>⏸️ Pausar pedido</span><button id="pausaClose">✕</button></div>
+            <div id="pausaBody"></div>
+        </div>
+    </div>
+    <div id="tiempoOverlay" class="np-opt-overlay">
+        <div class="np-opt-modal">
+            <div class="np-opt-head"><span>⏱️ Tiempo estimado</span><button id="tiempoClose">✕</button></div>
+            <div class="np-opt-label">¿Cuánto tiempo tomará este pedido?</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
+                <input type="number" id="tiempoMinutos" min="1" value="20"
+                    style="width:90px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;">
+                <span style="font-size:12.5px;color:var(--ink-dim);">minutos</span>
+            </div>
+            <label
+                style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-dim);cursor:pointer;margin-bottom:14px;">
+                <input type="checkbox" id="tiempoOmitir">
+                No especificar tiempo estimado
+            </label>
+            <button id="tiempoConfirmar" class="np-confirmar-btn">Aceptar pedido</button>
+        </div>
+    </div>
     <!-- Modal de detalle completo -->
     <div id="detailOverlay">
         <div id="detailModal">

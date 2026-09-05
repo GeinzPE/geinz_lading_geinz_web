@@ -29,7 +29,7 @@ import {
 
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
-
+const URL_NOTIFICAR_CLIENTE = " https://enviar-notificacion-con-solo-id-desde-la-web-oixttik5rq-uc.a.run.app";
 if (!tiendaId || !localidad) {
   // fallback por si el postMessage llega después
   window.addEventListener("message", (e) => {
@@ -218,7 +218,13 @@ const NP_CSS = `
 styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
 /* ══════════════ Identificación del negocio ══════════════ */
 
-const ESTADOS = ["pendiente", "en_proceso", "en_pausa", "entregado", "rechazado"];
+const ESTADOS = [
+  "pendiente",
+  "en_proceso",
+  "en_pausa",
+  "entregado",
+  "rechazado",
+];
 const pedidosMap = new Map(); // id -> data
 const mesasMap = new Map(); // docId -> data (numero_mesa, nombre_alias, ...)
 const gruposMap = new Map();
@@ -391,9 +397,11 @@ function abrirModalPausa(id, p) {
   };
   document.getElementById("pausaOverlay")?.classList.add("show");
 }
-document.getElementById("pausaClose")?.addEventListener("click", () =>
-  document.getElementById("pausaOverlay")?.classList.remove("show"),
-);
+document
+  .getElementById("pausaClose")
+  ?.addEventListener("click", () =>
+    document.getElementById("pausaOverlay")?.classList.remove("show"),
+  );
 document.getElementById("pausaOverlay")?.addEventListener("click", (e) => {
   if (e.target.id === "pausaOverlay")
     document.getElementById("pausaOverlay").classList.remove("show");
@@ -1393,7 +1401,6 @@ function renderCardActions(container, id, estado, p) {
         <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
         <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar →</button>
       </div>`;
-
   } else if (estado === "en_proceso") {
     container.innerHTML = `
       <div class="oc-actions">
@@ -1401,7 +1408,6 @@ function renderCardActions(container, id, estado, p) {
         <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
         <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
       </div>`;
-
   } else if (estado === "en_pausa") {
     const r = p.respuesta_cliente;
     container.innerHTML = `
@@ -1418,14 +1424,12 @@ function renderCardActions(container, id, estado, p) {
         }
         <button class="oc-btn primary v-violet" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>
       </div>`;
-
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-row">
         <div class="oc-final-tag">✅ Entregado</div>
         <span class="oc-undo" data-action="en_proceso">↺ Reabrir</span>
       </div>`;
-
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
     container.innerHTML = `
@@ -1541,7 +1545,7 @@ function renderMesaDetail(numeroMesa) {
       .join("") ||
     `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Esta mesa no tiene pedidos pendientes de pago.</p>`;
 
-   // Suma los puntos de TODOS los pedidos activos de la mesa (no solo uno)
+  // Suma los puntos de TODOS los pedidos activos de la mesa (no solo uno)
   const totalPuntosGanados = activos.reduce(
     (s, [, pOrder]) => s + (Number(pOrder.puntos_ganados) || 0),
     0,
@@ -2052,13 +2056,11 @@ function renderModalActions(container, id, estado, p) {
       <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
       <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar pedido →</button>`;
-
   } else if (estado === "en_proceso") {
     container.innerHTML = `
       <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
       <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
-
   } else if (estado === "en_pausa") {
     const r = p.respuesta_cliente;
     container.innerHTML = `
@@ -2073,12 +2075,10 @@ function renderModalActions(container, id, estado, p) {
           : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>`;
-
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
       <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
-
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
     container.innerHTML = `
@@ -2087,8 +2087,11 @@ function renderModalActions(container, id, estado, p) {
   }
 
   container.querySelectorAll("[data-action]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation?.();
       if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
+      if (btn.dataset.action === "_aceptar")
+        return abrirModalTiempo(id, p, btn);
       cambiarEstado(id, btn.dataset.action, btn);
     });
   });
@@ -2179,8 +2182,20 @@ async function descontarStockPedido(pedido) {
    - "ultimo_consumo" se actualiza siempre.
    - Guarda además un historial de compras en clientes/{uid}/historial para que la
      tienda vea qué compró cada cliente y quién invierte más. */
-async function acreditarPuntosCliente(uid, tiendaId, puntosGanados, pedidoId, pedidoActual) {
-  const clienteRef = tiendaSubDoc(localidad, "tiendas", tiendaId, "clientes", uid);
+async function acreditarPuntosCliente(
+  uid,
+  tiendaId,
+  puntosGanados,
+  pedidoId,
+  pedidoActual,
+) {
+  const clienteRef = tiendaSubDoc(
+    localidad,
+    "tiendas",
+    tiendaId,
+    "clientes",
+    uid,
+  );
 
   try {
     await runTransaction(db, async (tx) => {
@@ -2221,8 +2236,78 @@ async function acreditarPuntosCliente(uid, tiendaId, puntosGanados, pedidoId, pe
 
     return true;
   } catch (err) {
-    console.error("No se pudieron acreditar los puntos al cliente (doc tienda):", err);
+    console.error(
+      "No se pudieron acreditar los puntos al cliente (doc tienda):",
+      err,
+    );
     return false;
+  }
+}
+function abrirModalTiempo(id, p, btnEl) {
+  const overlay = document.getElementById("tiempoOverlay");
+  const minutosInput = document.getElementById("tiempoMinutos");
+  const omitirCheck = document.getElementById("tiempoOmitir");
+  minutosInput.value = 20;
+  omitirCheck.checked = false;
+  minutosInput.disabled = false;
+
+  omitirCheck.onchange = () => (minutosInput.disabled = omitirCheck.checked);
+
+  document.getElementById("tiempoConfirmar").onclick = () => {
+    const omitir = omitirCheck.checked;
+    const minutos = omitir
+      ? null
+      : Math.max(1, Number(minutosInput.value) || 20);
+    overlay.classList.remove("show");
+    cambiarEstado(id, "en_proceso", btnEl, { tiempoEstimadoMin: minutos });
+  };
+
+  overlay.classList.add("show");
+}
+document
+  .getElementById("tiempoClose")
+  ?.addEventListener("click", () =>
+    document.getElementById("tiempoOverlay")?.classList.remove("show"),
+  );
+document.getElementById("tiempoOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "tiempoOverlay") e.target.classList.remove("show");
+});
+/* ══════════════ Notifica al cliente que su pedido cambió de estado ══════════════
+           Llama a la cloud function que ya tienes, mandando el id del cliente,
+           un mensaje según el nuevo estado, y el logo del negocio como imagen. */
+function labelEstadoParaCliente(estado) {
+  return (
+    {
+      pendiente: "Tu pedido está pendiente de confirmación",
+      en_proceso: "¡Tu pedido está en preparación!",
+      en_pausa: "Tu pedido está en pausa, revisa los detalles",
+      entregado: "¡Tu pedido fue entregado! Gracias por tu compra",
+      rechazado: "Tu pedido fue rechazado",
+    }[estado] || "El estado de tu pedido cambió"
+  );
+}
+
+async function notificarCambioEstadoAlCliente(pedido, nuevoEstado) {
+  if (!URL_NOTIFICAR_CLIENTE) return; // aún no configurada la URL
+  const idUser = pedido?.cliente?.id_cliente;
+  if (!idUser) return; // pedido sin cliente registrado (ej. venta directa), no se notifica
+
+  try {
+    await fetch(URL_NOTIFICAR_CLIENTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_user: idUser,
+        title: bizNombreGlobal || "Geinz",
+        body: labelEstadoParaCliente(nuevoEstado),
+        logo: bizLogoUrl || "",
+        id_tienda: tiendaId || "",
+        tipo_notificacion: "logo",
+        prioridad: "high",
+      }),
+    });
+  } catch (err) {
+    console.warn("No se pudo notificar el cambio de estado al cliente:", err);
   }
 }
 /* ══════════════ Cambiar estado en Firestore ══════════════ */
@@ -2240,7 +2325,10 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     const payload = { estado: nuevoEstado, actualizado: serverTimestamp() };
     if (nuevoEstado !== "rechazado") payload.auto_rechazado = false;
     if (opts.auto) payload.auto_rechazado = true;
-
+    if (nuevoEstado === "en_proceso" && "tiempoEstimadoMin" in opts) {
+      payload.tiempo_estimado_min = opts.tiempoEstimadoMin; // número o null
+      payload.tiempo_estimado_desde = serverTimestamp();
+    }
     // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
     if (nuevoEstado === "entregado") {
       const pedidoActual = pedidosMap.get(pedidoId);
@@ -2264,7 +2352,13 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
             });
 
             // 2) Doc del cliente dentro de LA TIENDA + historial de compra
-            await acreditarPuntosCliente(uid, tiendaId, puntosGanados, pedidoId, pedidoActual);
+            await acreditarPuntosCliente(
+              uid,
+              tiendaId,
+              puntosGanados,
+              pedidoId,
+              pedidoActual,
+            );
 
             payload.puntos_acreditados = true;
           } catch (err) {
@@ -2276,6 +2370,11 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
 
     await updateDoc(ref, payload);
     if (!opts.auto) showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
+    // Notifica al cliente que su pedido cambió de estado
+    const pedidoParaNotificar = pedidosMap.get(pedidoId);
+    if (pedidoParaNotificar) {
+      notificarCambioEstadoAlCliente(pedidoParaNotificar, nuevoEstado);
+    }
   } catch (err) {
     console.error("Error actualizando pedido:", err);
     showToast("❌ No se pudo actualizar el pedido", true);
@@ -2602,9 +2701,18 @@ document.getElementById("statusTabs").addEventListener("click", (e) => {
     .forEach((c) =>
       c.classList.toggle("col-active", c.dataset.status === activeTab),
     );
+
+  // La columna "Rechazado" solo se muestra cuando se hace clic en su chip,
+  // y se puede volver a ocultar haciendo clic de nuevo.
+  if (tab.dataset.s === "rechazado") {
+    const colRechazado = document.querySelector(
+      '.board-col[data-status="rechazado"]',
+    );
+    colRechazado?.classList.toggle("expanded");
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
-
 /* ══════════════ Tamaño de los recuadros de mesa (ajustable, se recuerda) ══════════════ */
 const MESA_SIZES = {
   chico: { col: 160, h: 130 },

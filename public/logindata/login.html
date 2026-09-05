@@ -477,7 +477,7 @@
             <p class="field-error" id="errEditTelefono"></p>
           </div>
 
-          <div class="dialog-actions">
+                    <div class="dialog-actions">
             <button type="submit" class="btn btn-primary full-width" id="btnSaveProfile">
               <span class="material-symbols-outlined" aria-hidden="true">save</span>
               Guardar cambios
@@ -490,6 +490,35 @@
       </div>
     </div>
   </div>
+
+  <!-- ===== MODAL: ACTIVAR NOTIFICACIONES ===== -->
+  <div class="modal-overlay" id="notisModal" role="dialog" aria-modal="true" aria-label="Activar notificaciones">
+    <div class="modal-scroll">
+      <div class="dialog" style="max-width:380px;text-align:center;">
+
+        <div class="dialog-header">
+          <div class="dialog-icon-wrap">
+            <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
+          </div>
+          <h2 class="dialog-title">Activa las notificaciones</h2>
+          <p class="dialog-sub">Entérate al instante cuando tu pedido sea aceptado, esté en camino o listo para recoger.</p>
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="btn btn-primary full-width" id="btnActivarNotis">
+            <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+            Activar notificaciones
+          </button>
+          <button type="button" class="btn btn-ghost full-width" id="btnOmitirNotis">
+            Ahora no
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: SOCIO GEINZ ===== -->
 
   <!-- ===== MODAL: SOCIO GEINZ ===== -->
   <div class="modal-overlay" id="socioModal" onclick="closeIfOutside(event,'socioModal')" role="dialog"

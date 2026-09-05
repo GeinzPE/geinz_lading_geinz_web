@@ -1,4 +1,4 @@
-        /* ══════════════════════════════════════════════
+/* ══════════════════════════════════════════════
      TOKENS
      ══════════════════════════════════════════════ */
         :root {
@@ -532,19 +532,20 @@
             flex: 1;
             min-height: 0;
             padding: 16px 20px 20px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            display: flex;
             gap: 14px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x proximity;
         }
 
         .board-col {
             display: flex;
             flex-direction: column;
+            flex: 1 1 260px;
+            min-width: 260px;
             min-height: 0;
-            background: var(--surface);
-            border: 1px solid var(--line);
-            border-radius: 20px;
-            overflow: hidden;
+            scroll-snap-align: start;
         }
 
         .col-head {
@@ -687,6 +688,7 @@
      CARD (colapsada — vista compacta para la columna)
      ══════════════════════════════════════════════ */
         .order-card {
+            position: relative;
             background: var(--surface-2);
             border: 1px solid var(--line);
             border-left: 3px solid transparent;
@@ -721,6 +723,57 @@
 
             100% {
                 box-shadow: 0 0 0 0 rgba(124, 92, 255, 0);
+            }
+        }
+
+        /* ══ Indicador de guardado optimista (mientras se sincroniza con Firestore) ══ */
+        .order-card.oc-syncing {
+            opacity: .82;
+        }
+
+        .order-card.oc-syncing::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 2px;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            background: linear-gradient(90deg, transparent, var(--violet), transparent);
+            background-size: 200% 100%;
+            animation: syncSweep 1s linear infinite;
+        }
+
+        @keyframes syncSweep {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .oc-sync-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: var(--violet);
+            animation: syncBlink 1s ease-in-out infinite;
+        }
+
+        @keyframes syncBlink {
+
+            0%,
+            100% {
+                opacity: .55;
+            }
+
+            50% {
+                opacity: 1;
             }
         }
 
@@ -1571,13 +1624,15 @@
      ══════════════════════════════════════════════ */
         @media (max-width:979px) {
             .board {
-                grid-template-columns: 1fr;
+                overflow-x: hidden;
                 padding: 14px 14px 90px;
             }
 
             .board-col {
                 display: none;
                 border-radius: 18px;
+                flex: 1 1 100%;
+                min-width: 100%;
             }
 
             .board-col.col-active {
@@ -2059,3 +2114,13 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #3d3d3d;
         }
+
+        /* ══════════════════════════════════════════════
+   COLUMNA RECHAZADO — colapsada por defecto
+   ══════════════════════════════════════════════ */
+     .board-col[data-status="rechazado"] {
+    display: none;
+}
+.board-col[data-status="rechazado"].expanded {
+    display: flex;
+}

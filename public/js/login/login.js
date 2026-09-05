@@ -21,6 +21,10 @@ import {
   setPersistence,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getMessaging,
+  getToken,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 import {
   doc,
@@ -42,11 +46,11 @@ import {
 
 // Importamos app y db ya inicializados desde db.js (fuente única de verdad)
 import { app, db } from "../db/db.js";
-import { tiendaDoc } from "../rutas/rutas.js";
-
+import { tiendaDoc, tokenFcmDoc } from "../rutas/rutas.js";
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const storage = getStorage(app);
+const messaging = getMessaging(app);
 
 await setPersistence(auth, browserLocalPersistence);
 
@@ -460,14 +464,14 @@ function upgradeCoolSelect(select) {
       : items;
     optionsWrap.innerHTML = filtered.length
       ? filtered
-        .map(
-          (i) => `
+          .map(
+            (i) => `
         <div class="cool-select-option ${select.value === i.value ? "is-selected" : ""}" data-value="${i.value}">
           <span>${i.label}</span>
           <svg class="cool-select-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
         </div>`,
-        )
-        .join("")
+          )
+          .join("")
       : `<div class="cool-select-empty">Sin resultados</div>`;
   }
 
@@ -544,7 +548,6 @@ window.openSocioModal = () => {
   inicializarSelectoresUbicacion("socio");
   upgradeAllCoolSelects(document.getElementById("socioModal")); // 👈
 };
-
 
 window.closeModal = (id) => {
   document.getElementById(id)?.classList.remove("active");
@@ -635,7 +638,10 @@ function abrirCompletarPerfilGoogle(user) {
 ========================================================= */
 window.loginGoogle = async () => {
   if (esWebviewEmbebido()) {
-    showSnackbar("⚠️ Abre este enlace en Chrome o Safari para continuar con Google.", "warning");
+    showSnackbar(
+      "⚠️ Abre este enlace en Chrome o Safari para continuar con Google.",
+      "warning",
+    );
     return;
   }
 
@@ -647,9 +653,12 @@ window.loginGoogle = async () => {
 
     const result = await signInWithPopup(auth, provider);
     await procesarLoginGoogle(result.user);
-   } catch (err) {
+  } catch (err) {
     console.error(err);
-    if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+    if (
+      err.code === "auth/popup-closed-by-user" ||
+      err.code === "auth/cancelled-popup-request"
+    ) {
       return; // el usuario canceló, no muestres error
     }
     if (err.code === "auth/account-exists-with-different-credential") {
@@ -741,8 +750,12 @@ window.submitRegister = async (event) => {
     .getElementById("regCorreo")
     .value.trim()
     .toLowerCase();
-    const pass1 = modoRegistroGoogle ? "" : document.getElementById("registerPass1").value;
-  const pass2 = modoRegistroGoogle ? "" : document.getElementById("registerPass2").value;
+  const pass1 = modoRegistroGoogle
+    ? ""
+    : document.getElementById("registerPass1").value;
+  const pass2 = modoRegistroGoogle
+    ? ""
+    : document.getElementById("registerPass2").value;
   const terminos = document.getElementById("termsCheck").checked;
   const setError = (id, msg) => {
     const el = document.getElementById(id);
@@ -879,7 +892,10 @@ window.submitRegister = async (event) => {
     if (modoRegistroGoogle) {
       // Ya está autenticado con Google — no crear otra cuenta, solo usar la que ya existe.
       if (!GOOGLE_USER) {
-        showSnackbar("❌ No se encontró tu sesión de Google. Vuelve a intentar el login.", "error");
+        showSnackbar(
+          "❌ No se encontró tu sesión de Google. Vuelve a intentar el login.",
+          "error",
+        );
         return;
       }
       newUser = GOOGLE_USER;
@@ -896,7 +912,10 @@ window.submitRegister = async (event) => {
         query(correosRef, where("correo", "==", correo)),
       );
       if (!correoSnap.empty) {
-        setError("errCorreo", "Este correo ya tiene una cuenta. Inicia sesión.");
+        setError(
+          "errCorreo",
+          "Este correo ya tiene una cuenta. Inicia sesión.",
+        );
         return;
       }
 
@@ -904,16 +923,26 @@ window.submitRegister = async (event) => {
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
 
       try {
-        const result = await createUserWithEmailAndPassword(auth, correo, pass1);
+        const result = await createUserWithEmailAndPassword(
+          auth,
+          correo,
+          pass1,
+        );
         newUser = result.user;
         tipoLogin = "email";
       } catch (authErr) {
         if (authErr.code === "auth/email-already-in-use") {
-          setError("errCorreo", "Este correo ya está registrado. Inicia sesión.");
+          setError(
+            "errCorreo",
+            "Este correo ya está registrado. Inicia sesión.",
+          );
         } else if (authErr.code === "auth/invalid-email") {
           setError("errCorreo", "Correo inválido.");
         } else if (authErr.code === "auth/weak-password") {
-          setError("errPass", "Contraseña muy débil. Usa al menos 8 caracteres.");
+          setError(
+            "errPass",
+            "Contraseña muy débil. Usa al menos 8 caracteres.",
+          );
         } else {
           showSnackbar("❌ Error al crear cuenta. Intenta de nuevo.", "error");
         }
@@ -925,7 +954,7 @@ window.submitRegister = async (event) => {
     const usernameFinal = "@" + username.replace(/^@/, "");
     const fechaRegistro = new Date().toLocaleDateString("es-PE");
 
-      await setDoc(
+    await setDoc(
       doc(db, "Trabajadores_Usuarios_Drivers", "users", "correos", uid),
       { correo, tipo: tipoLogin },
     );
@@ -968,8 +997,7 @@ window.submitRegister = async (event) => {
       },
     );
 
-
-       GOOGLE_USER = newUser;
+    GOOGLE_USER = newUser;
     modoRegistroGoogle = false;
 
     closeModal("registerModal");
@@ -1146,7 +1174,10 @@ function optimizarImagenDesdeArchivo(file, maxSize = 512, quality = 0.85) {
         try {
           const canvas = _dibujarYRecortarCuadrado(img, maxSize);
           canvas.toBlob(
-            (blob) => (blob ? resolve(blob) : reject(new Error("No se pudo procesar la imagen"))),
+            (blob) =>
+              blob
+                ? resolve(blob)
+                : reject(new Error("No se pudo procesar la imagen")),
             "image/webp",
             quality,
           );
@@ -1170,7 +1201,10 @@ function optimizarImagenDesdeURL(url, maxSize = 512, quality = 0.85) {
       try {
         const canvas = _dibujarYRecortarCuadrado(img, maxSize);
         canvas.toBlob(
-          (blob) => (blob ? resolve(blob) : reject(new Error("No se pudo procesar la imagen"))),
+          (blob) =>
+            blob
+              ? resolve(blob)
+              : reject(new Error("No se pudo procesar la imagen")),
           "image/webp",
           quality,
         );
@@ -1178,7 +1212,10 @@ function optimizarImagenDesdeURL(url, maxSize = 512, quality = 0.85) {
         reject(err);
       }
     };
-    img.onerror = () => reject(new Error("No se pudo cargar la imagen de origen (CORS o URL rota)"));
+    img.onerror = () =>
+      reject(
+        new Error("No se pudo cargar la imagen de origen (CORS o URL rota)"),
+      );
     img.src = url;
   });
 }
@@ -1195,11 +1232,109 @@ async function subirYGuardarAvatar(uid, blob) {
   return url;
 }
 /* =========================================================
+   TOKEN FCM
+========================================================= */
+async function obtenerClaveDispositivo() {
+  let clave = localStorage.getItem("geinz_device_key");
+  if (clave) return clave;
+
+  let modelo = "web";
+  try {
+    if (navigator.userAgentData?.getHighEntropyValues) {
+      const ua = await navigator.userAgentData.getHighEntropyValues([
+        "model",
+        "platform",
+      ]);
+      modelo = (ua.model || ua.platform || "web").replace(/\s+/g, "-");
+    }
+  } catch {}
+
+  clave = `${modelo}-${Math.random().toString(36).slice(2, 8)}`;
+  localStorage.setItem("geinz_device_key", clave);
+  return clave;
+}
+
+/* =========================================================
+   GESTIÓN DEL PERMISO DE NOTIFICACIONES (con modal propio)
+========================================================= */
+function gestionarPermisoNotificaciones(uid) {
+  if (!("Notification" in window)) return;
+
+  // Ya se decidió antes (granted o denied): no insistas con el modal,
+  // solo intenta guardar el token si ya está permitido.
+  if (Notification.permission === "granted") {
+    guardarTokenFcm(uid);
+    return;
+  }
+  if (Notification.permission === "denied") {
+    return; // el usuario ya dijo que no, respeta la decisión
+  }
+
+  // permission === "default" → primera vez, mostramos nuestro modal explicativo
+  const modal = document.getElementById("notisModal");
+  if (!modal) {
+    // Fallback por si el HTML del modal no existe todavía: pide directo
+    guardarTokenFcm(uid);
+    return;
+  }
+
+  document.body.classList.add("blur-active");
+  modal.classList.add("active");
+
+  const btnActivar = document.getElementById("btnActivarNotis");
+  const btnOmitir = document.getElementById("btnOmitirNotis");
+
+  const cerrar = () => {
+    modal.classList.remove("active");
+    if (!document.querySelector(".modal-overlay.active")) {
+      document.body.classList.remove("blur-active");
+    }
+  };
+
+  btnActivar.onclick = async () => {
+    cerrar();
+    await guardarTokenFcm(uid); // click real del usuario → el navegador permite el prompt nativo
+  };
+
+  btnOmitir.onclick = () => {
+    cerrar();
+  };
+}
+async function guardarTokenFcm(uid) {
+  try {
+    const permiso = await Notification.requestPermission();
+    if (permiso !== "granted") return;
+
+    const token = await getToken(messaging, {
+      vapidKey:
+        "BHZ1cDOCNN3vIm8tUtSrvCgn-e4jIgR8wl8XloY-pLClHf3JrJpm2J29MPAQscFIM4SHzQtg_lkfo_P1ALeEuWQ",
+    });
+    if (!token) return;
+
+    const tokenGuardado = localStorage.getItem("geinz_fcm_token");
+    if (token === tokenGuardado) return;
+
+    const claveDispositivo = await obtenerClaveDispositivo();
+
+    await setDoc(
+      tokenFcmDoc(uid),
+      { tokens: { [claveDispositivo]: token } },
+      { merge: true },
+    );
+
+    localStorage.setItem("geinz_fcm_token", token);
+  } catch (err) {
+    console.error("Error guardando token FCM:", err);
+  }
+}
+
+/* =========================================================
    SPLASH SCREEN
 ========================================================= */
 async function showSplash(user) {
   if (splashShown) return;
   splashShown = true;
+  gestionarPermisoNotificaciones(user.uid); // decide si pide permiso o pasa directo // se dispara en paralelo, no bloquea el splash
 
   // 👇 Ocultamos authChecking JUSTO AQUÍ, cuando splashScreen toma el relevo.
   document.getElementById("authChecking")?.classList.add("hidden");
@@ -1222,11 +1357,13 @@ async function showSplash(user) {
 
   const data = snap.exists() ? snap.data() : {};
   window._perfilActual = data; // 👈 nuevo: usado para precargar el modal de edición
-      const nombre = data.nombre || user.displayName || "Usuario";
+  const nombre = data.nombre || user.displayName || "Usuario";
   const apellido = data.apellido || "";
   const username = data.nombre_user || "@" + user.email.split("@")[0];
 
-  document.getElementById("wName").textContent = apellido ? `${nombre} ${apellido}` : nombre;
+  document.getElementById("wName").textContent = apellido
+    ? `${nombre} ${apellido}`
+    : nombre;
   document.getElementById("wUser").textContent = username;
   document.getElementById("wPoints").textContent = data.puntos ?? 500;
 
@@ -1243,7 +1380,8 @@ async function showSplash(user) {
   let fotoUrl = data.foto || "";
 
   if (avatarImg) {
-    avatarImg.src = fotoUrl || user.photoURL || "../img/icons/favicon-96x96.png";
+    avatarImg.src =
+      fotoUrl || user.photoURL || "../img/icons/favicon-96x96.png";
   }
 
   if (!fotoUrl && user.photoURL) {
@@ -1280,7 +1418,8 @@ async function showSplash(user) {
         .map((s) => s.charAt(0).toUpperCase() + s.slice(1));
       storeLoc.textContent = partes.join(" · ") || "Ubicación registrada";
     }
-    if (hintEl) hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
+    if (hintEl)
+      hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
 
     document.getElementById("sValidating").classList.add("fade-out");
     await delay(450);
@@ -1308,7 +1447,8 @@ async function showSplash(user) {
     if (noStoreCard) noStoreCard.style.display = "flex";
     if (btnEnter) btnEnter.style.display = "none";
     if (vincularForm) vincularForm.style.display = "block";
-    if (hintEl) hintEl.textContent = "Vincula tu negocio o continúa como usuario.";
+    if (hintEl)
+      hintEl.textContent = "Vincula tu negocio o continúa como usuario.";
 
     document.getElementById("sValidating").classList.add("fade-out");
     await delay(450);
@@ -1319,12 +1459,12 @@ async function showSplash(user) {
     await inicializarSelectoresUbicacion("welcome");
     upgradeAllCoolSelects(document.getElementById("wVincularForm"));
 
-
-
     const btnVincularInline = document.getElementById("btnVincularInline");
     if (btnVincularInline) {
       btnVincularInline.onclick = async () => {
-        const idNegocio = document.getElementById("welcomeIdNegocio").value.trim();
+        const idNegocio = document
+          .getElementById("welcomeIdNegocio")
+          .value.trim();
         const { dep, prov, dist } = seleccionUbicacion.welcome;
 
         if (!idNegocio || idNegocio.length < 4) {
@@ -1332,7 +1472,10 @@ async function showSplash(user) {
           return;
         }
         if (!dep || !prov || !dist) {
-          showSnackbar("⚠️ Selecciona departamento, provincia y distrito", "warning");
+          showSnackbar(
+            "⚠️ Selecciona departamento, provincia y distrito",
+            "warning",
+          );
           return;
         }
 
@@ -1341,9 +1484,14 @@ async function showSplash(user) {
         btnVincularInline.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
         try {
-          const snapTienda = await getDoc(tiendaDoc(dist, "tiendas", idNegocio));
+          const snapTienda = await getDoc(
+            tiendaDoc(dist, "tiendas", idNegocio),
+          );
           if (!snapTienda.exists()) {
-            showSnackbar("❌ Ese ID no existe. Verifica e intenta de nuevo.", "error");
+            showSnackbar(
+              "❌ Ese ID no existe. Verifica e intenta de nuevo.",
+              "error",
+            );
             return;
           }
 
@@ -1399,14 +1547,16 @@ window.continuarPanel = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
-    
-    const tiendaRef = tiendaDoc(seleccionUbicacion.selector.dist, "tiendas", valor);
+    const tiendaRef = tiendaDoc(
+      seleccionUbicacion.selector.dist,
+      "tiendas",
+      valor,
+    );
 
-    
     const snap = await getDoc(tiendaRef);
 
-        if (snap.exists()) {
-          }
+    if (snap.exists()) {
+    }
 
     if (!snap.exists()) {
       showSnackbar(
@@ -1510,9 +1660,14 @@ window.cerrarSesion = async () => {
 window.openEditProfileModal = () => {
   cargarPaisesEdit();
 
-  document.getElementById("editNombre").value = (window._perfilActual?.nombre || "").trim();
-  document.getElementById("editApellido").value = (window._perfilActual?.apellido || "").trim();
-  document.getElementById("editTelefono").value = window._perfilActual?.contacto?.numero_user || "";
+  document.getElementById("editNombre").value = (
+    window._perfilActual?.nombre || ""
+  ).trim();
+  document.getElementById("editApellido").value = (
+    window._perfilActual?.apellido || ""
+  ).trim();
+  document.getElementById("editTelefono").value =
+    window._perfilActual?.contacto?.numero_user || "";
 
   // 👇 nuevo: precargar el país actual guardado en Firestore
   const codPaisActual = window._perfilActual?.cod_pais || "pe";
@@ -1521,8 +1676,10 @@ window.openEditProfileModal = () => {
     paisSelect.value = codPaisActual;
     const optActual = paisSelect.options[paisSelect.selectedIndex];
     if (optActual) {
-      document.getElementById("editPrefixFlag").textContent = optActual.dataset.flag || "🇵🇪";
-      document.getElementById("editPrefixCode").textContent = optActual.dataset.tel || "+51";
+      document.getElementById("editPrefixFlag").textContent =
+        optActual.dataset.flag || "🇵🇪";
+      document.getElementById("editPrefixCode").textContent =
+        optActual.dataset.tel || "+51";
     }
   }
 
@@ -1531,7 +1688,9 @@ window.openEditProfileModal = () => {
   upgradeAllCoolSelects(document.getElementById("editProfileModal"));
 };
 
-document.getElementById("btnEditProfile")?.addEventListener("click", openEditProfileModal);
+document
+  .getElementById("btnEditProfile")
+  ?.addEventListener("click", openEditProfileModal);
 window.submitEditProfile = async (event) => {
   event.preventDefault();
 
@@ -1546,7 +1705,9 @@ window.submitEditProfile = async (event) => {
     el.style.display = msg ? "block" : "none";
   };
 
-  ["errEditNombre", "errEditApellido", "errEditTelefono"].forEach((id) => setError(id, ""));
+  ["errEditNombre", "errEditApellido", "errEditTelefono"].forEach((id) =>
+    setError(id, ""),
+  );
 
   let ok = true;
 
@@ -1555,7 +1716,10 @@ window.submitEditProfile = async (event) => {
     ok = false;
   }
   if (!apellido || apellido.length < 2) {
-    setError("errEditApellido", "Ingresa un apellido válido (mín. 2 caracteres).");
+    setError(
+      "errEditApellido",
+      "Ingresa un apellido válido (mín. 2 caracteres).",
+    );
     ok = false;
   }
   if (!telefono || !/^\d{7,15}$/.test(telefono)) {
@@ -1582,7 +1746,13 @@ window.submitEditProfile = async (event) => {
 
   try {
     await setDoc(
-      doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", GOOGLE_USER.uid),
+      doc(
+        db,
+        "Trabajadores_Usuarios_Drivers",
+        "users",
+        "users",
+        GOOGLE_USER.uid,
+      ),
       {
         nombre,
         apellido,
@@ -1735,24 +1905,26 @@ document.getElementById("wAvatarEdit")?.addEventListener("click", () => {
   document.getElementById("wAvatarInput")?.click();
 });
 
-document.getElementById("wAvatarInput")?.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file || !GOOGLE_USER) return;
+document
+  .getElementById("wAvatarInput")
+  ?.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file || !GOOGLE_USER) return;
 
-  const wrap = document.getElementById("wAvatarWrap");
-  wrap?.classList.add("is-uploading");
+    const wrap = document.getElementById("wAvatarWrap");
+    wrap?.classList.add("is-uploading");
 
-  try {
-    const blob = await optimizarImagenDesdeArchivo(file, 512, 0.85);
-    const url = await subirYGuardarAvatar(GOOGLE_USER.uid, blob);
-    const imgEl = document.getElementById("wAvatarImg");
-    if (imgEl) imgEl.src = url;
-    showSnackbar("✅ Foto de perfil actualizada", "success");
-  } catch (err) {
-    console.error("Error subiendo avatar:", err);
-    showSnackbar("❌ No se pudo actualizar tu foto", "error");
-  } finally {
-    wrap?.classList.remove("is-uploading");
-    e.target.value = "";
-  }
-});
+    try {
+      const blob = await optimizarImagenDesdeArchivo(file, 512, 0.85);
+      const url = await subirYGuardarAvatar(GOOGLE_USER.uid, blob);
+      const imgEl = document.getElementById("wAvatarImg");
+      if (imgEl) imgEl.src = url;
+      showSnackbar("✅ Foto de perfil actualizada", "success");
+    } catch (err) {
+      console.error("Error subiendo avatar:", err);
+      showSnackbar("❌ No se pudo actualizar tu foto", "error");
+    } finally {
+      wrap?.classList.remove("is-uploading");
+      e.target.value = "";
+    }
+  });
