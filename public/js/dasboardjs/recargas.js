@@ -57,8 +57,7 @@ window.addEventListener("message", (event) => {
   if (event.data?.type === "SALDO_UPDATE") {
     const saldo = Number(event.data.saldo || 0);
 
-    console.log("💰 SALDO RECIBIDO:", saldo);
-
+    
     window._saldo_tienda = saldo;
 
     return;
@@ -68,8 +67,7 @@ window.addEventListener("message", (event) => {
   if (event.data?.type === "DATOS_TIENDA") {
     const tienda = event.data.payload || {};
 
-    console.log("📦 DATOS RECIBIDOS:", tienda);
-
+    
     window._userId = tienda.id_tienda || "";
 
     window._nombre_tienda = tienda.nombre_tienda || "";
@@ -82,8 +80,7 @@ window.addEventListener("message", (event) => {
 
     window._saldo_tienda = Number(tienda.saldo_tienda || 0);
 
-    console.log("💰 SALDO TIENDA:", window._saldo_tienda);
-  }
+      }
 });
 
 // ═══════════════════════════════════════════════════════
@@ -92,8 +89,7 @@ window.addEventListener("message", (event) => {
 
 window.addEventListener("pageshow", () => {
   if (document.referrer.includes("pagos")) {
-    console.log("⬅️ REGRESÓ DESDE PAGOS");
-
+    
     restaurarBotones();
   }
 });
@@ -314,13 +310,11 @@ async function agendar_pago(obj_plan, btn) {
       monto_pagar_de_plan: Number(obj_plan.precio_soles || 0),
     };
 
-    console.log("📤 DATA ENVIADA:", payload);
-
+    
     // CLOUD FUNCTION
     const res = await agregar_pado_usaurio_tienda(payload);
 
-    console.log("✅ RESPUESTA:", res);
-
+    
     const idPago = res?.data?.id_pago;
 
     if (!idPago) {
@@ -339,8 +333,7 @@ async function agendar_pago(obj_plan, btn) {
 
     const urlPago = `pagos?orderId=${idPago}&ins=r`;
 
-    console.log("➡️ REDIRECCIONANDO:", urlPago);
-
+    
     window.location.href = urlPago;
   } catch (error) {
     clearInterval(interval);

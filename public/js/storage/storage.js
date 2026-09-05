@@ -34,8 +34,7 @@ const StorageCleaner = {
       this._notificarIframes(recargarIframes);
     }
 
-    console.log("🧹 Storage limpiado por completo (local + session + cookies)");
-  },
+      },
 
   _limpiarCookies() {
     const cookies = document.cookie.split(";");

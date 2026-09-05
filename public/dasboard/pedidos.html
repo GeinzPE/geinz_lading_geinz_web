@@ -102,8 +102,8 @@
             </div>
 
             <div class="origin-bar" id="originBar">
-                <div class="origin-chip active" data-origin="whatsapp">💬 WhatsApp / carrito de compras<span class="oc-badge"
-                        id="waBadge"></span></div>
+                <div class="origin-chip active" data-origin="whatsapp">💬 WhatsApp / carrito de compras<span
+                        class="oc-badge" id="waBadge"></span></div>
                 <div class="origin-chip" data-origin="mesa">🍽️ Mesas</div>
             </div>
 
@@ -113,6 +113,9 @@
                         id="money-pendiente">S/ 0.00</span></div>
                 <div class="stab" data-s="en_proceso"><span class="dot"></span><span class="lbl">En proceso</span><span
                         class="num" id="cnt-en_proceso">0</span><span class="money" id="money-en_proceso">S/ 0.00</span>
+                </div>
+                <div class="stab" data-s="en_pausa"><span class="dot"></span><span class="lbl">En pausa</span><span
+                        class="num" id="cnt-en_pausa">0</span><span class="money" id="money-en_pausa">S/ 0.00</span>
                 </div>
                 <div class="stab" data-s="entregado"><span class="dot"></span><span class="lbl">Entregado</span><span
                         class="num" id="cnt-entregado">0</span><span class="money" id="money-entregado">S/ 0.00</span>
@@ -224,7 +227,22 @@
                 </div>
                 <div class="col-body" id="col-en_proceso"></div>
             </div>
-
+            <div class="board-col" data-status="en_pausa">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">⏸️</div>
+                        <div>
+                            <div class="col-name">En pausa</div>
+                            <div class="col-sub">Esperando al cliente</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-en_pausa">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-en_pausa">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-en_pausa"></div>
+            </div>
             <div class="board-col" data-status="entregado">
                 <div class="col-head">
                     <div class="col-head-left">
@@ -261,6 +279,12 @@
         </div>
     </div>
 
+    <div id="pausaOverlay" class="np-opt-overlay">
+  <div class="np-opt-modal">
+    <div class="np-opt-head"><span>⏸️ Pausar pedido</span><button id="pausaClose">✕</button></div>
+    <div id="pausaBody"></div>
+  </div>
+</div>
     <!-- Modal de detalle completo -->
     <div id="detailOverlay">
         <div id="detailModal">

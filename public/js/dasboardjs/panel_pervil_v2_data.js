@@ -28,8 +28,7 @@ onAuthStateChanged(auth, (user) => {
     window.location.replace("../index");
     return;
   }
-  console.log("Usuario logeado OK:", user.uid);
-});
+  });
 
 window.cerrarSesionPanel = async () => {
   const uid = auth.currentUser?.uid;
@@ -109,8 +108,7 @@ function reenviarDatosAlIframe(iframe) {
   setTimeout(() => {
     try {
       iframe.contentWindow.postMessage(window._datosParaIframe, "*");
-      console.log("📤 Datos reenviados al iframe:", window._datosParaIframe);
-    } catch (e) {
+          } catch (e) {
       console.warn("No se pudo reenviar datos:", e);
     }
   }, 300);

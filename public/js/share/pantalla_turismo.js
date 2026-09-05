@@ -6,7 +6,6 @@ let allPlaces = [];
 const params = new URLSearchParams(window.location.search);
 const localidad = params.get("loc") || "barranca";
 
-console.log(localidad);
 
 async function renderWithSmoothImages(data) {
 

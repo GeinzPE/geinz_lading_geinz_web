@@ -3717,11 +3717,9 @@
                 }
                 return;
             }
-            console.log(`[${channelKey}] iniciando listener sobre colección "${colName}"`);
-
+            
             channelUnsubs[channelKey] = onSnapshot(q, (snap) => {
-                console.log(`[${channelKey}] snapshot recibido, docs:`, snap.size);
-
+                
                 channelCounts[channelKey] = snap.size;
                 updateCountBadges();
 

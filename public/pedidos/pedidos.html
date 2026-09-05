@@ -645,6 +645,12 @@
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+
+    .status-dot[data-status="en_pausa"],
+    .status-dot.is-en_pausa {
+      background-color: #38bdf8;
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, .14);
+    }
   </style>
 
   <script type="module" src="/js/dasboardjs/estado_pedidos.js"></script>
@@ -702,7 +708,7 @@
       </header>
 
       <!-- Status card -->
-          <!-- Status card -->
+      <!-- Status card -->
       <section class="card fade-in" aria-label="Estado del pedido">
         <div class="row-between">
           <span class="eyebrow">Estado del pedido</span>

@@ -87,22 +87,24 @@ aplicarTextosPorCategoria();
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
-if (!tiendaId || !localidad) {
-  // fallback por si el postMessage llega después
-  window.addEventListener("message", (e) => {
-    if (e.data?.tipo !== "DATOS_TIENDA") return;
-    tiendaId = e.data.tiendaId;
-    localidad = e.data.localidad;
-    if (e.data.categoriaTienda) {
-      categoriaTienda = e.data.categoriaTienda;
-      esRestaurante =
-        normalizarCategoria(categoriaTienda) === "comida y restaurantes";
-      aplicarTextosPorCategoria();
-    }
-    actualizarVisibilidadCarta();
-  });
-}
+window.addEventListener("message", (e) => {
+  if (e.data?.tipo !== "DATOS_TIENDA") return;
 
+  tiendaId = e.data.tiendaId;
+  localidad = e.data.localidad;
+  if (tiendaId) sessionStorage.setItem("tiendaId", tiendaId);
+  if (localidad) sessionStorage.setItem("localidad", localidad);
+
+  if (e.data.categoriaTienda) {
+    categoriaTienda = e.data.categoriaTienda;
+    sessionStorage.setItem("categoriaTienda", categoriaTienda);
+    esRestaurante =
+      normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+        aplicarTextosPorCategoria();
+  }
+
+  actualizarVisibilidadCarta();
+});
 const TIENDA_ID_STORAGE = tiendaId;
 const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
 const categoriasRef = collection(tiendaDocRef, "productos");

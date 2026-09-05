@@ -254,11 +254,9 @@ async function loadCategorias() {
   catSel.innerHTML = '<option value="">Cargando categorías…</option>';
   if (!firebaseReady) return;
   const rutaCategorias = tiendaPathStr(distrito, "tiendas", tiendaId, "productos");
-  console.log("[fidelizacion] Consultando categorías en:", rutaCategorias);
-  try {
+    try {
     const snap = await getDocs(categoriasCol(distrito, tiendaId));
-    console.log(`[fidelizacion] Categorías encontradas (${snap.size}):`, snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    if (snap.empty) {
+        if (snap.empty) {
       catSel.innerHTML = '<option value="">Sin categorías en esta tienda</option>';
       return;
     }
@@ -277,8 +275,7 @@ async function loadCategorias() {
 }
 document.getElementById("prodCategoria").addEventListener("change", (e) => {
   categoriaSeleccionada = e.target.value;
-  console.log("[fidelizacion] Categoría seleccionada:", categoriaSeleccionada);
-  loadProductosDeCategoria();
+    loadProductosDeCategoria();
 });
 
 async function loadProductosDeCategoria() {
@@ -295,11 +292,9 @@ async function loadProductosDeCategoria() {
   prodSel.disabled = true;
   if (!firebaseReady) return;
   const rutaProductos = tiendaPathStr(distrito, "tiendas", tiendaId, "productos", categoriaSeleccionada, categoriaSeleccionada);
-  console.log("[fidelizacion] Consultando productos en:", rutaProductos);
-  try {
+    try {
     const snap = await getDocs(productosDeCategoriaCol(distrito, tiendaId, categoriaSeleccionada));
-    console.log(`[fidelizacion] Productos encontrados (${snap.size}):`, snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    productosCache = {};
+        productosCache = {};
     if (snap.empty) {
       prodSel.innerHTML = '<option value="">Sin productos en esta categoría</option>';
       return;
@@ -795,8 +790,7 @@ function watchClientesRealtime() {
 
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Cargando…</td></tr>';
   const rutaClientes = tiendaPathStr(distrito, "tiendas", tiendaId, "clientes");
-  console.log("[fidelizacion] Escuchando clientes en:", rutaClientes);
-
+  
   unsubscribeClientes = onSnapshot(clientesCol(distrito, tiendaId), async (snap) => {
     const huboNuevo = clientesListoInicial &&
       snap.docChanges().some(ch => ch.type === "added");
@@ -914,11 +908,9 @@ async function loadHistorial() {
   }
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Cargando…</td></tr>';
   const rutaCanjes = tiendaPathStr(distrito, "tiendas", tiendaId, "canjes");
-  console.log("[fidelizacion] Consultando canjes en:", rutaCanjes);
-  try {
+    try {
     const snap = await getDocs(canjesCol(distrito, tiendaId));
-    console.log(`[fidelizacion] Canjes encontrados (${snap.size}):`, snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    if (snap.empty) {
+        if (snap.empty) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Sin canjes registrados en esta tienda.</td></tr>';
       return;
     }

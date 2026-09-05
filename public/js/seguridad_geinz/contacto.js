@@ -50,7 +50,6 @@ const p = (k) => new URLSearchParams(location.search).get(k) || "";
 const idTienda = p("id_tienda");
 const tokenId = p("contacto");
 
-console.log("🔍 PARAMS →", { idTienda, tokenId });
 
 if (!idTienda || !tokenId) {
   renderError("Link inválido", "El enlace no contiene información válida.");
@@ -77,10 +76,8 @@ let waUrl         = "";
 let descuentoDone = false;
 
 function intentarRedirigir() {
-  console.log("🔁 intentarRedirigir →", { descuentoDone, waUrl });
-  if (descuentoDone && waUrl) {
-    console.log("✅ Redirigiendo a:", waUrl);
-    location.href = waUrl;
+    if (descuentoDone && waUrl) {
+        location.href = waUrl;
   }
 }
 
@@ -99,8 +96,7 @@ const timer = setInterval(() => {
   pct.textContent  = progress + "%";
   if (elapsed >= TOTAL) {
     clearInterval(timer);
-    console.log("⏱️ Timer completado (solo UX)");
-  }
+      }
 }, TICK);
 
 /* ═══════════════════════════════════════
@@ -110,29 +106,24 @@ const timer = setInterval(() => {
 let costo_por_moneda = 0;
 
 window.addEventListener("load", async () => {
-  console.log("🚀 INIT");
-
+  
   try {
     /* costo_por_moneda */
     try {
-      console.log("📡 Fetching precio_apartado/app...");
-      const precioSnap = await getDoc(doc(dbPlanes, "precio_apartado", "app"));
+            const precioSnap = await getDoc(doc(dbPlanes, "precio_apartado", "app"));
       costo_por_moneda = Number(precioSnap.data()?.costo_por_moneda || 0);
-      console.log("✅ costo_por_moneda →", costo_por_moneda);
-    } catch (e) {
+          } catch (e) {
       console.warn("⚠️ No se pudo leer costo_por_moneda:", e.message);
     }
 
     const tiendaRef = doc(db, "lugares", idTienda);
     const tokenRef  = doc(dbPlanes, "creditos_tienda", idTienda, "interaccion_directa_bot", tokenId);
 
-    console.log("📡 Fetching tienda y token...");
-    const [tiendaSnap, tokenSnap] = await Promise.all([
+        const [tiendaSnap, tokenSnap] = await Promise.all([
       getDoc(tiendaRef),
       getDoc(tokenRef),
     ]);
-    console.log("✅ tienda y token ok");
-
+    
     if (!tiendaSnap.exists()) {
       renderError("Tienda no encontrada", "La tienda solicitada no existe.");
       return;
@@ -145,9 +136,7 @@ window.addEventListener("load", async () => {
     const tiendaData = tiendaSnap.data() || {};
     const tokenData  = tokenSnap.data() || {};
 
-    console.log("📦 tiendaData →", tiendaData);
-    console.log("📦 tokenData →", tokenData);
-
+        
     /* EXPIRACIÓN */
     const fin   = tokenData?.fin;
     const ahora = Date.now();
@@ -165,8 +154,7 @@ window.addEventListener("load", async () => {
     const numero    = tiendaData?.whatsapp || "";
     const mensaje   = tiendaData?.msje_whatsapp || "Hola";
 
-    console.log("🏪 nombre →", nombre, "| 📞 numero →", numero);
-
+    
     if (!numero) {
       renderError("Sin WhatsApp", "La tienda no tiene WhatsApp configurado.");
       return;
@@ -175,8 +163,7 @@ window.addEventListener("load", async () => {
     /* WHATSAPP URL */
     waUrl     = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
     btn.href  = waUrl;
-    console.log("🔗 waUrl →", waUrl);
-
+    
     /* UI */
     businessName.textContent = nombre;
     bizInline.textContent    = nombre;
@@ -187,8 +174,7 @@ window.addEventListener("load", async () => {
       img.onload = () => {
         businessLogo.src = logo;
         requestAnimationFrame(() => businessLogo.classList.add("loaded"));
-        console.log("🖼️ Logo cargado");
-      };
+              };
       img.onerror = () => console.warn("⚠️ Error logo");
       img.src = logo;
     }
@@ -203,26 +189,21 @@ window.addEventListener("load", async () => {
       const creditosRef    = doc(dbPlanes, "creditos_tienda", idTienda);
 
       /* PRECIOS */
-      console.log("📡 Fetching precios bot_daniel...");
-      const preciosSnap = await getDoc(doc(dbPlanes, "precio_apartado", "bot_daniel"));
-      console.log("✅ precios ok");
-
+            const preciosSnap = await getDoc(doc(dbPlanes, "precio_apartado", "bot_daniel"));
+      
       const preciosData = preciosSnap.exists() ? preciosSnap.data() : {};
       const monedas     = Number(preciosData?.contacto_directo ?? 20);
       const deudaMaxima = Number(preciosData?.saldo_deuda_maxima ?? 300);
 
-      console.log("💰 monedas →", monedas, "| deudaMaxima →", deudaMaxima);
-
+      
       /* ════════════════════════════════════════
          MAESTRA: leer puntos_tienda de Geinz
          Todos los cálculos parten de aquí.
       ════════════════════════════════════════ */
-      console.log("📡 Fetching tiendaGeinz (MAESTRA)...");
-      const tiendaGeinzRef  = tiendaSubDoc(localidad, "tiendas", idTienda);
+            const tiendaGeinzRef  = tiendaSubDoc(localidad, "tiendas", idTienda);
        
       const tiendaGeinzSnap = await getDoc(tiendaGeinzRef);
-      console.log("✅ tiendaGeinz ok, exists:", tiendaGeinzSnap.exists());
-
+      
       if (!tiendaGeinzSnap.exists()) {
         console.warn("⚠️ Tienda Geinz no encontrada");
         renderError("Tienda no encontrada", "No se encontró la información del negocio.");
@@ -238,16 +219,11 @@ window.addEventListener("load", async () => {
       const saldo_restante      = Math.max(saldoActual - descontarDeSaldo, 0);
       const irADeuda            = monedas - descontarDeSaldo;
 
-      console.log("💎 saldoActual (maestra) →", saldoActual);
-      console.log("💎 saldo_restante →", saldo_restante);
-      console.log("🔴 irADeuda →", irADeuda);
-
+                  
       /* deuda actual de dbPlanes (solo para acumular, no para calcular saldo) */
-      console.log("📡 Fetching deuda actual dbPlanes...");
-      const creditosSnapAntes = await getDoc(creditosRef);
+            const creditosSnapAntes = await getDoc(creditosRef);
       const deudaActual       = Number(creditosSnapAntes.exists() ? (creditosSnapAntes.data()?.deuda_pendiente ?? 0) : 0);
-      console.log("📋 deudaActual →", deudaActual);
-
+      
       /* FECHA */
       const now   = new Date();
       const zona  = { timeZone: "America/Lima" };
@@ -308,8 +284,7 @@ window.addEventListener("load", async () => {
       /* DEUDA */
       if (irADeuda > 0) {
         const nuevaDeuda = deudaActual + irADeuda;
-        console.log("🔴 nuevaDeuda →", nuevaDeuda);
-
+        
         if (nuevaDeuda <= deudaMaxima) {
           writes.push(
             setDoc(creditosRef, {
@@ -317,8 +292,7 @@ window.addEventListener("load", async () => {
               updatedAt: serverTimestamp(),
             }, { merge: true }),
           );
-          console.log("📝 deuda acumulada");
-
+          
           await fetch("https://enviar-notificacion-deuda-acumulada-oixttik5rq-uc.a.run.app", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -343,34 +317,26 @@ window.addEventListener("load", async () => {
           const tokenRefDeuda   = doc(dbPlanes, "creditos_tienda", idTienda, "interaccion_directa_bot", tokenId);
           const lugarRef        = doc(db, "lugares", idTienda);
 
-          console.log("📡 Fetching lugarRef...");
-          const lugarSnap       = await getDoc(lugarRef);
+                    const lugarSnap       = await getDoc(lugarRef);
           const plantillaActual = lugarSnap.exists() ? lugarSnap.data()?.plantilla : false;
-          console.log("🎨 plantilla →", plantillaActual);
-
+          
           if (plantillaActual === true) {
             writes.push(setDoc(lugarRef, { plantilla: false }, { merge: true }));
-            console.log("❌ plantilla → false");
-          }
+                      }
 
           writes.push(setDoc(tiendaGeinzRef, { bot_plan_pro: false }, { merge: true }));
-          console.log("❌ bot_plan_pro → false");
-
+          
           writes.push(setDoc(tokenRefDeuda, {
             fin: serverTimestamp(),
             expired_by_debt: true,
             updatedAt: serverTimestamp(),
           }, { merge: true }));
-          console.log("⛔ link expirado por deuda");
-        }
+                  }
       } else {
-        console.log("✅ saldo suficiente, sin deuda");
-      }
+              }
 
-      console.log("📡 Ejecutando todos los writes...");
-      await Promise.all(writes);
-      console.log("🎉 Click procesado — saldo_restante:", saldo_restante);
-
+            await Promise.all(writes);
+      
       descuentoDone = true;
       intentarRedirigir();
 

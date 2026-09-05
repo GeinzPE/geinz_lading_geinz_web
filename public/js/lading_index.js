@@ -39,8 +39,7 @@ function habilitarPlanes() {
 }
 
 async function buscarUsuario() {
-  console.log("Iniciando búsqueda...");
-
+  
   const idInput = document.getElementById("userId").value.trim();
 
   const msg = document.getElementById("msgId");
@@ -136,8 +135,7 @@ window.seleccionarLocalidad = function (localidad) {
 
   // Guardamos el valor en la variable global
   localidadSeleccionada = localidad;
-  console.log("Localidad guardada: " + localidadSeleccionada);
-
+  
   // Activamos los botones visualmente
   const botones = document.querySelectorAll(".btn-global");
   botones.forEach((btn) => {
@@ -179,8 +177,7 @@ window.abrirCategoria = function (tipo) {
   // Construcción del link de Firebase Hosting
   const urlFinal = `https://geinztech.com/api/share?t=${tParam}&id=${idParam}&loc=${localidadSeleccionada}`;
 
-  console.log("Navegando a: " + urlFinal);
-
+  
   // Navegación inmediata
   window.location.href = urlFinal;
 };
@@ -251,8 +248,7 @@ window.culqi = async function () {
   }
 
   const emailFinal = Culqi.token.email || "test@geinz.com";
-  console.log("TemailFinal:", emailFinal);
-  try {
+    try {
     await confirmarPagoFn({
       token: Culqi.token.id,
       monto: window._pago.monto,
@@ -355,8 +351,7 @@ async function obtener_datos_para_plan(plan) {
 
     if (docSnap.exists()) {
       const datos = docSnap.data();
-      console.log("Datos del plan:", datos);
-      return datos;
+            return datos;
     } else {
       console.warn("No existe el plan:", plan);
       return null;
@@ -400,8 +395,7 @@ function cambiarPaso(step) {
 const ORDEN_PLANES = ["basico", "avanzado", "primium", "busness"];
 
 async function cargarPlanesDinamico() {
-  console.log("🔄 Iniciando carga de planes...");
-
+  
   const wrapper = document.querySelector(".pricing-wrapper");
 
   // Mostrar 4 skeletons mientras carga
@@ -424,17 +418,14 @@ async function cargarPlanesDinamico() {
     const ref = collection(dbPlanes, "precios_planes_geinz");
     const snap = await getDocs(ref);
 
-    console.log("✅ Total planes encontrados:", snap.size);
-
+    
     const planesMap = {};
     snap.forEach((doc) => {
       const d = doc.data();
-      console.log("📦 Plan cargado:", d.nombre_plan, d);
-      planesMap[d.nombre_plan] = d;
+            planesMap[d.nombre_plan] = d;
     });
 
-    console.log("🗺️ Mapa de planes:", planesMap);
-
+    
     wrapper.innerHTML = "";
 
     ORDEN_PLANES.forEach((key) => {
@@ -444,8 +435,7 @@ async function cargarPlanesDinamico() {
         return;
       }
 
-      console.log("🃏 Renderizando card:", key);
-
+      
       const tieneBono = plan.monedas_agregadas > 0;
       const esFeatured = plan.descripcion === "Más usado";
 
@@ -483,8 +473,7 @@ async function cargarPlanesDinamico() {
       wrapper.appendChild(card);
     });
 
-    console.log("🎉 Planes renderizados correctamente");
-  } catch (error) {
+      } catch (error) {
     console.error("❌ Error cargando planes:", error);
     wrapper.innerHTML = `<p style="color:rgba(255,255,255,0.4); text-align:center;">Error al cargar los planes. Intenta de nuevo.</p>`;
   }

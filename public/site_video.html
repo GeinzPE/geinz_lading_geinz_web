@@ -1568,8 +1568,7 @@
 
 
       const ffmpeg = new FFmpeg();
-      ffmpeg.on('log', ({ message }) => console.log("[ffmpeg log]", message));
-
+      ffmpeg.on('log', ({ message }) => 
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
       const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
       const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
@@ -1584,8 +1583,7 @@
       return ffmpegInstance;
     }
     async function webmBlobToMp4(webmBlob, onProgress) {
-      console.log("[convert] subiendo webm al servidor, tamaño =", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
-      if (onProgress) onProgress(0.05);
+            if (onProgress) onProgress(0.05);
 
       const formData = new FormData();
       formData.append("file", webmBlob, "input.webm");
@@ -1606,8 +1604,7 @@
 
       const mp4Blob = await res.blob();
       if (onProgress) onProgress(1);
-      console.log("[convert] ✅ MP4 recibido, tamaño =", (mp4Blob.size / 1024 / 1024).toFixed(2), "MB");
-      return mp4Blob;
+            return mp4Blob;
     }
     function getContentRect(video, stage) {
       const sw = stage.clientWidth, sh = stage.clientHeight;
@@ -3100,8 +3097,7 @@
       const mp4Filename = filename.replace(/\.webm$/i, ".mp4");
       try {
         if (onProgress) onProgress(endT, endT, "Preparando conversión a MP4…");
-        console.log("[export] iniciando conversión a MP4, blob webm de", (webmBlob.size / 1024 / 1024).toFixed(2), "MB");
-
+        
         const conversionPromise = webmBlobToMp4(webmBlob, (ratio) => {
           if (onProgress) onProgress(endT, endT, `Convirtiendo a MP4… ${Math.round(ratio * 100)}%`);
         });
@@ -3111,8 +3107,7 @@
         });
 
         const mp4Blob = await Promise.race([conversionPromise, timeoutPromise]);
-        console.log("[export] ✅ MP4 listo, descargando...");
-        downloadBlob(mp4Blob, mp4Filename);
+                downloadBlob(mp4Blob, mp4Filename);
       } catch (err) {
         console.error("[export] ❌ No se pudo convertir a MP4, se descarga en WebM:", err);
         if (onProgress) onProgress(endT, endT, "⚠️ Falló la conversión, descargando en WebM…");

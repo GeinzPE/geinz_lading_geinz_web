@@ -210,8 +210,7 @@ function applyDominantColor({ r, g, b }) {
     ctaGlow.style.background = `rgba(${r},${g},${b},.3)`;
   }
 
-  console.log(`🎨 Color dominante aplicado → rgb(${r}, ${g}, ${b})`);
-}
+  }
 
 /**
  * Fallback: color derivado del nombre (cuando el logo no carga o

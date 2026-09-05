@@ -702,7 +702,7 @@ async function loadProductosCatalogo(biz) {
           }))
           .filter((c) => c.nombre && c.opciones.length > 0);
 
-            arr.push({
+        arr.push({
           id: pDoc.id,
           categoria,
           categoriaNorm: normalizeText(categoria),
@@ -843,6 +843,47 @@ async function renderTienda(biz) {
     logoPh.classList.add("flex");
     applyColor(colorFromName(bizNombre));
   }
+  pintarLogoEnBotones();
+}
+function pintarLogoEnBotones() {
+  const logoUrl = _bizLogoUrl;
+  const targets = [
+    { imgId: "btnLogoSend", phId: "btnLogoPhSend" },
+    { imgId: "btnLogoMobile", phId: "btnLogoPhMobile" },
+    { imgId: "btnLogoDesktop", phId: "btnLogoPhDesktop" },
+  ];
+  targets.forEach(({ imgId, phId }) => {
+    const img = document.getElementById(imgId);
+    const ph = document.getElementById(phId);
+    if (!img || !ph) return;
+    if (logoUrl) {
+      img.src = logoUrl;
+      img.style.display = "block";
+      ph.classList.add("hidden");
+    } else {
+      ph.textContent = letraNegocio();
+      ph.classList.remove("hidden");
+    }
+  });
+
+  const loaderImg = document.getElementById("pedidoLoaderLogo");
+  const loaderPh = document.getElementById("pedidoLoaderLogoPh");
+  if (loaderImg && loaderPh) {
+    if (logoUrl) {
+      loaderImg.src = logoUrl;
+      loaderImg.style.display = "block";
+      loaderPh.classList.add("hidden");
+    } else {
+      loaderPh.classList.remove("hidden");
+    }
+  }
+}
+
+function showPedidoLoader() {
+  document.getElementById("pedidoLoader")?.classList.remove("hidden");
+}
+function hidePedidoLoader() {
+  document.getElementById("pedidoLoader")?.classList.add("hidden");
 }
 /* Cuando el carrito viene de una mesa (QR), el botón "atrás" ya no debe
        hacer history.back() (puede llevar a un sitio raro o no ir a ningún lado
@@ -1041,8 +1082,8 @@ window.__geinzImgFallback = function (imgEl) {
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
   wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
-      ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
-      : `<span class="ph-letter">${letraNegocio()}</span>`
+    ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+    : `<span class="ph-letter">${letraNegocio()}</span>`
     }</div>`;
   imgEl.replaceWith(wrap);
 };
@@ -1146,7 +1187,7 @@ function productoCard(p, index = 0) {
     .map((c) => `${c.nombre}: ${c.opciones.map((o) => o.nombre).join(", ")}`)
     .join(" · ");
 
-   info.innerHTML = `
+  info.innerHTML = `
     <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
@@ -1907,19 +1948,14 @@ document
     }
 
     const linkPedido = `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
-    const msg = `¡Hola *${bizNombre}*! 👋 Aquí está mi pedido:\n${linkPedido}`;
 
-    btn.disabled = false;
-    btn.innerHTML = textoOriginal;
-
-    const numero = getBizWhatsapp();
-    const url = numero
-      ? `https://wa.me/${numero}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-
-    window.open(url, "_blank");
     closeCheckout();
-    showToast("Abriendo WhatsApp…");
+    showPedidoLoader();
+
+    // pequeña pausa para que se alcance a ver la animación antes de navegar
+    setTimeout(() => {
+      window.location.href = linkPedido;
+    }, 900);
 
     // Reset para el próximo pedido
     clienteLat = null;

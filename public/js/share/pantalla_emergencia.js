@@ -15,7 +15,6 @@ let listadoEmergencias = [];
 const params = new URLSearchParams(window.location.search);
 const localidad = params.get("loc") || "barranca";
 
-console.log(localidad);
 const controls = document.getElementById("controls");
 
 window.addEventListener("scroll", () => {

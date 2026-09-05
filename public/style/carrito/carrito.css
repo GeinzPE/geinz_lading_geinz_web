@@ -978,3 +978,53 @@ body {
     font-size: 12px;
     font-weight: 700;
 }
+
+.pedido-loader-logo-wrap {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pedido-loader-logo-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 3px solid rgba(255, 255, 255, .08);
+    border-top-color: rgb(var(--dr), var(--dg), var(--db));
+    animation: pedidoSpin .9s linear infinite;
+}
+
+.pedido-loader-logo-wrap img,
+.pedido-loader-logo-wrap #pedidoLoaderLogoPh {
+    width: 64px;
+    height: 64px;
+    border-radius: 9999px;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    background: rgba(255, 255, 255, .06);
+}
+
+@keyframes pedidoSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+.btn-whatsapp{
+  background: rgb(var(--dr), var(--dg), var(--db)) !important;
+  box-shadow: 0 8px 24px -8px rgba(var(--dr), var(--dg), var(--db), .55);
+}
+.btn-whatsapp:active{
+  filter: brightness(0.92);
+}
+.btn-whatsapp:disabled{
+  background: rgba(255,255,255,.08) !important;
+  box-shadow: none;
+  opacity: .6;
+}

@@ -1,14 +1,16 @@
 import {
   doc,
   onSnapshot,
+  updateDoc,
+  serverTimestamp,
   enableIndexedDbPersistence,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "/js/db/db.js";
 import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
 import { setFaviconCircular } from "/js/favicon/favicon.js"; // ajusta la ruta a donde tengas el archivo
+
 // Cache local: si el pedido se vuelve a abrir (o hay un corte de red breve),
 // se sirve desde disco al instante en vez de esperar a la red.
-// Reduce lecturas repetidas a Firestore -> importante para escalar a miles de pedidos/negocios.
 try {
   enableIndexedDbPersistence(db).catch((err) => {
     console.warn("[pedidos] Persistencia local no disponible:", err.code);
@@ -19,6 +21,38 @@ try {
 
 // ---- Config: ajustar si la localidad varía por negocio ----
 const LOCALIDAD_FIJA = "barranca";
+
+// ---- Estados del pedido (única fuente de verdad, sin duplicados) ----
+const ESTADOS = ["pendiente", "en_proceso", "entregado"];
+const ESTADOS_LABEL = {
+  pendiente: "Pendiente",
+  en_proceso: "En proceso",
+  en_pausa: "En pausa",
+  entregado: "Entregado",
+  rechazado: "Rechazado",
+};
+
+function normalizarEstado(estado) {
+  const e = (estado || "").toLowerCase().trim();
+  if (e === "rechazado" || e.includes("rechaz")) return "rechazado";
+  if (e === "entregado" || e.includes("entreg")) return "entregado";
+  if (e === "en_pausa" || e.includes("pausa")) return "en_pausa";
+  if (e === "en_proceso" || e.includes("proceso")) return "en_proceso";
+  return "pendiente";
+}
+
+function toDateFS(ts) {
+  return ts && typeof ts.toDate === "function" ? ts.toDate() : null;
+}
+function esc(s) {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+}
 
 // ---- Parseo de ruta: /pedidos/{negocioId}/{pedidoId} (o /dashboard/... como alias) ----
 function parseRuta() {
@@ -65,29 +99,28 @@ const enIdle = (fn) => {
     window.requestIdleCallback(fn, { timeout: 1500 });
   else setTimeout(fn, 200);
 };
+
 let unsubNegocio = null;
 let unsubPedido = null;
 let colorListo = null;
 let primeraVezMostrado = false;
-let estadoAnterior = null;       // 👈 NUEVO: para detectar el cambio
-let primerRenderPedido = true;   // 👈 NUEVO: evita notificar en la carga inicial
+let estadoAnterior = null; // para detectar el cambio de estado
+let primerRenderPedido = true; // evita notificar en la carga inicial
+let pedidoRefGlobal = null; // referencia del doc del pedido, usada por el banner de pausa
 
 if (!ids) {
   showEmpty();
 } else {
   init(ids.negocioId, ids.pedidoId);
 }
-if (ids) {
-  init(ids.negocioId, ids.pedidoId);
-}
 
-// 👇 NUEVO: pide permiso de notificaciones en la primera interacción del cliente
+// Pide permiso de notificaciones en la primera interacción del cliente
 // (los navegadores bloquean el prompt automático si no hay gesto del usuario)
 document.addEventListener(
   "click",
   () => {
     if (window.Notification && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => { });
+      Notification.requestPermission().catch(() => {});
     }
   },
   { once: true },
@@ -123,7 +156,7 @@ function init(negocioId, pedidoId) {
         if (logoUrl) {
           el("logo-img").alt = nombre;
           el("logo-img").src = logoUrl;
-          setFaviconCircular(logoUrl); // ← favicon del negocio, se actualiza en tiempo real si el logo cambia
+          setFaviconCircular(logoUrl); // favicon del negocio, se actualiza en tiempo real si el logo cambia
 
           colorListo = new Promise((resolve) => {
             enIdle(() => extraerColorDominante(logoUrl).then(resolve));
@@ -152,6 +185,8 @@ function init(negocioId, pedidoId) {
     "pedidos",
     pedidoId,
   );
+  pedidoRefGlobal = pedidoRef; // guardamos la referencia para el banner de pausa
+
   unsubPedido = onSnapshot(
     pedidoRef,
     { includeMetadataChanges: true },
@@ -163,13 +198,17 @@ function init(negocioId, pedidoId) {
       }
 
       const data = snap.data();
-      const nuevoEstado = normalizarEstado(data.estado); // 👈 NUEVO
+      const nuevoEstado = normalizarEstado(data.estado);
 
       renderPedido(data);
 
-      // 👇 NUEVO: si el estado cambió respecto al anterior (y no es la primera carga),
+      // Si el estado cambió respecto al anterior (y no es la primera carga),
       // dispara la notificación push del navegador.
-      if (!primerRenderPedido && estadoAnterior !== null && nuevoEstado !== estadoAnterior) {
+      if (
+        !primerRenderPedido &&
+        estadoAnterior !== null &&
+        nuevoEstado !== estadoAnterior
+      ) {
         notificarCambioEstado(nuevoEstado, data);
       }
       estadoAnterior = nuevoEstado;
@@ -198,24 +237,6 @@ function mostrarBannerConexion(sinConexion) {
   el("conn-banner").classList.toggle("hidden", !sinConexion);
 }
 
-// ---- Estados del pedido ----
-const ESTADOS = ["pendiente", "en_proceso", "entregado"];
-const ESTADOS_LABEL = {
-  pendiente: "Pendiente",
-  en_proceso: "En proceso",
-  entregado: "Entregado",
-  rechazado: "Rechazado",
-};
-
-function normalizarEstado(estado) {
-  const e = (estado || "").toLowerCase().trim();
-  if (e === "rechazado" || e.includes("rechaz")) return "rechazado";
-  if (e === "entregado" || e.includes("entreg")) return "entregado";
-  if (e === "en_proceso" || e.includes("proceso")) return "en_proceso";
-  return "pendiente";
-}
-
-// 👇 NUEVO
 function notificarCambioEstado(nuevoEstado, data) {
   if (!window.Notification || Notification.permission !== "granted") return;
 
@@ -224,6 +245,7 @@ function notificarCambioEstado(nuevoEstado, data) {
   const MENSAJES = {
     pendiente: "Tu pedido está pendiente de confirmación.",
     en_proceso: "¡Tu pedido está en preparación!",
+    en_pausa: "Tu pedido está en pausa, necesitamos que elijas una opción.",
     entregado:
       puntosGanados > 0
         ? `Tu pedido fue entregado. ¡Ganaste +${puntosGanados} puntos! 🎁`
@@ -272,18 +294,144 @@ function renderPuntos(data, estadoActual, esRechazado) {
     if (data.puntos_acreditados) {
       texto.textContent = `+${puntosGanados} puntos acreditados a tu cuenta`;
     } else {
-      // Ya está "entregado" en pantalla pero el acreditado aún no llegó
-      // en este snapshot (puede tardar un instante); se actualiza solo.
       texto.textContent = `Acreditando +${puntosGanados} puntos…`;
     }
   } else {
-    // pendiente / en_proceso: aviso de lo que ganará al completarse
     texto.textContent = `Ganarás +${puntosGanados} puntos al completar tu pedido`;
   }
 }
+
+/* ══════════════ Banner de pedido en pausa ══════════════
+   Se muestra arriba de la tarjeta de estado. Si el negocio ya recibió la
+   respuesta del cliente, solo se confirma lo elegido. Si no, se muestran
+   botones para elegir un reemplazo (de los otros productos del mismo
+   pedido) o continuar sin el producto agotado. */
+function renderPausaBanner(data, pedidoRef) {
+  let wrap = el("pausa-wrap");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "pausa-wrap";
+    wrap.className = "card fade-in";
+    wrap.style.borderColor = "#38bdf8";
+    const primeraCard = el("content").querySelector("section.card");
+    el("content").insertBefore(wrap, primeraCard);
+  }
+
+  const pausa = data.pausa || {};
+  const respuesta = data.respuesta_cliente;
+  const afectados = pausa.productos_afectados || [];
+  const otros = (data.productos || []).filter(
+    (p) => !afectados.some((a) => a.id === p.id),
+  );
+
+  let restanteTexto = "";
+  const creado = toDateFS(pausa.creado_en);
+  if (creado) {
+    const msPorUnidad =
+      { minutos: 60000, horas: 3600000, dias: 86400000 }[
+        pausa.tiempo_espera?.unidad
+      ] || 60000;
+    const limite = (pausa.tiempo_espera?.valor || 15) * msPorUnidad;
+    const restanteMs = limite - (Date.now() - creado.getTime());
+    restanteTexto =
+      restanteMs > 0
+        ? `⏳ ~${Math.ceil(restanteMs / 60000)} min restantes`
+        : "⏳ El tiempo estimado ya pasó, seguimos coordinando";
+  }
+
+  if (respuesta) {
+    wrap.innerHTML = `
+      <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
+      <p style="margin:0.6rem 0 0;font-size:0.9rem;">Ya enviaste tu respuesta: <strong>${
+        respuesta.accion === "reemplazo"
+          ? "Cambiar por " + esc(respuesta.producto_elegido?.nombre || "")
+          : "Continuar sin ese producto"
+      }</strong>. El negocio confirmará en breve.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
+    <p style="margin:0.6rem 0 0;font-size:0.9rem;">${
+      esc(pausa.motivo) || "Uno de los productos de tu pedido no está disponible."
+    }</p>
+    ${restanteTexto ? `<p style="margin:0.3rem 0 0;font-size:0.78rem;color:var(--text-muted);">${restanteTexto}</p>` : ""}
+    <div id="pausa-opciones" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
+    <button id="pausa-confirmar" style="margin-top:1rem;width:100%;padding:0.8rem;border-radius:0.8rem;border:none;background:#38bdf8;color:#04222f;font-weight:700;cursor:pointer;" disabled>Continuar con mi pedido</button>
+  `;
+
+  let seleccion = null;
+  const opcionesWrap = wrap.querySelector("#pausa-opciones");
+  const confirmarBtn = wrap.querySelector("#pausa-confirmar");
+  const marcarActivo = (btn) => {
+    opcionesWrap
+      .querySelectorAll("button")
+      .forEach((b) => (b.style.borderColor = "var(--card-border)"));
+    btn.style.borderColor = "#38bdf8";
+    confirmarBtn.disabled = false;
+  };
+
+  otros.forEach((p) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.style.cssText =
+      "text-align:left;padding:0.7rem;border-radius:0.7rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);cursor:pointer;font-size:0.85rem;";
+    b.textContent = `Cambiar por: ${p.nombre}`;
+    b.onclick = () => {
+      seleccion = {
+        accion: "reemplazo",
+        producto_elegido: { id: p.id, nombre: p.nombre },
+      };
+      marcarActivo(b);
+    };
+    opcionesWrap.appendChild(b);
+  });
+
+  const sinProductoBtn = document.createElement("button");
+  sinProductoBtn.type = "button";
+  sinProductoBtn.style.cssText =
+    "text-align:left;padding:0.7rem;border-radius:0.7rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-secondary);cursor:pointer;font-size:0.85rem;";
+  sinProductoBtn.textContent = "Continuar sin este producto";
+  sinProductoBtn.onclick = () => {
+    seleccion = { accion: "sin_producto", producto_elegido: null };
+    marcarActivo(sinProductoBtn);
+  };
+  opcionesWrap.appendChild(sinProductoBtn);
+
+  confirmarBtn.onclick = async () => {
+    if (!seleccion || !pedidoRef) return;
+    confirmarBtn.disabled = true;
+    confirmarBtn.textContent = "Enviando…";
+    try {
+      await updateDoc(pedidoRef, {
+        respuesta_cliente: { ...seleccion, respondido_en: serverTimestamp() },
+      });
+    } catch (err) {
+      console.error("[pedidos] No se pudo enviar la respuesta:", err);
+      confirmarBtn.disabled = false;
+      confirmarBtn.textContent = "Continuar con mi pedido";
+    }
+  };
+}
+
+function quitarPausaBanner() {
+  el("pausa-wrap")?.remove();
+}
+
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
+  const enPausa = estadoActual === "en_pausa";
+
+  // La línea de tiempo, mientras está en pausa, sigue mostrando el progreso
+  // que tenía antes (pendiente/en_proceso), para no "perder" el avance visual.
+  const estadoParaTimeline = enPausa
+    ? data.pausa?.estado_anterior || "pendiente"
+    : estadoActual;
+  renderTimeline(estadoParaTimeline, esRechazado);
+
+  if (enPausa) renderPausaBanner(data, pedidoRefGlobal);
+  else quitarPausaBanner();
 
   el("status-label").textContent =
     ESTADOS_LABEL[estadoActual] || data.estado || "—";
@@ -296,11 +444,12 @@ function renderPedido(data) {
   dot.style.backgroundColor = "";
   if (esRechazado) {
     dot.style.backgroundColor = "#e5484d";
+  } else if (enPausa) {
+    dot.style.backgroundColor = "#38bdf8";
+    dot.classList.add("pulse");
   } else if (estadoActual !== "entregado") {
     dot.classList.add("pulse");
   }
-
-  renderTimeline(estadoActual, esRechazado);
 
   // Cliente
   const cliente = data.cliente || {};
@@ -318,12 +467,12 @@ function renderPedido(data) {
   if (data.nota) el("nota-texto").textContent = data.nota;
 
   // Pago
-  // Pago
   el("pago-metodo").textContent = data.pago?.metodo || "—";
   el("pedido-total").textContent = Number(data.total || 0).toFixed(2);
 
   // Puntos de fidelización
   renderPuntos(data, estadoActual, esRechazado);
+
   // Productos (se reconstruye con nodos DOM en vez de innerHTML con datos
   // dinámicos: evita problemas de escape/XSS si un nombre trae caracteres especiales)
   const cont = el("productos-list");
@@ -395,7 +544,6 @@ function renderTimeline(estadoActual, esRechazado) {
 
   ESTADOS.forEach((estado, i) => {
     const activo = i <= idxActual;
-    const esActual = i === idxActual;
     const isLast = i === ESTADOS.length - 1;
 
     const item = document.createElement("div");

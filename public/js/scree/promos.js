@@ -84,14 +84,7 @@ async function fetchPromociones() {
       : "11:59 p. m.";
 
     // ── 3. LOG ───────────────────────────────────────────────────
-    console.log(
-      `📦 Promo: "${data.informacion?.titulo || doc.id}" | ` +
-        `finDate: ${finDate ? finDate.toLocaleString("es-PE", { timeZone: "America/Lima" }) : "sin fecha"} | ` +
-        `ahora: ${new Date().toLocaleString("es-PE", { timeZone: "America/Lima" })} | ` +
-        `diffMs: ${finDate ? finDate.getTime() - Date.now() : "N/A"}ms | ` +
-        `horaFinStr: ${horaFinStr}`,
-    );
-
+    
     if (dhf.activo === false) return;
     if (finDate && !isNaN(finDate.getTime()) && finDate.getTime() < Date.now())
       return;

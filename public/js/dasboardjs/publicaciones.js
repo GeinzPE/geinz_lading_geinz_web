@@ -549,11 +549,7 @@ window.selectTipoImagen = function (el) {
   tipoImagenIA = el.dataset.tipo;
 };
 
-// ── Auth ────────────────────────────────────────────────
-onAuthStateChanged(auth, (user) => {
-  if (user) console.log("Usuario listo:", user.uid);
-  else console.log("No hay sesión activa");
-});
+
 
 async function getToken() {
   return new Promise((resolve) => {
@@ -2296,8 +2292,7 @@ window.addEventListener("message", (event) => {
     actualizarEstadoBotonPublicar();
     verificarSaldo();
 
-    console.log("💰 [SALDO_UPDATE] Saldo actualizado en iframe:", nuevoSaldo);
-  }
+      }
 });
 
 function _aplicarDatosTienda(d) {
@@ -2456,6 +2451,9 @@ const CLOUD_FN_CONECTAR_FB =
   "https://us-central1-geinzworkapp.cloudfunctions.net/conectarFacebookPage";
 
 // ── Cargar el SDK de Facebook dinámicamente ──
+// ── Cargar el SDK de Facebook dinámicamente ──
+let fbSdkListo = false;
+
 (function cargarFacebookSDK() {
   window.fbAsyncInit = function () {
     FB.init({
@@ -2464,8 +2462,8 @@ const CLOUD_FN_CONECTAR_FB =
       xfbml: false,
       version: "v21.0",
     });
-    console.log("✅ FB SDK inicializado correctamente, versión v21.0");
-  };
+    fbSdkListo = true;
+      };
 
   const script = document.createElement("script");
   script.src = "https://connect.facebook.net/es_LA/sdk.js";
@@ -2474,24 +2472,15 @@ const CLOUD_FN_CONECTAR_FB =
   document.body.appendChild(script);
 })();
 
-// ── Función principal: se llama al presionar "Conectar mi Fanpage" ──
-window.conectarMiFanpage = function () {
-  if (fbConectado) {
-    mostrarToast("Ya tienes una Fanpage conectada ✅", "error");
-    return;
-  }
-  console.log("🔵 Iniciando FB.login con scope");
-
+function _iniciarLoginFacebook() {
+  
   FB.login(
     function (response) {
-      console.log("🟢 Respuesta completa de FB.login:", response);
-      if (response.authResponse) {
+            if (response.authResponse) {
         const userAccessToken = response.authResponse.accessToken;
 
-        // 👇 Reemplaza el log anterior por esto:
         FB.api("/me/permissions", function (permResponse) {
-          console.log("📋 Permisos reales:", permResponse.data);
-        });
+                  });
 
         obtenerPaginasYMostrarSelector(userAccessToken);
       } else {
@@ -2510,7 +2499,41 @@ window.conectarMiFanpage = function () {
         "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement",
     },
   );
+}
+
+// ── Función principal: se llama al presionar "Conectar mi Fanpage" ──
+window.conectarMiFanpage = function () {
+  if (fbConectado) {
+    mostrarToast("Ya tienes una Fanpage conectada ✅", "error");
+    return;
+  }
+
+  // Si el SDK todavía no cargó (o el objeto FB no existe), esperamos un poco
+  if (typeof FB === "undefined" || !fbSdkListo) {
+    mostrarToast("Cargando Facebook, intenta de nuevo en un segundo…", "error");
+
+    let intentos = 0;
+    const esperar = setInterval(() => {
+      intentos++;
+      if (typeof FB !== "undefined" && fbSdkListo) {
+        clearInterval(esperar);
+        _iniciarLoginFacebook();
+      } else if (intentos > 20) {
+        // ~10s de espera máxima
+        clearInterval(esperar);
+        mostrarToast(
+          "No se pudo cargar Facebook. Revisa tu conexión e intenta de nuevo.",
+          "error",
+        );
+      }
+    }, 500);
+    return;
+  }
+
+  _iniciarLoginFacebook();
 };
+
+
 
 function obtenerPaginasYMostrarSelector(userAccessToken) {
   FB.api(

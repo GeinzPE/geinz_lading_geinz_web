@@ -41,7 +41,6 @@ window.direccion_fiscal = "";
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get("orderId");
 const params_mostrado = params.get("ins");
-console.log("ID recibido:", orderId, "Params mostrado:", params_mostrado);
 window._userId = orderId;
 let termsOn = false;
 let compType = "boleta";

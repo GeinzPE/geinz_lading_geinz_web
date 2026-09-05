@@ -218,12 +218,18 @@ const NP_CSS = `
 styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
 /* ══════════════ Identificación del negocio ══════════════ */
 
-const ESTADOS = ["pendiente", "en_proceso", "entregado", "rechazado"];
+const ESTADOS = ["pendiente", "en_proceso", "en_pausa", "entregado", "rechazado"];
 const pedidosMap = new Map(); // id -> data
 const mesasMap = new Map(); // docId -> data (numero_mesa, nombre_alias, ...)
 const gruposMap = new Map();
 const clientesSeguidoresCache = new Map(); // uid -> true/false (existe en /clientes)
-const prevMoney = { pendiente: 0, en_proceso: 0, entregado: 0, rechazado: 0 };
+const prevMoney = {
+  pendiente: 0,
+  en_proceso: 0,
+  en_pausa: 0,
+  entregado: 0,
+  rechazado: 0,
+};
 let activeTab = "pendiente";
 let activeModalId = null;
 let isFirstSnapshot = true;
@@ -309,6 +315,90 @@ function pedidoVisible(id, p) {
   }
   return true;
 }
+
+/* ══════════════ Modal de pausa: elegir producto agotado + mensaje + tiempo ══════════════ */
+function abrirModalPausa(id, p) {
+  const productos = Array.isArray(p.productos) ? p.productos : [];
+  const body = document.getElementById("pausaBody");
+  if (!body) {
+    console.warn(
+      "[pedidos] Falta el elemento #pausaBody en el HTML, agrega el modal de pausa",
+    );
+    return;
+  }
+  body.innerHTML = `
+    <div class="np-opt-label">¿Qué producto(s) se agotaron?</div>
+    <div class="np-opt-row" id="pausaProdRow">
+      ${productos.map((it, i) => `<button type="button" class="np-opt-btn" data-idx="${i}">${escapeHtml(it.nombre)}</button>`).join("")}
+    </div>
+    <div class="np-opt-label">Mensaje para el cliente (opcional)</div>
+    <textarea id="pausaMotivo" rows="2" style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;padding:8px;font-size:12.5px;" placeholder="Ej: Se nos terminó el pollo a la brasa entero"></textarea>
+    <div class="np-opt-label" style="margin-top:12px;">Tiempo de espera estimado</div>
+    <div style="display:flex;gap:8px;">
+      <input type="number" id="pausaTiempoValor" min="1" value="15" style="width:80px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;">
+      <select id="pausaTiempoUnidad" style="flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;">
+        <option value="minutos">Minutos</option><option value="horas">Horas</option><option value="dias">Días</option>
+      </select>
+    </div>
+    <button id="pausaConfirmarBtn" class="np-confirmar-btn" style="margin-top:14px;">Pausar pedido</button>
+  `;
+
+  const seleccionados = new Set();
+  body.querySelectorAll("#pausaProdRow .np-opt-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      btn.classList.toggle("active");
+      const idx = Number(btn.dataset.idx);
+      btn.classList.contains("active")
+        ? seleccionados.add(idx)
+        : seleccionados.delete(idx);
+    });
+  });
+
+  document.getElementById("pausaConfirmarBtn").onclick = async () => {
+    if (!seleccionados.size)
+      return showToast("Selecciona al menos un producto agotado", true);
+    const productosAfectados = [...seleccionados].map((i) => ({
+      id: productos[i].id,
+      nombre: productos[i].nombre,
+    }));
+    const valor = Math.max(
+      1,
+      Number(document.getElementById("pausaTiempoValor").value) || 15,
+    );
+    const unidad = document.getElementById("pausaTiempoUnidad").value;
+    const motivo = document.getElementById("pausaMotivo").value.trim();
+
+    try {
+      const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
+      await updateDoc(ref, {
+        estado: "en_pausa",
+        pausa: {
+          motivo,
+          productos_afectados: productosAfectados,
+          tiempo_espera: { valor, unidad },
+          estado_anterior: p.estado,
+          creado_en: serverTimestamp(),
+          resuelto: false,
+        },
+        respuesta_cliente: null,
+      });
+      showToast("⏸️ Pedido puesto en pausa");
+      document.getElementById("pausaOverlay")?.classList.remove("show");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ No se pudo pausar el pedido", true);
+    }
+  };
+  document.getElementById("pausaOverlay")?.classList.add("show");
+}
+document.getElementById("pausaClose")?.addEventListener("click", () =>
+  document.getElementById("pausaOverlay")?.classList.remove("show"),
+);
+document.getElementById("pausaOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "pausaOverlay")
+    document.getElementById("pausaOverlay").classList.remove("show");
+});
+
 function labelDateFilter() {
   switch (dateFilter.type) {
     case "hoy":
@@ -642,11 +732,6 @@ autoresSave.addEventListener("click", () => {
       : "🔔 Auto-liberación de reservas desactivada",
   );
 });
-
-/* ══════════════ Control de filtro de fecha (barra inline, siempre visible) ══════════════
-           Cada vez que el usuario cambia el rango de fecha, hay que volver a suscribirse a
-           Firestore con un nuevo where(timestamp >=, <=) — por eso llamamos a iniciarListener()
-           de nuevo en vez de solo volver a pintar el tablero con los datos que ya teníamos. */
 
 /* ══════════════ Control de filtro de origen (Todos / WhatsApp / Mesas) ══════════════
            Esto SOLO filtra en el cliente sobre lo que ya trajo la query de fecha — no requiere
@@ -1294,6 +1379,7 @@ function buildCard(id, p) {
 
 function renderCardActions(container, id, estado, p) {
   container.innerHTML = "";
+
   if (estado === "pendiente") {
     const puntosCalc = getPuntosPedido(id, p);
     const puntosNota =
@@ -1304,20 +1390,42 @@ function renderCardActions(container, id, estado, p) {
       ${puntosNota}
       <div class="oc-actions">
         <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
+        <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
         <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar →</button>
       </div>`;
+
   } else if (estado === "en_proceso") {
     container.innerHTML = `
       <div class="oc-actions">
         <button class="oc-btn ghost" data-action="pendiente">← Pendiente</button>
+        <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
         <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
       </div>`;
+
+  } else if (estado === "en_pausa") {
+    const r = p.respuesta_cliente;
+    container.innerHTML = `
+      <div class="oc-final-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+        <div class="oc-final-tag" style="background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ En pausa</div>
+        ${
+          r
+            ? `<div style="font-size:11.5px;color:#38bdf8;">Cliente eligió: ${escapeHtml(
+                r.accion === "reemplazo"
+                  ? "cambiar por " + (r.producto_elegido?.nombre || "")
+                  : "continuar sin ese producto",
+              )}</div>`
+            : `<div style="font-size:11px;color:var(--ink-faint);">Esperando respuesta del cliente…</div>`
+        }
+        <button class="oc-btn primary v-violet" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>
+      </div>`;
+
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-row">
         <div class="oc-final-tag">✅ Entregado</div>
         <span class="oc-undo" data-action="en_proceso">↺ Reabrir</span>
       </div>`;
+
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
     container.innerHTML = `
@@ -1326,9 +1434,11 @@ function renderCardActions(container, id, estado, p) {
         <span class="oc-undo" data-action="pendiente">↺ Reactivar</span>
       </div>`;
   }
+
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
       cambiarEstado(id, btn.dataset.action, btn);
     });
   });
@@ -1930,6 +2040,7 @@ function renderDetail(id) {
 
 function renderModalActions(container, id, estado, p) {
   container.innerHTML = "";
+
   if (estado === "pendiente") {
     const puntosCalc = getPuntosPedido(id, p);
     const puntosNota =
@@ -1939,25 +2050,47 @@ function renderModalActions(container, id, estado, p) {
     container.innerHTML = `
       ${puntosNota}
       <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
+      <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
       <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar pedido →</button>`;
+
   } else if (estado === "en_proceso") {
     container.innerHTML = `
       <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
+      <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
       <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
+
+  } else if (estado === "en_pausa") {
+    const r = p.respuesta_cliente;
+    container.innerHTML = `
+      <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
+      ${
+        r
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
+              r.accion === "reemplazo"
+                ? "cambiar por " + (r.producto_elegido?.nombre || "")
+                : "continuar sin ese producto",
+            )}</strong></div>`
+          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      }
+      <button class="oc-btn primary v-violet" style="width:100%;" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>`;
+
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
       <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
+
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
     container.innerHTML = `
       <div class="oc-final-tag${auto ? " auto" : ""}" style="width:100%;">${auto ? "⏱️ Rechazado automáticamente por tiempo" : "✕ Este pedido fue rechazado"}</div>
       <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="pendiente">↺ Reactivar pedido</span></div>`;
   }
+
   container.querySelectorAll("[data-action]").forEach((btn) => {
-    btn.addEventListener("click", () =>
-      cambiarEstado(id, btn.dataset.action, btn),
-    );
+    btn.addEventListener("click", () => {
+      if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
+      cambiarEstado(id, btn.dataset.action, btn);
+    });
   });
 }
 
@@ -2000,9 +2133,6 @@ async function descontarStockPedido(pedido) {
         }
 
         // Stock de la variante/opción seleccionada, si el ítem trae esa info.
-        // ⚠️ Ajusta el nombre del campo abajo (opciones_seleccionadas) al que
-        // realmente use tu bot de WhatsApp al armar cada ítem del pedido.
-        // Stock de la variante/opción seleccionada (ej: "Agua helada" vs "Agua sin helar").
         // El pedido guarda esto como un objeto { "Sabor": "Helada" }, NO como array,
         // tanto si viene del catálogo (WhatsApp) como de una mesa — mismo formato.
         const seleccion = it.opciones || null; // { nombreCondicion: nombreOpcionElegida }
@@ -2112,7 +2242,6 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (opts.auto) payload.auto_rechazado = true;
 
     // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
-    // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
     if (nuevoEstado === "entregado") {
       const pedidoActual = pedidosMap.get(pedidoId);
       if (pedidoActual && !pedidoActual.stock_descontado) {
@@ -2121,8 +2250,6 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
       }
 
       // Acredita los puntos de fidelización al cliente (solo una vez)
-      // Acredita los puntos de fidelización al cliente (solo una vez)
-          // Acredita los puntos de fidelización al cliente (solo una vez)
       if (pedidoActual && !pedidoActual.puntos_acreditados) {
         const uid = pedidoActual.cliente?.id_cliente;
         const puntosGanados =
@@ -2131,12 +2258,12 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
           0;
         if (uid && puntosGanados > 0) {
           try {
-            // 1) Perfil global del usuario (como ya lo tenías)
+            // 1) Perfil global del usuario
             await updateDoc(data_user_logeado(uid), {
               [`puntos.${tiendaId}`]: increment(puntosGanados),
             });
 
-            // 2) NUEVO: doc del cliente dentro de LA TIENDA + historial de compra
+            // 2) Doc del cliente dentro de LA TIENDA + historial de compra
             await acreditarPuntosCliente(uid, tiendaId, puntosGanados, pedidoId, pedidoActual);
 
             payload.puntos_acreditados = true;
@@ -2187,6 +2314,7 @@ function labelEstado(e) {
     {
       pendiente: "Pendiente",
       en_proceso: "En proceso",
+      en_pausa: "En pausa",
       entregado: "Entregado",
       rechazado: "Rechazado",
     }[e] || e
@@ -2200,7 +2328,10 @@ function labelEstado(e) {
            pantalla abierta con el filtro por defecto, que es el caso que importa: un pedido
            recién llegado que nadie atiende. Si el operador navega a "semana pasada", el
            auto-rechazo simplemente no aplica sobre pedidos antiguos (ya no tiene sentido
-           rechazar automáticamente algo de hace días). */
+           rechazar automáticamente algo de hace días).
+
+           IMPORTANTE: pedidos "en_pausa" nunca se auto-rechazan (el filtro estado !== "pendiente"
+           ya los excluye, ya que ESTADOS.includes(p.estado) los distingue de "pendiente"). */
 function chequearAutoRechazo() {
   if (!autoRejectEnabled) return;
   const limiteMs = autoRejectMinutes * 60000;
@@ -2208,7 +2339,7 @@ function chequearAutoRechazo() {
 
   pedidosMap.forEach((p, id) => {
     const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
-    if (estado !== "pendiente") return;
+    if (estado !== "pendiente") return; // esto ya excluye en_pausa, en_proceso, etc.
     if (getOrigen(p).tipo !== "whatsapp") return; // el auto-rechazo solo aplica a WhatsApp
     if (autoRejectingIds.has(id)) return;
     const fecha = toDate(p.timestamp);
@@ -2357,6 +2488,7 @@ function renderBoard() {
   const grupos = {
     pendiente: [],
     en_proceso: [],
+    en_pausa: [],
     entregado: [],
     rechazado: [],
   };
@@ -2391,14 +2523,19 @@ function renderBoard() {
 
   ESTADOS.forEach((estado) => {
     const body = document.getElementById(`col-${estado}`);
+    if (!body) return; // por si el HTML todavía no tiene la columna de en_pausa
     const items = grupos[estado];
     const count = items.length;
     const suma = items.reduce((s, [, p]) => s + Number(p.total || 0), 0);
 
-    document.getElementById(`cnt-${estado}`).textContent = count;
-    document.getElementById(`head-cnt-${estado}`).textContent = count;
-    document.getElementById(`money-${estado}`).textContent = fmtMoney(suma);
-    animateMoney(document.getElementById(`head-money-${estado}`), suma);
+    const cntEl = document.getElementById(`cnt-${estado}`);
+    const headCntEl = document.getElementById(`head-cnt-${estado}`);
+    const moneyEl = document.getElementById(`money-${estado}`);
+    const headMoneyEl = document.getElementById(`head-money-${estado}`);
+    if (cntEl) cntEl.textContent = count;
+    if (headCntEl) headCntEl.textContent = count;
+    if (moneyEl) moneyEl.textContent = fmtMoney(suma);
+    if (headMoneyEl) animateMoney(headMoneyEl, suma);
     prevMoney[estado] = suma;
 
     body.innerHTML = "";
@@ -2406,12 +2543,14 @@ function renderBoard() {
       const icoMap = {
         pendiente: "🌙",
         en_proceso: "🧊",
+        en_pausa: "⏸️",
         entregado: "📭",
         rechazado: "🚫",
       };
       const msgMap = {
         pendiente: "No hay pedidos pendientes",
         en_proceso: "Nada en preparación ahora mismo",
+        en_pausa: "Ningún pedido en pausa",
         entregado: "Aún no hay entregas registradas",
         rechazado: "Sin pedidos rechazados",
       };
@@ -2426,7 +2565,7 @@ function renderBoard() {
 
   // Banner explícito para la vista de mesas: si la mesa seleccionada (o todas, en el filtro
   // "Mesas") no tiene ningún pedido en el periodo mostrado, se avisa claramente en vez de
-  // dejar las 4 columnas vacías sin contexto.
+  // dejar las columnas vacías sin contexto.
   const banner = document.getElementById("mesaEmptyBanner");
   if (originFilter === "mesa" && totalVisible === 0) {
     const mesa =
@@ -2442,8 +2581,6 @@ function renderBoard() {
   } else {
     banner.style.display = "none";
   }
-
-  if (originFilter === "mesa") renderMesaStrip();
 
   // Si el modal de detalle está abierto y ese pedido sigue existiendo, refrescamos su contenido en vivo
   if (activeModalId) {
@@ -2982,7 +3119,7 @@ const NuevoPedido = {
   productos: [],
   productosPorId: new Map(),
   carrito: new Map(),
-  cartRowElements: new Map(), // ← NUEVO: cartKey -> nodo <div> de la fila, se reutiliza siempre
+  cartRowElements: new Map(), // cartKey -> nodo <div> de la fila, se reutiliza siempre
   filtroCat: "Todos",
   filtroTexto: "",
   metodoPago: "Efectivo",
@@ -3263,7 +3400,7 @@ const NuevoPedido = {
         cartKey: key,
         seleccion,
       });
-    this.updateCardQty(id); // ← antes: this.renderGrid()
+    this.updateCardQty(id);
     this.renderCarrito();
   },
 
@@ -3273,7 +3410,7 @@ const NuevoPedido = {
     entry.cantidad -= 1;
     const id = entry.id;
     if (entry.cantidad <= 0) this.carrito.delete(key);
-    this.updateCardQty(id); // ← antes: this.renderGrid()
+    this.updateCardQty(id);
     this.renderCarrito();
   },
   addByKey(key) {
@@ -3404,7 +3541,7 @@ const NuevoPedido = {
         "pedidos",
       );
       await addDoc(pedidosRef, {
-        estado: "entregado", // ← antes decía "pendiente"
+        estado: "entregado", // venta directa: se registra ya entregada/pagada
         fecha: now.toLocaleDateString("es-PE"),
         hora: now.toLocaleTimeString("es-PE", {
           hour: "2-digit",
@@ -3412,7 +3549,7 @@ const NuevoPedido = {
         }),
         timestamp: serverTimestamp(),
         cliente: { nombre, tipo_entrega: "Venta directa", direccion: "" },
-        pago: { metodo: this.metodoPago, vuelto: "" }, // ← antes decía "En mostrador"
+        pago: { metodo: this.metodoPago, vuelto: "" },
         nota: "",
         productos: items.map((it) => ({
           id: it.id,
@@ -3452,7 +3589,7 @@ const NuevoPedido = {
   async init() {
     await this.cargarCatalogo();
 
-    if (this.listenersListos) return; // ← evita re-registrar listeners
+    if (this.listenersListos) return; // evita re-registrar listeners
     this.listenersListos = true;
 
     document.getElementById("npSearchInput").addEventListener("input", (e) => {
@@ -3533,14 +3670,6 @@ function hideLoader() {
   setTimeout(() => loader.remove(), 450);
 }
 
-// Cuando el usuario cambia de rango de fecha ya con la app cargada, no queremos
-// volver a mostrar el loader de pantalla completa (que ya se removió del DOM);
-// en su lugar mostramos un toast rápido para dar feedback de "cargando".
-function mostrarLoaderTransicion() {
-  const loader = document.getElementById("pageLoader");
-  if (loader) return; // primera carga: el loader normal ya se encarga
-}
-
 /* ══════════════ Listener de mesas (independiente del de pedidos) ══════════════
            /Tiendas/{localidad}/{localidad}/{tiendaId}/mesas/{mesa_N}
            Este listener alimenta la franja de mesas y el badge de cada tarjeta/detalle;
@@ -3612,11 +3741,7 @@ function iniciarListenerMesas() {
            si la colección "pedidos" acumula 500 o 50,000 documentos históricos, Firestore
            solo transmite (y cobra) los que caen dentro del periodo visible en pantalla.
            Cada vez que el usuario cambia el filtro de fecha, cerramos la suscripción
-           anterior (unsubscribe) y abrimos una nueva con el rango correspondiente.
-
-           Nota: esto requiere un índice compuesto (timestamp asc/desc). La primera vez
-           que corras esto en un proyecto nuevo, si Firestore lo pide, la consola de Firebase
-           te da un enlace directo para crear el índice con un clic. */
+           anterior (unsubscribe) y abrimos una nueva con el rango correspondiente. */
 let unsubscribePedidos = null;
 
 function suscribirPedidos() {
@@ -3744,7 +3869,7 @@ function iniciarListenerGrupos() {
 
 async function aplicarVisibilidadPorCategoriaPedidos() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
-  let modeloNegocio = sessionStorage.getItem("modeloNegocio"); // 👈 NUEVO
+  let modeloNegocio = sessionStorage.getItem("modeloNegocio");
 
   if (!categoria || modeloNegocio === null) {
     try {
@@ -3752,9 +3877,9 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       if (snap.exists()) {
         const data = snap.data();
         categoria = categoria || data.categoria_tienda || null;
-        modeloNegocio = data.modelo_negocio; // 👈 NUEVO (true/false)
+        modeloNegocio = data.modelo_negocio;
         sessionStorage.setItem("categoriaTienda", categoria || "");
-        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio)); // 👈 NUEVO
+        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio));
       }
     } catch (err) {
       console.error("No se pudo obtener la categoría de la tienda.", err);
@@ -3771,11 +3896,11 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       .toLowerCase() === "comida y restaurantes";
 
   // Mesas solo se muestran si es restaurante Y tiene local físico
-  const debeMostrarMesas = esRestaurante && modeloNegocio === true; // 👈 NUEVO
+  const debeMostrarMesas = esRestaurante && modeloNegocio === true;
 
-  if (debeMostrarMesas) return; // 👈 cambiado: antes era "if (esRestaurante) return;"
+  if (debeMostrarMesas) return;
 
-  // ── Todo lo de abajo ya existía: oculta chip "Mesas" y reemplaza por "Nuevo pedido" ──
+  // Oculta chip "Mesas" y reemplaza por "Nuevo pedido"
   const chipMesas = document.querySelector('.origin-chip[data-origin="mesa"]');
   if (chipMesas) chipMesas.remove();
   if (autoresBtn) autoresBtn.style.display = "none";
@@ -3813,22 +3938,22 @@ function iniciarListener() {
   iniciarListenerGrupos();
   suscribirPedidos();
 }
+
 /* ══════════════ Refresco periódico del filtro "Hoy" ══════════════
            Si el filtro activo es "Hoy" o "Esta semana" y el reloj cruza la medianoche
            mientras la pantalla sigue abierta, este intervalo vuelve a evaluar el rango
            y re-suscribe la query SOLO cuando el día realmente cambió — nunca en cada
-           tick — para no vaciar y reconstruir el tablero completo cada minuto (eso
-           producía el parpadeo de la interfaz). */
+           tick — para no vaciar y reconstruir el tablero completo cada minuto. */
 let ultimoDiaControlado = new Date().toDateString();
 setInterval(() => {
   const diaActual = new Date().toDateString();
   if (diaActual === ultimoDiaControlado) return; // sigue siendo el mismo día: no hacer nada
   ultimoDiaControlado = diaActual;
-  if (dateFilter.type === "hoy" || dateFilter.type === "semana") {
-    pedidosMap.clear();
-    isFirstSnapshot = true;
-    suscribirPedidos();
-  }
+  // NOTA: si en tu proyecto tienes un selector real de "dateFilter" (Hoy / Ayer / etc),
+  // reemplaza esta condición por la variable real que uses para ese filtro.
+  pedidosMap.clear();
+  isFirstSnapshot = true;
+  suscribirPedidos();
 }, 60000);
 
 /* ══════════════ Arranque: URL → mensaje del panel → ID de prueba ══════════════ */

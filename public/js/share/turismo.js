@@ -367,13 +367,11 @@ async function fetchPlaceData() {
   try {
     const alias = getAliasFromPath();
 
-    console.log("🔗 ALIAS URL:", alias);
-
+    
     if (alias) {
       placeAlias = alias;
 
-      console.log("🔍 Resolviendo alias:", alias);
-
+      
       const { id, localidad, categoria, provincia, distrito, departamento } =
         await resolveAlias(alias);
 
@@ -385,9 +383,7 @@ async function fetchPlaceData() {
       const idFromUrl = getParam("id");
       const locFromUrl = getParam("localidad") || getParam("l");
 
-      console.log("🆔 ID URL:", idFromUrl);
-      console.log("📍 LOCALIDAD URL:", locFromUrl);
-
+            
       if (!idFromUrl || !locFromUrl) {
         throw new Error("No se especificó alias ni id/localidad");
       }
@@ -396,13 +392,7 @@ async function fetchPlaceData() {
       locationName = locFromUrl;
     }
 
-    console.log(
-      "🔍 Buscando lugar:",
-      locationName,
-      categoriaColeccion,
-      placeId,
-    );
-
+    
     const docRef = tiendaSubDoc(locationName, "lugares_turisticos", placeId);
 
     const docSnap = await getDoc(docRef);
@@ -412,8 +402,7 @@ async function fetchPlaceData() {
     }
     placeData = docSnap.data();
 
-    console.log("✅ Datos cargados:", placeData);
-
+    
     // Si no llegamos por /turismo/{alias}, tomamos el alias
     // guardado en el documento para que "Compartir lugar" siempre
     // use el link bonito en vez del link viejo de /api/share
@@ -480,10 +469,7 @@ function renderPlaceData() {
   const principal = imgData.principal || null;
   const listaImg = imgData.lista_img || [];
 
-  console.log("🖼️ imgData:", imgData);
-  console.log("🖼️ principal:", principal);
-  console.log("🖼️ lista_img:", listaImg);
-
+      
   let todasLasImagenes = [];
 
   if (principal && typeof principal === "string" && principal.trim() !== "") {
@@ -499,12 +485,7 @@ function renderPlaceData() {
     });
   }
   todasLasImagenes = [...new Set(todasLasImagenes)];
-  console.log(
-    "🖼️ Total imágenes únicas:",
-    todasLasImagenes.length,
-    todasLasImagenes,
-  );
-
+  
   buildSlider(todasLasImagenes);
   buildGallery(todasLasImagenes);
 
@@ -638,5 +619,4 @@ function actualizarBanner(nombreLugar) {
    INIT
    ════════════════════════════════ */
 
-console.log("🚀 Iniciando carga del lugar turístico...");
 fetchPlaceData();

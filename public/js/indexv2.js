@@ -68,16 +68,14 @@ window.addEventListener("pageshow", (event) => {
 
 watchUserSession(
   (user) => {
-    console.log("🔥 LLEGA A INDEXV2:", user);
-    const wrap = document.getElementById("userAvatarWrap");
+        const wrap = document.getElementById("userAvatarWrap");
     const img = document.getElementById("userAvatarImg");
     const sk = document.getElementById("userAvatarSk");
     const nameEl = document.getElementById("userAvatarName");
 
     if (wrap && img) {
       const fotoUrl = user.foto || "img/icons/favicon-96x96.png";
-      console.log("🖼️ fotoUrl calculada:", fotoUrl);
-
+      
       if (nameEl) {
         nameEl.textContent = user.nombre || user.nombre_user || "Mi cuenta";
       }
@@ -262,11 +260,9 @@ async function agendar_pago(obj_plan, btn) {
       monto_pagar_de_plan: Number(obj_plan.precio_soles || 0),
     };
 
-    console.log("📤 Enviando a Cloud Function:", payload);
-
+    
     const res = await agregar_pago_usuario_tienda(payload);
-    console.log("✅ Respuesta CF:", res);
-
+    
     const idPago = res?.data?.id_pago;
     if (!idPago) throw new Error("No se generó ID de pago");
 

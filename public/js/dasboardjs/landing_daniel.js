@@ -379,10 +379,7 @@ async function optimizarImagen(file) {
 
             if (blob.size <= TARGET_BYTES || quality <= MIN_QUALITY) {
               // Llegamos al target o al límite mínimo
-              console.log(
-                `✅ Imagen final: ${(blob.size / 1024).toFixed(1)}KB — calidad: ${quality.toFixed(2)}`,
-              );
-              resolve(blob);
+                            resolve(blob);
             } else {
               // Todavía pesa más de 100KB, bajar calidad y reintentar
               quality = Math.max(MIN_QUALITY, quality - step);
@@ -692,49 +689,31 @@ async function cargarTienda() {
     const refPrecio = doc(dbPlanes, "precio_apartado", "app");
     const refPrecioBot = doc(dbPlanes, "precio_apartado", "bot_daniel");
 
-    console.log("📄 Ref App:", refPrecio.path);
-    console.log("📄 Ref Bot:", refPrecioBot.path);
-
+        
     const snapPrecio = await getDoc(refPrecio);
     const snapPrecioBot = await getDoc(refPrecioBot);
 
-    console.log("📥 snapPrecio.exists():", snapPrecio.exists());
-    console.log("📥 snapPrecioBot.exists():", snapPrecioBot.exists());
-
+        
     if (snapPrecio.exists()) {
       const precioData = snapPrecio.data();
       const precioBotData = snapPrecioBot.exists() ? snapPrecioBot.data() : {};
 
-      console.log("📊 Datos App:", precioData);
-      console.log("📊 Datos Bot:", precioBotData);
-
+            
       window._precioDescripcionIA = precioData?.descripcionSEO ?? 0;
       window._precioPorClick = precioBotData?.plantillas ?? 10;
       window._precioPorContacto = precioBotData?.contacto_directo ?? 20;
 
-      console.log("💰 descripcionSEO:", window._precioDescripcionIA);
-      console.log("💰 precio_por_click:", window._precioPorClick);
-      console.log("💰 precio_por_contacto:", window._precioPorContacto);
-
+                  
       document.getElementById("precio-plantilla").textContent =
         window._precioPorClick;
 
       document.getElementById("precio-contacto").textContent =
         window._precioPorContacto;
 
-      console.log(
-        "🖥️ precio-plantilla:",
-        document.getElementById("precio-plantilla").textContent,
-      );
-      console.log(
-        "🖥️ precio-contacto:",
-        document.getElementById("precio-contacto").textContent,
-      );
-
+            
       actualizarBotonIA();
 
-      console.log("✅ actualizarBotonIA ejecutado");
-    } else {
+          } else {
       console.error("❌ No existe el documento precio_apartado/app");
     }
   } catch (err) {

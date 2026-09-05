@@ -442,11 +442,7 @@ const QrNegocio = {
 
 async function aplicarVisibilidadPorCategoria() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
-  console.log(
-    "🔎 [categoria] valor en sessionStorage:",
-    JSON.stringify(categoria),
-  );
-  let modeloNegocio = sessionStorage.getItem("modeloNegocio"); 
+    let modeloNegocio = sessionStorage.getItem("modeloNegocio"); 
 
   // Si por algún motivo no llegó desde el panel, la buscamos directo
    if (!categoria || modeloNegocio === null) {
@@ -474,19 +470,7 @@ async function aplicarVisibilidadPorCategoria() {
       .replace(/\s+/g, " ")
       .trim()
       .toLowerCase() === "comida y restaurantes";
-  console.log(
-    "🔎 [categoria] valor final usado:",
-    JSON.stringify(categoria),
-    "| ¿esRestaurante?:",
-    esRestaurante,
-  );
-  console.log(
-    "longitud:",
-    categoria.length,
-    "códigos:",
-    [...categoria].map((c) => c.charCodeAt(0)),
-  );
-  if (!esRestaurante) {
+      if (!esRestaurante) {
     const tileCarta = document.getElementById("qrTileCarta");
     if (tileCarta) tileCarta.style.display = "none";
   }

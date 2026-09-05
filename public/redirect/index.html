@@ -32,23 +32,13 @@
   <script>
     (function () {
       console.clear();
-      console.log("════════════════════════════════════");
-      console.log("🚀 GEINZ REDIRECT INICIADO");
-      console.log("════════════════════════════════════");
-      console.log("🌐 URL:", window.location.href);
-      console.log("🛣️ PATH:", window.location.pathname);
-      console.log("🔎 SEARCH:", window.location.search);
-
+                                    
       // =====================================================
       // PARAMETROS
       // =====================================================
       const params = new URLSearchParams(window.location.search);
-      console.log("════════════════════════════════════");
-      console.log("📦 PARAMETROS DETECTADOS");
-      console.log("════════════════════════════════════");
-      for (const [key, value] of params.entries()) {
-        console.log(`➡️ ${key} =`, value);
-      }
+                        for (const [key, value] of params.entries()) {
+              }
 
       // =====================================================
       // DEEP LINK: /redirect/serviciosHogar/<alias>
@@ -65,11 +55,7 @@
         } catch {
           alias = serviciosHogarMatch[1].trim();
         }
-        console.log("════════════════════════════════════");
-        console.log("🔗 DEEP LINK SERVICIOS HOGAR DETECTADO");
-        console.log("════════════════════════════════════");
-        console.log("🏷️ ALIAS:", alias);
-      }
+                                      }
 
       // =====================================================
       // TIPO
@@ -82,16 +68,14 @@
         .trim()
         .toLowerCase();
 
-      console.log("📌 TIPO ORIGINAL:", t);
-
+      
       // =====================================================
       // DETECTAR TIPO POR PATH
       // =====================================================
       if (!t) {
         const path = window.location.pathname.toLowerCase();
         console.warn("⚠️ NO EXISTE PARAMETRO t");
-        console.log("🔍 DETECTANDO POR PATH...");
-
+        
         if (serviciosHogarMatch) { t = "scr"; }
         else if (path.includes("/ti")) { t = "ti"; }
         else if (path.includes("/p")) { t = "p"; }
@@ -101,17 +85,14 @@
         else if (path.includes("/tu")) { t = "tu"; }
       }
 
-      console.log("✅ TIPO FINAL:", t);
-
+      
       // =====================================================
       // ID
       // =====================================================
       const rawId = (() => {
         const id = params.get("id");
         const pi = params.get("pi");
-        console.log("🆔 id:", id);
-        console.log("🆔 pi:", pi);
-
+                
         if (id && id !== "undefined" && id !== "null") { return id.trim(); }
         if (pi && pi !== "undefined" && pi !== "null") { return pi.trim(); }
         if (serviciosHogarMatch) { return "seyt"; } // deep link directo a serviciosHogar
@@ -119,8 +100,7 @@
       })();
 
       const id = rawId;
-      console.log("✅ ID FINAL:", id);
-
+      
       // =====================================================
       // LOCALIDAD
       // =====================================================
@@ -132,8 +112,7 @@
         .trim()
         .toLowerCase();
 
-      console.log("📍 LOCALIDAD ORIGINAL:", loc);
-
+      
       switch (loc) {
         case "ba":
         case "barranca":
@@ -162,8 +141,7 @@
           break;
       }
 
-      console.log("✅ LOCALIDAD FINAL:", loc);
-
+      
       // =====================================================
       // CATEGORIA
       // =====================================================
@@ -174,8 +152,7 @@
         ""
       ).trim();
 
-      console.log("📂 CATEGORIA:", cat);
-
+      
       // =====================================================
       // INDICE
       // =====================================================
@@ -185,15 +162,11 @@
         ""
       ).trim();
 
-      console.log("🎁 INDICE:", indice);
-
+      
       // =====================================================
       // VALIDACIONES
       // =====================================================
-      console.log("════════════════════════════════════");
-      console.log("✅ VALIDANDO");
-      console.log("════════════════════════════════════");
-
+                  
       if (!t) {
         console.error("❌ NO EXISTE TIPO");
         return;
@@ -204,32 +177,24 @@
         return;
       }
 
-      console.log("✅ VALIDACIONES OK");
-
+      
       // =====================================================
       // DESTINO
       // =====================================================
       let destino = "";
-      console.log("════════════════════════════════════");
-      console.log("🛣️ GENERANDO DESTINO");
-      console.log("════════════════════════════════════");
-
+                  
       if (t === "ti" || t === "p") {
-        console.log("🏪 NEGOCIO");
-        destino = `/redirect/perfil_negocio?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}&subcol=${encodeURIComponent(cat)}`;
+                destino = `/redirect/perfil_negocio?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}&subcol=${encodeURIComponent(cat)}`;
         if (indice) { destino += `&i=${encodeURIComponent(indice)}`; }
       }
       else if (t === "tu") {
-        console.log("🌎 TURISMO");
-        destino = `/redirect/turismo?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}`;
+                destino = `/redirect/turismo?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}`;
       }
       else if (t === "prms" || t === "promo") {
-        console.log("🎁 PROMOS");
-        destino = `/redirect/promociones?localidad=${encodeURIComponent(loc)}&id=${encodeURIComponent(id)}`;
+                destino = `/redirect/promociones?localidad=${encodeURIComponent(loc)}&id=${encodeURIComponent(id)}`;
       }
       else if (t === "scr") {
-        console.log("🛠️ SCR");
-        if (id === "lgtr") { destino = `/redirect/pantalla_turismo`; }
+                if (id === "lgtr") { destino = `/redirect/pantalla_turismo`; }
         else if (id === "nemg") { destino = `/redirect/emergencia`; }
         else if (id === "seyt") {
           destino = `/redirect/serviciosHogar`;
@@ -241,8 +206,7 @@
         }
       }
       else if (t === "pmspls") {
-        console.log("🎁 PROMOS MULTI");
-        const p = params.get("p") || "";
+                const p = params.get("p") || "";
         destino = `/redirect/promos?localidad=${encodeURIComponent(loc)}&ids=${encodeURIComponent(p)}`;
       }
       else {
@@ -253,30 +217,22 @@
       // =====================================================
       // REDIRECCION
       // =====================================================
-      console.log("════════════════════════════════════");
-      console.log("🚀 REDIRECCION FINAL");
-      console.log("════════════════════════════════════");
-      console.log("📍 DESTINO:", destino);
-
+                        
       if (!destino) {
         console.error("❌ DESTINO VACIO");
         return;
       }
 
       const finalUrl = window.location.origin + destino;
-      console.log("🌐 FINAL URL:", finalUrl);
-
+      
       // Evita loop infinito si ya estamos exactamente en la url final
       if (finalUrl === window.location.href) {
-        console.log("ℹ️ YA ESTAMOS EN EL DESTINO FINAL, NO SE REDIRIGE");
-        return;
+                return;
       }
 
-      console.log("⏳ REDIRECCIONANDO...");
-
+      
       setTimeout(() => {
-        console.log("✅ EJECUTANDO REDIRECT");
-        window.location.href = finalUrl;
+                window.location.href = finalUrl;
       }, 300);
     })();
   </script>

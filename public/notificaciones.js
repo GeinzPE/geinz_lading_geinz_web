@@ -45,5 +45,4 @@ export async function registrarTokenWeb(uid) {
 
 // notificaciones con la pestaña abierta (foreground)
 onMessage(messaging, (payload) => {
-  console.log("🔔 Notificación en primer plano:", payload);
-});
+  });

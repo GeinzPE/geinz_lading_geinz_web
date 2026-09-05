@@ -51,8 +51,7 @@ Object.assign(window.PanelPerfil, {
       : getApps().find((a) => a.name === "planesApp");
 
     this.dbPlanes = getFirestore(appPlanes);
-    console.log("✅ Inicialización de Planes lista. Esperando clicks.");
-  },
+      },
 
   // ESTO SOLO SE EJECUTA AL DAR CLICK
   abrirModalRenovacion: async function () {
@@ -76,8 +75,7 @@ Object.assign(window.PanelPerfil, {
         const btn = document.createElement("button");
         btn.className = "plan-opcion";
         btn.innerHTML = `<span>${key.replace(/_/g, " ")}</span><span>${planes[key]} 🪙</span>`;
-        btn.onclick = () => console.log("Comprando:", key);
-        container.appendChild(btn);
+        btn.onclick = () =>         container.appendChild(btn);
       });
     }
   },

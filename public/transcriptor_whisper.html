@@ -1496,8 +1496,7 @@ Responde SOLO con un JSON válido: un array de objetos con "id" (número) y "tex
                 segments = dedupeSegments(sanitizeSegmentTimings(segments));
                 segments = resegmentForTTS(segments);
                 segments = mergeTinySegments(segments);
-                console.log(`Whisper devolvió ${segments.length} segmento(s) finales (después de sanear/deduplicar/resegmentar/fusionar):`, segments);
-
+                
                 const segCountBadge = document.createElement('span');
                 segCountBadge.className = 'badge badge-2';
                 segCountBadge.textContent = `Segmentos: ${segments.length}`;
@@ -1535,8 +1534,7 @@ Responde SOLO con un JSON válido: un array de objetos con "id" (número) y "tex
             voiceStatus.classList.add('show');
             synthesizedSegments = [];
 
-            console.log(`Generando voz para ${segments.length} segmentos (esto es lo que se le cobra a ElevenLabs — si este número está duplicado, el problema viene de Whisper, no de aquí):`, segments);
-
+            
             Promise.race([window.soundtouchReady, new Promise(r => setTimeout(r, 8000))])
                 .then(() => {
                     if (!window.soundtouch?.SoundTouch) {
@@ -1586,8 +1584,7 @@ Responde SOLO con un JSON válido: un array de objetos con "id" (número) y "tex
                         }
                     }
 
-                    console.log(`Seg ${seg.id}: natural=${naturalDuration.toFixed(2)}s, ventana=${windowDuration.toFixed(2)}s, playbackRate=${playbackRate.toFixed(3)}`);
-                    synthesizedSegments.push({
+                                        synthesizedSegments.push({
                         id: seg.id, start: seg.start, end: seg.end,
                         audioBlob, playbackRate
                     });

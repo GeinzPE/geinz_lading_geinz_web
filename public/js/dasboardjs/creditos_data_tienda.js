@@ -13,8 +13,7 @@ if (!tiendaId || !localidad) {
 (function () {
   "use strict";
 
-  console.log("🔥 [INICIO] cuenta_tarjeta.js cargado");
-
+  
   // ============================================================
   //  CACHE GLOBAL
   // ============================================================
@@ -62,8 +61,7 @@ if (!tiendaId || !localidad) {
     if (window._datosParaIframe?.payload) {
       window._datosParaIframe.payload.saldo_tienda = saldo;
     }
-    console.log("📤 [broadcast] SALDO_UPDATE →", saldo);
-    document.querySelectorAll("iframe").forEach((iframe) => {
+        document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage({ type: "SALDO_UPDATE", saldo }, "*");
       } catch (e) {}
@@ -76,8 +74,7 @@ if (!tiendaId || !localidad) {
 
   function broadcastPublicidad(publicidad) {
     _cache.publicidad = publicidad;
-    console.log("📤 [broadcast] PUBLICIDAD_UPDATE →", publicidad);
-    document.querySelectorAll("iframe").forEach((iframe) => {
+        document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage(
           { type: "PUBLICIDAD_UPDATE", publicidad },
@@ -95,12 +92,7 @@ if (!tiendaId || !localidad) {
     _cache.planes_activacion = planesActivacion;
     _cache.planes_bot_promo = planesBotPromo;
     _cache.publicidad = publicidad;
-    console.log("📤 [broadcast] PLANES_UPDATE →", {
-      planesActivacion,
-      planesBotPromo,
-      publicidad,
-    });
-    document.querySelectorAll("iframe").forEach((iframe) => {
+        document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage(
           {
@@ -130,8 +122,7 @@ if (!tiendaId || !localidad) {
   document.querySelectorAll("iframe").forEach((iframe) => {
     iframe.addEventListener("load", () => {
       sendCacheToIframe(iframe);
-      console.log("📤 [load] Cache re-enviado a iframe tardío");
-    });
+          });
   });
 
   const _iframeObserver = new MutationObserver((mutations) => {
@@ -140,8 +131,7 @@ if (!tiendaId || !localidad) {
         if (node.tagName === "IFRAME") {
           node.addEventListener("load", () => {
             sendCacheToIframe(node);
-            console.log("📤 [dynamic iframe] Cache enviado a nuevo iframe");
-          });
+                      });
         }
       });
     });
@@ -176,8 +166,7 @@ if (!tiendaId || !localidad) {
   //  2. PUBLICIDAD
   // ============================================================
   async function initPublicidad() {
-    console.log("🚀 [publicidad] Cargando inmediatamente...");
-    try {
+        try {
       const { doc, getDoc } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const db = await getFirebasePlanes();
@@ -191,8 +180,7 @@ if (!tiendaId || !localidad) {
       if (data.costo_por_moneda != null) {
         publicidad.costo_por_moneda = data.costo_por_moneda;
       }
-      console.log("✅ [publicidad] Cargada:", publicidad);
-      window._publicidad = publicidad;
+            window._publicidad = publicidad;
       _renovacion._publicidadData = publicidad;
       broadcastPublicidad(publicidad);
     } catch (err) {
@@ -204,8 +192,7 @@ if (!tiendaId || !localidad) {
   //  3. PLANES
   // ============================================================
   async function initPreciosApp() {
-    console.log("💰 [precios] Cargando planes...");
-    try {
+        try {
       const { doc, getDoc } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const db = await getFirebasePlanes();
@@ -225,9 +212,7 @@ if (!tiendaId || !localidad) {
       if (data.costo_por_moneda != null) {
         publicidad.costo_por_moneda = data.costo_por_moneda;
       }
-      console.log("✅ [precios] planes_activacion:", planesActivacion);
-      console.log("✅ [precios] planes_bot_promo:", planesBotPromo);
-      window._planesActivacion = planesActivacion;
+                  window._planesActivacion = planesActivacion;
       window._planesBotPromo = planesBotPromo;
       window._publicidad = publicidad;
       _renovacion._planesData = planesActivacion;
@@ -247,8 +232,7 @@ if (!tiendaId || !localidad) {
   let unsubscribeServicios = null;
 
   async function initRealtimeAccount() {
-    console.log("🔍 [cuenta] Iniciando escucha en tiempo real...");
-    try {
+        try {
       const { onSnapshot } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const { db } = await import("../db/db.js");
@@ -291,8 +275,7 @@ if (!tiendaId || !localidad) {
     if (servicios.notificaciones)
       combined.notificaciones = servicios.notificaciones;
     accountData = combined;
-    console.log("✅ Datos combinados:", accountData);
-    updateAccountCard();
+        updateAccountCard();
   }
 
   // ============================================================
@@ -420,8 +403,7 @@ if (!tiendaId || !localidad) {
       if (actionRenovar) actionRenovar.style.display = "none";
     }
 
-    console.log("✅ Tarjeta de cuenta actualizada");
-  }
+      }
 
   function setText(id, value) {
     const el = document.getElementById(id);
@@ -700,14 +682,7 @@ window.procesarPago = async () => {
     btnContinuar.textContent = "Procesando...";
   }
 
-  console.log("💳 Procesando pago:", {
-    id_tienda,
-    localidad: localidad_pago,
-    dias_extra,
-    plan: plan.key,
-    precio: precioFinal,
-  });
-
+  
   try {
     const response = await fetch(
       "https://us-central1-geinzworkapp.cloudfunctions.net/pagar_plan__usuario",
@@ -734,8 +709,7 @@ window.procesarPago = async () => {
       throw new Error(result?.error?.message || `Error ${response.status}`);
     }
 
-    console.log("✅ Plan renovado:", result);
-
+    
     document.getElementById("modal-renovacion")?.classList.remove("open");
     mostrarSnackbar("Plan renovado correctamente 🎉", "success");
 

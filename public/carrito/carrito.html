@@ -128,13 +128,13 @@
           <span class="text-gray-400 font-semibold text-sm">Total</span>
           <span class="display font-extrabold text-2xl">S/ <span id="sidebarTotal">0.00</span></span>
         </div>
-                <p id="sidebarPuntos" class="hidden text-[12px] text-amber-300 font-semibold text-right"></p>
+        <p id="sidebarPuntos" class="hidden text-[12px] text-amber-300 font-semibold text-right"></p>
         <button id="checkoutBtnDesktop" class="btn-whatsapp" disabled>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m0 1.8a8.1 8.1 0 0 1 5.76 2.39 8.07 8.07 0 0 1 2.38 5.73c0 4.48-3.65 8.12-8.15 8.12a8.13 8.13 0 0 1-4.14-1.13l-.3-.17-3.12.82.83-3.04-.19-.31a8.07 8.07 0 0 1-1.25-4.33c0-4.48 3.65-8.12 8.15-8.12M8.53 6.9c-.17 0-.45.06-.68.32-.23.25-.9.87-.9 2.13 0 1.25.92 2.46 1.05 2.63.13.17 1.8 2.86 4.43 3.9 2.19.86 2.64.69 3.11.65.48-.04 1.53-.62 1.75-1.22.22-.6.22-1.11.15-1.22-.06-.1-.23-.17-.48-.29-.25-.13-1.53-.75-1.77-.84-.24-.09-.4-.13-.58.13-.17.25-.66.84-.81 1.01-.15.17-.3.19-.55.06-.25-.13-1.06-.39-2.03-1.25-.75-.67-1.25-1.5-1.4-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.3.37-.44.12-.15.16-.25.24-.42.08-.17.04-.31-.02-.44-.06-.13-.58-1.44-.8-1.96-.2-.5-.42-.44-.58-.44Z" />
-          </svg>
-          Enviar pedido por WhatsApp
+          <img id="btnLogoDesktop" src="" alt="" style="display:none"
+            class="w-5 h-5 rounded-full object-cover flex-shrink-0">
+          <span id="btnLogoPhDesktop"
+            class="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center text-[11px] font-bold flex-shrink-0">?</span>
+          Enviar pedido
         </button>
         <button id="clearCartBtnDesktop"
           class="w-full py-3 rounded-2xl border border-white/10 text-gray-300 font-bold text-sm hover:bg-white/5 transition">
@@ -155,10 +155,10 @@
           <p class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Tu carrito</p>
           <p class="font-black text-[15px] truncate"><span id="cartCount">0</span> producto(s) · S/ <span
               id="cartTotal">0.00</span></p>
-                      <div class="text-left min-w-0">
-        
-          <p id="cartPuntos" class="hidden text-[10px] text-amber-300 font-bold"></p>
-        </div>
+          <div class="text-left min-w-0">
+
+            <p id="cartPuntos" class="hidden text-[10px] text-amber-300 font-bold"></p>
+          </div>
         </div>
       </div>
       <span class="text-[13px] font-bold accent flex-shrink-0">Ver →</span>
@@ -180,13 +180,13 @@
         <span class="text-gray-400 font-semibold text-sm">Total</span>
         <span class="display font-extrabold text-2xl">S/ <span id="drawerTotal">0.00</span></span>
       </div>
-            <p id="drawerPuntos" class="hidden text-[12px] text-amber-300 font-semibold text-right"></p>
+      <p id="drawerPuntos" class="hidden text-[12px] text-amber-300 font-semibold text-right"></p>
       <button id="checkoutBtnMobile" class="btn-whatsapp" disabled>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m0 1.8a8.1 8.1 0 0 1 5.76 2.39 8.07 8.07 0 0 1 2.38 5.73c0 4.48-3.65 8.12-8.15 8.12a8.13 8.13 0 0 1-4.14-1.13l-.3-.17-3.12.82.83-3.04-.19-.31a8.07 8.07 0 0 1-1.25-4.33c0-4.48 3.65-8.12 8.15-8.12M8.53 6.9c-.17 0-.45.06-.68.32-.23.25-.9.87-.9 2.13 0 1.25.92 2.46 1.05 2.63.13.17 1.8 2.86 4.43 3.9 2.19.86 2.64.69 3.11.65.48-.04 1.53-.62 1.75-1.22.22-.6.22-1.11.15-1.22-.06-.1-.23-.17-.48-.29-.25-.13-1.53-.75-1.77-.84-.24-.09-.4-.13-.58.13-.17.25-.66.84-.81 1.01-.15.17-.3.19-.55.06-.25-.13-1.06-.39-2.03-1.25-.75-.67-1.25-1.5-1.4-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.3.37-.44.12-.15.16-.25.24-.42.08-.17.04-.31-.02-.44-.06-.13-.58-1.44-.8-1.96-.2-.5-.42-.44-.58-.44Z" />
-        </svg>
-        Enviar pedido por WhatsApp
+        <img id="btnLogoMobile" src="" alt="" style="display:none"
+          class="w-5 h-5 rounded-full object-cover flex-shrink-0">
+        <span id="btnLogoPhMobile"
+          class="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center text-[11px] font-bold flex-shrink-0">?</span>
+        Enviar pedido
       </button>
       <button id="clearCartBtn"
         class="w-full py-3 rounded-2xl border border-white/10 text-gray-300 font-bold text-sm hover:bg-white/5 transition">
@@ -227,7 +227,7 @@
           </div>
         </div>
 
-             <div class="collapse open" id="direccionCollapse">
+        <div class="collapse open" id="direccionCollapse">
           <div class="collapse-inner">
             <label class="field-label" for="clienteDireccion">Dirección / Referencia</label>
             <input id="clienteDireccion" class="field-input" type="text" placeholder="Av. Ejemplo 123, cerca de…"
@@ -275,23 +275,23 @@
           </div>
         </div>
       </div>
-              <div class="glass rounded-2xl p-4">
-          <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
-          <div id="checkoutSummary" class="flex flex-col"></div>
-          <div class="flex items-center justify-between pt-3 mt-2 border-t border-white/[.07]">
-            <span class="text-gray-400 font-semibold text-sm">Total</span>
-            <span class="display font-extrabold text-xl">S/ <span id="checkoutTotal">0.00</span></span>
-          </div>
-          <p id="checkoutPuntos" class="hidden text-[12px] text-amber-300 font-semibold mt-2 text-right"></p>
+      <div class="glass rounded-2xl p-4">
+        <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
+        <div id="checkoutSummary" class="flex flex-col"></div>
+        <div class="flex items-center justify-between pt-3 mt-2 border-t border-white/[.07]">
+          <span class="text-gray-400 font-semibold text-sm">Total</span>
+          <span class="display font-extrabold text-xl">S/ <span id="checkoutTotal">0.00</span></span>
         </div>
+        <p id="checkoutPuntos" class="hidden text-[12px] text-amber-300 font-semibold mt-2 text-right"></p>
+      </div>
 
       <div class="px-5 sm:px-6 py-5 border-t border-white/[.06] flex-shrink-0">
         <button id="sendWhatsappBtn" class="btn-whatsapp">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m0 1.8a8.1 8.1 0 0 1 5.76 2.39 8.07 8.07 0 0 1 2.38 5.73c0 4.48-3.65 8.12-8.15 8.12a8.13 8.13 0 0 1-4.14-1.13l-.3-.17-3.12.82.83-3.04-.19-.31a8.07 8.07 0 0 1-1.25-4.33c0-4.48 3.65-8.12 8.15-8.12M8.53 6.9c-.17 0-.45.06-.68.32-.23.25-.9.87-.9 2.13 0 1.25.92 2.46 1.05 2.63.13.17 1.8 2.86 4.43 3.9 2.19.86 2.64.69 3.11.65.48-.04 1.53-.62 1.75-1.22.22-.6.22-1.11.15-1.22-.06-.1-.23-.17-.48-.29-.25-.13-1.53-.75-1.77-.84-.24-.09-.4-.13-.58.13-.17.25-.66.84-.81 1.01-.15.17-.3.19-.55.06-.25-.13-1.06-.39-2.03-1.25-.75-.67-1.25-1.5-1.4-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.3.37-.44.12-.15.16-.25.24-.42.08-.17.04-.31-.02-.44-.06-.13-.58-1.44-.8-1.96-.2-.5-.42-.44-.58-.44Z" />
-          </svg>
-          Enviar pedido por WhatsApp
+          <img id="btnLogoSend" src="" alt="" style="display:none"
+            class="w-5 h-5 rounded-full object-cover flex-shrink-0">
+          <span id="btnLogoPhSend"
+            class="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center text-[11px] font-bold flex-shrink-0">?</span>
+          Enviar pedido
         </button>
       </div>
     </div>
@@ -316,7 +316,13 @@
       </div>
     </div>
   </div>
-
+<div id="pedidoLoader" class="hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-[#0a0810]/95">
+  <div class="pedido-loader-logo-wrap">
+    <img id="pedidoLoaderLogo" src="" alt="" style="display:none">
+    <div id="pedidoLoaderLogoPh" class="hidden">🛍️</div>
+  </div>
+  <p class="text-sm text-gray-400 font-semibold">Enviando tu pedido…</p>
+</div>
   <div id="toast"></div>
 
 </body>

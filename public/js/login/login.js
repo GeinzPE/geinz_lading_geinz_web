@@ -1222,9 +1222,7 @@ async function showSplash(user) {
 
   const data = snap.exists() ? snap.data() : {};
   window._perfilActual = data; // 👈 nuevo: usado para precargar el modal de edición
-  console.log("📦 DATA DEL USUARIO:", data);
-  console.log("🏬 tienda_propietario:", data.tienda_propietario);
-  const nombre = data.nombre || user.displayName || "Usuario";
+      const nombre = data.nombre || user.displayName || "Usuario";
   const apellido = data.apellido || "";
   const username = data.nombre_user || "@" + user.email.split("@")[0];
 
@@ -1401,23 +1399,14 @@ window.continuarPanel = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
-    console.log("[continuarPanel] Valores usados para buscar tienda:", {
-      departamento: seleccionUbicacion.selector.dep,
-      provincia: seleccionUbicacion.selector.prov,
-      distrito: seleccionUbicacion.selector.dist,
-      idTienda: valor,
-    });
-
+    
     const tiendaRef = tiendaDoc(seleccionUbicacion.selector.dist, "tiendas", valor);
 
-    console.log("[continuarPanel] Path de tiendaRef:", tiendaRef.path);
-
+    
     const snap = await getDoc(tiendaRef);
 
-    console.log("[continuarPanel] ¿Existe el documento?:", snap.exists());
-    if (snap.exists()) {
-      console.log("[continuarPanel] Data encontrada:", snap.data());
-    }
+        if (snap.exists()) {
+          }
 
     if (!snap.exists()) {
       showSnackbar(
