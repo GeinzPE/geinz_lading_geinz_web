@@ -573,7 +573,7 @@ async function cargarNegocio() {
     bizNombreGlobal = nombre || "Geinz";
     bizLogoUrl = data?.img_tienda?.logo_tienda || "";
     document.title = `Pedidos en vivo · ${nombre || "Geinz"}`;
-  } catch {}
+  } catch { }
 }
 
 /* ══════════════ Sonido de notificación (Web Audio, sin archivos externos) ══════════════ */
@@ -656,7 +656,7 @@ bellBtn.addEventListener("click", async () => {
     if (window.Notification && Notification.permission === "default") {
       try {
         await Notification.requestPermission();
-      } catch {}
+      } catch { }
     }
     showToast("🔔 Notificaciones de sonido activadas");
   } else {
@@ -1011,7 +1011,7 @@ function renderMesaGrid() {
       const anchoSpan = Math.min(integrantes.length, getColumnasActuales());
       const labelEstadoGrupo =
         { reservada: "Reservada", ocupada: "Ocupada", libre: "Sin agrupar" }[
-          primero.estadoVisual
+        primero.estadoVisual
         ] || "Ocupada";
       const grupoDocId = integrantes.map(
         (x) => [...mesasMap.entries()].find(([, mm]) => mm === x.m)?.[0],
@@ -1027,8 +1027,8 @@ function renderMesaGrid() {
           : "";
       const reservaTimerHtml =
         primero.estadoVisual === "reservada" &&
-        autoResEnabled &&
-        grupoInfo?.reservado_en
+          autoResEnabled &&
+          grupoInfo?.reservado_en
           ? `<div class="mesa-reserva-timer" data-reserva-ts="${toDate(grupoInfo.reservado_en)?.getTime() || ""}">⏳ calculando…</div>`
           : "";
 
@@ -1470,19 +1470,18 @@ function renderCardActions(container, id, estado, p) {
     const r = p.respuesta_cliente;
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
-      ${
-        r
-          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
-              r.accion === "reemplazo"
-                ? "cambiar por " + (r.producto_elegido?.nombre || "")
-                : r.accion === "cancelado"
-                  ? "cancelar el pedido"
-                  : "continuar sin ese producto",
-            )}</strong></div>`
-          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      ${r
+        ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
+          r.accion === "reemplazo"
+            ? "cambiar por " + (r.producto_elegido?.nombre || "")
+            : r.accion === "cancelado"
+              ? "cancelar el pedido"
+              : "continuar sin ese producto",
+        )}</strong></div>`
+        : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
-      <button class="oc-btn primary v-violet" style="width:100%;" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>`;
+      <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button> `;
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-row">
@@ -1560,9 +1559,9 @@ function renderMesaDetail(numeroMesa) {
   const grupoLabel =
     mesasDelGrupo && mesasDelGrupo.length > 1
       ? ` · Unida con ${mesasDelGrupo
-          .filter((m) => m.numero !== numeroMesa)
-          .map((m) => m.nombre || "Mesa " + m.numero)
-          .join(", ")}`
+        .filter((m) => m.numero !== numeroMesa)
+        .map((m) => m.nombre || "Mesa " + m.numero)
+        .join(", ")}`
       : "";
   document.getElementById("dmTime").innerHTML =
     `<span class="pulse"></span><span class="ts-label">${activos.length} pedido${activos.length === 1 ? "" : "s"} sin pagar${grupoLabel}</span>`;
@@ -1581,9 +1580,9 @@ function renderMesaDetail(numeroMesa) {
           Array.isArray(p.bloques) && p.bloques.length
             ? bloquesHtml(p.bloques)
             : `<div class="dm-products">${productos
-                .map((it) => {
-                  const ptsItem = getPuntosItemDesdeCache(it);
-                  return `
+              .map((it) => {
+                const ptsItem = getPuntosItemDesdeCache(it);
+                return `
           <div class="dm-prod-row">
             <div>
               <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
@@ -1592,8 +1591,8 @@ function renderMesaDetail(numeroMesa) {
             </div>
             <div class="dm-prod-price">S/ ${Number(it.subtotal || 0).toFixed(2)}</div>
           </div>`;
-                })
-                .join("")}</div>`;
+              })
+              .join("")}</div>`;
 
         return `
       <div style="border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; background:var(--surface);">
@@ -1621,15 +1620,14 @@ function renderMesaDetail(numeroMesa) {
             <div class="dm-section-title">Detalle completo de la mesa</div>
             ${bloquesDePedidos}
         </div>
-        ${
-          totalPuntosGanados > 0
-            ? `
+        ${totalPuntosGanados > 0
+      ? `
     <div class="dm-meta-item full" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:10px 12px;">
       <div class="dm-meta-label">🎁 Puntos a otorgar</div>
       <div class="dm-meta-value" style="color:#fbbf24;font-weight:800;">+${totalPuntosGanados} puntos en total</div>
     </div>`
-            : ""
-        }
+      : ""
+    }
 
     <div class="dm-total-row">
       <span class="dm-total-lbl">Total del pedido</span>
@@ -1779,7 +1777,7 @@ async function desagruparGrupo(grupoId) {
   if (activos > 0) {
     const ok = window.confirm(
       "Este grupo tiene un pedido activo compartido. Al desagrupar, las mesas se separarán " +
-        "pero el pedido NO se marcará como pagado (seguirá existiendo en el sistema). ¿Deseas continuar?",
+      "pero el pedido NO se marcará como pagado (seguirá existiendo en el sistema). ¿Deseas continuar?",
     );
     if (!ok) return;
   }
@@ -2063,15 +2061,14 @@ function renderDetail(id) {
           <div class="dm-meta-label">${entregaIco} Tipo de entrega</div>
           <div class="dm-meta-value">${escapeHtml(cliente.tipo_entrega || (origen.tipo === "mesa" ? "Consumo en mesa" : "Sin especificar"))}</div>
         </div>
-        ${
-          cliente.tipo_entrega === "Delivery"
-            ? `
+        ${cliente.tipo_entrega === "Delivery"
+      ? `
         <div class="dm-meta-item full">
           <div class="dm-meta-label">📍 Dirección de entrega</div>
           <div class="dm-meta-value ${cliente.direccion ? "" : "dim"}">${cliente.direccion ? escapeHtml(cliente.direccion) : "Sin dirección registrada"}</div>
         </div>`
-            : ""
-        }
+      : ""
+    }
         <div class="dm-meta-item">
           <div class="dm-meta-label">${pagoIco} Método de pago</div>
           <div class="dm-meta-value">${escapeHtml(pago.metodo || "Sin especificar")}</div>
@@ -2130,19 +2127,18 @@ function renderModalActions(container, id, estado, p) {
     const r = p.respuesta_cliente;
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
-      ${
-        r
-          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
-              r.accion === "reemplazo"
-                ? "cambiar por " + (r.producto_elegido?.nombre || "")
-                : r.accion === "cancelado"
-                  ? "cancelar el pedido"
-                  : "continuar sin ese producto",
-            )}</strong></div>`
-          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      ${r
+        ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
+          r.accion === "reemplazo"
+            ? "cambiar por " + (r.producto_elegido?.nombre || "")
+            : r.accion === "cancelado"
+              ? "cancelar el pedido"
+              : "continuar sin ese producto",
+        )}</strong></div>`
+        : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
-      <button class="oc-btn primary v-violet" style="width:100%;" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>`;
+      <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button>`;
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
@@ -2401,18 +2397,29 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (nuevoEstado !== "rechazado") payload.cancelado_por_cliente = false;
     if (opts.auto) payload.auto_rechazado = true;
     if (nuevoEstado === "en_proceso" && "tiempoEstimadoMin" in opts) {
-      payload.tiempo_estimado_min = opts.tiempoEstimadoMin; // número o null
+      payload.tiempo_estimado_min = opts.tiempoEstimadoMin;
       payload.tiempo_estimado_desde = serverTimestamp();
     }
-    // ═══ NUEVO: descuenta stock solo la primera vez que llega a "entregado" ═══
+
+    // ═══ 1) Actualiza el estado YA MISMO, sin esperar nada más ═══
+    await updateDoc(ref, payload);
+    if (!opts.auto) showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
+
+    const pedidoParaNotificar = pedidosMap.get(pedidoId);
+    if (pedidoParaNotificar) {
+      notificarCambioEstadoAlCliente(pedidoParaNotificar, nuevoEstado);
+    }
+
+    // ═══ 2) Descuento de stock y puntos: EN SEGUNDO PLANO, ya no bloquean la UI ═══
     if (nuevoEstado === "entregado") {
       const pedidoActual = pedidosMap.get(pedidoId);
+
       if (pedidoActual && !pedidoActual.stock_descontado) {
-        await descontarStockPedido(pedidoActual);
-        payload.stock_descontado = true;
+        descontarStockPedido(pedidoActual)
+          .then(() => updateDoc(ref, { stock_descontado: true }))
+          .catch((err) => console.error("Error descontando stock:", err));
       }
 
-      // Acredita los puntos de fidelización al cliente (solo una vez)
       if (pedidoActual && !pedidoActual.puntos_acreditados) {
         const uid = pedidoActual.cliente?.id_cliente;
         const puntosGanados =
@@ -2420,35 +2427,25 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
           puntosPedidoCache.get(pedidoId) ||
           0;
         if (uid && puntosGanados > 0) {
-          try {
-            // 1) Perfil global del usuario
-            await updateDoc(data_user_logeado(uid), {
-              [`puntos.${tiendaId}`]: increment(puntosGanados),
-            });
-
-            // 2) Doc del cliente dentro de LA TIENDA + historial de compra
-            await acreditarPuntosCliente(
-              uid,
-              tiendaId,
-              puntosGanados,
-              pedidoId,
-              pedidoActual,
-            );
-
-            payload.puntos_acreditados = true;
-          } catch (err) {
-            console.error("No se pudieron acreditar los puntos:", err);
-          }
+          (async () => {
+            try {
+              await updateDoc(data_user_logeado(uid), {
+                [`puntos.${tiendaId}`]: increment(puntosGanados),
+              });
+              await acreditarPuntosCliente(
+                uid,
+                tiendaId,
+                puntosGanados,
+                pedidoId,
+                pedidoActual,
+              );
+              await updateDoc(ref, { puntos_acreditados: true });
+            } catch (err) {
+              console.error("No se pudieron acreditar los puntos:", err);
+            }
+          })();
         }
       }
-    }
-
-    await updateDoc(ref, payload);
-    if (!opts.auto) showToast(`Pedido movido a ${labelEstado(nuevoEstado)}`);
-    // Notifica al cliente que su pedido cambió de estado
-    const pedidoParaNotificar = pedidosMap.get(pedidoId);
-    if (pedidoParaNotificar) {
-      notificarCambioEstadoAlCliente(pedidoParaNotificar, nuevoEstado);
     }
   } catch (err) {
     console.error("Error actualizando pedido:", err);
@@ -2923,7 +2920,7 @@ async function aplicarEstadoGrupal(estadoDestino) {
       (num) =>
         getPedidosDeMesa(num).length > 0 ||
         [...mesasMap.values()].find((m) => m.numero_mesa === num)?.estado ===
-          "ocupado",
+        "ocupado",
     );
     const nuevas = numeros.filter((num) => !yaOcupadas.includes(num));
     if (yaOcupadas.length === 1 && nuevas.length > 0) {
@@ -3351,14 +3348,14 @@ const NuevoPedido = {
                         <div class="np-opt-label">${escapeHtml(c.nombre)}</div>
                         <div class="np-opt-row">
                             ${c.opciones
-                              .map(
-                                (o) => `
+            .map(
+              (o) => `
                                 <button type="button" class="np-opt-btn${this._seleccion[c.nombre] === o.nombre ? " active" : ""}"
                                     data-cond="${escapeHtml(c.nombre)}" data-op="${escapeHtml(o.nombre)}">
                                     ${escapeHtml(o.nombre)}${o.costoAdicional ? ` (+S/ ${o.costoAdicional.toFixed(2)})` : ""}
                                 </button>`,
-                              )
-                              .join("")}
+            )
+            .join("")}
                         </div>
                     </div>`,
       )
@@ -3653,8 +3650,8 @@ const NuevoPedido = {
       const key = it.cartKey;
       const opcTxt = it.seleccion
         ? Object.entries(it.seleccion)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
         : "";
       const thumb = it.imagen
         ? `<img src="${it.imagen}" alt="" onerror="this.onerror=null;this.src='../img/logo geinz.png';">`
@@ -3913,7 +3910,7 @@ function iniciarListenerMesas() {
             ? `🍽️ Pedido nuevo en ${nombres}`
             : `🍽️ Pedidos nuevos en ${nombres}`,
         );
-          window.parent.postMessage({ type: "NUEVO_PEDIDO_VIVO" }, window.location.origin);
+        window.parent.postMessage({ type: "NUEVO_PEDIDO_VIVO" }, window.location.origin);
 
       }
     },
@@ -4039,8 +4036,8 @@ function suscribirPedidos() {
           actualizarBadgeWhatsapp();
         }
         // 👇 nuevo: avisa al panel padre para el punto rojo del sidebar
-  window.parent.postMessage({ type: "NUEVO_PEDIDO_VIVO" }, window.location.origin);
-}
+        window.parent.postMessage({ type: "NUEVO_PEDIDO_VIVO" }, window.location.origin);
+      }
       if (respuestasClienteNuevas.length) {
         playRespuestaClienteAlarm();
         bellRingFeedback();

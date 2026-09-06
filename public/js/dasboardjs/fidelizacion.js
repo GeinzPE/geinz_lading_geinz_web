@@ -1710,9 +1710,19 @@ function renderTablaClientes(rows) {
     <td data-label="Pedidos">${c.pedidosCount} · S/ ${c.totalInvertido.toFixed(2)}</td>
     <td data-label="Última visita">${c.ultimaVisitaTxt}</td>
     <td data-label="Estado"><span class="badge ${c.activo === false ? "off" : "on"}">${c.estadoTexto}</span></td>
-    <td data-label="Acciones" style="white-space:nowrap;">
-      ...
-    </td>
+  <td data-label="Acciones" style="white-space:nowrap;">
+  <div style="display:flex; gap:6px; justify-content:flex-end;">
+    <button class="btn btn-sm" data-action="ajustar" data-id="${c.id}" data-nombre="${nombreAttr}" data-puntos="${c.puntos}" title="Ajustar puntos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+    </button>
+    <button class="btn btn-sm" data-action="canjear" data-id="${c.id}" data-nombre="${nombreAttr}" data-puntos="${c.puntos}" title="Canjear recompensa">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M20.6 12.6L12 21.2 2.8 12 2.8 2.8 12 2.8l8.6 9.8z"/></svg>
+    </button>
+    <button class="btn btn-sm" data-action="pedidos" data-id="${c.id}" data-nombre="${nombreAttr}" title="Ver pedidos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M3 12a9 9 0 1 0 3-6.7M3 12V5M3 12h6.5"/><path d="M12 8v4.5l3 2"/></svg>
+    </button>
+  </div>
+</td>
   </tr>`;
     })
     .join("");
@@ -1861,14 +1871,14 @@ async function loadHistorial() {
       const tipo = c.tipo || "canje";
       const tipoLabel = tipo === "ajuste" ? "Ajuste" : "Canje";
       const puntosTxt = (puntos > 0 ? "+" : "") + puntos;
-      rows += `<tr>
-        <td>${fechaTxt}</td>
-        <td class="cell-name">${escapeHtml(c.cliente || "—")}</td>
-        <td>${escapeHtml(c.recompensa || "—")}</td>
-        <td>${puntosTxt}</td>
-        <td>${escapeHtml(c.sucursal || distrito)}</td>
-        <td><span class="badge ${tipo === "ajuste" ? "badge-tipo-ajuste" : "badge-tipo-canje"}">${tipoLabel}</span></td>
-      </tr>`;
+rows += `<tr>
+  <td data-label="Fecha">${fechaTxt}</td>
+  <td class="cell-name" data-label="Cliente">${escapeHtml(c.cliente || "—")}</td>
+  <td data-label="Recompensa">${escapeHtml(c.recompensa || "—")}</td>
+  <td data-label="Puntos">${puntosTxt}</td>
+  <td data-label="Sucursal">${escapeHtml(c.sucursal || distrito)}</td>
+  <td data-label="Tipo"><span class="badge ${tipo === "ajuste" ? "badge-tipo-ajuste" : "badge-tipo-canje"}">${tipoLabel}</span></td>
+</tr>`;
       historialDataCache.push({
         fecha: fechaTxt,
         cliente: c.cliente || "—",
