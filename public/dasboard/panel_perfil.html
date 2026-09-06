@@ -10,26 +10,40 @@
         rel="stylesheet">
     <link rel="stylesheet" href="../style/dasboardcss/panel_perfil.css">
     <style>
-      .sidebar-btn, .mobile-menu-item { position: relative; }
-      .notif-dot {
-        display: none;
-        position: absolute;
-        top: 6px;
-        right: 10px;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: #ff3b3b;
-      }
-      .notif-dot.show {
-        display: block;
-        animation: notifPulse 1.4s infinite;
-      }
-      @keyframes notifPulse {
-        0%   { box-shadow: 0 0 0 0 rgba(255,59,59,.55); }
-        70%  { box-shadow: 0 0 0 7px rgba(255,59,59,0); }
-        100% { box-shadow: 0 0 0 0 rgba(255,59,59,0); }
-      }
+        .sidebar-btn,
+        .mobile-menu-item {
+            position: relative;
+        }
+
+        .notif-dot {
+            display: none;
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #ff3b3b;
+        }
+
+        .notif-dot.show {
+            display: block;
+            animation: notifPulse 1.4s infinite;
+        }
+
+        @keyframes notifPulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 59, 59, .55);
+            }
+
+            70% {
+                box-shadow: 0 0 0 7px rgba(255, 59, 59, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 59, 59, 0);
+            }
+        }
     </style>
 
     <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
@@ -92,6 +106,7 @@
                             onclick="PanelPerfil.loadMisPublicaciones()">
                             <span class="sbb-icon">⭐</span>
                             <span class="sbb-label">Reseñas</span>
+                            <span class="notif-dot" id="dot-resena"></span>
                         </button>
 
                         <button class="sidebar-btn" id="sbb-qr" onclick="PanelPerfil.loadQr()">
@@ -123,6 +138,7 @@
                         <button class="sidebar-btn" id="sbb-pedidos" onclick="PanelPerfil.load_pedidos_vivos()">
                             <span class="sbb-icon">🟢</span>
                             <span class="sbb-label">Pedidos en vivo</span>
+                            <span class="notif-dot" id="dot-pedidos"></span>
                         </button>
                     </div>
                 </div>
@@ -414,6 +430,7 @@
                                 onclick="PanelPerfil.loadMisPublicaciones(); PanelPerfil.toggleMobileMenu()">
                                 <span>⭐</span>
                                 <span>Reseñas</span>
+                                <span class="notif-dot" id="dot-resena-mobile"></span>
                             </button>
                             <button class="mobile-menu-item" id="mmb-qr"
                                 onclick="PanelPerfil.loadQr(); PanelPerfil.toggleMobileMenu()">
@@ -449,6 +466,7 @@
                                 onclick="PanelPerfil.load_pedidos_vivos(); PanelPerfil.toggleMobileMenu()">
                                 <span>🟢</span>
                                 <span>Pedidos en vivo</span>
+                                <span class="notif-dot" id="dot-pedidos-mobile"></span>
                             </button>
                         </div>
                     </div>

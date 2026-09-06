@@ -129,7 +129,9 @@ let tiendaId = _urlParams.get("id") || sessionStorage.getItem("tiendaId");
 let localidad =
   _urlParams.get("localidad") || sessionStorage.getItem("localidad");
 let departamentoTienda =
-  _urlParams.get("departamento") || sessionStorage.getItem("departamento") || "";
+  _urlParams.get("departamento") ||
+  sessionStorage.getItem("departamento") ||
+  "";
 let provinciaTienda =
   _urlParams.get("provincia") || sessionStorage.getItem("provincia") || "";
 
@@ -206,15 +208,61 @@ window.PanelPerfil = {
 
     // "Calienta" el audio con el primer click del usuario (los navegadores
     // bloquean el autoplay hasta que hay interacción)
-    document.addEventListener("click", () => {
-      const a = this._ensureNotifAudio();
-      a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => { });
-    }, { once: true });
+    document.addEventListener(
+      "click",
+      () => {
+        const a = this._ensureNotifAudio();
+        a.play()
+          .then(() => {
+            a.pause();
+            a.currentTime = 0;
+          })
+          .catch(() => {});
+        const b = this._ensureResenaAudio(); // 👈 nuevo
+        b.play()
+          .then(() => {
+            b.pause();
+            b.currentTime = 0;
+          })
+          .catch(() => {});
+      },
+      { once: true },
+    );
+  },
+
+  _ensureResenaAudio() {
+    if (!this._resenaAudio) {
+      this._resenaAudio = new Audio(
+        "../../sounds/nueva_review_cliente.mp3",
+      ); // 👈 ajusta el nombre real
+      this._resenaAudio.volume = 0.6;
+    }
+    return this._resenaAudio;
+  },
+
+  playResenaSound() {
+    try {
+      const audio = this._ensureResenaAudio();
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch (e) {
+      console.warn("No se pudo reproducir sonido:", e);
+    }
+  },
+
+  showResenaBadge() {
+    document.getElementById("dot-resena")?.classList.add("show");
+    document.getElementById("dot-resena-mobile")?.classList.add("show");
+  },
+
+  hideResenaBadge() {
+    document.getElementById("dot-resena")?.classList.remove("show");
+    document.getElementById("dot-resena-mobile")?.classList.remove("show");
   },
 
   _ensureNotifAudio() {
     if (!this._notifAudio) {
-      this._notifAudio = new Audio("../../sounds/notificacion.mp3");
+      this._notifAudio = new Audio("../../sounds/nuevo_seguidor_negocio.mp3");
       this._notifAudio.volume = 0.6;
     }
     return this._notifAudio;
@@ -224,9 +272,21 @@ window.PanelPerfil = {
     try {
       const audio = this._ensureNotifAudio();
       audio.currentTime = 0;
-      audio.play().catch(() => { });
-    } catch (e) { console.warn("No se pudo reproducir sonido:", e); }
+      audio.play().catch(() => {});
+    } catch (e) {
+      console.warn("No se pudo reproducir sonido:", e);
+    }
   },
+
+  showPedidosBadge() {
+  document.getElementById("dot-pedidos")?.classList.add("show");
+  document.getElementById("dot-pedidos-mobile")?.classList.add("show");
+},
+
+hidePedidosBadge() {
+  document.getElementById("dot-pedidos")?.classList.remove("show");
+  document.getElementById("dot-pedidos-mobile")?.classList.remove("show");
+},
 
   showFidelizacionBadge() {
     document.getElementById("dot-fidelizacion")?.classList.add("show");
@@ -240,7 +300,9 @@ window.PanelPerfil = {
   },
   hideFidelizacionBadge() {
     document.getElementById("dot-fidelizacion")?.classList.remove("show");
-    document.getElementById("dot-fidelizacion-mobile")?.classList.remove("show");
+    document
+      .getElementById("dot-fidelizacion-mobile")
+      ?.classList.remove("show");
   },
 
   async _initFirebase() {
@@ -444,7 +506,6 @@ window.PanelPerfil = {
       } else if (key === "aforo_max") {
         this.setField("fieldAforo", val);
         this._originalValues["fieldAforo"] = String(val ?? "");
-
       } else if (key === "ubicacion.dirección") {
         this.setField("fieldDireccion", val || "");
         this._originalValues["fieldDireccion"] = val || "";
@@ -493,10 +554,10 @@ window.PanelPerfil = {
         } else if (tipo === "promociones") {
           this.populatePromocionesGrid("promocionesGrid", val || {}, 3);
         }
-      } else if (key === "modelo_negocio") {              // 👈 NUEVO
+      } else if (key === "modelo_negocio") {
+        // 👈 NUEVO
         this.aplicarVisibilidadUbicacion(val === true);
       }
-
     }
   },
 
@@ -1871,7 +1932,8 @@ window.PanelPerfil = {
 
       if (tiendaAnterior && tiendaAnterior !== this.TIENDA_ID) {
         try {
-          const distritoAnterior = userData?.tienda_propietario?.distrito || this.LOCALIDAD_TIENDA;
+          const distritoAnterior =
+            userData?.tienda_propietario?.distrito || this.LOCALIDAD_TIENDA;
           const tiendaAnteriorRef = tiendaSubDoc(
             distritoAnterior,
             "tiendas",
@@ -2026,11 +2088,12 @@ window.PanelPerfil = {
 
   load_pedidos_vivos() {
     this.showSection("pedidos");
+      this.hidePedidosBadge(); 
   },
 
   loadMisPublicaciones() {
     this.showSection("mispublicaciones");
-    // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
+    this.hideResenaBadge(); // 👈 nuevo
   },
 
   loadHistorialGasto() {
@@ -2256,8 +2319,6 @@ window.PanelPerfil = {
     document.getElementById("mobileMenuOverlay")?.classList.toggle("show");
   },
 
-
-
   toggleSidebarGroup(header) {
     const body = header.nextElementSibling;
     const isOpen = header.classList.contains("open");
@@ -2440,8 +2501,21 @@ window.addEventListener("message", (e) => {
     }
     window.PanelPerfil.playNotifSound();
   }
-});
 
+  if (e.data?.type === "NUEVA_RESENA") {
+    if (window.PanelPerfil.activeSection !== "mispublicaciones") {
+      window.PanelPerfil.showResenaBadge();
+    }
+    window.PanelPerfil.playResenaSound();
+  }
+
+  // 👇 nuevo — solo badge, sin audio
+  if (e.data?.type === "NUEVO_PEDIDO_VIVO") {
+    if (window.PanelPerfil.activeSection !== "pedidos") {
+      window.PanelPerfil.showPedidosBadge();
+    }
+  }
+});
 // ═══════════════════════════════════════════
 //  MODALES GLOBALES (compatibilidad)
 // ═══════════════════════════════════════════

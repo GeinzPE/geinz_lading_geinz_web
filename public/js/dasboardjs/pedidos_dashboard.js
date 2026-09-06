@@ -29,7 +29,8 @@ import {
 
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
-const URL_NOTIFICAR_CLIENTE = " https://enviar-notificacion-con-solo-id-desde-la-web-oixttik5rq-uc.a.run.app";
+const URL_NOTIFICAR_CLIENTE =
+  " https://enviar-notificacion-con-solo-id-desde-la-web-oixttik5rq-uc.a.run.app";
 if (!tiendaId || !localidad) {
   // fallback por si el postMessage llega después
   window.addEventListener("message", (e) => {
@@ -243,7 +244,48 @@ let bizLogoUrl = "";
 let bizNombreGlobal = "Geinz";
 let soundEnabled = localStorage.getItem("geinz_sound_enabled") !== "0";
 let audioCtx = null;
+const SND_NUEVO_PEDIDO = "../../sounds/nuevo_pedido_en_geinz.mp3";
+const SND_PEDIDO_CANCELADO = "../../sounds/se_cancelo_un_pedido.mp3";
+const SND_PEDIDO_CANCELADO_PAUSA = "../../sounds/cancelo_pedido_pausa.mp3"; // cliente canceló estando en pausa
+const SND_PEDIDO_CONTESTADO = "../../sounds/modifico_pedido_pausa.mp3"; // cliente respondió (reemplazo / continuar)
+const activeLoopAudios = new Map();
+function playSoundLoopParaPedido(pedidoId, url, seconds = 40) {
+  if (!soundEnabled) return;
+  detenerSoundLoopParaPedido(pedidoId); // por si ya había uno sonando para este mismo pedido
+  try {
+    const audio = new Audio(url);
+    audio.loop = true;
+    activeLoopAudios.set(pedidoId, audio);
+    audio
+      .play()
+      .catch((err) => console.warn("No se pudo reproducir el audio:", err));
+    const timeoutId = setTimeout(() => {
+      detenerSoundLoopParaPedido(pedidoId);
+    }, seconds * 1000);
+    audio._timeoutId = timeoutId;
+  } catch (e) {
+    console.warn("Error reproduciendo sonido:", e);
+  }
+}
+function detenerSoundLoopParaPedido(pedidoId) {
+  const audio = activeLoopAudios.get(pedidoId);
+  if (!audio) return;
+  clearTimeout(audio._timeoutId);
+  audio.pause();
+  audio.currentTime = 0;
+  activeLoopAudios.delete(pedidoId);
+}
 
+function playSoundOnce(url) {
+  if (!soundEnabled) return;
+  try {
+    new Audio(url)
+      .play()
+      .catch((err) => console.warn("No se pudo reproducir el audio:", err));
+  } catch (e) {
+    console.warn("Error reproduciendo sonido:", e);
+  }
+}
 /* ══════════════ Origen del pedido: WhatsApp o Mesa ══════════════
            Cada pedido trae su propio campo "mesa" (map) cuando viene de una
            mesa física: { id: "mesa_2", nombre: "Mesa 2", numero: 2 }. Si ese
@@ -373,6 +415,8 @@ function abrirModalPausa(id, p) {
     );
     const unidad = document.getElementById("pausaTiempoUnidad").value;
     const motivo = document.getElementById("pausaMotivo").value.trim();
+
+    detenerSoundLoopParaPedido(id); // corta la alarma de "nuevo pedido" si seguía sonando
 
     try {
       const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
@@ -550,54 +594,23 @@ document.addEventListener("click", () => ensureAudio(), {
   capture: true,
 });
 
-function playChime() {
-  if (!soundEnabled) return;
-  const ctx = ensureAudio();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  const notas = [880, 1108.73, 1318.51, 1760]; // arpegio mayor ascendente, campana suave — pedido nuevo
-  notas.forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = i === notas.length - 1 ? "triangle" : "sine";
-    osc.frequency.value = freq;
-    const start = now + i * 0.085;
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.24, start + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.62);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start + 0.65);
-  });
+function playChime(pedidoId) {
+  playSoundLoopParaPedido(pedidoId, SND_NUEVO_PEDIDO, 40);
 }
 
 /* Alarma distinta y más urgente para el auto-rechazo por tiempo agotado */
 function playAutoRejectAlarm() {
-  if (!soundEnabled) return;
-  const ctx = ensureAudio();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  // Dos pulsos graves y descendentes tipo "alerta", repetidos dos veces
-  const pulsos = [
-    { start: 0.0, f0: 480, f1: 300 },
-    { start: 0.26, f0: 480, f1: 300 },
-    { start: 0.62, f0: 480, f1: 300 },
-    { start: 0.88, f0: 480, f1: 300 },
-  ];
-  pulsos.forEach((p) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sawtooth";
-    const start = now + p.start;
-    osc.frequency.setValueAtTime(p.f0, start);
-    osc.frequency.exponentialRampToValueAtTime(p.f1, start + 0.2);
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.22, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start + 0.24);
-  });
+  playSoundOnce(SND_PEDIDO_CANCELADO);
+}
+
+/* Alarma cuando el cliente responde un pedido en pausa (reemplazo o continuar) */
+function playRespuestaClienteAlarm() {
+  playSoundOnce(SND_PEDIDO_CONTESTADO);
+}
+
+/* Alarma cuando el cliente cancela su propio pedido estando en pausa */
+function playCanceladoPorClienteAlarm() {
+  playSoundOnce(SND_PEDIDO_CANCELADO_PAUSA);
 }
 
 /* Alarma para reservas vencidas (auto-liberación) — dos tonos suaves alternando, distinta a las otras */
@@ -1187,6 +1200,51 @@ function notificarPedidoMesa(nombreMesa, pedido) {
   }
 }
 
+function notificarRespuestaCliente(p) {
+  if (!window.Notification || Notification.permission !== "granted") return;
+  if (document.visibilityState === "visible") return;
+  try {
+    const cliente = p.cliente || {};
+    const n = new Notification(
+      `💬 Respuesta de ${cliente.nombre || "Cliente"}`,
+      {
+        body: "Respondió el pedido en pausa, revisa y confirma.",
+        icon: bizLogoUrl || undefined,
+        badge: bizLogoUrl || undefined,
+        tag: "geinz-respuesta-pausa-" + Date.now(),
+        requireInteraction: false,
+      },
+    );
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch (e) {
+    console.warn("No se pudo mostrar la notificación:", e);
+  }
+}
+
+function notificarPedidoCanceladoPorCliente(p) {
+  if (!window.Notification || Notification.permission !== "granted") return;
+  if (document.visibilityState === "visible") return;
+  try {
+    const cliente = p.cliente || {};
+    const n = new Notification(`🚫 Pedido cancelado`, {
+      body: `${cliente.nombre || "Cliente"} canceló su pedido desde el seguimiento.`,
+      icon: bizLogoUrl || undefined,
+      badge: bizLogoUrl || undefined,
+      tag: "geinz-cancelado-cliente-" + Date.now(),
+      requireInteraction: false,
+    });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch (e) {
+    console.warn("No se pudo mostrar la notificación:", e);
+  }
+}
+
 function notificarAutoRechazo(p) {
   if (!window.Notification || Notification.permission !== "granted") return;
   if (document.visibilityState === "visible") return;
@@ -1411,19 +1469,20 @@ function renderCardActions(container, id, estado, p) {
   } else if (estado === "en_pausa") {
     const r = p.respuesta_cliente;
     container.innerHTML = `
-      <div class="oc-final-row" style="flex-direction:column;align-items:stretch;gap:6px;">
-        <div class="oc-final-tag" style="background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ En pausa</div>
-        ${
-          r
-            ? `<div style="font-size:11.5px;color:#38bdf8;">Cliente eligió: ${escapeHtml(
-                r.accion === "reemplazo"
-                  ? "cambiar por " + (r.producto_elegido?.nombre || "")
+      <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
+      ${
+        r
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
+              r.accion === "reemplazo"
+                ? "cambiar por " + (r.producto_elegido?.nombre || "")
+                : r.accion === "cancelado"
+                  ? "cancelar el pedido"
                   : "continuar sin ese producto",
-              )}</div>`
-            : `<div style="font-size:11px;color:var(--ink-faint);">Esperando respuesta del cliente…</div>`
-        }
-        <button class="oc-btn primary v-violet" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>
-      </div>`;
+            )}</strong></div>`
+          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      }
+      <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
+      <button class="oc-btn primary v-violet" style="width:100%;" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>`;
   } else if (estado === "entregado") {
     container.innerHTML = `
       <div class="oc-final-row">
@@ -1432,9 +1491,15 @@ function renderCardActions(container, id, estado, p) {
       </div>`;
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
+    const canceladoCliente = !!p.cancelado_por_cliente;
+    const tagTexto = canceladoCliente
+      ? "🚫 Cancelado por el cliente"
+      : auto
+        ? "⏱️ Auto-rechazado"
+        : "✕ Rechazado";
     container.innerHTML = `
       <div class="oc-final-row">
-        <div class="oc-final-tag${auto ? " auto" : ""}">${auto ? "⏱️ Auto-rechazado" : "✕ Rechazado"}</div>
+        <div class="oc-final-tag${auto ? " auto" : ""}">${tagTexto}</div>
         <span class="oc-undo" data-action="pendiente">↺ Reactivar</span>
       </div>`;
   }
@@ -2070,10 +2135,13 @@ function renderModalActions(container, id, estado, p) {
           ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
               r.accion === "reemplazo"
                 ? "cambiar por " + (r.producto_elegido?.nombre || "")
-                : "continuar sin ese producto",
+                : r.accion === "cancelado"
+                  ? "cancelar el pedido"
+                  : "continuar sin ese producto",
             )}</strong></div>`
           : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
+      <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="${p.pausa?.estado_anterior || "pendiente"}">▶️ Reanudar pedido</button>`;
   } else if (estado === "entregado") {
     container.innerHTML = `
@@ -2081,11 +2149,16 @@ function renderModalActions(container, id, estado, p) {
       <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
+    const canceladoCliente = !!p.cancelado_por_cliente;
+    const tagTexto = canceladoCliente
+      ? "🚫 Este pedido fue cancelado por el cliente"
+      : auto
+        ? "⏱️ Rechazado automáticamente por tiempo"
+        : "✕ Este pedido fue rechazado";
     container.innerHTML = `
-      <div class="oc-final-tag${auto ? " auto" : ""}" style="width:100%;">${auto ? "⏱️ Rechazado automáticamente por tiempo" : "✕ Este pedido fue rechazado"}</div>
+      <div class="oc-final-tag${auto ? " auto" : ""}" style="width:100%;">${tagTexto}</div>
       <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="pendiente">↺ Reactivar pedido</span></div>`;
   }
-
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation?.();
@@ -2313,6 +2386,7 @@ async function notificarCambioEstadoAlCliente(pedido, nuevoEstado) {
 /* ══════════════ Cambiar estado en Firestore ══════════════ */
 async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
   if (btnEl) btnEl.disabled = true;
+  detenerSoundLoopParaPedido(pedidoId);
   try {
     const ref = tiendaSubDoc(
       localidad,
@@ -2324,6 +2398,7 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
 
     const payload = { estado: nuevoEstado, actualizado: serverTimestamp() };
     if (nuevoEstado !== "rechazado") payload.auto_rechazado = false;
+    if (nuevoEstado !== "rechazado") payload.cancelado_por_cliente = false;
     if (opts.auto) payload.auto_rechazado = true;
     if (nuevoEstado === "en_proceso" && "tiempoEstimadoMin" in opts) {
       payload.tiempo_estimado_min = opts.tiempoEstimadoMin; // número o null
@@ -3838,6 +3913,8 @@ function iniciarListenerMesas() {
             ? `🍽️ Pedido nuevo en ${nombres}`
             : `🍽️ Pedidos nuevos en ${nombres}`,
         );
+          window.parent.postMessage({ type: "NUEVO_PEDIDO_VIVO" }, window.location.origin);
+
       }
     },
     (err) => console.warn("No se pudieron cargar las mesas:", err),
@@ -3885,6 +3962,8 @@ function suscribirPedidos() {
         return;
       }
       const nuevosPendientes = [];
+      const respuestasClienteNuevas = []; // cliente respondió y sigue en pausa
+      const canceladosPorCliente = []; // cliente canceló su pedido desde el seguimiento
 
       snap.docChanges().forEach((change) => {
         const id = change.doc.id;
@@ -3898,7 +3977,7 @@ function suscribirPedidos() {
             estadoNuevo === "pendiente" &&
             getOrigen(data).tipo === "whatsapp"
           )
-            nuevosPendientes.push(data);
+            nuevosPendientes.push({ id, data });
         } else if (change.type === "modified") {
           const anterior = pedidosMap.get(id);
           const estadoAnterior = anterior
@@ -3906,12 +3985,32 @@ function suscribirPedidos() {
               ? anterior.estado
               : "pendiente"
             : null;
+          // El cliente respondió (reemplazo / sin producto) mientras el pedido sigue en pausa
+          const respAnterior = anterior?.respuesta_cliente;
+          const respNueva = data.respuesta_cliente;
+          if (
+            estadoNuevo === "en_pausa" &&
+            respNueva &&
+            !respAnterior &&
+            respNueva.accion !== "cancelado"
+          ) {
+            respuestasClienteNuevas.push({ id, data });
+          }
+
+          // El cliente canceló su propio pedido desde el seguimiento
+          if (
+            estadoNuevo === "rechazado" &&
+            data.cancelado_por_cliente === true &&
+            estadoAnterior !== "rechazado"
+          ) {
+            canceladosPorCliente.push({ id, data });
+          }
           if (
             estadoNuevo === "pendiente" &&
             estadoAnterior !== "pendiente" &&
             getOrigen(data).tipo === "whatsapp"
           )
-            nuevosPendientes.push(data);
+            nuevosPendientes.push({ id, data });
         }
 
         if (change.type === "removed") {
@@ -3923,11 +4022,11 @@ function suscribirPedidos() {
       precargarSeguidores();
       renderBoard();
       if (nuevosPendientes.length) {
-        playChime();
+        nuevosPendientes.forEach(({ id }) => playChime(id));
         bellRingFeedback();
-        nuevosPendientes.forEach((p) => notificarPedidoNuevo(p));
+        nuevosPendientes.forEach(({ data }) => notificarPedidoNuevo(data));
         const nombres = nuevosPendientes
-          .map((p) => p.cliente?.nombre || "Cliente")
+          .map(({ data }) => data.cliente?.nombre || "Cliente")
           .join(", ");
         showToast(
           nuevosPendientes.length === 1
@@ -3935,11 +4034,44 @@ function suscribirPedidos() {
             : `🛎️ ${nuevosPendientes.length} pedidos nuevos`,
         );
 
-        // Si el operador está viendo "Mesas" y llegó un pedido de WhatsApp, avisamos con la bolita
         if (nuevosPendientes.length && originFilter === "mesa") {
           whatsappUnseen += nuevosPendientes.length;
           actualizarBadgeWhatsapp();
         }
+        // 👇 nuevo: avisa al panel padre para el punto rojo del sidebar
+  window.parent.postMessage({ type: "NUEVO_PEDIDO_VIVO" }, window.location.origin);
+}
+      if (respuestasClienteNuevas.length) {
+        playRespuestaClienteAlarm();
+        bellRingFeedback();
+        respuestasClienteNuevas.forEach(({ data }) =>
+          notificarRespuestaCliente(data),
+        );
+        const nombresResp = respuestasClienteNuevas
+          .map(({ data }) => data.cliente?.nombre || "Cliente")
+          .join(", ");
+        showToast(
+          respuestasClienteNuevas.length === 1
+            ? `💬 ${nombresResp} respondió su pedido en pausa`
+            : `💬 ${respuestasClienteNuevas.length} clientes respondieron sus pedidos en pausa`,
+        );
+      }
+
+      if (canceladosPorCliente.length) {
+        playCanceladoPorClienteAlarm();
+        bellRingFeedback();
+        canceladosPorCliente.forEach(({ data }) =>
+          notificarPedidoCanceladoPorCliente(data),
+        );
+        const nombresCancel = canceladosPorCliente
+          .map(({ data }) => data.cliente?.nombre || "Cliente")
+          .join(", ");
+        showToast(
+          canceladosPorCliente.length === 1
+            ? `🚫 ${nombresCancel} canceló su pedido`
+            : `🚫 ${canceladosPorCliente.length} clientes cancelaron su pedido`,
+          true,
+        );
       }
       hideLoader();
     },

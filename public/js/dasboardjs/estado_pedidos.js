@@ -346,18 +346,24 @@ function renderPausaBanner(data, pedidoRef) {
         respuesta.accion === "reemplazo"
           ? "Cambiar por " + esc(respuesta.producto_elegido?.nombre || "")
           : "Continuar sin ese producto"
-      }</strong>. El negocio confirmará en breve.</p>`;
+      }</strong>. El negocio confirmará en breve.</p>
+      <button id="pausa-cancelar" style="margin-top:1rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>`;
+    wrap.querySelector("#pausa-cancelar").onclick = () =>
+      cancelarPedidoCliente(pedidoRef, wrap.querySelector("#pausa-cancelar"));
     return;
   }
 
   wrap.innerHTML = `
     <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
     <p style="margin:0.6rem 0 0;font-size:0.9rem;">${
-      esc(pausa.motivo) || "Uno de los productos de tu pedido no está disponible."
+      esc(pausa.motivo) ||
+      "Uno de los productos de tu pedido no está disponible."
     }</p>
     ${restanteTexto ? `<p style="margin:0.3rem 0 0;font-size:0.78rem;color:var(--text-muted);">${restanteTexto}</p>` : ""}
-    <div id="pausa-opciones" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
+      <div id="pausa-opciones" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
     <button id="pausa-confirmar" style="margin-top:1rem;width:100%;padding:0.8rem;border-radius:0.8rem;border:none;background:#38bdf8;color:#04222f;font-weight:700;cursor:pointer;" disabled>Continuar con mi pedido</button>
+    <button id="pausa-cancelar" style="margin-top:0.6rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>
+  
   `;
 
   let seleccion = null;
@@ -403,8 +409,55 @@ function renderPausaBanner(data, pedidoRef) {
     confirmarBtn.disabled = true;
     confirmarBtn.textContent = "Enviando…";
     try {
+      const productosActuales = Array.isArray(data.productos)
+        ? data.productos
+        : [];
+      const idsAfectados = new Set(afectados.map((a) => a.id));
+      let nuevosProductos;
+
+      if (seleccion.accion === "sin_producto") {
+        // Quita del pedido los productos que se marcaron como agotados
+        nuevosProductos = productosActuales.filter(
+          (it) => !idsAfectados.has(it.id),
+        );
+      } else if (seleccion.accion === "reemplazo") {
+        const idElegido = seleccion.producto_elegido?.id;
+        let cantidadASumar = 0;
+
+        // Quita los afectados y acumula su cantidad para pasarla al producto elegido
+        const sinAfectados = productosActuales.filter((it) => {
+          if (idsAfectados.has(it.id)) {
+            cantidadASumar += Number(it.cantidad) || 0;
+            return false;
+          }
+          return true;
+        });
+
+        nuevosProductos = sinAfectados.map((it) => {
+          if (it.id !== idElegido) return it;
+          const nuevaCantidad = (Number(it.cantidad) || 0) + cantidadASumar;
+          const nuevoSubtotal = +(
+            nuevaCantidad * Number(it.precio_unitario || 0)
+          ).toFixed(2);
+          return { ...it, cantidad: nuevaCantidad, subtotal: nuevoSubtotal };
+        });
+      } else {
+        nuevosProductos = productosActuales;
+      }
+
+      const nuevoTotal = +nuevosProductos
+        .reduce((s, it) => s + Number(it.subtotal || 0), 0)
+        .toFixed(2);
+      const nuevoTotalItems = nuevosProductos.reduce(
+        (s, it) => s + (Number(it.cantidad) || 0),
+        0,
+      );
+
       await updateDoc(pedidoRef, {
         respuesta_cliente: { ...seleccion, respondido_en: serverTimestamp() },
+        productos: nuevosProductos,
+        total: nuevoTotal,
+        total_items: nuevoTotalItems,
       });
     } catch (err) {
       console.error("[pedidos] No se pudo enviar la respuesta:", err);
@@ -412,6 +465,37 @@ function renderPausaBanner(data, pedidoRef) {
       confirmarBtn.textContent = "Continuar con mi pedido";
     }
   };
+
+  wrap.querySelector("#pausa-cancelar").onclick = () =>
+    cancelarPedidoCliente(pedidoRef, wrap.querySelector("#pausa-cancelar"));
+}
+
+/* El cliente cancela su propio pedido mientras está en pausa, sin esperar al negocio */
+async function cancelarPedidoCliente(pedidoRef, btnEl) {
+  if (!pedidoRef) return;
+  const ok = window.confirm("¿Seguro que quieres cancelar este pedido?");
+  if (!ok) return;
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.textContent = "Cancelando…";
+  }
+  try {
+    await updateDoc(pedidoRef, {
+      estado: "rechazado",
+      cancelado_por_cliente: true,
+      respuesta_cliente: {
+        accion: "cancelado",
+        producto_elegido: null,
+        respondido_en: serverTimestamp(),
+      },
+    });
+  } catch (err) {
+    console.error("[pedidos] No se pudo cancelar el pedido:", err);
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.textContent = "Cancelar pedido";
+    }
+  }
 }
 
 function quitarPausaBanner() {

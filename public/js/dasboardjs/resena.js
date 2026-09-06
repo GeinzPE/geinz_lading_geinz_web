@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
+    onSnapshot,   
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { tiendaReviewsCol, tiendaReviewDoc } from "../rutas/rutas.js";
 
@@ -307,6 +308,41 @@ async function enviarRespuesta(reviewId, textarea, card) {
   }
 }
 
+let ultimoReviewIdConocido = null;
+let watcherResenasIniciado = false;
+
+function iniciarWatcherNuevasResenas() {
+  if (watcherResenasIniciado) return;
+  watcherResenasIniciado = true;
+
+  const col = tiendaReviewsCol(localidad, tiendaId);
+  const qTop = query(col, orderBy("timestamp", "desc"), limit(1)); // 👈 solo 1 doc
+
+  let primeraCarga = true;
+
+  onSnapshot(
+    qTop,
+    (snap) => {
+      if (snap.empty) { primeraCarga = false; return; }
+
+      const docTop = snap.docs[0];
+
+      if (primeraCarga) {
+        // solo guardamos referencia, no sonamos en la carga inicial
+        ultimoReviewIdConocido = docTop.id;
+        primeraCarga = false;
+        return;
+      }
+
+      if (docTop.id !== ultimoReviewIdConocido) {
+        ultimoReviewIdConocido = docTop.id;
+        // avisamos al panel padre, igual que fidelización
+        window.parent.postMessage({ type: "NUEVA_RESENA" }, window.location.origin);
+      }
+    },
+    (err) => console.error("Error watcher reseñas:", err),
+  );
+}
 /* ---------------- Resumen (promedio + sin responder) ---------------- */
 async function cargarResumen() {
   try {
@@ -356,6 +392,7 @@ el("btn-cargar-mas")?.addEventListener("click", () => cargarPagina(false));
 function init() {
   cargarResumen();
   cargarPagina(true);
+    iniciarWatcherNuevasResenas(); 
 }
 
 if (tiendaId && localidad) init();

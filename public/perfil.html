@@ -3,14 +3,14 @@
 
 <head>
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-4BP2DTKKBR"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4BP2DTKKBR"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
 
-  gtag('config', 'G-4BP2DTKKBR');
-</script>
+        gtag('config', 'G-4BP2DTKKBR');
+    </script>
     <meta charset="UTF-8" />
     <script>document.documentElement.classList.add('geinz-loading');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -232,8 +232,7 @@
 
         .geinz-footer {
             position: relative;
-            margin-top: 80px;
-            padding: 90px 0 32px;
+      margin-bottom: 20px;
             background: transparent;
             overflow: hidden;
         }
@@ -459,46 +458,47 @@
         .geinz-footer-legal-row span {
             color: #3a3a3f;
         }
+
         .mesa-reserva-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 10001;
-    background: rgba(3, 3, 3, .75);
-    backdrop-filter: blur(6px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity .25s ease, visibility .25s ease;
-    padding: 20px;
-}
+            position: fixed;
+            inset: 0;
+            z-index: 10001;
+            background: rgba(3, 3, 3, .75);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .25s ease, visibility .25s ease;
+            padding: 20px;
+        }
 
-.mesa-reserva-modal.open {
-    opacity: 1;
-    visibility: visible;
-}
+        .mesa-reserva-modal.open {
+            opacity: 1;
+            visibility: visible;
+        }
 
-.lightbox-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    background: rgba(3, 3, 3, 0.94);
-    backdrop-filter: blur(6px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.28s ease, visibility 0.28s ease;
-    touch-action: none;
-    overscroll-behavior: contain;
-}
+        .lightbox-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(3, 3, 3, 0.94);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.28s ease, visibility 0.28s ease;
+            touch-action: none;
+            overscroll-behavior: contain;
+        }
 
-.lightbox-modal.open {
-    opacity: 1;
-    visibility: visible;
-}
+        .lightbox-modal.open {
+            opacity: 1;
+            visibility: visible;
+        }
     </style>
 </head>
 
@@ -753,6 +753,17 @@
                         <i class="fa-solid fa-pen"></i> <span id="btnAbrirReviewLabel">Dejar una reseña</span>
                     </button>
                 </div>
+                            <div class="reviews-filters" id="reviewsFilters">
+                    <button class="reviews-filter-chip active" data-estrellas="todas">Todas</button>
+                    <button class="reviews-filter-chip" data-estrellas="5">5 <span class="star-ico">★</span></button>
+                    <button class="reviews-filter-chip" data-estrellas="4">4 <span class="star-ico">★</span></button>
+                    <button class="reviews-filter-chip" data-estrellas="3">3 <span class="star-ico">★</span></button>
+                    <button class="reviews-filter-chip" data-estrellas="2">2 <span class="star-ico">★</span></button>
+                    <button class="reviews-filter-chip" data-estrellas="1">1 <span class="star-ico">★</span></button>
+                </div>
+                <div class="reviews-loading" id="reviewsLoading" style="display:none;">
+                    <span class="reviews-spinner"></span> Buscando reseñas...
+                </div>
                 <div class="reviews-list" id="reviewsList"></div>
                 <div class="reviews-gallery-wrap" id="reviewsGalleryWrap" style="display:none;">
                     <p class="reviews-gallery-title">Fotos de la comunidad</p>
@@ -954,6 +965,7 @@
 
             <p id="reviewModalError" class="mesa-reserva-error"></p>
             <button id="reviewSubmitBtn" class="mesa-reserva-submit">Publicar reseña</button>
+            <button id="reviewDeleteBtn" class="review-delete-btn" style="display:none;">Eliminar mi reseña</button>
         </div>
     </div>
 </body>
