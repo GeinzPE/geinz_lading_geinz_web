@@ -157,8 +157,11 @@
 
         <div class="nuevo-pedido-wrap" id="nuevoPedidoWrap" style="display:none;">
             <div class="np-panel">
-                <div class="np-search-wrap">
-                    <input type="text" id="npSearchInput" placeholder="Buscar producto…" />
+                <div class="np-search-wrap" style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="npSearchInput" placeholder="Buscar producto…"
+                        style="flex:1;margin-bottom:0;" />
+                    <button type="button" id="npRefreshBtn" title="Recargar productos"
+                        style="flex-shrink:0;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:16px;cursor:pointer;">🔄</button>
                 </div>
                 <div id="npFiltros" class="np-filtros"></div>
                 <div id="npGrid" class="np-grid"></div>

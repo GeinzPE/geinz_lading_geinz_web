@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Términos y Condiciones</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script type="module" src="terminos_condiciones.js"></script>
+    <style>
+        :root { --dr: 139; --dg: 92; --db: 246; }
+        * { box-sizing: border-box; }
+        html { background: #030303; }
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: radial-gradient(circle at 20% 0%, rgba(var(--dr), var(--dg), var(--db), .05), #030303 40%);
+            color: #f4f4f5;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .bg-blob { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; }
+        #blobUno { top: -8%; left: -10%; width: 340px; height: 340px; background: rgba(var(--dr), var(--dg), var(--db), .10); }
+        #blobDos { bottom: -10%; right: -8%; width: 320px; height: 320px; background: rgba(var(--dr), var(--dg), var(--db), .08); }
+        main, #loaderScreen, #notAvailableScreen { position: relative; z-index: 1; }
+        .glass { background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); backdrop-filter: blur(16px); }
+        .accent { color: rgb(var(--dr), var(--dg), var(--db)); }
+
+        .card-glow { position: relative; }
+        .card-glow::before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            z-index: -1;
+            background: linear-gradient(135deg, rgba(var(--dr), var(--dg), var(--db), .5), transparent 40%);
+            opacity: .5;
+            filter: blur(1px);
+        }
+
+        .legal-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 999px;
+            background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); color: #d4d4d8;
+        }
+        .legal-chip i { color: rgb(var(--dr), var(--dg), var(--db)); }
+
+        .legal-paragraph {
+            font-size: 15px;
+            line-height: 1.85;
+            color: #d4d4d8;
+            margin: 0 0 18px;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        .legal-paragraph:last-child { margin-bottom: 0; }
+
+        #legalTitulo, #legalDescripcion {
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+
+        #mainWrap { opacity: 0; transform: translateY(10px); transition: opacity .5s ease, transform .5s cubic-bezier(.22, .85, .32, 1); }
+        #mainWrap.in { opacity: 1; transform: translateY(0); }
+        .fade-in { animation: fadeIn .5s ease both; }
+        .fade-in.d1 { animation-delay: .05s; }
+        .fade-in.d2 { animation-delay: .12s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Skeleton loader ── */
+        .loader-wrap { position: fixed; inset: 0; z-index: 50; background: #030303; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 40px 0; }
+        .skeleton-page { width: 100%; max-width: 720px; padding: 0 24px; }
+        .skel { position: relative; overflow: hidden; border-radius: 10px; background: #111114; }
+        .skel::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(var(--dr), var(--dg), var(--db), .14), transparent);
+            transform: translateX(-100%);
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+        .skeleton-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+        .skel-logo { width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0; }
+        .skel-header-lines { flex: 1; }
+
+        .skeleton-card { background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); border-radius: 24px; padding: 28px; margin-bottom: 24px; }
+        .skeleton-chips { display: flex; gap: 10px; margin-top: 20px; }
+        .skel-chip { width: 150px; height: 30px; border-radius: 999px; }
+
+        .skel-textblock { height: 13px; border-radius: 6px; margin-bottom: 12px; }
+    </style>
+</head>
+
+<body>
+
+    <div id="blobUno" class="bg-blob"></div>
+    <div id="blobDos" class="bg-blob"></div>
+
+    <div id="loaderScreen" class="loader-wrap">
+        <div class="skeleton-page">
+            <div class="skeleton-header">
+                <div class="skel skel-logo"></div>
+                <div class="skel-header-lines">
+                    <div class="skel skel-line" style="width:140px;height:11px;"></div>
+                    <div class="skel skel-line" style="width:200px;height:20px;margin-top:8px;"></div>
+                </div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skel skel-line" style="width:60%;height:26px;"></div>
+                <div class="skeleton-chips">
+                    <div class="skel skel-chip"></div>
+                </div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skel skel-textblock" style="width:100%;"></div>
+                <div class="skel skel-textblock" style="width:96%;"></div>
+                <div class="skel skel-textblock" style="width:88%;"></div>
+                <div class="skel skel-textblock" style="width:92%;"></div>
+                <div class="skel skel-textblock" style="width:70%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <main id="mainWrap" style="display:none;" class="max-w-3xl mx-auto px-4 md:px-6 py-10 md:py-16">
+
+        <!-- HEADER -->
+        <div class="flex items-center gap-4 mb-8 fade-in">
+            <div id="logoWrap"
+                class="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-lg">
+                <img id="bizLogo" style="display:none;width:100%;height:100%;object-fit:cover;" />
+                <span id="bizLogoLetter" class="font-black text-xl accent"></span>
+            </div>
+            <div class="min-w-0">
+                <p id="labelSuperior" class="uppercase tracking-[3px] text-xs accent font-bold mb-1">Términos y Condiciones</p>
+                <h1 id="bizNombre" class="text-xl md:text-2xl font-black leading-tight truncate"></h1>
+            </div>
+        </div>
+
+        <!-- TITULO + META -->
+        <div class="glass rounded-3xl p-6 md:p-8 mb-6 fade-in d1">
+            <h2 id="legalTitulo" class="text-2xl md:text-3xl font-black mb-3 leading-tight"></h2>
+            <p id="legalDescripcion" class="text-gray-400 text-[15px] leading-relaxed mb-1" style="display:none;"></p>
+            <p id="legalFecha" class="text-gray-500 text-xs mt-3" style="display:none;"></p>
+            <div id="legalBadges" class="flex flex-wrap gap-2 mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- TEXTO LEGAL -->
+        <div class="glass card-glow rounded-3xl p-6 md:p-9 fade-in d2">
+            <div id="legalTexto"></div>
+        </div>
+
+        <p class="text-center text-gray-600 text-xs mt-10">Términos y Condiciones</p>
+    </main>
+
+    <!-- NOT AVAILABLE SCREEN -->
+    <div id="notAvailableScreen" style="display:none;" class="min-h-screen flex items-center justify-center px-6">
+        <div class="glass rounded-3xl p-10 max-w-md text-center fade-in">
+            <div class="text-5xl mb-4">📜</div>
+            <h2 class="text-xl font-black mb-2">No disponible</h2>
+            <p class="text-gray-400 text-sm" id="notAvailableMsg">Este negocio no tiene disponible este documento.</p>
+        </div>
+    </div>
+
+</body>
+
+</html>

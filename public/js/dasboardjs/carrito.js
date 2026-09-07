@@ -9,6 +9,7 @@ import {
   addDoc,
   serverTimestamp,
   writeBatch,
+  runTransaction,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import {
@@ -22,7 +23,7 @@ import {
   getAuth,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
+const db = getFirestore();
 /* ══════════════ Config de enlaces ══════════════
        DASHBOARD_BASE_URL: a donde apunta el link que se manda por WhatsApp.
          Se arma como  {DASHBOARD_BASE_URL}/{idNegocio}/{idPedido}
@@ -31,6 +32,95 @@ import {
 const DASHBOARD_BASE_URL = "https://geinztech.com/pedidos";
 const LANDING_BASE_URL = "https://geinztech.com";
 
+async function confirmarPedidoAtomico(items, construirPedido) {
+  const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
+  const nuevoPedidoRef = doc(pedidosRef); // genera el id de antemano
+
+  // Solo referenciamos los docs de producto que realmente controlan stock
+  const refsUnicas = new Map();
+  items.forEach((it) => {
+    if (!refsUnicas.has(it.id)) {
+      refsUnicas.set(
+        it.id,
+        tiendaSubDoc(
+          localidad,
+          "tiendas",
+          tiendaId,
+          "productos",
+          it.categoria,
+          it.categoria,
+          it.id,
+        ),
+      );
+    }
+  });
+
+  try {
+    await runTransaction(db, async (tx) => {
+      // 1. LEER (todas las lecturas van primero, regla de Firestore)
+      const snaps = new Map();
+      for (const [id, ref] of refsUnicas) {
+        const snap = await tx.get(ref);
+        if (snap.exists()) snaps.set(id, snap);
+      }
+
+      // 2. VALIDAR + preparar los descuentos en memoria
+      const actualizaciones = new Map(); // ref -> data nueva
+      for (const it of items) {
+        const snap = snaps.get(it.id);
+        if (!snap) continue; // producto sin doc o eliminado: no se controla, se deja pasar
+        const d = snap.data();
+        let dataNueva = actualizaciones.get(it.id) || { ...d };
+
+        if (it.seleccion && dataNueva.condiciones) {
+          const condiciones = dataNueva.condiciones.map((c) => ({
+            ...c,
+            opciones: c.opciones.map((o) => ({ ...o })),
+          }));
+          for (const cond of condiciones) {
+            const elegido = it.seleccion[cond.nombre];
+            if (!elegido) continue;
+            const op = cond.opciones.find((o) => o.nombre === elegido);
+            if (op && typeof op.stock === "number") {
+              if (op.stock < it.cantidad) {
+                throw {
+                  motivo: "sin_stock",
+                  nombre: it.nombre,
+                  disponible: op.stock,
+                  detalle: elegido,
+                };
+              }
+              op.stock -= it.cantidad;
+            }
+          }
+          dataNueva.condiciones = condiciones;
+        } else if (typeof dataNueva.stock === "number") {
+          if (dataNueva.stock < it.cantidad) {
+            throw {
+              motivo: "sin_stock",
+              nombre: it.nombre,
+              disponible: dataNueva.stock,
+            };
+          }
+          dataNueva.stock -= it.cantidad;
+        }
+        actualizaciones.set(it.id, dataNueva);
+      }
+
+      // 3. ESCRIBIR (descuentos + pedido, todo o nada)
+      for (const [id, dataNueva] of actualizaciones) {
+        tx.set(refsUnicas.get(id), dataNueva, { merge: true });
+      }
+      tx.set(nuevoPedidoRef, construirPedido());
+    });
+
+    return { ok: true, id: nuevoPedidoRef.id };
+  } catch (err) {
+    if (err?.motivo === "sin_stock") return { ok: false, ...err };
+    console.error("Error en transacción de pedido:", err);
+    return { ok: false, motivo: "error_generico" };
+  }
+}
 const params = new URLSearchParams(window.location.search);
 const localidad = (params.get("localidad") || "barranca").toLowerCase();
 const tiendaId = params.get("id");
@@ -494,7 +584,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 function renderPedidoActivoMesa(pedido) {
@@ -570,7 +660,84 @@ function renderPedidoActivoMesa(pedido) {
 
   main.prepend(wrap);
 }
+async function verificarYDescontarStockSolo(items) {
+  const refsUnicas = new Map();
+  items.forEach((it) => {
+    if (!refsUnicas.has(it.id)) {
+      refsUnicas.set(
+        it.id,
+        tiendaSubDoc(
+          localidad,
+          "tiendas",
+          tiendaId,
+          "productos",
+          it.categoria,
+          it.categoria,
+          it.id,
+        ),
+      );
+    }
+  });
 
+  try {
+    await runTransaction(db, async (tx) => {
+      const snaps = new Map();
+      for (const [id, ref] of refsUnicas) {
+        const snap = await tx.get(ref);
+        if (snap.exists()) snaps.set(id, snap);
+      }
+
+      const actualizaciones = new Map();
+      for (const it of items) {
+        const snap = snaps.get(it.id);
+        if (!snap) continue;
+        const d = snap.data();
+        let dataNueva = actualizaciones.get(it.id) || { ...d };
+
+        if (it.seleccion && dataNueva.condiciones) {
+          const condiciones = dataNueva.condiciones.map((c) => ({
+            ...c,
+            opciones: c.opciones.map((o) => ({ ...o })),
+          }));
+          for (const cond of condiciones) {
+            const elegido = it.seleccion[cond.nombre];
+            if (!elegido) continue;
+            const op = cond.opciones.find((o) => o.nombre === elegido);
+            if (op && typeof op.stock === "number") {
+              if (op.stock < it.cantidad)
+                throw {
+                  motivo: "sin_stock",
+                  nombre: it.nombre,
+                  disponible: op.stock,
+                  detalle: elegido,
+                };
+              op.stock -= it.cantidad;
+            }
+          }
+          dataNueva.condiciones = condiciones;
+        } else if (typeof dataNueva.stock === "number") {
+          if (dataNueva.stock < it.cantidad)
+            throw {
+              motivo: "sin_stock",
+              nombre: it.nombre,
+              disponible: dataNueva.stock,
+            };
+          dataNueva.stock -= it.cantidad;
+        }
+        actualizaciones.set(it.id, dataNueva);
+      }
+
+      for (const [id, dataNueva] of actualizaciones) {
+        tx.set(refsUnicas.get(id), dataNueva, { merge: true });
+      }
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err?.motivo === "sin_stock") return { ok: false, ...err };
+    console.error("Error verificando stock:", err);
+    return { ok: false, motivo: "error_generico" };
+  }
+}
 async function confirmarPedidoMesaDirecto() {
   if (!carrito.size) return;
 
@@ -583,8 +750,29 @@ async function confirmarPedidoMesaDirecto() {
     if (b) {
       b.disabled = true;
       b.dataset.original = b.innerHTML;
-      b.innerHTML = "Enviando…";
+      b.innerHTML = "Verificando…";
     }
+  });
+
+  // Verifica y descuenta stock ANTES de llamar al mozo
+  const checkStock = await verificarYDescontarStockSolo(items);
+  if (!checkStock.ok) {
+    [btnMobile, btnDesktop].forEach((b) => {
+      if (b) {
+        b.disabled = false;
+        b.innerHTML = b.dataset.original;
+      }
+    });
+    showToast(
+      checkStock.motivo === "sin_stock"
+        ? `⚠️ "${checkStock.nombre}" ya no tiene stock suficiente`
+        : "⚠️ No se pudo verificar el stock",
+    );
+    return;
+  }
+
+  [btnMobile, btnDesktop].forEach((b) => {
+    if (b) b.innerHTML = "Enviando…";
   });
 
   try {
@@ -712,7 +900,7 @@ async function loadProductosCatalogo(biz) {
         const nombre = d.nombre || "Producto";
 
         // Solo se traen las condiciones/opciones marcadas como activas (true)
-             // Solo se traen las condiciones/opciones marcadas como activas (true)
+        // Solo se traen las condiciones/opciones marcadas como activas (true)
         const condiciones = (d.condiciones || [])
           .map((c) => ({
             nombre: c.nombre,
@@ -740,8 +928,13 @@ async function loadProductosCatalogo(biz) {
           condiciones,
           stock: typeof d.stock === "number" ? d.stock : null, // ← faltaba: stock general del producto
           puntos:
-            biz?.fidelizacion?.activo && d.puntos?.activo && d.puntos?.cantidad > 0
-              ? { cantidad: d.puntos.cantidad, descripcion: d.puntos.descripcion || "" }
+            biz?.fidelizacion?.activo &&
+            d.puntos?.activo &&
+            d.puntos?.cantidad > 0
+              ? {
+                  cantidad: d.puntos.cantidad,
+                  descripcion: d.puntos.descripcion || "",
+                }
               : null,
         });
       });
@@ -1108,10 +1301,11 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
-    ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
-    : `<span class="ph-letter">${letraNegocio()}</span>`
-    }</div>`;
+  wrap.innerHTML = `<div class="logo-ph-badge">${
+    _bizLogoUrl
+      ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+      : `<span class="ph-letter">${letraNegocio()}</span>`
+  }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -1253,6 +1447,11 @@ function renderQtyControls(container, p, cartKey = null) {
     plus.className = "qty-btn";
     plus.textContent = "+";
     plus.onclick = () => addToCart(p, carrito.get(cartKey)?.seleccion || null);
+    if (!horarioEstado.abierto) {
+      plus.disabled = true;
+      plus.classList.add("opacity-30", "cursor-not-allowed");
+      plus.title = horarioEstado.mensaje || "Cerrado ahora";
+    }
 
     stepper.append(minus, count, plus);
     container.appendChild(stepper);
@@ -1264,6 +1463,16 @@ function renderQtyControls(container, p, cartKey = null) {
   if (p.condiciones && p.condiciones.length) {
     const variantes = [...carrito.values()].filter((it) => it.id === p.id);
     const totalCantidad = variantes.reduce((s, it) => s + it.cantidad, 0);
+
+    if (!horarioEstado.abierto && variantes.length === 0) {
+      const btn = document.createElement("button");
+      btn.className =
+        "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
+      btn.textContent = "Cerrado ahora";
+      btn.disabled = true;
+      container.appendChild(btn);
+      return;
+    }
 
     if (variantes.length === 0) {
       // Nada en el carrito todavía -> abre el popup a elegir
@@ -1278,6 +1487,11 @@ function renderQtyControls(container, p, cartKey = null) {
       btn.className = "btn-add accent-grad pop";
       btn.textContent = `${totalCantidad} en carrito · Agregar otra`;
       btn.onclick = () => addToCart(p);
+      if (!horarioEstado.abierto) {
+        btn.disabled = true;
+        btn.classList.add("opacity-40", "cursor-not-allowed");
+        btn.title = horarioEstado.mensaje || "Cerrado ahora";
+      }
       container.appendChild(btn);
     }
     return;
@@ -1285,6 +1499,15 @@ function renderQtyControls(container, p, cartKey = null) {
   // Caso 3: tarjeta principal de un producto SIN condiciones (comportamiento original)
   const cantidad = carrito.get(p.id)?.cantidad || 0;
   if (cantidad === 0) {
+    if (!horarioEstado.abierto) {
+      const btn = document.createElement("button");
+      btn.className =
+        "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
+      btn.textContent = "Cerrado ahora";
+      btn.disabled = true;
+      container.appendChild(btn);
+      return;
+    }
     const btn = document.createElement("button");
     btn.className = "btn-add accent-grad pop";
     btn.textContent = "Agregar";
@@ -1307,6 +1530,11 @@ function renderQtyControls(container, p, cartKey = null) {
     plus.className = "qty-btn";
     plus.textContent = "+";
     plus.onclick = () => addToCart(p);
+    if (!horarioEstado.abierto) {
+      plus.disabled = true;
+      plus.classList.add("opacity-30", "cursor-not-allowed");
+      plus.title = horarioEstado.mensaje || "Cerrado ahora";
+    }
 
     stepper.append(minus, count, plus);
     container.appendChild(stepper);
@@ -1343,6 +1571,11 @@ function calcPrecioFinal(p, seleccion) {
 }
 
 function addToCart(p, seleccion = null) {
+  // ══ Bloqueo por horario: no se puede agregar nada nuevo si el negocio está cerrado ══
+  if (!horarioEstado.abierto) {
+    showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
+    return;
+  }
   if (!seleccion && p.condiciones && p.condiciones.length) {
     abrirOptionsModal(p);
     return;
@@ -1384,15 +1617,19 @@ function editCartSelection(oldKey, p, nuevaSeleccion) {
   const entry = carrito.get(oldKey);
   if (!entry) return;
   const newKey = cartKeyFor(p.id, nuevaSeleccion);
-  if (newKey === oldKey) { syncCartChange(p.id); return; }
+  if (newKey === oldKey) {
+    syncCartChange(p.id);
+    return;
+  }
   const { stock: stockDisponible, label } = getStockInfo(p, nuevaSeleccion);
 
   const precioFinal = calcPrecioFinal(p, nuevaSeleccion);
   carrito.delete(oldKey);
   const existenteEnNuevo = carrito.get(newKey);
-  let cantidadFinal = entry.cantidad + (existenteEnNuevo ? existenteEnNuevo.cantidad : 0);
+  let cantidadFinal =
+    entry.cantidad + (existenteEnNuevo ? existenteEnNuevo.cantidad : 0);
 
- if (stockDisponible !== null && cantidadFinal > stockDisponible) {
+  if (stockDisponible !== null && cantidadFinal > stockDisponible) {
     cantidadFinal = stockDisponible;
     const detalle = label ? ` de "${label}"` : "";
     showToast(`Solo hay ${stockDisponible} disponible(s)${detalle}`);
@@ -1401,7 +1638,13 @@ function editCartSelection(oldKey, p, nuevaSeleccion) {
   if (existenteEnNuevo) {
     existenteEnNuevo.cantidad = cantidadFinal;
   } else if (cantidadFinal > 0) {
-    carrito.set(newKey, { ...p, precio: precioFinal, cantidad: cantidadFinal, cartKey: newKey, seleccion: nuevaSeleccion });
+    carrito.set(newKey, {
+      ...p,
+      precio: precioFinal,
+      cantidad: cantidadFinal,
+      cartKey: newKey,
+      seleccion: nuevaSeleccion,
+    });
   }
   syncCartChange(p.id);
   showToast("Opciones actualizadas");
@@ -1421,6 +1664,11 @@ let seleccionOpciones = {};
 let cartKeyEnEdicion = null; // si no es null, el popup está EDITANDO esa línea del carrito
 
 function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
+  // Si es para AGREGAR (no editar) y el negocio está cerrado, no se abre el popup
+  if (!editKey && !horarioEstado.abierto) {
+    showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
+    return;
+  }
   productoParaOpciones = p;
   cartKeyEnEdicion = editKey;
   seleccionOpciones = seleccionExistente ? { ...seleccionExistente } : {};
@@ -1492,6 +1740,8 @@ document.getElementById("optionsOverlay").addEventListener("click", (e) => {
 });
 document.getElementById("confirmOptionsBtn").onclick = () => {
   if (!productoParaOpciones) return;
+  // Al confirmar una edición (cambio de variante) sí se permite aunque esté cerrado,
+  // pero agregar nuevo NO (addToCart ya valida esto también, por seguridad doble).
   if (cartKeyEnEdicion) {
     editCartSelection(cartKeyEnEdicion, productoParaOpciones, {
       ...seleccionOpciones,
@@ -1546,7 +1796,10 @@ function animateTotal(el, end) {
 let prevCartCount = 0;
 
 function calcularPuntosTotales(items) {
-  return items.reduce((s, it) => s + (it.puntos ? it.puntos.cantidad * it.cantidad : 0), 0);
+  return items.reduce(
+    (s, it) => s + (it.puntos ? it.puntos.cantidad * it.cantidad : 0),
+    0,
+  );
 }
 
 function updateCartUI() {
@@ -1585,12 +1838,16 @@ function updateCartUI() {
     document.getElementById("sidebarPuntos"),
   ].forEach((el) => {
     if (!el) return;
-    el.textContent = puntosTotales > 0 ? `🎁 Ganas ${puntosTotales} puntos` : "";
+    el.textContent =
+      puntosTotales > 0 ? `🎁 Ganas ${puntosTotales} puntos` : "";
     el.classList.toggle("hidden", puntosTotales === 0);
   });
   document.getElementById("cartBar").classList.toggle("show", count > 0);
-  document.getElementById("checkoutBtnMobile").disabled = count === 0;
-  document.getElementById("checkoutBtnDesktop").disabled = count === 0;
+  // El checkout se bloquea si el carrito está vacío O si el negocio está cerrado ahora
+  document.getElementById("checkoutBtnMobile").disabled =
+    count === 0 || !horarioEstado.abierto;
+  document.getElementById("checkoutBtnDesktop").disabled =
+    count === 0 || !horarioEstado.abierto;
 
   if (count === 0) {
     closeDrawer();
@@ -1625,8 +1882,8 @@ function renderCartList(wrap, items) {
     const precioNum = Number(it.precio) || 0;
     const opcionesTxt = it.seleccion
       ? Object.entries(it.seleccion)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
       : "";
 
     let row = rowsMap.get(key);
@@ -1644,12 +1901,13 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
         <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-          ${it.seleccion
-          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
+          ${
+            it.seleccion
+              ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>`
-          : ""
-        }
+              : ""
+          }
           <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>
@@ -1776,6 +2034,10 @@ document
   .addEventListener("click", obtenerUbicacionCliente);
 function openCheckout() {
   if (!carrito.size) return;
+  if (!horarioEstado.abierto) {
+    showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
+    return;
+  }
   renderCheckoutSummary();
   const nombreInput = document.getElementById("clienteNombre");
   if (nombreUsuarioLogeado && nombreInput && !nombreInput.value.trim()) {
@@ -1810,8 +2072,8 @@ function renderCheckoutSummary() {
     .map((it) => {
       const opcionesTxt = it.seleccion
         ? Object.entries(it.seleccion)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ")
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" · ")
         : "";
       return `
     <div class="step-summary-row">
@@ -1826,7 +2088,10 @@ function renderCheckoutSummary() {
   const puntosTotales = calcularPuntosTotales(items);
   const puntosEl = document.getElementById("checkoutPuntos");
   if (puntosEl) {
-    puntosEl.textContent = puntosTotales > 0 ? `🎁 Ganas ${puntosTotales} puntos con este pedido` : "";
+    puntosEl.textContent =
+      puntosTotales > 0
+        ? `🎁 Ganas ${puntosTotales} puntos con este pedido`
+        : "";
     puntosEl.classList.toggle("hidden", puntosTotales === 0);
   }
 }
@@ -1866,10 +2131,10 @@ async function guardarPedidoEnDB({
     },
     mesa: mesaId
       ? {
-        id: mesaId,
-        nombre: mesaNombre || null,
-        numero: mesaNumero ? Number(mesaNumero) : null,
-      }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
       : null,
 
     pago: {
@@ -1934,6 +2199,15 @@ function paintToggleDefaults() {
 document
   .getElementById("sendWhatsappBtn")
   .addEventListener("click", async () => {
+    // ══ Última barrera de seguridad: si se cerró justo en este instante, no se procesa ══
+    if (!horarioEstado.abierto) {
+      showToast(
+        `🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`,
+      );
+      closeCheckout();
+      return;
+    }
+
     const nombreInput = document.getElementById("clienteNombre");
     const direccionInput = document.getElementById("clienteDireccion");
     const nombre = nombreInput.value.trim();
@@ -1965,25 +2239,68 @@ document
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = "Guardando pedido…";
 
-    let pedidoId;
-    try {
-      pedidoId = await guardarPedidoEnDB({
+    const now = new Date();
+    const construirPedido = () => ({
+      estado: "pendiente",
+      fecha: now.toLocaleDateString("es-PE"),
+      hora: now.toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      timestamp: serverTimestamp(),
+      cliente: {
+        id_cliente: usuarioLogeado?.id || null,
         nombre,
-        tipoEntrega,
-        direccion,
-        metodoPago,
-        vuelto,
-        nota,
-        items,
-        total,
-      });
-    } catch (err) {
-      console.error("Error guardando pedido:", err);
+        tipo_entrega: tipoEntrega,
+        direccion: tipoEntrega === "Delivery" ? direccion : "",
+        ubicacion:
+          tipoEntrega === "Delivery" && clienteLat != null && clienteLng != null
+            ? { lat: clienteLat, lng: clienteLng }
+            : null,
+      },
+      mesa: mesaId
+        ? {
+            id: mesaId,
+            nombre: mesaNombre || null,
+            numero: mesaNumero ? Number(mesaNumero) : null,
+          }
+        : null,
+      pago: {
+        metodo: metodoPago,
+        vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
+      },
+      nota: nota || "",
+      productos: items.map((it) => ({
+        id: it.id,
+        nombre: it.nombre,
+        categoria: it.categoria,
+        precio_unitario: it.precio,
+        cantidad: it.cantidad,
+        subtotal: +(it.precio * it.cantidad).toFixed(2),
+        imagen: it.imagen || "",
+        opciones: it.seleccion || null,
+      })),
+      total_items: items.reduce((s, i) => s + i.cantidad, 0),
+      total: +total.toFixed(2),
+      negocio: { id: tiendaId, nombre: bizNombre, localidad },
+    });
+
+    const resultado = await confirmarPedidoAtomico(items, construirPedido);
+
+    if (!resultado.ok) {
       btn.disabled = false;
       btn.innerHTML = textoOriginal;
-      showToast("⚠️ No se pudo guardar tu pedido, intenta de nuevo");
+      if (resultado.motivo === "sin_stock") {
+        showToast(
+          `⚠️ "${resultado.nombre}" ya no tiene stock (quedan ${resultado.disponible}${resultado.detalle ? " de " + resultado.detalle : ""})`,
+        );
+      } else {
+        showToast("⚠️ No se pudo guardar tu pedido, intenta de nuevo");
+      }
       return;
     }
+
+    const pedidoId = resultado.id;
 
     const linkPedido = `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
 
@@ -2001,8 +2318,10 @@ document
     const btnUbic = document.getElementById("obtenerUbicacionBtn");
     const btnUbicTexto = document.getElementById("ubicacionBtnTexto");
     const statusUbic = document.getElementById("ubicacionStatus");
-    if (btnUbic) btnUbic.classList.remove("border-green-500/40", "text-green-400");
-    if (btnUbicTexto) btnUbicTexto.textContent = "Usar mi ubicación (más precisión)";
+    if (btnUbic)
+      btnUbic.classList.remove("border-green-500/40", "text-green-400");
+    if (btnUbicTexto)
+      btnUbicTexto.textContent = "Usar mi ubicación (más precisión)";
     if (statusUbic) statusUbic.classList.add("hidden");
   });
 /* ══════════════ Toast ══════════════ */
@@ -2045,6 +2364,213 @@ function bindCartEditDelegation(wrap) {
     }
   });
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ══════════════ Horario de atención (validación en tiempo real) ══════════
+   ══════════════════════════════════════════════════════════════════════
+   Estructura esperada en el doc de la tienda (Firestore):
+
+   horario_atencion: {
+     domingo:   { bloques: [{h_apertura:"08:00", h_cierre:"10:30", stability:0}, ...], cerrado: false, motivo: "" },
+     lunes:     { ... },
+     martes:    { ... },
+     miercoles: { ... },
+     jueves:    { ... },
+     viernes:   { ... },
+     sabado:    { ... },
+   }
+
+   - "cerrado: true" en un día = el negocio no atiende ese día completo (usa "motivo" si existe).
+   - "bloques" = rangos horarios en los que SÍ está abierto ese día (soporta 2+ turnos, ej. mañana y tarde).
+   - Los horarios que cruzan medianoche (ej. 20:00 → 02:00) también se soportan.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const DIAS_SEMANA = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+];
+const DIAS_SEMANA_LABEL = {
+  domingo: "domingo",
+  lunes: "lunes",
+  martes: "martes",
+  miercoles: "miércoles",
+  jueves: "jueves",
+  viernes: "viernes",
+  sabado: "sábado",
+};
+
+// Estado global reactivo: se lee desde renderQtyControls, addToCart, updateCartUI, etc.
+let horarioEstado = { abierto: true, mensaje: "" };
+let horarioCheckInterval = null;
+
+function parseHoraAMinutos(str) {
+  if (!str || typeof str !== "string" || !str.includes(":")) return null;
+  const [h, m] = str.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function formatMinutosAHora(mins) {
+  const m = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+// Busca la próxima apertura (hoy más tarde, o en los próximos días) para mostrar
+// un mensaje útil como "Abrimos hoy a las 13:00" o "Abrimos el lunes a las 08:00"
+function calcularProximaApertura(horarios, desde) {
+  for (let offset = 0; offset < 8; offset++) {
+    const fecha = new Date(desde);
+    fecha.setDate(fecha.getDate() + offset);
+    const diaKey = DIAS_SEMANA[fecha.getDay()];
+    const diaData = horarios[diaKey];
+    if (!diaData || diaData.cerrado) continue;
+
+    const bloques = (diaData.bloques || [])
+      .map((b) => ({
+        inicio: parseHoraAMinutos(b.h_apertura),
+        fin: parseHoraAMinutos(b.h_cierre),
+      }))
+      .filter((b) => b.inicio !== null && b.fin !== null)
+      .sort((a, b) => a.inicio - b.inicio);
+
+    for (const b of bloques) {
+      if (offset === 0) {
+        const minutosAhora = desde.getHours() * 60 + desde.getMinutes();
+        if (b.inicio > minutosAhora) {
+          return { dia: diaKey, offset, hora: b.inicio };
+        }
+      } else {
+        return { dia: diaKey, offset, hora: b.inicio };
+      }
+    }
+  }
+  return null;
+}
+
+// Evalúa si el negocio está abierto AHORA MISMO según horario_atencion.
+// Si el negocio no tiene el campo configurado (datos viejos), se asume SIEMPRE ABIERTO
+// para no bloquear negocios que todavía no cargaron su horario.
+function evaluarHorarioNegocio(biz, fecha = new Date()) {
+  const horarios = biz?.horario_atencion;
+  if (!horarios || typeof horarios !== "object") {
+    return { abierto: true, mensaje: "" };
+  }
+
+  const diaKey = DIAS_SEMANA[fecha.getDay()];
+  const diaData = horarios[diaKey];
+
+  if (!diaData) {
+    return { abierto: true, mensaje: "" };
+  }
+
+  if (diaData.cerrado) {
+    const motivo = (diaData.motivo || "").trim();
+    return {
+      abierto: false,
+      mensaje: motivo
+        ? `Cerrado hoy: ${motivo}`
+        : `Hoy (${DIAS_SEMANA_LABEL[diaKey]}) no atendemos`,
+    };
+  }
+
+  const minutosAhora = fecha.getHours() * 60 + fecha.getMinutes();
+  const bloques = diaData.bloques || [];
+
+  for (const bloque of bloques) {
+    const inicio = parseHoraAMinutos(bloque.h_apertura);
+    let fin = parseHoraAMinutos(bloque.h_cierre);
+    if (inicio === null || fin === null) continue;
+
+    if (fin <= inicio) {
+      // El bloque cruza la medianoche (ej: 20:00 → 02:00)
+      if (minutosAhora >= inicio || minutosAhora < fin) {
+        return { abierto: true, mensaje: "" };
+      }
+    } else {
+      if (minutosAhora >= inicio && minutosAhora < fin) {
+        return { abierto: true, mensaje: "" };
+      }
+    }
+  }
+
+  // No cae en ningún bloque de hoy -> está cerrado ahora. Se calcula cuándo reabre.
+  const proxima = calcularProximaApertura(horarios, fecha);
+  let mensaje = "Cerrado ahora";
+  if (proxima) {
+    const horaTxt = formatMinutosAHora(proxima.hora);
+    if (proxima.offset === 0) {
+      mensaje = `Cerrado ahora · Abrimos hoy a las ${horaTxt}`;
+    } else if (proxima.offset === 1) {
+      mensaje = `Cerrado ahora · Abrimos mañana a las ${horaTxt}`;
+    } else {
+      mensaje = `Cerrado ahora · Abrimos el ${DIAS_SEMANA_LABEL[proxima.dia]} a las ${horaTxt}`;
+    }
+  }
+  return { abierto: false, mensaje };
+}
+
+function pintarBannerHorario(estado) {
+  const banner = document.getElementById("horarioBanner");
+  const textEl = document.getElementById("horarioBannerText");
+  const iconEl = document.getElementById("horarioBannerIcon");
+  if (!banner || !textEl) return;
+
+  if (estado.abierto) {
+    banner.classList.add("hidden");
+    banner.classList.remove("flex");
+    return;
+  }
+  iconEl.textContent = "🔴";
+  textEl.textContent = estado.mensaje || "Este negocio está cerrado ahora";
+  banner.classList.remove("hidden");
+  banner.classList.add("flex");
+}
+
+// Se llama al iniciar y luego cada cierto tiempo (setInterval) para que la
+// validación sea en tiempo real: si el negocio abre/cierra mientras el
+// cliente está viendo el catálogo, la UI se actualiza sola sin recargar.
+function aplicarEstadoHorario() {
+  if (!bizData) return;
+  const nuevoEstado = evaluarHorarioNegocio(bizData, new Date());
+  const cambioDeEstado = nuevoEstado.abierto !== horarioEstado.abierto;
+  horarioEstado = nuevoEstado;
+
+  pintarBannerHorario(horarioEstado);
+
+  // Botones de checkout: se recalculan igual que en updateCartUI, por si cambió
+  // el estado del horario sin que cambie el carrito.
+  const count = [...carrito.values()].reduce((s, i) => s + i.cantidad, 0);
+  const btnMobile = document.getElementById("checkoutBtnMobile");
+  const btnDesktop = document.getElementById("checkoutBtnDesktop");
+  if (btnMobile) btnMobile.disabled = count === 0 || !horarioEstado.abierto;
+  if (btnDesktop) btnDesktop.disabled = count === 0 || !horarioEstado.abierto;
+
+  // Si el negocio pasó de abierto -> cerrado o viceversa, se refrescan todos los
+  // botones "Agregar" / "+" del catálogo para reflejar el nuevo estado.
+  if (cambioDeEstado) {
+    productosGlobal.forEach((p) => syncMainListCard(p.id));
+    if (!horarioEstado.abierto) {
+      showToast(`🔒 ${horarioEstado.mensaje}`);
+    } else {
+      showToast("🟢 El negocio ya está abierto");
+    }
+  }
+}
+
+function iniciarValidacionHorarioEnVivo() {
+  aplicarEstadoHorario();
+  if (horarioCheckInterval) clearInterval(horarioCheckInterval);
+  // 30s es suficiente para sentirse "en tiempo real" sin sobrecargar el navegador
+  horarioCheckInterval = setInterval(aplicarEstadoHorario, 30000);
+}
+
 /* ══════════════ Init ══════════════ */
 
 /* ══════════════ Init ══════════════ */
@@ -2069,8 +2595,26 @@ async function init() {
     // manda el pedido directo a la DB.
     const btnMobile = document.getElementById("checkoutBtnMobile");
     const btnDesktop = document.getElementById("checkoutBtnDesktop");
-    if (btnMobile) btnMobile.onclick = () => confirmarPedidoMesaDirecto();
-    if (btnDesktop) btnDesktop.onclick = () => confirmarPedidoMesaDirecto();
+    if (btnMobile)
+      btnMobile.onclick = () => {
+        if (!horarioEstado.abierto) {
+          showToast(
+            `🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`,
+          );
+          return;
+        }
+        confirmarPedidoMesaDirecto();
+      };
+    if (btnDesktop)
+      btnDesktop.onclick = () => {
+        if (!horarioEstado.abierto) {
+          showToast(
+            `🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`,
+          );
+          return;
+        }
+        confirmarPedidoMesaDirecto();
+      };
   }
 
   if (!tiendaId) {
@@ -2099,6 +2643,12 @@ async function init() {
   productosPorId = new Map(productos.map((p) => [p.id, p]));
   document.getElementById("totalCount").textContent = productos.length;
 
+  // Se evalúa el horario ANTES de construir las tarjetas, así ya nacen
+  // con el estado correcto (abierto/cerrado) sin parpadeo.
+  horarioEstado = evaluarHorarioNegocio(bizData, new Date());
+  console.log("HORARIO DEBUG:", horarioEstado, bizData?.horario_atencion);
+  pintarBannerHorario(horarioEstado);
+
   if (pedidoMesa) {
     pedidoActivoMesa = pedidoMesa;
     renderPedidoActivoMesa(pedidoMesa);
@@ -2117,5 +2667,9 @@ async function init() {
   renderLista(productos);
   updateCartUI();
   hidePageLoader();
+
+  // Arranca el chequeo periódico en tiempo real (cada 30s) para detectar
+  // apertura/cierre mientras el cliente sigue en la página.
+  iniciarValidacionHorarioEnVivo();
 }
 init();

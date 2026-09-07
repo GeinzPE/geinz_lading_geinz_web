@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seguimiento de Reclamación</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script type="module" src="seguimiento.js"></script>
+    <style>
+        :root { --dr: 139; --dg: 92; --db: 246; }
+        * { box-sizing: border-box; }
+        html { background: #030303; }
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: radial-gradient(circle at 20% 0%, rgba(var(--dr), var(--dg), var(--db), .05), #030303 40%);
+            color: #f4f4f5;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .bg-blob { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; }
+        #blobUno { top: -8%; left: -10%; width: 340px; height: 340px; background: rgba(var(--dr), var(--dg), var(--db), .10); }
+        #blobDos { bottom: -10%; right: -8%; width: 320px; height: 320px; background: rgba(var(--dr), var(--dg), var(--db), .08); }
+        main, #loaderScreen, #notAvailableScreen { position: relative; z-index: 1; }
+        .glass { background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); backdrop-filter: blur(16px); }
+        .accent { color: rgb(var(--dr), var(--dg), var(--db)); }
+
+        .card-glow { position: relative; }
+        .card-glow::before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            z-index: -1;
+            background: linear-gradient(135deg, rgba(var(--dr), var(--dg), var(--db), .5), transparent 40%);
+            opacity: .5;
+            filter: blur(1px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .7));
+            box-shadow: 0 12px 30px -10px rgba(var(--dr), var(--dg), var(--db), .6);
+            transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+        }
+        .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.05); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+        .field-label {
+            font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+            color: #9c9ca3; margin-bottom: 9px; display: flex; align-items: center; gap: 7px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 15px 18px;
+            border-radius: 14px;
+            background: #0b0b0d;
+            border: 1px solid rgba(255, 255, 255, .1);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            font-family: inherit;
+            transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+        }
+        .search-input::placeholder { color: #6b6b72; text-transform: none; font-weight: 500; letter-spacing: normal; }
+        .search-input:focus {
+            outline: none;
+            border-color: rgba(var(--dr), var(--dg), var(--db), .75);
+            background: #121215;
+            box-shadow: 0 0 0 4px rgba(var(--dr), var(--dg), var(--db), .14);
+        }
+
+        .search-error {
+            font-size: 13px; color: #ff6b6b; margin-top: 12px; display: none; align-items: center; gap: 6px;
+        }
+        .search-error.show { display: flex; }
+        .search-error::before { content: "⚠"; font-size: 12px; }
+
+        /* ── Estado pill ── */
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 12.5px; font-weight: 800; letter-spacing: .03em;
+            padding: 8px 16px; border-radius: 999px; text-transform: capitalize;
+        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-pendiente { background: rgba(250, 176, 5, .14); color: #fab005; border: 1px solid rgba(250, 176, 5, .35); }
+        .status-pendiente .status-dot { background: #fab005; }
+        .status-proceso { background: rgba(76, 154, 255, .14); color: #4c9aff; border: 1px solid rgba(76, 154, 255, .35); }
+        .status-proceso .status-dot { background: #4c9aff; }
+        .status-resuelto { background: rgba(64, 199, 132, .14); color: #40c784; border: 1px solid rgba(64, 199, 132, .35); }
+        .status-resuelto .status-dot { background: #40c784; }
+        .status-rechazado { background: rgba(255, 107, 107, .14); color: #ff6b6b; border: 1px solid rgba(255, 107, 107, .35); }
+        .status-rechazado .status-dot { background: #ff6b6b; }
+        .status-default { background: rgba(255, 255, 255, .08); color: #d4d4d8; border: 1px solid rgba(255, 255, 255, .14); }
+        .status-default .status-dot { background: #9c9ca3; }
+
+        .result-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+        }
+        .result-row:last-child { border-bottom: none; }
+        @media (max-width: 560px) {
+            .result-row { grid-template-columns: 1fr; gap: 4px; }
+        }
+        .result-label {
+            font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #7d7d84;
+        }
+        .result-value {
+            font-size: 14.5px;
+            color: #f0f0f2;
+            line-height: 1.6;
+            white-space: pre-line;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .codigo-box {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 10px 18px; border-radius: 14px;
+            background: rgba(var(--dr), var(--dg), var(--db), .1);
+            border: 1px dashed rgba(var(--dr), var(--dg), var(--db), .5);
+        }
+
+        #mainWrap { opacity: 0; transform: translateY(10px); transition: opacity .5s ease, transform .5s cubic-bezier(.22, .85, .32, 1); }
+        #mainWrap.in { opacity: 1; transform: translateY(0); }
+        #resultCard { opacity: 0; transform: translateY(14px); transition: opacity .4s ease, transform .4s cubic-bezier(.22, .85, .32, 1); }
+        #resultCard.in { opacity: 1; transform: translateY(0); }
+        .fade-in { animation: fadeIn .5s ease both; }
+        .fade-in.d1 { animation-delay: .05s; }
+        .fade-in.d2 { animation-delay: .12s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Skeleton loader ── */
+        .loader-wrap { position: fixed; inset: 0; z-index: 50; background: #030303; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 40px 0; }
+        .skeleton-page { width: 100%; max-width: 640px; padding: 0 24px; }
+        .skel { position: relative; overflow: hidden; border-radius: 10px; background: #111114; }
+        .skel::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(var(--dr), var(--dg), var(--db), .14), transparent);
+            transform: translateX(-100%);
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+        .skeleton-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+        .skel-logo { width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0; }
+        .skel-header-lines { flex: 1; }
+
+        .skeleton-card { background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); border-radius: 24px; padding: 28px; }
+        .skel-field { height: 52px; border-radius: 14px; }
+    </style>
+</head>
+
+<body>
+
+    <div id="blobUno" class="bg-blob"></div>
+    <div id="blobDos" class="bg-blob"></div>
+
+    <div id="loaderScreen" class="loader-wrap">
+        <div class="skeleton-page">
+            <div class="skeleton-header">
+                <div class="skel skel-logo"></div>
+                <div class="skel-header-lines">
+                    <div class="skel skel-line" style="width:140px;height:11px;"></div>
+                    <div class="skel skel-line" style="width:200px;height:20px;margin-top:8px;"></div>
+                </div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skel skel-line" style="width:50%;height:12px;margin-bottom:14px;"></div>
+                <div class="skel skel-field"></div>
+            </div>
+        </div>
+    </div>
+
+    <main id="mainWrap" style="display:none;" class="max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16">
+
+        <!-- HEADER -->
+        <div class="flex items-center gap-4 mb-8 fade-in">
+            <div id="logoWrap"
+                class="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-lg">
+                <img id="bizLogo" style="display:none;width:100%;height:100%;object-fit:cover;" />
+                <span id="bizLogoLetter" class="font-black text-xl accent"></span>
+            </div>
+            <div class="min-w-0">
+                <p class="uppercase tracking-[3px] text-xs accent font-bold mb-1">Seguimiento de Reclamación</p>
+                <h1 id="bizNombre" class="text-xl md:text-2xl font-black leading-tight truncate"></h1>
+            </div>
+        </div>
+
+        <!-- BUSCADOR -->
+        <form id="buscarForm" class="glass card-glow rounded-3xl p-6 md:p-8 mb-6 fade-in d1">
+            <label class="field-label"><i class="fa-solid fa-magnifying-glass"></i> Código de seguimiento</label>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input id="codigoInput" class="search-input" type="text" placeholder="RC-2609-XXXXXX" autocomplete="off" />
+                <button type="submit" id="buscarBtn"
+                    class="btn-primary px-8 py-4 rounded-2xl font-bold text-[15px] whitespace-nowrap">
+                    <i class="fa-solid fa-magnifying-glass mr-2"></i> Buscar
+                </button>
+            </div>
+            <p id="searchError" class="search-error"></p>
+        </form>
+
+        <!-- RESULTADO -->
+        <div id="resultCard" class="glass rounded-3xl p-6 md:p-9" style="display:none;">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div class="codigo-box">
+                    <i class="fa-solid fa-hashtag accent"></i>
+                    <span id="resultCodigo" class="text-lg font-black accent tracking-wider"></span>
+                </div>
+                <span id="resultEstado" class="status-pill status-default">
+                    <span class="status-dot"></span>
+                    <span id="resultEstadoTexto">—</span>
+                </span>
+            </div>
+            <div id="resultBody"></div>
+        </div>
+
+        <!-- NO ENCONTRADO -->
+        <div id="notFoundCard" class="glass rounded-3xl p-10 stext-center fade-in" style="display:none;">
+            <div class="text-4xl mb-3">🔍</div>
+            <h3 class="text-lg font-black mb-1">No encontramos ese código</h3>
+            <p class="text-gray-400 text-sm">Revisa que esté bien escrito, tal como te lo dimos al enviar tu reclamación.</p>
+        </div>
+
+        <p class="text-center text-gray-600 text-xs mt-10">Libro de Reclamaciones · Seguimiento</p>
+    </main>
+
+    <!-- NOT AVAILABLE SCREEN -->
+    <div id="notAvailableScreen" style="display:none;" class="min-h-screen flex items-center justify-center px-6">
+        <div class="glass rounded-3xl p-10 max-w-md text-center fade-in">
+            <div class="text-5xl mb-4">📕</div>
+            <h2 class="text-xl font-black mb-2">No disponible</h2>
+            <p class="text-gray-400 text-sm" id="notAvailableMsg">Este negocio no tiene activo el Libro de Reclamaciones.</p>
+        </div>
+    </div>
+
+</body>
+
+</html>

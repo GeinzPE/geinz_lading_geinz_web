@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Legal · Geinz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --dr: 139;
+            --dg: 92;
+            --db: 246;
+            --bg: #050505;
+            --surface: rgba(255, 255, 255, .03);
+            --surface-2: rgba(255, 255, 255, .05);
+            --border: rgba(255, 255, 255, .08);
+            --muted: #9c9ca3;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: #f2f2f5;
+            font-family: 'DM Sans', system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-display {
+            font-family: 'Sora', 'DM Sans', sans-serif;
+        }
+
+        ::selection {
+            background: rgba(var(--dr), var(--dg), var(--db), .35);
+        }
+
+        /* Scrollbar discreto */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .12);
+            border-radius: 8px;
+        }
+
+        .accent-grad {
+            background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .65));
+        }
+
+        .accent-text {
+            color: rgb(var(--dr), var(--dg), var(--db));
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+        }
+
+        .card-tight {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+
+        .field-input,
+        .field-textarea,
+        .field-select {
+            width: 100%;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 11px 13px;
+            font-size: 14px;
+            color: #fff;
+            outline: none;
+            transition: border-color .15s ease, background .15s ease;
+        }
+
+        .field-input:focus,
+        .field-textarea:focus,
+        .field-select:focus {
+            border-color: rgba(var(--dr), var(--dg), var(--db), .6);
+            background: rgba(255, 255, 255, .06);
+        }
+
+        .field-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        /* Toggle switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .switch-track {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, .14);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background .2s ease;
+        }
+
+        .switch-track::before {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform .2s ease;
+        }
+
+        .switch input:checked+.switch-track {
+            background: rgb(var(--dr), var(--dg), var(--db));
+        }
+
+        .switch input:checked+.switch-track::before {
+            transform: translateX(18px);
+        }
+
+        .switch input:disabled+.switch-track {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        /* Tabs */
+        .legal-tab {
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+
+        .legal-tab.active {
+            color: #fff;
+            background: rgba(var(--dr), var(--dg), var(--db), .16);
+            border-color: rgba(var(--dr), var(--dg), var(--db), .4);
+        }
+
+        .legal-tab:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+
+        .legal-tab .tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            margin-left: 6px;
+            border-radius: 999px;
+            background: #ff3b3b;
+            color: #fff;
+            font-size: 10.5px;
+            font-weight: 700;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .btn-primary {
+            background: rgb(var(--dr), var(--dg), var(--db));
+            background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .7));
+            color: #fff;
+            font-weight: 700;
+            font-size: 13.5px;
+            padding: 11px 20px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 8px 20px -8px rgba(var(--dr), var(--dg), var(--db), .55);
+            transition: transform .15s ease, opacity .15s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, .05);
+            color: #e4e4e7;
+            font-weight: 600;
+            font-size: 13.5px;
+            padding: 11px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .btn-danger {
+            background: rgba(255, 107, 107, .1);
+            color: #ff6b6b;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 9px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 107, 107, .35);
+            cursor: pointer;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            font-weight: 700;
+            padding: 5px 11px;
+            border-radius: 999px;
+            text-transform: capitalize;
+        }
+
+        .status-pendiente {
+            background: rgba(255, 176, 32, .14);
+            color: #ffb020;
+            border: 1px solid rgba(255, 176, 32, .35);
+        }
+
+        .status-respondido,
+        .status-resuelto {
+            background: rgba(52, 211, 153, .14);
+            color: #34d399;
+            border: 1px solid rgba(52, 211, 153, .35);
+        }
+
+        .status-rechazado {
+            background: rgba(255, 107, 107, .14);
+            color: #ff6b6b;
+            border: 1px solid rgba(255, 107, 107, .35);
+        }
+
+        .claim-row {
+            cursor: pointer;
+            transition: background .15s ease, border-color .15s ease;
+        }
+
+        .claim-row:hover {
+            background: rgba(255, 255, 255, .035);
+            border-color: rgba(var(--dr), var(--dg), var(--db), .3);
+        }
+
+        /* Drawer de detalle de reclamo */
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 2, 4, .7);
+            backdrop-filter: blur(4px);
+            z-index: 40;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .25s ease, visibility .25s ease;
+        }
+
+        .drawer-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .drawer-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            max-width: 480px;
+            background: #0b0b0d;
+            border-left: 1px solid var(--border);
+            z-index: 41;
+            transform: translateX(100%);
+            transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+            overflow-y: auto;
+            padding: 22px 20px 100px;
+        }
+
+        .drawer-panel.open {
+            transform: translateX(0);
+        }
+
+        /* Editor de párrafos (políticas / términos) */
+        .paragraph-item {
+            position: relative;
+        }
+
+        .paragraph-remove {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 107, 107, .12);
+            color: #ff6b6b;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, .025);
+            border: 1px solid var(--border);
+        }
+
+        .checkbox-row input {
+            width: 17px;
+            height: 17px;
+            accent-color: rgb(var(--dr), var(--dg), var(--db));
+        }
+
+        .toast-legal {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #111;
+            color: #fff;
+            padding: 13px 22px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .4);
+            z-index: 100;
+            opacity: 0;
+            transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .3s;
+            max-width: 320px;
+            text-align: center;
+        }
+
+        .toast-legal.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 46px 20px;
+            color: var(--muted);
+            font-size: 13.5px;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2.5px solid rgba(var(--dr), var(--dg), var(--db), .25);
+            border-top-color: rgb(var(--dr), var(--dg), var(--db));
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 420px) {
+            .drawer-panel {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 md:py-8 max-w-5xl mx-auto">
+
+        <!-- ═══ ENCABEZADO ═══ -->
+        <header class="mb-6">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                    <h1 class="text-2xl sm:text-[28px] font-bold tracking-tight">Legal</h1>
+                    <p class="text-sm text-[color:var(--muted)] mt-1 max-w-md">
+                        Administra tu libro de reclamaciones, políticas de privacidad y términos y condiciones.
+                    </p>
+                </div>
+                <div id="legalLoadingBadge" class="flex items-center gap-2 text-xs text-[color:var(--muted)]">
+                    <div class="spinner"></div> Cargando…
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══ CONFIGURACIÓN MAESTRA (footer.activo / libro / politicas / terminos) ═══ -->
+        <section class="card p-5 sm:p-6 mb-6">
+            <div class="flex items-center justify-between gap-4 mb-1">
+                <div>
+                    <h2 class="text-[15px] font-bold">Visibilidad en tu perfil público</h2>
+                    <p class="text-xs text-[color:var(--muted)] mt-1">
+                        Si apagas "Sección legal", ningún enlace legal se mostrará en tu perfil, sin importar los
+                        interruptores de abajo.
+                    </p>
+                </div>
+                <label class="switch" title="Activar/desactivar toda la sección legal">
+                    <input type="checkbox" id="toggleFooterActivo" data-config="activo">
+                    <span class="switch-track"></span>
+                </label>
+            </div>
+
+            <div id="subTogglesWrap" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+                <div class="checkbox-row justify-between !py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">📕</span>
+                        <span class="text-[13px] font-semibold">Libro de reclamaciones</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggleLibro" data-config="libro_reclamaciones">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+                <div class="checkbox-row justify-between !py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">🔒</span>
+                        <span class="text-[13px] font-semibold">Políticas de privacidad</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="togglePoliticas" data-config="politicas_privacidad">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+                <div class="checkbox-row justify-between !py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">📄</span>
+                        <span class="text-[13px] font-semibold">Términos y condiciones</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggleTerminos" data-config="terminos_condiciones">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ TABS ═══ -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 mb-5" id="legalTabs">
+            <button class="legal-tab active" data-tab="libro" id="tabBtnLibro">📕 Libro de reclamaciones</button>
+            <button class="legal-tab" data-tab="reclamos" id="tabBtnReclamos">
+                🗂️ Reclamos <span class="tab-badge" id="reclamosPendCount" style="display:none">0</span>
+            </button>
+            <button class="legal-tab" data-tab="politicas" id="tabBtnPoliticas">🔒 Políticas de privacidad</button>
+            <button class="legal-tab" data-tab="terminos" id="tabBtnTerminos">📄 Términos y condiciones</button>
+        </div>
+
+        <!-- ═══ TAB: LIBRO DE RECLAMACIONES ═══ -->
+        <div class="tab-panel active" id="panelLibro">
+            <section class="card p-5 sm:p-6 space-y-5">
+                <div>
+                    <h3 class="text-[15px] font-bold mb-1">Datos del libro</h3>
+                    <p class="text-xs text-[color:var(--muted)]">Esta información aparece en la cabecera de tu libro
+                        de reclamaciones virtual.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="field-label">Título</label>
+                        <input type="text" class="field-input" id="libroTitulo" placeholder="Ej. Reclama tus costos">
+                    </div>
+                    <div>
+                        <label class="field-label">RUC</label>
+                        <input type="text" class="field-input" id="libroRuc" placeholder="20XXXXXXXXX">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="field-label">Razón social</label>
+                    <input type="text" class="field-input" id="libroRazonSocial"
+                        placeholder="Nombre legal de tu empresa">
+                </div>
+
+                <div>
+                    <label class="field-label">Descripción</label>
+                    <textarea class="field-textarea" id="libroDescripcion" rows="3"
+                        placeholder="Ej. Libro de reclamaciones virtual directo para SUNAT e INDECOPI"></textarea>
+                </div>
+
+                <div>
+                    <label class="field-label mb-3">Campos que pedirás en el formulario de reclamo</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5" id="libroCamposGrid">
+                        <!-- generado dinámicamente por legal.js a partir del mapa "campos" -->
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2 flex-wrap">
+                    <button class="btn-primary" id="btnGuardarLibro">Guardar cambios</button>
+                    <span class="text-xs text-[color:var(--muted)]" id="libroSavedHint"></span>
+                </div>
+            </section>
+        </div>
+
+        <!-- ═══ TAB: RECLAMOS ═══ -->
+        <div class="tab-panel" id="panelReclamos">
+            <section class="card p-4 sm:p-6">
+                <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                    <h3 class="text-[15px] font-bold">Reclamos recibidos</h3>
+                    <select class="field-select !w-auto text-xs" id="filtroEstadoReclamos">
+                        <option value="todos">Todos los estados</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="respondido">Respondidos</option>
+                        <option value="resuelto">Resueltos</option>
+                    </select>
+                </div>
+
+                <div id="reclamosLoading" class="empty-state" style="display:none">
+                    <div class="spinner mx-auto mb-2"></div> Cargando reclamos…
+                </div>
+                <div id="reclamosEmpty" class="empty-state" style="display:none">
+                    Aún no tienes reclamos registrados 📭
+                </div>
+
+                <div id="reclamosList" class="space-y-2.5"></div>
+            </section>
+        </div>
+
+        <!-- ═══ TAB: POLÍTICAS DE PRIVACIDAD ═══ -->
+        <div class="tab-panel" id="panelPoliticas">
+            <section class="card p-5 sm:p-6 space-y-5">
+                <div>
+                    <h3 class="text-[15px] font-bold mb-1">Políticas de privacidad</h3>
+                    <p class="text-xs text-[color:var(--muted)]">Se guarda como un título y una lista de párrafos,
+                        para que se vea ordenado en tu perfil público.</p>
+                </div>
+
+                <div>
+                    <label class="field-label">Título</label>
+                    <input type="text" class="field-input" id="politicasTitulo"
+                        placeholder="Ej. Política de privacidad">
+                </div>
+
+                <div>
+                    <label class="field-label mb-3">Contenido (párrafos)</label>
+                    <div id="politicasParrafos" class="space-y-3"></div>
+                    <button class="btn-ghost mt-3 w-full sm:w-auto" id="btnAgregarParrafoPoliticas">+ Agregar
+                        párrafo</button>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2 flex-wrap">
+                    <button class="btn-primary" id="btnGuardarPoliticas">Guardar cambios</button>
+                    <span class="text-xs text-[color:var(--muted)]" id="politicasSavedHint"></span>
+                </div>
+            </section>
+        </div>
+
+        <!-- ═══ TAB: TÉRMINOS Y CONDICIONES ═══ -->
+        <div class="tab-panel" id="panelTerminos">
+            <section class="card p-5 sm:p-6 space-y-5">
+                <div>
+                    <h3 class="text-[15px] font-bold mb-1">Términos y condiciones</h3>
+                    <p class="text-xs text-[color:var(--muted)]">Mismo formato que políticas: título + párrafos.</p>
+                </div>
+
+                <div>
+                    <label class="field-label">Título</label>
+                    <input type="text" class="field-input" id="terminosTitulo"
+                        placeholder="Ej. Términos y condiciones de uso">
+                </div>
+
+                <div>
+                    <label class="field-label mb-3">Contenido (párrafos)</label>
+                    <div id="terminosParrafos" class="space-y-3"></div>
+                    <button class="btn-ghost mt-3 w-full sm:w-auto" id="btnAgregarParrafoTerminos">+ Agregar
+                        párrafo</button>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2 flex-wrap">
+                    <button class="btn-primary" id="btnGuardarTerminos">Guardar cambios</button>
+                    <span class="text-xs text-[color:var(--muted)]" id="terminosSavedHint"></span>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+    <!-- ═══ PLANTILLA: fila de reclamo (clonada por JS) ═══ -->
+    <template id="tplReclamoRow">
+        <div class="claim-row card-tight p-4" data-claim-id="">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[13.5px] font-bold truncate" data-field="nombreCompleto">—</p>
+                    <p class="text-[11.5px] text-[color:var(--muted)] mt-0.5" data-field="codigo">—</p>
+                </div>
+                <span class="status-pill" data-field="estadoPill">—</span>
+            </div>
+            <p class="text-[12.5px] text-[#d4d4d8] mt-2.5 line-clamp-2" data-field="descripcion">—</p>
+            <div class="flex items-center justify-between mt-3">
+                <span class="text-[11px] text-[color:var(--muted)]" data-field="fecha">—</span>
+                <span class="text-[11px] font-bold accent-text">S/ <span data-field="monto">0</span></span>
+            </div>
+        </div>
+    </template>
+
+    <!-- ═══ DRAWER: detalle / respuesta de reclamo ═══ -->
+    <div class="drawer-overlay" id="reclamoDrawerOverlay"></div>
+    <aside class="drawer-panel" id="reclamoDrawerPanel">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-[16px] font-bold">Detalle del reclamo</h3>
+            <button class="btn-ghost !px-3 !py-2" id="reclamoDrawerClose">✕</button>
+        </div>
+
+        <div class="space-y-4 text-[13.5px]">
+            <div class="flex items-center justify-between">
+                <span class="text-[color:var(--muted)] text-xs">Código de seguimiento</span>
+                <span class="font-bold" id="drawerCodigo">—</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-[color:var(--muted)] text-xs">Estado actual</span>
+                <span class="status-pill" id="drawerEstadoPill">—</span>
+            </div>
+
+            <div class="card-tight p-4 space-y-2.5">
+                <p><span class="text-[color:var(--muted)] text-xs block">Consumidor</span><span
+                        id="drawerNombre">—</span></p>
+                <p><span class="text-[color:var(--muted)] text-xs block">Documento</span><span
+                        id="drawerDocumento">—</span></p>
+                <p><span class="text-[color:var(--muted)] text-xs block">Correo</span><span
+                        id="drawerCorreo">—</span></p>
+                <p><span class="text-[color:var(--muted)] text-xs block">Dirección</span><span
+                        id="drawerDireccion">—</span></p>
+                <p><span class="text-[color:var(--muted)] text-xs block">Padre/Madre/Apoderado</span><span
+                        id="drawerApoderado">—</span></p>
+            </div>
+
+            <div class="card-tight p-4 space-y-2.5">
+                <p><span class="text-[color:var(--muted)] text-xs block">Tipo de reclamo</span><span
+                        id="drawerTipoPedido">—</span></p>
+                <p><span class="text-[color:var(--muted)] text-xs block">Monto reclamado</span><span
+                        id="drawerMonto">—</span></p>
+                <p><span class="text-[color:var(--muted)] text-xs block">Descripción</span><span
+                        id="drawerDescripcion">—</span></p>
+                <p><span class="text-[color:var(--muted)] text-xs block">Detalle</span><span
+                        id="drawerDetalle">—</span></p>
+            </div>
+
+            <div>
+                <label class="field-label">Cambiar estado</label>
+                <select class="field-select" id="drawerEstadoSelect">
+                    <option value="pendiente">Pendiente</option>
+                    <option value="respondido">Respondido</option>
+                    <option value="resuelto">Resuelto</option>
+                    <option value="rechazado">Rechazado</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="field-label">Tu respuesta</label>
+                <textarea class="field-textarea" id="drawerRespuestaInput" rows="4"
+                    placeholder="Escribe la respuesta que verá el consumidor…"></textarea>
+                <p class="text-[11px] text-[color:var(--muted)] mt-2" id="drawerRespuestaFechaHint"></p>
+            </div>
+
+            <button class="btn-primary w-full" id="drawerGuardarBtn">Guardar respuesta y estado</button>
+        </div>
+    </aside>
+
+    <div class="toast-legal" id="legalToast"></div>
+
+    <audio id="reclamoSound" src="../sound.mp3" preload="auto"></audio>
+
+    <!-- La lógica de Firebase (leer/guardar en Firestore, reproducir sonido en tiempo real, etc.)
+         va en legal.js — se conecta en el siguiente paso. -->
+    <script type="module" src="../js/dasboardjs/legal.js"></script>
+</body>
+
+</html>

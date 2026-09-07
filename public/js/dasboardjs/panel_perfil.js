@@ -232,9 +232,7 @@ window.PanelPerfil = {
 
   _ensureResenaAudio() {
     if (!this._resenaAudio) {
-      this._resenaAudio = new Audio(
-        "../../sounds/nueva_review_cliente.mp3",
-      ); // 👈 ajusta el nombre real
+      this._resenaAudio = new Audio("../../sounds/nueva_review_cliente.mp3"); // 👈 ajusta el nombre real
       this._resenaAudio.volume = 0.6;
     }
     return this._resenaAudio;
@@ -279,14 +277,14 @@ window.PanelPerfil = {
   },
 
   showPedidosBadge() {
-  document.getElementById("dot-pedidos")?.classList.add("show");
-  document.getElementById("dot-pedidos-mobile")?.classList.add("show");
-},
+    document.getElementById("dot-pedidos")?.classList.add("show");
+    document.getElementById("dot-pedidos-mobile")?.classList.add("show");
+  },
 
-hidePedidosBadge() {
-  document.getElementById("dot-pedidos")?.classList.remove("show");
-  document.getElementById("dot-pedidos-mobile")?.classList.remove("show");
-},
+  hidePedidosBadge() {
+    document.getElementById("dot-pedidos")?.classList.remove("show");
+    document.getElementById("dot-pedidos-mobile")?.classList.remove("show");
+  },
 
   showFidelizacionBadge() {
     document.getElementById("dot-fidelizacion")?.classList.add("show");
@@ -2088,7 +2086,7 @@ hidePedidosBadge() {
 
   load_pedidos_vivos() {
     this.showSection("pedidos");
-      this.hidePedidosBadge(); 
+    this.hidePedidosBadge();
   },
 
   loadMisPublicaciones() {
@@ -2096,6 +2094,12 @@ hidePedidosBadge() {
     this.hideResenaBadge(); // 👈 nuevo
   },
 
+  loadLegal() {
+    this.showSection("legal");
+    // apaga el punto de notificación si algún día lo usas para "hay un reclamo nuevo"
+    document.getElementById("dot-legal")?.classList.remove("show");
+    document.getElementById("dot-legal-mobile")?.classList.remove("show");
+  },
   loadHistorialGasto() {
     this.showSection("historialgasto");
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí

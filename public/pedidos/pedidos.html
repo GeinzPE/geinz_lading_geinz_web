@@ -706,7 +706,10 @@
           <p class="eyebrow font-mono" id="negocio-localidad" style="margin:0.15rem 0 0;"></p>
         </div>
       </header>
-
+<a id="btn-whatsapp" href="#" target="_blank" rel="noopener" class="hidden fade-in"
+   style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.7rem;border-radius:0.8rem;background:#25D366;color:#04220f;font-weight:600;text-decoration:none;font-size:0.85rem;">
+  📞 Contactar con el negocio
+</a>
       <!-- Status card -->
       <!-- Status card -->
       <section class="card fade-in" aria-label="Estado del pedido">
@@ -768,6 +771,18 @@
       </section>
 
       <p class="foot-note">Actualiza automáticamente en tiempo real</p>
+    </div>
+    <div id="auth-modal" class="hidden"
+      style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:50;">
+      <div class="card" style="max-width:22rem;text-align:center;">
+        <p class="font-display" style="font-size:1.1rem;margin:0 0 .5rem;">Inicia sesión para ver tu pedido</p>
+        <p class="text-secondary" style="font-size:0.85rem;margin:0 0 1rem;">
+          Por seguridad, solo la persona que realizó este pedido puede verlo. Regístrate o inicia sesión para continuar.
+        </p>
+        <a href="/registro"
+          style="display:block;padding:0.75rem;border-radius:0.8rem;background:var(--accent);color:#04222f;font-weight:700;text-decoration:none;">Registrarme
+          / Iniciar sesión</a>
+      </div>
     </div>
   </div>
 

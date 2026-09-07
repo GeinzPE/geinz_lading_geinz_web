@@ -51,8 +51,6 @@ export function tiendasDelDistritoCol(localidad) {
 }
 
 // ── Catálogo de productos (por categoría) ──
-// .../tiendas/<negocioId>/productos                       -> 1 doc por categoría
-// .../tiendas/<negocioId>/productos/<categoria>/<categoria> -> productos de esa categoría
 export function categoriasCol(localidad, negocioId) {
   return tiendaSubCol(localidad, "tiendas", negocioId, "productos");
 }
@@ -104,7 +102,48 @@ export function tokenFcmDoc(uid) {
 export function clienteHistorialCol(localidad, negocioId, clienteId) {
   return tiendaSubCol(localidad, "tiendas", negocioId, "clientes", clienteId, "historial");
 }
- 
+
 export function clienteHistorialDoc(localidad, negocioId, clienteId, pedidoId) {
   return tiendaSubDoc(localidad, "tiendas", negocioId, "clientes", clienteId, "historial", pedidoId);
+}
+
+// ══════════════════════════════════════════
+//  LEGAL: libro de reclamaciones, políticas y términos
+//  .../tiendas/<negocioId>/politicas/legal/<seccion>/<docId>
+// ══════════════════════════════════════════
+
+// Config del libro de reclamaciones (título, descripción, campos activos, opciones de selects)
+export function libroReclamacionesConfigDoc(localidad, negocioId) {
+  return tiendaSubDoc(
+    localidad, "tiendas", negocioId,
+    "politicas", "legal", "libro_reclamaciones", "contenido_libro",
+  );
+}
+
+// Reclamos enviados por los usuarios: un doc por reclamo (id autogenerado)
+// .../politicas/legal/reclamaciones/{autoId}
+export function reclamacionesCol(localidad, negocioId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "politicas", "legal", "reclamaciones");
+}
+
+export function reclamacionDoc(localidad, negocioId, reclamoId) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "politicas", "legal", "reclamaciones", reclamoId);
+}
+
+// Políticas de privacidad
+// .../politicas/legal/politicas_privacidad/politicas
+export function politicasPrivacidadDoc(localidad, negocioId) {
+  return tiendaSubDoc(
+    localidad, "tiendas", negocioId,
+    "politicas", "legal", "politicas_privacidad", "politicas",
+  );
+}
+
+// Términos y condiciones
+// .../politicas/legal/terminos_condiciones/terminos_condiciones
+export function terminosCondicionesDoc(localidad, negocioId) {
+  return tiendaSubDoc(
+    localidad, "tiendas", negocioId,
+    "politicas", "legal", "terminos_condiciones", "terminos_condiciones",
+  );
 }

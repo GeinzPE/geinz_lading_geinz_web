@@ -168,7 +168,12 @@
                         </button>
                     </div>
                 </div>
-
+                <!-- ═══ Pega esto JUSTO ANTES de <div class="sidebar-group"> que contiene "Recargas" ═══ -->
+                <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
+                    <span class="sbb-icon">⚖️</span>
+                    <span class="sbb-label">Legal</span>
+                    <span class="notif-dot" id="dot-legal"></span>
+                </button>
                 <div class="sidebar-vincular-wrap">
                     <p class="sidebar-vincular-text">Vincula tu cuenta para la próxima vez</p>
                     <button class="sidebar-vincular-btn" onclick="PanelPerfil.vincularCuenta?.()">
@@ -244,6 +249,18 @@
                     </iframe>
                 </div>
 
+
+                <!-- ═══ Pega esto junto a las demás <div class="section" id="sec-..."> (por ejemplo, después de sec-recargas) ═══ -->
+                <div class="section" id="sec-legal">
+                    <iframe id="iframeLegal" src="legal.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    "></iframe>
+                </div>
                 <div class="section" id="sec-daniel">
                     <iframe src="lading_daniel" style="
                         width:100%;
@@ -499,6 +516,14 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- ═══ Pega esto JUSTO ANTES de <div class="mobile-menu-group"> que contiene "Recargas" ═══ -->
+                    <button class="mobile-menu-item" id="mmb-legal"
+                        onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
+                        <span>⚖️</span>
+                        <span>Legal</span>
+                        <span class="notif-dot" id="dot-legal-mobile"></span>
+                    </button>
 
                     <button class="sidebar-vincular-btn" style="margin-top:8px;width:100%"
                         onclick="PanelPerfil.vincularCuenta?.(); PanelPerfil.toggleMobileMenu()">

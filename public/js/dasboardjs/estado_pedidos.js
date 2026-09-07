@@ -5,9 +5,15 @@ import {
   serverTimestamp,
   enableIndexedDbPersistence,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { db } from "/js/db/db.js";
 import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
 import { setFaviconCircular } from "/js/favicon/favicon.js"; // ajusta la ruta a donde tengas el archivo
+
+const auth = getAuth();
 
 // Cache local: si el pedido se vuelve a abrir (o hay un corte de red breve),
 // se sirve desde disco al instante en vez de esperar a la red.
@@ -91,6 +97,14 @@ const showContent = () => {
   el("content").classList.remove("hidden");
 };
 
+// Muestra el aviso de "inicia sesión / regístrate" cuando no hay usuario
+// autenticado o cuando el pedido no pertenece al usuario autenticado.
+function mostrarModalRegistro() {
+  showEmpty(); // oculta skeleton/contenido de fondo
+  const modal = el("auth-modal");
+  if (modal) modal.classList.remove("hidden");
+}
+
 // Ejecuta una función en un momento ocioso del navegador (o con un pequeño retraso
 // como respaldo). Evita que trabajo no crítico -como leer los píxeles del logo-
 // bloquee el primer pintado en equipos de gama baja.
@@ -111,7 +125,13 @@ let pedidoRefGlobal = null; // referencia del doc del pedido, usada por el banne
 if (!ids) {
   showEmpty();
 } else {
-  init(ids.negocioId, ids.pedidoId);
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      mostrarModalRegistro();
+      return;
+    }
+    init(ids.negocioId, ids.pedidoId, user.uid);
+  });
 }
 
 // Pide permiso de notificaciones en la primera interacción del cliente
@@ -126,6 +146,11 @@ document.addEventListener(
   { once: true },
 );
 
+// Refleja el estado de conexión del navegador al instante, sin depender
+// de que llegue un nuevo snapshot de Firestore para actualizarlo.
+window.addEventListener("online", () => mostrarBannerConexion(false));
+window.addEventListener("offline", () => mostrarBannerConexion(true));
+
 // Limpia los listeners activos de Firestore si la pestaña se cierra o el
 // usuario navega fuera. Evita fugas de memoria/lecturas fantasma a escala.
 window.addEventListener("beforeunload", () => {
@@ -133,10 +158,10 @@ window.addEventListener("beforeunload", () => {
   if (unsubPedido) unsubPedido();
 });
 
-function init(negocioId, pedidoId) {
+function init(negocioId, pedidoId, uidActual) {
   showSkeleton();
 
-  // --- Datos del negocio (logo, nombre) ---
+  // --- Datos del negocio (logo, nombre, contacto) ---
   try {
     const negocioRef = tiendaDoc(LOCALIDAD_FIJA, "tiendas", negocioId);
     unsubNegocio = onSnapshot(
@@ -153,6 +178,13 @@ function init(negocioId, pedidoId) {
         el("negocio-localidad").textContent = LOCALIDAD_FIJA;
         el("negocio-nombre").closest("header") &&
           (document.title = `Pedido · ${nombre}`);
+
+        // Botón de contacto por WhatsApp, si el negocio lo tiene habilitado
+        const wa = data.metodo_contacto?.whatsapp;
+        if (wa?.estado && wa?.numero) {
+          renderBotonWhatsapp(wa.numero, nombre);
+        }
+
         if (logoUrl) {
           el("logo-img").alt = nombre;
           el("logo-img").src = logoUrl;
@@ -187,9 +219,10 @@ function init(negocioId, pedidoId) {
   );
   pedidoRefGlobal = pedidoRef; // guardamos la referencia para el banner de pausa
 
+  let ultimoDataJSON = null; // evita re-render si el snapshot no trae cambios reales
+
   unsubPedido = onSnapshot(
     pedidoRef,
-    { includeMetadataChanges: true },
     async (snap) => {
       if (!snap.exists()) {
         console.warn("[pedidos] El documento del PEDIDO no existe");
@@ -198,8 +231,24 @@ function init(negocioId, pedidoId) {
       }
 
       const data = snap.data();
-      const nuevoEstado = normalizarEstado(data.estado);
 
+      // Optimización: si el contenido es idéntico al último renderizado
+      // (ej. eco de una escritura local u otro evento sin cambios reales),
+      // no se vuelve a procesar ni pintar el DOM.
+      const dataJSON = JSON.stringify(data);
+      if (dataJSON === ultimoDataJSON) return;
+      ultimoDataJSON = dataJSON;
+
+      // Seguridad: si el pedido tiene dueño registrado y no coincide con el
+      // usuario autenticado, no se muestra el contenido — se pide iniciar
+      // sesión/registrarse.
+      if (data.cliente?.uid && data.cliente.uid !== uidActual) {
+        if (unsubPedido) unsubPedido();
+        mostrarModalRegistro();
+        return;
+      }
+
+      const nuevoEstado = normalizarEstado(data.estado);
       renderPedido(data);
 
       // Si el estado cambió respecto al anterior (y no es la primera carga),
@@ -220,7 +269,7 @@ function init(negocioId, pedidoId) {
       }
 
       showContent();
-      mostrarBannerConexion(snap.metadata.fromCache);
+      mostrarBannerConexion(!navigator.onLine);
     },
     (error) => {
       console.error(
@@ -235,6 +284,19 @@ function init(negocioId, pedidoId) {
 
 function mostrarBannerConexion(sinConexion) {
   el("conn-banner").classList.toggle("hidden", !sinConexion);
+}
+
+// Arma el enlace de WhatsApp hacia el negocio con un mensaje predefinido
+function renderBotonWhatsapp(numero, nombreNegocio) {
+  const btn = el("btn-whatsapp");
+  if (!btn) return;
+  const numeroLimpio = String(numero).replace(/\D/g, "");
+  if (!numeroLimpio) return;
+  const mensaje = encodeURIComponent(
+    `Hola, tengo una consulta sobre mi pedido en ${nombreNegocio}.`,
+  );
+  btn.href = `https://wa.me/51${numeroLimpio}?text=${mensaje}`;
+  btn.classList.remove("hidden");
 }
 
 function notificarCambioEstado(nuevoEstado, data) {

@@ -25,7 +25,8 @@ function normalizarCategoria(cat) {
 
 let categoriaTienda = sessionStorage.getItem("categoriaTienda") || null;
 let nombreTienda = sessionStorage.getItem("nombreTienda") || null;
-let esRestaurante = normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+let esRestaurante =
+  normalizarCategoria(categoriaTienda) === "comida y restaurantes";
 
 const TEXTOS_RESTAURANTE = {
   itemsVendidosLabel: "Platos vendidos",
@@ -65,7 +66,8 @@ if (!tiendaId || !localidad) {
     localidad = e.data.localidad;
     if (e.data.categoriaTienda) {
       categoriaTienda = e.data.categoriaTienda;
-      esRestaurante = normalizarCategoria(categoriaTienda) === "comida y restaurantes";
+      esRestaurante =
+        normalizarCategoria(categoriaTienda) === "comida y restaurantes";
     }
     if (e.data.nombreTienda) {
       nombreTienda = e.data.nombreTienda;
@@ -111,7 +113,8 @@ function mostrarCargaRango() {
   const bar = document.getElementById("rangeLoadingBar");
   if (bar) bar.classList.remove("hidden");
   const metricsWrap = document.getElementById("metricsSections");
-  if (metricsWrap) metricsWrap.classList.add("opacity-40", "pointer-events-none");
+  if (metricsWrap)
+    metricsWrap.classList.add("opacity-40", "pointer-events-none");
   mostrarSkeletonLista();
 }
 
@@ -119,7 +122,8 @@ function ocultarCargaRango() {
   const bar = document.getElementById("rangeLoadingBar");
   if (bar) bar.classList.add("hidden");
   const metricsWrap = document.getElementById("metricsSections");
-  if (metricsWrap) metricsWrap.classList.remove("opacity-40", "pointer-events-none");
+  if (metricsWrap)
+    metricsWrap.classList.remove("opacity-40", "pointer-events-none");
 }
 
 function mostrarSkeletonLista() {
@@ -203,7 +207,10 @@ function listenPedidos() {
     getDocs(q)
       .then((snap) => {
         pedidosRaw = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
-        setConnStatus(`conectado · ${pedidosRaw.length} pedidos en el rango`, true);
+        setConnStatus(
+          `conectado · ${pedidosRaw.length} pedidos en el rango`,
+          true,
+        );
         renderAll();
         ocultarLoader();
         ocultarCargaRango();
@@ -260,6 +267,78 @@ function fmtFechaHora(p) {
   return `${d.toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}, ${hora}`;
 }
 
+const ORIGENES_INFO = {
+  delivery: { label: "Delivery / WhatsApp", icon: "🛵", color: "bg-primary" },
+  recojo: { label: "Recojo en local", icon: "🏬", color: "bg-primary/70" },
+  mesa: { label: "Mesa", icon: "🍽️", color: "bg-primary/45" },
+  directo: { label: "Venta directa", icon: "🧾", color: "bg-primary/25" },
+};
+
+function getOrigenInfo(p) {
+  const tipoEntrega = (p.cliente && p.cliente.tipo_entrega) || "";
+  let key = "delivery";
+  if (p.esMesa === true || tipoEntrega === "En mesa") key = "mesa";
+  else if (tipoEntrega === "Venta directa") key = "directo";
+  else if (tipoEntrega === "Recojo en local") key = "recojo";
+  return { key, ...ORIGENES_INFO[key] };
+}
+
+function origenBadge(p) {
+  const info = getOrigenInfo(p);
+  return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-panel2 border border-line text-inkdim">${info.icon} ${info.label}</span>`;
+}
+
+function renderOrigenMetrics(list) {
+  const entregados = list.filter(
+    (p) => (p.estado || "").toLowerCase() === "entregado",
+  );
+  const counts = {};
+  const montos = {};
+  Object.keys(ORIGENES_INFO).forEach((k) => {
+    counts[k] = 0;
+    montos[k] = 0;
+  });
+  list.forEach((p) => {
+    counts[getOrigenInfo(p).key]++;
+  });
+  entregados.forEach((p) => {
+    montos[getOrigenInfo(p).key] += Number(p.total) || 0;
+  });
+
+  const totalCount = list.length;
+  const el = document.getElementById("origenBarList");
+  if (el) {
+    el.innerHTML = Object.entries(ORIGENES_INFO)
+      .map(([key, info]) => {
+        const c = counts[key];
+        const pct = totalCount ? Math.round((c / totalCount) * 100) : 0;
+        return `
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="font-medium text-white">${info.icon} ${info.label}</span>
+            <span class="font-mono text-inkfaint">${c} · ${fmtMoney(montos[key])} · ${pct}%</span>
+          </div>
+          <div class="h-2 rounded-full bg-panel2 overflow-hidden border border-line">
+            <div class="${info.color} h-full rounded-full transition-all" style="width:${pct}%"></div>
+          </div>
+        </div>`;
+      })
+      .join("");
+  }
+
+  let top = null;
+  Object.entries(counts).forEach(([key, c]) => {
+    if (!top || c > top.c) top = { key, c };
+  });
+  const topEl = document.getElementById("origenTopLabel");
+  if (topEl)
+    topEl.textContent =
+      top && top.c > 0
+        ? `${ORIGENES_INFO[top.key].icon} ${ORIGENES_INFO[top.key].label}`
+        : "Sin datos";
+  const topCantEl = document.getElementById("origenTopCant");
+  if (topCantEl) topCantEl.textContent = top ? top.c : 0;
+}
 function estadoBadge(estado) {
   const e = (estado || "").toLowerCase();
   const map = {
@@ -282,7 +361,10 @@ function codigoPedido(p) {
 function telefonoCliente(p) {
   return (
     (p.cliente &&
-      (p.cliente.telefono || p.cliente.phone || p.cliente.whatsapp || p.cliente.celular)) ||
+      (p.cliente.telefono ||
+        p.cliente.phone ||
+        p.cliente.whatsapp ||
+        p.cliente.celular)) ||
     ""
   );
 }
@@ -301,8 +383,10 @@ function showToast(msg) {
 
 function getRangeBounds() {
   const now = new Date();
-  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
-  const endOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  const startOf = (d) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+  const endOf = (d) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
   if (currentRange === "hoy") return [startOf(now), endOf(now)];
   if (currentRange === "ayer") {
@@ -340,12 +424,16 @@ function getFilteredOrders() {
       const d = toDate(p.timestamp);
       if (!d || d < from || d > to) return false;
 
-      if (estadoF !== "todos" && (p.estado || "").toLowerCase() !== estadoF) return false;
+      if (estadoF !== "todos" && (p.estado || "").toLowerCase() !== estadoF)
+        return false;
+      const origenF = document.getElementById("filterOrigen").value;
+      if (origenF !== "todos" && getOrigenInfo(p).key !== origenF) return false;
       if (q) {
         const nombre = ((p.cliente && p.cliente.nombre) || "").toLowerCase();
         const tel = telefonoCliente(p).toLowerCase();
         const cod = codigoPedido(p).toLowerCase();
-        if (!nombre.includes(q) && !tel.includes(q) && !cod.includes(q)) return false;
+        if (!nombre.includes(q) && !tel.includes(q) && !cod.includes(q))
+          return false;
       }
       return true;
     })
@@ -356,7 +444,9 @@ function getFilteredOrders() {
     });
 }
 function renderMetrics(list) {
-  const entregados = list.filter((p) => (p.estado || "").toLowerCase() === "entregado");
+  const entregados = list.filter(
+    (p) => (p.estado || "").toLowerCase() === "entregado",
+  );
   const otros = list.length - entregados.length;
 
   const total = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
@@ -366,7 +456,10 @@ function renderMetrics(list) {
     (s, p) =>
       s +
       (Number(p.total_items) ||
-        (p.productos || []).reduce((x, pr) => x + (Number(pr.cantidad) || 0), 0)),
+        (p.productos || []).reduce(
+          (x, pr) => x + (Number(pr.cantidad) || 0),
+          0,
+        )),
     0,
   );
 
@@ -376,18 +469,25 @@ function renderMetrics(list) {
   document.getElementById("kpiTicket").textContent = fmtMoney(ticket);
   document.getElementById("kpiItems").textContent = items;
 
-  const digitalCount = entregados.filter((p) => esBilleteraDigital(p.pago && p.pago.metodo)).length;
+  const digitalCount = entregados.filter((p) =>
+    esBilleteraDigital(p.pago && p.pago.metodo),
+  ).length;
   const efectivoCount = count - digitalCount;
   renderBarPair(
     "barPago",
     { label: "📱 Yape / Plin", value: digitalCount, color: "bg-primary" },
-    { label: "💵 Efectivo / Tarjeta", value: efectivoCount, color: "bg-primary/40" },
+    {
+      label: "💵 Efectivo / Tarjeta",
+      value: efectivoCount,
+      color: "bg-primary/40",
+    },
     count,
   );
 
   const [from, to] = getRangeBounds();
   renderInteligente(entregados, from, to);
   renderRentabilidad(entregados);
+  renderOrigenMetrics(list);
 }
 
 function renderBarPair(containerId, a, b, total) {
@@ -449,20 +549,32 @@ function computeComparativaTotal(from, to) {
   const [prevFrom, prevTo] = getPreviousRangeBounds(from, to);
   const prevEntregados = pedidosRaw.filter((p) => {
     const d = toDate(p.timestamp) || toDate(p.actualizado);
-    return d && d >= prevFrom && d <= prevTo && (p.estado || "").toLowerCase() === "entregado";
+    return (
+      d &&
+      d >= prevFrom &&
+      d <= prevTo &&
+      (p.estado || "").toLowerCase() === "entregado"
+    );
   });
-  const prevTotal = prevEntregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const prevTotal = prevEntregados.reduce(
+    (s, p) => s + (Number(p.total) || 0),
+    0,
+  );
   return { prevTotal, prevCount: prevEntregados.length };
 }
 
 function renderInteligente(entregados, from, to) {
   const top = computeTopProducto(entregados);
-  document.getElementById("topProductoNombre").textContent = top ? top.nombre : "Sin datos";
+  document.getElementById("topProductoNombre").textContent = top
+    ? top.nombre
+    : "Sin datos";
   document.getElementById("topProductoCant").textContent = top ? top.cant : 0;
 
   const { franjas, horaTop, cantTop } = computeHoraPico(entregados);
-  const labelHora = (h) => `${String(h).padStart(2, "0")}:00 – ${String((h + 1) % 24).padStart(2, "0")}:00`;
-  document.getElementById("horaPicoLabel").textContent = cantTop > 0 ? labelHora(horaTop) : "Sin datos";
+  const labelHora = (h) =>
+    `${String(h).padStart(2, "0")}:00 – ${String((h + 1) % 24).padStart(2, "0")}:00`;
+  document.getElementById("horaPicoLabel").textContent =
+    cantTop > 0 ? labelHora(horaTop) : "Sin datos";
   document.getElementById("horaPicoCant").textContent = cantTop;
 
   const maxFranja = Math.max(...franjas, 1);
@@ -479,7 +591,10 @@ function renderInteligente(entregados, from, to) {
       .join("");
   }
 
-  const totalActual = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const totalActual = entregados.reduce(
+    (s, p) => s + (Number(p.total) || 0),
+    0,
+  );
   const { prevTotal } = computeComparativaTotal(from, to);
   const comparativaLabel = document.getElementById("comparativaLabel");
   const comparativaSub = document.getElementById("comparativaSub");
@@ -491,8 +606,10 @@ function renderInteligente(entregados, from, to) {
     comparativaSub.textContent = `${fmtMoney(totalActual)} vs ${fmtMoney(prevTotal)} anterior`;
   } else {
     comparativaLabel.textContent = totalActual > 0 ? "Nuevo" : "—";
-    comparativaLabel.className = "font-display font-extrabold text-lg text-white";
-    comparativaSub.textContent = "sin ventas en el período anterior para comparar";
+    comparativaLabel.className =
+      "font-display font-extrabold text-lg text-white";
+    comparativaSub.textContent =
+      "sin ventas en el período anterior para comparar";
   }
 }
 
@@ -520,7 +637,8 @@ let costosConfig = loadCostosConfig();
 
 function getCostoUnitario(nombre, precioUnitario) {
   const override = costosConfig.overrides && costosConfig.overrides[nombre];
-  if (override !== undefined && override !== null && override !== "") return Number(override);
+  if (override !== undefined && override !== null && override !== "")
+    return Number(override);
   const pct = Number(costosConfig.porcentaje) || 0;
   return (Number(precioUnitario) || 0) * (pct / 100);
 }
@@ -531,7 +649,9 @@ function computeFinanzas(entregados) {
   entregados.forEach((p) => {
     ingresos += Number(p.total) || 0;
     (p.productos || []).forEach((pr) => {
-      const precioUnit = pr.precio_unitario ?? (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
+      const precioUnit =
+        pr.precio_unitario ??
+        (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
       const costoUnit = getCostoUnitario(pr.nombre, precioUnit);
       costos += costoUnit * (Number(pr.cantidad) || 0);
     });
@@ -548,9 +668,12 @@ function computeGananciaPorProducto(entregados) {
     (p.productos || []).forEach((pr) => {
       const nombre = pr.nombre || "Sin nombre";
       const cantidad = Number(pr.cantidad) || 0;
-      const precioUnit = pr.precio_unitario ?? (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
+      const precioUnit =
+        pr.precio_unitario ??
+        (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
       const costoUnit = getCostoUnitario(nombre, precioUnit);
-      if (!map[nombre]) map[nombre] = { nombre, cantidad: 0, ingreso: 0, costo: 0 };
+      if (!map[nombre])
+        map[nombre] = { nombre, cantidad: 0, ingreso: 0, costo: 0 };
       map[nombre].cantidad += cantidad;
       map[nombre].ingreso += precioUnit * cantidad;
       map[nombre].costo += costoUnit * cantidad;
@@ -566,12 +689,14 @@ function computeGananciaPorProducto(entregados) {
 }
 
 function renderRentabilidad(entregados) {
-  const { ingresos, costos, margenBruto, utilidadNeta } = computeFinanzas(entregados);
+  const { ingresos, costos, margenBruto, utilidadNeta } =
+    computeFinanzas(entregados);
 
   document.getElementById("kpiIngresos").textContent = fmtMoney(ingresos);
   document.getElementById("kpiCostos").textContent = fmtMoney(costos);
   document.getElementById("kpiMargenBruto").textContent = fmtMoney(margenBruto);
-  document.getElementById("kpiMargenPct").textContent = `${ingresos ? ((margenBruto / ingresos) * 100).toFixed(1) : "0.0"}% sobre ingresos`;
+  document.getElementById("kpiMargenPct").textContent =
+    `${ingresos ? ((margenBruto / ingresos) * 100).toFixed(1) : "0.0"}% sobre ingresos`;
 
   const kpiUtilidad = document.getElementById("kpiUtilidadNeta");
   kpiUtilidad.textContent = fmtMoney(utilidadNeta);
@@ -607,7 +732,9 @@ function renderRentabilidad(entregados) {
 
 function poblarCostoProductosList() {
   const nombres = new Set();
-  pedidosRaw.forEach((p) => (p.productos || []).forEach((pr) => nombres.add(pr.nombre || "Sin nombre")));
+  pedidosRaw.forEach((p) =>
+    (p.productos || []).forEach((pr) => nombres.add(pr.nombre || "Sin nombre")),
+  );
   const el = document.getElementById("costoProductosList");
   if (!el) return;
   el.innerHTML = [...nombres]
@@ -627,8 +754,10 @@ function poblarCostoProductosList() {
 }
 
 function openCostModal() {
-  document.getElementById("inputCostoPct").value = costosConfig.porcentaje ?? 35;
-  document.getElementById("inputGastosOp").value = costosConfig.gastosOperativos ?? 0;
+  document.getElementById("inputCostoPct").value =
+    costosConfig.porcentaje ?? 35;
+  document.getElementById("inputGastosOp").value =
+    costosConfig.gastosOperativos ?? 0;
   poblarCostoProductosList();
   const overlay = document.getElementById("costModalOverlay");
   if (overlay) overlay.classList.remove("hidden");
@@ -653,11 +782,13 @@ if (btnGuardarCostos) {
   btnGuardarCostos.addEventListener("click", () => {
     const overrides = {};
     document.querySelectorAll(".costo-override-input").forEach((input) => {
-      if (input.value !== "") overrides[input.dataset.nombre] = Number(input.value);
+      if (input.value !== "")
+        overrides[input.dataset.nombre] = Number(input.value);
     });
     costosConfig = {
       porcentaje: Number(document.getElementById("inputCostoPct").value) || 0,
-      gastosOperativos: Number(document.getElementById("inputGastosOp").value) || 0,
+      gastosOperativos:
+        Number(document.getElementById("inputGastosOp").value) || 0,
       overrides,
     };
     saveCostosConfig(costosConfig);
@@ -694,7 +825,8 @@ function renderList(list) {
         <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
       </td>
       <td class="px-4 py-3 text-right font-mono font-semibold text-white">${fmtMoney(p.total)}</td>
-      <td class="px-4 py-3 text-inkdim">${(p.pago && p.pago.metodo) || "—"}</td>
+         <td class="px-4 py-3 text-inkdim">${(p.pago && p.pago.metodo) || "—"}</td>
+      <td class="px-4 py-3">${origenBadge(p)}</td>
       <td class="px-4 py-3">${estadoBadge(p.estado)}</td>
       <td class="px-4 py-3 text-primary">›</td>
     </tr>
@@ -713,10 +845,11 @@ function renderList(list) {
         </div>
         ${estadoBadge(p.estado)}
       </div>
-      <div class="flex items-center justify-between text-sm">
+          <div class="flex items-center justify-between text-sm mb-2">
         <span class="text-inkfaint text-xs">${fmtFechaHora(p)}</span>
         <span class="font-mono font-bold text-white">${fmtMoney(p.total)}</span>
       </div>
+      <div>${origenBadge(p)}</div>
     </div>
   `,
     )
@@ -757,8 +890,9 @@ function openModal(id) {
         <button onclick="window.closeModal()" class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white">✕</button>
       </div>
 
-      <div class="flex flex-wrap gap-2 mb-5">
+       <div class="flex flex-wrap gap-2 mb-5">
         ${estadoBadge(p.estado)}
+        ${origenBadge(p)}
         <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-white text-xs font-medium">${(p.pago && p.pago.metodo) || "—"}</span>
       </div>
 
@@ -831,9 +965,12 @@ if (modalOverlay) {
 
 function ticketTextoPlano(p) {
   const lineas = (p.productos || [])
-    .map((pr) => `${pr.cantidad}x ${pr.nombre} — ${fmtMoney(pr.subtotal ?? pr.cantidad * pr.precio_unitario)}`)
+    .map(
+      (pr) =>
+        `${pr.cantidad}x ${pr.nombre} — ${fmtMoney(pr.subtotal ?? pr.cantidad * pr.precio_unitario)}`,
+    )
     .join("\n");
-  return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${(p.cliente && p.cliente.direccion) ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\nTOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ""}\n${p.nota ? "Nota: " + p.nota : ""}`;
+  return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\nTOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ""}\n${p.nota ? "Nota: " + p.nota : ""}`;
 }
 
 function reimprimirTicket() {
@@ -872,19 +1009,23 @@ function exportarCSV() {
     "Hora",
     "Cliente",
     "Telefono",
+    "Origen",
     "Productos",
     "Metodo de pago",
     "Estado",
     "Total (S/)",
   ];
   const rows = list.map((p) => {
-    const productos = (p.productos || []).map((pr) => `${pr.cantidad}x ${pr.nombre}`).join(" | ");
+    const productos = (p.productos || [])
+      .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
+      .join(" | ");
     return [
       codigoPedido(p),
       p.fecha || "",
       p.hora || "",
       (p.cliente && p.cliente.nombre) || "",
       telefonoCliente(p),
+      getOrigenInfo(p).label,
       productos,
       (p.pago && p.pago.metodo) || "",
       p.estado || "",
@@ -892,8 +1033,26 @@ function exportarCSV() {
     ];
   });
 
+  const entregados = list.filter(
+    (p) => (p.estado || "").toLowerCase() === "entregado",
+  );
+  const finanzas = computeFinanzas(entregados);
+
   const csvEscape = (v) => `"${String(v).replace(/"/g, '""')}"`;
-  const csv = [headers, ...rows].map((r) => r.map(csvEscape).join(",")).join("\n");
+  const tablaCsv = [headers, ...rows].map((r) => r.map(csvEscape).join(","));
+
+  const resumenCsv = [
+    [],
+    ["RESUMEN PARA CONTABILIDAD"],
+    ["Pedidos entregados", entregados.length],
+    ["Ingresos totales (S/)", finanzas.ingresos.toFixed(2)],
+    ["Costos estimados (S/)", finanzas.costos.toFixed(2)],
+    ["Margen bruto (S/)", finanzas.margenBruto.toFixed(2)],
+    ["Gastos operativos (S/)", (Number(costosConfig.gastosOperativos) || 0).toFixed(2)],
+    ["Utilidad neta (S/)", finanzas.utilidadNeta.toFixed(2)],
+  ].map((r) => r.map(csvEscape).join(","));
+
+  const csv = [...tablaCsv, ...resumenCsv].join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -914,13 +1073,16 @@ function exportarExcel() {
   }
 
   const rows = list.map((p) => {
-    const productos = (p.productos || []).map((pr) => `${pr.cantidad}x ${pr.nombre}`).join(" | ");
+    const productos = (p.productos || [])
+      .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
+      .join(" | ");
     return {
       Código: codigoPedido(p),
       Fecha: p.fecha || "",
       Hora: p.hora || "",
       Cliente: (p.cliente && p.cliente.nombre) || "",
       Teléfono: telefonoCliente(p),
+      Origen: getOrigenInfo(p).label,
       Productos: productos,
       "Método de pago": (p.pago && p.pago.metodo) || "",
       Estado: p.estado || "",
@@ -935,6 +1097,7 @@ function exportarExcel() {
     { wch: 8 },
     { wch: 22 },
     { wch: 14 },
+    { wch: 18 },
     { wch: 40 },
     { wch: 16 },
     { wch: 12 },
@@ -943,21 +1106,51 @@ function exportarExcel() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
-
   const [from, to] = getRangeBounds();
-  const entregados = list.filter((p) => (p.estado || "").toLowerCase() === "entregado");
-  const totalVendido = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const entregados = list.filter(
+    (p) => (p.estado || "").toLowerCase() === "entregado",
+  );
+  const finanzas = computeFinanzas(entregados);
+  const digitalCount = entregados.filter((p) =>
+    esBilleteraDigital(p.pago && p.pago.metodo),
+  ).length;
+  const efectivoCount = entregados.length - digitalCount;
+  const digitalMonto = entregados
+    .filter((p) => esBilleteraDigital(p.pago && p.pago.metodo))
+    .reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const efectivoMonto = finanzas.ingresos - digitalMonto;
+
   const resumen = [
-    { Métrica: "Rango", Valor: `${from.toLocaleDateString("es-PE")} - ${to.toLocaleDateString("es-PE")}` },
+    {
+      Métrica: "Rango",
+      Valor: `${from.toLocaleDateString("es-PE")} - ${to.toLocaleDateString("es-PE")}`,
+    },
     { Métrica: "Pedidos entregados", Valor: entregados.length },
-    { Métrica: "Total vendido (S/)", Valor: totalVendido.toFixed(2) },
+    { Métrica: "Ingresos totales (S/)", Valor: finanzas.ingresos.toFixed(2) },
+    { Métrica: "Costos estimados (S/)", Valor: finanzas.costos.toFixed(2) },
+    { Métrica: "Margen bruto (S/)", Valor: finanzas.margenBruto.toFixed(2) },
+    {
+      Métrica: "Gastos operativos (S/)",
+      Valor: (Number(costosConfig.gastosOperativos) || 0).toFixed(2),
+    },
+    { Métrica: "Utilidad neta (S/)", Valor: finanzas.utilidadNeta.toFixed(2) },
     {
       Métrica: "Ticket promedio (S/)",
-      Valor: entregados.length ? (totalVendido / entregados.length).toFixed(2) : "0.00",
+      Valor: entregados.length
+        ? (finanzas.ingresos / entregados.length).toFixed(2)
+        : "0.00",
+    },
+    { Métrica: "Ventas en efectivo/tarjeta (S/)", Valor: efectivoMonto.toFixed(2) },
+    { Métrica: "Cantidad efectivo/tarjeta", Valor: efectivoCount },
+    { Métrica: "Ventas por Yape/Plin (S/)", Valor: digitalMonto.toFixed(2) },
+    { Métrica: "Cantidad Yape/Plin", Valor: digitalCount },
+    {
+      Métrica: "Nota",
+      Valor: "Costos estimados según % configurado en el sistema; no reemplaza comprobantes de compra.",
     },
   ];
   const wsResumen = XLSX.utils.json_to_sheet(resumen);
-  wsResumen["!cols"] = [{ wch: 22 }, { wch: 24 }];
+  wsResumen["!cols"] = [{ wch: 26 }, { wch: 34 }];
   XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
 
   const fmtFExcel = (d) => d.toISOString().slice(0, 10);
@@ -975,27 +1168,52 @@ function exportarPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape", unit: "pt" });
   const [from, to] = getRangeBounds();
-  const entregados = list.filter((p) => (p.estado || "").toLowerCase() === "entregado");
-  const totalVendido = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const entregados = list.filter(
+    (p) => (p.estado || "").toLowerCase() === "entregado",
+  );
+  const totalVendido = entregados.reduce(
+    (s, p) => s + (Number(p.total) || 0),
+    0,
+  );
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(20, 20, 20);
   const nombreParaPdf = nombreTienda || "Historial de Pedidos";
-  doc.text(nombreTienda ? `${nombreParaPdf} · Historial de Pedidos` : nombreParaPdf, 40, 40);
+  doc.text(
+    nombreTienda ? `${nombreParaPdf} · Historial de Pedidos` : nombreParaPdf,
+    40,
+    40,
+  );
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(90, 90, 90);
-  doc.text(`Rango: ${from.toLocaleDateString("es-PE")} - ${to.toLocaleDateString("es-PE")}`, 40, 58);
-  doc.text(`Pedidos entregados: ${entregados.length}   ·   Total vendido: ${fmtMoney(totalVendido)}`, 40, 72);
+  doc.text(
+    `Rango: ${from.toLocaleDateString("es-PE")} - ${to.toLocaleDateString("es-PE")}`,
+    40,
+    58,
+  );
+   const finanzas = computeFinanzas(entregados);
 
-  const headers = [["Código", "Fecha/Hora", "Cliente", "Teléfono", "Productos", "Pago", "Estado", "Total"]];
+  doc.text(
+    `Pedidos entregados: ${entregados.length}   ·   Total vendido: ${fmtMoney(totalVendido)}`,
+    40,
+    72,
+  );
+  doc.text(
+    `Ingresos: ${fmtMoney(finanzas.ingresos)}   ·   Costos estimados: ${fmtMoney(finanzas.costos)}   ·   Utilidad neta: ${fmtMoney(finanzas.utilidadNeta)}`,
+    40,
+    86,
+  );
+
+  const headers = [["Código", "Fecha/Hora", "Cliente", "Teléfono", "Origen", "Productos", "Pago", "Estado", "Total"]];
   const body = list.map((p) => [
     codigoPedido(p),
     fmtFechaHora(p),
     (p.cliente && p.cliente.nombre) || "",
     telefonoCliente(p),
+    getOrigenInfo(p).label,
     (p.productos || []).map((pr) => `${pr.cantidad}x ${pr.nombre}`).join(", "),
     (p.pago && p.pago.metodo) || "",
     p.estado || "",
@@ -1005,11 +1223,11 @@ function exportarPDF() {
   doc.autoTable({
     head: headers,
     body: body,
-    startY: 90,
+    startY: 104,
     styles: { font: "helvetica", fontSize: 8, cellPadding: 5, textColor: [30, 30, 30] },
     headStyles: { fillColor: [136, 85, 255], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [245, 242, 255] },
-    columnStyles: { 4: { cellWidth: 200 }, 7: { halign: "right" } },
+    columnStyles: { 5: { cellWidth: 180 }, 8: { halign: "right" } },
     margin: { left: 40, right: 40 },
   });
 
@@ -1051,7 +1269,9 @@ if (dateChips) {
   dateChips.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-range]");
     if (!btn) return;
-    document.querySelectorAll("#dateChips .chip").forEach((c) => c.classList.remove("active"));
+    document
+      .querySelectorAll("#dateChips .chip")
+      .forEach((c) => c.classList.remove("active"));
     btn.classList.add("active");
     currentRange = btn.dataset.range;
     const customRangeBox = document.getElementById("customRangeBox");
@@ -1074,14 +1294,19 @@ if (customTo)
   });
 const filterEstado = document.getElementById("filterEstado");
 if (filterEstado) filterEstado.addEventListener("change", renderAll);
+const filterOrigen = document.getElementById("filterOrigen");
+if (filterOrigen) filterOrigen.addEventListener("change", renderAll);
 const searchBox = document.getElementById("searchBox");
 if (searchBox) searchBox.addEventListener("input", renderAll);
 const btnResetFilters = document.getElementById("btnResetFilters");
 if (btnResetFilters) {
   btnResetFilters.addEventListener("click", () => {
     document.getElementById("filterEstado").value = "todos";
+    document.getElementById("filterOrigen").value = "todos";
     document.getElementById("searchBox").value = "";
-    document.querySelectorAll("#dateChips .chip").forEach((c) => c.classList.remove("active"));
+    document
+      .querySelectorAll("#dateChips .chip")
+      .forEach((c) => c.classList.remove("active"));
     document.querySelector('[data-range="hoy"]').classList.add("active");
     currentRange = "hoy";
     const customRangeBox = document.getElementById("customRangeBox");
@@ -1113,7 +1338,13 @@ function renderAll() {
   const list = getFilteredOrders();
   renderMetrics(list);
   renderList(list);
-  const labels = { hoy: "Hoy", ayer: "Ayer", semana: "Esta semana", mes: "Este mes", custom: "Rango personalizado" };
+  const labels = {
+    hoy: "Hoy",
+    ayer: "Ayer",
+    semana: "Esta semana",
+    mes: "Este mes",
+    custom: "Rango personalizado",
+  };
   const rangeLabelEcho = document.getElementById("rangeLabelEcho");
   if (rangeLabelEcho) rangeLabelEcho.textContent = labels[currentRange] || "";
 }
@@ -1121,7 +1352,10 @@ function renderAll() {
 function tickClock() {
   const clockNow = document.getElementById("clockNow");
   if (clockNow)
-    clockNow.textContent = new Date().toLocaleString("es-PE", { dateStyle: "medium", timeStyle: "short" });
+    clockNow.textContent = new Date().toLocaleString("es-PE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
 }
 tickClock();
 setInterval(tickClock, 30000);

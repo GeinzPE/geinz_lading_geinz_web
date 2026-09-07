@@ -2614,25 +2614,72 @@ async function render(biz, isInitial = true) {
   }
 
   // Links legales (por ahora estáticos; luego se activan/desactivan desde biz.legal.*)
-  const legal = biz.legal || {};
+  // Links legales — visibles solo si están activos en biz.footer (dato real de la DB)
+  const footerConfig = biz.footer || {};
   const linkLibro = document.getElementById("linkLibroReclamaciones");
   const linkTerminos = document.getElementById("linkTerminos");
   const linkPrivacidad = document.getElementById("linkPrivacidad");
+  const footerActivo = footerConfig.activo !== false;
 
   if (linkLibro) {
-    linkLibro.style.display =
-      legal.libroReclamacionesActivo !== false ? "" : "none";
-    if (legal.libroReclamacionesUrl)
-      linkLibro.href = legal.libroReclamacionesUrl;
+    const libroActivo =
+      footerActivo && footerConfig.libro_reclamaciones === true;
+    linkLibro.style.display = libroActivo ? "" : "none";
+    if (libroActivo) {
+      const urlLibro = new URL(
+        "../../legal/libro_reclamaciones.html",
+        window.location.href,
+      );
+      urlLibro.searchParams.set("id", biz.id || _params.id);
+      urlLibro.searchParams.set("localidad", _params.localidad);
+      linkLibro.href = urlLibro.toString();
+    }
   }
+
+  const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
+  if (linkSeguimiento) {
+    const libroActivo =
+      footerActivo && footerConfig.libro_reclamaciones === true;
+    linkSeguimiento.style.display = libroActivo ? "" : "none";
+    if (libroActivo) {
+      const urlSeguimiento = new URL(
+        "../../legal/segumiento_reclamaciones.html",
+        window.location.href,
+      );
+      urlSeguimiento.searchParams.set("id", biz.id || _params.id);
+      urlSeguimiento.searchParams.set("localidad", _params.localidad);
+      linkSeguimiento.href = urlSeguimiento.toString();
+    }
+  }
+
   if (linkTerminos) {
-    linkTerminos.style.display = legal.terminosActivo !== false ? "" : "none";
-    if (legal.terminosUrl) linkTerminos.href = legal.terminosUrl;
+    const terminosActivo =
+      footerActivo && footerConfig.terminos_condiciones === true;
+    linkTerminos.style.display = terminosActivo ? "" : "none";
+    if (terminosActivo) {
+      const urlTerminos = new URL(
+        "../../legal/terminos_condiciones.html",
+        window.location.href,
+      );
+      urlTerminos.searchParams.set("id", biz.id || _params.id);
+      urlTerminos.searchParams.set("localidad", _params.localidad);
+      linkTerminos.href = urlTerminos.toString();
+    }
   }
+
   if (linkPrivacidad) {
-    linkPrivacidad.style.display =
-      legal.privacidadActivo !== false ? "" : "none";
-    if (legal.privacidadUrl) linkPrivacidad.href = legal.privacidadUrl;
+    const privacidadActivo =
+      footerActivo && footerConfig.politicas_privacidad === true;
+    linkPrivacidad.style.display = privacidadActivo ? "" : "none";
+    if (privacidadActivo) {
+      const urlPrivacidad = new URL(
+        "../../legal/politicas_privacidad.html",
+        window.location.href,
+      );
+      urlPrivacidad.searchParams.set("id", biz.id || _params.id);
+      urlPrivacidad.searchParams.set("localidad", _params.localidad);
+      linkPrivacidad.href = urlPrivacidad.toString();
+    }
   }
   // ── COLOR + LOGO: solo la primera vez ──
   if (!_colorReady) {

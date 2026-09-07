@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Historial de Pedidos · Alonso Peña Restobar</title>
+  <title>Historial de Pedidos</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -343,10 +343,30 @@
           </div>
         </div>
 
-        <div class="bg-panel border border-line rounded-2xl p-4">
+              <div class="bg-panel border border-line rounded-2xl p-4">
           <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Yape/Plin vs. Efectivo/Tarjeta
           </p>
           <div class="space-y-2.5" id="barPago"></div>
+        </div>
+      </section>
+
+      <!-- ======================= ORIGEN DE LAS VENTAS ======================= -->
+      <section>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-display font-bold text-xl text-white">Origen de las ventas</h2>
+          <span class="text-xs font-mono text-inkfaint">¿de dónde vienen tus pedidos?</span>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+            <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-2">📍 Canal principal</p>
+            <p class="font-display font-extrabold text-lg text-white leading-tight" id="origenTopLabel">—</p>
+            <p class="text-xs text-inkfaint mt-1"><span id="origenTopCant">0</span> pedidos en el rango</p>
+          </div>
+          <div class="bg-panel border border-line rounded-2xl p-4">
+            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Distribución por canal</p>
+            <div class="space-y-2.5" id="origenBarList"></div>
+          </div>
         </div>
       </section>
 
@@ -507,17 +527,28 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-line">
-        <div class="flex items-center gap-2">
-          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Estado</span>
-          <select id="filterEstado"
-            class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
-            <option value="todos">Todos</option>
-            <option value="pendiente">Pendiente</option>
-            <option value="en proceso">En proceso</option>
-            <option value="entregado">Entregado</option>
-            <option value="rechazado">Rechazado</option>
-          </select>
-        </div>
+     <div class="flex items-center gap-2">
+  <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Estado</span>
+  <select id="filterEstado"
+    class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+    <option value="todos">Todos</option>
+    <option value="pendiente">Pendiente</option>
+    <option value="en proceso">En proceso</option>
+    <option value="entregado">Entregado</option>
+    <option value="rechazado">Rechazado</option>
+  </select>
+</div>
+<div class="flex items-center gap-2">
+  <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Origen</span>
+  <select id="filterOrigen"
+    class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+    <option value="todos">Todos</option>
+    <option value="delivery">🛵 Delivery / WhatsApp</option>
+    <option value="recojo">🏬 Recojo en local</option>
+    <option value="mesa">🍽️ Mesa</option>
+    <option value="directo">🧾 Venta directa</option>
+  </select>
+</div>
         <div class="flex-1 min-w-[180px] relative">
           <input id="searchBox" type="text" placeholder="Buscar cliente, teléfono o código…"
             class="w-full text-sm border border-line rounded-lg pl-8 pr-3 py-1.5 bg-panel2 text-white placeholder:text-inkfaint focus:border-primary outline-none">
@@ -542,9 +573,10 @@
               <th class="px-4 py-3 font-semibold">Fecha / Hora</th>
               <th class="px-4 py-3 font-semibold">Cliente</th>
               <th class="px-4 py-3 font-semibold text-right">Monto</th>
-              <th class="px-4 py-3 font-semibold">Pago</th>
-              <th class="px-4 py-3 font-semibold">Estado</th>
-              <th class="px-4 py-3 font-semibold"></th>
+             <th class="px-4 py-3 font-semibold">Pago</th>
+<th class="px-4 py-3 font-semibold">Origen</th>
+<th class="px-4 py-3 font-semibold">Estado</th>
+<th class="px-4 py-3 font-semibold"></th>
             </tr>
           </thead>
           <tbody id="tableBody" class="divide-y divide-line"></tbody>
