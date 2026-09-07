@@ -41,13 +41,31 @@ if (!tiendaId || !localidad) {
   });
 }
 const _params = new URLSearchParams(window.location.search);
-
+const SND_STOCK_AGOTADO = "../../sounds/stok_bajo.mp3";
 const ID_PRUEBA = tiendaId;
 /* ══════════════ Colores fijos para grupos de mesas (ya no editable por el usuario) ══════════════ */
 const GROUP_COLOR_OCUPADA = "#f59e0b"; // ámbar, igual que una mesa ocupada individual
 const GROUP_COLOR_RESERVADA = "#7c5cff"; // violeta, igual que una mesa reservada individual
 function colorParaEstadoGrupo(estado) {
   return estado === "reservada" ? GROUP_COLOR_RESERVADA : GROUP_COLOR_OCUPADA;
+}
+function playStockAgotadoAlarm() {
+  playSoundOnce(SND_STOCK_AGOTADO);
+}
+
+function notificarStockAgotado(nombres) {
+  if (!window.Notification || Notification.permission !== "granted") return;
+  if (document.visibilityState === "visible") return;
+  try {
+    const n = new Notification("📦 Producto agotado", {
+      body: `${nombres} se quedó sin stock`,
+      icon: bizLogoUrl || undefined,
+      badge: bizLogoUrl || undefined,
+      tag: "geinz-stock-agotado-" + Date.now(),
+      requireInteraction: false,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch (e) { console.warn(e); }
 }
 
 /* ══════════════ Estilos de reserva/grupo de mesas (inyectados) ══════════════ */
@@ -1872,9 +1890,17 @@ async function liberarMesa(numeroMesa, btnEl) {
           { merge: true },
         );
       }
-      if (grupo?.pedido) await descontarStockPedido(grupo.pedido); // ← NUEVO, antes del commit
+      let agotadosGrupo = [];
+      if (grupo?.pedido) agotadosGrupo = await descontarStockPedido(grupo.pedido);
       await batch.commit();
       showToast("🍽️ Mesas agrupadas liberadas y pedido marcado como pagado");
+      if (agotadosGrupo.length) {
+        playStockAgotadoAlarm();
+        bellRingFeedback();
+        const nombres = agotadosGrupo.map(a => a.nombre).join(", ");
+        showToast(`📦 Sin stock: ${nombres}`, true);
+        notificarStockAgotado(nombres);
+      }
       closeDetail();
       return;
     }
@@ -1898,15 +1924,9 @@ async function liberarMesa(numeroMesa, btnEl) {
       return;
     }
 
-    await Promise.all(
+    const resultados = await Promise.all(
       activos.map(async ([mesaDocId, pseudoPedido]) => {
-        const mesaRef = tiendaSubDoc(
-          localidad,
-          "tiendas",
-          tiendaId,
-          "mesas",
-          mesaDocId,
-        );
+        const mesaRef = tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId);
         const tareas = [
           updateDoc(mesaRef, {
             estado: "libre",
@@ -1917,16 +1937,10 @@ async function liberarMesa(numeroMesa, btnEl) {
           }),
         ];
 
-        await descontarStockPedido(pseudoPedido);
+        const agotadosMesa = await descontarStockPedido(pseudoPedido);
 
         if (pseudoPedido.pedidoDocId) {
-          const pedidoRef = tiendaSubDoc(
-            localidad,
-            "tiendas",
-            tiendaId,
-            "pedidos",
-            pseudoPedido.pedidoDocId,
-          );
+          const pedidoRef = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pseudoPedido.pedidoDocId);
           tareas.push(
             updateDoc(pedidoRef, {
               estado: "entregado",
@@ -1935,10 +1949,20 @@ async function liberarMesa(numeroMesa, btnEl) {
             }),
           );
         }
-        return Promise.all(tareas);
+        await Promise.all(tareas);
+        return agotadosMesa;
       }),
     );
+
+    const agotadosTotal = resultados.flat();
     showToast("🍽️ Mesa liberada y pedido marcado como pagado");
+    if (agotadosTotal.length) {
+      playStockAgotadoAlarm();
+      bellRingFeedback();
+      const nombres = agotadosTotal.map(a => a.nombre).join(", ");
+      showToast(`📦 Sin stock: ${nombres}`, true);
+      notificarStockAgotado(nombres);
+    }
     closeDetail();
   } catch (err) {
     console.error("Error liberando mesa:", err);
@@ -2174,20 +2198,13 @@ function renderModalActions(container, id, estado, p) {
    - Usa runTransaction para que sea seguro aunque lleguen varios pedidos a la vez. */
 async function descontarStockPedido(pedido) {
   const productos = Array.isArray(pedido.productos) ? pedido.productos : [];
+  const agotados = [];
+
   for (const it of productos) {
-    if (!it.id || !it.categoria) continue; // ítem sin referencia al catálogo (ej. venta manual)
+    if (!it.id || !it.categoria) continue;
     const cantidad = Number(it.cantidad) || 0;
     if (cantidad <= 0) continue;
-
-    const prodRef = tiendaSubDoc(
-      localidad,
-      "tiendas",
-      tiendaId,
-      "productos",
-      it.categoria,
-      it.categoria,
-      it.id,
-    );
+    const prodRef = tiendaSubDoc(localidad, "tiendas", tiendaId, "productos", it.categoria, it.categoria, it.id);
 
     try {
       await runTransaction(db, async (tx) => {
@@ -2195,53 +2212,46 @@ async function descontarStockPedido(pedido) {
         if (!snap.exists()) return;
         const data = snap.data();
         const updates = {};
+        let agotadoDeEsteItem = null; // ← solo UNA notificación por línea de pedido
 
-        // Stock del producto principal
-        if (typeof data.stock === "number") {
-          const nuevoStock = Math.max(0, data.stock - cantidad);
-          updates.stock = nuevoStock;
-          if (data.autoDesactivar && nuevoStock <= 0)
-            updates.disponible = false;
-        }
-
-        // Stock de la variante/opción seleccionada, si el ítem trae esa info.
-        // El pedido guarda esto como un objeto { "Sabor": "Helada" }, NO como array,
-        // tanto si viene del catálogo (WhatsApp) como de una mesa — mismo formato.
-        const seleccion = it.opciones || null; // { nombreCondicion: nombreOpcionElegida }
-        if (
-          seleccion &&
-          typeof seleccion === "object" &&
-          Array.isArray(data.condiciones) &&
-          data.condiciones.length
-        ) {
+        // 1) Variante específica (si el pedido trae opciones elegidas)
+        const seleccion = it.opciones || null;
+        if (seleccion && typeof seleccion === "object" && Array.isArray(data.condiciones) && data.condiciones.length) {
           updates.condiciones = data.condiciones.map((cond) => {
             const opcionElegida = seleccion[cond.nombre];
             if (!opcionElegida) return cond;
             return {
               ...cond,
               opciones: (cond.opciones || []).map((op) => {
-                if (op.nombre !== opcionElegida || typeof op.stock !== "number")
-                  return op;
+                if (op.nombre !== opcionElegida || typeof op.stock !== "number") return op;
                 const nuevoStockOp = Math.max(0, op.stock - cantidad);
-                return {
-                  ...op,
-                  stock: nuevoStockOp,
-                  activo: nuevoStockOp > 0 ? op.activo : false,
-                };
+                if (nuevoStockOp <= 0 && op.stock > 0 && !agotadoDeEsteItem) {
+                  agotadoDeEsteItem = { nombre: `${data.nombre || it.nombre} (${op.nombre})`, tipo: "variante" };
+                }
+                return { ...op, stock: nuevoStockOp, activo: nuevoStockOp > 0 ? op.activo : false };
               }),
             };
           });
         }
 
+        // 2) Stock general del producto (solo notifica si la variante no lo hizo ya)
+        if (typeof data.stock === "number") {
+          const nuevoStock = Math.max(0, data.stock - cantidad);
+          updates.stock = nuevoStock;
+          if (data.autoDesactivar && nuevoStock <= 0) updates.disponible = false;
+          if (nuevoStock <= 0 && data.stock > 0 && !agotadoDeEsteItem) {
+            agotadoDeEsteItem = { nombre: data.nombre || it.nombre, tipo: "producto" };
+          }
+        }
+
+        if (agotadoDeEsteItem) agotados.push(agotadoDeEsteItem);
         if (Object.keys(updates).length) tx.update(prodRef, updates);
       });
     } catch (err) {
-      console.error(
-        `No se pudo descontar stock de "${it.nombre || it.id}":`,
-        err,
-      );
+      console.error(`No se pudo descontar stock de "${it.nombre || it.id}":`, err);
     }
   }
+  return agotados;
 }
 
 /* ══════════════ Acreditar puntos al cliente en el doc de la TIENDA ══════════════
@@ -2416,7 +2426,16 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
 
       if (pedidoActual && !pedidoActual.stock_descontado) {
         descontarStockPedido(pedidoActual)
-          .then(() => updateDoc(ref, { stock_descontado: true }))
+          .then((agotados) => {
+            updateDoc(ref, { stock_descontado: true });
+            if (agotados && agotados.length) {
+              playStockAgotadoAlarm();
+              bellRingFeedback();
+              const nombres = agotados.map(a => a.nombre).join(", ");
+              showToast(`📦 Sin stock: ${nombres}`, true);
+              notificarStockAgotado(nombres);
+            }
+          })
           .catch((err) => console.error("Error descontando stock:", err));
       }
 

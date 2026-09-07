@@ -664,6 +664,30 @@ async function loadTienda() {
     return null;
   }
 }
+function getStockInfo(p, seleccion) {
+  if (seleccion && p.condiciones && p.condiciones.length) {
+    let minStock = null;
+    let minLabel = null;
+    p.condiciones.forEach((cond) => {
+      const elegido = seleccion[cond.nombre];
+      if (!elegido) return;
+      const op = cond.opciones.find((o) => o.nombre === elegido);
+      if (op && typeof op.stock === "number") {
+        if (minStock === null || op.stock < minStock) {
+          minStock = op.stock;
+          minLabel = elegido; // ej: "Helada"
+        }
+      }
+    });
+    return { stock: minStock, label: minLabel };
+  }
+  return { stock: typeof p.stock === "number" ? p.stock : null, label: null };
+}
+
+// Se mantiene por compatibilidad, por si algo más del código todavía la usa
+function getStockDisponible(p, seleccion) {
+  return getStockInfo(p, seleccion).stock;
+}
 async function loadProductosCatalogo(biz) {
   const catRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos");
   const catSnap = await getDocs(catRef);
@@ -688,6 +712,7 @@ async function loadProductosCatalogo(biz) {
         const nombre = d.nombre || "Producto";
 
         // Solo se traen las condiciones/opciones marcadas como activas (true)
+             // Solo se traen las condiciones/opciones marcadas como activas (true)
         const condiciones = (d.condiciones || [])
           .map((c) => ({
             nombre: c.nombre,
@@ -698,6 +723,7 @@ async function loadProductosCatalogo(biz) {
               .map((o) => ({
                 nombre: o.nombre,
                 costoAdicional: Number(o.costoAdicional) || 0,
+                stock: typeof o.stock === "number" ? o.stock : null, // ← faltaba: sin esto no hay control de stock por variante
               })),
           }))
           .filter((c) => c.nombre && c.opciones.length > 0);
@@ -712,6 +738,7 @@ async function loadProductosCatalogo(biz) {
           imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
           imagen: d.imagenes?.[0]?.url || "",
           condiciones,
+          stock: typeof d.stock === "number" ? d.stock : null, // ← faltaba: stock general del producto
           puntos:
             biz?.fidelizacion?.activo && d.puntos?.activo && d.puntos?.cantidad > 0
               ? { cantidad: d.puntos.cantidad, descripcion: d.puntos.descripcion || "" }
@@ -1316,13 +1343,25 @@ function calcPrecioFinal(p, seleccion) {
 }
 
 function addToCart(p, seleccion = null) {
-  // Si el producto tiene condiciones y todavía no eligió nada, abrir el popup primero
   if (!seleccion && p.condiciones && p.condiciones.length) {
     abrirOptionsModal(p);
     return;
   }
   const key = cartKeyFor(p.id, seleccion);
   const existente = carrito.get(key);
+  const cantidadActual = existente ? existente.cantidad : 0;
+
+  const { stock: stockDisponible, label } = getStockInfo(p, seleccion);
+  if (stockDisponible !== null && cantidadActual + 1 > stockDisponible) {
+    const detalle = label ? ` de "${label}"` : "";
+    showToast(
+      stockDisponible === 0
+        ? `Sin stock disponible${detalle}`
+        : `Ya tienes ${cantidadActual} en el carrito, solo hay ${stockDisponible} disponible(s)${detalle}`,
+    );
+    return;
+  }
+
   if (existente) {
     existente.cantidad += 1;
   } else {
@@ -1345,25 +1384,24 @@ function editCartSelection(oldKey, p, nuevaSeleccion) {
   const entry = carrito.get(oldKey);
   if (!entry) return;
   const newKey = cartKeyFor(p.id, nuevaSeleccion);
-
-  if (newKey === oldKey) {
-    syncCartChange(p.id);
-    return;
-  } // no cambió nada
+  if (newKey === oldKey) { syncCartChange(p.id); return; }
+  const { stock: stockDisponible, label } = getStockInfo(p, nuevaSeleccion);
 
   const precioFinal = calcPrecioFinal(p, nuevaSeleccion);
   carrito.delete(oldKey);
   const existenteEnNuevo = carrito.get(newKey);
+  let cantidadFinal = entry.cantidad + (existenteEnNuevo ? existenteEnNuevo.cantidad : 0);
+
+ if (stockDisponible !== null && cantidadFinal > stockDisponible) {
+    cantidadFinal = stockDisponible;
+    const detalle = label ? ` de "${label}"` : "";
+    showToast(`Solo hay ${stockDisponible} disponible(s)${detalle}`);
+  }
+
   if (existenteEnNuevo) {
-    existenteEnNuevo.cantidad += entry.cantidad;
-  } else {
-    carrito.set(newKey, {
-      ...p,
-      precio: precioFinal,
-      cantidad: entry.cantidad,
-      cartKey: newKey,
-      seleccion: nuevaSeleccion,
-    });
+    existenteEnNuevo.cantidad = cantidadFinal;
+  } else if (cantidadFinal > 0) {
+    carrito.set(newKey, { ...p, precio: precioFinal, cantidad: cantidadFinal, cartKey: newKey, seleccion: nuevaSeleccion });
   }
   syncCartChange(p.id);
   showToast("Opciones actualizadas");
