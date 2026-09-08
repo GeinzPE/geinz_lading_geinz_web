@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
+  <base href="/carrito/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Carrito · Geinz</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -316,13 +317,14 @@
       </div>
     </div>
   </div>
-<div id="pedidoLoader" class="hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-[#0a0810]/95">
-  <div class="pedido-loader-logo-wrap">
-    <img id="pedidoLoaderLogo" src="" alt="" style="display:none">
-    <div id="pedidoLoaderLogoPh" class="hidden">🛍️</div>
+  <div id="pedidoLoader"
+    class="hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-[#0a0810]/95">
+    <div class="pedido-loader-logo-wrap">
+      <img id="pedidoLoaderLogo" src="" alt="" style="display:none">
+      <div id="pedidoLoaderLogoPh" class="hidden">🛍️</div>
+    </div>
+    <p class="text-sm text-gray-400 font-semibold">Enviando tu pedido…</p>
   </div>
-  <p class="text-sm text-gray-400 font-semibold">Enviando tu pedido…</p>
-</div>
   <div id="toast"></div>
 
 </body>

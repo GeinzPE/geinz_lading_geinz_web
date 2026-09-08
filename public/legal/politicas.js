@@ -6,4 +6,5 @@ initLegalTextPage({
   footerFlag: "politicas_privacidad", // requiere biz.footer.activo === true y biz.footer.politicas_privacidad === true
   tituloFallback: "Políticas de Privacidad",
   labelSuperior: "Políticas de Privacidad",
+  pathPrefix: "/legal/politicas_privacidad/", // ⚠️ ajusta si tu ruta bonita real es distinta
 });

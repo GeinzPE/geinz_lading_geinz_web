@@ -147,3 +147,6 @@ export function terminosCondicionesDoc(localidad, negocioId) {
     "politicas", "legal", "terminos_condiciones", "terminos_condiciones",
   );
 }
+export function aliasTiendaDoc(alias) {
+  return doc(db, "alias_tiendas", alias);
+}

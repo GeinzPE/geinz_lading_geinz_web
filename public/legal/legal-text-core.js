@@ -1,18 +1,59 @@
 import { getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { tiendaDoc } from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
+import { aliasTiendaDoc, tiendaDoc } from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
+
+// ══════════════════════════════════════════
+//  RESOLVER ALIAS → { id, localidad }
+//  (mismo patrón que legal.js / seguimiento.js)
+//
+//  pathPrefix: string opcional, ej "/legal/politicas_privacidad/"
+//  Si la URL empieza con ese prefijo, todo lo que sigue se toma
+//  como alias. Si no, cae a ?alias=... y luego a ?id=&localidad=
+//  como fallback viejo.
+// ══════════════════════════════════════════
+async function resolverNegocio(pathPrefix) {
+  const path = window.location.pathname;
+  const desdePath = pathPrefix && path.startsWith(pathPrefix);
+
+  let alias = null;
+
+  if (desdePath) {
+    alias = decodeURIComponent(path.split(pathPrefix)[1] || "").trim();
+    // Por si queda un slash final o algo pegado
+    alias = alias.split(/[/?#]/)[0];
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
+
+  console.log("🔍 DEBUG legal-text-core.js — URL completa:", window.location.href);
+  console.log("🔍 DEBUG alias recibido:", alias);
+
+  if (!alias) {
+    const id = params.get("id");
+    const localidad = (params.get("localidad") || params.get("l") || "barranca")
+      .trim()
+      .toLowerCase();
+    console.log("🔍 DEBUG fallback id:", id, "localidad:", localidad);
+    if (!id) throw new Error("No se especificó el negocio.");
+    return { id, localidad };
+  }
+
+  const aliasSnap = await getDoc(aliasTiendaDoc(alias));
+  console.log("🔍 DEBUG alias existe en Firestore:", aliasSnap.exists());
+  if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
+
+  const data = aliasSnap.data();
+  console.log("🔍 DEBUG data del alias:", data);
+
+  const { id, localidad } = data;
+  if (!id || !localidad) throw new Error("Alias mal configurado.");
+
+  return { id, localidad: localidad.trim().toLowerCase() };
+}
 
 // ══════════════════════════════════════════
 //  HELPERS COMPARTIDOS (mismo criterio que el libro de reclamaciones)
 // ══════════════════════════════════════════
-function getParams() {
-  const p = new URLSearchParams(window.location.search);
-  const id = p.get("id");
-  const localidad = (p.get("localidad") || p.get("l") || "barranca")
-    .trim()
-    .toLowerCase();
-  return { id, localidad };
-}
-
 function getDominantColor(imgEl) {
   return new Promise((resolve) => {
     const canvas = document.createElement("canvas");
@@ -121,6 +162,7 @@ export async function initLegalTextPage({
   tituloFallback = "Documento legal",
   descripcionFallback = "",
   labelSuperior = "Documento legal",
+  pathPrefix = null,   // ej "/legal/politicas_privacidad/" — habilita resolución por alias en la URL bonita
 }) {
   const loader = document.getElementById("loaderScreen");
   const mainWrap = document.getElementById("mainWrap");
@@ -134,8 +176,7 @@ export async function initLegalTextPage({
   }
 
   try {
-    const { id, localidad } = getParams();
-    if (!id) return showNotAvailable("No se especificó el negocio.");
+    const { id, localidad } = await resolverNegocio(pathPrefix);
 
     // 1) Datos del negocio (para logo, nombre y color)
     const tiendaRef = tiendaDoc(localidad, "tiendas", id);
@@ -246,6 +287,6 @@ export async function initLegalTextPage({
     requestAnimationFrame(() => mainWrap.classList.add("in"));
   } catch (err) {
     console.error(err);
-    showNotAvailable("Ocurrió un error al cargar el documento.");
+    showNotAvailable(err.message || "Ocurrió un error al cargar el documento.");
   }
 }

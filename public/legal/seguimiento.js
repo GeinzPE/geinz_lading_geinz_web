@@ -5,7 +5,11 @@ import {
   where,
   limit,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { tiendaDoc, reclamacionesCol } from "../js/rutas/rutas.js";
+import {
+  aliasTiendaDoc,
+  tiendaDoc,
+  reclamacionesCol,
+} from "../js/rutas/rutas.js"; // ⚠️ ajusta esta ruta a donde tengas rutas.js
 
 // ══════════════════════════════════════════
 //  CAMPOS A MOSTRAR EN EL RESULTADO
@@ -32,13 +36,50 @@ const ESTADO_META = {
   cerrado: { texto: "Cerrado", clase: "status-rechazado" },
 };
 
-function getParams() {
-  const p = new URLSearchParams(window.location.search);
-  const id = p.get("id");
-  const localidad = (p.get("localidad") || p.get("l") || "barranca")
-    .trim()
-    .toLowerCase();
-  return { id, localidad };
+// ══════════════════════════════════════════
+//  RESOLVER ALIAS → { id, localidad }
+//  (idéntico al de legal.js — soporta /legal/seguimiento/{alias},
+//  ?alias=... y el viejo ?id=&localidad= como fallback)
+// ══════════════════════════════════════════
+async function resolverNegocio() {
+  const path = window.location.pathname;
+  const desdePath = path.startsWith("/legal/seguimiento_reclamaciones/");
+
+  let alias = null;
+
+  if (desdePath) {
+    alias = decodeURIComponent(path.split("/legal/seguimiento_reclamaciones/")[1] || "").trim();
+    // Por si queda un slash final o algo pegado
+    alias = alias.split(/[/?#]/)[0];
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
+
+  console.log("🔍 DEBUG seguimiento.js — URL completa:", window.location.href);
+  console.log("🔍 DEBUG alias recibido:", alias);
+
+  if (!alias) {
+    const id = params.get("id");
+    const localidad = (params.get("localidad") || params.get("l") || "barranca")
+      .trim()
+      .toLowerCase();
+    console.log("🔍 DEBUG fallback id:", id, "localidad:", localidad);
+    if (!id) throw new Error("No se especificó el negocio.");
+    return { id, localidad };
+  }
+
+  const aliasSnap = await getDoc(aliasTiendaDoc(alias));
+  console.log("🔍 DEBUG alias existe en Firestore:", aliasSnap.exists());
+  if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
+
+  const data = aliasSnap.data();
+  console.log("🔍 DEBUG data del alias:", data);
+
+  const { id, localidad } = data;
+  if (!id || !localidad) throw new Error("Alias mal configurado.");
+
+  return { id, localidad: localidad.trim().toLowerCase() };
 }
 
 // ══════════════════════════════════════════
@@ -190,8 +231,7 @@ function renderEstado(estadoRaw) {
   }
 
   try {
-    const { id, localidad } = getParams();
-    if (!id) return showNotAvailable("No se especificó el negocio.");
+    const { id, localidad } = await resolverNegocio();
 
     // 1) Validar que el negocio tenga el libro de reclamaciones activo
     const tiendaRef = tiendaDoc(localidad, "tiendas", id);
@@ -300,6 +340,6 @@ function renderEstado(estadoRaw) {
     });
   } catch (err) {
     console.error(err);
-    showNotAvailable("Ocurrió un error al cargar la página de seguimiento.");
+    showNotAvailable(err.message || "Ocurrió un error al cargar la página de seguimiento.");
   }
 })();

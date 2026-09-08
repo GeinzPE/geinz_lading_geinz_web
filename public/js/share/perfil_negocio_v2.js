@@ -503,6 +503,7 @@ async function getParams() {
       localidad: localidad.trim().toLowerCase(),
       subcol: (categoria || "").replace(/\+/g, " "),
       id,
+      alias,
       promoIndex: null,
       promoId,
       wantsCarta,
@@ -525,24 +526,22 @@ async function getParams() {
     localidad,
     subcol,
     id,
+    alias: null,
     promoIndex,
     wantsCarta: false,
     mesaToken: null,
   };
 }
 
-async function resolveMesaYRedirigir({ localidad, id }, mesaToken) {
+async function resolveMesaYRedirigir({ localidad, id, alias }, mesaToken) {
   try {
     const mesasRef = tiendaSubCol(localidad, "tiendas", id, "mesas");
     const snap = await getDocs(mesasRef);
     let mesaDoc = null;
-
     snap.forEach((d) => {
       if (mesaDoc) return;
       const data = d.data();
-      if (data.token_seguridad === mesaToken) {
-        mesaDoc = { id: d.id, ...data };
-      }
+      if (data.token_seguridad === mesaToken) mesaDoc = { id: d.id, ...data };
     });
 
     if (!mesaDoc) {
@@ -550,9 +549,14 @@ async function resolveMesaYRedirigir({ localidad, id }, mesaToken) {
       return true;
     }
 
-    const url = new URL("../carrito/carrito.html", window.location.href);
-    url.searchParams.set("localidad", localidad);
-    url.searchParams.set("id", id);
+    const base = alias
+      ? `/perfil/${encodeURIComponent(alias)}/carrito`
+      : "/carrito/carrito.html";
+    const url = new URL(base, window.location.origin);
+    if (!alias) {
+      url.searchParams.set("localidad", localidad);
+      url.searchParams.set("id", id);
+    }
     url.searchParams.set("mesaId", mesaDoc.id);
     if (mesaDoc.nombre_alias)
       url.searchParams.set("mesaNombre", mesaDoc.nombre_alias);
@@ -2630,25 +2634,42 @@ async function render(biz, isInitial = true) {
         "../../legal/libro_reclamaciones.html",
         window.location.href,
       );
-      urlLibro.searchParams.set("id", biz.id || _params.id);
-      urlLibro.searchParams.set("localidad", _params.localidad);
-      linkLibro.href = urlLibro.toString();
+      if (biz.alias_key) {
+        linkLibro.href = new URL(
+          `../../legal/libro_reclamaciones/${encodeURIComponent(biz.alias_key)}`,
+          window.location.href,
+        ).toString();
+      } else {
+        const urlLibro = new URL(
+          "../../legal/libro_reclamaciones.html",
+          window.location.href,
+        );
+        urlLibro.searchParams.set("id", biz.id || _params.id);
+        urlLibro.searchParams.set("localidad", _params.localidad);
+        linkLibro.href = urlLibro.toString();
+      }
     }
   }
-
   const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
   if (linkSeguimiento) {
     const libroActivo =
       footerActivo && footerConfig.libro_reclamaciones === true;
     linkSeguimiento.style.display = libroActivo ? "" : "none";
     if (libroActivo) {
-      const urlSeguimiento = new URL(
-        "../../legal/segumiento_reclamaciones.html",
-        window.location.href,
-      );
-      urlSeguimiento.searchParams.set("id", biz.id || _params.id);
-      urlSeguimiento.searchParams.set("localidad", _params.localidad);
-      linkSeguimiento.href = urlSeguimiento.toString();
+      if (biz.alias_key) {
+        linkSeguimiento.href = new URL(
+          `../../legal/seguimiento_reclamaciones/${encodeURIComponent(biz.alias_key)}`,
+          window.location.href,
+        ).toString();
+      } else {
+        const urlSeguimiento = new URL(
+          "../../legal/seguimiento_reclamaciones.html",
+          window.location.href,
+        );
+        urlSeguimiento.searchParams.set("id", biz.id || _params.id);
+        urlSeguimiento.searchParams.set("localidad", _params.localidad);
+        linkSeguimiento.href = urlSeguimiento.toString();
+      }
     }
   }
 
@@ -2657,13 +2678,20 @@ async function render(biz, isInitial = true) {
       footerActivo && footerConfig.terminos_condiciones === true;
     linkTerminos.style.display = terminosActivo ? "" : "none";
     if (terminosActivo) {
-      const urlTerminos = new URL(
-        "../../legal/terminos_condiciones.html",
-        window.location.href,
-      );
-      urlTerminos.searchParams.set("id", biz.id || _params.id);
-      urlTerminos.searchParams.set("localidad", _params.localidad);
-      linkTerminos.href = urlTerminos.toString();
+      if (biz.alias_key) {
+        linkTerminos.href = new URL(
+          `../../legal/terminos_condiciones/${encodeURIComponent(biz.alias_key)}`,
+          window.location.href,
+        ).toString();
+      } else {
+        const urlTerminos = new URL(
+          "../../legal/terminos_condiciones.html",
+          window.location.href,
+        );
+        urlTerminos.searchParams.set("id", biz.id || _params.id);
+        urlTerminos.searchParams.set("localidad", _params.localidad);
+        linkTerminos.href = urlTerminos.toString();
+      }
     }
   }
 
@@ -2672,13 +2700,20 @@ async function render(biz, isInitial = true) {
       footerActivo && footerConfig.politicas_privacidad === true;
     linkPrivacidad.style.display = privacidadActivo ? "" : "none";
     if (privacidadActivo) {
-      const urlPrivacidad = new URL(
-        "../../legal/politicas_privacidad.html",
-        window.location.href,
-      );
-      urlPrivacidad.searchParams.set("id", biz.id || _params.id);
-      urlPrivacidad.searchParams.set("localidad", _params.localidad);
-      linkPrivacidad.href = urlPrivacidad.toString();
+      if (biz.alias_key) {
+        linkPrivacidad.href = new URL(
+          `../../legal/politicas_privacidad/${encodeURIComponent(biz.alias_key)}`,
+          window.location.href,
+        ).toString();
+      } else {
+        const urlPrivacidad = new URL(
+          "../../legal/politicas_privacidad.html",
+          window.location.href,
+        );
+        urlPrivacidad.searchParams.set("id", biz.id || _params.id);
+        urlPrivacidad.searchParams.set("localidad", _params.localidad);
+        linkPrivacidad.href = urlPrivacidad.toString();
+      }
     }
   }
   // ── COLOR + LOGO: solo la primera vez ──
@@ -4545,7 +4580,12 @@ async function eliminarMiReview() {
 
     // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
     loadProductosCatalogo(params).then((productos) => {
-      renderProductosCatalogo(productos, params.localidad, params.id);
+      renderProductosCatalogo(
+        productos,
+        params.localidad,
+        params.id,
+        params.alias || biz.alias_key,
+      );
     });
   } catch (err) {
     console.error(err);
@@ -4659,7 +4699,7 @@ async function loadProductosCatalogo({ localidad, id }) {
 }
 
 // ── 2. Pinta 5 productos en línea vertical + botón "Ver catálogo" (arriba si hay productos)
-function renderProductosCatalogo(productos, localidad, id) {
+function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   const sec = document.getElementById("secCatalogo");
   const btnWrap = document.getElementById("catalogoBtnWrap");
   const list = document.getElementById("catalogoList");
@@ -4673,8 +4713,11 @@ function renderProductosCatalogo(productos, localidad, id) {
   sec.style.display = "";
 
   if (btnWrap) {
+    const cartHref = aliasKey
+      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+      : `../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}`;
     btnWrap.innerHTML = `
-      <a href="../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}"
+      <a href="${cartHref}"
          class="btn-primary px-6 py-3 rounded-2xl font-bold inline-flex items-center gap-2">
         🛒 Ver productos
       </a>`;

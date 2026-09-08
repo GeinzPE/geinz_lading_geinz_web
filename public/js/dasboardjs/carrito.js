@@ -121,12 +121,47 @@ async function confirmarPedidoAtomico(items, construirPedido) {
     return { ok: false, motivo: "error_generico" };
   }
 }
-const params = new URLSearchParams(window.location.search);
-const localidad = (params.get("localidad") || "barranca").toLowerCase();
-const tiendaId = params.get("id");
-const mesaId = params.get("mesaId");
-const mesaNombre = params.get("mesaNombre");
-const mesaNumero = params.get("mesaNumero");
+let localidad = "barranca";
+let tiendaId = null;
+let mesaId = null;
+let mesaNombre = null;
+let mesaNumero = null;
+let aliasNegocio = null;
+
+async function resolverParamsCarrito() {
+  const path = window.location.pathname;
+  const qs = new URLSearchParams(window.location.search);
+
+  // URL bonita: /perfil/{alias}/carrito
+  const match = path.match(/^\/perfil\/([^/]+)\/carrito\/?$/);
+  if (match) {
+    const alias = decodeURIComponent(match[1]);
+    try {
+      const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
+      if (aliasSnap.exists()) {
+        const data = aliasSnap.data();
+        if (data.id && data.localidad) {
+          aliasNegocio = alias;
+          tiendaId = data.id;
+          localidad = data.localidad.trim().toLowerCase();
+        }
+      }
+    } catch (e) {
+      console.error("No se pudo resolver el alias del negocio:", e);
+    }
+  }
+
+  // Fallback: URL vieja con ?localidad=&id=
+  if (!tiendaId) {
+    localidad = (qs.get("localidad") || "barranca").toLowerCase();
+    tiendaId = qs.get("id");
+  }
+
+  // Datos de mesa (siempre vienen como query params)
+  mesaId = qs.get("mesaId");
+  mesaNombre = qs.get("mesaNombre");
+  mesaNumero = qs.get("mesaNumero");
+}
 /* ══════════════ Estado (todo en memoria, sin re-fetch) ══════════════ */
 let productosGlobal = []; // catálogo completo, se pide una sola vez
 let productosPorId = new Map(); // acceso O(1) por id
@@ -154,9 +189,6 @@ let clienteLat = null;
 let clienteLng = null;
 
 import { setBusinessFaviconById } from "../favicon/favicon.js";
-
-setBusinessFaviconById({ localidad: localidad, id: tiendaId });
-/* ══════════════ Normalización de texto (búsqueda inteligente) ══════════════ */
 function normalizeText(s) {
   return (s || "")
     .toString()
@@ -2574,7 +2606,10 @@ function iniciarValidacionHorarioEnVivo() {
 /* ══════════════ Init ══════════════ */
 
 /* ══════════════ Init ══════════════ */
+
 async function init() {
+    await resolverParamsCarrito();
+  setBusinessFaviconById({ localidad, id: tiendaId });
   paintToggleDefaults();
   bindCartEditDelegation(document.getElementById("drawerItems"));
   bindCartEditDelegation(document.getElementById("sidebarItems"));
