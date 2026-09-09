@@ -17,6 +17,7 @@ import {
   tiendaSubDoc,
   tiendaSubCol,
   data_user_logeado,
+  clienteDoc,
 } from "../rutas/rutas.js";
 
 import {
@@ -183,7 +184,7 @@ let metodoPago = "Yape / Plin";
 /* ══════════════ Usuario logeado ══════════════ */
 let usuarioLogeado = null;
 let nombreUsuarioLogeado = "";
-
+let siguiendoTienda = false; // true si el usuario ya tiene doc en clientes/{uid} de esta tienda
 /* ══════════════ Ubicación GPS del cliente (opcional, para precisión del driver) ══════════════ */
 let clienteLat = null;
 let clienteLng = null;
@@ -616,7 +617,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 function renderPedidoActivoMesa(pedido) {
@@ -772,6 +773,10 @@ async function verificarYDescontarStockSolo(items) {
 }
 async function confirmarPedidoMesaDirecto() {
   if (!carrito.size) return;
+  if (!usuarioLogeado) {
+    openLoginPromptModal();
+    return;
+  }
 
   const items = [...carrito.values()];
   const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
@@ -853,6 +858,7 @@ function cargarUsuarioLogeado() {
       if (!user) {
         usuarioLogeado = null;
         nombreUsuarioLogeado = "";
+        siguiendoTienda = false;
         resolve(null);
         return;
       }
@@ -865,6 +871,19 @@ function cargarUsuarioLogeado() {
           const nombre = (d.nombre || "").trim();
           const apellido = (d.apellido || "").trim();
           nombreUsuarioLogeado = `${nombre} ${apellido}`.trim();
+        }
+
+        // ¿Ya sigue esta tienda? (existe doc en clientes/{uid})
+        if (tiendaId) {
+          try {
+            const clienteSnap = await getDoc(
+              clienteDoc(localidad, tiendaId, user.uid),
+            );
+            siguiendoTienda = clienteSnap.exists();
+          } catch (e) {
+            console.warn("No se pudo verificar si sigue la tienda:", e.message);
+            siguiendoTienda = false;
+          }
         }
       } catch (err) {
         console.error("Error cargando usuario logeado:", err);
@@ -961,12 +980,12 @@ async function loadProductosCatalogo(biz) {
           stock: typeof d.stock === "number" ? d.stock : null, // ← faltaba: stock general del producto
           puntos:
             biz?.fidelizacion?.activo &&
-            d.puntos?.activo &&
-            d.puntos?.cantidad > 0
+              d.puntos?.activo &&
+              d.puntos?.cantidad > 0
               ? {
-                  cantidad: d.puntos.cantidad,
-                  descripcion: d.puntos.descripcion || "",
-                }
+                cantidad: d.puntos.cantidad,
+                descripcion: d.puntos.descripcion || "",
+              }
               : null,
         });
       });
@@ -1119,14 +1138,12 @@ function pintarLogoEnBotones() {
   });
 
   const loaderImg = document.getElementById("pedidoLoaderLogo");
-  const loaderPh = document.getElementById("pedidoLoaderLogoPh");
-  if (loaderImg && loaderPh) {
+  if (loaderImg) {
     if (logoUrl) {
       loaderImg.src = logoUrl;
-      loaderImg.style.display = "block";
-      loaderPh.classList.add("hidden");
+
+
     } else {
-      loaderPh.classList.remove("hidden");
     }
   }
 }
@@ -1137,6 +1154,61 @@ function showPedidoLoader() {
 function hidePedidoLoader() {
   document.getElementById("pedidoLoader")?.classList.add("hidden");
 }
+
+/* ══════════════ Modal: inicia sesión / regístrate ══════════════ */
+function openLoginPromptModal() {
+  const modal = document.getElementById("loginPromptModal");
+  if (!modal) return;
+
+  const nameSpan = document.getElementById("loginPromptBizName");
+  if (nameSpan) nameSpan.textContent = bizNombre || "este negocio";
+
+  const logoWrap = document.getElementById("loginPromptLogoWrap");
+  if (logoWrap) {
+    logoWrap.innerHTML = "";
+    if (_bizLogoUrl) {
+      const img = document.createElement("img");
+      img.crossOrigin = "anonymous";
+      img.src = _bizLogoUrl;
+      img.alt = bizNombre || "Logo";
+      img.className = "login-prompt-logo";
+      logoWrap.appendChild(img);
+    } else {
+      const letter = document.createElement("div");
+      letter.className = "login-prompt-letter";
+      letter.textContent = letraNegocio();
+      logoWrap.appendChild(letter);
+    }
+  }
+
+  modal.classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+
+function closeLoginPromptModal() {
+  document.getElementById("loginPromptModal")?.classList.remove("show");
+  if (
+    !document.getElementById("checkoutOverlay").classList.contains("show") &&
+    !document.getElementById("drawer").classList.contains("show")
+  ) {
+    document.body.style.overflow = "";
+  }
+}
+
+function bindLoginPromptEvents() {
+  document
+    .getElementById("loginPromptClose")
+    ?.addEventListener("click", closeLoginPromptModal);
+  document
+    .getElementById("loginPromptCancel")
+    ?.addEventListener("click", closeLoginPromptModal);
+  document
+    .getElementById("loginPromptModal")
+    ?.addEventListener("click", (e) => {
+      if (e.target.id === "loginPromptModal") closeLoginPromptModal();
+    });
+}
+bindLoginPromptEvents();
 /* Cuando el carrito viene de una mesa (QR), el botón "atrás" ya no debe
        hacer history.back() (puede llevar a un sitio raro o no ir a ningún lado
        si la mesa fue la primera pantalla abierta). En su lugar, manda a la
@@ -1333,11 +1405,10 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${
-    _bizLogoUrl
+  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
       ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
       : `<span class="ph-letter">${letraNegocio()}</span>`
-  }</div>`;
+    }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -1445,8 +1516,12 @@ function productoCard(p, index = 0) {
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-    ${p.puntos ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>` : ""}
-  `;
+    ${p.puntos
+      ? siguiendoTienda
+        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+        : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
+      : ""
+    }  `;
 
   const qtyWrap = document.createElement("div");
   qtyWrap.className = "flex-shrink-0 prod-qty-row";
@@ -1834,6 +1909,30 @@ function calcularPuntosTotales(items) {
   );
 }
 
+/* Decide qué mensaje mostrar en los bloques de puntos:
+   - Si el pedido no da puntos -> vacío (se oculta igual con classList.toggle)
+   - Si el usuario ya sigue la tienda -> "Ganas X puntos"
+   - Si NO la sigue -> invita a seguir la tienda para poder ganarlos */
+function textoPuntosHTML(puntosTotales, esCheckout = false) {
+  if (puntosTotales <= 0) return "";
+
+  if (siguiendoTienda) {
+    return esCheckout
+      ? `🎁 Ganas ${puntosTotales} puntos con este pedido`
+      : `🎁 Ganas ${puntosTotales} puntos`;
+  }
+
+  const alias = bizData?.alias_negocio;
+  const nombreSeguro = (bizNombre || "esta tienda").replace(/</g, "&lt;");
+  const mensaje = `⭐ Sigue a <strong>${nombreSeguro}</strong> para ganar y canjear puntos`;
+
+  if (alias) {
+    const href = `${LANDING_BASE_URL}/perfil/${encodeURIComponent(alias)}`;
+    return `<a href="${href}" target="_blank" rel="noopener" style="text-decoration:underline;">${mensaje}</a>`;
+  }
+  return mensaje;
+}
+
 function updateCartUI() {
   const items = [...carrito.values()];
   const count = items.reduce((s, i) => s + i.cantidad, 0);
@@ -1864,14 +1963,14 @@ function updateCartUI() {
   document.getElementById("sidebarCount").textContent =
     `${count} item${count === 1 ? "" : "s"}`;
   const puntosTotales = calcularPuntosTotales(items);
+  const puntosHTML = textoPuntosHTML(puntosTotales);
   [
     document.getElementById("cartPuntos"),
     document.getElementById("drawerPuntos"),
     document.getElementById("sidebarPuntos"),
   ].forEach((el) => {
     if (!el) return;
-    el.textContent =
-      puntosTotales > 0 ? `🎁 Ganas ${puntosTotales} puntos` : "";
+    el.innerHTML = puntosHTML;
     el.classList.toggle("hidden", puntosTotales === 0);
   });
   document.getElementById("cartBar").classList.toggle("show", count > 0);
@@ -1914,8 +2013,8 @@ function renderCartList(wrap, items) {
     const precioNum = Number(it.precio) || 0;
     const opcionesTxt = it.seleccion
       ? Object.entries(it.seleccion)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ")
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(" · ")
       : "";
 
     let row = rowsMap.get(key);
@@ -1933,13 +2032,12 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
         <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-          ${
-            it.seleccion
-              ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
+          ${it.seleccion
+          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>`
-              : ""
-          }
+          : ""
+        }
           <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>
@@ -2066,6 +2164,10 @@ document
   .addEventListener("click", obtenerUbicacionCliente);
 function openCheckout() {
   if (!carrito.size) return;
+  if (!usuarioLogeado) {
+    openLoginPromptModal();
+    return;
+  }
   if (!horarioEstado.abierto) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
@@ -2104,8 +2206,8 @@ function renderCheckoutSummary() {
     .map((it) => {
       const opcionesTxt = it.seleccion
         ? Object.entries(it.seleccion)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
         : "";
       return `
     <div class="step-summary-row">
@@ -2120,10 +2222,7 @@ function renderCheckoutSummary() {
   const puntosTotales = calcularPuntosTotales(items);
   const puntosEl = document.getElementById("checkoutPuntos");
   if (puntosEl) {
-    puntosEl.textContent =
-      puntosTotales > 0
-        ? `🎁 Ganas ${puntosTotales} puntos con este pedido`
-        : "";
+    puntosEl.innerHTML = textoPuntosHTML(puntosTotales, true);
     puntosEl.classList.toggle("hidden", puntosTotales === 0);
   }
 }
@@ -2163,10 +2262,10 @@ async function guardarPedidoEnDB({
     },
     mesa: mesaId
       ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+        id: mesaId,
+        nombre: mesaNombre || null,
+        numero: mesaNumero ? Number(mesaNumero) : null,
+      }
       : null,
 
     pago: {
@@ -2231,6 +2330,12 @@ function paintToggleDefaults() {
 document
   .getElementById("sendWhatsappBtn")
   .addEventListener("click", async () => {
+    // ══ Última barrera de seguridad: sin usuario logeado no se procesa el pedido ══
+    if (!usuarioLogeado) {
+      closeCheckout();
+      openLoginPromptModal();
+      return;
+    }
     // ══ Última barrera de seguridad: si se cerró justo en este instante, no se procesa ══
     if (!horarioEstado.abierto) {
       showToast(
@@ -2292,10 +2397,10 @@ document
       },
       mesa: mesaId
         ? {
-            id: mesaId,
-            nombre: mesaNombre || null,
-            numero: mesaNumero ? Number(mesaNumero) : null,
-          }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
         : null,
       pago: {
         metodo: metodoPago,
@@ -2608,7 +2713,7 @@ function iniciarValidacionHorarioEnVivo() {
 /* ══════════════ Init ══════════════ */
 
 async function init() {
-    await resolverParamsCarrito();
+  await resolverParamsCarrito();
   setBusinessFaviconById({ localidad, id: tiendaId });
   paintToggleDefaults();
   bindCartEditDelegation(document.getElementById("drawerItems"));

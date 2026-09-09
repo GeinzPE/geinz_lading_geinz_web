@@ -10,7 +10,7 @@ import {
   tiendaDoc,
   reclamacionesCol,
 } from "../js/rutas/rutas.js"; // ⚠️ ajusta esta ruta a donde tengas rutas.js
-
+import { setFaviconCircular } from "../js/favicon/favicon.js"; 
 // ══════════════════════════════════════════
 //  CAMPOS A MOSTRAR EN EL RESULTADO
 //  clave del doc del reclamo → cómo se pinta
@@ -43,13 +43,18 @@ const ESTADO_META = {
 // ══════════════════════════════════════════
 async function resolverNegocio() {
   const path = window.location.pathname;
-  const desdePath = path.startsWith("/legal/seguimiento_reclamaciones/");
 
   let alias = null;
 
-  if (desdePath) {
+  // Ruta nueva: /perfil/{alias}/seguimiento_reclamaciones
+  const matchPerfil = path.match(/^\/perfil\/([^/]+)\/seguimiento_reclamaciones\/?$/);
+  if (matchPerfil) {
+    alias = decodeURIComponent(matchPerfil[1]);
+  }
+
+  // Compatibilidad con la ruta vieja: /legal/seguimiento_reclamaciones/{alias}
+  if (!alias && path.startsWith("/legal/seguimiento_reclamaciones/")) {
     alias = decodeURIComponent(path.split("/legal/seguimiento_reclamaciones/")[1] || "").trim();
-    // Por si queda un slash final o algo pegado
     alias = alias.split(/[/?#]/)[0];
   }
 
@@ -258,6 +263,8 @@ function renderEstado(estadoRaw) {
         logoImg.src = logoUrl;
         logoImg.style.display = "block";
         logoLetter.style.display = "none";
+
+        setFaviconCircular(logoUrl);
 
         const tempImg = new Image();
         tempImg.crossOrigin = "anonymous";

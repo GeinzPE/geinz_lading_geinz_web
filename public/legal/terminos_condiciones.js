@@ -6,5 +6,6 @@ initLegalTextPage({
   footerFlag: "terminos_condiciones", // requiere biz.footer.activo === true y biz.footer.terminos_condiciones === true
   tituloFallback: "Términos y Condiciones",
   labelSuperior: "Términos y Condiciones",
-  pathPrefix: "/legal/terminos_condiciones/", // ⚠️ ajusta si tu ruta bonita real es distinta
+  pathPrefix: "/legal/terminos_condiciones/", // compatibilidad con links viejos
+  seccion: "terminos_condiciones", // habilita /perfil/{alias}/terminos_condiciones
 });

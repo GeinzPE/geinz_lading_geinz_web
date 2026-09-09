@@ -1,6 +1,6 @@
 import { getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { aliasTiendaDoc, tiendaDoc } from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
-
+import { setFaviconCircular } from "../js/favicon/favicon.js"; // ⚠️ ajusta esta ruta si tu favicon.js está en otro lugar
 // ══════════════════════════════════════════
 //  RESOLVER ALIAS → { id, localidad }
 //  (mismo patrón que legal.js / seguimiento.js)
@@ -10,15 +10,21 @@ import { aliasTiendaDoc, tiendaDoc } from "../js/rutas/rutas.js"; // ruta real d
 //  como alias. Si no, cae a ?alias=... y luego a ?id=&localidad=
 //  como fallback viejo.
 // ══════════════════════════════════════════
-async function resolverNegocio(pathPrefix) {
+async function resolverNegocio(pathPrefix, seccion) {
   const path = window.location.pathname;
-  const desdePath = pathPrefix && path.startsWith(pathPrefix);
 
   let alias = null;
 
+  // Ruta nueva: /perfil/{alias}/{seccion}
+  if (seccion) {
+    const matchPerfil = path.match(new RegExp(`^/perfil/([^/]+)/${seccion}/?$`));
+    if (matchPerfil) alias = decodeURIComponent(matchPerfil[1]);
+  }
+
+  // Ruta vieja: /legal/{seccion}/{alias}
+  const desdePath = !alias && pathPrefix && path.startsWith(pathPrefix);
   if (desdePath) {
     alias = decodeURIComponent(path.split(pathPrefix)[1] || "").trim();
-    // Por si queda un slash final o algo pegado
     alias = alias.split(/[/?#]/)[0];
   }
 
@@ -162,7 +168,8 @@ export async function initLegalTextPage({
   tituloFallback = "Documento legal",
   descripcionFallback = "",
   labelSuperior = "Documento legal",
-  pathPrefix = null,   // ej "/legal/politicas_privacidad/" — habilita resolución por alias en la URL bonita
+  pathPrefix = null,   // ej "/legal/politicas_privacidad/" — fallback para links viejos
+  seccion = null,      // ej "politicas_privacidad" — habilita /perfil/{alias}/{seccion}
 }) {
   const loader = document.getElementById("loaderScreen");
   const mainWrap = document.getElementById("mainWrap");
@@ -176,8 +183,7 @@ export async function initLegalTextPage({
   }
 
   try {
-    const { id, localidad } = await resolverNegocio(pathPrefix);
-
+    const { id, localidad } = await resolverNegocio(pathPrefix, seccion);
     // 1) Datos del negocio (para logo, nombre y color)
     const tiendaRef = tiendaDoc(localidad, "tiendas", id);
     const tiendaSnap = await getDoc(tiendaRef);
@@ -213,6 +219,8 @@ export async function initLegalTextPage({
         logoImg.src = logoUrl;
         logoImg.style.display = "block";
         logoLetter.style.display = "none";
+
+        setFaviconCircular(logoUrl);
 
         const tempImg = new Image();
         tempImg.crossOrigin = "anonymous";

@@ -10,8 +10,7 @@ import {
   libroReclamacionesConfigDoc,
   reclamacionesCol,
 } from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
-
-// ══════════════════════════════════════════
+import { setFaviconCircular } from "../js/favicon/favicon.js"; // ══════════════════════════════════════════
 //  CONFIG DE CAMPOS DINÁMICOS
 //  clave del mapa "campos" en Firestore → cómo se pinta en el form
 //  "group" agrupa visualmente el campo en la sección 1 (Tus datos)
@@ -145,13 +144,18 @@ const DOC_TIPO_VALIDATORS = {
 // ══════════════════════════════════════════
 async function resolverNegocio() {
   const path = window.location.pathname;
-  const desdePath = path.startsWith("/legal/libro_reclamaciones/");
 
   let alias = null;
 
-  if (desdePath) {
+  // Ruta nueva: /perfil/{alias}/libro_reclamaciones
+  const matchPerfil = path.match(/^\/perfil\/([^/]+)\/libro_reclamaciones\/?$/);
+  if (matchPerfil) {
+    alias = decodeURIComponent(matchPerfil[1]);
+  }
+
+  // Compatibilidad con la ruta vieja: /legal/libro_reclamaciones/{alias}
+  if (!alias && path.startsWith("/legal/libro_reclamaciones/")) {
     alias = decodeURIComponent(path.split("/legal/libro_reclamaciones/")[1] || "").trim();
-    // Por si queda un slash final o algo pegado
     alias = alias.split(/[/?#]/)[0];
   }
 
@@ -503,10 +507,12 @@ function generarCodigoSeguimiento() {
 
     // Promesa que se resuelve solo cuando el color ya fue aplicado
     const colorReady = new Promise((resolve) => {
-      if (logoUrl) {
+        if (logoUrl) {
         logoImg.src = logoUrl;
         logoImg.style.display = "block";
         logoLetter.style.display = "none";
+
+        setFaviconCircular(logoUrl);
 
         const tempImg = new Image();
         tempImg.crossOrigin = "anonymous";

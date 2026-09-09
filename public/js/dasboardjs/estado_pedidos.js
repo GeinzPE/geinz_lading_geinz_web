@@ -242,11 +242,35 @@ function init(negocioId, pedidoId, uidActual) {
       // Seguridad: si el pedido tiene dueño registrado y no coincide con el
       // usuario autenticado, no se muestra el contenido — se pide iniciar
       // sesión/registrarse.
-      if (data.cliente?.uid && data.cliente.uid !== uidActual) {
+           // Seguridad: si el pedido tiene dueño registrado y no coincide con el
+      // usuario autenticado, no se muestra el contenido — se pide iniciar
+      // sesión/registrarse.
+           // Seguridad: si el pedido tiene dueño registrado y no coincide con el
+      // usuario autenticado, no se muestra el contenido — se pide iniciar
+      // sesión/registrarse.
+      console.log("[pedidos][auth-check] uidActual:", uidActual);
+      console.log("[pedidos][auth-check] data.cliente:", data.cliente);
+      console.log(
+        "[pedidos][auth-check] id_cliente en el pedido:",
+        data.cliente?.id_cliente,
+      );
+
+      if (data.cliente?.id_cliente && data.cliente.id_cliente !== uidActual) {
+        console.warn(
+          "[pedidos][auth-check] ❌ NO coincide — id_cliente:",
+          data.cliente.id_cliente,
+          "!== uidActual:",
+          uidActual,
+          "→ mostrando modal de login",
+        );
         if (unsubPedido) unsubPedido();
         mostrarModalRegistro();
         return;
       }
+
+      console.log(
+        "[pedidos][auth-check] ✅ Coincide (o no hay id_cliente registrado) — se muestra el pedido",
+      );
 
       const nuevoEstado = normalizarEstado(data.estado);
       renderPedido(data);

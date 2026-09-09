@@ -2629,16 +2629,9 @@ async function render(biz, isInitial = true) {
     const libroActivo =
       footerActivo && footerConfig.libro_reclamaciones === true;
     linkLibro.style.display = libroActivo ? "" : "none";
-    if (libroActivo) {
-      const urlLibro = new URL(
-        "../../legal/libro_reclamaciones.html",
-        window.location.href,
-      );
+      if (libroActivo) {
       if (biz.alias_key) {
-        linkLibro.href = new URL(
-          `../../legal/libro_reclamaciones/${encodeURIComponent(biz.alias_key)}`,
-          window.location.href,
-        ).toString();
+        linkLibro.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/libro_reclamaciones`;
       } else {
         const urlLibro = new URL(
           "../../legal/libro_reclamaciones.html",
@@ -2655,12 +2648,9 @@ async function render(biz, isInitial = true) {
     const libroActivo =
       footerActivo && footerConfig.libro_reclamaciones === true;
     linkSeguimiento.style.display = libroActivo ? "" : "none";
-    if (libroActivo) {
+     if (libroActivo) {
       if (biz.alias_key) {
-        linkSeguimiento.href = new URL(
-          `../../legal/seguimiento_reclamaciones/${encodeURIComponent(biz.alias_key)}`,
-          window.location.href,
-        ).toString();
+        linkSeguimiento.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/seguimiento_reclamaciones`;
       } else {
         const urlSeguimiento = new URL(
           "../../legal/seguimiento_reclamaciones.html",
@@ -2677,12 +2667,9 @@ async function render(biz, isInitial = true) {
     const terminosActivo =
       footerActivo && footerConfig.terminos_condiciones === true;
     linkTerminos.style.display = terminosActivo ? "" : "none";
-    if (terminosActivo) {
+      if (terminosActivo) {
       if (biz.alias_key) {
-        linkTerminos.href = new URL(
-          `../../legal/terminos_condiciones/${encodeURIComponent(biz.alias_key)}`,
-          window.location.href,
-        ).toString();
+        linkTerminos.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/terminos_condiciones`;
       } else {
         const urlTerminos = new URL(
           "../../legal/terminos_condiciones.html",
@@ -2699,12 +2686,9 @@ async function render(biz, isInitial = true) {
     const privacidadActivo =
       footerActivo && footerConfig.politicas_privacidad === true;
     linkPrivacidad.style.display = privacidadActivo ? "" : "none";
-    if (privacidadActivo) {
+      if (privacidadActivo) {
       if (biz.alias_key) {
-        linkPrivacidad.href = new URL(
-          `../../legal/politicas_privacidad/${encodeURIComponent(biz.alias_key)}`,
-          window.location.href,
-        ).toString();
+        linkPrivacidad.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/politicas_privacidad`;
       } else {
         const urlPrivacidad = new URL(
           "../../legal/politicas_privacidad.html",

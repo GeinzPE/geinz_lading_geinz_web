@@ -11,8 +11,76 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Manrope:wght@800&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="../style/carrito/carrito.css">
+   <link rel="stylesheet" href="../style/carrito/carrito.css">
   <script type="module" src="../js/dasboardjs/carrito.js"></script>
+  <style>
+    .login-prompt-modal{
+      position:fixed;inset:0;z-index:10002;
+      background:rgba(3,3,3,.75);
+      backdrop-filter:blur(8px);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0;visibility:hidden;
+      transition:opacity .28s ease, visibility .28s ease;
+      padding:20px;
+    }
+    .login-prompt-modal.show{opacity:1;visibility:visible;}
+    .login-prompt-box{
+      width:100%;max-width:360px;
+      background:#0b0b0d;
+      border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+      border-radius:28px;
+      padding:32px 26px 26px;
+      position:relative;
+      text-align:center;
+      overflow:hidden;
+      transform:scale(.94);
+      transition:transform .28s cubic-bezier(.2,.8,.2,1);
+      box-shadow:0 25px 60px -12px rgba(0,0,0,.7), 0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.35);
+    }
+    .login-prompt-modal.show .login-prompt-box{transform:scale(1);}
+    .login-prompt-close{
+      position:absolute;top:14px;right:14px;
+      width:32px;height:32px;border:none;border-radius:50%;
+      background:rgba(255,255,255,.08);color:#fff;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .login-prompt-glow{
+      position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+      width:220px;height:220px;border-radius:50%;
+      background:radial-gradient(circle, rgba(var(--dr),var(--dg),var(--db),.45), transparent 70%);
+      filter:blur(10px);
+      pointer-events:none;
+    }
+    .login-prompt-logo{
+      width:88px;height:88px;border-radius:50%;
+      object-fit:cover;margin:0 auto 18px;
+      border:2px solid rgba(var(--dr),var(--dg),var(--db),.6);
+      box-shadow:0 0 25px rgba(var(--dr),var(--dg),var(--db),.4);
+      position:relative;z-index:1;background:#111;display:block;
+    }
+    .login-prompt-letter{
+      width:88px;height:88px;border-radius:50%;margin:0 auto 18px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:2rem;font-weight:800;
+      color:rgba(var(--dr),var(--dg),var(--db),.95);
+      background:rgba(var(--dr),var(--dg),var(--db),.15);
+      border:2px solid rgba(var(--dr),var(--dg),var(--db),.5);
+      position:relative;z-index:1;
+    }
+    .login-prompt-title{font-size:19px;font-weight:800;color:#fff;margin:0 0 8px;position:relative;z-index:1;}
+    .login-prompt-desc{font-size:13.5px;color:#9c9ca3;line-height:1.55;margin:0 0 24px;position:relative;z-index:1;}
+    .login-prompt-actions{display:flex;flex-direction:column;gap:10px;position:relative;z-index:1;}
+    .login-prompt-btn-primary{
+      padding:13px;border:none;border-radius:14px;font-weight:700;font-size:14px;color:#fff;
+      cursor:pointer;text-decoration:none;display:block;
+      background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
+      box-shadow:0 8px 20px -6px rgba(var(--dr),var(--dg),var(--db),.5);
+    }
+    .login-prompt-btn-secondary{
+      padding:13px;border-radius:14px;font-weight:600;font-size:13.5px;cursor:pointer;
+      background:rgba(255,255,255,.06);color:#d4d4d8;border:1px solid rgba(255,255,255,.1);
+    }
+  </style>
 </head>
 
 <body class="pb-40 lg:pb-16 relative">
@@ -321,11 +389,28 @@
     class="hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-[#0a0810]/95">
     <div class="pedido-loader-logo-wrap">
       <img id="pedidoLoaderLogo" src="" alt="" style="display:none">
-      <div id="pedidoLoaderLogoPh" class="hidden">🛍️</div>
     </div>
     <p class="text-sm text-gray-400 font-semibold">Enviando tu pedido…</p>
   </div>
   <div id="toast"></div>
+
+  <!-- Modal: inicia sesión / regístrate para poder hacer el pedido -->
+  <div id="loginPromptModal" class="login-prompt-modal">
+    <div class="login-prompt-box">
+      <button id="loginPromptClose" class="login-prompt-close" aria-label="Cerrar">✕</button>
+      <div class="login-prompt-glow"></div>
+      <div id="loginPromptLogoWrap"></div>
+      <h3 class="login-prompt-title">Inicia sesión para continuar</h3>
+      <p class="login-prompt-desc">
+        Para hacer tu pedido en <span id="loginPromptBizName">este negocio</span> necesitas una cuenta.
+        Así podrás ver el estado de tu pedido en tiempo real y hacerle seguimiento desde tu perfil.
+      </p>
+      <div class="login-prompt-actions">
+        <a id="loginPromptLoginBtn" href="/registro" class="login-prompt-btn-primary">Iniciar sesión / Registrarme</a>
+        <button id="loginPromptCancel" class="login-prompt-btn-secondary">Ahora no</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 

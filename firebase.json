@@ -1,7 +1,11 @@
 {
   "hosting": {
     "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "cleanUrls": true,
     "headers": [
       {
@@ -15,21 +19,67 @@
       }
     ],
     "rewrites": [
-      { "source": "/perfil/*/carrito", "destination": "/carrito/carrito.html" },
-      { "source": "/perfil/**", "function": "perfilSSR" },
-      { "source": "/turismo/**", "function": "turismoSSR" },
-      { "source": "/sitemap.xml", "function": "sitemap" },
-      { "source": "/redirect/**", "destination": "/redirect/index.html" },
-      { "source": "/api/share", "function": "share" },
-      { "source": "/pedidos/**", "destination": "/pedidos/pedidos.html" },
-      { "source": "/logindata/login", "function": "staticSSR" },
-      { "source": "/scree/nostros", "function": "staticSSR" },
-      { "source": "/generatorqr", "function": "staticSSR" },
+          {
+        "source": "/perfil/*/carrito",
+        "destination": "/carrito/carrito.html"
+      },
+      {
+        "source": "/perfil/*/libro_reclamaciones",
+        "destination": "/legal/libro_reclamaciones.html"
+      },
+      {
+        "source": "/perfil/*/terminos_condiciones",
+        "destination": "/legal/terminos_condiciones.html"
+      },
+      {
+        "source": "/perfil/*/politicas_privacidad",
+        "destination": "/legal/politicas_privacidad.html"
+      },
+      {
+        "source": "/perfil/*/seguimiento_reclamaciones",
+        "destination": "/legal/seguimiento_reclamaciones.html"
+      },
+      {
+        "source": "/perfil/**",
+        "function": "perfilSSR"
+      },
+    
+      {
+        "source": "/turismo/**",
+        "function": "turismoSSR"
+      },
+      {
+        "source": "/sitemap.xml",
+        "function": "sitemap"
+      },
+      {
+        "source": "/redirect/**",
+        "destination": "/redirect/index.html"
+      },
+      {
+        "source": "/api/share",
+        "function": "share"
+      },
+      {
+        "source": "/pedidos/**",
+        "destination": "/pedidos/pedidos.html"
+      },
+      {
+        "source": "/logindata/login",
+        "function": "staticSSR"
+      },
+      {
+        "source": "/scree/nostros",
+        "function": "staticSSR"
+      },
+      {
+        "source": "/generatorqr",
+        "function": "staticSSR"
+      },
       {
         "source": "/legal/libro_reclamaciones/**",
         "destination": "/legal/libro_reclamaciones.html"
       },
-
       {
         "source": "/legal/terminos_condiciones/**",
         "destination": "/legal/terminos_condiciones.html"
@@ -42,7 +92,10 @@
         "source": "/legal/seguimiento_reclamaciones/**",
         "destination": "/legal/seguimiento_reclamaciones.html"
       },
-      { "source": "!/ffmpeg/**", "destination": "/index.html" }
+      {
+        "source": "!/ffmpeg/**",
+        "destination": "/index.html"
+      }
     ]
   }
 }
