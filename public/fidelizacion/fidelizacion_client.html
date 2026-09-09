@@ -1,368 +1,479 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Tarjeta de Fidelización</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Tarjeta de Fidelización</title>
 
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- Tipografías: Sora, Inter, IBM Plex Mono -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Tipografías: Sora, Inter, IBM Plex Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap"
+    rel="stylesheet">
 
-<!-- QR con estilo de puntos (misma librería/CDN que ya te funciona en el generador) -->
-<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+  <!-- QR con estilo de puntos (misma librería/CDN que ya te funciona en el generador) -->
+  <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
 
-<script type="module" src="../js/fidelizacion.js/fidelizacion.js"></script>
-<style>
-  :root {
-    --brand-vivid: #8b5cf6;
-    --brand-glow: #7c3aed;
-    --brand-dark: #2e1065;
-    --bg-base: #060709;
-  }
+  <script type="module" src="../js/fidelizacion.js/fidelizacion.js"></script>
+  <style>
+    :root {
+      --brand-vivid: #6b7280;
+      /* gris neutro mientras carga, no morado */
+      --brand-glow: #4b5563;
+      --brand-dark: #101114;
+      --bg-base: #050505;
+    }
 
-  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
 
-  body {
-    background: 
-      radial-gradient(1000px 600px at 50% -10%, color-mix(in srgb, var(--brand-vivid) 22%, transparent) 0%, transparent 65%),
-      radial-gradient(800px 500px at 50% 110%, color-mix(in srgb, var(--brand-glow) 15%, transparent) 0%, transparent 70%),
-      var(--bg-base);
-    font-family: 'Inter', sans-serif;
-    padding-left: max(1rem, env(safe-area-inset-left));
-    padding-right: max(1rem, env(safe-area-inset-right));
-    padding-top: max(1.5rem, env(safe-area-inset-top));
-    padding-bottom: max(2rem, env(safe-area-inset-bottom));
-    min-height: 100dvh;
-    transition: background 0.5s ease;
-  }
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
 
-  @media (max-width: 360px){
-    body { padding-left: 0.75rem; padding-right: 0.75rem; }
-  }
+    body {
+      background:
+        radial-gradient(1000px 600px at 50% -10%, color-mix(in srgb, var(--brand-vivid) 10%, transparent) 0%, transparent 65%),
+        radial-gradient(800px 500px at 50% 110%, color-mix(in srgb, var(--brand-glow) 8%, transparent) 0%, transparent 70%),
+        var(--bg-base);
+      font-family: 'Inter', sans-serif;
+      padding-left: max(1rem, env(safe-area-inset-left));
+      padding-right: max(1rem, env(safe-area-inset-right));
+      padding-top: max(1.5rem, env(safe-area-inset-top));
+      padding-bottom: max(2rem, env(safe-area-inset-bottom));
+      min-height: 100dvh;
+      transition: background 0.5s ease;
+    }
 
-  .font-display { font-family: 'Sora', sans-serif; }
-  .font-mono-card { font-family: 'IBM Plex Mono', monospace; }
+    @media (max-width: 360px) {
+      body {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+      }
+    }
 
-  /* ---------- Escena 3D + Tilt + Flip ---------- */
-  .card-scene { perspective: 1200px; }
+    .font-display {
+      font-family: 'Sora', sans-serif;
+    }
 
-  .card-tilt{
-    transform-style: preserve-3d;
-    transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
-    will-change: transform;
-  }
+    .font-mono-card {
+      font-family: 'IBM Plex Mono', monospace;
+    }
 
-  .card-flipper{
-    position: relative;
-    display: grid;
-    transform-style: preserve-3d;
-    transition: transform .62s cubic-bezier(.34, 1.56, .64, 1);
-    cursor: pointer;
-    will-change: transform;
-  }
-  .card-flipper.is-flipped{
-    transform: rotateY(180deg);
-  }
+    /* ---------- Escena 3D + Tilt + Flip ---------- */
+    .card-scene {
+      perspective: 1200px;
+    }
 
-  .card-face{
-    grid-area: 1 / 1;
-    width: 100%;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-  .card-face.card-back{
-    transform: rotateY(180deg);
-  }
+    .card-tilt {
+      transform-style: preserve-3d;
+      transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+      will-change: transform;
+    }
 
-  .card {
-    position: relative;
-    border-radius: clamp(20px, 4.5vw, 24px);
-    background: 
-      radial-gradient(130% 90% at 50% 0%, color-mix(in srgb, var(--brand-vivid) 28%, transparent) 0%, transparent 65%),
-      linear-gradient(170deg, #12141a 0%, #0a0b0e 60%, #060709 100%);
-    box-shadow: 
-      0 0 0 1px color-mix(in srgb, var(--brand-vivid) 38%, rgba(255,255,255,0.12)),
-      0 20px 50px -15px color-mix(in srgb, var(--brand-vivid) 25%, transparent),
-      0 30px 70px -20px rgba(0,0,0,0.95);
-    overflow: hidden;
-  }
+    .card-flipper {
+      position: relative;
+      display: grid;
+      transform-style: preserve-3d;
+      transition: transform .62s cubic-bezier(.34, 1.56, .64, 1);
+      cursor: pointer;
+      will-change: transform;
+    }
 
-  .card::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: repeating-linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.02) 0px,
-      rgba(255, 255, 255, 0.02) 1px,
-      transparent 1px,
-      transparent 7px
-    );
-    pointer-events: none;
-  }
+    .card-flipper.is-flipped {
+      transform: rotateY(180deg);
+    }
 
-  .card::after {
-    content: "";
-    position: absolute; inset: 0;
-    border-radius: clamp(20px, 4.5vw, 24px);
-    padding: 1.5px;
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--brand-vivid) 80%, white 20%) 0%,
-      rgba(255, 255, 255, 0.1) 40%,
-      transparent 60%,
-      color-mix(in srgb, var(--brand-vivid) 50%, transparent) 100%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
+    .card-face {
+      grid-area: 1 / 1;
+      width: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
 
-  .card-sheen {
-    position: absolute; inset: 0;
-    border-radius: clamp(20px, 4.5vw, 24px);
-    background: radial-gradient(circle 280px at var(--mx, 50%) var(--my, 20%), rgba(255, 255, 255, 0.12), transparent 70%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-  }
-  .card-scene:hover .card-sheen, .card-scene.is-active .card-sheen { opacity: 1; }
+    .card-face.card-back {
+      transform: rotateY(180deg);
+    }
 
-  @media (hover: none){
-    .card-sheen { opacity: 0.3; }
-  }
+    .card {
+      position: relative;
+      border-radius: clamp(20px, 4.5vw, 24px);
+      background:
+        radial-gradient(130% 90% at 50% 0%, color-mix(in srgb, var(--brand-vivid) 28%, transparent) 0%, transparent 65%),
+        linear-gradient(170deg, #12141a 0%, #0a0b0e 60%, #060709 100%);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--brand-vivid) 38%, rgba(255, 255, 255, 0.12)),
+        0 20px 50px -15px color-mix(in srgb, var(--brand-vivid) 25%, transparent),
+        0 30px 70px -20px rgba(0, 0, 0, 0.95);
+      overflow: hidden;
+    }
 
-  .fluid-eyebrow { font-size: clamp(8.5px, 2.2vw, 9.5px); letter-spacing: 0.28em; }
-  .fluid-store { font-size: clamp(17px, 4.5vw, 20px); letter-spacing: 0.02em; }
-  .fluid-name { font-size: clamp(15px, 4.2vw, 18px); letter-spacing: 0.06em; }
-  .fluid-points { font-size: clamp(42px, 12vw, 58px); }
-  .fluid-code { font-size: clamp(10px, 2.6vw, 11px); }
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(45deg,
+          rgba(255, 255, 255, 0.02) 0px,
+          rgba(255, 255, 255, 0.02) 1px,
+          transparent 1px,
+          transparent 7px);
+      pointer-events: none;
+    }
 
-  .logo-avatar {
-    width: clamp(66px, 18vw, 78px);
-    height: clamp(66px, 18vw, 78px);
-    border-radius: 9999px;
-    padding: 2.5px;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--brand-vivid) 100%, white 20%), color-mix(in srgb, var(--brand-dark) 40%, transparent));
-    box-shadow: 
-      0 0 20px color-mix(in srgb, var(--brand-vivid) 45%, transparent),
-      0 10px 20px rgba(0,0,0,0.8);
-  }
-  .logo-avatar-inner {
-    width: 100%; height: 100%; border-radius: 9999px; overflow: hidden;
-    background: #08090b; display: flex; align-items: center; justify-content: center;
-  }
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: clamp(20px, 4.5vw, 24px);
+      padding: 1.5px;
+      background: linear-gradient(135deg,
+          color-mix(in srgb, var(--brand-vivid) 80%, white 20%) 0%,
+          rgba(255, 255, 255, 0.1) 40%,
+          transparent 60%,
+          color-mix(in srgb, var(--brand-vivid) 50%, transparent) 100%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
 
-  .perforation {
-    position: relative;
-    height: 1px;
-    background-image: repeating-linear-gradient(90deg, color-mix(in srgb, var(--brand-vivid) 30%, rgba(255,255,255,0.15)) 0 6px, transparent 6px 14px);
-  }
-  .perforation::before, .perforation::after {
-    content: "";
-    position: absolute; top: 50%; transform: translateY(-50%);
-    width: 20px; height: 20px; border-radius: 9999px;
-    background: var(--bg-base);
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.9);
-  }
-  .perforation::before { left: -11px; }
-  .perforation::after { right: -11px; }
+    .card-sheen {
+      position: absolute;
+      inset: 0;
+      border-radius: clamp(20px, 4.5vw, 24px);
+      background: radial-gradient(circle 280px at var(--mx, 50%) var(--my, 20%), rgba(255, 255, 255, 0.12), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
 
-  .points-glow {
-    background: linear-gradient(180deg, #ffffff 30%, color-mix(in srgb, var(--brand-vivid) 80%, white 20%) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    letter-spacing: -0.03em;
-    filter: drop-shadow(0 4px 15px color-mix(in srgb, var(--brand-vivid) 35%, transparent));
-  }
+    .card-scene:hover .card-sheen,
+    .card-scene.is-active .card-sheen {
+      opacity: 1;
+    }
 
-  .chip-tier {
-    background: color-mix(in srgb, var(--brand-vivid) 15%, rgba(0,0,0,0.4));
-    border: 1px solid color-mix(in srgb, var(--brand-vivid) 50%, transparent);
-    color: color-mix(in srgb, var(--brand-vivid) 90%, white 10%);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--brand-vivid) 20%, transparent);
-    backdrop-filter: blur(8px);
-    letter-spacing: 0.2em;
-  }
+    @media (hover: none) {
+      .card-sheen {
+        opacity: 0.3;
+      }
+    }
 
-  .barcode-svg {
-    color: color-mix(in srgb, var(--brand-vivid) 60%, rgba(255,255,255,0.4));
-    width: 100%;
-    max-width: 220px;
-    height: 28px;
-  }
+    .fluid-eyebrow {
+      font-size: clamp(8.5px, 2.2vw, 9.5px);
+      letter-spacing: 0.28em;
+    }
 
-  @keyframes shimmer { 0% { background-position: -400px 0 } 100% { background-position: 400px 0 } }
-  .skeleton {
-    background: linear-gradient(90deg, #121418 25%, #1c1f26 37%, #121418 63%);
-    background-size: 800px 100%;
-    animation: shimmer 1.6s infinite linear;
-  }
+    .fluid-store {
+      font-size: clamp(17px, 4.5vw, 20px);
+      letter-spacing: 0.02em;
+    }
 
-  .flip-hint-icon{
-    position: absolute; top: 16px; right: 16px;
-    width: 24px; height: 24px;
-    color: rgba(255,255,255,.45);
-    z-index: 5;
-    animation: flipPulse 2.4s ease-in-out infinite;
-    pointer-events: none;
-  }
-  .flip-hint-icon svg{ width: 100%; height: 100%; }
-  @keyframes flipPulse{
-    0%, 100% { opacity: .35; transform: scale(1); }
-    50%      { opacity: .85; transform: scale(1.1) rotate(20deg); }
-  }
-  .flip-hint-text{
-    letter-spacing: 0.2em;
-  }
+    .fluid-name {
+      font-size: clamp(15px, 4.2vw, 18px);
+      letter-spacing: 0.06em;
+    }
 
-  /* ---------- Reverso: QR estilo puntos (IG) ---------- */
-.qr-frame{
-    background: #ffffff;
-    border-radius: 20px;
-    padding: 16px;
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--brand-vivid) 45%, transparent),
-      0 20px 45px -15px color-mix(in srgb, var(--brand-vivid) 45%, transparent);
-    width: clamp(220px, 62vw, 280px);
-    height: clamp(220px, 62vw, 280px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #qrCanvas{
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #qrCanvas canvas{
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 10px;
-  }
-  #qrFallbackImg{
-    width: 100%; height: 100%; object-fit: contain; display: block;
-  }
-  .qr-skeleton-box{
-    width: 100%;
-    height: 100%;
-    border-radius: 10px;
-  }
+    .fluid-points {
+      font-size: clamp(42px, 12vw, 58px);
+    }
 
-  /* ---------- Tarjetas de Recompensa ---------- */
-  .reward-card {
-    position: relative;
-    background: linear-gradient(180deg, rgba(18, 20, 26, 0.8) 0%, rgba(10, 11, 14, 0.95) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
-  }
-  .reward-card::before {
-    content: "";
-    position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-vivid) 80%, transparent), transparent);
-  }
-  .reward-card:hover {
-    transform: translateY(-3px);
-    border-color: color-mix(in srgb, var(--brand-vivid) 45%, transparent);
-    box-shadow: 0 12px 25px -8px color-mix(in srgb, var(--brand-vivid) 20%, transparent);
-  }
-  .reward-icon {
-    width: 40px; height: 40px;
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    background: color-mix(in srgb, var(--brand-vivid) 12%, rgba(255,255,255,0.03));
-    border: 1px solid color-mix(in srgb, var(--brand-vivid) 25%, transparent);
-  }
-  
-  .btn-redeem {
-    background: linear-gradient(135deg, var(--brand-vivid) 0%, color-mix(in srgb, var(--brand-vivid) 80%, black 20%) 100%);
-    color: #ffffff;
-    box-shadow: 0 4px 15px color-mix(in srgb, var(--brand-vivid) 35%, transparent);
-    transition: all 0.2s ease;
-  }
-  .btn-redeem:not(:disabled):hover {
-    filter: brightness(1.15);
-    box-shadow: 0 6px 20px color-mix(in srgb, var(--brand-vivid) 50%, transparent);
-    transform: translateY(-1px);
-  }
-  .btn-redeem:disabled {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.25);
-    box-shadow: none;
-    cursor: not-allowed;
-  }
-</style>
+    .fluid-code {
+      font-size: clamp(10px, 2.6vw, 11px);
+    }
+
+    .logo-avatar {
+      width: clamp(66px, 18vw, 78px);
+      height: clamp(66px, 18vw, 78px);
+      border-radius: 9999px;
+      padding: 2.5px;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--brand-vivid) 100%, white 20%), color-mix(in srgb, var(--brand-dark) 40%, transparent));
+      box-shadow:
+        0 0 20px color-mix(in srgb, var(--brand-vivid) 45%, transparent),
+        0 10px 20px rgba(0, 0, 0, 0.8);
+    }
+
+    .logo-avatar-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 9999px;
+      overflow: hidden;
+      background: #08090b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .perforation {
+      position: relative;
+      height: 1px;
+      background-image: repeating-linear-gradient(90deg, color-mix(in srgb, var(--brand-vivid) 30%, rgba(255, 255, 255, 0.15)) 0 6px, transparent 6px 14px);
+    }
+
+    .perforation::before,
+    .perforation::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 9999px;
+      background: var(--bg-base);
+      box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.9);
+    }
+
+    .perforation::before {
+      left: -11px;
+    }
+
+    .perforation::after {
+      right: -11px;
+    }
+
+    .points-glow {
+      background: linear-gradient(180deg, #ffffff 30%, color-mix(in srgb, var(--brand-vivid) 80%, white 20%) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      letter-spacing: -0.03em;
+      filter: drop-shadow(0 4px 15px color-mix(in srgb, var(--brand-vivid) 35%, transparent));
+    }
+
+    .chip-tier {
+      background: color-mix(in srgb, var(--brand-vivid) 15%, rgba(0, 0, 0, 0.4));
+      border: 1px solid color-mix(in srgb, var(--brand-vivid) 50%, transparent);
+      color: color-mix(in srgb, var(--brand-vivid) 90%, white 10%);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--brand-vivid) 20%, transparent);
+      backdrop-filter: blur(8px);
+      letter-spacing: 0.2em;
+    }
+
+    .barcode-svg {
+      color: color-mix(in srgb, var(--brand-vivid) 60%, rgba(255, 255, 255, 0.4));
+      width: 100%;
+      max-width: 220px;
+      height: 28px;
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -400px 0
+      }
+
+      100% {
+        background-position: 400px 0
+      }
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, #121418 25%, #1c1f26 37%, #121418 63%);
+      background-size: 800px 100%;
+      animation: shimmer 1.6s infinite linear;
+    }
+
+    .flip-hint-icon {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 24px;
+      height: 24px;
+      color: rgba(255, 255, 255, .45);
+      z-index: 5;
+      animation: flipPulse 2.4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .flip-hint-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    @keyframes flipPulse {
+
+      0%,
+      100% {
+        opacity: .35;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: .85;
+        transform: scale(1.1) rotate(20deg);
+      }
+    }
+
+    .flip-hint-text {
+      letter-spacing: 0.2em;
+    }
+
+    /* ---------- Reverso: QR estilo puntos (IG) ---------- */
+    .qr-frame {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--brand-vivid) 45%, transparent),
+        0 20px 45px -15px color-mix(in srgb, var(--brand-vivid) 45%, transparent);
+      width: clamp(220px, 62vw, 280px);
+      height: clamp(220px, 62vw, 280px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #qrCanvas {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #qrCanvas canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+    }
+
+    #qrFallbackImg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .qr-skeleton-box {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+    }
+
+    /* ---------- Tarjetas de Recompensa ---------- */
+    .reward-card {
+      position: relative;
+      background: linear-gradient(180deg, rgba(18, 20, 26, 0.8) 0%, rgba(10, 11, 14, 0.95) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    .reward-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-vivid) 80%, transparent), transparent);
+    }
+
+    .reward-card:hover {
+      transform: translateY(-3px);
+      border-color: color-mix(in srgb, var(--brand-vivid) 45%, transparent);
+      box-shadow: 0 12px 25px -8px color-mix(in srgb, var(--brand-vivid) 20%, transparent);
+    }
+
+    .reward-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: color-mix(in srgb, var(--brand-vivid) 12%, rgba(255, 255, 255, 0.03));
+      border: 1px solid color-mix(in srgb, var(--brand-vivid) 25%, transparent);
+    }
+
+    .btn-redeem {
+      background: linear-gradient(135deg, var(--brand-vivid) 0%, color-mix(in srgb, var(--brand-vivid) 80%, black 20%) 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 15px color-mix(in srgb, var(--brand-vivid) 35%, transparent);
+      transition: all 0.2s ease;
+    }
+
+    .btn-redeem:not(:disabled):hover {
+      filter: brightness(1.15);
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--brand-vivid) 50%, transparent);
+      transform: translateY(-1px);
+    }
+
+    .btn-redeem:disabled {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.25);
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
 
 <body class="min-h-screen text-white sm:py-6">
 
   <!-- ============ SKELETON DE PANTALLA COMPLETA ============ -->
-<div id="fullSkeleton" class="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-[#060709] px-4 py-10">
-  <div class="w-full max-w-md mx-auto">
+  <div id="fullSkeleton"
+    class="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-[#060709] px-4 py-10">
+    <div class="w-full max-w-md mx-auto">
 
-    <!-- Skeleton de la tarjeta -->
-    <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] flex flex-col items-center px-6 py-8 mb-8">
-      <div class="skeleton w-[74px] h-[74px] rounded-full"></div>
-      <div class="skeleton h-4 w-32 rounded mt-4"></div>
-      <div class="skeleton h-3 w-16 rounded-full mt-3"></div>
+      <!-- Skeleton de la tarjeta -->
+      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] flex flex-col items-center px-6 py-8 mb-8">
+        <div class="skeleton w-[74px] h-[74px] rounded-full"></div>
+        <div class="skeleton h-4 w-32 rounded mt-4"></div>
+        <div class="skeleton h-3 w-16 rounded-full mt-3"></div>
 
-      <div class="w-full h-px bg-white/5 my-6"></div>
+        <div class="w-full h-px bg-white/5 my-6"></div>
 
-      <div class="skeleton h-3 w-24 rounded mb-2"></div>
-      <div class="skeleton h-5 w-36 rounded mb-6"></div>
-      <div class="skeleton h-3 w-28 rounded mb-2"></div>
-      <div class="skeleton h-12 w-28 rounded"></div>
+        <div class="skeleton h-3 w-24 rounded mb-2"></div>
+        <div class="skeleton h-5 w-36 rounded mb-6"></div>
+        <div class="skeleton h-3 w-28 rounded mb-2"></div>
+        <div class="skeleton h-12 w-28 rounded"></div>
 
-      <div class="w-full h-px bg-white/5 my-6"></div>
+        <div class="w-full h-px bg-white/5 my-6"></div>
 
-      <div class="skeleton h-7 w-full max-w-[220px] rounded"></div>
+        <div class="skeleton h-7 w-full max-w-[220px] rounded"></div>
+      </div>
+
+      <!-- Skeleton del título de recompensas -->
+      <div class="flex items-center justify-between mb-3.5 px-1">
+        <div class="skeleton h-3.5 w-28 rounded"></div>
+        <div class="skeleton h-3 w-12 rounded"></div>
+      </div>
+
+      <!-- Skeleton del grid de recompensas -->
+      <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+          <div class="skeleton h-3 w-2/3 rounded"></div>
+        </div>
+        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+          <div class="skeleton h-3 w-2/3 rounded"></div>
+        </div>
+        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+          <div class="skeleton h-3 w-2/3 rounded"></div>
+        </div>
+        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+          <div class="skeleton h-3 w-2/3 rounded"></div>
+        </div>
+      </div>
+
     </div>
-
-    <!-- Skeleton del título de recompensas -->
-    <div class="flex items-center justify-between mb-3.5 px-1">
-      <div class="skeleton h-3.5 w-28 rounded"></div>
-      <div class="skeleton h-3 w-12 rounded"></div>
-    </div>
-
-    <!-- Skeleton del grid de recompensas -->
-    <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
-      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-        <div class="skeleton h-3 w-2/3 rounded"></div>
-      </div>
-      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-        <div class="skeleton h-3 w-2/3 rounded"></div>
-      </div>
-      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-        <div class="skeleton h-3 w-2/3 rounded"></div>
-      </div>
-      <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-        <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-        <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-        <div class="skeleton h-3 w-2/3 rounded"></div>
-      </div>
-    </div>
-
   </div>
-</div>
-<div id="appContent" class="w-full max-w-md mx-auto" style="opacity:0; pointer-events:none; transition: opacity .5s ease;">
+  <div id="appContent" class="w-full max-w-md mx-auto"
+    style="opacity:0; pointer-events:none; transition: opacity .5s ease;">
 
     <!-- ============ TARJETA DE FIDELIZACIÓN (con flip a QR) ============ -->
     <div class="card-scene mb-8 sm:mb-10">
@@ -374,9 +485,10 @@
             <div class="card-sheen"></div>
 
             <div class="flip-hint-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12a9 9 0 1 1-3-6.7"/>
-                <path d="M21 3v6h-6"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-3-6.7" />
+                <path d="M21 3v6h-6" />
               </svg>
             </div>
 
@@ -388,7 +500,8 @@
                 </div>
               </div>
 
-              <p id="storeName" class="font-display font-semibold fluid-store text-white leading-tight tracking-wide mt-3.5 max-w-[85%] truncate uppercase">
+              <p id="storeName"
+                class="font-display font-semibold fluid-store text-white leading-tight tracking-wide mt-3.5 max-w-[85%] truncate uppercase">
                 <span class="skeleton inline-block h-4 w-28 rounded"></span>
               </p>
               <p class="fluid-eyebrow uppercase text-white/40 mt-1 font-mono-card">Tarjeta de Fidelización</p>
@@ -402,7 +515,8 @@
 
             <div class="relative z-10 flex flex-col items-center text-center py-6">
               <p class="fluid-eyebrow uppercase text-white/40 mb-1 font-mono-card">Cliente Frecuente</p>
-              <p id="clientName" class="font-mono-card fluid-name text-white font-medium tracking-wider max-w-full truncate px-2 uppercase">
+              <p id="clientName"
+                class="font-mono-card fluid-name text-white font-medium tracking-wider max-w-full truncate px-2 uppercase">
                 <span class="skeleton inline-block h-5 w-36 rounded"></span>
               </p>
 
@@ -425,7 +539,8 @@
           </div>
 
           <!-- ===== REVERSO: QR ===== -->
-          <div class="card card-face card-back flex flex-col items-center justify-center text-center" style="padding: clamp(22px, 6vw, 30px) clamp(20px, 5.5vw, 26px);">
+          <div class="card card-face card-back flex flex-col items-center justify-center text-center"
+            style="padding: clamp(22px, 6vw, 30px) clamp(20px, 5.5vw, 26px);">
             <div class="card-sheen"></div>
 
             <p class="fluid-eyebrow uppercase text-white/40 font-mono-card mb-5 relative z-10">Tu código QR</p>
@@ -448,8 +563,10 @@
 
     <!-- ============ SECCIÓN DE PREMIOS / RECOMPENSAS ============ -->
     <div class="flex items-center justify-between mb-3.5 px-1">
-      <h2 class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase flex items-center gap-2">
-        <span id="titleDot" class="w-2 h-2 rounded-full shrink-0" style="background: var(--brand-vivid); box-shadow: 0 0 10px var(--brand-vivid);"></span>
+      <h2
+        class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase flex items-center gap-2">
+        <span id="titleDot" class="w-2 h-2 rounded-full shrink-0"
+          style="background: var(--brand-vivid); box-shadow: 0 0 10px var(--brand-vivid);"></span>
         Canjea tus puntos
       </h2>
       <span id="pointsHint" class="text-[11px] sm:text-xs text-white/50 font-mono-card">-- pts</span>
@@ -459,8 +576,10 @@
       <!-- Se llenan dinámicamente -->
     </div>
 
-    <p id="errorBox" class="hidden mt-6 text-xs text-red-400/80 bg-red-500/5 border border-red-500/20 rounded-xl p-3 text-center"></p>
+    <p id="errorBox"
+      class="hidden mt-6 text-xs text-red-400/80 bg-red-500/5 border border-red-500/20 rounded-xl p-3 text-center"></p>
   </div>
 
 </body>
+
 </html>

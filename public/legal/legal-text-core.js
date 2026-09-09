@@ -209,7 +209,7 @@ export async function initLegalTextPage({
     document.getElementById("bizNombre").textContent = nombre;
 
     const titulo = contenido.titulo || tituloFallback;
-    document.title = `${titulo} · ${nombre}`;
+
 
     const logoImg = document.getElementById("bizLogo");
     const logoLetter = document.getElementById("bizLogoLetter");

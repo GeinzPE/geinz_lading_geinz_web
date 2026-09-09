@@ -1,23 +1,20 @@
-import { db } from "../db/db.js";
-import { getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { tiendaDoc, tiendaSubDoc, tiendaDescuentosCol, data_user_logeado } from "../rutas/rutas.js";
+import { db, auth } from "../db/db.js";
+import {
+  getDoc,
+  getDocs,
+  setDoc,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { tiendaDoc, clienteDoc, tiendaDescuentosCol, data_user_logeado } from "../rutas/rutas.js";
+import { setFaviconCircular } from "../favicon/favicon.js";
+
 // ─── Localidad (mismo criterio que paths.js: hardcodeado por ahora) ───
 const LOCALIDAD = "barranca";
 
 // ─── Parámetros de la URL ───
-// NEGOCIO_ID  = id del documento de la tienda (Tiendas/.../tiendas/{NEGOCIO_ID})
-// USUARIO_UID = id del documento del CLIENTE dentro de esa tienda
-//               (Tiendas/.../tiendas/{NEGOCIO_ID}/clientes/{USUARIO_UID})
-// OJO: esto NO es el uid de auth del usuario. El uid real del usuario
-// está dentro del doc del cliente, en el campo "id_usuario".
 const urlParams = new URLSearchParams(window.location.search);
 const NEGOCIO_ID = urlParams.get("id");
-const USUARIO_UID = urlParams.get("uid");
-
-if (!NEGOCIO_ID || !USUARIO_UID) {
-  document.getElementById("errorBox").textContent = "Enlace inválido: faltan datos del negocio o del usuario.";
-  document.getElementById("errorBox").classList.remove("hidden");
-}
 
 const USUARIOS_ROOT = "Trabajadores_Usuarios_Drivers/users/users";
 const LOGO_FALLBACK_URL = "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
@@ -45,15 +42,17 @@ async function cargarUsuario(idUsuario){
   return snap.exists() ? snap.data() : {};
 }
 
-/* Convierte la carga del logo + color dominante en una Promise,
-   así podemos esperarla junto con usuario y productos antes de mostrar la carta */
 function cargarLogoYColor(logoURL, nombreTienda){
   return new Promise((resolve) => {
     const img = document.getElementById("logoImg");
-    if(!logoURL){
+    if(!img || !logoURL){
       resolve(colorFromName(nombreTienda));
       return;
     }
+    
+    // Actualiza el favicon dinámicamente con el logo del negocio
+    setFaviconCircular(logoURL);
+
     img.src = logoURL;
     img.onload = async () => {
       img.classList.remove("hidden");
@@ -67,10 +66,8 @@ function cargarLogoYColor(logoURL, nombreTienda){
     };
   });
 }
-/* Estado compartido: el QR necesita el código del cliente Y el color
-   de marca (que llegan por caminos async distintos); se pinta recién
-   cuando ambos están listos. */
-let brandDarkHex = "#2e1065"; // fallback inicial, coincide con --brand-dark por defecto
+
+let brandDarkHex = "#2e1065";
 const qrState = { code: null, colorReady: false, rendered: false };
 
 function calcularNivel(puntos){
@@ -97,8 +94,70 @@ function formatearFechaInicio(timestamp){
 
 function showError(msg){
   const box = document.getElementById("errorBox");
-  box.textContent = msg;
+  if(!box) return;
+  box.innerHTML = msg;
   box.classList.remove("hidden");
+}
+
+/* ── Gate: no logeado. Oculta la tarjeta (sin destruirla) y muestra
+   el aviso dentro del contenedor de skeleton. ── */
+function showLoginGate(){
+  const skel = document.getElementById("fullSkeleton");
+  if(skel){
+    skel.innerHTML = `
+      <div class="w-full max-w-sm mx-auto text-center px-4">
+        <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
+          <div class="logo-avatar mb-5"><div class="logo-avatar-inner">
+            <div class="w-full h-full skeleton"></div>
+          </div></div>
+          <p class="font-display font-semibold text-white text-base mb-2">Inicia sesión para ver tu tarjeta</p>
+          <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Necesitas tu cuenta de Geinz para ver tus puntos y canjear recompensas.</p>
+          <a href="../logindata/login.html?redirect=${encodeURIComponent(window.location.href)}"
+             class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</a>
+        </div>
+      </div>`;
+  }
+}
+
+/* ── Gate: logeado pero no sigue el negocio. Igual: oculta, no destruye. ── */
+function showFollowGate(nombreTienda, logoURL, onFollow){
+  const skel = document.getElementById("fullSkeleton");
+  if(!skel) return;
+  
+  if(logoURL) {
+    setFaviconCircular(logoURL);
+  }
+
+  skel.innerHTML = `
+    <div class="w-full max-w-sm mx-auto text-center px-4">
+      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
+        <div class="logo-avatar mb-5"><div class="logo-avatar-inner">
+          ${logoURL ? `<img src="${logoURL}" alt="Logo" class="w-full h-full object-cover" crossorigin="anonymous">` : `<div class="w-full h-full skeleton"></div>`}
+        </div></div>
+        <p class="font-display font-semibold text-white text-base mb-2">Sigue a ${nombreTienda || "este negocio"}</p>
+        <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Para ver tu tarjeta y las recompensas que puedes canjear, primero debes seguir este negocio.</p>
+        <button id="btnSeguirNegocio" class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold w-full max-w-[220px]">Seguir negocio</button>
+        <p id="followError" class="hidden text-red-400/80 text-xs mt-3"></p>
+      </div>
+    </div>`;
+
+  document.getElementById("btnSeguirNegocio").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = "Siguiendo...";
+    try{
+      await onFollow();
+    }catch(err){
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = "Seguir negocio";
+      const errEl = document.getElementById("followError");
+      if(errEl){
+        errEl.textContent = "No se pudo completar, intenta de nuevo.";
+        errEl.classList.remove("hidden");
+      }
+    }
+  });
 }
 
 function getDominantColor(imgEl){
@@ -160,6 +219,7 @@ function colorFromName(name){
 function rgbToHex(r,g,b){
   return "#" + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join("");
 }
+
 function rgbToHsl(r,g,b){
   r/=255; g/=255; b/=255;
   const max=Math.max(r,g,b), min=Math.min(r,g,b);
@@ -177,6 +237,7 @@ function rgbToHsl(r,g,b){
   }
   return {h,s,l};
 }
+
 function hslToRgb(h,s,l){
   let r,g,b;
   if(s===0){ r=g=b=l; }
@@ -195,8 +256,6 @@ function hslToRgb(h,s,l){
   return { r:r*255, g:g*255, b:b*255 };
 }
 
-/* Aplica el color de marca a la tarjeta Y guarda el hex "dark"
-   (variante oscura, separada del vivid) para pintar los puntos del QR */
 function aplicarColorMarca({ r, g, b }){
   if(r == null) return;
   const { h, s } = rgbToHsl(r, g, b);
@@ -216,9 +275,9 @@ function aplicarColorMarca({ r, g, b }){
   tryRenderQR();
 }
 
-/* Tilt 3D */
 function initTilt(){
   const scene = document.querySelector(".card-scene");
+  if(!scene) return;
   const card  = document.getElementById("cardTilt");
   const max = 6;
 
@@ -252,9 +311,9 @@ function initTilt(){
   });
 }
 
-/* Flip a QR */
 function initFlip(){
   const flipper = document.getElementById("cardFlipper");
+  if(!flipper) return;
   const toggle = () => flipper.classList.toggle("is-flipped");
 
   flipper.addEventListener("click", toggle);
@@ -266,9 +325,9 @@ function initFlip(){
   });
 }
 
-/* Barcode decorativo del frente */
 function renderBarcode(seedStr){
   const svg = document.getElementById("barcodeSvg");
+  if(!svg) return;
   const width = 220, height = 28;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.innerHTML = "";
@@ -292,11 +351,10 @@ function renderBarcode(seedStr){
     x += w + 1 + Math.floor(rand() * 2);
   }
 
-  document.getElementById("barcodeSkeleton").classList.add("hidden");
+  document.getElementById("barcodeSkeleton")?.classList.add("hidden");
   svg.classList.remove("hidden");
 }
 
-/* Dibuja la matriz QR real como puntos (estilo IG/WhatsApp) */
 function crearQREstilizado(codigoStr, colorHex){
   return new window.QRCodeStyling({
     width: 300,
@@ -312,9 +370,9 @@ function crearQREstilizado(codigoStr, colorHex){
   });
 }
 
-/* QR del reverso. Si la librería no cargó, cae a un QR plano vía API pública. */
 function pintarQR(codigoStr, colorHex){
   const canvasHost = document.getElementById("qrCanvas");
+  if(!canvasHost) return;
 
   if(typeof window.QRCodeStyling === "function"){
     canvasHost.innerHTML = "";
@@ -322,12 +380,10 @@ function pintarQR(codigoStr, colorHex){
     qr.append(canvasHost);
     document.getElementById("qrSkeleton")?.remove();
     canvasHost.classList.remove("hidden");
-  } else {
-    const hexClean = colorHex.replace("#", "");
-   
   }
 
-  document.getElementById("qrCodeText").textContent = "ID: " + codigoStr;
+  const qrText = document.getElementById("qrCodeText");
+  if(qrText) qrText.textContent = "ID: " + codigoStr;
 }
 
 function tryRenderQR(){
@@ -336,9 +392,6 @@ function tryRenderQR(){
   qrState.rendered = true;
 }
 
-/* Render Canjes */
-/* Arma el texto de descuento/beneficio de un producto del catálogo,
-   igual criterio que el panel admin (precioTxt en loadDescuentos) */
 function textoBeneficio(p){
   if(p.origen !== "catalogo" || p.precioOriginal == null) return null;
   const orig = Number(p.precioOriginal);
@@ -367,6 +420,7 @@ function textoBeneficio(p){
 
 function renderRecompensas(productos, puntosCliente){
   const grid = document.getElementById("rewardsGrid");
+  if(!grid) return;
   grid.innerHTML = "";
 
   if(!productos.length){
@@ -398,9 +452,11 @@ function renderRecompensas(productos, puntosCliente){
     grid.appendChild(el);
   });
 }
+
 function revealCard(){
   const skel = document.getElementById("fullSkeleton");
   const content = document.getElementById("appContent");
+  if(!content) return;
   content.style.opacity = "1";
   content.style.pointerEvents = "auto";
   if(skel){
@@ -410,32 +466,46 @@ function revealCard(){
   }
 }
 
-/* Carga Firestore usando los helpers de rutas.js */
-async function cargarDatos(){
+async function seguirNegocio(uid){
+  const ref = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
+  await setDoc(ref, {
+    id: uid,
+    id_usuario: uid,
+    puntos: 0,
+    fecha_inicio: serverTimestamp(),
+    ultimo_consumo: serverTimestamp(),
+  });
+}
+
+async function cargarDatos(uid){
   try{
-    if(!NEGOCIO_ID || !USUARIO_UID) throw new Error("Faltan parámetros en la URL.");
+    if(!NEGOCIO_ID || !uid) throw new Error("Faltan parámetros.");
 
     const tiendaRef  = tiendaDoc(LOCALIDAD, "tiendas", NEGOCIO_ID);
-    const clienteRef = tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "clientes", USUARIO_UID);
+    const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
 
     const [tiendaSnap, clienteSnap] = await Promise.all([
       getDoc(tiendaRef),
       getDoc(clienteRef),
     ]);
 
-    if(!clienteSnap.exists()){
-      throw new Error("Cliente no registrado.");
-    }
-    const cliente = clienteSnap.data();
     const tienda = tiendaSnap.exists() ? tiendaSnap.data() : {};
-
-    // Campo directo, igual que el logo
     const nombreTienda = tienda.nombre_tienda || "Mi Negocio";
     const logoURL = tienda.logoURL || tienda.logo || tienda.urlLogo || LOGO_FALLBACK_URL;
 
-    document.getElementById("storeName").textContent = nombreTienda;
+    if(!clienteSnap.exists()){
+      showFollowGate(nombreTienda, logoURL, async () => {
+        await seguirNegocio(uid);
+        await cargarDatos(uid);
+      });
+      return;
+    }
 
-    // Esperamos TODO en paralelo: color de marca, usuario y productos
+    const cliente = clienteSnap.data();
+
+    const storeNameEl = document.getElementById("storeName");
+    if(storeNameEl) storeNameEl.textContent = nombreTienda;
+
     const [colorLogo, usuario, productos] = await Promise.all([
       cargarLogoYColor(logoURL, nombreTienda),
       cargarUsuario(cliente.id_usuario),
@@ -452,38 +522,50 @@ async function cargarDatos(){
     const codigo = cliente.id || clienteSnap.id;
     const clienteDesde = formatearFechaInicio(cliente.fecha_inicio);
 
-    document.getElementById("clientName").textContent = nombreCliente;
-    document.getElementById("clientPoints").textContent = puntos.toLocaleString("es-PE");
-    document.getElementById("clientCode").textContent = "ID: " + codigo;
-    document.getElementById("tierBadge").textContent = nivel;
-    document.getElementById("pointsHint").textContent = `${puntos.toLocaleString("es-PE")} pts`;
+    document.getElementById("clientName") && (document.getElementById("clientName").textContent = nombreCliente);
+    document.getElementById("clientPoints") && (document.getElementById("clientPoints").textContent = puntos.toLocaleString("es-PE"));
+    document.getElementById("clientCode") && (document.getElementById("clientCode").textContent = "ID: " + codigo);
+    document.getElementById("tierBadge") && (document.getElementById("tierBadge").textContent = nivel);
+    document.getElementById("pointsHint") && (document.getElementById("pointsHint").textContent = `${puntos.toLocaleString("es-PE")} pts`);
     renderBarcode(String(codigo));
 
     qrState.code = String(codigo);
     tryRenderQR();
 
     if(clienteDesde){
-      const p = document.createElement("p");
-      p.className = "fluid-eyebrow text-white/30 mt-1.5 font-mono-card uppercase";
-      p.textContent = `Cliente desde ${clienteDesde}`;
-      document.getElementById("clientPoints").insertAdjacentElement("afterend", p);
+      const pointsEl = document.getElementById("clientPoints");
+      if(pointsEl){
+        const p = document.createElement("p");
+        p.className = "fluid-eyebrow text-white/30 mt-1.5 font-mono-card uppercase";
+        p.textContent = `Cliente desde ${clienteDesde}`;
+        pointsEl.insertAdjacentElement("afterend", p);
+      }
     }
 
     renderRecompensas(productos, puntos);
+    initTilt();
+    initFlip();
     revealCard();
 
   }catch(err){
     console.error(err);
     showError("No se pudieron cargar los datos.");
     document.getElementById("logoSkeleton")?.remove();
-    renderBarcode("demo");
-    qrState.code = "demo";
-    tryRenderQR();
-    renderRecompensas([], 0);
     revealCard();
   }
 }
 
-initTilt();
-initFlip();
-cargarDatos();
+/* ══════════════════════════════════════════
+   INIT
+   ══════════════════════════════════════════ */
+if (!NEGOCIO_ID) {
+  showError("Enlace inválido: falta el negocio.");
+} else {
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      showLoginGate();
+      return;
+    }
+    cargarDatos(user.uid);
+  });
+}
