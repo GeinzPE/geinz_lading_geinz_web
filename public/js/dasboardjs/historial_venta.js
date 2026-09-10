@@ -29,9 +29,9 @@ let esRestaurante =
   normalizarCategoria(categoriaTienda) === "comida y restaurantes";
 
 const TEXTOS_RESTAURANTE = {
-  itemsVendidosLabel: "Platos vendidos",
-  topProductoLabel: "🏆 Plato más vendido",
-  gananciaProductoLabel: "Ganancia por plato",
+  itemsVendidosLabel: "Productos vendidos",
+  topProductoLabel: "🏆 Productos más vendido",
+  gananciaProductoLabel: "Ganancia por producto",
   emptyStateIcon: "🍽️",
 };
 
@@ -464,6 +464,14 @@ function getRangeBounds() {
   return [new Date(0), endOf(now)];
 }
 
+// Fecha efectiva de un pedido: usa timestamp y, si no existe, cae a "actualizado"
+// (pasa con pedidos rechazados o de mesa que cambiaron de estado).
+// Se usa igual para filtrar por rango y para ordenar, así el criterio
+// nunca queda distinto entre una cosa y la otra.
+function fechaEfectiva(p) {
+  return toDate(p.timestamp) || toDate(p.actualizado);
+}
+
 function getFilteredOrders() {
   const [from, to] = getRangeBounds();
   const estadoF = document.getElementById("filterEstado").value;
@@ -471,7 +479,7 @@ function getFilteredOrders() {
 
   return pedidosRaw
     .filter((p) => {
-      const d = toDate(p.timestamp);
+      const d = fechaEfectiva(p);
       if (!d || d < from || d > to) return false;
 
       if (estadoF !== "todos" && (p.estado || "").toLowerCase() !== estadoF)
@@ -488,8 +496,8 @@ function getFilteredOrders() {
       return true;
     })
     .sort((a, b) => {
-      const da = toDate(a.timestamp) || 0,
-        db_ = toDate(b.timestamp) || 0;
+      const da = fechaEfectiva(a) || 0,
+        db_ = fechaEfectiva(b) || 0;
       return db_ - da;
     });
 }
@@ -1296,9 +1304,9 @@ function exportarPDF() {
     const tipo = getTipoCuponPedido(p);
     const tipoLabel =
       {
-        canje_puntos: "🎁 Canje pts",
-        descuento_fidelizacion: "⭐ Fidelización",
-        cupon_descuento: "🎟️ Cupón",
+        canje_puntos: "Canje puntos",
+        descuento_fidelizacion: "Fidelización",
+        cupon_descuento: "Cupón",
       }[tipo] || "—";
     const descuentoTxt = Number(p.descuentoCupon)
       ? `${tipoLabel} -${fmtMoney(p.descuentoCupon)}`
@@ -1315,6 +1323,21 @@ function exportarPDF() {
       fmtMoney(p.total),
       descuentoTxt,
     ];
+  });
+
+  doc.autoTable({
+    head: headers,
+    body: body,
+    startY: 104,
+    styles: { font: "helvetica", fontSize: 8, cellPadding: 5, textColor: [30, 30, 30], overflow: "linebreak" },
+    headStyles: { fillColor: [136, 85, 255], textColor: [255, 255, 255], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 242, 255] },
+    columnStyles: {
+      5: { cellWidth: 140 },
+      8: { halign: "right", cellWidth: 55 },
+      9: { cellWidth: 90 },
+    },
+    margin: { left: 40, right: 40 },
   });
 
   doc.autoTable({

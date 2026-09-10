@@ -38,93 +38,20 @@ const LANDING_BASE_URL = "https://geinztech.com";
 async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
   const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const nuevoPedidoRef = doc(pedidosRef);
-
-  const refsUnicas = new Map();
-  items.forEach((it) => {
-    if (it.esCanje) return; // el producto canjeado no descuenta stock del catálogo normal
-    if (!refsUnicas.has(it.id)) {
-      refsUnicas.set(
-        it.id,
-        tiendaSubDoc(
-          localidad,
-          "tiendas",
-          tiendaId,
-          "productos",
-          it.categoria,
-          it.categoria,
-          it.id,
-        ),
-      );
-    }
-  });
-
   const cuponRef = cuponInfo?._ref || null;
 
   try {
     await runTransaction(db, async (tx) => {
-      // 1. LECTURAS
-      const snaps = new Map();
-      for (const [id, ref] of refsUnicas) {
-        const snap = await tx.get(ref);
-        if (snap.exists()) snaps.set(id, snap);
-      }
-
-      let cuponSnap = null;
+      // El stock YA NO se valida ni se descuenta aquí. El carrito solo
+      // registra el pedido; el descuento real ocurre en pedidos_dashboard.js
+      // cuando el negocio acepta (en_proceso) o entrega el pedido.
       if (cuponRef) {
-        cuponSnap = await tx.get(cuponRef);
+        const cuponSnap = await tx.get(cuponRef);
         if (!cuponSnap.exists() || cuponSnap.data().usado) {
           throw { motivo: "cupon_invalido" };
         }
       }
 
-      // 2. VALIDAR + preparar descuentos de stock
-      const actualizaciones = new Map();
-      for (const it of items) {
-        if (it.esCanje) continue;
-        const snap = snaps.get(it.id);
-        if (!snap) continue;
-        const d = snap.data();
-        let dataNueva = actualizaciones.get(it.id) || { ...d };
-
-        if (it.seleccion && dataNueva.condiciones) {
-          const condiciones = dataNueva.condiciones.map((c) => ({
-            ...c,
-            opciones: c.opciones.map((o) => ({ ...o })),
-          }));
-          for (const cond of condiciones) {
-            const elegido = it.seleccion[cond.nombre];
-            if (!elegido) continue;
-            const op = cond.opciones.find((o) => o.nombre === elegido);
-            if (op && typeof op.stock === "number") {
-              if (op.stock < it.cantidad) {
-                throw {
-                  motivo: "sin_stock",
-                  nombre: it.nombre,
-                  disponible: op.stock,
-                  detalle: elegido,
-                };
-              }
-              op.stock -= it.cantidad;
-            }
-          }
-          dataNueva.condiciones = condiciones;
-        } else if (typeof dataNueva.stock === "number") {
-          if (dataNueva.stock < it.cantidad) {
-            throw {
-              motivo: "sin_stock",
-              nombre: it.nombre,
-              disponible: dataNueva.stock,
-            };
-          }
-          dataNueva.stock -= it.cantidad;
-        }
-        actualizaciones.set(it.id, dataNueva);
-      }
-
-      // 3. ESCRITURAS
-      for (const [id, dataNueva] of actualizaciones) {
-        tx.set(refsUnicas.get(id), dataNueva, { merge: true });
-      }
       tx.set(nuevoPedidoRef, construirPedido());
       if (cuponRef) {
         tx.update(cuponRef, {
@@ -138,7 +65,6 @@ async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
 
     return { ok: true, id: nuevoPedidoRef.id };
   } catch (err) {
-    if (err?.motivo === "sin_stock") return { ok: false, ...err };
     if (err?.motivo === "cupon_invalido")
       return { ok: false, motivo: "cupon_invalido" };
     console.error("Error en transacción de pedido:", err);
@@ -719,84 +645,7 @@ function renderPedidoActivoMesa(pedido) {
 
   main.prepend(wrap);
 }
-async function verificarYDescontarStockSolo(items) {
-  const refsUnicas = new Map();
-  items.forEach((it) => {
-    if (!refsUnicas.has(it.id)) {
-      refsUnicas.set(
-        it.id,
-        tiendaSubDoc(
-          localidad,
-          "tiendas",
-          tiendaId,
-          "productos",
-          it.categoria,
-          it.categoria,
-          it.id,
-        ),
-      );
-    }
-  });
 
-  try {
-    await runTransaction(db, async (tx) => {
-      const snaps = new Map();
-      for (const [id, ref] of refsUnicas) {
-        const snap = await tx.get(ref);
-        if (snap.exists()) snaps.set(id, snap);
-      }
-
-      const actualizaciones = new Map();
-      for (const it of items) {
-        const snap = snaps.get(it.id);
-        if (!snap) continue;
-        const d = snap.data();
-        let dataNueva = actualizaciones.get(it.id) || { ...d };
-
-        if (it.seleccion && dataNueva.condiciones) {
-          const condiciones = dataNueva.condiciones.map((c) => ({
-            ...c,
-            opciones: c.opciones.map((o) => ({ ...o })),
-          }));
-          for (const cond of condiciones) {
-            const elegido = it.seleccion[cond.nombre];
-            if (!elegido) continue;
-            const op = cond.opciones.find((o) => o.nombre === elegido);
-            if (op && typeof op.stock === "number") {
-              if (op.stock < it.cantidad)
-                throw {
-                  motivo: "sin_stock",
-                  nombre: it.nombre,
-                  disponible: op.stock,
-                  detalle: elegido,
-                };
-              op.stock -= it.cantidad;
-            }
-          }
-          dataNueva.condiciones = condiciones;
-        } else if (typeof dataNueva.stock === "number") {
-          if (dataNueva.stock < it.cantidad)
-            throw {
-              motivo: "sin_stock",
-              nombre: it.nombre,
-              disponible: dataNueva.stock,
-            };
-          dataNueva.stock -= it.cantidad;
-        }
-        actualizaciones.set(it.id, dataNueva);
-      }
-
-      for (const [id, dataNueva] of actualizaciones) {
-        tx.set(refsUnicas.get(id), dataNueva, { merge: true });
-      }
-    });
-    return { ok: true };
-  } catch (err) {
-    if (err?.motivo === "sin_stock") return { ok: false, ...err };
-    console.error("Error verificando stock:", err);
-    return { ok: false, motivo: "error_generico" };
-  }
-}
 async function confirmarPedidoMesaDirecto() {
   if (!carrito.size) return;
   if (!usuarioLogeado) {
@@ -817,22 +666,6 @@ async function confirmarPedidoMesaDirecto() {
     }
   });
 
-  // Verifica y descuenta stock ANTES de llamar al mozo
-  const checkStock = await verificarYDescontarStockSolo(items);
-  if (!checkStock.ok) {
-    [btnMobile, btnDesktop].forEach((b) => {
-      if (b) {
-        b.disabled = false;
-        b.innerHTML = b.dataset.original;
-      }
-    });
-    showToast(
-      checkStock.motivo === "sin_stock"
-        ? `⚠️ "${checkStock.nombre}" ya no tiene stock suficiente`
-        : "⚠️ No se pudo verificar el stock",
-    );
-    return;
-  }
 
   [btnMobile, btnDesktop].forEach((b) => {
     if (b) b.innerHTML = "Enviando…";
@@ -2491,18 +2324,18 @@ async function guardarPedidoEnDB({
       vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
     },
     nota: nota || "",
-  productos: items.map((it) => ({
-  id: it.id,
-  nombre: it.nombre,
-  categoria: it.categoria,
-  precio_unitario: it.precio,
-  cantidad: it.cantidad,
-  subtotal: +(it.precio * it.cantidad).toFixed(2),
-  imagen: it.imagen || "",
-  opciones: it.seleccion || null,
-  esCanje: it.esCanje || false,          // NUEVO
-  cuponCodigo: it.cuponCodigo || null,   // NUEVO
-})),
+    productos: items.map((it) => ({
+      id: it.id,
+      nombre: it.nombre,
+      categoria: it.categoria,
+      precio_unitario: it.precio,
+      cantidad: it.cantidad,
+      subtotal: +(it.precio * it.cantidad).toFixed(2),
+      imagen: it.imagen || "",
+      opciones: it.seleccion || null,
+      esCanje: it.esCanje || false, // NUEVO
+      cuponCodigo: it.cuponCodigo || null, // NUEVO
+    })),
     total_items: items.reduce((s, i) => s + i.cantidad, 0),
     total: +total.toFixed(2),
     negocio: { id: tiendaId, nombre: bizNombre, localidad },
@@ -2643,24 +2476,30 @@ document
       total: +total.toFixed(2),
       subtotal: +subtotal.toFixed(2),
       descuentoCupon,
-    cupon: cuponAplicado
-  ? {
-      codigo: cuponAplicado.codigo,
-      tipo: cuponAplicado.tipo,
-      origen: cuponAplicado.origen || null,       // "fidelizacion" o null/otro
-      costoPuntos: cuponAplicado.costoPuntos ?? null, // para poder devolver puntos si se rechaza
-    }
-  : null,
+      cupon: cuponAplicado
+        ? {
+            codigo: cuponAplicado.codigo,
+            tipo: cuponAplicado.tipo,
+            origen: cuponAplicado.origen || null, // "fidelizacion" o null/otro
+            costoPuntos: cuponAplicado.costoPuntos ?? null, // para poder devolver puntos si se rechaza
+          }
+        : null,
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
     });
 
-    const resultado = await confirmarPedidoAtomico(items, construirPedido, cuponAplicado);
+    const resultado = await confirmarPedidoAtomico(
+      items,
+      construirPedido,
+      cuponAplicado,
+    );
 
     if (!resultado.ok) {
       btn.disabled = false;
       btn.innerHTML = textoOriginal;
-          if (resultado.motivo === "sin_stock") {
-        showToast(`⚠️ "${resultado.nombre}" ya no tiene stock (quedan ${resultado.disponible}${resultado.detalle ? " de " + resultado.detalle : ""})`);
+      if (resultado.motivo === "sin_stock") {
+        showToast(
+          `⚠️ "${resultado.nombre}" ya no tiene stock (quedan ${resultado.disponible}${resultado.detalle ? " de " + resultado.detalle : ""})`,
+        );
       } else if (resultado.motivo === "cupon_invalido") {
         showToast("⚠️ El cupón ya no es válido, quítalo e intenta de nuevo");
       } else {
@@ -3012,7 +2851,7 @@ async function init() {
     loadPedidoMesa(),
     cargarUsuarioLogeado(),
   ]);
-    bindCuponInputs();
+  bindCuponInputs();
   if (cuponParam) await buscarYAplicarCupon(cuponParam);
   await renderTienda(biz);
   aplicarComportamientoBotonAtras();

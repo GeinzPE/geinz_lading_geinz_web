@@ -28,7 +28,7 @@ try {
 
 // ---- Config: fallback de localidad para links viejos (/pedidos/{negocioId}/{pedidoId}) ----
 const LOCALIDAD_FIJA = "barranca";
-
+let aliasNegocioActual = null;
 // ---- Estados del pedido (única fuente de verdad, sin duplicados) ----
 const ESTADOS = ["pendiente", "en_proceso", "entregado"];
 const ESTADOS_LABEL = {
@@ -134,6 +134,8 @@ async function resolverRuta() {
     };
   }
 
+  aliasNegocioActual = cruda.alias; // 👈 guardamos el alias tal cual viene en la URL
+
   const resuelto = await resolverNegocioDesdeAlias(cruda.alias);
   if (!resuelto) return null;
   return {
@@ -142,7 +144,6 @@ async function resolverRuta() {
     localidad: resuelto.localidad,
   };
 }
-
 let ids = null;
 const el = (id) => document.getElementById(id);
 const showSkeleton = () => {
@@ -185,7 +186,12 @@ let primeraVezMostrado = false;
 let estadoAnterior = null; // para detectar el cambio de estado
 let primerRenderPedido = true; // evita notificar en la carga inicial
 let pedidoRefGlobal = null; // referencia del doc del pedido, usada por el banner de pausa
+let pedidoIdActual = null; // para armar el mensaje de WhatsApp con el código del pedido
+let waHabilitado = false; // true solo si el negocio tiene WhatsApp configurado y con número válido
 
+function codigoPedidoCorto(id) {
+  return (id || "").slice(0, 6).toUpperCase();
+}
 (async () => {
   ids = await resolverRuta();
   if (!ids) {
@@ -225,7 +231,12 @@ window.addEventListener("beforeunload", () => {
   if (unsubPedido) unsubPedido();
 });
 
+el("btn-cancelar-pedido")?.addEventListener("click", () => {
+  if (pedidoRefGlobal) abrirModalCancelar(pedidoRefGlobal);
+});
+
 function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
+  pedidoIdActual = pedidoId;
   showSkeleton();
 
   // --- Datos del negocio (logo, nombre, contacto) ---
@@ -245,7 +256,16 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
         el("negocio-localidad").textContent = localidad;
         el("negocio-nombre").closest("header") &&
           (document.title = `Pedido · ${nombre}`);
-
+        const btnVolver = el("btn-volver-negocio");
+        if (btnVolver) {
+          if (aliasNegocioActual) {
+            btnVolver.href = `https://geinztech.com/perfil/${aliasNegocioActual}`;
+            el("btn-volver-negocio-texto").textContent = `Volver a ${nombre}`;
+            btnVolver.classList.remove("hidden");
+          } else {
+            btnVolver.classList.add("hidden");
+          }
+        }
         // Botón de contacto por WhatsApp, si el negocio lo tiene habilitado
         const wa = data.metodo_contacto?.whatsapp;
         if (wa?.estado && wa?.numero) {
@@ -362,13 +382,15 @@ function renderBotonWhatsapp(numero, nombreNegocio) {
   if (!btn) return;
   const numeroLimpio = String(numero).replace(/\D/g, "");
   if (!numeroLimpio) return;
+  const codigo = codigoPedidoCorto(pedidoIdActual);
   const mensaje = encodeURIComponent(
-    `Hola, tengo una consulta sobre mi pedido en ${nombreNegocio}.`,
+    `Hola, tengo una consulta sobre mi pedido #${codigo}`,
   );
   btn.href = `https://wa.me/51${numeroLimpio}?text=${mensaje}`;
-  btn.classList.remove("hidden");
+  waHabilitado = true;
+  // No se quita el "hidden" acá directamente: renderPedido() decide la
+  // visibilidad final (se oculta si el cliente canceló el pedido).
 }
-
 function notificarCambioEstado(nuevoEstado, data) {
   if (!window.Notification || Notification.permission !== "granted") return;
 
@@ -382,7 +404,9 @@ function notificarCambioEstado(nuevoEstado, data) {
       puntosGanados > 0
         ? `Tu pedido fue entregado. ¡Ganaste +${puntosGanados} puntos! 🎁`
         : "Tu pedido fue entregado. ¡Gracias por tu compra!",
-    rechazado: "Tu pedido fue rechazado.",
+    rechazado: data.cancelado_por_cliente
+      ? "Cancelaste tu pedido correctamente."
+      : "Tu pedido fue rechazado.",
   };
 
   const nombreNegocio = el("negocio-nombre")?.textContent || "Geinz";
@@ -438,6 +462,54 @@ function renderPuntos(data, estadoActual, esRechazado) {
    respuesta del cliente, solo se confirma lo elegido. Si no, se muestran
    botones para elegir un reemplazo (de los otros productos del mismo
    pedido) o continuar sin el producto agotado. */
+function abrirModalCancelar(pedidoRef) {
+  const overlay = el("cancel-confirm-modal");
+  if (!overlay || !pedidoRef) return;
+  const btnSi = el("cancel-confirm-yes");
+  const btnNo = el("cancel-confirm-no");
+
+  overlay.classList.remove("hidden");
+  requestAnimationFrame(() => overlay.classList.add("show"));
+
+  const cerrar = () => {
+    overlay.classList.remove("show");
+    setTimeout(() => overlay.classList.add("hidden"), 350);
+    btnSi.removeEventListener("click", onSi);
+    btnNo.removeEventListener("click", onNo);
+    overlay.removeEventListener("click", onOverlayClick);
+  };
+
+  const onNo = () => cerrar();
+
+  const onOverlayClick = (e) => {
+    if (e.target === overlay) cerrar();
+  };
+
+  const onSi = async () => {
+    btnSi.disabled = true;
+    btnSi.textContent = "Cancelando…";
+    try {
+      await updateDoc(pedidoRef, {
+        estado: "rechazado",
+        cancelado_por_cliente: true,
+        respuesta_cliente: {
+          accion: "cancelado",
+          producto_elegido: null,
+          respondido_en: serverTimestamp(),
+        },
+      });
+      cerrar();
+    } catch (err) {
+      console.error("[pedidos] No se pudo cancelar el pedido:", err);
+      btnSi.disabled = false;
+      btnSi.textContent = "Sí, cancelar";
+    }
+  };
+
+  btnSi.addEventListener("click", onSi);
+  btnNo.addEventListener("click", onNo);
+  overlay.addEventListener("click", onOverlayClick);
+}
 function renderPausaBanner(data, pedidoRef) {
   let wrap = el("pausa-wrap");
   if (!wrap) {
@@ -481,10 +553,9 @@ function renderPausaBanner(data, pedidoRef) {
       }</strong>. El negocio confirmará en breve.</p>
       <button id="pausa-cancelar" style="margin-top:1rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>`;
     wrap.querySelector("#pausa-cancelar").onclick = () =>
-      cancelarPedidoCliente(pedidoRef, wrap.querySelector("#pausa-cancelar"));
+      abrirModalCancelar(pedidoRef);
     return;
   }
-
   wrap.innerHTML = `
     <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
     <p style="margin:0.6rem 0 0;font-size:0.9rem;">${
@@ -599,7 +670,7 @@ function renderPausaBanner(data, pedidoRef) {
   };
 
   wrap.querySelector("#pausa-cancelar").onclick = () =>
-    cancelarPedidoCliente(pedidoRef, wrap.querySelector("#pausa-cancelar"));
+    abrirModalCancelar(pedidoRef);
 }
 
 /* El cliente cancela su propio pedido mientras está en pausa, sin esperar al negocio */
@@ -634,6 +705,12 @@ function quitarPausaBanner() {
   el("pausa-wrap")?.remove();
 }
 
+function labelEstadoMostrado(estadoActual, data) {
+  if (estadoActual === "rechazado" && data.cancelado_por_cliente) {
+    return "Pedido cancelado";
+  }
+  return ESTADOS_LABEL[estadoActual] || estadoActual;
+}
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
@@ -644,13 +721,30 @@ function renderPedido(data) {
   const estadoParaTimeline = enPausa
     ? data.pausa?.estado_anterior || "pendiente"
     : estadoActual;
-  renderTimeline(estadoParaTimeline, esRechazado);
+  renderTimeline(estadoParaTimeline, esRechazado, !!data.cancelado_por_cliente);
 
   if (enPausa) renderPausaBanner(data, pedidoRefGlobal);
   else quitarPausaBanner();
 
-  el("status-label").textContent =
-    ESTADOS_LABEL[estadoActual] || data.estado || "—";
+  el("status-label").textContent = labelEstadoMostrado(estadoActual, data);
+
+  // El negocio ya no puede ser contactado sobre un pedido que el propio
+  // cliente canceló — se oculta el botón de WhatsApp en ese caso.
+  const btnWa = el("btn-whatsapp");
+  if (btnWa) {
+    btnWa.classList.toggle(
+      "hidden",
+      !waHabilitado || !!data.cancelado_por_cliente,
+    );
+  }
+
+  // El cliente solo puede cancelar mientras el pedido sigue "Pendiente".
+  // Una vez que el negocio lo acepta (en_proceso) o lo mueve a cualquier
+  // otro estado, la opción desaparece.
+  const btnCancelar = el("btn-cancelar-pedido");
+  if (btnCancelar) {
+    btnCancelar.classList.toggle("hidden", estadoActual !== "pendiente");
+  }
   el("pedido-fecha-hora").textContent = [data.fecha, data.hora]
     .filter(Boolean)
     .join(" · ");
@@ -741,7 +835,11 @@ function renderPedido(data) {
   cont.appendChild(frag);
 }
 
-function renderTimeline(estadoActual, esRechazado) {
+function renderTimeline(
+  estadoActual,
+  esRechazado,
+  canceladoPorCliente = false,
+) {
   const cont = el("timeline");
   cont.innerHTML = "";
 
@@ -750,7 +848,9 @@ function renderTimeline(estadoActual, esRechazado) {
     div.style.color = "#e5484d";
     div.style.fontWeight = "600";
     div.style.fontSize = "0.9rem";
-    div.textContent = "Este pedido fue rechazado.";
+    div.textContent = canceladoPorCliente
+      ? "Cancelaste este pedido."
+      : "Este pedido fue rechazado.";
     cont.appendChild(div);
     return;
   }

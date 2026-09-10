@@ -827,6 +827,60 @@
       outline: 2px solid var(--accent);
       outline-offset: 3px;
     }
+        /* Overlay con transición propia (a diferencia de .auth-overlay, que aparece/desaparece
+       de golpe con .hidden) — este entra y sale con un fundido + escala suave */
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 6, .78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s var(--ease-soft);
+    }
+    .confirm-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .confirm-card {
+      max-width: 23rem;
+      width: 100%;
+      text-align: center;
+      padding: clamp(1.75rem, 5vw, 2.25rem) clamp(1.5rem, 5vw, 1.85rem);
+      transform: scale(.92) translateY(10px);
+      transition: transform .4s var(--ease-spring);
+    }
+    .confirm-overlay.show .confirm-card {
+      transform: scale(1) translateY(0);
+    }
+
+    .cancel-btn {
+      margin-top: 1.1rem;
+      width: 100%;
+      padding: 0.8rem;
+      border-radius: 0.85rem;
+      border: 1px solid color-mix(in srgb, var(--state-rechazado) 40%, var(--card-border));
+      background: color-mix(in srgb, var(--state-rechazado) 8%, transparent);
+      color: var(--state-rechazado);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background-color .3s var(--ease-soft), transform .2s var(--ease-soft);
+    }
+    .cancel-btn:hover { background: color-mix(in srgb, var(--state-rechazado) 15%, transparent); }
+    .cancel-btn:active { transform: scale(.97); }
+    .cancel-btn:disabled { opacity: .5; cursor: not-allowed; }
+#btn-volver-negocio:hover { background: var(--card-hover); transform: translateY(-1px); }
+#btn-volver-negocio:active { transform: translateY(0); }
+    @media (prefers-reduced-motion: reduce) {
+      .confirm-overlay, .confirm-card { transition: none !important; }
+    }
   </style>
 
   <script type="module" src="/js/dasboardjs/estado_pedidos.js"></script>
@@ -904,8 +958,9 @@
           <span id="status-dot" class="status-dot pulse"></span>
           <span id="status-label" class="font-display status-label"></span>
         </div>
-
         <div id="timeline"></div>
+
+        <button id="btn-cancelar-pedido" type="button" class="cancel-btn hidden">Cancelar pedido</button>
 
         <div id="puntos-wrap" class="hidden divider-top" style="display:flex;align-items:center;gap:0.6rem;">
           <span style="font-size:1.2rem;line-height:1;">🎁</span>
@@ -952,6 +1007,13 @@
         </div>
       </section>
 
+            <a id="btn-volver-negocio" href="#" class="hidden fade-in" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.8rem 1rem;border-radius:0.9rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);text-decoration:none;font-weight:600;font-size:0.88rem;transition:background-color .3s var(--ease-soft), transform .2s var(--ease-soft);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5m7-7l-7 7 7 7"/>
+        </svg>
+        <span id="btn-volver-negocio-texto">Volver al negocio</span>
+      </a>
+
       <p class="foot-note">Actualiza automáticamente en tiempo real</p>
     </div>
     <div id="auth-modal" class="hidden auth-overlay">
@@ -969,6 +1031,23 @@
           continuar.
         </p>
         <a href="/registro" class="auth-cta">Registrarme / Iniciar sesión</a>
+      </div>
+    </div>
+        <div id="cancel-confirm-modal" class="hidden confirm-overlay">
+      <div class="card confirm-card">
+        <div class="auth-icon" style="color:var(--state-rechazado);background:color-mix(in srgb, var(--state-rechazado) 14%, transparent);border-color:color-mix(in srgb, var(--state-rechazado) 22%, transparent);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.5 9.5l5 5m0-5l-5 5" />
+          </svg>
+        </div>
+        <p class="auth-title">¿Cancelar este pedido?</p>
+        <p class="auth-copy">Esta acción no se puede deshacer. El negocio será notificado de la cancelación.</p>
+        <div style="display:flex;gap:0.6rem;">
+          <button id="cancel-confirm-no" type="button" style="flex:1;padding:0.8rem;border-radius:0.85rem;border:1px solid var(--card-border);background:var(--card-hover);color:var(--text-primary);font-weight:600;font-size:0.88rem;cursor:pointer;">Volver</button>
+          <button id="cancel-confirm-yes" type="button" style="flex:1;padding:0.8rem;border-radius:0.85rem;border:none;background:var(--state-rechazado);color:#fff;font-weight:700;font-size:0.88rem;cursor:pointer;">Sí, cancelar</button>
+        </div>
       </div>
     </div>
   </div>

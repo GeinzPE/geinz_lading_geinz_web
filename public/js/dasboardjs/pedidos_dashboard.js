@@ -46,8 +46,7 @@ if (!tiendaId || !localidad) {
 }
 const _params = new URLSearchParams(window.location.search);
 const SND_STOCK_AGOTADO = "../../sounds/stok_bajo.mp3";
-const SND_NUEVO_PEDIDO_DESCUENTO =
-  "../../sounds/pedido_entrante_descuento.mp3";
+const SND_NUEVO_PEDIDO_DESCUENTO = "../../sounds/pedido_entrante_descuento.mp3";
 const SND_NUEVO_PEDIDO_CUPON_DESCUENTO =
   "../../sounds/pedido_entrante_cupon_descuento.mp3";
 const SND_CANJE_PUNTOS = "../../sounds/canje_de_puntos.mp3";
@@ -118,6 +117,57 @@ const MESA_ADMIN_CSS = `
 const styleTag = document.createElement("style");
 styleTag.textContent = MESA_ADMIN_CSS;
 document.head.appendChild(styleTag);
+
+const PS_CSS = `
+.pedido-search-wrap{
+  position:relative;
+  display:flex;align-items:center;gap:8px;
+  margin:10px 14px 4px;
+  padding:9px 14px;
+  border-radius:14px;
+  background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  border:1px solid var(--line);
+  transition:border-color .2s ease, box-shadow .2s ease;
+}
+.pedido-search-wrap:focus-within{
+  border-color:#7c5cff;
+  box-shadow:0 0 0 3px rgba(124,92,255,.15);
+}
+.pedido-search-wrap .ps-ico{font-size:14px;opacity:.6;flex-shrink:0;}
+.pedido-search-wrap input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:#fff;font-size:13px;font-weight:600;letter-spacing:.02em;
+}
+.pedido-search-wrap input::placeholder{color:var(--ink-faint);font-weight:500;}
+.ps-clear{
+  background:var(--surface);border:1px solid var(--line);color:var(--ink-dim);
+  width:22px;height:22px;border-radius:50%;font-size:11px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.ps-clear:hover{background:var(--line);color:#fff;}
+.ps-result{
+  position:absolute;left:14px;top:calc(100% + 6px);
+  font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:8px;
+  white-space:nowrap;z-index:5;
+  animation:ps-pop-in .18s ease;
+}
+.ps-result.ok{background:rgba(124,92,255,.15);color:#a78bfa;border:1px solid rgba(124,92,255,.3);}
+.ps-result.warn{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);}
+@keyframes ps-pop-in{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+
+/* Resalte del pedido encontrado — dorado, para que no se confunda con
+   los estados violeta/verde/ámbar que ya usa el tablero */
+.order-card.oc-search-match{
+  outline:2px solid #f5c563;
+  outline-offset:2px;
+  box-shadow:0 0 0 5px rgba(245,197,99,.14), 0 6px 22px rgba(245,197,99,.18);
+  animation:ps-glow 1.6s ease-in-out infinite;
+}
+@keyframes ps-glow{
+  0%,100%{box-shadow:0 0 0 5px rgba(245,197,99,.14), 0 6px 22px rgba(245,197,99,.18);}
+  50%{box-shadow:0 0 0 8px rgba(245,197,99,.22), 0 6px 26px rgba(245,197,99,.28);}
+}
+`;
 
 const NP_CSS = `
 .dm-cupon-card{border-radius:14px;padding:12px 14px;margin-bottom:14px;}
@@ -259,7 +309,7 @@ const NP_CSS = `
 .npc-edit:hover{text-decoration:underline;}
 `;
 
-styleTag.textContent = MESA_ADMIN_CSS + NP_CSS;
+styleTag.textContent = MESA_ADMIN_CSS + NP_CSS + PS_CSS;
 /* ══════════════ Identificación del negocio ══════════════ */
 
 const ESTADOS = [
@@ -287,36 +337,84 @@ let bizLogoUrl = "";
 let bizNombreGlobal = "Geinz";
 let soundEnabled = localStorage.getItem("geinz_sound_enabled") !== "0";
 let audioCtx = null;
+let pedidoSearchActivoId = null;
 const SND_NUEVO_PEDIDO = "../../sounds/nuevo_pedido_en_geinz.mp3";
 const SND_PEDIDO_CANCELADO = "../../sounds/se_cancelo_un_pedido.mp3";
-const SND_PEDIDO_CANCELADO_PAUSA = "../../sounds/cancelo_pedido_pausa.mp3"; // cliente canceló estando en pausa
+const SND_PEDIDO_CANCELADO_PAUSA = "../../sounds/cancelo_pedido_pausa.mp3";
+const SND_CLIENTE_CANCELO_PEDIDO = "../../sounds/cliente_cancelo_pedido.mp3"; // cliente canceló estando en pausa
 const SND_PEDIDO_CONTESTADO = "../../sounds/modifico_pedido_pausa.mp3"; // cliente respondió (reemplazo / continuar)
-const activeLoopAudios = new Map();
-function playSoundLoopParaPedido(pedidoId, url, seconds = 40) {
+/* ══════════════ Cola global de alarmas de pedidos (evita que se crucen) ══════════════
+   Solo suena UN audio de alarma a la vez. Cada pedido pendiente que necesita alarma
+   se encola y espera su turno. Cuando le toca, se repite 4 VECES COMPLETAS (nunca
+   se corta un audio a la mitad, porque se espera el evento "ended", no un timeout).
+   Si el pedido cambia de estado (lo acepta el negocio, lo pausa, lo rechaza, o el
+   cliente lo cancela desde su seguimiento) antes de terminar sus 4 repeticiones,
+   se corta al toque y pasa al siguiente pedido en cola. */
+const REPETICIONES_ALARMA = 4;
+const colaAlarmas = []; // [{ pedidoId, url }]
+let alarmaActual = null; // { pedidoId, audio, repeticionesRestantes }
+
+function encolarAlarma(pedidoId, url) {
   if (!soundEnabled) return;
-  detenerSoundLoopParaPedido(pedidoId); // por si ya había uno sonando para este mismo pedido
-  try {
-    const audio = new Audio(url);
-    audio.loop = true;
-    activeLoopAudios.set(pedidoId, audio);
-    audio
-      .play()
-      .catch((err) => console.warn("No se pudo reproducir el audio:", err));
-    const timeoutId = setTimeout(() => {
-      detenerSoundLoopParaPedido(pedidoId);
-    }, seconds * 1000);
-    audio._timeoutId = timeoutId;
-  } catch (e) {
-    console.warn("Error reproduciendo sonido:", e);
-  }
+  if (alarmaActual?.pedidoId === pedidoId) return; // ya está sonando
+  if (colaAlarmas.some((a) => a.pedidoId === pedidoId)) return; // ya está en cola
+  colaAlarmas.push({ pedidoId, url });
+  if (!alarmaActual) reproducirSiguienteAlarma();
 }
+
+function reproducirSiguienteAlarma() {
+  if (!colaAlarmas.length) {
+    alarmaActual = null;
+    return;
+  }
+  const { pedidoId, url } = colaAlarmas.shift();
+
+  // Si mientras esperaba en cola el pedido ya dejó de estar "pendiente", se salta
+  const pedido = pedidosMap.get(pedidoId);
+  const estado = pedido
+    ? ESTADOS.includes(pedido.estado)
+      ? pedido.estado
+      : "pendiente"
+    : null;
+  if (!pedido || estado !== "pendiente") {
+    reproducirSiguienteAlarma();
+    return;
+  }
+
+  const audio = new Audio(url);
+  alarmaActual = { pedidoId, audio, repeticionesRestantes: REPETICIONES_ALARMA };
+
+  audio.addEventListener("ended", () => {
+    if (!alarmaActual || alarmaActual.pedidoId !== pedidoId) return;
+    alarmaActual.repeticionesRestantes -= 1;
+    if (alarmaActual.repeticionesRestantes > 0) {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } else {
+      reproducirSiguienteAlarma();
+    }
+  });
+
+  audio
+    .play()
+    .catch((err) => {
+      console.warn("No se pudo reproducir el audio:", err);
+      reproducirSiguienteAlarma();
+    });
+}
+
+/* Corta la alarma de UN pedido específico: si está sonando ahora, la detiene
+   y pasa a la siguiente en cola; si todavía esperaba su turno, se saca de la cola. */
 function detenerSoundLoopParaPedido(pedidoId) {
-  const audio = activeLoopAudios.get(pedidoId);
-  if (!audio) return;
-  clearTimeout(audio._timeoutId);
-  audio.pause();
-  audio.currentTime = 0;
-  activeLoopAudios.delete(pedidoId);
+  const idx = colaAlarmas.findIndex((a) => a.pedidoId === pedidoId);
+  if (idx !== -1) colaAlarmas.splice(idx, 1);
+
+  if (alarmaActual?.pedidoId === pedidoId) {
+    alarmaActual.audio.pause();
+    alarmaActual.audio.currentTime = 0;
+    alarmaActual = null;
+    reproducirSiguienteAlarma();
+  }
 }
 
 function playSoundOnce(url) {
@@ -656,7 +754,7 @@ function playChime(pedidoId, data) {
   if (tipo === "canje_puntos") url = SND_CANJE_PUNTOS;
   else if (tipo === "descuento_fidelizacion") url = SND_NUEVO_PEDIDO_DESCUENTO;
   else if (tipo === "cupon_descuento") url = SND_NUEVO_PEDIDO_CUPON_DESCUENTO;
-  playSoundLoopParaPedido(pedidoId, url, 40);
+  encolarAlarma(pedidoId, url);
 }
 /* Alarma distinta y más urgente para el auto-rechazo por tiempo agotado */
 function playAutoRejectAlarm() {
@@ -671,6 +769,11 @@ function playRespuestaClienteAlarm() {
 /* Alarma cuando el cliente cancela su propio pedido estando en pausa */
 function playCanceladoPorClienteAlarm() {
   playSoundOnce(SND_PEDIDO_CANCELADO_PAUSA);
+}
+
+/* Alarma cuando el cliente cancela su propio pedido ANTES de que estuviera en pausa (pendiente) */
+function playClienteCanceloPedidoAlarm() {
+  playSoundOnce(SND_CLIENTE_CANCELO_PEDIDO);
 }
 
 /* Alarma para reservas vencidas (auto-liberación) — dos tonos suaves alternando, distinta a las otras */
@@ -712,7 +815,7 @@ bellBtn.addEventListener("click", async () => {
   paintBell();
   if (soundEnabled) {
     ensureAudio();
-    playChime();
+    playSoundOnce(SND_NUEVO_PEDIDO); // beep de confirmación, ya no pasa por la cola de pedidos
     if (window.Notification && Notification.permission === "default") {
       try {
         await Notification.requestPermission();
@@ -720,10 +823,16 @@ bellBtn.addEventListener("click", async () => {
     }
     showToast("🔔 Notificaciones de sonido activadas");
   } else {
+    // Corta cualquier alarma sonando y vacía la cola de pedidos pendientes
+    colaAlarmas.length = 0;
+    if (alarmaActual) {
+      alarmaActual.audio.pause();
+      alarmaActual.audio.currentTime = 0;
+      alarmaActual = null;
+    }
     showToast("🔕 Notificaciones de sonido desactivadas");
   }
 });
-
 /* ══════════════ Control de auto-rechazo (popover) ══════════════ */
 const autorejBtn = document.getElementById("autorejBtn");
 const autorejPop = document.getElementById("autorejPop");
@@ -1378,31 +1487,113 @@ function detalleCuponHtml(p) {
   const productos = Array.isArray(p.productos) ? p.productos : [];
   const prodCanjeado = productos.find((it) => it.esCanje);
   const descuento = Number(p.descuentoCupon) || 0;
-  const subtotal = Number(p.subtotal) || (Number(p.total) + descuento);
+  const total = Number(p.total) || 0;
+  const subtotal = Number(p.subtotal) || total + descuento;
+  const porcentajeEfectivo = subtotal > 0 ? (descuento / subtotal) * 100 : 0;
 
   const map = {
-    canje_puntos: { titulo: "🎁 Canje de puntos", bg: "rgba(251,191,36,.08)", bd: "rgba(251,191,36,.3)", col: "#fbbf24" },
-    descuento_fidelizacion: { titulo: "⭐ Descuento por fidelización", bg: "rgba(124,92,255,.08)", bd: "rgba(124,92,255,.3)", col: "#a78bfa" },
-    cupon_descuento: { titulo: "🎟️ Cupón de descuento", bg: "rgba(34,197,94,.08)", bd: "rgba(34,197,94,.3)", col: "#4ade80" },
+    canje_puntos: {
+      titulo: "🎁 Canje de puntos",
+      bg: "rgba(251,191,36,.08)",
+      bd: "rgba(251,191,36,.3)",
+      col: "#fbbf24",
+    },
+    descuento_fidelizacion: {
+      titulo: "⭐ Descuento por fidelización",
+      bg: "rgba(124,92,255,.08)",
+      bd: "rgba(124,92,255,.3)",
+      col: "#a78bfa",
+    },
+    cupon_descuento: {
+      titulo: "🎟️ Cupón de descuento",
+      bg: "rgba(34,197,94,.08)",
+      bd: "rgba(34,197,94,.3)",
+      col: "#4ade80",
+    },
   };
   const cfg = map[tipo];
 
   const filas = [];
-  if (c.codigo) filas.push(`<div class="dm-cupon-row"><span>Código</span><span class="mono">${escapeHtml(c.codigo)}</span></div>`);
+
+  if (c.codigo) {
+    filas.push(`
+      <div class="dm-cupon-row">
+        <span>Código de cupón</span>
+        <span class="mono" style="letter-spacing:.05em;">${escapeHtml(c.codigo)}</span>
+      </div>`);
+  }
+
+  filas.push(`
+    <div class="dm-cupon-row">
+      <span>Origen</span>
+      <span>${c.origen === "fidelizacion" ? "Programa de fidelización" : "Cupón del negocio"}</span>
+    </div>`);
+
   if (tipo === "canje_puntos" && prodCanjeado) {
-    filas.push(`<div class="dm-cupon-row"><span>Producto canjeado</span><span>${escapeHtml(prodCanjeado.nombre)}</span></div>`);
-    filas.push(`<div class="dm-cupon-row"><span>Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span></div>`);
+    // ── Producto canjeado 100% con puntos, sin costo en soles ──
+    filas.push(`
+      <div class="dm-cupon-row">
+        <span>Producto canjeado</span>
+        <span>${escapeHtml(prodCanjeado.nombre)}</span>
+      </div>`);
+    filas.push(`
+      <div class="dm-cupon-row">
+        <span>Precio normal del producto</span>
+        <span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(prodCanjeado.precio_unitario || prodCanjeado.precio || 0)}</span>
+      </div>`);
+    filas.push(`
+      <div class="dm-cupon-row" style="border-top:1px dashed rgba(251,191,36,.25);padding-top:6px;margin-top:2px;">
+        <span style="font-weight:800;">Puntos que se descuentan al cliente</span>
+        <span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span>
+      </div>`);
   } else {
-    if (subtotal) filas.push(`<div class="dm-cupon-row"><span>Subtotal sin descuento</span><span>${fmtMoney(subtotal)}</span></div>`);
-    if (descuento) filas.push(`<div class="dm-cupon-row"><span>Descuento aplicado</span><span style="color:#4ade80;font-weight:800;">-${fmtMoney(descuento)}</span></div>`);
-    if (tipo === "descuento_fidelizacion" && c.costoPuntos)
-      filas.push(`<div class="dm-cupon-row"><span>Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${c.costoPuntos} pts</span></div>`);
+    // ── Descuento % o monto fijo sobre el subtotal ──
+    if (c.tipo === "producto" && c.productoId) {
+      filas.push(`
+        <div class="dm-cupon-row">
+          <span>Tipo de descuento</span>
+          <span>Producto de regalo</span>
+        </div>`);
+    } else if (c.tipoDescuentoManual) {
+      filas.push(`
+        <div class="dm-cupon-row">
+          <span>Tipo de descuento</span>
+          <span>${c.tipoDescuentoManual === "porcentaje" ? `${c.porcentajeManual || 0}% sobre el subtotal` : `Monto fijo de ${fmtMoney(c.montoManual || 0)}`}</span>
+        </div>`);
+    }
+
+    filas.push(`
+      <div class="dm-cupon-row">
+        <span>Subtotal sin descuento</span>
+        <span>${fmtMoney(subtotal)}</span>
+      </div>`);
+    filas.push(`
+      <div class="dm-cupon-row" style="border-top:1px dashed rgba(74,222,128,.25);padding-top:6px;margin-top:2px;">
+        <span style="font-weight:800;">Descuento aplicado</span>
+        <span style="color:#4ade80;font-weight:800;">-${fmtMoney(descuento)} (${porcentajeEfectivo.toFixed(1)}%)</span>
+      </div>`);
+    filas.push(`
+      <div class="dm-cupon-row">
+        <span style="font-weight:800;">Total a cobrar al cliente</span>
+        <span style="font-weight:800;">${fmtMoney(total)}</span>
+      </div>`);
+
+    if (tipo === "descuento_fidelizacion" && c.costoPuntos) {
+      filas.push(`
+        <div class="dm-cupon-row" style="border-top:1px dashed rgba(167,139,250,.25);padding-top:6px;margin-top:2px;">
+          <span>Puntos usados por el cliente</span>
+          <span style="color:#fbbf24;font-weight:800;">-${c.costoPuntos} pts</span>
+        </div>`);
+    }
   }
 
   return `
     <div class="dm-cupon-card" style="background:${cfg.bg};border:1px solid ${cfg.bd};">
       <p style="color:${cfg.col};font-weight:800;font-size:12.5px;margin-bottom:8px;">${cfg.titulo}</p>
       ${filas.join("")}
+      <p style="font-size:10.5px;color:var(--ink-faint);margin-top:8px;">
+        ⚠️ Verifica este descuento antes de aceptar el pedido, ya se aplicó automáticamente en el total.
+      </p>
     </div>`;
 }
 function cuponTagHtml(p) {
@@ -1516,6 +1707,106 @@ function getPuntosPedido(pedidoId, p) {
   calcularPuntosPedidoAsync(pedidoId, p);
   return 0;
 }
+/* ══════════════ Buscador local de pedidos por código ══════════════
+   100% cliente: busca solo dentro de pedidosMap (lo que ya está cargado
+   por el rango de fecha activo), resalta la tarjeta ya existente en el DOM
+   y hace scroll hacia ella. NUNCA llama a renderBoard() ni toca Firestore,
+   así que no "recompone" nada — es puramente visual. */
+
+function codigoCortoPedido(id) {
+  return id.slice(0, 6).toUpperCase();
+}
+
+function limpiarResaltadoBusqueda() {
+  document
+    .querySelectorAll(".order-card.oc-search-match")
+    .forEach((el) => el.classList.remove("oc-search-match"));
+}
+
+function mostrarResultadoBusqueda(msg, tipo) {
+  const el = document.getElementById("pedidoSearchResult");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = `ps-result ${tipo}`;
+  el.style.display = msg ? "block" : "none";
+}
+
+// Resalta (y opcionalmente hace scroll hacia) el pedido encontrado.
+function resaltarPedidoEncontrado(id, { scroll = true } = {}) {
+  limpiarResaltadoBusqueda();
+  const card = document.getElementById(`order-${id}`);
+  if (!card) return false;
+
+  card.classList.add("oc-search-match");
+
+  const p = pedidosMap.get(id);
+  const estado = ESTADOS.includes(p?.estado) ? p.estado : "pendiente";
+
+  // En vista mobile (una sola columna visible a la vez), cambia a la
+  // pestaña del estado donde está el pedido para que quede visible.
+  const tab = document.querySelector(`.stab[data-s="${estado}"]`);
+  if (tab && activeTab !== estado) {
+    activeTab = estado;
+    document
+      .querySelectorAll(".stab")
+      .forEach((t) => t.classList.toggle("active", t === tab));
+    document
+      .querySelectorAll(".board-col")
+      .forEach((c) =>
+        c.classList.toggle("col-active", c.dataset.status === activeTab),
+      );
+  }
+
+  if (scroll) card.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  mostrarResultadoBusqueda(`📍 Encontrado en “${labelEstado(estado)}”`, "ok");
+  return true;
+}
+
+function ejecutarBusquedaPedido(valorCrudo) {
+  const valor = valorCrudo.trim().replace(/^#/, "").toUpperCase();
+  const clearBtn = document.getElementById("pedidoSearchClear");
+  if (clearBtn) clearBtn.style.display = valor ? "flex" : "none";
+
+  if (!valor) {
+    pedidoSearchActivoId = null;
+    limpiarResaltadoBusqueda();
+    mostrarResultadoBusqueda("", "");
+    return;
+  }
+
+  // Coincidencia por prefijo del código corto (#XXXXXX)
+  let encontrado = null;
+  for (const [id] of pedidosMap) {
+    if (codigoCortoPedido(id).startsWith(valor)) {
+      encontrado = id;
+      break;
+    }
+  }
+
+  if (!encontrado) {
+    pedidoSearchActivoId = null;
+    limpiarResaltadoBusqueda();
+    mostrarResultadoBusqueda("Sin coincidencias en el periodo visible", "warn");
+    return;
+  }
+
+  pedidoSearchActivoId = encontrado;
+  resaltarPedidoEncontrado(encontrado);
+}
+
+let pedidoSearchDebounce;
+document.getElementById("pedidoSearchInput")?.addEventListener("input", (e) => {
+  clearTimeout(pedidoSearchDebounce);
+  const valor = e.target.value;
+  pedidoSearchDebounce = setTimeout(() => ejecutarBusquedaPedido(valor), 180);
+});
+document.getElementById("pedidoSearchClear")?.addEventListener("click", () => {
+  const input = document.getElementById("pedidoSearchInput");
+  if (input) input.value = "";
+  ejecutarBusquedaPedido("");
+  input?.focus();
+});
 function buildCard(id, p) {
   const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
   const fecha = toDate(p.timestamp);
@@ -1545,7 +1836,9 @@ function buildCard(id, p) {
     </div>
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
-       ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}    <div class="oc-summary">
+       ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
+       ${Number(p.descuentoCupon) > 0 ? `<div class="oc-descuento-line" style="font-size:11px;font-weight:700;color:#4ade80;margin-top:2px;">🏷️ Descuento aplicado: -${fmtMoney(p.descuentoCupon)}</div>` : ""}
+    <div class="oc-summary">
    <span class="oc-summary-left">${origenTagHtml(p)}${cuponTagHtml(p)}</span>
       <div class="oc-summary-right">
         <span class="oc-summary-total">${fmtMoney(p.total)}</span>
@@ -1715,7 +2008,7 @@ function renderMesaDetail(numeroMesa) {
                 })
                 .join("")}</div>`;
 
-            return `
+        return `
       <div style="border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; background:var(--surface);">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
           <div>
@@ -2111,7 +2404,11 @@ async function rechazarPedidoMesa(numeroMesa, btnEl) {
       const batch = writeBatch(db);
       (grupo?.mesas || []).forEach((m) => {
         const mesaRef = tiendaSubDoc(
-          localidad, "tiendas", tiendaId, "mesas", m.id,
+          localidad,
+          "tiendas",
+          tiendaId,
+          "mesas",
+          m.id,
         );
         batch.set(
           mesaRef,
@@ -2134,16 +2431,28 @@ async function rechazarPedidoMesa(numeroMesa, btnEl) {
       let pedidoRechazadoData = null;
       if (grupo?.pedidoGrupoDocId) {
         batch.set(
-          tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", grupo.pedidoGrupoDocId),
+          tiendaSubDoc(
+            localidad,
+            "tiendas",
+            tiendaId,
+            "pedidos",
+            grupo.pedidoGrupoDocId,
+          ),
           { estado: "rechazado", actualizado: serverTimestamp() },
           { merge: true },
         );
-        pedidoRechazadoData = { id: grupo.pedidoGrupoDocId, data: grupo.pedido };
+        pedidoRechazadoData = {
+          id: grupo.pedidoGrupoDocId,
+          data: grupo.pedido,
+        };
       }
       await batch.commit();
       showToast("🍽️ Pedido de mesas agrupadas rechazado");
       if (pedidoRechazadoData?.data) {
-        await devolverPuntosCuponSiAplica(pedidoRechazadoData.id, pedidoRechazadoData.data);
+        await devolverPuntosCuponSiAplica(
+          pedidoRechazadoData.id,
+          pedidoRechazadoData.data,
+        );
       }
       closeDetail();
       return;
@@ -2151,7 +2460,13 @@ async function rechazarPedidoMesa(numeroMesa, btnEl) {
 
     await Promise.all(
       activos.map(async ([mesaDocId, pseudoPedido]) => {
-        const mesaRef = tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId);
+        const mesaRef = tiendaSubDoc(
+          localidad,
+          "tiendas",
+          tiendaId,
+          "mesas",
+          mesaDocId,
+        );
         const tareas = [
           updateDoc(mesaRef, {
             estado: "libre",
@@ -2164,14 +2479,23 @@ async function rechazarPedidoMesa(numeroMesa, btnEl) {
         if (pseudoPedido.pedidoDocId) {
           tareas.push(
             updateDoc(
-              tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pseudoPedido.pedidoDocId),
+              tiendaSubDoc(
+                localidad,
+                "tiendas",
+                tiendaId,
+                "pedidos",
+                pseudoPedido.pedidoDocId,
+              ),
               { estado: "rechazado", actualizado: serverTimestamp() },
             ),
           );
         }
         await Promise.all(tareas);
         if (pseudoPedido.pedidoDocId) {
-          await devolverPuntosCuponSiAplica(pseudoPedido.pedidoDocId, pseudoPedido);
+          await devolverPuntosCuponSiAplica(
+            pseudoPedido.pedidoDocId,
+            pseudoPedido,
+          );
         }
       }),
     );
@@ -2287,6 +2611,7 @@ function renderDetail(id) {
       : "";
 
   document.getElementById("dmBody").innerHTML = `
+      ${detalleCuponHtml(p)}
     <div>
       <div class="dm-section-title">Datos del pedido</div>
       <div class="dm-meta-grid">
@@ -2518,14 +2843,22 @@ async function devolverPuntosCuponSiAplica(pedidoId, pedido) {
       puntos: increment(puntos),
     });
     if (cupon.codigo) {
-      await updateDoc(
-        clienteCuponDoc(localidad, tiendaId, uid, cupon.codigo),
-        { usado: false, estado: "activo", pedidoId: null },
-      ).catch(() => {});
+      await updateDoc(clienteCuponDoc(localidad, tiendaId, uid, cupon.codigo), {
+        usado: false,
+        estado: "activo",
+        pedidoId: null,
+      }).catch(() => {});
     }
     // NUEVO: registro en el historial de puntos del cliente
     await addDoc(
-      tiendaSubCol(localidad, "tiendas", tiendaId, "clientes", uid, "historial"),
+      tiendaSubCol(
+        localidad,
+        "tiendas",
+        tiendaId,
+        "clientes",
+        uid,
+        "historial",
+      ),
       {
         tipo: "devolucion",
         fecha: serverTimestamp(),
@@ -2581,7 +2914,7 @@ async function acreditarPuntosCliente(
       "historial",
     );
     await addDoc(historialRef, {
-       tipo: "ganado", 
+      tipo: "ganado",
       pedidoId,
       fecha: serverTimestamp(),
       total: Number(pedidoActual.total) || 0,
@@ -2705,9 +3038,11 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     }
 
     // ═══ 2) Descuento de stock y puntos: EN SEGUNDO PLANO, ya no bloquean la UI ═══
-    if (nuevoEstado === "entregado") {
+    // ═══ 2) Descuento de stock: se dispara la PRIMERA vez que el pedido
+    //        pasa a "en_proceso" (aceptado) o a "entregado" — lo que ocurra
+    //        primero. El flag stock_descontado evita que se descuente 2 veces. ═══
+    if (nuevoEstado === "en_proceso" || nuevoEstado === "entregado") {
       const pedidoActual = pedidosMap.get(pedidoId);
-
       if (pedidoActual && !pedidoActual.stock_descontado) {
         descontarStockPedido(pedidoActual)
           .then((agotados) => {
@@ -2722,8 +3057,12 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
           })
           .catch((err) => console.error("Error descontando stock:", err));
       }
-      
+    }
 
+    // ═══ 3) Puntos de fidelización: solo cuando el pedido realmente se
+    //        entrega, no solo al aceptarlo. ═══
+    if (nuevoEstado === "entregado") {
+      const pedidoActual = pedidosMap.get(pedidoId);
       if (pedidoActual && !pedidoActual.puntos_acreditados) {
         const uid = pedidoActual.cliente?.id_cliente;
         const puntosGanados =
@@ -2752,9 +3091,9 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
       }
     }
     if (nuevoEstado === "rechazado") {
-  const pedidoActual = pedidosMap.get(pedidoId);
-  if (pedidoActual) devolverPuntosCuponSiAplica(pedidoId, pedidoActual);
-}
+      const pedidoActual = pedidosMap.get(pedidoId);
+      if (pedidoActual) devolverPuntosCuponSiAplica(pedidoId, pedidoActual);
+    }
   } catch (err) {
     console.error("Error actualizando pedido:", err);
     showToast("❌ No se pudo actualizar el pedido", true);
@@ -2981,6 +3320,10 @@ function renderBoard() {
       if (pedidosMap.has(activeModalId)) renderDetail(activeModalId);
       else closeDetail();
     }
+    // Si había un pedido resaltado por la búsqueda, lo volvemos a marcar en las
+    // tarjetas recién creadas — SIN volver a hacer scroll, para no pelearle
+    // el scroll al usuario en cada snapshot de Firestore.
+
     return;
   }
 
@@ -3065,6 +3408,18 @@ function renderBoard() {
   if (activeModalId) {
     if (pedidosMap.has(activeModalId)) renderDetail(activeModalId);
     else closeDetail();
+  }
+  if (pedidoSearchActivoId) {
+    if (pedidosMap.has(pedidoSearchActivoId)) {
+      resaltarPedidoEncontrado(pedidoSearchActivoId, { scroll: false });
+    } else {
+      pedidoSearchActivoId = null;
+      limpiarResaltadoBusqueda();
+      mostrarResultadoBusqueda(
+        "El pedido resaltado ya no está en este periodo",
+        "warn",
+      );
+    }
   }
 }
 
@@ -4517,7 +4872,8 @@ function suscribirPedidos() {
       }
       const nuevosPendientes = [];
       const respuestasClienteNuevas = []; // cliente respondió y sigue en pausa
-      const canceladosPorCliente = []; // cliente canceló su pedido desde el seguimiento
+      const canceladosPorClienteEnPausa = []; // canceló estando en pausa
+      const canceladosPorClientePendiente = []; // canceló estando pendiente (sin pasar por pausa)
 
       snap.docChanges().forEach((change) => {
         const id = change.doc.id;
@@ -4532,13 +4888,21 @@ function suscribirPedidos() {
             getOrigen(data).tipo === "whatsapp"
           )
             nuevosPendientes.push({ id, data });
-        } else if (change.type === "modified") {
-          const anterior = pedidosMap.get(id);
+              } else if (change.type === "modified") {
+       const anterior = pedidosMap.get(id);
           const estadoAnterior = anterior
             ? ESTADOS.includes(anterior.estado)
               ? anterior.estado
               : "pendiente"
             : null;
+
+          // El pedido dejó de estar "pendiente" (lo aceptó/pausó/rechazó el negocio,
+          // o lo canceló el cliente desde su seguimiento) → se corta su alarma ya mismo
+          if (estadoAnterior === "pendiente" && estadoNuevo !== "pendiente") {
+            detenerSoundLoopParaPedido(id);
+          }
+
+          // El cliente respondió (reemplazo / sin producto) mientras el pedido sigue en pausa
           // El cliente respondió (reemplazo / sin producto) mientras el pedido sigue en pausa
           const respAnterior = anterior?.respuesta_cliente;
           const respNueva = data.respuesta_cliente;
@@ -4552,12 +4916,19 @@ function suscribirPedidos() {
           }
 
           // El cliente canceló su propio pedido desde el seguimiento
+                  // El cliente canceló su propio pedido desde el seguimiento.
+          // Si venía de "en_pausa" suena una alarma; si canceló estando
+          // pendiente (sin llegar a pausa), suena una alarma distinta.
           if (
             estadoNuevo === "rechazado" &&
             data.cancelado_por_cliente === true &&
             estadoAnterior !== "rechazado"
           ) {
-            canceladosPorCliente.push({ id, data });
+            if (estadoAnterior === "en_pausa") {
+              canceladosPorClienteEnPausa.push({ id, data });
+            } else {
+              canceladosPorClientePendiente.push({ id, data });
+            }
           }
           if (
             estadoNuevo === "pendiente" &&
@@ -4567,9 +4938,10 @@ function suscribirPedidos() {
             nuevosPendientes.push({ id, data });
         }
 
-        if (change.type === "removed") {
+         if (change.type === "removed") {
           pedidosMap.delete(id);
           autoRejectingIds.delete(id);
+          detenerSoundLoopParaPedido(id);
         } else pedidosMap.set(id, data);
       });
 
@@ -4614,19 +4986,36 @@ function suscribirPedidos() {
         );
       }
 
-      if (canceladosPorCliente.length) {
+        if (canceladosPorClienteEnPausa.length) {
         playCanceladoPorClienteAlarm();
         bellRingFeedback();
-        canceladosPorCliente.forEach(({ data }) =>
+        canceladosPorClienteEnPausa.forEach(({ data }) =>
           notificarPedidoCanceladoPorCliente(data),
         );
-        const nombresCancel = canceladosPorCliente
+        const nombresCancel = canceladosPorClienteEnPausa
           .map(({ data }) => data.cliente?.nombre || "Cliente")
           .join(", ");
         showToast(
-          canceladosPorCliente.length === 1
+          canceladosPorClienteEnPausa.length === 1
             ? `🚫 ${nombresCancel} canceló su pedido`
-            : `🚫 ${canceladosPorCliente.length} clientes cancelaron su pedido`,
+            : `🚫 ${canceladosPorClienteEnPausa.length} clientes cancelaron su pedido`,
+          true,
+        );
+      }
+
+      if (canceladosPorClientePendiente.length) {
+        playClienteCanceloPedidoAlarm();
+        bellRingFeedback();
+        canceladosPorClientePendiente.forEach(({ data }) =>
+          notificarPedidoCanceladoPorCliente(data),
+        );
+        const nombresCancelPend = canceladosPorClientePendiente
+          .map(({ data }) => data.cliente?.nombre || "Cliente")
+          .join(", ");
+        showToast(
+          canceladosPorClientePendiente.length === 1
+            ? `🚫 ${nombresCancelPend} canceló su pedido`
+            : `🚫 ${canceladosPorClientePendiente.length} clientes cancelaron su pedido`,
           true,
         );
       }
