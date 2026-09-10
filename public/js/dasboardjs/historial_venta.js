@@ -283,6 +283,56 @@ function getOrigenInfo(p) {
   return { key, ...ORIGENES_INFO[key] };
 }
 
+function getTipoCuponPedido(p) {
+  const c = p?.cupon;
+  if (!c) return null;
+  const esFid = c.origen === "fidelizacion";
+  const hayCanje = (p.productos || []).some((it) => it.esCanje);
+  if (esFid && hayCanje) return "canje_puntos";
+  if (esFid) return "descuento_fidelizacion";
+  return "cupon_descuento";
+}
+
+function detalleCuponModalHtml(p) {
+  const tipo = getTipoCuponPedido(p);
+  if (!tipo) return "";
+  const c = p.cupon || {};
+  const prodCanjeado = (p.productos || []).find((it) => it.esCanje);
+  const descuento = Number(p.descuentoCupon) || 0;
+  const subtotal = Number(p.subtotal) || (Number(p.total) + descuento);
+  const map = {
+    canje_puntos: { titulo: "🎁 Canje de puntos", col: "#fbbf24", bg: "rgba(251,191,36,.08)", bd: "rgba(251,191,36,.3)" },
+    descuento_fidelizacion: { titulo: "⭐ Descuento por fidelización", col: "#8855FF", bg: "rgba(136,85,255,.08)", bd: "rgba(136,85,255,.3)" },
+    cupon_descuento: { titulo: "🎟️ Cupón de descuento", col: "#4ade80", bg: "rgba(34,197,94,.08)", bd: "rgba(34,197,94,.3)" },
+  };
+  const cfg = map[tipo];
+  let filas = "";
+  if (c.codigo) filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Código</span><span class="font-mono">${c.codigo}</span></div>`;
+  if (tipo === "canje_puntos" && prodCanjeado) {
+    filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Producto canjeado</span><span>${prodCanjeado.nombre}</span></div>`;
+    filas += `<div class="flex justify-between text-xs py-1"><span class="text-inkdim">Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${c.costoPuntos || 0} pts</span></div>`;
+  } else {
+    if (subtotal) filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Subtotal sin descuento</span><span>${fmtMoney(subtotal)}</span></div>`;
+    if (descuento) filas += `<div class="flex justify-between text-xs py-1"><span class="text-inkdim">Descuento aplicado</span><span style="color:#4ade80;font-weight:800;">-${fmtMoney(descuento)}</span></div>`;
+  }
+  return `
+    <div class="mb-5 rounded-xl px-3.5 py-3" style="background:${cfg.bg};border:1px solid ${cfg.bd};">
+      <p style="color:${cfg.col};" class="font-bold text-xs mb-2">${cfg.titulo}</p>
+      ${filas}
+    </div>`;
+}
+function cuponBadge(p) {
+  const tipo = getTipoCuponPedido(p);
+  if (!tipo) return '<span class="text-inkfaint text-xs">—</span>';
+  const map = {
+    canje_puntos: { ico: "🎁", label: "Canje puntos", col: "text-amber-400" },
+    descuento_fidelizacion: { ico: "⭐", label: "Fidelización", col: "text-primary" },
+    cupon_descuento: { ico: "🎟️", label: "Cupón", col: "text-green-400" },
+  };
+  const cfg = map[tipo];
+  const desc = Number(p.descuentoCupon) || 0;
+  return `<span class="text-xs font-semibold ${cfg.col}">${cfg.ico} ${cfg.label}${desc ? ` · -${fmtMoney(desc)}` : ""}</span>`;
+}
 function origenBadge(p) {
   const info = getOrigenInfo(p);
   return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-panel2 border border-line text-inkdim">${info.icon} ${info.label}</span>`;
@@ -826,6 +876,7 @@ function renderList(list) {
       </td>
       <td class="px-4 py-3 text-right font-mono font-semibold text-white">${fmtMoney(p.total)}</td>
          <td class="px-4 py-3 text-inkdim">${(p.pago && p.pago.metodo) || "—"}</td>
+      <td class="px-4 py-3">${cuponBadge(p)}</td>
       <td class="px-4 py-3">${origenBadge(p)}</td>
       <td class="px-4 py-3">${estadoBadge(p.estado)}</td>
       <td class="px-4 py-3 text-primary">›</td>
@@ -849,7 +900,10 @@ function renderList(list) {
         <span class="text-inkfaint text-xs">${fmtFechaHora(p)}</span>
         <span class="font-mono font-bold text-white">${fmtMoney(p.total)}</span>
       </div>
-      <div>${origenBadge(p)}</div>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${origenBadge(p)}
+        ${cuponBadge(p)}
+      </div>
     </div>
   `,
     )
@@ -927,6 +981,8 @@ function openModal(id) {
           : ""
       }
 
+      ${detalleCuponModalHtml(p)}
+
       <div class="mb-5">
         <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Productos</p>
         <div class="bg-panel2 border border-line rounded-xl px-3">${productosHtml || '<p class="text-sm text-inkfaint py-3">Sin productos</p>'}</div>
@@ -1003,7 +1059,7 @@ function exportarCSV() {
     return;
   }
 
-  const headers = [
+   const headers = [
     "Codigo",
     "Fecha",
     "Hora",
@@ -1014,11 +1070,22 @@ function exportarCSV() {
     "Metodo de pago",
     "Estado",
     "Total (S/)",
+    "Tipo descuento",
+    "Codigo cupon",
+    "Monto descuento (S/)",
+    "Puntos usados",
   ];
   const rows = list.map((p) => {
     const productos = (p.productos || [])
       .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
       .join(" | ");
+    const tipo = getTipoCuponPedido(p);
+    const tipoLabel =
+      {
+        canje_puntos: "Canje de puntos",
+        descuento_fidelizacion: "Descuento fidelización",
+        cupon_descuento: "Cupón negocio",
+      }[tipo] || "";
     return [
       codigoPedido(p),
       p.fecha || "",
@@ -1030,9 +1097,12 @@ function exportarCSV() {
       (p.pago && p.pago.metodo) || "",
       p.estado || "",
       (Number(p.total) || 0).toFixed(2),
+      tipoLabel,
+      (p.cupon && p.cupon.codigo) || "",
+      (Number(p.descuentoCupon) || 0).toFixed(2),
+      (p.cupon && p.cupon.costoPuntos) || "",
     ];
   });
-
   const entregados = list.filter(
     (p) => (p.estado || "").toLowerCase() === "entregado",
   );
@@ -1076,6 +1146,13 @@ function exportarExcel() {
     const productos = (p.productos || [])
       .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
       .join(" | ");
+    const tipo = getTipoCuponPedido(p);
+    const tipoLabel =
+      {
+        canje_puntos: "Canje de puntos",
+        descuento_fidelizacion: "Descuento fidelización",
+        cupon_descuento: "Cupón negocio",
+      }[tipo] || "";
     return {
       Código: codigoPedido(p),
       Fecha: p.fecha || "",
@@ -1087,6 +1164,10 @@ function exportarExcel() {
       "Método de pago": (p.pago && p.pago.metodo) || "",
       Estado: p.estado || "",
       "Total (S/)": Number(p.total) || 0,
+      "Tipo descuento": tipoLabel,
+      "Código cupón": (p.cupon && p.cupon.codigo) || "",
+      "Monto descuento (S/)": Number(p.descuentoCupon) || 0,
+      "Puntos usados": (p.cupon && p.cupon.costoPuntos) || "",
     };
   });
 
@@ -1102,6 +1183,10 @@ function exportarExcel() {
     { wch: 16 },
     { wch: 12 },
     { wch: 12 },
+    { wch: 20 },
+    { wch: 14 },
+    { wch: 18 },
+    { wch: 14 },
   ];
 
   const wb = XLSX.utils.book_new();
@@ -1206,19 +1291,31 @@ function exportarPDF() {
     40,
     86,
   );
-
-  const headers = [["Código", "Fecha/Hora", "Cliente", "Teléfono", "Origen", "Productos", "Pago", "Estado", "Total"]];
-  const body = list.map((p) => [
-    codigoPedido(p),
-    fmtFechaHora(p),
-    (p.cliente && p.cliente.nombre) || "",
-    telefonoCliente(p),
-    getOrigenInfo(p).label,
-    (p.productos || []).map((pr) => `${pr.cantidad}x ${pr.nombre}`).join(", "),
-    (p.pago && p.pago.metodo) || "",
-    p.estado || "",
-    fmtMoney(p.total),
-  ]);
+  const headers = [["Código", "Fecha/Hora", "Cliente", "Teléfono", "Origen", "Productos", "Pago", "Estado", "Total", "Descuento"]];
+  const body = list.map((p) => {
+    const tipo = getTipoCuponPedido(p);
+    const tipoLabel =
+      {
+        canje_puntos: "🎁 Canje pts",
+        descuento_fidelizacion: "⭐ Fidelización",
+        cupon_descuento: "🎟️ Cupón",
+      }[tipo] || "—";
+    const descuentoTxt = Number(p.descuentoCupon)
+      ? `${tipoLabel} -${fmtMoney(p.descuentoCupon)}`
+      : tipoLabel;
+    return [
+      codigoPedido(p),
+      fmtFechaHora(p),
+      (p.cliente && p.cliente.nombre) || "",
+      telefonoCliente(p),
+      getOrigenInfo(p).label,
+      (p.productos || []).map((pr) => `${pr.cantidad}x ${pr.nombre}`).join(", "),
+      (p.pago && p.pago.metodo) || "",
+      p.estado || "",
+      fmtMoney(p.total),
+      descuentoTxt,
+    ];
+  });
 
   doc.autoTable({
     head: headers,
@@ -1227,10 +1324,9 @@ function exportarPDF() {
     styles: { font: "helvetica", fontSize: 8, cellPadding: 5, textColor: [30, 30, 30] },
     headStyles: { fillColor: [136, 85, 255], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [245, 242, 255] },
-    columnStyles: { 5: { cellWidth: 180 }, 8: { halign: "right" } },
+    columnStyles: { 5: { cellWidth: 160 }, 8: { halign: "right" } },
     margin: { left: 40, right: 40 },
   });
-
   const fmtFPdf = (d) => d.toISOString().slice(0, 10);
   doc.save(`pedidos_${fmtFPdf(from)}_a_${fmtFPdf(to)}.pdf`);
   showToast(`Exportados ${list.length} pedidos a PDF`);

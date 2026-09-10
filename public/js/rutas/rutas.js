@@ -1,18 +1,25 @@
 // src/firebase/paths.js
-import { doc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  doc,
+  collection,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../db/db.js";
 
 const PAIS = "peru";
-const DEPARTAMENTO = "lima";    // hardcodeado por ahora, dinámico más adelante
-const PROVINCIA = "barranca";   // hardcodeado por ahora, dinámico más adelante
+const DEPARTAMENTO = "lima"; // hardcodeado por ahora, dinámico más adelante
+const PROVINCIA = "barranca"; // hardcodeado por ahora, dinámico más adelante
 
 function buildPath(localidad, ...resto) {
   // localidad aquí = distrito (barranca, supe, paramonga, pativilca, puerto-supe)
   return [
-    "Tiendas", PAIS,
-    "departamento", DEPARTAMENTO,
-    "provincia", PROVINCIA,
-    "distrito", localidad,
+    "Tiendas",
+    PAIS,
+    "departamento",
+    DEPARTAMENTO,
+    "provincia",
+    PROVINCIA,
+    "distrito",
+    localidad,
     ...resto,
   ].filter(Boolean);
 }
@@ -56,7 +63,14 @@ export function categoriasCol(localidad, negocioId) {
 }
 
 export function productosDeCategoriaCol(localidad, negocioId, categoria) {
-  return tiendaSubCol(localidad, "tiendas", negocioId, "productos", categoria, categoria);
+  return tiendaSubCol(
+    localidad,
+    "tiendas",
+    negocioId,
+    "productos",
+    categoria,
+    categoria,
+  );
 }
 
 // ── Descuentos / recompensas de fidelización ──
@@ -65,7 +79,13 @@ export function tiendaDescuentosCol(localidad, negocioId) {
 }
 
 export function tiendaDescuentoDoc(localidad, negocioId, productoId) {
-  return tiendaSubDoc(localidad, "tiendas", negocioId, "descuentos", productoId);
+  return tiendaSubDoc(
+    localidad,
+    "tiendas",
+    negocioId,
+    "descuentos",
+    productoId,
+  );
 }
 
 // ── Reviews de la tienda ──
@@ -100,11 +120,26 @@ export function tokenFcmDoc(uid) {
 }
 
 export function clienteHistorialCol(localidad, negocioId, clienteId) {
-  return tiendaSubCol(localidad, "tiendas", negocioId, "clientes", clienteId, "historial");
+  return tiendaSubCol(
+    localidad,
+    "tiendas",
+    negocioId,
+    "clientes",
+    clienteId,
+    "historial",
+  );
 }
 
 export function clienteHistorialDoc(localidad, negocioId, clienteId, pedidoId) {
-  return tiendaSubDoc(localidad, "tiendas", negocioId, "clientes", clienteId, "historial", pedidoId);
+  return tiendaSubDoc(
+    localidad,
+    "tiendas",
+    negocioId,
+    "clientes",
+    clienteId,
+    "historial",
+    pedidoId,
+  );
 }
 
 // ══════════════════════════════════════════
@@ -115,27 +150,52 @@ export function clienteHistorialDoc(localidad, negocioId, clienteId, pedidoId) {
 // Config del libro de reclamaciones (título, descripción, campos activos, opciones de selects)
 export function libroReclamacionesConfigDoc(localidad, negocioId) {
   return tiendaSubDoc(
-    localidad, "tiendas", negocioId,
-    "politicas", "legal", "libro_reclamaciones", "contenido_libro",
+    localidad,
+    "tiendas",
+    negocioId,
+    "politicas",
+    "legal",
+    "libro_reclamaciones",
+    "contenido_libro",
   );
 }
 
 // Reclamos enviados por los usuarios: un doc por reclamo (id autogenerado)
 // .../politicas/legal/reclamaciones/{autoId}
 export function reclamacionesCol(localidad, negocioId) {
-  return tiendaSubCol(localidad, "tiendas", negocioId, "politicas", "legal", "reclamaciones");
+  return tiendaSubCol(
+    localidad,
+    "tiendas",
+    negocioId,
+    "politicas",
+    "legal",
+    "reclamaciones",
+  );
 }
 
 export function reclamacionDoc(localidad, negocioId, reclamoId) {
-  return tiendaSubDoc(localidad, "tiendas", negocioId, "politicas", "legal", "reclamaciones", reclamoId);
+  return tiendaSubDoc(
+    localidad,
+    "tiendas",
+    negocioId,
+    "politicas",
+    "legal",
+    "reclamaciones",
+    reclamoId,
+  );
 }
 
 // Políticas de privacidad
 // .../politicas/legal/politicas_privacidad/politicas
 export function politicasPrivacidadDoc(localidad, negocioId) {
   return tiendaSubDoc(
-    localidad, "tiendas", negocioId,
-    "politicas", "legal", "politicas_privacidad", "politicas",
+    localidad,
+    "tiendas",
+    negocioId,
+    "politicas",
+    "legal",
+    "politicas_privacidad",
+    "politicas",
   );
 }
 
@@ -143,10 +203,47 @@ export function politicasPrivacidadDoc(localidad, negocioId) {
 // .../politicas/legal/terminos_condiciones/terminos_condiciones
 export function terminosCondicionesDoc(localidad, negocioId) {
   return tiendaSubDoc(
-    localidad, "tiendas", negocioId,
-    "politicas", "legal", "terminos_condiciones", "terminos_condiciones",
+    localidad,
+    "tiendas",
+    negocioId,
+    "politicas",
+    "legal",
+    "terminos_condiciones",
+    "terminos_condiciones",
   );
 }
 export function aliasTiendaDoc(alias) {
   return doc(db, "alias_tiendas", alias);
+}
+// ── Cupones de fidelización (por cliente) ──
+export function clienteCuponesCol(localidad, negocioId, clienteId) {
+  return tiendaSubCol(
+    localidad,
+    "tiendas",
+    negocioId,
+    "clientes",
+    clienteId,
+    "cupones",
+  );
+}
+
+export function clienteCuponDoc(localidad, negocioId, clienteId, cuponId) {
+  return tiendaSubDoc(
+    localidad,
+    "tiendas",
+    negocioId,
+    "clientes",
+    clienteId,
+    "cupones",
+    cuponId,
+  );
+}
+
+// ── Cupones globales del negocio (promociones públicas) ──
+export function tiendaCuponesCol(localidad, negocioId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "cupones");
+}
+
+export function tiendaCuponDoc(localidad, negocioId, cuponId) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "cupones", cuponId);
 }

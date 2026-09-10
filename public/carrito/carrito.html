@@ -191,6 +191,11 @@
         <h2 class="display font-extrabold text-lg flex items-center gap-2">🛒 Tu carrito</h2>
         <span id="sidebarCount" class="text-xs font-bold text-gray-400">0 items</span>
       </div>
+      <div id="cuponBarDesktop"></div>
+      <div class="flex gap-2 mb-3">
+        <input id="cuponInputDesktop" class="field-input flex-1" type="text" placeholder="¿Tienes un cupón?" style="text-transform:uppercase;">
+        <button type="button" id="aplicarCuponBtnDesktop" class="px-4 rounded-xl border border-white/10 text-xs font-bold text-gray-300 hover:bg-white/5">Aplicar</button>
+      </div>
       <div id="sidebarItems" class="flex flex-col gap-2.5 flex-1 mb-4"></div>
       <div class="border-t border-white/[.07] pt-4 flex flex-col gap-3">
         <div class="flex items-center justify-between">
@@ -242,6 +247,11 @@
       <h2 class="display font-extrabold text-lg">Tu carrito</h2>
       <button id="closeDrawerBtn"
         class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center">✕</button>
+    </div>
+    <div id="cuponBarMobile"></div>
+    <div class="flex gap-2 px-5 mb-1">
+      <input id="cuponInputMobile" class="field-input flex-1" type="text" placeholder="¿Tienes un cupón?" style="text-transform:uppercase;">
+      <button type="button" id="aplicarCuponBtnMobile" class="px-4 rounded-xl border border-white/10 text-xs font-bold text-gray-300 hover:bg-white/5">Aplicar</button>
     </div>
     <div id="drawerItems" class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3"></div>
     <div class="px-5 py-5 border-t border-white/[.06] flex flex-col gap-3">
@@ -334,18 +344,11 @@
           <textarea id="clienteNota" class="field-input" rows="2"
             placeholder="Ej: Sin cebolla, ají aparte, etc."></textarea>
         </div>
-
-        <div class="glass rounded-2xl p-4">
-          <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
-          <div id="checkoutSummary" class="flex flex-col"></div>
-          <div class="flex items-center justify-between pt-3 mt-2 border-t border-white/[.07]">
-            <span class="text-gray-400 font-semibold text-sm">Total</span>
-            <span class="display font-extrabold text-xl">S/ <span id="checkoutTotal">0.00</span></span>
-          </div>
-        </div>
       </div>
+
       <div class="glass rounded-2xl p-4">
         <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
+        <div id="cuponBarCheckout"></div>
         <div id="checkoutSummary" class="flex flex-col"></div>
         <div class="flex items-center justify-between pt-3 mt-2 border-t border-white/[.07]">
           <span class="text-gray-400 font-semibold text-sm">Total</span>

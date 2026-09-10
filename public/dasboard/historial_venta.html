@@ -216,20 +216,39 @@
 
   <style>
     @keyframes loadingBarSlide {
-      0% { transform: translateX(-100%); }
-      50% { transform: translateX(60%); }
-      100% { transform: translateX(220%); }
+      0% {
+        transform: translateX(-100%);
+      }
+
+      50% {
+        transform: translateX(60%);
+      }
+
+      100% {
+        transform: translateX(220%);
+      }
     }
+
     .loading-bar-fill {
       animation: loadingBarSlide 1.1s ease-in-out infinite;
     }
+
     @keyframes fadeInTip {
-      from { opacity: 0; transform: translate(-50%, 4px); }
-      to { opacity: 1; transform: translate(-50%, 0); }
+      from {
+        opacity: 0;
+        transform: translate(-50%, 4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
     }
+
     #comparativaTooltip:not(.hidden) {
       animation: fadeInTip .15s ease-out both;
     }
+
     #metricsSections {
       transition: opacity .25s ease;
     }
@@ -336,14 +355,15 @@
             <p class="text-[11px] text-inkfaint mt-1">por pedido entregado</p>
           </div>
           <div class="bg-panel border border-line rounded-2xl p-4">
-            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1" id="labelItemsVendidos">Platos
+            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1" id="labelItemsVendidos">
+              Platos
               vendidos</p>
             <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiItems">0</p>
             <p class="text-[11px] text-inkfaint mt-1">unidades totales</p>
           </div>
         </div>
 
-              <div class="bg-panel border border-line rounded-2xl p-4">
+        <div class="bg-panel border border-line rounded-2xl p-4">
           <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Yape/Plin vs. Efectivo/Tarjeta
           </p>
           <div class="space-y-2.5" id="barPago"></div>
@@ -527,28 +547,28 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-line">
-     <div class="flex items-center gap-2">
-  <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Estado</span>
-  <select id="filterEstado"
-    class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
-    <option value="todos">Todos</option>
-    <option value="pendiente">Pendiente</option>
-    <option value="en proceso">En proceso</option>
-    <option value="entregado">Entregado</option>
-    <option value="rechazado">Rechazado</option>
-  </select>
-</div>
-<div class="flex items-center gap-2">
-  <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Origen</span>
-  <select id="filterOrigen"
-    class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
-    <option value="todos">Todos</option>
-    <option value="delivery">🛵 Delivery / WhatsApp</option>
-    <option value="recojo">🏬 Recojo en local</option>
-    <option value="mesa">🍽️ Mesa</option>
-    <option value="directo">🧾 Venta directa</option>
-  </select>
-</div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Estado</span>
+          <select id="filterEstado"
+            class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+            <option value="todos">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en proceso">En proceso</option>
+            <option value="entregado">Entregado</option>
+            <option value="rechazado">Rechazado</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Origen</span>
+          <select id="filterOrigen"
+            class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+            <option value="todos">Todos</option>
+            <option value="delivery">🛵 Delivery / WhatsApp</option>
+            <option value="recojo">🏬 Recojo en local</option>
+            <option value="mesa">🍽️ Mesa</option>
+            <option value="directo">🧾 Venta directa</option>
+          </select>
+        </div>
         <div class="flex-1 min-w-[180px] relative">
           <input id="searchBox" type="text" placeholder="Buscar cliente, teléfono o código…"
             class="w-full text-sm border border-line rounded-lg pl-8 pr-3 py-1.5 bg-panel2 text-white placeholder:text-inkfaint focus:border-primary outline-none">
@@ -573,10 +593,11 @@
               <th class="px-4 py-3 font-semibold">Fecha / Hora</th>
               <th class="px-4 py-3 font-semibold">Cliente</th>
               <th class="px-4 py-3 font-semibold text-right">Monto</th>
-             <th class="px-4 py-3 font-semibold">Pago</th>
-<th class="px-4 py-3 font-semibold">Origen</th>
-<th class="px-4 py-3 font-semibold">Estado</th>
-<th class="px-4 py-3 font-semibold"></th>
+              <th class="px-4 py-3 font-semibold">Pago</th>
+              <th class="px-4 py-3 font-semibold">Descuento</th>
+              <th class="px-4 py-3 font-semibold">Origen</th>
+              <th class="px-4 py-3 font-semibold">Estado</th>
+              <th class="px-4 py-3 font-semibold"></th>
             </tr>
           </thead>
           <tbody id="tableBody" class="divide-y divide-line"></tbody>

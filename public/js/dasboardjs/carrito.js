@@ -18,6 +18,8 @@ import {
   tiendaSubCol,
   data_user_logeado,
   clienteDoc,
+  clienteCuponDoc,
+  tiendaCuponDoc,
 } from "../rutas/rutas.js";
 
 import {
@@ -33,13 +35,13 @@ const db = getFirestore();
 const DASHBOARD_BASE_URL = "https://geinztech.com/pedidos";
 const LANDING_BASE_URL = "https://geinztech.com";
 
-async function confirmarPedidoAtomico(items, construirPedido) {
+async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
   const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
-  const nuevoPedidoRef = doc(pedidosRef); // genera el id de antemano
+  const nuevoPedidoRef = doc(pedidosRef);
 
-  // Solo referenciamos los docs de producto que realmente controlan stock
   const refsUnicas = new Map();
   items.forEach((it) => {
+    if (it.esCanje) return; // el producto canjeado no descuenta stock del catálogo normal
     if (!refsUnicas.has(it.id)) {
       refsUnicas.set(
         it.id,
@@ -56,20 +58,31 @@ async function confirmarPedidoAtomico(items, construirPedido) {
     }
   });
 
+  const cuponRef = cuponInfo?._ref || null;
+
   try {
     await runTransaction(db, async (tx) => {
-      // 1. LEER (todas las lecturas van primero, regla de Firestore)
+      // 1. LECTURAS
       const snaps = new Map();
       for (const [id, ref] of refsUnicas) {
         const snap = await tx.get(ref);
         if (snap.exists()) snaps.set(id, snap);
       }
 
-      // 2. VALIDAR + preparar los descuentos en memoria
-      const actualizaciones = new Map(); // ref -> data nueva
+      let cuponSnap = null;
+      if (cuponRef) {
+        cuponSnap = await tx.get(cuponRef);
+        if (!cuponSnap.exists() || cuponSnap.data().usado) {
+          throw { motivo: "cupon_invalido" };
+        }
+      }
+
+      // 2. VALIDAR + preparar descuentos de stock
+      const actualizaciones = new Map();
       for (const it of items) {
+        if (it.esCanje) continue;
         const snap = snaps.get(it.id);
-        if (!snap) continue; // producto sin doc o eliminado: no se controla, se deja pasar
+        if (!snap) continue;
         const d = snap.data();
         let dataNueva = actualizaciones.get(it.id) || { ...d };
 
@@ -108,16 +121,26 @@ async function confirmarPedidoAtomico(items, construirPedido) {
         actualizaciones.set(it.id, dataNueva);
       }
 
-      // 3. ESCRIBIR (descuentos + pedido, todo o nada)
+      // 3. ESCRITURAS
       for (const [id, dataNueva] of actualizaciones) {
         tx.set(refsUnicas.get(id), dataNueva, { merge: true });
       }
       tx.set(nuevoPedidoRef, construirPedido());
+      if (cuponRef) {
+        tx.update(cuponRef, {
+          usado: true,
+          estado: "usado",
+          pedidoId: nuevoPedidoRef.id,
+          usadoEn: serverTimestamp(),
+        });
+      }
     });
 
     return { ok: true, id: nuevoPedidoRef.id };
   } catch (err) {
     if (err?.motivo === "sin_stock") return { ok: false, ...err };
+    if (err?.motivo === "cupon_invalido")
+      return { ok: false, motivo: "cupon_invalido" };
     console.error("Error en transacción de pedido:", err);
     return { ok: false, motivo: "error_generico" };
   }
@@ -128,6 +151,8 @@ let mesaId = null;
 let mesaNombre = null;
 let mesaNumero = null;
 let aliasNegocio = null;
+let cuponParam = null; // código que viene en ?cupon=
+let cuponAplicado = null; // datos del cupón ya validado y en uso
 
 async function resolverParamsCarrito() {
   const path = window.location.pathname;
@@ -162,6 +187,7 @@ async function resolverParamsCarrito() {
   mesaId = qs.get("mesaId");
   mesaNombre = qs.get("mesaNombre");
   mesaNumero = qs.get("mesaNumero");
+  cuponParam = qs.get("cupon");
 }
 /* ══════════════ Estado (todo en memoria, sin re-fetch) ══════════════ */
 let productosGlobal = []; // catálogo completo, se pide una sola vez
@@ -617,7 +643,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 function renderPedidoActivoMesa(pedido) {
@@ -851,6 +877,180 @@ function ajustarTextosMesa() {
   );
 }
 
+/* ══════════════ Cupones (fidelización) ══════════════ */
+
+function calcularDescuentoCupon(subtotal) {
+  if (!cuponAplicado || cuponAplicado.tipo !== "manual") return 0;
+  const minimo = Number(cuponAplicado.compraMinima || 0);
+  if (subtotal < minimo) return 0;
+  if (cuponAplicado.tipoDescuentoManual === "porcentaje") {
+    return +(
+      subtotal *
+      (Number(cuponAplicado.porcentajeManual || 0) / 100)
+    ).toFixed(2);
+  }
+  if (cuponAplicado.tipoDescuentoManual === "monto") {
+    return +Math.min(subtotal, Number(cuponAplicado.montoManual || 0)).toFixed(
+      2,
+    );
+  }
+  return 0;
+}
+
+async function agregarProductoDeCupon(cupon) {
+  let producto = productosPorId.get(cupon.productoId);
+  if (!producto) {
+    showToast("⚠️ El producto de este cupón ya no está disponible");
+    cuponAplicado = null;
+    return;
+  }
+  const precioConDescuento = Number(
+    cupon.precioFinalEstimado ?? producto.precio,
+  );
+  const key = `cupon__${cupon.codigo}`;
+  carrito.set(key, {
+    ...producto,
+    precio: precioConDescuento,
+    cantidad: 1,
+    cartKey: key,
+    seleccion: null,
+    cuponCodigo: cupon.codigo,
+    esCanje: true,
+  });
+}
+
+async function aplicarCuponDesdeDoc(data) {
+  if (data.estado === "usado" || data.usado) {
+    showToast("⚠️ Este cupón ya fue utilizado");
+    return;
+  }
+  if (data.negocioId && data.negocioId !== tiendaId) {
+    showToast("⚠️ Este cupón no es válido para este negocio");
+    return;
+  }
+
+  cuponAplicado = data;
+
+  if (data.tipo === "producto" && data.productoId) {
+    await agregarProductoDeCupon(data);
+  }
+
+  updateCartUI();
+  showToast(`🎟️ Cupón ${data.codigo} aplicado`);
+}
+
+async function buscarYAplicarCupon(codigoCrudo) {
+  const codigo = (codigoCrudo || "").trim().toUpperCase();
+  if (!codigo) return;
+
+  // 1) Cupón personal de fidelización (requiere sesión)
+  if (usuarioLogeado) {
+    try {
+      const ref = clienteCuponDoc(
+        localidad,
+        tiendaId,
+        usuarioLogeado.id,
+        codigo,
+      );
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        await aplicarCuponDesdeDoc({ ...snap.data(), _ref: ref });
+        return;
+      }
+    } catch (e) {
+      console.warn("No se pudo leer cupón personal:", e);
+    }
+  }
+
+  // 2) Cupón global lanzado por el negocio
+  try {
+    const refGlobal = tiendaCuponDoc(localidad, tiendaId, codigo);
+    const snapGlobal = await getDoc(refGlobal);
+    if (snapGlobal.exists()) {
+      await aplicarCuponDesdeDoc({ ...snapGlobal.data(), _ref: refGlobal });
+      return;
+    }
+  } catch (e) {
+    console.warn("No se pudo leer cupón global:", e);
+  }
+
+  showToast("⚠️ El cupón no existe o ya expiró");
+}
+
+function quitarCupon() {
+  if (!cuponAplicado) return;
+  if (cuponAplicado.tipo === "producto") {
+    carrito.delete(`cupon__${cuponAplicado.codigo}`);
+  }
+  cuponAplicado = null;
+  updateCartUI();
+  showToast("Cupón removido");
+}
+
+function cuponBarHTML(subtotal) {
+  if (!cuponAplicado) return "";
+  const c = cuponAplicado;
+  let descTxt = "";
+  let footer = "";
+
+  if (c.tipo === "producto") {
+    descTxt = `🎁 Producto canjeado: ${c.productoNombre || c.nombre || ""}`;
+  } else {
+    descTxt =
+      c.tipoDescuentoManual === "porcentaje"
+        ? `${c.porcentajeManual}% de descuento`
+        : c.tipoDescuentoManual === "monto"
+          ? `S/ ${Number(c.montoManual || 0).toFixed(2)} de descuento`
+          : c.nombre || "Cupón de descuento";
+
+    const minimo = Number(c.compraMinima || 0);
+    if (minimo > 0 && subtotal < minimo) {
+      footer = `<p class="text-[10px] text-amber-300 mt-0.5">Agrega S/ ${(minimo - subtotal).toFixed(2)} más para activarlo</p>`;
+    } else {
+      const desc = calcularDescuentoCupon(subtotal);
+      if (desc > 0)
+        footer = `<p class="text-[10px] text-green-400 mt-0.5">-S/ ${desc.toFixed(2)} aplicado</p>`;
+    }
+  }
+
+  return `
+    <div class="cupon-bar flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 mb-3"
+         style="background: rgba(var(--dr),var(--dg),var(--db),.12); border: 1px dashed rgb(var(--dr),var(--dg),var(--db));">
+      <div class="min-w-0">
+        <p class="text-[11px] font-black tracking-widest uppercase" style="color: rgb(var(--dr),var(--dg),var(--db));">🎟️ ${c.codigo}</p>
+        <p class="text-[11px] text-gray-300 truncate">${descTxt}</p>
+        ${footer}
+      </div>
+      <button type="button" class="cupon-remove-btn text-[11px] text-gray-400 hover:text-red-400 flex-shrink-0 px-2 py-1">Quitar</button>
+    </div>
+  `;
+}
+
+function renderCuponBar(subtotal) {
+  ["cuponBarMobile", "cuponBarDesktop", "cuponBarCheckout"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = cuponBarHTML(subtotal);
+    const btn = el.querySelector(".cupon-remove-btn");
+    if (btn) btn.onclick = quitarCupon;
+  });
+}
+
+function bindCuponInputs() {
+  const pares = [
+    ["aplicarCuponBtnMobile", "cuponInputMobile"],
+    ["aplicarCuponBtnDesktop", "cuponInputDesktop"],
+  ];
+  pares.forEach(([btnId, inputId]) => {
+    const btn = document.getElementById(btnId);
+    const input = document.getElementById(inputId);
+    if (!btn || !input) return;
+    btn.onclick = () => buscarYAplicarCupon(input.value);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") buscarYAplicarCupon(input.value);
+    });
+  });
+}
 function cargarUsuarioLogeado() {
   return new Promise((resolve) => {
     const auth = getAuth();
@@ -980,12 +1180,12 @@ async function loadProductosCatalogo(biz) {
           stock: typeof d.stock === "number" ? d.stock : null, // ← faltaba: stock general del producto
           puntos:
             biz?.fidelizacion?.activo &&
-              d.puntos?.activo &&
-              d.puntos?.cantidad > 0
+            d.puntos?.activo &&
+            d.puntos?.cantidad > 0
               ? {
-                cantidad: d.puntos.cantidad,
-                descripcion: d.puntos.descripcion || "",
-              }
+                  cantidad: d.puntos.cantidad,
+                  descripcion: d.puntos.descripcion || "",
+                }
               : null,
         });
       });
@@ -1141,8 +1341,6 @@ function pintarLogoEnBotones() {
   if (loaderImg) {
     if (logoUrl) {
       loaderImg.src = logoUrl;
-
-
     } else {
     }
   }
@@ -1405,10 +1603,11 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
+  wrap.innerHTML = `<div class="logo-ph-badge">${
+    _bizLogoUrl
       ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
       : `<span class="ph-letter">${letraNegocio()}</span>`
-    }</div>`;
+  }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -1516,11 +1715,12 @@ function productoCard(p, index = 0) {
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-    ${p.puntos
-      ? siguiendoTienda
-        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-        : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
-      : ""
+    ${
+      p.puntos
+        ? siguiendoTienda
+          ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+          : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
+        : ""
     }  `;
 
   const qtyWrap = document.createElement("div");
@@ -1936,10 +2136,10 @@ function textoPuntosHTML(puntosTotales, esCheckout = false) {
 function updateCartUI() {
   const items = [...carrito.values()];
   const count = items.reduce((s, i) => s + i.cantidad, 0);
-  const total = items.reduce((s, i) => s + i.cantidad * (i.precio || 0), 0);
+  const subtotal = items.reduce((s, i) => s + i.cantidad * (i.precio || 0), 0);
+  const descuentoCupon = calcularDescuentoCupon(subtotal);
+  const total = +(subtotal - descuentoCupon).toFixed(2);
 
-  // Primero se intenta dibujar la lista de productos. Si algo falla aquí,
-  // NO se deja que el contador/total queden desincronizados con la lista.
   try {
     renderCartList(document.getElementById("drawerItems"), items);
     renderCartList(document.getElementById("sidebarItems"), items);
@@ -1947,6 +2147,8 @@ function updateCartUI() {
     console.error("Error renderizando el carrito:", err);
     showToast("⚠️ Hubo un problema mostrando el carrito, intenta de nuevo");
   }
+
+  renderCuponBar(subtotal);
 
   const cartCountEl = document.getElementById("cartCount");
   cartCountEl.textContent = count;
@@ -1974,7 +2176,6 @@ function updateCartUI() {
     el.classList.toggle("hidden", puntosTotales === 0);
   });
   document.getElementById("cartBar").classList.toggle("show", count > 0);
-  // El checkout se bloquea si el carrito está vacío O si el negocio está cerrado ahora
   document.getElementById("checkoutBtnMobile").disabled =
     count === 0 || !horarioEstado.abierto;
   document.getElementById("checkoutBtnDesktop").disabled =
@@ -1985,7 +2186,6 @@ function updateCartUI() {
     closeCheckout();
   }
 }
-
 const cartRowElements = new Map(); // wrap -> Map(key -> rowEl)
 
 function renderCartList(wrap, items) {
@@ -2013,8 +2213,8 @@ function renderCartList(wrap, items) {
     const precioNum = Number(it.precio) || 0;
     const opcionesTxt = it.seleccion
       ? Object.entries(it.seleccion)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
       : "";
 
     let row = rowsMap.get(key);
@@ -2032,12 +2232,13 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
         <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-          ${it.seleccion
-          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
+          ${
+            it.seleccion
+              ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>`
-          : ""
-        }
+              : ""
+          }
           <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>
@@ -2200,23 +2401,38 @@ checkoutOverlay.addEventListener("click", (e) => {
 
 function renderCheckoutSummary() {
   const items = [...carrito.values()];
-  const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+  const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+  const descuentoCupon = calcularDescuentoCupon(subtotal);
+  const total = +(subtotal - descuentoCupon).toFixed(2);
+
   const wrap = document.getElementById("checkoutSummary");
-  wrap.innerHTML = items
-    .map((it) => {
-      const opcionesTxt = it.seleccion
-        ? Object.entries(it.seleccion)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ")
-        : "";
-      return `
+  wrap.innerHTML =
+    items
+      .map((it) => {
+        const opcionesTxt = it.seleccion
+          ? Object.entries(it.seleccion)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" · ")
+          : it.esCanje
+            ? "🎁 Producto canjeado con puntos"
+            : "";
+        return `
     <div class="step-summary-row">
       <span>${it.cantidad}× ${it.nombre}${opcionesTxt ? ` <span class="text-gray-500 text-[11px]">(${opcionesTxt})</span>` : ""}</span>
       <span>S/ ${(it.cantidad * it.precio).toFixed(2)}</span>
     </div>
   `;
-    })
-    .join("");
+      })
+      .join("") +
+    (descuentoCupon > 0
+      ? `
+    <div class="step-summary-row text-green-400">
+      <span>Descuento (${cuponAplicado.codigo})</span>
+      <span>-S/ ${descuentoCupon.toFixed(2)}</span>
+    </div>
+  `
+      : "");
+
   document.getElementById("checkoutTotal").textContent = total.toFixed(2);
 
   const puntosTotales = calcularPuntosTotales(items);
@@ -2225,6 +2441,8 @@ function renderCheckoutSummary() {
     puntosEl.innerHTML = textoPuntosHTML(puntosTotales, true);
     puntosEl.classList.toggle("hidden", puntosTotales === 0);
   }
+
+  renderCuponBar(subtotal);
 }
 
 /* ══════════════ Guardar pedido en Firestore ══════════════ */
@@ -2262,10 +2480,10 @@ async function guardarPedidoEnDB({
     },
     mesa: mesaId
       ? {
-        id: mesaId,
-        nombre: mesaNombre || null,
-        numero: mesaNumero ? Number(mesaNumero) : null,
-      }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
       : null,
 
     pago: {
@@ -2273,16 +2491,18 @@ async function guardarPedidoEnDB({
       vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
     },
     nota: nota || "",
-    productos: items.map((it) => ({
-      id: it.id,
-      nombre: it.nombre,
-      categoria: it.categoria,
-      precio_unitario: it.precio,
-      cantidad: it.cantidad,
-      subtotal: +(it.precio * it.cantidad).toFixed(2),
-      imagen: it.imagen || "",
-      opciones: it.seleccion || null,
-    })),
+  productos: items.map((it) => ({
+  id: it.id,
+  nombre: it.nombre,
+  categoria: it.categoria,
+  precio_unitario: it.precio,
+  cantidad: it.cantidad,
+  subtotal: +(it.precio * it.cantidad).toFixed(2),
+  imagen: it.imagen || "",
+  opciones: it.seleccion || null,
+  esCanje: it.esCanje || false,          // NUEVO
+  cuponCodigo: it.cuponCodigo || null,   // NUEVO
+})),
     total_items: items.reduce((s, i) => s + i.cantidad, 0),
     total: +total.toFixed(2),
     negocio: { id: tiendaId, nombre: bizNombre, localidad },
@@ -2369,7 +2589,9 @@ document
     const vuelto = document.getElementById("clienteVuelto").value.trim();
     const nota = document.getElementById("clienteNota").value.trim();
     const items = [...carrito.values()];
-    const total = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+    const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
+    const descuentoCupon = calcularDescuentoCupon(subtotal);
+    const total = +(subtotal - descuentoCupon).toFixed(2);
 
     const btn = document.getElementById("sendWhatsappBtn");
     btn.disabled = true;
@@ -2397,10 +2619,10 @@ document
       },
       mesa: mesaId
         ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+            id: mesaId,
+            nombre: mesaNombre || null,
+            numero: mesaNumero ? Number(mesaNumero) : null,
+          }
         : null,
       pago: {
         metodo: metodoPago,
@@ -2419,25 +2641,35 @@ document
       })),
       total_items: items.reduce((s, i) => s + i.cantidad, 0),
       total: +total.toFixed(2),
+      subtotal: +subtotal.toFixed(2),
+      descuentoCupon,
+    cupon: cuponAplicado
+  ? {
+      codigo: cuponAplicado.codigo,
+      tipo: cuponAplicado.tipo,
+      origen: cuponAplicado.origen || null,       // "fidelizacion" o null/otro
+      costoPuntos: cuponAplicado.costoPuntos ?? null, // para poder devolver puntos si se rechaza
+    }
+  : null,
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
     });
 
-    const resultado = await confirmarPedidoAtomico(items, construirPedido);
+    const resultado = await confirmarPedidoAtomico(items, construirPedido, cuponAplicado);
 
     if (!resultado.ok) {
       btn.disabled = false;
       btn.innerHTML = textoOriginal;
-      if (resultado.motivo === "sin_stock") {
-        showToast(
-          `⚠️ "${resultado.nombre}" ya no tiene stock (quedan ${resultado.disponible}${resultado.detalle ? " de " + resultado.detalle : ""})`,
-        );
+          if (resultado.motivo === "sin_stock") {
+        showToast(`⚠️ "${resultado.nombre}" ya no tiene stock (quedan ${resultado.disponible}${resultado.detalle ? " de " + resultado.detalle : ""})`);
+      } else if (resultado.motivo === "cupon_invalido") {
+        showToast("⚠️ El cupón ya no es válido, quítalo e intenta de nuevo");
       } else {
         showToast("⚠️ No se pudo guardar tu pedido, intenta de nuevo");
       }
       return;
     }
 
-     const pedidoId = resultado.id;
+    const pedidoId = resultado.id;
 
     // Con alias: no se expone el id real del negocio en la URL.
     // Fallback al formato viejo solo si el negocio entró por ?id= (sin alias).
@@ -2780,6 +3012,8 @@ async function init() {
     loadPedidoMesa(),
     cargarUsuarioLogeado(),
   ]);
+    bindCuponInputs();
+  if (cuponParam) await buscarYAplicarCupon(cuponParam);
   await renderTienda(biz);
   aplicarComportamientoBotonAtras();
   aplicarModeloNegocio(biz);

@@ -27,6 +27,8 @@ import {
   tiendaSubDoc,
   tiendaSubCol,
   data_user_logeado,
+  clienteDoc, // NUEVO
+  clienteCuponDoc,
 } from "../rutas/rutas.js";
 
 let tiendaId = sessionStorage.getItem("tiendaId");
@@ -44,6 +46,11 @@ if (!tiendaId || !localidad) {
 }
 const _params = new URLSearchParams(window.location.search);
 const SND_STOCK_AGOTADO = "../../sounds/stok_bajo.mp3";
+const SND_NUEVO_PEDIDO_DESCUENTO =
+  "../../sounds/pedido_entrante_descuento.mp3";
+const SND_NUEVO_PEDIDO_CUPON_DESCUENTO =
+  "../../sounds/pedido_entrante_cupon_descuento.mp3";
+const SND_CANJE_PUNTOS = "../../sounds/canje_de_puntos.mp3";
 const ID_PRUEBA = tiendaId;
 /* ══════════════ Colores fijos para grupos de mesas (ya no editable por el usuario) ══════════════ */
 const GROUP_COLOR_OCUPADA = "#f59e0b"; // ámbar, igual que una mesa ocupada individual
@@ -113,6 +120,10 @@ styleTag.textContent = MESA_ADMIN_CSS;
 document.head.appendChild(styleTag);
 
 const NP_CSS = `
+.dm-cupon-card{border-radius:14px;padding:12px 14px;margin-bottom:14px;}
+.dm-cupon-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-dim);padding:3px 0;}
+.dm-cupon-row .mono{font-family:monospace;letter-spacing:.05em;}
+.oc-cupon-tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;margin-left:6px;}
 .np-stock{font-size:10.5px;font-weight:700;color:var(--ink-dim);margin-top:-2px;}
 .np-stock.agotado{color:#f87171;}
 .np-card.sin-stock{opacity:.55;}
@@ -323,6 +334,19 @@ function playSoundOnce(url) {
            mesa física: { id: "mesa_2", nombre: "Mesa 2", numero: 2 }. Si ese
            campo no existe (o no tiene número), el pedido es de WhatsApp.
            Ya no dependemos del ID del documento para saber el origen. */
+function getTipoCuponPedido(p) {
+  const c = p?.cupon;
+  if (!c) return null;
+  const esFidelizacion = c.origen === "fidelizacion";
+  const productos = Array.isArray(p.productos) ? p.productos : [];
+  // Canje de puntos "puro": vino de fidelización, es un producto canjeado,
+  // y no hay nada más en el carrito
+  if (esFidelizacion && c.tipo === "producto" && productos.length === 1) {
+    return "canje_puntos";
+  }
+  if (esFidelizacion) return "descuento_fidelizacion"; // % o monto pagado con puntos
+  return "cupon_descuento"; // cupón normal del negocio, no fidelización
+}
 function getOrigen(p) {
   const mesa = p && p.mesa;
   if (mesa && mesa.numero != null) {
@@ -626,10 +650,14 @@ document.addEventListener("click", () => ensureAudio(), {
   capture: true,
 });
 
-function playChime(pedidoId) {
-  playSoundLoopParaPedido(pedidoId, SND_NUEVO_PEDIDO, 40);
+function playChime(pedidoId, data) {
+  const tipo = getTipoCuponPedido(data);
+  let url = SND_NUEVO_PEDIDO;
+  if (tipo === "canje_puntos") url = SND_CANJE_PUNTOS;
+  else if (tipo === "descuento_fidelizacion") url = SND_NUEVO_PEDIDO_DESCUENTO;
+  else if (tipo === "cupon_descuento") url = SND_NUEVO_PEDIDO_CUPON_DESCUENTO;
+  playSoundLoopParaPedido(pedidoId, url, 40);
 }
-
 /* Alarma distinta y más urgente para el auto-rechazo por tiempo agotado */
 function playAutoRejectAlarm() {
   playSoundOnce(SND_PEDIDO_CANCELADO);
@@ -1343,6 +1371,66 @@ const ICONOS_ENTREGA = {
 };
 const ICONOS_PAGO = { "Yape / Plin": "📱", Efectivo: "💵" };
 
+function detalleCuponHtml(p) {
+  const tipo = getTipoCuponPedido(p);
+  if (!tipo) return "";
+  const c = p.cupon || {};
+  const productos = Array.isArray(p.productos) ? p.productos : [];
+  const prodCanjeado = productos.find((it) => it.esCanje);
+  const descuento = Number(p.descuentoCupon) || 0;
+  const subtotal = Number(p.subtotal) || (Number(p.total) + descuento);
+
+  const map = {
+    canje_puntos: { titulo: "🎁 Canje de puntos", bg: "rgba(251,191,36,.08)", bd: "rgba(251,191,36,.3)", col: "#fbbf24" },
+    descuento_fidelizacion: { titulo: "⭐ Descuento por fidelización", bg: "rgba(124,92,255,.08)", bd: "rgba(124,92,255,.3)", col: "#a78bfa" },
+    cupon_descuento: { titulo: "🎟️ Cupón de descuento", bg: "rgba(34,197,94,.08)", bd: "rgba(34,197,94,.3)", col: "#4ade80" },
+  };
+  const cfg = map[tipo];
+
+  const filas = [];
+  if (c.codigo) filas.push(`<div class="dm-cupon-row"><span>Código</span><span class="mono">${escapeHtml(c.codigo)}</span></div>`);
+  if (tipo === "canje_puntos" && prodCanjeado) {
+    filas.push(`<div class="dm-cupon-row"><span>Producto canjeado</span><span>${escapeHtml(prodCanjeado.nombre)}</span></div>`);
+    filas.push(`<div class="dm-cupon-row"><span>Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span></div>`);
+  } else {
+    if (subtotal) filas.push(`<div class="dm-cupon-row"><span>Subtotal sin descuento</span><span>${fmtMoney(subtotal)}</span></div>`);
+    if (descuento) filas.push(`<div class="dm-cupon-row"><span>Descuento aplicado</span><span style="color:#4ade80;font-weight:800;">-${fmtMoney(descuento)}</span></div>`);
+    if (tipo === "descuento_fidelizacion" && c.costoPuntos)
+      filas.push(`<div class="dm-cupon-row"><span>Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${c.costoPuntos} pts</span></div>`);
+  }
+
+  return `
+    <div class="dm-cupon-card" style="background:${cfg.bg};border:1px solid ${cfg.bd};">
+      <p style="color:${cfg.col};font-weight:800;font-size:12.5px;margin-bottom:8px;">${cfg.titulo}</p>
+      ${filas.join("")}
+    </div>`;
+}
+function cuponTagHtml(p) {
+  const tipo = getTipoCuponPedido(p);
+  if (!tipo) return "";
+  const map = {
+    canje_puntos: {
+      ico: "🎁",
+      label: "Canje de puntos",
+      bg: "rgba(251,191,36,.15)",
+      col: "#fbbf24",
+    },
+    descuento_fidelizacion: {
+      ico: "⭐",
+      label: "Descuento fidelización",
+      bg: "rgba(124,92,255,.15)",
+      col: "#a78bfa",
+    },
+    cupon_descuento: {
+      ico: "🎟️",
+      label: "Cupón de descuento",
+      bg: "rgba(34,197,94,.15)",
+      col: "#4ade80",
+    },
+  };
+  const cfg = map[tipo];
+  return `<span class="oc-cupon-tag" style="background:${cfg.bg};color:${cfg.col};">${cfg.ico} ${cfg.label}</span>`;
+}
 function origenTagHtml(p) {
   const origen = getOrigen(p);
   if (origen.tipo === "mesa") {
@@ -1458,7 +1546,7 @@ function buildCard(id, p) {
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
        ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}    <div class="oc-summary">
-      <span class="oc-summary-left">${origenTagHtml(p)}</span>
+   <span class="oc-summary-left">${origenTagHtml(p)}${cuponTagHtml(p)}</span>
       <div class="oc-summary-right">
         <span class="oc-summary-total">${fmtMoney(p.total)}</span>
         <span class="oc-chevron">›</span>
@@ -1627,7 +1715,7 @@ function renderMesaDetail(numeroMesa) {
                 })
                 .join("")}</div>`;
 
-        return `
+            return `
       <div style="border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; background:var(--surface);">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
           <div>
@@ -1636,6 +1724,7 @@ function renderMesaDetail(numeroMesa) {
           </div>
           <div class="dm-prod-price">${fmtMoney(p.total)}</div>
         </div>
+        ${detalleCuponHtml(p)}
         ${contenido}
       </div>`;
       })
@@ -1663,6 +1752,7 @@ function renderMesaDetail(numeroMesa) {
             : ""
         }
 
+        
     <div class="dm-total-row">
       <span class="dm-total-lbl">Total del pedido</span>
       <span class="dm-total-val">${fmtMoney(total)}</span>
@@ -1679,6 +1769,16 @@ function renderMesaDetail(numeroMesa) {
     btn.textContent = "💰 Marcar como pagado y liberar mesa";
     btn.addEventListener("click", () => liberarMesa(numeroMesa, btn));
     dmActions.appendChild(btn);
+
+    const btnRechazar = document.createElement("button");
+    btnRechazar.className = "oc-btn ghost danger";
+    btnRechazar.style.width = "100%";
+    btnRechazar.style.marginTop = "8px";
+    btnRechazar.textContent = "✕ Rechazar pedido (sin cobrar)";
+    btnRechazar.addEventListener("click", () =>
+      rechazarPedidoMesa(numeroMesa, btnRechazar),
+    );
+    dmActions.appendChild(btnRechazar);
   } else if (ocupada) {
     // Ocupada SIN pedido registrado: no hay nada que cobrar, solo liberar
     const btn = document.createElement("button");
@@ -1999,6 +2099,91 @@ async function liberarMesa(numeroMesa, btnEl) {
     if (btnEl) btnEl.disabled = false;
   }
 }
+async function rechazarPedidoMesa(numeroMesa, btnEl) {
+  const activos = getPedidosDeMesa(numeroMesa);
+  if (!activos.length) return;
+  if (btnEl) btnEl.disabled = true;
+  try {
+    const grupoId = activos[0]?.[1]?.grupoId || null;
+
+    if (grupoId) {
+      const grupo = gruposMap.get(grupoId);
+      const batch = writeBatch(db);
+      (grupo?.mesas || []).forEach((m) => {
+        const mesaRef = tiendaSubDoc(
+          localidad, "tiendas", tiendaId, "mesas", m.id,
+        );
+        batch.set(
+          mesaRef,
+          {
+            estado: "libre",
+            pago: "pendiente",
+            grupoId: null,
+            grupo_color: null,
+            reservado_en: null,
+            hora_reservada: null,
+          },
+          { merge: true },
+        );
+      });
+      batch.set(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", grupoId),
+        { estado: "cerrado" },
+        { merge: true },
+      );
+      let pedidoRechazadoData = null;
+      if (grupo?.pedidoGrupoDocId) {
+        batch.set(
+          tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", grupo.pedidoGrupoDocId),
+          { estado: "rechazado", actualizado: serverTimestamp() },
+          { merge: true },
+        );
+        pedidoRechazadoData = { id: grupo.pedidoGrupoDocId, data: grupo.pedido };
+      }
+      await batch.commit();
+      showToast("🍽️ Pedido de mesas agrupadas rechazado");
+      if (pedidoRechazadoData?.data) {
+        await devolverPuntosCuponSiAplica(pedidoRechazadoData.id, pedidoRechazadoData.data);
+      }
+      closeDetail();
+      return;
+    }
+
+    await Promise.all(
+      activos.map(async ([mesaDocId, pseudoPedido]) => {
+        const mesaRef = tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId);
+        const tareas = [
+          updateDoc(mesaRef, {
+            estado: "libre",
+            pago: "pendiente",
+            pedido: null,
+            reservado_en: null,
+            hora_reservada: null,
+          }),
+        ];
+        if (pseudoPedido.pedidoDocId) {
+          tareas.push(
+            updateDoc(
+              tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pseudoPedido.pedidoDocId),
+              { estado: "rechazado", actualizado: serverTimestamp() },
+            ),
+          );
+        }
+        await Promise.all(tareas);
+        if (pseudoPedido.pedidoDocId) {
+          await devolverPuntosCuponSiAplica(pseudoPedido.pedidoDocId, pseudoPedido);
+        }
+      }),
+    );
+
+    showToast("🍽️ Pedido de mesa rechazado, mesa liberada");
+    closeDetail();
+  } catch (err) {
+    console.error("Error rechazando pedido de mesa:", err);
+    showToast("❌ No se pudo rechazar el pedido", true);
+    if (btnEl) btnEl.disabled = false;
+  }
+}
 
 document.getElementById("dmClose").addEventListener("click", closeDetail);
 detailOverlay.addEventListener("click", (e) => {
@@ -2052,7 +2237,7 @@ function renderDetail(id) {
 
   detailModal.dataset.status = estado;
   document.getElementById("dmId").innerHTML =
-    `#${id.slice(0, 8).toUpperCase()} ${origenTagHtml(p)}`;
+    `#${id.slice(0, 8).toUpperCase()} ${origenTagHtml(p)}${cuponTagHtml(p)}`;
   const esSeguidorDetalle =
     clientesSeguidoresCache.get(cliente.id_cliente) === true;
   document.getElementById("dmName").innerHTML =
@@ -2320,6 +2505,45 @@ async function descontarStockPedido(pedido) {
    - "ultimo_consumo" se actualiza siempre.
    - Guarda además un historial de compras en clientes/{uid}/historial para que la
      tienda vea qué compró cada cliente y quién invierte más. */
+async function devolverPuntosCuponSiAplica(pedidoId, pedido) {
+  const cupon = pedido?.cupon;
+  if (!cupon || cupon.origen !== "fidelizacion") return;
+  if (pedido.puntos_cupon_devueltos) return;
+  const uid = pedido.cliente?.id_cliente;
+  const puntos = Number(cupon.costoPuntos) || 0;
+  if (!uid || puntos <= 0) return;
+
+  try {
+    await updateDoc(clienteDoc(localidad, tiendaId, uid), {
+      puntos: increment(puntos),
+    });
+    if (cupon.codigo) {
+      await updateDoc(
+        clienteCuponDoc(localidad, tiendaId, uid, cupon.codigo),
+        { usado: false, estado: "activo", pedidoId: null },
+      ).catch(() => {});
+    }
+    // NUEVO: registro en el historial de puntos del cliente
+    await addDoc(
+      tiendaSubCol(localidad, "tiendas", tiendaId, "clientes", uid, "historial"),
+      {
+        tipo: "devolucion",
+        fecha: serverTimestamp(),
+        puntos: puntos, // positivo
+        concepto: `Pedido rechazado #${pedidoId.slice(0, 6).toUpperCase()} · puntos devueltos`,
+        pedidoId,
+        codigoCupon: cupon.codigo || null,
+      },
+    );
+    await updateDoc(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pedidoId),
+      { puntos_cupon_devueltos: true },
+    );
+    showToast(`↩️ Se devolvieron ${puntos} puntos al cliente`);
+  } catch (err) {
+    console.error("No se pudieron devolver los puntos del cupón:", err);
+  }
+}
 async function acreditarPuntosCliente(
   uid,
   tiendaId,
@@ -2357,6 +2581,7 @@ async function acreditarPuntosCliente(
       "historial",
     );
     await addDoc(historialRef, {
+       tipo: "ganado", 
       pedidoId,
       fecha: serverTimestamp(),
       total: Number(pedidoActual.total) || 0,
@@ -2497,6 +2722,7 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
           })
           .catch((err) => console.error("Error descontando stock:", err));
       }
+      
 
       if (pedidoActual && !pedidoActual.puntos_acreditados) {
         const uid = pedidoActual.cliente?.id_cliente;
@@ -2525,6 +2751,10 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
         }
       }
     }
+    if (nuevoEstado === "rechazado") {
+  const pedidoActual = pedidosMap.get(pedidoId);
+  if (pedidoActual) devolverPuntosCuponSiAplica(pedidoId, pedidoActual);
+}
   } catch (err) {
     console.error("Error actualizando pedido:", err);
     showToast("❌ No se pudo actualizar el pedido", true);
@@ -3512,7 +3742,7 @@ const NuevoPedido = {
     this.updateCardQty(p.id);
     this.renderCarrito();
   },
-   mapearProducto(pDoc, categoria, d) {
+  mapearProducto(pDoc, categoria, d) {
     const condiciones = (d.condiciones || [])
       .map((c) => ({
         nombre: c.nombre,
@@ -3539,10 +3769,20 @@ const NuevoPedido = {
 
   async cargarPaginaCategoria(categoria, cursor) {
     const subRef = tiendaSubCol(
-      localidad, "tiendas", tiendaId, "productos", categoria, categoria,
+      localidad,
+      "tiendas",
+      tiendaId,
+      "productos",
+      categoria,
+      categoria,
     );
     const base = cursor
-      ? query(subRef, orderBy("nombre"), startAfter(cursor), limit(this.PAGINA_TAM))
+      ? query(
+          subRef,
+          orderBy("nombre"),
+          startAfter(cursor),
+          limit(this.PAGINA_TAM),
+        )
       : query(subRef, orderBy("nombre"), limit(this.PAGINA_TAM));
     const snap = await getDocs(base);
     const items = [];
@@ -4084,7 +4324,7 @@ const NuevoPedido = {
     if (this.listenersListos) return; // evita re-registrar listeners
     this.listenersListos = true;
 
-      document.getElementById("npSearchInput").addEventListener("input", (e) => {
+    document.getElementById("npSearchInput").addEventListener("input", (e) => {
       this.filtroTexto = this.normalizeText(e.target.value);
       this.renderGrid();
     });
@@ -4336,7 +4576,7 @@ function suscribirPedidos() {
       precargarSeguidores();
       renderBoard();
       if (nuevosPendientes.length) {
-        nuevosPendientes.forEach(({ id }) => playChime(id));
+        nuevosPendientes.forEach(({ id, data }) => playChime(id, data));
         bellRingFeedback();
         nuevosPendientes.forEach(({ data }) => notificarPedidoNuevo(data));
         const nombres = nuevosPendientes
