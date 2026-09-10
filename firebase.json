@@ -1,11 +1,7 @@
 {
   "hosting": {
     "public": "public",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "cleanUrls": true,
     "headers": [
       {
@@ -19,7 +15,7 @@
       }
     ],
     "rewrites": [
-          {
+      {
         "source": "/perfil/*/carrito",
         "destination": "/carrito/carrito.html"
       },
@@ -40,10 +36,18 @@
         "destination": "/legal/seguimiento_reclamaciones.html"
       },
       {
+        "source": "/perfil/*/fidelizacion/*",
+        "destination": "/fidelizacion/fidelizacion_client.html"
+      },
+      {
+        "source": "/perfil/*/*",
+        "destination": "/pedidos/pedidos.html"
+      },
+      {
         "source": "/perfil/**",
         "function": "perfilSSR"
       },
-    
+
       {
         "source": "/turismo/**",
         "function": "turismoSSR"

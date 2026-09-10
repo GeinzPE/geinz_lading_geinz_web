@@ -1,5 +1,6 @@
 import {
   doc,
+  getDoc,
   onSnapshot,
   updateDoc,
   serverTimestamp,
@@ -25,7 +26,7 @@ try {
   console.warn("[pedidos] No se pudo activar la persistencia local:", e);
 }
 
-// ---- Config: ajustar si la localidad varía por negocio ----
+// ---- Config: fallback de localidad para links viejos (/pedidos/{negocioId}/{pedidoId}) ----
 const LOCALIDAD_FIJA = "barranca";
 
 // ---- Estados del pedido (única fuente de verdad, sin duplicados) ----
@@ -60,26 +61,89 @@ function esc(s) {
   );
 }
 
-// ---- Parseo de ruta: /pedidos/{negocioId}/{pedidoId} (o /dashboard/... como alias) ----
-function parseRuta() {
+/* ══════════════ Resolución de ruta ══════════════
+   Formato nuevo y seguro:  /perfil/{alias}/{pedidoId}
+     -> se resuelve el negocio real (id + localidad) consultando alias_tiendas,
+        igual que hace carrito.js. La URL nunca expone el id ni la localidad reales.
+   Formato viejo (compatibilidad con links ya enviados por WhatsApp):
+     /pedidos/{negocioId}/{pedidoId}  o  ?negocioId=&pedidoId=
+     -> usa el id tal cual viene y LOCALIDAD_FIJA como localidad. */
+
+async function resolverNegocioDesdeAlias(alias) {
+  try {
+    const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
+    if (aliasSnap.exists()) {
+      const data = aliasSnap.data();
+      if (data.id && data.localidad) {
+        return { id: data.id, localidad: data.localidad.trim().toLowerCase() };
+      }
+    }
+  } catch (e) {
+    console.error("[pedidos] No se pudo resolver el alias del negocio:", e);
+  }
+  return null;
+}
+
+function parseRutaCruda() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("negocioId") && params.get("pedidoId")) {
     return {
+      tipo: "id",
       negocioId: params.get("negocioId"),
       pedidoId: params.get("pedidoId"),
     };
   }
+
   const partes = window.location.pathname.split("/").filter(Boolean);
-  const idx = partes.findIndex((p) => p === "pedidos" || p === "dashboard");
-  if (idx === -1 || partes.length < idx + 3) {
-    console.warn("[pedidos] No se pudo extraer negocioId/pedidoId de la ruta");
-    return null;
+
+  // Formato nuevo: /perfil/{alias}/{pedidoId}
+  const idxPerfil = partes.indexOf("perfil");
+  if (idxPerfil !== -1 && partes.length >= idxPerfil + 3) {
+    return {
+      tipo: "alias",
+      alias: decodeURIComponent(partes[idxPerfil + 1]),
+      pedidoId: partes[idxPerfil + 2],
+    };
   }
-  return { negocioId: partes[idx + 1], pedidoId: partes[idx + 2] };
+
+  // Formato viejo: /pedidos/{negocioId}/{pedidoId}  (o /dashboard/...)
+  const idxPedidos = partes.findIndex(
+    (p) => p === "pedidos" || p === "dashboard",
+  );
+  if (idxPedidos !== -1 && partes.length >= idxPedidos + 3) {
+    return {
+      tipo: "id",
+      negocioId: partes[idxPedidos + 1],
+      pedidoId: partes[idxPedidos + 2],
+    };
+  }
+
+  console.warn("[pedidos] No se pudo extraer la ruta del pedido");
+  return null;
 }
 
-const ids = parseRuta();
+async function resolverRuta() {
+  const cruda = parseRutaCruda();
+  if (!cruda) return null;
 
+  if (cruda.tipo === "id") {
+    return {
+      negocioId: cruda.negocioId,
+      pedidoId: cruda.pedidoId,
+      localidad: LOCALIDAD_FIJA,
+    };
+  }
+
+  const resuelto = await resolverNegocioDesdeAlias(cruda.alias);
+  if (!resuelto) return null;
+  return {
+    negocioId: resuelto.id,
+    pedidoId: cruda.pedidoId,
+    localidad: resuelto.localidad,
+  };
+}
+
+let ids = null;
 const el = (id) => document.getElementById(id);
 const showSkeleton = () => {
   el("skeleton").classList.remove("hidden");
@@ -122,17 +186,20 @@ let estadoAnterior = null; // para detectar el cambio de estado
 let primerRenderPedido = true; // evita notificar en la carga inicial
 let pedidoRefGlobal = null; // referencia del doc del pedido, usada por el banner de pausa
 
-if (!ids) {
-  showEmpty();
-} else {
+(async () => {
+  ids = await resolverRuta();
+  if (!ids) {
+    showEmpty();
+    return;
+  }
   onAuthStateChanged(auth, (user) => {
     if (!user) {
       mostrarModalRegistro();
       return;
     }
-    init(ids.negocioId, ids.pedidoId, user.uid);
+    init(ids.negocioId, ids.pedidoId, user.uid, ids.localidad);
   });
-}
+})();
 
 // Pide permiso de notificaciones en la primera interacción del cliente
 // (los navegadores bloquean el prompt automático si no hay gesto del usuario)
@@ -158,12 +225,12 @@ window.addEventListener("beforeunload", () => {
   if (unsubPedido) unsubPedido();
 });
 
-function init(negocioId, pedidoId, uidActual) {
+function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
   showSkeleton();
 
   // --- Datos del negocio (logo, nombre, contacto) ---
   try {
-    const negocioRef = tiendaDoc(LOCALIDAD_FIJA, "tiendas", negocioId);
+    const negocioRef = tiendaDoc(localidad, "tiendas", negocioId);
     unsubNegocio = onSnapshot(
       negocioRef,
       (snap) => {
@@ -175,7 +242,7 @@ function init(negocioId, pedidoId, uidActual) {
         const nombre = data.nombre_tienda || data.nombre || "Negocio";
         const logoUrl = data.img_tienda?.logo_tienda || "";
         el("negocio-nombre").textContent = nombre;
-        el("negocio-localidad").textContent = LOCALIDAD_FIJA;
+        el("negocio-localidad").textContent = localidad;
         el("negocio-nombre").closest("header") &&
           (document.title = `Pedido · ${nombre}`);
 
@@ -211,7 +278,7 @@ function init(negocioId, pedidoId, uidActual) {
 
   // --- Pedido en tiempo real ---
   const pedidoRef = tiendaSubDoc(
-    LOCALIDAD_FIJA,
+    localidad,
     "tiendas",
     negocioId,
     "pedidos",
@@ -242,35 +309,14 @@ function init(negocioId, pedidoId, uidActual) {
       // Seguridad: si el pedido tiene dueño registrado y no coincide con el
       // usuario autenticado, no se muestra el contenido — se pide iniciar
       // sesión/registrarse.
-           // Seguridad: si el pedido tiene dueño registrado y no coincide con el
-      // usuario autenticado, no se muestra el contenido — se pide iniciar
-      // sesión/registrarse.
-           // Seguridad: si el pedido tiene dueño registrado y no coincide con el
-      // usuario autenticado, no se muestra el contenido — se pide iniciar
-      // sesión/registrarse.
-      console.log("[pedidos][auth-check] uidActual:", uidActual);
-      console.log("[pedidos][auth-check] data.cliente:", data.cliente);
-      console.log(
-        "[pedidos][auth-check] id_cliente en el pedido:",
-        data.cliente?.id_cliente,
-      );
-
       if (data.cliente?.id_cliente && data.cliente.id_cliente !== uidActual) {
         console.warn(
-          "[pedidos][auth-check] ❌ NO coincide — id_cliente:",
-          data.cliente.id_cliente,
-          "!== uidActual:",
-          uidActual,
-          "→ mostrando modal de login",
+          "[pedidos][auth-check] El pedido no pertenece al usuario autenticado → mostrando modal de login",
         );
         if (unsubPedido) unsubPedido();
         mostrarModalRegistro();
         return;
       }
-
-      console.log(
-        "[pedidos][auth-check] ✅ Coincide (o no hay id_cliente registrado) — se muestra el pedido",
-      );
 
       const nuevoEstado = normalizarEstado(data.estado);
       renderPedido(data);

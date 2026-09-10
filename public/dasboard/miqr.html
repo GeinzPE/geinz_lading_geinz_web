@@ -325,13 +325,54 @@
                         </div>
                     </div>
 
-                    <div class="hidden items-center gap-2" id="qrActionsCarrito">
+                                 <div class="hidden items-center gap-2" id="qrActionsCarrito">
                         <button
                             class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
                             title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carrito')">↻</button>
                         <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
                             id="qrDescargaCarrito" title="Descargar en alta resolución" download="qr-carrito.png"
                             onclick="event.stopPropagation(); event.preventDefault(); PreviewQr.openNegocio('carrito');">
+                            <span>⬇</span><span>Descargar HD</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ===== QR LIBRO DE RECLAMACIONES ===== -->
+                <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
+                    id="qrTileReclamaciones" data-tipo="reclamaciones" style="display:none" onclick="QrNegocio.onTileClick(event,'reclamaciones')">
+
+                    <span
+                        class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">
+                            📖</div>
+                        <div>
+                            <div class="font-display text-[14px] font-semibold text-white">Libro de reclamaciones</div>
+                            <div class="mt-0.5 text-[11px] text-neutral-500">Acceso directo al libro virtual</div>
+                        </div>
+                    </div>
+
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45"
+                        id="qrPreviewReclamaciones">
+                        <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
+                            <span
+                                class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span
+                                class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para
+                                crear</span>
+                        </div>
+                    </div>
+
+                    <div class="hidden items-center gap-2" id="qrActionsReclamaciones">
+                        <button
+                            class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
+                            title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('reclamaciones')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
+                            id="qrDescargaReclamaciones" title="Descargar en alta resolución" download="qr-reclamaciones.png"
+                            onclick="event.stopPropagation(); event.preventDefault(); PreviewQr.openNegocio('reclamaciones');">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>

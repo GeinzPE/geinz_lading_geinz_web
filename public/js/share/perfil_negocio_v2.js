@@ -552,19 +552,20 @@ async function resolveMesaYRedirigir({ localidad, id, alias }, mesaToken) {
     const base = alias
       ? `/perfil/${encodeURIComponent(alias)}/carrito`
       : "/carrito/carrito.html";
-    const url = new URL(base, window.location.origin);
-    if (!alias) {
-      url.searchParams.set("localidad", localidad);
-      url.searchParams.set("id", id);
+    const aliasKey = _params.alias || biz?.alias_key;
+    if (aliasKey && _currentUid) {
+      window.location.href = `https://geinztech.com/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+    } else {
+      // Fallback: sin alias (URL vieja) o sin usuario logeado, usa el formato anterior
+      const url = new URL(
+        "../../fidelizacion/fidelizacion_client.html",
+        window.location.href,
+      );
+      url.searchParams.set("localidad", _params.localidad);
+      url.searchParams.set("id", _params.id);
+      if (_currentUid) url.searchParams.set("uid", _currentUid);
+      window.location.href = url.toString();
     }
-    url.searchParams.set("mesaId", mesaDoc.id);
-    if (mesaDoc.nombre_alias)
-      url.searchParams.set("mesaNombre", mesaDoc.nombre_alias);
-    if (mesaDoc.numero_mesa != null)
-      url.searchParams.set("mesaNumero", mesaDoc.numero_mesa);
-    url.searchParams.set("mesaToken", mesaToken);
-
-    window.location.replace(url.toString());
     return true;
   } catch (e) {
     console.error("Error resolviendo mesa:", e);
@@ -960,18 +961,22 @@ function renderPuntosBadge(puntos) {
 
 document.getElementById("puntosBadge")?.addEventListener("click", () => {
   if (!_fidelizacionActiva) {
-    showToast(_fidelizacionMensajeInactivo); // muestra el mensaje real desde la DB
+    showToast(_fidelizacionMensajeInactivo);
     return;
   }
-
-  const url = new URL(
-    "../../fidelizacion/fidelizacion_client.html",
-    window.location.href,
-  );
-  url.searchParams.set("localidad", _params.localidad);
-  url.searchParams.set("id", _params.id);
-  if (_currentUid) url.searchParams.set("uid", _currentUid);
-  window.location.href = url.toString();
+  const aliasKey = _params.alias;
+  if (aliasKey && _currentUid) {
+    window.location.href = `https://geinztech.com/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+  } else {
+    const url = new URL(
+      "../../fidelizacion/fidelizacion_client.html",
+      window.location.href,
+    );
+    url.searchParams.set("localidad", _params.localidad);
+    url.searchParams.set("id", _params.id);
+    if (_currentUid) url.searchParams.set("uid", _currentUid);
+    window.location.href = url.toString();
+  }
 });
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
@@ -2624,12 +2629,41 @@ async function render(biz, isInitial = true) {
   const linkTerminos = document.getElementById("linkTerminos");
   const linkPrivacidad = document.getElementById("linkPrivacidad");
   const footerActivo = footerConfig.activo !== false;
+  document
+  .getElementById("geinzFooter")
+  ?.style.setProperty("display", footerActivo ? "" : "none");
+  // ── Columna "Legal" completa: oculta si las 3 opciones legales están apagadas ──
+  const legalColActiva =
+    footerActivo &&
+    (footerConfig.libro_reclamaciones === true ||
+      footerConfig.terminos_condiciones === true ||
+      footerConfig.politicas_privacidad === true);
+  document
+    .getElementById("legalFooterCol")
+    ?.style.setProperty("display", legalColActiva ? "" : "none");
 
+  // ── Columna "Geinz" (Explorar / Soporte / Registra tu negocio) ──
+  const geinzColActiva = footerConfig.geinz === true;
+  document
+    .getElementById("geinzFooterCol")
+    ?.style.setProperty("display", geinzColActiva ? "" : "none");
+
+  // ── Línea de copyright "© 2026 Negocio..." ──
+  const copyrightActivo = footerConfig.footer_derechos_autor === true;
+  document
+    .getElementById("footerCopyRow")
+    ?.style.setProperty("display", copyrightActivo ? "" : "none");
+
+  // ── "Powered by GEINZ" ──
+  const poweredActivo = footerConfig.footer_derechos_autor_geinz === true;
+  document
+    .getElementById("footerPoweredRow")
+    ?.style.setProperty("display", poweredActivo ? "" : "none");
   if (linkLibro) {
     const libroActivo =
       footerActivo && footerConfig.libro_reclamaciones === true;
     linkLibro.style.display = libroActivo ? "" : "none";
-      if (libroActivo) {
+    if (libroActivo) {
       if (biz.alias_key) {
         linkLibro.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/libro_reclamaciones`;
       } else {
@@ -2648,7 +2682,7 @@ async function render(biz, isInitial = true) {
     const libroActivo =
       footerActivo && footerConfig.libro_reclamaciones === true;
     linkSeguimiento.style.display = libroActivo ? "" : "none";
-     if (libroActivo) {
+    if (libroActivo) {
       if (biz.alias_key) {
         linkSeguimiento.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/seguimiento_reclamaciones`;
       } else {
@@ -2667,7 +2701,7 @@ async function render(biz, isInitial = true) {
     const terminosActivo =
       footerActivo && footerConfig.terminos_condiciones === true;
     linkTerminos.style.display = terminosActivo ? "" : "none";
-      if (terminosActivo) {
+    if (terminosActivo) {
       if (biz.alias_key) {
         linkTerminos.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/terminos_condiciones`;
       } else {
@@ -2686,7 +2720,7 @@ async function render(biz, isInitial = true) {
     const privacidadActivo =
       footerActivo && footerConfig.politicas_privacidad === true;
     linkPrivacidad.style.display = privacidadActivo ? "" : "none";
-      if (privacidadActivo) {
+    if (privacidadActivo) {
       if (biz.alias_key) {
         linkPrivacidad.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/politicas_privacidad`;
       } else {
@@ -3082,15 +3116,20 @@ async function render(biz, isInitial = true) {
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
-  document.getElementById("fidelizacionCard")?.addEventListener("click", () => {
-    const url = new URL(
-      "../../fidelizacion/fidelizacion_client.html",
-      window.location.href,
-    );
-    url.searchParams.set("localidad", _params.localidad);
-    url.searchParams.set("id", _params.id);
-    if (_currentUid) url.searchParams.set("uid", _currentUid);
-    window.location.href = url.toString();
+ document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
+    const aliasKey = _params.alias || biz?.alias_key;
+    if (aliasKey && _currentUid) {
+      window.location.href = `https://geinztech.com/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+    } else {
+      const url = new URL(
+        '../../fidelizacion/fidelizacion_client.html',
+        window.location.href,
+      );
+      url.searchParams.set('localidad', _params.localidad);
+      url.searchParams.set('id', _params.id);
+      if (_currentUid) url.searchParams.set('uid', _currentUid);
+      window.location.href = url.toString();
+    }
   });
 }
 
@@ -4057,7 +4096,7 @@ function renderReviewsGallery(reviews) {
     grid.appendChild(card);
   });
 }
-const REVIEWS_LIST_BATCH = 5;
+const REVIEWS_LIST_BATCH = 3;
 let _reviewsAllData = [];
 
 function renderReviewsSummary(reviews) {

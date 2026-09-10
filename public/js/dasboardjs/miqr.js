@@ -115,12 +115,13 @@ const QrNegocio = {
       );
     }
 
-    const data = snap.data() || {};
+      const data = snap.data() || {};
     const info = {
       id: tiendaId,
       alias: data.alias_key || data.alias || tiendaId,
       localidad: data.localidad || localidad,
       logoUrl: data.img_tienda?.logo_tienda || null, // 👈 NUEVO
+      libroReclamaciones: data.footer?.libro_reclamaciones === true, // 👈 NUEVO
     };
 
     this._tiendaInfoCache = info;
@@ -180,7 +181,9 @@ const QrNegocio = {
       case "carta":
         return `https://geinztech.com/perfil/${info.alias}-carta`;
       case "carrito":
-        return `https://geinztech.com/carrito/carrito?localidad=${info.localidad}&id=${info.id}`;
+        return `https://geinztech.com/perfil/${info.alias}/carrito`;
+      case "reclamaciones":
+        return `https://geinztech.com/perfil/${info.alias}/libro_reclamaciones`;
       default:
         throw new Error("Tipo de QR desconocido: " + tipo);
     }
@@ -360,7 +363,7 @@ const QrNegocio = {
         logo,
       };
 
- const blobOriginal = await encolarLlamadaApiQr(payload);
+      const blobOriginal = await encolarLlamadaApiQr(payload);
 
       await this._mostrarQrEnTile(tipo, blobOriginal, info);
       this._updateStoreChip(info);
@@ -379,7 +382,7 @@ const QrNegocio = {
 
   _updateStoreChip(info) {
     const label = document.getElementById("qrStoreChipLabel");
-    if (label) label.textContent = `Tienda: ${info.alias} (${info.localidad})`;
+    if (label) label.textContent = `Negocio: ${info.alias} (${info.localidad})`;
   },
 
   _cap(tipo) {
@@ -393,9 +396,9 @@ const QrNegocio = {
     try {
       info = await this._obtenerInfoTienda();
       if (label)
-        label.textContent = `Tienda: ${info.alias} (${info.localidad})`;
+        label.textContent = `Negocio: ${info.alias} (${info.localidad})`;
     } catch (err) {
-      if (label) label.textContent = `Tienda: ${tiendaId}`;
+      if (label) label.textContent = `Negocio: ${tiendaId}`;
       console.warn("QrNegocio: no se pudo precargar info de tienda.", err);
       return; // sin info de tienda no podemos armar las URLs de cada QR
     }
@@ -405,7 +408,7 @@ const QrNegocio = {
     // directo (con su botón de descarga HD) y NO se le pide
     // al usuario que lo genere de nuevo. Si no existe, el tile
     // se queda en su estado "Toca para crear" normal.
-    const tipos = ["perfil", "carta", "carrito"];
+      const tipos = ["perfil", "carta", "carrito", "reclamaciones"];
 
     await Promise.all(
       tipos.map(async (tipo) => {
@@ -442,10 +445,10 @@ const QrNegocio = {
 
 async function aplicarVisibilidadPorCategoria() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
-    let modeloNegocio = sessionStorage.getItem("modeloNegocio"); 
+  let modeloNegocio = sessionStorage.getItem("modeloNegocio");
 
   // Si por algún motivo no llegó desde el panel, la buscamos directo
-   if (!categoria || modeloNegocio === null) {
+  if (!categoria || modeloNegocio === null) {
     try {
       const negocioSnap = await getDoc(
         tiendaDoc(localidad, "tiendas", tiendaId),
@@ -458,7 +461,10 @@ async function aplicarVisibilidadPorCategoria() {
         sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio)); // 👈 nuevo
       }
     } catch (err) {
-      console.error("❌ No se pudo obtener la categoría/modelo de la tienda.", err);
+      console.error(
+        "❌ No se pudo obtener la categoría/modelo de la tienda.",
+        err,
+      );
     }
   } else {
     modeloNegocio = modeloNegocio === "true"; // sessionStorage guarda strings
@@ -470,16 +476,29 @@ async function aplicarVisibilidadPorCategoria() {
       .replace(/\s+/g, " ")
       .trim()
       .toLowerCase() === "comida y restaurantes";
-      if (!esRestaurante) {
+  if (!esRestaurante) {
     const tileCarta = document.getElementById("qrTileCarta");
     if (tileCarta) tileCarta.style.display = "none";
   }
 
   // mesasSection depende de categoría Y de modelo_negocio (local físico)
+  // mesasSection depende de categoría Y de modelo_negocio (local físico)
   const mesasSection = document.getElementById("mesasSection");
   if (mesasSection) {
     const debeMostrarMesas = esRestaurante && modeloNegocio === true;
     mesasSection.style.display = debeMostrarMesas ? "" : "none";
+  }
+
+  // Libro de reclamaciones: el tile solo aparece si está activo
+  // en /footer.libro_reclamaciones de la tienda
+  try {
+    const info = await QrNegocio._obtenerInfoTienda();
+    const tileReclamaciones = document.getElementById("qrTileReclamaciones");
+    if (tileReclamaciones) {
+      tileReclamaciones.style.display = info.libroReclamaciones ? "" : "none";
+    }
+  } catch (err) {
+    console.warn("No se pudo verificar libro_reclamaciones.", err);
   }
 }
 window.QrNegocio = QrNegocio;
@@ -550,7 +569,7 @@ const MesasNegocio = {
       logo,
     };
 
-   return await encolarLlamadaApiQr(payload);
+    return await encolarLlamadaApiQr(payload);
   },
 
   async descargarHoja() {
@@ -1041,44 +1060,44 @@ const UI = {
     }
   },
 
-openModal(id) {
-  const modal = document.getElementById(id);
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-  // fuerza reflow: sin esto el navegador puede "saltarse" el estado
-  // inicial y la transición no se ve (pasa mucho en Safari/iOS)
-  void modal.offsetWidth;
-  requestAnimationFrame(() => {
-    modal.classList.add("modal-open");
-  });
-},
-closeModal(id) {
-  const modal = document.getElementById(id);
-  modal.classList.remove("modal-open");
+  openModal(id) {
+    const modal = document.getElementById(id);
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+    // fuerza reflow: sin esto el navegador puede "saltarse" el estado
+    // inicial y la transición no se ve (pasa mucho en Safari/iOS)
+    void modal.offsetWidth;
+    requestAnimationFrame(() => {
+      modal.classList.add("modal-open");
+    });
+  },
+  closeModal(id) {
+    const modal = document.getElementById(id);
+    modal.classList.remove("modal-open");
 
-  const finalizar = () => {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-  };
+    const finalizar = () => {
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    };
 
-  let yaFinalizo = false;
-  const onEnd = (e) => {
-    if (e.target !== modal || yaFinalizo) return;
-    yaFinalizo = true;
-    modal.removeEventListener("transitionend", onEnd);
-    finalizar();
-  };
-  modal.addEventListener("transitionend", onEnd);
-
-  // fallback: si por lo que sea transitionend no dispara
-  // (reduce-motion, tab en background, etc.), igual se cierra
-  setTimeout(() => {
-    if (!yaFinalizo) {
+    let yaFinalizo = false;
+    const onEnd = (e) => {
+      if (e.target !== modal || yaFinalizo) return;
       yaFinalizo = true;
+      modal.removeEventListener("transitionend", onEnd);
       finalizar();
-    }
-  }, 320);
-},
+    };
+    modal.addEventListener("transitionend", onEnd);
+
+    // fallback: si por lo que sea transitionend no dispara
+    // (reduce-motion, tab en background, etc.), igual se cierra
+    setTimeout(() => {
+      if (!yaFinalizo) {
+        yaFinalizo = true;
+        finalizar();
+      }
+    }, 320);
+  },
 
   toast(msg, isError = false) {
     const el = document.getElementById("toast");
@@ -1112,39 +1131,39 @@ const PreviewQr = {
     perfil: { brand: "Perfil", sub: "Escanea para ver nuestro perfil" },
     carta: { brand: "CARTA DIGITAL", sub: "Escanea para ver nuestro menú" },
     carrito: { brand: "PRODUCTOS", sub: "Escanea para pedir directo" },
+    reclamaciones: { brand: "LIBRO DE RECLAMACIONES", sub: "Escanea para presentar tu reclamo" },
   },
+  async openNegocio(tipo) {
+    const estado = QrNegocio._estado[tipo];
+    if (!estado) return;
 
-async openNegocio(tipo) {
-  const estado = QrNegocio._estado[tipo];
-  if (!estado) return;
+    const info = estado.info;
+    const fixed = this._fixedLabels[tipo] || { brand: "SCAN ME", sub: "" };
 
-  const info = estado.info;
-  const fixed = this._fixedLabels[tipo] || { brand: "SCAN ME", sub: "" };
+    this._state = {
+      mode: "negocio",
+      tipo,
+      editable: true,
+      brand: fixed.brand,
+      caption: info.alias,
+      sub: fixed.sub,
+      urlLink: QrNegocio._armarUrl(tipo, info),
+      qrObjectUrl: URL.createObjectURL(estado.blobOriginal),
+      filenameBase: `qr-${tipo}-${info.alias}`,
+    };
 
-  this._state = {
-    mode: "negocio",
-    tipo,
-    editable: true,
-    brand: fixed.brand,
-    caption: info.alias,
-    sub: fixed.sub,
-    urlLink: QrNegocio._armarUrl(tipo, info),
-    qrObjectUrl: URL.createObjectURL(estado.blobOriginal),
-    filenameBase: `qr-${tipo}-${info.alias}`,
-  };
+    await this._render();
 
-  await this._render();
+    document.getElementById("previewInputBrand").value = this._state.brand;
+    document.getElementById("previewInputCaption").value = this._state.caption;
+    document.getElementById("previewInputSub").value = this._state.sub;
 
-  document.getElementById("previewInputBrand").value = this._state.brand;
-  document.getElementById("previewInputCaption").value = this._state.caption;
-  document.getElementById("previewInputSub").value = this._state.sub;
+    const fields = document.getElementById("previewFields");
+    fields.classList.remove("hidden");
+    fields.classList.add("flex");
 
-  const fields = document.getElementById("previewFields");
-  fields.classList.remove("hidden");
-  fields.classList.add("flex");
-
-  UI.openModal("modalPreviewQr"); // 👈 AGREGAR ESTA LÍNEA
-},
+    UI.openModal("modalPreviewQr"); // 👈 AGREGAR ESTA LÍNEA
+  },
 
   async openMesa(mesa) {
     const info = await QrNegocio._obtenerInfoTienda();

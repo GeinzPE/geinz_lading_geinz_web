@@ -14,11 +14,15 @@
             --dr: 139;
             --dg: 92;
             --db: 246;
-            --bg: #050505;
-            --surface: rgba(255, 255, 255, .03);
-            --surface-2: rgba(255, 255, 255, .05);
+            --bg: #07070a;
+            --bg-elevated: #0d0d12;
+            --surface: rgba(255, 255, 255, .035);
+            --surface-2: rgba(255, 255, 255, .055);
             --border: rgba(255, 255, 255, .08);
-            --muted: #9c9ca3;
+            --border-soft: rgba(255, 255, 255, .06);
+            --muted: #93939c;
+            --muted-2: #6c6c76;
+            --shadow-lift: 0 20px 40px -24px rgba(0, 0, 0, .6);
         }
 
         * {
@@ -29,10 +33,15 @@
         body {
             margin: 0;
             padding: 0;
-            background: var(--bg);
+            background:
+                radial-gradient(1100px 520px at 12% -10%, rgba(var(--dr), var(--dg), var(--db), .10), transparent 60%),
+                radial-gradient(900px 480px at 100% 0%, rgba(var(--dr), var(--dg), var(--db), .05), transparent 55%),
+                var(--bg);
+            background-attachment: fixed;
             color: #f2f2f5;
             font-family: 'DM Sans', system-ui, sans-serif;
             -webkit-tap-highlight-color: transparent;
+            letter-spacing: -0.005em;
         }
 
         h1,
@@ -40,13 +49,13 @@
         h3,
         .font-display {
             font-family: 'Sora', 'DM Sans', sans-serif;
+            letter-spacing: -0.02em;
         }
 
         ::selection {
             background: rgba(var(--dr), var(--dg), var(--db), .35);
         }
 
-        /* Scrollbar discreto */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -65,37 +74,80 @@
             color: rgb(var(--dr), var(--dg), var(--db));
         }
 
+        /* ── Icon badges (replaces emoji) ── */
+        .icon-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            background: linear-gradient(160deg, rgba(var(--dr), var(--dg), var(--db), .22), rgba(var(--dr), var(--dg), var(--db), .06));
+            border: 1px solid rgba(var(--dr), var(--dg), var(--db), .28);
+        }
+
+        .icon-badge svg {
+            width: 17px;
+            height: 17px;
+            stroke: rgb(var(--dr), var(--dg), var(--db));
+        }
+
+        .icon-badge.sm {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+        }
+
+        .icon-badge.sm svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .icon-muted {
+            stroke: var(--muted);
+        }
+
+        /* ── Cards ── */
         .card {
-            background: var(--surface);
+            background: linear-gradient(180deg, var(--surface), rgba(255, 255, 255, .015));
             border: 1px solid var(--border);
-            border-radius: 20px;
+            border-radius: 18px;
+            box-shadow: var(--shadow-lift);
         }
 
         .card-tight {
             background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 14px;
+            border: 1px solid var(--border-soft);
+            border-radius: 13px;
         }
 
+        /* ── Inputs ── */
         .field-input,
         .field-textarea,
         .field-select {
             width: 100%;
-            background: rgba(255, 255, 255, .04);
+            background: rgba(255, 255, 255, .035);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 11px;
             padding: 11px 13px;
             font-size: 14px;
             color: #fff;
             outline: none;
-            transition: border-color .15s ease, background .15s ease;
+            transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
         }
 
         .field-input:focus,
         .field-textarea:focus,
         .field-select:focus {
-            border-color: rgba(var(--dr), var(--dg), var(--db), .6);
-            background: rgba(255, 255, 255, .06);
+            border-color: rgba(var(--dr), var(--dg), var(--db), .65);
+            background: rgba(255, 255, 255, .05);
+            box-shadow: 0 0 0 3px rgba(var(--dr), var(--dg), var(--db), .12);
+        }
+
+        .field-input::placeholder,
+        .field-textarea::placeholder {
+            color: var(--muted-2);
         }
 
         .field-label {
@@ -106,7 +158,14 @@
             margin-bottom: 6px;
         }
 
-        /* Toggle switch */
+        .field-hint {
+            font-size: 11.5px;
+            color: var(--muted-2);
+            margin-top: 6px;
+            line-height: 1.5;
+        }
+
+        /* ── Toggle switch ── */
         .switch {
             position: relative;
             display: inline-block;
@@ -124,7 +183,7 @@
         .switch-track {
             position: absolute;
             inset: 0;
-            background: rgba(255, 255, 255, .14);
+            background: rgba(255, 255, 255, .12);
             border-radius: 999px;
             cursor: pointer;
             transition: background .2s ease;
@@ -139,7 +198,8 @@
             top: 3px;
             background: #fff;
             border-radius: 50%;
-            transition: transform .2s ease;
+            transition: transform .2s cubic-bezier(.2, .8, .2, 1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
         }
 
         .switch input:checked+.switch-track {
@@ -151,32 +211,76 @@
         }
 
         .switch input:disabled+.switch-track {
-            opacity: .4;
+            opacity: .35;
             cursor: not-allowed;
         }
 
-        /* Tabs */
+        /* ── Master visibility card ── */
+        .master-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .master-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(var(--dr), var(--dg), var(--db), .07), transparent 55%);
+            pointer-events: none;
+        }
+
+        .sub-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 13px 14px;
+            border-radius: 13px;
+            background: rgba(255, 255, 255, .028);
+            border: 1px solid var(--border-soft);
+            transition: opacity .2s ease, border-color .2s ease;
+        }
+
+        /* ── Tabs ── */
+        #legalTabs {
+            border-bottom: 1px solid var(--border-soft);
+        }
+
         .legal-tab {
-            padding: 10px 16px;
-            border-radius: 999px;
-            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 11px 4px;
+            margin-right: 22px;
+            font-size: 13.5px;
             font-weight: 600;
             color: var(--muted);
             background: transparent;
-            border: 1px solid transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
             cursor: pointer;
             white-space: nowrap;
-            transition: background .15s ease, color .15s ease, border-color .15s ease;
+            transition: color .15s ease, border-color .15s ease;
+        }
+
+        .legal-tab svg {
+            width: 15px;
+            height: 15px;
+            stroke: currentColor;
+            opacity: .85;
         }
 
         .legal-tab.active {
             color: #fff;
-            background: rgba(var(--dr), var(--dg), var(--db), .16);
-            border-color: rgba(var(--dr), var(--dg), var(--db), .4);
+            border-color: rgb(var(--dr), var(--dg), var(--db));
+        }
+
+        .legal-tab:hover:not(.active):not(:disabled) {
+            color: #d4d4d9;
         }
 
         .legal-tab:disabled {
-            opacity: .35;
+            opacity: .3;
             cursor: not-allowed;
         }
 
@@ -184,117 +288,176 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 18px;
-            height: 18px;
+            min-width: 17px;
+            height: 17px;
             padding: 0 5px;
-            margin-left: 6px;
             border-radius: 999px;
-            background: #ff3b3b;
+            background: #ff5c5c;
             color: #fff;
-            font-size: 10.5px;
+            font-size: 10px;
             font-weight: 700;
         }
 
         .tab-panel {
             display: none;
+            animation: fadeIn .25s ease;
         }
 
         .tab-panel.active {
             display: block;
         }
 
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ── Buttons ── */
         .btn-primary {
-            background: rgb(var(--dr), var(--dg), var(--db));
-            background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .7));
+            background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .72));
             color: #fff;
             font-weight: 700;
             font-size: 13.5px;
             padding: 11px 20px;
-            border-radius: 12px;
+            border-radius: 11px;
             border: none;
             cursor: pointer;
-            box-shadow: 0 8px 20px -8px rgba(var(--dr), var(--dg), var(--db), .55);
-            transition: transform .15s ease, opacity .15s ease;
+            box-shadow: 0 10px 24px -10px rgba(var(--dr), var(--dg), var(--db), .6);
+            transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
         }
 
         .btn-primary:hover {
             transform: translateY(-1px);
+            box-shadow: 0 14px 28px -10px rgba(var(--dr), var(--dg), var(--db), .7);
         }
 
         .btn-primary:disabled {
             opacity: .5;
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
         }
 
         .btn-ghost {
-            background: rgba(255, 255, 255, .05);
+            background: rgba(255, 255, 255, .045);
             color: #e4e4e7;
             font-weight: 600;
             font-size: 13.5px;
             padding: 11px 18px;
-            border-radius: 12px;
+            border-radius: 11px;
             border: 1px solid var(--border);
             cursor: pointer;
+            transition: background .15s ease, border-color .15s ease;
         }
 
-        .btn-danger {
-            background: rgba(255, 107, 107, .1);
-            color: #ff6b6b;
-            font-weight: 700;
-            font-size: 13px;
-            padding: 9px 14px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 107, 107, .35);
-            cursor: pointer;
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, .07);
+            border-color: rgba(255, 255, 255, .15);
         }
 
+        /* ── Status pills ── */
         .status-pill {
             display: inline-flex;
             align-items: center;
             gap: 6px;
             font-size: 11.5px;
             font-weight: 700;
-            padding: 5px 11px;
+            padding: 5px 11px 5px 9px;
             border-radius: 999px;
             text-transform: capitalize;
         }
 
+        .status-pill::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
         .status-pendiente {
-            background: rgba(255, 176, 32, .14);
+            background: rgba(255, 176, 32, .13);
             color: #ffb020;
-            border: 1px solid rgba(255, 176, 32, .35);
+            border: 1px solid rgba(255, 176, 32, .3);
         }
 
         .status-respondido,
         .status-resuelto {
-            background: rgba(52, 211, 153, .14);
+            background: rgba(52, 211, 153, .13);
             color: #34d399;
-            border: 1px solid rgba(52, 211, 153, .35);
+            border: 1px solid rgba(52, 211, 153, .3);
         }
 
         .status-rechazado {
-            background: rgba(255, 107, 107, .14);
+            background: rgba(255, 107, 107, .13);
             color: #ff6b6b;
-            border: 1px solid rgba(255, 107, 107, .35);
+            border: 1px solid rgba(255, 107, 107, .3);
         }
 
+        /* ── Claim rows ── */
         .claim-row {
+            position: relative;
             cursor: pointer;
-            transition: background .15s ease, border-color .15s ease;
+            padding-left: 20px !important;
+            transition: background .15s ease, border-color .15s ease, transform .1s ease;
+        }
+
+        .claim-row::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 12px;
+            bottom: 12px;
+            width: 3px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, .12);
+        }
+
+        .claim-row[data-estado="pendiente"]::before {
+            background: #ffb020;
+        }
+
+        .claim-row[data-estado="respondido"]::before,
+        .claim-row[data-estado="resuelto"]::before {
+            background: #34d399;
+        }
+
+        .claim-row[data-estado="rechazado"]::before {
+            background: #ff6b6b;
         }
 
         .claim-row:hover {
-            background: rgba(255, 255, 255, .035);
-            border-color: rgba(var(--dr), var(--dg), var(--db), .3);
+            background: rgba(255, 255, 255, .04);
+            border-color: rgba(var(--dr), var(--dg), var(--db), .28);
         }
 
-        /* Drawer de detalle de reclamo */
+        .claim-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            background: rgba(var(--dr), var(--dg), var(--db), .16);
+            color: rgb(var(--dr), var(--dg), var(--db));
+        }
+
+        /* ── Drawer ── */
         .drawer-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(2, 2, 4, .7);
-            backdrop-filter: blur(4px);
+            background: rgba(2, 2, 4, .72);
+            backdrop-filter: blur(5px);
             z-index: 40;
             opacity: 0;
             visibility: hidden;
@@ -312,23 +475,83 @@
             right: 0;
             bottom: 0;
             width: 100%;
-            max-width: 480px;
-            background: #0b0b0d;
+            max-width: 460px;
+            background: var(--bg-elevated);
             border-left: 1px solid var(--border);
             z-index: 41;
             transform: translateX(100%);
-            transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+            transition: transform .32s cubic-bezier(.2, .8, .2, 1);
             overflow-y: auto;
-            padding: 22px 20px 100px;
+            padding: 24px 22px 40px;
         }
 
         .drawer-panel.open {
             transform: translateX(0);
         }
 
-        /* Editor de párrafos (políticas / términos) */
+        .drawer-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--muted-2);
+            margin-bottom: 10px;
+        }
+
+        .drawer-field-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .drawer-field-row:last-child {
+            border-bottom: none;
+        }
+
+        .drawer-field-row span.label {
+            color: var(--muted);
+            font-size: 12.5px;
+            flex-shrink: 0;
+        }
+
+        .drawer-field-row span.value {
+            color: #f2f2f5;
+            font-size: 13px;
+            text-align: right;
+            font-weight: 500;
+        }
+
+        /* ── Paragraph editor ── */
         .paragraph-item {
             position: relative;
+        }
+
+        .paragraph-item .field-textarea {
+            padding-right: 44px;
+        }
+
+        .paragraph-index {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, .06);
+            color: var(--muted);
+            font-size: 10.5px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .paragraph-item .field-textarea {
+            padding-left: 40px;
         }
 
         .paragraph-remove {
@@ -337,12 +560,17 @@
             right: 10px;
             width: 26px;
             height: 26px;
-            border-radius: 50%;
+            border-radius: 8px;
             border: none;
-            background: rgba(255, 107, 107, .12);
+            background: rgba(255, 107, 107, .1);
             color: #ff6b6b;
             font-size: 12px;
             cursor: pointer;
+            transition: background .15s ease;
+        }
+
+        .paragraph-remove:hover {
+            background: rgba(255, 107, 107, .2);
         }
 
         .checkbox-row {
@@ -352,12 +580,18 @@
             padding: 10px 12px;
             border-radius: 10px;
             background: rgba(255, 255, 255, .025);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-soft);
+            transition: border-color .15s ease, background .15s ease;
+        }
+
+        .checkbox-row:has(input:checked) {
+            border-color: rgba(var(--dr), var(--dg), var(--db), .35);
+            background: rgba(var(--dr), var(--dg), var(--db), .06);
         }
 
         .checkbox-row input {
-            width: 17px;
-            height: 17px;
+            width: 16px;
+            height: 16px;
             accent-color: rgb(var(--dr), var(--dg), var(--db));
         }
 
@@ -366,13 +600,14 @@
             bottom: 24px;
             left: 50%;
             transform: translateX(-50%) translateY(80px);
-            background: #111;
+            background: #131318;
             color: #fff;
             padding: 13px 22px;
-            border-radius: 10px;
+            border-radius: 11px;
             font-size: 13.5px;
             font-weight: 600;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, .4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+            border: 1px solid var(--border);
             z-index: 100;
             opacity: 0;
             transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .3s;
@@ -387,16 +622,24 @@
 
         .empty-state {
             text-align: center;
-            padding: 46px 20px;
+            padding: 52px 20px;
             color: var(--muted);
             font-size: 13.5px;
+        }
+
+        .empty-state svg {
+            width: 34px;
+            height: 34px;
+            stroke: var(--muted-2);
+            margin: 0 auto 12px;
+            display: block;
         }
 
         .spinner {
             width: 18px;
             height: 18px;
             border-radius: 50%;
-            border: 2.5px solid rgba(var(--dr), var(--dg), var(--db), .25);
+            border: 2.5px solid rgba(var(--dr), var(--dg), var(--db), .22);
             border-top-color: rgb(var(--dr), var(--dg), var(--db));
             animation: spin .7s linear infinite;
         }
@@ -412,21 +655,38 @@
                 max-width: 100%;
             }
         }
+
+        .field-select {
+            color-scheme: dark;
+        }
+
+        .field-select option {
+            background: #131318;
+            color: #f2f2f5;
+        }
     </style>
 </head>
 
 <body>
 
-    <div class="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 md:py-8 max-w-5xl mx-auto">
+    <div class="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 md:py-9 max-w-5xl mx-auto">
 
         <!-- ═══ ENCABEZADO ═══ -->
-        <header class="mb-6">
+        <header class="mb-7">
             <div class="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                    <h1 class="text-2xl sm:text-[28px] font-bold tracking-tight">Legal</h1>
-                    <p class="text-sm text-[color:var(--muted)] mt-1 max-w-md">
-                        Administra tu libro de reclamaciones, políticas de privacidad y términos y condiciones.
-                    </p>
+                <div class="flex items-center gap-3.5">
+                    <div class="icon-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M12 3l8 4v5c0 4.5-3.2 7.7-8 9-4.8-1.3-8-4.5-8-9V7l8-4z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl sm:text-[26px] font-bold tracking-tight">Legal</h1>
+                        <p class="text-[13px] text-[color:var(--muted)] mt-0.5 max-w-md">
+                            Libro de reclamaciones, políticas de privacidad y términos y condiciones.
+                        </p>
+                    </div>
                 </div>
                 <div id="legalLoadingBadge" class="flex items-center gap-2 text-xs text-[color:var(--muted)]">
                     <div class="spinner"></div> Cargando…
@@ -434,12 +694,12 @@
             </div>
         </header>
 
-        <!-- ═══ CONFIGURACIÓN MAESTRA (footer.activo / libro / politicas / terminos) ═══ -->
-        <section class="card p-5 sm:p-6 mb-6">
-            <div class="flex items-center justify-between gap-4 mb-1">
+        <!-- ═══ CONFIGURACIÓN MAESTRA ═══ -->
+        <section class="card master-card p-5 sm:p-6 mb-7">
+            <div class="flex items-center justify-between gap-4 mb-1 relative">
                 <div>
                     <h2 class="text-[15px] font-bold">Visibilidad en tu perfil público</h2>
-                    <p class="text-xs text-[color:var(--muted)] mt-1">
+                    <p class="text-xs text-[color:var(--muted)] mt-1 max-w-md">
                         Si apagas "Sección legal", ningún enlace legal se mostrará en tu perfil, sin importar los
                         interruptores de abajo.
                     </p>
@@ -450,10 +710,15 @@
                 </label>
             </div>
 
-            <div id="subTogglesWrap" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
-                <div class="checkbox-row justify-between !py-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📕</span>
+            <div id="subTogglesWrap" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 relative">
+                <div class="sub-toggle-row">
+                    <div class="flex items-center gap-2.5">
+                        <div class="icon-badge sm">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M12 3l8 4v5c0 4.5-3.2 7.7-8 9-4.8-1.3-8-4.5-8-9V7l8-4z" />
+                            </svg>
+                        </div>
                         <span class="text-[13px] font-semibold">Libro de reclamaciones</span>
                     </div>
                     <label class="switch">
@@ -461,9 +726,15 @@
                         <span class="switch-track"></span>
                     </label>
                 </div>
-                <div class="checkbox-row justify-between !py-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">🔒</span>
+                <div class="sub-toggle-row">
+                    <div class="flex items-center gap-2.5">
+                        <div class="icon-badge sm">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <rect x="4" y="10" width="16" height="10" rx="2" />
+                                <path d="M8 10V7a4 4 0 018 0v3" />
+                            </svg>
+                        </div>
                         <span class="text-[13px] font-semibold">Políticas de privacidad</span>
                     </div>
                     <label class="switch">
@@ -471,9 +742,15 @@
                         <span class="switch-track"></span>
                     </label>
                 </div>
-                <div class="checkbox-row justify-between !py-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📄</span>
+                <div class="sub-toggle-row">
+                    <div class="flex items-center gap-2.5">
+                        <div class="icon-badge sm">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M7 3h8l4 4v14a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" />
+                                <path d="M9 12h6M9 16h6M9 8h3" />
+                            </svg>
+                        </div>
                         <span class="text-[13px] font-semibold">Términos y condiciones</span>
                     </div>
                     <label class="switch">
@@ -485,13 +762,35 @@
         </section>
 
         <!-- ═══ TABS ═══ -->
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 mb-5" id="legalTabs">
-            <button class="legal-tab active" data-tab="libro" id="tabBtnLibro">📕 Libro de reclamaciones</button>
-            <button class="legal-tab" data-tab="reclamos" id="tabBtnReclamos">
-                🗂️ Reclamos <span class="tab-badge" id="reclamosPendCount" style="display:none">0</span>
+        <div class="flex items-center gap-0 overflow-x-auto mb-6" id="legalTabs">
+            <button class="legal-tab active" data-tab="libro" id="tabBtnLibro">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3l8 4v5c0 4.5-3.2 7.7-8 9-4.8-1.3-8-4.5-8-9V7l8-4z" />
+                </svg>
+                Libro de reclamaciones
             </button>
-            <button class="legal-tab" data-tab="politicas" id="tabBtnPoliticas">🔒 Políticas de privacidad</button>
-            <button class="legal-tab" data-tab="terminos" id="tabBtnTerminos">📄 Términos y condiciones</button>
+            <button class="legal-tab" data-tab="reclamos" id="tabBtnReclamos">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16V8z" />
+                    <path d="M3.3 7l8.7 5 8.7-5M12 22V12" />
+                </svg>
+                Reclamos <span class="tab-badge" id="reclamosPendCount" style="display:none">0</span>
+            </button>
+            <button class="legal-tab" data-tab="politicas" id="tabBtnPoliticas">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="10" width="16" height="10" rx="2" />
+                    <path d="M8 10V7a4 4 0 018 0v3" />
+                </svg>
+                Políticas de privacidad
+            </button>
+            <button class="legal-tab" data-tab="terminos" id="tabBtnTerminos">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 3h8l4 4v14a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" />
+                    <path d="M9 12h6M9 16h6M9 8h3" />
+                </svg>
+                Términos y condiciones
+            </button>
         </div>
 
         <!-- ═══ TAB: LIBRO DE RECLAMACIONES ═══ -->
@@ -533,7 +832,8 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 pt-2 flex-wrap">
+                <div
+                    class="flex items-center gap-3 pt-2 flex-wrap border-t border-[color:var(--border-soft)] mt-1 pt-4">
                     <button class="btn-primary" id="btnGuardarLibro">Guardar cambios</button>
                     <span class="text-xs text-[color:var(--muted)]" id="libroSavedHint"></span>
                 </div>
@@ -543,21 +843,34 @@
         <!-- ═══ TAB: RECLAMOS ═══ -->
         <div class="tab-panel" id="panelReclamos">
             <section class="card p-4 sm:p-6">
-                <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                    <h3 class="text-[15px] font-bold">Reclamos recibidos</h3>
-                    <select class="field-select !w-auto text-xs" id="filtroEstadoReclamos">
-                        <option value="todos">Todos los estados</option>
-                        <option value="pendiente">Pendientes</option>
-                        <option value="respondido">Respondidos</option>
-                        <option value="resuelto">Resueltos</option>
-                    </select>
-                </div>
+              <div class="flex items-center gap-3 mb-5 flex-wrap">
+    <h3 class="text-[15px] font-bold">Reclamos recibidos</h3>
+    <div class="flex items-center gap-2 flex-wrap ml-auto">
+        <select class="field-select !w-auto text-xs" id="filtroEstadoReclamos">
+            <option value="todos">Todos los estados</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="respondido">Respondidos</option>
+            <option value="resuelto">Resueltos</option>
+            <option value="rechazado">Rechazados</option>
+        </select>
+        <select class="field-select !w-auto text-xs" id="ordenReclamos">
+            <option value="recientes">Más recientes primero</option>
+            <option value="antiguos">Más antiguos primero</option>
+        </select>
+    </div>
+</div>
 
                 <div id="reclamosLoading" class="empty-state" style="display:none">
                     <div class="spinner mx-auto mb-2"></div> Cargando reclamos…
                 </div>
                 <div id="reclamosEmpty" class="empty-state" style="display:none">
-                    Aún no tienes reclamos registrados 📭
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16V8z" />
+                        <path d="M3.3 7l8.7 5 8.7-5M12 22V12" />
+                    </svg>
+                    Aún no tienes reclamos registrados
                 </div>
 
                 <div id="reclamosList" class="space-y-2.5"></div>
@@ -586,7 +899,8 @@
                         párrafo</button>
                 </div>
 
-                <div class="flex items-center gap-3 pt-2 flex-wrap">
+                <div
+                    class="flex items-center gap-3 pt-2 flex-wrap border-t border-[color:var(--border-soft)] mt-1 pt-4">
                     <button class="btn-primary" id="btnGuardarPoliticas">Guardar cambios</button>
                     <span class="text-xs text-[color:var(--muted)]" id="politicasSavedHint"></span>
                 </div>
@@ -614,7 +928,8 @@
                         párrafo</button>
                 </div>
 
-                <div class="flex items-center gap-3 pt-2 flex-wrap">
+                <div
+                    class="flex items-center gap-3 pt-2 flex-wrap border-t border-[color:var(--border-soft)] mt-1 pt-4">
                     <button class="btn-primary" id="btnGuardarTerminos">Guardar cambios</button>
                     <span class="text-xs text-[color:var(--muted)]" id="terminosSavedHint"></span>
                 </div>
@@ -625,18 +940,23 @@
 
     <!-- ═══ PLANTILLA: fila de reclamo (clonada por JS) ═══ -->
     <template id="tplReclamoRow">
-        <div class="claim-row card-tight p-4" data-claim-id="">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <p class="text-[13.5px] font-bold truncate" data-field="nombreCompleto">—</p>
-                    <p class="text-[11.5px] text-[color:var(--muted)] mt-0.5" data-field="codigo">—</p>
+        <div class="claim-row card-tight p-4" data-claim-id="" data-estado="pendiente">
+            <div class="flex items-start gap-3">
+                <div class="claim-avatar" data-field="avatar">—</div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[13.5px] font-bold truncate" data-field="nombreCompleto">—</p>
+                            <p class="text-[11.5px] text-[color:var(--muted)] mt-0.5" data-field="codigo">—</p>
+                        </div>
+                        <span class="status-pill flex-shrink-0" data-field="estadoPill">—</span>
+                    </div>
+                    <p class="text-[12.5px] text-[#d4d4d8] mt-2.5 line-clamp-2" data-field="descripcion">—</p>
+                    <div class="flex items-center justify-between mt-3">
+                        <span class="text-[11px] text-[color:var(--muted)]" data-field="fecha">—</span>
+                        <span class="text-[11px] font-bold accent-text">S/ <span data-field="monto">0</span></span>
+                    </div>
                 </div>
-                <span class="status-pill" data-field="estadoPill">—</span>
-            </div>
-            <p class="text-[12.5px] text-[#d4d4d8] mt-2.5 line-clamp-2" data-field="descripcion">—</p>
-            <div class="flex items-center justify-between mt-3">
-                <span class="text-[11px] text-[color:var(--muted)]" data-field="fecha">—</span>
-                <span class="text-[11px] font-bold accent-text">S/ <span data-field="monto">0</span></span>
             </div>
         </div>
     </template>
@@ -644,60 +964,64 @@
     <!-- ═══ DRAWER: detalle / respuesta de reclamo ═══ -->
     <div class="drawer-overlay" id="reclamoDrawerOverlay"></div>
     <aside class="drawer-panel" id="reclamoDrawerPanel">
-        <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center justify-between mb-6">
             <h3 class="text-[16px] font-bold">Detalle del reclamo</h3>
             <button class="btn-ghost !px-3 !py-2" id="reclamoDrawerClose">✕</button>
         </div>
 
-        <div class="space-y-4 text-[13.5px]">
-            <div class="flex items-center justify-between">
-                <span class="text-[color:var(--muted)] text-xs">Código de seguimiento</span>
-                <span class="font-bold" id="drawerCodigo">—</span>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-[color:var(--muted)] text-xs">Estado actual</span>
+        <div class="space-y-5 text-[13.5px]">
+            <div class="flex items-center justify-between card-tight px-4 py-3">
+                <div>
+                    <span class="text-[color:var(--muted)] text-[11px] block">Código de seguimiento</span>
+                    <span class="font-bold" id="drawerCodigo">—</span>
+                </div>
                 <span class="status-pill" id="drawerEstadoPill">—</span>
             </div>
 
-            <div class="card-tight p-4 space-y-2.5">
-                <p><span class="text-[color:var(--muted)] text-xs block">Consumidor</span><span
-                        id="drawerNombre">—</span></p>
-                <p><span class="text-[color:var(--muted)] text-xs block">Documento</span><span
-                        id="drawerDocumento">—</span></p>
-                <p><span class="text-[color:var(--muted)] text-xs block">Correo</span><span
-                        id="drawerCorreo">—</span></p>
-                <p><span class="text-[color:var(--muted)] text-xs block">Dirección</span><span
-                        id="drawerDireccion">—</span></p>
-                <p><span class="text-[color:var(--muted)] text-xs block">Padre/Madre/Apoderado</span><span
-                        id="drawerApoderado">—</span></p>
-            </div>
-
-            <div class="card-tight p-4 space-y-2.5">
-                <p><span class="text-[color:var(--muted)] text-xs block">Tipo de reclamo</span><span
-                        id="drawerTipoPedido">—</span></p>
-                <p><span class="text-[color:var(--muted)] text-xs block">Monto reclamado</span><span
-                        id="drawerMonto">—</span></p>
-                <p><span class="text-[color:var(--muted)] text-xs block">Descripción</span><span
-                        id="drawerDescripcion">—</span></p>
-                <p><span class="text-[color:var(--muted)] text-xs block">Detalle</span><span
-                        id="drawerDetalle">—</span></p>
+            <div>
+                <p class="drawer-section-label">Consumidor</p>
+                <div class="card-tight p-4">
+                    <div class="drawer-field-row"><span class="label">Nombre</span><span class="value"
+                            id="drawerNombre">—</span></div>
+                    <div class="drawer-field-row"><span class="label">Documento</span><span class="value"
+                            id="drawerDocumento">—</span></div>
+                    <div class="drawer-field-row"><span class="label">Correo</span><span class="value"
+                            id="drawerCorreo">—</span></div>
+                    <div class="drawer-field-row"><span class="label">Dirección</span><span class="value"
+                            id="drawerDireccion">—</span></div>
+                    <div class="drawer-field-row"><span class="label">Padre/Madre/Apoderado</span><span class="value"
+                            id="drawerApoderado">—</span></div>
+                </div>
             </div>
 
             <div>
+                <p class="drawer-section-label">Reclamo</p>
+                <div class="card-tight p-4">
+                    <div class="drawer-field-row"><span class="label">Tipo de reclamo</span><span class="value"
+                            id="drawerTipoPedido">—</span></div>
+                    <div class="drawer-field-row"><span class="label">Monto reclamado</span><span class="value"
+                            id="drawerMonto">—</span></div>
+                    <div class="drawer-field-row"><span class="label">Descripción</span><span class="value"
+                            id="drawerDescripcion">—</span></div>
+                    <div class="drawer-field-row"><span class="label">Detalle</span><span class="value"
+                            id="drawerDetalle">—</span></div>
+                </div>
+            </div>
+
+            <div>
+                <p class="drawer-section-label">Tu respuesta</p>
                 <label class="field-label">Cambiar estado</label>
-                <select class="field-select" id="drawerEstadoSelect">
+                <select class="field-select mb-3" id="drawerEstadoSelect">
                     <option value="pendiente">Pendiente</option>
                     <option value="respondido">Respondido</option>
                     <option value="resuelto">Resuelto</option>
                     <option value="rechazado">Rechazado</option>
                 </select>
-            </div>
 
-            <div>
-                <label class="field-label">Tu respuesta</label>
+                <label class="field-label">Mensaje para el consumidor</label>
                 <textarea class="field-textarea" id="drawerRespuestaInput" rows="4"
                     placeholder="Escribe la respuesta que verá el consumidor…"></textarea>
-                <p class="text-[11px] text-[color:var(--muted)] mt-2" id="drawerRespuestaFechaHint"></p>
+                <p class="field-hint" id="drawerRespuestaFechaHint"></p>
             </div>
 
             <button class="btn-primary w-full" id="drawerGuardarBtn">Guardar respuesta y estado</button>

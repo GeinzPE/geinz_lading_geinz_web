@@ -25,9 +25,6 @@ import {
 
 // ══════════════════════════════════════════
 //  0) RESOLVER NEGOCIO ACTUAL (localidad + id)
-//  Prueba, en orden: variable global que deje panel_perfil.js,
-//  sessionStorage, y por último el doc del usuario logueado.
-//  Si ninguna funciona, se muestra en pantalla para avisarte.
 // ══════════════════════════════════════════
 let _localidad = null;
 let _negocioId = null;
@@ -52,16 +49,13 @@ function mostrarErrorNegocio(motivo, dataDebug) {
 }
 
 async function resolverNegocioActual() {
-  // 1) variable global (si panel_perfil.js ya la deja lista)
   if (window.NEGOCIO_ACTUAL?.localidad && window.NEGOCIO_ACTUAL?.id) {
     return { localidad: window.NEGOCIO_ACTUAL.localidad, id: window.NEGOCIO_ACTUAL.id };
   }
-  // 2) sessionStorage (patrón común en paneles con iframes)
   const sLoc = sessionStorage.getItem("negocioLocalidad") || sessionStorage.getItem("localidad");
   const sId = sessionStorage.getItem("negocioId") || sessionStorage.getItem("id");
   if (sLoc && sId) return { localidad: sLoc, id: sId };
 
-  // 3) resolver por el usuario logueado
   return new Promise((resolve) => {
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -135,10 +129,15 @@ function estadoClase(estado) {
   };
   return map[estado] || "status-pendiente";
 }
+function iniciales(nombre = "", apellido = "") {
+  const a = (nombre || "").trim().charAt(0);
+  const b = (apellido || "").trim().charAt(0);
+  const val = (a + b).toUpperCase();
+  return val || "?";
+}
 
 // ══════════════════════════════════════════
 //  1) CONFIG MAESTRA — footer{ activo, libro_reclamaciones, politicas_privacidad, terminos_condiciones }
-//     Vive en el doc raíz de la tienda (tiendaDoc)
 // ══════════════════════════════════════════
 function initFooterConfig() {
   const ref = tiendaDoc(_localidad, "tiendas", _negocioId);
@@ -269,6 +268,7 @@ function initReclamos() {
   const loadingEl = document.getElementById("reclamosLoading");
   const emptyEl = document.getElementById("reclamosEmpty");
   const filtroSelect = document.getElementById("filtroEstadoReclamos");
+  const ordenSelect = document.getElementById("ordenReclamos");
   const badge = document.getElementById("reclamosPendCount");
   const sound = document.getElementById("reclamoSound");
 
@@ -281,7 +281,6 @@ function initReclamos() {
     snap.forEach((d) => reclamos.push({ id: d.id, ...d.data() }));
     _reclamosCache = reclamos;
 
-    // sonido solo para reclamos NUEVOS que llegan después de la carga inicial
     if (!_reclamosPrimeraCarga) {
       snap.docChanges().forEach((change) => {
         if (change.type === "added") {
@@ -296,14 +295,26 @@ function initReclamos() {
     badge.textContent = pendientes;
 
     loadingEl.style.display = "none";
-    renderReclamos(filtroSelect.value);
+    renderReclamos(filtroSelect.value, ordenSelect.value);
+
+    if (_reclamoSeleccionadoId) {
+      const actual = _reclamosCache.find((x) => x.id === _reclamoSeleccionadoId);
+      if (actual) pintarDrawer(actual);
+    }
   });
 
-  filtroSelect.addEventListener("change", () => renderReclamos(filtroSelect.value));
+  filtroSelect.addEventListener("change", () => renderReclamos(filtroSelect.value, ordenSelect.value));
+  ordenSelect.addEventListener("change", () => renderReclamos(filtroSelect.value, ordenSelect.value));
 
-  function renderReclamos(filtro) {
-    const data =
-      filtro === "todos" ? _reclamosCache : _reclamosCache.filter((r) => (r.estado || "pendiente") === filtro);
+  function renderReclamos(filtro, orden) {
+    let data =
+      filtro === "todos" ? [..._reclamosCache] : _reclamosCache.filter((r) => (r.estado || "pendiente") === filtro);
+
+    data.sort((a, b) => {
+      const fa = a.fecha?.toMillis ? a.fecha.toMillis() : 0;
+      const fb = b.fecha?.toMillis ? b.fecha.toMillis() : 0;
+      return orden === "antiguos" ? fa - fb : fb - fa;
+    });
 
     listEl.innerHTML = "";
     emptyEl.style.display = data.length ? "none" : "block";
@@ -312,7 +323,10 @@ function initReclamos() {
     data.forEach((r) => {
       const node = tpl.content.cloneNode(true);
       const row = node.querySelector(".claim-row");
+      const estado = r.estado || "pendiente";
       row.dataset.claimId = r.id;
+      row.dataset.estado = estado;
+      row.querySelector('[data-field="avatar"]').textContent = iniciales(r.nombre, r.apellido);
       row.querySelector('[data-field="nombreCompleto"]').textContent =
         `${r.nombre || ""} ${r.apellido || ""}`.trim() || "Consumidor";
       row.querySelector('[data-field="codigo"]').textContent = r.codigo_seguimiento || r.id;
@@ -320,8 +334,8 @@ function initReclamos() {
       row.querySelector('[data-field="fecha"]').textContent = fmtFecha(r.fecha);
       row.querySelector('[data-field="monto"]').textContent = Number(r.monto_reclamacion || 0).toFixed(2);
       const pill = row.querySelector('[data-field="estadoPill"]');
-      pill.textContent = estadoLabel(r.estado);
-      pill.classList.add(estadoClase(r.estado));
+      pill.textContent = estadoLabel(estado);
+      pill.classList.add(estadoClase(estado));
 
       row.addEventListener("click", () => abrirDrawerReclamo(r.id));
       listEl.appendChild(node);
@@ -329,11 +343,7 @@ function initReclamos() {
   }
 }
 
-function abrirDrawerReclamo(id) {
-  const r = _reclamosCache.find((x) => x.id === id);
-  if (!r) return;
-  _reclamoSeleccionadoId = id;
-
+function pintarDrawer(r) {
   document.getElementById("drawerCodigo").textContent = r.codigo_seguimiento || r.id;
   const pill = document.getElementById("drawerEstadoPill");
   pill.className = "status-pill " + estadoClase(r.estado);
@@ -355,6 +365,13 @@ function abrirDrawerReclamo(id) {
     ? "Última respuesta: " + fmtFecha(r.respuesta_tienda.fecha)
     : "Aún no has respondido este reclamo";
   document.getElementById("drawerRespuestaFechaHint").textContent = fechaHint;
+}
+
+function abrirDrawerReclamo(id) {
+  const r = _reclamosCache.find((x) => x.id === id);
+  if (!r) return;
+  _reclamoSeleccionadoId = id;
+  pintarDrawer(r);
 
   document.getElementById("reclamoDrawerOverlay").classList.add("open");
   document.getElementById("reclamoDrawerPanel").classList.add("open");
@@ -377,13 +394,31 @@ function bindDrawerEvents() {
     btn.textContent = "Guardando...";
     try {
       const texto = document.getElementById("drawerRespuestaInput").value.trim();
-      const estado = document.getElementById("drawerEstadoSelect").value;
+      let estado = document.getElementById("drawerEstadoSelect").value;
+
+      // Si escribiste una respuesta pero dejaste el estado en "pendiente",
+      // lo pasamos a "respondido" automáticamente: así el reclamo nunca se
+      // queda marcado como pendiente cuando en realidad ya fue contestado.
+      if (texto && estado === "pendiente") {
+        estado = "respondido";
+      }
+
+      // ── Esto es lo que "se ve reflejado del otro lado" ──
+      // updateDoc() escribe directamente en el mismo documento de Firestore
+      // (reclamacionDoc) que lee la vista pública del consumidor. En cuanto
+      // este updateDoc() se confirma, cualquier pantalla que tenga un
+      // onSnapshot() sobre ese documento (como esta misma lista, vía
+      // reclamacionesCol) recibe el cambio al instante, sin recargar la
+      // página. Si la vista del consumidor solo hace un getDoc() puntual,
+      // verá el estado actualizado la próxima vez que abra/recargue esa
+      // pantalla.
       const payload = { estado };
       if (texto) {
         payload.respuesta_tienda = { texto, fecha: serverTimestamp() };
       }
       await updateDoc(reclamacionDoc(_localidad, _negocioId, _reclamoSeleccionadoId), payload);
-      showToast("Reclamo actualizado");
+
+      showToast(estado === "respondido" ? "Respuesta enviada" : "Reclamo actualizado");
       cerrarDrawerReclamo();
     } catch (e) {
       console.error(e);
@@ -397,7 +432,6 @@ function bindDrawerEvents() {
 
 // ══════════════════════════════════════════
 //  4) POLÍTICAS DE PRIVACIDAD / TÉRMINOS — título + párrafos
-//     Misma estructura para ambos, reutilizamos una función genérica
 // ══════════════════════════════════════════
 function initEditorLegalTexto({ ref, prefix }) {
   const tituloInput = document.getElementById(`${prefix}Titulo`);
@@ -417,6 +451,7 @@ function initEditorLegalTexto({ ref, prefix }) {
       const item = document.createElement("div");
       item.className = "paragraph-item";
       item.innerHTML = `
+        <span class="paragraph-index">${idx + 1}</span>
         <textarea class="field-textarea" rows="3" data-idx="${idx}" placeholder="Párrafo ${idx + 1}...">${texto}</textarea>
         ${parrafos.length > 1 ? '<button class="paragraph-remove" type="button">✕</button>' : ""}
       `;
@@ -461,7 +496,6 @@ function initEditorLegalTexto({ ref, prefix }) {
     }
   });
 
-  // carga inicial
   getDoc(ref).then((snap) => {
     const d = snap.exists() ? snap.data() : {};
     tituloInput.value = d.titulo || "";

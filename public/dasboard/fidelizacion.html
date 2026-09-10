@@ -1819,6 +1819,7 @@
                     <div class="item-sub" id="prodPreviewPrecio">—</div>
                   </div>
                 </div>
+                <div id="prodPreviewVariantes" class="hint" style="display:none; margin-top:-6px; margin-bottom:14px;"></div>
 
                 <div class="field">
                   <label>¿Cómo se aplica el beneficio?</label>
@@ -1837,7 +1838,7 @@
                   <div class="field">
                     <label>Descuento (S/)</label>
                     <input type="number" id="descuentoMontoCatalogo" placeholder="Ej: 5" min="0" step="0.10">
-                    <div class="desc">Cuántos soles se descuentan del precio original al canjear con puntos.</div>
+                              <div class="desc">Cuántos soles se descuentan del precio original al canjear con puntos. No puede ser igual o mayor al precio del producto.</div>
                   </div>
                 </div>
 
@@ -1887,25 +1888,70 @@
                 </div>
               </div>
 
-              <div id="modo-manual" style="display:none;">
+                        <div id="modo-manual" style="display:none;">
                 <div class="field">
-                  <label>Nombre del producto</label>
-                  <input type="text" id="descNombre" placeholder="Ej: Café americano, 15% en tu próxima compra">
-                  <div class="desc">Cómo verá el cliente esta recompensa en la app. Puede ser un producto que no está en
-                    tu inventario, un descuento, un combo, o cualquier beneficio.</div>
+                  <label>¿Qué tipo de descuento es?</label>
+                  <div class="desc" style="margin-top:0;margin-bottom:8px;">Elige la que mejor describa tu promoción, el texto que ve el cliente se arma solo.</div>
+                  <select class="field-input" id="tipoDescuentoManual">
+                    <option value="personalizado">Personalizado (escribo el texto yo)</option>
+                    <option value="porcentaje">% de descuento</option>
+                    <option value="monto">S/ de descuento</option>
+                  </select>
                 </div>
-                <div class="row-2">
+
+                <!-- Personalizado: como antes -->
+                <div id="manualCamposPersonalizado">
+                  <div class="field">
+                    <label>Nombre del producto</label>
+                    <input type="text" id="descNombre" placeholder="Ej: Café americano, 15% en tu próxima compra">
+                    <div class="desc">Cómo verá el cliente esta recompensa en la app. Puede ser un producto que no está en
+                      tu inventario, un descuento, un combo, o cualquier beneficio.</div>
+                  </div>
                   <div class="field">
                     <label>Valor (opcional)</label>
                     <input type="text" id="descValor" placeholder="Ej: 15% ó S/ 10">
                     <div class="desc">El monto o porcentaje del beneficio, solo para mostrarlo junto al nombre. Déjalo
                       vacío si no aplica (ej: si ya es un producto claro como "1 café gratis").</div>
                   </div>
+                </div>
+
+                <!-- % de descuento -->
+                <div id="manualCamposPorcentaje" style="display:none;">
                   <div class="field">
-                    <label>Costo en puntos</label>
-                    <input type="number" id="descCosto" placeholder="Ej: 50" min="0">
-                    <div class="desc">Cuántos puntos necesita el cliente para canjear esta recompensa.</div>
+                    <label>Porcentaje de descuento (%)</label>
+                    <input type="number" id="manualPorcentaje" placeholder="Ej: 15" min="1" max="100">
                   </div>
+                </div>
+
+                <!-- S/ de descuento -->
+                <div id="manualCamposMonto" style="display:none;">
+                  <div class="field">
+                    <label>Descuento (S/)</label>
+                    <input type="number" id="manualMonto" placeholder="Ej: 10" min="0" step="0.10">
+                  </div>
+                </div>
+
+                <!-- Compra mínima: opcional, aplica a % y S/ -->
+                <div class="field" id="manualCompraMinimaWrap" style="display:none;">
+                  <label>Compra mínima (opcional)</label>
+                  <div class="suffix-input"><input type="number" id="manualCompraMinima" placeholder="Ej: 50" min="0" step="0.10"><span>S/</span></div>
+                  <div class="desc">Si pones un monto, el descuento solo aplica cuando la compra del cliente supera esa cantidad. Déjalo vacío para que aplique siempre.</div>
+                </div>
+
+                <div class="item-row" id="manualPreview" style="display:none; margin-bottom:14px;">
+                  <div class="item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.6 12.6L12 21.2 2.8 12 2.8 2.8 12 2.8l8.6 9.8z"/></svg>
+                  </div>
+                  <div class="item-main">
+                    <div class="item-title">Así lo verá el cliente</div>
+                    <div class="item-sub" id="manualPreviewTexto">—</div>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>Costo en puntos</label>
+                  <input type="number" id="descCosto" placeholder="Ej: 50" min="0">
+                  <div class="desc">Cuántos puntos necesita el cliente para canjear esta recompensa.</div>
                 </div>
                 <div class="actions-row">
                   <button class="btn btn-primary" id="btnAgregarDescuento">Agregar producto</button>

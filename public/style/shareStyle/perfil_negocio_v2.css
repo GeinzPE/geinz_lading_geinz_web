@@ -1820,3 +1820,168 @@ html.geinz-loading #geinzHeader {
 .puntos-badge-icon {
     font-size: 15px;
 }
+
+/* ----------------------------------------------
+   18. MÁS AIRE VERTICAL ENTRE SECCIONES Y COMPONENTES
+-------------------------------------------------- */
+
+/* Separación entre TODAS las secciones principales del main */
+#secPromosActivas,
+#secCatalogo,
+#secProductos,
+#secAmbientes,
+#secCarta,
+#secMesas,
+#secAddr,
+#secSchedule,
+#secContact,
+#secPay,
+#secAmenities,
+#secFidelizacion,
+#secReviews,
+#secPromos {
+    margin-bottom: 7rem !important;
+}
+
+#secCtaExplore {
+    padding-bottom: 8rem !important;
+}
+
+/* Hero: más espacio antes de bajar a las siguientes secciones */
+main > section:first-of-type {
+    margin-bottom: 9rem !important;
+}
+
+/* Más separación entre el bloque "Sobre el negocio" y los botones de acción */
+#secDesc {
+    margin-bottom: 3rem !important;
+}
+
+/* Ubicación + Horario: más aire respecto a lo de arriba y abajo */
+main > section:has(#secAddr) {
+
+    gap: 3rem !important;
+}
+
+/* Más aire dentro de cada tarjeta (section-header / section-body) */
+.section-body {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+}
+
+.section-header {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+}
+
+/* Espacio interno entre "Dirección", "Referencia" y "Zona y Aforo" */
+#addrRealContent {
+    row-gap: 3rem !important;
+}
+
+/* Más separación entre el eyebrow/título y la galería de cada sección */
+#secProductos > div:first-child,
+#secAmbientes > div:first-child,
+#secCarta > div:first-child,
+#secPromosActivas > div:first-child,
+#secPromos > div:first-child {
+    margin-bottom: 3rem !important;
+}
+
+/* Más aire vertical entre filas de horario */
+.sched-row {
+    padding: 18px 0 !important;
+}
+
+/* Más separación entre chips de métodos de pago / amenities */
+#payGrid,
+#amenitiesGrid {
+    gap: 1.25rem !important;
+    margin-top: 0.5rem !important;
+}
+
+/* Más espacio entre categorías (tags) y la descripción */
+#cats {
+    margin-bottom: 2.5rem !important;
+}
+
+/* Respiro extra en el banner final antes del footer */
+.geinz-footer {
+    margin-top: 4rem !important;
+}
+
+@media (max-width: 768px) {
+
+    #secPromosActivas,
+    #secCatalogo,
+    #secProductos,
+    #secAmbientes,
+    #secCarta,
+    #secMesas,
+    #secAddr,
+    #secSchedule,
+    #secContact,
+    #secPay,
+    #secAmenities,
+    #secFidelizacion,
+    #secReviews,
+    #secPromos {
+        margin-bottom: 4.5rem !important;
+    }
+
+    main > section:first-of-type {
+        margin-bottom: 5rem !important;
+    }
+
+    .section-body {
+        padding-top: 1.75rem !important;
+        padding-bottom: 1.75rem !important;
+    }
+}
+
+#catalogoBtnWrap {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+#catalogoBtnWrap button,
+.catalogo-cta-btn {
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(var(--dr), var(--dg), var(--db), 0.12);
+    border: 1px solid rgba(var(--dr), var(--dg), var(--db), 0.4);
+    color: transparent;
+    font-size: 0;
+    cursor: pointer;
+    box-shadow: none;
+    position: relative;
+    transition: var(--transition);
+}
+
+#catalogoBtnWrap button::after,
+.catalogo-cta-btn::after {
+    content: "+";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: rgb(var(--dr), var(--dg), var(--db));
+}
+
+#catalogoBtnWrap button:hover,
+.catalogo-cta-btn:hover {
+    background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .7));
+    transform: rotate(90deg);
+    box-shadow: 0 8px 22px rgba(var(--dr), var(--dg), var(--db), .35);
+}
+
+#catalogoBtnWrap button:hover::after,
+.catalogo-cta-btn:hover::after {
+    color: #fff;
+}

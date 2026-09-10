@@ -16,10 +16,8 @@
   <link rel="preconnect" href="https://firestore.googleapis.com">
   <link rel="dns-prefetch" href="https://firestore.googleapis.com">
 
-
-
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
 
   <style>
@@ -28,14 +26,21 @@
       --accent-dark: #8f4e28;
       --accent-soft: #2a1f18;
       --accent-glow: rgba(194, 112, 61, .35);
-      --bg: #0a0a0b;
-      --card: #131315;
-      --card-border: #232326;
-      --text-primary: #f4f3f1;
-      --text-secondary: #8f8d8a;
+      --accent-light: color-mix(in srgb, var(--accent) 60%, white);
+
+      --bg: #08080a;
+      --bg-elevated: #0e0e11;
+      --card: #131316;
+      --card-hover: #17171b;
+      --card-border: #232228;
+      --card-border-soft: rgba(255, 255, 255, .06);
+
+      --text-primary: #f6f4f1;
+      --text-secondary: #948f8c;
       --text-muted: #5c5a58;
+
       --radius-lg: 1rem;
-      --radius-xl: 1.25rem;
+      --radius-xl: 1.35rem;
       --space: clamp(0.9rem, 2vw, 1.5rem);
 
       /* Colores de estado — cálidos y suaves, nada estridente */
@@ -44,9 +49,10 @@
       --state-entregado: #5fae7a;
       --state-rechazado: #c25b5b;
 
-      /* Curva de movimiento "elegante": entra rápido, se asienta suave */
+      /* Curvas de movimiento "premium": entra rápido, se asienta con seda */
       --ease-silk: cubic-bezier(.22, 1, .36, 1);
       --ease-soft: cubic-bezier(.16, .84, .44, 1);
+      --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
     }
 
     * {
@@ -61,11 +67,17 @@
     body {
       margin: 0;
       font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
       color: var(--text-primary);
       min-height: 100vh;
       min-height: 100svh;
-      line-height: 1.45;
+      line-height: 1.5;
+      letter-spacing: -0.011em;
+      /* Fondo con profundidad sutil: un leve resplandor cálido detrás del contenido, no un color plano */
+      background:
+        radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+        radial-gradient(90% 50% at 100% 100%, rgba(255, 255, 255, .025), transparent 60%),
+        var(--bg);
+      background-attachment: fixed;
       /* respeta el "notch"/isla dinámica en móviles */
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
@@ -81,11 +93,16 @@
     }
 
     .font-display {
-      font-family: 'Fraunces', Georgia, serif;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
 
     .font-mono {
-      font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
     }
 
     .accent-bg {
@@ -142,7 +159,7 @@
     #app {
       max-width: 42rem;
       margin: 0 auto;
-      padding: clamp(1.25rem, 4vw, 3rem) clamp(1rem, 4vw, 1.5rem);
+      padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 4vw, 1.5rem);
     }
 
     .stack {
@@ -154,44 +171,48 @@
     .card {
       border-radius: var(--radius-xl);
       background-color: var(--card);
+      background-image: linear-gradient(160deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0) 40%);
       border: 1px solid var(--card-border);
-      padding: clamp(1.1rem, 3vw, 1.6rem);
+      box-shadow:
+        0 1px 0 0 rgba(255, 255, 255, .02) inset,
+        0 20px 40px -28px rgba(0, 0, 0, .8);
+      padding: clamp(1.25rem, 3.4vw, 1.85rem);
       /* Se pinta bajo demanda: menos trabajo de layout/paint inicial en pantallas pequeñas */
       content-visibility: auto;
       contain-intrinsic-size: auto 200px;
-      transition: border-color .5s var(--ease-soft), box-shadow .5s var(--ease-soft);
+      transition: border-color .5s var(--ease-soft), box-shadow .5s var(--ease-soft), background-color .5s var(--ease-soft);
     }
 
     header.top {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1.1rem;
     }
 
     .logo {
       width: 4rem;
       height: 4rem;
-      border-radius: 1.1rem;
+      border-radius: 1.15rem;
       object-fit: cover;
-      border: 1px solid var(--card-border);
+      border: 1px solid var(--card-border-soft);
       background-color: var(--card);
       flex-shrink: 0;
-      transition: border-color .4s var(--ease-soft);
+      box-shadow: 0 8px 24px -12px rgba(0, 0, 0, .6);
+      transition: border-color .4s var(--ease-soft), transform .4s var(--ease-silk);
     }
 
     h1 {
       margin: 0;
-      font-size: clamp(1.1rem, 3.5vw, 1.3rem);
+      font-size: clamp(1.15rem, 3.5vw, 1.4rem);
       font-weight: 600;
       line-height: 1.2;
     }
 
     .eyebrow {
-      font-size: 0.7rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
       color: var(--text-secondary);
-      font-weight: 600;
+      font-weight: 500;
     }
 
     .row-between {
@@ -206,8 +227,8 @@
     .status-row {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      margin: 1.1rem 0 1.4rem;
+      gap: 0.8rem;
+      margin: 1.2rem 0 1.5rem;
     }
 
     .status-dot {
@@ -289,7 +310,7 @@
     }
 
     .status-label {
-      font-size: clamp(1rem, 3vw, 1.15rem);
+      font-size: clamp(1.05rem, 3vw, 1.25rem);
       font-weight: 600;
       display: inline-block;
       transition: color .5s var(--ease-soft);
@@ -301,7 +322,7 @@
        manual .refresh que el JS puede togglear si se desea un respiro extra). */
     .status-label,
     .status-label.refresh {
-      animation: label-in .5s var(--ease-silk) both;
+      animation: label-in .55s var(--ease-silk) both;
     }
 
     @keyframes label-in {
@@ -343,7 +364,7 @@
     .tl-dot.active {
       background-color: var(--accent);
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-      animation: tl-dot-pop .5s var(--ease-silk) both;
+      animation: tl-dot-pop .5s var(--ease-spring) both;
     }
 
     @keyframes tl-dot-pop {
@@ -353,7 +374,7 @@
       }
 
       60% {
-        transform: scale(1.35);
+        transform: scale(1.25);
       }
 
       100% {
@@ -380,7 +401,7 @@
       background-color: var(--accent);
       transform: scaleY(0);
       transform-origin: top;
-      transition: transform .6s var(--ease-silk);
+      transition: transform .65s var(--ease-silk);
     }
 
     .tl-line.active::after {
@@ -404,7 +425,7 @@
     .grid2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0.9rem 1rem;
+      gap: 1rem 1.1rem;
       font-size: 0.9rem;
     }
 
@@ -415,7 +436,7 @@
     .field-label {
       font-size: 0.72rem;
       color: var(--text-muted);
-      margin: 0 0 0.15rem;
+      margin: 0 0 0.2rem;
     }
 
     .field-value {
@@ -427,17 +448,18 @@
 
     .divider-top {
       border-top: 1px solid var(--card-border);
-      margin-top: 1rem;
-      padding-top: 1rem;
+      margin-top: 1.1rem;
+      padding-top: 1.1rem;
     }
 
     /* ---------- Productos ---------- */
     .producto {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.75rem 0;
+      gap: 0.85rem;
+      padding: 0.8rem 0;
       border-bottom: 1px solid var(--card-border);
+      transition: background-color .3s var(--ease-soft);
     }
 
     .producto:last-child {
@@ -447,10 +469,11 @@
     .producto img {
       width: 3rem;
       height: 3rem;
-      border-radius: 0.6rem;
+      border-radius: 0.7rem;
       object-fit: cover;
       background: #000;
       flex-shrink: 0;
+      border: 1px solid var(--card-border-soft);
     }
 
     .producto .info {
@@ -467,7 +490,7 @@
     .producto .detalle {
       font-size: 0.78rem;
       color: var(--text-muted);
-      margin: 0.15rem 0 0;
+      margin: 0.18rem 0 0;
     }
 
     .producto .subtotal {
@@ -479,7 +502,7 @@
 
     .total {
       font-family: 'Fraunces', serif;
-      font-size: clamp(1.1rem, 3.5vw, 1.35rem);
+      font-size: clamp(1.15rem, 3.5vw, 1.4rem);
       font-weight: 600;
       color: var(--accent);
       transition: color .4s var(--ease-soft);
@@ -488,9 +511,9 @@
     /* ---------- Skeleton ---------- */
     .skel {
       border-radius: var(--radius-xl);
-      background: linear-gradient(90deg, #151517 25%, #1c1c1f 37%, #151517 63%);
+      background: linear-gradient(90deg, #131316 25%, #1b1b1f 37%, #131316 63%);
       background-size: 800px 100%;
-      animation: shimmer 1.4s linear infinite;
+      animation: shimmer 1.5s linear infinite;
     }
 
     @keyframes shimmer {
@@ -509,7 +532,7 @@
     }
 
     #content {
-      animation: content-in .55s var(--ease-silk) both;
+      animation: content-in .6s var(--ease-silk) both;
     }
 
     @keyframes content-in {
@@ -542,20 +565,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 1.1rem;
+      margin-bottom: 1.2rem;
     }
 
     /* ---------- Banner de conexión ---------- */
     .conn-banner {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.55rem;
       font-size: 0.8rem;
       color: var(--text-secondary);
       background-color: var(--card);
       border: 1px solid var(--card-border);
-      border-radius: 0.7rem;
-      padding: 0.55rem 0.85rem;
+      border-radius: 0.8rem;
+      padding: 0.6rem 0.9rem;
       transition: opacity .4s var(--ease-soft), transform .4s var(--ease-soft);
     }
 
@@ -570,13 +593,13 @@
 
     .foot-note {
       text-align: center;
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       color: var(--text-muted);
-      padding-top: 0.4rem;
+      padding-top: 0.5rem;
     }
 
     .fade-in {
-      animation: fadeIn .55s var(--ease-silk) both;
+      animation: fadeIn .6s var(--ease-silk) both;
     }
 
     /* Cascada muy sutil entre tarjetas para que la carga se sienta orquestada, no golpeada */
@@ -584,28 +607,93 @@
       animation-delay: .02s;
     }
 
+    #btn-whatsapp.fade-in {
+      animation-delay: .06s;
+    }
+
     section.card.fade-in:nth-of-type(1) {
-      animation-delay: .07s;
+      animation-delay: .1s;
     }
 
     section.card.fade-in:nth-of-type(2) {
-      animation-delay: .13s;
+      animation-delay: .16s;
     }
 
     section.card.fade-in:nth-of-type(3) {
-      animation-delay: .19s;
+      animation-delay: .22s;
     }
 
     @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(10px);
       }
 
       to {
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    /* ---------- Botón de WhatsApp — pieza de mayor jerarquía visual de la página ---------- */
+    #btn-whatsapp {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      padding: 0.85rem 1rem;
+      border-radius: 1rem;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #05210f;
+      background: linear-gradient(155deg, #34e07f, #1fae5c 65%, #178f4c);
+      box-shadow:
+        0 1px 0 0 rgba(255, 255, 255, .35) inset,
+        0 14px 30px -14px rgba(31, 174, 92, .55);
+      overflow: hidden;
+      isolation: isolate;
+      transition: transform .4s var(--ease-silk), box-shadow .4s var(--ease-silk), filter .4s var(--ease-soft);
+    }
+
+    #btn-whatsapp .wa-icon {
+      width: 1.15rem;
+      height: 1.15rem;
+      flex-shrink: 0;
+    }
+
+    /* Brillo diagonal que recorre el botón al pasar el cursor — un solo momento, no un loop */
+    #btn-whatsapp::before {
+      content: "";
+      position: absolute;
+      inset: -20% -60%;
+      background: linear-gradient(75deg, transparent 40%, rgba(255, 255, 255, .55) 50%, transparent 60%);
+      transform: translateX(-120%);
+      transition: transform .8s var(--ease-silk);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    #btn-whatsapp:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 1px 0 0 rgba(255, 255, 255, .4) inset,
+        0 20px 36px -14px rgba(31, 174, 92, .65);
+    }
+
+    #btn-whatsapp:hover::before {
+      transform: translateX(120%);
+    }
+
+    #btn-whatsapp:active {
+      transform: translateY(0);
+      transition-duration: .15s;
+    }
+
+    #btn-whatsapp:focus-visible {
+      outline: 2px solid #34e07f;
+      outline-offset: 3px;
     }
 
     /* Pantallas muy pequeñas (gama baja / pantallas de 320px) */
@@ -630,8 +718,11 @@
       #content,
       .status-label,
       .tl-dot.active,
-      .conn-dot {
+      .conn-dot,
+      #btn-whatsapp,
+      #btn-whatsapp::before {
         animation: none !important;
+        transition: none !important;
       }
 
       .tl-line::after {
@@ -651,6 +742,91 @@
       background-color: #38bdf8;
       box-shadow: 0 0 0 4px rgba(56, 189, 248, .14);
     }
+
+    /* ---------- Modal de autenticación ---------- */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 6, .78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      z-index: 50;
+    }
+
+    .auth-card {
+      max-width: 23rem;
+      width: 100%;
+      text-align: center;
+      padding: clamp(1.75rem, 5vw, 2.25rem) clamp(1.5rem, 5vw, 1.85rem);
+    }
+
+    .auth-icon {
+      width: 3rem;
+      height: 3rem;
+      margin: 0 auto 1.1rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+
+    .auth-title {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin: 0 0 0.55rem;
+    }
+
+    .auth-copy {
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      margin: 0 0 1.5rem;
+    }
+
+    .auth-cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border-radius: 0.9rem;
+      background: linear-gradient(155deg, var(--accent-light), var(--accent) 55%, var(--accent-dark));
+      color: #1a0f08;
+      font-weight: 700;
+      font-size: 0.92rem;
+      text-decoration: none;
+      box-shadow:
+        0 1px 0 0 rgba(255, 255, 255, .3) inset,
+        0 16px 30px -16px var(--accent-glow);
+      transition: transform .4s var(--ease-silk), box-shadow .4s var(--ease-silk), filter .3s var(--ease-soft);
+    }
+
+    .auth-cta:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 1px 0 0 rgba(255, 255, 255, .35) inset,
+        0 20px 36px -14px var(--accent-glow);
+    }
+
+    .auth-cta:active {
+      transform: translateY(0);
+      transition-duration: .15s;
+    }
+
+    .auth-cta:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
   </style>
 
   <script type="module" src="/js/dasboardjs/estado_pedidos.js"></script>
@@ -664,8 +840,8 @@
     <!-- SKELETON STATE -->
     <div id="skeleton" class="stack" aria-busy="true" aria-live="polite">
       <div class="row-between" style="gap:1rem;">
-        <div class="skel" style="width:4rem;height:4rem;border-radius:1.1rem;"></div>
-        <div class="stack" style="gap:0.5rem;flex:1;">
+        <div class="skel" style="width:4rem;height:4rem;border-radius:1.15rem;"></div>
+        <div class="stack" style="gap:0.55rem;flex:1;">
           <div class="skel" style="height:1rem;width:60%;border-radius:0.4rem;"></div>
           <div class="skel" style="height:0.75rem;width:35%;border-radius:0.4rem;"></div>
         </div>
@@ -706,11 +882,17 @@
           <p class="eyebrow font-mono" id="negocio-localidad" style="margin:0.15rem 0 0;"></p>
         </div>
       </header>
-<a id="btn-whatsapp" href="#" target="_blank" rel="noopener" class="hidden fade-in"
-   style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.7rem;border-radius:0.8rem;background:#25D366;color:#04220f;font-weight:600;text-decoration:none;font-size:0.85rem;">
-  📞 Contactar con el negocio
-</a>
-      <!-- Status card -->
+
+      <a id="btn-whatsapp" href="#" target="_blank" rel="noopener" class="hidden fade-in">
+        <svg class="wa-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path
+            d="M17.47 14.38c-.29-.14-1.71-.84-1.97-.94-.27-.1-.46-.14-.66.14-.2.29-.75.94-.92 1.13-.17.2-.34.22-.63.08-.29-.15-1.22-.45-2.33-1.44-.86-.77-1.44-1.72-1.61-2-.17-.29-.02-.45.13-.59.13-.13.29-.34.44-.51.14-.17.19-.29.29-.48.1-.2.05-.36-.02-.51-.08-.14-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.5-.17 0-.36-.02-.56-.02s-.51.08-.78.36c-.27.29-1.02 1-1.02 2.43 0 1.43 1.04 2.82 1.19 3.01.15.2 2.05 3.13 4.97 4.39.69.3 1.24.48 1.66.61.7.22 1.34.19 1.84.11.56-.08 1.71-.7 1.96-1.37.24-.68.24-1.26.17-1.37-.07-.12-.26-.19-.55-.33z" />
+          <path
+            d="M12.02 2C6.5 2 2.02 6.48 2.02 12c0 1.87.51 3.63 1.4 5.14L2 22l4.99-1.31A9.95 9.95 0 0012.02 22C17.55 22 22 17.52 22 12S17.55 2 12.02 2zm0 18.13c-1.67 0-3.23-.46-4.57-1.26l-.33-.19-3.05.8.81-2.97-.21-.31A8.12 8.12 0 013.9 12c0-4.48 3.65-8.12 8.12-8.12S20.15 7.52 20.15 12s-3.65 8.13-8.13 8.13z" />
+        </svg>
+        Contactar con el negocio
+      </a>
+
       <!-- Status card -->
       <section class="card fade-in" aria-label="Estado del pedido">
         <div class="row-between">
@@ -734,7 +916,7 @@
       <!-- Cliente / entrega -->
       <section class="card fade-in" aria-label="Datos del cliente">
         <span class="eyebrow">Cliente</span>
-        <div class="grid2" style="margin-top:0.9rem;">
+        <div class="grid2" style="margin-top:0.95rem;">
           <div>
             <p class="field-label">Nombre</p>
             <p id="cliente-nombre" class="field-value text-primary"></p>
@@ -761,7 +943,7 @@
       <!-- Productos -->
       <section class="card fade-in" aria-label="Productos del pedido">
         <span class="eyebrow">Productos</span>
-        <div id="productos-list" style="margin-top:0.9rem;"></div>
+        <div id="productos-list" style="margin-top:0.95rem;"></div>
 
         <div class="row-between divider-top">
           <span class="text-secondary" style="font-size:0.9rem;">Método de pago: <span id="pago-metodo"
@@ -772,16 +954,21 @@
 
       <p class="foot-note">Actualiza automáticamente en tiempo real</p>
     </div>
-    <div id="auth-modal" class="hidden"
-      style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:50;">
-      <div class="card" style="max-width:22rem;text-align:center;">
-        <p class="font-display" style="font-size:1.1rem;margin:0 0 .5rem;">Inicia sesión para ver tu pedido</p>
-        <p class="text-secondary" style="font-size:0.85rem;margin:0 0 1rem;">
-          Por seguridad, solo la persona que realizó este pedido puede verlo. Regístrate o inicia sesión para continuar.
+    <div id="auth-modal" class="hidden auth-overlay">
+      <div class="card fade-in auth-card">
+        <div class="auth-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="10.5" width="16" height="10" rx="2.2" />
+            <path d="M7.5 10.5V7.2a4.5 4.5 0 0 1 9 0v3.3" />
+          </svg>
+        </div>
+        <p class="auth-title">Inicia sesión para ver tu pedido</p>
+        <p class="auth-copy">
+          Por seguridad, solo la persona que realizó este pedido puede verlo. Regístrate o inicia sesión para
+          continuar.
         </p>
-        <a href="/registro"
-          style="display:block;padding:0.75rem;border-radius:0.8rem;background:var(--accent);color:#04222f;font-weight:700;text-decoration:none;">Registrarme
-          / Iniciar sesión</a>
+        <a href="/registro" class="auth-cta">Registrarme / Iniciar sesión</a>
       </div>
     </div>
   </div>

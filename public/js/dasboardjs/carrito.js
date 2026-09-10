@@ -2437,9 +2437,13 @@ document
       return;
     }
 
-    const pedidoId = resultado.id;
+     const pedidoId = resultado.id;
 
-    const linkPedido = `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
+    // Con alias: no se expone el id real del negocio en la URL.
+    // Fallback al formato viejo solo si el negocio entró por ?id= (sin alias).
+    const linkPedido = aliasNegocio
+      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(aliasNegocio)}/${pedidoId}`
+      : `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
 
     closeCheckout();
     showPedidoLoader();

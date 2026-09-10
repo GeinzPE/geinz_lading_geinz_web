@@ -1,5 +1,6 @@
 import { db, auth } from "../db/db.js";
 import {
+  doc,
   getDoc,
   getDocs,
   setDoc,
@@ -9,12 +10,8 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/f
 import { tiendaDoc, clienteDoc, tiendaDescuentosCol, data_user_logeado } from "../rutas/rutas.js";
 import { setFaviconCircular } from "../favicon/favicon.js";
 
-// ─── Localidad (mismo criterio que paths.js: hardcodeado por ahora) ───
-const LOCALIDAD = "barranca";
-
-// ─── Parámetros de la URL ───
-const urlParams = new URLSearchParams(window.location.search);
-const NEGOCIO_ID = urlParams.get("id");
+// ─── Localidad: fallback para links viejos (?localidad=&id=) ───
+const LOCALIDAD_FIJA = "barranca";
 
 const USUARIOS_ROOT = "Trabajadores_Usuarios_Drivers/users/users";
 const LOGO_FALLBACK_URL = "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
@@ -24,6 +21,74 @@ const NIVELES = [
   { min: 150, label: "Nivel Plata"  },
   { min: 400, label: "Nivel Oro VIP" },
 ];
+
+/* ══════════════ Resolución de ruta ══════════════
+   Formato nuevo y seguro: /perfil/{alias}/fidelizacion/{uid}
+     -> se resuelve el negocio real (id + localidad) consultando alias_tiendas,
+        igual que en carrito.js / estado_pedidos.js. El {uid} del path es
+        informativo (la tarjeta siempre es la del usuario autenticado); no
+        se usa para las consultas, pero queda disponible por si se necesita
+        más adelante (ej. validar que coincide con auth.currentUser.uid).
+   Formato viejo (compatibilidad con links ya enviados):
+     ?localidad=&id=   -> usa esos valores tal cual, LOCALIDAD_FIJA si falta. */
+
+async function resolverNegocioDesdeAlias(alias) {
+  try {
+    const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
+    if (aliasSnap.exists()) {
+      const data = aliasSnap.data();
+      if (data.id && data.localidad) {
+        return { id: data.id, localidad: data.localidad.trim().toLowerCase() };
+      }
+    }
+  } catch (e) {
+    console.error("[fidelizacion] No se pudo resolver el alias del negocio:", e);
+  }
+  return null;
+}
+
+function parseRutaCruda() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("id")) {
+    return {
+      tipo: "id",
+      negocioId: params.get("id"),
+      localidad: params.get("localidad") || LOCALIDAD_FIJA,
+    };
+  }
+
+  const partes = window.location.pathname.split("/").filter(Boolean);
+
+  // Formato nuevo: /perfil/{alias}/fidelizacion/{uid}
+  const idxPerfil = partes.indexOf("perfil");
+  const idxFidel = partes.indexOf("fidelizacion");
+  if (idxPerfil !== -1 && idxFidel !== -1 && idxFidel === idxPerfil + 2) {
+    return {
+      tipo: "alias",
+      alias: decodeURIComponent(partes[idxPerfil + 1]),
+      uidPath: partes[idxFidel + 1] || null,
+    };
+  }
+
+  return null;
+}
+
+async function resolverRuta() {
+  const cruda = parseRutaCruda();
+  if (!cruda) return null;
+
+  if (cruda.tipo === "id") {
+    return { negocioId: cruda.negocioId, localidad: cruda.localidad };
+  }
+
+  const resuelto = await resolverNegocioDesdeAlias(cruda.alias);
+  if (!resuelto) return null;
+  return { negocioId: resuelto.id, localidad: resuelto.localidad };
+}
+
+// ─── Estas dos se completan de forma async antes de arrancar (ver INIT al final) ───
+let LOCALIDAD = LOCALIDAD_FIJA;
+let NEGOCIO_ID = null;
 
 async function cargarProductos(negocioId){
   try{
@@ -557,10 +622,19 @@ async function cargarDatos(uid){
 
 /* ══════════════════════════════════════════
    INIT
+   Primero se resuelve la ruta (alias -> negocioId + localidad, o el
+   formato viejo por query params), y recién con eso se arranca el
+   listener de autenticación.
    ══════════════════════════════════════════ */
-if (!NEGOCIO_ID) {
-  showError("Enlace inválido: falta el negocio.");
-} else {
+(async () => {
+  const ruta = await resolverRuta();
+  if (!ruta) {
+    showError("Enlace inválido: falta el negocio.");
+    return;
+  }
+  NEGOCIO_ID = ruta.negocioId;
+  LOCALIDAD = ruta.localidad;
+
   onAuthStateChanged(auth, (user) => {
     if (!user) {
       showLoginGate();
@@ -568,4 +642,4 @@ if (!NEGOCIO_ID) {
     }
     cargarDatos(user.uid);
   });
-}
+})();

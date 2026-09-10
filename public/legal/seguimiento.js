@@ -30,6 +30,7 @@ const ESTADO_META = {
   pendiente: { texto: "Pendiente", clase: "status-pendiente" },
   en_proceso: { texto: "En proceso", clase: "status-proceso" },
   proceso: { texto: "En proceso", clase: "status-proceso" },
+  respondido: { texto: "Respondido", clase: "status-respondido" },
   resuelto: { texto: "Resuelto", clase: "status-resuelto" },
   atendido: { texto: "Resuelto", clase: "status-resuelto" },
   rechazado: { texto: "Rechazado", clase: "status-rechazado" },
@@ -175,6 +176,17 @@ function formatFecha(ts) {
   }
 }
 
+// Escapa HTML antes de insertar texto libre (respuesta del negocio) con innerHTML,
+// para que un reclamo o respuesta no pueda romper el layout ni inyectar markup.
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function renderResultBody(data) {
   const body = document.getElementById("resultBody");
   body.innerHTML = "";
@@ -208,6 +220,22 @@ function renderResultBody(data) {
     body.insertAdjacentHTML(
       "beforeend",
       `<div class="result-row"><span class="result-label">Fecha de registro</span><span class="result-value">${fechaTxt}</span></div>`,
+    );
+  }
+
+  // ── Respuesta del negocio ──
+  // Si el negocio ya contestó desde el panel Legal (respuesta_tienda.texto),
+  // se muestra destacada debajo de los datos del reclamo.
+  const respuesta = data.respuesta_tienda;
+  if (respuesta?.texto) {
+    const fechaResp = formatFecha(respuesta.fecha);
+    body.insertAdjacentHTML(
+      "beforeend",
+      `<div class="respuesta-card">
+        <div class="respuesta-header"><i class="fa-solid fa-reply"></i> Respuesta del negocio</div>
+        <div class="respuesta-texto">${escapeHtml(respuesta.texto)}</div>
+        ${fechaResp ? `<div class="respuesta-fecha">Respondido el ${fechaResp}</div>` : ""}
+      </div>`,
     );
   }
 }
@@ -330,6 +358,8 @@ function renderEstado(estadoRaw) {
           notFoundCard.style.display = "block";
         } else {
           const data = snap.docs[0].data();
+          console.log("🔍 DEBUG documento del reclamo:", data);
+          console.log("🔍 DEBUG respuesta_tienda:", data.respuesta_tienda);
           document.getElementById("resultCodigo").textContent = data.codigo_seguimiento || codigo;
           renderEstado(data.estado);
           renderResultBody(data);

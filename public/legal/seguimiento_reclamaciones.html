@@ -96,6 +96,8 @@
         .status-pendiente .status-dot { background: #fab005; }
         .status-proceso { background: rgba(76, 154, 255, .14); color: #4c9aff; border: 1px solid rgba(76, 154, 255, .35); }
         .status-proceso .status-dot { background: #4c9aff; }
+        .status-respondido { background: rgba(76, 154, 255, .14); color: #4c9aff; border: 1px solid rgba(76, 154, 255, .35); }
+        .status-respondido .status-dot { background: #4c9aff; }
         .status-resuelto { background: rgba(64, 199, 132, .14); color: #40c784; border: 1px solid rgba(64, 199, 132, .35); }
         .status-resuelto .status-dot { background: #40c784; }
         .status-rechazado { background: rgba(255, 107, 107, .14); color: #ff6b6b; border: 1px solid rgba(255, 107, 107, .35); }
@@ -125,6 +127,26 @@
             overflow-wrap: break-word;
             word-break: break-word;
         }
+
+        /* ── Respuesta del negocio ── */
+        .respuesta-card {
+            margin-top: 22px;
+            padding: 20px 22px;
+            border-radius: 18px;
+            background: rgba(var(--dr), var(--dg), var(--db), .08);
+            border: 1px solid rgba(var(--dr), var(--dg), var(--db), .28);
+        }
+        .respuesta-header {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+            color: rgb(var(--dr), var(--dg), var(--db));
+            margin-bottom: 10px;
+        }
+        .respuesta-texto {
+            font-size: 14.5px; line-height: 1.65; color: #f4f4f5;
+            white-space: pre-line; overflow-wrap: break-word; word-break: break-word;
+        }
+        .respuesta-fecha { font-size: 11.5px; color: #9c9ca3; margin-top: 12px; }
 
         .codigo-box {
             display: inline-flex; align-items: center; gap: 10px;

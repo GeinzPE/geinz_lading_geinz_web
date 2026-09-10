@@ -64,10 +64,25 @@ let editandoDescuentoId = null; // si no es null, el próximo "agregar" hace upd
 const CLIENTES_POR_PAGINA = 50;
 let paginaClientesActual = 1;
 
+function obtenerPrecioProductoParaValidar() {
+  // Si estás editando, usa el precio guardado del descuento (el select de
+  // producto no necesariamente refleja el producto que se está editando).
+  if (editandoDescuentoId) {
+    const data = descuentosCache.find((d) => d.id === editandoDescuentoId);
+    if (data && data.precioOriginal != null) return Number(data.precioOriginal);
+  }
+  const id = document.getElementById("prodDelCatalogo").value;
+  const p = productosCache[id];
+  return p && p.precio != null ? Number(p.precio) : null;
+}
+
 function validarCamposBeneficio(tipo) {
+  const precio = obtenerPrecioProductoParaValidar();
   if (tipo === "monto") {
     const v = Number(document.getElementById("descuentoMontoCatalogo").value);
     if (!v || v <= 0) return "Ingresa el monto de descuento (S/)";
+    if (precio != null && v >= precio)
+      return `El descuento (S/ ${v.toFixed(2)}) no puede ser igual o mayor al precio del producto (S/ ${precio.toFixed(2)})`;
   } else if (tipo === "porcentaje") {
     const v = Number(
       document.getElementById("descuentoPorcentajeCatalogo").value,
@@ -82,6 +97,112 @@ function validarCamposBeneficio(tipo) {
       return "Ingresa unidades de compra y paga válidas (paga menor que compra)";
   }
   return null;
+}
+/* ---- Texto libre: tipo de descuento (personalizado / porcentaje / monto) ---- */
+function actualizarCamposTipoDescuentoManual() {
+  const tipo = document.getElementById("tipoDescuentoManual").value;
+  document.getElementById("manualCamposPersonalizado").style.display =
+    tipo === "personalizado" ? "block" : "none";
+  document.getElementById("manualCamposPorcentaje").style.display =
+    tipo === "porcentaje" ? "block" : "none";
+  document.getElementById("manualCamposMonto").style.display =
+    tipo === "monto" ? "block" : "none";
+  document.getElementById("manualCompraMinimaWrap").style.display =
+    tipo === "porcentaje" || tipo === "monto" ? "block" : "none";
+  actualizarPreviewManual();
+}
+document
+  .getElementById("tipoDescuentoManual")
+  .addEventListener("change", actualizarCamposTipoDescuentoManual);
+
+function actualizarPreviewManual() {
+  const tipo = document.getElementById("tipoDescuentoManual").value;
+  const prev = document.getElementById("manualPreview");
+  const texto = document.getElementById("manualPreviewTexto");
+  const compraMin =
+    Number(document.getElementById("manualCompraMinima").value) || 0;
+
+  if (tipo === "personalizado") {
+    prev.style.display = "none";
+    return;
+  }
+  let base = "";
+  if (tipo === "porcentaje") {
+    const pct = Number(document.getElementById("manualPorcentaje").value) || 0;
+    base = pct > 0 ? `${pct}% de descuento` : "";
+  } else if (tipo === "monto") {
+    const monto = Number(document.getElementById("manualMonto").value) || 0;
+    base = monto > 0 ? `S/ ${monto.toFixed(2)} de descuento` : "";
+  }
+  if (!base) {
+    prev.style.display = "none";
+    return;
+  }
+  texto.textContent =
+    compraMin > 0
+      ? `${base} en compras mayores a S/ ${compraMin.toFixed(2)}`
+      : base;
+  prev.style.display = "flex";
+}
+["manualPorcentaje", "manualMonto", "manualCompraMinima"].forEach((id) => {
+  document
+    .getElementById(id)
+    .addEventListener("input", actualizarPreviewManual);
+});
+
+/* Arma nombre/valor/estructura final según el tipo elegido, o devuelve
+   { error } si falta algo. Esto es lo que guarda btnAgregarDescuento. */
+function obtenerDatosDescuentoManual() {
+  const tipo = document.getElementById("tipoDescuentoManual").value;
+  const compraMinima =
+    Number(document.getElementById("manualCompraMinima").value) || 0;
+
+  if (tipo === "personalizado") {
+    const nombre = document.getElementById("descNombre").value.trim();
+    const valor = document.getElementById("descValor").value.trim();
+    if (!nombre) return { error: "Escribe un nombre para el descuento" };
+    return { tipo, nombre, valor, compraMinima: 0 };
+  }
+
+  if (tipo === "porcentaje") {
+    const pct = Number(document.getElementById("manualPorcentaje").value);
+    if (!pct || pct <= 0 || pct > 100)
+      return { error: "Ingresa un porcentaje válido (1–100)" };
+    const nombre =
+      compraMinima > 0
+        ? `${pct}% de descuento en compras mayores a S/ ${compraMinima.toFixed(2)}`
+        : `${pct}% de descuento`;
+    return { tipo, nombre, valor: `${pct}%`, porcentaje: pct, compraMinima };
+  }
+
+  if (tipo === "monto") {
+    const monto = Number(document.getElementById("manualMonto").value);
+    if (!monto || monto <= 0)
+      return { error: "Ingresa el monto de descuento (S/)" };
+    const nombre =
+      compraMinima > 0
+        ? `S/ ${monto.toFixed(2)} de descuento en compras mayores a S/ ${compraMinima.toFixed(2)}`
+        : `S/ ${monto.toFixed(2)} de descuento`;
+    return { tipo, nombre, valor: `S/ ${monto.toFixed(2)}`, monto, compraMinima };
+  }
+
+  return { error: "Elige un tipo de descuento" };
+}
+
+// Estado inicial correcto al cargar la página
+actualizarCamposTipoDescuentoManual();
+
+/* ---- NUEVO: cancela cualquier edición pendiente y devuelve los botones
+   a su estado normal. Se llama cada vez que el usuario cambia de producto,
+   cambia de modo (catálogo/manual), o termina de guardar/eliminar, para
+   que "editandoDescuentoId" nunca quede apuntando a un doc que ya no existe
+   (eso es lo que provocaba el "No document to update"). ---- */
+function cancelarEdicionDescuento() {
+  editandoDescuentoId = null;
+  const btnCat = document.getElementById("btnAgregarDesdeCatalogo");
+  const btnManual = document.getElementById("btnAgregarDescuento");
+  if (btnCat) btnCat.textContent = "Agregar desde catálogo";
+  if (btnManual) btnManual.textContent = "Agregar producto";
 }
 
 function currentConfigDoc() {
@@ -243,6 +364,8 @@ document.querySelectorAll(".mode-card").forEach((card) => {
       origen === "catalogo" ? "block" : "none";
     document.getElementById("modo-manual").style.display =
       origen === "manual" ? "block" : "none";
+    // Si el usuario cambia de modo sin guardar, cancela cualquier edición pendiente
+    cancelarEdicionDescuento();
   });
 });
 
@@ -328,9 +451,13 @@ function resetProductos() {
   prodSel.disabled = true;
   document.getElementById("prodPreview").style.display = "none";
   document.getElementById("previewPrecioFinalCatalogo").style.display = "none";
+  const variantesEl = document.getElementById("prodPreviewVariantes");
+  if (variantesEl) {
+    variantesEl.innerHTML = "";
+    variantesEl.style.display = "none";
+  }
   productosCache = {};
 }
-
 async function loadCategorias() {
   const catSel = document.getElementById("prodCategoria");
   resetProductos();
@@ -419,6 +546,10 @@ async function loadProductosDeCategoria() {
   }
 }
 document.getElementById("prodDelCatalogo").addEventListener("change", () => {
+  // NUEVO: si estabas editando un descuento y cambias de producto, esa edición
+  // ya no tiene sentido (el ID de descuento vive ligado al ID de producto) —
+  // cancelarla evita que un guardado posterior intente actualizar un doc viejo.
+  cancelarEdicionDescuento();
   mostrarPreviewProducto();
   actualizarPreviewPrecioFinal();
 });
@@ -450,22 +581,58 @@ function mostrarPreviewProducto() {
   if (p.disponible === false) sub += " · No disponible";
   document.getElementById("prodPreviewPrecio").textContent = sub;
   prev.style.display = "flex";
+  // Variantes del producto (ej: "helado" / "sin helar")
+  const variantesEl = document.getElementById("prodPreviewVariantes");
+  if (variantesEl) {
+    if (Array.isArray(p.condiciones) && p.condiciones.length) {
+      variantesEl.innerHTML = p.condiciones
+        .map((cond) => {
+          const opciones = Array.isArray(cond.opciones) ? cond.opciones : [];
+          const txt = opciones
+            .map((op) => {
+              const extra = op.costoAdicional
+                ? ` (+S/ ${Number(op.costoAdicional).toFixed(2)})`
+                : "";
+              const estado = op.activo === false ? " · no disponible" : "";
+              return `${escapeHtml(op.nombre || "opción")}${extra}${estado}`;
+            })
+            .join(", ");
+          return `<b>${escapeHtml(cond.nombre || "Variantes")}:</b> ${txt || "sin opciones"}`;
+        })
+        .join("<br>");
+      variantesEl.style.display = "block";
+    } else {
+      variantesEl.innerHTML = "";
+      variantesEl.style.display = "none";
+    }
+  }
 }
 
 /* ===================================================================
    DESCUENTOS / PRODUCTOS A CANJEAR (guardado en Firestore, vía rutas.js)
    Tiendas/.../distrito/<distrito>/tiendas/<tiendaId>/descuentos/<id>
+
+   IMPORTANTE (corregido): los productos que vienen "desde catálogo" se
+   guardan con setDoc(tiendaDescuentoDoc(..., id_del_producto)), es decir,
+   el ID del documento de descuento ES el mismo ID del producto en el
+   catálogo (no uno nuevo con addDoc). Así, volver a "agregar" el mismo
+   producto actualiza el descuento existente en vez de duplicarlo, y en
+   canjes/historial vas a poder rastrear a qué producto real corresponde.
+
+   Todos los guardados usan setDoc({merge:true}) en vez de updateDoc:
+   updateDoc() falla con "No document to update" si el documento no
+   existe (por ejemplo si alguien lo borró mientras estabas editando).
+   setDoc con merge:true nunca falla por eso: si no existe, lo crea.
    =================================================================== */
 document
   .getElementById("btnAgregarDescuento")
   .addEventListener("click", async (e) => {
-    const nombre = document.getElementById("descNombre").value.trim();
-    const valor = document.getElementById("descValor").value.trim();
-    const costo = document.getElementById("descCosto").value;
-    if (!nombre) {
-      showToast("Escribe un nombre para el descuento", true);
+    const datos = obtenerDatosDescuentoManual();
+    if (datos.error) {
+      showToast(datos.error, true);
       return;
     }
+    const costo = document.getElementById("descCosto").value;
     if (!costo || Number(costo) <= 0) {
       showToast("Ingresa el costo en puntos", true);
       return;
@@ -486,19 +653,24 @@ document
     try {
       const payload = {
         origen: "manual",
-        nombre,
-        valor,
+        nombre: datos.nombre,
+        valor: datos.valor,
+        tipoDescuentoManual: datos.tipo,
+        porcentajeManual: datos.porcentaje ?? null,
+        montoManual: datos.monto ?? null,
+        compraMinima: datos.compraMinima || 0,
         costoPuntos: Number(costo) || 0,
       };
       if (editandoDescuentoId) {
-        await updateDoc(
+        // setDoc+merge en vez de updateDoc: si el doc ya no existe, lo recrea
+        // en vez de tirar "No document to update".
+        await setDoc(
           tiendaDescuentoDoc(distrito, tiendaId, editandoDescuentoId),
           payload,
+          { merge: true },
         );
         showToast("Descuento actualizado");
-        editandoDescuentoId = null;
-        document.getElementById("btnAgregarDescuento").textContent =
-          "Agregar producto";
+        cancelarEdicionDescuento();
       } else {
         payload.creado = new Date().toISOString();
         await addDoc(tiendaDescuentosCol(distrito, tiendaId), payload);
@@ -507,6 +679,11 @@ document
       document.getElementById("descNombre").value = "";
       document.getElementById("descValor").value = "";
       document.getElementById("descCosto").value = "";
+      document.getElementById("manualPorcentaje").value = "";
+      document.getElementById("manualMonto").value = "";
+      document.getElementById("manualCompraMinima").value = "";
+      document.getElementById("tipoDescuentoManual").value = "personalizado";
+      actualizarCamposTipoDescuentoManual();
       await loadDescuentos();
     } catch (err) {
       showToast("Error: " + err.message, true);
@@ -592,22 +769,29 @@ document
         costoPuntos: Number(costo) || 0,
       };
       if (editandoDescuentoId) {
-        await updateDoc(
+        // setDoc+merge en vez de updateDoc: si el doc ya no existe
+        // (por ejemplo el producto se eliminó del catálogo mientras
+        // editabas), lo recrea en vez de tirar "No document to update".
+        await setDoc(
           tiendaDescuentoDoc(distrito, tiendaId, editandoDescuentoId),
           payload,
+          { merge: true },
         );
         showToast("Producto actualizado");
-        editandoDescuentoId = null;
-        document.getElementById("btnAgregarDesdeCatalogo").textContent =
-          "Agregar desde catálogo";
+        cancelarEdicionDescuento();
       } else {
-        await addDoc(tiendaDescuentosCol(distrito, tiendaId), {
+        // Mismo id que el producto del catálogo: si se vuelve a "agregar"
+        // el mismo producto, actualiza el descuento existente en vez de
+        // duplicarlo. Esto es lo que guarda el "id del producto de
+        // catálogo" en vez de generar un id nuevo con addDoc.
+        await setDoc(tiendaDescuentoDoc(distrito, tiendaId, id), {
           origen: "catalogo",
           productoId: id,
           categoria: categoriaSeleccionada,
           nombre: p.nombre || "(sin nombre)",
           precioOriginal,
           imagenUrl: imgUrl,
+          condiciones: Array.isArray(p.condiciones) ? p.condiciones : [],
           creado: new Date().toISOString(),
           ...payload,
         });
@@ -673,7 +857,10 @@ async function loadDescuentos() {
       } else if (data.valor) {
         precioTxt = data.valor;
       }
-
+      const variantesTxt =
+        esCatalogo && Array.isArray(data.condiciones) && data.condiciones.length
+          ? data.condiciones.map((c) => escapeHtml(c.nombre || "")).join(" · ")
+          : "";
       cont.insertAdjacentHTML(
         "beforeend",
         `
@@ -682,6 +869,7 @@ async function loadDescuentos() {
           <div class="item-main">
             <div class="item-title">${escapeHtml(data.nombre)} ${origenBadge}</div>
             <div class="item-sub">${data.costoPuntos || 0} puntos${precioTxt ? " · " + escapeHtml(String(precioTxt)) : ""}</div>
+            ${variantesTxt ? `<div class="item-sub" style="margin-top:2px;">Variantes: ${escapeHtml(variantesTxt)}</div>` : ""}
           </div>
           <div class="item-remove" data-id="${d.id}" data-col="descuentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
         </div>`,
@@ -702,6 +890,9 @@ function wireRemoveButtons() {
       btn.style.opacity = "0.4";
       showLoading();
       try {
+        // NUEVO: si justo estabas editando este mismo descuento, cancela la
+        // edición para no dejar "editandoDescuentoId" apuntando a un doc borrado.
+        if (editandoDescuentoId === btn.dataset.id) cancelarEdicionDescuento();
         await deleteDoc(tiendaDescuentoDoc(distrito, tiendaId, btn.dataset.id));
         showToast("Eliminado");
         await loadDescuentos();
@@ -752,14 +943,24 @@ function cargarDescuentoParaEditar(data) {
     document.getElementById("descCostoCatalogo").value = data.costoPuntos ?? "";
     document.getElementById("btnAgregarDesdeCatalogo").textContent =
       "Guardar cambios";
-  } else {
+    } else {
     document.getElementById("origenManual").classList.add("selected");
     document.getElementById("modo-catalogo").style.display = "none";
     document.getElementById("modo-manual").style.display = "block";
 
-    document.getElementById("descNombre").value = data.nombre || "";
-    document.getElementById("descValor").value = data.valor || "";
+    const tipoManual = data.tipoDescuentoManual || "personalizado";
+    document.getElementById("tipoDescuentoManual").value = tipoManual;
+    document.getElementById("descNombre").value =
+      tipoManual === "personalizado" ? data.nombre || "" : "";
+    document.getElementById("descValor").value =
+      tipoManual === "personalizado" ? data.valor || "" : "";
+    document.getElementById("manualPorcentaje").value =
+      data.porcentajeManual ?? "";
+    document.getElementById("manualMonto").value = data.montoManual ?? "";
+    document.getElementById("manualCompraMinima").value =
+      data.compraMinima || "";
     document.getElementById("descCosto").value = data.costoPuntos ?? "";
+    actualizarCamposTipoDescuentoManual();
     document.getElementById("btnAgregarDescuento").textContent =
       "Guardar cambios";
   }
@@ -888,7 +1089,11 @@ async function confirmarAjuste(clienteId, nombreCliente) {
   }
 }
 
-/* ---- Registrar un canje presencial ---- */
+/* ---- Registrar un canje presencial ----
+   NUEVO: ahora también se guarda "productoId" (y "descuentoId") en el
+   documento de canje, tomados del producto de catálogo original, para
+   poder rastrear en el historial a qué producto real corresponde cada
+   canje (antes solo se guardaba el nombre en texto). ---- */
 function openCanjeModal(clienteId, nombreCliente, puntosActuales) {
   if (!descuentosCache.length) {
     openModal(`
@@ -944,6 +1149,12 @@ async function confirmarCanje(clienteId, nombreCliente, puntosActuales) {
       cliente: nombreCliente,
       clienteId,
       recompensa: desc.nombre,
+      // NUEVO: guarda el ID real del producto de catálogo (el mismo que el
+      // ID del descuento, ver btnAgregarDesdeCatalogo) en vez de dejarlo
+      // solo en texto. Si el descuento es "manual" (sin producto real),
+      // queda null.
+      productoId: desc.origen === "catalogo" ? desc.productoId ?? desc.id : null,
+      descuentoId: desc.id,
       puntos: -costo,
       fecha: new Date().toISOString(),
       sucursal: distrito,
@@ -1871,7 +2082,7 @@ async function loadHistorial() {
       const tipo = c.tipo || "canje";
       const tipoLabel = tipo === "ajuste" ? "Ajuste" : "Canje";
       const puntosTxt = (puntos > 0 ? "+" : "") + puntos;
-rows += `<tr>
+      rows += `<tr>
   <td data-label="Fecha">${fechaTxt}</td>
   <td class="cell-name" data-label="Cliente">${escapeHtml(c.cliente || "—")}</td>
   <td data-label="Recompensa">${escapeHtml(c.recompensa || "—")}</td>
