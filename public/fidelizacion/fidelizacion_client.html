@@ -11,12 +11,13 @@
 
   <!-- Tipografías: Sora, Inter, IBM Plex Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap"
     rel="stylesheet">
 
-  <!-- QR con estilo de puntos (misma librería/CDN que ya te funciona en el generador) -->
-  <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+  <!-- QR con estilo de puntos (defer: no bloquea el primer render en redes lentas) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
 
   <script type="module" src="/js/fidelizacion.js/fidelizacion.js"></script>
   <style>
@@ -35,6 +36,31 @@
 
     html {
       -webkit-text-size-adjust: 100%;
+      overflow-x: hidden;
+    }
+
+    /* ---------- Scrollbar oscuro en toda la página (nunca blanco) ---------- */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.18) rgba(255, 255, 255, 0.03);
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
     }
 
     body {
@@ -48,6 +74,7 @@
       padding-top: max(1.5rem, env(safe-area-inset-top));
       padding-bottom: max(2rem, env(safe-area-inset-bottom));
       min-height: 100dvh;
+      overflow-x: hidden;
       transition: background 0.5s ease;
     }
 
@@ -246,11 +273,13 @@
     }
 
     .chip-tier {
-      background: color-mix(in srgb, var(--brand-vivid) 15%, rgba(0, 0, 0, 0.4));
+      /* Antes usaba backdrop-filter: blur(); es de las propiedades más
+         caras para GPUs de gama baja, así que se reemplaza por un fondo
+         sólido semitransparente que da el mismo look sin el costo. */
+      background: color-mix(in srgb, var(--brand-vivid) 22%, rgba(10, 10, 12, 0.92));
       border: 1px solid color-mix(in srgb, var(--brand-vivid) 50%, transparent);
       color: color-mix(in srgb, var(--brand-vivid) 90%, white 10%);
       box-shadow: 0 0 12px color-mix(in srgb, var(--brand-vivid) 20%, transparent);
-      backdrop-filter: blur(8px);
       letter-spacing: 0.2em;
     }
 
@@ -315,13 +344,15 @@
     /* ---------- Reverso: QR estilo puntos (IG) ---------- */
     .qr-frame {
       background: #ffffff;
-      border-radius: 20px;
-      padding: 16px;
+      border-radius: 18px;
+      padding: clamp(12px, 4%, 20px);
       box-shadow:
         0 0 0 1px color-mix(in srgb, var(--brand-vivid) 45%, transparent),
         0 20px 45px -15px color-mix(in srgb, var(--brand-vivid) 45%, transparent);
-      width: clamp(220px, 62vw, 280px);
-      height: clamp(220px, 62vw, 280px);
+      /* Proporcional al ancho de la tarjeta (no del viewport), pero
+         con un tope más generoso para que en PC no se vea diminuto. */
+      width: clamp(180px, 58%, 260px);
+      aspect-ratio: 1 / 1;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -358,11 +389,14 @@
     /* ---------- Tarjetas de Recompensa ---------- */
     .reward-card {
       position: relative;
-      background: linear-gradient(180deg, rgba(18, 20, 26, 0.8) 0%, rgba(10, 11, 14, 0.95) 100%);
+      /* Antes llevaba backdrop-filter: blur(); se quita por rendimiento
+         en equipos de gama baja y se compensa con un fondo un poco más
+         opaco para mantener la profundidad visual. */
+      background: linear-gradient(180deg, rgba(20, 22, 28, 0.92) 0%, rgba(9, 10, 13, 0.98) 100%);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(12px);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
       overflow: hidden;
+      min-width: 0;
     }
 
     .reward-card::before {
@@ -379,6 +413,17 @@
       transform: translateY(-3px);
       border-color: color-mix(in srgb, var(--brand-vivid) 45%, transparent);
       box-shadow: 0 12px 25px -8px color-mix(in srgb, var(--brand-vivid) 20%, transparent);
+    }
+
+    /* Evita que los nombres largos ("Arroz chuafa") se partan en
+       columnas angostas: se recortan con puntos suspensivos en vez
+       de romperse letra a letra. */
+    .reward-card p,
+    .reward-card span,
+    .reward-card h3 {
+      overflow-wrap: normal;
+      word-break: normal;
+      hyphens: none;
     }
 
     .reward-icon {
@@ -413,7 +458,7 @@
       cursor: not-allowed;
     }
 
-      .hp-section {
+    .hp-section {
       border-radius: 20px;
       background: linear-gradient(180deg, rgba(18, 20, 26, .55) 0%, rgba(10, 11, 14, .55) 100%);
       border: 1px solid rgba(255, 255, 255, .07);
@@ -455,15 +500,23 @@
       transform: rotate(180deg);
     }
 
+    /* Técnica de grid-template-rows en vez de max-height: anima al
+       tamaño real del contenido (no a un valor arbitrario como 2000px),
+       así se siente instantáneo y fluido incluso en equipos lentos. */
     .hp-body {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height .32s ease, padding .32s ease;
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .32s cubic-bezier(.4, 0, .2, 1), padding .32s ease;
       padding: 0 14px;
     }
 
+    .hp-body-inner {
+      overflow: hidden;
+      min-height: 0;
+    }
+
     .hp-section.open .hp-body {
-      max-height: 2000px;
+      grid-template-rows: 1fr;
       padding: 0 14px 14px;
     }
 
@@ -473,6 +526,15 @@
       overflow-x: auto;
       padding-bottom: 10px;
       margin-bottom: 4px;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      /* Se puede seguir deslizando, pero sin barra visible */
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .hp-filtros::-webkit-scrollbar {
+      display: none;
     }
 
     .hp-chip {
@@ -559,6 +621,179 @@
       opacity: .4;
       cursor: not-allowed;
     }
+
+    /* Encabezados de columna (Canjea tus puntos / Historial), para
+       que ambas secciones compartan la misma jerarquía visual. */
+    #colRecompensas>.flex,
+    .hp-toggle-btn {
+      min-height: 44px;
+    }
+
+    /* ==========================================================
+       TABLET (768px – 1279px): la tarjeta queda fija a la
+       izquierda; recompensas e historial forman una sola columna
+       fluida a la derecha, uno debajo del otro. Nada de columnas
+       fijas angostas que se aprieten.
+       ========================================================== */
+    @media (min-width: 768px) {
+      body {
+        padding-top: 2.5rem;
+        padding-bottom: 2.5rem;
+      }
+
+      #appContent {
+        width: 100%;
+        max-width: 900px;
+        display: grid;
+        grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+        grid-template-areas:
+          "carta recompensas"
+          "carta historial";
+        column-gap: 32px;
+        row-gap: 28px;
+        align-items: start;
+      }
+
+      #colCarta {
+        grid-area: carta;
+        position: sticky;
+        top: 40px;
+      }
+
+      #colRecompensas {
+        grid-area: recompensas;
+        min-width: 0;
+      }
+
+      #colHistorial {
+        grid-area: historial;
+        min-width: 0;
+      }
+
+      .card-scene {
+        margin-bottom: 0 !important;
+      }
+
+      .card-scene .card {
+        max-width: 300px;
+        margin: 0 auto;
+      }
+
+      #rewardsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 14px;
+      }
+
+      #errorBox {
+        grid-column: 1 / -1;
+      }
+    }
+
+    /* ==========================================================
+       DESKTOP (≥1280px): se mantiene la misma idea de 2 columnas
+       que en tablet -- tarjeta fija a la izquierda, y "Canjea tus
+       puntos" arriba de "Historial de puntos" en una sola columna
+       a la derecha. Nunca 3 columnas: en pantallas grandes 3
+       columnas separadas dejan el historial como una tira angosta
+       y se ve mal, así que en vez de eso todo respira más ancho.
+       ========================================================== */
+    @media (min-width: 1280px) {
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #appContent {
+        width: 100%;
+        max-width: min(1180px, 88vw);
+        grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+        grid-template-areas:
+          "carta recompensas"
+          "carta historial";
+        column-gap: 56px;
+        row-gap: 36px;
+      }
+
+      #colCarta {
+        grid-area: carta;
+        position: sticky;
+        top: 40px;
+      }
+
+      #colRecompensas {
+        grid-area: recompensas;
+        min-width: 0;
+      }
+
+      #colHistorial {
+        grid-area: historial;
+        min-width: 0;
+      }
+
+      .card-scene .card {
+        max-width: 400px;
+      }
+
+      #rewardsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 18px;
+      }
+
+      .hp-section {
+        max-height: calc(100vh - 220px);
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* En PC, el límite de alto y el scroll interno van en el
+         wrapper interno, no en .hp-body (que ahora solo controla la
+         animación de expandir/colapsar vía grid-template-rows). */
+      .hp-body-inner {
+        max-height: calc(100vh - 320px);
+        overflow-y: auto;
+      }
+    }
+
+    @media (min-width: 1680px) {
+      #appContent {
+        max-width: min(1320px, 82vw);
+        column-gap: 64px;
+      }
+
+      .card-scene .card {
+        max-width: 420px;
+      }
+
+      #rewardsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 20px;
+      }
+    }
+
+    /* Respeta "reducir movimiento" del sistema y sirve además como
+       colchón extra de rendimiento en equipos muy limitados. */
+    @media (prefers-reduced-motion: reduce) {
+
+      .skeleton,
+      .flip-hint-icon,
+      .card-flipper,
+      .card-tilt,
+      .hp-body,
+      .hp-chevron,
+      .reward-card,
+      .btn-redeem,
+      .hp-chip {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
   </style>
 </head>
 
@@ -566,11 +801,12 @@
 
   <!-- ============ SKELETON DE PANTALLA COMPLETA ============ -->
   <div id="fullSkeleton"
-    class="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-[#060709] px-4 py-10">
-    <div class="w-full max-w-md mx-auto">
+    class="fixed inset-0 z-50 flex flex-col items-center sm:justify-center overflow-y-auto bg-[#060709] px-4 py-10">
+    <div
+      class="w-full max-w-md mx-auto md:max-w-3xl md:grid md:grid-cols-[300px_1fr] md:gap-8 md:items-start xl:max-w-[1180px] xl:grid-cols-[400px_1fr] xl:gap-14">
 
       <!-- Skeleton de la tarjeta -->
-      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] flex flex-col items-center px-6 py-8 mb-8">
+      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] flex flex-col items-center px-6 py-8 mb-8 md:mb-0">
         <div class="skeleton w-[74px] h-[74px] rounded-full"></div>
         <div class="skeleton h-4 w-32 rounded mt-4"></div>
         <div class="skeleton h-3 w-16 rounded-full mt-3"></div>
@@ -587,33 +823,35 @@
         <div class="skeleton h-7 w-full max-w-[220px] rounded"></div>
       </div>
 
-      <!-- Skeleton del título de recompensas -->
-      <div class="flex items-center justify-between mb-3.5 px-1">
-        <div class="skeleton h-3.5 w-28 rounded"></div>
-        <div class="skeleton h-3 w-12 rounded"></div>
-      </div>
+      <div>
+        <!-- Skeleton del título de recompensas -->
+        <div class="flex items-center justify-between mb-3.5 px-1">
+          <div class="skeleton h-3.5 w-28 rounded"></div>
+          <div class="skeleton h-3 w-12 rounded"></div>
+        </div>
 
-      <!-- Skeleton del grid de recompensas -->
-      <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
-        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-          <div class="skeleton h-3 w-2/3 rounded"></div>
-        </div>
-        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-          <div class="skeleton h-3 w-2/3 rounded"></div>
-        </div>
-        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-          <div class="skeleton h-3 w-2/3 rounded"></div>
-        </div>
-        <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
-          <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
-          <div class="skeleton h-3 w-full rounded mb-1.5"></div>
-          <div class="skeleton h-3 w-2/3 rounded"></div>
+        <!-- Skeleton del grid de recompensas -->
+        <div class="grid grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3">
+          <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+            <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+            <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+            <div class="skeleton h-3 w-2/3 rounded"></div>
+          </div>
+          <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+            <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+            <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+            <div class="skeleton h-3 w-2/3 rounded"></div>
+          </div>
+          <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+            <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+            <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+            <div class="skeleton h-3 w-2/3 rounded"></div>
+          </div>
+          <div class="rounded-2xl border border-white/5 bg-[#0d0e12] p-3.5 h-[132px]">
+            <div class="skeleton w-10 h-10 rounded-xl mb-2.5"></div>
+            <div class="skeleton h-3 w-full rounded mb-1.5"></div>
+            <div class="skeleton h-3 w-2/3 rounded"></div>
+          </div>
         </div>
       </div>
 
@@ -622,130 +860,142 @@
   <div id="appContent" class="w-full max-w-md mx-auto"
     style="opacity:0; pointer-events:none; transition: opacity .5s ease;">
 
-    <!-- ============ TARJETA DE FIDELIZACIÓN (con flip a QR) ============ -->
-    <div class="card-scene mb-8 sm:mb-10">
-      <div id="cardTilt" class="card-tilt">
-        <div id="cardFlipper" class="card-flipper" role="button" aria-label="Tocar para ver código QR" tabindex="0">
+    <!-- ============ COLUMNA 1 (desktop): TARJETA DE FIDELIZACIÓN ============ -->
+    <div id="colCarta">
+      <div class="card-scene mb-8 sm:mb-10">
+        <div id="cardTilt" class="card-tilt">
+          <div id="cardFlipper" class="card-flipper" role="button" aria-label="Tocar para ver código QR" tabindex="0">
 
-          <!-- ===== FRENTE ===== -->
-          <div class="card card-face flex flex-col" style="padding: clamp(22px, 6vw, 30px) clamp(20px, 5.5vw, 26px);">
-            <div class="card-sheen"></div>
+            <!-- ===== FRENTE ===== -->
+            <div class="card card-face flex flex-col" style="padding: clamp(22px, 6vw, 30px) clamp(20px, 5.5vw, 26px);">
+              <div class="card-sheen"></div>
 
-            <div class="flip-hint-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M21 12a9 9 0 1 1-3-6.7" />
-                <path d="M21 3v6h-6" />
-              </svg>
-            </div>
-
-            <div class="relative z-10 flex flex-col items-center text-center pb-5">
-              <div id="logoWrap" class="logo-avatar">
-                <div class="logo-avatar-inner">
-                  <img id="logoImg" alt="Logo" class="w-full h-full object-cover hidden" crossorigin="anonymous">
-                  <div id="logoSkeleton" class="w-full h-full skeleton"></div>
-                </div>
+              <div class="flip-hint-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-3-6.7" />
+                  <path d="M21 3v6h-6" />
+                </svg>
               </div>
 
-              <p id="storeName"
-                class="font-display font-semibold fluid-store text-white leading-tight tracking-wide mt-3.5 max-w-[85%] truncate uppercase">
-                <span class="skeleton inline-block h-4 w-28 rounded"></span>
-              </p>
-              <p class="fluid-eyebrow uppercase text-white/40 mt-1 font-mono-card">Tarjeta de Fidelización</p>
+              <div class="relative z-10 flex flex-col items-center text-center pb-5">
+                <div id="logoWrap" class="logo-avatar">
+                  <div class="logo-avatar-inner">
+                    <img id="logoImg" alt="Logo" class="w-full h-full object-cover hidden" crossorigin="anonymous">
+                    <div id="logoSkeleton" class="w-full h-full skeleton"></div>
+                  </div>
+                </div>
 
-              <span id="tierBadge" class="chip-tier fluid-eyebrow font-bold uppercase px-3.5 py-1 rounded-full mt-3">
-                <span class="skeleton inline-block h-3 w-12 rounded"></span>
-              </span>
+                <p id="storeName"
+                  class="font-display font-semibold fluid-store text-white leading-tight tracking-wide mt-3.5 max-w-[85%] truncate uppercase">
+                  <span class="skeleton inline-block h-4 w-28 rounded"></span>
+                </p>
+                <p class="fluid-eyebrow uppercase text-white/40 mt-1 font-mono-card">Tarjeta de Fidelización</p>
+
+                <span id="tierBadge" class="chip-tier fluid-eyebrow font-bold uppercase px-3.5 py-1 rounded-full mt-3">
+                  <span class="skeleton inline-block h-3 w-12 rounded"></span>
+                </span>
+              </div>
+
+              <div class="perforation"></div>
+
+              <div class="relative z-10 flex flex-col items-center text-center py-6">
+                <p class="fluid-eyebrow uppercase text-white/40 mb-1 font-mono-card">Cliente Frecuente</p>
+                <p id="clientName"
+                  class="font-mono-card fluid-name text-white font-medium tracking-wider max-w-full truncate px-2 uppercase">
+                  <span class="skeleton inline-block h-5 w-36 rounded"></span>
+                </p>
+
+                <p class="fluid-eyebrow uppercase text-white/40 mt-6 mb-1 font-mono-card">Puntos Acumulados</p>
+                <p id="clientPoints" class="points-glow font-mono-card fluid-points font-bold leading-none">
+                  <span class="skeleton inline-block h-10 w-24 rounded"></span>
+                </p>
+              </div>
+
+              <div class="perforation"></div>
+
+              <div class="relative z-10 flex flex-col items-center pt-5" style="display: none;">
+                <svg id="barcodeSvg" class="barcode-svg hidden" preserveAspectRatio="none"></svg>
+                <div id="barcodeSkeleton" class="skeleton rounded w-full max-w-[220px] h-[28px]"></div>
+                <p id="clientCode" class="font-mono-card fluid-code text-white/50 tracking-[0.25em] mt-2.5">
+                  <span class="skeleton inline-block h-3 w-24 rounded mt-1"></span>
+                </p>
+                <p class="flip-hint-text fluid-eyebrow text-white/25 mt-4 uppercase">Toca la tarjeta · Ver código QR</p>
+              </div>
             </div>
 
-            <div class="perforation"></div>
+            <!-- ===== REVERSO: QR ===== -->
+            <div class="card card-face card-back flex flex-col items-center justify-center text-center"
+              style="padding: clamp(22px, 6vw, 30px) clamp(20px, 5.5vw, 26px);">
+              <div class="card-sheen"></div>
 
-            <div class="relative z-10 flex flex-col items-center text-center py-6">
-              <p class="fluid-eyebrow uppercase text-white/40 mb-1 font-mono-card">Cliente Frecuente</p>
-              <p id="clientName"
-                class="font-mono-card fluid-name text-white font-medium tracking-wider max-w-full truncate px-2 uppercase">
-                <span class="skeleton inline-block h-5 w-36 rounded"></span>
+              <p class="fluid-eyebrow uppercase text-white/40 font-mono-card mb-5 relative z-10">Tu código QR</p>
+
+              <div class="qr-frame relative z-10">
+                <div id="qrCanvas" class="hidden"></div>
+                <div id="qrSkeleton" class="skeleton qr-skeleton-box"></div>
+              </div>
+
+              <p id="qrCodeText" class="font-mono-card fluid-code text-white/50 tracking-[0.25em] mt-5 relative z-10">
+                <span class="skeleton inline-block h-3 w-24 rounded"></span>
               </p>
 
-              <p class="fluid-eyebrow uppercase text-white/40 mt-6 mb-1 font-mono-card">Puntos Acumulados</p>
-              <p id="clientPoints" class="points-glow font-mono-card fluid-points font-bold leading-none">
-                <span class="skeleton inline-block h-10 w-24 rounded"></span>
-              </p>
+              <p class="fluid-eyebrow text-white/25 mt-6 uppercase relative z-10">Toca para volver</p>
             </div>
 
-            <div class="perforation"></div>
-
-            <div class="relative z-10 flex flex-col items-center pt-5" style="display: none;">
-              <svg id="barcodeSvg" class="barcode-svg hidden" preserveAspectRatio="none"></svg>
-              <div id="barcodeSkeleton" class="skeleton rounded w-full max-w-[220px] h-[28px]"></div>
-              <p id="clientCode" class="font-mono-card fluid-code text-white/50 tracking-[0.25em] mt-2.5">
-                <span class="skeleton inline-block h-3 w-24 rounded mt-1"></span>
-              </p>
-              <p class="flip-hint-text fluid-eyebrow text-white/25 mt-4 uppercase">Toca la tarjeta · Ver código QR</p>
-            </div>
           </div>
-
-          <!-- ===== REVERSO: QR ===== -->
-          <div class="card card-face card-back flex flex-col items-center justify-center text-center"
-            style="padding: clamp(22px, 6vw, 30px) clamp(20px, 5.5vw, 26px);">
-            <div class="card-sheen"></div>
-
-            <p class="fluid-eyebrow uppercase text-white/40 font-mono-card mb-5 relative z-10">Tu código QR</p>
-
-            <div class="qr-frame relative z-10">
-              <div id="qrCanvas" class="hidden"></div>
-              <div id="qrSkeleton" class="skeleton qr-skeleton-box"></div>
-            </div>
-
-            <p id="qrCodeText" class="font-mono-card fluid-code text-white/50 tracking-[0.25em] mt-5 relative z-10">
-              <span class="skeleton inline-block h-3 w-24 rounded"></span>
-            </p>
-
-            <p class="fluid-eyebrow text-white/25 mt-6 uppercase relative z-10">Toca para volver</p>
-          </div>
-
         </div>
       </div>
     </div>
 
-    <!-- ============ SECCIÓN DE PREMIOS / RECOMPENSAS ============ -->
-    <div class="flex items-center justify-between mb-3.5 px-1">
-      <h2
-        class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase flex items-center gap-2">
-        <span id="titleDot" class="w-2 h-2 rounded-full shrink-0"
-          style="background: var(--brand-vivid); box-shadow: 0 0 10px var(--brand-vivid);"></span>
-        Canjea tus puntos
-      </h2>
-      <span id="pointsHint" class="text-[11px] sm:text-xs text-white/50 font-mono-card">-- pts</span>
+    <!-- ============ COLUMNA 2 (desktop): PREMIOS / RECOMPENSAS ============ -->
+    <div id="colRecompensas">
+      <div class="flex items-center justify-between mb-3.5 px-1">
+        <h2
+          class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase flex items-center gap-2">
+          <span id="titleDot" class="w-2 h-2 rounded-full shrink-0"
+            style="background: var(--brand-vivid); box-shadow: 0 0 10px var(--brand-vivid);"></span>
+          Canjea tus puntos
+        </h2>
+        <span id="pointsHint" class="text-[11px] sm:text-xs text-white/50 font-mono-card">-- pts</span>
+      </div>
+
+      <!-- Filtros de categoría: se rellenan solo si los productos traen "categoria" en la DB -->
+      <div id="rewardsFiltros" class="hp-filtros"></div>
+
+      <div id="rewardsGrid" class="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <!-- Se llenan dinámicamente -->
+      </div>
     </div>
 
-    <div id="rewardsGrid" class="grid grid-cols-2 gap-2.5 sm:gap-3">
-      <!-- Se llenan dinámicamente -->
-    </div>
+    <!-- ============ COLUMNA 3 (desktop): HISTORIAL ============ -->
+    <div id="colHistorial">
+      <div class="hp-section mt-8 md:mt-0">
+        <button id="hpToggleBtn" type="button" class="hp-toggle-btn">
+          <span class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background: var(--brand-vivid);"></span>
+            <span class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase">Historial de puntos</span>
+          </span>
+          <span class="flex items-center gap-2">
+            <span id="hpCountBadge" class="hp-count-badge">0</span>
+            <svg id="hpChevron" class="hp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </button>
 
-    <div class="hp-section mt-8">
-      <button id="hpToggleBtn" type="button" class="hp-toggle-btn">
-        <span class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full shrink-0" style="background: var(--brand-vivid);"></span>
-          <span class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase">Historial de puntos</span>
-        </span>
-        <span class="flex items-center gap-2">
-          <span id="hpCountBadge" class="hp-count-badge">0</span>
-          <svg id="hpChevron" class="hp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-        </span>
-      </button>
+        <div id="hpBody" class="hp-body">
+          <div class="hp-body-inner">
+            <div id="hpFiltros" class="hp-filtros">
+              <button type="button" class="hp-chip active" data-filtro="todos">Todos</button>
+              <button type="button" class="hp-chip" data-filtro="ganado">🎉 Ganados</button>
+              <button type="button" class="hp-chip" data-filtro="canje">🎁 Canjes</button>
+              <button type="button" class="hp-chip" data-filtro="devolucion">↩️ Devueltos</button>
+            </div>
 
-      <div id="hpBody" class="hp-body">
-        <div id="hpFiltros" class="hp-filtros">
-          <button type="button" class="hp-chip active" data-filtro="todos">Todos</button>
-          <button type="button" class="hp-chip" data-filtro="ganado">🎉 Ganados</button>
-          <button type="button" class="hp-chip" data-filtro="canje">🎁 Canjes</button>
-          <button type="button" class="hp-chip" data-filtro="devolucion">↩️ Devueltos</button>
+            <div id="historialPuntosList" class="flex flex-col gap-2"></div>
+
+            <button id="hpVerMasBtn" type="button" class="hp-vermas-btn hidden">Ver más</button>
+          </div>
         </div>
-
-        <div id="historialPuntosList" class="flex flex-col gap-2"></div>
-
-        <button id="hpVerMasBtn" type="button" class="hp-vermas-btn hidden">Ver más</button>
       </div>
     </div>
 

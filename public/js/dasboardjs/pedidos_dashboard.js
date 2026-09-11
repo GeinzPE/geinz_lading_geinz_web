@@ -173,7 +173,7 @@ const NP_CSS = `
 .dm-cupon-card{border-radius:14px;padding:12px 14px;margin-bottom:14px;}
 .dm-cupon-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-dim);padding:3px 0;}
 .dm-cupon-row .mono{font-family:monospace;letter-spacing:.05em;}
-.oc-cupon-tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;margin-left:6px;}
+.oc-cupon-tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px}
 .np-stock{font-size:10.5px;font-weight:700;color:var(--ink-dim);margin-top:-2px;}
 .np-stock.agotado{color:#f87171;}
 .np-card.sin-stock{opacity:.55;}

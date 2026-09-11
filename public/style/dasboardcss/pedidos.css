@@ -687,18 +687,18 @@
         /* ══════════════════════════════════════════════
      CARD (colapsada — vista compacta para la columna)
      ══════════════════════════════════════════════ */
-        .order-card {
-            position: relative;
-            background: var(--surface-2);
-            border: 1px solid var(--line);
-            border-left: 3px solid transparent;
-            border-radius: 16px;
-            padding: 12px 13px;
-            display: flex;
-            flex-direction: column;
-            gap: 9px;
-            animation: rise .32s cubic-bezier(.2, .8, .2, 1) both;
-        }
+     .order-card {
+    position: relative;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid transparent;
+    border-radius: 18px;
+    padding: 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: rise .32s cubic-bezier(.2, .8, .2, 1) both;
+}
 
         @keyframes rise {
             from {
@@ -793,12 +793,12 @@
             border-left-color: var(--red);
         }
 
-        .oc-hit {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            cursor: pointer;
-        }
+      .oc-hit {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    cursor: pointer;
+}
 
         .oc-hit:active {
             opacity: .85;
@@ -854,37 +854,39 @@
             background: var(--red);
         }
 
-        .oc-name {
-            font-family: 'Manrope', sans-serif;
-            font-weight: 800;
-            font-size: 14.5px;
-            letter-spacing: -.01em;
-            line-height: 1.25;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+      .oc-name {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
+    font-size: 15.5px;
+    letter-spacing: -.01em;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
 
-        .oc-entrega-line {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 11.5px;
-            color: var(--ink-dim);
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .oc-summary {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding-top: 2px;
-        }
-
+       .oc-entrega-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+     .oc-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+}
         .oc-summary-left {
             font-size: 11px;
             color: var(--ink-faint);
@@ -916,27 +918,28 @@
             color: var(--ink-dim);
         }
 
-        .oc-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-        }
+    .oc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 2px;
+}
 
-        .oc-btn {
-            flex: 1;
-            min-width: 100px;
-            padding: 9px 10px;
-            border-radius: 11px;
-            font-size: 12px;
-            font-weight: 700;
-            border: none;
-            cursor: pointer;
-            transition: transform .15s cubic-bezier(.34, 1.56, .64, 1), opacity .15s ease, filter .15s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
+.oc-btn {
+    flex: 1;
+    min-width: 90px;
+    padding: 12px 10px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: transform .15s cubic-bezier(.34, 1.56, .64, 1), opacity .15s ease, filter .15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
 
         .oc-btn:active {
             transform: scale(.95);
@@ -1072,6 +1075,7 @@
         }
 
         .oc-origin-tag {
+            margin-bottom: 10px;
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -2123,4 +2127,18 @@
 }
 .board-col[data-status="rechazado"].expanded {
     display: flex;
+}
+/* Badges de puntos/descuento dentro de la tarjeta de pedido */
+.oc-puntos-line,
+.oc-descuento-line {
+    display: inline-flex;
+    width: fit-content;
+    padding: 6px 10px;
+    border-radius: 10px;
+}
+.oc-puntos-line {
+    background: rgba(251, 191, 36, .1);
+}
+.oc-descuento-line {
+    background: rgba(74, 222, 128, .1);
 }

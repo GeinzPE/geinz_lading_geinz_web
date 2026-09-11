@@ -751,6 +751,73 @@ function renderRecompensas(productos, puntosCliente) {
   });
 }
 
+/* ══════════════════════════════════════════
+   FILTROS DE RECOMPENSAS POR CATEGORÍA
+   Solo se activan si los productos traen un campo de categoría
+   en la base de datos (categoria / categoriaNombre). Si ningún
+   producto lo trae, la barra de filtros no se muestra y todo
+   sigue funcionando exactamente igual que antes.
+   ══════════════════════════════════════════ */
+let rfProductosTodos = [];
+let rfFiltroActivo = "todos";
+
+function rfCategoriaDe(p) {
+  return p.categoria || p.categoriaNombre || p.categoria_producto || null;
+}
+
+function inicializarFiltrosRecompensas(productos, puntosCliente) {
+  rfProductosTodos = productos;
+  rfFiltroActivo = "todos";
+
+  const cont = document.getElementById("rewardsFiltros");
+  if (!cont) {
+    renderRecompensas(productos, puntosCliente);
+    return;
+  }
+
+  const categorias = [
+    ...new Set(productos.map(rfCategoriaDe).filter(Boolean)),
+  ];
+
+  // Sin categorías (o solo una) en la DB -> no mostrar filtros
+  if (categorias.length < 2) {
+    cont.className = "";
+    cont.innerHTML = "";
+    renderRecompensas(productos, puntosCliente);
+    return;
+  }
+
+  cont.className = "hp-filtros mb-1";
+  cont.innerHTML = `
+    <button type="button" class="hp-chip active" data-cat="todos">Todos</button>
+    ${categorias
+      .map(
+        (c) =>
+          `<button type="button" class="hp-chip" data-cat="${c}">${c}</button>`,
+      )
+      .join("")}
+  `;
+
+  cont.querySelectorAll(".hp-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      cont
+        .querySelectorAll(".hp-chip")
+        .forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      rfFiltroActivo = chip.dataset.cat;
+
+      const filtrados =
+        rfFiltroActivo === "todos"
+          ? rfProductosTodos
+          : rfProductosTodos.filter((p) => rfCategoriaDe(p) === rfFiltroActivo);
+
+      renderRecompensas(filtrados, puntosCliente);
+    });
+  });
+
+  renderRecompensas(productos, puntosCliente);
+}
+
 function revealCard() {
   const skel = document.getElementById("fullSkeleton");
   const content = document.getElementById("appContent");
@@ -899,6 +966,12 @@ function initHistorialPuntosUI() {
     toggleBtn.addEventListener("click", () => section.classList.toggle("open"));
   }
 
+  // En pantallas de escritorio el historial va como columna al costado:
+  // se abre expandido por defecto en vez de arrancar colapsado.
+  if (section && window.matchMedia("(min-width: 1024px)").matches) {
+    section.classList.add("open");
+  }
+
   document.querySelectorAll("#hpFiltros .hp-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       document
@@ -1008,7 +1081,7 @@ async function cargarDatos(uid) {
       }
     }
 
-    renderRecompensas(productos, puntos);
+    inicializarFiltrosRecompensas(productos, puntos);
     cargarHistorialPuntos(uid);
     initTilt();
     initFlip();
