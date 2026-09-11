@@ -60,6 +60,7 @@ let clientesRowsFiltrados = []; // subconjunto actualmente visible (según búsq
 let historialDataCache = []; // filas del historial de canjes ya renderizadas, para exportar a CSV
 let historialPorCliente = {}; // clienteId -> { pedidos: [...], totalInvertido, pedidosCount } — pedidos reales (compras)
 let editandoDescuentoId = null; // si no es null, el próximo "agregar" hace update en vez de create
+let variantesSeleccionadas = {};
 
 const CLIENTES_POR_PAGINA = 50;
 let paginaClientesActual = 1;
@@ -199,12 +200,13 @@ actualizarCamposTipoDescuentoManual();
    (eso es lo que provocaba el "No document to update"). ---- */
 function cancelarEdicionDescuento() {
   editandoDescuentoId = null;
+  variantesSeleccionadas = {};
+  renderSelectoresVariantes([]);
   const btnCat = document.getElementById("btnAgregarDesdeCatalogo");
   const btnManual = document.getElementById("btnAgregarDescuento");
   if (btnCat) btnCat.textContent = "Agregar desde catálogo";
   if (btnManual) btnManual.textContent = "Agregar producto";
 }
-
 function currentConfigDoc() {
   // Tiendas/.../distrito/<distrito>/tiendas/<tiendaId>  -> el doc de la tienda misma,
   // guardamos activar/desactivar y vencimiento como un map "fidelizacion" dentro de ese doc
@@ -451,11 +453,8 @@ function resetProductos() {
   prodSel.disabled = true;
   document.getElementById("prodPreview").style.display = "none";
   document.getElementById("previewPrecioFinalCatalogo").style.display = "none";
-  const variantesEl = document.getElementById("prodPreviewVariantes");
-  if (variantesEl) {
-    variantesEl.innerHTML = "";
-    variantesEl.style.display = "none";
-  }
+  variantesSeleccionadas = {};
+  renderSelectoresVariantes([]);
   productosCache = {};
 }
 async function loadCategorias() {
@@ -554,6 +553,60 @@ document.getElementById("prodDelCatalogo").addEventListener("change", () => {
   actualizarPreviewPrecioFinal();
 });
 
+/* ---- Dibuja un <select> por cada condición/variante (ej: "Presentación" ->
+   Helada / Sin helar). seleccionPrevia restaura la elección guardada al editar. ---- */
+function renderSelectoresVariantes(condiciones, seleccionPrevia = {}) {
+  const cont = document.getElementById("prodPreviewVariantes");
+  if (!cont) return;
+  if (!Array.isArray(condiciones) || !condiciones.length) {
+    cont.innerHTML = "";
+    cont.style.display = "none";
+    return;
+  }
+  cont.innerHTML = condiciones
+    .map((cond, i) => {
+      const opciones = Array.isArray(cond.opciones) ? cond.opciones : [];
+      const nombreCond = cond.nombre || `Variante ${i + 1}`;
+      const previaGuardada = seleccionPrevia[nombreCond];
+      const optionsHtml = opciones
+        .map((op) => {
+          const nombreOp = op.nombre || "opción";
+          const extra = op.costoAdicional
+            ? ` (+S/ ${Number(op.costoAdicional).toFixed(2)})`
+            : "";
+          const deshabilitada = op.activo === false;
+          const seleccionada = previaGuardada === nombreOp;
+          return `<option value="${escapeHtml(nombreOp)}" ${deshabilitada ? "disabled" : ""} ${seleccionada ? "selected" : ""}>${escapeHtml(nombreOp)}${extra}${deshabilitada ? " · no disponible" : ""}</option>`;
+        })
+        .join("");
+      return `
+        <div class="field" style="margin-bottom:10px;">
+          <label>${escapeHtml(nombreCond)}</label>
+          <select class="field-input variante-select" data-condicion="${escapeHtml(nombreCond)}">
+            <option value="" ${previaGuardada ? "" : "selected"} disabled>Elige ${escapeHtml(nombreCond).toLowerCase()}…</option>
+            ${optionsHtml}
+          </select>
+        </div>`;
+    })
+    .join("");
+  cont.style.display = "block";
+
+  cont.querySelectorAll(".variante-select").forEach((sel) => {
+    const cond = sel.dataset.condicion;
+    if (sel.value) variantesSeleccionadas[cond] = sel.value;
+    sel.addEventListener("change", () => {
+      variantesSeleccionadas[cond] = sel.value;
+    });
+  });
+}
+
+/* ---- Texto legible de la variante elegida, ej: "Presentación: Helada" ---- */
+function obtenerVarianteTexto() {
+  return Object.entries(variantesSeleccionadas)
+    .filter(([, valor]) => !!valor)
+    .map(([cond, valor]) => `${cond}: ${valor}`)
+    .join(" · ");
+}
 function mostrarPreviewProducto() {
   const prodSel = document.getElementById("prodDelCatalogo");
   const id = prodSel.value;
@@ -581,31 +634,10 @@ function mostrarPreviewProducto() {
   if (p.disponible === false) sub += " · No disponible";
   document.getElementById("prodPreviewPrecio").textContent = sub;
   prev.style.display = "flex";
-  // Variantes del producto (ej: "helado" / "sin helar")
-  const variantesEl = document.getElementById("prodPreviewVariantes");
-  if (variantesEl) {
-    if (Array.isArray(p.condiciones) && p.condiciones.length) {
-      variantesEl.innerHTML = p.condiciones
-        .map((cond) => {
-          const opciones = Array.isArray(cond.opciones) ? cond.opciones : [];
-          const txt = opciones
-            .map((op) => {
-              const extra = op.costoAdicional
-                ? ` (+S/ ${Number(op.costoAdicional).toFixed(2)})`
-                : "";
-              const estado = op.activo === false ? " · no disponible" : "";
-              return `${escapeHtml(op.nombre || "opción")}${extra}${estado}`;
-            })
-            .join(", ");
-          return `<b>${escapeHtml(cond.nombre || "Variantes")}:</b> ${txt || "sin opciones"}`;
-        })
-        .join("<br>");
-      variantesEl.style.display = "block";
-    } else {
-      variantesEl.innerHTML = "";
-      variantesEl.style.display = "none";
-    }
-  }
+  // Variantes del producto (ej: "Helada" / "Sin helar"): ahora son selects
+  // para elegir CUÁL se entrega al canjear, no solo texto informativo.
+  variantesSeleccionadas = {};
+  renderSelectoresVariantes(Array.isArray(p.condiciones) ? p.condiciones : []);
 }
 
 /* ===================================================================
@@ -715,6 +747,19 @@ document
       showToast(errorBeneficio, true);
       return;
     }
+        // Si el producto tiene variantes (helada/sin helar, etc.), exige elegir una por cada una
+    const condicionesProducto = editandoDescuentoId
+      ? descuentosCache.find((d) => d.id === editandoDescuentoId)?.condiciones || []
+      : productosCache[id]?.condiciones || [];
+    if (Array.isArray(condicionesProducto) && condicionesProducto.length) {
+      const faltante = condicionesProducto.find(
+        (c) => !variantesSeleccionadas[c.nombre],
+      );
+      if (faltante) {
+        showToast(`Elige la variante de "${faltante.nombre}"`, true);
+        return;
+      }
+    }
     if (!tiendaId) {
       showToast("Falta el id de la tienda en la URL", true);
       return;
@@ -762,11 +807,13 @@ document
     );
     showLoading();
     try {
-      const payload = {
+        const payload = {
         tipoBeneficio, // "gratis" | "monto" | "porcentaje" | "cantidad"
         descuento, // detalle según el tipo (monto, porcentaje, o compra/paga)
         precioFinalEstimado,
         costoPuntos: Number(costo) || 0,
+        varianteElegida: { ...variantesSeleccionadas }, // ej: {"Presentación":"Helada"}
+        varianteTexto: obtenerVarianteTexto(), // ej: "Presentación: Helada"
       };
       if (editandoDescuentoId) {
         // setDoc+merge en vez de updateDoc: si el doc ya no existe
@@ -797,11 +844,13 @@ document
         });
         showToast("Producto agregado desde catálogo");
       }
-      document.getElementById("descCostoCatalogo").value = "";
+       document.getElementById("descCostoCatalogo").value = "";
       document.getElementById("descuentoMontoCatalogo").value = "";
       document.getElementById("descuentoPorcentajeCatalogo").value = "";
       document.getElementById("descuentoCantidadCompra").value = "";
       document.getElementById("descuentoCantidadPaga").value = "";
+      variantesSeleccionadas = {};
+      renderSelectoresVariantes([]);
       await loadDescuentos();
     } catch (err) {
       showToast("Error: " + err.message, true);
@@ -857,11 +906,11 @@ async function loadDescuentos() {
       } else if (data.valor) {
         precioTxt = data.valor;
       }
-      const variantesTxt =
+            const variantesTxt =
         esCatalogo && Array.isArray(data.condiciones) && data.condiciones.length
           ? data.condiciones.map((c) => escapeHtml(c.nombre || "")).join(" · ")
           : "";
-      cont.insertAdjacentHTML(
+          cont.insertAdjacentHTML(
         "beforeend",
         `
         <div class="item-row" data-id="${d.id}" style="cursor:pointer;">
@@ -869,7 +918,7 @@ async function loadDescuentos() {
           <div class="item-main">
             <div class="item-title">${escapeHtml(data.nombre)} ${origenBadge}</div>
             <div class="item-sub">${data.costoPuntos || 0} puntos${precioTxt ? " · " + escapeHtml(String(precioTxt)) : ""}</div>
-            ${variantesTxt ? `<div class="item-sub" style="margin-top:2px;">Variantes: ${escapeHtml(variantesTxt)}</div>` : ""}
+            ${data.varianteTexto ? `<div class="item-sub" style="margin-top:2px;">Entrega: ${escapeHtml(data.varianteTexto)}</div>` : ""}
           </div>
           <div class="item-remove" data-id="${d.id}" data-col="descuentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
         </div>`,
@@ -940,6 +989,11 @@ function cargarDescuentoParaEditar(data) {
       data.descuento?.compraUnidades ?? "";
     document.getElementById("descuentoCantidadPaga").value =
       data.descuento?.pagaUnidades ?? "";
+          variantesSeleccionadas = { ...(data.varianteElegida || {}) };
+    renderSelectoresVariantes(
+      Array.isArray(data.condiciones) ? data.condiciones : [],
+      variantesSeleccionadas,
+    );
     document.getElementById("descCostoCatalogo").value = data.costoPuntos ?? "";
     document.getElementById("btnAgregarDesdeCatalogo").textContent =
       "Guardar cambios";

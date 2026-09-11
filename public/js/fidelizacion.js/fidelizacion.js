@@ -112,7 +112,15 @@ async function cargarProductos(negocioId) {
   try {
     const col = tiendaDescuentosCol(LOCALIDAD, negocioId);
     const snap = await getDocs(col);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const productos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    await Promise.all(
+      productos.map(async (p) => {
+        p.disponible = await verificarDisponibilidadRecompensa(p);
+      }),
+    );
+
+    return productos;
   } catch (e) {
     console.error(e);
     return [];
@@ -550,6 +558,18 @@ function tryRenderQR() {
   qrState.rendered = true;
 }
 
+function textoVariante(p) {
+  // Prioriza el texto ya armado si viene de la DB
+  if (p.varianteTexto) return p.varianteTexto;
+
+  const ve = p.varianteElegida;
+  if (ve && typeof ve === "object" && Object.keys(ve).length) {
+    return Object.entries(ve)
+      .map(([clave, valor]) => `${clave}: ${valor}`)
+      .join(", ");
+  }
+  return null;
+}
 function textoBeneficio(p) {
   if (p.origen !== "catalogo" || p.precioOriginal == null) return null;
   const orig = Number(p.precioOriginal);
@@ -591,6 +611,41 @@ function generarCodigoCupon() {
   return codigo;
 }
 
+async function verificarDisponibilidadRecompensa(p) {
+  // las recompensas manuales (no ligadas a un producto del catálogo) siempre están disponibles
+  if (p.origen !== "catalogo" || !p.productoId || !p.categoria) return true;
+
+  try {
+    const prodRef = doc(
+      tiendaSubCol(
+        LOCALIDAD,
+        "tiendas",
+        NEGOCIO_ID,
+        "productos",
+        p.categoria,
+        p.categoria,
+      ),
+      p.productoId,
+    );
+    const prodSnap = await getDoc(prodRef);
+    if (!prodSnap.exists() || prodSnap.data().disponible === false) return false;
+
+    const prodData = prodSnap.data();
+    const ve = p.varianteElegida;
+    if (ve && typeof ve === "object") {
+      for (const [condNombre, opcionNombre] of Object.entries(ve)) {
+        const cond = (prodData.condiciones || []).find((c) => c.nombre === condNombre);
+        const op = cond?.opciones?.find((o) => o.nombre === opcionNombre);
+        const sinStock = typeof op?.stock === "number" && op.stock <= 0;
+        if (!cond || !op || op.activo === false || sinStock) return false;
+      }
+    }
+    return true;
+  } catch (e) {
+    console.warn("No se pudo verificar disponibilidad de recompensa:", e);
+    return true; // si falla la verificación, no bloqueamos por las dudas
+  }
+}
 /* Descuenta puntos y crea el cupón en una sola transacción atómica */
 async function canjearRecompensa(producto, uid, puntosActuales) {
   const costo = Number(producto.costoPuntos ?? 0);
@@ -604,6 +659,23 @@ async function canjearRecompensa(producto, uid, puntosActuales) {
   const cuponRef = clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, codigo);
   const esProducto = producto.origen === "catalogo";
 
+  // Referencia al producto REAL del catálogo (no al doc de la recompensa,
+  // que puede estar desactualizado). Solo aplica si es canje de producto.
+  const productoRealRef =
+    esProducto && producto.productoId && producto.categoria
+      ? doc(
+          tiendaSubCol(
+            LOCALIDAD,
+            "tiendas",
+            NEGOCIO_ID,
+            "productos",
+            producto.categoria,
+            producto.categoria,
+          ),
+          producto.productoId,
+        )
+      : null;
+
   try {
     await runTransaction(db, async (tx) => {
       const clienteSnap = await tx.get(clienteRef);
@@ -611,6 +683,29 @@ async function canjearRecompensa(producto, uid, puntosActuales) {
 
       const puntosDb = Number(clienteSnap.data().puntos ?? 0);
       if (puntosDb < costo) throw { motivo: "sin_puntos" };
+
+      // ── Validación en tiempo real: ¿el producto/variante sigue existiendo? ──
+      if (productoRealRef) {
+        const prodSnap = await tx.get(productoRealRef);
+        if (!prodSnap.exists() || prodSnap.data().disponible === false) {
+          throw { motivo: "producto_no_disponible" };
+        }
+
+        const prodData = prodSnap.data();
+        const ve = producto.varianteElegida;
+        if (ve && typeof ve === "object") {
+          for (const [condNombre, opcionNombre] of Object.entries(ve)) {
+            const cond = (prodData.condiciones || []).find(
+              (c) => c.nombre === condNombre,
+            );
+            const op = cond?.opciones?.find((o) => o.nombre === opcionNombre);
+            const sinStock = typeof op?.stock === "number" && op.stock <= 0;
+            if (!cond || !op || op.activo === false || sinStock) {
+              throw { motivo: "variante_no_disponible" };
+            }
+          }
+        }
+      }
 
       const cuponSnap = await tx.get(cuponRef);
       if (cuponSnap.exists()) throw { motivo: "codigo_duplicado" };
@@ -625,6 +720,7 @@ async function canjearRecompensa(producto, uid, puntosActuales) {
         productoNombre: esProducto ? producto.nombre || null : null,
         tipoBeneficio: esProducto ? producto.tipoBeneficio || null : null,
         descuento: esProducto ? producto.descuento || null : null,
+        varianteElegida: esProducto ? producto.varianteElegida || null : null, // ← nuevo
         precioOriginal: esProducto ? (producto.precioOriginal ?? null) : null,
         precioFinalEstimado: esProducto
           ? (producto.precioFinalEstimado ?? null)
@@ -676,6 +772,10 @@ async function canjearRecompensa(producto, uid, puntosActuales) {
     console.error("Error canjeando recompensa:", err);
     if (err?.motivo === "sin_puntos")
       showError("Tus puntos cambiaron, ya no te alcanza para este canje.");
+    else if (err?.motivo === "producto_no_disponible")
+      showError("Este producto ya no está disponible para canjear.");
+    else if (err?.motivo === "variante_no_disponible")
+      showError("Esa variante ya no está disponible, elige otra recompensa.");
     else showError("No se pudo procesar el canje, intenta de nuevo.");
     return null;
   }
@@ -694,6 +794,9 @@ async function onCanjearClick(btn, producto, puntosActuales) {
   if (!codigo) {
     btn.disabled = false;
     btn.textContent = original;
+    // refresca la lista de recompensas por si esta ya no está disponible
+    const productosFrescos = await cargarProductos(NEGOCIO_ID);
+    inicializarFiltrosRecompensas(productosFrescos, puntosActuales);
     return;
   }
 
@@ -710,45 +813,60 @@ async function onCanjearClick(btn, producto, puntosActuales) {
 function renderRecompensas(productos, puntosCliente) {
   const grid = document.getElementById("rewardsGrid");
   if (!grid) return;
-  grid.innerHTML = "";
 
-  if (!productos.length) {
-    grid.innerHTML = `<p class="col-span-2 text-center text-white/30 text-xs font-mono-card py-6">Aún no hay recompensas disponibles.</p>`;
-    return;
-  }
+  // fade-out suave del contenido anterior antes de reemplazarlo
+  grid.style.transition = "opacity 0.15s ease";
+  grid.style.opacity = "0";
 
-  productos.forEach((p) => {
-    const costo = Number(p.costoPuntos ?? 0);
-    const alcanza = puntosCliente >= costo;
-    const beneficioTxt = textoBeneficio(p);
-    const el = document.createElement("div");
-    el.className =
-      "reward-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between";
-    el.innerHTML = `
-      <div class="min-w-0">
-        <div class="reward-icon overflow-hidden mb-2.5">
-          ${
-            p.imagenUrl
-              ? `<img src="${p.imagenUrl}" alt="${p.nombre || ""}" class="w-full h-full object-cover rounded-xl" loading="lazy">`
-              : `<span class="text-base sm:text-lg">🎁</span>`
-          }
-        </div>
-        <p class="font-display text-[12.5px] sm:text-xs font-semibold leading-tight text-white break-words">${p.nombre || "Producto"}</p>
-        ${beneficioTxt ? `<p class="font-mono-card text-[10px] sm:text-[10.5px] text-white/45 mt-1 leading-snug">${beneficioTxt}</p>` : ""}
-        <p class="font-mono-card text-[10.5px] sm:text-xs text-white/40 mt-1">${costo} pts</p>
-      </div>
-      <button class="btn-redeem mt-3 sm:mt-4 text-[11px] font-mono-card font-semibold rounded-lg py-2 w-full active:scale-[0.97]" ${alcanza ? "" : "disabled"}>
-        ${alcanza ? "CANJEAR" : "BLOQUEADO"}
-      </button>
-    `;
-    if (alcanza) {
-      const btn = el.querySelector(".btn-redeem");
-      btn.addEventListener("click", () =>
-        onCanjearClick(btn, p, puntosCliente),
-      );
+  setTimeout(() => {
+    grid.innerHTML = "";
+
+    if (!productos.length) {
+      grid.innerHTML = `<p class="col-span-2 text-center text-white/30 text-xs font-mono-card py-6">Aún no hay recompensas disponibles.</p>`;
+      grid.style.opacity = "1";
+      return;
     }
-    grid.appendChild(el);
-  });
+
+    productos.forEach((p) => {
+      const costo = Number(p.costoPuntos ?? 0);
+      const disponible = p.disponible !== false;
+      const alcanza = disponible && puntosCliente >= costo;
+      const beneficioTxt = textoBeneficio(p);
+      const varianteTxt = textoVariante(p);
+      const el = document.createElement("div");
+      el.className =
+        "reward-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between";
+      el.innerHTML = `
+        <div class="min-w-0">
+          <div class="reward-icon overflow-hidden mb-2.5">
+            ${
+              p.imagenUrl
+                ? `<img src="${p.imagenUrl}" alt="${p.nombre || ""}" class="w-full h-full object-cover rounded-xl"
+                     loading="eager" decoding="async"
+                     onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'text-base sm:text-lg',textContent:'🎁'}))">`
+                : `<span class="text-base sm:text-lg">🎁</span>`
+            }
+          </div>
+          <p class="font-display text-[12.5px] sm:text-xs font-semibold leading-tight text-white break-words">${p.nombre || "Producto"}</p>
+          ${beneficioTxt ? `<p class="font-mono-card text-[10px] sm:text-[10.5px] text-white/45 mt-1 leading-snug">${beneficioTxt}</p>` : ""}
+          ${varianteTxt ? `<p class="font-mono-card text-[10px] sm:text-[10.5px] text-white/40 mt-1 leading-snug">🔸 ${varianteTxt}</p>` : ""}
+          <p class="font-mono-card text-[10.5px] sm:text-xs text-white/40 mt-1">${costo} pts</p>
+        </div>
+    <button class="btn-redeem mt-3 sm:mt-4 text-[11px] font-mono-card font-semibold rounded-lg py-2 w-full active:scale-[0.97]" ${alcanza ? "" : "disabled"}>
+    ${!disponible ? "AGOTADO" : alcanza ? "CANJEAR" : "BLOQUEADO"}
+  </button>
+      `;
+      if (alcanza) {
+        const btn = el.querySelector(".btn-redeem");
+        btn.addEventListener("click", () =>
+          onCanjearClick(btn, p, puntosCliente),
+        );
+      }
+      grid.appendChild(el);
+    });
+
+    grid.style.opacity = "1";
+  }, 150);
 }
 
 /* ══════════════════════════════════════════
@@ -775,9 +893,7 @@ function inicializarFiltrosRecompensas(productos, puntosCliente) {
     return;
   }
 
-  const categorias = [
-    ...new Set(productos.map(rfCategoriaDe).filter(Boolean)),
-  ];
+  const categorias = [...new Set(productos.map(rfCategoriaDe).filter(Boolean))];
 
   // Sin categorías (o solo una) en la DB -> no mostrar filtros
   if (categorias.length < 2) {
