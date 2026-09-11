@@ -731,53 +731,86 @@ function calcularDescuentoCupon(subtotal) {
 }
 
 async function agregarProductoDeCupon(cupon) {
+  console.log("[CUPON] 3) agregarProductoDeCupon() con cupon:", cupon);
   let producto = productosPorId.get(cupon.productoId);
+  console.log("[CUPON] producto encontrado en catálogo local:", producto);
+
   if (!producto) {
+    console.log("[CUPON] ⚠️ producto NO está en productosPorId, se cancela el cupón");
     showToast("⚠️ El producto de este cupón ya no está disponible");
     cuponAplicado = null;
     return;
   }
+
   const precioConDescuento = Number(
     cupon.precioFinalEstimado ?? producto.precio,
   );
   const key = `cupon__${cupon.codigo}`;
+  const seleccionFinal = cupon.varianteElegida || null;
+
+  console.log("[CUPON] precio final a usar:", precioConDescuento);
+  console.log("[CUPON] cartKey generado:", key);
+  console.log("[CUPON] variante que se va a fijar en el carrito:", seleccionFinal);
+
   carrito.set(key, {
     ...producto,
     precio: precioConDescuento,
     cantidad: 1,
     cartKey: key,
-    seleccion: null,
+    seleccion: seleccionFinal,
     cuponCodigo: cupon.codigo,
     esCanje: true,
   });
-}
 
+  console.log("[CUPON] línea agregada al Map carrito:", carrito.get(key));
+}
 async function aplicarCuponDesdeDoc(data) {
+  console.log("[CUPON] 2) aplicarCuponDesdeDoc() con data:", data);
+  console.log("[CUPON] tipo:", data.tipo, "| productoId:", data.productoId, "| varianteElegida:", data.varianteElegida);
+
   if (data.estado === "usado" || data.usado) {
+    console.log("[CUPON] rechazado: ya estaba usado");
     showToast("⚠️ Este cupón ya fue utilizado");
     return;
   }
   if (data.negocioId && data.negocioId !== tiendaId) {
+    console.log("[CUPON] rechazado: negocioId no coincide", {
+      cuponNegocioId: data.negocioId,
+      tiendaIdActual: tiendaId,
+    });
     showToast("⚠️ Este cupón no es válido para este negocio");
     return;
   }
 
   cuponAplicado = data;
+  console.log("[CUPON] cuponAplicado seteado en memoria:", cuponAplicado);
 
   if (data.tipo === "producto" && data.productoId) {
+    console.log("[CUPON] es cupón de PRODUCTO, llamando agregarProductoDeCupon()");
     await agregarProductoDeCupon(data);
+  } else {
+    console.log("[CUPON] es cupón MANUAL (descuento %, monto o mínimo de compra), no se agrega producto");
   }
 
   updateCartUI();
+  console.log("[CUPON] updateCartUI() ejecutado, estado actual del carrito:", [...carrito.entries()]);
   showToast(`🎟️ Cupón ${data.codigo} aplicado`);
 }
 
 async function buscarYAplicarCupon(codigoCrudo) {
   const codigo = (codigoCrudo || "").trim().toUpperCase();
-  if (!codigo) return;
+  console.log("[CUPON] 1) buscarYAplicarCupon() llamado con código:", codigo);
+  if (!codigo) {
+    console.log("[CUPON] código vacío, se aborta");
+    return;
+  }
 
   // 1) Cupón personal de fidelización (requiere sesión)
   if (usuarioLogeado) {
+    console.log(
+      "[CUPON] usuario logeado, buscando cupón personal en clienteCuponDoc:",
+      { localidad, tiendaId, uid: usuarioLogeado.id, codigo },
+    );
     try {
       const ref = clienteCuponDoc(
         localidad,
@@ -786,34 +819,46 @@ async function buscarYAplicarCupon(codigoCrudo) {
         codigo,
       );
       const snap = await getDoc(ref);
+      console.log("[CUPON] resultado cupón personal, existe:", snap.exists());
       if (snap.exists()) {
+        console.log("[CUPON] data cruda del cupón personal:", snap.data());
         await aplicarCuponDesdeDoc({ ...snap.data(), _ref: ref });
         return;
       }
     } catch (e) {
-      console.warn("No se pudo leer cupón personal:", e);
+      console.warn("[CUPON] No se pudo leer cupón personal:", e);
     }
+  } else {
+    console.log("[CUPON] no hay usuario logeado, se salta cupón personal");
   }
 
   // 2) Cupón global lanzado por el negocio
+  console.log("[CUPON] buscando cupón global en tiendaCuponDoc");
   try {
     const refGlobal = tiendaCuponDoc(localidad, tiendaId, codigo);
     const snapGlobal = await getDoc(refGlobal);
+    console.log("[CUPON] resultado cupón global, existe:", snapGlobal.exists());
     if (snapGlobal.exists()) {
+      console.log("[CUPON] data cruda del cupón global:", snapGlobal.data());
       await aplicarCuponDesdeDoc({ ...snapGlobal.data(), _ref: refGlobal });
       return;
     }
   } catch (e) {
-    console.warn("No se pudo leer cupón global:", e);
+    console.warn("[CUPON] No se pudo leer cupón global:", e);
   }
 
+  console.log("[CUPON] no se encontró el cupón en ningún lado");
   showToast("⚠️ El cupón no existe o ya expiró");
 }
 
 function quitarCupon() {
+  console.log("[CUPON] quitarCupon() llamado, cuponAplicado actual:", cuponAplicado);
   if (!cuponAplicado) return;
   if (cuponAplicado.tipo === "producto") {
-    carrito.delete(`cupon__${cuponAplicado.codigo}`);
+    const key = `cupon__${cuponAplicado.codigo}`;
+    const existia = carrito.has(key);
+    carrito.delete(key);
+    console.log("[CUPON] línea de producto canjeado eliminada del carrito, existía:", existia);
   }
   cuponAplicado = null;
   updateCartUI();
@@ -1569,8 +1614,27 @@ function renderQtyControls(container, p, cartKey = null) {
   container.innerHTML = "";
 
   // Caso 1: es una línea específica del carrito (puede tener una variante ya elegida)
+  // Caso 1: es una línea específica del carrito (puede tener una variante ya elegida)
   if (cartKey) {
-    const cantidad = carrito.get(cartKey)?.cantidad || 0;
+    const cartItem = carrito.get(cartKey);
+    const cantidad = cartItem?.cantidad || 0;
+
+    // Producto canjeado con puntos: cantidad fija en 1, no se toca desde
+    // aquí. Para removerlo está el botón "Quitar" de la barra del cupón,
+    // que sí libera el cupón/puntos correctamente. Si el cliente quiere
+    // más unidades, las agrega normal desde la tarjeta del catálogo
+    // (a precio completo, sumando aparte a lo que ya canjeó).
+    if (cartItem?.esCanje) {
+      const badge = document.createElement("span");
+      badge.className =
+        "text-[10.5px] font-bold px-2.5 py-1.5 rounded-full flex-shrink-0";
+      badge.style.background = "rgba(var(--dr),var(--dg),var(--db),.15)";
+      badge.style.color = "rgb(var(--dr),var(--dg),var(--db))";
+      badge.textContent = "🎁 Canjeado";
+      container.appendChild(badge);
+      return;
+    }
+
     const stepper = document.createElement("div");
     stepper.className = "qty-stepper pop";
 
@@ -2043,6 +2107,15 @@ function renderCartList(wrap, items) {
 
   items.forEach((it, idx) => {
     const key = it.cartKey || it.id;
+    if (it.esCanje) {
+      console.log("[CUPON] 4) renderizando línea de CANJE en el carrito:", {
+        key,
+        nombre: it.nombre,
+        seleccion: it.seleccion,
+        precio: it.precio,
+        cuponCodigo: it.cuponCodigo,
+      });
+    }
     const precioNum = Number(it.precio) || 0;
     const opcionesTxt = it.seleccion
       ? Object.entries(it.seleccion)
@@ -2064,17 +2137,21 @@ function renderCartList(wrap, items) {
           <p class="text-[12.5px] text-gray-500 mb-2 cart-row-precio">S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span></p>
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
-        <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
+          <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
           ${
-            it.seleccion
+            it.seleccion && !it.esCanje
               ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>`
               : ""
           }
-          <button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${
+            it.esCanje
+              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
-          </button>
+          </button>`
+          }
         </div>
       `;
       wrap.appendChild(row);
@@ -2242,13 +2319,16 @@ function renderCheckoutSummary() {
   wrap.innerHTML =
     items
       .map((it) => {
-        const opcionesTxt = it.seleccion
-          ? Object.entries(it.seleccion)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(" · ")
-          : it.esCanje
-            ? "🎁 Producto canjeado con puntos"
-            : "";
+        const partesOpciones = [];
+    if (it.seleccion) {
+      partesOpciones.push(
+        Object.entries(it.seleccion)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · "),
+      );
+    }
+    if (it.esCanje) partesOpciones.push("🎁 Canjeado con puntos");
+    const opcionesTxt = partesOpciones.join(" · ");
         return `
     <div class="step-summary-row">
       <span>${it.cantidad}× ${it.nombre}${opcionesTxt ? ` <span class="text-gray-500 text-[11px]">(${opcionesTxt})</span>` : ""}</span>
@@ -2486,7 +2566,9 @@ document
         : null,
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
     });
-
+    console.log("[CUPON] 5) items que se van a guardar en el pedido:", items);
+    console.log("[CUPON] cuponAplicado al momento de confirmar pedido:", cuponAplicado);
+    console.log("[CUPON] total con descuento aplicado:", total, "| descuentoCupon:", descuentoCupon);
     const resultado = await confirmarPedidoAtomico(
       items,
       construirPedido,
@@ -2851,14 +2933,19 @@ async function init() {
     loadPedidoMesa(),
     cargarUsuarioLogeado(),
   ]);
-  bindCuponInputs();
-  if (cuponParam) await buscarYAplicarCupon(cuponParam);
-  await renderTienda(biz);
-  aplicarComportamientoBotonAtras();
-  aplicarModeloNegocio(biz);
-  productosGlobal = productos;
-  productosPorId = new Map(productos.map((p) => [p.id, p]));
-  document.getElementById("totalCount").textContent = productos.length;
+// productosGlobal/productosPorId deben quedar listos ANTES de aplicar
+// un cupón (?cupon=), porque agregarProductoDeCupon() busca el producto
+// ahí. Antes se llenaba después, así que el cupón de producto siempre
+// fallaba con "producto NO está en productosPorId" al venir por link.
+productosGlobal = productos;
+productosPorId = new Map(productos.map((p) => [p.id, p]));
+document.getElementById("totalCount").textContent = productos.length;
+
+bindCuponInputs();
+if (cuponParam) await buscarYAplicarCupon(cuponParam);
+await renderTienda(biz);
+aplicarComportamientoBotonAtras();
+aplicarModeloNegocio(biz);
 
   // Se evalúa el horario ANTES de construir las tarjetas, así ya nacen
   // con el estado correcto (abierto/cerrado) sin parpadeo.

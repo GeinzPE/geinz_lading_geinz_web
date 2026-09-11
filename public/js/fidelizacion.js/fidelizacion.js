@@ -10,6 +10,7 @@ import {
   query,
   orderBy,
   limit,
+  where,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
@@ -34,6 +35,122 @@ const NIVELES = [
   { min: 150, label: "Nivel Plata" },
   { min: 400, label: "Nivel Oro VIP" },
 ];
+/* ══════════════ Horario de atención ══════════════ */
+const DIAS_SEMANA = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+];
+const DIAS_SEMANA_LABEL = {
+  domingo: "domingo",
+  lunes: "lunes",
+  martes: "martes",
+  miercoles: "miércoles",
+  jueves: "jueves",
+  viernes: "viernes",
+  sabado: "sábado",
+};
+
+let horarioEstado = { abierto: true, mensaje: "" };
+let horarioCheckInterval = null;
+
+function parseHoraAMinutos(str) {
+  if (!str || typeof str !== "string" || !str.includes(":")) return null;
+  const [h, m] = str.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function formatMinutosAHora(mins) {
+  const m = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+function calcularProximaApertura(horarios, desde) {
+  for (let offset = 0; offset < 8; offset++) {
+    const fecha = new Date(desde);
+    fecha.setDate(fecha.getDate() + offset);
+    const diaKey = DIAS_SEMANA[fecha.getDay()];
+    const diaData = horarios[diaKey];
+    if (!diaData || diaData.cerrado) continue;
+
+    const bloques = (diaData.bloques || [])
+      .map((b) => ({
+        inicio: parseHoraAMinutos(b.h_apertura),
+        fin: parseHoraAMinutos(b.h_cierre),
+      }))
+      .filter((b) => b.inicio !== null && b.fin !== null)
+      .sort((a, b) => a.inicio - b.inicio);
+
+    for (const b of bloques) {
+      if (offset === 0) {
+        const minutosAhora = desde.getHours() * 60 + desde.getMinutes();
+        if (b.inicio > minutosAhora)
+          return { dia: diaKey, offset, hora: b.inicio };
+      } else {
+        return { dia: diaKey, offset, hora: b.inicio };
+      }
+    }
+  }
+  return null;
+}
+
+function evaluarHorarioNegocio(biz, fecha = new Date()) {
+  const horarios = biz?.horario_atencion;
+  if (!horarios || typeof horarios !== "object") {
+    return { abierto: true, mensaje: "" };
+  }
+
+  const diaKey = DIAS_SEMANA[fecha.getDay()];
+  const diaData = horarios[diaKey];
+  if (!diaData) return { abierto: true, mensaje: "" };
+
+  if (diaData.cerrado) {
+    const motivo = (diaData.motivo || "").trim();
+    return {
+      abierto: false,
+      mensaje: motivo
+        ? `Cerrado hoy: ${motivo}`
+        : `Hoy (${DIAS_SEMANA_LABEL[diaKey]}) no atendemos`,
+    };
+  }
+
+  const minutosAhora = fecha.getHours() * 60 + fecha.getMinutes();
+  const bloques = diaData.bloques || [];
+
+  for (const bloque of bloques) {
+    const inicio = parseHoraAMinutos(bloque.h_apertura);
+    let fin = parseHoraAMinutos(bloque.h_cierre);
+    if (inicio === null || fin === null) continue;
+
+    if (fin <= inicio) {
+      if (minutosAhora >= inicio || minutosAhora < fin)
+        return { abierto: true, mensaje: "" };
+    } else {
+      if (minutosAhora >= inicio && minutosAhora < fin)
+        return { abierto: true, mensaje: "" };
+    }
+  }
+
+  const proxima = calcularProximaApertura(horarios, fecha);
+  let mensaje = "Cerrado ahora";
+  if (proxima) {
+    const horaTxt = formatMinutosAHora(proxima.hora);
+    if (proxima.offset === 0)
+      mensaje = `Cerrado ahora · Abrimos hoy a las ${horaTxt}`;
+    else if (proxima.offset === 1)
+      mensaje = `Cerrado ahora · Abrimos mañana a las ${horaTxt}`;
+    else
+      mensaje = `Cerrado ahora · Abrimos el ${DIAS_SEMANA_LABEL[proxima.dia]} a las ${horaTxt}`;
+  }
+  return { abierto: false, mensaje };
+}
 
 /* ══════════════ Resolución de ruta ══════════════
    Formato nuevo y seguro: /perfil/{alias}/fidelizacion/{uid}
@@ -628,13 +745,16 @@ async function verificarDisponibilidadRecompensa(p) {
       p.productoId,
     );
     const prodSnap = await getDoc(prodRef);
-    if (!prodSnap.exists() || prodSnap.data().disponible === false) return false;
+    if (!prodSnap.exists() || prodSnap.data().disponible === false)
+      return false;
 
     const prodData = prodSnap.data();
     const ve = p.varianteElegida;
     if (ve && typeof ve === "object") {
       for (const [condNombre, opcionNombre] of Object.entries(ve)) {
-        const cond = (prodData.condiciones || []).find((c) => c.nombre === condNombre);
+        const cond = (prodData.condiciones || []).find(
+          (c) => c.nombre === condNombre,
+        );
         const op = cond?.opciones?.find((o) => o.nombre === opcionNombre);
         const sinStock = typeof op?.stock === "number" && op.stock <= 0;
         if (!cond || !op || op.activo === false || sinStock) return false;
@@ -648,12 +768,19 @@ async function verificarDisponibilidadRecompensa(p) {
 }
 /* Descuenta puntos y crea el cupón en una sola transacción atómica */
 async function canjearRecompensa(producto, uid, puntosActuales) {
+  console.log(
+    "[CUPON] (fidelizacion) canjearRecompensa() con producto:",
+    producto,
+  );
+  console.log(
+    "[CUPON] (fidelizacion) varianteElegida del producto a canjear:",
+    producto.varianteElegida,
+  );
   const costo = Number(producto.costoPuntos ?? 0);
   if (puntosActuales < costo) {
     showError("No tienes suficientes puntos para este canje.");
     return null;
   }
-
   const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
   const codigo = generarCodigoCupon();
   const cuponRef = clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, codigo);
@@ -768,6 +895,12 @@ async function canjearRecompensa(producto, uid, puntosActuales) {
     }
 
     return codigo;
+    console.log(
+      "[CUPON] (fidelizacion) cupón creado con código:",
+      codigo,
+      "| varianteElegida guardada:",
+      producto.varianteElegida,
+    );
   } catch (err) {
     console.error("Error canjeando recompensa:", err);
     if (err?.motivo === "sin_puntos")
@@ -782,6 +915,13 @@ async function canjearRecompensa(producto, uid, puntosActuales) {
 }
 
 async function onCanjearClick(btn, producto, puntosActuales) {
+  if (!horarioEstado.abierto) {
+    showError(
+      horarioEstado.mensaje ||
+        "El negocio está cerrado ahora, no se puede canjear.",
+    );
+    return;
+  }
   if (!UID_ACTUAL) {
     showError("Debes iniciar sesión.");
     return;
@@ -830,7 +970,8 @@ function renderRecompensas(productos, puntosCliente) {
     productos.forEach((p) => {
       const costo = Number(p.costoPuntos ?? 0);
       const disponible = p.disponible !== false;
-      const alcanza = disponible && puntosCliente >= costo;
+      const alcanza =
+        disponible && puntosCliente >= costo && horarioEstado.abierto;
       const beneficioTxt = textoBeneficio(p);
       const varianteTxt = textoVariante(p);
       const el = document.createElement("div");
@@ -852,8 +993,8 @@ function renderRecompensas(productos, puntosCliente) {
           ${varianteTxt ? `<p class="font-mono-card text-[10px] sm:text-[10.5px] text-white/40 mt-1 leading-snug">🔸 ${varianteTxt}</p>` : ""}
           <p class="font-mono-card text-[10.5px] sm:text-xs text-white/40 mt-1">${costo} pts</p>
         </div>
-    <button class="btn-redeem mt-3 sm:mt-4 text-[11px] font-mono-card font-semibold rounded-lg py-2 w-full active:scale-[0.97]" ${alcanza ? "" : "disabled"}>
-    ${!disponible ? "AGOTADO" : alcanza ? "CANJEAR" : "BLOQUEADO"}
+     <button class="btn-redeem mt-3 sm:mt-4 text-[11px] font-mono-card font-semibold rounded-lg py-2 w-full active:scale-[0.97]" ${alcanza ? "" : "disabled"}>
+    ${!disponible ? "AGOTADO" : !horarioEstado.abierto ? "CERRADO" : alcanza ? "CANJEAR" : "BLOQUEADO"}
   </button>
       `;
       if (alcanza) {
@@ -1075,17 +1216,197 @@ async function cargarHistorialPuntos(uid) {
   }
 }
 
+/* ══════════════════════════════════════════
+   CUPONES ACTIVOS
+   ══════════════════════════════════════════ */
+
+function cuponesCol(uid) {
+  // Si tu subcolección real tiene otro nombre, cámbialo aquí:
+  return tiendaSubCol(
+    LOCALIDAD,
+    "tiendas",
+    NEGOCIO_ID,
+    "clientes",
+    uid,
+    "cupones",
+  );
+}
+
+let cuponesToggleWired = false;
+
+function renderCupones(lista) {
+  const wrap = document.getElementById("cuponesSection");
+  const cont = document.getElementById("cuponesList");
+  const badge = document.getElementById("cuponesCountBadge");
+  if (!wrap || !cont) return;
+
+  if (badge) badge.textContent = lista.length;
+
+  if (!lista.length) {
+    wrap.classList.add("hidden");
+    cont.innerHTML = "";
+    return;
+  }
+  wrap.classList.remove("hidden");
+
+  // Engancha el toggle solo una vez (la primera vez que aparecen cupones)
+  if (!cuponesToggleWired) {
+    const toggleBtn = document.getElementById("cuponesToggleBtn");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () => wrap.classList.toggle("open"));
+    }
+    cuponesToggleWired = true;
+  }
+
+  cont.innerHTML = lista
+    .map((c) => {
+      const nombre = c.nombre || c.productoNombre || "Cupón";
+      let detalle = `${c.costoPuntos ?? 0} pts`;
+      if (c.tipoBeneficio === "monto" && c.descuento?.monto != null) {
+        detalle += ` · –S/ ${Number(c.descuento.monto).toFixed(2)}`;
+      } else if (
+        c.tipoBeneficio === "porcentaje" &&
+        c.descuento?.porcentaje != null
+      ) {
+        detalle += ` · –${c.descuento.porcentaje}%`;
+      }
+      return `
+        <div class="cupon-row">
+          <div class="min-w-0">
+            <p class="cupon-nombre">${nombre}</p>
+            <p class="cupon-detalle">${detalle}</p>
+            <p class="cupon-codigo">${c.codigo}</p>
+          </div>
+          <button class="btn-cancelar-cupon" data-codigo="${c.codigo}">Cancelar</button>
+        </div>`;
+    })
+    .join("");
+
+  cont.querySelectorAll(".btn-cancelar-cupon").forEach((btn) => {
+    const cupon = lista.find((x) => x.codigo === btn.dataset.codigo);
+    btn.addEventListener("click", () => onCancelarCuponClick(btn, cupon));
+  });
+}
+
+async function cargarCuponesActivos(uid) {
+  try {
+    const q = query(
+      cuponesCol(uid),
+      where("estado", "==", "activo"),
+      where("usado", "==", false),
+      orderBy("creado", "desc"),
+    );
+    const snap = await getDocs(q);
+    const cupones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderCupones(cupones);
+  } catch (e) {
+    // Si Firestore pide un índice compuesto, el error trae el link
+    // para crearlo automáticamente en la consola.
+    console.warn("No se pudieron cargar los cupones activos:", e);
+  }
+}
+
+/* Devuelve los puntos del cupón al cliente y lo marca como cancelado,
+   todo en una transacción atómica (igual que el canje). */
+async function cancelarCupon(cupon, uid) {
+  const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
+  const cuponRef = clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, cupon.codigo);
+  const costo = Number(cupon.costoPuntos ?? 0);
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const cuponSnap = await tx.get(cuponRef);
+      if (!cuponSnap.exists()) throw { motivo: "cupon_no_existe" };
+
+      const cuponData = cuponSnap.data();
+      if (cuponData.estado !== "activo" || cuponData.usado) {
+        throw { motivo: "cupon_no_cancelable" };
+      }
+
+      const clienteSnap = await tx.get(clienteRef);
+      if (!clienteSnap.exists()) throw { motivo: "sin_cliente" };
+      const puntosActuales = Number(clienteSnap.data().puntos ?? 0);
+
+      tx.update(clienteRef, { puntos: puntosActuales + costo });
+      tx.update(cuponRef, {
+        estado: "cancelado",
+        canceladoEn: serverTimestamp(),
+      });
+    });
+
+    try {
+      await addDoc(
+        tiendaSubCol(
+          LOCALIDAD,
+          "tiendas",
+          NEGOCIO_ID,
+          "clientes",
+          uid,
+          "historial",
+        ),
+        {
+          tipo: "devolucion",
+          fecha: serverTimestamp(),
+          puntos: costo,
+          concepto: `Devolución: ${cupon.nombre || cupon.productoNombre || "cupón"}`,
+          codigoCupon: cupon.codigo,
+        },
+      );
+    } catch (e) {
+      console.warn("No se pudo registrar el historial de devolución:", e);
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error cancelando cupón:", err);
+    if (err?.motivo === "cupon_no_cancelable") {
+      showError(
+        "Este cupón ya no se puede cancelar (ya fue usado o cancelado).",
+      );
+    } else {
+      showError("No se pudo cancelar el cupón, intenta de nuevo.");
+    }
+    return false;
+  }
+}
+
+async function refrescarTrasCancelacion(uid) {
+  const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
+  const snap = await getDoc(clienteRef);
+  const puntos = Number(snap.data()?.puntos ?? 0);
+
+  document.getElementById("clientPoints") &&
+    (document.getElementById("clientPoints").textContent =
+      puntos.toLocaleString("es-PE"));
+  document.getElementById("pointsHint") &&
+    (document.getElementById("pointsHint").textContent =
+      `${puntos.toLocaleString("es-PE")} pts`);
+
+  const productos = await cargarProductos(NEGOCIO_ID);
+  inicializarFiltrosRecompensas(productos, puntos);
+  await cargarCuponesActivos(uid);
+  await cargarHistorialPuntos(uid);
+}
+
+async function onCancelarCuponClick(btn, cupon) {
+  if (!UID_ACTUAL || !cupon) return;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Cancelando...";
+
+  const ok = await cancelarCupon(cupon, UID_ACTUAL);
+  if (ok) {
+    await refrescarTrasCancelacion(UID_ACTUAL);
+  } else {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
 function initHistorialPuntosUI() {
-  const section = document.querySelector(".hp-section");
+  const section = document.getElementById("historialSection");
   const toggleBtn = document.getElementById("hpToggleBtn");
   if (toggleBtn && section) {
     toggleBtn.addEventListener("click", () => section.classList.toggle("open"));
-  }
-
-  // En pantallas de escritorio el historial va como columna al costado:
-  // se abre expandido por defecto en vez de arrancar colapsado.
-  if (section && window.matchMedia("(min-width: 1024px)").matches) {
-    section.classList.add("open");
   }
 
   document.querySelectorAll("#hpFiltros .hp-chip").forEach((chip) => {
@@ -1132,6 +1453,7 @@ async function cargarDatos(uid) {
     ]);
 
     const tienda = tiendaSnap.exists() ? tiendaSnap.data() : {};
+    horarioEstado = evaluarHorarioNegocio(tienda, new Date());
     const nombreTienda = tienda.nombre_tienda || "Mi Negocio";
     const logoURL =
       tienda.logoURL || tienda.logo || tienda.urlLogo || LOGO_FALLBACK_URL;
@@ -1199,8 +1521,18 @@ async function cargarDatos(uid) {
 
     inicializarFiltrosRecompensas(productos, puntos);
     cargarHistorialPuntos(uid);
+    cargarCuponesActivos(uid);
     initTilt();
     initFlip();
+    if (horarioCheckInterval) clearInterval(horarioCheckInterval);
+    horarioCheckInterval = setInterval(() => {
+      const nuevoEstado = evaluarHorarioNegocio(tienda, new Date());
+      const cambio = nuevoEstado.abierto !== horarioEstado.abierto;
+      horarioEstado = nuevoEstado;
+      if (cambio) {
+        inicializarFiltrosRecompensas(productos, puntos);
+      }
+    }, 30000);
     revealCard();
   } catch (err) {
     console.error(err);

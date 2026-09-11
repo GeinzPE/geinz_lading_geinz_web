@@ -459,6 +459,7 @@
     }
 
     .hp-section {
+      margin-top: 50px;
       border-radius: 20px;
       background: linear-gradient(180deg, rgba(18, 20, 26, .55) 0%, rgba(10, 11, 14, .55) 100%);
       border: 1px solid rgba(255, 255, 255, .07);
@@ -556,6 +557,62 @@
       background: color-mix(in srgb, var(--brand-vivid) 22%, transparent);
       border-color: color-mix(in srgb, var(--brand-vivid) 55%, transparent);
       color: #fff;
+    }
+
+    .cupon-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 14px;
+      background: rgba(74, 222, 128, 0.06);
+      border: 1px solid rgba(74, 222, 128, 0.25);
+    }
+
+    .cupon-nombre {
+      font-size: 12.5px;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .cupon-detalle {
+      font-size: 10.5px;
+      color: rgba(255, 255, 255, .4);
+      font-family: 'IBM Plex Mono', monospace;
+      margin-top: 2px;
+    }
+
+    .cupon-codigo {
+      font-size: 10px;
+      color: #4ade80;
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 0.1em;
+      margin-top: 2px;
+    }
+
+    .btn-cancelar-cupon {
+      flex-shrink: 0;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 7px 12px;
+      border-radius: 10px;
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.4);
+      color: #fbbf24;
+      cursor: pointer;
+      transition: all .15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-cancelar-cupon:hover {
+      background: rgba(251, 191, 36, 0.2);
+    }
+
+    .btn-cancelar-cupon:disabled {
+      opacity: .5;
+      cursor: not-allowed;
     }
 
     .hp-row {
@@ -950,6 +1007,9 @@
 
     <!-- ============ COLUMNA 2 (desktop): PREMIOS / RECOMPENSAS ============ -->
     <div id="colRecompensas">
+
+
+
       <div class="flex items-center justify-between mb-3.5 px-1">
         <h2
           class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase flex items-center gap-2">
@@ -966,19 +1026,48 @@
       <div id="rewardsGrid" class="grid grid-cols-2 gap-2.5 sm:gap-3">
         <!-- Se llenan dinámicamente -->
       </div>
+      <!-- ============ CUPONES ACTIVOS ============ -->
+      <div id="cuponesSection" class="hp-section mb-6 hidden">
+        <button id="cuponesToggleBtn" type="button" class="hp-toggle-btn">
+          <span class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:#4ade80; box-shadow:0 0 10px #4ade80;"></span>
+            <span class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase">Cupones
+              activos</span>
+          </span>
+          <span class="flex items-center gap-2">
+            <span id="cuponesCountBadge" class="hp-count-badge">0</span>
+            <svg id="cuponesChevron" class="hp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </span>
+        </button>
+
+        <div id="cuponesBody" class="hp-body">
+          <div class="hp-body-inner">
+            <div id="cuponesList" class="flex flex-col gap-2"></div>
+          </div>
+        </div>
+      </div>
     </div>
+
 
     <!-- ============ COLUMNA 3 (desktop): HISTORIAL ============ -->
     <div id="colHistorial">
-      <div class="hp-section mt-8 md:mt-0">
+      <div id="historialSection" class="hp-section mt-8 md:mt-0">
         <button id="hpToggleBtn" type="button" class="hp-toggle-btn">
           <span class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full shrink-0" style="background: var(--brand-vivid);"></span>
-            <span class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase">Historial de puntos</span>
+            <span
+              class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase">Historial
+              de puntos</span>
           </span>
           <span class="flex items-center gap-2">
             <span id="hpCountBadge" class="hp-count-badge">0</span>
-            <svg id="hpChevron" class="hp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <svg id="hpChevron" class="hp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </span>
         </button>
 
