@@ -28,7 +28,166 @@ import {
 // ══════════════════════════════════════════
 let _localidad = null;
 let _negocioId = null;
+// ══════════════════════════════════════════
+//  GENERACIÓN DE DOCUMENTOS LEGALES CON IA
+// ══════════════════════════════════════════
+const CLOUD_FUNCTION_GENERAR_DOC_LEGAL =
+  "https://generardocumentolegal-oixttik5rq-uc.a.run.app";
 
+// Llama a la Cloud Function (protocolo "callable" de Firebase v2:
+// body envuelto en {data:...}, respuesta envuelta en {result:...}).
+async function llamarGenerarDocumentoLegal(tipo_documento, datos_negocio, respuestas_negocio) {
+  const headers = { "Content-Type": "application/json" };
+  const user = auth.currentUser;
+  if (user) {
+    const token = await user.getIdToken();
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(CLOUD_FUNCTION_GENERAR_DOC_LEGAL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      data: { tipo_documento, datos_negocio, respuestas_negocio },
+    }),
+  });
+
+  const json = await res.json();
+
+  if (json.error) {
+    throw new Error(json.error.message || "Error generando el documento");
+  }
+  // json.result = { success, tipo_documento, titulo, contenido, preguntas_pendientes }
+  if (json.result?.success === false) {
+    throw new Error(json.result.error?.message || "No se pudo generar el documento");
+  }
+  return json.result;
+}
+
+// Trae el doc crudo de la tienda tal cual está en Firestore (sin filtrar,
+// solo para esta prueba — la Cloud Function ya filtra lo sensible).
+async function obtenerDatosNegocioCrudos() {
+  const snap = await getDoc(tiendaDoc(_localidad, "tiendas", _negocioId));
+  return snap.exists() ? snap.data() : {};
+}
+
+function capitalizar(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Pinta las preguntas_pendientes que devuelva Gemini cuando falte info,
+// junto con un botón para reenviar la generación ya con esas respuestas.
+function renderPreguntasPendientes(containerId, preguntas, onReenviar) {
+  const cont = document.getElementById(containerId);
+  if (!cont) return;
+  cont.innerHTML = "";
+
+  if (!preguntas || !preguntas.length) {
+    cont.classList.add("hidden");
+    return;
+  }
+
+  cont.classList.remove("hidden");
+
+  const respuestas = {};
+  preguntas.forEach((p) => {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+      <label class="field-label">${p.pregunta}</label>
+      <textarea class="field-textarea" rows="2" data-campo="${p.campo}"></textarea>
+    `;
+    wrap.querySelector("textarea").addEventListener("input", (e) => {
+      respuestas[p.campo] = e.target.value;
+    });
+    cont.appendChild(wrap);
+  });
+
+  const btn = document.createElement("button");
+  btn.className = "btn-primary mt-1";
+  btn.textContent = "Reenviar con estas respuestas";
+  btn.addEventListener("click", () => onReenviar(respuestas));
+  cont.appendChild(btn);
+}
+
+function contenidoAParrafos(contenido) {
+  return contenido
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => p.length);
+}
+
+// ── Libro de reclamaciones ──
+async function generarIALibro() {
+  const btn = document.getElementById("btnGenerarIALibro");
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Generando...";
+  try {
+    const datosNegocio = await obtenerDatosNegocioCrudos();
+    const resultado = await llamarGenerarDocumentoLegal("libro_reclamaciones", datosNegocio, {});
+    aplicarResultadoLibro(resultado, datosNegocio);
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo generar con IA: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function aplicarResultadoLibro(resultado, datosNegocio) {
+  if (resultado.contenido) {
+    if (resultado.titulo) document.getElementById("libroTitulo").value = resultado.titulo;
+    document.getElementById("libroDescripcion").value = resultado.contenido;
+    showToast("Generado con IA. Revisa y guarda los cambios.");
+  }
+  renderPreguntasPendientes("iaLibroPendientes", resultado.preguntas_pendientes, async (respuestas) => {
+    try {
+      const resultado2 = await llamarGenerarDocumentoLegal("libro_reclamaciones", datosNegocio, respuestas);
+      aplicarResultadoLibro(resultado2, datosNegocio);
+    } catch (e) {
+      showToast("No se pudo generar con IA: " + e.message);
+    }
+  });
+}
+
+// ── Políticas de privacidad / Términos y condiciones (mismo formato) ──
+const _editorLegalRefs = {}; // llenado dentro de initEditorLegalTexto (ver paso 3)
+
+async function generarIASeccion(prefix, tipoDocumento) {
+  const btnId = `btnGenerarIA${capitalizar(prefix)}`;
+  const btn = document.getElementById(btnId);
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Generando...";
+  try {
+    const datosNegocio = await obtenerDatosNegocioCrudos();
+    const resultado = await llamarGenerarDocumentoLegal(tipoDocumento, datosNegocio, {});
+    aplicarResultadoTexto(resultado, prefix, datosNegocio, tipoDocumento);
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo generar con IA: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function aplicarResultadoTexto(resultado, prefix, datosNegocio, tipoDocumento) {
+  if (resultado.contenido) {
+    const parrafos = contenidoAParrafos(resultado.contenido);
+    _editorLegalRefs[prefix]?.setContenido(resultado.titulo, parrafos);
+    showToast("Generado con IA. Revisa y guarda los cambios.");
+  }
+  renderPreguntasPendientes(`ia${capitalizar(prefix)}Pendientes`, resultado.preguntas_pendientes, async (respuestas) => {
+    try {
+      const resultado2 = await llamarGenerarDocumentoLegal(tipoDocumento, datosNegocio, respuestas);
+      aplicarResultadoTexto(resultado2, prefix, datosNegocio, tipoDocumento);
+    } catch (e) {
+      showToast("No se pudo generar con IA: " + e.message);
+    }
+  });
+}
 function mostrarErrorNegocio(motivo, dataDebug) {
   const badge = document.getElementById("legalLoadingBadge");
   const wrap = document.querySelector(".max-w-5xl");
@@ -495,7 +654,12 @@ function initEditorLegalTexto({ ref, prefix }) {
       btnGuardar.textContent = "Guardar cambios";
     }
   });
-
+  function setContenido(nuevoTitulo, nuevosParrafos) {
+    if (typeof nuevoTitulo === "string" && nuevoTitulo) tituloInput.value = nuevoTitulo;
+    parrafos = nuevosParrafos && nuevosParrafos.length ? nuevosParrafos : [""];
+    render();
+  }
+  _editorLegalRefs[prefix] = { setContenido };
   getDoc(ref).then((snap) => {
     const d = snap.exists() ? snap.data() : {};
     tituloInput.value = d.titulo || "";
@@ -540,4 +704,11 @@ function bindTabs() {
   initReclamos();
   initEditorLegalTexto({ ref: politicasPrivacidadDoc(_localidad, _negocioId), prefix: "politicas" });
   initEditorLegalTexto({ ref: terminosCondicionesDoc(_localidad, _negocioId), prefix: "terminos" });
+    document.getElementById("btnGenerarIALibro")?.addEventListener("click", generarIALibro);
+  document.getElementById("btnGenerarIAPoliticas")?.addEventListener("click", () =>
+    generarIASeccion("politicas", "politica_privacidad"),
+  );
+  document.getElementById("btnGenerarIATerminos")?.addEventListener("click", () =>
+    generarIASeccion("terminos", "terminos_condiciones"),
+  );
 })();

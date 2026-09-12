@@ -1123,7 +1123,22 @@
               🕐 Déjalo vacío para que esté disponible siempre. Útil para happy hour, desayunos, etc.
             </p>
           </div>
-
+<div class="mb-5">
+  <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+    <div class="pr-3">
+      <span class="text-sm font-medium text-purple-100">Selección de variante obligatoria</span>
+      <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+        Actívalo si el cliente SÍ o SÍ debe elegir algo (ej. sabor de gaseosa, helada o al tiempo).
+        Desactívalo si son extras opcionales (ej. "más papas", "más carne") — así el producto se agrega directo al carrito y las opciones quedan disponibles para editar después.
+      </p>
+    </div>
+    <label class="relative inline-block w-11 h-6 shrink-0">
+      <input type="checkbox" id="input-prod-variante-obligatoria" checked class="peer opacity-0 w-0 h-0">
+      <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+    </label>
+  </div>
+</div>
           <div class="mb-2">
             <div class="flex items-center justify-between mb-2">
               <label id="label-condiciones"

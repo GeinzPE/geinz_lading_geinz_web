@@ -1028,3 +1028,36 @@ body {
   box-shadow: none;
   opacity: .6;
 }
+
+/* ══════════════ Lista de productos del resumen: scroll propio cuando hay muchos ══════════════ */
+.checkout-summary-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin: 2px 0 4px;
+}
+
+.checkout-summary-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.checkout-summary-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .15);
+  border-radius: 99px;
+}
+
+/* separador visual sutil entre cada línea de producto */
+.step-summary-row {
+  border-bottom: 1px solid rgba(255, 255, 255, .045);
+}
+
+.step-summary-row:last-child {
+  border-bottom: none;
+}
+
+/* En mobile, deja más aire visible antes de que entre el scroll */
+@media (max-width: 480px) {
+  .checkout-summary-list {
+    max-height: 200px;
+  }
+}

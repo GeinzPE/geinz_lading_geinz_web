@@ -275,7 +275,7 @@
   </div>
 
   <!-- Modal de datos del cliente (checkout) -->
-  <div id="checkoutOverlay">
+    <div id="checkoutOverlay">
     <div id="checkoutModal">
       <div class="drawer-handle sm:hidden"></div>
       <div
@@ -288,7 +288,7 @@
           class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
       </div>
 
-      <div class="px-5 sm:px-6 py-5 overflow-y-auto flex flex-col gap-5">
+      <div class="px-5 sm:px-6 py-5 overflow-y-auto flex-1 min-h-0 flex flex-col gap-5" id="checkoutScrollArea">
         <div>
           <label class="field-label" for="clienteNombre">Nombre del cliente</label>
           <input id="clienteNombre" class="field-input" type="text" placeholder="¿Cómo te llamas?" autocomplete="off">
@@ -344,17 +344,17 @@
           <textarea id="clienteNota" class="field-input" rows="2"
             placeholder="Ej: Sin cebolla, ají aparte, etc."></textarea>
         </div>
-      </div>
 
-      <div class="glass rounded-2xl p-4">
-        <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
-        <div id="cuponBarCheckout"></div>
-        <div id="checkoutSummary" class="flex flex-col"></div>
-        <div class="flex items-center justify-between pt-3 mt-2 border-t border-white/[.07]">
-          <span class="text-gray-400 font-semibold text-sm">Total</span>
-          <span class="display font-extrabold text-xl">S/ <span id="checkoutTotal">0.00</span></span>
+        <div class="glass rounded-2xl p-4">
+          <p class="text-[12px] font-bold text-gray-400 uppercase tracking-wide mb-2">Resumen</p>
+          <div id="cuponBarCheckout"></div>
+          <div id="checkoutSummary" class="checkout-summary-list flex flex-col"></div>
+          <div class="flex items-center justify-between pt-3 mt-2 border-t border-white/[.07]">
+            <span class="text-gray-400 font-semibold text-sm">Total</span>
+            <span class="display font-extrabold text-xl">S/ <span id="checkoutTotal">0.00</span></span>
+          </div>
+          <p id="checkoutPuntos" class="hidden text-[12px] text-amber-300 font-semibold mt-2 text-right"></p>
         </div>
-        <p id="checkoutPuntos" class="hidden text-[12px] text-amber-300 font-semibold mt-2 text-right"></p>
       </div>
 
       <div class="px-5 sm:px-6 py-5 border-t border-white/[.06] flex-shrink-0">

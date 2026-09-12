@@ -257,6 +257,7 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
         el("negocio-nombre").closest("header") &&
           (document.title = `Pedido · ${nombre}`);
         const btnVolver = el("btn-volver-negocio");
+           const btnCarito = el("btn-ir-carrito");
         if (btnVolver) {
           if (aliasNegocioActual) {
             btnVolver.href = `https://geinztech.com/perfil/${aliasNegocioActual}`;
@@ -266,6 +267,18 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
             btnVolver.classList.add("hidden");
           }
         }
+         if (btnCarito){
+          if (aliasNegocioActual) {
+            btnCarito.href = `https://geinztech.com/perfil/${aliasNegocioActual}/carrito`;
+            el("btn-carrito-texto").textContent = `Ir a carrito de ${nombre}`;
+            btnCarito.classList.remove("hidden");
+          } else {
+            btnCarito.classList.add("hidden");
+          }
+        }
+
+     
+
         // Botón de contacto por WhatsApp, si el negocio lo tiene habilitado
         const wa = data.metodo_contacto?.whatsapp;
         if (wa?.estado && wa?.numero) {

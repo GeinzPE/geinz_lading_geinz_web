@@ -664,6 +664,7 @@
             background: #131318;
             color: #f2f2f5;
         }
+        .hidden { display: none !important; }
     </style>
 </head>
 
@@ -796,11 +797,15 @@
         <!-- ═══ TAB: LIBRO DE RECLAMACIONES ═══ -->
         <div class="tab-panel active" id="panelLibro">
             <section class="card p-5 sm:p-6 space-y-5">
-                <div>
-                    <h3 class="text-[15px] font-bold mb-1">Datos del libro</h3>
-                    <p class="text-xs text-[color:var(--muted)]">Esta información aparece en la cabecera de tu libro
-                        de reclamaciones virtual.</p>
-                </div>
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+        <h3 class="text-[15px] font-bold mb-1">Datos del libro</h3>
+        <p class="text-xs text-[color:var(--muted)]">Esta información aparece en la cabecera de tu libro
+            de reclamaciones virtual.</p>
+    </div>
+    <button class="btn-ghost" id="btnGenerarIALibro">✨ Generar con IA</button>
+</div>
+<div id="iaLibroPendientes" class="hidden space-y-3"></div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -880,11 +885,15 @@
         <!-- ═══ TAB: POLÍTICAS DE PRIVACIDAD ═══ -->
         <div class="tab-panel" id="panelPoliticas">
             <section class="card p-5 sm:p-6 space-y-5">
-                <div>
-                    <h3 class="text-[15px] font-bold mb-1">Políticas de privacidad</h3>
-                    <p class="text-xs text-[color:var(--muted)]">Se guarda como un título y una lista de párrafos,
-                        para que se vea ordenado en tu perfil público.</p>
-                </div>
+               <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+        <h3 class="text-[15px] font-bold mb-1">Políticas de privacidad</h3>
+        <p class="text-xs text-[color:var(--muted)]">Se guarda como un título y una lista de párrafos,
+            para que se vea ordenado en tu perfil público.</p>
+    </div>
+    <button class="btn-ghost" id="btnGenerarIAPoliticas">✨ Generar con IA</button>
+</div>
+<div id="iaPoliticasPendientes" class="hidden space-y-3"></div>
 
                 <div>
                     <label class="field-label">Título</label>
@@ -910,11 +919,14 @@
         <!-- ═══ TAB: TÉRMINOS Y CONDICIONES ═══ -->
         <div class="tab-panel" id="panelTerminos">
             <section class="card p-5 sm:p-6 space-y-5">
-                <div>
-                    <h3 class="text-[15px] font-bold mb-1">Términos y condiciones</h3>
-                    <p class="text-xs text-[color:var(--muted)]">Mismo formato que políticas: título + párrafos.</p>
-                </div>
-
+           <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+        <h3 class="text-[15px] font-bold mb-1">Términos y condiciones</h3>
+        <p class="text-xs text-[color:var(--muted)]">Mismo formato que políticas: título + párrafos.</p>
+    </div>
+    <button class="btn-ghost" id="btnGenerarIATerminos">✨ Generar con IA</button>
+</div>
+<div id="iaTerminosPendientes" class="hidden space-y-3"></div>
                 <div>
                     <label class="field-label">Título</label>
                     <input type="text" class="field-input" id="terminosTitulo"

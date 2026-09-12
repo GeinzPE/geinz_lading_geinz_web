@@ -1485,8 +1485,9 @@ function detalleCuponHtml(p) {
   if (!tipo) return "";
   const c = p.cupon || {};
   const productos = Array.isArray(p.productos) ? p.productos : [];
-  const prodCanjeado = productos.find((it) => it.esCanje);
-  const descuento = Number(p.descuentoCupon) || 0;
+const prodCanjeado =
+  productos.find((it) => it.esCanje) ||
+  (c.productoId ? productos.find((it) => it.id === c.productoId) : null);  const descuento = Number(p.descuentoCupon) || 0;
   const total = Number(p.total) || 0;
   const subtotal = Number(p.subtotal) || total + descuento;
   const porcentajeEfectivo = subtotal > 0 ? (descuento / subtotal) * 100 : 0;
@@ -1529,24 +1530,58 @@ function detalleCuponHtml(p) {
       <span>${c.origen === "fidelizacion" ? "Programa de fidelización" : "Cupón del negocio"}</span>
     </div>`);
 
-  if (tipo === "canje_puntos" && prodCanjeado) {
-    // ── Producto canjeado 100% con puntos, sin costo en soles ──
+if (tipo === "canje_puntos" && prodCanjeado) {
+  const varianteTxt = prodCanjeado.opciones
+    ? Object.entries(prodCanjeado.opciones).map(([k, v]) => `${k}: ${v}`).join(" · ")
+    : "";
+
+  filas.push(`
+    <div class="dm-cupon-row">
+      <span>Producto canjeado</span>
+      <span>${escapeHtml(prodCanjeado.nombre)}</span>
+    </div>`);
+
+  if (varianteTxt) {
     filas.push(`
       <div class="dm-cupon-row">
-        <span>Producto canjeado</span>
-        <span>${escapeHtml(prodCanjeado.nombre)}</span>
+        <span>Variante entregada</span>
+        <span style="font-weight:700;">${escapeHtml(varianteTxt)}</span>
       </div>`);
+  }
+
+  if (c.tipoBeneficio === "cantidad" && c.descuento) {
+    const compra = c.descuento.compraUnidades || "?";
+    const paga = c.descuento.pagaUnidades || "?";
+    const precioUnit = Number(c.precioOriginal) || 0;
+    filas.push(`
+      <div class="dm-cupon-row">
+        <span>Promoción canjeada</span>
+        <span style="font-weight:800;color:#fbbf24;">Lleva ${compra} · paga ${paga}</span>
+      </div>`);
+    filas.push(`
+      <div class="dm-cupon-row">
+        <span>Precio normal (${compra} unidades)</span>
+        <span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(precioUnit * compra)}</span>
+      </div>`);
+    filas.push(`
+      <div class="dm-cupon-row" style="border-top:1px dashed rgba(74,222,128,.25);padding-top:6px;margin-top:2px;">
+        <span style="font-weight:800;">Total que paga el cliente</span>
+        <span style="font-weight:800;">${fmtMoney(precioUnit * paga)}</span>
+      </div>`);
+  } else {
     filas.push(`
       <div class="dm-cupon-row">
         <span>Precio normal del producto</span>
         <span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(prodCanjeado.precio_unitario || prodCanjeado.precio || 0)}</span>
       </div>`);
-    filas.push(`
-      <div class="dm-cupon-row" style="border-top:1px dashed rgba(251,191,36,.25);padding-top:6px;margin-top:2px;">
-        <span style="font-weight:800;">Puntos que se descuentan al cliente</span>
-        <span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span>
-      </div>`);
-  } else {
+  }
+
+  filas.push(`
+    <div class="dm-cupon-row" style="border-top:1px dashed rgba(251,191,36,.25);padding-top:6px;margin-top:2px;">
+      <span style="font-weight:800;">Puntos que se descuentan al cliente</span>
+      <span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span>
+    </div>`);
+}else {
     // ── Descuento % o monto fijo sobre el subtotal ──
     if (c.tipo === "producto" && c.productoId) {
       filas.push(`
@@ -1894,7 +1929,7 @@ function renderCardActions(container, id, estado, p) {
             )}</strong></div>`
           : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
-      <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
+      <button class="oc-btn ghost danger" style="width:100%; margin-bottom:10px;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button> `;
   } else if (estado === "entregado") {
     container.innerHTML = `
@@ -2577,25 +2612,28 @@ function renderDetail(id) {
 
   const fechaHora = [p.fecha, p.hora].filter(Boolean).join(" · ");
 
-  const prodRows =
-    productos
-      .map((it) => {
-        const ptsItem = getPuntosItemDesdeCache(it);
-        return `
+ const prodRows =
+  productos
+    .map((it) => {
+      const ptsItem = getPuntosItemDesdeCache(it);
+      const opcTxt = it.opciones
+        ? Object.entries(it.opciones).map(([k, v]) => `${k}: ${v}`).join(" · ")
+        : "";
+      return `
     <div class="dm-prod-row">
       <div>
         <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
         ${it.categoria ? `<div class="dm-prod-cat">${escapeHtml(it.categoria)}</div>` : ""}
+        ${opcTxt ? `<div class="dm-prod-cat" style="color:#a78bfa;">${escapeHtml(opcTxt)}</div>` : ""}
         <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
         ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
       </div>
       <div class="dm-prod-price">S/ ${Number(it.subtotal ?? it.precio_unitario * it.cantidad ?? 0).toFixed(2)}</div>
     </div>
   `;
-      })
-      .join("") ||
-    `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
-
+    })
+    .join("") ||
+  `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
   const autoNote =
     estado === "rechazado" && p.auto_rechazado
       ? `<div class="dm-meta-item full"><div class="dm-meta-label">⏱️ Motivo</div><div class="dm-meta-value">Rechazado automáticamente por superar ${autoRejectMinutes} min sin pasar a "En proceso"</div></div>`

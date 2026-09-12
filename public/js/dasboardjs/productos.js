@@ -655,6 +655,7 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   imagenesSeleccionadas = [null, null, null];
   imagenesEnEdicionOriginal = [];
   condicionesSeleccionadas = [];
+  document.getElementById("input-prod-variante-obligatoria").checked = true;
   document.getElementById("form-producto").reset();
   document.getElementById("input-prod-disponible").checked = true;
   document.getElementById("input-prod-stock").value = "";
@@ -697,6 +698,8 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
       stock: typeof o.stock === "number" ? o.stock : null,
     })),
   }));
+  document.getElementById("input-prod-variante-obligatoria").checked =
+  data.variantesObligatoria !== false; // default true si no existe (productos viejos)
   document.getElementById("form-producto").reset();
   document.getElementById("input-prod-nombre").value = data.nombre || "";
   document.getElementById("input-prod-descripcion").value =
@@ -781,7 +784,9 @@ document
       document.getElementById("input-prod-horario-desde").value || null;
     const disponibleHasta =
       document.getElementById("input-prod-horario-hasta").value || null;
-
+const variantesObligatoria = document.getElementById(
+  "input-prod-variante-obligatoria",
+).checked;
     // Si el usuario activó "desactivar automáticamente al llegar a 0" y el stock es 0,
     // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
     if (autoDesactivar && stock === 0) disponible = false;
@@ -840,40 +845,42 @@ document
           subidas.push({ url, path });
         }
 
-        await updateDoc(docRef, {
-          nombre,
-          descripcion,
-          precio,
-          disponible,
-          condiciones,
-          stock,
-          autoDesactivar,
-          agotadoHoy,
-          puntos,
-          unidadMedida,
-          disponibleDesde,
-          disponibleHasta,
-          imagenes: [...conservadas, ...subidas],
-        });
+      await updateDoc(docRef, {
+  nombre,
+  descripcion,
+  precio,
+  disponible,
+  condiciones,
+  stock,
+  autoDesactivar,
+  agotadoHoy,
+  puntos,
+  unidadMedida,
+  disponibleDesde,
+  disponibleHasta,
+  variantesObligatoria,
+  imagenes: [...conservadas, ...subidas],
+});
         toast(`"${nombre}" actualizado.`);
       } else {
         const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
-        await setDoc(nuevoDocRef, {
-          nombre,
-          descripcion,
-          precio,
-          disponible,
-          condiciones,
-          stock,
-          autoDesactivar,
-          agotadoHoy,
-          puntos,
-          unidadMedida,
-          disponibleDesde,
-          disponibleHasta,
-          imagenes: [],
-          createdAt: serverTimestamp(),
-        });
+      await setDoc(nuevoDocRef, {
+  nombre,
+  descripcion,
+  precio,
+  disponible,
+  condiciones,
+  stock,
+  autoDesactivar,
+  agotadoHoy,
+  puntos,
+  unidadMedida,
+  disponibleDesde,
+  disponibleHasta,
+  variantesObligatoria,
+  imagenes: [],
+  createdAt: serverTimestamp(),
+});
         const archivos = imagenesSeleccionadas.filter(Boolean);
         const imagenes = [];
         for (const file of archivos) {

@@ -666,7 +666,6 @@ async function confirmarPedidoMesaDirecto() {
     }
   });
 
-
   [btnMobile, btnDesktop].forEach((b) => {
     if (b) b.innerHTML = "Enviando…";
   });
@@ -731,42 +730,57 @@ function calcularDescuentoCupon(subtotal) {
 }
 
 async function agregarProductoDeCupon(cupon) {
-  console.log("[CUPON] 3) agregarProductoDeCupon() con cupon:", cupon);
   let producto = productosPorId.get(cupon.productoId);
-  console.log("[CUPON] producto encontrado en catálogo local:", producto);
-
   if (!producto) {
-    console.log("[CUPON] ⚠️ producto NO está en productosPorId, se cancela el cupón");
     showToast("⚠️ El producto de este cupón ya no está disponible");
     cuponAplicado = null;
     return;
   }
 
-  const precioConDescuento = Number(
-    cupon.precioFinalEstimado ?? producto.precio,
-  );
   const key = `cupon__${cupon.codigo}`;
   const seleccionFinal = cupon.varianteElegida || null;
+  const tipoBeneficio = cupon.tipoBeneficio || "gratis";
+  const precioBase = Number(producto.precio) || 0;
 
-  console.log("[CUPON] precio final a usar:", precioConDescuento);
-  console.log("[CUPON] cartKey generado:", key);
-  console.log("[CUPON] variante que se va a fijar en el carrito:", seleccionFinal);
+  let cantidadCanje = 1;
+  let precioTotalCanje = Number(cupon.precioFinalEstimado ?? precioBase);
+
+  // 👉 CLAVE: en "cantidad" (2x1, 3x2...) hay que agregar VARIAS unidades,
+  // cobrando solo las que corresponden a "pagaUnidades"
+  if (tipoBeneficio === "cantidad") {
+    const compra = Number(cupon.descuento?.compraUnidades) || 1;
+    const paga = Number(cupon.descuento?.pagaUnidades) || compra;
+    cantidadCanje = compra;
+    precioTotalCanje = paga * precioBase;
+  }
+
+  const precioUnitarioCanje =
+    cantidadCanje > 0
+      ? +(precioTotalCanje / cantidadCanje).toFixed(2)
+      : precioTotalCanje;
 
   carrito.set(key, {
     ...producto,
-    precio: precioConDescuento,
-    cantidad: 1,
+    precio: precioUnitarioCanje,
+    cantidad: cantidadCanje,
     cartKey: key,
     seleccion: seleccionFinal,
     cuponCodigo: cupon.codigo,
     esCanje: true,
+    canjeTipoBeneficio: tipoBeneficio,
+    canjeDetalle: cupon.descuento || null, // {compraUnidades, pagaUnidades} o {monto}/{porcentaje}
   });
-
-  console.log("[CUPON] línea agregada al Map carrito:", carrito.get(key));
 }
 async function aplicarCuponDesdeDoc(data) {
   console.log("[CUPON] 2) aplicarCuponDesdeDoc() con data:", data);
-  console.log("[CUPON] tipo:", data.tipo, "| productoId:", data.productoId, "| varianteElegida:", data.varianteElegida);
+  console.log(
+    "[CUPON] tipo:",
+    data.tipo,
+    "| productoId:",
+    data.productoId,
+    "| varianteElegida:",
+    data.varianteElegida,
+  );
 
   if (data.estado === "usado" || data.usado) {
     console.log("[CUPON] rechazado: ya estaba usado");
@@ -786,14 +800,20 @@ async function aplicarCuponDesdeDoc(data) {
   console.log("[CUPON] cuponAplicado seteado en memoria:", cuponAplicado);
 
   if (data.tipo === "producto" && data.productoId) {
-    console.log("[CUPON] es cupón de PRODUCTO, llamando agregarProductoDeCupon()");
+    console.log(
+      "[CUPON] es cupón de PRODUCTO, llamando agregarProductoDeCupon()",
+    );
     await agregarProductoDeCupon(data);
   } else {
-    console.log("[CUPON] es cupón MANUAL (descuento %, monto o mínimo de compra), no se agrega producto");
+    console.log(
+      "[CUPON] es cupón MANUAL (descuento %, monto o mínimo de compra), no se agrega producto",
+    );
   }
 
   updateCartUI();
-  console.log("[CUPON] updateCartUI() ejecutado, estado actual del carrito:", [...carrito.entries()]);
+  console.log("[CUPON] updateCartUI() ejecutado, estado actual del carrito:", [
+    ...carrito.entries(),
+  ]);
   showToast(`🎟️ Cupón ${data.codigo} aplicado`);
 }
 
@@ -852,13 +872,19 @@ async function buscarYAplicarCupon(codigoCrudo) {
 }
 
 function quitarCupon() {
-  console.log("[CUPON] quitarCupon() llamado, cuponAplicado actual:", cuponAplicado);
+  console.log(
+    "[CUPON] quitarCupon() llamado, cuponAplicado actual:",
+    cuponAplicado,
+  );
   if (!cuponAplicado) return;
   if (cuponAplicado.tipo === "producto") {
     const key = `cupon__${cuponAplicado.codigo}`;
     const existia = carrito.has(key);
     carrito.delete(key);
-    console.log("[CUPON] línea de producto canjeado eliminada del carrito, existía:", existia);
+    console.log(
+      "[CUPON] línea de producto canjeado eliminada del carrito, existía:",
+      existia,
+    );
   }
   cuponAplicado = null;
   updateCartUI();
@@ -872,8 +898,14 @@ function cuponBarHTML(subtotal) {
   let footer = "";
 
   if (c.tipo === "producto") {
-    descTxt = `🎁 Producto canjeado: ${c.productoNombre || c.nombre || ""}`;
+  if (c.tipoBeneficio === "cantidad" && c.descuento) {
+    const compra = c.descuento.compraUnidades || "?";
+    const paga = c.descuento.pagaUnidades || "?";
+    descTxt = `🎁 ${c.productoNombre || c.nombre || "Producto"} · lleva ${compra}, paga ${paga}`;
   } else {
+    descTxt = `🎁 Producto canjeado: ${c.productoNombre || c.nombre || ""}`;
+  }
+}else {
     descTxt =
       c.tipoDescuentoManual === "porcentaje"
         ? `${c.porcentajeManual}% de descuento`
@@ -1045,27 +1077,28 @@ async function loadProductosCatalogo(biz) {
           }))
           .filter((c) => c.nombre && c.opciones.length > 0);
 
-        arr.push({
-          id: pDoc.id,
-          categoria,
-          categoriaNorm: normalizeText(categoria),
-          nombre,
-          nombreNorm: normalizeText(nombre),
-          precio: Number(d.precio) || 0,
-          imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
-          imagen: d.imagenes?.[0]?.url || "",
-          condiciones,
-          stock: typeof d.stock === "number" ? d.stock : null, // ← faltaba: stock general del producto
-          puntos:
-            biz?.fidelizacion?.activo &&
-            d.puntos?.activo &&
-            d.puntos?.cantidad > 0
-              ? {
-                  cantidad: d.puntos.cantidad,
-                  descripcion: d.puntos.descripcion || "",
-                }
-              : null,
-        });
+     arr.push({
+  id: pDoc.id,
+  categoria,
+  categoriaNorm: normalizeText(categoria),
+  nombre,
+  nombreNorm: normalizeText(nombre),
+  precio: Number(d.precio) || 0,
+  imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
+  imagen: d.imagenes?.[0]?.url || "",
+  condiciones,
+  stock: typeof d.stock === "number" ? d.stock : null,
+  variantesObligatoria: d.variantesObligatoria !== false,
+  puntos:
+    biz?.fidelizacion?.activo &&
+    d.puntos?.activo &&
+    d.puntos?.cantidad > 0
+      ? {
+          cantidad: d.puntos.cantidad,
+          descripcion: d.puntos.descripcion || "",
+        }
+      : null,
+});
       });
       return arr;
     }),
@@ -1630,11 +1663,13 @@ function renderQtyControls(container, p, cartKey = null) {
         "text-[10.5px] font-bold px-2.5 py-1.5 rounded-full flex-shrink-0";
       badge.style.background = "rgba(var(--dr),var(--dg),var(--db),.15)";
       badge.style.color = "rgb(var(--dr),var(--dg),var(--db))";
-      badge.textContent = "🎁 Canjeado";
+      badge.textContent =
+        cartItem.cantidad > 1
+          ? `🎁 Canjeado ×${cartItem.cantidad}`
+          : "🎁 Canjeado";
       container.appendChild(badge);
       return;
     }
-
     const stepper = document.createElement("div");
     stepper.className = "qty-stepper pop";
 
@@ -1780,8 +1815,7 @@ function addToCart(p, seleccion = null) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
   }
-  if (!seleccion && p.condiciones && p.condiciones.length) {
-    abrirOptionsModal(p);
+if (!seleccion && p.condiciones && p.condiciones.length && p.variantesObligatoria !== false) {    abrirOptionsModal(p);
     return;
   }
   const key = cartKeyFor(p.id, seleccion);
@@ -2138,13 +2172,13 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-          ${
-            it.seleccion && !it.esCanje
-              ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Cambiar opciones" data-key="${key}" data-id="${it.id}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>`
-              : ""
-          }
+        ${
+  !it.esCanje && (it.seleccion || (productosPorId.get(it.id)?.condiciones?.length))
+    ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>`
+    : ""
+}
           ${
             it.esCanje
               ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
@@ -2320,15 +2354,15 @@ function renderCheckoutSummary() {
     items
       .map((it) => {
         const partesOpciones = [];
-    if (it.seleccion) {
-      partesOpciones.push(
-        Object.entries(it.seleccion)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · "),
-      );
-    }
-    if (it.esCanje) partesOpciones.push("🎁 Canjeado con puntos");
-    const opcionesTxt = partesOpciones.join(" · ");
+        if (it.seleccion) {
+          partesOpciones.push(
+            Object.entries(it.seleccion)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" · "),
+          );
+        }
+        if (it.esCanje) partesOpciones.push("🎁 Canjeado con puntos");
+        const opcionesTxt = partesOpciones.join(" · ");
         return `
     <div class="step-summary-row">
       <span>${it.cantidad}× ${it.nombre}${opcionesTxt ? ` <span class="text-gray-500 text-[11px]">(${opcionesTxt})</span>` : ""}</span>
@@ -2404,18 +2438,18 @@ async function guardarPedidoEnDB({
       vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
     },
     nota: nota || "",
-    productos: items.map((it) => ({
-      id: it.id,
-      nombre: it.nombre,
-      categoria: it.categoria,
-      precio_unitario: it.precio,
-      cantidad: it.cantidad,
-      subtotal: +(it.precio * it.cantidad).toFixed(2),
-      imagen: it.imagen || "",
-      opciones: it.seleccion || null,
-      esCanje: it.esCanje || false, // NUEVO
-      cuponCodigo: it.cuponCodigo || null, // NUEVO
-    })),
+  productos: items.map((it) => ({
+  id: it.id,
+  nombre: it.nombre,
+  categoria: it.categoria,
+  precio_unitario: it.precio,
+  cantidad: it.cantidad,
+  subtotal: +(it.precio * it.cantidad).toFixed(2),
+  imagen: it.imagen || "",
+  opciones: it.seleccion || null,
+  esCanje: it.esCanje || false,       // 👈 FALTA en tu doc actual
+  cuponCodigo: it.cuponCodigo || null, // 👈 FALTA en tu doc actual
+})),
     total_items: items.reduce((s, i) => s + i.cantidad, 0),
     total: +total.toFixed(2),
     negocio: { id: tiendaId, nombre: bizNombre, localidad },
@@ -2560,15 +2594,34 @@ document
         ? {
             codigo: cuponAplicado.codigo,
             tipo: cuponAplicado.tipo,
-            origen: cuponAplicado.origen || null, // "fidelizacion" o null/otro
-            costoPuntos: cuponAplicado.costoPuntos ?? null, // para poder devolver puntos si se rechaza
+            origen: cuponAplicado.origen || null,
+            costoPuntos: cuponAplicado.costoPuntos ?? null,
+            productoId: cuponAplicado.productoId || null,
+            productoNombre:
+              cuponAplicado.productoNombre || cuponAplicado.nombre || null,
+            tipoBeneficio: cuponAplicado.tipoBeneficio || null,
+            descuento: cuponAplicado.descuento || null,
+            precioOriginal: cuponAplicado.precioOriginal ?? null,
+            precioFinalEstimado: cuponAplicado.precioFinalEstimado ?? null,
+            tipoDescuentoManual: cuponAplicado.tipoDescuentoManual || null,
+            porcentajeManual: cuponAplicado.porcentajeManual ?? null,
+            montoManual: cuponAplicado.montoManual ?? null,
+            compraMinima: cuponAplicado.compraMinima ?? null,
           }
         : null,
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
     });
     console.log("[CUPON] 5) items que se van a guardar en el pedido:", items);
-    console.log("[CUPON] cuponAplicado al momento de confirmar pedido:", cuponAplicado);
-    console.log("[CUPON] total con descuento aplicado:", total, "| descuentoCupon:", descuentoCupon);
+    console.log(
+      "[CUPON] cuponAplicado al momento de confirmar pedido:",
+      cuponAplicado,
+    );
+    console.log(
+      "[CUPON] total con descuento aplicado:",
+      total,
+      "| descuentoCupon:",
+      descuentoCupon,
+    );
     const resultado = await confirmarPedidoAtomico(
       items,
       construirPedido,
@@ -2933,19 +2986,19 @@ async function init() {
     loadPedidoMesa(),
     cargarUsuarioLogeado(),
   ]);
-// productosGlobal/productosPorId deben quedar listos ANTES de aplicar
-// un cupón (?cupon=), porque agregarProductoDeCupon() busca el producto
-// ahí. Antes se llenaba después, así que el cupón de producto siempre
-// fallaba con "producto NO está en productosPorId" al venir por link.
-productosGlobal = productos;
-productosPorId = new Map(productos.map((p) => [p.id, p]));
-document.getElementById("totalCount").textContent = productos.length;
+  // productosGlobal/productosPorId deben quedar listos ANTES de aplicar
+  // un cupón (?cupon=), porque agregarProductoDeCupon() busca el producto
+  // ahí. Antes se llenaba después, así que el cupón de producto siempre
+  // fallaba con "producto NO está en productosPorId" al venir por link.
+  productosGlobal = productos;
+  productosPorId = new Map(productos.map((p) => [p.id, p]));
+  document.getElementById("totalCount").textContent = productos.length;
 
-bindCuponInputs();
-if (cuponParam) await buscarYAplicarCupon(cuponParam);
-await renderTienda(biz);
-aplicarComportamientoBotonAtras();
-aplicarModeloNegocio(biz);
+  bindCuponInputs();
+  if (cuponParam) await buscarYAplicarCupon(cuponParam);
+  await renderTienda(biz);
+  aplicarComportamientoBotonAtras();
+  aplicarModeloNegocio(biz);
 
   // Se evalúa el horario ANTES de construir las tarjetas, así ya nacen
   // con el estado correcto (abierto/cerrado) sin parpadeo.
