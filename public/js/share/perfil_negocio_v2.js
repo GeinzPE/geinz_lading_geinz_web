@@ -549,23 +549,19 @@ async function resolveMesaYRedirigir({ localidad, id, alias }, mesaToken) {
       return true;
     }
 
-    const base = alias
+       const base = alias
       ? `/perfil/${encodeURIComponent(alias)}/carrito`
       : "/carrito/carrito.html";
-    const aliasKey = _params.alias || biz?.alias_key;
-    if (aliasKey && _currentUid) {
-      window.location.href = `https://geinztech.com/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
-    } else {
-      // Fallback: sin alias (URL vieja) o sin usuario logeado, usa el formato anterior
-      const url = new URL(
-        "../../fidelizacion/fidelizacion_client.html",
-        window.location.href,
-      );
-      url.searchParams.set("localidad", _params.localidad);
-      url.searchParams.set("id", _params.id);
-      if (_currentUid) url.searchParams.set("uid", _currentUid);
-      window.location.href = url.toString();
+
+    const url = new URL(base, window.location.origin);
+    url.searchParams.set("mesa", mesaDoc.id);
+    url.searchParams.set("numero_mesa", mesaDoc.numero_mesa ?? "");
+    if (!alias) {
+      url.searchParams.set("localidad", localidad);
+      url.searchParams.set("id", id);
     }
+
+    window.location.href = url.toString();
     return true;
   } catch (e) {
     console.error("Error resolviendo mesa:", e);

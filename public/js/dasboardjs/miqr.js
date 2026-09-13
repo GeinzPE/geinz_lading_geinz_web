@@ -115,7 +115,7 @@ const QrNegocio = {
       );
     }
 
-      const data = snap.data() || {};
+    const data = snap.data() || {};
     const info = {
       id: tiendaId,
       alias: data.alias_key || data.alias || tiendaId,
@@ -408,7 +408,7 @@ const QrNegocio = {
     // directo (con su botón de descarga HD) y NO se le pide
     // al usuario que lo genere de nuevo. Si no existe, el tile
     // se queda en su estado "Toca para crear" normal.
-      const tipos = ["perfil", "carta", "carrito", "reclamaciones"];
+    const tipos = ["perfil", "carta", "carrito", "reclamaciones"];
 
     await Promise.all(
       tipos.map(async (tipo) => {
@@ -457,6 +457,7 @@ async function aplicarVisibilidadPorCategoria() {
         const data = negocioSnap.data();
         categoria = categoria || data.categoria_tienda || null;
         modeloNegocio = data.modelo_negocio; // 👈 nuevo (true/false)
+     console.log(`${modeloNegocio}`);
         sessionStorage.setItem("categoriaTienda", categoria || "");
         sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio)); // 👈 nuevo
       }
@@ -485,7 +486,9 @@ async function aplicarVisibilidadPorCategoria() {
   // mesasSection depende de categoría Y de modelo_negocio (local físico)
   const mesasSection = document.getElementById("mesasSection");
   if (mesasSection) {
+    
     const debeMostrarMesas = esRestaurante && modeloNegocio === true;
+    console.log({ categoria, modeloNegocio, esRestaurante, debeMostrarMesas });
     mesasSection.style.display = debeMostrarMesas ? "" : "none";
   }
 
@@ -1131,7 +1134,10 @@ const PreviewQr = {
     perfil: { brand: "Perfil", sub: "Escanea para ver nuestro perfil" },
     carta: { brand: "CARTA DIGITAL", sub: "Escanea para ver nuestro menú" },
     carrito: { brand: "PRODUCTOS", sub: "Escanea para pedir directo" },
-    reclamaciones: { brand: "LIBRO DE RECLAMACIONES", sub: "Escanea para presentar tu reclamo" },
+    reclamaciones: {
+      brand: "LIBRO DE RECLAMACIONES",
+      sub: "Escanea para presentar tu reclamo",
+    },
   },
   async openNegocio(tipo) {
     const estado = QrNegocio._estado[tipo];

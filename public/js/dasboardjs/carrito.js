@@ -1173,6 +1173,30 @@ function aplicarModeloNegocio(biz) {
   } else {
     if (pickupBtn) pickupBtn.classList.remove("hidden");
     if (bannerEl) bannerEl.classList.add("hidden");
+
+    // 👇 FIX: antes este bloque no tocaba direccionEl para nada, así que
+    // el campo dependía 100% de que la clase .open ya estuviera bien
+    // puesta de antes. Ahora se sincroniza explícitamente con el toggle
+    // actual (Delivery/Recojo) cada vez que se cargan los datos del negocio.
+    if (direccionEl) {
+      // Por si el caso "solo delivery" alguna vez dejó estilos inline
+      // !important puestos (ej. si biz cambió de solo-delivery a ambas
+      // opciones sin recargar la página), los limpiamos primero.
+      direccionEl.style.removeProperty("display");
+      direccionEl.style.removeProperty("max-height");
+      direccionEl.style.removeProperty("opacity");
+      direccionEl.style.removeProperty("overflow");
+      direccionEl.style.removeProperty("margin-top");
+      direccionEl.classList.add("collapse");
+
+      const inner = direccionEl.querySelector(".collapse-inner");
+      if (inner) {
+        inner.style.removeProperty("display");
+        inner.style.removeProperty("overflow");
+      }
+
+      setCollapseOpen(direccionEl, tipoEntrega === "Delivery");
+    }
   }
 }
 async function renderTienda(biz) {
