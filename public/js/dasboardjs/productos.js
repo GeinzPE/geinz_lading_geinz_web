@@ -698,10 +698,10 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
       stock: typeof o.stock === "number" ? o.stock : null,
     })),
   }));
-  document.getElementById("input-prod-variante-obligatoria").checked =
+document.getElementById("form-producto").reset();
+document.getElementById("input-prod-variante-obligatoria").checked =
   data.variantesObligatoria !== false; // default true si no existe (productos viejos)
-  document.getElementById("form-producto").reset();
-  document.getElementById("input-prod-nombre").value = data.nombre || "";
+document.getElementById("input-prod-nombre").value = data.nombre || "";
   document.getElementById("input-prod-descripcion").value =
     data.descripcion || "";
   document.getElementById("input-prod-precio").value = data.precio ?? "";

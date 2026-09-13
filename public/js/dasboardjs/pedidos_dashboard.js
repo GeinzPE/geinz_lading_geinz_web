@@ -50,6 +50,9 @@ const SND_NUEVO_PEDIDO_DESCUENTO = "../../sounds/pedido_entrante_descuento.mp3";
 const SND_NUEVO_PEDIDO_CUPON_DESCUENTO =
   "../../sounds/pedido_entrante_cupon_descuento.mp3";
 const SND_CANJE_PUNTOS = "../../sounds/canje_de_puntos.mp3";
+
+const SND_NUEVO_PEDIDO_DELIVERY = "../../sounds/nuevo_pedido_delivery.mp3";
+const SND_NUEVO_PEDIDO_RECOJO = "../../sounds/nuevo_pedido_presencial.mp3";
 const ID_PRUEBA = tiendaId;
 /* ══════════════ Colores fijos para grupos de mesas (ya no editable por el usuario) ══════════════ */
 const GROUP_COLOR_OCUPADA = "#f59e0b"; // ámbar, igual que una mesa ocupada individual
@@ -751,9 +754,24 @@ document.addEventListener("click", () => ensureAudio(), {
 function playChime(pedidoId, data) {
   const tipo = getTipoCuponPedido(data);
   let url = SND_NUEVO_PEDIDO;
-  if (tipo === "canje_puntos") url = SND_CANJE_PUNTOS;
-  else if (tipo === "descuento_fidelizacion") url = SND_NUEVO_PEDIDO_DESCUENTO;
-  else if (tipo === "cupon_descuento") url = SND_NUEVO_PEDIDO_CUPON_DESCUENTO;
+
+  if (tipo === "canje_puntos") {
+    url = SND_CANJE_PUNTOS;
+  } else if (tipo === "descuento_fidelizacion") {
+    url = SND_NUEVO_PEDIDO_DESCUENTO;
+  } else if (tipo === "cupon_descuento") {
+    url = SND_NUEVO_PEDIDO_CUPON_DESCUENTO;
+  } else {
+    // Sin cupón especial: el sonido depende del tipo de entrega
+    const tipoEntrega = data?.cliente?.tipo_entrega;
+    if (tipoEntrega === "Delivery") {
+      url = SND_NUEVO_PEDIDO_DELIVERY;
+    } else if (tipoEntrega === "Recojo en local") {
+      url = SND_NUEVO_PEDIDO_RECOJO;
+    }
+    // Si es otro valor o no viene, se queda con SND_NUEVO_PEDIDO (genérico)
+  }
+
   encolarAlarma(pedidoId, url);
 }
 /* Alarma distinta y más urgente para el auto-rechazo por tiempo agotado */

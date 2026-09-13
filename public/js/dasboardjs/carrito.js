@@ -569,7 +569,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 function renderPedidoActivoMesa(pedido) {
@@ -898,14 +898,14 @@ function cuponBarHTML(subtotal) {
   let footer = "";
 
   if (c.tipo === "producto") {
-  if (c.tipoBeneficio === "cantidad" && c.descuento) {
-    const compra = c.descuento.compraUnidades || "?";
-    const paga = c.descuento.pagaUnidades || "?";
-    descTxt = `🎁 ${c.productoNombre || c.nombre || "Producto"} · lleva ${compra}, paga ${paga}`;
+    if (c.tipoBeneficio === "cantidad" && c.descuento) {
+      const compra = c.descuento.compraUnidades || "?";
+      const paga = c.descuento.pagaUnidades || "?";
+      descTxt = `🎁 ${c.productoNombre || c.nombre || "Producto"} · lleva ${compra}, paga ${paga}`;
+    } else {
+      descTxt = `🎁 Producto canjeado: ${c.productoNombre || c.nombre || ""}`;
+    }
   } else {
-    descTxt = `🎁 Producto canjeado: ${c.productoNombre || c.nombre || ""}`;
-  }
-}else {
     descTxt =
       c.tipoDescuentoManual === "porcentaje"
         ? `${c.porcentajeManual}% de descuento`
@@ -1077,28 +1077,28 @@ async function loadProductosCatalogo(biz) {
           }))
           .filter((c) => c.nombre && c.opciones.length > 0);
 
-     arr.push({
-  id: pDoc.id,
-  categoria,
-  categoriaNorm: normalizeText(categoria),
-  nombre,
-  nombreNorm: normalizeText(nombre),
-  precio: Number(d.precio) || 0,
-  imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
-  imagen: d.imagenes?.[0]?.url || "",
-  condiciones,
-  stock: typeof d.stock === "number" ? d.stock : null,
-  variantesObligatoria: d.variantesObligatoria !== false,
-  puntos:
-    biz?.fidelizacion?.activo &&
-    d.puntos?.activo &&
-    d.puntos?.cantidad > 0
-      ? {
-          cantidad: d.puntos.cantidad,
-          descripcion: d.puntos.descripcion || "",
-        }
-      : null,
-});
+        arr.push({
+          id: pDoc.id,
+          categoria,
+          categoriaNorm: normalizeText(categoria),
+          nombre,
+          nombreNorm: normalizeText(nombre),
+          precio: Number(d.precio) || 0,
+          imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
+          imagen: d.imagenes?.[0]?.url || "",
+          condiciones,
+          stock: typeof d.stock === "number" ? d.stock : null,
+          variantesObligatoria: d.variantesObligatoria !== false,
+          puntos:
+            biz?.fidelizacion?.activo &&
+              d.puntos?.activo &&
+              d.puntos?.cantidad > 0
+              ? {
+                cantidad: d.puntos.cantidad,
+                descripcion: d.puntos.descripcion || "",
+              }
+              : null,
+        });
       });
       return arr;
     }),
@@ -1156,7 +1156,7 @@ function aplicarModeloNegocio(biz) {
     if (direccionEl) {
       // Se saca del sistema "collapse" por completo, así no depende de
       // ninguna clase/transición CSS que pueda estar fallando.
-      direccionEl.classList.remove("hidden", "collapse", "open");
+      direccionEl.classList.remove("hidden", "acc-collapse", "open");
       direccionEl.style.setProperty("display", "block", "important");
       direccionEl.style.setProperty("max-height", "none", "important");
       direccionEl.style.setProperty("opacity", "1", "important");
@@ -1187,7 +1187,7 @@ function aplicarModeloNegocio(biz) {
       direccionEl.style.removeProperty("opacity");
       direccionEl.style.removeProperty("overflow");
       direccionEl.style.removeProperty("margin-top");
-      direccionEl.classList.add("collapse");
+      direccionEl.classList.add("acc-collapse");
 
       const inner = direccionEl.querySelector(".collapse-inner");
       if (inner) {
@@ -1538,11 +1538,10 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${
-    _bizLogoUrl
+  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
       ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
       : `<span class="ph-letter">${letraNegocio()}</span>`
-  }</div>`;
+    }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -1650,12 +1649,11 @@ function productoCard(p, index = 0) {
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-    ${
-      p.puntos
-        ? siguiendoTienda
-          ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-          : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
-        : ""
+    ${p.puntos
+      ? siguiendoTienda
+        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+        : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
+      : ""
     }  `;
 
   const qtyWrap = document.createElement("div");
@@ -1839,7 +1837,8 @@ function addToCart(p, seleccion = null) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
   }
-if (!seleccion && p.condiciones && p.condiciones.length && p.variantesObligatoria !== false) {    abrirOptionsModal(p);
+  if (!seleccion && p.condiciones && p.condiciones.length) {
+    abrirOptionsModal(p);
     return;
   }
   const key = cartKeyFor(p.id, seleccion);
@@ -1924,9 +1923,7 @@ function removeFromCart(key, productId) {
 let productoParaOpciones = null;
 let seleccionOpciones = {};
 let cartKeyEnEdicion = null; // si no es null, el popup está EDITANDO esa línea del carrito
-
 function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
-  // Si es para AGREGAR (no editar) y el negocio está cerrado, no se abre el popup
   if (!editKey && !horarioEstado.abierto) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
@@ -1934,9 +1931,28 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
   productoParaOpciones = p;
   cartKeyEnEdicion = editKey;
   seleccionOpciones = seleccionExistente ? { ...seleccionExistente } : {};
+
+  // true  -> variante obligatoria: se autoselecciona todo apenas abre el modal,
+  //          y no se puede deseleccionar (siempre debe quedar una opción marcada).
+  // false -> variante opcional: NO se preselecciona nada (salvo edición con
+  //          selección previa), y SÍ se puede deseleccionar tocando de nuevo
+  //          la opción ya activa.
+  const esObligatoria = p.variantesObligatoria !== false;
+
   document.getElementById("optionsProdNombre").textContent = p.nombre;
   const body = document.getElementById("optionsBody");
   body.innerHTML = "";
+
+  // Mensaje elegante solo cuando la selección es opcional: aclara que el
+  // cliente puede continuar sin elegir nada, al precio base del producto.
+  if (!esObligatoria) {
+    const aviso = document.createElement("p");
+    aviso.style.cssText =
+      "font-size:12.5px; color:var(--ink-dim,#9c9ca3); background:rgba(var(--dr),var(--dg),var(--db),.08); border:1px dashed rgba(var(--dr),var(--dg),var(--db),.35); border-radius:12px; padding:9px 12px; margin:-4px 0 4px; line-height:1.4;";
+    aviso.innerHTML =
+      "✨ Estas opciones son opcionales — elige lo que quieras o continúa con el precio base.";
+    body.appendChild(aviso);
+  }
 
   (p.condiciones || []).forEach((cond) => {
     const wrap = document.createElement("div");
@@ -1948,9 +1964,18 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     const optsWrap = document.createElement("div");
     optsWrap.className = "toggle-row flex-wrap";
 
-    cond.opciones.forEach((op, oi) => {
-      const valorPrevio = seleccionOpciones[cond.nombre];
-      const esActiva = valorPrevio ? valorPrevio === op.nombre : oi === 0;
+    // Autoselección de la primera opción SOLO si es obligatoria, o si estamos
+    // editando una línea que ya traía selección previa en esta condición.
+    if (
+      !seleccionOpciones[cond.nombre] &&
+      (esObligatoria || editKey) &&
+      cond.opciones.length
+    ) {
+      seleccionOpciones[cond.nombre] = cond.opciones[0].nombre;
+    }
+
+    cond.opciones.forEach((op) => {
+      const esActiva = seleccionOpciones[cond.nombre] === op.nombre;
       const optBtn = document.createElement("div");
       optBtn.className = "toggle-opt" + (esActiva ? " active" : "");
       optBtn.textContent = op.costoAdicional
@@ -1958,7 +1983,22 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
         : op.nombre;
       if (esActiva)
         optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
+
       optBtn.onclick = () => {
+        const yaEstabaActiva = seleccionOpciones[cond.nombre] === op.nombre;
+
+        // Si NO es obligatoria y se toca la opción ya activa -> deseleccionar.
+        if (!esObligatoria && yaEstabaActiva) {
+          delete seleccionOpciones[cond.nombre];
+          optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
+            o.classList.remove("active");
+            o.style.background = "";
+          });
+          actualizarEstadoBotonConfirmar(p);
+          return;
+        }
+
+        // Selección normal (o cambio de opción): marca esta, desmarca las demás.
         optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
           o.classList.remove("active");
           o.style.background = "";
@@ -1966,24 +2006,46 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
         optBtn.classList.add("active");
         optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
         seleccionOpciones[cond.nombre] = op.nombre;
+        actualizarEstadoBotonConfirmar(p);
       };
+
       optsWrap.appendChild(optBtn);
     });
 
     wrap.appendChild(optsWrap);
     body.appendChild(wrap);
-    if (cond.opciones.length && !seleccionOpciones[cond.nombre]) {
-      seleccionOpciones[cond.nombre] = cond.opciones[0].nombre;
-    }
   });
 
   document.getElementById("confirmOptionsBtn").textContent = editKey
     ? "Guardar cambios"
     : "Agregar al carrito";
+
+  actualizarEstadoBotonConfirmar(p);
+
   document.getElementById("optionsOverlay").classList.add("show");
   document.body.style.overflow = "hidden";
 }
 
+// Habilita/deshabilita "Agregar al carrito" según si ya se eligió una opción
+// en CADA condición (solo aplica cuando la selección es obligatoria y es un
+// producto nuevo, no una edición de algo que ya estaba en el carrito).
+// Habilita/deshabilita "Agregar al carrito" según variantesObligatoria:
+// - true  -> exige que haya una opción elegida en CADA condición.
+// - false -> siempre queda habilitado, elija o no elija algo.
+function actualizarEstadoBotonConfirmar(p) {
+  const btn = document.getElementById("confirmOptionsBtn");
+  const esObligatoria = p.variantesObligatoria !== false;
+
+  if (!esObligatoria) {
+    btn.disabled = false;
+    return;
+  }
+
+  const faltaAlguna = (p.condiciones || []).some(
+    (cond) => !seleccionOpciones[cond.nombre],
+  );
+  btn.disabled = faltaAlguna;
+}
 function cerrarOptionsModal() {
   document.getElementById("optionsOverlay").classList.remove("show");
   if (
@@ -2002,8 +2064,18 @@ document.getElementById("optionsOverlay").addEventListener("click", (e) => {
 });
 document.getElementById("confirmOptionsBtn").onclick = () => {
   if (!productoParaOpciones) return;
-  // Al confirmar una edición (cambio de variante) sí se permite aunque esté cerrado,
-  // pero agregar nuevo NO (addToCart ya valida esto también, por seguridad doble).
+
+  const esObligatoria = productoParaOpciones.variantesObligatoria !== false;
+  if (esObligatoria) {
+    const faltaAlguna = (productoParaOpciones.condiciones || []).some(
+      (cond) => !seleccionOpciones[cond.nombre],
+    );
+    if (faltaAlguna) {
+      showToast("Elige una opción en cada campo antes de continuar");
+      return;
+    }
+  }
+
   if (cartKeyEnEdicion) {
     editCartSelection(cartKeyEnEdicion, productoParaOpciones, {
       ...seleccionOpciones,
@@ -2013,7 +2085,6 @@ document.getElementById("confirmOptionsBtn").onclick = () => {
   }
   cerrarOptionsModal();
 };
-
 function syncCartChange(id) {
   updateCartUI();
   syncMainListCard(id);
@@ -2177,8 +2248,8 @@ function renderCartList(wrap, items) {
     const precioNum = Number(it.precio) || 0;
     const opcionesTxt = it.seleccion
       ? Object.entries(it.seleccion)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ")
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(" · ")
       : "";
 
     let row = rowsMap.get(key);
@@ -2196,20 +2267,18 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${
-  !it.esCanje && (it.seleccion || (productosPorId.get(it.id)?.condiciones?.length))
-    ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+        ${!it.esCanje && (it.seleccion || (productosPorId.get(it.id)?.condiciones?.length))
+          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-    : ""
-}
-          ${
-            it.esCanje
-              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          : ""
+        }
+          ${it.esCanje
+          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-          }
+        }
         </div>
       `;
       wrap.appendChild(row);
@@ -2451,10 +2520,10 @@ async function guardarPedidoEnDB({
     },
     mesa: mesaId
       ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+        id: mesaId,
+        nombre: mesaNombre || null,
+        numero: mesaNumero ? Number(mesaNumero) : null,
+      }
       : null,
 
     pago: {
@@ -2462,18 +2531,18 @@ async function guardarPedidoEnDB({
       vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
     },
     nota: nota || "",
-  productos: items.map((it) => ({
-  id: it.id,
-  nombre: it.nombre,
-  categoria: it.categoria,
-  precio_unitario: it.precio,
-  cantidad: it.cantidad,
-  subtotal: +(it.precio * it.cantidad).toFixed(2),
-  imagen: it.imagen || "",
-  opciones: it.seleccion || null,
-  esCanje: it.esCanje || false,       // 👈 FALTA en tu doc actual
-  cuponCodigo: it.cuponCodigo || null, // 👈 FALTA en tu doc actual
-})),
+    productos: items.map((it) => ({
+      id: it.id,
+      nombre: it.nombre,
+      categoria: it.categoria,
+      precio_unitario: it.precio,
+      cantidad: it.cantidad,
+      subtotal: +(it.precio * it.cantidad).toFixed(2),
+      imagen: it.imagen || "",
+      opciones: it.seleccion || null,
+      esCanje: it.esCanje || false,       // 👈 FALTA en tu doc actual
+      cuponCodigo: it.cuponCodigo || null, // 👈 FALTA en tu doc actual
+    })),
     total_items: items.reduce((s, i) => s + i.cantidad, 0),
     total: +total.toFixed(2),
     negocio: { id: tiendaId, nombre: bizNombre, localidad },
@@ -2590,10 +2659,10 @@ document
       },
       mesa: mesaId
         ? {
-            id: mesaId,
-            nombre: mesaNombre || null,
-            numero: mesaNumero ? Number(mesaNumero) : null,
-          }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
         : null,
       pago: {
         metodo: metodoPago,
@@ -2616,22 +2685,22 @@ document
       descuentoCupon,
       cupon: cuponAplicado
         ? {
-            codigo: cuponAplicado.codigo,
-            tipo: cuponAplicado.tipo,
-            origen: cuponAplicado.origen || null,
-            costoPuntos: cuponAplicado.costoPuntos ?? null,
-            productoId: cuponAplicado.productoId || null,
-            productoNombre:
-              cuponAplicado.productoNombre || cuponAplicado.nombre || null,
-            tipoBeneficio: cuponAplicado.tipoBeneficio || null,
-            descuento: cuponAplicado.descuento || null,
-            precioOriginal: cuponAplicado.precioOriginal ?? null,
-            precioFinalEstimado: cuponAplicado.precioFinalEstimado ?? null,
-            tipoDescuentoManual: cuponAplicado.tipoDescuentoManual || null,
-            porcentajeManual: cuponAplicado.porcentajeManual ?? null,
-            montoManual: cuponAplicado.montoManual ?? null,
-            compraMinima: cuponAplicado.compraMinima ?? null,
-          }
+          codigo: cuponAplicado.codigo,
+          tipo: cuponAplicado.tipo,
+          origen: cuponAplicado.origen || null,
+          costoPuntos: cuponAplicado.costoPuntos ?? null,
+          productoId: cuponAplicado.productoId || null,
+          productoNombre:
+            cuponAplicado.productoNombre || cuponAplicado.nombre || null,
+          tipoBeneficio: cuponAplicado.tipoBeneficio || null,
+          descuento: cuponAplicado.descuento || null,
+          precioOriginal: cuponAplicado.precioOriginal ?? null,
+          precioFinalEstimado: cuponAplicado.precioFinalEstimado ?? null,
+          tipoDescuentoManual: cuponAplicado.tipoDescuentoManual || null,
+          porcentajeManual: cuponAplicado.porcentajeManual ?? null,
+          montoManual: cuponAplicado.montoManual ?? null,
+          compraMinima: cuponAplicado.compraMinima ?? null,
+        }
         : null,
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
     });

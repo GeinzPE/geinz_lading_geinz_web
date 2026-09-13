@@ -815,15 +815,15 @@ body {
     color: #0a0a0f;
     border-color: transparent;
 }
-
-.collapse {
+.acc-collapse  {
     max-height: 0;
     opacity: 0;
+        flex-shrink: 0; 
     overflow: hidden;
     transition: max-height .32s cubic-bezier(.2, .8, .2, 1), opacity .22s ease;
 }
 
-.collapse.open {
+.acc-collapse.open {
     max-height: 260px;
     opacity: 1;
 }
@@ -1060,4 +1060,12 @@ body {
   .checkout-summary-list {
     max-height: 200px;
   }
+}
+#filtros {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE y Edge */
+}
+
+#filtros::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
