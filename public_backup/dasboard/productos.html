@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de productos</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script type="module" src="../js/dasboardjs/productos.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          keyframes: {
+            toastIn: {
+              '0%': { opacity: '0', transform: 'translateY(10px) scale(.95)' },
+              '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+            },
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(6px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.4' },
+              '50%': { opacity: '0.8' }
+            }
+          },
+          animation: {
+            toastIn: 'toastIn .25s cubic-bezier(.16,1,.3,1)',
+            fadeIn: 'fadeIn .25s cubic-bezier(.16,1,.3,1)',
+            pulseGlow: 'pulseGlow 2s ease-in-out infinite',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    :root {
+      --bg-dark: #000000;
+      --surface-dark: #0d0a17;
+      --border-dark: rgba(139, 92, 246, 0.12);
+      --purple-deep: #4c1d95;
+      --purple-mid: #6d28d9;
+      --purple-accent: #7c3aed;
+      --ink: #f3f0ff;
+      --ink-dim: #9ca3af;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg-dark);
+      color: var(--ink);
+    }
+
+    ::selection {
+      background: rgba(124, 58, 237, 0.4);
+      color: #fff;
+    }
+
+    /* Overlays */
+    .overlay {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+    }
+
+    .overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .overlay .modal {
+      transform: translateY(12px) scale(.97);
+      transition: transform .22s cubic-bezier(.16, 1, .3, 1);
+    }
+
+    .overlay.show .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    /* Custom Scrollbar */
+    .thin-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    .thin-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: rgba(124, 58, 237, 0.3);
+      border-radius: 99px;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    :focus-visible {
+      outline: 2px solid rgba(124, 58, 237, 0.6);
+      outline-offset: 2px;
+    }
+
+    /* Splash Screen Fade Out */
+    #splash-screen {
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+
+    #splash-screen.hide {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    /* Filtros seleccionados */
+    .filter-btn {
+      transition: all 0.2s ease;
+    }
+
+    .filter-btn.active-filter {
+      ring-2: 2px;
+      box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
+    }
+
+    /* Scrollbar totalmente oscura */
+    /* 1. Estándar (Firefox y navegadores compatibles) */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #2a2a2a #000000;
+      /* [tirador] [fondo] */
+    }
+
+    /* 2. WebKit (Chrome, Edge, Safari, Opera) */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    /* Fondo del scroll (totalmente oscuro) */
+    ::-webkit-scrollbar-track {
+      background: #000000;
+    }
+
+    /* Barrita / Tirador (Gris oscuro visible, no blanco) */
+    ::-webkit-scrollbar-thumb {
+      background: #2a2a2a;
+      border-radius: 5px;
+      border: 2px solid #000000;
+      /* Espaciado estético alrededor del tirador */
+    }
+
+    /* Barrita al pasar el cursor (un poquitito más clara para dar respuesta visual) */
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3d3d3d;
+    }
+
+    .import-panel {
+      transition: opacity .2s ease, transform .2s ease;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .import-panel.import-fade-out {
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
+    }
+
+    /* el modal completo entra con un fade+scale suave */
+    #overlay-importar>div {
+      animation: import-modal-in .22s ease-out;
+    }
+
+    @keyframes import-modal-in {
+      from {
+        opacity: 0;
+        transform: translateY(14px) scale(.97);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* micro-interacción al tocar un tab en móvil */
+    .import-tab-btn:active {
+      transform: scale(.96);
+    }
+
+    .import-file-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .import-file-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .import-file-btn {
+      flex-shrink: 0;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 10px;
+      background: #6d28d9;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px 14px;
+      transition: background .15s ease, transform .1s ease;
+    }
+
+    .import-file-btn:hover {
+      background: #7c3aed;
+    }
+
+    .import-file-btn:active {
+      transform: scale(.97);
+    }
+
+    .import-file-name {
+      flex: 1 1 140px;
+      min-width: 0;
+      font-size: 11px;
+      color: rgba(196, 181, 253, 0.5);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(139, 92, 246, 0.15);
+      border-radius: 8px;
+      padding: 7px 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .import-file-name.has-file {
+      color: #ddd6fe;
+      border-color: rgba(139, 92, 246, 0.35);
+    }
+
+    .import-file-actions {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    /* En desktop todo cabe en una sola fila */
+    @media (min-width: 640px) {
+      .import-file-name {
+        flex: 1 1 auto;
+      }
+
+      .import-file-actions {
+        width: auto;
+      }
+    }
+
+    .panel-actions {
+      position: relative;
+    }
+
+    .panel-actions-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      border: none;
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .15s ease;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.25);
+    }
+
+    .panel-actions-trigger:hover {
+      box-shadow: 0 6px 18px rgba(124, 58, 237, 0.35);
+    }
+
+    .panel-actions-trigger:active {
+      transform: scale(.97);
+    }
+
+    .panel-actions-trigger .chevron {
+      transition: transform .18s ease;
+      margin-left: 2px;
+    }
+
+    .panel-actions-trigger.open .chevron {
+      transform: rotate(180deg);
+    }
+
+    .panel-actions-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 220px;
+      background: #0d0a17;
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 14px;
+      padding: 6px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      z-index: 60;
+      transform-origin: top right;
+      animation: menu-in .15s ease-out;
+    }
+
+    @keyframes menu-in {
+      from {
+        opacity: 0;
+        transform: scale(.94) translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .panel-actions-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #ddd6fe;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background .12s ease;
+    }
+
+    .panel-actions-item:hover {
+      background: rgba(139, 92, 246, 0.12);
+    }
+
+    .panel-actions-item:active {
+      background: rgba(139, 92, 246, 0.2);
+    }
+
+    .tab-btn-form {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      color: rgba(196, 181, 253, .5);
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all .15s ease;
+    }
+
+    .tab-btn-form.active-tab {
+      color: #fff;
+      background: rgba(139, 92, 246, .18);
+      border-color: rgba(139, 92, 246, .35);
+    }
+
+    .tab-panel-form {
+      display: none;
+    }
+
+    .tab-panel-form.active-tab-panel {
+      display: block;
+      animation: fadeIn .2s ease;
+    }
+
+    @media (max-width: 480px) {
+      .panel-actions-menu {
+        right: 0;
+        left: auto;
+        min-width: 200px;
+      }
+    }
+
+    /* ── Carta digital (versión liviana) ── */
+    #carta-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .carta-toggle-btn:active {
+      opacity: .8;
+    }
+
+    .carta-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .32s cubic-bezier(.16, 1, .3, 1);
+    }
+
+    .carta-body.open {
+      grid-template-rows: 1fr;
+    }
+
+    .carta-body>div {
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .carta-coleccion-card {
+      border-radius: 12px;
+      background: #05040a;
+      border: 1px solid rgba(139, 92, 246, 0.15);
+    }
+
+    .carta-coleccion-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+
+    .carta-coleccion-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .carta-coleccion-preview {
+      font-size: 11px;
+      color: rgba(196, 181, 253, 0.5);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .carta-coleccion-preview.empty {
+      opacity: .6;
+    }
+
+    .carta-coleccion-count {
+      font-family: monospace;
+      font-size: 10px;
+      color: #fcd34d;
+      background: rgba(217, 119, 6, 0.15);
+      padding: 3px 7px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+
+    .carta-del-btn {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      color: rgba(196, 181, 253, 0.4);
+    }
+
+    .carta-del-btn:active {
+      color: #fb7185;
+    }
+
+    .carta-arrow {
+      flex-shrink: 0;
+      color: rgba(196, 181, 253, 0.4);
+      transition: transform .15s;
+    }
+
+    .carta-coleccion-head.open .carta-arrow {
+      transform: rotate(180deg);
+    }
+
+    .carta-coleccion-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .32s cubic-bezier(.16, 1, .3, 1);
+    }
+
+    .carta-coleccion-body.open {
+      grid-template-rows: 1fr;
+    }
+
+    .carta-body-inner {
+      overflow: hidden;
+      min-height: 0;
+      padding: 0 14px 14px;
+    }
+
+    .carta-textarea {
+      width: 100%;
+      resize: none;
+      border-radius: 8px;
+      background: #0d0a17;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #f3f0ff;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .carta-save-text-btn {
+      display: none;
+      margin-top: 8px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: none;
+      background: #d97706;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .carta-save-text-btn.visible {
+      display: inline-block;
+    }
+
+    .carta-save-text-btn:disabled {
+      opacity: .5;
+    }
+
+    .carta-photo-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 480px) {
+      .carta-photo-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .carta-photo-item {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0d0a17;
+      border: 1px solid rgba(139, 92, 246, 0.15);
+    }
+
+    .carta-photo-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .carta-photo-add {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      color: rgba(217, 119, 6, 0.5);
+      border: 1px dashed rgba(217, 119, 6, 0.3);
+    }
+
+    .carta-photo-add span:last-child {
+      font-size: 9px;
+    }
+
+    .carta-photo-del {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      z-index: 2;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+    }
+
+    /* ── Placeholder de imagen (fondo negro + logo centrado) ── */
+    /* Se muestra siempre detrás de la foto real. Si la foto carga bien, la tapa.
+       Si la foto falla (link roto, borrada de Storage, etc.), queda visible. */
+    .img-placeholder-fallback {
+      position: absolute;
+      inset: 0;
+      background: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 0;
+    }
+
+    .img-placeholder-fallback img {
+      width: 32%;
+      height: 32%;
+      object-fit: cover;
+      opacity: 0.9;
+      border-radius: 50%;
+    }
+
+    .img-real-foto {
+      position: relative;
+      z-index: 1;
+    }
+
+    .img-real-foto.is-broken {
+      display: none;
+    }
+
+    .skeleton-card {
+      border-radius: 16px;
+      background: #0d0a17;
+      border: 1px solid rgba(139, 92, 246, 0.15);
+      overflow: hidden;
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .skeleton-img {
+      width: 100%;
+      aspect-ratio: 1;
+      background: linear-gradient(90deg, rgba(139, 92, 246, .06) 25%, rgba(139, 92, 246, .15) 37%, rgba(139, 92, 246, .06) 63%);
+      background-size: 400% 100%;
+      animation: skeletonShine 1.4s ease infinite;
+    }
+
+    .skeleton-line {
+      height: 10px;
+      border-radius: 6px;
+      margin: 10px 14px;
+      background: linear-gradient(90deg, rgba(139, 92, 246, .06) 25%, rgba(139, 92, 246, .15) 37%, rgba(139, 92, 246, .06) 63%);
+      background-size: 400% 100%;
+      animation: skeletonShine 1.4s ease infinite;
+    }
+
+    @keyframes skeletonShine {
+      0% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0 50%;
+      }
+    }
+
+    .producto-card {
+      transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .producto-card.filtro-oculto {
+      opacity: 0;
+      transform: translateY(8px) scale(.97);
+    }
+
+    .stat-bump {
+      animation: statBump .3s ease;
+    }
+
+    @keyframes statBump {
+      0% {
+        transform: scale(1);
+      }
+
+      30% {
+        transform: scale(1.25);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .categoria {
+      transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .categoria.categoria-oculta {
+      opacity: 0;
+      transform: translateY(8px) scale(.98);
+    }
+  </style>
+</head>
+
+<body class="font-sans antialiased min-h-screen relative overflow-x-hidden">
+
+  <!-- SPLASH SCREEN PURE DARK (SOLO IMÁGENES + TOTALES) -->
+  <div id="splash-screen"
+    class="fixed inset-0 z-[500] bg-black flex flex-col items-center justify-center p-6 select-none overflow-hidden">
+    <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(124,58,237,0.08)_0%,transparent_70%)]">
+    </div>
+
+    <div class="w-full max-w-xl flex flex-col items-center gap-8">
+
+      <!-- Contenedor dinámico solo de imágenes cargadas -->
+      <div id="splash-gallery" class="w-full flex items-center justify-center gap-3 overflow-hidden py-4 min-h-[120px]">
+        <div class="flex items-center gap-3 animate-pulse">
+          <div class="w-20 h-20 rounded-2xl bg-purple-950/30 border border-purple-900/30"></div>
+          <div class="w-24 h-24 rounded-2xl bg-violet-900/20 border border-purple-800/40"></div>
+          <div class="w-20 h-20 rounded-2xl bg-purple-950/30 border border-purple-900/30"></div>
+        </div>
+      </div>
+
+      <!-- Indicador de Carga y Totales -->
+      <div class="flex flex-col items-center text-center gap-3">
+        <div class="flex items-center gap-2 text-xs font-mono text-violet-300/80 uppercase tracking-widest">
+          <span class="spinner"></span>
+          <span>Cargando catálogo...</span>
+        </div>
+
+        <!-- Métricas del Splash -->
+        <div
+          class="flex items-center gap-4 bg-[#0d0a17] px-5 py-2.5 rounded-2xl border border-purple-900/30 text-xs font-mono shadow-2xl">
+          <div class="text-purple-300">
+            Imágenes: <strong id="splash-total-imgs" class="text-white">0</strong>
+          </div>
+          <div class="w-px h-3 bg-purple-900/50"></div>
+          <div class="text-purple-300">
+            Productos: <strong id="splash-total-prods" class="text-white">0</strong>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Ambient Glow Background Sutil Dark -->
+  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+    <div class="absolute -top-40 -left-20 w-[500px] h-[500px] rounded-full bg-violet-950/15 blur-[160px]"></div>
+    <div class="absolute bottom-0 right-0 w-[450px] h-[450px] rounded-full bg-indigo-950/10 blur-[160px]"></div>
+  </div>
+
+  <!-- Header Principal -->
+  <header class="sticky top-0 z-30 backdrop-blur-xl bg-black/85 border-b border-purple-900/20">
+    <div class="max-w-[1360px] mx-auto px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+          <span>Panel de productos</span>
+        </h1>
+      </div>
+
+      <div class="panel-actions" id="panel-actions-wrap">
+        <button type="button" id="btn-acciones-toggle" class="panel-actions-trigger">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span>Agregar</span>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        <div class="panel-actions-menu hidden" id="panel-actions-menu">
+          <button type="button" id="btn-nueva-categoria" class="panel-actions-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>Nueva categoría</span>
+          </button>
+          <!-- btn-importar-productos se inyecta aquí solo, desde import_producto.js -->
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1360px] mx-auto px-4 sm:px-8 pt-6 pb-24">
+
+    <!-- Sección de Control: Buscador e Indicador de Productos -->
+    <div
+      class="mb-8 p-4 sm:p-5 rounded-2xl bg-[#0d0a17] border border-purple-900/20 flex flex-col md:flex-row gap-4 items-center justify-between shadow-xl">
+
+      <!-- Barra de búsqueda unificada -->
+      <div class="relative w-full md:max-w-md">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400/50 pointer-events-none" width="18"
+          height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input type="text" id="input-busqueda" placeholder="Buscar categorías o productos..."
+          class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 pl-10 pr-4 py-2.5 text-sm text-purple-100 placeholder-purple-400/40 outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600 transition-all">
+      </div>
+
+      <!-- Indicadores Interactivos (Filtros Clickeables) -->
+      <div
+        class="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-between md:justify-end text-xs font-mono select-none flex-wrap">
+        <button type="button" id="btn-filter-todos"
+          class="filter-btn active-filter flex items-center gap-2 px-3 py-1.5 rounded-xl bg-violet-950/50 border border-violet-500/40 text-violet-200 hover:bg-violet-900/50">
+          <span>Todos</span>
+        </button>
+
+        <button type="button" id="btn-filter-activos"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-900/40">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Activos: <strong id="stat-activos">0</strong></span>
+        </button>
+
+        <button type="button" id="btn-filter-agotados"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-950/30 border border-rose-500/20 text-rose-400 hover:bg-rose-900/40">
+          <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+          <span>Agotados: <strong id="stat-agotados">0</strong></span>
+        </button>
+
+        <button type="button" id="btn-filter-stockbajo"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/30 border border-amber-500/20 text-amber-400 hover:bg-amber-900/40">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span>Stock bajo: <strong id="stat-stockbajo">0</strong></span>
+        </button>
+
+        <button type="button" id="btn-filter-agotadohoy"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-950/30 border border-orange-500/20 text-orange-400 hover:bg-orange-900/40">
+          <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+          <span>Agotado hoy: <strong id="stat-agotadohoy">0</strong></span>
+        </button>
+
+        <button type="button" id="btn-filter-categorias"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-purple-300 hover:bg-purple-900/40">
+          <span>Categorías: <strong id="stat-categorias">0</strong></span>
+        </button>
+      </div>
+
+    </div>
+
+
+    <!-- Carta Digital (solo Comida y Restaurantes) -->
+    <div class="hidden mb-8" id="carta-digital-section">
+      <div class="carta-card rounded-2xl bg-[#0d0a17] border border-amber-500/15 overflow-hidden"> <button type="button"
+          id="carta-toggle"
+          class="carta-toggle-btn w-full flex items-center justify-between gap-3 p-5 sm:p-6 text-left transition-colors">
+          <div class="flex items-center gap-3 min-w-0">
+            <div
+              class="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/25 flex items-center justify-center text-xl shrink-0">
+              📖</div>
+            <div class="min-w-0">
+              <p class="text-white font-bold text-base sm:text-lg">Carta digital</p>
+              <p class="text-purple-300/50 text-xs" id="carta-sub">0 de 5 colecciones</p>
+            </div>
+          </div>
+          <svg id="carta-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706"
+            stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"
+            class="shrink-0 transition-transform duration-300">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+        <div id="carta-body" class="carta-body">
+          <div class="px-5 sm:px-6 border-t border-amber-500/10">
+            <p class="text-purple-300/45 text-xs leading-relaxed mb-5 mt-4">Crea colecciones para tu carta digital (ej:
+              Platos fuertes, Bebidas, Combos, Postres). Hasta 5 colecciones, con hasta 5 fotos cada una.</p>
+            <div id="carta-colecciones-list" class="flex flex-col gap-3"></div>
+            <button type="button" id="btn-nueva-coleccion"
+              class="mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-amber-200 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/25 transition-all active:scale-95"
+              style="margin-bottom: 20px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Nueva colección
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenedor de Colecciones/Categorías -->
+    <div id="categorias-container" class="flex flex-col gap-10"></div>
+
+    <!-- Empty states -->
+    <div id="empty-global" class="text-center py-24 px-6" style="display:none;">
+      <div
+        class="mx-auto w-14 h-14 rounded-2xl bg-violet-950/30 border border-violet-800/30 flex items-center justify-center mb-4 text-violet-400">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round">
+          <path d="M4 7h16M4 12h16M4 17h10" />
+        </svg>
+      </div>
+      <h3 class="text-lg text-white font-semibold mb-1">Catálogo vacío</h3>
+      <p class="text-purple-300/60 text-sm mb-5 max-w-sm mx-auto">Crea tu primera categoría para organizar tu carta o
+        menú.</p>
+      <button id="btn-nueva-categoria-empty"
+        class="inline-flex items-center gap-2 rounded-xl bg-violet-800 hover:bg-violet-700 text-white font-medium text-sm px-4 py-2.5 transition-all active:scale-95">+
+        Crear categoría</button>
+    </div>
+
+    <div id="empty-search" class="text-center py-20 px-6" style="display:none;">
+      <div
+        class="mx-auto w-12 h-12 rounded-2xl bg-violet-950/30 border border-violet-800/30 flex items-center justify-center mb-3 text-violet-400">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+      </div>
+      <h3 class="text-base text-white font-semibold">Sin resultados</h3>
+      <p class="text-purple-300/50 text-xs mt-1">No se encontraron elementos con el filtro aplicado.</p>
+    </div>
+  </main>
+
+  <!-- Modal: Nueva categoría -->
+  <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-categoria">
+    <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6">
+      <h3 class="text-lg font-bold text-white mb-1">Nueva categoría</h3>
+      <p class="text-purple-300/60 text-xs mb-5" id="cat-ejemplo-text">Ejemplo: Jaleas, Chaufas, Bebidas, Promociones.
+      </p>
+      <form id="form-categoria" novalidate>
+        <div class="mb-5">
+          <label for="input-cat-nombre"
+            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-2 font-mono">Nombre de
+            la categoría</label>
+          <input type="text" id="input-cat-nombre" placeholder="Ej. Platos Marinos" required maxlength="40"
+            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
+        </div>
+        <div class="flex justify-end gap-2.5">
+          <button type="button" data-close="overlay-categoria"
+            class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+          <button type="submit" id="btn-guardar-categoria"
+            class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[130px] flex items-center justify-center">
+            <span id="btn-guardar-categoria-label">Crear categoría</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo producto -->
+  <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-producto">
+    <div
+      class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+      <h3 class="text-lg font-bold text-white mb-1">Nuevo producto</h3>
+      <p class="text-purple-300/60 text-xs mb-5" id="producto-cat-hint">Se agregará a la categoría seleccionada.</p>
+
+      <div class="flex gap-2 mb-5 p-1 rounded-xl bg-[#05040a] border border-purple-900/20">
+        <button type="button" class="tab-btn-form active-tab" data-tab-target="tab-basico">Básico</button>
+        <button type="button" class="tab-btn-form" data-tab-target="tab-avanzado">Avanzado</button>
+      </div>
+
+  <form id="form-producto" novalidate>
+        <div id="tab-basico" class="tab-panel-form active-tab-panel">
+
+          <div class="mb-4">
+            <label for="input-prod-nombre"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Nombre
+              del producto</label>
+            <input type="text" id="input-prod-nombre" placeholder="Ej. Jalea Mixta" required maxlength="60"
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
+          </div>
+
+          <div class="mb-4">
+            <label for="input-prod-descripcion"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Descripción
+              breve</label>
+            <textarea id="input-prod-descripcion" rows="2"
+              placeholder="Ej. Acompañado de yuca frita, sarsa criolla y tártara casera." maxlength="140"
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all resize-none thin-scroll"></textarea>
+          </div>
+
+          <div class="mb-4">
+            <label for="input-prod-precio"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Precio
+              (S/)</label>
+            <input type="number" id="input-prod-precio" placeholder="0.00" step="0.10" min="0" required
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
+          </div>
+
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <span class="text-sm font-medium text-purple-100">Disponible para la venta</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-disponible" checked class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <label
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-2 font-mono">Fotos
+              (máx. 3)</label>
+            <div class="grid grid-cols-3 gap-2.5" id="imgdrop-row"></div>
+            <input type="file" id="input-prod-imgs" accept="image/*" style="display:none;">
+          </div>
+
+        </div><!-- /tab-basico -->
+
+        <div id="tab-avanzado" class="tab-panel-form">
+
+          <div class="mb-4">
+            <label for="input-prod-stock"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Stock
+              disponible (opcional)</label>
+            <input type="number" id="input-prod-stock" placeholder="Déjalo vacío para no controlar stock" step="1"
+              min="0"
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
+            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+              📦 Es el total de unidades que tienes de <strong>este producto</strong>, sumando todas sus variantes.
+              Si más abajo defines "Stock" por cada variante (ej. sabor o talla), ese número debe sumar igual a este.
+            </p>
+          </div>
+
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <span class="text-sm font-medium text-purple-100">Desactivar automáticamente al llegar a 0</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-auto-desactivar" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-5 hidden" id="puntos-section">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <span class="text-sm font-medium text-purple-100">Regalar puntos por esta compra</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-puntos-activo" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+          before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+
+            <div id="puntos-detalle" class="hidden mt-3 flex flex-col gap-2.5">
+              <input type="number" id="input-prod-puntos-cantidad" min="1" step="1" placeholder="Ej. 10"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono">
+              <input type="text" id="input-prod-puntos-descripcion" maxlength="60"
+                placeholder="Descripción corta (ej. Duplica puntos esta semana)"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-orange-900/20">
+              <span class="text-sm font-medium text-purple-100">Agotado hoy</span>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-agotado-hoy" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-orange-600 peer-checked:border-orange-500 cursor-pointer transition-colors duration-200
+                before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+              🔸 Se acaba HOY (ej: se terminó el plato del día). Mañana lo puedes reactivar con un clic, sin tocar el
+              resto del producto.
+            </p>
+          </div>
+
+          <div class="mb-4">
+            <label for="input-prod-unidad"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Unidad
+              de medida (opcional)</label>
+            <select id="input-prod-unidad"
+              class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all">
+              <option value="">Sin especificar</option>
+              <option value="unidad">Unidad</option>
+              <option value="botella">Botella</option>
+              <option value="copa">Copa</option>
+              <option value="litro">Litro</option>
+              <option value="porcion">Porción</option>
+              <option value="kg">Kg</option>
+            </select>
+          </div>
+
+          <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <label
+                class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Horario
+                de disponibilidad (opcional)</label>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <input type="time" id="input-prod-horario-desde"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
+              <input type="time" id="input-prod-horario-hasta"
+                class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600 transition-all font-mono">
+            </div>
+            <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+              🕐 Déjalo vacío para que esté disponible siempre. Útil para happy hour, desayunos, etc.
+            </p>
+          </div>
+<div class="mb-5">
+  <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+    <div class="pr-3">
+      <span class="text-sm font-medium text-purple-100">Selección de variante obligatoria</span>
+      <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+        Actívalo si el cliente SÍ o SÍ debe elegir algo (ej. sabor de gaseosa, helada o al tiempo).
+        Desactívalo si son extras opcionales (ej. "más papas", "más carne") — así el producto se agrega directo al carrito y las opciones quedan disponibles para editar después.
+      </p>
+    </div>
+    <label class="relative inline-block w-11 h-6 shrink-0">
+      <input type="checkbox" id="input-prod-variante-obligatoria" checked class="peer opacity-0 w-0 h-0">
+      <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+    </label>
+  </div>
+</div>
+          <div class="mb-2">
+            <div class="flex items-center justify-between mb-2">
+              <label id="label-condiciones"
+                class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Condiciones
+                (máx. 5)</label>
+              <button type="button" id="btn-add-condicion"
+                class="text-[11px] font-medium text-violet-300 hover:text-violet-200 flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                  stroke-linecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Agregar
+              </button>
+            </div>
+            <div id="condiciones-container" class="flex flex-col gap-3"></div>
+          </div>
+
+        </div><!-- /tab-avanzado -->
+
+        <div class="flex justify-end gap-2.5 mt-6">
+          <button type="button" data-close="overlay-producto"
+            class="rounded-xl px-4 py-2.5 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+          <button type="submit" id="btn-guardar-producto"
+            class="rounded-xl px-5 py-2.5 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[120px] flex items-center justify-center">
+            <span id="btn-guardar-producto-label">Crear producto</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal: Nueva colección de carta digital -->
+  <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-carta">
+    <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-amber-500/20 shadow-2xl p-6">
+      <h3 class="text-lg font-bold text-white mb-1">Nueva colección</h3>
+      <p class="text-purple-300/60 text-xs mb-5">Ejemplo: Platos fuertes, Bebidas, Combos, Postres.</p>
+      <form id="form-carta" novalidate>
+        <div class="mb-5">
+          <label for="input-carta-nombre"
+            class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-2 font-mono">Nombre de
+            la colección</label>
+          <input type="text" id="input-carta-nombre" placeholder="Ej. Platos fuertes" required maxlength="40"
+            class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-amber-500 transition-all">
+        </div>
+        <div class="flex justify-end gap-2.5">
+          <button type="button" data-close="overlay-carta"
+            class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+          <button type="submit" id="btn-guardar-carta"
+            class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-500 transition-all min-w-[130px] flex items-center justify-center">
+            <span id="btn-guardar-carta-label">Crear colección</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar Eliminación -->
+  <div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-confirm">
+    <div class="modal w-full max-w-sm rounded-2xl bg-[#0d0a17] border border-rose-900/30 shadow-2xl p-6 text-center">
+      <div
+        class="mx-auto w-12 h-12 rounded-2xl bg-rose-950/40 border border-rose-500/20 flex items-center justify-center mb-3 text-rose-400">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path
+            d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z" />
+        </svg>
+      </div>
+      <h3 id="confirm-title" class="text-base font-semibold text-white mb-1">¿Eliminar elemento?</h3>
+      <p class="text-purple-300/60 text-xs mb-5" id="confirm-body">Esta acción es permanente.</p>
+      <div class="flex justify-center gap-2.5">
+        <button type="button" data-close="overlay-confirm"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+        <button type="button" id="btn-confirm-action"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-white bg-rose-700 hover:bg-rose-600 transition-all min-w-[100px] flex items-center justify-center">
+          <span id="btn-confirm-action-label">Eliminar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fixed bottom-5 right-5 left-5 sm:left-auto z-[200] flex flex-col gap-2 items-end" id="toast-wrap"></div>
+
+
+</body>
+
+</html>

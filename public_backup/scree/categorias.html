@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geinz · Explora negocios cerca de ti</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap"
+        rel="stylesheet">
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+    <link rel="stylesheet" href="../style/scree/categorias.css">
+    <script type="module" src="../js/scree/categorias.js"></script>
+
+</head>
+
+<body>
+
+
+    <button id="backBtn" class="back-btn" aria-label="Volver">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+        </svg>
+    </button>
+    <section class="hero">
+        <h1>Explora negocios cerca de ti</h1>
+        <p>Restaurantes, bancos, salud, hospedaje, educación, entretenimiento y más. Encuentra lo que necesitas con
+            estilo.</p>
+    </section>
+
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="searchInput"
+                placeholder="Buscar por nombre o subcategoría (ej: pizzas, hotel, salud...)">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16a6.47 6.47 0 004.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM10 14a4 4 0 110-8 4 4 0 010 8z" />
+            </svg>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title">Categorías destacadas</h2>
+        <div class="grid" id="categoriasGrid">
+            <!-- Aquí se renderizan las cards reales o skeletons -->
+        </div>
+    </div>
+
+</body>
+
+</html>

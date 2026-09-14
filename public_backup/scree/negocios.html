@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Geinz · Tiendas</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+    <link rel="stylesheet" href="../style/scree/negocias.css">
+    <script type="module" src="../js/scree/negocios.js"></script>
+</head>
+
+<body class="loading">
+   <button id="backBtn" class="back-btn" aria-label="Volver">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+        </svg>
+    </button>
+    <div class="screen-skeleton">
+        <div class="sk-hero">
+            <div class="sk-label sk-shimmer"></div>
+            <div class="sk-title sk-shimmer"></div>
+            <div class="sk-text sk-shimmer"></div>
+        </div>
+        <div class="sk-controls">
+            <div class="sk-search sk-shimmer"></div>
+        </div>
+        <div class="sk-grid">
+            <div class="sk-card">
+                <div class="sk-card-top">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-lines">
+                        <div class="sk-line-1 sk-shimmer"></div>
+                        <div class="sk-line-2 sk-shimmer"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sk-card">
+                <div class="sk-card-top">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-lines">
+                        <div class="sk-line-1 sk-shimmer"></div>
+                        <div class="sk-line-2 sk-shimmer"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sk-card">
+                <div class="sk-card-top">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-lines">
+                        <div class="sk-line-1 sk-shimmer"></div>
+                        <div class="sk-line-2 sk-shimmer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="spaces">
+
+
+        <section class="hero">
+            <div class="glow-radial"></div>
+            <div class="hero-label">Geinz Ecosystem</div>
+            <h1>Busca tus tiendas<br><span>favoritas</span></h1>
+            <p id="heroDesc">Filtra entre nuestras categorías o busca directamente por el nombre de esa tienda que tanto
+                te
+                gusta.</p>
+        </section>
+
+        <div class="controls">
+            <div class="controls-inner">
+                <div class="search-wrap">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16a6.47 6.47 0 004.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM10 14a4 4 0 110-8 4 4 0 010 8z" />
+                    </svg>
+                    <input class="search-input" id="searchInput" type="text" placeholder="Buscar tienda o producto...">
+                </div>
+                <div class="chips-scroll" id="chipsContainer"></div>
+            </div>
+        </div>
+
+        <main class="main">
+            <div class="meta-row">
+                <div class="meta-cat" id="metaCat">Cargando catálogo...</div>
+                <div class="meta-count" id="metaCount">Calculando...</div>
+            </div>
+
+            <div class="tiendas-list" id="listContainer"></div>
+        </main>
+
+        <div class="app-banner">
+            <div class="app-banner-inner">
+                <div class="banner-content-layout">
+                    <div class="banner-text-wrapper">
+                        <div class="banner-eyebrow">App Nativa · Android</div>
+                        <div class="banner-title">Lleva la experiencia completa al celular</div>
+                        <div class="banner-desc">Accede a geolocalización avanzada, filtros interactivos y
+                            notificaciones en
+                            tiempo real descargando nuestra aplicación oficial.</div>
+                    </div>
+                    <div class="banner-action-zone">
+                        <a class="banner-btn" href="https://play.google.com/store/apps/details?id=com.geinzz.geinzwork&hl=es_PE" id="downloadBtn">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M3.18 23.76c.2.11.43.14.65.08L13 18.55l-2.76-2.76-7.06 7.97zM.54 2.48A1 1 0 0 0 .5 3v18a1 1 0 0 0 .54.9l9.96-9.96L.54 2.48zM20.48 10.56l-2.26-1.28-3.06 3.07 3.06 3.07 2.28-1.3A1.96 1.96 0 0 0 20.48 10.56zM3.83.16a.96.96 0 0 0-.65.08l7.06 7.97L13 5.45 3.83.16z" />
+                            </svg>
+                            Descargar App
+                        </a>
+                    </div>
+                </div>
+                <div class="banner-image-container">
+                    <img class="banner-right-img" src="../img/sinfondogooglplay.png" alt="Geinz Preview">
+                </div>
+            </div>
+        </div>
+    </section>
+
+</body>
+
+</html>

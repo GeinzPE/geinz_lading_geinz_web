@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Salud y Seguridad | Geinz</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+
+    <script type="module" src="../js/share/pantalla_emergencia.js"></script>
+    <link rel="stylesheet" href="../style/shareStyle/pantalla_emergencia.css" />
+
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+</head>
+
+<body class="loading-page">
+
+    <!-- SKELETON GLOBAL -->
+   <button id="backBtn" class="back-btn" aria-label="Volver">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+        </svg>
+    </button>
+
+    <div class="page-skeleton" id="pageSkeleton">
+
+        <div class="sk-header">
+            <div class="sk-title sk-shimmer"></div>
+            <div class="sk-subtitle sk-shimmer"></div>
+        </div>
+
+        <div class="sk-controls">
+
+            <div class="sk-search sk-shimmer"></div>
+
+            <div class="sk-filters">
+                <div class="sk-filter sk-shimmer"></div>
+                <div class="sk-filter sk-shimmer"></div>
+                <div class="sk-filter sk-shimmer"></div>
+            </div>
+
+        </div>
+
+        <div class="sk-grid">
+
+            <!-- repeat -->
+            <div class="sk-card">
+                <div class="sk-card-header">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-info">
+                        <div class="sk-tag sk-shimmer"></div>
+                        <div class="sk-name sk-shimmer"></div>
+                    </div>
+                </div>
+
+                <div class="sk-line l1 sk-shimmer"></div>
+                <div class="sk-line l2 sk-shimmer"></div>
+                <div class="sk-line l3 sk-shimmer"></div>
+
+                <div class="sk-actions">
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                </div>
+            </div>
+
+            <div class="sk-card">
+                <div class="sk-card-header">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-info">
+                        <div class="sk-tag sk-shimmer"></div>
+                        <div class="sk-name sk-shimmer"></div>
+                    </div>
+                </div>
+
+                <div class="sk-line l1 sk-shimmer"></div>
+                <div class="sk-line l2 sk-shimmer"></div>
+                <div class="sk-line l3 sk-shimmer"></div>
+
+                <div class="sk-actions">
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                </div>
+            </div>
+
+            <div class="sk-card">
+                <div class="sk-card-header">
+                    <div class="sk-logo sk-shimmer"></div>
+                    <div class="sk-info">
+                        <div class="sk-tag sk-shimmer"></div>
+                        <div class="sk-name sk-shimmer"></div>
+                    </div>
+                </div>
+
+                <div class="sk-line l1 sk-shimmer"></div>
+                <div class="sk-line l2 sk-shimmer"></div>
+                <div class="sk-line l3 sk-shimmer"></div>
+
+                <div class="sk-actions">
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                    <div class="sk-btn sk-shimmer"></div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- REAL CONTENT -->
+
+    <div class="container">
+
+        <header>
+            <h1>Salud y Seguridad por Geinz</h1>
+            <p>
+                Directorio centralizado de servicios de emergencia en Barranca.
+            </p>
+        </header>
+
+        <div class="controls" id="controls">
+
+            <div class="search-wrapper">
+                <i class="fas fa-shield-virus"></i>
+
+                <input type="text" id="searchInput" placeholder="Busca por servicio, emergencia, policía, clínica..." />
+            </div>
+
+            <div class="filter-group">
+
+                <button class="filter-btn active" data-filter="todos">
+                    <i class="fas fa-th-large"></i>
+                    Todos
+                </button>
+
+                <button class="filter-btn" data-filter="seguridad">
+                    <i class="fas fa-shield-alt"></i>
+                    Seguridad
+                </button>
+
+                <button class="filter-btn" data-filter="salud">
+                    <i class="fas fa-heartbeat"></i>
+                    Salud
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="grid" id="containerGrid"></div>
+
+    </div>
+
+</body>
+
+</html>

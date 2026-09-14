@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <title>Pedidos en vivo · Geinz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="../style/dasboardcss/pedidos.css">
+    <script type="module" src="../js/dasboardjs/pedidos_dashboard.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="pageLoader">
+        <div style="padding:18px 20px;">
+            <div class="shimmer" style="height:60px; border-radius:18px; margin-bottom:14px;"></div>
+            <div style="display:flex; gap:8px;">
+                <div class="shimmer" style="height:34px; width:110px;"></div>
+                <div class="shimmer" style="height:34px; width:130px;"></div>
+                <div class="shimmer" style="height:34px; width:120px;"></div>
+                <div class="shimmer" style="height:34px; width:120px;"></div>
+            </div>
+        </div>
+        <div
+            style="flex:1; padding:0 20px 20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px;">
+            <div class="shimmer" style="height:100%; min-height:300px;"></div>
+            <div class="shimmer" style="height:100%; min-height:300px;"></div>
+            <div class="shimmer" style="height:100%; min-height:300px; display:none;" id="skC3"></div>
+            <div class="shimmer" style="height:100%; min-height:300px; display:none;" id="skC4"></div>
+        </div>
+    </div>
+
+    <div class="app-shell">
+        <header>
+            <div class="head-top">
+
+                <div class="head-right">
+
+                    <div class="autorej-wrap">
+                        <button class="autorej-btn" id="autorejBtn" title="Configurar auto-rechazo por tiempo">
+                            <span class="ico">⏱️</span>
+                            <span class="lbl-text">Auto-rechazo</span>
+                            <span class="val" id="autorejVal">5m</span>
+                        </button>
+                        <div class="autorej-pop" id="autorejPop">
+                            <div class="autorej-pop-title">Auto-rechazo por tiempo</div>
+                            <div class="autorej-pop-sub">Si un pedido queda "Pendiente" más del tiempo indicado sin
+                                pasar a "En proceso", se rechazará automáticamente y sonará una alarma distinta.</div>
+                            <div class="autorej-toggle-row">
+                                <span class="autorej-toggle-lbl">Activar auto-rechazo</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="autorejToggle">
+                                    <span class="switch-track"></span>
+                                </label>
+                            </div>
+                            <div class="autorej-input-row">
+                                <input type="number" id="autorejMinutes" min="1" max="120" value="5">
+                                <span>minutos</span>
+                            </div>
+                            <button class="autorej-save" id="autorejSave">Guardar</button>
+                        </div>
+                    </div>
+
+                    <div class="autorej-wrap">
+                        <button class="autorej-btn" id="autoresBtn" title="Configurar auto-liberación de reservas">
+                            <span class="ico">🔔</span>
+                            <span class="lbl-text">Auto-reservas</span>
+                            <span class="val" id="autoresVal">20m</span>
+                        </button>
+                        <div class="autorej-pop" id="autoresPop">
+                            <div class="autorej-pop-title">Auto-liberar reservas</div>
+                            <div class="autorej-pop-sub">Si una mesa (o grupo de mesas) queda "Reservada" más del
+                                tiempo indicado sin pasar a "Ocupada", la reserva se quita automáticamente y sonará
+                                una alarma.</div>
+                            <div class="autorej-toggle-row">
+                                <span class="autorej-toggle-lbl">Activar auto-liberación</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="autoresToggle">
+                                    <span class="switch-track"></span>
+                                </label>
+                            </div>
+                            <div class="autorej-input-row">
+                                <input type="number" id="autoresMinutes" min="1" max="240" value="20">
+                                <span>minutos</span>
+                            </div>
+                            <button class="autorej-save" id="autoresSave">Guardar</button>
+                        </div>
+                    </div>
+
+                    <button class="bell-btn" id="bellBtn" title="Activar sonido y notificaciones">
+                        🔔<span class="bell-dot" id="bellDot"></span>
+                    </button>
+                    <div class="head-clock">
+                        <div class="head-clock-time" id="clockTime">--:--</div>
+                        <div class="head-clock-date" id="clockDate">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="origin-bar" id="originBar">
+                <div class="origin-chip active" data-origin="whatsapp">💬 WhatsApp / carrito de compras<span
+                        class="oc-badge" id="waBadge"></span></div>
+                <div class="origin-chip" data-origin="mesa">🍽️ Mesas</div>
+            </div>
+
+            <div class="status-tabs" id="statusTabs">
+                <div class="stab active" data-s="pendiente"><span class="dot"></span><span
+                        class="lbl">Pendiente</span><span class="num" id="cnt-pendiente">0</span><span class="money"
+                        id="money-pendiente">S/ 0.00</span></div>
+                <div class="stab" data-s="en_proceso"><span class="dot"></span><span class="lbl">En proceso</span><span
+                        class="num" id="cnt-en_proceso">0</span><span class="money" id="money-en_proceso">S/ 0.00</span>
+                </div>
+                <div class="stab" data-s="en_pausa"><span class="dot"></span><span class="lbl">En pausa</span><span
+                        class="num" id="cnt-en_pausa">0</span><span class="money" id="money-en_pausa">S/ 0.00</span>
+                </div>
+                <div class="stab" data-s="entregado"><span class="dot"></span><span class="lbl">Entregado</span><span
+                        class="num" id="cnt-entregado">0</span><span class="money" id="money-entregado">S/ 0.00</span>
+                </div>
+                <div class="stab" data-s="rechazado"><span class="dot"></span><span class="lbl">Rechazado</span><span
+                        class="num" id="cnt-rechazado">0</span><span class="money" id="money-rechazado">S/ 0.00</span>
+                </div>
+            </div>
+            <div class="pedido-search-wrap" id="pedidoSearchWrap">
+                <span class="ps-ico">🔍</span>
+                <input type="text" id="pedidoSearchInput" placeholder="Buscar pedido por código…"
+                    autocomplete="off" />
+                <button type="button" id="pedidoSearchClear" class="ps-clear" style="display:none;"
+                    title="Limpiar búsqueda">✕</button>
+                <div class="ps-result" id="pedidoSearchResult"></div>
+            </div>
+        </header>
+
+        <div class="mesas-strip-wrap" id="mesasStripWrap" style="display:none;">
+            <div class="mesas-panel">
+                <div class="mesas-panel-head">
+                    <div class="mesa-estado-ctrl" id="mesaEstadoCtrl"></div>
+                    <div class="mesa-size-ctrl" id="mesaSizeCtrl">
+                        <button class="ms-btn" data-size="chico">Chico</button>
+                        <button class="ms-btn" data-size="mediano">Mediano</button>
+                        <button class="ms-btn" data-size="grande">Grande</button>
+                    </div>
+                </div>
+                <div class="mesas-grupo-bar" id="mesasGrupoBar">
+                    <span class="mesas-sel-label" id="mesasSelLabel">Toca las mesas para seleccionarlas</span>
+                    <span class="mesas-sel-total" id="mesasSelTotal" style="display:none;"></span>
+                    <button class="mg-btn mg-reservar" id="mesasGrupoReservarBtn">Reservar</button>
+                    <button class="mg-btn mg-ocupar" id="mesasGrupoOcuparBtn">Ocupar</button>
+                    <button class="mg-btn mg-liberar" id="mesasGrupoLiberarBtn">Liberar</button>
+                    <button class="mg-btn mg-desagrupar" id="mesasGrupoDesagruparBtn">Desagrupar</button>
+                    <button class="mg-btn mg-cancelar" id="mesasGrupoCancelarBtn" style="display:none;">✕
+                        Cancelar</button>
+                </div>
+                <div class="mesas-panel-body">
+                    <div class="mesa-grid" id="mesaGrid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mesa-empty-banner" id="mesaEmptyBanner" style="display:none;"></div>
+
+
+        <div class="nuevo-pedido-wrap" id="nuevoPedidoWrap" style="display:none;">
+            <div class="np-panel">
+                <div class="np-search-wrap" style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="npSearchInput" placeholder="Buscar producto…"
+                        style="flex:1;margin-bottom:0;" />
+                    <button type="button" id="npRefreshBtn" title="Recargar productos"
+                        style="flex-shrink:0;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:16px;cursor:pointer;">🔄</button>
+                </div>
+                <div id="npFiltros" class="np-filtros"></div>
+                <div id="npGrid" class="np-grid"></div>
+                <div id="npEmpty" class="np-empty" style="display:none;">Sin productos en el catálogo.</div>
+            </div>
+
+            <div id="npOptOverlay" class="np-opt-overlay">
+                <div class="np-opt-modal">
+                    <div class="np-opt-head">
+                        <span id="npOptProdNombre">Opciones</span>
+                        <button id="npOptClose">✕</button>
+                    </div>
+                    <div id="npOptBody"></div>
+                    <button id="npOptConfirm" class="np-confirmar-btn">Agregar</button>
+                </div>
+            </div>
+
+            <div class="np-cart-panel">
+                <div class="np-cart-head">🧾 Pedido nuevo</div>
+                <input type="text" id="npClienteNombre" placeholder="Nombre del cliente (opcional)"
+                    class="np-cliente-input" />
+                <div class="np-pago-row" id="npPagoRow">
+                    <button type="button" class="np-pago-btn active" data-pago="Efectivo">💵 Efectivo</button>
+                    <button type="button" class="np-pago-btn" data-pago="QR">📱 QR (Yape/Plin)</button>
+                </div>
+                <div id="npCartItems" class="np-cart-items"></div>
+                <div class="np-cart-total">
+                    <span>Total</span>
+                    <span id="npCartTotal">S/ 0.00</span>
+                </div>
+                <button id="npConfirmarBtn" class="np-confirmar-btn" disabled>Registrar pedido</button>
+            </div>
+        </div>
+
+        <div class="board" id="board">
+            <div class="board-col col-active" data-status="pendiente">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">⏳</div>
+                        <div>
+                            <div class="col-name">Pendiente</div>
+                            <div class="col-sub">Esperando confirmación</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-pendiente">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-pendiente">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-pendiente"></div>
+            </div>
+
+            <div class="board-col" data-status="en_proceso">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">🔥</div>
+                        <div>
+                            <div class="col-name">En proceso</div>
+                            <div class="col-sub">Preparando pedido</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-en_proceso">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-en_proceso">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-en_proceso"></div>
+            </div>
+            <div class="board-col" data-status="en_pausa">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">⏸️</div>
+                        <div>
+                            <div class="col-name">En pausa</div>
+                            <div class="col-sub">Esperando al cliente</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-en_pausa">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-en_pausa">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-en_pausa"></div>
+            </div>
+            <div class="board-col" data-status="entregado">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">✅</div>
+                        <div>
+                            <div class="col-name">Entregado</div>
+                            <div class="col-sub">Pedido completado</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-entregado">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-entregado">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-entregado"></div>
+            </div>
+
+            <div class="board-col" data-status="rechazado">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">✕</div>
+                        <div>
+                            <div class="col-name">Rechazado</div>
+                            <div class="col-sub">Pedido no aceptado</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-rechazado">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-rechazado">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-rechazado"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pausaOverlay" class="np-opt-overlay">
+        <div class="np-opt-modal">
+            <div class="np-opt-head"><span>⏸️ Pausar pedido</span><button id="pausaClose">✕</button></div>
+            <div id="pausaBody"></div>
+        </div>
+    </div>
+    <div id="tiempoOverlay" class="np-opt-overlay">
+        <div class="np-opt-modal">
+            <div class="np-opt-head"><span>⏱️ Tiempo estimado</span><button id="tiempoClose">✕</button></div>
+            <div class="np-opt-label">¿Cuánto tiempo tomará este pedido?</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
+                <input type="number" id="tiempoMinutos" min="1" value="20"
+                    style="width:90px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;">
+                <span style="font-size:12.5px;color:var(--ink-dim);">minutos</span>
+            </div>
+            <label
+                style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-dim);cursor:pointer;margin-bottom:14px;">
+                <input type="checkbox" id="tiempoOmitir">
+                No especificar tiempo estimado
+            </label>
+            <button id="tiempoConfirmar" class="np-confirmar-btn">Aceptar pedido</button>
+        </div>
+    </div>
+    <!-- Modal de detalle completo -->
+    <div id="detailOverlay">
+        <div id="detailModal">
+            <button class="dm-close" id="dmClose">✕</button>
+            <div class="dm-handle"></div>
+            <div class="dm-head">
+                <div>
+                    <div class="dm-head-id mono" id="dmId">#——————</div>
+                    <div class="dm-head-name" id="dmName">Cliente</div>
+                </div>
+                <div class="dm-head-time" id="dmTime"><span class="pulse"></span>—</div>
+            </div>
+            <div class="dm-body" id="dmBody"></div>
+            <div class="dm-actions" id="dmActions"></div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+</body>
+
+</html>

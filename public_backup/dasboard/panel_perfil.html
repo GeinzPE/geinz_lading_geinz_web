@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Panel de Negocio</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="../style/dasboardcss/panel_perfil.css">
+    <style>
+        .sidebar-btn,
+        .mobile-menu-item {
+            position: relative;
+        }
+
+        .notif-dot {
+            display: none;
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #ff3b3b;
+        }
+
+        .notif-dot.show {
+            display: block;
+            animation: notifPulse 1.4s infinite;
+        }
+
+        @keyframes notifPulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 59, 59, .55);
+            }
+
+            70% {
+                box-shadow: 0 0 0 7px rgba(255, 59, 59, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 59, 59, 0);
+            }
+        }
+    </style>
+
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+    <script src="../js/storage/storage.js"></script>
+    <script type="module" src="../js/dasboardjs/panel_pervil_v2_data.js"></script>
+    <script type="module" src="../js/dasboardjs/panel_perfil.js"></script>
+</head>
+
+<body>
+
+    <div class="app">
+        <title>GEINZ Panel</title>
+
+        <!-- ===== SIDEBAR (solo PC) ===== -->
+        <aside class="sidebar">
+
+            <div class="sidebar-brand">
+                <img class="sidebar-logo-img" src="../img/Diseño sin título (2).png" alt="Geinz">
+                <div class="sidebar-brand-text">
+                    <div class="sidebar-brand-name">Geinz APP</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+
+                <button class="sidebar-btn active" id="sbb-inicio" onclick="PanelPerfil.showSection('inicio')">
+                    <span class="sbb-icon">🏠</span>
+                    <span class="sbb-label">Inicio</span>
+                </button>
+
+                <div class="sidebar-group">
+                    <button class="sidebar-group-header" onclick="PanelPerfil.toggleSidebarGroup(this)">
+                        <span class="sbb-icon">🏬</span>
+                        <span class="sbb-label">Mi negocio</span>
+                        <span class="sidebar-group-arrow">▼</span>
+                    </button>
+                    <div class="sidebar-group-body">
+
+                        <button class="sidebar-btn" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
+                            <span class="sbb-icon">🏪</span>
+                            <span class="sbb-label">Perfil</span>
+                        </button>
+
+                        <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
+                            <span class="sbb-icon">📢</span>
+                            <span class="sbb-label">Publicidad</span>
+                        </button>
+
+                        <button class="sidebar-btn" id="sbb-fidelizacion" onclick="PanelPerfil.loadFidelizacion()">
+                            <span class="sbb-icon">💳</span>
+                            <span class="sbb-label">Fidelizacion</span>
+                            <span class="notif-dot" id="dot-fidelizacion"></span>
+                        </button>
+
+                        <button class="sidebar-btn" id="sbb-mispublicaciones"
+                            onclick="PanelPerfil.loadMisPublicaciones()">
+                            <span class="sbb-icon">⭐</span>
+                            <span class="sbb-label">Reseñas</span>
+                            <span class="notif-dot" id="dot-resena"></span>
+                        </button>
+
+                        <button class="sidebar-btn" id="sbb-qr" onclick="PanelPerfil.loadQr()">
+                            <span class="sbb-icon">🔲</span>
+                            <span class="sbb-label">MI QR</span>
+                        </button>
+                        <button class="sidebar-btn" id="sbb-historialgasto" onclick="PanelPerfil.loadHistorialGasto()">
+                            <span class="sbb-icon">💸</span>
+                            <span class="sbb-label">Historial de gasto</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-group">
+                    <button class="sidebar-group-header" onclick="PanelPerfil.toggleSidebarGroup(this)">
+                        <span class="sbb-icon">📦</span>
+                        <span class="sbb-label">Ventas y pedidos</span>
+                        <span class="sidebar-group-arrow">▼</span>
+                    </button>
+                    <div class="sidebar-group-body">
+                        <button class="sidebar-btn" id="sbb-productos" onclick="PanelPerfil.loadProductos()">
+                            <span class="sbb-icon">🛍️</span>
+                            <span class="sbb-label">Productos</span>
+                        </button>
+                        <button class="sidebar-btn" id="sbb-historial" onclick="PanelPerfil.loadHistorial()">
+                            <span class="sbb-icon">🧾</span>
+                            <span class="sbb-label">Historial de ventas</span>
+                        </button>
+                        <button class="sidebar-btn" id="sbb-pedidos" onclick="PanelPerfil.load_pedidos_vivos()">
+                            <span class="sbb-icon">🟢</span>
+                            <span class="sbb-label">Pedidos en vivo</span>
+                            <span class="notif-dot" id="dot-pedidos"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-group">
+                    <button class="sidebar-group-header" onclick="PanelPerfil.toggleSidebarGroup(this)">
+                        <span class="sbb-icon">⚡</span>
+                        <span class="sbb-label">Recargas</span>
+                        <span class="sidebar-group-arrow">▼</span>
+                    </button>
+                    <div class="sidebar-group-body">
+                        <button class="sidebar-btn sidebar-btn-disabled" id="sbb-daniel" disabled
+                            title="Próximamente disponible">
+                            <span class="sbb-icon">🤖</span>
+                            <span class="sbb-label">Asistente Daniel</span>
+                            <span class="badge-proximamente">Pronto</span>
+                        </button>
+                        <button class="sidebar-btn sidebar-btn-disabled" id="sbb-cotiza" disabled
+                            title="Próximamente disponible">
+                            <span class="sbb-icon">🔨</span>
+                            <span class="sbb-label">Crea tu asistente</span>
+                            <span class="badge-proximamente">Pronto</span>
+                        </button>
+                        <button class="sidebar-btn" id="sbb-recargas" onclick="PanelPerfil.showSection('recargas')">
+                            <span class="sbb-icon">⚡</span>
+                            <span class="sbb-label">Recargas</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- ═══ Pega esto JUSTO ANTES de <div class="sidebar-group"> que contiene "Recargas" ═══ -->
+                <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
+                    <span class="sbb-icon">⚖️</span>
+                    <span class="sbb-label">Legal</span>
+                    <span class="notif-dot" id="dot-legal"></span>
+                </button>
+                <div class="sidebar-vincular-wrap">
+                    <p class="sidebar-vincular-text">Vincula tu cuenta para la próxima vez</p>
+                    <button class="sidebar-vincular-btn" onclick="PanelPerfil.vincularCuenta?.()">
+                        🔗 Vincular cuenta
+                    </button>
+                </div>
+
+                <div class="sidebar-collapse-wrap">
+                    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="PanelPerfil.toggleSidebar()">
+                        <svg class="collapse-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <span class="collapse-label">Colapsar</span>
+                    </button>
+
+                    <button class="sidebar-collapse-btn sidebar-cerrar-btn" id="sidebarCerrarBtn"
+                        onclick="cerrarSesionPanel()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 7H20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                            <path d="M7 7L8 19C8.1 20.1 8.9 21 10 21H14C15.1 21 15.9 20.1 16 19L17 7"
+                                stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M10 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M14 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M9 4H15" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                        </svg>
+                        <span class="collapse-label">Cerrar sesión</span>
+                    </button>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- ===== MAIN PANEL ===== -->
+        <div class="main">
+
+            <!-- CONTENT -->
+            <div class="content">
+
+                <div class="section active" id="sec-inicio">
+                    <iframe id="iframeInicio" src="inicio.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#000;
+    "></iframe>
+                </div>
+
+                <!-- ===== PERFIL (ahora es un frame aparte) ===== -->
+                <div class="section" id="sec-perfil">
+                    <iframe id="iframePerfil" src="perfil.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    "></iframe>
+                </div>
+
+                <!-- ===== RECARGAS ===== -->
+                <div class="section" id="sec-recargas">
+                    <iframe src="recargas" style="
+                        width:100%;
+                        height:100vh;
+                        border:none;
+                        display:block;
+                        overflow:hidden;
+                        background:#fff;
+                    ">
+                    </iframe>
+                </div>
+
+
+                <!-- ═══ Pega esto junto a las demás <div class="section" id="sec-..."> (por ejemplo, después de sec-recargas) ═══ -->
+                <div class="section" id="sec-legal">
+                    <iframe id="iframeLegal" src="legal.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    "></iframe>
+                </div>
+                <div class="section" id="sec-daniel">
+                    <iframe src="lading_daniel" style="
+                        width:100%;
+                        height:100vh;
+                        border:none;
+                        display:block;
+                        overflow:hidden;
+                        background:#fff;
+                    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== PUBLICIDAD ===== -->
+                <div class="section" id="sec-publicidad">
+                    <iframe src="publicaicones" style="
+                        width:100%;
+                        height:100vh;
+                        border:none;
+                        display:block;
+                        overflow:hidden;
+                        background:#fff;
+                    ">
+                    </iframe>
+                </div>
+
+                <div class="section" id="sec-cotiza">
+                    <iframe src="baner_geinz_bot" style="
+                        width:100%;
+                        height:100vh;
+                        border:none;
+                        display:block;
+                        overflow:hidden;
+                        background:#fff;
+                    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== MI QR ===== -->
+                <div class="section" id="sec-qr">
+                    <iframe id="iframeMiQr" src="miqr.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== reseña ===== -->
+                <div class="section" id="sec-mispublicaciones">
+                    <iframe id="iframeMisPublicaciones" src="resena.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== HISTORIAL DE GASTO ===== -->
+                <div class="section" id="sec-historialgasto">
+                    <iframe id="iframeHistorialGasto" src="historial_gasto_geinz.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== PRODUCTOS ===== -->
+                <div class="section" id="sec-productos">
+                    <iframe id="iframeProductos" src="productos.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    ">
+                    </iframe>
+                </div>
+
+                <!-- ===== HISTORIAL DE VENTAS ===== -->
+                <div class="section" id="sec-historial">
+                    <iframe id="iframeHistorial" src="historial_venta.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#fff;
+    ">
+                    </iframe>
+                </div>
+
+                <div class="section" id="sec-pedidos">
+                    <iframe id="iframePedidos" src="pedidos.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#fff;
+    ">
+                    </iframe>
+                </div>
+
+
+
+                <div class="section" id="sec-fidelizacion">
+                    <iframe id="iffidelizacion" src="fidelizacion.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#fff;
+    ">
+                    </iframe>
+                </div>
+
+
+            </div><!-- /content -->
+
+            <!-- BOTON MENU MOBILE -->
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                ☰
+            </button>
+
+            <!-- OVERLAY -->
+            <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="PanelPerfil.toggleMobileMenu()"></div>
+
+            <!-- MENU MOBILE -->
+            <div class="mobile-menu" id="mobileMenu">
+
+                <div class="mobile-menu-header">
+                    <img class="mobile-menu-logo" src="../img/Diseño sin título (2).png" alt="Geinz">
+                    <div>
+                        <div class="mobile-menu-title">Geinz APP</div>
+                        <div class="mobile-menu-sub">Panel de negocio</div>
+                    </div>
+                </div>
+
+                <div class="mobile-menu-items">
+
+                    <button class="mobile-menu-item active" id="mmb-inicio"
+                        onclick="PanelPerfil.showSection('inicio'); PanelPerfil.toggleMobileMenu()">
+                        <span>🏠</span>
+                        <span>Inicio</span>
+                    </button>
+
+                    <div class="mobile-menu-group">
+                        <button class="mobile-menu-group-header" onclick="PanelPerfil.toggleMobileGroup(this)">
+                            <span>🏬</span>
+                            <span>Mi negocio</span>
+                            <span class="mobile-menu-group-arrow">▼</span>
+                        </button>
+                        <div class="mobile-menu-group-body">
+                            <button class="mobile-menu-item" id="mmb-perfil"
+                                onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
+                                <span>🏪</span>
+                                <span>Perfil</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-publicidad"
+                                onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
+                                <span>📢</span>
+                                <span>Publicidad</span>
+                            </button>
+
+                            <button class="mobile-menu-item" id="mmb-fidelizacion"
+                                onclick="PanelPerfil.loadFidelizacion(); PanelPerfil.toggleMobileMenu()">
+                                <span>💳</span>
+                                <span>Fidelizacion</span>
+                                <span class="notif-dot" id="dot-fidelizacion-mobile"></span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-mispublicaciones"
+                                onclick="PanelPerfil.loadMisPublicaciones(); PanelPerfil.toggleMobileMenu()">
+                                <span>⭐</span>
+                                <span>Reseñas</span>
+                                <span class="notif-dot" id="dot-resena-mobile"></span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-qr"
+                                onclick="PanelPerfil.loadQr(); PanelPerfil.toggleMobileMenu()">
+                                <span>🔲</span>
+                                <span>MI QR</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-historialgasto"
+                                onclick="PanelPerfil.loadHistorialGasto(); PanelPerfil.toggleMobileMenu()">
+                                <span>💸</span>
+                                <span>Historial de gasto</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mobile-menu-group">
+                        <button class="mobile-menu-group-header" onclick="PanelPerfil.toggleMobileGroup(this)">
+                            <span>📦</span>
+                            <span>Ventas y pedidos</span>
+                            <span class="mobile-menu-group-arrow">▼</span>
+                        </button>
+                        <div class="mobile-menu-group-body">
+                            <button class="mobile-menu-item" id="mmb-productos"
+                                onclick="PanelPerfil.loadProductos(); PanelPerfil.toggleMobileMenu()">
+                                <span>🛍️</span>
+                                <span>Productos</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-historial"
+                                onclick="PanelPerfil.loadHistorial(); PanelPerfil.toggleMobileMenu()">
+                                <span>🧾</span>
+                                <span>Historial de ventas</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-pedidos"
+                                onclick="PanelPerfil.load_pedidos_vivos(); PanelPerfil.toggleMobileMenu()">
+                                <span>🟢</span>
+                                <span>Pedidos en vivo</span>
+                                <span class="notif-dot" id="dot-pedidos-mobile"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mobile-menu-group">
+                        <button class="mobile-menu-group-header" onclick="PanelPerfil.toggleMobileGroup(this)">
+                            <span>⚡</span>
+                            <span>Recargas</span>
+                            <span class="mobile-menu-group-arrow">▼</span>
+                        </button>
+                        <div class="mobile-menu-group-body">
+                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-daniel" disabled
+                                title="Próximamente disponible"
+                                style="opacity:.5;cursor:not-allowed;pointer-events:none;">
+                                <span>🤖</span>
+                                <span>Asistente Daniel</span>
+                                <span class="badge-proximamente">Pronto</span>
+                            </button>
+                            <button class="mobile-menu-item mobile-menu-item-disabled" id="mmb-cotiza" disabled
+                                title="Próximamente disponible"
+                                style="opacity:.5;cursor:not-allowed;pointer-events:none;">
+                                <span>🔨</span>
+                                <span>Crea tu asistente</span>
+                                <span class="badge-proximamente">Pronto</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-recargas"
+                                onclick="PanelPerfil.showSection('recargas'); PanelPerfil.toggleMobileMenu()">
+                                <span>⚡</span>
+                                <span>Recargas</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ═══ Pega esto JUSTO ANTES de <div class="mobile-menu-group"> que contiene "Recargas" ═══ -->
+                    <button class="mobile-menu-item" id="mmb-legal"
+                        onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
+                        <span>⚖️</span>
+                        <span>Legal</span>
+                        <span class="notif-dot" id="dot-legal-mobile"></span>
+                    </button>
+
+                    <button class="sidebar-vincular-btn" style="margin-top:8px;width:100%"
+                        onclick="PanelPerfil.vincularCuenta?.(); PanelPerfil.toggleMobileMenu()">
+                        🔗 Vincular cuenta
+                    </button>
+                    <button class="sidebar-collapse-btn sidebar-cerrar-btn" id="sidebarCerrarBtn"
+                        onclick="cerrarSesionPanel()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 7H20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                            <path d="M7 7L8 19C8.1 20.1 8.9 21 10 21H14C15.1 21 15.9 20.1 16 19L17 7"
+                                stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M10 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M14 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M9 4H15" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                        </svg>
+                        <span class="collapse-label">Cerrar sesión</span>
+                    </button>
+
+                </div>
+            </div>
+
+        </div><!-- /main -->
+    </div>
+
+    <!-- ===== SKELETON SCREEN (loader inicial del panel) ===== -->
+    <div class="skeleton-overlay" id="skeletonOverlay">
+
+        <div class="sk-sidebar">
+            <div class="sk-sidebar-brand">
+                <div class="sk-block sk-circle" style="width:42px;height:42px;flex-shrink:0"></div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                    <div class="sk-block" style="height:13px;width:70%"></div>
+                    <div class="sk-block" style="height:11px;width:40%"></div>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:0 4px">
+                <div class="sk-block" style="height:42px;border-radius:12px"></div>
+                <div class="sk-block" style="height:42px;border-radius:12px;opacity:.6"></div>
+            </div>
+        </div>
+
+        <div class="sk-main">
+
+            <div class="sk-top-row">
+                <div class="sk-block sk-banner"></div>
+                <div class="sk-lines">
+                    <div class="sk-block sk-line" style="width:40%;height:11px"></div>
+                    <div class="sk-block sk-line" style="width:75%"></div>
+                    <div class="sk-block sk-line" style="width:60%"></div>
+                    <div class="sk-block" style="height:11px;width:40%;margin-top:10px"></div>
+                    <div class="sk-block sk-line" style="width:85%"></div>
+                    <div class="sk-block sk-line" style="width:55%"></div>
+                    <div class="sk-block" style="height:11px;width:40%;margin-top:10px"></div>
+                    <div class="sk-block sk-line" style="width:40%"></div>
+                </div>
+            </div>
+
+            <div class="sk-form-area">
+                <div class="sk-block sk-expand"></div>
+                <div class="sk-block sk-expand" style="opacity:.75"></div>
+                <div class="sk-block sk-expand" style="opacity:.55"></div>
+            </div>
+
+            <div class="sk-two-col">
+                <div class="sk-card">
+                    <div class="sk-block" style="height:11px;width:40%"></div>
+                    <div class="sk-card-row">
+                        <div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                            <div class="sk-block" style="height:12px;width:50%"></div>
+                            <div class="sk-block" style="height:11px;width:70%"></div>
+                        </div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                            <div class="sk-block" style="height:12px;width:40%"></div>
+                            <div class="sk-block" style="height:11px;width:65%"></div>
+                        </div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block sk-circle" style="width:38px;height:38px;flex-shrink:0"></div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                            <div class="sk-block" style="height:12px;width:45%"></div>
+                            <div class="sk-block" style="height:11px;width:55%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sk-card">
+                    <div class="sk-block" style="height:11px;width:40%"></div>
+                    <div class="sk-card-row">
+                        <div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div>
+                        <div class="sk-block" style="height:13px;flex:1"></div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div>
+                        <div class="sk-block" style="height:13px;flex:1"></div>
+                    </div>
+                    <div class="sk-card-row">
+                        <div class="sk-block" style="width:48px;height:36px;border-radius:10px;flex-shrink:0"></div>
+                        <div class="sk-block" style="height:13px;flex:1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sk-bottom-bar">
+                <div class="sk-nav-item">
+                    <div class="sk-block sk-circle" style="width:24px;height:24px"></div>
+                    <div class="sk-block" style="width:28px;height:9px;border-radius:4px"></div>
+                </div>
+                <div class="sk-nav-item">
+                    <div class="sk-block sk-circle" style="width:24px;height:24px;opacity:.6"></div>
+                    <div class="sk-block" style="width:28px;height:9px;border-radius:4px;opacity:.6"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+
+</html>

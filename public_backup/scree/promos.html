@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- ===== SEO BÁSICO ===== -->
+    <title>Promociones y Ofertas en Barranca | Geinz</title>
+    <meta name="description" content="Descubre las mejores promociones, descuentos y ofertas exclusivas de los comercios de Barranca. Ahorra más con Geinz.">
+    <meta name="keywords" content="promociones Barranca, ofertas Barranca, descuentos Barranca, tiendas Barranca, Geinz Barranca">
+    <meta name="author" content="Geinz">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://geinztech.com/scree/promos">
+
+    <!-- ===== OPEN GRAPH (Facebook, WhatsApp) ===== -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Promociones y Ofertas en Barranca | Geinz">
+    <meta property="og:description" content="Descubre las mejores promociones, descuentos y ofertas exclusivas de los comercios de Barranca.">
+    <meta property="og:image" content="https://geinztech.com/img/og-promos.jpg">
+    <meta property="og:url" content="https://geinztech.com/scree/promos">
+    <meta property="og:site_name" content="Geinz">
+    <meta property="og:locale" content="es_PE">
+
+    <!-- ===== TWITTER CARD ===== -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Promociones y Ofertas en Barranca | Geinz">
+    <meta name="twitter:description" content="Descubre las mejores promociones, descuentos y ofertas exclusivas de los comercios de Barranca.">
+    <meta name="twitter:image" content="https://geinztech.com/img/og-promos.jpg">
+
+    <!-- ===== SCHEMA.ORG ===== -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": "Promociones y Ofertas en Barranca",
+      "description": "Las mejores promociones, descuentos y ofertas exclusivas de los comercios de Barranca.",
+      "url": "https://geinztech.com/scree/promos",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Geinz",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://geinztech.com/img/icons/favicon-96x96.png"
+        }
+      }
+    }
+    </script>
+
+    <!-- ===== FAVICONS ===== -->
+    <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="../img/icons/site.webmanifest">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module" src="../js/scree/promos.js"></script>
+    <link rel="stylesheet" href="../style/scree/promos.css">
+</head>
+
+<body>
+
+     <button id="backBtn" class="back-btn" aria-label="Volver">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+        </svg>
+    </button>
+    <header class="hero-header">
+        <h1>Promociones Exclusivas en Barranca</h1>
+        <p>Explora las mejores ofertas, descuentos y novedades directo de los comercios de Barranca.</p>
+    </header>
+
+    <main>
+        <div id="promos-container">
+            <!-- skeletons igual que antes -->
+            <div class="skeleton-card">
+                <div class="skeleton-image"></div>
+                <div class="skeleton-footer">
+                    <div class="skeleton-row">
+                        <div class="skeleton-avatar"></div>
+                        <div style="flex:1;">
+                            <div class="skeleton-line w-70" style="margin-bottom:8px;"></div>
+                            <div class="skeleton-line w-40"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-image"></div>
+                <div class="skeleton-footer">
+                    <div class="skeleton-row">
+                        <div class="skeleton-avatar"></div>
+                        <div style="flex:1;">
+                            <div class="skeleton-line w-70" style="margin-bottom:8px;"></div>
+                            <div class="skeleton-line w-40"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-image"></div>
+                <div class="skeleton-footer">
+                    <div class="skeleton-row">
+                        <div class="skeleton-avatar"></div>
+                        <div style="flex:1;">
+                            <div class="skeleton-line w-70" style="margin-bottom:8px;"></div>
+                            <div class="skeleton-line w-40"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function contactWhatsApp(phone, message, url) {
+            if (!phone) return;
+            const cleanPhone = phone.replace(/\s+/g, '');
+            const textoCompleto = `${message}\n${url}`;
+            window.open(`https://api.whatsapp.com/send?phone=51${cleanPhone}&text=${encodeURIComponent(textoCompleto)}`, '_blank');
+        }
+
+        function sharePromo(message, url) {
+            const textoCompleto = `${message}\n${url}`;
+            if (navigator.share) {
+                navigator.share({ title: 'Geinz', text: textoCompleto, url: url }).catch(console.error);
+            } else {
+                navigator.clipboard.writeText(textoCompleto);
+                alert("¡Copiado al portapapeles!");
+            }
+        }
+
+        function abrirPromo(url) {
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+
+</html>

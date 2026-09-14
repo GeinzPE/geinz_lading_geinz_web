@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Geinz | Conectando...</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="icon" href="../img/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="../img/icons/favicon-96x96.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../img/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="../img/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../img/icons/site.webmanifest">
+  <link rel="stylesheet" href="../style/shareStyle/index.css" />
+</head>
+
+<body>
+
+  <div class="card">
+    <div class="loader-wrapper">
+      <div class="loader-glow"></div>
+      <div class="spinner"></div>
+      <div class="brand-letter">G</div>
+    </div>
+    <h1>Abriendo Geinz</h1>
+    <p>Redireccionando de forma segura...</p>
+  </div>
+
+  <script>
+    (function () {
+      console.clear();
+                                    
+      // =====================================================
+      // PARAMETROS
+      // =====================================================
+      const params = new URLSearchParams(window.location.search);
+                        for (const [key, value] of params.entries()) {
+              }
+
+      // =====================================================
+      // DEEP LINK: /redirect/serviciosHogar/<alias>
+      // ej: /redirect/serviciosHogar/fibramasbrca
+      // =====================================================
+      const serviciosHogarMatch = window.location.pathname.match(
+        /^\/redirect\/servicioshogar\/([^\/?#]+)\/?$/i
+      );
+
+      let alias = "";
+      if (serviciosHogarMatch) {
+        try {
+          alias = decodeURIComponent(serviciosHogarMatch[1]).trim();
+        } catch {
+          alias = serviciosHogarMatch[1].trim();
+        }
+                                      }
+
+      // =====================================================
+      // TIPO
+      // =====================================================
+      let t = (
+        params.get("t") ||
+        params.get("tipo") ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+      
+      // =====================================================
+      // DETECTAR TIPO POR PATH
+      // =====================================================
+      if (!t) {
+        const path = window.location.pathname.toLowerCase();
+        console.warn("⚠️ NO EXISTE PARAMETRO t");
+        
+        if (serviciosHogarMatch) { t = "scr"; }
+        else if (path.includes("/ti")) { t = "ti"; }
+        else if (path.includes("/p")) { t = "p"; }
+        else if (path.includes("/scr")) { t = "scr"; }
+        else if (path.includes("/prms")) { t = "prms"; }
+        else if (path.includes("/promo")) { t = "promo"; }
+        else if (path.includes("/tu")) { t = "tu"; }
+      }
+
+      
+      // =====================================================
+      // ID
+      // =====================================================
+      const rawId = (() => {
+        const id = params.get("id");
+        const pi = params.get("pi");
+                
+        if (id && id !== "undefined" && id !== "null") { return id.trim(); }
+        if (pi && pi !== "undefined" && pi !== "null") { return pi.trim(); }
+        if (serviciosHogarMatch) { return "seyt"; } // deep link directo a serviciosHogar
+        return "";
+      })();
+
+      const id = rawId;
+      
+      // =====================================================
+      // LOCALIDAD
+      // =====================================================
+      let loc = (
+        params.get("l") ||
+        params.get("localidad") ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+      
+      switch (loc) {
+        case "ba":
+        case "barranca":
+          loc = "barranca";
+          break;
+        case "par":
+        case "paramonga":
+          loc = "paramonga";
+          break;
+        case "pat":
+        case "pativilca":
+          loc = "pativilca";
+          break;
+        case "su":
+        case "supe":
+          loc = "supe";
+          break;
+        case "pue":
+        case "puerto supe":
+        case "puertosupe":
+          loc = "puerto supe";
+          break;
+        default:
+          if (!loc) { console.warn("⚠️ LOCALIDAD VACIA"); }
+          else { console.warn("⚠️ LOCALIDAD NO RECONOCIDA:", loc); }
+          break;
+      }
+
+      
+      // =====================================================
+      // CATEGORIA
+      // =====================================================
+      const cat = (
+        params.get("c") ||
+        params.get("categoria") ||
+        params.get("subcol") ||
+        ""
+      ).trim();
+
+      
+      // =====================================================
+      // INDICE
+      // =====================================================
+      const indice = (
+        params.get("i") ||
+        params.get("indice") ||
+        ""
+      ).trim();
+
+      
+      // =====================================================
+      // VALIDACIONES
+      // =====================================================
+                  
+      if (!t) {
+        console.error("❌ NO EXISTE TIPO");
+        return;
+      }
+
+      if (!id && t !== "scr" && t !== "promo" && t !== "prms" && t !== "pmspls") {
+        console.error("❌ NO EXISTE ID");
+        return;
+      }
+
+      
+      // =====================================================
+      // DESTINO
+      // =====================================================
+      let destino = "";
+                  
+      if (t === "ti" || t === "p") {
+                destino = `/redirect/perfil_negocio?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}&subcol=${encodeURIComponent(cat)}`;
+        if (indice) { destino += `&i=${encodeURIComponent(indice)}`; }
+      }
+      else if (t === "tu") {
+                destino = `/redirect/turismo?id=${encodeURIComponent(id)}&localidad=${encodeURIComponent(loc)}`;
+      }
+      else if (t === "prms" || t === "promo") {
+                destino = `/redirect/promociones?localidad=${encodeURIComponent(loc)}&id=${encodeURIComponent(id)}`;
+      }
+      else if (t === "scr") {
+                if (id === "lgtr") { destino = `/redirect/pantalla_turismo`; }
+        else if (id === "nemg") { destino = `/redirect/emergencia`; }
+        else if (id === "seyt") {
+          destino = `/redirect/serviciosHogar`;
+          if (alias) { destino += `/${encodeURIComponent(alias)}`; }
+        }
+        else {
+          console.error("❌ SCR NO RECONOCIDO:", id);
+          return;
+        }
+      }
+      else if (t === "pmspls") {
+                const p = params.get("p") || "";
+        destino = `/redirect/promos?localidad=${encodeURIComponent(loc)}&ids=${encodeURIComponent(p)}`;
+      }
+      else {
+        console.error("❌ TIPO NO RECONOCIDO:", t);
+        return;
+      }
+
+      // =====================================================
+      // REDIRECCION
+      // =====================================================
+                        
+      if (!destino) {
+        console.error("❌ DESTINO VACIO");
+        return;
+      }
+
+      const finalUrl = window.location.origin + destino;
+      
+      // Evita loop infinito si ya estamos exactamente en la url final
+      if (finalUrl === window.location.href) {
+                return;
+      }
+
+      
+      setTimeout(() => {
+                window.location.href = finalUrl;
+      }, 300);
+    })();
+  </script>
+
+</body>
+
+</html>
