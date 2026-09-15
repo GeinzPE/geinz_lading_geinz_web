@@ -55,6 +55,10 @@ const SND_NUEVO_PEDIDO_DELIVERY = "../../sounds/nuevo_pedido_delivery.mp3";
 const SND_NUEVO_PEDIDO_RECOJO = "../../sounds/nuevo_pedido_presencial.mp3";
 const ID_PRUEBA = tiendaId;
 const PREFIJO_PEDIDO_MESA_URL = "../../sounds/prefijos/mozo_prefijo.mp3"; // ← confírmame el nombre exacto
+
+const RESERVA_PREFIJO_URL = "../../sounds/prefijos/reserva_prefijo.mp3";
+const RESERVA_Y_URL = "../../sounds/y.mp3";
+
 function urlAudioMesa(numero) {
   return `../../sounds/mesas/mesa${numero}.mp3`;
 }
@@ -372,8 +376,66 @@ const REPETICIONES_ALARMA = 4;
 const colaAlarmasMesa = [];
 let alarmaMesaActual = null;
 const colaAlarmas = [];
-let alarmaActual = null; 
+let alarmaActual = null;
+const reservaAlertadas = new Set();
 
+const colaAlarmasReserva = [];
+let alarmaReservaActual = null;
+
+function buildSecuenciaAudiosReserva(numeros) {
+  const secuencia = [];
+  numeros.forEach((n, i) => {
+    if (i > 0 && i === numeros.length - 1 && numeros.length > 1) {
+      secuencia.push(RESERVA_Y_URL);
+    }
+    secuencia.push(urlAudioMesa(n));
+  });
+  return secuencia;
+}
+function encolarAlarmaReserva(numeros) {
+  if (!soundEnabled || !numeros?.length) return;
+  const key = numeros.join(",");
+  if (alarmaReservaActual === key) return;
+  if (colaAlarmasReserva.some((r) => r.key === key)) return;
+  colaAlarmasReserva.push({ key, numeros });
+  if (!alarmaReservaActual) reproducirSiguienteAlarmaReserva();
+}
+
+function reproducirSiguienteAlarmaReserva() {
+  if (!colaAlarmasReserva.length) {
+    alarmaReservaActual = null;
+    return;
+  }
+  const item = colaAlarmasReserva.shift();
+  alarmaReservaActual = item.key;
+  const cola = [
+    RESERVA_PREFIJO_URL,
+    ...buildSecuenciaAudiosReserva(item.numeros),
+  ];
+  let idx = 0;
+  function playNext() {
+    if (idx >= cola.length) {
+      reproducirSiguienteAlarmaReserva();
+      return;
+    }
+    const audio = new Audio(cola[idx]);
+    idx++;
+    audio.addEventListener("ended", playNext);
+    audio.play().catch(playNext);
+  }
+  playNext();
+}
+
+function detenerSoundLoopParaReserva(numeros) {
+  if (!numeros?.length) return;
+  const key = numeros.join(",");
+  const idx = colaAlarmasReserva.findIndex((r) => r.key === key);
+  if (idx !== -1) colaAlarmasReserva.splice(idx, 1);
+  if (alarmaReservaActual === key) {
+    alarmaReservaActual = null;
+    reproducirSiguienteAlarmaReserva();
+  }
+}
 function encolarAlarmaMesa(numero) {
   if (!soundEnabled || !numero) return;
   if (alarmaMesaActual === numero) return;
@@ -413,7 +475,10 @@ function reproducirSiguienteAlarmaMesa() {
   // NO reproducirNumeroMesa directo, para que no reciba el Event como argumento
   prefijo.addEventListener("ended", () => reproducirNumeroMesa());
   prefijo.play().catch((err) => {
-    console.warn(`⚠️ No se pudo reproducir el prefijo para mesa ${numero}:`, err);
+    console.warn(
+      `⚠️ No se pudo reproducir el prefijo para mesa ${numero}:`,
+      err,
+    );
     reproducirNumeroMesa();
   });
 }
@@ -455,7 +520,11 @@ function reproducirSiguienteAlarma() {
   }
 
   const audio = new Audio(url);
-  alarmaActual = { pedidoId, audio, repeticionesRestantes: REPETICIONES_ALARMA };
+  alarmaActual = {
+    pedidoId,
+    audio,
+    repeticionesRestantes: REPETICIONES_ALARMA,
+  };
 
   audio.addEventListener("ended", () => {
     if (!alarmaActual || alarmaActual.pedidoId !== pedidoId) return;
@@ -468,12 +537,10 @@ function reproducirSiguienteAlarma() {
     }
   });
 
-  audio
-    .play()
-    .catch((err) => {
-      console.warn("No se pudo reproducir el audio:", err);
-      reproducirSiguienteAlarma();
-    });
+  audio.play().catch((err) => {
+    console.warn("No se pudo reproducir el audio:", err);
+    reproducirSiguienteAlarma();
+  });
 }
 
 /* Corta la alarma de UN pedido específico: si está sonando ahora, la detiene
@@ -1093,7 +1160,11 @@ function getPedidosDeMesa(numeroMesa) {
     // FIX: antes solo aceptaba "ocupado". Los pedidos nuevos de mesa llegan
     // con estado "pedido_pendiente" (esperando que el negocio los acepte),
     // así que hay que incluir ambos estados o getPedidosDeMesa() los descarta.
-    if ((m.estado !== "ocupado" && m.estado !== "pedido_pendiente") || !m.pedido) return;
+    if (
+      (m.estado !== "ocupado" && m.estado !== "pedido_pendiente") ||
+      !m.pedido
+    )
+      return;
 
     const pseudoPedido = {
       estado: "pendiente",
@@ -1126,6 +1197,7 @@ function getMesaEstadoVisual(m, activos) {
     const sinConfirmar = activos.some(([, p]) => p.estadoMozo !== "confirmado");
     return sinConfirmar ? "pedido_pendiente" : "ocupada";
   }
+  if (m.estado === "reserva_pendiente") return "reserva_pendiente";
   if (m.estado === "reservada") return "reservada";
   return "libre";
 }
@@ -1232,16 +1304,18 @@ function renderMesaGrid() {
       if (bloque.tipo === "single") {
         const { m, mesaDocId, activos, estadoVisual } = bloque;
         const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
-            const label = {
+        const label = {
           ocupada: "Ocupada",
           libre: "Libre",
           reservada: "Reservada",
           pedido_pendiente: "🔔 Nuevo pedido",
+          reserva_pendiente: "🔔 Nueva reserva",
         }[estadoVisual];
         const puedeReservar =
-          estadoVisual !== "ocupada" && estadoVisual !== "pedido_pendiente";
-        const esSeleccionable =
-          estadoVisual !== "ocupada" && estadoVisual !== "pedido_pendiente";
+          estadoVisual !== "ocupada" &&
+          estadoVisual !== "pedido_pendiente" &&
+          estadoVisual !== "reserva_pendiente";
+        const esSeleccionable = puedeReservar;
         const estaSeleccionada = mesasSeleccionadas.has(mesaDocId);
         const horaReservaHtml =
           estadoVisual === "reservada" && m.hora_reservada
@@ -1261,6 +1335,17 @@ function renderMesaGrid() {
    ${horaReservaHtml}
         ${reservaTimerHtml}
         ${puedeReservar ? `<button class="mesa-reservar-btn" data-mesa-reservar="${m.numero_mesa}">${estadoVisual === "reservada" ? "Quitar reserva" : "Reservar"}</button>` : ""}
+   ${
+  estadoVisual === "reserva_pendiente"
+    ? `
+  <div class="mesa-reserva-solicitante">${escapeHtml(m.reserva?.nombre || "")}</div>
+  <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(m.reserva?.hora || "—")}${m.reserva?.personas ? ` · ${escapeHtml(String(m.reserva.personas))} pers.` : ""}</div>
+  <div style="display:flex;gap:6px;margin-top:6px;">
+    <button class="mesa-reservar-btn" data-reserva-aceptar="${m.numero_mesa}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
+    <button class="mesa-reservar-btn" data-reserva-rechazar="${m.numero_mesa}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
+  </div>`
+    : ""
+}
     </div>`;
       }
 
@@ -1277,15 +1362,20 @@ function renderMesaGrid() {
       );
       const totalPedidos = primero.activos.length;
       const anchoSpan = Math.min(integrantes.length, getColumnasActuales());
-      const labelEstadoGrupo =
-        { reservada: "Reservada", ocupada: "Ocupada", libre: "Sin agrupar" }[
-          primero.estadoVisual
-        ] || "Ocupada";
+        const labelEstadoGrupo =
+        {
+          reservada: "Reservada",
+          ocupada: "Ocupada",
+          libre: "Sin agrupar",
+          reserva_pendiente: "🔔 Nueva reserva",
+        }[primero.estadoVisual] || "Ocupada";
       const grupoDocId = integrantes.map(
         (x) => [...mesasMap.entries()].find(([, mm]) => mm === x.m)?.[0],
       );
       const grupoInfo = gruposMap.get(bloque.grupoId);
-      const esSeleccionableGrupo = primero.estadoVisual !== "ocupada";
+      const esSeleccionableGrupo =
+        primero.estadoVisual !== "ocupada" &&
+        primero.estadoVisual !== "reserva_pendiente";
       const grupoSeleccionado =
         grupoDocId.length &&
         grupoDocId.every((id) => id && mesasSeleccionadas.has(id));
@@ -1309,7 +1399,18 @@ function renderMesaGrid() {
         ${primero.estadoVisual === "ocupada" ? `<div class="mb-count">${totalPedidos} pedido${totalPedidos === 1 ? "" : "s"} · cuenta única</div>` : ""}
     ${horaReservaHtml}
         ${reservaTimerHtml}
-        ${primero.estadoVisual === "reservada" ? `<button class="mesa-reservar-btn" data-grupo-reservar="${bloque.grupoId}">Quitar reserva</button>` : ""}
+             ${primero.estadoVisual === "reservada" ? `<button class="mesa-reservar-btn" data-grupo-reservar="${bloque.grupoId}">Quitar reserva</button>` : ""}
+     ${
+  primero.estadoVisual === "reserva_pendiente"
+    ? `
+  <div class="mesa-reserva-solicitante">${escapeHtml(grupoInfo?.reserva?.nombre || "")}</div>
+  <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(grupoInfo?.reserva?.hora || "—")}${grupoInfo?.reserva?.personas ? ` · ${escapeHtml(String(grupoInfo.reserva.personas))} pers.` : ""}</div>
+  <div style="display:flex;gap:6px;margin-top:6px;">
+    <button class="mesa-reservar-btn" data-grupo-reserva-aceptar="${bloque.grupoId}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
+    <button class="mesa-reservar-btn" data-grupo-reserva-rechazar="${bloque.grupoId}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
+  </div>`
+    : ""
+}
         <button class="mesa-desagrupar-btn" data-grupo-desagrupar="${bloque.grupoId}">⇱ Desagrupar</button>
     </div>`;
     })
@@ -1360,6 +1461,30 @@ function renderMesaGrid() {
     });
   });
 
+  grid.querySelectorAll("[data-reserva-aceptar]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      aceptarReservaMesa(Number(btn.dataset.reservaAceptar));
+    });
+  });
+  grid.querySelectorAll("[data-reserva-rechazar]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      rechazarReservaMesa(Number(btn.dataset.reservaRechazar));
+    });
+  });
+  grid.querySelectorAll("[data-grupo-reserva-aceptar]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      aceptarReservaGrupo(btn.dataset.grupoReservaAceptar);
+    });
+  });
+  grid.querySelectorAll("[data-grupo-reserva-rechazar]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      rechazarReservaGrupo(btn.dataset.grupoReservaRechazar);
+    });
+  });
   pintarTimersReserva();
 }
 function pintarResumenMesas(ocupadas, libres, reservadas) {
@@ -1584,9 +1709,10 @@ function detalleCuponHtml(p) {
   if (!tipo) return "";
   const c = p.cupon || {};
   const productos = Array.isArray(p.productos) ? p.productos : [];
-const prodCanjeado =
-  productos.find((it) => it.esCanje) ||
-  (c.productoId ? productos.find((it) => it.id === c.productoId) : null);  const descuento = Number(p.descuentoCupon) || 0;
+  const prodCanjeado =
+    productos.find((it) => it.esCanje) ||
+    (c.productoId ? productos.find((it) => it.id === c.productoId) : null);
+  const descuento = Number(p.descuentoCupon) || 0;
   const total = Number(p.total) || 0;
   const subtotal = Number(p.subtotal) || total + descuento;
   const porcentajeEfectivo = subtotal > 0 ? (descuento / subtotal) * 100 : 0;
@@ -1629,58 +1755,60 @@ const prodCanjeado =
       <span>${c.origen === "fidelizacion" ? "Programa de fidelización" : "Cupón del negocio"}</span>
     </div>`);
 
-if (tipo === "canje_puntos" && prodCanjeado) {
-  const varianteTxt = prodCanjeado.opciones
-    ? Object.entries(prodCanjeado.opciones).map(([k, v]) => `${k}: ${v}`).join(" · ")
-    : "";
+  if (tipo === "canje_puntos" && prodCanjeado) {
+    const varianteTxt = prodCanjeado.opciones
+      ? Object.entries(prodCanjeado.opciones)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
+      : "";
 
-  filas.push(`
+    filas.push(`
     <div class="dm-cupon-row">
       <span>Producto canjeado</span>
       <span>${escapeHtml(prodCanjeado.nombre)}</span>
     </div>`);
 
-  if (varianteTxt) {
-    filas.push(`
+    if (varianteTxt) {
+      filas.push(`
       <div class="dm-cupon-row">
         <span>Variante entregada</span>
         <span style="font-weight:700;">${escapeHtml(varianteTxt)}</span>
       </div>`);
-  }
+    }
 
-  if (c.tipoBeneficio === "cantidad" && c.descuento) {
-    const compra = c.descuento.compraUnidades || "?";
-    const paga = c.descuento.pagaUnidades || "?";
-    const precioUnit = Number(c.precioOriginal) || 0;
-    filas.push(`
+    if (c.tipoBeneficio === "cantidad" && c.descuento) {
+      const compra = c.descuento.compraUnidades || "?";
+      const paga = c.descuento.pagaUnidades || "?";
+      const precioUnit = Number(c.precioOriginal) || 0;
+      filas.push(`
       <div class="dm-cupon-row">
         <span>Promoción canjeada</span>
         <span style="font-weight:800;color:#fbbf24;">Lleva ${compra} · paga ${paga}</span>
       </div>`);
-    filas.push(`
+      filas.push(`
       <div class="dm-cupon-row">
         <span>Precio normal (${compra} unidades)</span>
         <span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(precioUnit * compra)}</span>
       </div>`);
-    filas.push(`
+      filas.push(`
       <div class="dm-cupon-row" style="border-top:1px dashed rgba(74,222,128,.25);padding-top:6px;margin-top:2px;">
         <span style="font-weight:800;">Total que paga el cliente</span>
         <span style="font-weight:800;">${fmtMoney(precioUnit * paga)}</span>
       </div>`);
-  } else {
-    filas.push(`
+    } else {
+      filas.push(`
       <div class="dm-cupon-row">
         <span>Precio normal del producto</span>
         <span style="text-decoration:line-through;color:var(--ink-faint);">${fmtMoney(prodCanjeado.precio_unitario || prodCanjeado.precio || 0)}</span>
       </div>`);
-  }
+    }
 
-  filas.push(`
+    filas.push(`
     <div class="dm-cupon-row" style="border-top:1px dashed rgba(251,191,36,.25);padding-top:6px;margin-top:2px;">
       <span style="font-weight:800;">Puntos que se descuentan al cliente</span>
       <span style="color:#fbbf24;font-weight:800;">-${Number(c.costoPuntos) || 0} pts</span>
     </div>`);
-}else {
+  } else {
     // ── Descuento % o monto fijo sobre el subtotal ──
     if (c.tipo === "producto" && c.productoId) {
       filas.push(`
@@ -2187,7 +2315,8 @@ function renderMesaDetail(numeroMesa) {
   `;
 
   const esPendienteAceptar =
-    activos.length > 0 && activos.some(([, p]) => p.estadoMozo !== "confirmado");
+    activos.length > 0 &&
+    activos.some(([, p]) => p.estadoMozo !== "confirmado");
 
   const dmActions = document.getElementById("dmActions");
   dmActions.innerHTML = "";
@@ -2293,6 +2422,116 @@ async function toggleReservaMesa(numeroMesa) {
   } catch (err) {
     console.error("Error al reservar mesa:", err);
     showToast("❌ No se pudo actualizar la reserva", true);
+  }
+}
+
+async function rechazarReservaMesa(numeroMesa) {
+  const entry = [...mesasMap.entries()].find(
+    ([, m]) => m.numero_mesa === numeroMesa,
+  );
+  if (!entry) return;
+  const [mesaDocId] = entry;
+  detenerSoundLoopParaReserva([numeroMesa]);
+  try {
+    await updateDoc(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId),
+      { estado: "libre", reserva: null, reservado_en: null },
+    );
+    showToast("🚫 Reserva rechazada");
+  } catch (err) {
+    console.error("Error rechazando reserva:", err);
+    showToast("❌ No se pudo rechazar la reserva", true);
+  }
+}
+function parseHoraReservaAHoy(horaStr) {
+  const match = (horaStr || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const fecha = new Date();
+  fecha.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  if (fecha.getTime() < Date.now()) fecha.setDate(fecha.getDate() + 1);
+  return Timestamp.fromDate(fecha);
+}
+
+async function aceptarReservaMesa(numeroMesa) {
+  const entry = [...mesasMap.entries()].find(
+    ([, m]) => m.numero_mesa === numeroMesa,
+  );
+  if (!entry) return;
+  const [mesaDocId, m] = entry;
+  detenerSoundLoopParaReserva([numeroMesa]);
+  try {
+    await updateDoc(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId),
+      {
+        estado: "reservada",
+        reservado_en: serverTimestamp(),
+        hora_reservada: parseHoraReservaAHoy(m.reserva?.hora) || null,
+      },
+    );
+    showToast("🔔 Reserva aceptada");
+  } catch (err) {
+    console.error("Error aceptando reserva:", err);
+    showToast("❌ No se pudo aceptar la reserva", true);
+  }
+}
+
+async function aceptarReservaGrupo(grupoId) {
+  const grupo = gruposMap.get(grupoId);
+  const miembros = grupo?.mesas || [];
+  const horaTs = parseHoraReservaAHoy(grupo?.reserva?.hora) || null;
+  detenerSoundLoopParaReserva(miembros.map((m) => m.numero));
+  try {
+    const batch = writeBatch(db);
+    miembros.forEach((m) => {
+      batch.set(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", m.id),
+        { estado: "reservada", reservado_en: serverTimestamp(), hora_reservada: horaTs },
+        { merge: true },
+      );
+    });
+    batch.set(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", grupoId),
+      { estado: "reservado", reservado_en: serverTimestamp(), hora_reservada: horaTs },
+      { merge: true },
+    );
+    await batch.commit();
+    showToast("🔔 Reserva de grupo aceptada");
+  } catch (err) {
+    console.error("Error aceptando reserva de grupo:", err);
+    showToast("❌ No se pudo aceptar la reserva", true);
+  }
+}
+
+
+async function rechazarReservaGrupo(grupoId) {
+  const grupo = gruposMap.get(grupoId);
+  const miembros = grupo?.mesas || [];
+  detenerSoundLoopParaReserva(miembros.map((m) => m.numero));
+  try {
+    const batch = writeBatch(db);
+    miembros.forEach((m) => {
+      batch.set(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", m.id),
+        {
+          estado: "libre",
+          grupoId: null,
+          grupo_color: null,
+          reserva: null,
+          reservado_en: null,
+        },
+        { merge: true },
+      );
+    });
+    batch.set(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", grupoId),
+      { estado: "cerrado" },
+      { merge: true },
+    );
+    await batch.commit();
+    showToast("🚫 Reserva de grupo rechazada");
+  } catch (err) {
+    console.error("Error rechazando reserva de grupo:", err);
+    showToast("❌ No se pudo rechazar la reserva", true);
   }
 }
 
@@ -2676,13 +2915,25 @@ async function aceptarPedidoMesa(numeroMesa, btnEl) {
       const grupo = gruposMap.get(pseudoPedido.grupoId);
       if (grupo?.pedido) {
         await updateDoc(
-          tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", pseudoPedido.grupoId),
+          tiendaSubDoc(
+            localidad,
+            "tiendas",
+            tiendaId,
+            "grupos_mesas",
+            pseudoPedido.grupoId,
+          ),
           { pedido: { ...grupo.pedido, estadoMozo: "confirmado" } },
         );
       }
       if (grupo?.pedidoGrupoDocId) {
         await updateDoc(
-          tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", grupo.pedidoGrupoDocId),
+          tiendaSubDoc(
+            localidad,
+            "tiendas",
+            tiendaId,
+            "pedidos",
+            grupo.pedidoGrupoDocId,
+          ),
           { estadoMozo: "confirmado" },
         );
       }
@@ -2700,14 +2951,20 @@ async function aceptarPedidoMesa(numeroMesa, btnEl) {
       }
       if (pseudoPedido.pedidoDocId) {
         await updateDoc(
-          tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pseudoPedido.pedidoDocId),
+          tiendaSubDoc(
+            localidad,
+            "tiendas",
+            tiendaId,
+            "pedidos",
+            pseudoPedido.pedidoDocId,
+          ),
           { estadoMozo: "confirmado" },
         );
       }
     }
 
-      detenerSoundLoopParaPedidoMesa(numeroMesa);
-      showToast("🍽️ Pedido de mesas agrupadas rechazado");
+    detenerSoundLoopParaPedidoMesa(numeroMesa);
+    showToast("🍽️ Pedido de mesas agrupadas rechazado");
     closeDetail();
   } catch (err) {
     console.error("Error aceptando pedido de mesa:", err);
@@ -2784,14 +3041,16 @@ function renderDetail(id) {
 
   const fechaHora = [p.fecha, p.hora].filter(Boolean).join(" · ");
 
- const prodRows =
-  productos
-    .map((it) => {
-      const ptsItem = getPuntosItemDesdeCache(it);
-      const opcTxt = it.opciones
-        ? Object.entries(it.opciones).map(([k, v]) => `${k}: ${v}`).join(" · ")
-        : "";
-      return `
+  const prodRows =
+    productos
+      .map((it) => {
+        const ptsItem = getPuntosItemDesdeCache(it);
+        const opcTxt = it.opciones
+          ? Object.entries(it.opciones)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" · ")
+          : "";
+        return `
     <div class="dm-prod-row">
       <div>
         <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
@@ -2803,9 +3062,9 @@ function renderDetail(id) {
       <div class="dm-prod-price">S/ ${Number(it.subtotal ?? it.precio_unitario * it.cantidad ?? 0).toFixed(2)}</div>
     </div>
   `;
-    })
-    .join("") ||
-  `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
+      })
+      .join("") ||
+    `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
   const autoNote =
     estado === "rechazado" && p.auto_rechazado
       ? `<div class="dm-meta-item full"><div class="dm-meta-label">⏱️ Motivo</div><div class="dm-meta-value">Rechazado automáticamente por superar ${autoRejectMinutes} min sin pasar a "En proceso"</div></div>`
@@ -4991,12 +5250,36 @@ function iniciarListenerMesas() {
     q,
     (snap) => {
       const nuevosPedidosMesa = [];
+      const reservasNuevasKeys = new Set();
+      const reservasNuevasParaAlertar = [];
 
       snap.forEach((d) => {
+        const estadoAnterior = mesasMap.get(d.id)?.estado;
         const data = d.data();
         mesasMap.set(d.id, data);
 
-           if (
+        if (
+          data.estado === "reserva_pendiente" &&
+          estadoAnterior !== "reserva_pendiente" &&
+          !mesasFirstSnapshot
+        ) {
+          const key = data.grupoId || d.id;
+          if (!reservasNuevasKeys.has(key)) {
+            reservasNuevasKeys.add(key);
+            reservasNuevasParaAlertar.push({ mesaId: d.id, data, key });
+          }
+        }
+        if (
+          estadoAnterior === "reserva_pendiente" &&
+          data.estado !== "reserva_pendiente"
+        ) {
+          const numerosParar = data.grupoId
+            ? (gruposMap.get(data.grupoId)?.mesas || []).map((m) => m.numero)
+            : [data.numero_mesa];
+          detenerSoundLoopParaReserva(numerosParar.filter(Boolean));
+        }
+
+        if (
           (data.estado === "ocupado" || data.estado === "pedido_pendiente") &&
           data.pedido
         ) {
@@ -5018,7 +5301,7 @@ function iniciarListenerMesas() {
         renderMesaDetail(Number(String(activeModalId).split(":")[1]));
       }
 
-          if (nuevosPedidosMesa.length) {
+      if (nuevosPedidosMesa.length) {
         bellRingFeedback();
         nuevosPedidosMesa.forEach(({ data }) => {
           const numero = data.mesaNumero ?? data.pedido?.mesa?.numero ?? null;
@@ -5039,6 +5322,26 @@ function iniciarListenerMesas() {
         window.parent.postMessage(
           { type: "NUEVO_PEDIDO_VIVO" },
           window.location.origin,
+        );
+      }
+
+      if (reservasNuevasParaAlertar.length) {
+        bellRingFeedback();
+        reservasNuevasParaAlertar.forEach(({ data }) => {
+          const numeros = data.grupoId
+            ? (gruposMap.get(data.grupoId)?.mesas || [])
+                .map((m) => m.numero)
+                .filter(Boolean)
+            : [data.numero_mesa];
+          encolarAlarmaReserva(numeros.length ? numeros : [data.numero_mesa]);
+        });
+        const nombresRes = reservasNuevasParaAlertar
+          .map(({ data }) => data.reserva?.nombre || "Cliente")
+          .join(", ");
+        showToast(
+          reservasNuevasParaAlertar.length === 1
+            ? `🔔 Nueva solicitud de reserva de ${nombresRes}`
+            : `🔔 Nuevas solicitudes de reserva: ${nombresRes}`,
         );
       }
     },
@@ -5104,8 +5407,8 @@ function suscribirPedidos() {
             getOrigen(data).tipo === "whatsapp"
           )
             nuevosPendientes.push({ id, data });
-              } else if (change.type === "modified") {
-       const anterior = pedidosMap.get(id);
+        } else if (change.type === "modified") {
+          const anterior = pedidosMap.get(id);
           const estadoAnterior = anterior
             ? ESTADOS.includes(anterior.estado)
               ? anterior.estado
@@ -5132,7 +5435,7 @@ function suscribirPedidos() {
           }
 
           // El cliente canceló su propio pedido desde el seguimiento
-                  // El cliente canceló su propio pedido desde el seguimiento.
+          // El cliente canceló su propio pedido desde el seguimiento.
           // Si venía de "en_pausa" suena una alarma; si canceló estando
           // pendiente (sin llegar a pausa), suena una alarma distinta.
           if (
@@ -5154,7 +5457,7 @@ function suscribirPedidos() {
             nuevosPendientes.push({ id, data });
         }
 
-         if (change.type === "removed") {
+        if (change.type === "removed") {
           pedidosMap.delete(id);
           autoRejectingIds.delete(id);
           detenerSoundLoopParaPedido(id);
@@ -5202,7 +5505,7 @@ function suscribirPedidos() {
         );
       }
 
-        if (canceladosPorClienteEnPausa.length) {
+      if (canceladosPorClienteEnPausa.length) {
         playCanceladoPorClienteAlarm();
         bellRingFeedback();
         canceladosPorClienteEnPausa.forEach(({ data }) =>

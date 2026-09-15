@@ -10,7 +10,25 @@ let _fidelizacionActiva = false;
 let _bannerShown = false;
 let _fidelizacionMensajeInactivo =
   "Este negocio no tiene el programa de fidelización activo por el momento.";
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/[&<>"']/g, (m) => {
+    switch (m) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case '"': return "&quot;";
+      case "'": return "&#39;";
+      default: return m;
+    }
+  });
+}
+
+let _reservaFloatData = null;
+let _reservaFloatUnsub = null;
+
 function showNotFoundScreen(message = "") {
+
   hideBizLoader();
   document.body.innerHTML = "";
   document.body.style.cssText = `
@@ -26,23 +44,14 @@ function showNotFoundScreen(message = "") {
   `;
 
   // Obtener alias desde la URL
+  // Obtener alias desde la URL
   const aliasAttempted = window.location.pathname.split("/perfil/")[1] || "";
   const cleanAlias = aliasAttempted
     ? decodeURIComponent(aliasAttempted).split(/[?#]/)[0]
     : "";
 
-  // Sanitización básica
-  const escapeHtml = (str) => {
-    if (!str) return "";
-    return str.replace(/[&<>]/g, (m) => {
-      if (m === "&") return "&amp;";
-      if (m === "<") return "&lt;";
-      if (m === ">") return "&gt;";
-      return m;
-    });
-  };
-
   const escapedAlias = escapeHtml(cleanAlias);
+
   const escapedMessage = escapeHtml(message);
 
   const errorDescription = escapedAlias
@@ -833,28 +842,30 @@ function renderMesas(snap) {
   mesas.forEach((m) => {
     const esOcupada = m.estado === "ocupado";
     const esReservada = m.estado === "reservada";
-    const libre = !esOcupada && !esReservada;
+    const esPendienteReserva = m.estado === "reserva_pendiente";
+    const libre = !esOcupada && !esReservada && !esPendienteReserva;
     const claseEstado = esOcupada
       ? "mesa-ocupada"
       : esReservada
         ? "mesa-reservada"
-        : "mesa-libre";
+        : esPendienteReserva
+          ? "mesa-pendiente-reserva"
+          : "mesa-libre";
     const textoEstado = esOcupada
       ? "Ocupada"
       : esReservada
         ? "Reservada"
-        : "Libre";
+        : esPendienteReserva
+          ? "Solicitud enviada"
+          : "Libre";
     const chip = document.createElement("div");
     chip.className = "mesa-chip " + claseEstado;
     chip.innerHTML = `<span class="mesa-num">${m.numero_mesa ?? m.mesaNumero ?? "-"}</span><span class="mesa-estado">${textoEstado}</span>`;
     if (libre) {
-      chip.addEventListener("click", () =>
-        openMesaReservaModal(
-          m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`,
-        ),
-      );
+      chip.addEventListener("click", () => openMesaReservaModal(m));
     }
     grid.appendChild(chip);
+      sincronizarMiReservaDesdeMesas();
   });
 }
 
@@ -877,6 +888,10 @@ function getHorarioHoyRange() {
   };
 }
 function openMesaReservaModal(mesaOMesas) {
+  if (!auth.currentUser) {
+    openLoginPromptModal();
+    return;
+  }
   const rango = getHorarioHoyRange();
   if (!rango) {
     showToast("El negocio está cerrado hoy, no se puede reservar");
@@ -885,17 +900,23 @@ function openMesaReservaModal(mesaOMesas) {
   _mesaSeleccionada = mesaOMesas;
   _horaMaxReserva = restarMinutos(rango.max, 30);
 
-  const esMultiple = Array.isArray(mesaOMesas);
-  const tituloMesas = esMultiple
-    ? `Mesas ${mesaOMesas.join(", ")}`
-    : mesaOMesas;
+  const listaMesas = Array.isArray(mesaOMesas) ? mesaOMesas : [mesaOMesas];
+  const tituloMesas = listaMesas
+    .map((m) => m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`)
+    .join(", ");
 
   const modal = document.getElementById("mesaReservaModal");
   const horaInput = document.getElementById("mesaReservaHora");
   const errorEl = document.getElementById("mesaReservaError");
-  document.getElementById("mesaReservaTitle").textContent =
-    `Reservar ${tituloMesas}`;
-  document.getElementById("mesaReservaNombre").value = "";
+  document.getElementById("mesaReservaTitle").textContent = `Reservar ${tituloMesas}`;
+
+  const nombreInput = document.getElementById("mesaReservaNombre");
+  nombreInput.value = "Cargando...";
+  nombreInput.readOnly = true;
+  getUserDisplayName(auth.currentUser.uid).then((n) => {
+    nombreInput.value = n;
+  });
+
   document.getElementById("mesaReservaPersonas").value = "";
   if (errorEl) {
     errorEl.textContent = "";
@@ -906,11 +927,181 @@ function openMesaReservaModal(mesaOMesas) {
   horaInput.value = "";
   modal?.classList.add("open");
 }
+
 function closeMesaReservaModal() {
   document.getElementById("mesaReservaModal")?.classList.remove("open");
   _mesaSeleccionada = null;
   const multiInput = document.getElementById("mesasMultiInput");
   if (multiInput) multiInput.value = "";
+}
+
+
+function iniciarProgresoReserva(btn) {
+  if (!btn) return;
+  injectMesaFloatStyles();
+  if (btn.dataset.origHtml === undefined) btn.dataset.origHtml = btn.innerHTML;
+  btn.classList.add("mesa-reserva-progress-wrap");
+  btn.innerHTML = `<span class="mesa-reserva-progress-fill"></span><span class="mesa-reserva-progress-label">Enviando reserva…</span>`;
+  const fill = btn.querySelector(".mesa-reserva-progress-fill");
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => { fill.style.width = "90%"; }),
+  );
+}
+
+function finalizarProgresoReserva(btn, ok = true) {
+  if (!btn) return;
+  const fill = btn.querySelector(".mesa-reserva-progress-fill");
+  if (fill) fill.style.width = ok ? "100%" : "0%";
+  setTimeout(() => {
+    btn.classList.remove("mesa-reserva-progress-wrap");
+    if (btn.dataset.origHtml !== undefined) btn.innerHTML = btn.dataset.origHtml;
+  }, ok ? 380 : 150);
+}
+
+function mostrarBotonFlotanteReserva(data) {
+  injectMesaFloatStyles();
+  _reservaFloatData = { ...data, estado: "pendiente" };
+
+  let btn = document.getElementById("mesaReservaFloatBtn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "mesaReservaFloatBtn";
+    btn.className = "mesa-reserva-float-btn";
+    btn.innerHTML = `<span class="mrfb-dot"></span><span id="mrfbText">Mi reserva</span>`;
+    btn.addEventListener("click", abrirVerReservaModal);
+    document.body.appendChild(btn);
+  }
+  btn.classList.remove("aceptada", "rechazada");
+  document.getElementById("mrfbText") && (document.getElementById("mrfbText").textContent = "Mi reserva");
+  requestAnimationFrame(() => btn.classList.add("show"));
+
+  escucharEstadoReservaFloat();
+}
+
+
+function escucharEstadoReservaFloat() {
+  if (_reservaFloatUnsub) {
+    _reservaFloatUnsub();
+    _reservaFloatUnsub = null;
+  }
+  const d = _reservaFloatData;
+  if (!d) return;
+  const { localidad, id } = _params;
+
+  if (d.grupoId) {
+    _reservaFloatUnsub = onSnapshot(
+      tiendaSubDoc(localidad, "tiendas", id, "grupos_mesas", d.grupoId),
+      (snap) => snap.exists() && actualizarEstadoReservaFloat(snap.data().estado),
+    );
+  } else if (d.mesas?.[0]?.id) {
+    _reservaFloatUnsub = onSnapshot(
+      tiendaSubDoc(localidad, "tiendas", id, "mesas", d.mesas[0].id),
+      (snap) => snap.exists() && actualizarEstadoReservaFloat(snap.data().estado),
+    );
+  }
+}
+
+function sincronizarMiReservaDesdeMesas() {
+  const uid = auth.currentUser?.uid;
+  if (!uid || !_mesasCache.length) return;
+  if (_reservaFloatData) return; // ya se está siguiendo una en esta sesión
+
+  const misMesas = _mesasCache.filter(
+    (m) =>
+      m.reserva?.uid === uid &&
+      (m.estado === "reserva_pendiente" || m.estado === "reservada"),
+  );
+  if (!misMesas.length) return;
+
+  const primera = misMesas[0];
+  const mesasImplicadas = primera.grupoId
+    ? _mesasCache.filter((m) => m.grupoId === primera.grupoId)
+    : [primera];
+
+  mostrarBotonFlotanteReserva({
+    nombre: primera.reserva.nombre,
+    personas: primera.reserva.personas,
+    hora: primera.reserva.hora,
+    mesas: mesasImplicadas.map((m) => ({
+      id: m.id,
+      nombre: m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`,
+      numero_mesa: m.numero_mesa,
+    })),
+    grupoId: primera.grupoId || null,
+  });
+}
+function actualizarEstadoReservaFloat(estadoMesa) {
+  if (!_reservaFloatData) return;
+  let estado = "pendiente";
+  if (estadoMesa === "reservada") estado = "aceptada";
+  else if (estadoMesa === "libre" || estadoMesa === "ocupado") estado = "rechazada";
+  _reservaFloatData.estado = estado;
+
+  const btn = document.getElementById("mesaReservaFloatBtn");
+  const txt = document.getElementById("mrfbText");
+  if (btn) {
+    btn.classList.remove("aceptada", "rechazada");
+    if (estado === "aceptada") {
+      btn.classList.add("aceptada");
+      if (txt) txt.textContent = "Reserva confirmada";
+    } else if (estado === "rechazada") {
+      btn.classList.add("rechazada");
+      if (txt) txt.textContent = "Solicitud no aceptada";
+    } else if (txt) {
+      txt.textContent = "Mi reserva";
+    }
+  }
+
+  const modal = document.getElementById("mesaReservaVerModal");
+  if (modal?.classList.contains("open")) renderVerReservaModal();
+}
+
+function abrirVerReservaModal() {
+  injectMesaFloatStyles();
+  let modal = document.getElementById("mesaReservaVerModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "mesaReservaVerModal";
+    modal.className = "mesa-reserva-ver-modal";
+    modal.innerHTML = `
+      <div class="mesa-reserva-ver-box">
+        <button class="mesa-reserva-ver-close" id="mesaReservaVerClose">✕</button>
+        <div id="mesaReservaVerContent"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener("click", (e) => {
+      if (e.target.id === "mesaReservaVerModal") modal.classList.remove("open");
+    });
+    document
+      .getElementById("mesaReservaVerClose")
+      .addEventListener("click", () => modal.classList.remove("open"));
+  }
+  renderVerReservaModal();
+  modal.classList.add("open");
+}
+
+function renderVerReservaModal() {
+  const content = document.getElementById("mesaReservaVerContent");
+  const d = _reservaFloatData;
+  if (!content || !d) return;
+
+  const estadoLabel =
+    { pendiente: "Esperando confirmación", aceptada: "Reserva confirmada", rechazada: "No fue aceptada" }[
+      d.estado
+    ] || "Esperando confirmación";
+  const icono = d.estado === "aceptada" ? "✓" : d.estado === "rechazada" ? "✕" : "⏳";
+  const nombresMesas = (d.mesas || [])
+    .map((m) => m.nombre || m.mesaNombre || `Mesa ${m.numero_mesa ?? m.numero}`)
+    .join(", ");
+
+  content.innerHTML = `
+    <span class="mrv-estado-badge ${d.estado}">${icono} ${estadoLabel}</span>
+    <div class="mrv-hora-big">${escapeHtml(d.hora || "—")}</div>
+    <div class="mrv-hora-sub">Hora de llegada solicitada</div>
+    <div class="mrv-row"><span class="mrv-label">Reservado a nombre de</span><span class="mrv-val">${escapeHtml(d.nombre || "—")}</span></div>
+    <div class="mrv-row"><span class="mrv-label">Personas</span><span class="mrv-val">${escapeHtml(String(d.personas || "—"))}</span></div>
+    <div class="mrv-row"><span class="mrv-label">Mesa(s)</span><span class="mrv-val">${escapeHtml(nombresMesas || "—")}</span></div>
+  `;
 }
 async function ensureClienteRecord({ localidad, id }, uid) {
   try {
@@ -1020,6 +1211,7 @@ function bindFollowButton({ localidad, id }, biz) {
     _followReady = true;
     tryHideLoader();
 
+    sincronizarMiReservaDesdeMesas();
     loadPuntosCliente({ localidad, id }, uid);
 
     btn.onclick = async () => {
@@ -1109,9 +1301,9 @@ function bindMesaReservaEvents() {
     ?.addEventListener("click", (e) => {
       if (e.target.id === "mesaReservaModal") closeMesaReservaModal();
     });
-  document
+    document
     .getElementById("mesaReservaSubmit")
-    ?.addEventListener("click", () => {
+    ?.addEventListener("click", async () => {
       const errorEl = document.getElementById("mesaReservaError");
       const setError = (msg) => {
         if (errorEl) {
@@ -1122,10 +1314,14 @@ function bindMesaReservaEvents() {
         }
       };
 
+      if (!auth.currentUser) {
+        closeMesaReservaModal();
+        openLoginPromptModal();
+        return;
+      }
+
       const nombre = document.getElementById("mesaReservaNombre").value.trim();
-      const personas = document
-        .getElementById("mesaReservaPersonas")
-        .value.trim();
+      const personas = document.getElementById("mesaReservaPersonas").value.trim();
       const hora = document.getElementById("mesaReservaHora").value.trim();
       const rango = getHorarioHoyRange();
 
@@ -1135,33 +1331,87 @@ function bindMesaReservaEvents() {
       }
       const maxPermitido = _horaMaxReserva || rango?.max;
       if (!rango || hora < rango.min || hora > maxPermitido) {
-        setError(
-          `Elige una hora entre ${rango?.min ?? "-"} y ${maxPermitido ?? "-"}`,
-        );
+        setError(`Elige una hora entre ${rango?.min ?? "-"} y ${maxPermitido ?? "-"}`);
         return;
       }
-
       if (errorEl) {
         errorEl.textContent = "";
         errorEl.classList.remove("show");
       }
 
-      const mesasTexto = Array.isArray(_mesaSeleccionada)
-        ? `las mesas ${_mesaSeleccionada.join(", ")}`
-        : _mesaSeleccionada;
+      const submitBtn = document.getElementById("mesaReservaSubmit");
+      if (submitBtn) submitBtn.disabled = true;
+      iniciarProgresoReserva(submitBtn);
 
-      const msg = `Hola, quiero reservar ${mesasTexto} hoy a las ${hora} para ${personas} persona(s). Mi nombre es ${nombre}.`;
-      if (_waNumeroNegocio) {
-        window.open(
-          `https://wa.me/51${_waNumeroNegocio}?text=${encodeURIComponent(msg)}`,
-          "_blank",
-        );
-      } else {
-        showToast("Reserva enviada");
+      const listaMesas = Array.isArray(_mesaSeleccionada) ? _mesaSeleccionada : [_mesaSeleccionada];
+      const reservaData = {
+        nombre,
+        personas,
+        hora,
+        uid: auth.currentUser.uid,
+        creado_en: serverTimestamp(),
+      };
+      let grupoIdUsado = null;
+
+      try {
+        if (listaMesas.length > 1) {
+          grupoIdUsado = doc(
+            tiendaSubCol(_params.localidad, "tiendas", _params.id, "grupos_mesas"),
+          ).id;
+          const mesasInfo = listaMesas.map((m) => ({
+            id: m.id,
+            nombre: m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`,
+            numero: m.numero_mesa,
+          }));
+          await setDoc(
+            tiendaSubDoc(_params.localidad, "tiendas", _params.id, "grupos_mesas", grupoIdUsado),
+            {
+              estado: "reserva_pendiente",
+              mesas: mesasInfo,
+              reserva: reservaData,
+              creado_en: serverTimestamp(),
+            },
+          );
+          await Promise.all(
+            listaMesas.map((m) =>
+              setDoc(
+                tiendaSubDoc(_params.localidad, "tiendas", _params.id, "mesas", m.id),
+                { estado: "reserva_pendiente", grupoId: grupoIdUsado, reserva: reservaData },
+                { merge: true },
+              ),
+            ),
+          );
+        } else {
+          await setDoc(
+            tiendaSubDoc(_params.localidad, "tiendas", _params.id, "mesas", listaMesas[0].id),
+            { estado: "reserva_pendiente", grupoId: null, reserva: reservaData },
+            { merge: true },
+          );
+        }
+
+        finalizarProgresoReserva(submitBtn, true);
+        showToast("Solicitud de reserva enviada, espera la confirmación del negocio");
+        closeMesaReservaModal();
+
+        mostrarBotonFlotanteReserva({
+          nombre,
+          personas,
+          hora,
+          mesas: listaMesas.map((m) => ({
+            id: m.id,
+            nombre: m.nombre_alias || m.mesaNombre,
+            numero_mesa: m.numero_mesa,
+          })),
+          grupoId: grupoIdUsado,
+        });
+      } catch (err) {
+        console.error("Error al enviar solicitud de reserva:", err);
+        finalizarProgresoReserva(submitBtn, false);
+        setError("No se pudo enviar la solicitud, intenta de nuevo");
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
-      closeMesaReservaModal();
     });
-
   document.getElementById("mesasMultiBtn")?.addEventListener("click", () => {
     const input = document.getElementById("mesasMultiInput");
     const raw = input?.value.trim() || "";
@@ -1186,7 +1436,8 @@ function bindMesaReservaEvents() {
       const mesa = _mesasCache.find((m) => (m.numero_mesa || 0) === num);
       if (!mesa) invalidas.push(num);
       else if (mesa.estado === "ocupado") ocupadas.push(num);
-      else if (mesa.estado === "reservada") reservadas.push(num);
+      else if (mesa.estado === "reservada" || mesa.estado === "reserva_pendiente")
+        reservadas.push(num);
     });
 
     if (invalidas.length) {
@@ -1198,16 +1449,15 @@ function bindMesaReservaEvents() {
       return;
     }
     if (reservadas.length) {
-      showToast(`Mesa(s) ya reservada(s): ${reservadas.join(", ")}`);
+      showToast(`Mesa(s) ya reservada(s) o con solicitud pendiente: ${reservadas.join(", ")}`);
       return;
     }
 
-    const nombresMesas = numeros.map((num) => {
-      const mesa = _mesasCache.find((m) => (m.numero_mesa || 0) === num);
-      return mesa.nombre_alias || mesa.mesaNombre || `Mesa ${num}`;
-    });
+    const mesasObjs = numeros.map((num) =>
+      _mesasCache.find((m) => (m.numero_mesa || 0) === num),
+    );
 
-    openMesaReservaModal(nombresMesas);
+    openMesaReservaModal(mesasObjs);
   });
 }
 function formatExpiry(finMs) {
@@ -2072,6 +2322,7 @@ let _lightboxBound = false;
 let _panzoomInstance = null;
 
 const MESAS_CSS = `
+.mesa-chip.mesa-pendiente-reserva{cursor:not-allowed;opacity:.65;border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.1);}
 .mesas-grid{display:flex;flex-wrap:wrap;gap:12px;}
 .mesas-multi-wrap{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
 .mesas-multi-wrap input{flex:1;min-width:160px;padding:12px 14px;border-radius:12px;border:1px solid var(--border,rgba(255,255,255,.1));background:var(--surface,rgba(255,255,255,.04));color:#fff;font-size:14px;}
@@ -2096,6 +2347,69 @@ const MESAS_CSS = `
 .mesa-reserva-hora-label{display:block;font-size:11px;color:#9c9ca3;margin:-4px 0 6px;text-transform:uppercase;letter-spacing:.06em;}
 .mesa-reserva-submit{width:100%;padding:13px;border:none;border-radius:12px;font-weight:700;font-size:14px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
 `;
+const MESA_RESERVA_FLOAT_CSS = `
+.mesa-reserva-progress-wrap{ position:relative; overflow:hidden; pointer-events:none; }
+.mesa-reserva-progress-fill{
+  position:absolute; inset:0; width:0%;
+  background:linear-gradient(90deg, rgba(var(--dr),var(--dg),var(--db),.9), rgba(var(--dr),var(--dg),var(--db),.55));
+  transition:width .9s cubic-bezier(.22,.85,.32,1);
+  border-radius:inherit; z-index:0;
+}
+.mesa-reserva-progress-label{ position:relative; z-index:1; }
+
+.mesa-reserva-float-btn{
+  position:fixed; bottom:24px; right:24px; z-index:9500;
+  display:flex; align-items:center; gap:8px;
+  padding:14px 20px; border-radius:999px; border:none; cursor:pointer;
+  font-weight:800; font-size:13.5px; color:#fff;
+  background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
+  box-shadow:0 10px 30px -6px rgba(var(--dr),var(--dg),var(--db),.55);
+  opacity:0; transform:translateY(20px) scale(.9);
+  transition:opacity .35s ease, transform .35s cubic-bezier(.22,.85,.32,1);
+}
+.mesa-reserva-float-btn.show{ opacity:1; transform:translateY(0) scale(1); }
+.mesa-reserva-float-btn .mrfb-dot{ width:8px; height:8px; border-radius:50%; background:#fbbf24; animation:mrfb-pulse 1.4s ease-in-out infinite; }
+.mesa-reserva-float-btn.aceptada .mrfb-dot{ background:#22c55e; animation:none; }
+.mesa-reserva-float-btn.rechazada .mrfb-dot{ background:#f87171; animation:none; }
+@keyframes mrfb-pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+.mesa-reserva-ver-modal{
+  position:fixed; inset:0; z-index:10004;
+  background:rgba(3,3,3,.78); backdrop-filter:blur(8px);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; visibility:hidden; transition:opacity .25s ease, visibility .25s ease; padding:20px;
+}
+.mesa-reserva-ver-modal.open{ opacity:1; visibility:visible; }
+.mesa-reserva-ver-box{
+  width:100%; max-width:360px; background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.35);
+  border-radius:26px; padding:26px 24px; position:relative;
+  transform:scale(.94); transition:transform .28s cubic-bezier(.2,.8,.2,1);
+}
+.mesa-reserva-ver-modal.open .mesa-reserva-ver-box{ transform:scale(1); }
+.mesa-reserva-ver-close{
+  position:absolute; top:14px; right:14px; width:32px; height:32px; border:none;
+  border-radius:50%; background:rgba(255,255,255,.08); color:#fff; cursor:pointer;
+}
+.mrv-estado-badge{ display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:999px; font-size:12px; font-weight:800; margin-bottom:16px; }
+.mrv-estado-badge.pendiente{ background:rgba(251,191,36,.15); color:#fbbf24; border:1px solid rgba(251,191,36,.35); }
+.mrv-estado-badge.aceptada{ background:rgba(34,197,94,.15); color:#4ade80; border:1px solid rgba(34,197,94,.35); }
+.mrv-estado-badge.rechazada{ background:rgba(248,113,113,.15); color:#f87171; border:1px solid rgba(248,113,113,.35); }
+.mrv-row{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:13.5px; }
+.mrv-row:last-child{ border-bottom:none; }
+.mrv-row .mrv-label{ color:var(--muted,#9c9ca3); }
+.mrv-row .mrv-val{ color:#fff; font-weight:700; }
+.mrv-hora-big{ text-align:center; font-size:38px; font-weight:900; color:#fff; margin:4px 0 2px; }
+.mrv-hora-sub{ text-align:center; font-size:12px; color:var(--muted,#9c9ca3); margin-bottom:18px; }
+`;
+
+function injectMesaFloatStyles() {
+  if (document.getElementById("mesaFloatStyle")) return;
+  const style = document.createElement("style");
+  style.id = "mesaFloatStyle";
+  style.textContent = MESA_RESERVA_FLOAT_CSS;
+  document.head.appendChild(style);
+}
 const LOGIN_PROMPT_CSS = `
 .login-prompt-modal{
   position:fixed;inset:0;z-index:10002;
