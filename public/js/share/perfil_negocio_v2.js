@@ -911,11 +911,19 @@ function openMesaReservaModal(mesaOMesas) {
   document.getElementById("mesaReservaTitle").textContent = `Reservar ${tituloMesas}`;
 
   const nombreInput = document.getElementById("mesaReservaNombre");
-  nombreInput.value = "Cargando...";
+  const nombreLoader = document.getElementById("mesaReservaNombreLoader");
+  nombreInput.value = "";
+  nombreInput.placeholder = "Cargando tu nombre...";
   nombreInput.readOnly = true;
-  getUserDisplayName(auth.currentUser.uid).then((n) => {
-    nombreInput.value = n;
-  });
+  nombreLoader?.classList.add("show");
+
+  getUserDisplayName(auth.currentUser.uid)
+    .then((n) => {
+      nombreInput.value = n;
+    })
+    .finally(() => {
+      nombreLoader?.classList.remove("show");
+    });
 
   document.getElementById("mesaReservaPersonas").value = "";
   if (errorEl) {
@@ -930,11 +938,11 @@ function openMesaReservaModal(mesaOMesas) {
 
 function closeMesaReservaModal() {
   document.getElementById("mesaReservaModal")?.classList.remove("open");
+  document.getElementById("mesaReservaNombreLoader")?.classList.remove("show"); // ← nuevo
   _mesaSeleccionada = null;
   const multiInput = document.getElementById("mesasMultiInput");
   if (multiInput) multiInput.value = "";
 }
-
 
 function iniciarProgresoReserva(btn) {
   if (!btn) return;
@@ -2322,6 +2330,7 @@ let _lightboxBound = false;
 let _panzoomInstance = null;
 
 const MESAS_CSS = `
+
 .mesa-chip.mesa-pendiente-reserva{cursor:not-allowed;opacity:.65;border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.1);}
 .mesas-grid{display:flex;flex-wrap:wrap;gap:12px;}
 .mesas-multi-wrap{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
@@ -2346,6 +2355,28 @@ const MESAS_CSS = `
 .mesa-reserva-box input:focus{outline:none;border-color:rgba(var(--dr),var(--dg),var(--db),.6);}
 .mesa-reserva-hora-label{display:block;font-size:11px;color:#9c9ca3;margin:-4px 0 6px;text-transform:uppercase;letter-spacing:.06em;}
 .mesa-reserva-submit{width:100%;padding:13px;border:none;border-radius:12px;font-weight:700;font-size:14px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
+.mesa-reserva-nombre-loader{
+  width:100%;
+  height:4px;
+  border-radius:4px;
+  background:rgba(255,255,255,.08);
+  overflow:hidden;
+  margin:-8px 0 12px;
+  display:none;
+}
+.mesa-reserva-nombre-loader.show{ display:block; }
+.mesa-reserva-nombre-loader-fill{
+  width:40%;
+  height:100%;
+  border-radius:4px;
+  background:linear-gradient(90deg, rgba(var(--dr),var(--dg),var(--db),.9), rgba(var(--dr),var(--dg),var(--db),.4));
+  animation: mesa-nombre-indeterminate 1.1s ease-in-out infinite;
+}
+@keyframes mesa-nombre-indeterminate{
+  0%{ transform:translateX(-100%); }
+  50%{ transform:translateX(60%); }
+  100%{ transform:translateX(220%); }
+}
 `;
 const MESA_RESERVA_FLOAT_CSS = `
 .mesa-reserva-progress-wrap{ position:relative; overflow:hidden; pointer-events:none; }
