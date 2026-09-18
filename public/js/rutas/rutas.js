@@ -247,3 +247,4 @@ export function tiendaCuponesCol(localidad, negocioId) {
 export function tiendaCuponDoc(localidad, negocioId, cuponId) {
   return tiendaSubDoc(localidad, "tiendas", negocioId, "cupones", cuponId);
 }
+

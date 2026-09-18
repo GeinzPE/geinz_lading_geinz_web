@@ -397,6 +397,72 @@ async function eliminarCategoria(categoriaId, nombre) {
   toast(`Categoría "${nombre}" eliminada.`);
 }
 
+/* ---------------- Carrito de Perfil (productos destacados) ---------------- */
+const CARRITO_PERFIL_MAX = 20;
+let carritoPerfilActual = [];
+
+onSnapshot(tiendaDocRef, (snap) => {
+  carritoPerfilActual = snap.data()?.carritoPerfil || [];
+  actualizarBotonesCarritoPerfil();
+});
+
+function actualizarBotonesCarritoPerfil() {
+  document.querySelectorAll("[data-carrito-perfil-btn]").forEach((btn) => {
+    const enCarrito = carritoPerfilActual.some(
+      (p) => p.productoId === btn.dataset.productoId,
+    );
+    btn.classList.toggle("en-carrito", enCarrito);
+    btn.title = enCarrito
+      ? "Quitar del carrito de perfil"
+      : "Agregar al carrito de perfil";
+  });
+}
+
+async function toggleProductoEnCarritoPerfil(categoriaId, productoId, data) {
+  const yaExiste = carritoPerfilActual.some((p) => p.productoId === productoId);
+  let nuevoCarrito;
+
+  if (yaExiste) {
+    nuevoCarrito = carritoPerfilActual.filter((p) => p.productoId !== productoId);
+  } else {
+    if (carritoPerfilActual.length >= CARRITO_PERFIL_MAX) {
+      toast(`Máximo ${CARRITO_PERFIL_MAX} productos en el carrito de perfil.`, "error");
+      return;
+    }
+    nuevoCarrito = [
+      ...carritoPerfilActual,
+      {
+        productoId,
+        categoriaId,
+        nombre: data.nombre,
+        precio: data.precio,
+        imagenUrl: (data.imagenes && data.imagenes[0]?.url) || null,
+      },
+    ];
+  }
+
+  try {
+    await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
+    toast(yaExiste ? "Quitado del carrito de perfil." : "Agregado al carrito de perfil.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo actualizar el carrito de perfil.", "error");
+  }
+}
+
+async function sincronizarProductoEnCarritoPerfil(productoId, cambios) {
+  const idx = carritoPerfilActual.findIndex((p) => p.productoId === productoId);
+  if (idx === -1) return;
+  const nuevoCarrito = [...carritoPerfilActual];
+  nuevoCarrito[idx] = { ...nuevoCarrito[idx], ...cambios };
+  await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
+}
+
+async function quitarProductoDeCarritoPerfilSiExiste(productoId) {
+  if (!carritoPerfilActual.some((p) => p.productoId === productoId)) return;
+  const nuevoCarrito = carritoPerfilActual.filter((p) => p.productoId !== productoId);
+  await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
+}
 /* ---------------- Productos ---------------- */
 let categoriaActivaParaProducto = null;
 let imagenesSeleccionadas = [null, null, null];
@@ -861,6 +927,13 @@ const variantesObligatoria = document.getElementById(
   variantesObligatoria,
   imagenes: [...conservadas, ...subidas],
 });
+
+        await sincronizarProductoEnCarritoPerfil(productoEditandoId, {
+          nombre,
+          precio,
+          imagenUrl: [...conservadas, ...subidas][0]?.url || null,
+        });
+
         toast(`"${nombre}" actualizado.`);
       } else {
         const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
@@ -915,6 +988,7 @@ async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
     ),
   );
   await deleteDoc(doc(productosRef(categoriaId), productoId));
+  await quitarProductoDeCarritoPerfilSiExiste(productoId);
   toast(`"${nombre}" eliminado.`);
 }
 
@@ -1151,10 +1225,36 @@ function renderProductoCard(categoriaId, productoId, data) {
     abrirModalEditarProducto(categoriaId, productoId, data);
   });
 
-  actionRow.appendChild(estadoBtn);
-  actionRow.appendChild(agotadoHoyBtn);
-  actionRow.appendChild(editBtn);
-  actionRow.appendChild(delBtn);
+  const carritoBtn = document.createElement("button");
+  carritoBtn.type = "button";
+  carritoBtn.dataset.carritoPerfilBtn = "1";
+  carritoBtn.dataset.productoId = productoId;
+  carritoBtn.className =
+    "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-amber-300 hover:bg-amber-950/30 transition-colors";
+  carritoBtn.title = "Agregar al carrito de perfil";
+  carritoBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>`;
+  carritoBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleProductoEnCarritoPerfil(categoriaId, productoId, data);
+  });
+  if (carritoPerfilActual.some((p) => p.productoId === productoId)) {
+    carritoBtn.classList.add("en-carrito");
+  }
+
+  const filaEstados = document.createElement("div");
+  filaEstados.className = "flex items-center gap-2 flex-wrap";
+  filaEstados.appendChild(estadoBtn);
+  filaEstados.appendChild(agotadoHoyBtn);
+
+  const filaIconos = document.createElement("div");
+  filaIconos.className = "flex items-center justify-end gap-1.5";
+  filaIconos.appendChild(carritoBtn);
+  filaIconos.appendChild(editBtn);
+  filaIconos.appendChild(delBtn);
+
+  actionRow.className = "flex flex-col gap-2";
+  actionRow.appendChild(filaEstados);
+  actionRow.appendChild(filaIconos);
 
   bottomSection.appendChild(priceRow);
   bottomSection.appendChild(actionRow);

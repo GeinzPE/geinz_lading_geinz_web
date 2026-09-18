@@ -10,6 +10,11 @@ let _fidelizacionActiva = false;
 let _bannerShown = false;
 let _fidelizacionMensajeInactivo =
   "Este negocio no tiene el programa de fidelización activo por el momento.";
+  function capitalizarPrimeraLetra(texto) {
+  if (!texto) return "";
+  const t = String(texto).trim().toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str).replace(/[&<>"']/g, (m) => {
@@ -924,7 +929,6 @@ function openMesaReservaModal(mesaOMesas) {
     .finally(() => {
       nombreLoader?.classList.remove("show");
     });
-
   document.getElementById("mesaReservaPersonas").value = "";
   if (errorEl) {
     errorEl.textContent = "";
@@ -943,6 +947,7 @@ function closeMesaReservaModal() {
   const multiInput = document.getElementById("mesasMultiInput");
   if (multiInput) multiInput.value = "";
 }
+
 
 function iniciarProgresoReserva(btn) {
   if (!btn) return;
@@ -2330,7 +2335,6 @@ let _lightboxBound = false;
 let _panzoomInstance = null;
 
 const MESAS_CSS = `
-
 .mesa-chip.mesa-pendiente-reserva{cursor:not-allowed;opacity:.65;border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.1);}
 .mesas-grid{display:flex;flex-wrap:wrap;gap:12px;}
 .mesas-multi-wrap{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
@@ -3228,6 +3232,18 @@ async function render(biz, isInitial = true) {
     });
   }
 
+    // Carrito de perfil (hasta 20 productos elegidos en el dashboard)
+  // Ya viene incluido en 'biz' porque loadBusiness/listenBusinessRealtime leen ese mismo doc
+    console.log("🟣 render() isInitial=", isInitial,
+              "| carritoPerfil:", biz.carritoPerfil,
+              "| keys del doc:", Object.keys(biz));
+  renderProductosCatalogo(
+    
+    biz.carritoPerfil || [],
+    _params.localidad,
+    _params.id,
+    _params.alias || biz.alias_key,
+  );
   // Productos Grid (imágenes → NO tiempo real)
   const prodGrid = document.getElementById("productosGrid");
   if (isInitial && prodGrid && productos.length) {
@@ -4890,8 +4906,9 @@ async function eliminarMiReview() {
 // ══════════════════════════════════════════
 (async () => {
   try {
+    console.log("✅ INIT arrancó");
     const params = await getParams();
-    _params = params;
+    console.log("✅ params:", params);
 
     if (params.mesaToken) {
       await resolveMesaYRedirigir(params, params.mesaToken);
@@ -4899,6 +4916,7 @@ async function eliminarMiReview() {
     }
 
     const biz = await loadBusiness(params);
+        console.log("✅ biz keys:", Object.keys(biz), "| carritoPerfil:", biz.carritoPerfil);
     showPromoBanner(biz); // ← se dispara ANTES de todo el resto del render
     await render(biz, true);
 
@@ -4943,14 +4961,8 @@ async function eliminarMiReview() {
     );
 
     // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
-    loadProductosCatalogo(params).then((productos) => {
-      renderProductosCatalogo(
-        productos,
-        params.localidad,
-        params.id,
-        params.alias || biz.alias_key,
-      );
-    });
+    // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
+   
   } catch (err) {
     console.error(err);
     showNotFoundScreen(err.message); // ← debe capturarlo
@@ -5024,46 +5036,11 @@ function setupHoverCarousel(wrapId, trackId) {
   });
 }
 
-async function loadProductosCatalogo({ localidad, id }) {
-  try {
-    const catRef = tiendaSubCol(localidad, "tiendas", id, "productos");
 
-    const catSnap = await getDocs(catRef);
-    const productos = [];
-
-    for (const catDoc of catSnap.docs) {
-      const categoria = catDoc.id;
-      const subRef = tiendaSubCol(
-        localidad,
-        "tiendas",
-        id,
-        "productos",
-        categoria,
-        categoria,
-      );
-
-      const subSnap = await getDocs(subRef);
-      subSnap.forEach((pDoc) => {
-        const d = pDoc.data();
-        if (d.disponible === false) return;
-        productos.push({
-          id: pDoc.id,
-          categoria,
-          nombre: d.nombre || "Producto",
-          precio: Number(d.precio) || 0,
-          imagen: d.imagenes?.[0]?.url || "",
-        });
-      });
-    }
-    return productos;
-  } catch (e) {
-    console.warn("No se pudo cargar el catálogo de productos:", e.message);
-    return [];
-  }
-}
 
 // ── 2. Pinta 5 productos en línea vertical + botón "Ver catálogo" (arriba si hay productos)
 function renderProductosCatalogo(productos, localidad, id, aliasKey) {
+  console.log("🛒 renderProductosCatalogo →", productos?.length, productos);
   const sec = document.getElementById("secCatalogo");
   const btnWrap = document.getElementById("catalogoBtnWrap");
   const list = document.getElementById("catalogoList");
@@ -5088,12 +5065,12 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   }
 
   list.innerHTML = "";
-  productos.slice(0, 5).forEach((p) => {
+productos.slice(0, 20).forEach((p) => {
     const row = document.createElement("div");
     row.className = "catalogo-row";
 
     const imgWrap = createImageWithPlaceholder({
-      src: p.imagen,
+      src: p.imagenUrl,
       alt: p.nombre,
       useLogoFallback: true,
     });
@@ -5101,9 +5078,9 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
 
     const overlay = document.createElement("div");
     overlay.className = "catalogo-row-overlay";
-    overlay.innerHTML = `
-      <span class="catalogo-row-nombre">${p.nombre}</span>
-      <span class="catalogo-row-precio">S/ ${p.precio.toFixed(2)}</span>`;
+overlay.innerHTML = `
+  <span class="catalogo-row-nombre">${capitalizarPrimeraLetra(p.nombre)}</span>
+  <span class="catalogo-row-precio">S/ ${Number(p.precio || 0).toFixed(2)}</span>`;
 
     row.appendChild(imgWrap);
     row.appendChild(overlay);
