@@ -12,6 +12,14 @@
             "value": "same-origin-allow-popups"
           }
         ]
+      },
+      {
+        "source": "**/*.@(js|mjs)",
+        "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }]
+      },
+      {
+        "source": "**/*.webmanifest",
+        "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }]
       }
     ],
     "rewrites": [
@@ -20,24 +28,48 @@
         "destination": "/carrito/carrito.html"
       },
       {
+        "source": "/carrito",
+        "function": "carritoSSR"
+      },
+      {
         "source": "/perfil/*/libro_reclamaciones",
         "destination": "/legal/libro_reclamaciones.html"
+      },
+      {
+        "source": "/libro_reclamaciones",
+        "function": "legalSSR"
       },
       {
         "source": "/perfil/*/terminos_condiciones",
         "destination": "/legal/terminos_condiciones.html"
       },
       {
+        "source": "/terminos_condiciones",
+        "function": "legalSSR"
+      },
+      {
         "source": "/perfil/*/politicas_privacidad",
         "destination": "/legal/politicas_privacidad.html"
+      },
+      {
+        "source": "/politicas_privacidad",
+        "function": "legalSSR"
       },
       {
         "source": "/perfil/*/seguimiento_reclamaciones",
         "destination": "/legal/seguimiento_reclamaciones.html"
       },
       {
+        "source": "/seguimiento_reclamaciones",
+        "function": "legalSSR"
+      },
+      {
         "source": "/perfil/*/fidelizacion/*",
         "destination": "/fidelizacion/fidelizacion_client.html"
+      },
+      {
+        "source": "/fidelizacion/**",
+        "function": "fidelizacionSSR"
       },
       {
         "source": "/perfil/*/*",
@@ -95,6 +127,10 @@
       {
         "source": "/legal/seguimiento_reclamaciones/**",
         "destination": "/legal/seguimiento_reclamaciones.html"
+      },
+      {
+        "source": "/",
+        "function": "perfilSSR"
       },
       {
         "source": "!/ffmpeg/**",

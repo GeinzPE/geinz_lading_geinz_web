@@ -12,6 +12,16 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Manrope:wght@800&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="../style/carrito/carrito.css">
+  <script>
+(function () {
+  var h = location.hostname;
+  if (h === "geinztech.com" || h === "www.geinztech.com") return;
+  var m = location.pathname.match(
+    /^\/perfil\/[^/]+\/(carrito|libro_reclamaciones|terminos_condiciones|politicas_privacidad|seguimiento_reclamaciones|fidelizacion\/.+)$/
+  );
+  if (m) location.replace("/" + m[1] + location.search + location.hash);
+})();
+</script>
   <script type="module" src="../js/dasboardjs/carrito.js"></script>
   <style>
     .login-prompt-modal {

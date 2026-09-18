@@ -10,7 +10,7 @@ import {
   tiendaDoc,
   reclamacionesCol,
 } from "../js/rutas/rutas.js"; // ⚠️ ajusta esta ruta a donde tengas rutas.js
-import { setFaviconCircular } from "../js/favicon/favicon.js"; 
+import { setFaviconCircular } from "../js/favicon/favicon.js";
 // ══════════════════════════════════════════
 //  CAMPOS A MOSTRAR EN EL RESULTADO
 //  clave del doc del reclamo → cómo se pinta
@@ -19,9 +19,19 @@ const RESULT_FIELD_DEFS = [
   { key: "nombre", label: "Nombres", join: "apellido" }, // se combina con apellido
   { key: "correo", label: "Correo" },
   { key: "direcion_consumidor", label: "Dirección" },
-  { key: "tipo_documento", label: "Documento", join: "numero_documento", joinSep: " " },
+  {
+    key: "tipo_documento",
+    label: "Documento",
+    join: "numero_documento",
+    joinSep: " ",
+  },
   { key: "pedido_consumidor", label: "Tipo de pedido" },
-  { key: "monto_reclamacion", label: "Monto reclamado", prefix: "S/ ", onlyIfTruthy: true },
+  {
+    key: "monto_reclamacion",
+    label: "Monto reclamado",
+    prefix: "S/ ",
+    onlyIfTruthy: true,
+  },
   { key: "descripcion", label: "Descripción de los hechos" },
   { key: "detalle", label: "Detalle de lo solicitado" },
 ];
@@ -43,19 +53,29 @@ const ESTADO_META = {
 //  ?alias=... y el viejo ?id=&localidad= como fallback)
 // ══════════════════════════════════════════
 async function resolverNegocio() {
+  if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    return {
+      id: window.__NEGOCIO_ID__,
+      localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
+    };
+  }
   const path = window.location.pathname;
 
   let alias = null;
 
   // Ruta nueva: /perfil/{alias}/seguimiento_reclamaciones
-  const matchPerfil = path.match(/^\/perfil\/([^/]+)\/seguimiento_reclamaciones\/?$/);
+  const matchPerfil = path.match(
+    /^\/perfil\/([^/]+)\/seguimiento_reclamaciones\/?$/,
+  );
   if (matchPerfil) {
     alias = decodeURIComponent(matchPerfil[1]);
   }
 
   // Compatibilidad con la ruta vieja: /legal/seguimiento_reclamaciones/{alias}
   if (!alias && path.startsWith("/legal/seguimiento_reclamaciones/")) {
-    alias = decodeURIComponent(path.split("/legal/seguimiento_reclamaciones/")[1] || "").trim();
+    alias = decodeURIComponent(
+      path.split("/legal/seguimiento_reclamaciones/")[1] || "",
+    ).trim();
     alias = alias.split(/[/?#]/)[0];
   }
 
@@ -103,12 +123,23 @@ function getDominantColor(imgEl) {
       const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
       const buckets = {};
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        const r = data[i],
+          g = data[i + 1],
+          b = data[i + 2],
+          a = data[i + 3];
         if (a < 128) continue;
-        const rn = r / 255, gn = g / 255, bn = b / 255;
-        const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+        const rn = r / 255,
+          gn = g / 255,
+          bn = b / 255;
+        const max = Math.max(rn, gn, bn),
+          min = Math.min(rn, gn, bn);
         const l = (max + min) / 2;
-        const s = max === min ? 0 : l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+        const s =
+          max === min
+            ? 0
+            : l > 0.5
+              ? (max - min) / (2 - max - min)
+              : (max - min) / (max + min);
         if (l > 0.72 || l < 0.1 || s < 0.28) continue;
         const key = `${r >> 4},${g >> 4},${b >> 4}`;
         if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
@@ -133,14 +164,18 @@ function getDominantColor(imgEl) {
 
 function colorFromName(name) {
   let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+  for (let i = 0; i < name.length; i++)
+    hash = (hash << 5) - hash + name.charCodeAt(i);
   hash |= 0;
   const hue = Math.abs(hash % 360);
-  const s = 0.65, l = 0.55;
+  const s = 0.65,
+    l = 0.55;
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
   const m = l - c / 2;
-  let r = 0, g = 0, b = 0;
+  let r = 0,
+    g = 0,
+    b = 0;
   if (hue < 60) [r, g, b] = [c, x, 0];
   else if (hue < 120) [r, g, b] = [x, c, 0];
   else if (hue < 180) [r, g, b] = [0, c, x];
@@ -169,7 +204,11 @@ function formatFecha(ts) {
     const d = ts?.toDate ? ts.toDate() : ts instanceof Date ? ts : null;
     if (!d) return "";
     return d.toLocaleString("es-PE", {
-      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return "";
@@ -241,8 +280,13 @@ function renderResultBody(data) {
 }
 
 function renderEstado(estadoRaw) {
-  const key = String(estadoRaw || "pendiente").toLowerCase().trim();
-  const meta = ESTADO_META[key] || { texto: estadoRaw || "Pendiente", clase: "status-default" };
+  const key = String(estadoRaw || "pendiente")
+    .toLowerCase()
+    .trim();
+  const meta = ESTADO_META[key] || {
+    texto: estadoRaw || "Pendiente",
+    clase: "status-default",
+  };
   const pill = document.getElementById("resultEstado");
   pill.className = `status-pill ${meta.clase}`;
   pill.innerHTML = `<span class="status-dot"></span><span>${meta.texto}</span>`;
@@ -274,7 +318,9 @@ function renderEstado(estadoRaw) {
     const biz = tiendaSnap.data();
     const footer = biz.footer || {};
     if (footer.activo !== true || footer.libro_reclamaciones !== true) {
-      return showNotAvailable("Este negocio no tiene activo el Libro de Reclamaciones por el momento.");
+      return showNotAvailable(
+        "Este negocio no tiene activo el Libro de Reclamaciones por el momento.",
+      );
     }
 
     // 2) Cabecera del negocio + color dominante del logo
@@ -305,7 +351,8 @@ function renderEstado(estadoRaw) {
           applyColor(colorFromName(nombre));
           resolve();
         };
-        tempImg.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
+        tempImg.src =
+          logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
       } else {
         logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
         applyColor(colorFromName(nombre));
@@ -351,7 +398,11 @@ function renderEstado(estadoRaw) {
 
       try {
         const col = reclamacionesCol(localidad, id);
-        const q = query(col, where("codigo_seguimiento", "==", codigo), limit(1));
+        const q = query(
+          col,
+          where("codigo_seguimiento", "==", codigo),
+          limit(1),
+        );
         const snap = await getDocs(q);
 
         if (snap.empty) {
@@ -360,7 +411,8 @@ function renderEstado(estadoRaw) {
           const data = snap.docs[0].data();
           console.log("🔍 DEBUG documento del reclamo:", data);
           console.log("🔍 DEBUG respuesta_tienda:", data.respuesta_tienda);
-          document.getElementById("resultCodigo").textContent = data.codigo_seguimiento || codigo;
+          document.getElementById("resultCodigo").textContent =
+            data.codigo_seguimiento || codigo;
           renderEstado(data.estado);
           renderResultBody(data);
           resultCard.style.display = "block";
@@ -368,7 +420,8 @@ function renderEstado(estadoRaw) {
         }
       } catch (err) {
         console.error("Error al buscar reclamo:", err);
-        errorEl.textContent = "No se pudo buscar tu reclamación, intenta de nuevo.";
+        errorEl.textContent =
+          "No se pudo buscar tu reclamación, intenta de nuevo.";
         errorEl.classList.add("show");
       } finally {
         btn.disabled = false;
@@ -377,6 +430,8 @@ function renderEstado(estadoRaw) {
     });
   } catch (err) {
     console.error(err);
-    showNotAvailable(err.message || "Ocurrió un error al cargar la página de seguimiento.");
+    showNotAvailable(
+      err.message || "Ocurrió un error al cargar la página de seguimiento.",
+    );
   }
 })();

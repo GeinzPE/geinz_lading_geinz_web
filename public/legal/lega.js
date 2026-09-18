@@ -35,7 +35,8 @@ const FIELD_DEFS = {
     col: 1,
     group: 1,
     required: true,
-    validate: (v) => (v.trim().length >= 2 ? null : "Ingresa un apellido válido"),
+    validate: (v) =>
+      v.trim().length >= 2 ? null : "Ingresa un apellido válido",
   },
   tipo_documento: {
     label: "Tipo y N° de documento",
@@ -66,7 +67,8 @@ const FIELD_DEFS = {
     col: 2,
     group: 1,
     required: true,
-    validate: (v) => (v.trim().length >= 5 ? null : "Ingresa una dirección válida"),
+    validate: (v) =>
+      v.trim().length >= 5 ? null : "Ingresa una dirección válida",
   },
   padre_madre_apoderado: {
     label: "Padre / Madre / Apoderado (si es menor de edad)",
@@ -110,7 +112,9 @@ const FIELD_DEFS = {
     group: 2,
     required: true,
     validate: (v) =>
-      v.trim().length >= 15 ? null : "Cuéntanos con un poco más de detalle (mín. 15 caracteres)",
+      v.trim().length >= 15
+        ? null
+        : "Cuéntanos con un poco más de detalle (mín. 15 caracteres)",
   },
   detalle: {
     label: "Detalle de lo solicitado",
@@ -121,7 +125,9 @@ const FIELD_DEFS = {
     group: 2,
     required: true,
     validate: (v) =>
-      v.trim().length >= 10 ? null : "Cuéntanos qué solución esperas (mín. 10 caracteres)",
+      v.trim().length >= 10
+        ? null
+        : "Cuéntanos qué solución esperas (mín. 10 caracteres)",
   },
 };
 
@@ -143,6 +149,12 @@ const DOC_TIPO_VALIDATORS = {
 //  RESOLVER ALIAS → { id, localidad }
 // ══════════════════════════════════════════
 async function resolverNegocio() {
+  if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    return {
+      id: window.__NEGOCIO_ID__,
+      localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
+    };
+  }
   const path = window.location.pathname;
 
   let alias = null;
@@ -155,7 +167,9 @@ async function resolverNegocio() {
 
   // Compatibilidad con la ruta vieja: /legal/libro_reclamaciones/{alias}
   if (!alias && path.startsWith("/legal/libro_reclamaciones/")) {
-    alias = decodeURIComponent(path.split("/legal/libro_reclamaciones/")[1] || "").trim();
+    alias = decodeURIComponent(
+      path.split("/legal/libro_reclamaciones/")[1] || "",
+    ).trim();
     alias = alias.split(/[/?#]/)[0];
   }
 
@@ -244,7 +258,8 @@ function getDominantColor(imgEl) {
 
 function colorFromName(name) {
   let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+  for (let i = 0; i < name.length; i++)
+    hash = (hash << 5) - hash + name.charCodeAt(i);
   hash |= 0;
   const hue = Math.abs(hash % 360);
   const s = 0.65,
@@ -303,13 +318,20 @@ function buildFieldMarkup(key, def, opcionesMap) {
   if (def.type === "textarea") {
     inputHtml = `<textarea class="field-textarea" data-field="${key}" rows="4" placeholder="${def.placeholder}"></textarea>`;
   } else if (def.type === "select") {
-    const opciones = normalizeOpciones(opcionesMap[def.optionsKey], def.defaultOptions);
+    const opciones = normalizeOpciones(
+      opcionesMap[def.optionsKey],
+      def.defaultOptions,
+    );
     inputHtml = `<select class="field-select" data-field="${key}">
       <option value="" disabled selected>Selecciona una opción</option>
       ${opciones.map((o) => `<option value="${o}">${o}</option>`).join("")}
     </select>`;
   } else if (def.type === "doc_combo") {
-    const tipos = normalizeOpciones(opcionesMap.opciones_documento, ["DNI", "CE", "Pasaporte"]);
+    const tipos = normalizeOpciones(opcionesMap.opciones_documento, [
+      "DNI",
+      "CE",
+      "Pasaporte",
+    ]);
     inputHtml = `
       <div class="doc-combo-grid">
         <select class="field-select" data-field="${key}_tipo">
@@ -351,7 +373,10 @@ function renderFields(camposConfig, opcionesMap) {
     `;
     const grid = section.querySelector(".form-section-grid");
     entries.forEach(([key, def]) => {
-      grid.insertAdjacentHTML("beforeend", buildFieldMarkup(key, def, opcionesMap));
+      grid.insertAdjacentHTML(
+        "beforeend",
+        buildFieldMarkup(key, def, opcionesMap),
+      );
     });
     wrap.appendChild(section);
   });
@@ -362,7 +387,9 @@ function renderFields(camposConfig, opcionesMap) {
       const baseKey = el.dataset.field.replace(/_tipo$/, "");
       if (FIELD_DEFS[baseKey]) validateSingleField(baseKey, camposConfig);
     });
-    el.addEventListener("input", () => clearFieldError(el.dataset.field.replace(/_tipo$/, "")));
+    el.addEventListener("input", () =>
+      clearFieldError(el.dataset.field.replace(/_tipo$/, "")),
+    );
   });
 }
 
@@ -391,8 +418,10 @@ function validateSingleField(key, camposConfig) {
   const def = FIELD_DEFS[key];
 
   if (def.type === "doc_combo") {
-    const tipo = document.querySelector(`[data-field="${key}_tipo"]`)?.value || "";
-    const num = document.querySelector(`[data-field="${key}"]`)?.value.trim() || "";
+    const tipo =
+      document.querySelector(`[data-field="${key}_tipo"]`)?.value || "";
+    const num =
+      document.querySelector(`[data-field="${key}"]`)?.value.trim() || "";
     if (!num) {
       setFieldError(key, "Ingresa tu número de documento");
       return false;
@@ -435,8 +464,10 @@ function collectFormData(camposConfig) {
     if (!valido) ok = false;
 
     if (def.type === "doc_combo") {
-      data.tipo_documento = document.querySelector(`[data-field="${key}_tipo"]`)?.value || "";
-      data.numero_documento = document.querySelector(`[data-field="${key}"]`)?.value.trim() || "";
+      data.tipo_documento =
+        document.querySelector(`[data-field="${key}_tipo"]`)?.value || "";
+      data.numero_documento =
+        document.querySelector(`[data-field="${key}"]`)?.value.trim() || "";
       return;
     }
 
@@ -491,7 +522,9 @@ function generarCodigoSeguimiento() {
     const libroRef = libroReclamacionesConfigDoc(localidad, id);
     const libroSnap = await getDoc(libroRef);
     if (!libroSnap.exists()) {
-      return showNotAvailable("El Libro de Reclamaciones aún no fue configurado.");
+      return showNotAvailable(
+        "El Libro de Reclamaciones aún no fue configurado.",
+      );
     }
     const libroData = libroSnap.data();
     const campos = libroData.campos || {};
@@ -507,7 +540,7 @@ function generarCodigoSeguimiento() {
 
     // Promesa que se resuelve solo cuando el color ya fue aplicado
     const colorReady = new Promise((resolve) => {
-        if (logoUrl) {
+      if (logoUrl) {
         logoImg.src = logoUrl;
         logoImg.style.display = "block";
         logoLetter.style.display = "none";
@@ -525,7 +558,8 @@ function generarCodigoSeguimiento() {
           applyColor(colorFromName(nombre));
           resolve();
         };
-        tempImg.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
+        tempImg.src =
+          logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
       } else {
         logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
         applyColor(colorFromName(nombre));
@@ -534,12 +568,14 @@ function generarCodigoSeguimiento() {
     });
 
     // 4) Pintar contenido dinámico del libro (título, descripción, RUC, razón social)
-    document.getElementById("libroTitulo").textContent = libroData.titulo || "Libro de Reclamaciones";
+    document.getElementById("libroTitulo").textContent =
+      libroData.titulo || "Libro de Reclamaciones";
     document.getElementById("libroDescripcion").textContent =
       libroData.descripcion ||
       "Este establecimiento cuenta con un Libro de Reclamaciones a tu disposición conforme a la normativa vigente.";
 
-    const razonSocial = libroData["razon social"] || libroData.razon_social || "";
+    const razonSocial =
+      libroData["razon social"] || libroData.razon_social || "";
     const badgesWrap = document.getElementById("legalBadges");
     if (badgesWrap) {
       const chips = [];
@@ -580,7 +616,8 @@ function generarCodigoSeguimiento() {
 
       const { data, ok } = collectFormData(campos);
       if (!ok) {
-        generalError.textContent = "Revisa los campos marcados en rojo antes de continuar.";
+        generalError.textContent =
+          "Revisa los campos marcados en rojo antes de continuar.";
         generalError.classList.add("show");
         document
           .querySelector(".field-group.has-error")
@@ -618,7 +655,8 @@ function generarCodigoSeguimiento() {
         );
       } catch (err) {
         console.error("Error al guardar reclamo:", err);
-        generalError.textContent = "No se pudo enviar tu reclamación, intenta de nuevo.";
+        generalError.textContent =
+          "No se pudo enviar tu reclamación, intenta de nuevo.";
         generalError.classList.add("show");
         submitBtn.disabled = false;
         submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane mr-2"></i> Enviar reclamación`;
@@ -626,6 +664,8 @@ function generarCodigoSeguimiento() {
     });
   } catch (err) {
     console.error(err);
-    showNotAvailable(err.message || "Ocurrió un error al cargar el Libro de Reclamaciones.");
+    showNotAvailable(
+      err.message || "Ocurrió un error al cargar el Libro de Reclamaciones.",
+    );
   }
 })();

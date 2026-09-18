@@ -34,7 +34,12 @@ const db = getFirestore();
          La ruta real es {LANDING_BASE_URL}/perfil/{alias_negocio}. */
 const DASHBOARD_BASE_URL = "https://geinztech.com/pedidos";
 const LANDING_BASE_URL = "https://geinztech.com";
-
+function getLandingBase() {
+  if (window.__NEGOCIO_HOSTNAME__) {
+    return `https://${window.__NEGOCIO_HOSTNAME__}`;
+  }
+  return LANDING_BASE_URL;
+}
 async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
   const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const nuevoPedidoRef = doc(pedidosRef);
@@ -84,22 +89,57 @@ async function resolverParamsCarrito() {
   const path = window.location.pathname;
   const qs = new URLSearchParams(window.location.search);
 
-  // URL bonita: /perfil/{alias}/carrito
-  const match = path.match(/^\/perfil\/([^/]+)\/carrito\/?$/);
-  if (match) {
-    const alias = decodeURIComponent(match[1]);
-    try {
-      const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
-      if (aliasSnap.exists()) {
-        const data = aliasSnap.data();
-        if (data.id && data.localidad) {
-          aliasNegocio = alias;
-          tiendaId = data.id;
-          localidad = data.localidad.trim().toLowerCase();
+  // PRIORIDAD 1: viene inyectado por carritoSSR (dominio custom, ej. nuestrahistoriajuntos.com/carrito)
+  if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    tiendaId = window.__NEGOCIO_ID__;
+    localidad = window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase();
+    aliasNegocio = window.__NEGOCIO_ALIAS__ || null;
+    window.__NEGOCIO_HOSTNAME_DETECTADO__ = window.__NEGOCIO_HOSTNAME__ || null;
+  }
+
+  // PRIORIDAD 1.5: dominio propio SIN inyección SSR -> se resuelve contra Firestore
+  // (dominio_web_tiendas/{hostname}), igual que hace perfil.js en getParams().
+  if (!tiendaId) {
+    const h = location.hostname;
+    if (h !== "geinztech.com" && h !== "www.geinztech.com") {
+      try {
+        const domSnap = await getDoc(doc(db, "dominio_web_tiendas", h));
+        if (domSnap.exists()) {
+          const d = domSnap.data();
+          if (d.id && d.localidad) {
+            tiendaId = d.id;
+            localidad = (d.localidad || "").trim().toLowerCase();
+            aliasNegocio = d.alias || null;
+            // Se marca el hostname para que getLandingBase() y los links
+            // del pedido usen el dominio propio en vez de geinztech.com
+            window.__NEGOCIO_HOSTNAME__ = h;
+            window.__NEGOCIO_HOSTNAME_DETECTADO__ = h;
+          }
         }
+      } catch (e) {
+        console.error("No se pudo resolver el dominio personalizado:", e);
       }
-    } catch (e) {
-      console.error("No se pudo resolver el alias del negocio:", e);
+    }
+  }
+
+  // PRIORIDAD 2: URL bonita de geinztech.com: /perfil/{alias}/carrito
+  if (!tiendaId) {
+    const match = path.match(/^\/perfil\/([^/]+)\/carrito\/?$/);
+    if (match) {
+      const alias = decodeURIComponent(match[1]);
+      try {
+        const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
+        if (aliasSnap.exists()) {
+          const data = aliasSnap.data();
+          if (data.id && data.localidad) {
+            aliasNegocio = alias;
+            tiendaId = data.id;
+            localidad = data.localidad.trim().toLowerCase();
+          }
+        }
+      } catch (e) {
+        console.error("No se pudo resolver el alias del negocio:", e);
+      }
     }
   }
 
@@ -108,6 +148,9 @@ async function resolverParamsCarrito() {
     localidad = (qs.get("localidad") || "barranca").toLowerCase();
     tiendaId = qs.get("id");
   }
+
+  // Cupón por link (?cupon=CODIGO)
+  cuponParam = qs.get("cupon") || null;
 
   // Datos de mesa (siempre vienen como query params)
   mesaId = qs.get("mesaId") || qs.get("mesa");
@@ -1378,7 +1421,9 @@ function aplicarComportamientoBotonAtras() {
   const backBtn = document.getElementById("backBtn");
   if (!backBtn || !mesaId) return; // fuera de mesa, se queda con history.back()
 const alias = bizData?.alias_key || bizData?.alias_negocio || aliasNegocio || tiendaId;
-  backBtn.href = `${LANDING_BASE_URL}/perfil/${alias}`;
+backBtn.href = window.__NEGOCIO_HOSTNAME__
+  ? getLandingBase()
+  : `${LANDING_BASE_URL}/perfil/${alias}`;
   backBtn.removeAttribute("target");
 }
 
@@ -2180,8 +2225,10 @@ function textoPuntosHTML(puntosTotales, esCheckout = false) {
   const mensaje = `⭐ Sigue a <strong>${nombreSeguro}</strong> para ganar y canjear puntos`;
 
   if (alias) {
-    const href = `${LANDING_BASE_URL}/perfil/${encodeURIComponent(alias)}`;
-    return `<a href="${href}" target="_blank" rel="noopener" style="text-decoration:underline;">${mensaje}</a>`;
+const href = window.__NEGOCIO_HOSTNAME__
+  ? getLandingBase()
+  : `${LANDING_BASE_URL}/perfil/${encodeURIComponent(alias)}`;
+      return `<a href="${href}" target="_blank" rel="noopener" style="text-decoration:underline;">${mensaje}</a>`;
   }
   return mensaje;
 }
@@ -2767,9 +2814,11 @@ document
 
     // Con alias: no se expone el id real del negocio en la URL.
     // Fallback al formato viejo solo si el negocio entró por ?id= (sin alias).
-    const linkPedido = aliasNegocio
-      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(aliasNegocio)}/${pedidoId}`
-      : `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
+const linkPedido = window.__NEGOCIO_HOSTNAME__
+  ? `${getLandingBase()}/pedido/${pedidoId}`
+  : aliasNegocio
+    ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(aliasNegocio)}/${pedidoId}`
+    : `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
 
     closeCheckout();
     showPedidoLoader();

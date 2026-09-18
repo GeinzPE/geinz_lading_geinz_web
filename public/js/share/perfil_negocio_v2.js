@@ -483,7 +483,46 @@ import {
   data_user_logeado,
 } from "../rutas/rutas.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+// ═══ WHITE LABEL: detecta si el dominio es propio de Geinz o personalizado ═══
+const _hostname = window.location.hostname;
+const _esDominioPersonalizado =
+  _hostname !== "geinztech.com" && _hostname !== "www.geinztech.com";
+const _baseShareUrl = _esDominioPersonalizado
+  ? `https://${_hostname}`
+  : "https://geinztech.com";
+function rutaNegocio(sufijo, alias) {
+  if (_esDominioPersonalizado) return `/${sufijo}`;
+  if (alias) return `https://geinztech.com/perfil/${encodeURIComponent(alias)}/${sufijo}`;
+  return null;
+}
 async function getParams() {
+  // ═══ NUEVO: detectar dominio conectado ═══
+  const hostname = window.location.hostname;
+  const esDominioPropio =
+    hostname !== "geinztech.com" && hostname !== "www.geinztech.com";
+
+  if (esDominioPropio) {
+    const domSnap = await getDoc(doc(db, "dominio_web_tiendas", hostname));
+    if (!domSnap.exists()) throw new Error("Dominio no configurado");
+
+    const { id, localidad, categoria, alias } = domSnap.data();
+
+    const promoId =
+      new URLSearchParams(window.location.search).get("p") || null;
+
+    return {
+      localidad: (localidad || "").trim().toLowerCase(),
+      subcol: (categoria || "").replace(/\+/g, " "),
+      id,
+      alias: alias || null,
+      promoIndex: null,
+      promoId,
+      wantsCarta: false,
+      mesaToken: null,
+    };
+  }
+
   const path = window.location.pathname;
   const desdePath = path.startsWith("/perfil/");
 
@@ -563,17 +602,19 @@ async function resolveMesaYRedirigir({ localidad, id, alias }, mesaToken) {
       return true;
     }
 
-       const base = alias
-      ? `/perfil/${encodeURIComponent(alias)}/carrito`
-      : "/carrito/carrito.html";
+  const base = _esDominioPersonalizado
+  ? "/carrito"
+  : alias
+    ? `/perfil/${encodeURIComponent(alias)}/carrito`
+    : "/carrito/carrito.html";
 
-    const url = new URL(base, window.location.origin);
-    url.searchParams.set("mesa", mesaDoc.id);
-    url.searchParams.set("numero_mesa", mesaDoc.numero_mesa ?? "");
-    if (!alias) {
-      url.searchParams.set("localidad", localidad);
-      url.searchParams.set("id", id);
-    }
+const url = new URL(base, window.location.origin);
+url.searchParams.set("mesa", mesaDoc.id);
+url.searchParams.set("numero_mesa", mesaDoc.numero_mesa ?? "");
+if (!alias && !_esDominioPersonalizado) {
+  url.searchParams.set("localidad", localidad);
+  url.searchParams.set("id", id);
+}
 
     window.location.href = url.toString();
     return true;
@@ -794,7 +835,7 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   if (shareBtn) {
     shareBtn.onclick = () => {
       const shareUrl = aliasKey
-        ? `https://geinztech.com/perfil/${aliasKey}-carta`
+     ? `${_baseShareUrl}/perfil/${aliasKey}-carta`
         : window.location.href;
       const fullText = `Mira la carta digital de ${nombreNegocio} 📖\n${shareUrl}`;
       if (navigator.share) {
@@ -1166,7 +1207,7 @@ document.getElementById("puntosBadge")?.addEventListener("click", () => {
   }
   const aliasKey = _params.alias;
   if (aliasKey && _currentUid) {
-    window.location.href = `https://geinztech.com/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
   } else {
     const url = new URL(
       "../../fidelizacion/fidelizacion_client.html",
@@ -1519,7 +1560,7 @@ function renderActivePromos(promos, localidad) {
     const img =
       p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
     const expiry = formatExpiry(p._finMs);
-    const shareUrl = `https://geinztech.com/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
+const shareUrl = `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
 
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
@@ -3004,81 +3045,70 @@ async function render(biz, isInitial = true) {
   document
     .getElementById("footerPoweredRow")
     ?.style.setProperty("display", poweredActivo ? "" : "none");
-  if (linkLibro) {
-    const libroActivo =
-      footerActivo && footerConfig.libro_reclamaciones === true;
-    linkLibro.style.display = libroActivo ? "" : "none";
-    if (libroActivo) {
-      if (biz.alias_key) {
-        linkLibro.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/libro_reclamaciones`;
-      } else {
-        const urlLibro = new URL(
-          "../../legal/libro_reclamaciones.html",
-          window.location.href,
-        );
-        urlLibro.searchParams.set("id", biz.id || _params.id);
-        urlLibro.searchParams.set("localidad", _params.localidad);
-        linkLibro.href = urlLibro.toString();
-      }
+if (linkLibro) {
+  const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
+  linkLibro.style.display = libroActivo ? "" : "none";
+  if (libroActivo) {
+    const ruta = rutaNegocio("libro_reclamaciones", biz.alias_key);
+    if (ruta) {
+      linkLibro.href = ruta;
+    } else {
+      const urlLibro = new URL("../../legal/libro_reclamaciones.html", window.location.href);
+      urlLibro.searchParams.set("id", biz.id || _params.id);
+      urlLibro.searchParams.set("localidad", _params.localidad);
+      linkLibro.href = urlLibro.toString();
     }
   }
-  const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
-  if (linkSeguimiento) {
-    const libroActivo =
-      footerActivo && footerConfig.libro_reclamaciones === true;
-    linkSeguimiento.style.display = libroActivo ? "" : "none";
-    if (libroActivo) {
-      if (biz.alias_key) {
-        linkSeguimiento.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/seguimiento_reclamaciones`;
-      } else {
-        const urlSeguimiento = new URL(
-          "../../legal/seguimiento_reclamaciones.html",
-          window.location.href,
-        );
-        urlSeguimiento.searchParams.set("id", biz.id || _params.id);
-        urlSeguimiento.searchParams.set("localidad", _params.localidad);
-        linkSeguimiento.href = urlSeguimiento.toString();
-      }
+}
+const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
+if (linkSeguimiento) {
+  const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
+  linkSeguimiento.style.display = libroActivo ? "" : "none";
+  if (libroActivo) {
+    const ruta = rutaNegocio("seguimiento_reclamaciones", biz.alias_key);
+    if (ruta) {
+      linkSeguimiento.href = ruta;
+    } else {
+      const urlSeguimiento = new URL("../../legal/seguimiento_reclamaciones.html", window.location.href);
+      urlSeguimiento.searchParams.set("id", biz.id || _params.id);
+      urlSeguimiento.searchParams.set("localidad", _params.localidad);
+      linkSeguimiento.href = urlSeguimiento.toString();
     }
   }
+}
 
-  if (linkTerminos) {
-    const terminosActivo =
-      footerActivo && footerConfig.terminos_condiciones === true;
-    linkTerminos.style.display = terminosActivo ? "" : "none";
-    if (terminosActivo) {
-      if (biz.alias_key) {
-        linkTerminos.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/terminos_condiciones`;
-      } else {
-        const urlTerminos = new URL(
-          "../../legal/terminos_condiciones.html",
-          window.location.href,
-        );
-        urlTerminos.searchParams.set("id", biz.id || _params.id);
-        urlTerminos.searchParams.set("localidad", _params.localidad);
-        linkTerminos.href = urlTerminos.toString();
-      }
+if (linkTerminos) {
+  const terminosActivo = footerActivo && footerConfig.terminos_condiciones === true;
+  linkTerminos.style.display = terminosActivo ? "" : "none";
+  if (terminosActivo) {
+    const ruta = rutaNegocio("terminos_condiciones", biz.alias_key);
+    if (ruta) {
+      linkTerminos.href = ruta;
+    } else {
+      const urlTerminos = new URL("../../legal/terminos_condiciones.html", window.location.href);
+      urlTerminos.searchParams.set("id", biz.id || _params.id);
+      urlTerminos.searchParams.set("localidad", _params.localidad);
+      linkTerminos.href = urlTerminos.toString();
     }
   }
+}
 
-  if (linkPrivacidad) {
-    const privacidadActivo =
-      footerActivo && footerConfig.politicas_privacidad === true;
-    linkPrivacidad.style.display = privacidadActivo ? "" : "none";
-    if (privacidadActivo) {
-      if (biz.alias_key) {
-        linkPrivacidad.href = `https://geinztech.com/perfil/${encodeURIComponent(biz.alias_key)}/politicas_privacidad`;
-      } else {
-        const urlPrivacidad = new URL(
-          "../../legal/politicas_privacidad.html",
-          window.location.href,
-        );
-        urlPrivacidad.searchParams.set("id", biz.id || _params.id);
-        urlPrivacidad.searchParams.set("localidad", _params.localidad);
-        linkPrivacidad.href = urlPrivacidad.toString();
-      }
+
+if (linkPrivacidad) {
+  const privacidadActivo = footerActivo && footerConfig.politicas_privacidad === true;
+  linkPrivacidad.style.display = privacidadActivo ? "" : "none";
+  if (privacidadActivo) {
+    const ruta = rutaNegocio("politicas_privacidad", biz.alias_key);
+    if (ruta) {
+      linkPrivacidad.href = ruta;
+    } else {
+      const urlPrivacidad = new URL("../../legal/politicas_privacidad.html", window.location.href);
+      urlPrivacidad.searchParams.set("id", biz.id || _params.id);
+      urlPrivacidad.searchParams.set("localidad", _params.localidad);
+      linkPrivacidad.href = urlPrivacidad.toString();
     }
   }
+}
   // ── COLOR + LOGO: solo la primera vez ──
   if (!_colorReady) {
     applyDominantColor(colorFromName(nombre));
@@ -3350,9 +3380,9 @@ async function render(biz, isInitial = true) {
       }
     }
     promoImages.forEach((promo) => {
-      const shareBase = biz.alias_key
-        ? `https://geinztech.com/perfil/${biz.alias_key}?p=${promo.id}`
-        : `https://geinztech.com/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+ const shareBase = biz.alias_key
+  ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
+  : `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
       const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
       const card = document.createElement("div");
       card.className = "promo-card";
@@ -3399,9 +3429,9 @@ async function render(biz, isInitial = true) {
   if (shareBtn)
     shareBtn.onclick = () => {
       // ── Usa alias si existe, si no fallback a URL vieja ──
-      const shareUrl = biz.alias_key
-        ? `https://geinztech.com/perfil/${biz.alias_key}`
-        : `https://geinztech.com/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
+     const shareUrl = biz.alias_key
+  ? `${_baseShareUrl}/perfil/${biz.alias_key}`
+  : `${_baseShareUrl}/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
 
       const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
       if (navigator.share)
@@ -3440,7 +3470,7 @@ async function render(biz, isInitial = true) {
   const exploreBtn = document.getElementById("exploreBtn");
   if (exploreBtn) {
     const cat = (biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+");
-    exploreBtn.href = `https://geinztech.com/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
+    exploreBtn.href = `${_baseShareUrl}/scree/negocios?localidad=${_params.localidad}&categoria=${cat}`;
   }
 
   // ── Reglas por plan y modelo de negocio ──
@@ -5054,9 +5084,11 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   sec.style.display = "";
 
   if (btnWrap) {
-    const cartHref = aliasKey
-      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
-      : `../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}`;
+const cartHref = _esDominioPersonalizado
+  ? "/carrito"
+  : aliasKey
+    ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+    : `../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}`;
     btnWrap.innerHTML = `
       <a href="${cartHref}"
          class="btn-primary px-6 py-3 rounded-2xl font-bold inline-flex items-center gap-2">

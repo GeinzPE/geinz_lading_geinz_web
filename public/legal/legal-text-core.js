@@ -11,13 +11,21 @@ import { setFaviconCircular } from "../js/favicon/favicon.js"; // ⚠️ ajusta 
 //  como fallback viejo.
 // ══════════════════════════════════════════
 async function resolverNegocio(pathPrefix, seccion) {
+  if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    return {
+      id: window.__NEGOCIO_ID__,
+      localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
+    };
+  }
   const path = window.location.pathname;
 
   let alias = null;
 
   // Ruta nueva: /perfil/{alias}/{seccion}
   if (seccion) {
-    const matchPerfil = path.match(new RegExp(`^/perfil/([^/]+)/${seccion}/?$`));
+    const matchPerfil = path.match(
+      new RegExp(`^/perfil/([^/]+)/${seccion}/?$`),
+    );
     if (matchPerfil) alias = decodeURIComponent(matchPerfil[1]);
   }
 
@@ -31,7 +39,10 @@ async function resolverNegocio(pathPrefix, seccion) {
   const params = new URLSearchParams(window.location.search);
   if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
 
-  console.log("🔍 DEBUG legal-text-core.js — URL completa:", window.location.href);
+  console.log(
+    "🔍 DEBUG legal-text-core.js — URL completa:",
+    window.location.href,
+  );
   console.log("🔍 DEBUG alias recibido:", alias);
 
   if (!alias) {
@@ -72,12 +83,23 @@ function getDominantColor(imgEl) {
       const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
       const buckets = {};
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        const r = data[i],
+          g = data[i + 1],
+          b = data[i + 2],
+          a = data[i + 3];
         if (a < 128) continue;
-        const rn = r / 255, gn = g / 255, bn = b / 255;
-        const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+        const rn = r / 255,
+          gn = g / 255,
+          bn = b / 255;
+        const max = Math.max(rn, gn, bn),
+          min = Math.min(rn, gn, bn);
         const l = (max + min) / 2;
-        const s = max === min ? 0 : l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+        const s =
+          max === min
+            ? 0
+            : l > 0.5
+              ? (max - min) / (2 - max - min)
+              : (max - min) / (max + min);
         if (l > 0.72 || l < 0.1 || s < 0.28) continue;
         const key = `${r >> 4},${g >> 4},${b >> 4}`;
         if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
@@ -102,14 +124,18 @@ function getDominantColor(imgEl) {
 
 function colorFromName(name) {
   let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+  for (let i = 0; i < name.length; i++)
+    hash = (hash << 5) - hash + name.charCodeAt(i);
   hash |= 0;
   const hue = Math.abs(hash % 360);
-  const s = 0.65, l = 0.55;
+  const s = 0.65,
+    l = 0.55;
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
   const m = l - c / 2;
-  let r = 0, g = 0, b = 0;
+  let r = 0,
+    g = 0,
+    b = 0;
   if (hue < 60) [r, g, b] = [c, x, 0];
   else if (hue < 120) [r, g, b] = [x, c, 0];
   else if (hue < 180) [r, g, b] = [0, c, x];
@@ -137,7 +163,11 @@ function formatFecha(ts) {
   try {
     const d = ts?.toDate ? ts.toDate() : ts instanceof Date ? ts : null;
     if (!d) return "";
-    return d.toLocaleDateString("es-PE", { year: "numeric", month: "long", day: "numeric" });
+    return d.toLocaleDateString("es-PE", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   } catch {
     return "";
   }
@@ -163,13 +193,13 @@ function renderTexto(container, parrafos) {
 //  INIT GENÉRICO DE PÁGINA LEGAL DE TEXTO
 // ══════════════════════════════════════════
 export async function initLegalTextPage({
-  getContenidoDoc,     // (localidad, negocioId) => DocumentReference del texto legal
-  footerFlag = null,   // clave opcional dentro de biz.footer que debe ser true (ej: "politicas_privacidad")
+  getContenidoDoc, // (localidad, negocioId) => DocumentReference del texto legal
+  footerFlag = null, // clave opcional dentro de biz.footer que debe ser true (ej: "politicas_privacidad")
   tituloFallback = "Documento legal",
   descripcionFallback = "",
   labelSuperior = "Documento legal",
-  pathPrefix = null,   // ej "/legal/politicas_privacidad/" — fallback para links viejos
-  seccion = null,      // ej "politicas_privacidad" — habilita /perfil/{alias}/{seccion}
+  pathPrefix = null, // ej "/legal/politicas_privacidad/" — fallback para links viejos
+  seccion = null, // ej "politicas_privacidad" — habilita /perfil/{alias}/{seccion}
 }) {
   const loader = document.getElementById("loaderScreen");
   const mainWrap = document.getElementById("mainWrap");
@@ -192,7 +222,9 @@ export async function initLegalTextPage({
     const biz = tiendaSnap.data();
     const footer = biz.footer || {};
     if (footerFlag && (footer.activo !== true || footer[footerFlag] !== true)) {
-      return showNotAvailable("Este negocio no tiene disponible este documento por el momento.");
+      return showNotAvailable(
+        "Este negocio no tiene disponible este documento por el momento.",
+      );
     }
 
     // 2) Contenido legal específico (políticas o términos)
@@ -209,7 +241,6 @@ export async function initLegalTextPage({
     document.getElementById("bizNombre").textContent = nombre;
 
     const titulo = contenido.titulo || tituloFallback;
-
 
     const logoImg = document.getElementById("bizLogo");
     const logoLetter = document.getElementById("bizLogoLetter");
@@ -233,7 +264,8 @@ export async function initLegalTextPage({
           applyColor(colorFromName(nombre));
           resolve();
         };
-        tempImg.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
+        tempImg.src =
+          logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
       } else {
         logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
         applyColor(colorFromName(nombre));
@@ -260,14 +292,18 @@ export async function initLegalTextPage({
     const parrafos =
       Array.isArray(contenido.parrafos) && contenido.parrafos.length
         ? contenido.parrafos.filter((p) => typeof p === "string" && p.trim())
-        : String(contenido.texto || contenido.contenido || contenido.cuerpo || "")
+        : String(
+            contenido.texto || contenido.contenido || contenido.cuerpo || "",
+          )
             .split(/\n{2,}/)
             .map((p) => p.trim())
             .filter(Boolean);
 
     renderTexto(document.getElementById("legalTexto"), parrafos);
 
-    const fechaTxt = formatFecha(contenido.fecha_actualizacion || contenido.actualizado);
+    const fechaTxt = formatFecha(
+      contenido.fecha_actualizacion || contenido.actualizado,
+    );
     const fechaEl = document.getElementById("legalFecha");
     if (fechaTxt) {
       fechaEl.textContent = `Última actualización: ${fechaTxt}`;
@@ -276,14 +312,19 @@ export async function initLegalTextPage({
       fechaEl.style.display = "none";
     }
 
-    const razonSocial = contenido["razon social"] || contenido.razon_social || "";
+    const razonSocial =
+      contenido["razon social"] || contenido.razon_social || "";
     const badgesWrap = document.getElementById("legalBadges");
     if (badgesWrap) {
       const chips = [];
       if (razonSocial)
-        chips.push(`<span class="legal-chip"><i class="fa-solid fa-signature"></i> ${razonSocial}</span>`);
+        chips.push(
+          `<span class="legal-chip"><i class="fa-solid fa-signature"></i> ${razonSocial}</span>`,
+        );
       if (contenido.ruc)
-        chips.push(`<span class="legal-chip"><i class="fa-solid fa-building"></i> RUC ${contenido.ruc}</span>`);
+        chips.push(
+          `<span class="legal-chip"><i class="fa-solid fa-building"></i> RUC ${contenido.ruc}</span>`,
+        );
       badgesWrap.innerHTML = chips.join("");
       badgesWrap.style.display = chips.length ? "flex" : "none";
     }
