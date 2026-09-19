@@ -5,11 +5,20 @@
     "cleanUrls": true,
     "headers": [
       {
-        "source": "**",
+        "source": "!/auth-popup.html",
         "headers": [
           {
             "key": "Cross-Origin-Opener-Policy",
             "value": "same-origin-allow-popups"
+          }
+        ]
+      },
+      {
+        "source": "/auth-popup.html",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "unsafe-none"
           }
         ]
       },

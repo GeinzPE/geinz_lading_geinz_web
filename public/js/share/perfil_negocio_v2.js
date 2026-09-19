@@ -482,7 +482,12 @@ import {
   tiendaSubDoc,
   data_user_logeado,
 } from "../rutas/rutas.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  onAuthStateChanged,
+  signInWithCustomToken,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+const AUTH_ORIGIN = "https://geinztech.com";
+let _dominioRegistrado = false;
 
 // ═══ WHITE LABEL: detecta si el dominio es propio de Geinz o personalizado ═══
 const _hostname = window.location.hostname;
@@ -496,6 +501,35 @@ function rutaNegocio(sufijo, alias) {
   if (alias) return `https://geinztech.com/perfil/${encodeURIComponent(alias)}/${sufijo}`;
   return null;
 }
+ 
+function abrirLoginPopup() {
+  const w = 480, h = 640;
+  const left = window.screenX + (window.outerWidth - w) / 2;
+  const top = window.screenY + (window.outerHeight - h) / 2;
+  const url = `${AUTH_ORIGIN}/auth-popup.html?o=${encodeURIComponent(window.location.origin)}`;
+  const win = window.open(
+    url,
+    "wl_login",
+    `width=${w},height=${h},left=${left},top=${top}`,
+  );
+  if (!win) showToast("Permite las ventanas emergentes para iniciar sesión");
+}
+ 
+// Recibe el custom token que manda el pop-up y abre sesión en ESTE dominio
+window.addEventListener("message", async (e) => {
+  if (e.origin !== AUTH_ORIGIN) return;              // solo tu dominio neutral
+  if (e.data?.type !== "wl-auth" || !e.data.token) return;
+  try {
+    await signInWithCustomToken(auth, e.data.token);
+    closeLoginPromptModal();
+    showToast("Sesión iniciada");
+    // onAuthStateChanged (en bindFollowButton) se dispara solo y actualiza todo
+  } catch (err) {
+    console.error("signInWithCustomToken:", err);
+    showToast("No se pudo iniciar sesión, intenta de nuevo");
+  }
+});
+ 
 async function getParams() {
   // ═══ NUEVO: detectar dominio conectado ═══
   const hostname = window.location.hostname;
@@ -505,7 +539,7 @@ async function getParams() {
   if (esDominioPropio) {
     const domSnap = await getDoc(doc(db, "dominio_web_tiendas", hostname));
     if (!domSnap.exists()) throw new Error("Dominio no configurado");
-
+_dominioRegistrado = true; 
     const { id, localidad, categoria, alias } = domSnap.data();
 
     const promoId =
@@ -2678,6 +2712,16 @@ function bindLoginPromptEvents() {
     .getElementById("loginPromptModal")
     ?.addEventListener("click", (e) => {
       if (e.target.id === "loginPromptModal") closeLoginPromptModal();
+    });
+     
+  document
+    .getElementById("loginPromptLoginBtn")
+    ?.addEventListener("click", (e) => {
+      // Solo si el dominio está registrado en dominio_web_tiendas → pop-up.
+      // Si no (geinztech.com, tus subdominios, etc.) → el link normal a login.html.
+      if (!_dominioRegistrado) return;
+      e.preventDefault();
+      abrirLoginPopup();                    // (debe ejecutarse directo en el click)
     });
 }
 
