@@ -1,98 +1,247 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFunctions,
   httpsCallable,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
-
-// Reutiliza tu proyecto ya inicializado (mismo db.js que usa perfil_negocio_v2.js)
 import { auth } from "../db/db.js";
 
 const TAG = "[auth-popup]";
 const log = (...a) => console.log(TAG, ...a);
 const logErr = (...a) => console.error(TAG, ...a);
-
-// Cualquier error que no se capture en ningún lado también queda registrado
-window.addEventListener("error", (e) => logErr("error global:", e.message));
-window.addEventListener("unhandledrejection", (e) =>
-  logErr("promesa sin capturar:", e.reason),
-);
+const $ = (id) => document.getElementById(id);
 
 const functions = getFunctions(auth.app, "us-central1");
+const qs = new URLSearchParams(location.search);
 
-const msg = document.getElementById("msg");
-const btn = document.getElementById("btnGoogle");
-
-// Dominio del negocio que abrió este pop-up (viene en ?o=https://tienda-cliente.com)
-const oParam = new URLSearchParams(location.search).get("o");
+// ── Parámetros ──
 let origenNegocio = null;
+try { origenNegocio = new URL(qs.get("o")).origin; } catch {}
+
+let returnUrl = null;
 try {
-  origenNegocio = new URL(oParam).origin;
-} catch (e) {
-  logErr("El parámetro ?o= no es una URL válida:", oParam, "|", e.message);
+  const u = new URL(qs.get("r"));
+  if (origenNegocio && u.origin === origenNegocio) returnUrl = u;
+} catch {}
+
+// ── Branding del negocio ──
+const nombre = (qs.get("n") || "").trim().slice(0, 80);
+const logo = qs.get("l") || "";
+
+const rawColor = qs.get("c") || "";
+const [r, g, b] = /^\d{1,3},\d{1,3},\d{1,3}$/.test(rawColor)
+  ? rawColor.split(",").map((n) => Math.min(255, +n))
+  : [139, 92, 246];
+const root = document.documentElement.style;
+root.setProperty("--rgb", `${r},${g},${b}`);
+// Si el color del negocio es muy claro, el texto del botón principal pasa a oscuro
+root.setProperty("--on", (r * 299 + g * 587 + b * 114) / 1000 > 165 ? "#0a0a0b" : "#fff");
+
+if (nombre) $("bizName").textContent = nombre;
+
+// Logo con skeleton mientras carga; si falla o tarda, se muestra la letra
+const avatar = $("avatar");
+function ponerLetra() {
+  const d = document.createElement("div");
+  d.className = "letter";
+  d.textContent = (nombre || "?").charAt(0).toUpperCase();
+  avatar.replaceChildren(d);
+  avatar.classList.remove("is-loading");
 }
 
-// ── Diagnóstico al cargar ──
-log("script cargado ✅");
-log("href:", location.href);
-log("parámetro o:", oParam, "→ origen:", origenNegocio);
-log("window.name:", window.name, "(debe ser 'wl_login' si lo abrió el botón del perfil)");
-log("window.opener:", window.opener ? "existe ✅" : "NULO ❌");
-log("referrer:", document.referrer || "(vacío)");
-log(
-  "firebase → authDomain:",
-  auth.app.options.authDomain,
-  "| projectId:",
-  auth.app.options.projectId,
-);
-log("hostname de esta página:", location.hostname);
+if (logo.startsWith("https://")) {
+  const img = new Image();
+  img.className = "logo";
+  img.alt = nombre || "Logo";
+  img.decoding = "async";
+  img.onload = () => {
+    avatar.classList.remove("is-loading");
+    img.classList.add("in");
+  };
+  img.onerror = ponerLetra;
+  avatar.appendChild(img);
+  img.src = logo;
+  setTimeout(() => {
+    if (avatar.classList.contains("is-loading")) ponerLetra();
+  }, 6000);
+} else {
+  ponerLetra();
+}
 
-btn.addEventListener("click", async () => {
-  log("click en 'Continuar con Google'");
+if (returnUrl) {
+  const back = $("backToBiz");
+  back.href = returnUrl.toString();
+  back.hidden = false;
+}
 
+// ── Vistas ──
+const views = {
+  main: $("viewMain"),
+  login: $("viewLogin"),
+  register: $("viewRegister"),
+  loading: $("viewLoading"),
+};
+const titles = {
+  main: "Inicia sesión",
+  login: "Iniciar sesión",
+  register: "Crear cuenta",
+  loading: "Un momento",
+};
+let current = "main";
+
+function show(name) {
+  if (name !== "loading") current = name;
+  Object.entries(views).forEach(([k, el]) => (el.hidden = k !== name));
+  $("title").textContent = titles[name];
+  $("msg").hidden = name === "loading";
+  $("error").textContent = "";
+}
+$("btnGoLogin").addEventListener("click", () => show("login"));
+$("btnGoRegister").addEventListener("click", () => show("register"));
+document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => show("main")));
+
+// ── Utilidades ──
+function setLoadingText(text) {
+  $("loadingText").textContent = text;
+}
+function mensajeError(e) {
+  const m = {
+    "auth/invalid-credential": "Correo o contraseña incorrectos",
+    "auth/wrong-password": "Correo o contraseña incorrectos",
+    "auth/user-not-found": "No existe una cuenta con ese correo",
+    "auth/email-already-in-use": "Ya existe una cuenta con ese correo. Inicia sesión.",
+    "auth/weak-password": "La contraseña debe tener al menos 6 caracteres",
+    "auth/invalid-email": "El correo no es válido",
+    "auth/too-many-requests": "Demasiados intentos, espera un momento",
+    "auth/popup-closed-by-user": "Cerraste la ventana de Google, inténtalo de nuevo",
+    "auth/cancelled-popup-request": "Se canceló el acceso con Google, inténtalo de nuevo",
+    "auth/popup-blocked": "Tu navegador bloqueó la ventana de Google. Permite ventanas emergentes.",
+    "auth/network-request-failed": "Sin conexión, revisa tu internet",
+  };
+  return m[e.code] || "No se pudo iniciar sesión, inténtalo de nuevo";
+}
+
+// Pide el token al servidor y lo entrega al dominio del negocio
+async function entregarToken() {
+  setLoadingText(nombre ? `Entrando a ${nombre}` : "Entrando");
+  const emitir = httpsCallable(functions, "emitirTokenDominio");
+  const { data } = await emitir({ origin: origenNegocio });
+  await signOut(auth);
+
+  setLoadingText(nombre ? `Listo, volviendo a ${nombre}` : "Listo, volviendo al negocio");
+  if (window.opener) {
+    window.opener.postMessage({ type: "wl-auth", token: data.token }, origenNegocio);
+    window.close();
+    // Si el navegador no deja cerrar la ventana, avisamos en vez de dejar la carga infinita
+    setTimeout(() => setLoadingText("Listo. Ya puedes cerrar esta ventana."), 1500);
+  } else {
+    returnUrl.hash = "wl_token=" + encodeURIComponent(data.token);
+    window.location.replace(returnUrl.toString());
+  }
+}
+
+// Firebase tarda hasta ~10 s en notar que cerraste el popup de Google sin entrar.
+// Lo detectamos antes: si esta ventana recupera el foco y el login no llega en 2 s, se cancela.
+function vigilarPopupGoogle(alCancelar) {
+  let huboBlur = false;
+  let timer = null;
+  const onBlur = () => {
+    huboBlur = true;
+    clearTimeout(timer);
+  };
+  const onFocus = () => {
+    if (!huboBlur) return;
+    clearTimeout(timer);
+    timer = setTimeout(alCancelar, 2000);
+  };
+  window.addEventListener("blur", onBlur);
+  window.addEventListener("focus", onFocus);
+  return () => {
+    clearTimeout(timer);
+    window.removeEventListener("blur", onBlur);
+    window.removeEventListener("focus", onFocus);
+  };
+}
+
+// Envuelve cada método de login con las mismas validaciones, estado de carga y manejo de errores
+let trabajando = false;
+let corrida = 0;
+
+async function ejecutar(fn, mensajeCarga, { popup = false } = {}) {
+  if (trabajando) return;
   if (!origenNegocio) {
-    logErr("Abortado: falta o es inválido el parámetro ?o=");
-    msg.textContent =
-      "Falta el parámetro ?o= en la URL. ¿Abriste esta página directamente en vez de desde el perfil del negocio?";
+    $("error").textContent = "Falta el parámetro ?o= en la URL.";
     return;
   }
-  if (!window.opener) {
-    logErr("Abortado: window.opener es nulo (posible COOP o se abrió directo)");
-    msg.textContent =
-      "Esta ventana perdió la conexión con el perfil del negocio (opener nulo). Puede ser un encabezado COOP.";
+  if (!window.opener && !returnUrl) {
+    $("error").textContent = "No hay forma de volver al negocio. Abre el login desde el perfil del negocio.";
     return;
   }
 
-  btn.disabled = true;
-  msg.textContent = "Conectando…";
+  const id = ++corrida;
+  trabajando = true;
+  show("loading");
+  setLoadingText(mensajeCarga);
+
+  // Si el popup de Google se cierra sin login, volvemos al inicio sin dejar la carga colgada
+  const dejarDeVigilar = popup
+    ? vigilarPopupGoogle(() => {
+        if (id !== corrida || !trabajando) return;
+        trabajando = false;
+        show(current);
+      })
+    : () => {};
 
   try {
-    // 1) Login con Google
-    log("1) abriendo signInWithPopup…");
-    const cred = await signInWithPopup(auth, new GoogleAuthProvider());
-    log("1) login OK → uid:", cred.user.uid, "| email:", cred.user.email);
-
-    // 2) Pide el custom token al servidor
-    log("2) llamando a emitirTokenDominio con origin:", origenNegocio);
-    const emitir = httpsCallable(functions, "emitirTokenDominio");
-    const { data } = await emitir({ origin: origenNegocio });
-    log("2) token recibido ✅ (longitud:", data?.token?.length, ")");
-
-    // 3) Entrega el token al origen exacto del negocio
-    log("3) enviando postMessage a:", origenNegocio);
-    window.opener.postMessage({ type: "wl-auth", token: data.token }, origenNegocio);
-    log("3) postMessage enviado ✅");
-
-    await signOut(auth);
-    log("4) signOut hecho, cerrando ventana");
-    window.close();
+    await fn();
+    dejarDeVigilar();
+    if (id !== corrida) return;
+    // Google ya cerró su ventana: la carga se queda visible hasta terminar
+    trabajando = true;
+    show("loading");
+    log("login OK");
+    await entregarToken();
   } catch (e) {
-    logErr("FALLÓ:", e.code || "(sin code)", "|", e.message, "|", e);
-    msg.textContent =
-      "Error: " + (e.code || e.message) + " — cierra esta ventana e inténtalo de nuevo.";
-    btn.disabled = false;
+    dejarDeVigilar();
+    if (id !== corrida) return;
+    logErr("FALLÓ:", e.code || "(sin code)", "|", e.message);
+    const cancelado =
+      e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request";
+    trabajando = false;
+    show(current);
+    if (!cancelado) $("error").textContent = mensajeError(e);
   }
+}
+
+// ── Google ──
+$("btnGoogle").addEventListener("click", () =>
+  ejecutar(() => signInWithPopup(auth, new GoogleAuthProvider()), "Conectando con Google", { popup: true }),
+);
+
+// ── Correo: iniciar sesión ──
+$("viewLogin").addEventListener("submit", (e) => {
+  e.preventDefault();
+  ejecutar(
+    () => signInWithEmailAndPassword(auth, $("loginEmail").value.trim(), $("loginPass").value),
+    "Verificando tu cuenta",
+  );
+});
+
+// ── Correo: crear cuenta ──
+$("viewRegister").addEventListener("submit", (e) => {
+  e.preventDefault();
+  ejecutar(async () => {
+    const cred = await createUserWithEmailAndPassword(
+      auth,
+      $("regEmail").value.trim(),
+      $("regPass").value,
+    );
+    await updateProfile(cred.user, { displayName: $("regName").value.trim() });
+  }, "Creando tu cuenta");
 });

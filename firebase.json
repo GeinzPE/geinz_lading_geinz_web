@@ -5,11 +5,20 @@
     "cleanUrls": true,
     "headers": [
       {
-        "source": "!/auth-popup.html",
+        "source": "**",
         "headers": [
           {
             "key": "Cross-Origin-Opener-Policy",
             "value": "same-origin-allow-popups"
+          }
+        ]
+      },
+      {
+        "source": "/auth-popup",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "unsafe-none"
           }
         ]
       },
@@ -88,7 +97,6 @@
         "source": "/perfil/**",
         "function": "perfilSSR"
       },
-
       {
         "source": "/turismo/**",
         "function": "turismoSSR"

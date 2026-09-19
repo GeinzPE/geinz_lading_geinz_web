@@ -1,28 +1,504 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#000000" />
   <title>Iniciar sesión</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
   <script type="module" src="./js/share/auth-popup.js"></script>
+
   <style>
-    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-      background:#0b0b0d;color:#fff;font-family:Inter,system-ui,sans-serif;}
-    .box{width:100%;max-width:340px;padding:32px 26px;text-align:center;}
-    h1{font-size:20px;margin:0 0 8px;}
-    p{font-size:13.5px;color:#9c9ca3;margin:0 0 22px;line-height:1.5;}
-    button{width:100%;padding:13px;border:none;border-radius:12px;font-weight:700;
-      font-size:14px;color:#111;background:#fff;cursor:pointer;}
-    button:disabled{opacity:.6;cursor:default;}
+    :root {
+      --rgb: 139, 92, 246;
+      /* color de texto sobre el botón principal (lo ajusta el JS según el brillo del color) */
+      --on: #fff;
+      --bg: #000;
+      --card: #09090b;
+      --line: rgba(255, 255, 255, .07);
+      --muted: #8b8b94;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+      color-scheme: dark;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: #fff;
+      font-family: Manrope, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ───────── Tarjeta ───────── */
+    .box {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      max-width: 380px;
+      padding: 40px 26px 22px;
+      text-align: center;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .9);
+      animation: enter .55s cubic-bezier(.2, .7, .2, 1) both;
+    }
+
+    /* línea fina con el color del negocio en el borde superior */
+    .box::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(var(--rgb), .75), transparent);
+    }
+
+    /* ───────── Logo + glow detrás ───────── */
+    .hero {
+      position: relative;
+      isolation: isolate;
+      width: 92px;
+      height: 92px;
+      margin: 0 auto 24px;
+    }
+
+    .glow {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: -1;
+      width: 230px;
+      height: 230px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      pointer-events: none;
+      background: radial-gradient(circle,
+          rgba(var(--rgb), .42) 0%,
+          rgba(var(--rgb), .16) 38%,
+          transparent 70%);
+      filter: blur(14px);
+    }
+
+    .avatar {
+      position: relative;
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #0d0d0f;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
+    }
+
+    .avatar .logo {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity .5s ease;
+    }
+
+    .avatar .logo.in {
+      opacity: 1;
+    }
+
+    /* Blindaje: si un JS viejo agrega el <img> directo en .hero, igual queda dentro del círculo */
+    .hero>img.logo {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #0d0d0f;
+    }
+
+    .avatar .letter {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: rgba(var(--rgb), 1);
+      background: rgba(var(--rgb), .14);
+      box-shadow: inset 0 0 0 1.5px rgba(var(--rgb), .55);
+    }
+
+    /* ───────── Textos ───────── */
+    h1 {
+      margin: 0 0 8px;
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -.015em;
+    }
+
+    .desc {
+      margin: 0 0 26px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .desc b {
+      color: #f4f4f5;
+      font-weight: 700;
+    }
+
+    /* ───────── Layout de vistas ───────── */
+    .actions,
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ───────── Botones ───────── */
+    button,
+    input {
+      font-family: inherit;
+    }
+
+    button {
+      width: 100%;
+      height: 50px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 14px;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .15s ease, filter .2s ease, background .2s ease, border-color .2s ease, color .2s ease;
+    }
+
+    button:active {
+      transform: scale(.985);
+    }
+
+    button:focus-visible {
+      outline: 2px solid rgba(var(--rgb), .95);
+      outline-offset: 3px;
+    }
+
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #fff;
+      color: #111;
+    }
+
+    .btn-google:hover {
+      background: #f0f0f1;
+    }
+
+    .btn-primary {
+      color: var(--on);
+      background: linear-gradient(135deg, rgb(var(--rgb)), rgba(var(--rgb), .72));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 10px 26px -10px rgba(var(--rgb), .65);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .btn-secondary {
+      color: #d4d4d8;
+      font-weight: 600;
+      background: rgba(255, 255, 255, .035);
+      border: 1px solid rgba(255, 255, 255, .09);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, .06);
+      border-color: rgba(255, 255, 255, .14);
+    }
+
+    .btn-link {
+      height: auto;
+      padding: 10px;
+      background: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .btn-link:hover {
+      color: #d4d4d8;
+    }
+
+    .sep {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 4px 0;
+      font-size: 12px;
+      color: #5c5c65;
+    }
+
+    .sep::before,
+    .sep::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    /* ───────── Inputs ───────── */
+    input {
+      width: 100%;
+      height: 50px;
+      padding: 0 16px;
+      font-size: 16px;
+      color: #fff;
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid rgba(255, 255, 255, .09);
+      border-radius: 14px;
+      transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    input::placeholder {
+      color: #5f5f68;
+    }
+
+    input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, .045);
+      border-color: rgba(var(--rgb), .7);
+      box-shadow: 0 0 0 4px rgba(var(--rgb), .14);
+    }
+
+    /* que el autocompletado del navegador no pinte blanco/azul */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+      -webkit-text-fill-color: #fff;
+      caret-color: #fff;
+      -webkit-box-shadow: 0 0 0 100px #111113 inset;
+      box-shadow: 0 0 0 100px #111113 inset;
+      transition: background-color 9999s ease-in-out 0s;
+    }
+
+    /* ───────── Error ───────── */
+    .error {
+      margin: 14px 0 0;
+      padding: 10px 12px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: #ff9a9a;
+      background: rgba(255, 90, 90, .07);
+      border: 1px solid rgba(255, 90, 90, .18);
+      border-radius: 12px;
+      animation: fade .25s ease both;
+    }
+
+    .error:empty {
+      display: none;
+    }
+
+    .back {
+      display: block;
+      margin-top: 16px;
+      font-size: 12.5px;
+      color: #6b6b74;
+      text-decoration: none;
+      transition: color .2s ease;
+    }
+
+    .back:hover {
+      color: #b4b4bc;
+    }
+
+    /* ───────── Estado de carga (skeleton) ───────── */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: fade .3s ease both;
+    }
+
+    .loading-msg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 0 0 12px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #a1a1aa;
+    }
+
+    .pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgb(var(--rgb));
+      animation: ping 1.5s ease-out infinite;
+    }
+
+    .skel,
+    .avatar.is-loading {
+      position: relative;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .04);
+    }
+
+    .skel {
+      height: 50px;
+      border-radius: 14px;
+    }
+
+    .skel.s2 {
+      opacity: .7;
+    }
+
+    .skel.s3 {
+      height: 14px;
+      width: 52%;
+      margin: 8px auto 0;
+      border-radius: 8px;
+      opacity: .5;
+    }
+
+    .skel::after,
+    .avatar.is-loading::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(var(--rgb), .16), transparent);
+      animation: shimmer 1.7s ease-in-out infinite;
+    }
+
+    /* ───────── Animaciones ───────── */
+    @keyframes enter {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+    }
+
+    @keyframes fade {
+      from {
+        opacity: 0;
+      }
+    }
+
+    @keyframes shimmer {
+      to {
+        transform: translateX(100%);
+      }
+    }
+
+    @keyframes ping {
+      0% {
+        box-shadow: 0 0 0 0 rgba(var(--rgb), .55);
+      }
+
+      70%,
+      100% {
+        box-shadow: 0 0 0 9px rgba(var(--rgb), 0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
   </style>
 </head>
-<body>
-  <div class="box">
-    <h1>Iniciar sesión</h1>
-    <p id="msg">Continúa con tu cuenta de Google.</p>
-    <button id="btnGoogle">Continuar con Google</button>
-  </div>
- 
 
+<body>
+  <main class="box">
+    <div class="hero" id="logoWrap">
+      <span class="glow" aria-hidden="true"></span>
+      <div class="avatar is-loading" id="avatar"></div>
+    </div>
+
+    <h1 id="title">Inicia sesión</h1>
+    <p class="desc" id="msg">Para continuar en <b id="bizName">este negocio</b>, elige cómo entrar.</p>
+
+    <!-- Vista principal -->
+    <div id="viewMain" class="actions">
+      <button id="btnGoogle" class="btn-google" type="button">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#EA4335"
+            d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
+          <path fill="#4285F4"
+            d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z" />
+          <path fill="#FBBC05"
+            d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.8l7.9-6.1z" />
+          <path fill="#34A853"
+            d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z" />
+        </svg>
+        Continuar con Google
+      </button>
+      <div class="sep">o</div>
+      <button id="btnGoLogin" class="btn-primary" type="button">Iniciar sesión con cuenta</button>
+      <button id="btnGoRegister" class="btn-secondary" type="button">Crear cuenta</button>
+    </div>
+
+    <!-- Vista: iniciar sesión con correo -->
+    <form id="viewLogin" hidden>
+      <input id="loginEmail" type="email" placeholder="Correo" autocomplete="email" required />
+      <input id="loginPass" type="password" placeholder="Contraseña" autocomplete="current-password" required />
+      <button id="btnLoginSubmit" class="btn-primary" type="submit">Entrar</button>
+      <button class="btn-link" type="button" data-back>← Volver</button>
+    </form>
+
+    <!-- Vista: crear cuenta -->
+    <form id="viewRegister" hidden>
+      <input id="regName" type="text" placeholder="Tu nombre" autocomplete="name" required />
+      <input id="regEmail" type="email" placeholder="Correo" autocomplete="email" required />
+      <input id="regPass" type="password" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password"
+        required minlength="6" />
+      <button id="btnRegSubmit" class="btn-primary" type="submit">Crear cuenta</button>
+      <button class="btn-link" type="button" data-back>← Volver</button>
+    </form>
+
+    <!-- Vista: cargando (skeleton) -->
+    <div id="viewLoading" class="loading" role="status" aria-live="polite" hidden>
+      <p class="loading-msg"><span class="pulse"></span><span id="loadingText">Verificando tu cuenta</span></p>
+      <div class="skel"></div>
+      <div class="skel s2"></div>
+      <div class="skel s3"></div>
+    </div>
+
+    <p class="error" id="error" role="alert"></p>
+    <a class="back" id="backToBiz" href="#" hidden>Cancelar y volver al negocio</a>
+  </main>
 </body>
+
 </html>

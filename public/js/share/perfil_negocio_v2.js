@@ -10,7 +10,7 @@ let _fidelizacionActiva = false;
 let _bannerShown = false;
 let _fidelizacionMensajeInactivo =
   "Este negocio no tiene el programa de fidelización activo por el momento.";
-  function capitalizarPrimeraLetra(texto) {
+function capitalizarPrimeraLetra(texto) {
   if (!texto) return "";
   const t = String(texto).trim().toLowerCase();
   return t.charAt(0).toUpperCase() + t.slice(1);
@@ -485,6 +485,7 @@ import {
 import {
   onAuthStateChanged,
   signInWithCustomToken,
+  signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 const AUTH_ORIGIN = "https://geinztech.com";
 let _dominioRegistrado = false;
@@ -501,20 +502,120 @@ function rutaNegocio(sufijo, alias) {
   if (alias) return `https://geinztech.com/perfil/${encodeURIComponent(alias)}/${sufijo}`;
   return null;
 }
- 
+
 function abrirLoginPopup() {
-  const w = 480, h = 640;
-  const left = window.screenX + (window.outerWidth - w) / 2;
-  const top = window.screenY + (window.outerHeight - h) / 2;
-  const url = `${AUTH_ORIGIN}/auth-popup.html?o=${encodeURIComponent(window.location.origin)}`;
-  const win = window.open(
-    url,
-    "wl_login",
-    `width=${w},height=${h},left=${left},top=${top}`,
-  );
-  if (!win) showToast("Permite las ventanas emergentes para iniciar sesión");
+  const root = document.documentElement.style;
+  const r = root.getPropertyValue("--dr").trim();
+  const g = root.getPropertyValue("--dg").trim();
+  const b = root.getPropertyValue("--db").trim();
+  const rgb = r && g && b ? `${r},${g},${b}` : "139,92,246";
+
+  const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
+  u.searchParams.set("o", window.location.origin);
+  u.searchParams.set("r", window.location.href.split("#")[0]);
+  u.searchParams.set("n", _bizNombre || "");
+  if (_bizLogoUrl) u.searchParams.set("l", _bizLogoUrl);
+  u.searchParams.set("c", rgb);
+  window.location.href = u.toString();
 }
- 
+// Botón "Cerrar sesión": solo dominio personalizado + usuario logueado
+function actualizarBotonSalir(user) {
+  let btn = document.getElementById("wlLogoutBtn");
+
+  if (!_esDominioPersonalizado || !user) {
+    btn?.remove();
+    return;
+  }
+  if (btn) return;
+
+  if (!document.getElementById("wlLogoutStyle")) {
+    const st = document.createElement("style");
+    st.id = "wlLogoutStyle";
+    st.textContent = `
+      .wl-logout-btn{
+        position:fixed; top:14px; right:14px; z-index:9400;
+        padding:9px 16px; border-radius:999px; cursor:pointer;
+        font-size:12.5px; font-weight:700; color:#fff;
+        background:rgba(11,11,13,.8); backdrop-filter:blur(8px);
+        border:1px solid rgba(var(--dr),var(--dg),var(--db),.45);
+        transition:background .2s ease, transform .15s ease;
+      }
+      .wl-logout-btn:hover{ background:rgba(var(--dr),var(--dg),var(--db),.25); transform:translateY(-1px); }
+      .wl-logout-btn:disabled{ opacity:.6; cursor:default; }
+    `;
+    document.head.appendChild(st);
+  }
+
+  btn = document.createElement("button");
+  btn.id = "wlLogoutBtn";
+  btn.className = "wl-logout-btn";
+  btn.type = "button";
+  btn.textContent = "Cerrar sesión";
+  btn.addEventListener("click", abrirConfirmarCerrarSesion);
+  document.body.appendChild(btn);
+}
+// ── Confirmar cierre de sesión (dominio personalizado) ──
+function abrirConfirmarCerrarSesion() {
+  injectLoginPromptStyles();
+  let modal = document.getElementById("logoutConfirmModal");
+
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "logoutConfirmModal";
+    modal.className = "login-prompt-modal";
+    modal.innerHTML = `
+      <div class="login-prompt-box">
+        <div class="login-prompt-glow"></div>
+        <button class="login-prompt-close" id="logoutConfirmClose" type="button">✕</button>
+        <h3 class="login-prompt-title">¿Cerrar sesión con Geinz?</h3>
+        <p class="login-prompt-desc">Vas a salir de tu cuenta en <b id="logoutConfirmBiz"></b>. Podrás volver a entrar cuando quieras.</p>
+        <div class="login-prompt-actions">
+          <button class="login-prompt-btn-primary" id="logoutConfirmAccept" type="button">Sí, cerrar sesión</button>
+          <button class="login-prompt-btn-secondary" id="logoutConfirmCancel" type="button">Cancelar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) cerrarConfirmarCerrarSesion();
+    });
+    modal
+      .querySelector("#logoutConfirmClose")
+      .addEventListener("click", cerrarConfirmarCerrarSesion);
+    modal
+      .querySelector("#logoutConfirmCancel")
+      .addEventListener("click", cerrarConfirmarCerrarSesion);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open"))
+        cerrarConfirmarCerrarSesion();
+    });
+
+    const accept = modal.querySelector("#logoutConfirmAccept");
+    accept.addEventListener("click", async () => {
+      accept.disabled = true;
+      accept.textContent = "Cerrando sesión…";
+      try {
+        await signOut(auth);
+        window.location.reload(); // deja todo limpio: seguir, puntos, reserva, reseña
+      } catch (e) {
+        console.error("signOut:", e);
+        accept.disabled = false;
+        accept.textContent = "Sí, cerrar sesión";
+        cerrarConfirmarCerrarSesion();
+        showToast("No se pudo cerrar sesión, intenta de nuevo");
+      }
+    });
+  }
+
+  modal.querySelector("#logoutConfirmBiz").textContent = _bizNombre || "este negocio";
+  requestAnimationFrame(() => modal.classList.add("open"));
+  document.body.style.overflow = "hidden";
+}
+
+function cerrarConfirmarCerrarSesion() {
+  document.getElementById("logoutConfirmModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
 // Recibe el custom token que manda el pop-up y abre sesión en ESTE dominio
 window.addEventListener("message", async (e) => {
   if (e.origin !== AUTH_ORIGIN) return;              // solo tu dominio neutral
@@ -529,7 +630,21 @@ window.addEventListener("message", async (e) => {
     showToast("No se pudo iniciar sesión, intenta de nuevo");
   }
 });
- 
+// Al volver del login por redirección: la URL trae #wl_token=...
+(async () => {
+  const p = new URLSearchParams(window.location.hash.slice(1));
+  const t = p.get("wl_token");
+  if (!t) return;
+  // limpiar el token de la URL de inmediato
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  try {
+    await signInWithCustomToken(auth, t);
+    showToast("Sesión iniciada");
+  } catch (err) {
+    console.error("signInWithCustomToken:", err);
+    showToast("No se pudo iniciar sesión, intenta de nuevo");
+  }
+})();
 async function getParams() {
   // ═══ NUEVO: detectar dominio conectado ═══
   const hostname = window.location.hostname;
@@ -539,7 +654,7 @@ async function getParams() {
   if (esDominioPropio) {
     const domSnap = await getDoc(doc(db, "dominio_web_tiendas", hostname));
     if (!domSnap.exists()) throw new Error("Dominio no configurado");
-_dominioRegistrado = true; 
+    _dominioRegistrado = true;
     const { id, localidad, categoria, alias } = domSnap.data();
 
     const promoId =
@@ -636,19 +751,19 @@ async function resolveMesaYRedirigir({ localidad, id, alias }, mesaToken) {
       return true;
     }
 
-  const base = _esDominioPersonalizado
-  ? "/carrito"
-  : alias
-    ? `/perfil/${encodeURIComponent(alias)}/carrito`
-    : "/carrito/carrito.html";
+    const base = _esDominioPersonalizado
+      ? "/carrito"
+      : alias
+        ? `/perfil/${encodeURIComponent(alias)}/carrito`
+        : "/carrito/carrito.html";
 
-const url = new URL(base, window.location.origin);
-url.searchParams.set("mesa", mesaDoc.id);
-url.searchParams.set("numero_mesa", mesaDoc.numero_mesa ?? "");
-if (!alias && !_esDominioPersonalizado) {
-  url.searchParams.set("localidad", localidad);
-  url.searchParams.set("id", id);
-}
+    const url = new URL(base, window.location.origin);
+    url.searchParams.set("mesa", mesaDoc.id);
+    url.searchParams.set("numero_mesa", mesaDoc.numero_mesa ?? "");
+    if (!alias && !_esDominioPersonalizado) {
+      url.searchParams.set("localidad", localidad);
+      url.searchParams.set("id", id);
+    }
 
     window.location.href = url.toString();
     return true;
@@ -869,7 +984,7 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   if (shareBtn) {
     shareBtn.onclick = () => {
       const shareUrl = aliasKey
-     ? `${_baseShareUrl}/perfil/${aliasKey}-carta`
+        ? `${_baseShareUrl}/perfil/${aliasKey}-carta`
         : window.location.href;
       const fullText = `Mira la carta digital de ${nombreNegocio} 📖\n${shareUrl}`;
       if (navigator.share) {
@@ -945,7 +1060,7 @@ function renderMesas(snap) {
       chip.addEventListener("click", () => openMesaReservaModal(m));
     }
     grid.appendChild(chip);
-      sincronizarMiReservaDesdeMesas();
+    sincronizarMiReservaDesdeMesas();
   });
 }
 
@@ -1175,7 +1290,7 @@ function renderVerReservaModal() {
 
   const estadoLabel =
     { pendiente: "Esperando confirmación", aceptada: "Reserva confirmada", rechazada: "No fue aceptada" }[
-      d.estado
+    d.estado
     ] || "Esperando confirmación";
   const icono = d.estado === "aceptada" ? "✓" : d.estado === "rechazada" ? "✕" : "⏳";
   const nombresMesas = (d.mesas || [])
@@ -1241,7 +1356,7 @@ document.getElementById("puntosBadge")?.addEventListener("click", () => {
   }
   const aliasKey = _params.alias;
   if (aliasKey && _currentUid) {
-window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+    window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
   } else {
     const url = new URL(
       "../../fidelizacion/fidelizacion_client.html",
@@ -1272,6 +1387,7 @@ function bindFollowButton({ localidad, id }, biz) {
   onAuthStateChanged(auth, async (user) => {
     const uid = user?.uid || null;
     _currentUid = uid;
+    actualizarBotonSalir(user);
     if (!uid) {
       btn.onclick = () => {
         openLoginPromptModal();
@@ -1389,7 +1505,7 @@ function bindMesaReservaEvents() {
     ?.addEventListener("click", (e) => {
       if (e.target.id === "mesaReservaModal") closeMesaReservaModal();
     });
-    document
+  document
     .getElementById("mesaReservaSubmit")
     ?.addEventListener("click", async () => {
       const errorEl = document.getElementById("mesaReservaError");
@@ -1594,7 +1710,7 @@ function renderActivePromos(promos, localidad) {
     const img =
       p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
     const expiry = formatExpiry(p._finMs);
-const shareUrl = `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
+    const shareUrl = `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
 
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
@@ -1608,8 +1724,8 @@ const shareUrl = `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(local
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-          `${waMsg}: ${shareUrl}`,
-        )}`
+        `${waMsg}: ${shareUrl}`,
+      )}`
       : null;
 
     const card = document.createElement("div");
@@ -1648,7 +1764,7 @@ const shareUrl = `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(local
       if (navigator.share) {
         try {
           await navigator.share({ text: fullText });
-        } catch (e) {}
+        } catch (e) { }
       } else {
         copyToClipboard(fullText);
       }
@@ -2683,7 +2799,7 @@ function showPromoBanner(biz) {
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-    bannerImg.onerror = () => {};
+    bannerImg.onerror = () => { };
     bannerImg.src = banner.imagen;
   }
 }
@@ -2713,7 +2829,7 @@ function bindLoginPromptEvents() {
     ?.addEventListener("click", (e) => {
       if (e.target.id === "loginPromptModal") closeLoginPromptModal();
     });
-     
+
   document
     .getElementById("loginPromptLoginBtn")
     ?.addEventListener("click", (e) => {
@@ -3060,8 +3176,8 @@ async function render(biz, isInitial = true) {
   const linkPrivacidad = document.getElementById("linkPrivacidad");
   const footerActivo = footerConfig.activo !== false;
   document
-  .getElementById("geinzFooter")
-  ?.style.setProperty("display", footerActivo ? "" : "none");
+    .getElementById("geinzFooter")
+    ?.style.setProperty("display", footerActivo ? "" : "none");
   // ── Columna "Legal" completa: oculta si las 3 opciones legales están apagadas ──
   const legalColActiva =
     footerActivo &&
@@ -3089,70 +3205,70 @@ async function render(biz, isInitial = true) {
   document
     .getElementById("footerPoweredRow")
     ?.style.setProperty("display", poweredActivo ? "" : "none");
-if (linkLibro) {
-  const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
-  linkLibro.style.display = libroActivo ? "" : "none";
-  if (libroActivo) {
-    const ruta = rutaNegocio("libro_reclamaciones", biz.alias_key);
-    if (ruta) {
-      linkLibro.href = ruta;
-    } else {
-      const urlLibro = new URL("../../legal/libro_reclamaciones.html", window.location.href);
-      urlLibro.searchParams.set("id", biz.id || _params.id);
-      urlLibro.searchParams.set("localidad", _params.localidad);
-      linkLibro.href = urlLibro.toString();
+  if (linkLibro) {
+    const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
+    linkLibro.style.display = libroActivo ? "" : "none";
+    if (libroActivo) {
+      const ruta = rutaNegocio("libro_reclamaciones", biz.alias_key);
+      if (ruta) {
+        linkLibro.href = ruta;
+      } else {
+        const urlLibro = new URL("../../legal/libro_reclamaciones.html", window.location.href);
+        urlLibro.searchParams.set("id", biz.id || _params.id);
+        urlLibro.searchParams.set("localidad", _params.localidad);
+        linkLibro.href = urlLibro.toString();
+      }
     }
   }
-}
-const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
-if (linkSeguimiento) {
-  const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
-  linkSeguimiento.style.display = libroActivo ? "" : "none";
-  if (libroActivo) {
-    const ruta = rutaNegocio("seguimiento_reclamaciones", biz.alias_key);
-    if (ruta) {
-      linkSeguimiento.href = ruta;
-    } else {
-      const urlSeguimiento = new URL("../../legal/seguimiento_reclamaciones.html", window.location.href);
-      urlSeguimiento.searchParams.set("id", biz.id || _params.id);
-      urlSeguimiento.searchParams.set("localidad", _params.localidad);
-      linkSeguimiento.href = urlSeguimiento.toString();
+  const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
+  if (linkSeguimiento) {
+    const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
+    linkSeguimiento.style.display = libroActivo ? "" : "none";
+    if (libroActivo) {
+      const ruta = rutaNegocio("seguimiento_reclamaciones", biz.alias_key);
+      if (ruta) {
+        linkSeguimiento.href = ruta;
+      } else {
+        const urlSeguimiento = new URL("../../legal/seguimiento_reclamaciones.html", window.location.href);
+        urlSeguimiento.searchParams.set("id", biz.id || _params.id);
+        urlSeguimiento.searchParams.set("localidad", _params.localidad);
+        linkSeguimiento.href = urlSeguimiento.toString();
+      }
     }
   }
-}
 
-if (linkTerminos) {
-  const terminosActivo = footerActivo && footerConfig.terminos_condiciones === true;
-  linkTerminos.style.display = terminosActivo ? "" : "none";
-  if (terminosActivo) {
-    const ruta = rutaNegocio("terminos_condiciones", biz.alias_key);
-    if (ruta) {
-      linkTerminos.href = ruta;
-    } else {
-      const urlTerminos = new URL("../../legal/terminos_condiciones.html", window.location.href);
-      urlTerminos.searchParams.set("id", biz.id || _params.id);
-      urlTerminos.searchParams.set("localidad", _params.localidad);
-      linkTerminos.href = urlTerminos.toString();
+  if (linkTerminos) {
+    const terminosActivo = footerActivo && footerConfig.terminos_condiciones === true;
+    linkTerminos.style.display = terminosActivo ? "" : "none";
+    if (terminosActivo) {
+      const ruta = rutaNegocio("terminos_condiciones", biz.alias_key);
+      if (ruta) {
+        linkTerminos.href = ruta;
+      } else {
+        const urlTerminos = new URL("../../legal/terminos_condiciones.html", window.location.href);
+        urlTerminos.searchParams.set("id", biz.id || _params.id);
+        urlTerminos.searchParams.set("localidad", _params.localidad);
+        linkTerminos.href = urlTerminos.toString();
+      }
     }
   }
-}
 
 
-if (linkPrivacidad) {
-  const privacidadActivo = footerActivo && footerConfig.politicas_privacidad === true;
-  linkPrivacidad.style.display = privacidadActivo ? "" : "none";
-  if (privacidadActivo) {
-    const ruta = rutaNegocio("politicas_privacidad", biz.alias_key);
-    if (ruta) {
-      linkPrivacidad.href = ruta;
-    } else {
-      const urlPrivacidad = new URL("../../legal/politicas_privacidad.html", window.location.href);
-      urlPrivacidad.searchParams.set("id", biz.id || _params.id);
-      urlPrivacidad.searchParams.set("localidad", _params.localidad);
-      linkPrivacidad.href = urlPrivacidad.toString();
+  if (linkPrivacidad) {
+    const privacidadActivo = footerActivo && footerConfig.politicas_privacidad === true;
+    linkPrivacidad.style.display = privacidadActivo ? "" : "none";
+    if (privacidadActivo) {
+      const ruta = rutaNegocio("politicas_privacidad", biz.alias_key);
+      if (ruta) {
+        linkPrivacidad.href = ruta;
+      } else {
+        const urlPrivacidad = new URL("../../legal/politicas_privacidad.html", window.location.href);
+        urlPrivacidad.searchParams.set("id", biz.id || _params.id);
+        urlPrivacidad.searchParams.set("localidad", _params.localidad);
+        linkPrivacidad.href = urlPrivacidad.toString();
+      }
     }
   }
-}
   // ── COLOR + LOGO: solo la primera vez ──
   if (!_colorReady) {
     applyDominantColor(colorFromName(nombre));
@@ -3306,13 +3422,13 @@ if (linkPrivacidad) {
     });
   }
 
-    // Carrito de perfil (hasta 20 productos elegidos en el dashboard)
+  // Carrito de perfil (hasta 20 productos elegidos en el dashboard)
   // Ya viene incluido en 'biz' porque loadBusiness/listenBusinessRealtime leen ese mismo doc
-    console.log("🟣 render() isInitial=", isInitial,
-              "| carritoPerfil:", biz.carritoPerfil,
-              "| keys del doc:", Object.keys(biz));
+  console.log("🟣 render() isInitial=", isInitial,
+    "| carritoPerfil:", biz.carritoPerfil,
+    "| keys del doc:", Object.keys(biz));
   renderProductosCatalogo(
-    
+
     biz.carritoPerfil || [],
     _params.localidad,
     _params.id,
@@ -3424,16 +3540,16 @@ if (linkPrivacidad) {
       }
     }
     promoImages.forEach((promo) => {
- const shareBase = biz.alias_key
-  ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
-  : `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+      const shareBase = biz.alias_key
+        ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
+        : `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
       const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
       const card = document.createElement("div");
       card.className = "promo-card";
       card.innerHTML = `<div class="promo-card-img-wrap"><div class="promo-overlay-actions">${
         /* deja aquí igual los botones de WhatsApp y Compartir */
         `<a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>`
-      }</div></div>`;
+        }</div></div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
         src: promo.url,
@@ -3449,7 +3565,7 @@ if (linkPrivacidad) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) {}
+          } catch (e) { }
         else copyToClipboard(fullText);
       });
     });
@@ -3473,9 +3589,9 @@ if (linkPrivacidad) {
   if (shareBtn)
     shareBtn.onclick = () => {
       // ── Usa alias si existe, si no fallback a URL vieja ──
-     const shareUrl = biz.alias_key
-  ? `${_baseShareUrl}/perfil/${biz.alias_key}`
-  : `${_baseShareUrl}/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
+      const shareUrl = biz.alias_key
+        ? `${_baseShareUrl}/perfil/${biz.alias_key}`
+        : `${_baseShareUrl}/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
 
       const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
       if (navigator.share)
@@ -3547,7 +3663,7 @@ if (linkPrivacidad) {
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
- document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
+  document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
     const aliasKey = _params.alias || biz?.alias_key;
     if (aliasKey && _currentUid) {
       window.location.href = `https://geinztech.com/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
@@ -4086,8 +4202,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-        .toDate()
-        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+      .toDate()
+      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -4621,10 +4737,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -4990,7 +5106,7 @@ async function eliminarMiReview() {
     }
 
     const biz = await loadBusiness(params);
-        console.log("✅ biz keys:", Object.keys(biz), "| carritoPerfil:", biz.carritoPerfil);
+    console.log("✅ biz keys:", Object.keys(biz), "| carritoPerfil:", biz.carritoPerfil);
     showPromoBanner(biz); // ← se dispara ANTES de todo el resto del render
     await render(biz, true);
 
@@ -5036,7 +5152,7 @@ async function eliminarMiReview() {
 
     // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
     // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
-   
+
   } catch (err) {
     console.error(err);
     showNotFoundScreen(err.message); // ← debe capturarlo
@@ -5128,11 +5244,11 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   sec.style.display = "";
 
   if (btnWrap) {
-const cartHref = _esDominioPersonalizado
-  ? "/carrito"
-  : aliasKey
-    ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
-    : `../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}`;
+    const cartHref = _esDominioPersonalizado
+      ? "/carrito"
+      : aliasKey
+        ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+        : `../carrito/carrito.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(id)}`;
     btnWrap.innerHTML = `
       <a href="${cartHref}"
          class="btn-primary px-6 py-3 rounded-2xl font-bold inline-flex items-center gap-2">
@@ -5141,7 +5257,7 @@ const cartHref = _esDominioPersonalizado
   }
 
   list.innerHTML = "";
-productos.slice(0, 20).forEach((p) => {
+  productos.slice(0, 20).forEach((p) => {
     const row = document.createElement("div");
     row.className = "catalogo-row";
 
@@ -5154,7 +5270,7 @@ productos.slice(0, 20).forEach((p) => {
 
     const overlay = document.createElement("div");
     overlay.className = "catalogo-row-overlay";
-overlay.innerHTML = `
+    overlay.innerHTML = `
   <span class="catalogo-row-nombre">${capitalizarPrimeraLetra(p.nombre)}</span>
   <span class="catalogo-row-precio">S/ ${Number(p.precio || 0).toFixed(2)}</span>`;
 
