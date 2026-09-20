@@ -88,8 +88,13 @@ let cuponAplicado = null; // datos del cupón ya validado y en uso
 async function resolverParamsCarrito() {
   const path = window.location.pathname;
   const qs = new URLSearchParams(window.location.search);
+  const h = location.hostname;
+  const esDominioPropio = h !== "geinztech.com" && h !== "www.geinztech.com";
 
-  // PRIORIDAD 1: viene inyectado por carritoSSR (dominio custom, ej. nuestrahistoriajuntos.com/carrito)
+  if (esDominioPropio) {
+    window.__NEGOCIO_HOSTNAME__ = h; // ← se fija SIEMPRE, venga o no de SSR
+  }
+
   if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
     tiendaId = window.__NEGOCIO_ID__;
     localidad = window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase();
@@ -97,31 +102,22 @@ async function resolverParamsCarrito() {
     window.__NEGOCIO_HOSTNAME_DETECTADO__ = window.__NEGOCIO_HOSTNAME__ || null;
   }
 
-  // PRIORIDAD 1.5: dominio propio SIN inyección SSR -> se resuelve contra Firestore
-  // (dominio_web_tiendas/{hostname}), igual que hace perfil.js en getParams().
-  if (!tiendaId) {
-    const h = location.hostname;
-    if (h !== "geinztech.com" && h !== "www.geinztech.com") {
-      try {
-        const domSnap = await getDoc(doc(db, "dominio_web_tiendas", h));
-        if (domSnap.exists()) {
-          const d = domSnap.data();
-          if (d.id && d.localidad) {
-            tiendaId = d.id;
-            localidad = (d.localidad || "").trim().toLowerCase();
-            aliasNegocio = d.alias || null;
-            // Se marca el hostname para que getLandingBase() y los links
-            // del pedido usen el dominio propio en vez de geinztech.com
-            window.__NEGOCIO_HOSTNAME__ = h;
-            window.__NEGOCIO_HOSTNAME_DETECTADO__ = h;
-          }
+  if (!tiendaId && esDominioPropio) {
+    try {
+      const domSnap = await getDoc(doc(db, "dominio_web_tiendas", h));
+      if (domSnap.exists()) {
+        const d = domSnap.data();
+        if (d.id && d.localidad) {
+          tiendaId = d.id;
+          localidad = (d.localidad || "").trim().toLowerCase();
+          aliasNegocio = d.alias || null;
+          window.__NEGOCIO_HOSTNAME_DETECTADO__ = h;
         }
-      } catch (e) {
-        console.error("No se pudo resolver el dominio personalizado:", e);
       }
+    } catch (e) {
+      console.error("No se pudo resolver el dominio personalizado:", e);
     }
   }
-
   // PRIORIDAD 2: URL bonita de geinztech.com: /perfil/{alias}/carrito
   if (!tiendaId) {
     const match = path.match(/^\/perfil\/([^/]+)\/carrito\/?$/);
@@ -452,17 +448,17 @@ async function llamarMozo({ nombre, nota, items, total }) {
 
   /* ═══ CASO 1: mesa dentro de un grupo activo ═══ */
   if (grupoActivo) {
-  const pedido = {
-    cliente: {
-      id_cliente: usuarioLogeado?.id || null,
-      nombre: nombreFinal,
-      tipo_entrega: "Mesa",
-      direccion: "",
-    },
-    estado: "pendiente",
-    estadoMozo: "pendiente_revision",    // ← AGREGAR esta línea en los DOS pedidos
-    pago: { metodo: "En mesa", vuelto: "" },
-    
+    const pedido = {
+      cliente: {
+        id_cliente: usuarioLogeado?.id || null,
+        nombre: nombreFinal,
+        tipo_entrega: "Mesa",
+        direccion: "",
+      },
+      estado: "pendiente",
+      estadoMozo: "pendiente_revision", // ← AGREGAR esta línea en los DOS pedidos
+      pago: { metodo: "En mesa", vuelto: "" },
+
       mesas: grupoActivo.mesas || [],
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
       nota: notaFinal,
@@ -478,7 +474,8 @@ async function llamarMozo({ nombre, nota, items, total }) {
     const pedidoDocId = grupoActivo.pedidoGrupoDocId || doc(pedidosColRef).id;
     const batch = writeBatch(db);
 
-      const grupoEraNuevo = grupoActivo.estado !== "activo" || !grupoActivo.pedidoGrupoDocId;
+    const grupoEraNuevo =
+      grupoActivo.estado !== "activo" || !grupoActivo.pedidoGrupoDocId;
 
     batch.set(
       grupoActivo.ref,
@@ -526,7 +523,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
       direccion: "",
     },
     estado: "pendiente",
-     estadoMozo: "pendiente_revision",  
+    estadoMozo: "pendiente_revision",
     pago: { metodo: "En mesa", vuelto: "" },
     mesa: {
       id: mesaId,
@@ -629,7 +626,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 function renderPedidoActivoMesa(pedido) {
@@ -859,6 +856,7 @@ async function aplicarCuponDesdeDoc(data) {
   cuponAplicado = data;
   console.log("[CUPON] cuponAplicado seteado en memoria:", cuponAplicado);
 
+  if (data.origen === "fidelizacion") activarGuardaCupon();
   if (data.tipo === "producto" && data.productoId) {
     console.log(
       "[CUPON] es cupón de PRODUCTO, llamando agregarProductoDeCupon()",
@@ -1151,12 +1149,12 @@ async function loadProductosCatalogo(biz) {
           variantesObligatoria: d.variantesObligatoria !== false,
           puntos:
             biz?.fidelizacion?.activo &&
-              d.puntos?.activo &&
-              d.puntos?.cantidad > 0
+            d.puntos?.activo &&
+            d.puntos?.cantidad > 0
               ? {
-                cantidad: d.puntos.cantidad,
-                descripcion: d.puntos.descripcion || "",
-              }
+                  cantidad: d.puntos.cantidad,
+                  descripcion: d.puntos.descripcion || "",
+                }
               : null,
         });
       });
@@ -1420,10 +1418,11 @@ bindLoginPromptEvents();
 function aplicarComportamientoBotonAtras() {
   const backBtn = document.getElementById("backBtn");
   if (!backBtn || !mesaId) return; // fuera de mesa, se queda con history.back()
-const alias = bizData?.alias_key || bizData?.alias_negocio || aliasNegocio || tiendaId;
-backBtn.href = window.__NEGOCIO_HOSTNAME__
-  ? getLandingBase()
-  : `${LANDING_BASE_URL}/perfil/${alias}`;
+  const alias =
+    bizData?.alias_key || bizData?.alias_negocio || aliasNegocio || tiendaId;
+  backBtn.href = window.__NEGOCIO_HOSTNAME__
+    ? getLandingBase()
+    : `${LANDING_BASE_URL}/perfil/${alias}`;
   backBtn.removeAttribute("target");
 }
 
@@ -1610,10 +1609,11 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
+  wrap.innerHTML = `<div class="logo-ph-badge">${
+    _bizLogoUrl
       ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
       : `<span class="ph-letter">${letraNegocio()}</span>`
-    }</div>`;
+  }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -1721,11 +1721,12 @@ function productoCard(p, index = 0) {
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-    ${p.puntos
-      ? siguiendoTienda
-        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-        : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
-      : ""
+    ${
+      p.puntos
+        ? siguiendoTienda
+          ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+          : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
+        : ""
     }  `;
 
   const qtyWrap = document.createElement("div");
@@ -2225,10 +2226,10 @@ function textoPuntosHTML(puntosTotales, esCheckout = false) {
   const mensaje = `⭐ Sigue a <strong>${nombreSeguro}</strong> para ganar y canjear puntos`;
 
   if (alias) {
-const href = window.__NEGOCIO_HOSTNAME__
-  ? getLandingBase()
-  : `${LANDING_BASE_URL}/perfil/${encodeURIComponent(alias)}`;
-      return `<a href="${href}" target="_blank" rel="noopener" style="text-decoration:underline;">${mensaje}</a>`;
+    const href = window.__NEGOCIO_HOSTNAME__
+      ? getLandingBase()
+      : `${LANDING_BASE_URL}/perfil/${encodeURIComponent(alias)}`;
+    return `<a href="${href}" target="_blank" rel="noopener" style="text-decoration:underline;">${mensaje}</a>`;
   }
   return mensaje;
 }
@@ -2322,8 +2323,8 @@ function renderCartList(wrap, items) {
     const precioNum = Number(it.precio) || 0;
     const opcionesTxt = it.seleccion
       ? Object.entries(it.seleccion)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
       : "";
 
     let row = rowsMap.get(key);
@@ -2341,18 +2342,21 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${!it.esCanje && (it.seleccion || (productosPorId.get(it.id)?.condiciones?.length))
-          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+        ${
+          !it.esCanje &&
+          (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
+            ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-          : ""
+            : ""
         }
-          ${it.esCanje
-          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${
+            it.esCanje
+              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-        }
+          }
         </div>
       `;
       wrap.appendChild(row);
@@ -2594,10 +2598,10 @@ async function guardarPedidoEnDB({
     },
     mesa: mesaId
       ? {
-        id: mesaId,
-        nombre: mesaNombre || null,
-        numero: mesaNumero ? Number(mesaNumero) : null,
-      }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
       : null,
 
     pago: {
@@ -2614,7 +2618,7 @@ async function guardarPedidoEnDB({
       subtotal: +(it.precio * it.cantidad).toFixed(2),
       imagen: it.imagen || "",
       opciones: it.seleccion || null,
-      esCanje: it.esCanje || false,       // 👈 FALTA en tu doc actual
+      esCanje: it.esCanje || false, // 👈 FALTA en tu doc actual
       cuponCodigo: it.cuponCodigo || null, // 👈 FALTA en tu doc actual
     })),
     total_items: items.reduce((s, i) => s + i.cantidad, 0),
@@ -2733,10 +2737,10 @@ document
       },
       mesa: mesaId
         ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+            id: mesaId,
+            nombre: mesaNombre || null,
+            numero: mesaNumero ? Number(mesaNumero) : null,
+          }
         : null,
       pago: {
         metodo: metodoPago,
@@ -2752,6 +2756,9 @@ document
         subtotal: +(it.precio * it.cantidad).toFixed(2),
         imagen: it.imagen || "",
         opciones: it.seleccion || null,
+        opciones: it.seleccion || null,
+        esCanje: it.esCanje || false, // ← AGREGAR
+        cuponCodigo: it.cuponCodigo || null,
       })),
       total_items: items.reduce((s, i) => s + i.cantidad, 0),
       total: +total.toFixed(2),
@@ -2759,22 +2766,22 @@ document
       descuentoCupon,
       cupon: cuponAplicado
         ? {
-          codigo: cuponAplicado.codigo,
-          tipo: cuponAplicado.tipo,
-          origen: cuponAplicado.origen || null,
-          costoPuntos: cuponAplicado.costoPuntos ?? null,
-          productoId: cuponAplicado.productoId || null,
-          productoNombre:
-            cuponAplicado.productoNombre || cuponAplicado.nombre || null,
-          tipoBeneficio: cuponAplicado.tipoBeneficio || null,
-          descuento: cuponAplicado.descuento || null,
-          precioOriginal: cuponAplicado.precioOriginal ?? null,
-          precioFinalEstimado: cuponAplicado.precioFinalEstimado ?? null,
-          tipoDescuentoManual: cuponAplicado.tipoDescuentoManual || null,
-          porcentajeManual: cuponAplicado.porcentajeManual ?? null,
-          montoManual: cuponAplicado.montoManual ?? null,
-          compraMinima: cuponAplicado.compraMinima ?? null,
-        }
+            codigo: cuponAplicado.codigo,
+            tipo: cuponAplicado.tipo,
+            origen: cuponAplicado.origen || null,
+            costoPuntos: cuponAplicado.costoPuntos ?? null,
+            productoId: cuponAplicado.productoId || null,
+            productoNombre:
+              cuponAplicado.productoNombre || cuponAplicado.nombre || null,
+            tipoBeneficio: cuponAplicado.tipoBeneficio || null,
+            descuento: cuponAplicado.descuento || null,
+            precioOriginal: cuponAplicado.precioOriginal ?? null,
+            precioFinalEstimado: cuponAplicado.precioFinalEstimado ?? null,
+            tipoDescuentoManual: cuponAplicado.tipoDescuentoManual || null,
+            porcentajeManual: cuponAplicado.porcentajeManual ?? null,
+            montoManual: cuponAplicado.montoManual ?? null,
+            compraMinima: cuponAplicado.compraMinima ?? null,
+          }
         : null,
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
     });
@@ -2811,14 +2818,14 @@ document
     }
 
     const pedidoId = resultado.id;
-
+    pedidoEnviado = true;
     // Con alias: no se expone el id real del negocio en la URL.
     // Fallback al formato viejo solo si el negocio entró por ?id= (sin alias).
-const linkPedido = window.__NEGOCIO_HOSTNAME__
-  ? `${getLandingBase()}/pedido/${pedidoId}`
-  : aliasNegocio
-    ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(aliasNegocio)}/${pedidoId}`
-    : `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
+    const linkPedido = window.__NEGOCIO_HOSTNAME__
+      ? `${getLandingBase()}/pedido/${pedidoId}`
+      : aliasNegocio
+        ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(aliasNegocio)}/${pedidoId}`
+        : `${DASHBOARD_BASE_URL}/${tiendaId}/${pedidoId}`;
 
     closeCheckout();
     showPedidoLoader();
@@ -3090,7 +3097,200 @@ function iniciarValidacionHorarioEnVivo() {
 /* ══════════════ Init ══════════════ */
 
 /* ══════════════ Init ══════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   Guardia al retroceder con un CANJE activo (cupón de fidelización)
+   Pega este bloque en carrito.js (por ejemplo justo antes de "Init").
+   Usa las variables que ya existen ahí: cuponAplicado, aliasNegocio,
+   usuarioLogeado, localidad, tiendaId, LANDING_BASE_URL.
+   ══════════════════════════════════════════════════════════════════════ */
 
+let pedidoEnviado = false; // se pone en true cuando el pedido ya se guardó
+let guardEntryPushed = false; // ya se agregó la entrada extra al historial
+let salidaCuponConfirmada = false; // el cliente confirmó que quiere salir
+
+// Solo aplica a cupones que salen de un canje con puntos (origen "fidelizacion")
+function cuponDeCanjeActivo() {
+  return (
+    !!cuponAplicado && cuponAplicado.origen === "fidelizacion" && !pedidoEnviado
+  );
+}
+
+// Se llama cuando un cupón de canje queda aplicado (ver aplicarCuponDesdeDoc)
+function activarGuardaCupon() {
+  if (guardEntryPushed) return;
+  history.pushState(null, document.title, location.href);
+  guardEntryPushed = true;
+}
+
+// A dónde se manda al cliente si confirma que quiere salir: su tarjeta,
+// donde el cupón aparece en "Cupones activos" (ahí puede cancelarlo y recuperar los puntos)
+function urlFidelizacion() {
+  if (window.__NEGOCIO_HOSTNAME__) return "/fidelizacion";
+  if (aliasNegocio && usuarioLogeado?.id) {
+    return `${LANDING_BASE_URL}/perfil/${encodeURIComponent(aliasNegocio)}/fidelizacion/${encodeURIComponent(usuarioLogeado.id)}`;
+  }
+  return `${LANDING_BASE_URL}/fidelizacion/fidelizacion_client.html?localidad=${encodeURIComponent(localidad)}&id=${encodeURIComponent(tiendaId)}`;
+}
+
+const GUARD_CUPON_CSS = `
+.cupon-leave-overlay{
+  position:fixed;inset:0;z-index:10050;
+  background:rgba(3,3,3,.78);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;visibility:hidden;
+  transition:opacity .3s ease, visibility .3s ease;
+}
+.cupon-leave-overlay.show{opacity:1;visibility:visible;}
+.cupon-leave-box{
+  width:100%;max-width:370px;text-align:center;position:relative;overflow:hidden;
+  background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+  border-radius:26px;padding:30px 24px 22px;
+  box-shadow:0 25px 60px -12px rgba(0,0,0,.7), 0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.35);
+  transform:scale(.94) translateY(10px);
+  transition:transform .35s cubic-bezier(.2,.8,.2,1);
+}
+.cupon-leave-overlay.show .cupon-leave-box{transform:scale(1) translateY(0);}
+.cupon-leave-glow{
+  position:absolute;top:-70px;left:50%;transform:translateX(-50%);
+  width:220px;height:220px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle, rgba(var(--dr),var(--dg),var(--db),.4), transparent 70%);
+  filter:blur(10px);
+}
+.cupon-leave-icon{
+  position:relative;z-index:1;
+  width:52px;height:52px;margin:0 auto 14px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  background:rgba(var(--dr),var(--dg),var(--db),.15);
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+}
+.cupon-leave-title{position:relative;z-index:1;margin:0 0 8px;font-size:18px;font-weight:800;color:#fff;}
+.cupon-leave-desc{position:relative;z-index:1;margin:0 0 6px;font-size:13.5px;line-height:1.6;color:#a1a1aa;}
+.cupon-leave-desc b{color:#fff;font-weight:700;}
+.cupon-leave-code{
+  position:relative;z-index:1;display:inline-block;margin:6px 0 18px;
+  padding:5px 12px;border-radius:999px;
+  font-size:11.5px;font-weight:800;letter-spacing:.14em;
+  color:rgb(var(--dr),var(--dg),var(--db));
+  background:rgba(var(--dr),var(--dg),var(--db),.12);
+  border:1px dashed rgba(var(--dr),var(--dg),var(--db),.55);
+}
+.cupon-leave-actions{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;}
+.cupon-leave-btn-primary{
+  padding:13px;border:none;border-radius:14px;cursor:pointer;
+  font-weight:700;font-size:14px;color:#fff;
+  background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
+  box-shadow:0 8px 20px -6px rgba(var(--dr),var(--dg),var(--db),.5);
+}
+.cupon-leave-btn-secondary{
+  padding:13px;border-radius:14px;cursor:pointer;
+  font-weight:600;font-size:13.5px;color:#d4d4d8;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+}
+.cupon-leave-btn-secondary:hover{background:rgba(255,255,255,.1);}
+`;
+
+function inyectarEstilosGuardaCupon() {
+  if (document.getElementById("cuponLeaveStyle")) return;
+  const st = document.createElement("style");
+  st.id = "cuponLeaveStyle";
+  st.textContent = GUARD_CUPON_CSS;
+  document.head.appendChild(st);
+}
+
+function abrirModalSalirCupon() {
+  inyectarEstilosGuardaCupon();
+  let ov = document.getElementById("cuponLeaveModal");
+
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "cuponLeaveModal";
+    ov.className = "cupon-leave-overlay";
+    ov.innerHTML = `
+      <div class="cupon-leave-box">
+        <div class="cupon-leave-glow"></div>
+        <div class="cupon-leave-icon">🎁</div>
+        <p class="cupon-leave-title">¿Salir de tu canje?</p>
+        <p class="cupon-leave-desc">
+          No pierdes tus puntos. Si sales ahora, tu cupón queda guardado en
+          <b>Cupones activos</b> de tu tarjeta. Podrás usarlo después, o
+          <b>cancelarlo para que te devolvamos los puntos</b> a tu cuenta.
+        </p>
+        <span class="cupon-leave-code" id="cuponLeaveCode"></span>
+        <div class="cupon-leave-actions">
+          <button type="button" class="cupon-leave-btn-primary" id="cuponLeaveStay">Seguir con mi pedido</button>
+          <button type="button" class="cupon-leave-btn-secondary" id="cuponLeaveGo">Ir a mi tarjeta</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov) cerrarModalSalirCupon();
+    });
+    ov.querySelector("#cuponLeaveStay").addEventListener(
+      "click",
+      cerrarModalSalirCupon,
+    );
+    ov.querySelector("#cuponLeaveGo").addEventListener("click", () => {
+      salidaCuponConfirmada = true;
+      window.location.replace(urlFidelizacion());
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && ov.classList.contains("show"))
+        cerrarModalSalirCupon();
+    });
+  }
+
+  const codigoEl = ov.querySelector("#cuponLeaveCode");
+  const c = cuponAplicado;
+  const pts = Number(c?.costoPuntos ?? 0);
+  codigoEl.textContent = c?.codigo
+    ? `🎟️ ${c.codigo}${pts > 0 ? " · " + pts + " pts" : ""}`
+    : "";
+
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => ov.classList.add("show"));
+}
+
+function cerrarModalSalirCupon() {
+  document.getElementById("cuponLeaveModal")?.classList.remove("show");
+  if (
+    !document.getElementById("checkoutOverlay")?.classList.contains("show") &&
+    !document.getElementById("drawer")?.classList.contains("show")
+  ) {
+    document.body.style.overflow = "";
+  }
+}
+
+// Botón "atrás" del navegador / gesto de retroceso en el celular
+window.addEventListener("popstate", () => {
+  if (salidaCuponConfirmada) return;
+
+  if (cuponDeCanjeActivo()) {
+    // Se vuelve a poner la entrada de guardia y se pregunta antes de dejarlo salir
+    history.pushState(null, document.title, location.href);
+    abrirModalSalirCupon();
+  } else if (guardEntryPushed) {
+    // El cupón ya se quitó o el pedido ya se envió: se consume la entrada extra
+    // para que un solo "atrás" sí lo saque de la página
+    guardEntryPushed = false;
+    history.back();
+  }
+});
+
+// Botón "‹" de la cabecera del carrito (#backBtn)
+document.addEventListener(
+  "click",
+  (e) => {
+    const back = e.target.closest?.("#backBtn");
+    if (!back || !cuponDeCanjeActivo()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    abrirModalSalirCupon();
+  },
+  true,
+);
 async function init() {
   await resolverParamsCarrito();
   setBusinessFaviconById({ localidad, id: tiendaId });

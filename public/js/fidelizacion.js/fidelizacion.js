@@ -207,6 +207,14 @@ function parseRutaCruda() {
 }
 
 async function resolverRuta() {
+  // PRIORIDAD 0: viene inyectado por fidelizacionSSR (dominio propio)
+  if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    return {
+      negocioId: window.__NEGOCIO_ID__,
+      localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
+    };
+  }
+
   const cruda = parseRutaCruda();
   if (!cruda) return null;
 
@@ -216,7 +224,7 @@ async function resolverRuta() {
 
   const resuelto = await resolverNegocioDesdeAlias(cruda.alias);
   if (!resuelto) return null;
-  ALIAS_NEGOCIO = cruda.alias; // se guarda para construir el link de vuelta al carrito
+  ALIAS_NEGOCIO = cruda.alias;
   return { negocioId: resuelto.id, localidad: resuelto.localidad };
 }
 // ─── Estas dos se completan de forma async antes de arrancar (ver INIT al final) ───
@@ -940,10 +948,15 @@ async function onCanjearClick(btn, producto, puntosActuales) {
     return;
   }
 
-  const destino = ALIAS_NEGOCIO
+const ES_DOMINIO_PROPIO =
+  location.hostname !== "geinztech.com" &&
+  location.hostname !== "www.geinztech.com";
+
+const destino = ES_DOMINIO_PROPIO
+  ? `/carrito?cupon=${encodeURIComponent(codigo)}`
+  : ALIAS_NEGOCIO
     ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito?cupon=${encodeURIComponent(codigo)}`
     : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${encodeURIComponent(codigo)}`;
-
   btn.textContent = "¡Canjeado! Yendo al carrito…";
   setTimeout(() => {
     window.location.href = destino;

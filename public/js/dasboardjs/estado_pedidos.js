@@ -29,6 +29,7 @@ try {
 // ---- Config: fallback de localidad para links viejos (/pedidos/{negocioId}/{pedidoId}) ----
 const LOCALIDAD_FIJA = "barranca";
 let aliasNegocioActual = null;
+const ES_DOMINIO_PROPIO = !!window.__NEGOCIO_HOSTNAME__;
 // ---- Estados del pedido (única fuente de verdad, sin duplicados) ----
 const ESTADOS = ["pendiente", "en_proceso", "entregado"];
 const ESTADOS_LABEL = {
@@ -121,9 +122,23 @@ function parseRutaCruda() {
   console.warn("[pedidos] No se pudo extraer la ruta del pedido");
   return null;
 }
-
 async function resolverRuta() {
+  // Dominio propio (viene inyectado por pedidoSSR): /pedido/{pedidoId}
+  if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+    const partes = window.location.pathname.split("/").filter(Boolean);
+    const idx = partes.indexOf("pedido");
+    const pedidoId = idx !== -1 ? partes[idx + 1] : partes[partes.length - 1];
+    if (!pedidoId) return null;
+    aliasNegocioActual = window.__NEGOCIO_ALIAS__ || null;
+    return {
+      negocioId: window.__NEGOCIO_ID__,
+      pedidoId,
+      localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
+    };
+  }
+
   const cruda = parseRutaCruda();
+  // ...el resto queda igual
   if (!cruda) return null;
 
   if (cruda.tipo === "id") {
@@ -188,7 +203,46 @@ let primerRenderPedido = true; // evita notificar en la carga inicial
 let pedidoRefGlobal = null; // referencia del doc del pedido, usada por el banner de pausa
 let pedidoIdActual = null; // para armar el mensaje de WhatsApp con el código del pedido
 let waHabilitado = false; // true solo si el negocio tiene WhatsApp configurado y con número válido
+let cuponCanjeActual = null; // cupón de fidelización usado en este pedido (si lo hay)
 
+// Cuánto se ahorró el cliente con el cupón (replica lo que cobró el carrito)
+function calcularAhorroCupon(data) {
+  const c = data.cupon;
+  if (!c) return 0;
+
+  // Cupón manual (% o monto): el carrito ya guardó el descuento calculado
+  if (Number(data.descuentoCupon) > 0) return Number(data.descuentoCupon);
+
+  // Cupón de producto (canje): el descuento va dentro del precio de la línea
+  if (c.tipo === "producto") {
+    const orig = Number(c.precioOriginal);
+    if (!Number.isFinite(orig)) return 0;
+
+    if (c.tipoBeneficio === "cantidad") {
+      const compra = Number(c.descuento?.compraUnidades) || 1;
+      const paga = Number(c.descuento?.pagaUnidades) || compra;
+      return +Math.max(0, (compra - paga) * orig).toFixed(2);
+    }
+    const final = c.precioFinalEstimado != null ? Number(c.precioFinalEstimado) : orig;
+    return +Math.max(0, orig - final).toFixed(2);
+  }
+  return 0;
+}
+
+function renderResumenCupon(data) {
+  const wrap = el("cupon-resumen");
+  if (!wrap) return;
+  const ahorro = calcularAhorroCupon(data);
+  if (!data.cupon || ahorro <= 0) {
+    wrap.classList.add("hidden");
+    return;
+  }
+  const total = Number(data.total || 0);
+  el("resumen-subtotal").textContent = `S/ ${(total + ahorro).toFixed(2)}`;
+  el("resumen-cupon-label").textContent = `🎟️ Cupón ${data.cupon.codigo || ""}`.trim();
+  el("resumen-descuento").textContent = `− S/ ${ahorro.toFixed(2)}`;
+  wrap.classList.remove("hidden");
+}
 function codigoPedidoCorto(id) {
   return (id || "").slice(0, 6).toUpperCase();
 }
@@ -244,12 +298,21 @@ el("btn-cancelar-pedido")?.addEventListener("click", () => {
    Solo si confirma, se deja avanzar el "atrás" real. */
 let salidaConfirmada = false;
 let redirigirTrasBack = null; // URL a la que se navega una vez consumida la entrada de guardia
-console.log("[pedidos][guard] Antes de pushState, history.length =", history.length);
+console.log(
+  "[pedidos][guard] Antes de pushState, history.length =",
+  history.length,
+);
 history.pushState(null, document.title, location.href);
-console.log("[pedidos][guard] Después de pushState, history.length =", history.length);
+console.log(
+  "[pedidos][guard] Después de pushState, history.length =",
+  history.length,
+);
 
 window.addEventListener("popstate", () => {
-  console.log("[pedidos][guard] popstate disparado, salidaConfirmada =", salidaConfirmada);
+  console.log(
+    "[pedidos][guard] popstate disparado, salidaConfirmada =",
+    salidaConfirmada,
+  );
   if (salidaConfirmada) {
     // Ya confirmó: acabamos de consumir la entrada de guardia con history.back().
     // Ahora reemplazamos ESA entrada (que seguía apuntando al pedido) por la del
@@ -280,12 +343,11 @@ el("leave-confirm-no")?.addEventListener("click", cerrarModalSalir);
 el("leave-confirm-yes")?.addEventListener("click", () => {
   salidaConfirmada = true;
   cerrarModalSalir();
-  if (aliasNegocioActual) {
-    // Formato nuevo: sabemos el alias del negocio, vamos directo a su perfil
+  if (ES_DOMINIO_PROPIO) {
+    window.location.href = "/";
+  } else if (aliasNegocioActual) {
     window.location.href = `/perfil/${aliasNegocioActual}`;
   } else {
-    // Formato viejo (links de WhatsApp con negocioId/pedidoId): no hay alias,
-    // no hay perfil al que volver con seguridad, así que sí usamos el historial
     history.back();
   }
 });
@@ -327,27 +389,29 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
         el("negocio-nombre").closest("header") &&
           (document.title = `Pedido · ${nombre}`);
         const btnVolver = el("btn-volver-negocio");
-           const btnCarito = el("btn-ir-carrito");
+        const btnCarito = el("btn-ir-carrito");
         if (btnVolver) {
-          if (aliasNegocioActual) {
-            btnVolver.href = `https://geinztech.com/perfil/${aliasNegocioActual}`;
+          if (ES_DOMINIO_PROPIO || aliasNegocioActual) {
+            btnVolver.href = ES_DOMINIO_PROPIO
+              ? "/"
+              : `https://geinztech.com/perfil/${aliasNegocioActual}`;
             el("btn-volver-negocio-texto").textContent = `Volver a ${nombre}`;
             btnVolver.classList.remove("hidden");
           } else {
             btnVolver.classList.add("hidden");
           }
         }
-         if (btnCarito){
-          if (aliasNegocioActual) {
-            btnCarito.href = `https://geinztech.com/perfil/${aliasNegocioActual}/carrito`;
+        if (btnCarito) {
+          if (ES_DOMINIO_PROPIO || aliasNegocioActual) {
+            btnCarito.href = ES_DOMINIO_PROPIO
+              ? "/carrito"
+              : `https://geinztech.com/perfil/${aliasNegocioActual}/carrito`;
             el("btn-carrito-texto").textContent = `Ir a carrito de ${nombre}`;
             btnCarito.classList.remove("hidden");
           } else {
             btnCarito.classList.add("hidden");
           }
         }
-
-     
 
         // Botón de contacto por WhatsApp, si el negocio lo tiene habilitado
         const wa = data.metodo_contacto?.whatsapp;
@@ -550,7 +614,18 @@ function abrirModalCancelar(pedidoRef) {
   if (!overlay || !pedidoRef) return;
   const btnSi = el("cancel-confirm-yes");
   const btnNo = el("cancel-confirm-no");
-
+  const warn = el("cancel-cupon-warning");
+  if (warn) {
+    if (cuponCanjeActual) {
+      const pts = Number(cuponCanjeActual.costoPuntos || 0);
+      el("cancel-cupon-warning-text").innerHTML =
+        `Tu cupón <b>${esc(cuponCanjeActual.codigo || "")}</b>${pts > 0 ? ` (${pts} pts)` : ""} ya fue canjeado y se usó en este pedido. ` +
+        `Si cancelas, <b>no habrá forma de devolver los puntos</b>.`;
+      warn.classList.remove("hidden");
+    } else {
+      warn.classList.add("hidden");
+    }
+  }
   overlay.classList.remove("hidden");
   requestAnimationFrame(() => overlay.classList.add("show"));
 
@@ -862,7 +937,8 @@ function renderPedido(data) {
   // Pago
   el("pago-metodo").textContent = data.pago?.metodo || "—";
   el("pedido-total").textContent = Number(data.total || 0).toFixed(2);
-
+  cuponCanjeActual = data.cupon?.origen === "fidelizacion" ? data.cupon : null;
+  renderResumenCupon(data);
   // Puntos de fidelización
   renderPuntos(data, estadoActual, esRechazado);
 
@@ -907,7 +983,13 @@ function renderPedido(data) {
       opcionesEl.textContent = opcionesTxt;
       info.append(opcionesEl);
     }
-
+    if (p.esCanje) {
+      const canjeEl = document.createElement("p");
+      canjeEl.className = "detalle";
+      canjeEl.style.color = "var(--accent)";
+      canjeEl.textContent = "🎁 Canjeado con puntos";
+      info.append(canjeEl);
+    }
     const subtotal = document.createElement("span");
     subtotal.className = "subtotal font-mono";
     subtotal.textContent = `S/ ${Number(p.subtotal || 0).toFixed(2)}`;

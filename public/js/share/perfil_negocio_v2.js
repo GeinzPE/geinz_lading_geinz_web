@@ -5,6 +5,7 @@ import { registrarTokenWeb } from "../../notificaciones.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
+
 let _currentUid = null; // NUEVO
 let _fidelizacionActiva = false;
 let _bannerShown = false;
@@ -277,6 +278,47 @@ function colorFromName(name) {
   };
 }
 
+// ── Nuevo CSS (agrégalo junto a LOGIN_PROMPT_CSS) ──
+const LOGOUT_OVERLAY_CSS = `
+.logout-overlay{
+  position:fixed;inset:0;z-index:10010;
+  background:rgba(3,3,3,.92);
+  backdrop-filter:blur(10px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  opacity:0;visibility:hidden;
+  transition:opacity .35s ease, visibility .35s ease;
+}
+.logout-overlay.open{opacity:1;visibility:visible;}
+.logout-spinner{
+  width:42px;height:42px;border-radius:50%;
+  border:3px solid rgba(var(--dr),var(--dg),var(--db),.25);
+  border-top-color:rgba(var(--dr),var(--dg),var(--db),.95);
+  animation:logout-spin .8s linear infinite;
+}
+@keyframes logout-spin{to{transform:rotate(360deg);}}
+.logout-overlay .logout-text{color:#fff;font-size:13.5px;font-weight:600;letter-spacing:.02em;}
+`;
+
+function injectLogoutOverlayStyles() {
+  if (document.getElementById("logoutOverlayStyle")) return;
+  const style = document.createElement("style");
+  style.id = "logoutOverlayStyle";
+  style.textContent = LOGOUT_OVERLAY_CSS;
+  document.head.appendChild(style);
+}
+
+function mostrarLogoutOverlay() {
+  injectLogoutOverlayStyles();
+  let overlay = document.getElementById("logoutOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "logoutOverlay";
+    overlay.className = "logout-overlay";
+    overlay.innerHTML = `<div class="logout-spinner"></div><div class="logout-text">Cerrando sesión…</div>`;
+    document.body.appendChild(overlay);
+  }
+  requestAnimationFrame(() => overlay.classList.add("open"));
+}
 // ══════════════════════════════════════════
 //  LOADER
 // ══════════════════════════════════════════
@@ -555,6 +597,8 @@ function actualizarBotonSalir(user) {
   document.body.appendChild(btn);
 }
 // ── Confirmar cierre de sesión (dominio personalizado) ──
+let _cerrandoSesion = false; // ← agrégala junto a las otras variables globales (_currentUid, _fidelizacionActiva, etc.)
+
 function abrirConfirmarCerrarSesion() {
   injectLoginPromptStyles();
   let modal = document.getElementById("logoutConfirmModal");
@@ -567,7 +611,7 @@ function abrirConfirmarCerrarSesion() {
       <div class="login-prompt-box">
         <div class="login-prompt-glow"></div>
         <button class="login-prompt-close" id="logoutConfirmClose" type="button">✕</button>
-        <h3 class="login-prompt-title">¿Cerrar sesión con Geinz?</h3>
+        <h3 class="login-prompt-title">¿Cerrar sesión?</h3>
         <p class="login-prompt-desc">Vas a salir de tu cuenta en <b id="logoutConfirmBiz"></b>. Podrás volver a entrar cuando quieras.</p>
         <div class="login-prompt-actions">
           <button class="login-prompt-btn-primary" id="logoutConfirmAccept" type="button">Sí, cerrar sesión</button>
@@ -576,32 +620,46 @@ function abrirConfirmarCerrarSesion() {
       </div>`;
     document.body.appendChild(modal);
 
+    // ── AQUÍ van los 4 listeners con el guard de _cerrandoSesion ──
     modal.addEventListener("click", (e) => {
+      if (_cerrandoSesion) return;
       if (e.target === modal) cerrarConfirmarCerrarSesion();
     });
     modal
       .querySelector("#logoutConfirmClose")
-      .addEventListener("click", cerrarConfirmarCerrarSesion);
+      .addEventListener("click", () => {
+        if (_cerrandoSesion) return;
+        cerrarConfirmarCerrarSesion();
+      });
     modal
       .querySelector("#logoutConfirmCancel")
-      .addEventListener("click", cerrarConfirmarCerrarSesion);
+      .addEventListener("click", () => {
+        if (_cerrandoSesion) return;
+        cerrarConfirmarCerrarSesion();
+      });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && modal.classList.contains("open"))
+      if (e.key === "Escape" && modal.classList.contains("open") && !_cerrandoSesion)
         cerrarConfirmarCerrarSesion();
     });
+    // ── fin de los 4 listeners ──
 
     const accept = modal.querySelector("#logoutConfirmAccept");
     accept.addEventListener("click", async () => {
-      accept.disabled = true;
-      accept.textContent = "Cerrando sesión…";
+      if (_cerrandoSesion) return;
+      _cerrandoSesion = true;
+
+      modal.classList.remove("open");
+      document.body.style.overflow = "hidden";
+      mostrarLogoutOverlay();
+
       try {
         await signOut(auth);
-        window.location.reload(); // deja todo limpio: seguir, puntos, reserva, reseña
+        setTimeout(() => window.location.reload(), 450);
       } catch (e) {
         console.error("signOut:", e);
-        accept.disabled = false;
-        accept.textContent = "Sí, cerrar sesión";
-        cerrarConfirmarCerrarSesion();
+        document.getElementById("logoutOverlay")?.classList.remove("open");
+        document.body.style.overflow = "";
+        _cerrandoSesion = false;
         showToast("No se pudo cerrar sesión, intenta de nuevo");
       }
     });
@@ -1354,14 +1412,15 @@ document.getElementById("puntosBadge")?.addEventListener("click", () => {
     showToast(_fidelizacionMensajeInactivo);
     return;
   }
+  if (_esDominioPersonalizado) {
+    window.location.href = `${_baseShareUrl}/fidelizacion`;
+    return;
+  }
   const aliasKey = _params.alias;
   if (aliasKey && _currentUid) {
     window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
   } else {
-    const url = new URL(
-      "../../fidelizacion/fidelizacion_client.html",
-      window.location.href,
-    );
+    const url = new URL("../../fidelizacion/fidelizacion_client.html", window.location.href);
     url.searchParams.set("localidad", _params.localidad);
     url.searchParams.set("id", _params.id);
     if (_currentUid) url.searchParams.set("uid", _currentUid);
@@ -3663,21 +3722,22 @@ async function render(biz, isInitial = true) {
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
-  document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
-    const aliasKey = _params.alias || biz?.alias_key;
-    if (aliasKey && _currentUid) {
-      window.location.href = `https://geinztech.com/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
-    } else {
-      const url = new URL(
-        '../../fidelizacion/fidelizacion_client.html',
-        window.location.href,
-      );
-      url.searchParams.set('localidad', _params.localidad);
-      url.searchParams.set('id', _params.id);
-      if (_currentUid) url.searchParams.set('uid', _currentUid);
-      window.location.href = url.toString();
-    }
-  });
+document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
+  if (_esDominioPersonalizado) {
+    window.location.href = `${_baseShareUrl}/fidelizacion`;
+    return;
+  }
+  const aliasKey = _params.alias || biz?.alias_key;
+  if (aliasKey && _currentUid) {
+    window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+  } else {
+    const url = new URL('../../fidelizacion/fidelizacion_client.html', window.location.href);
+    url.searchParams.set('localidad', _params.localidad);
+    url.searchParams.set('id', _params.id);
+    if (_currentUid) url.searchParams.set('uid', _currentUid);
+    window.location.href = url.toString();
+  }
+});
 }
 
 // ── Reglas por plan y modlo de negocio ──
@@ -5099,7 +5159,7 @@ async function eliminarMiReview() {
     console.log("✅ INIT arrancó");
     const params = await getParams();
     console.log("✅ params:", params);
-
+  _params = params;
     if (params.mesaToken) {
       await resolveMesaYRedirigir(params, params.mesaToken);
       return;

@@ -86,8 +86,16 @@
         "destination": "/fidelizacion/fidelizacion_client.html"
       },
       {
+        "source": "/fidelizacion",
+        "function": "fidelizacionSSR"
+      },
+      {
         "source": "/fidelizacion/**",
         "function": "fidelizacionSSR"
+      },
+      {
+        "source": "/pedido/**",
+        "function": "pedidoSSR"
       },
       {
         "source": "/perfil/*/*",
