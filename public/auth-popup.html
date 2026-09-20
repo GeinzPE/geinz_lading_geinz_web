@@ -67,6 +67,18 @@
       animation: enter .55s cubic-bezier(.2, .7, .2, 1) both;
     }
 
+    /* Cuando la tarjeta muestra el registro completo, se permite crecer y scrollear */
+    .box.is-wide {
+      max-width: 420px;
+      max-height: 92vh;
+      max-height: 92dvh;
+      overflow-y: auto;
+      text-align: left;
+    }
+
+    .box.is-wide::-webkit-scrollbar { width: 6px; }
+    .box.is-wide::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 6px; }
+
     /* línea fina con el color del negocio en el borde superior */
     .box::before {
       content: "";
@@ -74,6 +86,7 @@
       inset: 0 0 auto 0;
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(var(--rgb), .75), transparent);
+      z-index: 1;
     }
 
     /* ───────── Logo + glow detrás ───────── */
@@ -156,6 +169,7 @@
       font-size: 21px;
       font-weight: 800;
       letter-spacing: -.015em;
+      text-align: center;
     }
 
     .desc {
@@ -163,6 +177,7 @@
       font-size: 14px;
       line-height: 1.55;
       color: var(--muted);
+      text-align: center;
     }
 
     .desc b {
@@ -180,7 +195,8 @@
 
     /* ───────── Botones ───────── */
     button,
-    input {
+    input,
+    select {
       font-family: inherit;
     }
 
@@ -204,6 +220,11 @@
     button:focus-visible {
       outline: 2px solid rgba(var(--rgb), .95);
       outline-offset: 3px;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: default;
     }
 
     .btn-google {
@@ -254,6 +275,21 @@
       color: #d4d4d8;
     }
 
+    .btn-link-inline {
+      display: inline;
+      width: auto;
+      height: auto;
+      padding: 0;
+      margin-left: 4px;
+      background: none;
+      border: 0;
+      color: rgb(var(--rgb));
+      font-size: inherit;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
     .sep {
       display: flex;
       align-items: center;
@@ -271,8 +307,9 @@
       background: var(--line);
     }
 
-    /* ───────── Inputs ───────── */
-    input {
+    /* ───────── Inputs / Selects ───────── */
+    input,
+    select {
       width: 100%;
       height: 50px;
       padding: 0 16px;
@@ -282,13 +319,34 @@
       border: 1px solid rgba(255, 255, 255, .09);
       border-radius: 14px;
       transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b8b94' stroke-width='2.4'%3e%3cpath d='m6 9 6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+
+    select:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    select option {
+      background: #111113;
+      color: #fff;
     }
 
     input::placeholder {
       color: #5f5f68;
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       outline: none;
       background: rgba(255, 255, 255, .045);
       border-color: rgba(var(--rgb), .7);
@@ -306,7 +364,119 @@
       transition: background-color 9999s ease-in-out 0s;
     }
 
-    /* ───────── Error ───────── */
+    /* ───────── Grupos de campo ───────── */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #b6b6bd;
+      padding-left: 2px;
+    }
+
+    .field-error {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #ff9a9a;
+    }
+
+    .field-error:empty {
+      display: none;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .phone-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .phone-prefix {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      height: 50px;
+      padding: 0 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, .09);
+      background: rgba(255, 255, 255, .03);
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #d4d4d8;
+      white-space: nowrap;
+    }
+
+    .phone-row input {
+      flex: 1;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 4px 2px;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      margin-top: 2px;
+      accent-color: rgb(var(--rgb));
+    }
+
+    .checkbox-row label {
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    /* Chip del correo confirmado en el login de 2 pasos */
+    .chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(var(--rgb), .1);
+      border: 1px solid rgba(var(--rgb), .3);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #e8e8ea;
+    }
+
+    .chip button {
+      width: auto;
+      height: auto;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, .07);
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .section-title {
+      margin: 6px 0 -2px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      color: #6b6b74;
+    }
+
+    /* ───────── Error general ───────── */
     .error {
       margin: 14px 0 0;
       padding: 10px 12px;
@@ -317,6 +487,7 @@
       border: 1px solid rgba(255, 90, 90, .18);
       border-radius: 12px;
       animation: fade .25s ease both;
+      text-align: left;
     }
 
     .error:empty {
@@ -330,6 +501,7 @@
       color: #6b6b74;
       text-decoration: none;
       transition: color .2s ease;
+      text-align: center;
     }
 
     .back:hover {
@@ -441,7 +613,7 @@
 </head>
 
 <body>
-  <main class="box">
+  <main class="box" id="box">
     <div class="hero" id="logoWrap">
       <span class="glow" aria-hidden="true"></span>
       <div class="avatar is-loading" id="avatar"></div>
@@ -470,20 +642,148 @@
       <button id="btnGoRegister" class="btn-secondary" type="button">Crear cuenta</button>
     </div>
 
-    <!-- Vista: iniciar sesión con correo -->
+    <!-- Vista: iniciar sesión con correo (2 pasos, igual a login.js) -->
     <form id="viewLogin" hidden>
-      <input id="loginEmail" type="email" placeholder="Correo" autocomplete="email" required />
-      <input id="loginPass" type="password" placeholder="Contraseña" autocomplete="current-password" required />
-      <button id="btnLoginSubmit" class="btn-primary" type="submit">Entrar</button>
+
+      <!-- Paso 1: correo -->
+      <div id="loginStepEmail">
+        <div class="field-group">
+          <label class="field-label" for="loginEmail">Correo electrónico</label>
+          <input id="loginEmail" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email" />
+        </div>
+        <p class="field-error" id="loginEmailError"></p>
+        <button id="btnCheckEmail" class="btn-primary" type="button">Continuar</button>
+      </div>
+
+      <!-- Paso 2: contraseña -->
+      <div id="loginStepPassword" hidden>
+        <div class="chip" id="loginEmailChip">
+          <span id="loginEmailChipText"></span>
+          <button type="button" id="btnChangeEmail">Cambiar</button>
+        </div>
+        <div class="field-group" style="margin-top:14px;">
+          <label class="field-label" for="loginPass">Contraseña</label>
+          <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <p class="field-error" id="loginPassError"></p>
+        <button id="btnLoginSubmit" class="btn-primary" type="submit">Entrar</button>
+      </div>
+
       <button class="btn-link" type="button" data-back>← Volver</button>
     </form>
 
-    <!-- Vista: crear cuenta -->
+    <!-- Vista: crear cuenta (mismos campos y misma base que login.js) -->
     <form id="viewRegister" hidden>
-      <input id="regName" type="text" placeholder="Tu nombre" autocomplete="name" required />
-      <input id="regEmail" type="email" placeholder="Correo" autocomplete="email" required />
-      <input id="regPass" type="password" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password"
-        required minlength="6" />
+
+      <div class="row-2">
+        <div class="field-group">
+          <label class="field-label" for="regNombre">Nombre</label>
+          <input id="regNombre" type="text" placeholder="Nombre" autocomplete="given-name" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="regApellido">Apellido</label>
+          <input id="regApellido" type="text" placeholder="Apellido" autocomplete="family-name" />
+        </div>
+      </div>
+      <p class="field-error" id="errRegNombre"></p>
+
+      <div class="field-group">
+        <label class="field-label" for="regUsername">Nombre de usuario</label>
+        <input id="regUsername" type="text" placeholder="mi_usuario" autocomplete="username" />
+      </div>
+      <p class="field-error" id="errRegUsername"></p>
+
+      <div class="field-group">
+        <label class="field-label">País (teléfono)</label>
+        <select id="regPaisTel">
+          <option value="" disabled selected hidden>Seleccionar país</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="regTelefono">Número de teléfono</label>
+        <div class="phone-row">
+          <div class="phone-prefix" id="regPrefixBox">
+            <span id="regPrefixFlag">🇵🇪</span>
+            <span id="regPrefixCode">+51</span>
+          </div>
+          <input id="regTelefono" type="tel" placeholder="987 654 321" autocomplete="tel-national" maxlength="12" />
+        </div>
+      </div>
+      <p class="field-error" id="errRegTelefono"></p>
+
+      <div class="field-group">
+        <label class="field-label" for="regGenero">Género</label>
+        <select id="regGenero">
+          <option value="" disabled selected hidden>Seleccionar</option>
+          <option value="Masculino">Masculino</option>
+          <option value="Femenino">Femenino</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <p class="field-error" id="errRegGenero"></p>
+
+      <p class="section-title">Ubicación</p>
+      <div class="field-group">
+        <label class="field-label">Departamento</label>
+        <select id="regDepartamento">
+          <option value="" disabled selected hidden>Selecciona</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Provincia</label>
+        <select id="regProvincia" disabled>
+          <option value="" disabled selected hidden>Elige depto.</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Distrito</label>
+        <select id="regDistrito" disabled>
+          <option value="" disabled selected hidden>Elige provincia</option>
+        </select>
+      </div>
+      <p class="field-error" id="errRegUbicacion"></p>
+
+      <div class="field-group">
+        <label class="field-label" for="regFechaNac">Fecha de nacimiento</label>
+        <input id="regFechaNac" type="date" autocomplete="bday" />
+      </div>
+      <p class="field-error" id="errRegFecha"></p>
+
+      <div class="field-group">
+        <label class="field-label">Nacionalidad</label>
+        <select id="regNacionalidad">
+          <option value="" disabled selected hidden>Seleccionar país</option>
+        </select>
+        <input type="hidden" id="regCodPais" />
+        <input type="hidden" id="regNombrePais" />
+      </div>
+      <p class="field-error" id="errRegNacionalidad"></p>
+
+      <div class="field-group">
+        <label class="field-label" for="regEmail">Correo electrónico</label>
+        <input id="regEmail" type="email" placeholder="tucorreo@gmail.com" autocomplete="email" />
+      </div>
+      <p class="field-error" id="errRegEmail"></p>
+
+      <div class="row-2">
+        <div class="field-group">
+          <label class="field-label" for="regPass">Contraseña</label>
+          <input id="regPass" type="password" placeholder="Mín. 8 caracteres" autocomplete="new-password" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="regPass2">Confirmar</label>
+          <input id="regPass2" type="password" placeholder="Repite" autocomplete="new-password" />
+        </div>
+      </div>
+      <p class="field-error" id="errRegPass"></p>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="regTerms" />
+        <label for="regTerms">Acepto los términos de servicio y la política de privacidad.</label>
+      </div>
+      <p class="field-error" id="errRegTerms"></p>
+
       <button id="btnRegSubmit" class="btn-primary" type="submit">Crear cuenta</button>
       <button class="btn-link" type="button" data-back>← Volver</button>
     </form>

@@ -21,11 +21,11 @@ import {
   clienteCuponDoc,
   tiendaCuponDoc,
 } from "../rutas/rutas.js";
-
 import {
   getAuth,
   onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  signInWithCustomToken,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"; 
 const db = getFirestore();
 /* ══════════════ Config de enlaces ══════════════
        DASHBOARD_BASE_URL: a donde apunta el link que se manda por WhatsApp.
@@ -39,7 +39,7 @@ function getLandingBase() {
     return `https://${window.__NEGOCIO_HOSTNAME__}`;
   }
   return LANDING_BASE_URL;
-}
+}const AUTH_ORIGIN = "https://geinztech.com";
 async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
   const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const nuevoPedidoRef = doc(pedidosRef);
@@ -1407,6 +1407,16 @@ function bindLoginPromptEvents() {
     .getElementById("loginPromptModal")
     ?.addEventListener("click", (e) => {
       if (e.target.id === "loginPromptModal") closeLoginPromptModal();
+    });
+      document
+    .getElementById("loginPromptLoginBtn")
+    ?.addEventListener("click", (e) => {
+      guardarCarritoParaLogin(); // en cualquier dominio, para no perder el carrito
+      // Solo si el dominio es personalizado y está registrado → login por auth-popup.
+      // Si no (geinztech.com), se deja el link normal a login.html.
+      if (!window.__NEGOCIO_HOSTNAME_DETECTADO__) return;
+      e.preventDefault();
+      abrirLoginPopup();
     });
 }
 bindLoginPromptEvents();
@@ -3291,8 +3301,107 @@ document.addEventListener(
   },
   true,
 );
+/* ══════════════ Login en dominio personalizado ══════════════
+   Mismo flujo que el perfil: se va a auth-popup.html y vuelve con #wl_token.
+   El carrito está solo en memoria, así que se guarda en sessionStorage antes
+   de salir y se restaura al volver. */
+
+const CART_LOGIN_KEY = () => `geinz_cart_${tiendaId}`;
+
+function guardarCarritoParaLogin() {
+  try {
+    const items = [...carrito.values()]
+      .filter((it) => !it.esCanje) // los canjes ya requieren sesión, no aplican aquí
+      .map((it) => ({
+        id: it.id,
+        cantidad: it.cantidad,
+        seleccion: it.seleccion || null,
+      }));
+    sessionStorage.setItem(
+      CART_LOGIN_KEY(),
+      JSON.stringify({
+        items,
+        cupon: cuponAplicado?.codigo || null,
+        ts: Date.now(),
+      }),
+    );
+  } catch (e) {
+    console.warn("No se pudo guardar el carrito antes del login:", e.message);
+  }
+}
+
+// Reconstruye el carrito desde el catálogo ACTUAL (precio y stock frescos)
+async function restaurarCarritoTrasLogin() {
+  let data = null;
+  try {
+    const raw = sessionStorage.getItem(CART_LOGIN_KEY());
+    if (!raw) return false;
+    sessionStorage.removeItem(CART_LOGIN_KEY());
+    data = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  if (!data || Date.now() - data.ts > 30 * 60 * 1000) return false; // caduca a los 30 min
+
+  let restauroAlgo = false;
+  (data.items || []).forEach(({ id, cantidad, seleccion }) => {
+    const p = productosPorId.get(id);
+    if (!p || !cantidad) return;
+    const key = cartKeyFor(id, seleccion);
+    let cant = cantidad;
+    const { stock } = getStockInfo(p, seleccion);
+    if (stock !== null) cant = Math.min(cant, stock);
+    if (cant <= 0) return;
+    carrito.set(key, {
+      ...p,
+      precio: calcPrecioFinal(p, seleccion),
+      cantidad: cant,
+      cartKey: key,
+      seleccion: seleccion || null,
+    });
+    restauroAlgo = true;
+  });
+
+  if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon);
+  return restauroAlgo;
+}
+
+function abrirLoginPopup() {
+  guardarCarritoParaLogin();
+
+  const root = document.documentElement.style;
+  const r = root.getPropertyValue("--dr").trim();
+  const g = root.getPropertyValue("--dg").trim();
+  const b = root.getPropertyValue("--db").trim();
+  const rgb = r && g && b ? `${r},${g},${b}` : "139,92,246";
+
+  const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
+  u.searchParams.set("o", window.location.origin);
+  u.searchParams.set("r", window.location.href.split("#")[0]); // conserva ?mesa= y ?cupon=
+  u.searchParams.set("n", bizNombre || "");
+  if (_bizLogoUrl) u.searchParams.set("l", _bizLogoUrl);
+  u.searchParams.set("c", rgb);
+  window.location.href = u.toString();
+}
+
+// Al volver del login la URL trae #wl_token=...
+// Devuelve una promesa que init() espera, para que la sesión ya esté abierta
+// cuando se cargue el usuario.
+const _loginPorTokenPromise = (async () => {
+  const p = new URLSearchParams(window.location.hash.slice(1));
+  const t = p.get("wl_token");
+  if (!t) return;
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  try {
+    await signInWithCustomToken(getAuth(), t);
+  } catch (err) {
+    console.error("signInWithCustomToken:", err);
+    showToast("No se pudo iniciar sesión, intenta de nuevo");
+  }
+})();
 async function init() {
   await resolverParamsCarrito();
+    await _loginPorTokenPromise;
   setBusinessFaviconById({ localidad, id: tiendaId });
   paintToggleDefaults();
   bindCartEditDelegation(document.getElementById("drawerItems"));
@@ -3387,7 +3496,7 @@ async function init() {
     hidePageLoader();
     return;
   }
-
+  const carritoRestaurado = await restaurarCarritoTrasLogin(); 
   renderFiltros(productos);
   buildAllCards(productos);
   renderLista(productos);
@@ -3397,5 +3506,9 @@ async function init() {
   // Arranca el chequeo periódico en tiempo real (cada 30s) para detectar
   // apertura/cierre mientras el cliente sigue en la página.
   iniciarValidacionHorarioEnVivo();
+  if (carritoRestaurado && usuarioLogeado) {
+    showToast("Sesión iniciada, continúa con tu pedido 🛒");
+    if (!mesaId) openCheckout(); // en modo mesa no se envía solo, que toque "Llamar al mozo"
+  }
 }
 init();

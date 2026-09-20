@@ -12,7 +12,10 @@ import {
   limit,
   where,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  onAuthStateChanged,
+  signInWithCustomToken,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   tiendaDoc,
   clienteDoc,
@@ -25,7 +28,10 @@ import { setFaviconCircular } from "../favicon/favicon.js";
 
 const LANDING_BASE_URL = "https://geinztech.com";
 const LOCALIDAD_FIJA = "barranca";
-
+const AUTH_ORIGIN = "https://geinztech.com";
+const ES_DOMINIO_PROPIO =
+  location.hostname !== "geinztech.com" &&
+  location.hostname !== "www.geinztech.com";
 const USUARIOS_ROOT = "Trabajadores_Usuarios_Drivers/users/users";
 const LOGO_FALLBACK_URL =
   "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
@@ -232,6 +238,34 @@ let LOCALIDAD = LOCALIDAD_FIJA;
 let NEGOCIO_ID = null;
 let ALIAS_NEGOCIO = null;
 let UID_ACTUAL = null;
+// ── Login en dominio personalizado ──
+let _esperandoToken = new URLSearchParams(window.location.hash.slice(1)).has("wl_token");
+
+function abrirLoginPopup(nombre, logoUrl, rgb) {
+  const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
+  u.searchParams.set("o", window.location.origin);
+  u.searchParams.set("r", window.location.href.split("#")[0]);
+  u.searchParams.set("n", nombre || "");
+  if (logoUrl) u.searchParams.set("l", logoUrl);
+  u.searchParams.set("c", rgb);
+  window.location.href = u.toString();
+}
+
+// Al volver del login: la URL trae #wl_token=...
+(async () => {
+  const p = new URLSearchParams(window.location.hash.slice(1));
+  const t = p.get("wl_token");
+  if (!t) return;
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  try {
+    await signInWithCustomToken(auth, t);
+    // onAuthStateChanged (en el INIT) se dispara solo y carga la tarjeta
+  } catch (err) {
+    console.error("signInWithCustomToken:", err);
+    _esperandoToken = false;
+    if (NEGOCIO_ID) showLoginGate();
+  }
+})();
 
 async function cargarProductos(negocioId) {
   try {
@@ -322,21 +356,49 @@ function showError(msg) {
 
 /* ── Gate: no logeado. Oculta la tarjeta (sin destruirla) y muestra
    el aviso dentro del contenedor de skeleton. ── */
-function showLoginGate() {
+async function showLoginGate() {
   const skel = document.getElementById("fullSkeleton");
-  if (skel) {
-    skel.innerHTML = `
-      <div class="w-full max-w-sm mx-auto text-center px-4">
-        <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
-          <div class="logo-avatar mb-5"><div class="logo-avatar-inner">
-            <div class="w-full h-full skeleton"></div>
-          </div></div>
-          <p class="font-display font-semibold text-white text-base mb-2">Inicia sesión para ver tu tarjeta</p>
-          <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Necesitas tu cuenta de Geinz para ver tus puntos y canjear recompensas.</p>
-          <a href="../logindata/login.html?redirect=${encodeURIComponent(window.location.href)}"
-             class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</a>
-        </div>
-      </div>`;
+  if (!skel) return;
+
+  let nombre = "";
+  let logo = "";
+  if (ES_DOMINIO_PROPIO) {
+    try {
+      const snap = await getDoc(tiendaDoc(LOCALIDAD, "tiendas", NEGOCIO_ID));
+      const t = snap.exists() ? snap.data() : {};
+      nombre = t.nombre_tienda || t.nombre || "";
+      logo = t.img_tienda?.logo_tienda || t.logoURL || t.logo || t.urlLogo || "";
+    } catch (e) {
+      console.warn("No se pudo cargar el negocio para el login:", e.message);
+    }
+  }
+
+  const c = colorFromName(nombre || "Fidelidad");
+  const rgb = `${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)}`;
+
+  const avatar = logo
+    ? `<img src="${logo}" alt="Logo" class="w-full h-full object-cover">`
+    : `<div class="w-full h-full skeleton"></div>`;
+
+  const accion = ES_DOMINIO_PROPIO
+    ? `<button id="btnLoginWl" type="button" class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</button>`
+    : `<a href="../logindata/login.html?redirect=${encodeURIComponent(window.location.href)}"
+         class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</a>`;
+
+  skel.innerHTML = `
+    <div class="w-full max-w-sm mx-auto text-center px-4">
+      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
+        <div class="logo-avatar mb-5"><div class="logo-avatar-inner">${avatar}</div></div>
+        <p class="font-display font-semibold text-white text-base mb-2">Inicia sesión para ver tu tarjeta</p>
+        <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Necesitas tu cuenta de Geinz para ver tus puntos y canjear recompensas.</p>
+        ${accion}
+      </div>
+    </div>`;
+
+  if (ES_DOMINIO_PROPIO) {
+    document
+      .getElementById("btnLoginWl")
+      .addEventListener("click", () => abrirLoginPopup(nombre, logo, rgb));
   }
 }
 
@@ -799,16 +861,16 @@ async function canjearRecompensa(producto, uid, puntosActuales) {
   const productoRealRef =
     esProducto && producto.productoId && producto.categoria
       ? doc(
-          tiendaSubCol(
-            LOCALIDAD,
-            "tiendas",
-            NEGOCIO_ID,
-            "productos",
-            producto.categoria,
-            producto.categoria,
-          ),
-          producto.productoId,
-        )
+        tiendaSubCol(
+          LOCALIDAD,
+          "tiendas",
+          NEGOCIO_ID,
+          "productos",
+          producto.categoria,
+          producto.categoria,
+        ),
+        producto.productoId,
+      )
       : null;
 
   try {
@@ -926,7 +988,7 @@ async function onCanjearClick(btn, producto, puntosActuales) {
   if (!horarioEstado.abierto) {
     showError(
       horarioEstado.mensaje ||
-        "El negocio está cerrado ahora, no se puede canjear.",
+      "El negocio está cerrado ahora, no se puede canjear.",
     );
     return;
   }
@@ -948,15 +1010,15 @@ async function onCanjearClick(btn, producto, puntosActuales) {
     return;
   }
 
-const ES_DOMINIO_PROPIO =
-  location.hostname !== "geinztech.com" &&
-  location.hostname !== "www.geinztech.com";
+  const ES_DOMINIO_PROPIO =
+    location.hostname !== "geinztech.com" &&
+    location.hostname !== "www.geinztech.com";
 
-const destino = ES_DOMINIO_PROPIO
-  ? `/carrito?cupon=${encodeURIComponent(codigo)}`
-  : ALIAS_NEGOCIO
-    ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito?cupon=${encodeURIComponent(codigo)}`
-    : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${encodeURIComponent(codigo)}`;
+  const destino = ES_DOMINIO_PROPIO
+    ? `/carrito?cupon=${encodeURIComponent(codigo)}`
+    : ALIAS_NEGOCIO
+      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito?cupon=${encodeURIComponent(codigo)}`
+      : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${encodeURIComponent(codigo)}`;
   btn.textContent = "¡Canjeado! Yendo al carrito…";
   setTimeout(() => {
     window.location.href = destino;
@@ -993,13 +1055,12 @@ function renderRecompensas(productos, puntosCliente) {
       el.innerHTML = `
         <div class="min-w-0">
           <div class="reward-icon overflow-hidden mb-2.5">
-            ${
-              p.imagenUrl
-                ? `<img src="${p.imagenUrl}" alt="${p.nombre || ""}" class="w-full h-full object-cover rounded-xl"
+            ${p.imagenUrl
+          ? `<img src="${p.imagenUrl}" alt="${p.nombre || ""}" class="w-full h-full object-cover rounded-xl"
                      loading="eager" decoding="async"
                      onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'text-base sm:text-lg',textContent:'🎁'}))">`
-                : `<span class="text-base sm:text-lg">🎁</span>`
-            }
+          : `<span class="text-base sm:text-lg">🎁</span>`
+        }
           </div>
           <p class="font-display text-[12.5px] sm:text-xs font-semibold leading-tight text-white break-words">${p.nombre || "Producto"}</p>
           ${beneficioTxt ? `<p class="font-mono-card text-[10px] sm:text-[10.5px] text-white/45 mt-1 leading-snug">${beneficioTxt}</p>` : ""}
@@ -1572,9 +1633,11 @@ async function cargarDatos(uid) {
 
   onAuthStateChanged(auth, (user) => {
     if (!user) {
+      if (_esperandoToken) return; // se está iniciando sesión con el token, no mostrar el gate
       showLoginGate();
       return;
     }
+    _esperandoToken = false;
     UID_ACTUAL = user.uid;
     cargarDatos(user.uid);
   });
