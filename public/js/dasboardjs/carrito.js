@@ -3702,14 +3702,11 @@ promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas]; // ← MODIFI
   updateCartUI();
   hidePageLoader();
   iniciarValidacionHorarioEnVivo();
-<<<<<<< HEAD
 
   if (promoParam) aplicarPromoDesdeLink(promoParam);
-=======
   if (carritoRestaurado && usuarioLogeado) {
     showToast("Sesión iniciada, continúa con tu pedido 🛒");
     if (!mesaId) openCheckout(); // en modo mesa no se envía solo, que toque "Llamar al mozo"
   }
->>>>>>> origin/main
 }
 init();
