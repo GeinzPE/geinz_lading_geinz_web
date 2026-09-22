@@ -550,25 +550,39 @@ body {
 -------------------------------------------------- */
 #toast {
     position: fixed;
-    bottom: 1.5rem;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%) translateY(120px);
+    max-width: calc(100vw - 32px);
+    width: max-content;
     background: linear-gradient(135deg,
             rgb(var(--dr), var(--dg), var(--db)),
             rgba(var(--dr), var(--dg), var(--db), 0.8));
     color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 2rem;
+    padding: 0.85rem 1.4rem;
+    border-radius: 1.5rem;
     font-weight: 600;
     font-size: 0.875rem;
+    line-height: 1.4;
+    text-align: center;
+    white-space: normal;
+    /* ← antes decía nowrap, eso era el bug */
     z-index: 9999;
     transition: transform 0.3s ease;
-    white-space: nowrap;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
 #toast.show {
     transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 480px) {
+    #toast {
+        max-width: calc(100vw - 24px);
+        font-size: 12.5px;
+        padding: 0.75rem 1.1rem;
+        border-radius: 1.25rem;
+    }
 }
 
 /* ----------------------------------------------
@@ -1995,3 +2009,146 @@ main > section:has(#secAddr) {
 .promo-active-actions .promo-btn-buy,
 .promo-active-actions .promo-btn-wa,
 .promo-active-actions .promo-btn-share { flex: 1; min-width: 90px; }
+
+/* ----------------------------------------------
+   19. MODALES RESPONSIVE (reserva, login, etc.)
+-------------------------------------------------- */
+
+/* Base: todos los modales tipo popup se adaptan mejor en móvil */
+.mesa-reserva-box,
+.mesa-reserva-ver-box,
+.login-prompt-box,
+.reviews-gallery-modal-box {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+
+    /* Los popups ocupan casi todo el ancho, con márgenes cómodos */
+    .mesa-reserva-modal,
+    .mesa-reserva-ver-modal,
+    .login-prompt-modal {
+        padding: 14px !important;
+        align-items: flex-end !important;
+        /* sube desde abajo, como bottom-sheet */
+    }
+
+    .mesa-reserva-box,
+    .mesa-reserva-ver-box,
+    .login-prompt-box {
+        max-width: 100% !important;
+        width: 100%;
+        border-radius: 24px 24px 20px 20px !important;
+        padding: 22px 18px 20px !important;
+    }
+
+    /* Textos: permite que ocupen 2 líneas sin que se vea "cortado" */
+    .mesa-reserva-box h3,
+    .login-prompt-title {
+        font-size: 17px !important;
+        line-height: 1.35 !important;
+        white-space: normal !important;
+    }
+
+    .mesa-reserva-sub,
+    .login-prompt-desc {
+        font-size: 13px !important;
+        line-height: 1.55 !important;
+        white-space: normal !important;
+    }
+
+    /* Hora grande del modal "Mi reserva": se ajusta si el texto es más largo (12h con AM/PM) */
+    .mrv-hora-big {
+        font-size: 30px !important;
+        word-break: keep-all;
+        white-space: nowrap;
+    }
+
+    /* Filas tipo "Reservado a nombre de / Kevin": si el valor es largo, que baje de línea en vez de recortarse */
+    .mrv-row {
+        flex-wrap: wrap;
+        gap: 4px 10px;
+    }
+
+    .mrv-row .mrv-val {
+        text-align: right;
+        word-break: break-word;
+    }
+
+    /* Chips de hora: que se acomoden bien sin overflow raro */
+    .mesa-reserva-hora-chips {
+        max-height: 140px;
+    }
+
+    .mesa-reserva-hora-chip {
+        padding: 8px 12px;
+        font-size: 12.5px;
+    }
+
+    /* Botones de acción: apilados si el texto no entra en una fila */
+    .login-prompt-actions {
+        gap: 8px !important;
+    }
+
+    .login-prompt-btn-primary,
+    .login-prompt-btn-secondary,
+    .mesa-reserva-submit {
+        font-size: 13.5px !important;
+        padding: 12px !important;
+        white-space: normal !important;
+        line-height: 1.3 !important;
+    }
+}
+
+/* Tablets/medianos: un poco más de aire, pero mismo criterio */
+@media (min-width: 481px) and (max-width: 767px) {
+
+    .mesa-reserva-box,
+    .mesa-reserva-ver-box,
+    .login-prompt-box {
+        max-width: 400px !important;
+    }
+}
+
+/* ── Catálogo: mismo tamaño y estilo que las cards de productos/ambientes ── */
+#secCatalogo h2 {
+    font-size: clamp(2rem, 5vw, 3.5rem) !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+}
+
+#secCatalogo > div:first-child {
+    margin-bottom: 3rem !important;
+}
+
+#catalogoList {
+    padding: .5rem 1rem 1.5rem;
+    gap: 1.25rem;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+
+.catalogo-row {
+    flex: 0 0 240px;
+    width: 240px;
+    height: 300px;
+    aspect-ratio: auto;
+    border-radius: 30px;
+}
+
+@media (min-width: 1024px) {
+    #catalogoList {
+        gap: 1.75rem;
+        -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+        mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+    }
+
+    .catalogo-row {
+        flex: 0 0 340px;
+        width: 340px;
+        height: 340px;
+        border-radius: 1.5rem;
+    }
+}

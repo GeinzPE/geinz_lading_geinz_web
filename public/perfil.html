@@ -601,13 +601,16 @@
             </div>
         </section>
 
-        <section id="secCatalogo" class="section glass mb-10 reveal" style="display:none;">
-            <div class="section-header">Catálogo de productos</div>
-            <div class="section-body">
-                <div id="catalogoList"></div>
-                <div id="catalogoBtnWrap" class="mb-5"></div>
-            </div>
-        </section>
+   <section id="secCatalogo" class="mb-20 reveal" style="display:none;">
+    <div class="mb-8">
+        <p class="uppercase tracking-[5px] accent text-sm mb-3">CATÁLOGO</p>
+        <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Catálogo de productos</h2>
+    </div>
+    <div class="gallery-carousel-wrap" id="catalogoCarouselWrap">
+        <div id="catalogoList"></div>
+    </div>
+    <div id="catalogoBtnWrap"></div>
+</section>
         <section id="secProductos" class="mb-20 reveal">
             <div class="mb-8">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PRODUCTOS Y SERVICIOS</p>
@@ -653,8 +656,9 @@
             </div>
             <div id="mesasGrid" class="mesas-grid"></div>
             <div id="mesasMultiWrap" class="mesas-multi-wrap">
-                <input id="mesasMultiInput" type="text" placeholder="Ej: 4,3,2,1" />
-                <button id="mesasMultiBtn" class="mesas-multi-btn">Reservar varias mesas</button>
+                <input id="mesasMultiInput" type="text" inputmode="numeric" pattern="[0-9,\s]*"
+                    placeholder="Ej: 4,3,2,1" /> <button id="mesasMultiBtn" class="mesas-multi-btn">Reservar varias
+                    mesas</button>
             </div>
         </section>
 
@@ -906,8 +910,8 @@
                 <div class="mesa-reserva-nombre-loader-fill"></div>
             </div>
             <input id="mesaReservaPersonas" type="number" min="1" placeholder="Número de personas" />
-            <label id="mesaReservaHoraLabel" class="mesa-reserva-hora-label">Hora de la reserva (hoy)</label>
-            <input id="mesaReservaHora" type="time" />
+            <label class="mesa-reserva-hora-label">Hora de llegada (hoy)</label>
+            <div class="mesa-reserva-hora-chips" id="mesaReservaHoraChips"></div>
             <p id="mesaReservaError" class="mesa-reserva-error"></p>
             <button id="mesaReservaSubmit" class="mesa-reserva-submit">Reservar</button>
         </div>

@@ -29,7 +29,7 @@ function escapeHtml(str) {
     }
   });
 }
-
+let _reservasActivas = false;
 let _reservaFloatData = null;
 let _reservaFloatUnsub = null;
 
@@ -319,6 +319,14 @@ function mostrarLogoutOverlay() {
   }
   requestAnimationFrame(() => overlay.classList.add("open"));
 }
+function formato12h(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const periodo = h >= 12 ? "PM" : "AM";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${periodo}`;
+}
+
 // ══════════════════════════════════════════
 //  LOADER
 // ══════════════════════════════════════════
@@ -561,40 +569,112 @@ function abrirLoginPopup() {
   window.location.href = u.toString();
 }
 // Botón "Cerrar sesión": solo dominio personalizado + usuario logueado
-function actualizarBotonSalir(user) {
-  let btn = document.getElementById("wlLogoutBtn");
+const WL_USER_HEADER_CSS = `
+.wl-user-header{
+  position:relative; z-index:9400;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  --wl-px:1rem;
+  padding:10px max(var(--wl-px), calc((100% - 1600px) / 2 + var(--wl-px)));
+  background:rgba(255,255,255,.04);
+  -webkit-backdrop-filter:blur(18px) saturate(140%);
+  backdrop-filter:blur(18px) saturate(140%);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  animation:wl-header-in .4s ease both;
+}
+  @media (min-width:768px){ .wl-user-header{ --wl-px:2rem; } }
+@media (min-width:1024px){ .wl-user-header{ --wl-px:2.5rem; } }
+@keyframes wl-header-in{ from{opacity:0;transform:translateY(-100%);} to{opacity:1;transform:translateY(0);} }
+.wl-user-left{ display:flex; align-items:center; gap:11px; min-width:0; }
+.wl-user-avatar{
+  width:38px; height:38px; border-radius:50%; flex-shrink:0; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:14px; color:#fff;
+  background:linear-gradient(135deg,rgba(var(--dr),var(--dg),var(--db),.9),rgba(var(--dr),var(--dg),var(--db),.4));
+  border:1.5px solid rgba(var(--dr),var(--dg),var(--db),.55);
+}
+.wl-user-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+.wl-user-text{ min-width:0; line-height:1.25; }
+.wl-user-hello{ font-size:14px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wl-user-sub{ font-size:11.5px; color:var(--muted,#9c9ca3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wl-logout-btn{
+  flex-shrink:0; padding:8px 16px; border-radius:999px; cursor:pointer;
+  font-size:12.5px; font-weight:700; color:#fff;
+  background:rgba(255,255,255,.06);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.18);
+  transition:background .2s ease, transform .15s ease;
+}
+.wl-logout-btn:hover{ background:rgba(var(--dr),var(--dg),var(--db),.25); transform:translateY(-1px); }
+@media (max-width:480px){
+  .wl-user-sub{ display:none; }
+  .wl-logout-btn{ padding:7px 12px; font-size:12px; }
+}
+`;
+function injectUserHeaderStyles() {
+  if (document.getElementById("wlUserHeaderStyle")) return;
+  const st = document.createElement("style");
+  st.id = "wlUserHeaderStyle";
+  st.textContent = WL_USER_HEADER_CSS;
+  document.head.appendChild(st);
+}
+
+async function actualizarHeaderUsuario(user) {
+  let header = document.getElementById("wlUserHeader");
 
   if (!_esDominioPersonalizado || !user) {
-    btn?.remove();
+    header?.remove();
     return;
   }
-  if (btn) return;
+  if (header) return;
 
-  if (!document.getElementById("wlLogoutStyle")) {
-    const st = document.createElement("style");
-    st.id = "wlLogoutStyle";
-    st.textContent = `
-      .wl-logout-btn{
-        position:fixed; top:14px; right:14px; z-index:9400;
-        padding:9px 16px; border-radius:999px; cursor:pointer;
-        font-size:12.5px; font-weight:700; color:#fff;
-        background:rgba(11,11,13,.8); backdrop-filter:blur(8px);
-        border:1px solid rgba(var(--dr),var(--dg),var(--db),.45);
-        transition:background .2s ease, transform .15s ease;
-      }
-      .wl-logout-btn:hover{ background:rgba(var(--dr),var(--dg),var(--db),.25); transform:translateY(-1px); }
-      .wl-logout-btn:disabled{ opacity:.6; cursor:default; }
-    `;
-    document.head.appendChild(st);
+  injectUserHeaderStyles();
+
+  header = document.createElement("header");
+  header.id = "wlUserHeader";
+  header.className = "wl-user-header";
+  header.innerHTML = `
+    <div class="wl-user-left">
+      <div class="wl-user-avatar" id="wlUserAvatar"></div>
+      <div class="wl-user-text">
+        <div class="wl-user-hello" id="wlUserHello">Bienvenido 👋</div>
+        <div class="wl-user-sub" id="wlUserSub"></div>
+      </div>
+    </div>
+    <button class="wl-logout-btn" id="wlLogoutBtn" type="button">Cerrar sesión</button>
+  `;
+
+  const main = document.getElementById("mainContent");
+  if (main) main.before(header);
+  else document.body.prepend(header);
+
+  header
+    .querySelector("#wlLogoutBtn")
+    .addEventListener("click", abrirConfirmarCerrarSesion);
+
+  document.getElementById("wlUserSub").textContent =
+    `Bienvenido a ${_bizNombre || "este negocio"}`;
+
+  const perfil = await getUserProfile(user.uid);
+
+  if (!document.getElementById("wlUserHeader") || auth.currentUser?.uid !== user.uid) return;
+
+  const primerNombre = capitalizarPrimeraLetra((perfil.nombre || "").split(" ")[0]);
+  document.getElementById("wlUserHello").textContent = primerNombre
+    ? `Hola, ${primerNombre} 👋`
+    : "Bienvenido 👋";
+
+  const avatar = document.getElementById("wlUserAvatar");
+  const inicial = (primerNombre || "?").charAt(0).toUpperCase();
+  if (perfil.foto) {
+    const img = document.createElement("img");
+    img.alt = primerNombre || "Usuario";
+    img.onerror = () => { avatar.textContent = inicial; };
+    img.src = perfil.foto;
+    avatar.appendChild(img);
+  } else {
+    avatar.textContent = inicial;
   }
-
-  btn = document.createElement("button");
-  btn.id = "wlLogoutBtn";
-  btn.className = "wl-logout-btn";
-  btn.type = "button";
-  btn.textContent = "Cerrar sesión";
-  btn.addEventListener("click", abrirConfirmarCerrarSesion);
-  document.body.appendChild(btn);
 }
 // ── Confirmar cierre de sesión (dominio personalizado) ──
 let _cerrandoSesion = false; // ← agrégala junto a las otras variables globales (_currentUid, _fidelizacionActiva, etc.)
@@ -1068,7 +1148,8 @@ function listenMesasRealtime({ localidad, id }, categoria, esPresencial) {
   const sec = document.getElementById("secMesas");
   injectMesasStyles(); // ← SIEMPRE se inyecta el CSS, sin importar la categoría
   const esComida = normalizarCategoria(categoria) === "comida y restaurantes";
-  if (!esComida || !esPresencial) {
+  _reservasActivas = esComida && esPresencial;
+  if (!_reservasActivas) {
     if (sec) sec.style.display = "none";
     return;
   }
@@ -1118,10 +1199,25 @@ function renderMesas(snap) {
       chip.addEventListener("click", () => openMesaReservaModal(m));
     }
     grid.appendChild(chip);
-    sincronizarMiReservaDesdeMesas();
+    // ← BORRA esta línea (dentro del forEach)
   });
+  sincronizarMiReservaDesdeMesas();
 }
 
+function minutosHastaHora(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  const target = new Date();
+  target.setHours(h, m, 0, 0);
+  return Math.round((target - new Date()) / 60000);
+}
+function formatDuracionMin(mins) {
+  const abs = Math.abs(mins);
+  const h = Math.floor(abs / 60), m = abs % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m} min`;
+}
 function restarMinutos(hhmm, minutos) {
   if (!hhmm) return null;
   const [h, m] = hhmm.split(":").map(Number);
@@ -1130,6 +1226,61 @@ function restarMinutos(hhmm, minutos) {
   const hh = String(Math.floor(total / 60)).padStart(2, "0");
   const mm = String(total % 60).padStart(2, "0");
   return `${hh}:${mm}`;
+}
+
+let _horaSeleccionada = null;
+
+function generarHoraSlots(min, max) {
+  if (!min || !max) return [];
+  const [h1, m1] = min.split(":").map(Number);
+  const [h2, m2] = max.split(":").map(Number);
+  let start = h1 * 60 + m1;
+  const end = h2 * 60 + m2;
+  // redondea el inicio al siguiente múltiplo de 15
+  start = Math.ceil(start / 15) * 15;
+
+  const slots = [];
+  for (let t = start; t <= end; t += 15) {
+    const hh = String(Math.floor(t / 60)).padStart(2, "0");
+    const mm = String(t % 60).padStart(2, "0");
+    slots.push(`${hh}:${mm}`);
+  }
+  return slots;
+}
+
+function pintarHoraChips(rango, maxPermitido) {
+  const cont = document.getElementById("mesaReservaHoraChips");
+  if (!cont) return;
+  cont.innerHTML = "";
+  _horaSeleccionada = null;
+
+  const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const slots = generarHoraSlots(rango.min, maxPermitido);
+
+  // Solo horas que todavía no pasaron hoy
+  const slotsFuturos = slots.filter((s) => {
+    const [h, m] = s.split(":").map(Number);
+    return h * 60 + m > ahoraMin;
+  });
+
+  if (!slotsFuturos.length) {
+    cont.innerHTML = `<span class="mesa-reserva-hora-vacio">No quedan horarios disponibles hoy</span>`;
+    return;
+  }
+
+  slotsFuturos.forEach((hora) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "mesa-reserva-hora-chip";
+    chip.textContent = formato12h(hora); // ← antes decía: chip.textContent = hora;
+    chip.addEventListener("click", () => {
+      cont.querySelectorAll(".mesa-reserva-hora-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      _horaSeleccionada = hora; // ← esto se queda igual, guarda en 24h internamente
+      document.getElementById("mesaReservaError")?.classList.remove("show");
+    });
+    cont.appendChild(chip);
+  });
 }
 function getHorarioHoyRange() {
   if (!_horarioHoy || _horarioHoy.cerrado || !_horarioHoy.bloques?.length)
@@ -1141,6 +1292,7 @@ function getHorarioHoyRange() {
   };
 }
 function openMesaReservaModal(mesaOMesas) {
+  if (!_reservasActivas) return;
   if (!auth.currentUser) {
     openLoginPromptModal();
     return;
@@ -1182,14 +1334,15 @@ function openMesaReservaModal(mesaOMesas) {
     errorEl.textContent = "";
     errorEl.classList.remove("show");
   }
-  horaInput.min = rango.min;
-  horaInput.max = _horaMaxReserva;
-  horaInput.value = "";
+  // ✅ AHORA
+  pintarHoraChips(rango, _horaMaxReserva);
+  document.body.style.overflow = "hidden";
   modal?.classList.add("open");
 }
 
 function closeMesaReservaModal() {
   document.getElementById("mesaReservaModal")?.classList.remove("open");
+  document.body.style.overflow = "";
   document.getElementById("mesaReservaNombreLoader")?.classList.remove("show"); // ← nuevo
   _mesaSeleccionada = null;
   const multiInput = document.getElementById("mesasMultiInput");
@@ -1219,63 +1372,91 @@ function finalizarProgresoReserva(btn, ok = true) {
   }, ok ? 380 : 150);
 }
 
+/* ══════════════ Reserva de mesa: botón flotante + popup "Mi reserva" ══════════════
+   Solo aplica a "comida y restaurantes" presencial (_reservasActivas).
+   El estado se deriva de la colección de mesas que YA se escucha en tiempo real,
+   así no hay un segundo listener que pueda quedar desfasado. */
+
 function mostrarBotonFlotanteReserva(data) {
+  if (!_reservasActivas) return;
   injectMesaFloatStyles();
-  _reservaFloatData = { ...data, estado: "pendiente" };
+  _reservaFloatData = { ...data, estado: data.estado || "pendiente" };
 
   let btn = document.getElementById("mesaReservaFloatBtn");
   if (!btn) {
     btn = document.createElement("button");
     btn.id = "mesaReservaFloatBtn";
+    btn.type = "button";
     btn.className = "mesa-reserva-float-btn";
     btn.innerHTML = `<span class="mrfb-dot"></span><span id="mrfbText">Mi reserva</span>`;
     btn.addEventListener("click", abrirVerReservaModal);
     document.body.appendChild(btn);
+    void btn.offsetWidth; // fuerza el primer cálculo de estilos: sin esto la entrada sale "seca"
   }
-  btn.classList.remove("aceptada", "rechazada");
-  document.getElementById("mrfbText") && (document.getElementById("mrfbText").textContent = "Mi reserva");
-  requestAnimationFrame(() => btn.classList.add("show"));
-
-  escucharEstadoReservaFloat();
+  pintarBotonFlotanteReserva();
+  btn.classList.add("show");
 }
 
-
-function escucharEstadoReservaFloat() {
-  if (_reservaFloatUnsub) {
-    _reservaFloatUnsub();
-    _reservaFloatUnsub = null;
-  }
+function pintarBotonFlotanteReserva() {
+  const btn = document.getElementById("mesaReservaFloatBtn");
+  const txt = document.getElementById("mrfbText");
   const d = _reservaFloatData;
-  if (!d) return;
-  const { localidad, id } = _params;
+  if (!btn || !txt || !d) return;
 
-  if (d.grupoId) {
-    _reservaFloatUnsub = onSnapshot(
-      tiendaSubDoc(localidad, "tiendas", id, "grupos_mesas", d.grupoId),
-      (snap) => snap.exists() && actualizarEstadoReservaFloat(snap.data().estado),
-    );
-  } else if (d.mesas?.[0]?.id) {
-    _reservaFloatUnsub = onSnapshot(
-      tiendaSubDoc(localidad, "tiendas", id, "mesas", d.mesas[0].id),
-      (snap) => snap.exists() && actualizarEstadoReservaFloat(snap.data().estado),
-    );
+  btn.classList.remove("aceptada", "rechazada");
+  if (d.estado === "aceptada") {
+    btn.classList.add("aceptada");
+    txt.textContent = "Reserva confirmada";
+  } else if (d.estado === "rechazada") {
+    btn.classList.add("rechazada");
+    txt.textContent = "Solicitud no aceptada";
+  } else {
+    txt.textContent = "Mi reserva";
   }
+}
+
+function quitarBotonFlotanteReserva() {
+  _reservaFloatData = null;
+  document.getElementById("mesaReservaFloatBtn")?.classList.remove("show");
 }
 
 function sincronizarMiReservaDesdeMesas() {
+  if (!_reservasActivas) return;
   const uid = auth.currentUser?.uid;
   if (!uid || !_mesasCache.length) return;
-  if (_reservaFloatData) return; // ya se está siguiendo una en esta sesión
 
-  const misMesas = _mesasCache.filter(
+  // 1) Ya sigo una reserva → recalcular su estado con lo que dice la BD
+  if (_reservaFloatData) {
+    const ids = new Set((_reservaFloatData.mesas || []).map((m) => m.id));
+    const mias = _mesasCache.filter(
+      (m) => ids.has(m.id) && m.reserva?.uid === uid,
+    );
+
+    let nuevo;
+    if (mias.some((m) => m.estado === "reservada")) nuevo = "aceptada";
+    else if (mias.some((m) => m.estado === "reserva_pendiente")) nuevo = "pendiente";
+    else {
+      // Ya no está vigente: si estaba aceptada y la mesa pasó a ocupada, el cliente ya llegó
+      const llego = _mesasCache.some(
+        (m) => ids.has(m.id) && (m.estado === "ocupado" || m.estado === "pedido_pendiente"),
+      );
+      nuevo = _reservaFloatData.estado === "aceptada" && llego ? "finalizada" : "rechazada";
+    }
+
+    actualizarEstadoReservaFloat(nuevo);
+    return;
+  }
+
+  // 2) No sigo ninguna → ¿tengo una vigente en la BD? (ej: recargué la página)
+  const vigentes = _mesasCache.filter(
     (m) =>
       m.reserva?.uid === uid &&
       (m.estado === "reserva_pendiente" || m.estado === "reservada"),
   );
-  if (!misMesas.length) return;
+  if (!vigentes.length) return;
 
-  const primera = misMesas[0];
-  const mesasImplicadas = primera.grupoId
+  const primera = vigentes[0];
+  const implicadas = primera.grupoId
     ? _mesasCache.filter((m) => m.grupoId === primera.grupoId)
     : [primera];
 
@@ -1283,7 +1464,9 @@ function sincronizarMiReservaDesdeMesas() {
     nombre: primera.reserva.nombre,
     personas: primera.reserva.personas,
     hora: primera.reserva.hora,
-    mesas: mesasImplicadas.map((m) => ({
+    creadoEn: primera.reserva.creado_en,
+    estado: vigentes.some((m) => m.estado === "reservada") ? "aceptada" : "pendiente",
+    mesas: implicadas.map((m) => ({
       id: m.id,
       nombre: m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`,
       numero_mesa: m.numero_mesa,
@@ -1291,34 +1474,40 @@ function sincronizarMiReservaDesdeMesas() {
     grupoId: primera.grupoId || null,
   });
 }
-function actualizarEstadoReservaFloat(estadoMesa) {
-  if (!_reservaFloatData) return;
-  let estado = "pendiente";
-  if (estadoMesa === "reservada") estado = "aceptada";
-  else if (estadoMesa === "libre" || estadoMesa === "ocupado") estado = "rechazada";
-  _reservaFloatData.estado = estado;
 
-  const btn = document.getElementById("mesaReservaFloatBtn");
-  const txt = document.getElementById("mrfbText");
-  if (btn) {
-    btn.classList.remove("aceptada", "rechazada");
-    if (estado === "aceptada") {
-      btn.classList.add("aceptada");
-      if (txt) txt.textContent = "Reserva confirmada";
-    } else if (estado === "rechazada") {
-      btn.classList.add("rechazada");
-      if (txt) txt.textContent = "Solicitud no aceptada";
-    } else if (txt) {
-      txt.textContent = "Mi reserva";
-    }
+function actualizarEstadoReservaFloat(estado) {
+  if (!_reservaFloatData || _reservaFloatData.estado === estado) return;
+
+  // El cliente ya llegó y la mesa pasó a ocupada → se despide el botón
+  if (estado === "finalizada") {
+    cerrarVerReservaModal();
+    quitarBotonFlotanteReserva();
+    return;
   }
 
-  const modal = document.getElementById("mesaReservaVerModal");
-  if (modal?.classList.contains("open")) renderVerReservaModal();
+  _reservaFloatData.estado = estado;
+  pintarBotonFlotanteReserva();
+
+  const btn = document.getElementById("mesaReservaFloatBtn");
+  if (btn) {
+    btn.classList.remove("pulse");
+    void btn.offsetWidth;
+    btn.classList.add("pulse");
+  }
+
+  if (estado === "aceptada") showToast("✅ ¡Tu reserva fue confirmada!");
+  else if (estado === "rechazada") showToast("❌ El negocio no pudo aceptar tu reserva");
+
+  // Si el popup está abierto, el contenido cambia con animación
+  if (document.getElementById("mesaReservaVerModal")?.classList.contains("open")) {
+    renderVerReservaModal(true);
+  }
 }
 
 function abrirVerReservaModal() {
+  if (!_reservasActivas || !_reservaFloatData) return;
   injectMesaFloatStyles();
+
   let modal = document.getElementById("mesaReservaVerModal");
   if (!modal) {
     modal = document.createElement("div");
@@ -1326,44 +1515,93 @@ function abrirVerReservaModal() {
     modal.className = "mesa-reserva-ver-modal";
     modal.innerHTML = `
       <div class="mesa-reserva-ver-box">
-        <button class="mesa-reserva-ver-close" id="mesaReservaVerClose">✕</button>
+        <button class="mesa-reserva-ver-close" id="mesaReservaVerClose" type="button" aria-label="Cerrar">✕</button>
         <div id="mesaReservaVerContent"></div>
       </div>`;
     document.body.appendChild(modal);
+
     modal.addEventListener("click", (e) => {
-      if (e.target.id === "mesaReservaVerModal") modal.classList.remove("open");
+      if (e.target === modal) cerrarVerReservaModal();
     });
-    document
-      .getElementById("mesaReservaVerClose")
-      .addEventListener("click", () => modal.classList.remove("open"));
+    modal
+      .querySelector("#mesaReservaVerClose")
+      .addEventListener("click", cerrarVerReservaModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open")) cerrarVerReservaModal();
+    });
   }
+
   renderVerReservaModal();
+  void modal.offsetWidth; // ← clave: sin esto, la primera vez el popup aparece de golpe
   modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+
+  // Refresca el contador/estado cada 30s mientras el popup está abierto
+  clearInterval(_reservaVerInterval);
+  _reservaVerInterval = setInterval(() => renderVerReservaModal(), 30000);
+}
+function cerrarVerReservaModal() {
+  document.getElementById("mesaReservaVerModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+  clearInterval(_reservaVerInterval);
+  if (_reservaFloatData?.estado === "rechazada") quitarBotonFlotanteReserva();
 }
 
-function renderVerReservaModal() {
+function renderVerReservaModal(animar = false) {
   const content = document.getElementById("mesaReservaVerContent");
   const d = _reservaFloatData;
   if (!content || !d) return;
 
-  const estadoLabel =
-    { pendiente: "Esperando confirmación", aceptada: "Reserva confirmada", rechazada: "No fue aceptada" }[
-    d.estado
-    ] || "Esperando confirmación";
-  const icono = d.estado === "aceptada" ? "✓" : d.estado === "rechazada" ? "✕" : "⏳";
+  const estados = {
+    pendiente: {
+      icono: "⏳", label: "Esperando confirmación",
+      msg: "El negocio está revisando tu solicitud. Esta pantalla se actualiza sola, no necesitas recargar."
+    },
+    aceptada: {
+      icono: "✓", label: "Reserva confirmada",
+      msg: "¡Listo! Tu mesa te espera a la hora indicada."
+    },
+    rechazada: {
+      icono: "✕", label: "No fue aceptada",
+      msg: "El negocio no pudo confirmar tu reserva. Puedes intentar con otra mesa u otra hora."
+    },
+  };
+  const e = estados[d.estado] || estados.pendiente;
   const nombresMesas = (d.mesas || [])
     .map((m) => m.nombre || m.mesaNombre || `Mesa ${m.numero_mesa ?? m.numero}`)
     .join(", ");
 
+  // ── Cuenta regresiva ──
+  const minsRestantes = minutosHastaHora(d.hora);
+  let countdownHTML = "";
+  if (d.estado === "aceptada" && minsRestantes !== null) {
+    countdownHTML = minsRestantes > 0
+      ? `<div class="mrv-countdown">⏱️ Faltan <b>${formatDuracionMin(minsRestantes)}</b> para tu hora de llegada</div>`
+      : `<div class="mrv-countdown late">⚠️ Ya pasó tu hora de llegada (hace ${formatDuracionMin(minsRestantes)})</div>`;
+  }
+
+  // ── Hora en que se envió la solicitud ──
+  const solicitadaHTML = d.creadoEn?.toDate
+    ? `<div class="mrv-row"><span class="mrv-label">Solicitada a las</span><span class="mrv-val">${d.creadoEn.toDate().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span></div>`
+    : "";
+
   content.innerHTML = `
-    <span class="mrv-estado-badge ${d.estado}">${icono} ${estadoLabel}</span>
-    <div class="mrv-hora-big">${escapeHtml(d.hora || "—")}</div>
-    <div class="mrv-hora-sub">Hora de llegada solicitada</div>
-    <div class="mrv-row"><span class="mrv-label">Reservado a nombre de</span><span class="mrv-val">${escapeHtml(d.nombre || "—")}</span></div>
-    <div class="mrv-row"><span class="mrv-label">Personas</span><span class="mrv-val">${escapeHtml(String(d.personas || "—"))}</span></div>
-    <div class="mrv-row"><span class="mrv-label">Mesa(s)</span><span class="mrv-val">${escapeHtml(nombresMesas || "—")}</span></div>
-  `;
+    <div class="mrv-body${animar ? " mrv-swap" : ""}">
+      <span class="mrv-estado-badge ${d.estado}">${e.icono} ${e.label}</span>
+      <div class="mrv-hora-big">${escapeHtml(d.hora || "—")}</div>
+      <div class="mrv-hora-sub">Hora de llegada solicitada</div>
+      ${countdownHTML}
+      ${solicitadaHTML}
+      <div class="mrv-row"><span class="mrv-label">Reservado a nombre de</span><span class="mrv-val">${escapeHtml(d.nombre || "—")}</span></div>
+      <div class="mrv-row"><span class="mrv-label">Personas</span><span class="mrv-val">${escapeHtml(String(d.personas || "—"))}</span></div>
+      <div class="mrv-row"><span class="mrv-label">Mesa(s)</span><span class="mrv-val">${escapeHtml(nombresMesas || "—")}</span></div>
+      <p class="mrv-msg">${e.msg}</p>
+    </div>`;
 }
+
+
+
+
 async function ensureClienteRecord({ localidad, id }, uid) {
   try {
     const clientesRef = tiendaSubCol(localidad, "tiendas", id, "clientes");
@@ -1446,7 +1684,8 @@ function bindFollowButton({ localidad, id }, biz) {
   onAuthStateChanged(auth, async (user) => {
     const uid = user?.uid || null;
     _currentUid = uid;
-    actualizarBotonSalir(user);
+    actualizarHeaderUsuario(user);
+
     if (!uid) {
       btn.onclick = () => {
         openLoginPromptModal();
@@ -1585,7 +1824,8 @@ function bindMesaReservaEvents() {
 
       const nombre = document.getElementById("mesaReservaNombre").value.trim();
       const personas = document.getElementById("mesaReservaPersonas").value.trim();
-      const hora = document.getElementById("mesaReservaHora").value.trim();
+      // ✅ AHORA
+      const hora = _horaSeleccionada || "";
       const rango = getHorarioHoyRange();
 
       if (!nombre || !personas || !hora) {
@@ -1660,6 +1900,7 @@ function bindMesaReservaEvents() {
           nombre,
           personas,
           hora,
+          creadoEn: { toDate: () => new Date() },
           mesas: listaMesas.map((m) => ({
             id: m.id,
             nombre: m.nombre_alias || m.mesaNombre,
@@ -1667,6 +1908,7 @@ function bindMesaReservaEvents() {
           })),
           grupoId: grupoIdUsado,
         });
+        setTimeout(abrirVerReservaModal, 320);
       } catch (err) {
         console.error("Error al enviar solicitud de reserva:", err);
         finalizarProgresoReserva(submitBtn, false);
@@ -2554,6 +2796,11 @@ const LIGHTBOX_CSS = `
     padding: 6px 14px;
     border-radius: 20px;
   }
+      .lightbox-close,
+  .lightbox-nav,
+  .lightbox-counter {
+    z-index: 10;
+  }
   @media (max-width: 640px) {
     .lightbox-nav { width: 44px; height: 44px; }
     .lightbox-prev { left: 8px; }
@@ -2586,6 +2833,53 @@ const CARTA_TEXT_CSS = `
 .carta-desc-box.hidden {
     display: none;
 }
+    .lightbox-stage{ position:relative; }
+
+.lightbox-loader{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:none;
+  opacity:0; visibility:hidden;
+  transition:opacity .25s ease, visibility .25s ease;
+}
+.lightbox-loader.show{ opacity:1; visibility:visible; }
+
+.lightbox-loader-card{
+  position:relative; overflow:hidden;
+  width:min(72vw,460px); height:min(52vh,460px);
+  border-radius:18px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  background:linear-gradient(135deg, rgba(var(--dr),var(--dg),var(--db),.24), rgba(var(--dr),var(--dg),var(--db),.06));
+  border:1px solid rgba(255,255,255,.06);
+}
+.lightbox-loader-card::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,.05) 45%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.05) 55%, transparent 100%);
+  background-size:200% 100%;
+  animation:lb-shimmer 1.6s infinite;
+}
+.lightbox-loader-spinner{
+  position:relative; z-index:1;
+  width:40px; height:40px; border-radius:50%;
+  border:3px solid rgba(var(--dr),var(--dg),var(--db),.25);
+  border-top-color:rgba(var(--dr),var(--dg),var(--db),.95);
+  animation:lb-spin .75s linear infinite;
+}
+.lightbox-loader-msg{
+  display:none; position:relative; z-index:1;
+  font-size:13px; font-weight:600; color:rgba(255,255,255,.75);
+}
+.lightbox-loader.error .lightbox-loader-spinner{ display:none; }
+.lightbox-loader.error .lightbox-loader-msg{ display:block; }
+.lightbox-loader.error .lightbox-loader-card::after{ animation:none; opacity:0; }
+
+@keyframes lb-spin{ to{ transform:rotate(360deg); } }
+@keyframes lb-shimmer{ 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+
+/* Lightbox de reseñas: tarjeta ajustada a su stage + fade de la imagen al cargar */
+.rv-lightbox-stage .lightbox-loader-card{ width:min(80%,460px); height:min(80%,460px); }
+.rv-lightbox-stage img{ opacity:0; transition:opacity .3s ease; }
+.rv-lightbox-stage img.show{ opacity:1; }
 `;
 
 function injectCartaTextStyles() {
@@ -2648,6 +2942,40 @@ const MESAS_CSS = `
   50%{ transform:translateX(60%); }
   100%{ transform:translateX(220%); }
 }
+  /* ── Popup de reserva de mesa: entrada suave ── */
+#mesaReservaModal.mesa-reserva-modal{
+  background:rgba(3,3,3,.55);
+  -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
+  transition:opacity .3s ease, visibility .3s ease, backdrop-filter .4s ease, -webkit-backdrop-filter .4s ease;
+}
+#mesaReservaModal.mesa-reserva-modal.open{ -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+#mesaReservaModal .mesa-reserva-box{
+  max-height:calc(100dvh - 40px); overflow-y:auto;
+  opacity:0; transform:translateY(26px) scale(.94);
+  transition:transform .45s cubic-bezier(.22,.85,.32,1), opacity .3s ease;
+}
+#mesaReservaModal.open .mesa-reserva-box{ opacity:1; transform:translateY(0) scale(1); }
+
+.mesa-reserva-hora-chips{
+  display:flex; flex-wrap:wrap; gap:8px;
+  margin-bottom:14px; max-height:160px; overflow-y:auto;
+}
+.mesa-reserva-hora-chip{
+  padding:9px 14px; border-radius:12px; cursor:pointer;
+  font-size:13px; font-weight:700; color:#d4d4d8;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  transition:background .18s ease, border-color .18s ease, color .18s ease, transform .15s ease;
+}
+.mesa-reserva-hora-chip:hover{ transform:translateY(-1px); border-color:rgba(var(--dr),var(--dg),var(--db),.5); }
+.mesa-reserva-hora-chip.active{
+  background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
+  border-color:transparent; color:#fff;
+  box-shadow:0 6px 16px -6px rgba(var(--dr),var(--dg),var(--db),.5);
+}
+.mesa-reserva-hora-vacio{
+  font-size:13px; color:var(--muted,#9c9ca3); padding:8px 0;
+}
 `;
 const MESA_RESERVA_FLOAT_CSS = `
 .mesa-reserva-progress-wrap{ position:relative; overflow:hidden; pointer-events:none; }
@@ -2656,6 +2984,14 @@ const MESA_RESERVA_FLOAT_CSS = `
   background:linear-gradient(90deg, rgba(var(--dr),var(--dg),var(--db),.9), rgba(var(--dr),var(--dg),var(--db),.55));
   transition:width .9s cubic-bezier(.22,.85,.32,1);
   border-radius:inherit; z-index:0;
+}
+.mrv-countdown{
+  text-align:center; font-size:13px; font-weight:700; color:#4ade80;
+  background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3);
+  padding:9px 14px; border-radius:12px; margin:0 0 14px;
+}
+.mrv-countdown.late{
+  color:#fbbf24; background:rgba(251,191,36,.1); border-color:rgba(251,191,36,.3);
 }
 .mesa-reserva-progress-label{ position:relative; z-index:1; }
 
@@ -2703,6 +3039,33 @@ const MESA_RESERVA_FLOAT_CSS = `
 .mrv-row .mrv-val{ color:#fff; font-weight:700; }
 .mrv-hora-big{ text-align:center; font-size:38px; font-weight:900; color:#fff; margin:4px 0 2px; }
 .mrv-hora-sub{ text-align:center; font-size:12px; color:var(--muted,#9c9ca3); margin-bottom:18px; }
+/* ── Entrada/salida suave + estados en vivo ── */
+.mesa-reserva-float-btn{
+  bottom:calc(24px + env(safe-area-inset-bottom, 0px));
+  right:calc(24px + env(safe-area-inset-right, 0px));
+  pointer-events:none;
+}
+.mesa-reserva-float-btn.show{ pointer-events:auto; }
+.mesa-reserva-float-btn.pulse{ animation:mrfb-pop .6s cubic-bezier(.22,.85,.32,1); }
+@keyframes mrfb-pop{ 0%{transform:scale(1);} 35%{transform:scale(1.12);} 100%{transform:scale(1);} }
+
+.mesa-reserva-ver-modal{
+  background:rgba(3,3,3,.55);
+  -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
+  transition:opacity .3s ease, visibility .3s ease, backdrop-filter .4s ease, -webkit-backdrop-filter .4s ease;
+}
+.mesa-reserva-ver-modal.open{ -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.mesa-reserva-ver-box{
+  max-height:calc(100dvh - 40px); overflow-y:auto;
+  opacity:0; transform:translateY(26px) scale(.94);
+  transition:transform .45s cubic-bezier(.22,.85,.32,1), opacity .3s ease;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.8), 0 0 50px -14px rgba(var(--dr),var(--dg),var(--db),.35);
+}
+.mesa-reserva-ver-modal.open .mesa-reserva-ver-box{ opacity:1; transform:translateY(0) scale(1); }
+.mrv-estado-badge{ transition:background .3s ease, color .3s ease, border-color .3s ease; }
+.mrv-swap{ animation:mrv-swap .5s cubic-bezier(.22,.85,.32,1); }
+@keyframes mrv-swap{ from{opacity:0; transform:translateY(10px) scale(.98);} to{opacity:1; transform:none;} }
+.mrv-msg{ font-size:12.5px; line-height:1.55; color:var(--muted,#9c9ca3); text-align:center; margin:16px 0 0; }
 `;
 
 function injectMesaFloatStyles() {
@@ -3172,11 +3535,42 @@ function closeLightbox() {
   }
 }
 
+let _lbLoadToken = 0;
+
+function getLightboxLoader() {
+  const stage = document.querySelector(".lightbox-stage");
+  if (!stage) return null;
+  let loader = document.getElementById("lightboxLoader");
+  if (!loader) {
+    loader = document.createElement("div");
+    loader.id = "lightboxLoader";
+    loader.className = "lightbox-loader";
+    loader.innerHTML = `
+      <div class="lightbox-loader-card">
+        <span class="lightbox-loader-spinner"></span>
+        <span class="lightbox-loader-msg">No se pudo cargar la imagen</span>
+      </div>`;
+    stage.appendChild(loader);
+  }
+  return loader;
+}
+
+function preloadLightboxNeighbors() {
+  const n = _lightboxImages.length;
+  if (n < 2) return;
+  [1, -1].forEach((d) => {
+    const i = (_lightboxIndex + d + n) % n;
+    const pre = new Image();
+    pre.src = _lightboxImages[i];
+  });
+}
+
 function renderLightboxImage() {
   const img = document.getElementById("lightboxImg");
   const counter = document.getElementById("lightboxCounter");
+  const loader = getLightboxLoader();
+  const token = ++_lbLoadToken;
 
-  // Limpia zoom anterior antes de cambiar de imagen
   if (_panzoomInstance) {
     _panzoomInstance.destroy();
     _panzoomInstance = null;
@@ -3184,18 +3578,25 @@ function renderLightboxImage() {
   }
 
   img.classList.remove("show");
-  setTimeout(() => {
-    img.src = _lightboxImages[_lightboxIndex];
-    img.onload = () => {
-      img.classList.add("show");
-      initLightboxZoom(img);
-    };
-  }, 120);
+  loader?.classList.remove("error");
+  loader?.classList.add("show");
+
+  img.onload = () => {
+    if (token !== _lbLoadToken) return;
+    loader?.classList.remove("show");
+    img.classList.add("show");
+    initLightboxZoom(img);
+    preloadLightboxNeighbors();
+  };
+  img.onerror = () => {
+    if (token !== _lbLoadToken) return;
+    loader?.classList.add("error");
+  };
+  img.src = _lightboxImages[_lightboxIndex];
 
   counter.textContent = `${_lightboxIndex + 1} / ${_lightboxImages.length}`;
   counter.style.display = _lightboxImages.length > 1 ? "block" : "none";
 }
-
 let _panzoomWheelHandler = null;
 let _lastTapTime = 0;
 
@@ -3273,6 +3674,7 @@ let _mesasUnsub = null;
 let _mesaSeleccionada = null;
 let _waNumeroNegocio = "";
 let _horarioHoy = null;
+let _reservaVerInterval = null;
 let _mesasCache = [];
 let _horaMaxReserva = null;
 let _bizLogoUrl = null;
@@ -3841,35 +4243,35 @@ async function render(biz, isInitial = true) {
   }
   document
     .getElementById("geinzHeader")
-    ?.style.setProperty("display", esPremium ? "none" : "");
+    ?.style.setProperty("display", esPremium || _esDominioPersonalizado ? "none" : "");
   document
     .getElementById("secCtaExplore")
     ?.style.setProperty("display", esPremium ? "none" : "");
   document
     .getElementById("mainContent")
-    ?.style.setProperty("padding-top", esPremium ? "1.55rem" : "");
+    ?.style.setProperty("padding-top", esPremium || _esDominioPersonalizado ? "1.55rem" : "");
   document
     .getElementById("secAmenities")
     ?.style.setProperty("display", esPresencial ? "" : "none");
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
-document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
-  if (_esDominioPersonalizado) {
-    window.location.href = `${_baseShareUrl}/fidelizacion`;
-    return;
-  }
-  const aliasKey = _params.alias || biz?.alias_key;
-  if (aliasKey && _currentUid) {
-    window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
-  } else {
-    const url = new URL('../../fidelizacion/fidelizacion_client.html', window.location.href);
-    url.searchParams.set('localidad', _params.localidad);
-    url.searchParams.set('id', _params.id);
-    if (_currentUid) url.searchParams.set('uid', _currentUid);
-    window.location.href = url.toString();
-  }
-});
+  document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
+    if (_esDominioPersonalizado) {
+      window.location.href = `${_baseShareUrl}/fidelizacion`;
+      return;
+    }
+    const aliasKey = _params.alias || biz?.alias_key;
+    if (aliasKey && _currentUid) {
+      window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+    } else {
+      const url = new URL('../../fidelizacion/fidelizacion_client.html', window.location.href);
+      url.searchParams.set('localidad', _params.localidad);
+      url.searchParams.set('id', _params.id);
+      if (_currentUid) url.searchParams.set('uid', _currentUid);
+      window.location.href = url.toString();
+    }
+  });
 }
 
 // ── Reglas por plan y modlo de negocio ──
@@ -4258,7 +4660,7 @@ const REVIEWS_CSS = `
 let _rvPhotos = [];
 let _rvIndex = 0;
 let _rvBackContext = null;
-
+let _rvLoadToken = 0;
 function bindReviewsLightboxEvents() {
   if (document.getElementById("reviewsLightboxModal")) return;
   injectReviewsStyles();
@@ -4282,6 +4684,12 @@ function bindReviewsLightboxEvents() {
       </div>
       <div class="rv-lightbox-stage">
         <div class="rv-lightbox-counter" id="rvLightboxCounter"></div>
+        <div class="lightbox-loader" id="rvLightboxLoader">
+  <div class="lightbox-loader-card">
+    <span class="lightbox-loader-spinner"></span>
+    <span class="lightbox-loader-msg">No se pudo cargar la imagen</span>
+  </div>
+</div>
         <button class="rv-lightbox-nav rv-lightbox-prev" id="rvLightboxPrev">‹</button>
         <img id="rvLightboxImg" alt="">
         <button class="rv-lightbox-nav rv-lightbox-next" id="rvLightboxNext">›</button>
@@ -4361,8 +4769,24 @@ function rvGoTo(n) {
 function rvRender() {
   const photo = _rvPhotos[_rvIndex];
   if (!photo) return;
+  const rvImg = document.getElementById("rvLightboxImg");
+  const rvLoader = document.getElementById("rvLightboxLoader");
+  const rvToken = ++_rvLoadToken;
 
-  document.getElementById("rvLightboxImg").src = photo.url;
+  rvImg.classList.remove("show");
+  rvLoader?.classList.remove("error");
+  rvLoader?.classList.add("show");
+
+  rvImg.onload = () => {
+    if (rvToken !== _rvLoadToken) return;
+    rvLoader?.classList.remove("show");
+    rvImg.classList.add("show");
+  };
+  rvImg.onerror = () => {
+    if (rvToken !== _rvLoadToken) return;
+    rvLoader?.classList.add("error");
+  };
+  rvImg.src = photo.url;
   document.getElementById("rvLightboxCounter").textContent =
     `${_rvIndex + 1} de ${_rvPhotos.length}`;
 
@@ -4481,7 +4905,25 @@ function dataURLtoBlobReview(dataURL) {
   for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
   return new Blob([arr], { type: mime });
 }
+let _userProfileCache = {};
 
+async function getUserProfile(uid) {
+  if (_userProfileCache[uid]) return _userProfileCache[uid];
+  try {
+    const snap = await getDoc(data_user_logeado(uid));
+    const d = snap.exists() ? snap.data() : {};
+    const perfil = {
+      nombre: d.nombre || d.nombre_user || auth.currentUser?.displayName || "",
+      apellido: d.apellido || "",
+      foto: d.foto || auth.currentUser?.photoURL || "",
+    };
+    _userProfileCache[uid] = perfil;
+    return perfil;
+  } catch (e) {
+    console.warn("No se pudo cargar el perfil del usuario:", e.message);
+    return { nombre: "", apellido: "", foto: "" };
+  }
+}
 // ⚠️ Ajusta los nombres de campo si tu doc de usuario usa otro nombre
 async function getUserDisplayName(uid) {
   if (_reviewUserNameCache[uid]) return _reviewUserNameCache[uid];
@@ -5291,7 +5733,7 @@ async function eliminarMiReview() {
     console.log("✅ INIT arrancó");
     const params = await getParams();
     console.log("✅ params:", params);
-  _params = params;
+    _params = params;
     if (params.mesaToken) {
       await resolveMesaYRedirigir(params, params.mesaToken);
       return;
@@ -5499,3 +5941,4 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
 
 setupHoverCarousel("productosCarouselWrap", "productosGrid");
 setupHoverCarousel("ambientesCarouselWrap", "ambientesGrid");
+setupHoverCarousel("catalogoCarouselWrap", "catalogoList");
