@@ -288,6 +288,390 @@
             background: #fff;
             color: #000;
         }
+
+        /* ── Ofertas y productos ── */
+        #ofertasGrid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 14px;
+            margin-top: 14px;
+        }
+
+        .of-card {
+            background: #0e0e14;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: border-color .2s;
+        }
+
+        .of-card:hover {
+            border-color: rgba(168, 85, 247, .35);
+        }
+
+        .of-card.dirty {
+            border-color: rgba(168, 85, 247, .7);
+        }
+
+        .of-img {
+            position: relative;
+            aspect-ratio: 4/5;
+            background: #050508;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .of-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .of-img-hint {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 18px 6px 6px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: #fff;
+            background: linear-gradient(transparent, rgba(0, 0, 0, .8));
+            opacity: 0;
+            transition: opacity .2s;
+        }
+
+        .of-img:hover .of-img-hint {
+            opacity: 1;
+        }
+
+        .of-del {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, .65);
+            backdrop-filter: blur(6px);
+            color: #fca5a5;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            transition: .15s;
+        }
+
+        .of-del:hover {
+            background: rgba(225, 29, 72, .85);
+            color: #fff;
+        }
+
+        .of-body {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .of-desc {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 10px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 12px;
+            line-height: 1.35;
+            padding: 8px 10px;
+            resize: none;
+            outline: none;
+        }
+
+        .of-desc:focus,
+        .of-price:focus-within {
+            border-color: rgba(168, 85, 247, .6);
+        }
+
+        .of-price {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 10px;
+            padding: 7px 10px;
+        }
+
+        .of-price span {
+            font-size: 12px;
+            color: #a1a1aa;
+            font-weight: 600;
+        }
+
+        .of-price input {
+            flex: 1;
+            min-width: 0;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .of-save {
+            border: none;
+            border-radius: 10px;
+            padding: 9px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            background: #fff;
+            color: #000;
+            cursor: pointer;
+            transition: .15s;
+        }
+
+        .of-save:disabled {
+            opacity: .35;
+            cursor: default;
+        }
+
+        .of-save.ok {
+            background: #22c55e;
+            color: #000;
+        }
+
+        .of-add {
+            aspect-ratio: 4/5;
+            border-radius: 16px;
+            border: 2px dashed rgba(255, 255, 255, .15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 6px;
+            color: #888;
+            cursor: pointer;
+            font-size: 13px;
+            transition: .2s;
+        }
+
+        .of-add:hover {
+            border-color: rgba(168, 85, 247, .5);
+            color: #d8b4fe;
+        }
+
+        .of-card.falta-precio {
+            border-color: rgba(244, 63, 94, .6);
+        }
+
+        .of-price.error {
+            border-color: rgba(244, 63, 94, .8);
+        }
+
+        .of-msg {
+            font-size: 11px;
+            line-height: 1.3;
+            min-height: 14px;
+            margin: -2px 0 0;
+            color: #a1a1aa;
+        }
+
+        .of-msg.error {
+            color: #fda4af;
+        }
+
+        .of-msg.ok {
+            color: #86efac;
+        }
+
+        /* ── Estados nuevos de ofertas ── */
+        .of-save:disabled {
+            cursor: not-allowed;
+        }
+
+        .of-desc.error {
+            border-color: rgba(244, 63, 94, .8);
+        }
+
+        /* ── Carga de imagen (overlay + esqueleto) ── */
+        .of-img-loading {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(5, 5, 8, .75);
+            backdrop-filter: blur(4px);
+            color: #e4e4e7;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .of-spinner {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, .15);
+            border-top-color: #fff;
+            animation: ofSpin .8s linear infinite;
+        }
+
+        @keyframes ofSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .of-skel-shine,
+        .of-skel-line {
+            background: linear-gradient(90deg, #101014 0%, #1c1c22 50%, #101014 100%);
+            background-size: 200% 100%;
+            animation: ofShine 1.3s ease infinite;
+        }
+
+        .of-skel-line {
+            height: 36px;
+            border-radius: 10px;
+        }
+
+        .of-skel-line.short {
+            height: 36px;
+        }
+
+        @keyframes ofShine {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+   /* ── Toast blanco (entra desde abajo) ── */
+.of-toast-wrap {
+    position: fixed;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column-reverse; /* si hay varios, el nuevo queda abajo */
+    gap: 8px;
+    pointer-events: none;
+}
+
+.of-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    color: #111;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 18px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    animation: ofToastIn .25s ease forwards;
+}
+
+.of-toast.out {
+    animation: ofToastOut .25s ease forwards;
+}
+
+@keyframes ofToastIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ofToastOut {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(14px); }
+}
+        /* ── Detalles del banner ── */
+        .bn-details {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bn-grid {
+            display: grid;
+            grid-template-columns: 1fr 180px;
+            gap: 12px;
+        }
+
+        @media (max-width: 560px) {
+            .bn-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .bn-lbl {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #d4d4d8;
+            margin-bottom: 6px;
+        }
+
+        .bn-tag {
+            font-size: 10px;
+            font-weight: 600;
+            color: #71717a;
+            margin-left: 4px;
+        }
+
+        .bn-tag.req {
+            color: #fda4af;
+        }
+
+        .bn-click-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+
+        .bn-click-title {
+            margin: 0 0 2px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .bn-click-sub {
+            margin: 0;
+            font-size: 11px;
+            color: #a1a1aa;
+            line-height: 1.4;
+        }
+
+        .bn-save {
+            width: 100%;
+        }
     </style>
 </head>
 
@@ -328,8 +712,10 @@
             <button type="button" class="vista-tab" data-vista="mis">
                 <i class="ti ti-list-details" aria-hidden="true"></i> Mis publicaciones
             </button>
+            <button type="button" class="vista-tab" data-vista="ofertas">
+                <i class="ti ti-tag" aria-hidden="true"></i> Ofertas
+            </button>
         </div>
-
         <!-- ══════════════════════ VISTA 1: PUBLICAR ══════════════════════ -->
         <div id="vista-publicar">
             <div class="card">
@@ -908,8 +1294,69 @@
             </div>
 
         </main>
-        <!-- ══════════════════════ FIN VISTA 2 ══════════════════════ -->
+        <!-- ══════════════════════ VISTA 3: OFERTAS ══════════════════════ -->
+        <!-- Banner -->
+        <!-- Banner -->
+        <div class="card" style="margin-bottom:20px;">
+            <h3 class="sec-title">Banner de tu negocio</h3>
+            <p class="sec-sub">Esta imagen se muestra como destacado. Actívala si quieres que sea visible.</p>
 
+            <div id="bannerPreviewWrap"
+                style="position:relative;width:100%;aspect-ratio:16/6;border-radius:16px;overflow:hidden;background:#111;margin:14px 0;">
+                <img id="bannerImgPreview" style="width:100%;height:100%;object-fit:cover;display:none;">
+                <div id="bannerPlaceholder"
+                    style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#666;font-size:13px;">
+                    Sin banner
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <button type="button" class="btn" id="btnCambiarBanner">Cambiar imagen del banner</button>
+                <label class="switch">
+                    <input type="checkbox" id="bannerActivoSwitch">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <input type="file" id="bannerFileInput" accept="image/*" style="display:none;">
+
+            <!-- Detalles del banner -->
+            <div class="bn-details">
+                <div class="bn-grid">
+                    <div>
+                        <label class="bn-lbl">Descripción <span class="bn-tag"
+                                id="bannerTagDesc">opcional</span></label>
+                        <textarea id="bannerDescripcion" class="of-desc" rows="2" maxlength="80"
+                            placeholder="Ej: Promo del día"></textarea>
+                    </div>
+                    <div>
+                        <label class="bn-lbl">Precio <span class="bn-tag" id="bannerTagPrecio">opcional</span></label>
+                        <div class="of-price" id="bannerPriceBox">
+                            <span>S/</span>
+                            <input id="bannerPrecio" type="number" min="0" step="0.01" inputmode="decimal"
+                                placeholder="Precio">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bn-click-row">
+                    <div>
+                        <p class="bn-click-title">Banner clickeable</p>
+                        <p class="bn-click-sub">Si lo activas, al tocar el banner se abrirá el carrito con esta
+                            promoción. La descripción y el precio serán obligatorios.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="bannerClickeableSwitch">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <p class="of-msg" id="bannerMsg"></p>
+                <button type="button" class="of-save bn-save" id="btnGuardarBanner">Guardar detalles del banner</button>
+            </div>
+        </div>
+        <!-- ══════════════════════ FIN VISTA 3 ══════════════════════ -->
+<p class="sec-sub">Hasta 5 productos con imagen, descripción y precio (obligatorios).</p>
+<div id="ofertasGrid"></div>
     </div>
 
     <!-- Modal Detalle (Mis Publicaciones) -->
@@ -922,6 +1369,7 @@
 
     <script type="module" src="../js/dasboardjs/publicaciones.js"></script>
     <script type="module" src="../js/dasboardjs/mis_publicaciones.js"></script>
+    <script type="module" src="../js/dasboardjs/publicaciones_perfil.js"></script>
 
     <!-- ── Lógica del switch de vistas ── -->
     <script>
@@ -932,6 +1380,7 @@
                 const vista = tab.dataset.vista;
                 document.getElementById('vista-publicar').style.display = vista === 'publicar' ? 'block' : 'none';
                 document.getElementById('vista-mis').style.display = vista === 'mis' ? 'block' : 'none';
+                document.getElementById('vista-ofertas').style.display = vista === 'ofertas' ? 'block' : 'none';
             });
         });
     </script>

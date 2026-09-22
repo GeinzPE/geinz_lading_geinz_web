@@ -1985,3 +1985,13 @@ main > section:has(#secAddr) {
 .catalogo-cta-btn:hover::after {
     color: #fff;
 }
+.promo-active-price {
+  margin: 4px 0 10px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+}
+.promo-active-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.promo-active-actions .promo-btn-buy,
+.promo-active-actions .promo-btn-wa,
+.promo-active-actions .promo-btn-share { flex: 1; min-width: 90px; }

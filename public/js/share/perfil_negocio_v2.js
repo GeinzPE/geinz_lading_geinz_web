@@ -1763,6 +1763,7 @@ function renderActivePromos(promos, localidad) {
   grid.innerHTML = "";
   _navState.ofertas = true;
   updateQuickNav();
+  injectPromoBuyStyles(); // ← NUEVO (ya existe en tu archivo, reutilizado)
 
   promos.forEach((p) => {
     const info = p.informacion || {};
@@ -1773,6 +1774,7 @@ function renderActivePromos(promos, localidad) {
 
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
+    const precio = Number(info.precio_publicacion) || 0; // ← NUEVO
 
     const waMsg =
       p.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
@@ -1787,6 +1789,12 @@ function renderActivePromos(promos, localidad) {
       )}`
       : null;
 
+    // ── NUEVO: link de compra, solo si tiene precio ──
+    const comprarHref =
+      precio > 0
+        ? urlCarritoPromo(`activa_${p.id}`, { alias_key: _bizAliasKey })
+        : null;
+
     const card = document.createElement("div");
     card.className = "promo-active-card";
     card.innerHTML = `
@@ -1796,7 +1804,9 @@ function renderActivePromos(promos, localidad) {
       <div class="promo-active-body">
         <h3 class="promo-active-title">${info.titulo || ""}</h3>
         <p class="promo-active-desc">${info.descripcion || ""}</p>
+        ${precio > 0 ? `<p class="promo-active-price">S/ ${precio.toFixed(2)}</p>` : ""}
         <div class="promo-active-actions">
+          ${comprarHref ? `<a class="promo-btn-buy" href="${comprarHref}">Comprar</a>` : ""}
           ${waLink ? `<a class="promo-btn-wa" href="${waLink}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}
           ${shareAllowed ? `<button class="promo-btn-share" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}">Compartir</button>` : ""}
         </div>
@@ -1830,7 +1840,6 @@ function renderActivePromos(promos, localidad) {
     });
   });
 }
-
 // ══════════════════════════════════════════
 //  NORMALIZADORES
 // ══════════════════════════════════════════
@@ -1973,11 +1982,19 @@ function normalizeImages(it) {
 }
 function normalizePromos(it) {
   const p = it?.lista_img?.promociones || {};
-  return Object.entries(p).map(([id, url], idx) => ({
-    id,
-    url,
-    titulo: `Promoción ${idx + 1}`,
-  }));
+  return Object.entries(p)
+    .map(([id, val], idx) => {
+      const o = typeof val === "string" ? { imagen: val } : val || {};
+      if (!o.imagen) return null;
+      return {
+        id,
+        url: o.imagen,
+        titulo: `Promoción ${idx + 1}`,
+        descripcion: String(o.descripcion || "").trim(),
+        precio: Number(o.precio) || 0,
+      };
+    })
+    .filter(Boolean);
 }
 const AMENITY_ICONS = {
   "zona expandida": "🏢",
@@ -2853,6 +2870,8 @@ function showPromoBanner(biz) {
 
   const banner = biz.banner || {};
   if (banner.activo === true && banner.imagen) {
+    renderBannerCta(banner, biz, bannerModal); // ← NUEVO
+
     bannerImg.onload = () => {
       bannerModal.classList.add("open");
       document.body.style.overflow = "hidden";
@@ -2861,6 +2880,109 @@ function showPromoBanner(biz) {
     bannerImg.onerror = () => { };
     bannerImg.src = banner.imagen;
   }
+}
+// ── Botón "Ir al carrito" del banner clickeable ──
+const BANNER_CTA_CSS = `
+.banner-modal-box.has-cta .banner-modal-media{
+  max-height:calc(100vh - 210px);
+  max-height:calc(100dvh - 210px);
+  min-height:180px;
+}
+.banner-cta{
+  display:flex;flex-direction:column;gap:12px;
+  padding:14px 16px 16px;
+  border-top:1px solid rgba(var(--dr),var(--dg),var(--db),.25);
+  background:linear-gradient(180deg, rgba(var(--dr),var(--dg),var(--db),.12), transparent 75%);
+}
+.banner-modal.open .banner-cta{animation:bannerCtaIn .5s cubic-bezier(.22,.85,.32,1) .12s both;}
+@keyframes bannerCtaIn{
+  from{opacity:0;transform:translateY(14px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.banner-cta-info{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.banner-cta-desc{
+  margin:0;min-width:0;font-size:14px;font-weight:600;line-height:1.35;color:#e4e4e7;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.banner-cta-price{
+  flex-shrink:0;padding:5px 13px;border-radius:999px;
+  font-size:17px;font-weight:800;color:#fff;letter-spacing:-.01em;
+  background:rgba(var(--dr),var(--dg),var(--db),.18);
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.5);
+}
+.banner-cta-btn{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:15px 18px;border-radius:16px;
+  font-size:15px;font-weight:800;letter-spacing:.01em;color:#fff;text-decoration:none;cursor:pointer;
+  background:linear-gradient(135deg, rgb(var(--dr),var(--dg),var(--db)), rgba(var(--dr),var(--dg),var(--db),.72));
+  box-shadow:0 10px 26px -8px rgba(var(--dr),var(--dg),var(--db),.65), inset 0 1px 0 rgba(255,255,255,.22);
+  transition:transform .18s ease, filter .18s ease, box-shadow .18s ease;
+}
+.banner-cta-btn::after{
+  content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.28), transparent);
+  transform:skewX(-20deg);
+  animation:bannerCtaShine 3.4s ease-in-out 1s infinite;
+}
+@keyframes bannerCtaShine{
+  0%{left:-60%;}
+  55%,100%{left:130%;}
+}
+.banner-cta-btn:hover{transform:translateY(-2px);filter:brightness(1.08);}
+.banner-cta-btn:active{transform:scale(.98);}
+.banner-cta-btn svg{flex-shrink:0;}
+`;
+
+function injectBannerCtaStyles() {
+  if (document.getElementById("bannerCtaStyle")) return;
+  const st = document.createElement("style");
+  st.id = "bannerCtaStyle";
+  st.textContent = BANNER_CTA_CSS;
+  document.head.appendChild(st);
+}
+
+function renderBannerCta(banner, biz, bannerModal) {
+  const box = bannerModal.querySelector(".banner-modal-box");
+  if (!box) return;
+
+  // Limpia lo anterior (por si se re-renderiza)
+  box.querySelector("#bannerCta")?.remove();
+  box.classList.remove("has-cta");
+
+  // Solo si es clickeable Y tiene descripción y precio válidos
+  const desc = String(banner.descripcion || "").trim();
+  const precio = Number(banner.precio) || 0;
+  if (banner.clickeable !== true || !desc || precio <= 0) return;
+
+  injectBannerCtaStyles();
+
+  const cta = document.createElement("div");
+  cta.id = "bannerCta";
+  cta.className = "banner-cta";
+  cta.innerHTML = `
+    <div class="banner-cta-info">
+      <p class="banner-cta-desc">${escapeHtml(desc)}</p>
+      <span class="banner-cta-price">S/ ${precio.toFixed(2)}</span>
+    </div>
+    <a class="banner-cta-btn" id="bannerCtaBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
+        <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
+      </svg>
+      <span>Ir al carrito</span>
+    </a>`;
+
+  const btn = cta.querySelector("#bannerCtaBtn");
+  btn.href = urlCarritoPromo("banner", biz); // ya existe en tu archivo
+  btn.addEventListener("click", () => {
+    // Cierra el modal antes de navegar, así no queda abierto al volver con "atrás"
+    bannerModal.classList.remove("open");
+    document.body.style.overflow = "";
+  });
+
+  box.appendChild(cta);
+  box.classList.add("has-cta");
 }
 
 function bindBannerModalEvents() {
@@ -3598,17 +3720,27 @@ async function render(biz, isInitial = true) {
         showSnackbar("Esta promo ya no está disponible");
       }
     }
+     injectPromoBuyStyles();
     promoImages.forEach((promo) => {
       const shareBase = biz.alias_key
         ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
         : `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
-      const waLink = `https://wa.me/51${waNum}?text=${encodeURIComponent(`Hola, quiero esta oferta que vi en su perfil en Geinz: ${shareBase}`)}`;
+      const comprarHref = promo.precio > 0 ? urlCarritoPromo(promo.id, biz) : null;
+
       const card = document.createElement("div");
       card.className = "promo-card";
-      card.innerHTML = `<div class="promo-card-img-wrap"><div class="promo-overlay-actions">${
-        /* deja aquí igual los botones de WhatsApp y Compartir */
-        `<a class="promo-btn-wa" href="${waLink}" target="_blank"> WhatsApp</a><button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>`
-        }</div></div>`;
+      card.innerHTML = `
+        <div class="promo-card-img-wrap">
+          <div class="promo-overlay-actions">
+            ${comprarHref ? `<a class="promo-btn-buy" href="${comprarHref}">Comprar</a>` : ""}
+            <button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>
+          </div>
+        </div>
+        ${promo.descripcion || promo.precio > 0 ? `
+        <div class="promo-card-info">
+          ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
+          ${promo.precio > 0 ? `<p class="promo-card-price">S/ ${promo.precio.toFixed(2)}</p>` : ""}
+        </div>` : ""}`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
         src: promo.url,
@@ -5287,7 +5419,32 @@ function setupHoverCarousel(wrapId, trackId) {
 }
 
 
+function urlCarritoPromo(promoId, biz) {
+  const aliasKey = _params.alias || biz?.alias_key;
+  const base = _esDominioPersonalizado
+    ? "/carrito"
+    : aliasKey
+      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+      : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
+  return `${base}${base.includes("?") ? "&" : "?"}promo=${encodeURIComponent(promoId)}`;
+}
 
+function injectPromoBuyStyles() {
+  if (document.getElementById("promoBuyStyle")) return;
+  const st = document.createElement("style");
+  st.id = "promoBuyStyle";
+  st.textContent = `
+    .promo-overlay-actions{display:flex;gap:10px;}
+    .promo-overlay-actions .promo-btn-share{flex:1;}
+    .promo-btn-buy{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 0;
+      border-radius:14px;font-weight:700;font-size:14px;color:#fff;text-decoration:none;cursor:pointer;
+      background:linear-gradient(135deg,#34d399,#10b981);}
+    .promo-card-info{padding:12px 16px 16px;}
+    .promo-card-desc{margin:0;font-size:14px;line-height:1.5;color:#d4d4d8;}
+    .promo-card-price{margin:6px 0 0;font-size:17px;font-weight:800;color:#fff;}
+  `;
+  document.head.appendChild(st);
+}
 // ── 2. Pinta 5 productos en línea vertical + botón "Ver catálogo" (arriba si hay productos)
 function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   console.log("🛒 renderProductosCatalogo →", productos?.length, productos);

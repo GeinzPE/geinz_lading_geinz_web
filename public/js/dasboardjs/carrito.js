@@ -82,6 +82,8 @@ let mesaId = null;
 let mesaNombre = null;
 let mesaNumero = null;
 let aliasNegocio = null;
+let promoParam = null;   // ?promo=ID que llega desde el botón "Comprar" de la landing
+let promosGlobal = [];   // promociones ya normalizadas (con precio)
 let cuponParam = null; // código que viene en ?cupon=
 let cuponAplicado = null; // datos del cupón ya validado y en uso
 
@@ -147,7 +149,7 @@ async function resolverParamsCarrito() {
 
   // Cupón por link (?cupon=CODIGO)
   cuponParam = qs.get("cupon") || null;
-
+promoParam = qs.get("promo") || null;
   // Datos de mesa (siempre vienen como query params)
   mesaId = qs.get("mesaId") || qs.get("mesa");
   mesaNombre = qs.get("mesaNombre") || qs.get("nombre_mesa");
@@ -165,6 +167,7 @@ let bizData = null;
 let bizNombre = "Catálogo";
 let _bizLogoUrl = null;
 let pedidoActivoMesa = null;
+let _bizAliasKey = null; // ← NUEVO
 let grupoActivo = null;
 /* Estado del checkout */
 let tipoEntrega = "Delivery";
@@ -413,6 +416,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
         subtotal: +(it.precio * it.cantidad).toFixed(2),
         imagen: it.imagen || "",
         opciones: it.seleccion || null,
+              esPromo: it.esPromo || false, 
       });
     }
   });
@@ -437,6 +441,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
       subtotal: +(it.precio * it.cantidad).toFixed(2),
       imagen: it.imagen || "",
       opciones: it.seleccion || null,
+            esPromo: it.esPromo || false,
     })),
     total_bloque: +items
       .reduce((s, i) => s + i.cantidad * i.precio, 0)
@@ -1265,6 +1270,7 @@ async function renderTienda(biz) {
 
   const logoUrl = biz?.img_tienda?.logo_tienda || null;
   _bizLogoUrl = logoUrl; // se usa la URL directa; el navegador ya la cachea, no hace falta canvas
+  _bizAliasKey = biz.alias_key || null;
   const logoImg = document.getElementById("bizLogo");
   const logoPh = document.getElementById("bizLogoPh");
 
@@ -2758,6 +2764,7 @@ document
         opciones: it.seleccion || null,
         opciones: it.seleccion || null,
         esCanje: it.esCanje || false, // ← AGREGAR
+           esPromo: it.esPromo || false,  
         cuponCodigo: it.cuponCodigo || null,
       })),
       total_items: items.reduce((s, i) => s + i.cantidad, 0),
@@ -3078,6 +3085,7 @@ function aplicarEstadoHorario() {
   // Si el negocio pasó de abierto -> cerrado o viceversa, se refrescan todos los
   // botones "Agregar" / "+" del catálogo para reflejar el nuevo estado.
   if (cambioDeEstado) {
+    promosGlobal.forEach((p) => syncMainListCard(p.id));
     productosGlobal.forEach((p) => syncMainListCard(p.id));
     if (!horarioEstado.abierto) {
       showToast(`🔒 ${horarioEstado.mensaje}`);
@@ -3094,8 +3102,186 @@ function iniciarValidacionHorarioEnVivo() {
   horarioCheckInterval = setInterval(aplicarEstadoHorario, 30000);
 }
 
-/* ══════════════ Init ══════════════ */
+function parseFechaHoraLimaOferta(fechaStr, horaStr) {
+  const [d, m, y] = (fechaStr || "").split("/").map(Number);
+  if (!d || !m || !y) return null;
+  const [hh, mm] = (horaStr || "23:59").split(":").map(Number);
+  const limaOffsetMs = -5 * 60 * 60 * 1000;
+  const fechaUTC = Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0);
+  return fechaUTC - limaOffsetMs;
+}
 
+// "Ofertas del momento" (colección promociones_geinz) que SÍ tienen precio.
+// Se venden igual que cualquier otra promoción, con id prefijado "activa_".
+async function loadOfertasActivas() {
+  try {
+    const ref = tiendaSubCol(localidad, "tiendas", tiendaId, "promociones_geinz");
+    const snap = await getDocs(ref);
+    const now = Date.now();
+    const ofertas = [];
+
+    console.log("[OFERTAS] documentos encontrados:", snap.size);
+
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      const fh = data.datos_hora_fecha || {};
+      const info = data;
+
+      console.log(`[OFERTAS] revisando ${docSnap.id}:`, {
+        estado: data.estado,
+        activo: fh.activo,
+        fecha_fin: fh.fecha_fin,
+        hora_fin: fh.hora_fin,
+        precio_publicacion: info.precio_publicacion,
+      });
+
+      if (data.estado !== "activo") {
+        console.log(`[OFERTAS] ${docSnap.id} descartada: estado="${data.estado}" (debe ser "activo")`);
+        return;
+      }
+      if (fh.activo === false) {
+        console.log(`[OFERTAS] ${docSnap.id} descartada: datos_hora_fecha.activo === false`);
+        return;
+      }
+
+      const inicioMs = fh.timestamp_inicio?.toMillis ? fh.timestamp_inicio.toMillis() : null;
+      if (inicioMs && inicioMs > now) {
+        console.log(`[OFERTAS] ${docSnap.id} descartada: aún no empieza`);
+        return;
+      }
+
+      let finMs = fh.timestamp_fin?.toMillis ? fh.timestamp_fin.toMillis() : null;
+      if (finMs === null && fh.fecha_fin) {
+        finMs = parseFechaHoraLimaOferta(fh.fecha_fin, fh.hora_fin);
+      }
+      if (finMs === null || finMs < now) {
+        console.log(`[OFERTAS] ${docSnap.id} descartada: VENCIDA. fin=${new Date(finMs)} vs ahora=${new Date(now)}`);
+        return;
+      }
+
+      const precio = Number(info.precio_publicacion) || 0;
+      if (precio <= 0) {
+        console.log(`[OFERTAS] ${docSnap.id} descartada: sin precio válido (precio_publicacion="${info.precio_publicacion}")`);
+        return;
+      }
+
+      const img = data.img_container?.lista_img?.[0] || data.img_container?.logo_img || "";
+      const titulo = String(info.titulo || "").trim();
+      const descripcion = String(info.descripcion || "").trim();
+
+      console.log(`[OFERTAS] ${docSnap.id} ✅ APROBADA, precio=${precio}`);
+
+      ofertas.push({
+        id: `promo__activa_${docSnap.id}`,
+        promoId: `activa_${docSnap.id}`,
+        esPromo: true,
+        nombre: (titulo || descripcion || "Oferta").slice(0, 80),
+        descripcion,
+        categoria: "Ofertas del momento",
+        precio,
+        imagen: img,
+        imagenes: img ? [img] : [],
+        condiciones: [],
+        stock: null,
+        puntos: null,
+      });
+    });
+
+    console.log("[OFERTAS] total aprobadas:", ofertas.length);
+    return ofertas;
+  } catch (e) {
+    console.warn("No se pudieron cargar las ofertas activas:", e.message);
+    return [];
+  }
+}
+/* ══════════════ Promociones del negocio ══════════════ */
+function normalizarPromociones(biz) {
+  const lista = [];
+
+  // ── Banner clickeable → se comporta como una promoción más ──
+  const b = biz?.banner;
+  const bPrecio = Number(b?.precio) || 0;
+  const bDesc = String(b?.descripcion || "").trim();
+  if (
+    b?.activo === true &&
+    b?.clickeable === true &&
+    b?.imagen &&
+    bDesc &&
+    bPrecio > 0
+  ) {
+    lista.push({
+      id: "promo__banner",
+      promoId: "banner", // ← el mismo valor que viaja en ?promo=banner
+      esPromo: true,
+      nombre: bDesc.slice(0, 80),
+      descripcion: bDesc,
+      categoria: "Promociones",
+      precio: bPrecio,
+      imagen: b.imagen,
+      imagenes: [b.imagen],
+      condiciones: [],
+      stock: null,
+      puntos: null,
+    });
+  }
+
+  // ── Promociones normales ──
+  const raw = biz?.img_tienda?.lista_img?.promociones;
+  if (raw && typeof raw === "object") {
+    Object.entries(raw).forEach(([promoId, p]) => {
+      // formato viejo (solo URL) o sin precio: no se puede vender
+      if (!p || typeof p !== "object") return;
+      const precio = Number(p.precio) || 0;
+      if (precio <= 0) return;
+      const descripcion = String(p.descripcion || "").trim();
+      lista.push({
+        id: `promo__${promoId}`,
+        promoId: String(promoId),
+        esPromo: true,
+        nombre: (descripcion || "Promoción").slice(0, 80),
+        descripcion,
+        categoria: "Promociones",
+        precio,
+        imagen: p.imagen || "",
+        imagenes: p.imagen ? [p.imagen] : [],
+        condiciones: [],
+        stock: null,
+        puntos: null,
+      });
+    });
+  }
+
+  return lista;
+}
+
+function renderPromos() {
+  const sec = document.getElementById("promosSection");
+  const grid = document.getElementById("promosLista");
+  if (!sec || !grid) return;
+  grid.innerHTML = "";
+  if (!promosGlobal.length) {
+    sec.classList.add("hidden");
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  promosGlobal.forEach((p, i) => frag.appendChild(productoCard(p, i)));
+  grid.appendChild(frag);
+  sec.classList.remove("hidden");
+}
+
+// Botón "Comprar" de la landing → llega con ?promo=ID → se agrega sola
+function aplicarPromoDesdeLink(promoId) {
+  const p = promosGlobal.find((x) => x.promoId === String(promoId));
+  if (!p) {
+    showToast("⚠️ Esa promoción ya no está disponible");
+    return;
+  }
+  addToCart(p); // respeta el bloqueo por horario
+  setTimeout(() => {
+    document.getElementById("promosSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    pulseCard(p.id);
+  }, 350);
+}
 /* ══════════════ Init ══════════════ */
 /* ══════════════════════════════════════════════════════════════════════
    Guardia al retroceder con un CANJE activo (cupón de fidelización)
@@ -3349,7 +3535,9 @@ async function init() {
     return;
   }
 
-  const biz = await loadTienda();
+const biz = await loadTienda();
+const ofertasActivas = await loadOfertasActivas(); // ← NUEVO
+promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas]; // ← MODIFICADO
   const [productos, pedidoMesa] = await Promise.all([
     loadProductosCatalogo(biz),
     loadPedidoMesa(),
@@ -3361,6 +3549,7 @@ async function init() {
   // fallaba con "producto NO está en productosPorId" al venir por link.
   productosGlobal = productos;
   productosPorId = new Map(productos.map((p) => [p.id, p]));
+    promosGlobal.forEach((p) => productosPorId.set(p.id, p));
   document.getElementById("totalCount").textContent = productos.length;
 
   bindCuponInputs();
@@ -3380,7 +3569,8 @@ async function init() {
     renderPedidoActivoMesa(pedidoMesa);
   }
 
-  if (!productos.length) {
+  // Sin productos Y sin promos → mensaje de vacío (igual que antes)
+  if (!productos.length && !promosGlobal.length) {
     document.getElementById("lista").innerHTML = "";
     document.getElementById("emptyMsg").classList.remove("hidden");
     document.getElementById("emptyMsg").classList.add("flex");
@@ -3388,14 +3578,18 @@ async function init() {
     return;
   }
 
-  renderFiltros(productos);
-  buildAllCards(productos);
-  renderLista(productos);
+  renderPromos();
+  if (productos.length) {
+    renderFiltros(productos);
+    buildAllCards(productos);
+    renderLista(productos);
+  } else {
+    document.getElementById("lista").innerHTML = ""; // negocio con solo promos
+  }
   updateCartUI();
   hidePageLoader();
-
-  // Arranca el chequeo periódico en tiempo real (cada 30s) para detectar
-  // apertura/cierre mientras el cliente sigue en la página.
   iniciarValidacionHorarioEnVivo();
+
+  if (promoParam) aplicarPromoDesdeLink(promoParam);
 }
 init();

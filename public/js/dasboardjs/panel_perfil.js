@@ -549,9 +549,7 @@ window.PanelPerfil = {
             servicios_productos: "productosGrid",
           };
           this.populatePhotoGrid(gridMap[tipo], val || [], 6, tipo);
-        } else if (tipo === "promociones") {
-          this.populatePromocionesGrid("promocionesGrid", val || {}, 3);
-        }
+        } 
       } else if (key === "modelo_negocio") {
         // 👈 NUEVO
         this.aplicarVisibilidadUbicacion(val === true);
@@ -651,7 +649,6 @@ window.PanelPerfil = {
       6,
       "servicios_productos",
     );
-    this.populatePromocionesGrid("promocionesGrid", imgs?.promociones || {}, 3);
     if (data.aforo_max !== undefined)
       this.setField("fieldAforo", data.aforo_max);
 
@@ -1675,171 +1672,7 @@ window.PanelPerfil = {
     }
   },
 
-  // ═══════════════════════════════════════════
-  //  PROMOCIONES
-  // ═══════════════════════════════════════════
-  openFotoPromocion(oldKey) {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/png,image/jpeg,image/webp";
 
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (
-        !confirm(
-          oldKey
-            ? "¿Reemplazar esta promoción?"
-            : "¿Subir esta imagen como nueva promoción?",
-        )
-      )
-        return;
-
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        this._showUploadLoading(
-          "Subiendo promoción...",
-          "Comprimiendo y guardando",
-        );
-        try {
-          const newKey = String(Math.floor(Math.random() * 9000000) + 1000000);
-          const blob = this._dataURLtoBlob(
-            await this._comprimirImagen(ev.target.result, 1024, 0.85),
-          );
-          const path = `tiendas/${this.TIENDA_ID}/imagenes/promociones/${newKey}.webp`;
-          const storageRef = this._storageRef(this._storage, path);
-
-          await this._uploadBytes(storageRef, blob, {
-            contentType: "image/webp",
-          });
-          const finalURL = await this._getDownloadURL(storageRef);
-
-          if (oldKey) {
-            try {
-              await this._deleteObject(
-                this._storageRef(
-                  this._storage,
-                  `tiendas/${this.TIENDA_ID}/imagenes/promociones/${oldKey}.webp`,
-                ),
-              );
-            } catch {
-              /* no existía */
-            }
-          }
-
-          const updates = {};
-          if (oldKey)
-            updates[`img_tienda.lista_img.promociones.${oldKey}`] =
-              this._deleteField();
-          updates[`img_tienda.lista_img.promociones.${newKey}`] = finalURL;
-
-          this._ignorarSnapshot++;
-          await this._updateDoc(this.TIENDA_REF, updates);
-
-          const snapPromo = await this._getDoc(this.TIENDA_REF);
-          this.populatePromocionesGrid(
-            "promocionesGrid",
-            snapPromo.data()?.img_tienda?.lista_img?.promociones || {},
-            3,
-          );
-          this.showToast("✓ Promoción actualizada");
-        } catch (err) {
-          console.error("Error subiendo promoción:", err);
-          this.showToast("❌ Error al subir");
-        } finally {
-          this._hideUploadLoading();
-        }
-      };
-      reader.readAsDataURL(file);
-    };
-    input.click();
-  },
-
-  async deleteFotoPromocion(key) {
-    if (!confirm("¿Eliminar esta promoción?")) return;
-    this.showToast("⏳ Eliminando...");
-
-    try {
-      const path = `tiendas/${this.TIENDA_ID}/imagenes/promociones/${key}.webp`;
-      try {
-        await this._deleteObject(this._storageRef(this._storage, path));
-      } catch {
-        /* no existía */
-      }
-
-      this._ignorarSnapshot++;
-      await this._updateDoc(this.TIENDA_REF, {
-        [`img_tienda.lista_img.promociones.${key}`]: this._deleteField(),
-      });
-
-      const snapDel = await this._getDoc(this.TIENDA_REF);
-      this.populatePromocionesGrid(
-        "promocionesGrid",
-        snapDel.data()?.img_tienda?.lista_img?.promociones || {},
-        3,
-      );
-      this.showToast("✓ Promoción eliminada");
-    } catch (err) {
-      console.error("Error eliminando promoción:", err);
-      this.showToast("❌ Error al eliminar");
-    }
-  },
-
-  populatePromocionesGrid(gridId, promosMap, maxSlots) {
-    const grid = document.getElementById(gridId);
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    const entries = Object.entries(promosMap || {});
-
-    entries.forEach(([key, url]) => {
-      const wrap = document.createElement("div");
-      wrap.className = "photo-item";
-      wrap.style.position = "relative";
-
-      const sk = document.createElement("div");
-      sk.style.cssText =
-        "position:absolute;inset:0;background:linear-gradient(90deg,#1a1030 0%,#2a1850 50%,#1a1030 100%);background-size:200% 100%;animation:skeleton-loading 1.2s infinite;z-index:1;border-radius:16px;";
-      wrap.appendChild(sk);
-
-      const img = document.createElement("img");
-      img.style.cssText =
-        "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;z-index:2;border-radius:16px;";
-      img.onload = () => {
-        sk.style.display = "none";
-        setTimeout(() => {
-          img.style.opacity = "1";
-        }, 50);
-      };
-      img.onerror = () => {
-        sk.style.display = "none";
-        wrap.innerHTML =
-          '<span style="font-size:20px;opacity:0.25;position:absolute;inset:0;display:flex;align-items:center;justify-content:center">🖼️</span>';
-      };
-      img.src = url;
-      wrap.appendChild(img);
-
-      const btnDel = document.createElement("button");
-      btnDel.innerHTML = "🗑️";
-      btnDel.style.cssText =
-        "position:absolute;top:6px;right:6px;z-index:10;background:rgba(0,0,0,0.6);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:13px;";
-      btnDel.onclick = (e) => {
-        e.stopPropagation();
-        this.deleteFotoPromocion(key);
-      };
-      wrap.onclick = () => this.openFotoPromocion(key);
-      wrap.appendChild(btnDel);
-      grid.appendChild(wrap);
-    });
-
-    for (let i = entries.length; i < maxSlots; i++) {
-      const div = document.createElement("div");
-      div.className = "photo-item photo-item-add";
-      div.innerHTML = "<span>📷</span><span>Agregar</span>";
-      div.onclick = () => this.openFotoPromocion(null);
-      grid.appendChild(div);
-    }
-  },
 
   // ═══════════════════════════════════════════
   //  VINCULAR CUENTA

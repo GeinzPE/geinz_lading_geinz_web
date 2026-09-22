@@ -159,7 +159,7 @@
       },
       {
         "source": "!/ffmpeg/**",
-        "destination": "/index.html"
+   "destination": "/app-shell.html"
       }
     ]
   }
