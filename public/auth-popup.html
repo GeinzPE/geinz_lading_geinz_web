@@ -609,21 +609,75 @@
         transition: none !important;
       }
     }
+    .init-skel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.init-skel .hero { margin: 0 auto 24px; }
+.init-skel .actions { width: 100%; }
+
+.skel-line {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .05);
+}
+.skel-line.title { height: 21px; width: 64%; margin: 0 auto 10px; }
+.skel-line.desc1 { height: 13px; width: 88%; margin: 0 auto 8px; }
+.skel-line.desc2 { height: 13px; width: 55%; margin: 0 auto 24px; }
+
+/* sumá .skel-line acá para que comparta el shimmer morado con --rgb */
+.skel::after,
+.skel-line::after,
+.avatar.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(var(--rgb), .16), transparent);
+  animation: shimmer 1.7s ease-in-out infinite;
+}
+
+/* fade suave al revelar el contenido real */
+#logoWrap:not([hidden]),
+#title:not([hidden]),
+#msg:not([hidden]),
+#viewMain:not([hidden]) {
+  animation: fade .4s ease both;
+}
   </style>
 </head>
 
 <body>
   <main class="box" id="box">
-    <div class="hero" id="logoWrap">
+
+    <!-- Skeleton inicial: tapa TODO mientras se arma el branding -->
+    <div class="init-skel" id="initSkel">
+      <div class="hero" aria-hidden="true">
+        <span class="glow"></span>
+        <div class="avatar is-loading"></div>
+      </div>
+      <div class="skel-line title"></div>
+      <div class="skel-line desc1"></div>
+      <div class="skel-line desc2"></div>
+      <div class="actions">
+        <div class="skel"></div>
+        <div class="skel"></div>
+        <div class="skel s2"></div>
+      </div>
+    </div>
+
+    <div class="hero" id="logoWrap" hidden>
       <span class="glow" aria-hidden="true"></span>
       <div class="avatar is-loading" id="avatar"></div>
     </div>
 
-    <h1 id="title">Inicia sesión</h1>
-    <p class="desc" id="msg">Para continuar en <b id="bizName">este negocio</b>, elige cómo entrar.</p>
+    <h1 id="title" hidden>Inicia sesión</h1>
+    <p class="desc" id="msg" hidden>Para continuar en <b id="bizName">este negocio</b>, elige cómo entrar.</p>
 
     <!-- Vista principal -->
-    <div id="viewMain" class="actions">
+    <div id="viewMain" class="actions" hidden>
       <button id="btnGoogle" class="btn-google" type="button">
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#EA4335"

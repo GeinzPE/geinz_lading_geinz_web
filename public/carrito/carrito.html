@@ -13,15 +13,15 @@
     rel="stylesheet">
   <link rel="stylesheet" href="../style/carrito/carrito.css">
   <script>
-(function () {
-  var h = location.hostname;
-  if (h === "geinztech.com" || h === "www.geinztech.com") return;
-  var m = location.pathname.match(
-    /^\/perfil\/[^/]+\/(carrito|libro_reclamaciones|terminos_condiciones|politicas_privacidad|seguimiento_reclamaciones|fidelizacion\/.+)$/
-  );
-  if (m) location.replace("/" + m[1] + location.search + location.hash);
-})();
-</script>
+    (function () {
+      var h = location.hostname;
+      if (h === "geinztech.com" || h === "www.geinztech.com") return;
+      var m = location.pathname.match(
+        /^\/perfil\/[^/]+\/(carrito|libro_reclamaciones|terminos_condiciones|politicas_privacidad|seguimiento_reclamaciones|fidelizacion\/.+)$/
+      );
+      if (m) location.replace("/" + m[1] + location.search + location.hash);
+    })();
+  </script>
   <script type="module" src="../js/dasboardjs/carrito.js"></script>
   <style>
     .login-prompt-modal {
@@ -243,10 +243,9 @@
 
     <div class="min-w-0">
       <!-- Promociones (solo se muestra si el negocio tiene) -->
-<section id="promosSection" class="hidden mb-8">
-  <h2 class="display font-extrabold text-[17px] mb-3">🔥 Promociones</h2>
-  <div id="promosLista" class="prod-grid"></div>
-</section>
+
+
+   
       <!-- buscador + filtros -->
       <div class="flex flex-col sm:flex-row gap-3 mb-5">
         <div class="search-wrap">

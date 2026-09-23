@@ -33,13 +33,13 @@ const qs = new URLSearchParams(location.search);
 
 // ── Parámetros ──
 let origenNegocio = null;
-try { origenNegocio = new URL(qs.get("o")).origin; } catch {}
+try { origenNegocio = new URL(qs.get("o")).origin; } catch { }
 
 let returnUrl = null;
 try {
   const u = new URL(qs.get("r"));
   if (origenNegocio && u.origin === origenNegocio) returnUrl = u;
-} catch {}
+} catch { }
 
 // ── Branding del negocio (blindado: nunca hardcodeamos un nombre aquí) ──
 const nombre = (qs.get("n") || "").trim().slice(0, 80);
@@ -58,12 +58,22 @@ if (nombre) $("bizName").textContent = nombre;
 
 // Logo con skeleton mientras carga; si falla o tarda, se muestra la letra
 const avatar = $("avatar");
+function revealMain() {
+  if (revealMain._done) return;
+  revealMain._done = true;
+  $("initSkel").hidden = true;
+  $("logoWrap").hidden = false;
+  $("title").hidden = false;
+  $("msg").hidden = false;
+  $("viewMain").hidden = false;
+}
 function ponerLetra() {
   const d = document.createElement("div");
   d.className = "letter";
   d.textContent = (nombre || "?").charAt(0).toUpperCase();
   avatar.replaceChildren(d);
   avatar.classList.remove("is-loading");
+  revealMain();
 }
 
 if (logo.startsWith("https://")) {
@@ -74,6 +84,7 @@ if (logo.startsWith("https://")) {
   img.onload = () => {
     avatar.classList.remove("is-loading");
     img.classList.add("in");
+    revealMain();
   };
   img.onerror = ponerLetra;
   avatar.appendChild(img);
@@ -674,11 +685,11 @@ async function ejecutar(fn, mensajeCarga, { popup = false } = {}) {
   // Si el popup de Google se cierra sin login, volvemos al inicio sin dejar la carga colgada
   const dejarDeVigilar = popup
     ? vigilarPopupGoogle(() => {
-        if (id !== corrida || !trabajando) return;
-        trabajando = false;
-        show(current);
-      })
-    : () => {};
+      if (id !== corrida || !trabajando) return;
+      trabajando = false;
+      show(current);
+    })
+    : () => { };
 
   try {
     await fn();
