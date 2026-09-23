@@ -76,9 +76,62 @@ const bTagDesc = document.getElementById("bannerTagDesc");
 const bTagPrecio = document.getElementById("bannerTagPrecio");
 const bMsg = document.getElementById("bannerMsg");
 const bBtnGuardar = document.getElementById("btnGuardarBanner");
+const bTipoRow = document.getElementById("bannerTipoRow");
+const bCampoPrecio = document.getElementById("bannerCampoPrecio");
+const bCampoDescuento = document.getElementById("bannerCampoDescuento");
+const bDescuentoValor = document.getElementById("bannerDescuentoValor");
+const bDescuentoUnidad = document.getElementById("bannerDescuentoUnidad");
+const bClickSub = document.getElementById("bannerClickSub");
+const bSoloSeguidores = document.getElementById("bannerSoloSeguidoresSwitch");
+const bUnaVez = document.getElementById("bannerUnaVezSwitch");
+const bSoloSeguidoresRow = document.getElementById("bannerSoloSeguidoresRow");
+const bUnaVezRow = document.getElementById("bannerUnaVezRow");
 
-let bannerGuardado = { descripcion: "", precio: null, clickeable: false };
+const BANNER_CLICK_SUB = {
+  producto: "Si lo activas, al tocar el banner se abrirá el carrito con este producto. La descripción y el precio serán obligatorios.",
+  descuento: "Si lo activas, al tocar el banner se abrirá el carrito con este descuento ya aplicado. La descripción y el valor del descuento serán obligatorios.",
+  envio_gratis: "Si lo activas, al tocar el banner se abrirá el carrito con el envío gratis ya aplicado. La descripción será obligatoria.",
+};
 
+function pintarTipoBanner() {
+  bTipoRow?.querySelectorAll(".bn-tipo-chip").forEach((c) => {
+    c.classList.toggle("active", c.dataset.tipo === bannerTipoActual);
+  });
+  if (bCampoPrecio) bCampoPrecio.style.display = bannerTipoActual === "producto" ? "" : "none";
+  if (bCampoDescuento) bCampoDescuento.classList.toggle("show", bannerTipoActual === "descuento");
+  if (bClickSub) bClickSub.textContent = BANNER_CLICK_SUB[bannerTipoActual] || BANNER_CLICK_SUB.producto;
+  validarBanner();
+}
+
+bTipoRow?.addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-tipo]");
+  if (!chip) return;
+  bannerTipoActual = chip.dataset.tipo;
+  pintarTipoBanner();
+});
+
+document.querySelectorAll('#bannerCampoDescuento [data-descuento-tipo]').forEach((chip) => {
+  chip.addEventListener("click", () => {
+    bannerDescuentoTipoActual = chip.dataset.descuentoTipo;
+    document.querySelectorAll('#bannerCampoDescuento [data-descuento-tipo]').forEach((c) =>
+      c.classList.toggle("active", c === chip),
+    );
+    if (bDescuentoUnidad) bDescuentoUnidad.textContent = bannerDescuentoTipoActual === "porcentaje" ? "%" : "S/";
+    validarBanner();
+  });
+});
+
+function bannerLeerDescuento() {
+  const n = parseFloat(String(bDescuentoValor?.value || "").replace(",", "."));
+  return n > 0 ? n : null;
+}
+let bannerGuardado = {
+  descripcion: "", precio: null, clickeable: false,
+  tipo: "producto", descuentoTipo: "porcentaje", descuentoValor: null,
+  soloSeguidores: false, unaVezPorCliente: false,
+};
+let bannerTipoActual = "producto";
+let bannerDescuentoTipoActual = "porcentaje";
 const bannerLeerPrecio = () => {
   const n = parseFloat(String(bPrecio.value).replace(",", "."));
   return n > 0 ? n : null;
@@ -92,25 +145,47 @@ const bannerSetMsg = (texto, tipo = "") => {
 const bannerHayCambios = () =>
   bDesc.value.trim() !== (bannerGuardado.descripcion || "").trim() ||
   (bannerLeerPrecio() || 0) !== (bannerGuardado.precio || 0) ||
-  bClick.checked !== bannerGuardado.clickeable;
-
+  bClick.checked !== bannerGuardado.clickeable ||
+  bannerTipoActual !== (bannerGuardado.tipo || "producto") ||
+  bannerDescuentoTipoActual !== (bannerGuardado.descuentoTipo || "porcentaje") ||
+  (bannerLeerDescuento() || 0) !== (bannerGuardado.descuentoValor || 0) ||
+  !!bSoloSeguidores?.checked !== !!bannerGuardado.soloSeguidores ||
+  !!bUnaVez?.checked !== !!bannerGuardado.unaVezPorCliente;
 // Si es clickeable → descripción y precio obligatorios. Si no → opcionales.
 function validarBanner() {
   const obligatorio = bClick.checked;
+  const esProducto = bannerTipoActual === "producto";
+  const esDescuento = bannerTipoActual === "descuento";
+
   const faltaDesc = obligatorio && !bDesc.value.trim();
-  const faltaPrecio = obligatorio && !bannerLeerPrecio();
+  const faltaPrecio = obligatorio && esProducto && !bannerLeerPrecio();
+  const faltaDescuento = obligatorio && esDescuento && !bannerLeerDescuento();
 
   bTagDesc.textContent = obligatorio ? "obligatoria" : "opcional";
-  bTagPrecio.textContent = obligatorio ? "obligatorio" : "opcional";
   bTagDesc.classList.toggle("req", obligatorio);
-  bTagPrecio.classList.toggle("req", obligatorio);
-
   bDesc.classList.toggle("error", faltaDesc);
-  bPriceBox.classList.toggle("error", faltaPrecio);
-  bBtnGuardar.disabled = faltaDesc || faltaPrecio;
 
-  if (faltaDesc || faltaPrecio) {
-    const faltan = [faltaDesc && "descripción", faltaPrecio && "precio"].filter(Boolean).join(" y ");
+  if (esProducto) {
+    bTagPrecio.textContent = obligatorio ? "obligatorio" : "opcional";
+    bTagPrecio.classList.toggle("req", obligatorio);
+    bPriceBox.classList.toggle("error", faltaPrecio);
+  } else {
+    bPriceBox.classList.remove("error");
+  }
+
+  document.getElementById("bannerDescuentoBox")?.classList.toggle("error", faltaDescuento);
+
+  if (bSoloSeguidoresRow) bSoloSeguidoresRow.style.display = obligatorio ? "" : "none";
+  if (bUnaVezRow) bUnaVezRow.style.display = obligatorio ? "" : "none";
+
+  bBtnGuardar.disabled = faltaDesc || faltaPrecio || faltaDescuento;
+
+  if (faltaDesc || faltaPrecio || faltaDescuento) {
+    const faltan = [
+      faltaDesc && "descripción",
+      faltaPrecio && "precio",
+      faltaDescuento && "valor del descuento",
+    ].filter(Boolean).join(" y ");
     bannerSetMsg(`Falta ${faltan} para que el banner sea clickeable`, "error");
   } else if (bMsg.classList.contains("error")) {
     bannerSetMsg("");
@@ -120,7 +195,7 @@ function validarBanner() {
 bDesc?.addEventListener("input", validarBanner);
 bPrecio?.addEventListener("input", validarBanner);
 bClick?.addEventListener("change", validarBanner);
-
+bDescuentoValor?.addEventListener("input", validarBanner);
 async function cargarBanner() {
   const snap = await getDoc(TIENDA_REF);
   const banner = snap.data()?.banner || {};
@@ -142,19 +217,41 @@ async function cargarBanner() {
     descripcion: banner.descripcion || "",
     precio: Number(banner.precio) > 0 ? Number(banner.precio) : null,
     clickeable: banner.clickeable === true,
+    tipo: banner.tipo || "producto",
+    descuentoTipo: banner.descuentoTipo || "porcentaje",
+    descuentoValor: Number(banner.descuentoValor) > 0 ? Number(banner.descuentoValor) : null,
+    soloSeguidores: banner.soloSeguidores === true,
+    unaVezPorCliente: banner.unaVezPorCliente === true,
   };
   bDesc.value = bannerGuardado.descripcion;
   bPrecio.value = bannerGuardado.precio ?? "";
   bClick.checked = bannerGuardado.clickeable;
-  validarBanner();
+  bannerTipoActual = bannerGuardado.tipo;
+  bannerDescuentoTipoActual = bannerGuardado.descuentoTipo;
+  if (bDescuentoValor) bDescuentoValor.value = bannerGuardado.descuentoValor ?? "";
+  if (bDescuentoUnidad) bDescuentoUnidad.textContent = bannerDescuentoTipoActual === "porcentaje" ? "%" : "S/";
+  document.querySelectorAll('#bannerCampoDescuento [data-descuento-tipo]').forEach((c) =>
+    c.classList.toggle("active", c.dataset.descuentoTipo === bannerDescuentoTipoActual),
+  );
+  if (bSoloSeguidores) bSoloSeguidores.checked = bannerGuardado.soloSeguidores;
+  if (bUnaVez) bUnaVez.checked = bannerGuardado.unaVezPorCliente;
+  pintarTipoBanner();
 }
 
 bBtnGuardar?.addEventListener("click", async () => {
   const descripcion = bDesc.value.trim();
   const precio = bannerLeerPrecio();
+  const descuentoValor = bannerLeerDescuento();
   const clickeable = bClick.checked;
+  const tipo = bannerTipoActual;
+  const soloSeguidores = !!bSoloSeguidores?.checked;
+  const unaVezPorCliente = !!bUnaVez?.checked;
 
-  if (clickeable && (!descripcion || !precio)) { validarBanner(); return; }
+  if (clickeable) {
+    if (!descripcion) { validarBanner(); return; }
+    if (tipo === "producto" && !precio) { validarBanner(); return; }
+    if (tipo === "descuento" && !descuentoValor) { validarBanner(); return; }
+  }
 
   if (!bannerHayCambios()) {
     bannerSetMsg("Sin cambios");
@@ -167,10 +264,20 @@ bBtnGuardar?.addEventListener("click", async () => {
   try {
     await updateDoc(TIENDA_REF, {
       "banner.descripcion": descripcion || deleteField(),
-      "banner.precio": precio ?? deleteField(),
+      "banner.precio": tipo === "producto" && precio ? precio : deleteField(),
       "banner.clickeable": clickeable,
+      "banner.tipo": tipo,
+      "banner.descuentoTipo": tipo === "descuento" ? bannerDescuentoTipoActual : deleteField(),
+      "banner.descuentoValor": tipo === "descuento" && descuentoValor ? descuentoValor : deleteField(),
+      "banner.soloSeguidores": soloSeguidores,
+      "banner.unaVezPorCliente": unaVezPorCliente,
     });
-    bannerGuardado = { descripcion, precio, clickeable };
+    bannerGuardado = {
+      descripcion, precio: tipo === "producto" ? precio : null, clickeable,
+      tipo, descuentoTipo: bannerDescuentoTipoActual,
+      descuentoValor: tipo === "descuento" ? descuentoValor : null,
+      soloSeguidores, unaVezPorCliente,
+    };
     bannerSetMsg("Cambios guardados", "ok");
     setTimeout(() => { if (bMsg.classList.contains("ok")) bannerSetMsg(""); }, 1500);
     mostrarToast("Banner actualizado correctamente");

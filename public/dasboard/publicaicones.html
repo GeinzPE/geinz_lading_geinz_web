@@ -672,6 +672,13 @@
         .bn-save {
             width: 100%;
         }
+        .bn-tipo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.bn-tipo-chip{padding:9px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#a1a1aa;font-size:12.5px;font-weight:700;cursor:pointer;transition:.15s;}
+.bn-tipo-chip.active{background:#fff;color:#000;}
+.bn-sub-row{display:none;}
+.bn-sub-row.show{display:flex;flex-direction:column;gap:12px;}
+.bn-mini-toggle{display:flex;gap:8px;}
+.bn-mini-toggle .bn-tipo-chip{flex:1;text-align:center;}
     </style>
 </head>
 
@@ -1320,39 +1327,89 @@
             <input type="file" id="bannerFileInput" accept="image/*" style="display:none;">
 
             <!-- Detalles del banner -->
-            <div class="bn-details">
-                <div class="bn-grid">
-                    <div>
-                        <label class="bn-lbl">Descripción <span class="bn-tag"
-                                id="bannerTagDesc">opcional</span></label>
-                        <textarea id="bannerDescripcion" class="of-desc" rows="2" maxlength="80"
-                            placeholder="Ej: Promo del día"></textarea>
-                    </div>
-                    <div>
-                        <label class="bn-lbl">Precio <span class="bn-tag" id="bannerTagPrecio">opcional</span></label>
-                        <div class="of-price" id="bannerPriceBox">
-                            <span>S/</span>
-                            <input id="bannerPrecio" type="number" min="0" step="0.01" inputmode="decimal"
-                                placeholder="Precio">
-                        </div>
-                    </div>
-                </div>
+  <div class="bn-details">
+    <div>
+        <label class="bn-lbl">Tipo de promoción</label>
+        <div class="bn-tipo-row" id="bannerTipoRow">
+            <div class="bn-tipo-chip active" data-tipo="producto">🛍️ Producto</div>
+            <div class="bn-tipo-chip" data-tipo="descuento">🏷️ Descuento</div>
+            <div class="bn-tipo-chip" data-tipo="envio_gratis">🚚 Envío gratis</div>
+        </div>
+    </div>
 
-                <div class="bn-click-row">
-                    <div>
-                        <p class="bn-click-title">Banner clickeable</p>
-                        <p class="bn-click-sub">Si lo activas, al tocar el banner se abrirá el carrito con esta
-                            promoción. La descripción y el precio serán obligatorios.</p>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="bannerClickeableSwitch">
-                        <span class="slider"></span>
-                    </label>
-                </div>
+    <div>
+        <label class="bn-lbl">Descripción <span class="bn-tag"
+                id="bannerTagDesc">opcional</span></label>
+        <textarea id="bannerDescripcion" class="of-desc" rows="2" maxlength="80"
+            placeholder="Ej: Promo del día"></textarea>
+    </div>
 
-                <p class="of-msg" id="bannerMsg"></p>
-                <button type="button" class="of-save bn-save" id="btnGuardarBanner">Guardar detalles del banner</button>
+    <div class="bn-grid" id="bannerCampoPrecio">
+        <div>
+            <label class="bn-lbl">Precio <span class="bn-tag" id="bannerTagPrecio">opcional</span></label>
+            <div class="of-price" id="bannerPriceBox">
+                <span>S/</span>
+                <input id="bannerPrecio" type="number" min="0" step="0.01" inputmode="decimal"
+                    placeholder="Precio">
             </div>
+        </div>
+    </div>
+
+    <div class="bn-sub-row" id="bannerCampoDescuento">
+        <div>
+            <label class="bn-lbl">Tipo de descuento</label>
+            <div class="bn-mini-toggle">
+                <div class="bn-tipo-chip active" data-descuento-tipo="porcentaje">% Porcentaje</div>
+                <div class="bn-tipo-chip" data-descuento-tipo="monto">S/ Monto fijo</div>
+            </div>
+        </div>
+        <div>
+            <label class="bn-lbl">Valor del descuento</label>
+            <div class="of-price" id="bannerDescuentoBox">
+                <span id="bannerDescuentoUnidad">%</span>
+                <input id="bannerDescuentoValor" type="number" min="0" step="0.01" inputmode="decimal"
+                    placeholder="Ej: 10">
+            </div>
+        </div>
+    </div>
+
+    <div class="bn-click-row">
+        <div>
+            <p class="bn-click-title">Banner clickeable</p>
+            <p class="bn-click-sub" id="bannerClickSub">Si lo activas, al tocar el banner se abrirá el
+                carrito con esta promoción. La descripción y el precio serán obligatorios.</p>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="bannerClickeableSwitch">
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <div class="bn-click-row" id="bannerSoloSeguidoresRow" style="display:none;">
+        <div>
+            <p class="bn-click-title">Solo para seguidores</p>
+            <p class="bn-click-sub">Solo los clientes que siguen tu negocio podrán usar esta promoción.</p>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="bannerSoloSeguidoresSwitch">
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <div class="bn-click-row" id="bannerUnaVezRow" style="display:none;">
+        <div>
+            <p class="bn-click-title">Solo una vez por cliente</p>
+            <p class="bn-click-sub">Cada cliente podrá aprovechar esta promoción una sola vez.</p>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="bannerUnaVezSwitch">
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <p class="of-msg" id="bannerMsg"></p>
+    <button type="button" class="of-save bn-save" id="btnGuardarBanner">Guardar detalles del banner</button>
+</div>
         </div>
         <!-- ══════════════════════ FIN VISTA 3 ══════════════════════ -->
 <p class="sec-sub">Hasta 5 productos con imagen, descripción y precio (obligatorios).</p>

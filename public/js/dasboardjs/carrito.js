@@ -971,6 +971,57 @@ async function buscarYAplicarCupon(codigoCrudo) {
   showToast("⚠️ El cupón no existe o ya expiró");
 }
 
+function urlTieneBannerCupon() {
+  return new URLSearchParams(window.location.search).get("bannerCupon") === "1";
+}
+
+async function aplicarCuponBanner() {
+  const banner = bizData?.banner;
+  if (!banner || banner.clickeable !== true) return;
+  const tipo = banner.tipo || "producto";
+  if (tipo !== "descuento" && tipo !== "envio_gratis") return;
+
+  if (banner.soloSeguidores && !siguiendoTienda) {
+    showToast("⭐ Esta promoción es solo para seguidores del negocio");
+    return;
+  }
+
+  const claveUso = `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`;
+  if (banner.unaVezPorCliente && localStorage.getItem(claveUso)) {
+    showToast("Ya usaste esta promoción anteriormente");
+    return;
+  }
+
+  let nuevoCupon;
+  if (tipo === "descuento") {
+    const valor = Number(banner.descuentoValor) || 0;
+    if (valor <= 0) return;
+    nuevoCupon = {
+      codigo: "PROMO",
+      tipo: "manual",
+      origen: "banner",
+      tipoDescuentoManual: banner.descuentoTipo === "monto" ? "monto" : "porcentaje",
+      porcentajeManual: banner.descuentoTipo === "monto" ? null : valor,
+      montoManual: banner.descuentoTipo === "monto" ? valor : null,
+      compraMinima: 0,
+      nombre: banner.descripcion || "Descuento especial",
+    };
+  } else {
+    nuevoCupon = {
+      codigo: "ENVIO",
+      tipo: "manual",
+      origen: "banner",
+      tipoDescuentoManual: null,
+      nombre: `🚚 ${banner.descripcion || "Envío gratis"}`,
+      compraMinima: 0,
+      envioGratis: true,
+    };
+  }
+
+  cuponAplicado = nuevoCupon;
+  updateCartUI();
+  showToast(tipo === "envio_gratis" ? "🚚 Envío gratis aplicado" : "🏷️ Descuento aplicado");
+}
 function quitarCupon() {
   console.log(
     "[CUPON] quitarCupon() llamado, cuponAplicado actual:",
@@ -2829,7 +2880,7 @@ document
       total: +total.toFixed(2),
       subtotal: +subtotal.toFixed(2),
       descuentoCupon,
-      cupon: cuponAplicado
+           cupon: cuponAplicado
         ? {
           codigo: cuponAplicado.codigo,
           tipo: cuponAplicado.tipo,
@@ -2846,6 +2897,7 @@ document
           porcentajeManual: cuponAplicado.porcentajeManual ?? null,
           montoManual: cuponAplicado.montoManual ?? null,
           compraMinima: cuponAplicado.compraMinima ?? null,
+          envioGratis: cuponAplicado.envioGratis === true,
         }
         : null,
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
@@ -2884,6 +2936,9 @@ document
 
     const pedidoId = resultado.id;
     pedidoEnviado = true;
+        if (cuponAplicado?.origen === "banner" && bizData?.banner?.unaVezPorCliente) {
+      localStorage.setItem(`geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`, "1");
+    }
     // Con alias: no se expone el id real del negocio en la URL.
     // Fallback al formato viejo solo si el negocio entró por ?id= (sin alias).
     const linkPedido = window.__NEGOCIO_HOSTNAME__
@@ -3774,8 +3829,9 @@ async function init() {
   document.getElementById("totalCount").textContent = catalogoGlobal.length;
 
   bindCuponInputs();
-  if (cuponParam) await buscarYAplicarCupon(cuponParam);
+    if (cuponParam) await buscarYAplicarCupon(cuponParam);
   await renderTienda(biz);
+  if (urlTieneBannerCupon()) await aplicarCuponBanner();
   aplicarComportamientoBotonAtras();
   aplicarModeloNegocio(biz);
 

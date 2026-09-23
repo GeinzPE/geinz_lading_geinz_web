@@ -3295,6 +3295,7 @@ const BANNER_CTA_CSS = `
 .banner-cta-btn:hover{transform:translateY(-2px);filter:brightness(1.08);}
 .banner-cta-btn:active{transform:scale(.98);}
 .banner-cta-btn svg{flex-shrink:0;}
+.banner-cta-tag{margin:-4px 0 2px;font-size:11px;font-weight:700;color:rgba(var(--dr),var(--dg),var(--db),.9);}
 `;
 
 function injectBannerCtaStyles() {
@@ -3309,16 +3310,43 @@ function renderBannerCta(banner, biz, bannerModal) {
   const box = bannerModal.querySelector(".banner-modal-box");
   if (!box) return;
 
-  // Limpia lo anterior (por si se re-renderiza)
   box.querySelector("#bannerCta")?.remove();
   box.classList.remove("has-cta");
 
-  // Solo si es clickeable Y tiene descripción y precio válidos
+  if (banner.clickeable !== true) return;
   const desc = String(banner.descripcion || "").trim();
-  const precio = Number(banner.precio) || 0;
-  if (banner.clickeable !== true || !desc || precio <= 0) return;
+  const tipo = banner.tipo || "producto";
+  if (!desc) return;
+
+  let precioHTML = "";
+  let href = null;
+
+  if (tipo === "producto") {
+    const precio = Number(banner.precio) || 0;
+    if (precio <= 0) return;
+    precioHTML = `<span class="banner-cta-price">S/ ${precio.toFixed(2)}</span>`;
+    href = urlCarritoPromo("banner", biz);
+  } else if (tipo === "descuento") {
+    const valor = Number(banner.descuentoValor) || 0;
+    if (valor <= 0) return;
+    const etiqueta = banner.descuentoTipo === "monto" ? `-S/ ${valor.toFixed(2)}` : `-${valor}%`;
+    precioHTML = `<span class="banner-cta-price">${etiqueta}</span>`;
+    href = urlCarritoBannerCupon(biz);
+  } else if (tipo === "envio_gratis") {
+    precioHTML = `<span class="banner-cta-price">🚚 Gratis</span>`;
+    href = urlCarritoBannerCupon(biz);
+  } else {
+    return;
+  }
 
   injectBannerCtaStyles();
+
+  const restricciones = [];
+  if (banner.soloSeguidores) restricciones.push("Solo para seguidores");
+  if (banner.unaVezPorCliente) restricciones.push("Una vez por cliente");
+  const restriccionesHTML = restricciones.length
+    ? `<p class="banner-cta-tag">${restricciones.join(" · ")}</p>`
+    : "";
 
   const cta = document.createElement("div");
   cta.id = "bannerCta";
@@ -3326,8 +3354,9 @@ function renderBannerCta(banner, biz, bannerModal) {
   cta.innerHTML = `
     <div class="banner-cta-info">
       <p class="banner-cta-desc">${escapeHtml(desc)}</p>
-      <span class="banner-cta-price">S/ ${precio.toFixed(2)}</span>
+      ${precioHTML}
     </div>
+    ${restriccionesHTML}
     <a class="banner-cta-btn" id="bannerCtaBtn">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
@@ -3337,15 +3366,24 @@ function renderBannerCta(banner, biz, bannerModal) {
     </a>`;
 
   const btn = cta.querySelector("#bannerCtaBtn");
-  btn.href = urlCarritoPromo("banner", biz); // ya existe en tu archivo
+  btn.href = href;
   btn.addEventListener("click", () => {
-    // Cierra el modal antes de navegar, así no queda abierto al volver con "atrás"
     bannerModal.classList.remove("open");
     document.body.style.overflow = "";
   });
 
   box.appendChild(cta);
   box.classList.add("has-cta");
+}
+
+function urlCarritoBannerCupon(biz) {
+  const aliasKey = _params.alias || biz?.alias_key;
+  const base = _esDominioPersonalizado
+    ? "/carrito"
+    : aliasKey
+      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+      : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
+  return `${base}${base.includes("?") ? "&" : "?"}bannerCupon=1`;
 }
 
 function bindBannerModalEvents() {
@@ -4122,7 +4160,7 @@ async function render(biz, isInitial = true) {
         showSnackbar("Esta promo ya no está disponible");
       }
     }
-     injectPromoBuyStyles();
+    injectPromoBuyStyles();
     promoImages.forEach((promo) => {
       const shareBase = biz.alias_key
         ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
@@ -4133,16 +4171,26 @@ async function render(biz, isInitial = true) {
       card.className = "promo-card";
       card.innerHTML = `
         <div class="promo-card-img-wrap">
-          <div class="promo-overlay-actions">
-            ${comprarHref ? `<a class="promo-btn-buy" href="${comprarHref}">Comprar</a>` : ""}
-            <button class="promo-btn-share" data-share-url="${shareBase}">Compartir</button>
+          <div class="promo-card-top-actions">
+            ${comprarHref ? `<a class="promo-icon-btn promo-icon-buy" href="${comprarHref}" aria-label="Comprar">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
+                <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
+              </svg>
+            </a>` : ""}
+            <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
+              </svg>
+            </button>
           </div>
-        </div>
-        ${promo.descripcion || promo.precio > 0 ? `
-        <div class="promo-card-info">
-          ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
-          ${promo.precio > 0 ? `<p class="promo-card-price">S/ ${promo.precio.toFixed(2)}</p>` : ""}
-        </div>` : ""}`;
+          ${promo.precio > 0 || promo.descripcion ? `
+          <div class="promo-card-bottom-overlay">
+            ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
+            ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
+          </div>` : ""}
+        </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
         src: promo.url,
@@ -4150,6 +4198,28 @@ async function render(biz, isInitial = true) {
       });
       imgWrapContainer.prepend(imgWrap);
       promoCarousel.appendChild(card);
+    });
+    promoCarousel.querySelectorAll(".promo-icon-share").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const url = btn.dataset.shareUrl;
+        const fullText = `Mira lo que encontre en ${nombre} 👀🔥\n${url}`;
+        if (navigator.share)
+          try {
+            await navigator.share({ text: fullText });
+          } catch (e) { }
+        else copyToClipboard(fullText);
+      });
+    });
+    promoCarousel.querySelectorAll(".promo-icon-share").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const url = btn.dataset.shareUrl;
+        const fullText = `Mira lo que encontre en ${nombre} 👀🔥\n${url}`;
+        if (navigator.share)
+          try {
+            await navigator.share({ text: fullText });
+          } catch (e) { }
+        else copyToClipboard(fullText);
+      });
     });
     promoCarousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -5876,14 +5946,49 @@ function injectPromoBuyStyles() {
   const st = document.createElement("style");
   st.id = "promoBuyStyle";
   st.textContent = `
-    .promo-overlay-actions{display:flex;gap:10px;}
-    .promo-overlay-actions .promo-btn-share{flex:1;}
-    .promo-btn-buy{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 0;
-      border-radius:14px;font-weight:700;font-size:14px;color:#fff;text-decoration:none;cursor:pointer;
-      background:linear-gradient(135deg,#34d399,#10b981);}
-    .promo-card-info{padding:12px 16px 16px;}
-    .promo-card-desc{margin:0;font-size:14px;line-height:1.5;color:#d4d4d8;}
-    .promo-card-price{margin:6px 0 0;font-size:17px;font-weight:800;color:#fff;}
+    .promo-card-img-wrap{ position:relative; }
+    /* Máscara sutil y uniforme sobre TODA la imagen, independiente del shadow de abajo */
+    .promo-card-img-wrap::before{
+      content:"";
+      position:absolute; inset:0; z-index:1;
+      background:rgba(0,0,0,.22);
+      pointer-events:none;
+    }
+    .promo-card-top-actions{
+      position:absolute; top:14px; right:14px; z-index:3;
+      display:flex; gap:8px;
+    }
+    .promo-icon-btn{
+      width:38px;height:38px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      border:none;cursor:pointer;color:#fff;text-decoration:none;
+      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+      box-shadow:0 6px 16px -4px rgba(0,0,0,.5);
+      transition:transform .2s cubic-bezier(.34,1.4,.4,1), filter .2s ease;
+    }
+    .promo-icon-btn:hover{ transform:translateY(-2px) scale(1.06); filter:brightness(1.1); }
+    .promo-icon-btn:active{ transform:scale(.94); }
+    .promo-icon-buy{ background:linear-gradient(135deg,#34d399,#10b981); }
+    .promo-icon-share{ background:rgba(var(--dr),var(--dg),var(--db),.92); }
+    /* Shadow/gradiente de abajo para el texto, separado de la máscara general */
+    .promo-card-bottom-overlay{
+      position:absolute; left:0; right:0; bottom:0; z-index:2;
+      padding:36px 16px 16px;
+      display:flex; flex-direction:column; gap:8px; align-items:flex-start;
+      background:linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.65) 45%, rgba(0,0,0,0) 100%);
+    }
+    .promo-card-price{
+      align-self:flex-start;
+      font-size:12.5px;font-weight:800;color:#fff;letter-spacing:-.01em;
+      padding:5px 13px;border-radius:999px;
+      background:rgba(var(--dr),var(--dg),var(--db),.92);
+      box-shadow:0 4px 14px -4px rgba(var(--dr),var(--dg),var(--db),.5);
+    }
+    .promo-card-desc{
+      margin:0;font-size:14.5px;font-weight:700;color:#fff;line-height:1.35;
+      text-shadow:0 1px 4px rgba(0,0,0,.5);
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    }
   `;
   document.head.appendChild(st);
 }
