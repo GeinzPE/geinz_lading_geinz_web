@@ -281,14 +281,45 @@ body {
 /* ----------------------------------------------
    8. PROMOCIONES (rectángulo fijo, sin estirar)
 -------------------------------------------------- */
+/* Móvil: se queda igual que antes (grid que se acomoda solo) */
 #promoCarousel {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
     align-items: start;
-    /* evita que las tarjetas se estiren para igualar la más alta */
 }
 
+/* Desktop: carrusel horizontal, mismo criterio que productos/ambientes */
+@media (min-width: 1024px) {
+    #promoCarousel {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-behavior: smooth;
+        scroll-snap-type: x proximity;
+        gap: 1.75rem !important;
+        padding: .5rem 1rem 1.5rem;
+        scrollbar-width: none;
+
+        -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+        mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+    }
+
+    #promoCarousel::-webkit-scrollbar {
+        display: none;
+    }
+
+    #promoCarousel .promo-card {
+        flex: 0 0 300px;
+        width: 300px;
+        scroll-snap-align: center;
+    }
+
+    #promoCarousel .promo-card .promo-card-img-wrap {
+        aspect-ratio: 4 / 5;
+    }
+}
 .promo-card {
     border-radius: 1.75rem;
     overflow: hidden;
@@ -307,7 +338,7 @@ body {
     position: relative;
     overflow: hidden;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 3 / 3;
     /* rectángulo fijo, mismo tamaño siempre */
     background: #0d0d0d;
 }

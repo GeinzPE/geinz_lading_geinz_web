@@ -3246,56 +3246,80 @@ function showPromoBanner(biz) {
 }
 // ── Botón "Ir al carrito" del banner clickeable ──
 const BANNER_CTA_CSS = `
-.banner-modal-box.has-cta .banner-modal-media{
-  max-height:calc(100vh - 210px);
-  max-height:calc(100dvh - 210px);
-  min-height:180px;
-}
 .banner-cta{
-  display:flex;flex-direction:column;gap:12px;
-  padding:14px 16px 16px;
-  border-top:1px solid rgba(var(--dr),var(--dg),var(--db),.25);
-  background:linear-gradient(180deg, rgba(var(--dr),var(--dg),var(--db),.12), transparent 75%);
+  position:absolute;
+  left:0;right:0;bottom:0;
+  z-index:3;
+  padding:18px 18px calc(16px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(180deg, transparent 0%, rgba(0,0,0,.4) 35%, rgba(0,0,0,.9) 100%);
 }
 .banner-modal.open .banner-cta{animation:bannerCtaIn .5s cubic-bezier(.22,.85,.32,1) .12s both;}
-@keyframes bannerCtaIn{
-  from{opacity:0;transform:translateY(14px);}
-  to{opacity:1;transform:translateY(0);}
-}
-.banner-cta-info{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+@keyframes bannerCtaIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+.banner-cta-toprow{display:flex;align-items:center;justify-content:space-between;gap:12px;}
 .banner-cta-desc{
-  margin:0;min-width:0;font-size:14px;font-weight:600;line-height:1.35;color:#e4e4e7;
+  margin:0;min-width:0;font-size:14px;font-weight:600;line-height:1.35;color:#fff;
+  text-shadow:0 1px 6px rgba(0,0,0,.5);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
-.banner-cta-price{
-  flex-shrink:0;padding:5px 13px;border-radius:999px;
-  font-size:17px;font-weight:800;color:#fff;letter-spacing:-.01em;
-  background:rgba(var(--dr),var(--dg),var(--db),.18);
-  border:1px solid rgba(var(--dr),var(--dg),var(--db),.5);
+.banner-cta-eye{
+  flex-shrink:0;width:34px;height:34px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);backdrop-filter:blur(8px);
+  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s ease, transform .15s ease;
 }
+.banner-cta-eye:hover{background:rgba(255,255,255,.16);transform:scale(1.06);}
+.banner-cta-eye:active{transform:scale(.92);}
+.banner-cta-eye svg{width:16px;height:16px;}
+
+/* ── Panel que se revela con el ojito: sube desde abajo ── */
+.banner-cta-reveal{
+  max-height:0;
+  opacity:0;
+  overflow:hidden;
+  transform:translateY(16px);
+  transition:max-height .4s cubic-bezier(.22,.85,.32,1), opacity .32s ease, transform .4s cubic-bezier(.22,.85,.32,1), margin-top .4s ease;
+  display:flex;flex-direction:column;gap:10px;
+}
+.banner-cta-reveal.open{
+  max-height:220px;
+  opacity:1;
+  transform:translateY(0);
+  margin-top:12px;
+}
+
+.banner-cta-tags{display:flex;flex-wrap:wrap;gap:6px;}
+.banner-cta-tag{
+  font-size:10.5px;font-weight:700;color:#fff;padding:3px 9px;border-radius:999px;
+  background:rgba(var(--dr),var(--dg),var(--db),.35);
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.6);
+}
+
+.banner-cta-price{
+  align-self:flex-start;
+  padding:5px 13px;border-radius:999px;font-size:17px;font-weight:800;color:#fff;letter-spacing:-.01em;
+  background:rgba(var(--dr),var(--dg),var(--db),.28);
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.6);
+}
+
 .banner-cta-btn{
   position:relative;overflow:hidden;
   display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:15px 18px;border-radius:16px;
-  font-size:15px;font-weight:800;letter-spacing:.01em;color:#fff;text-decoration:none;cursor:pointer;
-  background:linear-gradient(135deg, rgb(var(--dr),var(--dg),var(--db)), rgba(var(--dr),var(--dg),var(--db),.72));
-  box-shadow:0 10px 26px -8px rgba(var(--dr),var(--dg),var(--db),.65), inset 0 1px 0 rgba(255,255,255,.22);
-  transition:transform .18s ease, filter .18s ease, box-shadow .18s ease;
+  width:100%;padding:14px 18px;border-radius:16px;
+  font-size:14.5px;font-weight:800;letter-spacing:.01em;color:#fff;text-decoration:none;cursor:pointer;
+  background:rgba(255,255,255,.1);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:0 10px 26px -8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25);
+  transition:transform .18s ease, background .18s ease;
 }
 .banner-cta-btn::after{
   content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
-  background:linear-gradient(100deg, transparent, rgba(255,255,255,.28), transparent);
-  transform:skewX(-20deg);
-  animation:bannerCtaShine 3.4s ease-in-out 1s infinite;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
+  transform:skewX(-20deg);animation:bannerCtaShine 3.4s ease-in-out 1s infinite;
 }
-@keyframes bannerCtaShine{
-  0%{left:-60%;}
-  55%,100%{left:130%;}
-}
-.banner-cta-btn:hover{transform:translateY(-2px);filter:brightness(1.08);}
+@keyframes bannerCtaShine{0%{left:-60%;}55%,100%{left:130%;}}
+.banner-cta-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,.16);}
 .banner-cta-btn:active{transform:scale(.98);}
-.banner-cta-btn svg{flex-shrink:0;}
-.banner-cta-tag{margin:-4px 0 2px;font-size:11px;font-weight:700;color:rgba(var(--dr),var(--dg),var(--db),.9);}
 `;
 
 function injectBannerCtaStyles() {
@@ -3307,73 +3331,100 @@ function injectBannerCtaStyles() {
 }
 
 function renderBannerCta(banner, biz, bannerModal) {
-  const box = bannerModal.querySelector(".banner-modal-box");
-  if (!box) return;
-
-  box.querySelector("#bannerCta")?.remove();
-  box.classList.remove("has-cta");
+  const media = bannerModal.querySelector(".banner-modal-media");
+  if (!media) return;
+  media.querySelector("#bannerCta")?.remove();
 
   if (banner.clickeable !== true) return;
   const desc = String(banner.descripcion || "").trim();
   const tipo = banner.tipo || "producto";
   if (!desc) return;
 
-  let precioHTML = "";
-  let href = null;
-
+  let precioLabel = "", href = null;
   if (tipo === "producto") {
     const precio = Number(banner.precio) || 0;
     if (precio <= 0) return;
-    precioHTML = `<span class="banner-cta-price">S/ ${precio.toFixed(2)}</span>`;
+    precioLabel = `S/ ${precio.toFixed(2)}`;
     href = urlCarritoPromo("banner", biz);
   } else if (tipo === "descuento") {
     const valor = Number(banner.descuentoValor) || 0;
     if (valor <= 0) return;
-    const etiqueta = banner.descuentoTipo === "monto" ? `-S/ ${valor.toFixed(2)}` : `-${valor}%`;
-    precioHTML = `<span class="banner-cta-price">${etiqueta}</span>`;
+    precioLabel = banner.descuentoTipo === "monto" ? `-S/ ${valor.toFixed(2)}` : `-${valor}%`;
     href = urlCarritoBannerCupon(biz);
   } else if (tipo === "envio_gratis") {
-    precioHTML = `<span class="banner-cta-price">🚚 Gratis</span>`;
+    precioLabel = "🚚 Gratis";
     href = urlCarritoBannerCupon(biz);
-  } else {
-    return;
-  }
+  } else return;
 
   injectBannerCtaStyles();
 
   const restricciones = [];
   if (banner.soloSeguidores) restricciones.push("Solo para seguidores");
   if (banner.unaVezPorCliente) restricciones.push("Una vez por cliente");
-  const restriccionesHTML = restricciones.length
-    ? `<p class="banner-cta-tag">${restricciones.join(" · ")}</p>`
+  const tagsHTML = restricciones.length
+    ? `<div class="banner-cta-tags">${restricciones.map(r => `<span class="banner-cta-tag">${r}</span>`).join("")}</div>`
     : "";
+
+  const EYE_CLOSED = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const EYE_OPEN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>`;
 
   const cta = document.createElement("div");
   cta.id = "bannerCta";
   cta.className = "banner-cta";
   cta.innerHTML = `
-    <div class="banner-cta-info">
+    <div class="banner-cta-toprow">
       <p class="banner-cta-desc">${escapeHtml(desc)}</p>
-      ${precioHTML}
+      <button type="button" class="banner-cta-eye" id="bannerCtaEye" aria-label="Ver promoción">${EYE_CLOSED}</button>
     </div>
-    ${restriccionesHTML}
-    <a class="banner-cta-btn" id="bannerCtaBtn">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
-        <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
-      </svg>
-      <span>Ir al carrito</span>
-    </a>`;
+    <div class="banner-cta-reveal" id="bannerCtaReveal">
+      ${tagsHTML}
+      <span class="banner-cta-price">${precioLabel}</span>
+      <a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
+          <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
+        </svg>
+        <span>Ir al carrito</span>
+      </a>
+    </div>`;
 
-  const btn = cta.querySelector("#bannerCtaBtn");
-  btn.href = href;
-  btn.addEventListener("click", () => {
-    bannerModal.classList.remove("open");
-    document.body.style.overflow = "";
+  // ── Ojito: revela el panel completo de abajo hacia arriba ──
+  const eyeBtn = cta.querySelector("#bannerCtaEye");
+  const reveal = cta.querySelector("#bannerCtaReveal");
+  let abierto = false;
+  eyeBtn.addEventListener("click", () => {
+    abierto = !abierto;
+    reveal.classList.toggle("open", abierto);
+    eyeBtn.innerHTML = abierto ? EYE_OPEN : EYE_CLOSED;
   });
 
-  box.appendChild(cta);
-  box.classList.add("has-cta");
+  // ── Click en "Ir al carrito": valida "solo seguidores" ──
+  const btn = cta.querySelector("#bannerCtaBtn");
+  btn.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    if (banner.soloSeguidores) {
+      if (!auth.currentUser) {
+        openLoginPromptModal();
+        return;
+      }
+      const clienteRef = doc(
+        tiendaSubCol(_params.localidad, "tiendas", _params.id, "clientes"),
+        auth.currentUser.uid,
+      );
+      const snap = await getDoc(clienteRef);
+      if (!snap.exists()) {
+        showToast("🔒 Debes seguir este negocio para reclamar esta promo");
+        return;
+      }
+    }
+
+    bannerModal.classList.remove("open");
+    document.body.style.overflow = "";
+    window.location.href = href;
+  });
+
+  media.appendChild(cta);
 }
 
 function urlCarritoBannerCupon(biz) {
@@ -3822,7 +3873,11 @@ async function render(biz, isInitial = true) {
     ?.style.setProperty("display", copyrightActivo ? "" : "none");
 
   // ── "Powered by GEINZ" ──
-  const poweredActivo = footerConfig.footer_derechos_autor_geinz === true;
+  // ── "Powered by GEINZ" — depende de footer_derechos_autor_geinz Y de que "geinz" esté activo ──
+  const poweredActivo =
+    footerActivo &&
+    geinzColActiva &&
+    footerConfig.footer_derechos_autor_geinz === true;
   document
     .getElementById("footerPoweredRow")
     ?.style.setProperty("display", poweredActivo ? "" : "none");
@@ -6043,7 +6098,7 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
     list.appendChild(row);
   });
 }
-
 setupHoverCarousel("productosCarouselWrap", "productosGrid");
 setupHoverCarousel("ambientesCarouselWrap", "ambientesGrid");
 setupHoverCarousel("catalogoCarouselWrap", "catalogoList");
+setupHoverCarousel("promoCarouselWrap", "promoCarousel");

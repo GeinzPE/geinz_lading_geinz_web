@@ -14,7 +14,7 @@ import {
 
 import { db, storage } from "../db/db.js";
 import { tiendaDoc, tiendaSubDoc,tiendaSubCol } from "../rutas/rutas.js";
-const TIENDA_SIN_LOGIN = "fW7W8RsgkkQ3IYfxKHGR";
+const TIENDA_SIN_LOGIN = "";
 
 // ── Detección dinámica de tienda/localidad (vía postMessage del padre) ──
 let tiendaId = sessionStorage.getItem("tiendaId");
@@ -182,18 +182,7 @@ async function boot() {
   window.PanelNegocio.LOCALIDAD_TIENDA = LOCALIDAD;
 
   // 👇 Bypass total: esta tienda entra directo, sin login ni roles
-  if (NEGOCIO_ID === TIENDA_SIN_LOGIN) {
-    const sesion = {
-      roleId: "bypass-admin",
-      nombre: "Administrador",
-      usuario: "admin",
-      esAdmin: true,
-      permisos: TODOS_LOS_PERMISOS,
-    };
-    saveSession(sesion);
-    enterPanel(sesion);
-    return;
-  }
+
 
   const sesion = getSession();
   if (sesion) {
