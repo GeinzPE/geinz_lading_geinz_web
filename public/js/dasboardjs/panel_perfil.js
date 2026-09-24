@@ -172,7 +172,13 @@ window.PanelPerfil = {
   map: null,
   mapMarker: null,
   mapMarkerActual: null,
-
+_PAGO_CONFIG: {
+  yape: { digits: 9 },
+  plin: { digits: 9 },
+  agora: { digits: 9 },
+  visa_mastercard: { digits: 20 },
+},
+_pagoQrPending: {},
   // ── IDs / refs Firebase ─────────────────────
   // ── IDs / refs Firebase ─────────────────────
   TIENDA_ID: tiendaId,
@@ -635,7 +641,15 @@ window.PanelPerfil = {
       this.setField("fieldPlinTitular", mp.plin.nombre || "");
       this.setField("fieldPlinAlias", mp.plin.numero || "");
     }
-
+["yape", "plin", "agora", "visa_mastercard"].forEach((m) => {
+  const info = mp[m] || {};
+  this.setField(`pagoNombre-${m}`, info.nombre || "");
+  this.setField(`pagoNumero-${m}`, info.numero || "");
+  this._originalValues[`pagoNombre-${m}`] = info.nombre || "";
+  this._originalValues[`pagoNumero-${m}`] = info.numero || "";
+  this._loadQrPreview(m, info.qr || "");
+  this._togglePagoDetails(m, info.enable === true);
+});
     const imgs = data.img_tienda?.lista_img;
     this.populatePhotoGrid(
       "ambienteGrid",
@@ -924,6 +938,119 @@ window.PanelPerfil = {
     btn?.classList.remove("visible");
   },
 
+  _sanitizeNumero(method) {
+  const el = document.getElementById(`pagoNumero-${method}`);
+  if (!el) return;
+  let v = el.value.replace(/\D/g, "");
+  if (method !== "visa_mastercard" && v.startsWith("51") && v.length > 9) v = v.slice(2);
+  const max = this._PAGO_CONFIG[method]?.digits;
+  if (max) v = v.slice(0, max);
+  el.value = v;
+  this._checkPagoChanged(method);
+},
+
+_checkPagoChanged(method) {
+  const btn = document.getElementById(`fieldSaveBtn-pago-${method}`);
+  if (!btn) return;
+  const nombre = document.getElementById(`pagoNombre-${method}`)?.value || "";
+  const numero = document.getElementById(`pagoNumero-${method}`)?.value || "";
+  const changed =
+    nombre !== (this._originalValues[`pagoNombre-${method}`] || "") ||
+    numero !== (this._originalValues[`pagoNumero-${method}`] || "") ||
+    !!this._pagoQrPending[method];
+  changed ? this._showFieldBtn(btn) : this._hideFieldBtn(btn);
+},
+
+_togglePagoDetails(method, show) {
+  document.getElementById(`payDetails-${method}`)?.classList.toggle("open", !!show);
+},
+
+_loadQrPreview(method, url) {
+  const img = document.getElementById(`qrImg-${method}`);
+  const ph = document.getElementById(`qrPlaceholder-${method}`);
+  if (!img || !ph) return;
+  img.classList.remove("loaded");
+  if (url) {
+    img.onload = () => img.classList.add("loaded");
+    img.src = url;
+    ph.style.display = "none";
+  } else {
+    img.removeAttribute("src");
+    ph.style.display = "flex";
+  }
+},
+
+openPagoQR(method) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/png,image/jpeg,image/webp";
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      this._pagoQrPending[method] = ev.target.result;
+      const img = document.getElementById(`qrImg-${method}`);
+      const ph = document.getElementById(`qrPlaceholder-${method}`);
+      if (img) {
+        img.classList.remove("loaded");
+        img.onload = () => img.classList.add("loaded");
+        img.src = ev.target.result;
+      }
+      if (ph) ph.style.display = "none";
+      this._checkPagoChanged(method);
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+},
+
+async savePagoMethodInfo(method) {
+  const btn = document.getElementById(`fieldSaveBtn-pago-${method}`);
+  if (btn) { btn.classList.add("saving"); btn.innerHTML = "Guardando..."; }
+  const restoreBtn = (label) => {
+    if (!btn) return;
+    btn.classList.remove("saving");
+    btn.innerHTML = label;
+  };
+  try {
+    const nombre = document.getElementById(`pagoNombre-${method}`)?.value.trim() || "";
+    const numero = document.getElementById(`pagoNumero-${method}`)?.value.trim() || "";
+
+    if (method !== "visa_mastercard" && numero && numero.length !== 9) {
+      this.showToast("❌ El número debe tener 9 dígitos");
+      restoreBtn(btn.dataset.label || "✓ Guardar");
+      return;
+    }
+
+    const updateData = {
+      [`metodos_pago.${method}.nombre`]: nombre,
+      [`metodos_pago.${method}.numero`]: numero,
+    };
+
+    const pendingQr = this._pagoQrPending[method];
+    if (pendingQr) {
+      const comprimida = await this._comprimirImagen(pendingQr, 600, 0.85);
+      const blob = this._dataURLtoBlob(comprimida);
+      const ref = this._storageRef(this._storage, `tiendas/${this.TIENDA_ID}/qr_pagos/${method}.webp`);
+      await this._uploadBytes(ref, blob, { contentType: "image/webp" });
+      updateData[`metodos_pago.${method}.qr`] = await this._getDownloadURL(ref);
+      delete this._pagoQrPending[method];
+    }
+
+    await this._updateDoc(this.TIENDA_REF, updateData);
+
+    this._originalValues[`pagoNombre-${method}`] = nombre;
+    this._originalValues[`pagoNumero-${method}`] = numero;
+
+    if (btn) { btn.classList.remove("visible", "saving"); btn.innerHTML = btn.dataset.label || "✓ Guardar"; }
+    this.showToast("✓ Datos de pago guardados");
+  } catch (e) {
+    console.error("Error guardando método de pago:", e);
+    restoreBtn(btn?.dataset.label || "✓ Guardar");
+    this.showToast("❌ Error al guardar");
+  }
+},
   _checkFieldChanged(fieldId) {
     const el = document.getElementById(fieldId);
     const btn = document.getElementById("fieldSaveBtn-" + fieldId);
@@ -1833,19 +1960,18 @@ window.PanelPerfil = {
   // ═══════════════════════════════════════════
   //  SWITCHES
   // ═══════════════════════════════════════════
-  async togglePayMethod(method, enabled) {
-    try {
-      await this._updateDoc(this.TIENDA_REF, {
-        [`metodos_pago.${method}.enable`]: enabled,
-      });
-      this.showToast(
-        `${method.toUpperCase()} ${enabled ? "activado" : "desactivado"}`,
-      );
-    } catch (e) {
-      console.error("Error togglePayMethod:", e);
-      this.showToast("Error al actualizar método de pago");
-    }
-  },
+async togglePayMethod(method, enabled) {
+  try {
+    await this._updateDoc(this.TIENDA_REF, {
+      [`metodos_pago.${method}.enable`]: enabled,
+    });
+    this._togglePagoDetails(method, enabled); // 👈 nuevo
+    this.showToast(`${method.toUpperCase()} ${enabled ? "activado" : "desactivado"}`);
+  } catch (e) {
+    console.error("Error togglePayMethod:", e);
+    this.showToast("Error al actualizar método de pago");
+  }
+},
 
   async toggleContactMethod(method, enabled) {
     try {

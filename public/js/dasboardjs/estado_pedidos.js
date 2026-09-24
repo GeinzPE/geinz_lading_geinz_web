@@ -204,8 +204,122 @@ let pedidoRefGlobal = null; // referencia del doc del pedido, usada por el banne
 let pedidoIdActual = null; // para armar el mensaje de WhatsApp con el código del pedido
 let waHabilitado = false; // true solo si el negocio tiene WhatsApp configurado y con número válido
 let cuponCanjeActual = null; // cupón de fidelización usado en este pedido (si lo hay)
-
+let negocioMetodosPagoActual = null;
+let pedidoActualParaPago = null;
 // Cuánto se ahorró el cliente con el cupón (replica lo que cobró el carrito)
+function nombreOfuscado(nombreCompleto) {
+  const partes = (nombreCompleto || "").trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "";
+  if (partes.length === 1) {
+    const p = partes[0];
+    return p.length <= 2 ? p : p.slice(0, 2) + "***";
+  }
+  const primero = partes[0];
+  const resto = partes.slice(1).join("");
+  return `${primero} ${resto.slice(0, 2)}***`;
+}
+
+function detectarMetodoPagoQR(metodoTexto) {
+  const t = (metodoTexto || "").toLowerCase();
+  if (t.includes("yape")) return "yape";
+  if (t.includes("plin")) return "plin";
+  if (t.includes("qr")) return "yape"; // genérico, prioriza yape
+  return null;
+}
+
+function actualizarBloquePagoQR() {
+  const card = el("pago-qr-card");
+  if (!card) return;
+  const p = pedidoActualParaPago;
+  const mp = negocioMetodosPagoActual;
+  if (!p || !mp) { card.classList.add("hidden"); return; }
+
+  const esDelivery = p.cliente?.tipo_entrega === "Delivery";
+  const metodoKey = detectarMetodoPagoQR(p.pago?.metodo);
+  if (!esDelivery || !metodoKey) { card.classList.add("hidden"); return; }
+
+  const info = mp[metodoKey];
+  if (!info || !info.enable) { card.classList.add("hidden"); return; }
+
+  card.classList.remove("hidden");
+  el("pago-qr-metodo-label").textContent = metodoKey === "yape" ? "Yape" : "Plin";
+  if (info.qr) el("pago-qr-img").src = info.qr;
+  el("pago-qr-nombre").textContent = nombreOfuscado(info.nombre) || "—";
+  el("pago-qr-numero").textContent = info.numero || "—";
+  const nombreNegocio = el("negocio-nombre")?.textContent || "el negocio";
+  const total = Number(p.total || 0).toFixed(2);
+  el("pago-qr-mensaje").textContent =
+    `Envía tu comprobante de pago por S/ ${total} para que ${nombreNegocio} pueda actualizar el estado de tu pedido.`;
+
+  const yaEnviado = !!p.pago?.voucher_url;
+  el("pago-voucher-pendiente").classList.toggle("hidden", yaEnviado);
+  el("pago-voucher-enviado").classList.toggle("hidden", !yaEnviado);
+}
+
+function comprimirImagenGenerica(dataURL, maxPx, calidad) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round((h * maxPx) / w); w = maxPx; }
+        else { w = Math.round((w * maxPx) / h); h = maxPx; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/webp", calidad));
+    };
+    img.onerror = () => reject(new Error("No se pudo leer imagen"));
+    img.src = dataURL;
+  });
+}
+function dataURLtoBlobGenerico(dataURL) {
+  const [header, data] = dataURL.split(",");
+  const mime = header.match(/:(.*?);/)[1];
+  const raw = atob(data);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+el("btn-subir-voucher")?.addEventListener("click", () =>
+  el("pago-voucher-input")?.click(),
+);
+
+el("pago-voucher-input")?.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file || !pedidoRefGlobal || !ids) return;
+  const btn = el("btn-subir-voucher");
+  if (btn) { btn.disabled = true; btn.textContent = "Subiendo…"; }
+  try {
+    const dataURL = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const comprimida = await comprimirImagenGenerica(dataURL, 900, 0.85);
+    const blob = dataURLtoBlobGenerico(comprimida);
+    const { getStorage, ref: storageRef, uploadBytes, getDownloadURL } =
+      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js");
+    const storage = getStorage();
+    const path = `tiendas/${ids.negocioId}/comprobantes_pago/${ids.pedidoId}.webp`;
+    const sref = storageRef(storage, path);
+    await uploadBytes(sref, blob, { contentType: "image/webp" });
+    const url = await getDownloadURL(sref);
+    await updateDoc(pedidoRefGlobal, {
+      "pago.voucher_url": url,
+      "pago.voucher_subido_en": serverTimestamp(),
+      "pago.voucher_visto": false,
+    });
+  } catch (err) {
+    console.error("[pedidos] Error subiendo comprobante:", err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "📎 Enviar comprobante de pago"; }
+    e.target.value = "";
+  }
+});
 function calcularAhorroCupon(data) {
   const c = data.cupon;
   if (!c) return 0;
@@ -390,6 +504,8 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
           (document.title = `Pedido · ${nombre}`);
         const btnVolver = el("btn-volver-negocio");
         const btnCarito = el("btn-ir-carrito");
+        negocioMetodosPagoActual = data.metodos_pago || null;
+actualizarBloquePagoQR();
         if (btnVolver) {
           if (ES_DOMINIO_PROPIO || aliasNegocioActual) {
             btnVolver.href = ES_DOMINIO_PROPIO
@@ -487,7 +603,8 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
 
       const nuevoEstado = normalizarEstado(data.estado);
       renderPedido(data);
-
+pedidoActualParaPago = data;
+actualizarBloquePagoQR();
       // Si el estado cambió respecto al anterior (y no es la primera carga),
       // dispara la notificación push del navegador.
       if (

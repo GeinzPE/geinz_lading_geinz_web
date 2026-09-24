@@ -58,7 +58,11 @@ const PREFIJO_PEDIDO_MESA_URL = "../../sounds/prefijos/mozo_prefijo.mp3"; // ←
 
 const RESERVA_PREFIJO_URL = "../../sounds/prefijos/reserva_prefijo.mp3";
 const RESERVA_Y_URL = "../../sounds/y.mp3";
-
+const SND_PAGO_RECIBIDO = "../../sounds/comprovante_de_pago_recibido.mp3";
+const voucherNotificados = new Set();
+function playPagoRecibidoAlarm() {
+  playSoundOnce(SND_PAGO_RECIBIDO);
+}
 function urlAudioMesa(numero) {
   return `../../sounds/mesas/mesa${numero}.mp3`;
 }
@@ -139,7 +143,17 @@ const MESA_ADMIN_CSS = `
 const styleTag = document.createElement("style");
 styleTag.textContent = MESA_ADMIN_CSS;
 document.head.appendChild(styleTag);
-
+const VOUCHER_CSS = `
+.order-card.oc-pago-recibido{
+  border-color:#fbbf24 !important;
+  box-shadow:0 0 0 3px rgba(251,191,36,.18), 0 8px 26px rgba(251,191,36,.22);
+  animation: oc-pago-glow 1.4s ease-in-out infinite;
+}
+@keyframes oc-pago-glow{
+  0%,100%{box-shadow:0 0 0 3px rgba(251,191,36,.18), 0 8px 26px rgba(251,191,36,.22);}
+  50%{box-shadow:0 0 0 6px rgba(251,191,36,.3), 0 10px 30px rgba(251,191,36,.32);}
+}
+`;
 const PS_CSS = `
 .pedido-search-wrap{
   position:relative;
@@ -331,7 +345,7 @@ const NP_CSS = `
 .npc-edit:hover{text-decoration:underline;}
 `;
 
-styleTag.textContent = MESA_ADMIN_CSS + NP_CSS + PS_CSS;
+styleTag.textContent = MESA_ADMIN_CSS + NP_CSS + PS_CSS + VOUCHER_CSS;
 /* ══════════════ Identificación del negocio ══════════════ */
 
 const ESTADOS = [
@@ -1375,16 +1389,16 @@ function renderMesaGrid() {
         ${reservaTimerHtml}
         ${puedeReservar ? `<button class="mesa-reservar-btn" data-mesa-reservar="${m.numero_mesa}">${estadoVisual === "reservada" ? "Quitar reserva" : "Reservar"}</button>` : ""}
    ${
-  estadoVisual === "reserva_pendiente"
-    ? `
+     estadoVisual === "reserva_pendiente"
+       ? `
   <div class="mesa-reserva-solicitante">${escapeHtml(m.reserva?.nombre || "")}</div>
   <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(m.reserva?.hora || "—")}${m.reserva?.personas ? ` · ${escapeHtml(String(m.reserva.personas))} pers.` : ""}</div>
   <div style="display:flex;gap:6px;margin-top:6px;">
     <button class="mesa-reservar-btn" data-reserva-aceptar="${m.numero_mesa}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
     <button class="mesa-reservar-btn" data-reserva-rechazar="${m.numero_mesa}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
   </div>`
-    : ""
-}
+       : ""
+   }
     </div>`;
       }
 
@@ -1401,7 +1415,7 @@ function renderMesaGrid() {
       );
       const totalPedidos = primero.activos.length;
       const anchoSpan = Math.min(integrantes.length, getColumnasActuales());
-        const labelEstadoGrupo =
+      const labelEstadoGrupo =
         {
           reservada: "Reservada",
           ocupada: "Ocupada",
@@ -1440,16 +1454,16 @@ function renderMesaGrid() {
         ${reservaTimerHtml}
              ${primero.estadoVisual === "reservada" ? `<button class="mesa-reservar-btn" data-grupo-reservar="${bloque.grupoId}">Quitar reserva</button>` : ""}
      ${
-  primero.estadoVisual === "reserva_pendiente"
-    ? `
+       primero.estadoVisual === "reserva_pendiente"
+         ? `
   <div class="mesa-reserva-solicitante">${escapeHtml(grupoInfo?.reserva?.nombre || "")}</div>
   <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(grupoInfo?.reserva?.hora || "—")}${grupoInfo?.reserva?.personas ? ` · ${escapeHtml(String(grupoInfo.reserva.personas))} pers.` : ""}</div>
   <div style="display:flex;gap:6px;margin-top:6px;">
     <button class="mesa-reservar-btn" data-grupo-reserva-aceptar="${bloque.grupoId}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
     <button class="mesa-reservar-btn" data-grupo-reserva-rechazar="${bloque.grupoId}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
   </div>`
-    : ""
-}
+         : ""
+     }
         <button class="mesa-desagrupar-btn" data-grupo-desagrupar="${bloque.grupoId}">⇱ Desagrupar</button>
     </div>`;
     })
@@ -2124,7 +2138,8 @@ function buildCard(id, p) {
     (Date.now() - tsMs) / 60000 >= autoRejectMinutes * 0.7;
 
   const card = document.createElement("div");
-  card.className = "order-card";
+const voucherPendienteVer = !!p.pago?.voucher_url && !p.pago?.voucher_visto;
+card.className = "order-card" + (voucherPendienteVer ? " oc-pago-recibido" : "");
   card.id = `order-${id}`;
 
   const hitArea = document.createElement("div");
@@ -2137,6 +2152,7 @@ function buildCard(id, p) {
     </div>
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
+    ${voucherPendienteVer ? `<div class="oc-voucher-line" style="font-size:11px;font-weight:800;color:#fbbf24;margin-top:2px;">💸 Comprobante de pago recibido, revisa y confirma</div>` : ""}
        ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
        ${Number(p.descuentoCupon) > 0 ? `<div class="oc-descuento-line" style="font-size:11px;font-weight:700;color:#4ade80;margin-top:2px;">🏷️ Descuento aplicado: -${fmtMoney(p.descuentoCupon)}</div>` : ""}
     <div class="oc-summary">
@@ -2237,6 +2253,12 @@ function openDetail(id) {
   detailOverlay.classList.add("show");
   requestAnimationFrame(() => detailModal.classList.add("show"));
   document.body.style.overflow = "hidden";
+
+  const p = pedidosMap.get(id);
+  if (p?.pago?.voucher_url && !p.pago?.voucher_visto) {
+    const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
+    updateDoc(ref, { "pago.voucher_visto": true }).catch(() => {});
+  }
 }
 function closeDetail() {
   detailModal.classList.remove("show");
@@ -2291,7 +2313,7 @@ function renderMesaDetail(numeroMesa) {
         const totalItems =
           p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
 
-          const contenido =
+        const contenido =
           Array.isArray(p.bloques) && p.bloques.length
             ? bloquesHtml(p.bloques)
             : `<div class="dm-products">${productos
@@ -2525,13 +2547,21 @@ async function aceptarReservaGrupo(grupoId) {
     miembros.forEach((m) => {
       batch.set(
         tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", m.id),
-        { estado: "reservada", reservado_en: serverTimestamp(), hora_reservada: horaTs },
+        {
+          estado: "reservada",
+          reservado_en: serverTimestamp(),
+          hora_reservada: horaTs,
+        },
         { merge: true },
       );
     });
     batch.set(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", grupoId),
-      { estado: "reservado", reservado_en: serverTimestamp(), hora_reservada: horaTs },
+      {
+        estado: "reservado",
+        reservado_en: serverTimestamp(),
+        hora_reservada: horaTs,
+      },
       { merge: true },
     );
     await batch.commit();
@@ -2541,7 +2571,6 @@ async function aceptarReservaGrupo(grupoId) {
     showToast("❌ No se pudo aceptar la reserva", true);
   }
 }
-
 
 async function rechazarReservaGrupo(grupoId) {
   const grupo = gruposMap.get(grupoId);
@@ -3114,7 +3143,14 @@ function renderDetail(id) {
           <div class="dm-meta-value">${escapeHtml(origen.nombre || mesasMap.get(origen.mesaId)?.nombre_alias || "Mesa " + origen.numero)}</div>
         </div>`
       : "";
-
+const voucherBlock = p.pago?.voucher_url
+  ? `<div class="dm-meta-item full">
+      <div class="dm-meta-label">💸 Comprobante de pago</div>
+      <a href="${p.pago.voucher_url}" target="_blank" rel="noopener">
+        <img src="${p.pago.voucher_url}" alt="Comprobante de pago" style="width:100%;max-width:220px;border-radius:12px;margin-top:6px;border:1px solid var(--line);display:block;">
+      </a>
+    </div>`
+  : "";
   document.getElementById("dmBody").innerHTML = `
       ${detalleCuponHtml(p)}
     <div>
@@ -3146,6 +3182,7 @@ function renderDetail(id) {
           <div class="dm-meta-label">💰 Vuelto</div>
           <div class="dm-meta-value ${pago.metodo === "Efectivo" && pago.vuelto ? "" : "dim"}">${pago.metodo === "Efectivo" && pago.vuelto ? "Paga con S/ " + escapeHtml(pago.vuelto) : "No aplica"}</div>
         </div>
+          ${voucherBlock}
         <div class="dm-meta-item full">
           <div class="dm-meta-label">📝 Nota del cliente</div>
           <div class="dm-meta-value ${p.nota ? "" : "dim"}">${p.nota ? escapeHtml(p.nota) : "Sin especificaciones adicionales"}</div>
@@ -5429,7 +5466,7 @@ function suscribirPedidos() {
       const respuestasClienteNuevas = []; // cliente respondió y sigue en pausa
       const canceladosPorClienteEnPausa = []; // canceló estando en pausa
       const canceladosPorClientePendiente = []; // canceló estando pendiente (sin pasar por pausa)
-
+      const pagosRecibidosNuevos = [];
       snap.docChanges().forEach((change) => {
         const id = change.doc.id;
         const data = change.doc.data();
@@ -5491,6 +5528,12 @@ function suscribirPedidos() {
             getOrigen(data).tipo === "whatsapp"
           )
             nuevosPendientes.push({ id, data });
+          const voucherAnterior = anterior?.pago?.voucher_url;
+          const voucherNuevo = data.pago?.voucher_url;
+          if (voucherNuevo && !voucherAnterior && !voucherNotificados.has(id)) {
+            voucherNotificados.add(id);
+            pagosRecibidosNuevos.push({ id, data });
+          }
         }
 
         if (change.type === "removed") {
@@ -5538,6 +5581,18 @@ function suscribirPedidos() {
           respuestasClienteNuevas.length === 1
             ? `💬 ${nombresResp} respondió su pedido en pausa`
             : `💬 ${respuestasClienteNuevas.length} clientes respondieron sus pedidos en pausa`,
+        );
+      }
+      if (pagosRecibidosNuevos.length) {
+        playPagoRecibidoAlarm();
+        bellRingFeedback();
+        const nombres = pagosRecibidosNuevos
+          .map(({ data }) => data.cliente?.nombre || "Cliente")
+          .join(", ");
+        showToast(
+          pagosRecibidosNuevos.length === 1
+            ? `💸 ${nombres} envió su comprobante de pago`
+            : `💸 ${pagosRecibidosNuevos.length} clientes enviaron su comprobante de pago`,
         );
       }
 

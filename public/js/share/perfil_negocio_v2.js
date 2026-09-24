@@ -20,12 +20,18 @@ function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str).replace(/[&<>"']/g, (m) => {
     switch (m) {
-      case "&": return "&amp;";
-      case "<": return "&lt;";
-      case ">": return "&gt;";
-      case '"': return "&quot;";
-      case "'": return "&#39;";
-      default: return m;
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return m;
     }
   });
 }
@@ -34,7 +40,6 @@ let _reservaFloatData = null;
 let _reservaFloatUnsub = null;
 
 function showNotFoundScreen(message = "") {
-
   hideBizLoader();
   document.body.innerHTML = "";
   document.body.style.cssText = `
@@ -549,7 +554,8 @@ const _baseShareUrl = _esDominioPersonalizado
   : "https://geinztech.com";
 function rutaNegocio(sufijo, alias) {
   if (_esDominioPersonalizado) return `/${sufijo}`;
-  if (alias) return `https://geinztech.com/perfil/${encodeURIComponent(alias)}/${sufijo}`;
+  if (alias)
+    return `https://geinztech.com/perfil/${encodeURIComponent(alias)}/${sufijo}`;
   return null;
 }
 
@@ -657,9 +663,15 @@ async function actualizarHeaderUsuario(user) {
 
   const perfil = await getUserProfile(user.uid);
 
-  if (!document.getElementById("wlUserHeader") || auth.currentUser?.uid !== user.uid) return;
+  if (
+    !document.getElementById("wlUserHeader") ||
+    auth.currentUser?.uid !== user.uid
+  )
+    return;
 
-  const primerNombre = capitalizarPrimeraLetra((perfil.nombre || "").split(" ")[0]);
+  const primerNombre = capitalizarPrimeraLetra(
+    (perfil.nombre || "").split(" ")[0],
+  );
   document.getElementById("wlUserHello").textContent = primerNombre
     ? `Hola, ${primerNombre} 👋`
     : "Bienvenido 👋";
@@ -669,7 +681,9 @@ async function actualizarHeaderUsuario(user) {
   if (perfil.foto) {
     const img = document.createElement("img");
     img.alt = primerNombre || "Usuario";
-    img.onerror = () => { avatar.textContent = inicial; };
+    img.onerror = () => {
+      avatar.textContent = inicial;
+    };
     img.src = perfil.foto;
     avatar.appendChild(img);
   } else {
@@ -705,12 +719,10 @@ function abrirConfirmarCerrarSesion() {
       if (_cerrandoSesion) return;
       if (e.target === modal) cerrarConfirmarCerrarSesion();
     });
-    modal
-      .querySelector("#logoutConfirmClose")
-      .addEventListener("click", () => {
-        if (_cerrandoSesion) return;
-        cerrarConfirmarCerrarSesion();
-      });
+    modal.querySelector("#logoutConfirmClose").addEventListener("click", () => {
+      if (_cerrandoSesion) return;
+      cerrarConfirmarCerrarSesion();
+    });
     modal
       .querySelector("#logoutConfirmCancel")
       .addEventListener("click", () => {
@@ -718,7 +730,11 @@ function abrirConfirmarCerrarSesion() {
         cerrarConfirmarCerrarSesion();
       });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && modal.classList.contains("open") && !_cerrandoSesion)
+      if (
+        e.key === "Escape" &&
+        modal.classList.contains("open") &&
+        !_cerrandoSesion
+      )
         cerrarConfirmarCerrarSesion();
     });
     // ── fin de los 4 listeners ──
@@ -745,7 +761,8 @@ function abrirConfirmarCerrarSesion() {
     });
   }
 
-  modal.querySelector("#logoutConfirmBiz").textContent = _bizNombre || "este negocio";
+  modal.querySelector("#logoutConfirmBiz").textContent =
+    _bizNombre || "este negocio";
   requestAnimationFrame(() => modal.classList.add("open"));
   document.body.style.overflow = "hidden";
 }
@@ -756,7 +773,7 @@ function cerrarConfirmarCerrarSesion() {
 }
 // Recibe el custom token que manda el pop-up y abre sesión en ESTE dominio
 window.addEventListener("message", async (e) => {
-  if (e.origin !== AUTH_ORIGIN) return;              // solo tu dominio neutral
+  if (e.origin !== AUTH_ORIGIN) return; // solo tu dominio neutral
   if (e.data?.type !== "wl-auth" || !e.data.token) return;
   try {
     await signInWithCustomToken(auth, e.data.token);
@@ -774,7 +791,11 @@ window.addEventListener("message", async (e) => {
   const t = p.get("wl_token");
   if (!t) return;
   // limpiar el token de la URL de inmediato
-  history.replaceState(null, "", window.location.pathname + window.location.search);
+  history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.search,
+  );
   try {
     await signInWithCustomToken(auth, t);
     showToast("Sesión iniciada");
@@ -986,39 +1007,62 @@ function listenActivePromosRealtime({ localidad, id }) {
       const now = Date.now();
       const promos = [];
 
+      console.log(`🔎 promociones_geinz: ${snap.size} documentos encontrados`);
+
       snap.forEach((docSnap) => {
         const data = docSnap.data();
-        const fh = data.datos_hora_fecha || {}; // ← el mapa anidado real
+        const fh = data.datos_hora_fecha || {};
 
-        // ── Estado: "estado" está en la raíz, "activo" está dentro de datos_hora_fecha ──
+        console.log(`— Promo ${docSnap.id}:`, {
+          estado: data.estado,
+          "fh.activo": fh.activo,
+          "fh.timestamp_inicio": fh.timestamp_inicio,
+          "fh.timestamp_fin": fh.timestamp_fin,
+          "fh.fecha_fin": fh.fecha_fin,
+          "fh.hora_fin": fh.hora_fin,
+        });
+
         const estadoOk = data.estado === "activo";
-        const activoOk = fh.activo !== false; // si no existe el campo, se asume true
-        if (!estadoOk || !activoOk) return;
+        const activoOk = fh.activo !== false;
+        if (!estadoOk || !activoOk) {
+          console.log(
+            `   ❌ descartada por estado/activo (estadoOk=${estadoOk}, activoOk=${activoOk})`,
+          );
+          return;
+        }
 
-        // ── Inicio de vigencia ──
         const inicioMs = fh.timestamp_inicio?.toMillis
           ? fh.timestamp_inicio.toMillis()
           : null;
-        if (inicioMs && inicioMs > now) return; // aún no empieza
+        if (inicioMs && inicioMs > now) {
+          console.log(`   ❌ descartada: aún no empieza`);
+          return;
+        }
 
-        // ── Fin de vigencia: prioriza timestamp_fin (fuente de verdad) ──
         let finMs = fh.timestamp_fin?.toMillis
           ? fh.timestamp_fin.toMillis()
           : null;
 
-        // ── Respaldo: fecha_fin + hora_fin como texto, hora de Lima (UTC-5 fijo) ──
         if (finMs === null && fh.fecha_fin) {
           finMs = parseFechaHoraLima(fh.fecha_fin, fh.hora_fin);
         }
 
-        if (finMs === null) return; // sin forma de determinar vigencia → se descarta
+        if (finMs === null) {
+          console.log(`   ❌ descartada: no se pudo determinar fecha de fin`);
+          return;
+        }
 
-        if (finMs < now) return; // ← ya venció
+        if (finMs < now) {
+          console.log(`   ❌ descartada: ya venció (finMs=${new Date(finMs)})`);
+          return;
+        }
 
+        console.log(`   ✅ promo válida hasta ${new Date(finMs)}`);
         promos.push({ id: docSnap.id, ...data, _finMs: finMs });
       });
 
       promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
+      console.log(`🟢 Total promos que pasaron el filtro: ${promos.length}`);
       renderActivePromos(promos.slice(0, 4), localidad);
     });
   } catch (e) {
@@ -1213,7 +1257,8 @@ function minutosHastaHora(hhmm) {
 }
 function formatDuracionMin(mins) {
   const abs = Math.abs(mins);
-  const h = Math.floor(abs / 60), m = abs % 60;
+  const h = Math.floor(abs / 60),
+    m = abs % 60;
   if (h > 0 && m > 0) return `${h}h ${m}m`;
   if (h > 0) return `${h}h`;
   return `${m} min`;
@@ -1274,7 +1319,9 @@ function pintarHoraChips(rango, maxPermitido) {
     chip.className = "mesa-reserva-hora-chip";
     chip.textContent = formato12h(hora); // ← antes decía: chip.textContent = hora;
     chip.addEventListener("click", () => {
-      cont.querySelectorAll(".mesa-reserva-hora-chip").forEach((c) => c.classList.remove("active"));
+      cont
+        .querySelectorAll(".mesa-reserva-hora-chip")
+        .forEach((c) => c.classList.remove("active"));
       chip.classList.add("active");
       _horaSeleccionada = hora; // ← esto se queda igual, guarda en 24h internamente
       document.getElementById("mesaReservaError")?.classList.remove("show");
@@ -1313,7 +1360,8 @@ function openMesaReservaModal(mesaOMesas) {
   const modal = document.getElementById("mesaReservaModal");
   const horaInput = document.getElementById("mesaReservaHora");
   const errorEl = document.getElementById("mesaReservaError");
-  document.getElementById("mesaReservaTitle").textContent = `Reservar ${tituloMesas}`;
+  document.getElementById("mesaReservaTitle").textContent =
+    `Reservar ${tituloMesas}`;
 
   const nombreInput = document.getElementById("mesaReservaNombre");
   const nombreLoader = document.getElementById("mesaReservaNombreLoader");
@@ -1349,7 +1397,6 @@ function closeMesaReservaModal() {
   if (multiInput) multiInput.value = "";
 }
 
-
 function iniciarProgresoReserva(btn) {
   if (!btn) return;
   injectMesaFloatStyles();
@@ -1358,7 +1405,9 @@ function iniciarProgresoReserva(btn) {
   btn.innerHTML = `<span class="mesa-reserva-progress-fill"></span><span class="mesa-reserva-progress-label">Enviando reserva…</span>`;
   const fill = btn.querySelector(".mesa-reserva-progress-fill");
   requestAnimationFrame(() =>
-    requestAnimationFrame(() => { fill.style.width = "90%"; }),
+    requestAnimationFrame(() => {
+      fill.style.width = "90%";
+    }),
   );
 }
 
@@ -1366,10 +1415,14 @@ function finalizarProgresoReserva(btn, ok = true) {
   if (!btn) return;
   const fill = btn.querySelector(".mesa-reserva-progress-fill");
   if (fill) fill.style.width = ok ? "100%" : "0%";
-  setTimeout(() => {
-    btn.classList.remove("mesa-reserva-progress-wrap");
-    if (btn.dataset.origHtml !== undefined) btn.innerHTML = btn.dataset.origHtml;
-  }, ok ? 380 : 150);
+  setTimeout(
+    () => {
+      btn.classList.remove("mesa-reserva-progress-wrap");
+      if (btn.dataset.origHtml !== undefined)
+        btn.innerHTML = btn.dataset.origHtml;
+    },
+    ok ? 380 : 150,
+  );
 }
 
 /* ══════════════ Reserva de mesa: botón flotante + popup "Mi reserva" ══════════════
@@ -1434,13 +1487,19 @@ function sincronizarMiReservaDesdeMesas() {
 
     let nuevo;
     if (mias.some((m) => m.estado === "reservada")) nuevo = "aceptada";
-    else if (mias.some((m) => m.estado === "reserva_pendiente")) nuevo = "pendiente";
+    else if (mias.some((m) => m.estado === "reserva_pendiente"))
+      nuevo = "pendiente";
     else {
       // Ya no está vigente: si estaba aceptada y la mesa pasó a ocupada, el cliente ya llegó
       const llego = _mesasCache.some(
-        (m) => ids.has(m.id) && (m.estado === "ocupado" || m.estado === "pedido_pendiente"),
+        (m) =>
+          ids.has(m.id) &&
+          (m.estado === "ocupado" || m.estado === "pedido_pendiente"),
       );
-      nuevo = _reservaFloatData.estado === "aceptada" && llego ? "finalizada" : "rechazada";
+      nuevo =
+        _reservaFloatData.estado === "aceptada" && llego
+          ? "finalizada"
+          : "rechazada";
     }
 
     actualizarEstadoReservaFloat(nuevo);
@@ -1465,7 +1524,9 @@ function sincronizarMiReservaDesdeMesas() {
     personas: primera.reserva.personas,
     hora: primera.reserva.hora,
     creadoEn: primera.reserva.creado_en,
-    estado: vigentes.some((m) => m.estado === "reservada") ? "aceptada" : "pendiente",
+    estado: vigentes.some((m) => m.estado === "reservada")
+      ? "aceptada"
+      : "pendiente",
     mesas: implicadas.map((m) => ({
       id: m.id,
       nombre: m.nombre_alias || m.mesaNombre || `Mesa ${m.numero_mesa}`,
@@ -1496,10 +1557,13 @@ function actualizarEstadoReservaFloat(estado) {
   }
 
   if (estado === "aceptada") showToast("✅ ¡Tu reserva fue confirmada!");
-  else if (estado === "rechazada") showToast("❌ El negocio no pudo aceptar tu reserva");
+  else if (estado === "rechazada")
+    showToast("❌ El negocio no pudo aceptar tu reserva");
 
   // Si el popup está abierto, el contenido cambia con animación
-  if (document.getElementById("mesaReservaVerModal")?.classList.contains("open")) {
+  if (
+    document.getElementById("mesaReservaVerModal")?.classList.contains("open")
+  ) {
     renderVerReservaModal(true);
   }
 }
@@ -1527,7 +1591,8 @@ function abrirVerReservaModal() {
       .querySelector("#mesaReservaVerClose")
       .addEventListener("click", cerrarVerReservaModal);
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && modal.classList.contains("open")) cerrarVerReservaModal();
+      if (e.key === "Escape" && modal.classList.contains("open"))
+        cerrarVerReservaModal();
     });
   }
 
@@ -1554,16 +1619,19 @@ function renderVerReservaModal(animar = false) {
 
   const estados = {
     pendiente: {
-      icono: "⏳", label: "Esperando confirmación",
-      msg: "El negocio está revisando tu solicitud. Esta pantalla se actualiza sola, no necesitas recargar."
+      icono: "⏳",
+      label: "Esperando confirmación",
+      msg: "El negocio está revisando tu solicitud. Esta pantalla se actualiza sola, no necesitas recargar.",
     },
     aceptada: {
-      icono: "✓", label: "Reserva confirmada",
-      msg: "¡Listo! Tu mesa te espera a la hora indicada."
+      icono: "✓",
+      label: "Reserva confirmada",
+      msg: "¡Listo! Tu mesa te espera a la hora indicada.",
     },
     rechazada: {
-      icono: "✕", label: "No fue aceptada",
-      msg: "El negocio no pudo confirmar tu reserva. Puedes intentar con otra mesa u otra hora."
+      icono: "✕",
+      label: "No fue aceptada",
+      msg: "El negocio no pudo confirmar tu reserva. Puedes intentar con otra mesa u otra hora.",
     },
   };
   const e = estados[d.estado] || estados.pendiente;
@@ -1575,9 +1643,10 @@ function renderVerReservaModal(animar = false) {
   const minsRestantes = minutosHastaHora(d.hora);
   let countdownHTML = "";
   if (d.estado === "aceptada" && minsRestantes !== null) {
-    countdownHTML = minsRestantes > 0
-      ? `<div class="mrv-countdown">⏱️ Faltan <b>${formatDuracionMin(minsRestantes)}</b> para tu hora de llegada</div>`
-      : `<div class="mrv-countdown late">⚠️ Ya pasó tu hora de llegada (hace ${formatDuracionMin(minsRestantes)})</div>`;
+    countdownHTML =
+      minsRestantes > 0
+        ? `<div class="mrv-countdown">⏱️ Faltan <b>${formatDuracionMin(minsRestantes)}</b> para tu hora de llegada</div>`
+        : `<div class="mrv-countdown late">⚠️ Ya pasó tu hora de llegada (hace ${formatDuracionMin(minsRestantes)})</div>`;
   }
 
   // ── Hora en que se envió la solicitud ──
@@ -1598,9 +1667,6 @@ function renderVerReservaModal(animar = false) {
       <p class="mrv-msg">${e.msg}</p>
     </div>`;
 }
-
-
-
 
 async function ensureClienteRecord({ localidad, id }, uid) {
   try {
@@ -1658,7 +1724,10 @@ document.getElementById("puntosBadge")?.addEventListener("click", () => {
   if (aliasKey && _currentUid) {
     window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
   } else {
-    const url = new URL("../../fidelizacion/fidelizacion_client.html", window.location.href);
+    const url = new URL(
+      "../../fidelizacion/fidelizacion_client.html",
+      window.location.href,
+    );
     url.searchParams.set("localidad", _params.localidad);
     url.searchParams.set("id", _params.id);
     if (_currentUid) url.searchParams.set("uid", _currentUid);
@@ -1823,7 +1892,9 @@ function bindMesaReservaEvents() {
       }
 
       const nombre = document.getElementById("mesaReservaNombre").value.trim();
-      const personas = document.getElementById("mesaReservaPersonas").value.trim();
+      const personas = document
+        .getElementById("mesaReservaPersonas")
+        .value.trim();
       // ✅ AHORA
       const hora = _horaSeleccionada || "";
       const rango = getHorarioHoyRange();
@@ -1834,7 +1905,9 @@ function bindMesaReservaEvents() {
       }
       const maxPermitido = _horaMaxReserva || rango?.max;
       if (!rango || hora < rango.min || hora > maxPermitido) {
-        setError(`Elige una hora entre ${rango?.min ?? "-"} y ${maxPermitido ?? "-"}`);
+        setError(
+          `Elige una hora entre ${rango?.min ?? "-"} y ${maxPermitido ?? "-"}`,
+        );
         return;
       }
       if (errorEl) {
@@ -1846,7 +1919,9 @@ function bindMesaReservaEvents() {
       if (submitBtn) submitBtn.disabled = true;
       iniciarProgresoReserva(submitBtn);
 
-      const listaMesas = Array.isArray(_mesaSeleccionada) ? _mesaSeleccionada : [_mesaSeleccionada];
+      const listaMesas = Array.isArray(_mesaSeleccionada)
+        ? _mesaSeleccionada
+        : [_mesaSeleccionada];
       const reservaData = {
         nombre,
         personas,
@@ -1859,7 +1934,12 @@ function bindMesaReservaEvents() {
       try {
         if (listaMesas.length > 1) {
           grupoIdUsado = doc(
-            tiendaSubCol(_params.localidad, "tiendas", _params.id, "grupos_mesas"),
+            tiendaSubCol(
+              _params.localidad,
+              "tiendas",
+              _params.id,
+              "grupos_mesas",
+            ),
           ).id;
           const mesasInfo = listaMesas.map((m) => ({
             id: m.id,
@@ -1867,7 +1947,13 @@ function bindMesaReservaEvents() {
             numero: m.numero_mesa,
           }));
           await setDoc(
-            tiendaSubDoc(_params.localidad, "tiendas", _params.id, "grupos_mesas", grupoIdUsado),
+            tiendaSubDoc(
+              _params.localidad,
+              "tiendas",
+              _params.id,
+              "grupos_mesas",
+              grupoIdUsado,
+            ),
             {
               estado: "reserva_pendiente",
               mesas: mesasInfo,
@@ -1878,22 +1964,44 @@ function bindMesaReservaEvents() {
           await Promise.all(
             listaMesas.map((m) =>
               setDoc(
-                tiendaSubDoc(_params.localidad, "tiendas", _params.id, "mesas", m.id),
-                { estado: "reserva_pendiente", grupoId: grupoIdUsado, reserva: reservaData },
+                tiendaSubDoc(
+                  _params.localidad,
+                  "tiendas",
+                  _params.id,
+                  "mesas",
+                  m.id,
+                ),
+                {
+                  estado: "reserva_pendiente",
+                  grupoId: grupoIdUsado,
+                  reserva: reservaData,
+                },
                 { merge: true },
               ),
             ),
           );
         } else {
           await setDoc(
-            tiendaSubDoc(_params.localidad, "tiendas", _params.id, "mesas", listaMesas[0].id),
-            { estado: "reserva_pendiente", grupoId: null, reserva: reservaData },
+            tiendaSubDoc(
+              _params.localidad,
+              "tiendas",
+              _params.id,
+              "mesas",
+              listaMesas[0].id,
+            ),
+            {
+              estado: "reserva_pendiente",
+              grupoId: null,
+              reserva: reservaData,
+            },
             { merge: true },
           );
         }
 
         finalizarProgresoReserva(submitBtn, true);
-        showToast("Solicitud de reserva enviada, espera la confirmación del negocio");
+        showToast(
+          "Solicitud de reserva enviada, espera la confirmación del negocio",
+        );
         closeMesaReservaModal();
 
         mostrarBotonFlotanteReserva({
@@ -1941,7 +2049,10 @@ function bindMesaReservaEvents() {
       const mesa = _mesasCache.find((m) => (m.numero_mesa || 0) === num);
       if (!mesa) invalidas.push(num);
       else if (mesa.estado === "ocupado") ocupadas.push(num);
-      else if (mesa.estado === "reservada" || mesa.estado === "reserva_pendiente")
+      else if (
+        mesa.estado === "reservada" ||
+        mesa.estado === "reserva_pendiente"
+      )
         reservadas.push(num);
     });
 
@@ -1954,7 +2065,9 @@ function bindMesaReservaEvents() {
       return;
     }
     if (reservadas.length) {
-      showToast(`Mesa(s) ya reservada(s) o con solicitud pendiente: ${reservadas.join(", ")}`);
+      showToast(
+        `Mesa(s) ya reservada(s) o con solicitud pendiente: ${reservadas.join(", ")}`,
+      );
       return;
     }
 
@@ -2008,7 +2121,7 @@ function renderActivePromos(promos, localidad) {
   injectPromoBuyStyles(); // ← NUEVO (ya existe en tu archivo, reutilizado)
 
   promos.forEach((p) => {
-    const info = p.informacion || {};
+    const info = p.informacion || p;
     const img =
       p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
     const expiry = formatExpiry(p._finMs);
@@ -2016,8 +2129,8 @@ function renderActivePromos(promos, localidad) {
 
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
-    const precio = Number(info.precio_publicacion) || 0; // ← NUEVO
-
+    const precio = Number(p.precio_publicacion) || 0; // ← FIX: precio_publicacion vive en la raíz del doc, no dentro de "informacion"
+    console.log(`[BOTON COMPRAR] Promo ${p.id}: precio_publicacion="${p.precio_publicacion}" → precio final=${precio}`);
     const waMsg =
       p.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
       "Hola, quiero esta oferta que vi en Geinz";
@@ -2027,8 +2140,8 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-        `${waMsg}: ${shareUrl}`,
-      )}`
+          `${waMsg}: ${shareUrl}`,
+        )}`
       : null;
 
     // ── NUEVO: link de compra, solo si tiene precio ──
@@ -2037,20 +2150,33 @@ function renderActivePromos(promos, localidad) {
         ? urlCarritoPromo(`activa_${p.id}`, { alias_key: _bizAliasKey })
         : null;
 
-    const card = document.createElement("div");
+      const card = document.createElement("div");
     card.className = "promo-active-card";
     card.innerHTML = `
       <div class="promo-active-img-wrap">
         <span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>
+        ${precio > 0 ? `<span class="promo-active-price-badge">S/ ${precio.toFixed(2)}</span>` : ""}
       </div>
       <div class="promo-active-body">
         <h3 class="promo-active-title">${info.titulo || ""}</h3>
         <p class="promo-active-desc">${info.descripcion || ""}</p>
-        ${precio > 0 ? `<p class="promo-active-price">S/ ${precio.toFixed(2)}</p>` : ""}
         <div class="promo-active-actions">
-          ${comprarHref ? `<a class="promo-btn-buy" href="${comprarHref}">Comprar</a>` : ""}
-          ${waLink ? `<a class="promo-btn-wa" href="${waLink}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}
-          ${shareAllowed ? `<button class="promo-btn-share" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}">Compartir</button>` : ""}
+          ${comprarHref ? `<a class="promo-btn-buy-icon" href="${comprarHref}" aria-label="Comprar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
+              <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
+            </svg>
+            <span>Comprar</span>
+          </a>` : ""}
+          ${waLink ? `<a class="promo-icon-circle promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
+            <i class="fa-brands fa-whatsapp"></i>
+          </a>` : ""}
+          ${shareAllowed ? `<button class="promo-icon-circle promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
+            </svg>
+          </button>` : ""}
         </div>
       </div>
     `;
@@ -2067,7 +2193,7 @@ function renderActivePromos(promos, localidad) {
     grid.appendChild(card);
   });
 
-  grid.querySelectorAll(".promo-btn-share").forEach((btn) => {
+  grid.querySelectorAll(".promo-icon-share-circle").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const url = btn.dataset.shareUrl;
       const msg = btn.dataset.shareMsg;
@@ -2075,7 +2201,7 @@ function renderActivePromos(promos, localidad) {
       if (navigator.share) {
         try {
           await navigator.share({ text: fullText });
-        } catch (e) { }
+        } catch (e) {}
       } else {
         copyToClipboard(fullText);
       }
@@ -3240,7 +3366,7 @@ function showPromoBanner(biz) {
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-    bannerImg.onerror = () => { };
+    bannerImg.onerror = () => {};
     bannerImg.src = banner.imagen;
   }
 }
@@ -3340,7 +3466,8 @@ function renderBannerCta(banner, biz, bannerModal) {
   const tipo = banner.tipo || "producto";
   if (!desc) return;
 
-  let precioLabel = "", href = null;
+  let precioLabel = "",
+    href = null;
   if (tipo === "producto") {
     const precio = Number(banner.precio) || 0;
     if (precio <= 0) return;
@@ -3349,7 +3476,10 @@ function renderBannerCta(banner, biz, bannerModal) {
   } else if (tipo === "descuento") {
     const valor = Number(banner.descuentoValor) || 0;
     if (valor <= 0) return;
-    precioLabel = banner.descuentoTipo === "monto" ? `-S/ ${valor.toFixed(2)}` : `-${valor}%`;
+    precioLabel =
+      banner.descuentoTipo === "monto"
+        ? `-S/ ${valor.toFixed(2)}`
+        : `-${valor}%`;
     href = urlCarritoBannerCupon(biz);
   } else if (tipo === "envio_gratis") {
     precioLabel = "🚚 Gratis";
@@ -3362,7 +3492,7 @@ function renderBannerCta(banner, biz, bannerModal) {
   if (banner.soloSeguidores) restricciones.push("Solo para seguidores");
   if (banner.unaVezPorCliente) restricciones.push("Una vez por cliente");
   const tagsHTML = restricciones.length
-    ? `<div class="banner-cta-tags">${restricciones.map(r => `<span class="banner-cta-tag">${r}</span>`).join("")}</div>`
+    ? `<div class="banner-cta-tags">${restricciones.map((r) => `<span class="banner-cta-tag">${r}</span>`).join("")}</div>`
     : "";
 
   const EYE_CLOSED = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -3470,7 +3600,7 @@ function bindLoginPromptEvents() {
       // Si no (geinztech.com, tus subdominios, etc.) → el link normal a login.html.
       if (!_dominioRegistrado) return;
       e.preventDefault();
-      abrirLoginPopup();                    // (debe ejecutarse directo en el click)
+      abrirLoginPopup(); // (debe ejecutarse directo en el click)
     });
 }
 
@@ -3768,6 +3898,7 @@ let _mesasCache = [];
 let _horaMaxReserva = null;
 let _bizLogoUrl = null;
 let _bizNombre = "";
+let _bizAliasKey = null;
 let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
 let _followReady = false;
 let _reviewsReady = false;
@@ -3799,6 +3930,7 @@ async function render(biz, isInitial = true) {
   const logoUrl = biz.img_tienda?.logo_tienda || null;
   _bizLogoUrl = logoUrl;
   _bizNombre = nombre;
+  _bizAliasKey = biz.alias_key || null;
   // Footer dinámico
   const footerBizName = document.getElementById("footerBizName");
   const footerCopyName = document.getElementById("footerCopyName");
@@ -3882,14 +4014,18 @@ async function render(biz, isInitial = true) {
     .getElementById("footerPoweredRow")
     ?.style.setProperty("display", poweredActivo ? "" : "none");
   if (linkLibro) {
-    const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
+    const libroActivo =
+      footerActivo && footerConfig.libro_reclamaciones === true;
     linkLibro.style.display = libroActivo ? "" : "none";
     if (libroActivo) {
       const ruta = rutaNegocio("libro_reclamaciones", biz.alias_key);
       if (ruta) {
         linkLibro.href = ruta;
       } else {
-        const urlLibro = new URL("../../legal/libro_reclamaciones.html", window.location.href);
+        const urlLibro = new URL(
+          "../../legal/libro_reclamaciones.html",
+          window.location.href,
+        );
         urlLibro.searchParams.set("id", biz.id || _params.id);
         urlLibro.searchParams.set("localidad", _params.localidad);
         linkLibro.href = urlLibro.toString();
@@ -3898,14 +4034,18 @@ async function render(biz, isInitial = true) {
   }
   const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
   if (linkSeguimiento) {
-    const libroActivo = footerActivo && footerConfig.libro_reclamaciones === true;
+    const libroActivo =
+      footerActivo && footerConfig.libro_reclamaciones === true;
     linkSeguimiento.style.display = libroActivo ? "" : "none";
     if (libroActivo) {
       const ruta = rutaNegocio("seguimiento_reclamaciones", biz.alias_key);
       if (ruta) {
         linkSeguimiento.href = ruta;
       } else {
-        const urlSeguimiento = new URL("../../legal/seguimiento_reclamaciones.html", window.location.href);
+        const urlSeguimiento = new URL(
+          "../../legal/seguimiento_reclamaciones.html",
+          window.location.href,
+        );
         urlSeguimiento.searchParams.set("id", biz.id || _params.id);
         urlSeguimiento.searchParams.set("localidad", _params.localidad);
         linkSeguimiento.href = urlSeguimiento.toString();
@@ -3914,14 +4054,18 @@ async function render(biz, isInitial = true) {
   }
 
   if (linkTerminos) {
-    const terminosActivo = footerActivo && footerConfig.terminos_condiciones === true;
+    const terminosActivo =
+      footerActivo && footerConfig.terminos_condiciones === true;
     linkTerminos.style.display = terminosActivo ? "" : "none";
     if (terminosActivo) {
       const ruta = rutaNegocio("terminos_condiciones", biz.alias_key);
       if (ruta) {
         linkTerminos.href = ruta;
       } else {
-        const urlTerminos = new URL("../../legal/terminos_condiciones.html", window.location.href);
+        const urlTerminos = new URL(
+          "../../legal/terminos_condiciones.html",
+          window.location.href,
+        );
         urlTerminos.searchParams.set("id", biz.id || _params.id);
         urlTerminos.searchParams.set("localidad", _params.localidad);
         linkTerminos.href = urlTerminos.toString();
@@ -3929,16 +4073,19 @@ async function render(biz, isInitial = true) {
     }
   }
 
-
   if (linkPrivacidad) {
-    const privacidadActivo = footerActivo && footerConfig.politicas_privacidad === true;
+    const privacidadActivo =
+      footerActivo && footerConfig.politicas_privacidad === true;
     linkPrivacidad.style.display = privacidadActivo ? "" : "none";
     if (privacidadActivo) {
       const ruta = rutaNegocio("politicas_privacidad", biz.alias_key);
       if (ruta) {
         linkPrivacidad.href = ruta;
       } else {
-        const urlPrivacidad = new URL("../../legal/politicas_privacidad.html", window.location.href);
+        const urlPrivacidad = new URL(
+          "../../legal/politicas_privacidad.html",
+          window.location.href,
+        );
         urlPrivacidad.searchParams.set("id", biz.id || _params.id);
         urlPrivacidad.searchParams.set("localidad", _params.localidad);
         linkPrivacidad.href = urlPrivacidad.toString();
@@ -4100,11 +4247,15 @@ async function render(biz, isInitial = true) {
 
   // Carrito de perfil (hasta 20 productos elegidos en el dashboard)
   // Ya viene incluido en 'biz' porque loadBusiness/listenBusinessRealtime leen ese mismo doc
-  console.log("🟣 render() isInitial=", isInitial,
-    "| carritoPerfil:", biz.carritoPerfil,
-    "| keys del doc:", Object.keys(biz));
+  console.log(
+    "🟣 render() isInitial=",
+    isInitial,
+    "| carritoPerfil:",
+    biz.carritoPerfil,
+    "| keys del doc:",
+    Object.keys(biz),
+  );
   renderProductosCatalogo(
-
     biz.carritoPerfil || [],
     _params.localidad,
     _params.id,
@@ -4220,19 +4371,24 @@ async function render(biz, isInitial = true) {
       const shareBase = biz.alias_key
         ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
         : `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
-      const comprarHref = promo.precio > 0 ? urlCarritoPromo(promo.id, biz) : null;
+      const comprarHref =
+        promo.precio > 0 ? urlCarritoPromo(promo.id, biz) : null;
 
       const card = document.createElement("div");
       card.className = "promo-card";
       card.innerHTML = `
         <div class="promo-card-img-wrap">
           <div class="promo-card-top-actions">
-            ${comprarHref ? `<a class="promo-icon-btn promo-icon-buy" href="${comprarHref}" aria-label="Comprar">
+            ${
+              comprarHref
+                ? `<a class="promo-icon-btn promo-icon-buy" href="${comprarHref}" aria-label="Comprar">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
-            </a>` : ""}
+            </a>`
+                : ""
+            }
             <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -4240,11 +4396,15 @@ async function render(biz, isInitial = true) {
               </svg>
             </button>
           </div>
-          ${promo.precio > 0 || promo.descripcion ? `
+          ${
+            promo.precio > 0 || promo.descripcion
+              ? `
           <div class="promo-card-bottom-overlay">
             ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
             ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
-          </div>` : ""}
+          </div>`
+              : ""
+          }
         </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -4261,7 +4421,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -4272,7 +4432,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -4283,7 +4443,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -4368,20 +4528,26 @@ async function render(biz, isInitial = true) {
   }
   document
     .getElementById("geinzHeader")
-    ?.style.setProperty("display", esPremium || _esDominioPersonalizado ? "none" : "");
+    ?.style.setProperty(
+      "display",
+      esPremium || _esDominioPersonalizado ? "none" : "",
+    );
   document
     .getElementById("secCtaExplore")
     ?.style.setProperty("display", esPremium ? "none" : "");
   document
     .getElementById("mainContent")
-    ?.style.setProperty("padding-top", esPremium || _esDominioPersonalizado ? "1.55rem" : "");
+    ?.style.setProperty(
+      "padding-top",
+      esPremium || _esDominioPersonalizado ? "1.55rem" : "",
+    );
   document
     .getElementById("secAmenities")
     ?.style.setProperty("display", esPresencial ? "" : "none");
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
-  document.getElementById('fidelizacionCard')?.addEventListener('click', () => {
+  document.getElementById("fidelizacionCard")?.addEventListener("click", () => {
     if (_esDominioPersonalizado) {
       window.location.href = `${_baseShareUrl}/fidelizacion`;
       return;
@@ -4390,10 +4556,13 @@ async function render(biz, isInitial = true) {
     if (aliasKey && _currentUid) {
       window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
     } else {
-      const url = new URL('../../fidelizacion/fidelizacion_client.html', window.location.href);
-      url.searchParams.set('localidad', _params.localidad);
-      url.searchParams.set('id', _params.id);
-      if (_currentUid) url.searchParams.set('uid', _currentUid);
+      const url = new URL(
+        "../../fidelizacion/fidelizacion_client.html",
+        window.location.href,
+      );
+      url.searchParams.set("localidad", _params.localidad);
+      url.searchParams.set("id", _params.id);
+      if (_currentUid) url.searchParams.set("uid", _currentUid);
       window.location.href = url.toString();
     }
   });
@@ -4943,8 +5112,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-      .toDate()
-      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+        .toDate()
+        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -5496,10 +5665,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -5865,7 +6034,12 @@ async function eliminarMiReview() {
     }
 
     const biz = await loadBusiness(params);
-    console.log("✅ biz keys:", Object.keys(biz), "| carritoPerfil:", biz.carritoPerfil);
+    console.log(
+      "✅ biz keys:",
+      Object.keys(biz),
+      "| carritoPerfil:",
+      biz.carritoPerfil,
+    );
     showPromoBanner(biz); // ← se dispara ANTES de todo el resto del render
     await render(biz, true);
 
@@ -5911,7 +6085,6 @@ async function eliminarMiReview() {
 
     // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
     // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
-
   } catch (err) {
     console.error(err);
     showNotFoundScreen(err.message); // ← debe capturarlo
@@ -5985,7 +6158,6 @@ function setupHoverCarousel(wrapId, trackId) {
   });
 }
 
-
 function urlCarritoPromo(promoId, biz) {
   const aliasKey = _params.alias || biz?.alias_key;
   const base = _esDominioPersonalizado
@@ -6002,7 +6174,6 @@ function injectPromoBuyStyles() {
   st.id = "promoBuyStyle";
   st.textContent = `
     .promo-card-img-wrap{ position:relative; }
-    /* Máscara sutil y uniforme sobre TODA la imagen, independiente del shadow de abajo */
     .promo-card-img-wrap::before{
       content:"";
       position:absolute; inset:0; z-index:1;
@@ -6025,7 +6196,6 @@ function injectPromoBuyStyles() {
     .promo-icon-btn:active{ transform:scale(.94); }
     .promo-icon-buy{ background:linear-gradient(135deg,#34d399,#10b981); }
     .promo-icon-share{ background:rgba(var(--dr),var(--dg),var(--db),.92); }
-    /* Shadow/gradiente de abajo para el texto, separado de la máscara general */
     .promo-card-bottom-overlay{
       position:absolute; left:0; right:0; bottom:0; z-index:2;
       padding:36px 16px 16px;
@@ -6044,6 +6214,52 @@ function injectPromoBuyStyles() {
       text-shadow:0 1px 4px rgba(0,0,0,.5);
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
     }
+
+    /* ══ Ofertas del momento: título/desc 1 línea, precio sobre la img, botones circulares ══ */
+    .promo-active-img-wrap{ position:relative; }
+    .promo-active-price-badge{
+      position:absolute;
+      bottom:12px; left:12px;
+      z-index:2;
+      font-size:13px;font-weight:800;color:#fff;
+      padding:6px 14px;border-radius:999px;
+      background:rgba(var(--dr),var(--dg),var(--db),.92);
+      box-shadow:0 4px 14px -4px rgba(var(--dr),var(--dg),var(--db),.5);
+    }
+    .promo-active-title{
+      font-size:15px;font-weight:800;color:#fff;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      margin:0 0 4px;
+    }
+    .promo-active-desc{
+      font-size:12.5px;color:var(--muted,#9c9ca3);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      margin:0 0 12px;
+    }
+    .promo-active-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .promo-btn-buy-icon{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:10px 16px;border-radius:999px;
+      font-weight:800;font-size:13px;color:#fff;text-decoration:none;cursor:pointer;
+      background:linear-gradient(135deg,#34d399,#10b981);
+      box-shadow:0 6px 16px -4px rgba(16,185,129,.5);
+      transition:transform .18s ease, filter .18s ease;
+      flex-shrink:0;
+    }
+    .promo-btn-buy-icon:hover{ transform:translateY(-2px); filter:brightness(1.05); }
+    .promo-icon-circle{
+      width:38px;height:38px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      border:none;cursor:pointer;color:#fff;text-decoration:none;
+      transition:transform .18s ease, filter .18s ease;
+    }
+    .promo-icon-circle:hover{ transform:translateY(-2px) scale(1.05); filter:brightness(1.08); }
+    .promo-icon-wa{ background:#25D366; }
+    .promo-icon-share-circle{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); }
   `;
   document.head.appendChild(st);
 }

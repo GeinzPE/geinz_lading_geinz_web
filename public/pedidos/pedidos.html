@@ -1018,7 +1018,37 @@
           <p id="nota-texto" class="text-secondary" style="font-style:italic;font-size:0.9rem;margin:0;"></p>
         </div>
       </section>
+      <!-- Pago QR (Yape/Plin) -->
+      <section id="pago-qr-card" class="card fade-in hidden" aria-label="Pago por QR">
+        <span class="eyebrow">Pago por <span id="pago-qr-metodo-label">Yape</span></span>
+        <div style="display:flex;gap:1rem;align-items:center;margin-top:0.95rem;">
+          <img id="pago-qr-img" alt="QR de pago"
+            style="width:6.5rem;height:6.5rem;border-radius:1rem;object-fit:cover;border:1px solid var(--card-border);flex-shrink:0;background:#0e0e11;">
+          <div style="min-width:0;">
+            <p class="field-label" style="margin:0;">A nombre de</p>
+            <p id="pago-qr-nombre" class="field-value text-primary" style="margin:0 0 0.5rem;"></p>
+            <p class="field-label" style="margin:0;">Número</p>
+            <p id="pago-qr-numero" class="field-value text-primary font-mono" style="margin:0;"></p>
+          </div>
+        </div>
+        <p id="pago-qr-mensaje" class="text-secondary" style="font-size:0.85rem;margin:0.9rem 0 0;line-height:1.5;"></p>
 
+        <div style="margin-top:1rem;">
+          <div id="pago-voucher-pendiente">
+            <button id="btn-subir-voucher" type="button"
+              style="width:100%;padding:0.8rem;border-radius:0.9rem;border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.85rem;cursor:pointer;">
+              📎 Enviar comprobante de pago
+            </button>
+            <input type="file" id="pago-voucher-input" accept="image/*" class="hidden">
+          </div>
+          <div id="pago-voucher-enviado" class="hidden"
+            style="display:flex;align-items:center;gap:0.6rem;padding:0.75rem 0.9rem;border-radius:0.85rem;background:color-mix(in srgb, var(--state-entregado) 10%, transparent);border:1px solid color-mix(in srgb, var(--state-entregado) 30%, var(--card-border));">
+            <span style="font-size:1.1rem;">✅</span>
+            <span style="font-size:0.85rem;color:var(--text-primary);font-weight:600;">Comprobante enviado, esperando
+              confirmación</span>
+          </div>
+        </div>
+      </section>
       <!-- Productos -->
       <section class="card fade-in" aria-label="Productos del pedido">
         <span class="eyebrow">Productos</span>
@@ -1139,10 +1169,13 @@
         </div>
         <p class="auth-title">¿Cancelar este pedido?</p>
         <p class="auth-copy">Esta acción no se puede deshacer. El negocio será notificado de la cancelación.</p>
-        <div id="cancel-cupon-warning" class="hidden" style="text-align:left;margin:-0.6rem 0 1.4rem;padding:0.85rem 1rem;border-radius:0.85rem;background:color-mix(in srgb, var(--state-rechazado) 10%, transparent);border:1px solid color-mix(in srgb, var(--state-rechazado) 35%, var(--card-border));">
-  <p style="margin:0 0 0.3rem;font-weight:700;font-size:0.82rem;color:var(--state-rechazado);">⚠️ Cupón ya canjeado</p>
-  <p id="cancel-cupon-warning-text" style="margin:0;font-size:0.82rem;line-height:1.5;color:var(--text-secondary);"></p>
-</div>
+        <div id="cancel-cupon-warning" class="hidden"
+          style="text-align:left;margin:-0.6rem 0 1.4rem;padding:0.85rem 1rem;border-radius:0.85rem;background:color-mix(in srgb, var(--state-rechazado) 10%, transparent);border:1px solid color-mix(in srgb, var(--state-rechazado) 35%, var(--card-border));">
+          <p style="margin:0 0 0.3rem;font-weight:700;font-size:0.82rem;color:var(--state-rechazado);">⚠️ Cupón ya
+            canjeado</p>
+          <p id="cancel-cupon-warning-text"
+            style="margin:0;font-size:0.82rem;line-height:1.5;color:var(--text-secondary);"></p>
+        </div>
         <div style="display:flex;gap:0.6rem;">
           <button id="cancel-confirm-no" type="button"
             style="flex:1;padding:0.8rem;border-radius:0.85rem;border:1px solid var(--card-border);background:var(--card-hover);color:var(--text-primary);font-weight:600;font-size:0.88rem;cursor:pointer;">Volver</button>

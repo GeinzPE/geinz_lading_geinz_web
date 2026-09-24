@@ -1,9 +1,6 @@
 // ── Firebase (módulos ESM) ──────────────────────────────
 import {
-  doc,
-  getDoc,
-  setDoc,
-  collection,
+  doc, getDoc, setDoc, collection, onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth,
@@ -53,6 +50,31 @@ function construirLinkPromo(id_promocion, localidad) {
     localidadMap[localidad?.toLowerCase()] || localidad?.slice(0, 2) || "ba";
   return `https://geinztech.com/api/share?t=prms&l=${l}&pi=${id_promocion}`;
 }
+
+// ── Estilos del botón "Conectando..." de Facebook ───────
+(function inyectarEstilosFacebook() {
+  const style = document.createElement("style");
+  style.textContent = `
+    #btnConectarFb.fb-connecting {
+      display:inline-flex !important;
+      align-items:center;
+      gap:8px;
+      cursor:not-allowed;
+      opacity:.85;
+    }
+    .fb-spinner {
+      width:13px;height:13px;
+      border-radius:50%;
+      border:2px solid rgba(255,255,255,.35);
+      border-top-color:#fff;
+      animation:fbSpin .7s linear infinite;
+      flex-shrink:0;
+    }
+    @keyframes fbSpin { to { transform:rotate(360deg); } }
+  `;
+  document.head.appendChild(style);
+})();
+
 // ── Inyectar estilos del bottom sheet de términos ──────
 (function inyectarEstilosTerminos() {
   const style = document.createElement("style");
@@ -2223,6 +2245,26 @@ function formatFechaSlash(str) {
   window.callFirebaseFunction = callFirebaseFunction;
 })();
 
+// ✅ CAMBIO: listener en tiempo real del estado de conexión de Facebook.
+// Escucha directamente Firestore, así el botón se actualiza solo (sin
+// depender de que el frame padre mande PATCH_TIENDA).
+let _unsubFbListener = null;
+function escucharConexionFacebook(id_tienda, localidad) {
+  if (_unsubFbListener) _unsubFbListener();
+  if (!id_tienda || !localidad) return;
+  const ref = tiendaSubDoc(localidad, "tiendas", id_tienda);
+  _unsubFbListener = onSnapshot(
+    ref,
+    (snap) => {
+      const fb = snap.data()?.facebook_page;
+      if (datosTienda) datosTienda.facebook_page = fb || null;
+      if (fb && fb.page_id) mostrarFbConectado(fb.page_name || "tu Fanpage");
+      else mostrarFbDesconectado();
+    },
+    (err) => console.warn("⚠️ Error escuchando conexión Facebook:", err),
+  );
+}
+
 /* ── MENSAJES DESDE EL FRAME PADRE ── */
 window.addEventListener("message", (event) => {
   if (event.data?.type === "DATOS_TIENDA") {
@@ -2241,6 +2283,7 @@ window.addEventListener("message", (event) => {
       modelo_negocio: d.modelo_negocio,
     };
     _aplicarDatosTienda(datosTienda);
+    escucharConexionFacebook(datosTienda.id_tienda, datosTienda.localidad); // ✅ CAMBIO: activa el listener en tiempo real
     actualizarEstadoBotonPublicar();
   }
   if (event.data?.type === "PATCH_TIENDA") {
@@ -2451,7 +2494,6 @@ const CLOUD_FN_CONECTAR_FB =
   "https://us-central1-geinzworkapp.cloudfunctions.net/conectarFacebookPage";
 
 // ── Cargar el SDK de Facebook dinámicamente ──
-// ── Cargar el SDK de Facebook dinámicamente ──
 let fbSdkListo = false;
 
 (function cargarFacebookSDK() {
@@ -2463,7 +2505,7 @@ let fbSdkListo = false;
       version: "v21.0",
     });
     fbSdkListo = true;
-      };
+  };
 
   const script = document.createElement("script");
   script.src = "https://connect.facebook.net/es_LA/sdk.js";
@@ -2472,34 +2514,9 @@ let fbSdkListo = false;
   document.body.appendChild(script);
 })();
 
-function _iniciarLoginFacebook() {
-  
-  FB.login(
-    function (response) {
-            if (response.authResponse) {
-        const userAccessToken = response.authResponse.accessToken;
-
-        FB.api("/me/permissions", function (permResponse) {
-                  });
-
-        obtenerPaginasYMostrarSelector(userAccessToken);
-      } else {
-        console.error(
-          "❌ No hubo authResponse:",
-          JSON.stringify(response, null, 2),
-        );
-        mostrarToast(
-          "Cancelaste el login de Facebook o no diste los permisos",
-          "error",
-        );
-      }
-    },
-    {
-      scope:
-        "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement",
-    },
-  );
-}
+// ✅ CAMBIO: eliminada la versión antigua/duplicada de _iniciarLoginFacebook
+// que estaba aquí (sin setFbConectando). Solo queda la versión correcta,
+// más abajo, junto a conectarMiFanpage.
 
 // ── Función principal: se llama al presionar "Conectar mi Fanpage" ──
 window.conectarMiFanpage = function () {
@@ -2507,11 +2524,9 @@ window.conectarMiFanpage = function () {
     mostrarToast("Ya tienes una Fanpage conectada ✅", "error");
     return;
   }
+  setFbConectando(true);
 
-  // Si el SDK todavía no cargó (o el objeto FB no existe), esperamos un poco
   if (typeof FB === "undefined" || !fbSdkListo) {
-    mostrarToast("Cargando Facebook, intenta de nuevo en un segundo…", "error");
-
     let intentos = 0;
     const esperar = setInterval(() => {
       intentos++;
@@ -2519,54 +2534,118 @@ window.conectarMiFanpage = function () {
         clearInterval(esperar);
         _iniciarLoginFacebook();
       } else if (intentos > 20) {
-        // ~10s de espera máxima
         clearInterval(esperar);
-        mostrarToast(
-          "No se pudo cargar Facebook. Revisa tu conexión e intenta de nuevo.",
-          "error",
-        );
+        setFbConectando(false);
+        mostrarToast("No se pudo cargar Facebook. Revisa tu conexión e intenta de nuevo.", "error");
       }
     }, 500);
     return;
   }
-
   _iniciarLoginFacebook();
 };
 
-
-
-function obtenerPaginasYMostrarSelector(userAccessToken) {
-  FB.api(
-    "/me/accounts",
-    "GET",
-    { access_token: userAccessToken },
-    function (res) {
-      console.log("🟣 Respuesta cruda /me/accounts:", res); // ← AGREGA ESTO
-      if (!res || res.error) {
-        console.error("🔴 Error de /me/accounts:", res?.error); // ← Y ESTO
-        mostrarToast("No se pudo obtener la lista de páginas", "error");
-        return;
-      }
-      const paginas = res.data || [];
-      if (paginas.length === 0) {
-        mostrarToast(
-          "No administras ninguna página de Facebook con este usuario",
-          "error",
-        );
-        return;
-      }
-
-      if (paginas.length === 1) {
-        // Solo una página: conectar directo, sin preguntar
-        confirmarConexion(paginas[0].id, userAccessToken);
-        return;
-      }
-
-      // Varias páginas: mostrar selector simple
-      mostrarSelectorDePaginas(paginas, userAccessToken);
-    },
-  );
+function _iniciarLoginFacebook() {
+  FB.login(function (response) {
+    if (response.authResponse) {
+      obtenerPaginasYMostrarSelector(response.authResponse.accessToken);
+    } else {
+      setFbConectando(false);
+      mostrarToast("Cancelaste el login de Facebook o no diste los permisos", "error");
+    }
+  }, { scope: "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement" });
 }
+
+// ✅ CAMBIO: permite al usuario cambiar de Fanpage cuando ya tiene una
+// conectada. Reutiliza el mismo login + selector, pero forzando que el
+// selector aparezca siempre (forzarSelector = true), incluso si solo
+// administra una página, para que la elección sea siempre explícita.
+window.cambiarFanpage = function () {
+  if (typeof FB === "undefined" || !fbSdkListo) {
+    mostrarToast("Cargando Facebook, intenta de nuevo en un segundo…", "error");
+    return;
+  }
+  setCambiandoPagina(true);
+  FB.login(function (response) {
+    if (response.authResponse) {
+      obtenerPaginasYMostrarSelector(response.authResponse.accessToken, true);
+    } else {
+      setCambiandoPagina(false);
+      mostrarToast("Cancelaste el cambio de página", "error");
+    }
+  }, { scope: "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement" });
+};
+
+// ✅ CAMBIO: estado de carga del botón "Cambiar página" (independiente del
+// botón "Conectar", porque pueden coexistir en distintos momentos del flujo).
+function setCambiandoPagina(activo) {
+  const btn = document.getElementById("btnCambiarFanpage");
+  if (!btn) return;
+  if (activo) {
+    if (!btn.dataset.original) btn.dataset.original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="fb-spinner"></span> Cambiando...`;
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.original) {
+      btn.innerHTML = btn.dataset.original;
+      delete btn.dataset.original;
+    }
+  }
+}
+
+// ✅ CAMBIO: se agregó el parámetro forzarSelector. Cuando es true (lo usa
+// cambiarFanpage), siempre muestra el selector de páginas aunque el usuario
+// solo administre una sola Fanpage — así puede "recambiar" a la misma u
+// otra sin que el flujo la conecte de forma automática y silenciosa.
+function obtenerPaginasYMostrarSelector(userAccessToken, forzarSelector = false) {
+  FB.api("/me/accounts", "GET", { access_token: userAccessToken }, function (res) {
+    if (!res || res.error) {
+      setFbConectando(false);
+      setCambiandoPagina(false);
+      mostrarToast("No se pudo obtener la lista de páginas", "error");
+      return;
+    }
+    const paginas = res.data || [];
+    if (paginas.length === 0) {
+      setFbConectando(false);
+      setCambiandoPagina(false);
+      mostrarToast("No administras ninguna página de Facebook con este usuario", "error");
+      return;
+    }
+    if (paginas.length === 1 && !forzarSelector) {
+      confirmarConexion(paginas[0].id, userAccessToken);
+      return;
+    }
+    mostrarSelectorDePaginas(paginas, userAccessToken);
+  });
+}
+
+async function confirmarConexion(pageId, userAccessToken) {
+  try {
+    const result = await callFirebaseFunction(CLOUD_FN_CONECTAR_FB, {
+      id_tienda: datosTienda.id_tienda,
+      localidad: datosTienda.localidad,
+      page_id: pageId,
+      user_access_token: userAccessToken,
+    });
+    setFbConectando(false);
+    setCambiandoPagina(false); // ✅ CAMBIO: apaga el loading del botón "Cambiar página"
+    if (result.ok) {
+      mostrarToast(`✅ ${result.mensaje}`);
+      mostrarFbConectado(result.page_name);
+    } else {
+      mostrarToast(result.mensaje || "No se pudo conectar la página", "error");
+    }
+  } catch (err) {
+    setFbConectando(false);
+    setCambiandoPagina(false); // ✅ CAMBIO
+    mostrarToast("Error conectando con Facebook", "error");
+  }
+}
+
+// ✅ CAMBIO: eliminadas las versiones antiguas/duplicadas de
+// obtenerPaginasYMostrarSelector y confirmarConexion que estaban aquí
+// (sin setFbConectando). Solo quedan las versiones correctas, arriba.
 
 function mostrarSelectorDePaginas(paginas, userAccessToken) {
   const overlay = document.createElement("div");
@@ -2592,26 +2671,13 @@ function mostrarSelectorDePaginas(paginas, userAccessToken) {
     };
     lista.appendChild(btn);
   });
-}
-
-async function confirmarConexion(pageId, userAccessToken) {
-  try {
-    const result = await callFirebaseFunction(CLOUD_FN_CONECTAR_FB, {
-      id_tienda: datosTienda.id_tienda,
-      localidad: datosTienda.localidad,
-      page_id: pageId,
-      user_access_token: userAccessToken,
-    });
-
-    if (result.ok) {
-      mostrarToast(`✅ ${result.mensaje}`);
-      mostrarFbConectado(result.page_name); // ← nuevo
-    } else {
-      mostrarToast(result.mensaje || "No se pudo conectar la página", "error");
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      setFbConectando(false);
+      setCambiandoPagina(false); // ✅ CAMBIO
     }
-  } catch (err) {
-    mostrarToast("Error conectando con Facebook", "error");
-  }
+  });
 }
 
 let fbConectado = false;
@@ -2633,6 +2699,25 @@ function mostrarFbDesconectado() {
   if (nameText) nameText.textContent = "Conectado a: —";
 }
 window.mostrarFbDesconectado = mostrarFbDesconectado;
+
+function setFbConectando(activo) {
+  const btn = document.getElementById("btnConectarFb");
+  if (!btn) return;
+  if (activo) {
+    if (!btn.dataset.original) btn.dataset.original = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add("fb-connecting");
+    btn.innerHTML = `<span class="fb-spinner"></span> Conectando...`;
+  } else {
+    btn.disabled = false;
+    btn.classList.remove("fb-connecting");
+    if (btn.dataset.original) {
+      btn.innerHTML = btn.dataset.original;
+      delete btn.dataset.original;
+    }
+  }
+}
+
 function mostrarFbConectado(pageName) {
   fbConectado = true;
   const btn = document.getElementById("btnConectarFb");

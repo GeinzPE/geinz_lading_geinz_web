@@ -15,17 +15,18 @@ import {
   getStorage,
   ref,
   getDownloadURL,
+  getMetadata,
   uploadBytes,
   deleteObject,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 import { db, storage } from "../db/db.js";
-import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
-
-// ------------------------------------------------------------
-// localidad / id: se leen de la URL. Mientras no haya sesión
-// real conectada, caen a estos valores "por ahora".
-// ------------------------------------------------------------
+import {
+  tiendaDoc,
+  tiendaSubDoc,
+  tiendaSubCol,
+  tiendaServiciosDoc,
+} from "../rutas/rutas.js";
 
 // ------------------------------------------------------------
 // Cola global para llamadas a la Cloud Function de QR.
@@ -83,20 +84,135 @@ const DEFAULT_STORE_ID = tiendaId;
 const QR_API_ENDPOINT = "https://qrapi-oixttik5rq-uc.a.run.app";
 const COLOR_DEFAULT = ["#7c4dff", "#5a2fe0", "#1a1040"];
 
-// Tamaño que le pedimos a la API generadora (si la Cloud Function
-// acepta width/height, esto ya sale nítido de origen; si los
-// ignora, el post-proceso de abajo igual garantiza la salida HD).
+// Tamaño que le pedimos a la API generadora
 const QR_REQUEST_SIZE = 1000; // px
 
 // Tamaño final del PNG que se descarga, pensado para impresión
-// (≈ 10" a 300dpi, de sobra para volantes, stickers o afiches).
 const QR_PRINT_SIZE = 3000; // px
 const QR_PRINT_MARGIN = 0.06; // 6% de margen blanco (quiet zone extra)
 
 const QrNegocio = {
   _tiendaInfoCache: null, // { id, alias, localidad }
   _logoCache: null, // base64 (o null si no hay logo)
-  _estado: {}, // tipo -> { blobOriginal, blobHD, info } — usado por PreviewQr
+  _estado: {}, // tipo -> { tipo, blobOriginal, info, origen, url } — usado por PreviewQr
+  _modo: null, // { activo, dominio }
+  _regenerando: false,
+
+  // ------------------------------------------------------------
+  // DOMINIO PERSONALIZADO
+  // Lee el doc de servicios (el mismo que usa inicio) y decide si
+  // los QR deben apuntar al dominio propio o al link de Geinz.
+  // ------------------------------------------------------------
+  async _cargarModoDominio() {
+    if (this._modo) return this._modo;
+    let modo = { activo: false, dominio: "" };
+    try {
+      const snap = await getDoc(tiendaServiciosDoc(localidad, tiendaId));
+      const d = snap.exists() ? snap.data() : {};
+      const ap = d.apartados_dasboard || {};
+      const flag =
+        d.dominio_personalizado ??
+        d.dominio_perzonalizado ??
+        ap.dominio_personalizado ??
+        ap.dominio_perzonalizado;
+      const dominio = String(d.dominio || "")
+        .trim()
+        .replace(/^https?:\/\//i, "")
+        .replace(/\/+$/, "");
+      modo = { activo: flag === true && !!dominio, dominio };
+    } catch (err) {
+      console.warn("QrNegocio: no se pudo leer el dominio personalizado.", err);
+    }
+    this._modo = modo;
+    return modo;
+  },
+
+  _origenActual() {
+    return this._modo?.activo ? "dominio" : "geinz";
+  },
+
+  // QR (negocio o mesa) cuyo origen no coincide con el modo actual.
+  // Solo cuenta los que el usuario realmente ve (tiles/sección visibles).
+  _desfasados() {
+    const objetivo = this._origenActual();
+
+    const tiles = Object.values(this._estado).filter((e) => {
+      const tile = document.getElementById(`qrTile${this._cap(e.tipo)}`);
+      const visible = !tile || tile.style.display !== "none";
+      return visible && (e.origen || "geinz") !== objetivo;
+    });
+
+    const mesasSection = document.getElementById("mesasSection");
+    const mesasVisibles = !mesasSection || mesasSection.style.display !== "none";
+    const mesas = mesasVisibles
+      ? MesasNegocio._mesas.filter((m) => (m.qr_origen || "geinz") !== objetivo)
+      : [];
+
+    return { objetivo, tiles, mesas };
+  },
+
+  actualizarAviso() {
+    const box = document.getElementById("qrDominioAviso");
+    if (!box || !this._modo || this._regenerando) return;
+
+    const { objetivo, tiles, mesas } = this._desfasados();
+    if (!tiles.length && !mesas.length) {
+      box.classList.add("hidden");
+      box.classList.remove("flex");
+      return;
+    }
+
+    const texto = document.getElementById("qrDominioAvisoTexto");
+    const btn = document.getElementById("btnRegenerarPorDominio");
+
+    if (objetivo === "dominio") {
+      texto.textContent = `Estos QR están con el link de Geinz y no apuntan a tu dominio personalizado (${this._modo.dominio}). Regénéralos para que apunten a tu dominio.`;
+      btn.textContent = "Regenerar con mi dominio";
+    } else {
+      texto.textContent =
+        "Estos QR usan tu dominio personalizado, que ya no está activo. Sin renovación dejará de funcionar: debes regenerarlos con Geinz.";
+      btn.textContent = "Regenerar con Geinz";
+    }
+    box.classList.remove("hidden");
+    box.classList.add("flex");
+  },
+
+  async regenerarPorCambioDeDominio() {
+    const btn = document.getElementById("btnRegenerarPorDominio");
+    const { tiles, mesas } = this._desfasados();
+    const total = tiles.length + mesas.length;
+    if (!total) return;
+
+    this._regenerando = true;
+    btn.disabled = true;
+    const original = btn.textContent;
+    let hechos = 0;
+    const progreso = () =>
+      (btn.textContent = `Regenerando ${hechos} / ${total}…`);
+    progreso();
+
+    try {
+      for (const t of tiles) {
+        await this.generar(t.tipo);
+        hechos++;
+        progreso();
+      }
+      for (const m of mesas) {
+        await MesasNegocio.actualizarOrigenMesa(m.id);
+        hechos++;
+        progreso();
+      }
+      UI.toast("QR regenerados correctamente.");
+    } catch (err) {
+      console.error(err);
+      UI.toast(err.message || "No se pudieron regenerar todos los QR.", true);
+    } finally {
+      this._regenerando = false;
+      btn.disabled = false;
+      btn.textContent = original;
+      this.actualizarAviso();
+    }
+  },
 
   /**
    * Lee /Tiendas/{localidad}/{localidad}/{tiendaId} y saca
@@ -105,7 +221,6 @@ const QrNegocio = {
   async _obtenerInfoTienda() {
     if (this._tiendaInfoCache) return this._tiendaInfoCache;
 
-    // DESPUÉS
     const ref_ = tiendaDoc(localidad, "tiendas", tiendaId);
     const snap = await getDoc(ref_);
 
@@ -120,8 +235,8 @@ const QrNegocio = {
       id: tiendaId,
       alias: data.alias_key || data.alias || tiendaId,
       localidad: data.localidad || localidad,
-      logoUrl: data.img_tienda?.logo_tienda || null, // 👈 NUEVO
-      libroReclamaciones: data.footer?.libro_reclamaciones === true, // 👈 NUEVO
+      logoUrl: data.img_tienda?.logo_tienda || null,
+      libroReclamaciones: data.footer?.libro_reclamaciones === true,
     };
 
     this._tiendaInfoCache = info;
@@ -129,15 +244,15 @@ const QrNegocio = {
   },
 
   /**
-   * Descarga /tiendas/{tiendaId}/logo/logo.webp y lo pasa a
-   * base64. Si no existe, devuelve null (se usa color de marca).
+   * Descarga el logo de la tienda (img_tienda.logo_tienda) y lo pasa
+   * a base64. Si no existe, devuelve null.
    */
   async _logoBase64() {
     if (this._logoCache !== null) return this._logoCache;
 
     try {
       const info = await this._obtenerInfoTienda();
-      const logoUrl = info.logoUrl; // ej: https://firebasestorage.googleapis.com/v0/b/.../o/...?alt=media&token=...
+      const logoUrl = info.logoUrl;
 
       if (!logoUrl) {
         throw new Error(
@@ -145,7 +260,7 @@ const QrNegocio = {
         );
       }
 
-      const res = await fetch(logoUrl); // ✅ funciona directo, ya trae token
+      const res = await fetch(logoUrl);
       if (!res.ok)
         throw new Error(
           "No se pudo descargar el logo desde la URL guardada en Firestore.",
@@ -174,7 +289,23 @@ const QrNegocio = {
     });
   },
 
-  _armarUrl(tipo, info) {
+  _armarUrl(tipo, info, origen = this._origenActual()) {
+    if (origen === "dominio" && this._modo?.dominio) {
+      const base = `https://${this._modo.dominio}`;
+      switch (tipo) {
+        case "perfil":
+          return `${base}/`;
+        case "carta":
+          return `${base}/-carta`;
+        case "carrito":
+          return `${base}/carrito`;
+        case "reclamaciones":
+          return `${base}/libro_reclamaciones`;
+        default:
+          throw new Error("Tipo de QR desconocido: " + tipo);
+      }
+    }
+
     switch (tipo) {
       case "perfil":
         return `https://geinztech.com/perfil/${info.alias}`;
@@ -190,8 +321,7 @@ const QrNegocio = {
   },
 
   /**
-   * Ruta donde vive el QR ya generado de cada tipo, dentro
-   * del Storage de la propia tienda:
+   * Ruta donde vive el QR ya generado de cada tipo:
    * tiendas/{tiendaId}/qr/{tipo}.png
    */
   _qrStoragePath(tipo) {
@@ -199,34 +329,40 @@ const QrNegocio = {
   },
 
   /**
-   * Intenta leer un QR ya generado previamente desde Storage.
-   * Devuelve el Blob si existe, o null si todavía no se ha
-   * generado ese tipo (caso normal la primera vez).
+   * Lee un QR ya generado desde Storage.
+   * Devuelve { blob, origen, url } o null si todavía no existe.
+   * Los QR viejos (sin metadata) se consideran origen "geinz".
    */
   async _cargarQrGuardado(tipo) {
     try {
       const qrRef = ref(storage, this._qrStoragePath(tipo));
-      const url = await getDownloadURL(qrRef);
-      const res = await fetch(url);
+      const [url, meta] = await Promise.all([
+        getDownloadURL(qrRef),
+        getMetadata(qrRef),
+      ]);
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("No se pudo leer el QR guardado.");
-      return await res.blob();
+      return {
+        blob: await res.blob(),
+        origen: meta.customMetadata?.origen || "geinz",
+        url: meta.customMetadata?.url || null,
+      };
     } catch (err) {
-      // object-not-found u otro error -> simplemente no hay QR guardado aún
       return null;
     }
   },
 
   /**
-   * Sube el PNG del QR (tal cual lo devolvió la Cloud Function)
-   * a Storage, para no tener que regenerarlo la próxima vez
-   * que el usuario entre a esta página. No bloquea ni rompe
-   * el flujo si falla (por ejemplo, por reglas de Storage);
-   * solo queda registrado en consola.
+   * Sube el PNG del QR a Storage guardando con qué link se generó
+   * (origen + url) en customMetadata.
    */
-  async _guardarQrEnStorage(tipo, blob) {
+  async _guardarQrEnStorage(tipo, blob, origen, url) {
     try {
       const qrRef = ref(storage, this._qrStoragePath(tipo));
-      await uploadBytes(qrRef, blob, { contentType: "image/png" });
+      await uploadBytes(qrRef, blob, {
+        contentType: "image/png",
+        customMetadata: { origen, url },
+      });
     } catch (err) {
       console.warn(
         `QrNegocio: no se pudo guardar el QR "${tipo}" en Storage (revisa las Storage Rules).`,
@@ -246,12 +382,15 @@ const QrNegocio = {
   },
 
   /**
-   * Pinta un QR (ya sea recién generado o cargado desde
-   * Storage) dentro de su tile: preview, botón de descarga
-   * en HD y la insignia "HD · print". También cachea el
-   * resultado en _estado para que PreviewQr pueda usarlo.
+   * Pinta un QR (recién generado o cargado desde Storage) dentro
+   * de su tile y lo cachea en _estado para que PreviewQr lo use.
    */
-  async _mostrarQrEnTile(tipo, blobOriginal, info) {
+  async _mostrarQrEnTile(
+    tipo,
+    blobOriginal,
+    info,
+    meta = { origen: "geinz", url: null },
+  ) {
     const tile = document.querySelector(`.qr-tile[data-tipo="${tipo}"]`);
     const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
     const actions = document.getElementById(`qrActions${this._cap(tipo)}`);
@@ -260,8 +399,6 @@ const QrNegocio = {
     preview.innerHTML = `<img src="${objUrlPreview}" alt="QR ${tipo}">`;
     tile.classList.add("has-qr");
 
-    // El HD ya NO se genera aquí; se genera al vuelo cuando el usuario
-    // realmente pulsa "Descargar HD" (ver onclick del <a> más abajo).
     descarga.href = "#";
     descarga.download = `qr-${tipo}-${info.alias}.png`;
     actions.classList.remove("hidden");
@@ -277,18 +414,18 @@ const QrNegocio = {
     }
 
     // Cache para la vista previa de descarga (PreviewQr.openNegocio)
-    this._estado[tipo] = { blobOriginal, info };
+    this._estado[tipo] = {
+      tipo,
+      blobOriginal,
+      info,
+      origen: meta.origen,
+      url: meta.url || this._armarUrl(tipo, info, meta.origen),
+    };
   },
 
   /**
    * Convierte el PNG que devuelve la API en un archivo listo
-   * para imprimir:
-   *  - lo escala a QR_PRINT_SIZE px sin interpolar (nearest
-   *    neighbor), así los módulos del QR quedan con bordes
-   *    100% nítidos en vez de borrosos.
-   *  - lo centra sobre un fondo blanco con margen (quiet zone
-   *    extra), clave para que escanee bien impreso.
-   * Devuelve un Blob PNG.
+   * para imprimir (fondo blanco + margen, escalado a QR_PRINT_SIZE).
    */
   async _prepararParaImpresion(blobOriginal) {
     const bitmap = await createImageBitmap(blobOriginal);
@@ -298,12 +435,9 @@ const QrNegocio = {
     canvas.height = QR_PRINT_SIZE;
     const ctx = canvas.getContext("2d");
 
-    // fondo blanco: evita fondos transparentes/negros al imprimir
-    // (esto es solo dentro del archivo PNG descargado, no en la página)
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // nítido, sin blur al escalar
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
@@ -319,7 +453,6 @@ const QrNegocio = {
   onTileClick(evt, tipo) {
     const tile = evt.currentTarget;
     if (tile.classList.contains("has-qr")) {
-      // Ya existe un QR para este tipo -> abrir vista previa de descarga
       PreviewQr.openNegocio(tipo);
       return;
     }
@@ -330,22 +463,24 @@ const QrNegocio = {
     const tile = document.querySelector(`.qr-tile[data-tipo="${tipo}"]`);
     const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
     const actions = document.getElementById(`qrActions${this._cap(tipo)}`);
-    const descarga = document.getElementById(`qrDescarga${this._cap(tipo)}`);
 
     tile.style.pointerEvents = "none";
     preview.innerHTML = `
-                    <div class="flex h-full w-full items-center justify-center gap-1.5">
-                        <div class="qr-loading-dot"></div>
-                        <div class="qr-loading-dot"></div>
-                        <div class="qr-loading-dot"></div>
-                    </div>`;
+    <div class="flex h-full w-full items-center justify-center gap-1.5">
+      <div class="qr-loading-dot"></div>
+      <div class="qr-loading-dot"></div>
+      <div class="qr-loading-dot"></div>
+    </div>`;
     actions.classList.add("hidden");
     actions.classList.remove("flex");
 
     try {
       const info = await this._obtenerInfoTienda();
       const logo = await this._logoBase64();
-      const url = this._armarUrl(tipo, info);
+      await this._cargarModoDominio();
+
+      const origen = this._origenActual();
+      const url = this._armarUrl(tipo, info, origen);
 
       if (!logo) {
         throw new Error(
@@ -365,13 +500,10 @@ const QrNegocio = {
 
       const blobOriginal = await encolarLlamadaApiQr(payload);
 
-      await this._mostrarQrEnTile(tipo, blobOriginal, info);
+      await this._mostrarQrEnTile(tipo, blobOriginal, info, { origen, url });
       this._updateStoreChip(info);
-
-      // Resultado correcto de la Cloud Function -> se guarda en
-      // Storage para que la próxima vez que el usuario cargue
-      // esta página, el QR aparezca directo sin regenerarlo.
-      await this._guardarQrEnStorage(tipo, blobOriginal);
+      await this._guardarQrEnStorage(tipo, blobOriginal, origen, url);
+      this.actualizarAviso();
     } catch (err) {
       preview.innerHTML = `<div class="flex h-full w-full flex-col items-center justify-center gap-1 px-2.5 text-center text-[10.5px] text-red-300">⚠️ ${err.message}</div>`;
       tile.classList.remove("has-qr");
@@ -400,14 +532,11 @@ const QrNegocio = {
     } catch (err) {
       if (label) label.textContent = `Negocio: ${tiendaId}`;
       console.warn("QrNegocio: no se pudo precargar info de tienda.", err);
-      return; // sin info de tienda no podemos armar las URLs de cada QR
+      return;
     }
 
-    // Por cada tipo, revisamos si ya existe un QR guardado en
-    // Storage de una visita anterior. Si existe, se muestra
-    // directo (con su botón de descarga HD) y NO se le pide
-    // al usuario que lo genere de nuevo. Si no existe, el tile
-    // se queda en su estado "Toca para crear" normal.
+    await this._cargarModoDominio();
+
     const tipos = ["perfil", "carta", "carrito", "reclamaciones"];
 
     await Promise.all(
@@ -415,18 +544,21 @@ const QrNegocio = {
         const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
         if (preview) {
           preview.innerHTML = `
-                            <div class="flex h-full w-full items-center justify-center gap-1.5">
-                                <div class="qr-loading-dot"></div>
-                                <div class="qr-loading-dot"></div>
-                                <div class="qr-loading-dot"></div>
-                            </div>`;
+          <div class="flex h-full w-full items-center justify-center gap-1.5">
+            <div class="qr-loading-dot"></div>
+            <div class="qr-loading-dot"></div>
+            <div class="qr-loading-dot"></div>
+          </div>`;
         }
 
-        const blobGuardado = await this._cargarQrGuardado(tipo);
+        const guardado = await this._cargarQrGuardado(tipo);
 
-        if (blobGuardado) {
+        if (guardado) {
           try {
-            await this._mostrarQrEnTile(tipo, blobGuardado, info);
+            await this._mostrarQrEnTile(tipo, guardado.blob, info, {
+              origen: guardado.origen,
+              url: guardado.url,
+            });
             return;
           } catch (err) {
             console.warn(
@@ -436,10 +568,11 @@ const QrNegocio = {
           }
         }
 
-        // no había QR guardado (o falló al mostrarlo) -> estado vacío normal
         if (preview) preview.innerHTML = this._emptyStateHtml();
       }),
     );
+
+    this.actualizarAviso();
   },
 };
 
@@ -456,10 +589,9 @@ async function aplicarVisibilidadPorCategoria() {
       if (negocioSnap.exists()) {
         const data = negocioSnap.data();
         categoria = categoria || data.categoria_tienda || null;
-        modeloNegocio = data.modelo_negocio; // 👈 nuevo (true/false)
-     console.log(`${modeloNegocio}`);
+        modeloNegocio = data.modelo_negocio === true;
         sessionStorage.setItem("categoriaTienda", categoria || "");
-        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio)); // 👈 nuevo
+        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio));
       }
     } catch (err) {
       console.error(
@@ -483,12 +615,9 @@ async function aplicarVisibilidadPorCategoria() {
   }
 
   // mesasSection depende de categoría Y de modelo_negocio (local físico)
-  // mesasSection depende de categoría Y de modelo_negocio (local físico)
   const mesasSection = document.getElementById("mesasSection");
   if (mesasSection) {
-    
     const debeMostrarMesas = esRestaurante && modeloNegocio === true;
-    console.log({ categoria, modeloNegocio, esRestaurante, debeMostrarMesas });
     mesasSection.style.display = debeMostrarMesas ? "" : "none";
   }
 
@@ -503,6 +632,9 @@ async function aplicarVisibilidadPorCategoria() {
   } catch (err) {
     console.warn("No se pudo verificar libro_reclamaciones.", err);
   }
+
+  // Ya se sabe qué tiles/secciones están visibles: recalcula el aviso
+  QrNegocio.actualizarAviso();
 }
 window.QrNegocio = QrNegocio;
 QrNegocio.init();
@@ -510,16 +642,14 @@ aplicarVisibilidadPorCategoria();
 
 // ================================================================
 // MESAS POR LOCAL — módulo aparte, no toca QrNegocio ni su
-// colección/carpeta de Storage. Reutiliza QrNegocio._obtenerInfoTienda()
+// carpeta de Storage. Reutiliza QrNegocio._obtenerInfoTienda()
 // y QrNegocio._logoBase64() para que los QR de mesa salgan con el
-// mismo logo/colores que tus QR institucionales; solo cambia la URL
-// que se codifica y dónde se guarda cada uno.
+// mismo logo/colores; solo cambia la URL que se codifica.
 // ================================================================
 const MesasNegocio = {
   _mesas: [], // cache local del último snapshot, ordenado por numero_mesa
 
   _mesasCollection() {
-    // /Tiendas/{localidad}/tiendas/{tiendaId}/mesas/{mesaDocId}
     return tiendaSubCol(localidad, "tiendas", tiendaId, "mesas");
   },
 
@@ -542,7 +672,11 @@ const MesasNegocio = {
       .slice(0, length);
   },
 
-  _armarUrlMesa(alias, token) {
+  _armarUrlMesa(alias, token, origen = QrNegocio._origenActual()) {
+    const dominio = QrNegocio._modo?.dominio;
+    if (origen === "dominio" && dominio) {
+      return `https://${dominio}/-mesa-${token}`;
+    }
     return `https://geinztech.com/perfil/${alias}-mesa-${token}`;
   },
 
@@ -558,7 +692,7 @@ const MesasNegocio = {
   async _generarImagenQr(url, logo) {
     if (!logo) {
       throw new Error(
-        `No se encontró el logo en Storage (tiendas/${tiendaId}/logo/logo.webp). Sube el logo de tu tienda para poder generar los QR de mesa.`,
+        `No se encontró el logo de tu tienda. Sube el logo de tu tienda para poder generar los QR de mesa.`,
       );
     }
 
@@ -715,13 +849,17 @@ const MesasNegocio = {
       btn.innerHTML = original;
     }
   },
+
   // Crea UNA mesa: token, url, QR (con el mismo logo que QrNegocio),
   // sube a Storage y escribe el documento en Firestore.
   async _crearMesa({ numeroMesa, alias, info, logo }) {
     const nombreAlias =
       alias && alias.trim() ? alias.trim() : `Mesa ${numeroMesa}`;
     const token = this._generarToken();
-    const url = this._armarUrlMesa(info.alias, token);
+
+    await QrNegocio._cargarModoDominio();
+    const origen = QrNegocio._origenActual();
+    const url = this._armarUrlMesa(info.alias, token, origen);
 
     const blob = await this._generarImagenQr(url, logo);
 
@@ -735,6 +873,7 @@ const MesasNegocio = {
       nombre_alias: nombreAlias,
       token_seguridad: token,
       qr_url: qrUrl,
+      qr_origen: origen,
       creado_en: serverTimestamp(),
     });
 
@@ -748,7 +887,7 @@ const MesasNegocio = {
 
     if (!logo) {
       UI.toast(
-        "No se encontró el logo de tu tienda en Storage. Súbelo antes de generar los QR de mesa.",
+        "No se encontró el logo de tu tienda. Súbelo antes de generar los QR de mesa.",
         true,
       );
       return;
@@ -798,7 +937,7 @@ const MesasNegocio = {
 
     if (!logo) {
       UI.toast(
-        "No se encontró el logo de tu tienda en Storage. Súbelo antes de generar los QR de mesa.",
+        "No se encontró el logo de tu tienda. Súbelo antes de generar los QR de mesa.",
         true,
       );
       return;
@@ -817,31 +956,61 @@ const MesasNegocio = {
     UI.toast("Alias actualizado.");
   },
 
-  // Cambia solo el token de seguridad: invalida el QR anterior
-  // y regenera la imagen, sobreescribiendo el mismo archivo.
+  // Cambia el token de seguridad: invalida el QR anterior y
+  // regenera la imagen, sobreescribiendo el mismo archivo.
   async regenerarMesa(docId) {
     const mesa = this._mesas.find((m) => m.id === docId);
     if (!mesa) return;
 
     const info = await QrNegocio._obtenerInfoTienda();
     const logo = await QrNegocio._logoBase64();
+    await QrNegocio._cargarModoDominio();
+    const origen = QrNegocio._origenActual();
 
     const nuevoToken = this._generarToken();
-    const url = this._armarUrlMesa(info.alias, nuevoToken);
+    const url = this._armarUrlMesa(info.alias, nuevoToken, origen);
     const blob = await this._generarImagenQr(url, logo);
 
     const storageRef = ref(storage, this._mesaStoragePath(mesa.numero_mesa));
     await uploadBytes(storageRef, blob, { contentType: "image/png" });
-    const qrUrl = await getDownloadURL(storageRef);
+    const base = await getDownloadURL(storageRef);
+    // "&v=" evita que el navegador muestre el QR viejo en caché
+    const qrUrl = `${base}${base.includes("?") ? "&" : "?"}v=${Date.now()}`;
 
     await updateDoc(this._mesaDocRef(docId), {
       token_seguridad: nuevoToken,
       qr_url: qrUrl,
+      qr_origen: origen,
     });
 
     UI.toast(
       `QR de "${mesa.nombre_alias}" regenerado. El enlace anterior ya no funciona.`,
     );
+  },
+
+  // Mantiene el MISMO token y solo cambia el link base
+  // (Geinz <-> dominio propio). Lo usa el botón del aviso.
+  async actualizarOrigenMesa(docId) {
+    const mesa = this._mesas.find((m) => m.id === docId);
+    if (!mesa) return;
+
+    const info = await QrNegocio._obtenerInfoTienda();
+    const logo = await QrNegocio._logoBase64();
+    await QrNegocio._cargarModoDominio();
+    const origen = QrNegocio._origenActual();
+
+    const url = this._armarUrlMesa(info.alias, mesa.token_seguridad, origen);
+    const blob = await this._generarImagenQr(url, logo);
+
+    const storageRef = ref(storage, this._mesaStoragePath(mesa.numero_mesa));
+    await uploadBytes(storageRef, blob, { contentType: "image/png" });
+    const base = await getDownloadURL(storageRef);
+    const qrUrl = `${base}${base.includes("?") ? "&" : "?"}v=${Date.now()}`;
+
+    await updateDoc(this._mesaDocRef(docId), {
+      qr_url: qrUrl,
+      qr_origen: origen,
+    });
   },
 
   async eliminarMesa(docId) {
@@ -934,6 +1103,10 @@ const UI = {
     const btnDescargarHoja = document.getElementById("btnDescargarHoja");
     countLabel.textContent = `${mesas.length} mesa${mesas.length === 1 ? "" : "s"}`;
     btnDescargarHoja.disabled = mesas.length === 0;
+
+    // las mesas cambiaron: recalcula el aviso de dominio
+    QrNegocio.actualizarAviso();
+
     if (!mesas.length) {
       grid.innerHTML = "";
       empty.classList.remove("hidden");
@@ -1055,7 +1228,12 @@ const UI = {
   async copiarLinkMesa(mesa) {
     try {
       const info = await QrNegocio._obtenerInfoTienda();
-      const url = MesasNegocio._armarUrlMesa(info.alias, mesa.token_seguridad);
+      await QrNegocio._cargarModoDominio();
+      const url = MesasNegocio._armarUrlMesa(
+        info.alias,
+        mesa.token_seguridad,
+        mesa.qr_origen || "geinz",
+      );
       await navigator.clipboard.writeText(url);
       this.toast("Enlace copiado.");
     } catch (err) {
@@ -1067,8 +1245,7 @@ const UI = {
     const modal = document.getElementById(id);
     modal.classList.remove("hidden");
     modal.classList.add("flex");
-    // fuerza reflow: sin esto el navegador puede "saltarse" el estado
-    // inicial y la transición no se ve (pasa mucho en Safari/iOS)
+    // fuerza reflow para que la transición se vea (Safari/iOS)
     void modal.offsetWidth;
     requestAnimationFrame(() => {
       modal.classList.add("modal-open");
@@ -1092,8 +1269,7 @@ const UI = {
     };
     modal.addEventListener("transitionend", onEnd);
 
-    // fallback: si por lo que sea transitionend no dispara
-    // (reduce-motion, tab en background, etc.), igual se cierra
+    // fallback si transitionend no dispara
     setTimeout(() => {
       if (!yaFinalizo) {
         yaFinalizo = true;
@@ -1118,13 +1294,7 @@ const UI = {
 
 // ================================================================
 // PREVIEW QR — modal compartido de "vista previa + descarga",
-// usado tanto por los QR de negocio (Institucional / Carta
-// digital / Productos) como por los QR de mesa.
-//
-// Para negocio: los textos de la tarjeta son fijos (no editables),
-// según el tipo de QR.
-// Para mesas: el negocio puede personalizar el texto superior,
-// el principal y el secundario antes de descargar.
+// usado tanto por los QR de negocio como por los QR de mesa.
 // ================================================================
 const PreviewQr = {
   _state: null,
@@ -1139,6 +1309,7 @@ const PreviewQr = {
       sub: "Escanea para presentar tu reclamo",
     },
   },
+
   async openNegocio(tipo) {
     const estado = QrNegocio._estado[tipo];
     if (!estado) return;
@@ -1153,7 +1324,7 @@ const PreviewQr = {
       brand: fixed.brand,
       caption: info.alias,
       sub: fixed.sub,
-      urlLink: QrNegocio._armarUrl(tipo, info),
+      urlLink: estado.url, // el link con el que realmente se generó ese QR
       qrObjectUrl: URL.createObjectURL(estado.blobOriginal),
       filenameBase: `qr-${tipo}-${info.alias}`,
     };
@@ -1168,12 +1339,17 @@ const PreviewQr = {
     fields.classList.remove("hidden");
     fields.classList.add("flex");
 
-    UI.openModal("modalPreviewQr"); // 👈 AGREGAR ESTA LÍNEA
+    UI.openModal("modalPreviewQr");
   },
 
   async openMesa(mesa) {
     const info = await QrNegocio._obtenerInfoTienda();
-    const url = MesasNegocio._armarUrlMesa(info.alias, mesa.token_seguridad);
+    await QrNegocio._cargarModoDominio();
+    const url = MesasNegocio._armarUrlMesa(
+      info.alias,
+      mesa.token_seguridad,
+      mesa.qr_origen || "geinz",
+    );
 
     let qrObjectUrl = mesa.qr_url;
     try {
@@ -1242,9 +1418,8 @@ const PreviewQr = {
     document.getElementById("previewLink").textContent = s.urlLink;
   },
 
-  // Toma el color predominante real del logo (ignora blancos/negros casi
-  // puros) y arma con él 4 tonos + texto + sombras. Se cachea: solo se
-  // calcula una vez por visita.
+  // Toma el color predominante real del logo y arma con él 4 tonos +
+  // texto + sombras. Se cachea: solo se calcula una vez por visita.
   async _obtenerPaletteDeLogo() {
     if (this._paletteCache) return this._paletteCache;
 
@@ -1550,3 +1725,8 @@ document
 document
   .getElementById("btnRegenerarPreview")
   .addEventListener("click", () => PreviewQr.regenerar());
+
+// Botón del aviso de dominio (Regenerar con mi dominio / con Geinz)
+document
+  .getElementById("btnRegenerarPorDominio")
+  ?.addEventListener("click", () => QrNegocio.regenerarPorCambioDeDominio());

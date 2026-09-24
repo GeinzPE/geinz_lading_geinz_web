@@ -195,7 +195,7 @@
                         Los QR de tu negocio
                     </h1>
                     <p class="mt-2 max-w-md text-[13px] leading-relaxed text-neutral-400 sm:text-[14px]">
-                        Listos para imprimir en alta resolución. Usan el logo de tu tienda automáticamente para tener
+                        Listos para imprimir en alta resolución. Usan el logo de tu marca automáticamente para tener
                         mayor perzonalizacion dentro de tu negocio.
                     </p>
                 </div>
@@ -325,7 +325,7 @@
                         </div>
                     </div>
 
-                                 <div class="hidden items-center gap-2" id="qrActionsCarrito">
+                    <div class="hidden items-center gap-2" id="qrActionsCarrito">
                         <button
                             class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
                             title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('carrito')">↻</button>
@@ -339,7 +339,8 @@
 
                 <!-- ===== QR LIBRO DE RECLAMACIONES ===== -->
                 <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
-                    id="qrTileReclamaciones" data-tipo="reclamaciones" style="display:none" onclick="QrNegocio.onTileClick(event,'reclamaciones')">
+                    id="qrTileReclamaciones" data-tipo="reclamaciones" style="display:none"
+                    onclick="QrNegocio.onTileClick(event,'reclamaciones')">
 
                     <span
                         class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
@@ -369,15 +370,26 @@
                     <div class="hidden items-center gap-2" id="qrActionsReclamaciones">
                         <button
                             class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
-                            title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('reclamaciones')">↻</button>
+                            title="Regenerar"
+                            onclick="event.stopPropagation(); QrNegocio.generar('reclamaciones')">↻</button>
                         <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
-                            id="qrDescargaReclamaciones" title="Descargar en alta resolución" download="qr-reclamaciones.png"
+                            id="qrDescargaReclamaciones" title="Descargar en alta resolución"
+                            download="qr-reclamaciones.png"
                             onclick="event.stopPropagation(); event.preventDefault(); PreviewQr.openNegocio('reclamaciones');">
                             <span>⬇</span><span>Descargar HD</span>
                         </a>
                     </div>
                 </div>
 
+            </div>
+            <!-- aviso: QR desfasados respecto al dominio -->
+            <div id="qrDominioAviso"
+                class="mt-5 hidden flex-col gap-3 rounded-[18px] border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <p id="qrDominioAvisoTexto" class="text-[12.5px] leading-relaxed text-amber-200"></p>
+                <button id="btnRegenerarPorDominio"
+                    class="font-display shrink-0 rounded-[12px] border border-amber-400/50 bg-amber-400/15 px-4 py-2.5 text-[12.5px] font-semibold text-amber-100 transition-colors hover:bg-amber-400/25 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+                    Regenerar QR
+                </button>
             </div>
         </div>
 

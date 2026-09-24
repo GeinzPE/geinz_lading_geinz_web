@@ -113,9 +113,11 @@
                             <span class="sbb-icon">🔲</span>
                             <span class="sbb-label">MI QR</span>
                         </button>
-                        <button class="sidebar-btn" id="sbb-historialgasto" onclick="PanelPerfil.loadHistorialGasto()">
-                            <span class="sbb-icon">💸</span>
-                            <span class="sbb-label">Historial de gasto</span>
+                    
+                        <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
+                            <span class="sbb-icon">⚖️</span>
+                            <span class="sbb-label">Legal</span>
+                            <span class="notif-dot" id="dot-legal"></span>
                         </button>
                     </div>
                 </div>
@@ -143,13 +145,8 @@
                     </div>
                 </div>
 
-           
-                <!-- ═══ Pega esto JUSTO ANTES de <div class="sidebar-group"> que contiene "Recargas" ═══ -->
-                <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
-                    <span class="sbb-icon">⚖️</span>
-                    <span class="sbb-label">Legal</span>
-                    <span class="notif-dot" id="dot-legal"></span>
-                </button>
+
+
                 <div class="sidebar-vincular-wrap">
                     <p class="sidebar-vincular-text">Vincula tu cuenta para la próxima vez</p>
                     <button class="sidebar-vincular-btn" onclick="PanelPerfil.vincularCuenta?.()">
@@ -430,10 +427,12 @@
                                 <span>🔲</span>
                                 <span>MI QR</span>
                             </button>
-                            <button class="mobile-menu-item" id="mmb-historialgasto"
-                                onclick="PanelPerfil.loadHistorialGasto(); PanelPerfil.toggleMobileMenu()">
-                                <span>💸</span>
-                                <span>Historial de gasto</span>
+                      
+                            <button class="mobile-menu-item" id="mmb-legal"
+                                onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
+                                <span>⚖️</span>
+                                <span>Legal</span>
+                                <span class="notif-dot" id="dot-legal-mobile"></span>
                             </button>
                         </div>
                     </div>
@@ -493,13 +492,7 @@
                         </div>
                     </div>
 
-                    <!-- ═══ Pega esto JUSTO ANTES de <div class="mobile-menu-group"> que contiene "Recargas" ═══ -->
-                    <button class="mobile-menu-item" id="mmb-legal"
-                        onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
-                        <span>⚖️</span>
-                        <span>Legal</span>
-                        <span class="notif-dot" id="dot-legal-mobile"></span>
-                    </button>
+
 
                     <button class="sidebar-vincular-btn" style="margin-top:8px;width:100%"
                         onclick="PanelPerfil.vincularCuenta?.(); PanelPerfil.toggleMobileMenu()">

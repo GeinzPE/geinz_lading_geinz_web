@@ -11,14 +11,13 @@ import {
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  getFirestore,
   doc,
   updateDoc,
   arrayRemove,
   deleteField,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { db, storage, app } from "../db/db.js";
-import { tiendaDoc, tiendaSubDoc } from "../rutas/rutas.js";
+import { db, app } from "../db/db.js";
+import { tiendaDoc } from "../rutas/rutas.js";
 
 const auth = getAuth(app);
 
@@ -53,14 +52,7 @@ window.cerrarSesionPanel = async () => {
         propietario_id: arrayRemove(uid),
       });
 
-      const userRef = doc(
-        db,
-        "Trabajadores_Usuarios_Drivers",
-        "users",
-        "users",
-        uid,
-      );
-
+      const userRef = doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid);
       await updateDoc(userRef, {
         id_tienda_propietario: deleteField(),
       });
@@ -73,7 +65,7 @@ window.cerrarSesionPanel = async () => {
     await signOut(auth);
   } catch (e) {}
 
-  // 🔥 Limpieza total: TODO localStorage y TODO sessionStorage
+  // Limpieza total
   localStorage.clear();
   sessionStorage.clear();
   StorageCleaner.limpiarTodo();
@@ -87,7 +79,7 @@ function volverDesdeIframe() {
   const iframe = document.querySelector("#sec-recargas iframe");
   if (!iframe) return;
 
-  document.getElementById("iframeBackBtn").classList.remove("visible");
+  document.getElementById("iframeBackBtn")?.classList.remove("visible");
 
   iframe.src = "recargas";
 
@@ -125,30 +117,142 @@ function reenviarDatosAlIframe(iframe) {
   iframe.addEventListener("load", function () {
     try {
       const iframeHref = iframe.contentWindow.location.href;
-      const esRecargas =
-        iframeHref.includes("recargas") || iframeHref === "about:blank";
-      if (!esRecargas) {
-        btn.classList.add("visible");
-      } else {
-        btn.classList.remove("visible");
-      }
+      const esRecargas = iframeHref.includes("recargas") || iframeHref === "about:blank";
+      if (!esRecargas) btn.classList.add("visible");
+      else btn.classList.remove("visible");
     } catch (e) {
       btn.classList.add("visible");
     }
   });
 })();
 
+// ============================================================
+//  VISIBILIDAD DEL SIDEBAR / MENÚ MÓVIL  (plan + rol)
+//
+//  Regla:
+//   - Plan (DB): solo existe lo que está en true en apartados_dasboard
+//   - Admin: ve todo lo que el plan tiene activo
+//   - Rol no admin: ve solo lo del plan que el admin le marcó
+//   - Sin sesión: solo se ve "Inicio"
+//
+//  Las claves son las mismas de los ids: sbb-<clave> / mmb-<clave>
+// ============================================================
+(function () {
+  const SECCIONES = {
+    perfil: null,
+    publicidad: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"],
+    fidelizacion: ["fidelizacion"],
+    mispublicaciones: ["review"],
+    qr: ["qr_general"],
+    historialgasto: null,
+    productos: ["productos"],
+    historial: ["historial_ventas"],
+    pedidos: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"],
+    legal: ["libro_reclamaciones", "politicas_privacidad", "terminos_condiciones"],
+    recargas: null,
+  };
+
+  function leer(k) {
+    try {
+      return JSON.parse(sessionStorage.getItem(k) || "null");
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Estado inicial desde sessionStorage (mismo origen que el iframe de inicio)
+  let _sesion = leer("rolActivo");
+  let _servicios = leer("serviciosActivos");
+
+  function puedeVer(key) {
+    if (!(key in SECCIONES)) return true; // "inicio" u otras sin control
+    const campos = SECCIONES[key];
+    const ap = _servicios?.apartados_dasboard || {};
+    const okPlan = campos === null || campos.some((c) => ap[c] === true);
+    const okRol = !!_sesion && (!!_sesion.esAdmin || (_sesion.permisos || []).includes(key));
+    return okPlan && okRol;
+  }
+
+  function aplicar() {
+    Object.keys(SECCIONES).forEach((key) => {
+      const ver = puedeVer(key);
+      [`sbb-${key}`, `mmb-${key}`].forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.style.display = ver ? "" : "none";
+      });
+    });
+
+    // Ocultar grupos que quedaron sin botones visibles (ignora los "Pronto")
+    document.querySelectorAll(".sidebar-group, .mobile-menu-group").forEach((g) => {
+      const hijos = [
+        ...g.querySelectorAll(".sidebar-btn, .mobile-menu-item:not(.mobile-menu-item-disabled)"),
+      ];
+      g.style.display = hijos.some((b) => b.style.display !== "none") ? "" : "none";
+    });
+
+    // Si la sección abierta ya no está permitida, volver a Inicio
+    if (_servicios !== null && window.PanelPerfil?.showSection) {
+      const activa = document.querySelector(".section.active");
+      const key = activa?.id?.replace(/^sec-/, "");
+      if (key && key in SECCIONES && !puedeVer(key)) {
+        window.PanelPerfil.showSection("inicio");
+      }
+    }
+  }
+
+  window.PanelVisibilidad = { aplicar, puedeVer };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", aplicar);
+  } else {
+    aplicar();
+  }
+
+  window.addEventListener("message", (e) => {
+    if (e.origin !== window.location.origin) return;
+    if (e.data?.type === "ROL_ACTIVO_UPDATE") {
+      _sesion = e.data.rol;
+      aplicar();
+    }
+    if (e.data?.type === "SERVICIOS_UPDATE") {
+      _servicios = e.data.servicios;
+      aplicar();
+    }
+  });
+})();
+
 // ===== NAVEGACIÓN ENTRE IFRAMES (postMessage) =====
+// Usa las mismas funciones que los botones del sidebar
+const LOADERS = {
+  publicidad: "loadPublicidad",
+  fidelizacion: "loadFidelizacion",
+  mispublicaciones: "loadMisPublicaciones",
+  qr: "loadQr",
+  historialgasto: "loadHistorialGasto",
+  productos: "loadProductos",
+  historial: "loadHistorial",
+  pedidos: "load_pedidos_vivos",
+  legal: "loadLegal",
+};
+
 window.addEventListener("message", function (e) {
   const { tipo, seccion } = e.data || {};
   if (tipo !== "NAVEGAR") return;
 
-  if (window.PanelPerfil && typeof PanelPerfil.showSection === "function") {
-    PanelPerfil.showSection(seccion || "perfil");
+  const destino = seccion || "perfil";
+
+  // Bloqueo final: si plan o rol no lo permiten, no se abre
+  if (window.PanelVisibilidad && !window.PanelVisibilidad.puedeVer(destino)) return;
+
+  const P = window.PanelPerfil;
+  if (P) {
+    const fn = LOADERS[destino];
+    if (fn && typeof P[fn] === "function") P[fn]();
+    else if (typeof P.showSection === "function") P.showSection(destino);
   }
 
   // Solo tocar el iframe de Recargas si realmente vamos ahí
-  if (seccion === "recargas") {
+  if (destino === "recargas") {
     const iframe = document.querySelector("#sec-recargas iframe");
     if (iframe) {
       iframe.src = "about:blank";
@@ -170,109 +274,15 @@ window.addEventListener("message", function (e) {
   }
 });
 
-// ===== PERMISOS POR ROL (botones sidebar / menú móvil) =====
-(function () {
-  // Mapeo: id de sección del sidebar/menú móvil → permiso requerido
-  // (debe coincidir con las keys de PERMISOS_DISPONIBLES en inicio.html)
-  const PERMISOS_BOTON = {
-    perfil: "perfil",
-    publicidad: "publicidad",
-    qr: "qr",
-    productos: "productos",
-    historial: "historial", // no tiene permiso propio, se agrupa con "pedidos"
-    pedidos: "pedidos",
-    recargas: "recargas",
-  };
-
-  function getRolActivo() {
-    try {
-      return JSON.parse(sessionStorage.getItem("rolActivo") || "null");
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function aplicarPermisosRol(sesion) {
-    // null → sin restricciones (admin) | [] → sin sesión, todo bloqueado
-    const permisos = sesion
-      ? sesion.esAdmin
-        ? null
-        : sesion.permisos || []
-      : [];
-
-    Object.keys(PERMISOS_BOTON).forEach((seccion) => {
-      const permisoNecesario = PERMISOS_BOTON[seccion];
-      const permitido =
-        permisos === null || permisos.includes(permisoNecesario);
-
-      [`sbb-${seccion}`, `mmb-${seccion}`].forEach((id) => {
-        const btn = document.getElementById(id);
-        if (!btn) return;
-        btn.disabled = !permitido;
-        btn.classList.toggle("sidebar-btn-disabled", !permitido);
-        btn.title = permitido ? "" : "No tienes permiso para esta sección";
-      });
-    });
-  }
-
-  // 1) Al cargar la página: aplica el rol ya guardado (si recargaron)
-  document.addEventListener("DOMContentLoaded", () => {
-    aplicarPermisosRol(getRolActivo());
-  });
-
-  // 2) En vivo: cuando inicio.html hace login/logout, nos avisa por postMessage
-  window.addEventListener("message", (e) => {
-    if (e.origin !== window.location.origin) return;
-    if (e.data?.type === "ROL_ACTIVO_UPDATE") {
-      aplicarPermisosRol(e.data.rol);
-    }
-  });
-  const APARTADOS_SIDEBAR_MAP = {
-    productos: ["productos"],
-    historial: ["historial_ventas"],
-    pedidos: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"],
-    qr: ["qr_general"],
-    fidelizacion: ["fidelizacion"],
-    mispublicaciones: ["review"],
-    publicidad: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"],
-    legal: [
-      "libro_reclamaciones",
-      "politicas_privacidad",
-      "terminos_condiciones",
-    ],
-  };
-
-  function aplicarApartadosPlan(servicios) {
-    const apartados = servicios?.apartados_dasboard || {};
-    Object.entries(APARTADOS_SIDEBAR_MAP).forEach(([seccion, campos]) => {
-      const permitido = campos.some((c) => apartados[c] === true);
-      [`sbb-${seccion}`, `mmb-${seccion}`].forEach((id) => {
-        const btn = document.getElementById(id);
-        if (!btn) return;
-        btn.style.display = permitido ? "" : "none";
-      });
-    });
-  }
-
-  window.addEventListener("message", (e) => {
-    if (e.origin !== window.location.origin) return;
-    if (e.data?.type === "SERVICIOS_UPDATE") {
-      aplicarApartadosPlan(e.data.servicios);
-    }
-  });
-})();
 // ===== SINCRONIZAR SALDO / PUBLICIDAD / PLANES ENTRE IFRAMES =====
 window.addEventListener("message", function (e) {
   const tipo = e.data?.type;
-  if (!["SALDO_UPDATE", "PUBLICIDAD_UPDATE", "PLANES_UPDATE"].includes(tipo))
-    return;
+  if (!["SALDO_UPDATE", "PUBLICIDAD_UPDATE", "PLANES_UPDATE"].includes(tipo)) return;
 
-  // Actualizamos el saldo global del documento padre también
   if (tipo === "SALDO_UPDATE") {
     window._saldoActual = e.data.saldo;
   }
 
-  // Reenviar el mismo mensaje a TODOS los iframes hermanos (incluida Publicidad)
   document.querySelectorAll("iframe").forEach((iframe) => {
     try {
       iframe.contentWindow.postMessage(e.data, "*");
