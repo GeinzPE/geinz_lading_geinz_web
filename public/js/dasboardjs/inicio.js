@@ -13,8 +13,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import { db, storage } from "../db/db.js";
-import { tiendaDoc, tiendaSubDoc,tiendaSubCol } from "../rutas/rutas.js";
-
+import { tiendaDoc, tiendaSubDoc, tiendaSubCol, tiendaServiciosDoc } from "../rutas/rutas.js";
+const TIENDA_SIN_LOGIN = "";
 
 // ── Detección dinámica de tienda/localidad (vía postMessage del padre) ──
 let tiendaId = sessionStorage.getItem("tiendaId");
@@ -51,8 +51,65 @@ window.PanelNegocio.TIENDA_ID = NEGOCIO_ID;
 window.PanelNegocio.LOCALIDAD_TIENDA = LOCALIDAD;
 
 const CREDITO_A_SOLES = 0.012;
-const MAX_ROLES = 5; // máximo de roles NO admin
+let MAX_ROLES = 5;
 
+// Mapea cada acción/sección con el o los campos de apartados_dasboard
+// que la habilitan. Si el array tiene varios campos, basta con que UNO sea true.
+// null = siempre disponible (no depende del plan).
+const APARTADOS_MAP = {
+  perfil: null,
+  publicidad: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"],
+  qr: ["qr_general"],
+  pedidos: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"],
+  productos: ["productos"],
+  historial: ["historial_ventas"],
+};
+
+let SERVICIOS = null; // último snapshot de tiendas_servicios_geinz_activos
+
+function planPermite(seccion) {
+  if (seccion === "miweb") {
+    return !!SERVICIOS && SERVICIOS.plan === "pro" && !!SERVICIOS.dominio;
+  }
+  const campos = APARTADOS_MAP[seccion];
+  if (campos === undefined) return false;
+  if (campos === null) return true;
+  if (!SERVICIOS) return false;
+  const apartados = SERVICIOS.apartados_dasboard || {};
+  return campos.some((c) => apartados[c] === true);
+}
+
+function broadcastServicios() {
+  try {
+    window.parent.postMessage(
+      { type: "SERVICIOS_UPDATE", servicios: SERVICIOS },
+      window.location.origin,
+    );
+  } catch (e) {}
+}
+
+function listenServicios() {
+  const ref = tiendaServiciosDoc(LOCALIDAD, NEGOCIO_ID);
+  onSnapshot(
+    ref,
+    (snap) => {
+      SERVICIOS = snap.exists() ? snap.data() : {};
+ MAX_ROLES = Number(SERVICIOS.apartados_dasboard?.roles_maximos) || 5;
+      broadcastServicios();
+      aplicarVisibilidadPorPlan();
+      const countPill = document.getElementById("countPill");
+      if (countPill && !document.getElementById("view-roles").classList.contains("hidden")) {
+        countPill.textContent = countPill.textContent.replace(/\/\s*\d+/, `/ ${MAX_ROLES}`);
+      }
+
+      // 👇 AGREGAR ESTO
+      if (!document.getElementById("view-ajustes").classList.contains("hidden")) {
+        renderAjustes();
+      }
+    },
+    (err) => console.error("Error escuchando servicios:", err),
+  );
+}
 const PERMISOS_DISPONIBLES = [
   { key: "perfil", label: "Perfil" },
   { key: "publicidad", label: "Publicidad" },
@@ -62,6 +119,22 @@ const PERMISOS_DISPONIBLES = [
   { key: "historial", label: "Historial de ventas" },
   { key: "recargas", label: "Recargas" },
 ];
+const APARTADOS_LABELS = {
+  productos: "Productos",
+  historial_ventas: "Historial de ventas",
+  pedidios_vivos: "Pedidos en vivo",
+  pedidos_mesas: "Pedidos en vivo (mesas)",
+  pedidos_presencial: "Pedidos en vivo (presencial)",
+  qr_general: "Mi QR",
+  fidelizacion: "Fidelización",
+  review: "Reseñas",
+  publicidad_perfil: "Publicidad (perfil)",
+  publicidad_dias: "Publicidad (días)",
+  publicidad_estatica: "Publicidad (estática)",
+  libro_reclamaciones: "Legal — libro de reclamaciones",
+  politicas_privacidad: "Legal — política de privacidad",
+  terminos_condiciones: "Legal — términos y condiciones",
+};
 const TODOS_LOS_PERMISOS = PERMISOS_DISPONIBLES.map((p) => p.key);
 
 // DESPUÉS
@@ -87,6 +160,7 @@ const VIEWS = [
   "view-forgot",
   "view-panel",
   "view-roles",
+    "view-ajustes", 
 ];
 let recoveryContext = null; // 'bootstrap' | 'forgot'
 
@@ -181,7 +255,8 @@ async function boot() {
   window.PanelNegocio.TIENDA_ID = NEGOCIO_ID;
   window.PanelNegocio.LOCALIDAD_TIENDA = LOCALIDAD;
 
- 
+  // 👇 Bypass total: esta tienda entra directo, sin login ni roles
+
 
   const sesion = getSession();
   if (sesion) {
@@ -402,6 +477,16 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
 // ══════════════════════════════════════════
 //  Entrar al panel según la sesión activa
 // ══════════════════════════════════════════
+function aplicarVisibilidadPorPlan() {
+  const sesion = getSession();
+  if (!sesion) return;
+  document.querySelectorAll(".action-btn[data-perm]").forEach((btn) => {
+    const perm = btn.dataset.perm;
+    if (perm === "__admin__" || perm === "__ajustes__") return; // no dependen del plan
+    const noPermitidoPorPlan = !planPermite(perm);
+    btn.classList.toggle("hidden-plan", noPermitidoPorPlan);
+  });
+}
 function enterPanel(sesion) {
   broadcastRolActivo(sesion);
   document.getElementById("sessionNombre").textContent = sesion.nombre;
@@ -427,6 +512,7 @@ function enterPanel(sesion) {
 
   showView("view-panel");
   listenNegocio();
+    listenServicios();
   listenPedidos();
 }
 
@@ -576,6 +662,10 @@ function listenPedidos() {
 //  Acciones rápidas — navegación (ajusta las rutas reales si las tienes)
 // ══════════════════════════════════════════
 function navigateTo(seccion) {
+  if (seccion === "ajustes") {
+    openAjustes();
+    return;
+  }
   if (seccion === "roles") {
     openRoles();
     return;
@@ -625,7 +715,7 @@ document
   .getElementById("btnQR")
   .addEventListener("click", () => navigateTo("qr"));
 document
-  .getElementById("btnRecargas")
+  .getElementById("rechargeBtn")
   .addEventListener("click", () => navigateTo("recargas"));
 document
   .getElementById("btnRoles")
@@ -909,6 +999,84 @@ document.getElementById("roleForm").addEventListener("submit", async (e) => {
     btn.textContent = "Crear rol";
   }
 });
+document.getElementById("btnAjustes")
+  .addEventListener("click", () => navigateTo("ajustes"));
+document.getElementById("backToPanelAjustes")
+  .addEventListener("click", () => showView("view-panel"));
 
+const SONIDOS_LOCALES = {
+  campana: "🔔 Campana",
+  timbre: "🔊 Timbre",
+  notificacion: "📳 Notificación",
+};
+const SONIDO_KEYS = ["productos", "pedidos", "legal"];
+
+function cargarSonidoGuardado(key) {
+  return localStorage.getItem(`sonidoAlerta_${key}`) || "campana";
+}
+function guardarSonido(key, valor) {
+  localStorage.setItem(`sonidoAlerta_${key}`, valor);
+}
+
+function renderAjustes() {
+  if (!SERVICIOS) return;
+  document.getElementById("ajPlan").textContent = SERVICIOS.plan || "—";
+document.getElementById("ajCreditos").textContent = SERVICIOS.apartados_dasboard?.creditos_AI ?? 0;
+  document.getElementById("ajFechaFin").textContent = SERVICIOS.panel_admin?.fecha_fin || "—";
+  document.getElementById("ajRolesMax").textContent = MAX_ROLES;
+
+  const dominioRow = document.getElementById("ajDominioRow");
+  if (SERVICIOS.plan === "pro" && SERVICIOS.dominio) {
+    dominioRow.classList.remove("hidden");
+    document.getElementById("ajDominio").textContent = SERVICIOS.dominio;
+  } else {
+    dominioRow.classList.add("hidden");
+  }
+
+  const apartados = SERVICIOS.apartados_dasboard || {};
+  const listaEl = document.getElementById("ajApartadosList");
+  listaEl.innerHTML = Object.keys(APARTADOS_LABELS)
+    .map((k) => {
+      const activo = apartados[k] === true;
+      return `<span class="perm-tag" style="${activo ? "" : "opacity:.4;text-decoration:line-through;"}">${APARTADOS_LABELS[k]}</span>`;
+    })
+    .join("");
+
+  const sonidosEl = document.getElementById("ajSonidosGrid");
+  sonidosEl.innerHTML = SONIDO_KEYS.map((key) => `
+    <div class="field">
+      <label>Sonido — ${key}</label>
+      <select data-sonido-key="${key}">
+        ${Object.entries(SONIDOS_LOCALES)
+          .map(
+            ([val, label]) =>
+              `<option value="${val}" ${cargarSonidoGuardado(key) === val ? "selected" : ""}>${label}</option>`,
+          )
+          .join("")}
+      </select>
+    </div>
+  `).join("");
+  sonidosEl.querySelectorAll("select[data-sonido-key]").forEach((sel) => {
+    sel.addEventListener("change", (e) => {
+      guardarSonido(sel.dataset.sonidoKey, e.target.value);
+      showToast("Sonido de alerta actualizado.");
+    });
+  });
+}
+
+function openAjustes() {
+  const sesion = getSession();
+  showView("view-ajustes");
+  const denied = document.getElementById("ajDeniedView");
+  const content = document.getElementById("ajContent");
+  if (!sesion || !sesion.esAdmin) {
+    denied.classList.remove("hidden");
+    content.classList.add("hidden");
+    return;
+  }
+  denied.classList.add("hidden");
+  content.classList.remove("hidden");
+  renderAjustes();
+}
 // ── Init ──
 boot();

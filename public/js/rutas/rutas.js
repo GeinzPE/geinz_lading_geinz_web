@@ -248,3 +248,7 @@ export function tiendaCuponDoc(localidad, negocioId, cuponId) {
   return tiendaSubDoc(localidad, "tiendas", negocioId, "cupones", cuponId);
 }
 
+
+export function tiendaServiciosDoc(localidad, negocioId) {
+  return tiendaSubDoc(localidad, "tiendas_servicios_geinz_activos", negocioId);
+}

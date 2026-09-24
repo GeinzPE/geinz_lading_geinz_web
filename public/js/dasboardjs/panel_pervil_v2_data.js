@@ -28,7 +28,7 @@ onAuthStateChanged(auth, (user) => {
     window.location.replace("../index");
     return;
   }
-  });
+});
 
 window.cerrarSesionPanel = async () => {
   const uid = auth.currentUser?.uid;
@@ -108,7 +108,7 @@ function reenviarDatosAlIframe(iframe) {
   setTimeout(() => {
     try {
       iframe.contentWindow.postMessage(window._datosParaIframe, "*");
-          } catch (e) {
+    } catch (e) {
       console.warn("No se pudo reenviar datos:", e);
     }
   }, 300);
@@ -227,8 +227,40 @@ window.addEventListener("message", function (e) {
       aplicarPermisosRol(e.data.rol);
     }
   });
-})();
+  const APARTADOS_SIDEBAR_MAP = {
+    productos: ["productos"],
+    historial: ["historial_ventas"],
+    pedidos: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"],
+    qr: ["qr_general"],
+    fidelizacion: ["fidelizacion"],
+    mispublicaciones: ["review"],
+    publicidad: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"],
+    legal: [
+      "libro_reclamaciones",
+      "politicas_privacidad",
+      "terminos_condiciones",
+    ],
+  };
 
+  function aplicarApartadosPlan(servicios) {
+    const apartados = servicios?.apartados_dasboard || {};
+    Object.entries(APARTADOS_SIDEBAR_MAP).forEach(([seccion, campos]) => {
+      const permitido = campos.some((c) => apartados[c] === true);
+      [`sbb-${seccion}`, `mmb-${seccion}`].forEach((id) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.style.display = permitido ? "" : "none";
+      });
+    });
+  }
+
+  window.addEventListener("message", (e) => {
+    if (e.origin !== window.location.origin) return;
+    if (e.data?.type === "SERVICIOS_UPDATE") {
+      aplicarApartadosPlan(e.data.servicios);
+    }
+  });
+})();
 // ===== SINCRONIZAR SALDO / PUBLICIDAD / PLANES ENTRE IFRAMES =====
 window.addEventListener("message", function (e) {
   const tipo = e.data?.type;

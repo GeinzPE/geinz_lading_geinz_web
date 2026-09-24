@@ -964,6 +964,14 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #3d3d3d;
         }
+
+        .action-btn.hidden-plan {
+            display: none;
+        }
+
+        .action-btn.hidden-plan {
+            display: none;
+        }
     </style>
 </head>
 
@@ -1151,22 +1159,17 @@
         </div>
 
         <p class="section-title">Acciones rápidas</p>
-        <div class="actions-grid" id="actionsGrid">
-            <button class="action-btn" id="btnPerfil" data-perm="perfil"><span class="icon">🧾</span> Perfil</button>
-            <button class="action-btn" id="btnPublicidad" data-perm="publicidad"><span class="icon">📣</span>
-                Publicidad</button>
-            <button class="action-btn" id="btnQR" data-perm="qr"><span class="icon">📱</span> Ver mi QR</button>
-            <button class="action-btn" id="btnPedidosVivo" data-perm="pedidos"><span class="icon">📋</span> Pedidos en
-                Vivo</button>
-            <button class="action-btn" id="btnProductos" data-perm="productos"><span class="icon">🛍️</span>
-                Productos</button>
-            <button class="action-btn" id="btnHistorial" data-perm="historial"><span class="icon">🧾</span>
-                Historial de ventas</button>
-            <button class="action-btn" id="btnRecargas" data-perm="recargas"><span class="icon">💳</span>
-                Recargas</button>
-            <button class="action-btn" id="btnRoles" data-perm="__admin__"><span class="icon">🛡️</span> Gestionar
-                roles</button>
-        </div>
+    <div class="actions-grid" id="actionsGrid">
+    <button class="action-btn" id="btnPerfil" data-perm="perfil"><span class="icon">🧾</span> Perfil</button>
+    <button class="action-btn" id="btnPublicidad" data-perm="publicidad"><span class="icon">📣</span> Publicidad</button>
+    <button class="action-btn" id="btnQR" data-perm="qr"><span class="icon">📱</span> Ver mi QR</button>
+    <button class="action-btn" id="btnPedidosVivo" data-perm="pedidos"><span class="icon">📋</span> Pedidos en Vivo</button>
+    <button class="action-btn" id="btnProductos" data-perm="productos"><span class="icon">🛍️</span> Productos</button>
+    <button class="action-btn" id="btnHistorial" data-perm="historial"><span class="icon">🧾</span> Historial de ventas</button>
+
+    <button class="action-btn" id="btnRoles" data-perm="__admin__"><span class="icon">🛡️</span> Gestionar roles</button>
+    <button class="action-btn" id="btnAjustes" data-perm="__ajustes__"><span class="icon">⚙️</span> Ajustes</button>
+</div>
     </div>
 
     <!-- ═══════════════════ VISTA: gestión de roles ═══════════════════ -->
@@ -1197,6 +1200,64 @@
             <div class="card">
                 <p class="section-title">Roles existentes</p>
                 <div id="rolesList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════ VISTA: ajustes ═══════════════════ -->
+    <div class="wrap hidden" id="view-ajustes">
+        <div class="session-bar">
+            <span class="session-user" style="font-weight:700;font-size:15px;color:var(--text);">Ajustes</span>
+            <button class="back-btn" id="backToPanelAjustes">← Volver al panel</button>
+        </div>
+
+        <div id="ajDeniedView" class="denied hidden">Solo el administrador puede ver ajustes.</div>
+
+        <div id="ajContent" class="hidden">
+            <div class="card">
+                <p class="section-title">Plan</p>
+                <div class="role-item">
+                    <p class="role-name">Plan actual</p>
+                    <p class="role-user" id="ajPlan">—</p>
+                </div>
+                <div class="role-item">
+                    <p class="role-name">Créditos IA</p>
+                    <p class="role-user" id="ajCreditos">0</p>
+                </div>
+                <div class="role-item">
+                    <p class="role-name">Vence</p>
+                    <p class="role-user" id="ajFechaFin">—</p>
+                </div>
+                <div class="role-item">
+                    <p class="role-name">Roles máximos</p>
+                    <p class="role-user" id="ajRolesMax">5</p>
+                </div>
+                <div class="role-item hidden" id="ajDominioRow">
+                    <p class="role-name">Dominio personalizado</p>
+                    <p class="role-user" id="ajDominio">—</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <p class="section-title">Apartados disponibles</p>
+                <div class="role-perms" id="ajApartadosList"></div>
+            </div>
+
+            <div class="card">
+                <p class="section-title">Sonidos de alertas</p>
+                <div id="ajSonidosGrid"></div>
+            </div>
+
+            <div class="card">
+                <p class="section-title">Otros servicios</p>
+                <div class="actions-grid">
+                    <button class="action-btn" onclick="window.dispatchEvent(new CustomEvent('navToRecargas'))"><span
+                            class="icon">💳</span> Recargas</button>
+                    <button class="action-btn" disabled style="opacity:.5;"><span class="icon">🤖</span> Asistente
+                        Daniel<br><small>Pronto</small></button>
+                    <button class="action-btn" disabled style="opacity:.5;"><span class="icon">🔨</span> Crea tu
+                        asistente<br><small>Pronto</small></button>
+                </div>
             </div>
         </div>
     </div>
