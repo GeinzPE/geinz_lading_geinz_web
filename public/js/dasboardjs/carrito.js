@@ -172,7 +172,8 @@ let _bizAliasKey = null; // ← NUEVO
 let grupoActivo = null;
 /* Estado del checkout */
 let tipoEntrega = "Delivery";
-let metodoPago = "Yape / Plin";
+let metodoPago = "Efectivo";     // valor por defecto mientras carga biz
+let metodoPagoKey = "efectivo";  // clave interna (para comparar sin depender del label)
 
 function actualizarCatalogoGlobal() {
   catalogoGlobal = [...promosGlobal, ...productosGlobal];
@@ -499,7 +500,10 @@ async function llamarMozo({ nombre, nota, items, total }) {
       },
       estado: "pendiente",
       estadoMozo: "pendiente_revision", // ← AGREGAR esta línea en los DOS pedidos
-      pago: { metodo: "En mesa", vuelto: "" },
+    pago: {
+  metodo: metodoPago,
+  vuelto: metodoPagoKey === "efectivo" ? vuelto || "" : "",
+},
 
       mesas: grupoActivo.mesas || [],
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
@@ -1275,7 +1279,48 @@ function pintarMesaBadge() {
   badge.classList.remove("hidden");
   badge.classList.add("flex");
 }
+const METODOS_PAGO_ORDEN = ["yape", "plin", "efectivo", "visa_mastercard", "agora"];
+const METODOS_PAGO_CONFIG = {
+  yape: { label: "Yape", icon: "📱" },
+  plin: { label: "Plin", icon: "📱" },
+  efectivo: { label: "Efectivo", icon: "💵" },
+  visa_mastercard: { label: "Visa / Mastercard", icon: "💳" },
+  agora: { label: "Agora", icon: "🏦" },
+};
 
+function renderMetodosPago(biz) {
+  const wrap = document.getElementById("pagoToggle");
+  if (!wrap) return;
+
+  const metodos = biz?.metodos_pago;
+  let habilitados = [];
+
+  if (metodos && typeof metodos === "object") {
+    habilitados = METODOS_PAGO_ORDEN.filter((key) => metodos[key]?.enable === true);
+  }
+
+  // Compatibilidad con negocios viejos que todavía no tienen "metodos_pago"
+  if (!habilitados.length) {
+    habilitados = ["yape", "efectivo"];
+  }
+
+  wrap.innerHTML = "";
+  habilitados.forEach((key, idx) => {
+    const cfg = METODOS_PAGO_CONFIG[key] || { label: key, icon: "💰" };
+    const opt = document.createElement("div");
+    opt.className = "toggle-opt" + (idx === 0 ? " active" : "");
+    opt.dataset.val = cfg.label;
+    opt.dataset.key = key;
+    opt.textContent = `${cfg.icon} ${cfg.label}`;
+    if (idx === 0) opt.style.background = "rgb(var(--dr),var(--dg),var(--db))";
+    wrap.appendChild(opt);
+  });
+
+  const primero = habilitados[0] || "efectivo";
+  metodoPagoKey = primero;
+  metodoPago = (METODOS_PAGO_CONFIG[primero] || { label: primero }).label;
+  setCollapseOpen(efectivoCollapse, metodoPagoKey === "efectivo");
+}
 function aplicarModeloNegocio(biz) {
   console.log(
     "[DEBUG modelo_negocio] valor:",
@@ -2947,27 +2992,27 @@ document.getElementById("entregaToggle").addEventListener("click", (e) => {
   setCollapseOpen(direccionCollapse, tipoEntrega === "Delivery");
 });
 
-/* Toggle: método de pago */
 document.getElementById("pagoToggle").addEventListener("click", (e) => {
   const opt = e.target.closest(".toggle-opt");
   if (!opt) return;
   metodoPago = opt.dataset.val;
+  metodoPagoKey = opt.dataset.key || "";
   document.querySelectorAll("#pagoToggle .toggle-opt").forEach((o) => {
     const active = o === opt;
     o.classList.toggle("active", active);
     o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
   });
-  setCollapseOpen(efectivoCollapse, metodoPago === "Efectivo");
+  setCollapseOpen(efectivoCollapse, metodoPagoKey === "efectivo");
 });
 
 /* Inicializar colores activos de los toggles al cargar */
 function paintToggleDefaults() {
   document.querySelector("#entregaToggle .toggle-opt.active").style.background =
     "rgb(var(--dr),var(--dg),var(--db))";
-  document.querySelector("#pagoToggle .toggle-opt.active").style.background =
-    "rgb(var(--dr),var(--dg),var(--db))";
+  const pagoActivo = document.querySelector("#pagoToggle .toggle-opt.active");
+  if (pagoActivo) pagoActivo.style.background = "rgb(var(--dr),var(--dg),var(--db))";
   setCollapseOpen(direccionCollapse, tipoEntrega === "Delivery");
-  setCollapseOpen(efectivoCollapse, metodoPago === "Efectivo");
+  setCollapseOpen(efectivoCollapse, metodoPagoKey === "efectivo");
 }
 /* Envío final por WhatsApp */
 document
@@ -4024,7 +4069,7 @@ async function init() {
   if (urlTieneBannerCupon()) await aplicarCuponBanner();
   aplicarComportamientoBotonAtras();
   aplicarModeloNegocio(biz);
-
+renderMetodosPago(biz);
   // Se evalúa el horario ANTES de construir las tarjetas, así ya nacen
   // con el estado correcto (abierto/cerrado) sin parpadeo.
   horarioEstado = evaluarHorarioNegocio(bizData, new Date());
