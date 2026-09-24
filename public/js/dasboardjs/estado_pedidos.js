@@ -869,6 +869,31 @@ function labelEstadoMostrado(estadoActual, data) {
   }
   return ESTADOS_LABEL[estadoActual] || estadoActual;
 }
+// Convierte el valor de una opción del pedido guardado en pares [nombreOpcion, cantidad].
+// Soporta los 3 formatos que puede traer un pedido según cuándo se hizo:
+//   - string viejo: "Helada"
+//   - array (multi-select sin cantidad): ["Papas extras", "Doble carne"]
+//   - objeto con cantidad: { "Papas extras": 2, "Doble carne": 1 }
+function entradasDeOpcion(v) {
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    return Object.entries(v).filter(([, c]) => (Number(c) || 0) > 0);
+  }
+  if (Array.isArray(v)) return v.map((n) => [n, 1]);
+  return v ? [[v, 1]] : [];
+}
+
+// Arma las líneas de detalle (una por opción marcada) para un producto del pedido
+function opcionesDetalleLineas(p) {
+  if (!p.opciones || !Object.keys(p.opciones).length) return [];
+  const lineas = [];
+  Object.entries(p.opciones).forEach(([condNombre, v]) => {
+    entradasDeOpcion(v).forEach(([nombreOp, cant]) => {
+      const cantTxt = cant > 1 ? ` x${cant}` : "";
+      lineas.push(`${condNombre}: ${nombreOp}${cantTxt}`);
+    });
+  });
+  return lineas;
+}
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
@@ -972,16 +997,19 @@ function renderPedido(data) {
     info.append(nombre, detalle);
 
     // Muestra las opciones elegidas (ej. "Temperatura: Helado" · "Tamaño: Grande")
-    if (p.opciones && Object.keys(p.opciones).length) {
-      const opcionesTxt = Object.entries(p.opciones)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" · ");
-      const opcionesEl = document.createElement("p");
-      opcionesEl.className = "detalle";
-      opcionesEl.style.color = "var(--accent)";
-      opcionesEl.style.fontStyle = "italic";
-      opcionesEl.textContent = opcionesTxt;
-      info.append(opcionesEl);
+    // Muestra las opciones elegidas, una línea por opción marcada
+    // (ej. "Extras: Papas extras x2", "Extras: Doble carne")
+    const lineasOpciones = opcionesDetalleLineas(p);
+    if (lineasOpciones.length) {
+      lineasOpciones.forEach((linea) => {
+        const opcionEl = document.createElement("p");
+        opcionEl.className = "detalle";
+        opcionEl.style.color = "var(--accent)";
+        opcionEl.style.fontStyle = "italic";
+        opcionEl.style.margin = "0.1rem 0 0";
+        opcionEl.textContent = `• ${linea}`;
+        info.append(opcionEl);
+      });
     }
     if (p.esCanje) {
       const canjeEl = document.createElement("p");

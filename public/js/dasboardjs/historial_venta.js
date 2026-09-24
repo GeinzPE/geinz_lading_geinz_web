@@ -240,6 +240,28 @@ function toDate(ts) {
   return new Date(ts);
 }
 
+// Convierte el valor de una opción del pedido guardado en pares [nombreOpcion, cantidad]
+function entradasDeOpcion(v) {
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    return Object.entries(v).filter(([, c]) => (Number(c) || 0) > 0);
+  }
+  if (Array.isArray(v)) return v.map((n) => [n, 1]);
+  return v ? [[v, 1]] : [];
+}
+
+// Texto plano con todas las opciones marcadas, una por línea (para el modal y el ticket)
+function opcionesDetalleTexto(pr) {
+  if (!pr.opciones || !Object.keys(pr.opciones).length) return "";
+  const lineas = [];
+  Object.entries(pr.opciones).forEach(([condNombre, v]) => {
+    entradasDeOpcion(v).forEach(([nombreOp, cant]) => {
+      const cantTxt = cant > 1 ? ` x${cant}` : "";
+      lineas.push(`${condNombre}: ${nombreOp}${cantTxt}`);
+    });
+  });
+  return lineas.join(" · ");
+}
+
 function fmtMoney(n) {
   return (
     "S/ " +
@@ -926,11 +948,14 @@ function openModal(id) {
   const productosHtml = (p.productos || [])
     .map((pr) => {
       const extra = pr.variaciones || pr.adicionales || pr.comentario || "";
+      const opcionesTxt = opcionesDetalleTexto(pr);
       return `
       <div class="flex justify-between items-start py-2 border-b border-line last:border-0">
         <div class="pr-3">
           <p class="text-sm font-medium text-white">${pr.cantidad}x ${pr.nombre}</p>
+          ${opcionesTxt ? `<p class="text-xs text-primary mt-0.5">${opcionesTxt}</p>` : ""}
           ${extra ? `<p class="text-xs text-inkfaint mt-0.5">${extra}</p>` : ""}
+          ${pr.esCanje ? `<p class="text-xs text-amber-400 mt-0.5">🎁 Canjeado con puntos</p>` : ""}
         </div>
         <span class="font-mono text-sm shrink-0 text-white">${fmtMoney(pr.subtotal ?? pr.cantidad * pr.precio_unitario)}</span>
       </div>`;
@@ -1029,14 +1054,14 @@ if (modalOverlay) {
 
 function ticketTextoPlano(p) {
   const lineas = (p.productos || [])
-    .map(
-      (pr) =>
-        `${pr.cantidad}x ${pr.nombre} — ${fmtMoney(pr.subtotal ?? pr.cantidad * pr.precio_unitario)}`,
-    )
+    .map((pr) => {
+      const base = `${pr.cantidad}x ${pr.nombre} — ${fmtMoney(pr.subtotal ?? pr.cantidad * pr.precio_unitario)}`;
+      const opcionesTxt = opcionesDetalleTexto(pr);
+      return opcionesTxt ? `${base}\n   (${opcionesTxt})` : base;
+    })
     .join("\n");
   return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\nTOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ""}\n${p.nota ? "Nota: " + p.nota : ""}`;
 }
-
 function reimprimirTicket() {
   if (!currentOrder) return;
   const w = window.open("", "_blank", "width=380,height=600");

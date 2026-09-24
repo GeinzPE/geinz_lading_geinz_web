@@ -1143,6 +1143,39 @@
     </label>
   </div>
 </div>
+<div class="mb-5">
+  <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+    <div class="pr-3">
+      <span class="text-sm font-medium text-purple-100">Permitir elegir varias opciones</span>
+      <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+        Actívalo si el cliente puede marcar varias opciones a la vez (ej. hamburguesa con "Papas extras" + "Doble carne" + "Doble huevo").
+        Desactívalo si solo puede elegir una (ej. sabor de gaseosa). Cada opción suma su "Costo extra" al precio.
+      </p>
+    </div>
+    <label class="relative inline-block w-11 h-6 shrink-0">
+      <input type="checkbox" id="input-prod-variantes-multiples" class="peer opacity-0 w-0 h-0">
+      <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+    </label>
+  </div>
+</div>
+
+<div class="mb-5 hidden" id="variantes-cantidad-wrap">
+  <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+    <div class="pr-3">
+      <span class="text-sm font-medium text-purple-100">Permitir sumar cantidad por opción</span>
+      <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+        Actívalo si una misma opción se puede repetir (ej. "Papas extras x2", "Doble carne x2").
+        Desactívalo si cada opción marcada solo cuenta una vez, sin importar cuántas veces la toque el cliente.
+      </p>
+    </div>
+    <label class="relative inline-block w-11 h-6 shrink-0">
+      <input type="checkbox" id="input-prod-variantes-cantidad" class="peer opacity-0 w-0 h-0">
+      <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+    </label>
+  </div>
+</div>
           <div class="mb-2">
             <div class="flex items-center justify-between mb-2">
               <label id="label-condiciones"

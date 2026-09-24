@@ -1169,15 +1169,18 @@ function getStockInfo(p, seleccion) {
     let minStock = null;
     let minLabel = null;
     p.condiciones.forEach((cond) => {
-      const elegido = seleccion[cond.nombre];
-      if (!elegido) return;
-      const op = cond.opciones.find((o) => o.nombre === elegido);
-      if (op && typeof op.stock === "number") {
-        if (minStock === null || op.stock < minStock) {
-          minStock = op.stock;
-          minLabel = elegido; // ej: "Helada"
+      entradasDe(seleccion[cond.nombre]).forEach(([elegido, cant]) => {
+        const op = cond.opciones.find((o) => o.nombre === elegido);
+        if (op && typeof op.stock === "number") {
+          // Si cada línea del carrito pide "cant" unidades de esta opción,
+          // el máximo de líneas (cantidad de producto) que se pueden agregar es stock/cant
+          const disponibleLineas = Math.floor(op.stock / (cant || 1));
+          if (minStock === null || disponibleLineas < minStock) {
+            minStock = disponibleLineas;
+            minLabel = elegido;
+          }
         }
-      }
+      });
     });
     return { stock: minStock, label: minLabel };
   }
@@ -1237,9 +1240,11 @@ async function loadProductosCatalogo(biz) {
           precio: Number(d.precio) || 0,
           imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
           imagen: d.imagenes?.[0]?.url || "",
-          condiciones,
+             condiciones,
           stock: typeof d.stock === "number" ? d.stock : null,
-          variantesObligatoria: d.variantesObligatoria !== false,
+                variantesObligatoria: d.variantesObligatoria !== false,
+          variantesMultiples: d.variantesMultiples === true,
+          variantesConCantidad: d.variantesMultiples === true && d.variantesConCantidad === true,
           puntos:
             biz?.fidelizacion?.activo &&
               d.puntos?.activo &&
@@ -1980,29 +1985,88 @@ function renderQtyControls(container, p, cartKey = null) {
 
 /* ══════════════ Lógica del carrito (Map = O(1)) ══════════════ */
 /* ══════════════ Lógica del carrito (Map = O(1)) ══════════════ */
+/* ══════════════ Lógica del carrito (Map = O(1)) ══════════════ */
+
+// Convierte el valor de una condición en arreglo (string viejo o array nuevo)
+function valoresDe(v) {
+  if (Array.isArray(v)) return v;
+  return v ? [v] : [];
+}
+function clonarSeleccion(sel) {
+  const out = {};
+  Object.entries(sel || {}).forEach(([k, v]) => {
+    out[k] = Array.isArray(v) ? [...v] : v;
+  });
+  return out;
+}
+// Convierte cualquier valor de selección (string viejo, array, u objeto {opcion: cantidad})
+// en una lista uniforme de pares [nombreOpcion, cantidad]
+function entradasDe(v) {
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    return Object.entries(v).filter(([, c]) => (c || 0) > 0);
+  }
+  return valoresDe(v).map((n) => [n, 1]);
+}
+// Texto corto para lugares que muestran una sola línea
+function seleccionATexto(sel) {
+  return Object.entries(sel || {})
+    .map(([k, v]) => {
+      const arr = valoresDe(v);
+      return arr.length ? `${k}: ${arr.join(", ")}` : null;
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+// Detalle línea por línea con costo extra de cada opción (carrito y checkout)
+function opcionesDetalleHTML(it) {
+  if (!it.seleccion) return "";
+  const p = productosPorId.get(it.id);
+  const filas = [];
+  Object.entries(it.seleccion).forEach(([condNombre, v]) => {
+    const cond = p?.condiciones?.find((c) => c.nombre === condNombre);
+    entradasDe(v).forEach(([nombreOp, cant]) => {
+      const op = cond?.opciones.find((o) => o.nombre === nombreOp);
+      const extraUnit = !it.esCanje && op?.costoAdicional ? Number(op.costoAdicional) : 0;
+      const extra = extraUnit
+        ? ` <span class="text-gray-300">+S/ ${(extraUnit * cant).toFixed(2)}</span>`
+        : "";
+      const cantTxt = cant > 1 ? ` x${cant}` : "";
+      filas.push(`<span class="block">• ${condNombre}: ${nombreOp}${cantTxt}${extra}</span>`);
+    });
+  });
+  return filas.join("");
+}
+
 function cartKeyFor(id, seleccion) {
-  if (!seleccion || !Object.keys(seleccion).length) return id;
-  const orden = Object.keys(seleccion)
+  const claves = Object.keys(seleccion || {}).filter((k) => entradasDe(seleccion[k]).length);
+  if (!claves.length) return id;
+  const orden = claves
     .sort()
-    .map((k) => `${k}:${seleccion[k]}`)
+    .map(
+      (k) =>
+        `${k}:${entradasDe(seleccion[k])
+          .map(([n, c]) => `${n}*${c}`)
+          .sort()
+          .join("+")}`,
+    )
     .join("|");
   return `${id}__${orden}`;
 }
-
 function productoEnCarrito(id) {
   for (const it of carrito.values()) if (it.id === id) return true;
   return false;
 }
 
 // Precio base + suma de costos adicionales de las opciones elegidas
+// Precio base + suma de costos adicionales de las opciones elegidas
 function calcPrecioFinal(p, seleccion) {
   let precio = Number(p.precio) || 0;
   if (!seleccion) return precio;
   (p.condiciones || []).forEach((cond) => {
-    const elegido = seleccion[cond.nombre];
-    if (!elegido) return;
-    const op = cond.opciones.find((o) => o.nombre === elegido);
-    if (op && op.costoAdicional) precio += Number(op.costoAdicional) || 0;
+    entradasDe(seleccion[cond.nombre]).forEach(([nombreOp, cant]) => {
+      const op = cond.opciones.find((o) => o.nombre === nombreOp);
+      if (op && op.costoAdicional) precio += (Number(op.costoAdicional) || 0) * cant;
+    });
   });
   return +precio.toFixed(2);
 }
@@ -2109,29 +2173,51 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
   }
+  const esObligatoria = p.variantesObligatoria !== false;
+  const esMultiple = p.variantesMultiples === true;
+  const esConCantidad = esMultiple && p.variantesConCantidad === true;
+
   productoParaOpciones = p;
   cartKeyEnEdicion = editKey;
-  seleccionOpciones = seleccionExistente ? { ...seleccionExistente } : {};
-
-  // true  -> variante obligatoria: se autoselecciona todo apenas abre el modal,
-  //          y no se puede deseleccionar (siempre debe quedar una opción marcada).
-  // false -> variante opcional: NO se preselecciona nada (salvo edición con
-  //          selección previa), y SÍ se puede deseleccionar tocando de nuevo
-  //          la opción ya activa.
-  const esObligatoria = p.variantesObligatoria !== false;
+  seleccionOpciones = {};
+  Object.entries(seleccionExistente || {}).forEach(([k, v]) => {
+    if (esConCantidad) {
+      const obj = {};
+      entradasDe(v).forEach(([n, c]) => {
+        obj[n] = c;
+      });
+      seleccionOpciones[k] = obj;
+    } else if (esMultiple) {
+      seleccionOpciones[k] = [...valoresDe(v)];
+    } else {
+      seleccionOpciones[k] = Array.isArray(v) ? v[0] : v;
+    }
+  });
 
   document.getElementById("optionsProdNombre").textContent = p.nombre;
   const body = document.getElementById("optionsBody");
   body.innerHTML = "";
 
-  // Mensaje elegante solo cuando la selección es opcional: aclara que el
-  // cliente puede continuar sin elegir nada, al precio base del producto.
-  if (!esObligatoria) {
+  const estiloAviso =
+    "font-size:12.5px; color:var(--ink-dim,#9c9ca3); background:rgba(var(--dr),var(--dg),var(--db),.08); border:1px dashed rgba(var(--dr),var(--dg),var(--db),.35); border-radius:12px; padding:9px 12px; margin:-4px 0 4px; line-height:1.4;";
+
+  if (esMultiple) {
     const aviso = document.createElement("p");
-    aviso.style.cssText =
-      "font-size:12.5px; color:var(--ink-dim,#9c9ca3); background:rgba(var(--dr),var(--dg),var(--db),.08); border:1px dashed rgba(var(--dr),var(--dg),var(--db),.35); border-radius:12px; padding:9px 12px; margin:-4px 0 4px; line-height:1.4;";
-    aviso.innerHTML =
-      "✨ Estas opciones son opcionales — elige lo que quieras o continúa con el precio base.";
+    aviso.style.cssText = estiloAviso;
+    if (esConCantidad) {
+      aviso.innerHTML = esObligatoria
+        ? "✨ Elige tus opciones y usa + / − para sumar cantidad de cada una. Marca al menos una en cada grupo."
+        : "✨ Elige lo que quieras y usa + / − para sumar cantidad de cada opción.";
+    } else {
+      aviso.innerHTML = esObligatoria
+        ? "✨ Puedes elegir <b>varias opciones</b>. Marca al menos una en cada grupo; abajo verás el detalle y el precio final."
+        : "✨ Puedes elegir <b>todas las que quieras</b> (o ninguna). Toca una opción para agregarla o quitarla; abajo verás el detalle y el precio final.";
+    }
+    body.appendChild(aviso);
+  } else if (!esObligatoria) {
+    const aviso = document.createElement("p");
+    aviso.style.cssText = estiloAviso;
+    aviso.innerHTML = "✨ Estas opciones son opcionales — elige lo que quieras o continúa con el precio base.";
     body.appendChild(aviso);
   }
 
@@ -2139,57 +2225,150 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     const wrap = document.createElement("div");
     const label = document.createElement("p");
     label.className = "field-label";
-    label.textContent = cond.nombre;
+    label.textContent = esMultiple ? `${cond.nombre} (elige varias)` : cond.nombre;
     wrap.appendChild(label);
 
+    // ── Modo CON CANTIDAD: filas con stepper +/- por opción ──
+    if (esConCantidad) {
+      if (
+        !seleccionOpciones[cond.nombre] ||
+        typeof seleccionOpciones[cond.nombre] !== "object" ||
+        Array.isArray(seleccionOpciones[cond.nombre])
+      ) {
+        seleccionOpciones[cond.nombre] = {};
+      }
+      const listWrap = document.createElement("div");
+      listWrap.className = "flex flex-col gap-2";
+
+      cond.opciones.forEach((op) => {
+        const row = document.createElement("div");
+        row.style.cssText =
+          "display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);";
+
+        const info = document.createElement("span");
+        info.style.cssText = "font-size:13px;";
+        info.textContent = op.costoAdicional
+          ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)} c/u)`
+          : op.nombre;
+
+        const stepperWrap = document.createElement("div");
+
+        const renderStepper = () => {
+          const c = seleccionOpciones[cond.nombre][op.nombre] || 0;
+          stepperWrap.innerHTML = "";
+          if (c === 0) {
+            const addBtn = document.createElement("button");
+            addBtn.type = "button";
+            addBtn.textContent = "Agregar";
+            addBtn.style.cssText =
+              "font-size:11px;font-weight:600;padding:5px 10px;border-radius:8px;background:rgb(var(--dr),var(--dg),var(--db));color:#fff;border:none;cursor:pointer;";
+            addBtn.onclick = () => {
+              seleccionOpciones[cond.nombre][op.nombre] = 1;
+              renderStepper();
+              actualizarResumenOpciones(p);
+              actualizarEstadoBotonConfirmar(p);
+            };
+            stepperWrap.appendChild(addBtn);
+          } else {
+            const btnStyle =
+              "width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.08);color:#fff;border:none;cursor:pointer;font-weight:700;";
+            const minus = document.createElement("button");
+            minus.type = "button";
+            minus.textContent = "−";
+            minus.style.cssText = btnStyle;
+            minus.onclick = () => {
+              const nuevo = c - 1;
+              if (nuevo <= 0) delete seleccionOpciones[cond.nombre][op.nombre];
+              else seleccionOpciones[cond.nombre][op.nombre] = nuevo;
+              renderStepper();
+              actualizarResumenOpciones(p);
+              actualizarEstadoBotonConfirmar(p);
+            };
+            const count = document.createElement("span");
+            count.style.cssText = "min-width:16px;text-align:center;font-weight:700;font-size:13px;display:inline-block;";
+            count.textContent = c;
+            const plus = document.createElement("button");
+            plus.type = "button";
+            plus.textContent = "+";
+            plus.style.cssText = btnStyle;
+            plus.onclick = () => {
+              seleccionOpciones[cond.nombre][op.nombre] = c + 1;
+              renderStepper();
+              actualizarResumenOpciones(p);
+              actualizarEstadoBotonConfirmar(p);
+            };
+            stepperWrap.style.cssText = "display:flex;align-items:center;gap:8px;";
+            stepperWrap.append(minus, count, plus);
+          }
+        };
+        renderStepper();
+
+        row.append(info, stepperWrap);
+        listWrap.appendChild(row);
+      });
+
+      wrap.appendChild(listWrap);
+      body.appendChild(wrap);
+      return; // sigue con la siguiente condición
+    }
+
+    // ── Modo MÚLTIPLE (sin cantidad) o modo NORMAL (single-select) ──
     const optsWrap = document.createElement("div");
     optsWrap.className = "toggle-row flex-wrap";
 
-    // Autoselección de la primera opción SOLO si es obligatoria, o si estamos
-    // editando una línea que ya traía selección previa en esta condición.
-    if (
-      !seleccionOpciones[cond.nombre] &&
-      (esObligatoria || editKey) &&
-      cond.opciones.length
-    ) {
+    if (!esMultiple && !seleccionOpciones[cond.nombre] && (esObligatoria || editKey) && cond.opciones.length) {
       seleccionOpciones[cond.nombre] = cond.opciones[0].nombre;
     }
 
     cond.opciones.forEach((op) => {
-      const esActiva = seleccionOpciones[cond.nombre] === op.nombre;
+      const esActiva = esMultiple
+        ? valoresDe(seleccionOpciones[cond.nombre]).includes(op.nombre)
+        : seleccionOpciones[cond.nombre] === op.nombre;
+
       const optBtn = document.createElement("div");
       optBtn.className = "toggle-opt" + (esActiva ? " active" : "");
       optBtn.textContent = op.costoAdicional
         ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})`
         : op.nombre;
-      if (esActiva)
-        optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
+      if (esActiva) optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
 
-      optBtn.onclick = () => {
-        const yaEstabaActiva = seleccionOpciones[cond.nombre] === op.nombre;
+      if (esMultiple) {
+        optBtn.onclick = () => {
+          const actuales = [...valoresDe(seleccionOpciones[cond.nombre])];
+          const idx = actuales.indexOf(op.nombre);
+          if (idx >= 0) actuales.splice(idx, 1);
+          else actuales.push(op.nombre);
+          if (actuales.length) seleccionOpciones[cond.nombre] = actuales;
+          else delete seleccionOpciones[cond.nombre];
 
-        // Si NO es obligatoria y se toca la opción ya activa -> deseleccionar.
-        if (!esObligatoria && yaEstabaActiva) {
-          delete seleccionOpciones[cond.nombre];
+          const activa = idx < 0;
+          optBtn.classList.toggle("active", activa);
+          optBtn.style.background = activa ? "rgb(var(--dr),var(--dg),var(--db))" : "";
+          actualizarResumenOpciones(p);
+          actualizarEstadoBotonConfirmar(p);
+        };
+      } else {
+        optBtn.onclick = () => {
+          const yaEstabaActiva = seleccionOpciones[cond.nombre] === op.nombre;
+          if (!esObligatoria && yaEstabaActiva) {
+            delete seleccionOpciones[cond.nombre];
+            optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
+              o.classList.remove("active");
+              o.style.background = "";
+            });
+            actualizarEstadoBotonConfirmar(p);
+            return;
+          }
           optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
             o.classList.remove("active");
             o.style.background = "";
           });
+          optBtn.classList.add("active");
+          optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
+          seleccionOpciones[cond.nombre] = op.nombre;
           actualizarEstadoBotonConfirmar(p);
-          return;
-        }
-
-        // Selección normal (o cambio de opción): marca esta, desmarca las demás.
-        optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
-          o.classList.remove("active");
-          o.style.background = "";
-        });
-        optBtn.classList.add("active");
-        optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
-        seleccionOpciones[cond.nombre] = op.nombre;
-        actualizarEstadoBotonConfirmar(p);
-      };
-
+        };
+      }
       optsWrap.appendChild(optBtn);
     });
 
@@ -2197,35 +2376,57 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     body.appendChild(wrap);
   });
 
-  document.getElementById("confirmOptionsBtn").textContent = editKey
-    ? "Guardar cambios"
-    : "Agregar al carrito";
+  if (esMultiple) {
+    const resumen = document.createElement("div");
+    resumen.id = "optionsResumen";
+    resumen.style.cssText =
+      "border-radius:14px; padding:12px 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:13px; line-height:1.6;";
+    body.appendChild(resumen);
+    actualizarResumenOpciones(p);
+  }
 
+  document.getElementById("confirmOptionsBtn").textContent = editKey ? "Guardar cambios" : "Agregar al carrito";
   actualizarEstadoBotonConfirmar(p);
-
   document.getElementById("optionsOverlay").classList.add("show");
   document.body.style.overflow = "hidden";
 }
 
-// Habilita/deshabilita "Agregar al carrito" según si ya se eligió una opción
-// en CADA condición (solo aplica cuando la selección es obligatoria y es un
-// producto nuevo, no una edición de algo que ya estaba en el carrito).
-// Habilita/deshabilita "Agregar al carrito" según variantesObligatoria:
-// - true  -> exige que haya una opción elegida en CADA condición.
-// - false -> siempre queda habilitado, elija o no elija algo.
+function actualizarResumenOpciones(p) {
+  const el = document.getElementById("optionsResumen");
+  if (!el) return;
+  const filas = [];
+  (p.condiciones || []).forEach((cond) => {
+    entradasDe(seleccionOpciones[cond.nombre]).forEach(([nombreOp, cant]) => {
+      const op = cond.opciones.find((o) => o.nombre === nombreOp);
+      const extraUnit = op?.costoAdicional ? Number(op.costoAdicional) : 0;
+      const extraTxt = extraUnit ? `+S/ ${(extraUnit * cant).toFixed(2)}` : "Incluido";
+      const cantTxt = cant > 1 ? ` x${cant}` : "";
+      filas.push(
+        `<div style="display:flex;justify-content:space-between;gap:8px;"><span>• ${cond.nombre}: ${nombreOp}${cantTxt}</span><span style="color:#9c9ca3;">${extraTxt}</span></div>`,
+      );
+    });
+  });
+  const detalle = filas.length
+    ? filas.join("")
+    : `<div style="color:#9c9ca3;">Aún no has marcado ninguna opción.</div>`;
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9c9ca3;margin-bottom:6px;">Tu selección</div>
+    <div style="display:flex;justify-content:space-between;"><span>Precio base</span><span>S/ ${Number(p.precio).toFixed(2)}</span></div>
+    ${detalle}
+    <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);">
+      <span>Precio final (c/u)</span><span>S/ ${calcPrecioFinal(p, seleccionOpciones).toFixed(2)}</span>
+    </div>`;
+}
+
 function actualizarEstadoBotonConfirmar(p) {
   const btn = document.getElementById("confirmOptionsBtn");
-  const esObligatoria = p.variantesObligatoria !== false;
-
-  if (!esObligatoria) {
+  if (p.variantesObligatoria === false) {
     btn.disabled = false;
     return;
   }
-
-  const faltaAlguna = (p.condiciones || []).some(
-    (cond) => !seleccionOpciones[cond.nombre],
+  btn.disabled = (p.condiciones || []).some(
+    (cond) => entradasDe(seleccionOpciones[cond.nombre]).length === 0,
   );
-  btn.disabled = faltaAlguna;
 }
 function cerrarOptionsModal() {
   document.getElementById("optionsOverlay").classList.remove("show");
@@ -2248,8 +2449,8 @@ document.getElementById("confirmOptionsBtn").onclick = () => {
 
   const esObligatoria = productoParaOpciones.variantesObligatoria !== false;
   if (esObligatoria) {
-    const faltaAlguna = (productoParaOpciones.condiciones || []).some(
-      (cond) => !seleccionOpciones[cond.nombre],
+       const faltaAlguna = (productoParaOpciones.condiciones || []).some(
+      (cond) => entradasDe(seleccionOpciones[cond.nombre]).length === 0,
     );
     if (faltaAlguna) {
       showToast("Elige una opción en cada campo antes de continuar");
@@ -2258,11 +2459,9 @@ document.getElementById("confirmOptionsBtn").onclick = () => {
   }
 
   if (cartKeyEnEdicion) {
-    editCartSelection(cartKeyEnEdicion, productoParaOpciones, {
-      ...seleccionOpciones,
-    });
+    editCartSelection(cartKeyEnEdicion, productoParaOpciones, clonarSeleccion(seleccionOpciones));
   } else {
-    addToCart(productoParaOpciones, { ...seleccionOpciones });
+    addToCart(productoParaOpciones, clonarSeleccion(seleccionOpciones));
   }
   cerrarOptionsModal();
 };
@@ -2434,13 +2633,7 @@ function renderCartList(wrap, items) {
       });
     }
     const precioNum = Number(it.precio) || 0;
-    const opcionesTxt = it.seleccion
-      ? Object.entries(it.seleccion)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" · ")
-      : "";
-
-    let row = rowsMap.get(key);
+     let row = rowsMap.get(key);
 
     if (!row) {
       // Fila nueva: se crea UNA sola vez (con su <img>). De aquí en adelante solo se actualiza texto.
@@ -2451,7 +2644,7 @@ function renderCartList(wrap, items) {
         <div class="flex-1 min-w-0">
           <div class="cart-row-promo-badge-wrap">${promoBadgeHTML(it)}</div>
           <p class="font-bold text-[14px] truncate cart-row-nombre">${it.nombre || "Producto"}</p>
-          <p class="text-[11px] text-gray-500 truncate cart-row-opciones"${opcionesTxt ? "" : ' style="display:none"'}>${opcionesTxt}</p>
+            <div class="text-[11px] text-gray-500 cart-row-opciones"${opcionesDetalleHTML(it) ? "" : ' style="display:none"'}>${opcionesDetalleHTML(it)}</div>
           <p class="text-[12.5px] text-gray-500 mb-2 cart-row-precio">S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span></p>
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
@@ -2477,9 +2670,10 @@ function renderCartList(wrap, items) {
       // Fila ya existía: solo se actualiza texto/precio, el <img> NUNCA se toca
       row.querySelector(".cart-row-nombre").textContent =
         it.nombre || "Producto";
+      const detalleHTML = opcionesDetalleHTML(it);
       const opcionesEl = row.querySelector(".cart-row-opciones");
-      opcionesEl.textContent = opcionesTxt;
-      opcionesEl.style.display = opcionesTxt ? "" : "none";
+      opcionesEl.innerHTML = detalleHTML;
+      opcionesEl.style.display = detalleHTML ? "" : "none";
       row.querySelector(".cart-row-precio").innerHTML =
         `S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
       const badgeWrap = row.querySelector(".cart-row-promo-badge-wrap");
@@ -2638,20 +2832,16 @@ function renderCheckoutSummary() {
   wrap.innerHTML =
     items
       .map((it) => {
-        const partesOpciones = [];
-        if (it.seleccion) {
-          partesOpciones.push(
-            Object.entries(it.seleccion)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(" · "),
-          );
-        }
-        if (it.esCanje) partesOpciones.push("🎁 Canjeado con puntos");
-        else if (it.esPromo) partesOpciones.push(`🏷️ ${it.categoria || "Promoción"}`);
-        const opcionesTxt = partesOpciones.join(" · ");
+        const etiquetas = [];
+        if (it.esCanje) etiquetas.push("🎁 Canjeado con puntos");
+        else if (it.esPromo) etiquetas.push(`🏷️ ${it.categoria || "Promoción"}`);
+        const etiquetasTxt = etiquetas.join(" · ");
+        const detalle = opcionesDetalleHTML(it);
         return `
     <div class="step-summary-row">
-      <span>${it.cantidad}× ${it.nombre}${opcionesTxt ? ` <span class="text-gray-500 text-[11px]">(${opcionesTxt})</span>` : ""}</span>
+      <span>${it.cantidad}× ${it.nombre}${etiquetasTxt ? ` <span class="text-gray-500 text-[11px]">(${etiquetasTxt})</span>` : ""}
+        ${detalle ? `<span class="block text-gray-500 text-[11px] mt-0.5">${detalle}</span>` : ""}
+      </span>
       <span>S/ ${(it.cantidad * it.precio).toFixed(2)}</span>
     </div>
   `;

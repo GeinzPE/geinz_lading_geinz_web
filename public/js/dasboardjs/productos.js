@@ -423,10 +423,15 @@ async function toggleProductoEnCarritoPerfil(categoriaId, productoId, data) {
   let nuevoCarrito;
 
   if (yaExiste) {
-    nuevoCarrito = carritoPerfilActual.filter((p) => p.productoId !== productoId);
+    nuevoCarrito = carritoPerfilActual.filter(
+      (p) => p.productoId !== productoId,
+    );
   } else {
     if (carritoPerfilActual.length >= CARRITO_PERFIL_MAX) {
-      toast(`Máximo ${CARRITO_PERFIL_MAX} productos en el carrito de perfil.`, "error");
+      toast(
+        `Máximo ${CARRITO_PERFIL_MAX} productos en el carrito de perfil.`,
+        "error",
+      );
       return;
     }
     nuevoCarrito = [
@@ -443,7 +448,11 @@ async function toggleProductoEnCarritoPerfil(categoriaId, productoId, data) {
 
   try {
     await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
-    toast(yaExiste ? "Quitado del carrito de perfil." : "Agregado al carrito de perfil.");
+    toast(
+      yaExiste
+        ? "Quitado del carrito de perfil."
+        : "Agregado al carrito de perfil.",
+    );
   } catch (err) {
     console.error(err);
     toast("No se pudo actualizar el carrito de perfil.", "error");
@@ -460,7 +469,9 @@ async function sincronizarProductoEnCarritoPerfil(productoId, cambios) {
 
 async function quitarProductoDeCarritoPerfilSiExiste(productoId) {
   if (!carritoPerfilActual.some((p) => p.productoId === productoId)) return;
-  const nuevoCarrito = carritoPerfilActual.filter((p) => p.productoId !== productoId);
+  const nuevoCarrito = carritoPerfilActual.filter(
+    (p) => p.productoId !== productoId,
+  );
   await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
 }
 /* ---------------- Productos ---------------- */
@@ -714,6 +725,17 @@ document.getElementById("input-prod-imgs").addEventListener("change", (e) => {
   e.target.value = "";
 });
 
+function actualizarVisibilidadCantidadPorOpcion() {
+  const multiplesChecked = document.getElementById("input-prod-variantes-multiples").checked;
+  const wrap = document.getElementById("variantes-cantidad-wrap");
+  wrap.classList.toggle("hidden", !multiplesChecked);
+  if (!multiplesChecked) {
+    document.getElementById("input-prod-variantes-cantidad").checked = false;
+  }
+}
+document
+  .getElementById("input-prod-variantes-multiples")
+  .addEventListener("change", actualizarVisibilidadCantidadPorOpcion);
 function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   categoriaActivaParaProducto = categoriaId;
   productoEditandoId = null;
@@ -722,6 +744,8 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   imagenesEnEdicionOriginal = [];
   condicionesSeleccionadas = [];
   document.getElementById("input-prod-variante-obligatoria").checked = true;
+  document.getElementById("input-prod-variantes-multiples").checked = false;
+  document.getElementById("input-prod-variantes-cantidad").checked = false;
   document.getElementById("form-producto").reset();
   document.getElementById("input-prod-disponible").checked = true;
   document.getElementById("input-prod-stock").value = "";
@@ -741,6 +765,7 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
+  actualizarVisibilidadCantidadPorOpcion();
   activarTabProducto("tab-basico"); // ← faltaba esto
   openOverlay("overlay-producto");
 }
@@ -764,9 +789,13 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
       stock: typeof o.stock === "number" ? o.stock : null,
     })),
   }));
-document.getElementById("form-producto").reset();
-document.getElementById("input-prod-variante-obligatoria").checked =
-  data.variantesObligatoria !== false; // default true si no existe (productos viejos)
+  document.getElementById("form-producto").reset();
+  document.getElementById("input-prod-variante-obligatoria").checked =
+    data.variantesObligatoria !== false; // default true si no existe (productos viejos)
+document.getElementById("input-prod-variantes-multiples").checked =
+  data.variantesMultiples === true; // productos viejos = false
+document.getElementById("input-prod-variantes-cantidad").checked =
+  data.variantesConCantidad === true; // productos viejos = false
 document.getElementById("input-prod-nombre").value = data.nombre || "";
   document.getElementById("input-prod-descripcion").value =
     data.descripcion || "";
@@ -799,6 +828,7 @@ document.getElementById("input-prod-nombre").value = data.nombre || "";
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
+  actualizarVisibilidadCantidadPorOpcion();
   openOverlay("overlay-producto");
 }
 document
@@ -850,9 +880,16 @@ document
       document.getElementById("input-prod-horario-desde").value || null;
     const disponibleHasta =
       document.getElementById("input-prod-horario-hasta").value || null;
-const variantesObligatoria = document.getElementById(
+ const variantesObligatoria = document.getElementById(
   "input-prod-variante-obligatoria",
 ).checked;
+const variantesMultiples = document.getElementById(
+  "input-prod-variantes-multiples",
+).checked;
+// Solo tiene sentido si "múltiples" está activo; si no, se fuerza a false por consistencia
+const variantesConCantidad =
+  variantesMultiples &&
+  document.getElementById("input-prod-variantes-cantidad").checked;
     // Si el usuario activó "desactivar automáticamente al llegar a 0" y el stock es 0,
     // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
     if (autoDesactivar && stock === 0) disponible = false;
@@ -911,7 +948,7 @@ const variantesObligatoria = document.getElementById(
           subidas.push({ url, path });
         }
 
-      await updateDoc(docRef, {
+       await updateDoc(docRef, {
   nombre,
   descripcion,
   precio,
@@ -925,9 +962,10 @@ const variantesObligatoria = document.getElementById(
   disponibleDesde,
   disponibleHasta,
   variantesObligatoria,
+  variantesMultiples,
+  variantesConCantidad,
   imagenes: [...conservadas, ...subidas],
 });
-
         await sincronizarProductoEnCarritoPerfil(productoEditandoId, {
           nombre,
           precio,
@@ -937,7 +975,7 @@ const variantesObligatoria = document.getElementById(
         toast(`"${nombre}" actualizado.`);
       } else {
         const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
-      await setDoc(nuevoDocRef, {
+       await setDoc(nuevoDocRef, {
   nombre,
   descripcion,
   precio,
@@ -951,6 +989,8 @@ const variantesObligatoria = document.getElementById(
   disponibleDesde,
   disponibleHasta,
   variantesObligatoria,
+  variantesMultiples,
+  variantesConCantidad,
   imagenes: [],
   createdAt: serverTimestamp(),
 });

@@ -780,6 +780,45 @@ function escapeHtml(str) {
       })[c],
   );
 }
+
+// Convierte el valor de una opción del pedido guardado en pares [nombreOpcion, cantidad].
+// Soporta los 3 formatos que puede traer un pedido según cuándo se hizo:
+//   - string viejo: "Helada"
+//   - array (multi-select sin cantidad): ["Papas extras", "Doble carne"]
+//   - objeto con cantidad: { "Papas extras": 2, "Doble carne": 1 }
+function entradasDeOpcion(v) {
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    return Object.entries(v).filter(([, c]) => (Number(c) || 0) > 0);
+  }
+  if (Array.isArray(v)) return v.map((n) => [n, 1]);
+  return v ? [[v, 1]] : [];
+}
+
+// Arma las líneas de detalle (una por opción marcada) para un producto del pedido
+function opcionesDetalleLineas(it) {
+  if (!it.opciones || !Object.keys(it.opciones).length) return [];
+  const lineas = [];
+  Object.entries(it.opciones).forEach(([condNombre, v]) => {
+    entradasDeOpcion(v).forEach(([nombreOp, cant]) => {
+      const cantTxt = cant > 1 ? ` x${cant}` : "";
+      lineas.push(`${condNombre}: ${nombreOp}${cantTxt}`);
+    });
+  });
+  return lineas;
+}
+
+// Versión en HTML lista para insertar, con cada línea en su propio <div>
+function opcionesDetalleHtmlLineas(it, color = "#a78bfa") {
+  const lineas = opcionesDetalleLineas(it);
+  if (!lineas.length) return "";
+  return lineas
+    .map(
+      (l) =>
+        `<div class="dm-prod-cat" style="color:${color};">• ${escapeHtml(l)}</div>`,
+    )
+    .join("");
+}
+
 function fmtMoney(n) {
   return "S/ " + Number(n || 0).toFixed(2);
 }
@@ -2252,7 +2291,7 @@ function renderMesaDetail(numeroMesa) {
         const totalItems =
           p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
 
-        const contenido =
+          const contenido =
           Array.isArray(p.bloques) && p.bloques.length
             ? bloquesHtml(p.bloques)
             : `<div class="dm-products">${productos
@@ -2262,6 +2301,7 @@ function renderMesaDetail(numeroMesa) {
           <div class="dm-prod-row">
             <div>
               <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
+              ${opcionesDetalleHtmlLineas(it)}
               <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
               ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
             </div>
@@ -2992,6 +3032,7 @@ function bloquesHtml(bloques) {
           <div class="dm-prod-row">
             <div>
               <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
+              ${opcionesDetalleHtmlLineas(it)}
               <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
               ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
             </div>
@@ -3045,17 +3086,12 @@ function renderDetail(id) {
     productos
       .map((it) => {
         const ptsItem = getPuntosItemDesdeCache(it);
-        const opcTxt = it.opciones
-          ? Object.entries(it.opciones)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(" · ")
-          : "";
         return `
     <div class="dm-prod-row">
       <div>
         <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
         ${it.categoria ? `<div class="dm-prod-cat">${escapeHtml(it.categoria)}</div>` : ""}
-        ${opcTxt ? `<div class="dm-prod-cat" style="color:#a78bfa;">${escapeHtml(opcTxt)}</div>` : ""}
+        ${opcionesDetalleHtmlLineas(it)}
         <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
         ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
       </div>
