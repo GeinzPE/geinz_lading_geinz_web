@@ -2189,7 +2189,21 @@ function renderActivePromos(promos, localidad) {
       },
     });
     imgWrapContainer.prepend(imgWrap);
-
+card.style.cursor = "pointer";
+card.addEventListener("click", (e) => {
+  if (e.target.closest("a, button")) return; // no interferir con comprar/wa/compartir
+  openPromoDetailModal({
+    img,
+    titulo: info.titulo,
+    descripcion: info.descripcion,
+    precio,
+    expiry,
+    comprarHref,
+    waLink,
+    shareUrl,
+    shareMsg,
+  });
+});
     grid.appendChild(card);
   });
 
@@ -3103,6 +3117,199 @@ const MESAS_CSS = `
   font-size:13px; color:var(--muted,#9c9ca3); padding:8px 0;
 }
 `;
+const PROMO_DETAIL_CSS = `
+.promo-detail-modal{
+  position:fixed;inset:0;z-index:10006;
+  background:rgba(2,2,4,.88);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;visibility:hidden;
+  transition:opacity .3s ease, visibility .3s ease;
+  padding:0;
+}
+.promo-detail-modal.open{opacity:1;visibility:visible;}
+
+.promo-detail-box{
+  position:relative;
+  width:100%;max-width:560px;max-height:90vh;
+  background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.28);
+  border-bottom:none;
+  border-radius:28px 28px 0 0;
+  overflow:hidden;display:flex;flex-direction:column;
+  transform:translateY(100%);
+  transition:transform .42s cubic-bezier(.22,.85,.32,1);
+  box-shadow:0 -30px 80px -16px rgba(0,0,0,.85), 0 0 60px -14px rgba(var(--dr),var(--dg),var(--db),.4);
+}
+.promo-detail-modal.open .promo-detail-box{transform:translateY(0);}
+
+/* glow decorativo arriba, como el resto de tus popups */
+.promo-detail-box::before{
+  content:"";position:absolute;top:-80px;left:50%;transform:translateX(-50%);
+  width:280px;height:200px;border-radius:50%;
+  background:radial-gradient(circle, rgba(var(--dr),var(--dg),var(--db),.35), transparent 70%);
+  filter:blur(20px);pointer-events:none;z-index:0;
+}
+
+.promo-detail-handle{
+  width:40px;height:4px;border-radius:999px;
+  background:rgba(255,255,255,.22);
+  margin:12px auto 0;flex-shrink:0;position:relative;z-index:2;
+}
+.promo-detail-scroll{overflow-y:auto;flex:1;position:relative;z-index:1;}
+
+.promo-detail-close{
+  position:absolute;top:16px;right:16px;z-index:3;
+  width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.18);
+  background:rgba(0,0,0,.5);color:#fff;font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:background .2s ease, transform .15s ease;
+}
+.promo-detail-close:hover{background:rgba(0,0,0,.75);transform:scale(1.08) rotate(90deg);}
+
+.promo-detail-media{position:relative;width:100%;aspect-ratio:4/3;background:#0d0d0d;flex-shrink:0;margin-top:14px;padding:0 14px;}
+.promo-detail-media-inner{position:relative;width:100%;height:100%;border-radius:20px;overflow:hidden;}
+.promo-detail-media-inner img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  opacity:0; transition:opacity .35s ease;
+}
+.promo-detail-media-inner img.show{ opacity:1; }
+.promo-detail-media-inner::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.55) 100%);pointer-events:none;z-index:1;}
+
+/* Skeleton/loader mientras carga la imagen del modal */
+.promo-detail-loader{
+  position:absolute; inset:0; z-index:2;
+  display:flex; align-items:center; justify-content:center;
+  background:#0d0d0d;
+  opacity:1; visibility:visible;
+  transition:opacity .25s ease, visibility .25s ease;
+}
+.promo-detail-loader.hide{ opacity:0; visibility:hidden; }
+.promo-detail-loader-card{
+  position:relative; overflow:hidden;
+  width:100%; height:100%;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg, rgba(var(--dr),var(--dg),var(--db),.18), rgba(var(--dr),var(--dg),var(--db),.05));
+}
+.promo-detail-loader-card::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,.05) 40%, rgba(255,255,255,.1) 50%, rgba(255,255,255,.05) 60%, transparent 100%);
+  background-size:200% 100%;
+  animation:promoDetailShimmer 1.6s infinite;
+}
+@keyframes promoDetailShimmer{ 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+.promo-detail-loader-spinner{
+  position:relative; z-index:1;
+  width:34px;height:34px;border-radius:50%;
+  border:3px solid rgba(var(--dr),var(--dg),var(--db),.25);
+  border-top-color:rgba(var(--dr),var(--dg),var(--db),.95);
+  animation:promoDetailSpin .75s linear infinite;
+}
+@keyframes promoDetailSpin{ to{ transform:rotate(360deg); } }
+
+.promo-detail-expiry{
+  position:absolute;top:14px;left:14px;z-index:3;display:none;
+  padding:.45rem .9rem;border-radius:999px;font-size:.72rem;font-weight:700;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  align-items:center;gap:6px;
+}
+.promo-detail-expiry::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.promo-detail-expiry.exp-green{background:rgba(15,20,15,.6);color:#86efac;border:1px solid rgba(134,239,172,.35);}
+.promo-detail-expiry.exp-yellow{background:rgba(20,18,10,.6);color:#fde047;border:1px solid rgba(253,224,71,.35);}
+.promo-detail-expiry.exp-red{background:rgba(20,12,12,.6);color:#fca5a5;border:1px solid rgba(252,165,165,.4);}
+
+/* Precio: esquina inferior izquierda, sobre la imagen */
+.promo-detail-price{
+  position:absolute;
+  left:14px; bottom:14px;
+  z-index:3;
+  display:none;
+  align-items:center;
+  font-size:20px;font-weight:900;color:#fff;letter-spacing:-.01em;
+  padding:.5rem 1.15rem;border-radius:999px;
+  background:rgba(8,8,10,.55);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 8px 24px -6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.12);
+}
+.promo-detail-price::before{
+  content:"";width:7px;height:7px;border-radius:50%;
+  background:rgb(var(--dr),var(--dg),var(--db));
+  margin-right:8px;flex-shrink:0;
+  box-shadow:0 0 8px rgb(var(--dr),var(--dg),var(--db));
+}
+
+/* WhatsApp: bolita flotando en la esquina inferior DERECHA de la imagen */
+.promo-detail-wa-float{
+  position:absolute;
+  right:14px; bottom:14px;
+  z-index:3;
+  width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:#25D366;color:#fff;text-decoration:none;cursor:pointer;
+  border:2px solid rgba(255,255,255,.18);
+  box-shadow:0 8px 20px -6px rgba(37,211,102,.55), inset 0 1px 0 rgba(255,255,255,.2);
+  transition:transform .18s ease, filter .18s ease;
+}
+.promo-detail-wa-float:hover{transform:translateY(-2px) scale(1.06);filter:brightness(1.05);}
+.promo-detail-wa-float svg{width:22px;height:22px;}
+
+.promo-detail-body{padding:22px 24px 26px;position:relative;z-index:1;}
+.promo-detail-title{font-size:21px;font-weight:800;color:#fff;line-height:1.3;letter-spacing:-.01em;margin:0 0 12px;}
+
+.promo-detail-desc{font-size:14.5px;line-height:1.7;color:#b0b3bc;white-space:pre-wrap;margin:0 0 20px;}
+
+.promo-detail-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.promo-detail-tag{
+  font-size:11.5px;font-weight:700;color:#fff;padding:5px 13px;border-radius:999px;
+  background:rgba(var(--dr),var(--dg),var(--db),.16);border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+}
+
+/* Acciones: solo Comprar + Compartir, mitad y mitad */
+.promo-detail-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.promo-detail-btn{
+  flex:1;
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:14px 16px;border-radius:16px;
+  font-size:14px;font-weight:800;letter-spacing:.01em;color:#fff;
+  text-decoration:none;cursor:pointer;border:none;
+  transition:transform .18s ease, filter .18s ease;
+}
+.promo-detail-btn::after{
+  content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent);
+  transform:skewX(-20deg);animation:promoDetailShine 3.6s ease-in-out 1s infinite;
+}
+@keyframes promoDetailShine{0%{left:-60%;}55%,100%{left:130%;}}
+.promo-detail-btn:hover{transform:translateY(-2px);filter:brightness(1.06);}
+.promo-detail-btn:active{transform:scale(.96);}
+.promo-detail-btn-buy{background:linear-gradient(135deg,#34d399,#10b981);box-shadow:0 10px 24px -8px rgba(16,185,129,.5), inset 0 1px 0 rgba(255,255,255,.15);}
+.promo-detail-btn-share{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+  box-shadow:none;backdrop-filter:blur(8px);
+}
+.promo-detail-btn-share::after{display:none;}
+
+@media (min-width:768px){
+  .promo-detail-modal{align-items:center;padding:28px;}
+  .promo-detail-box{
+    border-radius:30px;max-height:86vh;border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.28);
+    transform:scale(.9) translateY(18px);
+  }
+  .promo-detail-modal.open .promo-detail-box{transform:scale(1) translateY(0);}
+  .promo-detail-handle{display:none;}
+  .promo-detail-media{aspect-ratio:16/8;margin-top:0;padding:0;}
+  .promo-detail-media-inner{border-radius:0;}
+  .promo-detail-body{padding:30px 34px 34px;}
+  .promo-detail-title{font-size:24px;}
+}
+`;
 const MESA_RESERVA_FLOAT_CSS = `
 .mesa-reserva-progress-wrap{ position:relative; overflow:hidden; pointer-events:none; }
 .mesa-reserva-progress-fill{
@@ -3193,7 +3400,144 @@ const MESA_RESERVA_FLOAT_CSS = `
 @keyframes mrv-swap{ from{opacity:0; transform:translateY(10px) scale(.98);} to{opacity:1; transform:none;} }
 .mrv-msg{ font-size:12.5px; line-height:1.55; color:var(--muted,#9c9ca3); text-align:center; margin:16px 0 0; }
 `;
+function injectPromoDetailStyles() {
+  if (document.getElementById("promoDetailStyle")) return;
+  const st = document.createElement("style");
+  st.id = "promoDetailStyle";
+  st.textContent = PROMO_DETAIL_CSS;
+  document.head.appendChild(st);
+}
 
+function bindPromoDetailModal() {
+  if (document.getElementById("promoDetailModal")) return;
+  injectPromoDetailStyles();
+  const modal = document.createElement("div");
+  modal.id = "promoDetailModal";
+  modal.className = "promo-detail-modal";
+  modal.innerHTML = `
+  <div class="promo-detail-box">
+    <div class="promo-detail-handle"></div>
+    <div class="promo-detail-scroll">
+      <div class="promo-detail-media">
+        <div class="promo-detail-media-inner">
+          <div class="promo-detail-loader" id="promoDetailLoader">
+            <div class="promo-detail-loader-card">
+              <span class="promo-detail-loader-spinner"></span>
+            </div>
+          </div>
+          <span class="promo-detail-expiry" id="promoDetailExpiry"></span>
+          <img id="promoDetailImg" src="" alt="">
+          <span class="promo-detail-price" id="promoDetailPrice"></span>
+          <a class="promo-detail-wa-float" id="promoDetailWaFloat" href="#" target="_blank" rel="noopener" aria-label="WhatsApp" style="display:none">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.81L2 22l5.4-1.35a9.87 9.87 0 0 0 4.64 1.18h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.87 9.87 0 0 0 12.04 2zm5.8 14.16c-.24.68-1.4 1.3-1.93 1.38-.5.08-1.12.11-1.8-.12-.42-.13-.95-.31-1.64-.6-2.9-1.25-4.79-4.16-4.93-4.35-.14-.19-1.18-1.57-1.18-3 0-1.43.75-2.13 1.02-2.42.27-.29.58-.36.78-.36h.56c.18 0 .42-.03.65.5.24.55.82 1.9.89 2.04.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.17-.29.37-.42.5-.14.14-.28.28-.12.55.16.27.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.21 1.37.27.14.43.12.58-.07.16-.19.68-.79.86-1.06.18-.27.36-.22.6-.13.24.09 1.55.73 1.81.86.27.13.44.19.51.3.07.11.07.63-.17 1.31z"/></svg>
+          </a>
+        </div>
+        <button class="promo-detail-close" id="promoDetailClose" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="promo-detail-body">
+        <h3 class="promo-detail-title" id="promoDetailTitle"></h3>
+        <p class="promo-detail-desc" id="promoDetailDesc"></p>
+        <div class="promo-detail-tags" id="promoDetailTags"></div>
+        <div class="promo-detail-actions" id="promoDetailActions"></div>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  document.getElementById("promoDetailClose").addEventListener("click", closePromoDetailModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target.id === "promoDetailModal") closePromoDetailModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("open")) closePromoDetailModal();
+  });
+}
+
+function closePromoDetailModal() {
+  document.getElementById("promoDetailModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+let _promoDetailLoadToken = 0;
+
+function openPromoDetailModal(data) {
+  bindPromoDetailModal();
+  const modal = document.getElementById("promoDetailModal");
+  const img = document.getElementById("promoDetailImg");
+  const loader = document.getElementById("promoDetailLoader");
+  const token = ++_promoDetailLoadToken;
+
+  // ── Reset total ANTES de mostrar nada: nunca se ve la imagen de la promo anterior ──
+  img.classList.remove("show");
+  img.src = "";
+  loader.classList.remove("hide");
+
+  img.onload = () => {
+    if (token !== _promoDetailLoadToken) return; // llegó tarde, ya se abrió otra promo
+    loader.classList.add("hide");
+    img.classList.add("show");
+  };
+  img.onerror = () => {
+    if (token !== _promoDetailLoadToken) return;
+    loader.classList.add("hide");
+  };
+  img.alt = data.titulo || "Promoción";
+  img.src = data.img || "";
+
+  document.getElementById("promoDetailTitle").textContent = data.titulo || "";
+  document.getElementById("promoDetailDesc").textContent = data.descripcion || "";
+
+  const priceEl = document.getElementById("promoDetailPrice");
+  if (data.precio > 0) {
+    priceEl.textContent = `S/ ${data.precio.toFixed(2)}`;
+    priceEl.style.display = "inline-flex";
+  } else {
+    priceEl.style.display = "none";
+  }
+
+  const expiryEl = document.getElementById("promoDetailExpiry");
+  if (data.expiry) {
+    expiryEl.textContent = data.expiry.text;
+    expiryEl.className = `promo-detail-expiry ${data.expiry.cls}`;
+    expiryEl.style.display = "inline-flex";
+  } else {
+    expiryEl.style.display = "none";
+  }
+
+  // ── WhatsApp: bolita flotando en la esquina, ya no dentro de las acciones ──
+  const waFloat = document.getElementById("promoDetailWaFloat");
+  if (data.waLink) {
+    waFloat.href = data.waLink;
+    waFloat.style.display = "flex";
+  } else {
+    waFloat.style.display = "none";
+  }
+
+  const tagsEl = document.getElementById("promoDetailTags");
+  tagsEl.innerHTML = (data.tags || [])
+    .map((t) => `<span class="promo-detail-tag">${t}</span>`)
+    .join("");
+
+  const actionsEl = document.getElementById("promoDetailActions");
+  actionsEl.innerHTML = `
+    ${data.comprarHref ? `<a class="promo-detail-btn promo-detail-btn-buy" href="${data.comprarHref}">🛒 Comprar</a>` : ""}
+    ${data.shareUrl ? `<button class="promo-detail-btn promo-detail-btn-share" id="promoDetailShareBtn">📤 Compartir</button>` : ""}
+  `;
+  const shareBtn = document.getElementById("promoDetailShareBtn");
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const fullText = `${data.shareMsg || "Mira esta promo en Geinz 🎁"}\n${data.shareUrl}`;
+      if (navigator.share) {
+        try { await navigator.share({ text: fullText }); } catch (e) {}
+      } else {
+        copyToClipboard(fullText);
+      }
+    });
+  }
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
 function injectMesaFloatStyles() {
   if (document.getElementById("mesaFloatStyle")) return;
   const style = document.createElement("style");
@@ -4412,6 +4756,19 @@ async function render(biz, isInitial = true) {
         alt: promo.titulo,
       });
       imgWrapContainer.prepend(imgWrap);
+      card.style.cursor = "pointer";
+card.addEventListener("click", (e) => {
+  if (e.target.closest("a, button")) return;
+  openPromoDetailModal({
+    img: promo.url,
+    titulo: promo.titulo,
+    descripcion: promo.descripcion,
+    precio: promo.precio,
+    comprarHref,
+    shareUrl: shareBase,
+    shareMsg: `Mira lo que encontre en ${nombre} 👀🔥`,
+  });
+});
       promoCarousel.appendChild(card);
     });
     promoCarousel.querySelectorAll(".promo-icon-share").forEach((btn) => {

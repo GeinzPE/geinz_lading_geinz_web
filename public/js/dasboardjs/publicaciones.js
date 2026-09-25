@@ -1,6 +1,10 @@
 // ── Firebase (módulos ESM) ──────────────────────────────
 import {
-  doc, getDoc, setDoc, collection, onSnapshot,
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth,
@@ -31,6 +35,7 @@ let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
 let precioYaSeteado = false;
 let terminosAceptados = false;
+let tipoPublicacionActual = "plataforma"; // "plataforma" | "perfil"
 
 let tipoTextoIA = "venta";
 let tipoImagenIA = "venta";
@@ -435,6 +440,7 @@ function calcularDias() {
   return Math.round((fin - inicio) / 86400000);
 }
 function calcularCostoTotal() {
+  if (tipoPublicacionActual === "perfil") return 0; // ← NUEVO: perfil no cobra por publicar
   const tipo =
     document.querySelector('input[name="plazo"]:checked')?.value || "dias";
   let total = 0;
@@ -554,6 +560,41 @@ function renderBullets(tipo) {
     .join("");
 }
 
+window.selectTipoPublicacion = function (el) {
+  document
+    .querySelectorAll("#tipoPubSelector .tipo-pub-chip")
+    .forEach((c) => c.classList.remove("active"));
+  el.classList.add("active");
+  tipoPublicacionActual = el.dataset.tipo;
+  aplicarTipoPublicacionUI();
+};
+
+function setColapsado(el, colapsar) {
+  if (!el) return;
+  el.classList.toggle("is-hidden", colapsar);
+}
+
+function aplicarTipoPublicacionUI() {
+  const esPerfil = tipoPublicacionActual === "perfil";
+
+  const boxHorario = document.getElementById("paramBoxHorario");
+  const boxPagos = document.getElementById("paramBoxPagos");
+  const boxGeo = document.getElementById("paramBoxGeo");
+  const esPresencial = datosTienda?.modelo_negocio !== false;
+
+  setColapsado(boxHorario, esPerfil);
+  setColapsado(boxPagos, esPerfil);
+  setColapsado(boxGeo, esPerfil || !esPresencial);
+
+  // ── El plazo (horas / días / permanente) SIEMPRE es elegible,
+  //    sea plataforma o perfil. Solo cambia si cobra o no. ──
+  const plazoSel = document.querySelector(".plazo-sel");
+  setColapsado(plazoSel, false);
+  tipoPlazo(); // sincroniza boxHoras/boxFechas/boxPermanente según el radio marcado
+
+  actualizarCostoPublicar();
+  actualizarEstadoBotonPublicar();
+}
 window.selectTipoTexto = function (el) {
   document
     .querySelectorAll("#iaZonaTexto .ia-tipo-chip")
@@ -570,8 +611,6 @@ window.selectTipoImagen = function (el) {
   el.classList.add("active");
   tipoImagenIA = el.dataset.tipo;
 };
-
-
 
 async function getToken() {
   return new Promise((resolve) => {
@@ -1197,8 +1236,12 @@ function formatFechaSlash(str) {
       fin = parseFechaLocal(ff.value);
     if (fin >= inicio) {
       const dias = calcularDias();
-      const monedas = dias * _precios.publicacion_24h;
-      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${_precios.publicacion_24h} créditos por día · Inicio: ${fi.value.split("-").reverse().join("/")} · Fin: ${ff.value.split("-").reverse().join("/")}</div></div>`;
+      const esPerfil = tipoPublicacionActual === "perfil";
+      const monedas = esPerfil ? 0 : dias * _precios.publicacion_24h;
+      const inversionTxt = esPerfil
+        ? `<span style="font-weight:700;color:var(--green);margin-left:6px">Sin costo</span>`
+        : `<span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span>`;
+      dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">📅 Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${dias} día${dias > 1 ? "s" : ""}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span>${inversionTxt}</div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${esPerfil ? "Publicación en tu perfil, sin costo" : `${_precios.publicacion_24h} créditos por día`} · Inicio: ${fi.value.split("-").reverse().join("/")} · Fin: ${ff.value.split("-").reverse().join("/")}</div></div>`;
       dc.style.display = "block";
     } else {
       dc.innerHTML = `<div style="background:rgba(239,68,68,.1);padding:10px 16px;border-radius:14px;margin-top:12px;border-left:3px solid #ef4444"><span style="font-size:13px;color:#ef4444">⚠️ La fecha final debe ser mayor o igual a la inicial</span></div>`;
@@ -1214,35 +1257,51 @@ function formatFechaSlash(str) {
     let h = parseInt(ih.value);
     if (isNaN(h) || h < 1) h = 1;
     if (h > 20) h = 20;
-    const monedas = h * _precios.publicacion_x_hora;
+    const esPerfil = tipoPublicacionActual === "perfil";
+    const monedas = esPerfil ? 0 : h * _precios.publicacion_x_hora;
+    const inversionTxt = esPerfil
+      ? `<span style="font-weight:700;color:var(--green);margin-left:6px">Sin costo</span>`
+      : `<span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span>`;
     const hoy = new Date();
     const fechaStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
     const finMs = hoy.getTime() + h * 3600000;
     const finDate = new Date(finMs);
     const finStr = `${finDate.getHours().toString().padStart(2, "0")}:${finDate.getMinutes().toString().padStart(2, "0")}`;
-    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span><span style="font-weight:700;color:var(--green);margin-left:6px">${monedas.toLocaleString("es-PE")} créditos</span></div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${_precios.publicacion_x_hora} créditos/hora · Fecha: ${fechaStr} · Termina ~${finStr}</div></div>`;
+    dc.innerHTML = `<div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;margin-top:12px;border-left:3px solid var(--primary)"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:13px;color:var(--text-light)">⏱️ Duración:</span><span style="font-weight:600;color:var(--primary);margin-left:6px">${h} ${h === 1 ? "hora" : "horas"}</span></div><div><span style="font-size:13px;color:var(--text-light)">💰 Inversión:</span>${inversionTxt}</div></div><div style="font-size:11px;color:var(--text-light);margin-top:6px">⚡ ${esPerfil ? "Publicación en tu perfil, sin costo" : `${_precios.publicacion_x_hora} créditos/hora`} · Fecha: ${fechaStr} · Termina ~${finStr}</div></div>`;
     dc.style.display = "block";
     actualizarCostoPublicar();
     actualizarEstadoBotonPublicar();
   }
 
   window.tipoPlazo = function () {
-    const v = document.querySelector('input[name="plazo"]:checked')?.value;
+    const v =
+      document.querySelector('input[name="plazo"]:checked')?.value || "dias";
     const bH = document.getElementById("boxHoras");
     const bF = document.getElementById("boxFechas");
+    const bP = document.getElementById("boxPermanente");
     const dH = document.getElementById("duracionHorasContainer");
     const dD = document.getElementById("duracionDiasContainer");
+
     if (v === "horas") {
-      if (bH) bH.style.display = "block";
-      if (bF) bF.style.display = "none";
+      setColapsado(bH, false);
+      setColapsado(bF, true);
+      setColapsado(bP, true);
       if (dH) {
         dH.style.display = "block";
         calcularDuracionHoras();
       }
       if (dD) dD.style.display = "none";
+    } else if (v === "permanente") {
+      setColapsado(bH, true);
+      setColapsado(bF, true);
+      setColapsado(bP, false);
+      if (dH) dH.style.display = "none";
+      if (dD) dD.style.display = "none";
     } else {
-      if (bH) bH.style.display = "none";
-      if (bF) bF.style.display = "block";
+      // "dias"
+      setColapsado(bH, true);
+      setColapsado(bF, false);
+      setColapsado(bP, true);
       if (dH) dH.style.display = "none";
       if (dD) {
         dD.style.display = "block";
@@ -1465,6 +1524,16 @@ function formatFechaSlash(str) {
       tsFin = { seconds: Math.floor(finMs / 1000), nanoseconds: 0 };
       const finDate = new Date(finMs);
       hora_fin = `${String(finDate.getHours()).padStart(2, "0")}:${String(finDate.getMinutes()).padStart(2, "0")}`;
+    } else if (tipoPlazoVal === "permanente") {
+      // Sin fecha de expiración real todavía (pendiente de Cloud Function).
+      // Usamos +10 años como placeholder para que no expire.
+      const finPermanente = new Date(ahora);
+      finPermanente.setFullYear(finPermanente.getFullYear() + 10);
+      tsFin = {
+        seconds: Math.floor(finPermanente.getTime() / 1000),
+        nanoseconds: 0,
+      };
+      hora_fin = hora_inicio;
     }
 
     const pagosChecks = document.querySelectorAll(
@@ -1531,6 +1600,7 @@ function formatFechaSlash(str) {
         id_tienda,
         id_promocion,
         localidad,
+        tipo_publicacion: tipoPublicacionActual,
         titulo,
         descripcion,
         categoria,
@@ -1580,9 +1650,15 @@ function formatFechaSlash(str) {
         saldo_descuento: total, // ej: 700 (calculado arriba)
         precio_por_moneda: _precios.costo_por_moneda, // ej: 0.012
         tipo_paquete:
-          tipoPlazoVal === "horas"
-            ? `Publicidad por ${horasInput} hora${horasInput > 1 ? "s" : ""}`
-            : `Publicidad por ${calcularDias()} día${calcularDias() > 1 ? "s" : ""}`,
+          tipoPublicacionActual === "perfil"
+            ? tipoPlazoVal === "horas"
+              ? `Publicación en perfil por ${horasInput} hora${horasInput > 1 ? "s" : ""} (sin costo)`
+              : tipoPlazoVal === "permanente"
+                ? "Publicación permanente en perfil (sin costo)"
+                : `Publicación en perfil por ${calcularDias()} día${calcularDias() > 1 ? "s" : ""} (sin costo)`
+            : tipoPlazoVal === "horas"
+              ? `Publicidad por ${horasInput} hora${horasInput > 1 ? "s" : ""}`
+              : `Publicidad por ${calcularDias()} día${calcularDias() > 1 ? "s" : ""}`,
       };
 
       const result = await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
@@ -2240,6 +2316,7 @@ function formatFechaSlash(str) {
   aplicarPreciosEnDOM();
   validate();
   tipoPlazo();
+  aplicarTipoPublicacionUI();
   // ── Exponer para uso fuera del IIFE (ej. conectarFacebook.js) ──
   window.mostrarToast = mostrarToast;
   window.callFirebaseFunction = callFirebaseFunction;
@@ -2334,8 +2411,7 @@ window.addEventListener("message", (event) => {
     actualizarCostoPublicar();
     actualizarEstadoBotonPublicar();
     verificarSaldo();
-
-      }
+  }
 });
 
 function _aplicarDatosTienda(d) {
@@ -2536,7 +2612,10 @@ window.conectarMiFanpage = function () {
       } else if (intentos > 20) {
         clearInterval(esperar);
         setFbConectando(false);
-        mostrarToast("No se pudo cargar Facebook. Revisa tu conexión e intenta de nuevo.", "error");
+        mostrarToast(
+          "No se pudo cargar Facebook. Revisa tu conexión e intenta de nuevo.",
+          "error",
+        );
       }
     }, 500);
     return;
@@ -2545,14 +2624,23 @@ window.conectarMiFanpage = function () {
 };
 
 function _iniciarLoginFacebook() {
-  FB.login(function (response) {
-    if (response.authResponse) {
-      obtenerPaginasYMostrarSelector(response.authResponse.accessToken);
-    } else {
-      setFbConectando(false);
-      mostrarToast("Cancelaste el login de Facebook o no diste los permisos", "error");
-    }
-  }, { scope: "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement" });
+  FB.login(
+    function (response) {
+      if (response.authResponse) {
+        obtenerPaginasYMostrarSelector(response.authResponse.accessToken);
+      } else {
+        setFbConectando(false);
+        mostrarToast(
+          "Cancelaste el login de Facebook o no diste los permisos",
+          "error",
+        );
+      }
+    },
+    {
+      scope:
+        "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement",
+    },
+  );
 }
 
 // ✅ CAMBIO: permite al usuario cambiar de Fanpage cuando ya tiene una
@@ -2565,14 +2653,20 @@ window.cambiarFanpage = function () {
     return;
   }
   setCambiandoPagina(true);
-  FB.login(function (response) {
-    if (response.authResponse) {
-      obtenerPaginasYMostrarSelector(response.authResponse.accessToken, true);
-    } else {
-      setCambiandoPagina(false);
-      mostrarToast("Cancelaste el cambio de página", "error");
-    }
-  }, { scope: "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement" });
+  FB.login(
+    function (response) {
+      if (response.authResponse) {
+        obtenerPaginasYMostrarSelector(response.authResponse.accessToken, true);
+      } else {
+        setCambiandoPagina(false);
+        mostrarToast("Cancelaste el cambio de página", "error");
+      }
+    },
+    {
+      scope:
+        "public_profile,pages_show_list,pages_manage_posts,pages_read_engagement",
+    },
+  );
 };
 
 // ✅ CAMBIO: estado de carga del botón "Cambiar página" (independiente del
@@ -2597,27 +2691,38 @@ function setCambiandoPagina(activo) {
 // cambiarFanpage), siempre muestra el selector de páginas aunque el usuario
 // solo administre una sola Fanpage — así puede "recambiar" a la misma u
 // otra sin que el flujo la conecte de forma automática y silenciosa.
-function obtenerPaginasYMostrarSelector(userAccessToken, forzarSelector = false) {
-  FB.api("/me/accounts", "GET", { access_token: userAccessToken }, function (res) {
-    if (!res || res.error) {
-      setFbConectando(false);
-      setCambiandoPagina(false);
-      mostrarToast("No se pudo obtener la lista de páginas", "error");
-      return;
-    }
-    const paginas = res.data || [];
-    if (paginas.length === 0) {
-      setFbConectando(false);
-      setCambiandoPagina(false);
-      mostrarToast("No administras ninguna página de Facebook con este usuario", "error");
-      return;
-    }
-    if (paginas.length === 1 && !forzarSelector) {
-      confirmarConexion(paginas[0].id, userAccessToken);
-      return;
-    }
-    mostrarSelectorDePaginas(paginas, userAccessToken);
-  });
+function obtenerPaginasYMostrarSelector(
+  userAccessToken,
+  forzarSelector = false,
+) {
+  FB.api(
+    "/me/accounts",
+    "GET",
+    { access_token: userAccessToken },
+    function (res) {
+      if (!res || res.error) {
+        setFbConectando(false);
+        setCambiandoPagina(false);
+        mostrarToast("No se pudo obtener la lista de páginas", "error");
+        return;
+      }
+      const paginas = res.data || [];
+      if (paginas.length === 0) {
+        setFbConectando(false);
+        setCambiandoPagina(false);
+        mostrarToast(
+          "No administras ninguna página de Facebook con este usuario",
+          "error",
+        );
+        return;
+      }
+      if (paginas.length === 1 && !forzarSelector) {
+        confirmarConexion(paginas[0].id, userAccessToken);
+        return;
+      }
+      mostrarSelectorDePaginas(paginas, userAccessToken);
+    },
+  );
 }
 
 async function confirmarConexion(pageId, userAccessToken) {

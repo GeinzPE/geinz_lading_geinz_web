@@ -732,33 +732,115 @@
             flex: 1;
             text-align: center;
         }
+
         .btn-fb-change {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: rgba(24, 119, 242, 0.12); /* Azul FB sutil/suave */
-    color: #2d88ff;                           /* Azul elegante y legible */
-    border: 1px solid rgba(24, 119, 242, 0.25);
-    padding: 6px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    border-radius: 20px;                      /* Redondeado suave estilo pill */
-    cursor: pointer;
-    margin: 6px 0 12px 0;
-    transition: all 0.2s ease-in-out;
-}
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: rgba(24, 119, 242, 0.12);
+            /* Azul FB sutil/suave */
+            color: #2d88ff;
+            /* Azul elegante y legible */
+            border: 1px solid rgba(24, 119, 242, 0.25);
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 20px;
+            /* Redondeado suave estilo pill */
+            cursor: pointer;
+            margin: 6px 0 12px 0;
+            transition: all 0.2s ease-in-out;
+        }
 
-.btn-fb-change:hover {
-    background-color: rgba(24, 119, 242, 0.22);
-    border-color: rgba(24, 119, 242, 0.4);
-    color: #3892ff;
-    transform: translateY(-1px);
-}
+        .btn-fb-change:hover {
+            background-color: rgba(24, 119, 242, 0.22);
+            border-color: rgba(24, 119, 242, 0.4);
+            color: #3892ff;
+            transform: translateY(-1px);
+        }
 
-.btn-fb-change:active {
-    transform: translateY(0);
-    background-color: rgba(24, 119, 242, 0.3);
-}
+        .btn-fb-change:active {
+            transform: translateY(0);
+            background-color: rgba(24, 119, 242, 0.3);
+        }
+
+        .tipo-pub-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 14px 0 20px;
+        }
+
+        .tipo-pub-chip {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            text-align: left;
+            padding: 14px 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            background: rgba(255, 255, 255, .03);
+            color: #e4e4e7;
+            cursor: pointer;
+            transition: .18s;
+        }
+
+        .tipo-pub-chip i {
+            font-size: 20px;
+            margin-top: 2px;
+            color: #a1a1aa;
+            flex-shrink: 0;
+        }
+
+        .tipo-pub-chip .tipo-pub-title {
+            display: block;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .tipo-pub-chip .tipo-pub-sub {
+            display: block;
+            font-size: 11.5px;
+            color: #8b869b;
+            margin-top: 2px;
+            line-height: 1.4;
+        }
+
+        .tipo-pub-chip.active {
+            border-color: rgba(124, 58, 237, .5);
+            background: rgba(124, 58, 237, .1);
+        }
+
+        .tipo-pub-chip.active i {
+            color: #c4b5fd;
+        }
+
+        .anim-collapse {
+            overflow: hidden;
+            max-height: 900px;
+            opacity: 1;
+            transform: translateY(0);
+            transition:
+                max-height .4s cubic-bezier(.4, 0, .2, 1),
+                opacity .3s ease,
+                transform .3s ease,
+                margin .35s ease,
+                padding .35s ease,
+                border-width .35s ease;
+        }
+
+        .anim-collapse.is-hidden {
+            max-height: 0 !important;
+            opacity: 0 !important;
+            transform: translateY(-8px);
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            border-width: 0 !important;
+            pointer-events: none;
+        }
     </style>
 </head>
 
@@ -955,6 +1037,27 @@
                             <p class="sec-sub">Personaliza tu publicación y mejora sus resultados.</p>
                         </div>
 
+                        <!-- ── TIPO DE PUBLICACIÓN ── -->
+                        <div class="tipo-pub-selector" id="tipoPubSelector">
+                            <button type="button" class="tipo-pub-chip active" data-tipo="plataforma"
+                                onclick="selectTipoPublicacion(this)">
+                                <i class="ti ti-world" aria-hidden="true"></i>
+                                <div class="tipo-pub-text">
+                                    <span class="tipo-pub-title">Publicación en plataforma</span>
+                                    <span class="tipo-pub-sub">Aparece en el feed de promociones donde los usuarios
+                                        buscan ofertas constantemente.</span>
+                                </div>
+                            </button>
+                            <button type="button" class="tipo-pub-chip" data-tipo="perfil"
+                                onclick="selectTipoPublicacion(this)">
+                                <i class="ti ti-user-circle" aria-hidden="true"></i>
+                                <div class="tipo-pub-text">
+                                    <span class="tipo-pub-title">Publicación en perfil</span>
+                                    <span class="tipo-pub-sub">Se publica directo en tu perfil público, sin costo por
+                                        publicarla, más simple y rápido.</span>
+                                </div>
+                            </button>
+                        </div>
                         <div class="param-list">
 
                             <!-- WhatsApp -->
@@ -1022,7 +1125,7 @@
                             </div>
 
                             <!-- Cercanía -->
-                            <div class="param-box" id="paramBoxGeo">
+                            <div class="param-box anim-collapse" id="paramBoxGeo">
                                 <div class="param-row">
                                     <div class="param-info">
                                         <img src="../img/google_maps_icono.webp" alt="icono"
@@ -1062,7 +1165,7 @@
                             </div>
 
                             <!-- Horario -->
-                            <div class="param-box">
+                            <div class="param-box anim-collapse" id="paramBoxHorario">
                                 <div class="param-row">
                                     <div class="param-info">
                                         <img src="../img/reloj_icon_hora_3d.webp" alt="icono"
@@ -1087,7 +1190,7 @@
                             </div>
 
                             <!-- Pagos -->
-                            <div class="param-box">
+                            <div class="param-box anim-collapse" id="paramBoxPagos">
                                 <div class="param-row">
                                     <div class="param-info">
                                         <img src="../img/yape_logo.webp" alt="icono"
@@ -1227,7 +1330,7 @@
                             <h3 class="sec-title">Plazo de publicación</h3>
                             <p class="sec-sub">Selecciona cuánto tiempo estará activa.</p>
 
-                            <div class="plazo-sel">
+                            <div class="plazo-sel anim-collapse">
 
                                 <label class="plazo-chip">
                                     <input type="radio" name="plazo" value="horas" onchange="tipoPlazo()">
@@ -1247,9 +1350,17 @@
                                     </div>
                                 </label>
 
+                                <label class="plazo-chip">
+                                    <input type="radio" name="plazo" value="permanente" onchange="tipoPlazo()">
+                                    <div class="plazo-chip-inner">
+                                        <i class="ti ti-infinity" style="font-size:28px;color:var(--text-light);"></i>
+                                        <span>Permanente</span>
+                                    </div>
+                                </label>
+
                             </div>
 
-                            <div id="boxHoras" style="display:none">
+                            <div id="boxHoras" class="anim-collapse">
                                 <div class="ig">
                                     <label class="lbl">Cantidad de horas (1–20)</label>
 
@@ -1259,7 +1370,7 @@
                                 <div id="duracionHorasContainer" style="display:none;"></div>
                             </div>
 
-                            <div id="boxFechas">
+                            <div id="boxFechas" class="anim-collapse">
 
                                 <div class="date-grid">
 
@@ -1279,6 +1390,16 @@
 
                                 <div id="duracionDiasContainer" style="display:none;"></div>
 
+                            </div>
+                            <div id="boxPermanente" class="anim-collapse">
+                                <div style="background:var(--bg-input);padding:12px 16px;border-radius:14px;
+              margin-top:12px;border-left:3px solid var(--primary)">
+                                    <span style="font-size:13px;color:var(--text-light)">
+                                        📌 Tu publicación permanecerá visible en tu perfil de forma
+                                        permanente, hasta que tú decidas eliminarla o actualizarla.
+                                        No se descuentan créditos por publicarla.
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
