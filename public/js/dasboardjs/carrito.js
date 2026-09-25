@@ -87,6 +87,7 @@ let promosGlobal = [];   // promociones ya normalizadas (con precio)
 let cuponParam = null; // código que viene en ?cupon=
 let cuponAplicado = null; // datos del cupón ya validado y en uso
 
+let filtroInicialParam = null; // ?filtro=ofertas viene del "Ver todas" de la landing
 async function resolverParamsCarrito() {
   const path = window.location.pathname;
   const qs = new URLSearchParams(window.location.search);
@@ -154,6 +155,10 @@ async function resolverParamsCarrito() {
   mesaId = qs.get("mesaId") || qs.get("mesa");
   mesaNombre = qs.get("mesaNombre") || qs.get("nombre_mesa");
   mesaNumero = qs.get("mesaNumero") || qs.get("numero_mesa");
+  // Cupón por link (?cupon=CODIGO)
+cuponParam = qs.get("cupon") || null;
+promoParam = qs.get("promo") || null;
+filtroInicialParam = qs.get("filtro") || null; // ← AGREGAR
 }
 /* ══════════════ Estado (todo en memoria, sin re-fetch) ══════════════ */
 let productosGlobal = []; // catálogo completo, se pide una sola vez
@@ -361,6 +366,191 @@ function applyColor({ r, g, b }) {
   document.documentElement.style.setProperty("--dr", legible.r);
   document.documentElement.style.setProperty("--dg", legible.g);
   document.documentElement.style.setProperty("--db", legible.b);
+}
+
+
+
+
+
+/* ══════════════ Modal de detalle de oferta (🔥 / momentaneas⏰) — igual que perfil ══════════════ */
+const PROMO_DETAIL_CSS = `
+.promo-detail-modal{
+  position:fixed;inset:0;z-index:10006;
+  background:rgba(2,2,4,.88);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;visibility:hidden;
+  transition:opacity .3s ease, visibility .3s ease;
+}
+.promo-detail-modal.show{opacity:1;visibility:visible;}
+.promo-detail-box{
+  position:relative;width:100%;max-width:560px;max-height:90vh;
+  background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.28);
+  border-bottom:none;border-radius:28px 28px 0 0;overflow:hidden;
+  display:flex;flex-direction:column;transform:translateY(100%);
+  transition:transform .42s cubic-bezier(.22,.85,.32,1);
+  box-shadow:0 -30px 80px -16px rgba(0,0,0,.85), 0 0 60px -14px rgba(var(--dr),var(--dg),var(--db),.4);
+}
+.promo-detail-modal.show .promo-detail-box{transform:translateY(0);}
+.promo-detail-handle{width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.22);margin:12px auto 0;flex-shrink:0;position:relative;z-index:2;}
+.promo-detail-scroll{overflow-y:auto;flex:1;position:relative;z-index:1;}
+.promo-detail-close{
+  position:absolute;top:16px;right:16px;z-index:3;width:38px;height:38px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.5);color:#fff;font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);
+}
+.promo-detail-media{position:relative;width:100%;aspect-ratio:4/3;background:#0d0d0d;flex-shrink:0;margin-top:14px;padding:0 14px;}
+.promo-detail-media-inner{position:relative;width:100%;height:100%;border-radius:20px;overflow:hidden;}
+.promo-detail-media-inner img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .35s ease;}
+.promo-detail-media-inner img.show{opacity:1;}
+.promo-detail-media-inner::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.55) 100%);pointer-events:none;z-index:1;}
+.promo-detail-loader{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;background:#0d0d0d;transition:opacity .25s ease, visibility .25s ease;}
+.promo-detail-loader.hide{opacity:0;visibility:hidden;}
+.promo-detail-loader-card{position:relative;overflow:hidden;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, rgba(var(--dr),var(--dg),var(--db),.18), rgba(var(--dr),var(--dg),var(--db),.05));}
+.promo-detail-loader-spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(var(--dr),var(--dg),var(--db),.25);border-top-color:rgba(var(--dr),var(--dg),var(--db),.95);animation:promoDetailSpin .75s linear infinite;}
+@keyframes promoDetailSpin{to{transform:rotate(360deg);}}
+.promo-detail-expiry{position:absolute;top:14px;left:14px;z-index:3;display:none;padding:.45rem .9rem;border-radius:999px;font-size:.72rem;font-weight:700;background:rgba(20,12,12,.6);color:#fca5a5;border:1px solid rgba(252,165,165,.4);align-items:center;gap:6px;}
+.promo-detail-expiry::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.promo-detail-price{
+  position:absolute;left:14px;bottom:14px;z-index:3;display:none;align-items:center;
+  font-size:20px;font-weight:900;color:#fff;padding:.5rem 1.15rem;border-radius:999px;
+  background:rgba(8,8,10,.55);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 8px 24px -6px rgba(0,0,0,.6);
+}
+.promo-detail-price::before{content:"";width:7px;height:7px;border-radius:50%;background:rgb(var(--dr),var(--dg),var(--db));margin-right:8px;box-shadow:0 0 8px rgb(var(--dr),var(--dg),var(--db));}
+.promo-detail-body{padding:22px 24px 26px;position:relative;z-index:1;}
+.promo-detail-title{font-size:21px;font-weight:800;color:#fff;line-height:1.3;margin:0 0 12px;}
+.promo-detail-desc{font-size:14.5px;line-height:1.7;color:#b0b3bc;white-space:pre-wrap;margin:0 0 20px;}
+.promo-detail-actions{display:flex;align-items:center;gap:10px;}
+.promo-detail-btn{
+  flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:14px 16px;border-radius:16px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;border:none;
+  background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
+  box-shadow:0 10px 24px -8px rgba(var(--dr),var(--dg),var(--db),.5);
+  transition:transform .18s ease, filter .18s ease;
+}
+.promo-detail-btn:hover{transform:translateY(-2px);filter:brightness(1.06);}
+.promo-detail-btn:active{transform:scale(.96);}
+@media (min-width:768px){
+  .promo-detail-modal{align-items:center;padding:28px;}
+  .promo-detail-box{border-radius:30px;max-height:86vh;border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.28);transform:scale(.9) translateY(18px);}
+  .promo-detail-modal.show .promo-detail-box{transform:scale(1) translateY(0);}
+  .promo-detail-handle{display:none;}
+  .promo-detail-media{aspect-ratio:16/8;margin-top:0;padding:0;}
+  .promo-detail-media-inner{border-radius:0;}
+  .promo-detail-body{padding:30px 34px 34px;}
+  .promo-detail-title{font-size:24px;}
+}
+`;
+
+function injectPromoDetailStyles() {
+  if (document.getElementById("promoDetailStyle")) return;
+  const st = document.createElement("style");
+  st.id = "promoDetailStyle";
+  st.textContent = PROMO_DETAIL_CSS;
+  document.head.appendChild(st);
+}
+
+function bindPromoDetailModal() {
+  if (document.getElementById("promoDetailModal")) return;
+  injectPromoDetailStyles();
+  const modal = document.createElement("div");
+  modal.id = "promoDetailModal";
+  modal.className = "promo-detail-modal";
+  modal.innerHTML = `
+  <div class="promo-detail-box">
+    <div class="promo-detail-handle"></div>
+    <div class="promo-detail-scroll">
+      <div class="promo-detail-media">
+        <div class="promo-detail-media-inner">
+          <div class="promo-detail-loader" id="promoDetailLoader">
+            <div class="promo-detail-loader-card"><span class="promo-detail-loader-spinner"></span></div>
+          </div>
+          <span class="promo-detail-expiry" id="promoDetailExpiry"></span>
+          <img id="promoDetailImg" src="" alt="">
+          <span class="promo-detail-price" id="promoDetailPrice"></span>
+        </div>
+        <button class="promo-detail-close" id="promoDetailClose" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="promo-detail-body">
+        <h3 class="promo-detail-title" id="promoDetailTitle"></h3>
+        <p class="promo-detail-desc" id="promoDetailDesc"></p>
+        <div class="promo-detail-actions" id="promoDetailActions">
+          <button class="promo-detail-btn" id="promoDetailAddBtn">🛒 Agregar al carrito</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  document.getElementById("promoDetailClose").addEventListener("click", cerrarPromoDetailModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target.id === "promoDetailModal") cerrarPromoDetailModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) cerrarPromoDetailModal();
+  });
+}
+
+function cerrarPromoDetailModal() {
+  document.getElementById("promoDetailModal")?.classList.remove("show");
+  if (
+    !document.getElementById("checkoutOverlay")?.classList.contains("show") &&
+    !document.getElementById("drawer")?.classList.contains("show") &&
+    !document.getElementById("optionsOverlay")?.classList.contains("show")
+  ) {
+    document.body.style.overflow = "";
+  }
+}
+
+let _promoDetailToken = 0;
+
+function abrirPromoDetailModal(p) {
+  bindPromoDetailModal();
+  const modal = document.getElementById("promoDetailModal");
+  const img = document.getElementById("promoDetailImg");
+  const loader = document.getElementById("promoDetailLoader");
+  const token = ++_promoDetailToken;
+
+  img.classList.remove("show");
+  img.src = "";
+  loader.classList.remove("hide");
+
+  img.onload = () => {
+    if (token !== _promoDetailToken) return;
+    loader.classList.add("hide");
+    img.classList.add("show");
+  };
+  img.onerror = () => {
+    if (token !== _promoDetailToken) return;
+    loader.classList.add("hide");
+  };
+  img.alt = p.nombre || "Oferta";
+  img.src = p.imagen || (p.imagenes && p.imagenes[0]) || "";
+
+  document.getElementById("promoDetailTitle").textContent = p.nombre || "";
+  document.getElementById("promoDetailDesc").textContent = p.descripcion || "";
+
+  const priceEl = document.getElementById("promoDetailPrice");
+  priceEl.textContent = `S/ ${Number(p.precio || 0).toFixed(2)}`;
+  priceEl.style.display = "inline-flex";
+
+  const expiryEl = document.getElementById("promoDetailExpiry");
+  if (p.esOfertaTiempo && p.expiraEn) {
+    expiryEl.textContent = formatVenceOferta(p.expiraEn);
+    expiryEl.style.display = "inline-flex";
+  } else {
+    expiryEl.style.display = "none";
+  }
+
+  const addBtn = document.getElementById("promoDetailAddBtn");
+  addBtn.onclick = () => {
+    addToCart(p);
+    cerrarPromoDetailModal();
+  };
+
+  modal.classList.add("show");
+  document.body.style.overflow = "hidden";
 }
 
 /* ══════════════ Pedido activo de mesa (presencial) ══════════════ */
@@ -1852,7 +2042,7 @@ function productoCard(p, index = 0) {
   }
   const galeria =
     p.imagenes && p.imagenes.length ? p.imagenes : p.imagen ? [p.imagen] : [];
-  if (galeria.length) {
+ if (galeria.length && !(p.esPromo || p.esOfertaTiempo)) { 
     imgWrap.style.cursor = "zoom-in";
     imgWrap.addEventListener("click", () => openProductLightbox(galeria, 0));
     if (galeria.length > 1) {
@@ -1888,6 +2078,14 @@ function productoCard(p, index = 0) {
 
   card.append(imgWrap, info, qtyWrap);
   renderQtyControls(qtyWrap, p);
+  if (p.esPromo || p.esOfertaTiempo) {
+    card.style.cursor = "pointer";
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button")) return; // no interferir con +/- ni "Agregar"
+      abrirPromoDetailModal(p);
+    });
+  }
+
   return card;
 }
 
@@ -3534,15 +3732,17 @@ async function loadOfertasActivas() {
     snap.forEach((docSnap) => {
       const data = docSnap.data();
       const fh = data.datos_hora_fecha || {};
-      const info = data;
+  const info = data.informacion || data; 
 
-      console.log(`[OFERTAS] revisando ${docSnap.id}:`, {
-        estado: data.estado,
-        activo: fh.activo,
-        fecha_fin: fh.fecha_fin,
-        hora_fin: fh.hora_fin,
-        precio_publicacion: info.precio_publicacion,
-      });
+   
+  console.log(`[OFERTAS] revisando ${docSnap.id}:`, {
+    estado: data.estado,
+    activo: fh.activo,
+    fecha_fin: fh.fecha_fin,
+    hora_fin: fh.hora_fin,
+    precio_publicacion: data.precio_publicacion, // ← este sigue en la raíz
+  });
+
 
       if (data.estado !== "activo") {
         console.log(`[OFERTAS] ${docSnap.id} descartada: estado="${data.estado}" (debe ser "activo")`);
@@ -3568,7 +3768,7 @@ async function loadOfertasActivas() {
         return;
       }
 
-      const precio = Number(info.precio_publicacion) || 0;
+const precio = Number(data.precio_publicacion) || 0;
       if (precio <= 0) {
         console.log(`[OFERTAS] ${docSnap.id} descartada: sin precio válido (precio_publicacion="${info.precio_publicacion}")`);
         return;
@@ -3679,7 +3879,17 @@ function renderPromos() {
   grid.appendChild(frag);
   sec.classList.remove("hidden");
 }
-
+function aplicarFiltroInicial() {
+  const existe = catalogoGlobal.some((p) => p.categoria === "momentaneas⏰");
+  if (!existe) {
+    showToast("Ya no hay ofertas del momento disponibles");
+    return;
+  }
+  setActiveCategoria("momentaneas⏰");
+  setTimeout(() => {
+    document.getElementById("lista")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 300);
+}
 // Botón "Comprar" de la landing → llega con ?promo=ID → se agrega sola
 function aplicarPromoDesdeLink(promoId) {
   const p = promosGlobal.find((x) => x.promoId === String(promoId));
@@ -4106,10 +4316,11 @@ renderMetodosPago(biz);
   iniciarValidacionHorarioEnVivo();
   iniciarValidacionOfertasEnVivo();
 
-  if (promoParam) aplicarPromoDesdeLink(promoParam);
+   if (promoParam) aplicarPromoDesdeLink(promoParam);
+  if (filtroInicialParam === "ofertas") aplicarFiltroInicial(); // ← AGREGAR
   if (carritoRestaurado && usuarioLogeado) {
     showToast("Sesión iniciada, continúa con tu pedido 🛒");
-    if (!mesaId) openCheckout(); // en modo mesa no se envía solo, que toque "Llamar al mozo"
+    if (!mesaId) openCheckout();
   }
 }
 init();

@@ -1061,9 +1061,9 @@ function listenActivePromosRealtime({ localidad, id }) {
         promos.push({ id: docSnap.id, ...data, _finMs: finMs });
       });
 
-      promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
-      console.log(`🟢 Total promos que pasaron el filtro: ${promos.length}`);
-      renderActivePromos(promos.slice(0, 4), localidad);
+ promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
+console.log(`🟢 Total promos que pasaron el filtro: ${promos.length}`);
+renderActivePromos(promos.slice(0, 5), localidad);
     });
   } catch (e) {
     console.warn("No se pudieron escuchar promociones activas:", e.message);
@@ -2115,6 +2115,7 @@ function renderActivePromos(promos, localidad) {
   }
 
   sec.style.display = "";
+    ensurePromosActivasHeader();
   grid.innerHTML = "";
   _navState.ofertas = true;
   updateQuickNav();
@@ -2221,6 +2222,46 @@ card.addEventListener("click", (e) => {
       }
     });
   });
+}
+function urlCarritoFiltro(filtro) {
+  const aliasKey = _params.alias || _bizAliasKey;
+  const base = _esDominioPersonalizado
+    ? "/carrito"
+    : aliasKey
+      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+      : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
+  return `${base}${base.includes("?") ? "&" : "?"}filtro=${encodeURIComponent(filtro)}`;
+}
+
+function ensurePromosActivasHeader() {
+  const sec = document.getElementById("secPromosActivas");
+  if (!sec || document.getElementById("promosActivasVerTodas")) return;
+
+  injectPromoBuyStyles();
+
+  // Busca el título "Ofertas del momento". Si tu título tiene otra
+  // etiqueta/clase distinta y esto no lo encuentra, dime cuál es
+  // el HTML exacto de esa sección y ajusto el selector.
+  let heading = [...sec.querySelectorAll("h1,h2,h3,h4,p")].find((el) =>
+    el.textContent.trim().toLowerCase().includes("ofertas del momento"),
+  );
+  if (!heading) heading = sec.querySelector("h2, h3") || sec.firstElementChild;
+  if (!heading) return;
+
+  let headerRow = heading.parentElement;
+  if (!headerRow || !headerRow.classList.contains("promos-activas-header-row")) {
+    headerRow = document.createElement("div");
+    headerRow.className = "promos-activas-header-row";
+    heading.parentElement.insertBefore(headerRow, heading);
+    headerRow.appendChild(heading);
+  }
+
+  const verTodas = document.createElement("a");
+  verTodas.id = "promosActivasVerTodas";
+  verTodas.className = "promos-activas-ver-todas";
+  verTodas.innerHTML = `Ver todas <span aria-hidden="true">→</span>`;
+  verTodas.href = urlCarritoFiltro("ofertas");
+  headerRow.appendChild(verTodas);
 }
 // ══════════════════════════════════════════
 //  NORMALIZADORES
@@ -6617,6 +6658,29 @@ function injectPromoBuyStyles() {
     .promo-icon-circle:hover{ transform:translateY(-2px) scale(1.05); filter:brightness(1.08); }
     .promo-icon-wa{ background:#25D366; }
     .promo-icon-share-circle{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); }
+    .promos-activas-header-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.promos-activas-ver-todas{
+  flex-shrink:0;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:13px;
+  font-weight:700;
+  color:rgb(var(--dr),var(--dg),var(--db));
+  text-decoration:none;
+  padding:6px 4px;
+  transition:transform .15s ease, opacity .15s ease;
+}
+.promos-activas-ver-todas:hover{
+  transform:translateX(3px);
+  opacity:.85;
+}
   `;
   document.head.appendChild(st);
 }
