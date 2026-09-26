@@ -1061,9 +1061,9 @@ function listenActivePromosRealtime({ localidad, id }) {
         promos.push({ id: docSnap.id, ...data, _finMs: finMs });
       });
 
- promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
-console.log(`🟢 Total promos que pasaron el filtro: ${promos.length}`);
-renderActivePromos(promos.slice(0, 5), localidad);
+      promos.sort((a, b) => (a._finMs || Infinity) - (b._finMs || Infinity));
+      console.log(`🟢 Total promos que pasaron el filtro: ${promos.length}`);
+      renderActivePromos(promos.slice(0, 5), localidad);
     });
   } catch (e) {
     console.warn("No se pudieron escuchar promociones activas:", e.message);
@@ -2115,11 +2115,11 @@ function renderActivePromos(promos, localidad) {
   }
 
   sec.style.display = "";
-    ensurePromosActivasHeader();
+  ensurePromosActivasHeader();
   grid.innerHTML = "";
   _navState.ofertas = true;
   updateQuickNav();
-  injectPromoBuyStyles(); // ← NUEVO (ya existe en tu archivo, reutilizado)
+  injectPromoBuyStyles();
 
   promos.forEach((p) => {
     const info = p.informacion || p;
@@ -2130,8 +2130,7 @@ function renderActivePromos(promos, localidad) {
 
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
-    const precio = Number(p.precio_publicacion) || 0; // ← FIX: precio_publicacion vive en la raíz del doc, no dentro de "informacion"
-    console.log(`[BOTON COMPRAR] Promo ${p.id}: precio_publicacion="${p.precio_publicacion}" → precio final=${precio}`);
+    const precio = Number(p.precio_publicacion) || 0;
     const waMsg =
       p.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
       "Hola, quiero esta oferta que vi en Geinz";
@@ -2145,13 +2144,9 @@ function renderActivePromos(promos, localidad) {
         )}`
       : null;
 
-    // ── NUEVO: link de compra, solo si tiene precio ──
-    const comprarHref =
-      precio > 0
-        ? urlCarritoPromo(`activa_${p.id}`, { alias_key: _bizAliasKey })
-        : null;
+    const puedeComprarPromo = precio > 0;
 
-      const card = document.createElement("div");
+    const card = document.createElement("div");
     card.className = "promo-active-card";
     card.innerHTML = `
       <div class="promo-active-img-wrap">
@@ -2162,13 +2157,13 @@ function renderActivePromos(promos, localidad) {
         <h3 class="promo-active-title">${info.titulo || ""}</h3>
         <p class="promo-active-desc">${info.descripcion || ""}</p>
         <div class="promo-active-actions">
-          ${comprarHref ? `<a class="promo-btn-buy-icon" href="${comprarHref}" aria-label="Comprar">
+          ${puedeComprarPromo ? `<button type="button" class="promo-btn-buy-icon" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
               <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
             </svg>
-            <span>Comprar</span>
-          </a>` : ""}
+           
+          </button>` : ""}
           ${waLink ? `<a class="promo-icon-circle promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
             <i class="fa-brands fa-whatsapp"></i>
           </a>` : ""}
@@ -2190,21 +2185,29 @@ function renderActivePromos(promos, localidad) {
       },
     });
     imgWrapContainer.prepend(imgWrap);
-card.style.cursor = "pointer";
-card.addEventListener("click", (e) => {
-  if (e.target.closest("a, button")) return; // no interferir con comprar/wa/compartir
-  openPromoDetailModal({
-    img,
-    titulo: info.titulo,
-    descripcion: info.descripcion,
-    precio,
-    expiry,
-    comprarHref,
-    waLink,
-    shareUrl,
-    shareMsg,
-  });
-});
+
+    const onComprarEstaPromo = puedeComprarPromo
+      ? () => agregarAlCarritoPerfil({ promoId: p.id, nombre: info.titulo, precio, imagen: img })
+      : null;
+
+    card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onComprarEstaPromo();
+    });
+
+    card.style.cursor = "pointer";
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("a, button")) return;
+      openPromoDetailModal({
+        img,
+        titulo: info.titulo,
+        descripcion: info.descripcion,
+        precio,
+        onComprar: onComprarEstaPromo,
+        shareUrl,
+        shareMsg,
+      });
+    });
     grid.appendChild(card);
   });
 
@@ -2662,17 +2665,26 @@ function updateQuickNav() {
       label: "Carta digital",
       target: "secCarta",
     },
+    _navState.metodos && {
+      emoji: "💳",
+      label: "Métodos y más",
+      target: "__metodos",
+    },
   ].filter(Boolean);
 
   items.forEach(({ emoji, label, target }) => {
     const btn = document.createElement("button");
     btn.className = "nav-chip";
     btn.innerHTML = `<span class="emoji">${emoji}</span> ${label}`;
-    btn.addEventListener("click", () =>
+    btn.addEventListener("click", () => {
+      if (target === "__metodos") {
+        abrirMetodosModal();
+        return;
+      }
       document
         .getElementById(target)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    );
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     row.appendChild(btn);
   });
 }
@@ -3562,15 +3574,19 @@ function openPromoDetailModal(data) {
 
   const actionsEl = document.getElementById("promoDetailActions");
   actionsEl.innerHTML = `
-    ${data.comprarHref ? `<a class="promo-detail-btn promo-detail-btn-buy" href="${data.comprarHref}">🛒 Comprar</a>` : ""}
+    ${data.onComprar ? `<button type="button" class="promo-detail-btn promo-detail-btn-buy" id="promoDetailBuyBtn">🛒 Comprar</button>` : ""}
     ${data.shareUrl ? `<button class="promo-detail-btn promo-detail-btn-share" id="promoDetailShareBtn">📤 Compartir</button>` : ""}
   `;
+  document.getElementById("promoDetailBuyBtn")?.addEventListener("click", () => {
+    data.onComprar();
+    closePromoDetailModal();
+  });
   const shareBtn = document.getElementById("promoDetailShareBtn");
   if (shareBtn) {
     shareBtn.addEventListener("click", async () => {
       const fullText = `${data.shareMsg || "Mira esta promo en Geinz 🎁"}\n${data.shareUrl}`;
       if (navigator.share) {
-        try { await navigator.share({ text: fullText }); } catch (e) {}
+        try { await navigator.share({ text: fullText }); } catch (e) { }
       } else {
         copyToClipboard(fullText);
       }
@@ -3752,7 +3768,7 @@ function showPromoBanner(biz) {
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-    bannerImg.onerror = () => {};
+    bannerImg.onerror = () => { };
     bannerImg.src = banner.imagen;
   }
 }
@@ -4267,11 +4283,384 @@ function lightboxPrev() {
 
 // ── Variables globales ──
 let _params = {};
+let _perfilCarritoItems = []; // [{promoId, nombre, precio, imagen, cantidad}]
+let _pagosCache = [];
+let _amenitiesCache = [];
+const PERFIL_CART_CSS = `
+.perfil-cart-float-btn{
+  position:fixed; bottom:calc(24px + env(safe-area-inset-bottom,0px)); left:calc(24px + env(safe-area-inset-left,0px));
+  z-index:9500; display:flex; align-items:center; gap:8px;
+  padding:14px 20px; border-radius:999px; border:none; cursor:pointer;
+  font-weight:800; font-size:13.5px; color:#fff;
+  background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
+  box-shadow:0 10px 30px -6px rgba(var(--dr),var(--dg),var(--db),.55);
+}
+.perfil-cart-popup{
+  position:fixed; inset:0; z-index:10007;
+  background:rgba(3,3,3,.55);
+  -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
+  display:flex; align-items:flex-end; justify-content:center;
+  opacity:0; visibility:hidden;
+  transition:opacity .3s ease, visibility .3s ease, backdrop-filter .4s ease, -webkit-backdrop-filter .4s ease;
+  will-change:opacity, backdrop-filter;
+  padding:0;
+}
+.perfil-cart-popup.open{
+  opacity:1; visibility:visible;
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+}
+.perfil-cart-box{
+  width:100%; max-width:480px; max-height:calc(100dvh - 40px); background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.3);
+  border-radius:26px 26px 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));
+  opacity:0;
+  transform:translateY(26px) scale(.97);
+  transition:transform .42s cubic-bezier(.22,.85,.32,1), opacity .3s ease;
+  will-change:transform;
+  overflow-y:auto;
+  box-shadow:0 -25px 60px -14px rgba(0,0,0,.7), 0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.3);
+}
+.perfil-cart-popup.open .perfil-cart-box{ opacity:1; transform:translateY(0) scale(1); }
+.pcp-item{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.06); }
+.pcp-item img{ width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0; background:#111; }
+.pcp-item-info{ flex:1; min-width:0; }
+.pcp-item-info .nombre{ font-size:13.5px; font-weight:700; color:#fff; }
+.pcp-item-info .precio{ font-size:12px; color:var(--muted,#9c9ca3); }
+.pcp-qty{ display:flex; align-items:center; gap:8px; }
+.pcp-qty button{ width:26px; height:26px; border-radius:8px; border:none; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; font-weight:700; }
+.pcp-total-row{ display:flex; justify-content:space-between; font-weight:800; color:#fff; padding:14px 0; border-top:1px solid rgba(255,255,255,.08); margin-top:6px; }
+.pcp-btn-go{ width:100%; padding:14px; border:none; border-radius:14px; font-weight:800; color:#fff; cursor:pointer; background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7)); }
+.pcp-btn-vaciar{ width:100%; padding:11px; margin-top:8px; border-radius:12px; border:1px solid rgba(255,107,107,.4); background:rgba(255,107,107,.08); color:#ff6b6b; font-weight:700; cursor:pointer; }
+
+/* ── PC / desktop: sidebar lateral en vez de bottom sheet ── */
+@media (min-width:1024px){
+  .perfil-cart-popup{
+    align-items:stretch;
+    justify-content:flex-end;
+  }
+  .perfil-cart-box{
+    width:100%;
+    max-width:400px;
+    max-height:100vh;
+    height:100%;
+    border-radius:24px 0 0 24px;
+    padding:24px 22px calc(24px + env(safe-area-inset-bottom,0px));
+    transform:translateX(40px) scale(1);
+    box-shadow:-25px 0 60px -14px rgba(0,0,0,.7), 0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.3);
+  }
+  .perfil-cart-popup.open .perfil-cart-box{
+    transform:translateX(0) scale(1);
+  }
+}
+`;
+
+const METODOS_MODAL_CSS = `
+.metodos-modal{
+  position:fixed;inset:0;z-index:10008;
+  background:rgba(3,3,3,.55);
+  -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;visibility:hidden;
+  transition:opacity .3s ease, visibility .3s ease, backdrop-filter .4s ease, -webkit-backdrop-filter .4s ease;
+  padding:0;
+}
+.metodos-modal.open{
+  opacity:1;visibility:visible;
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+}
+.metodos-modal-box{
+  width:100%;max-width:560px;max-height:calc(100dvh - 40px);
+  background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.28);
+  border-radius:26px 26px 0 0;
+  overflow-y:auto;
+  opacity:0;
+  transform:translateY(26px) scale(.97);
+  transition:transform .42s cubic-bezier(.22,.85,.32,1), opacity .3s ease;
+  will-change:transform;
+  box-shadow:0 -25px 60px -14px rgba(0,0,0,.7), 0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.3);
+  padding:24px 24px calc(22px + env(safe-area-inset-bottom,0px));
+}
+.metodos-modal.open .metodos-modal-box{ opacity:1; transform:translateY(0) scale(1); }
+
+.metodos-modal-header{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:22px;
+}
+.metodos-modal-title{ font-size:19px; font-weight:800; color:#fff; margin:0; }
+.metodos-modal-close{
+  width:34px;height:34px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:background .2s ease, transform .15s ease;
+}
+.metodos-modal-close:hover{ background:rgba(255,255,255,.16); transform:scale(1.06); }
+
+.metodos-modal-section{ margin-bottom:26px; }
+.metodos-modal-section:last-child{ margin-bottom:0; }
+.metodos-modal-subtitle{
+  font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:rgba(var(--dr),var(--dg),var(--db),.95);
+  margin:0 0 14px;
+}
+
+@media (min-width:768px){
+  .metodos-modal{ align-items:center; padding:28px; }
+  .metodos-modal-box{
+    border-radius:28px;
+    transform:translateY(18px) scale(.94);
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.8), 0 0 50px -12px rgba(var(--dr),var(--dg),var(--db),.35);
+    padding:28px 30px 30px;
+  }
+  .metodos-modal.open .metodos-modal-box{ transform:translateY(0) scale(1); }
+}
+`;
+
+function injectMetodosModalStyles() {
+  if (document.getElementById("metodosModalStyle")) return;
+  const st = document.createElement("style");
+  st.id = "metodosModalStyle";
+  st.textContent = METODOS_MODAL_CSS;
+  document.head.appendChild(st);
+}
+
+function pintarMetodosModal() {
+  const payWrap = document.getElementById("metodosPayGrid");
+  const amenWrap = document.getElementById("metodosAmenitiesGrid");
+  const paySection = document.getElementById("metodosPaySection");
+  const amenSection = document.getElementById("metodosAmenitiesSection");
+  if (!payWrap || !amenWrap) return;
+
+  payWrap.innerHTML = "";
+  if (_pagosCache.length) {
+    paySection.style.display = "";
+    _pagosCache.forEach(({ label, icon }) => {
+      const chip = document.createElement("div");
+      chip.className = "pay-chip";
+      chip.innerHTML = `<img src="${icon}" alt="${label}" style="width:30px;height:30px;object-fit:cover;border-radius:50%;margin-right:6px;vertical-align:middle;"> ${label}`;
+      payWrap.appendChild(chip);
+    });
+  } else {
+    paySection.style.display = "none";
+  }
+
+  amenWrap.innerHTML = "";
+  if (_amenitiesCache.length) {
+    amenSection.style.display = "";
+    _amenitiesCache.forEach(({ name, icon }) => {
+      const chip = document.createElement("div");
+      chip.className = "pay-chip";
+      chip.innerHTML = `<span>${icon}</span> ${name}`;
+      amenWrap.appendChild(chip);
+    });
+  } else {
+    amenSection.style.display = "none";
+  }
+}
+
+function abrirMetodosModal() {
+  injectMetodosModalStyles();
+  let modal = document.getElementById("metodosModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "metodosModal";
+    modal.className = "metodos-modal";
+    modal.innerHTML = `
+      <div class="metodos-modal-box">
+        <div class="metodos-modal-header">
+          <h3 class="metodos-modal-title">Métodos y servicios</h3>
+          <button class="metodos-modal-close" id="metodosModalClose" aria-label="Cerrar">✕</button>
+        </div>
+        <div id="metodosPaySection" class="metodos-modal-section">
+          <h4 class="metodos-modal-subtitle">💳 Métodos de pago</h4>
+          <div id="metodosPayGrid" class="flex flex-wrap gap-4"></div>
+        </div>
+        <div id="metodosAmenitiesSection" class="metodos-modal-section">
+          <h4 class="metodos-modal-subtitle">🛋️ Servicios y comodidades</h4>
+          <div id="metodosAmenitiesGrid" class="flex flex-wrap gap-4"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    modal.addEventListener("click", (e) => {
+      if (e.target.id === "metodosModal") cerrarMetodosModal();
+    });
+    document
+      .getElementById("metodosModalClose")
+      .addEventListener("click", cerrarMetodosModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open"))
+        cerrarMetodosModal();
+    });
+  }
+
+  pintarMetodosModal();
+
+  modal.classList.remove("open");
+  void modal.offsetHeight;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      modal.classList.add("open");
+    });
+  });
+
+  document.body.style.overflow = "hidden";
+}
+
+function cerrarMetodosModal() {
+  document.getElementById("metodosModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+function injectPerfilCartStyles() {
+  if (document.getElementById("perfilCartStyle")) return;
+  const st = document.createElement("style");
+  st.id = "perfilCartStyle";
+  st.textContent = PERFIL_CART_CSS;
+  document.head.appendChild(st);
+}
+
+function agregarAlCarritoPerfil({ promoId, nombre, precio, imagen }) {
+  const existente = _perfilCarritoItems.find((i) => i.promoId === promoId);
+  if (existente) existente.cantidad += 1;
+  else _perfilCarritoItems.push({ promoId, nombre, precio, imagen, cantidad: 1 });
+  renderPerfilCartFloat();
+  showToast(`${nombre || "Producto"} agregado 🛒`);
+}
+
+function renderPerfilCartFloat() {
+  const count = _perfilCarritoItems.reduce((s, i) => s + i.cantidad, 0);
+  let btn = document.getElementById("perfilCartFloatBtn");
+  if (!count) {
+    btn?.remove();
+    return;
+  }
+  injectPerfilCartStyles();
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "perfilCartFloatBtn";
+    btn.type = "button";
+    btn.className = "perfil-cart-float-btn";
+    btn.addEventListener("click", abrirPerfilCartPopup);
+    document.body.appendChild(btn);
+  }
+  const total = _perfilCarritoItems.reduce((s, i) => s + i.cantidad * i.precio, 0);
+  btn.innerHTML = `🛒 ${count} · S/ ${total.toFixed(2)}`;
+}
+
+function abrirPerfilCartPopup() {
+  injectPerfilCartStyles();
+  let modal = document.getElementById("perfilCartPopup");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "perfilCartPopup";
+    modal.className = "perfil-cart-popup";
+    modal.innerHTML = `<div class="perfil-cart-box" id="perfilCartBox"></div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener("click", (e) => {
+      if (e.target.id === "perfilCartPopup") cerrarPerfilCartPopup();
+    });
+  }
+  pintarPerfilCartPopup();
+
+  // Aseguramos que arranque en estado "cerrado" pintado de verdad
+  modal.classList.remove("open");
+  void modal.offsetHeight; // fuerza reflow/paint del estado inicial
+
+  // Doble rAF: el primero espera al próximo frame,
+  // el segundo garantiza que ese frame YA se pintó antes de animar
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      modal.classList.add("open");
+    });
+  });
+
+  document.body.style.overflow = "hidden";
+}
+
+function cerrarPerfilCartPopup() {
+  document.getElementById("perfilCartPopup")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function pintarPerfilCartPopup() {
+  const box = document.getElementById("perfilCartBox");
+  if (!box) return;
+  const total = _perfilCarritoItems.reduce((s, i) => s + i.cantidad * i.precio, 0);
+  box.innerHTML = `
+    <h3 style="color:#fff;font-weight:800;font-size:17px;margin:0 0 14px;">Tu selección</h3>
+    <div id="pcpItems"></div>
+    <div class="pcp-total-row"><span>Total</span><span>S/ ${total.toFixed(2)}</span></div>
+    <button class="pcp-btn-go" id="pcpBtnGo">Ir al carrito a pagar</button>
+    <button class="pcp-btn-vaciar" id="pcpBtnVaciar">Vaciar selección</button>
+  `;
+  const itemsWrap = box.querySelector("#pcpItems");
+  _perfilCarritoItems.forEach((it, idx) => {
+    const row = document.createElement("div");
+    row.className = "pcp-item";
+    row.innerHTML = `
+      <img src="${it.imagen || ""}" alt="">
+      <div class="pcp-item-info">
+        <div class="nombre">${escapeHtml(it.nombre)}</div>
+        <div class="precio">S/ ${it.precio.toFixed(2)} c/u</div>
+      </div>
+      <div class="pcp-qty">
+        <button data-minus>−</button>
+        <span>${it.cantidad}</span>
+        <button data-plus>+</button>
+      </div>`;
+    row.querySelector("[data-minus]").addEventListener("click", () => {
+      it.cantidad -= 1;
+      if (it.cantidad <= 0) _perfilCarritoItems.splice(idx, 1);
+      renderPerfilCartFloat();
+      pintarPerfilCartPopup();
+      if (!_perfilCarritoItems.length) cerrarPerfilCartPopup();
+    });
+    row.querySelector("[data-plus]").addEventListener("click", () => {
+      it.cantidad += 1;
+      renderPerfilCartFloat();
+      pintarPerfilCartPopup();
+    });
+    itemsWrap.appendChild(row);
+  });
+
+  box.querySelector("#pcpBtnGo").addEventListener("click", irACarritoConPerfil);
+  box.querySelector("#pcpBtnVaciar").addEventListener("click", () => {
+    _perfilCarritoItems = [];
+    renderPerfilCartFloat();
+    cerrarPerfilCartPopup();
+  });
+}
+
+function urlCarritoBase() {
+  const aliasKey = _params.alias || _bizAliasKey;
+  return _esDominioPersonalizado
+    ? "/carrito"
+    : aliasKey
+      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+      : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
+}
+
+function irACarritoConPerfil() {
+  if (!_perfilCarritoItems.length) return;
+  try {
+    sessionStorage.setItem(
+      `geinz_perfil_cart_pending_${_params.id}`,
+      JSON.stringify({
+        items: _perfilCarritoItems.map((i) => ({ promoId: i.promoId, cantidad: i.cantidad })),
+        ts: Date.now(),
+      }),
+    );
+  } catch (e) {
+    console.warn("No se pudo guardar la selección:", e.message);
+  }
+  window.location.href = urlCarritoBase();
+}
 let _navState = {
   ofertas: false,
   productos: false,
   ambientes: false,
   carta: false,
+  metodos: false,
 };
 
 let _schedInterval = null; // evitar setInterval duplicados
@@ -4607,28 +4996,13 @@ async function render(biz, isInitial = true) {
   // Contactos (NO tiempo real)
   if (isInitial && contactos.length) renderContactDetail(contactos);
 
-  // Pagos (SÍ tiempo real)
-  const payGrid = document.getElementById("payGrid");
-  if (payGrid && pagos.length) {
-    payGrid.innerHTML = "";
-    pagos.forEach(({ label, icon }) => {
-      const chip = document.createElement("div");
-      chip.className = "pay-chip";
-      chip.innerHTML = `<img src="${icon}" alt="${label}" style="width:30px;height:30px;object-fit:cover;border-radius:50%;margin-right:6px;vertical-align:middle;"> ${label}`;
-      payGrid.appendChild(chip);
-    });
-  }
-
-  // Amenities / servicios y comodidades (NO tiempo real)
-  const amenitiesGrid = document.getElementById("amenitiesGrid");
-  if (isInitial && amenitiesGrid && amenities.length) {
-    amenitiesGrid.innerHTML = "";
-    amenities.forEach(({ name, icon }) => {
-      const chip = document.createElement("div");
-      chip.className = "pay-chip";
-      chip.innerHTML = `<span>${icon}</span> ${name}`;
-      amenitiesGrid.appendChild(chip);
-    });
+  // Métodos de pago + servicios/comodidades → viven en el chip "Métodos y más"
+  _pagosCache = pagos;
+  if (isInitial) _amenitiesCache = esPresencial ? amenities : [];
+  _navState.metodos = _pagosCache.length > 0 || _amenitiesCache.length > 0;
+  updateQuickNav();
+  if (document.getElementById("metodosModal")?.classList.contains("open")) {
+    pintarMetodosModal();
   }
 
   // Carrito de perfil (hasta 20 productos elegidos en el dashboard)
@@ -4757,24 +5131,22 @@ async function render(biz, isInitial = true) {
       const shareBase = biz.alias_key
         ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
         : `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
-      const comprarHref =
-        promo.precio > 0 ? urlCarritoPromo(promo.id, biz) : null;
+      const puedeComprarPromo = promo.precio > 0;
 
       const card = document.createElement("div");
       card.className = "promo-card";
       card.innerHTML = `
         <div class="promo-card-img-wrap">
           <div class="promo-card-top-actions">
-            ${
-              comprarHref
-                ? `<a class="promo-icon-btn promo-icon-buy" href="${comprarHref}" aria-label="Comprar">
+            ${puedeComprarPromo
+          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
-            </a>`
-                : ""
-            }
+            </button>`
+          : ""
+        }
             <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -4782,15 +5154,14 @@ async function render(biz, isInitial = true) {
               </svg>
             </button>
           </div>
-          ${
-            promo.precio > 0 || promo.descripcion
-              ? `
+          ${promo.precio > 0 || promo.descripcion
+          ? `
           <div class="promo-card-bottom-overlay">
             ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
             ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
           </div>`
-              : ""
-          }
+          : ""
+        }
         </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -4798,19 +5169,29 @@ async function render(biz, isInitial = true) {
         alt: promo.titulo,
       });
       imgWrapContainer.prepend(imgWrap);
+
+      const onComprarEstaPromo = puedeComprarPromo
+        ? () => agregarAlCarritoPerfil({ promoId: promo.id, nombre: promo.titulo, precio: promo.precio, imagen: promo.url })
+        : null;
+
+      card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onComprarEstaPromo();
+      });
+
       card.style.cursor = "pointer";
-card.addEventListener("click", (e) => {
-  if (e.target.closest("a, button")) return;
-  openPromoDetailModal({
-    img: promo.url,
-    titulo: promo.titulo,
-    descripcion: promo.descripcion,
-    precio: promo.precio,
-    comprarHref,
-    shareUrl: shareBase,
-    shareMsg: `Mira lo que encontre en ${nombre} 👀🔥`,
-  });
-});
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("a, button")) return;
+        openPromoDetailModal({
+          img: promo.url,
+          titulo: promo.titulo,
+          descripcion: promo.descripcion,
+          precio: promo.precio,
+          onComprar: onComprarEstaPromo,
+          shareUrl: shareBase,
+          shareMsg: `Mira lo que encontre en ${nombre} 👀🔥`,
+        });
+      });
       promoCarousel.appendChild(card);
     });
     promoCarousel.querySelectorAll(".promo-icon-share").forEach((btn) => {
@@ -4820,7 +5201,7 @@ card.addEventListener("click", (e) => {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) {}
+          } catch (e) { }
         else copyToClipboard(fullText);
       });
     });
@@ -4831,7 +5212,7 @@ card.addEventListener("click", (e) => {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) {}
+          } catch (e) { }
         else copyToClipboard(fullText);
       });
     });
@@ -4842,7 +5223,7 @@ card.addEventListener("click", (e) => {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) {}
+          } catch (e) { }
         else copyToClipboard(fullText);
       });
     });
@@ -4895,14 +5276,9 @@ card.addEventListener("click", (e) => {
       document
         .getElementById("secContact")
         ?.style.setProperty("display", "none");
-    if (!amenities.length)
-      document
-        .getElementById("secAmenities")
-        ?.style.setProperty("display", "none");
+ 
+
   }
-  if (!pagos.length)
-    document.getElementById("secPay")?.style.setProperty("display", "none");
-  else document.getElementById("secPay")?.style.setProperty("display", "");
 
   const exploreBtn = document.getElementById("exploreBtn");
   if (exploreBtn) {
@@ -5511,8 +5887,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-        .toDate()
-        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+      .toDate()
+      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -6064,10 +6440,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
       : "";
     const respuestaHTML = respuestaTexto
       ? `

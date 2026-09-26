@@ -4283,7 +4283,34 @@ function guardarCarritoParaLogin() {
     console.warn("No se pudo guardar el carrito antes del login:", e.message);
   }
 }
+const PERFIL_CART_PENDING_KEY = () => `geinz_perfil_cart_pending_${tiendaId}`;
 
+async function aplicarCarritoDesdePerfil() {
+  let data = null;
+  try {
+    const raw = sessionStorage.getItem(PERFIL_CART_PENDING_KEY());
+    if (!raw) return false;
+    sessionStorage.removeItem(PERFIL_CART_PENDING_KEY());
+    data = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  if (!data || !Array.isArray(data.items) || !data.items.length) return false;
+  if (Date.now() - (data.ts || 0) > 30 * 60 * 1000) return false; // caduca a los 30 min
+
+  // Limpia lo que hubiera antes de traer la nueva selección
+  carrito.clear();
+  cuponAplicado = null;
+
+  let agregoAlgo = false;
+  data.items.forEach(({ promoId, cantidad }) => {
+    const p = promosGlobal.find((x) => x.promoId === String(promoId));
+    if (!p) return;
+    for (let i = 0; i < (cantidad || 1); i++) addToCart(p);
+    agregoAlgo = true;
+  });
+  return agregoAlgo;
+}
 // Reconstruye el carrito desde el catálogo ACTUAL (precio y stock frescos)
 async function restaurarCarritoTrasLogin() {
   let data = null;
@@ -4474,8 +4501,13 @@ renderMetodosPago(biz);
   iniciarValidacionOfertasEnVivo();
   iniciarValidacionDescuentosEnVivo();
 
-   if (promoParam) aplicarPromoDesdeLink(promoParam);
-  if (filtroInicialParam === "ofertas") aplicarFiltroInicial(); // ← AGREGAR
+   const carritoDesdePerfil = await aplicarCarritoDesdePerfil();
+   if (carritoDesdePerfil) {
+     showToast("Tu selección se agregó al carrito 🛒");
+   } else if (promoParam) {
+     aplicarPromoDesdeLink(promoParam);
+   }
+  if (filtroInicialParam === "ofertas") aplicarFiltroInicial();
   if (carritoRestaurado && usuarioLogeado) {
     showToast("Sesión iniciada, continúa con tu pedido 🛒");
     if (!mesaId) openCheckout();
