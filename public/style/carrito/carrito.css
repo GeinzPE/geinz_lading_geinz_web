@@ -1069,3 +1069,12 @@ body {
 #filtros::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+
+.prod-descuento-badge {
+  position: absolute; top: 8px; left: 8px; z-index: 3;
+  min-width: 34px; height: 34px; border-radius: 50%;
+  background: #e11d48; color: #fff; font-weight: 900; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(225,29,72,.5); border: 2px solid rgba(0,0,0,.4);
+}

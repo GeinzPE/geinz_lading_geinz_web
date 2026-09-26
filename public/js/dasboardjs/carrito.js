@@ -369,7 +369,47 @@ function applyColor({ r, g, b }) {
 }
 
 
+const DIAS_DESCUENTO = ["domingo","lunes","martes","miercoles","jueves","viernes","sabado"];
 
+function parseFechaISOaMsLima(fechaISO, horaStr) {
+  if (!fechaISO) return null;
+  const [y, m, d] = fechaISO.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const [hh, mm] = (horaStr || "23:59").split(":").map(Number);
+  const limaOffsetMs = -5 * 60 * 60 * 1000;
+  const fechaUTC = Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0);
+  return fechaUTC - limaOffsetMs;
+}
+
+// Devuelve { porcentaje, expiraEn } si el descuento está vigente AHORA, o null si no aplica.
+function descuentoVigente(descuento, ahora = new Date()) {
+  if (!descuento || !descuento.activo) return null;
+  const porcentaje = Number(descuento.porcentaje) || 0;
+  if (porcentaje <= 0) return null;
+
+  if (descuento.modo === "dias_semana") {
+    const dias = descuento.dias || [];
+    if (!dias.includes(DIAS_DESCUENTO[ahora.getDay()])) return null;
+    return { porcentaje, expiraEn: null };
+  }
+
+  if (descuento.modo === "duracion") {
+    const expiraEn = Number(descuento.expiraEn) || 0;
+    if (!expiraEn || ahora.getTime() >= expiraEn) return null;
+    return { porcentaje, expiraEn };
+  }
+
+  if (descuento.modo === "fecha") {
+    const finMs = parseFechaISOaMsLima(descuento.fechaFin, descuento.horaFin || "23:59");
+    if (!finMs || ahora.getTime() >= finMs) return null;
+    if (descuento.fechaInicio) {
+      const inicioMs = parseFechaISOaMsLima(descuento.fechaInicio, "00:00");
+      if (inicioMs && ahora.getTime() < inicioMs) return null;
+    }
+    return { porcentaje, expiraEn: finMs };
+  }
+  return null;
+}
 
 
 /* ══════════════ Modal de detalle de oferta (🔥 / momentaneas⏰) — igual que perfil ══════════════ */
@@ -1449,6 +1489,7 @@ async function loadProductosCatalogo(biz) {
                 descripcion: d.puntos.descripcion || "",
               }
               : null,
+              descuento: d.descuento || null,
         });
       });
       return arr;
@@ -2022,6 +2063,8 @@ function productoCard(p, index = 0) {
     (productoEnCarrito(p.id) ? " in-cart" : "");
   card.style.animationDelay = `${Math.min(index, 12) * 30}ms`;
 
+  const descInfoCard = descuentoVigente(p.descuento);
+
   const imgWrap = document.createElement("div");
   imgWrap.className = "prod-img-wrap";
   if (p.imagen) {
@@ -2040,6 +2083,11 @@ function productoCard(p, index = 0) {
   } else {
     imgWrap.classList.add("no-img");
     imgWrap.appendChild(createLogoPlaceholderEl());
+  }  if (descInfoCard) {
+    const badge = document.createElement("span");
+    badge.className = "prod-descuento-badge";
+    badge.textContent = `-${descInfoCard.porcentaje}%`;
+    imgWrap.appendChild(badge);
   }
   const galeria =
     p.imagenes && p.imagenes.length ? p.imagenes : p.imagen ? [p.imagen] : [];
@@ -2060,10 +2108,13 @@ function productoCard(p, index = 0) {
     .map((c) => `${c.nombre}: ${c.opciones.map((o) => o.nombre).join(", ")}`)
     .join(" · ");
   const countdownTxt = p.esOfertaTiempo && p.expiraEn ? formatVenceOferta(p.expiraEn) : "";
+  const precioHTML = descInfoCard
+    ? `<span class="text-gray-500 line-through text-[11px] mr-1.5">S/ ${p.precio.toFixed(2)}</span><span class="display font-extrabold text-[14px] sm:text-[15px]" style="color:#fb7185;">S/ ${(p.precio * (1 - descInfoCard.porcentaje / 100)).toFixed(2)}</span>`
+    : `<span class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</span>`;
   info.innerHTML = `
     <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
-    <p class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</p>
+    <p class="mb-0">${precioHTML}</p>
     ${countdownTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${countdownTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
     ${p.puntos
@@ -2304,7 +2355,10 @@ function productoEnCarrito(id) {
 // Precio base + suma de costos adicionales de las opciones elegidas
 // Precio base + suma de costos adicionales de las opciones elegidas
 function calcPrecioFinal(p, seleccion) {
-  let precio = Number(p.precio) || 0;
+  const descInfo = descuentoVigente(p.descuento);
+  let base = Number(p.precio) || 0;
+  if (descInfo) base = +(base * (1 - descInfo.porcentaje / 100)).toFixed(2);
+  let precio = base;
   if (!seleccion) return precio;
   (p.condiciones || []).forEach((cond) => {
     entradasDe(seleccion[cond.nombre]).forEach(([nombreOp, cant]) => {
@@ -2345,18 +2399,21 @@ function addToCart(p, seleccion = null) {
     return;
   }
 
-  if (existente) {
-    existente.cantidad += 1;
-  } else {
-    const precioFinal = calcPrecioFinal(p, seleccion);
-    carrito.set(key, {
-      ...p,
-      precio: precioFinal,
-      cantidad: 1,
-      cartKey: key,
-      seleccion: seleccion || null,
-    });
-  }
+ if (existente) {
+  existente.cantidad += 1;
+} else {
+  const precioFinal = calcPrecioFinal(p, seleccion);
+  const descInfo = descuentoVigente(p.descuento);
+  carrito.set(key, {
+    ...p,
+    precio: precioFinal,
+    precioOriginal: descInfo ? Number(p.precio) || 0 : null,
+    descuentoPorcentaje: descInfo ? descInfo.porcentaje : null,
+    cantidad: 1,
+    cartKey: key,
+    seleccion: seleccion || null,
+  });
+}
   syncCartChange(p.id);
   pulseCard(p.id);
   showToast(`${p.nombre} agregado`);
@@ -2388,9 +2445,12 @@ function editCartSelection(oldKey, p, nuevaSeleccion) {
   if (existenteEnNuevo) {
     existenteEnNuevo.cantidad = cantidadFinal;
   } else if (cantidadFinal > 0) {
+    const descInfoEdit = descuentoVigente(p.descuento);
     carrito.set(newKey, {
       ...p,
       precio: precioFinal,
+      precioOriginal: descInfoEdit ? Number(p.precio) || 0 : null,
+      descuentoPorcentaje: descInfoEdit ? descInfoEdit.porcentaje : null,
       cantidad: cantidadFinal,
       cartKey: newKey,
       seleccion: nuevaSeleccion,
@@ -2851,6 +2911,14 @@ function promoBadgeHTML(it) {
   const label = (it.categoria || (it.esOfertaTiempo ? "Oferta" : "Promoción")).replace(/</g, "&lt;");
   return `<span class="cart-row-promo-badge" style="display:inline-block;font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;margin-bottom:3px;background:rgba(var(--dr),var(--dg),var(--db),.18);color:rgb(var(--dr),var(--dg),var(--db));">🏷️ ${label}</span>`;
 }
+function lineaPrecioCarritoHTML(it, precioNum) {
+  if (it.precioOriginal) {
+    return `<span class="line-through text-gray-600">S/ ${it.precioOriginal.toFixed(2)}</span>
+      <span style="color:#fb7185;font-weight:700;"> -${it.descuentoPorcentaje}%</span>
+      → S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
+  }
+  return `S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
+}
 function renderCartList(wrap, items) {
   if (!cartRowElements.has(wrap)) cartRowElements.set(wrap, new Map());
   const rowsMap = cartRowElements.get(wrap);
@@ -2895,7 +2963,7 @@ function renderCartList(wrap, items) {
           <div class="cart-row-promo-badge-wrap">${promoBadgeHTML(it)}</div>
           <p class="font-bold text-[14px] truncate cart-row-nombre">${it.nombre || "Producto"}</p>
             <div class="text-[11px] text-gray-500 cart-row-opciones"${opcionesDetalleHTML(it) ? "" : ' style="display:none"'}>${opcionesDetalleHTML(it)}</div>
-          <p class="text-[12.5px] text-gray-500 mb-2 cart-row-precio">S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span></p>
+          <p class="text-[12.5px] text-gray-500 mb-2 cart-row-precio">${lineaPrecioCarritoHTML(it, precioNum)}</p>
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
@@ -2924,8 +2992,7 @@ function renderCartList(wrap, items) {
       const opcionesEl = row.querySelector(".cart-row-opciones");
       opcionesEl.innerHTML = detalleHTML;
       opcionesEl.style.display = detalleHTML ? "" : "none";
-      row.querySelector(".cart-row-precio").innerHTML =
-        `S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
+      row.querySelector(".cart-row-precio").innerHTML = lineaPrecioCarritoHTML(it, precioNum);
       const badgeWrap = row.querySelector(".cart-row-promo-badge-wrap");
       if (badgeWrap) badgeWrap.innerHTML = promoBadgeHTML(it);
     }
@@ -3085,6 +3152,7 @@ function renderCheckoutSummary() {
         const etiquetas = [];
         if (it.esCanje) etiquetas.push("🎁 Canjeado con puntos");
         else if (it.esPromo) etiquetas.push(`🏷️ ${it.categoria || "Promoción"}`);
+        if (it.precioOriginal) etiquetas.push(`🏷️ -${it.descuentoPorcentaje}% OFF`);
         const etiquetasTxt = etiquetas.join(" · ");
         const detalle = opcionesDetalleHTML(it);
         return `
@@ -3693,6 +3761,37 @@ function formatVenceOferta(expiraEnMs) {
     timeZone: tz,
   });
   return `⏰ Vence el ${diaSemana} a las ${horaTxt}`;
+}
+async function purgarDescuentosVencidos() {
+  const ahora = Date.now();
+  const vencidos = productosGlobal.filter((p) => {
+    const d = p.descuento;
+    if (!d || !d.activo || d.modo === "dias_semana") return false;
+    let finMs = null;
+    if (d.modo === "duracion") finMs = Number(d.expiraEn) || null;
+    if (d.modo === "fecha") finMs = parseFechaISOaMsLima(d.fechaFin, d.horaFin || "23:59");
+    return finMs && ahora >= finMs;
+  });
+  if (!vencidos.length) return;
+
+  for (const p of vencidos) {
+    try {
+      const ref = doc(
+        tiendaSubCol(localidad, "tiendas", tiendaId, "productos", p.categoria, p.categoria),
+        p.id,
+      );
+      await updateDoc(ref, { "descuento.activo": false });
+    } catch (e) {
+      console.warn("No se pudo desactivar descuento vencido:", e.message);
+    }
+    p.descuento = { ...p.descuento, activo: false };
+    syncMainListCard(p.id);
+  }
+}
+
+function iniciarValidacionDescuentosEnVivo() {
+  purgarDescuentosVencidos();
+  setInterval(purgarDescuentosVencidos, 60000);
 }
 function purgarOfertasVencidas({ mostrarToast = false } = {}) {
   const ahora = Date.now();
@@ -4322,6 +4421,7 @@ renderMetodosPago(biz);
   hidePageLoader();
   iniciarValidacionHorarioEnVivo();
   iniciarValidacionOfertasEnVivo();
+  iniciarValidacionDescuentosEnVivo();
 
    if (promoParam) aplicarPromoDesdeLink(promoParam);
   if (filtroInicialParam === "ofertas") aplicarFiltroInicial(); // ← AGREGAR

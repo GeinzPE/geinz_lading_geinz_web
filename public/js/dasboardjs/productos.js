@@ -28,6 +28,47 @@ import { initImportador } from "../dasboardjs/import_producto.js";
 // ejemplo/placeholder para que el panel se sienta natural en cualquier rubro
 // (licorerías, supermercados, panaderías, pastelerías, cafeterías, moda, tecnología,
 // jardinería, mascotas, hogar, ferretería, belleza, etc.), no solo restaurantes.
+const DIAS_DESCUENTO = ["domingo","lunes","martes","miercoles","jueves","viernes","sabado"];
+
+function parseFechaISOaMsLima(fechaISO, horaStr) {
+  if (!fechaISO) return null;
+  const [y, m, d] = fechaISO.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const [hh, mm] = (horaStr || "23:59").split(":").map(Number);
+  const limaOffsetMs = -5 * 60 * 60 * 1000;
+  const fechaUTC = Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0);
+  return fechaUTC - limaOffsetMs;
+}
+
+// Devuelve { porcentaje, expiraEn } si el descuento está vigente AHORA, o null si no aplica.
+function descuentoVigente(descuento, ahora = new Date()) {
+  if (!descuento || !descuento.activo) return null;
+  const porcentaje = Number(descuento.porcentaje) || 0;
+  if (porcentaje <= 0) return null;
+
+  if (descuento.modo === "dias_semana") {
+    const dias = descuento.dias || [];
+    if (!dias.includes(DIAS_DESCUENTO[ahora.getDay()])) return null;
+    return { porcentaje, expiraEn: null };
+  }
+
+  if (descuento.modo === "duracion") {
+    const expiraEn = Number(descuento.expiraEn) || 0;
+    if (!expiraEn || ahora.getTime() >= expiraEn) return null;
+    return { porcentaje, expiraEn };
+  }
+
+  if (descuento.modo === "fecha") {
+    const finMs = parseFechaISOaMsLima(descuento.fechaFin, descuento.horaFin || "23:59");
+    if (!finMs || ahora.getTime() >= finMs) return null;
+    if (descuento.fechaInicio) {
+      const inicioMs = parseFechaISOaMsLima(descuento.fechaInicio, "00:00");
+      if (inicioMs && ahora.getTime() < inicioMs) return null;
+    }
+    return { porcentaje, expiraEn: finMs };
+  }
+  return null;
+}
 function normalizarCategoria(cat) {
   return (cat || "")
     .normalize("NFKC")
@@ -256,16 +297,17 @@ const btnAgotados = document.getElementById("btn-filter-agotados");
 const btnStockBajo = document.getElementById("btn-filter-stockbajo");
 const btnAgotadoHoy = document.getElementById("btn-filter-agotadohoy");
 const btnCategorias = document.getElementById("btn-filter-categorias");
-
+const btnDescuento = document.getElementById("btn-filter-descuento");
 function setFiltroEstado(nuevoEstado) {
   filtroEstadoActual = nuevoEstado;
-  [
+   [
     btnTodos,
     btnActivos,
     btnAgotados,
     btnStockBajo,
     btnAgotadoHoy,
     btnCategorias,
+    btnDescuento,
   ].forEach((b) =>
     b.classList.remove(
       "active-filter",
@@ -291,6 +333,8 @@ function setFiltroEstado(nuevoEstado) {
     btnAgotadoHoy.classList.add("active-filter", "ring-2", "ring-orange-500");
   if (nuevoEstado === "categorias")
     btnCategorias.classList.add("active-filter", "ring-2", "ring-purple-500");
+  if (nuevoEstado === "descuento")
+    btnDescuento.classList.add("active-filter", "ring-2", "ring-rose-500");
 
   aplicarFiltroYMetricas();
 }
@@ -301,8 +345,7 @@ btnAgotados.addEventListener("click", () => setFiltroEstado("agotados"));
 btnStockBajo.addEventListener("click", () => setFiltroEstado("stockbajo"));
 btnAgotadoHoy.addEventListener("click", () => setFiltroEstado("agotadohoy"));
 btnCategorias.addEventListener("click", () => setFiltroEstado("categorias"));
-
-/* ---------------- Categorías ---------------- */
+btnDescuento.addEventListener("click", () => setFiltroEstado("descuento"));
 /* ---------------- Menú desplegable "Agregar" ---------------- */
 const toggleAccionesBtn = document.getElementById("btn-acciones-toggle");
 const menuAcciones = document.getElementById("panel-actions-menu");
@@ -548,6 +591,45 @@ function validarConsistenciaStock() {
   aviso.textContent = `⚠️ El stock general (${stockGeneral}) no coincide con la suma del stock de las variantes (${sumaVariantes}). Revisa los números antes de guardar.`;
   document.getElementById("condiciones-container").after(aviso);
 }
+let descuentoModoActivo = null;
+let descuentoDiasSeleccionados = [];
+let descuentoOriginalEditando = null; // el descuento del producto que se está editando
+
+const DIAS_DESCUENTO_LABEL = { domingo:"Dom", lunes:"Lun", martes:"Mar", miercoles:"Mié", jueves:"Jue", viernes:"Vie", sabado:"Sáb" };
+
+function renderDiasDescuentoChips() {
+  const wrap = document.getElementById("descuento-dias-chips");
+  wrap.innerHTML = "";
+  ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"].forEach((dia) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "descuento-dia-chip" + (descuentoDiasSeleccionados.includes(dia) ? " active" : "");
+    chip.textContent = DIAS_DESCUENTO_LABEL[dia];
+    chip.onclick = () => {
+      const idx = descuentoDiasSeleccionados.indexOf(dia);
+      if (idx >= 0) descuentoDiasSeleccionados.splice(idx, 1);
+      else descuentoDiasSeleccionados.push(dia);
+      renderDiasDescuentoChips();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+function setDescuentoModo(modo) {
+  descuentoModoActivo = modo;
+  document.querySelectorAll(".descuento-modo-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.modo === modo),
+  );
+  document.getElementById("descuento-modo-dias").classList.toggle("hidden", modo !== "dias_semana");
+  document.getElementById("descuento-modo-duracion").classList.toggle("hidden", modo !== "duracion");
+  document.getElementById("descuento-modo-fecha").classList.toggle("hidden", modo !== "fecha");
+}
+document.querySelectorAll(".descuento-modo-btn").forEach((btn) => {
+  btn.addEventListener("click", () => setDescuentoModo(btn.dataset.modo));
+});
+document.getElementById("input-prod-descuento-activo").addEventListener("change", (e) => {
+  document.getElementById("descuento-detalle").classList.toggle("hidden", !e.target.checked);
+});
 function renderCondiciones() {
   const cont = document.getElementById("condiciones-container");
   const btnAdd = document.getElementById("btn-add-condicion");
@@ -762,6 +844,18 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
     `Se incluirá en "${categoriaNombre}".`;
   document.getElementById("btn-guardar-producto-label").textContent =
     "Guardar cambios";
+    document.getElementById("input-prod-descuento-activo").checked = false;
+document.getElementById("descuento-detalle").classList.add("hidden");
+document.getElementById("input-prod-descuento-porcentaje").value = "";
+document.getElementById("input-descuento-duracion-cantidad").value = "";
+document.getElementById("input-descuento-duracion-unidad").value = "horas";
+document.getElementById("input-descuento-fecha-inicio").value = "";
+document.getElementById("input-descuento-fecha-fin").value = "";
+document.getElementById("input-descuento-fecha-hora").value = "";
+descuentoDiasSeleccionados = [];
+descuentoOriginalEditando = null;
+renderDiasDescuentoChips();
+setDescuentoModo("dias_semana");
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
@@ -825,6 +919,18 @@ document.getElementById("input-prod-nombre").value = data.nombre || "";
     `Editando producto.`;
   document.getElementById("btn-guardar-producto-label").textContent =
     "Guardar cambios";
+    descuentoOriginalEditando = data.descuento || null;
+document.getElementById("input-prod-descuento-activo").checked = !!data.descuento?.activo;
+document.getElementById("descuento-detalle").classList.toggle("hidden", !data.descuento?.activo);
+document.getElementById("input-prod-descuento-porcentaje").value = data.descuento?.porcentaje ?? "";
+descuentoDiasSeleccionados = data.descuento?.dias ? [...data.descuento.dias] : [];
+renderDiasDescuentoChips();
+document.getElementById("input-descuento-duracion-cantidad").value = data.descuento?.duracionCantidad ?? "";
+document.getElementById("input-descuento-duracion-unidad").value = data.descuento?.duracionUnidad || "horas";
+document.getElementById("input-descuento-fecha-inicio").value = data.descuento?.fechaInicio || "";
+document.getElementById("input-descuento-fecha-fin").value = data.descuento?.fechaFin || "";
+document.getElementById("input-descuento-fecha-hora").value = data.descuento?.horaFin || "";
+setDescuentoModo(data.descuento?.modo || "dias_semana");
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
@@ -910,7 +1016,61 @@ const variantesConCantidad =
             stock: typeof o.stock === "number" ? o.stock : null,
           })),
       }));
+const descuentoActivoChk = document.getElementById("input-prod-descuento-activo").checked;
+const descuentoPorcentaje = Math.min(99, Math.max(0, parseInt(document.getElementById("input-prod-descuento-porcentaje").value, 10) || 0));
 
+let descuento = null;
+if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
+  if (descuentoModoActivo === "dias_semana") {
+    descuento = {
+      activo: descuentoDiasSeleccionados.length > 0,
+      porcentaje: descuentoPorcentaje,
+      modo: "dias_semana",
+      dias: [...descuentoDiasSeleccionados],
+    };
+  } else if (descuentoModoActivo === "duracion") {
+    const cantidad = Math.max(1, parseInt(document.getElementById("input-descuento-duracion-cantidad").value, 10) || 0);
+    const unidad = document.getElementById("input-descuento-duracion-unidad").value || "horas";
+    // Si es la MISMA ventana que ya estaba corriendo, no se reinicia el conteo al re-guardar el producto
+    const seMantiene =
+      descuentoOriginalEditando?.modo === "duracion" &&
+      descuentoOriginalEditando?.activo &&
+      Number(descuentoOriginalEditando?.duracionCantidad) === cantidad &&
+      descuentoOriginalEditando?.duracionUnidad === unidad &&
+      Number(descuentoOriginalEditando?.expiraEn) > Date.now();
+
+    let activadoEn, expiraEn;
+    if (seMantiene) {
+      activadoEn = descuentoOriginalEditando.activadoEn;
+      expiraEn = descuentoOriginalEditando.expiraEn;
+    } else {
+      const ms = unidad === "dias" ? cantidad * 24 * 3600 * 1000 : cantidad * 3600 * 1000;
+      activadoEn = Date.now();
+      expiraEn = activadoEn + ms;
+    }
+    descuento = {
+      activo: cantidad > 0,
+      porcentaje: descuentoPorcentaje,
+      modo: "duracion",
+      duracionCantidad: cantidad,
+      duracionUnidad: unidad,
+      activadoEn,
+      expiraEn,
+    };
+  } else if (descuentoModoActivo === "fecha") {
+    const fechaInicio = document.getElementById("input-descuento-fecha-inicio").value || null;
+    const fechaFin = document.getElementById("input-descuento-fecha-fin").value || null;
+    const horaFin = document.getElementById("input-descuento-fecha-hora").value || "23:59";
+    descuento = {
+      activo: !!fechaFin,
+      porcentaje: descuentoPorcentaje,
+      modo: "fecha",
+      fechaInicio,
+      fechaFin,
+      horaFin,
+    };
+  }
+}
     const btn = document.getElementById("btn-guardar-producto");
     const label = document.getElementById("btn-guardar-producto-label");
     const originalText = label.textContent;
@@ -964,6 +1124,7 @@ const variantesConCantidad =
   variantesObligatoria,
   variantesMultiples,
   variantesConCantidad,
+  descuento,
   imagenes: [...conservadas, ...subidas],
 });
         await sincronizarProductoEnCarritoPerfil(productoEditandoId, {
@@ -991,6 +1152,7 @@ const variantesConCantidad =
   variantesObligatoria,
   variantesMultiples,
   variantesConCantidad,
+  descuento,
   imagenes: [],
   createdAt: serverTimestamp(),
 });
@@ -1072,6 +1234,14 @@ function renderProductoCard(categoriaId, productoId, data) {
   });
 
   const imgWrap = document.createElement("div");
+  const descuentoInfo = descuentoVigente(data.descuento);
+card.dataset.descuento = descuentoInfo ? "true" : "false";
+if (descuentoInfo) {
+  const badgeDesc = document.createElement("div");
+  badgeDesc.className = "prod-descuento-badge-admin";
+  badgeDesc.textContent = `-${descuentoInfo.porcentaje}%`;
+  imgWrap.appendChild(badgeDesc);
+}
   imgWrap.className =
     "relative w-full aspect-square bg-[#05040a] overflow-hidden border-b border-purple-900/20";
 
@@ -1167,7 +1337,12 @@ function renderProductoCard(categoriaId, productoId, data) {
   codeEl.textContent = `#${productoId.slice(0, 5)}`;
 
   priceRow.appendChild(precioEl);
-
+if (descuentoInfo) {
+  const descChip = document.createElement("span");
+  descChip.className = "font-mono text-[10px] px-2 py-0.5 rounded-md border bg-rose-950/40 text-rose-300 border-rose-500/20";
+  descChip.textContent = `-${descuentoInfo.porcentaje}% activo`;
+  priceRow.appendChild(descChip);
+}
   if (typeof data.stock === "number") {
     const stockEl = document.createElement("span");
     const stockColor =
@@ -1535,6 +1710,7 @@ function aplicarFiltroYMetricas() {
   let totalStockBajo = 0;
   let totalAgotadoHoy = 0;
   let totalCategoriasVisibles = 0;
+  let totalDescuento = 0;
   let algunElementoVisibleTotal = false;
   let totalProductosProcesados = 0;
 
@@ -1556,18 +1732,21 @@ function aplicarFiltroYMetricas() {
         stockValor !== "" && Number(stockValor) < STOCK_BAJO_UMBRAL;
 
       const esAgotadoHoy = card.dataset.agotadoHoy === "true";
+      const tieneDescuento = card.dataset.descuento === "true";
 
       if (disponible) totalActivos++;
       else totalAgotados++;
       if (tieneStockBajo) totalStockBajo++;
       if (esAgotadoHoy) totalAgotadoHoy++;
+      if (tieneDescuento) totalDescuento++;
 
-      // Evaluar estado (Activo/Agotado/Stock bajo/Agotado hoy/Todos)
+      // Evaluar estado (Activo/Agotado/Stock bajo/Agotado hoy/Con descuento/Todos)
       let cumpleEstado = true;
       if (filtroEstadoActual === "activos") cumpleEstado = disponible;
       if (filtroEstadoActual === "agotados") cumpleEstado = !disponible;
       if (filtroEstadoActual === "stockbajo") cumpleEstado = tieneStockBajo;
       if (filtroEstadoActual === "agotadohoy") cumpleEstado = esAgotadoHoy;
+      if (filtroEstadoActual === "descuento") cumpleEstado = tieneDescuento;
       // Evaluar Búsqueda de texto
       let cumpleTexto =
         queryText === "" ||
@@ -1630,7 +1809,7 @@ function aplicarFiltroYMetricas() {
     document.getElementById("stat-categorias"),
     totalCategoriasVisibles,
   );
-
+  animarContador(document.getElementById("stat-descuento"), totalDescuento);
   const hayCategorias = categorias.length > 0;
   if (hayCategorias && !algunElementoVisibleTotal) {
     emptySearch.style.display = "block";

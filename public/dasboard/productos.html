@@ -715,10 +715,45 @@
       opacity: 0;
       transform: translateY(8px) scale(.98);
     }
+
     [data-carrito-perfil-btn].en-carrito {
-  color: #fbbf24;
-  background: rgba(180, 83, 9, 0.2);
-}
+      color: #fbbf24;
+      background: rgba(180, 83, 9, 0.2);
+    }
+
+    .descuento-modo-btn,
+    .descuento-dia-chip {
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: rgba(196, 181, 253, .6);
+      background: #0d0a17;
+      border: 1px solid rgba(139, 92, 246, .2);
+      transition: all .15s ease;
+    }
+
+    .descuento-modo-btn.active,
+    .descuento-dia-chip.active {
+      color: #fff;
+      background: #e11d48;
+      border-color: #e11d48;
+    }
+
+    .prod-descuento-badge-admin {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 2;
+      background: #e11d48;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(225, 29, 72, .5);
+    }
   </style>
 </head>
 
@@ -860,6 +895,11 @@
           class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-purple-300 hover:bg-purple-900/40">
           <span>Categorías: <strong id="stat-categorias">0</strong></span>
         </button>
+        <button type="button" id="btn-filter-descuento"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-950/30 border border-rose-500/20 text-rose-400 hover:bg-rose-900/40">
+          <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          <span>Con descuento: <strong id="stat-descuento">0</strong></span>
+        </button>
       </div>
 
     </div>
@@ -978,7 +1018,7 @@
         <button type="button" class="tab-btn-form" data-tab-target="tab-avanzado">Avanzado</button>
       </div>
 
-  <form id="form-producto" novalidate>
+      <form id="form-producto" novalidate>
         <div id="tab-basico" class="tab-panel-form active-tab-panel">
 
           <div class="mb-4">
@@ -1127,55 +1167,142 @@
               🕐 Déjalo vacío para que esté disponible siempre. Útil para happy hour, desayunos, etc.
             </p>
           </div>
-<div class="mb-5">
-  <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-    <div class="pr-3">
-      <span class="text-sm font-medium text-purple-100">Selección de variante obligatoria</span>
-      <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
-        Actívalo si el cliente SÍ o SÍ debe elegir algo (ej. sabor de gaseosa, helada o al tiempo).
-        Desactívalo si son extras opcionales (ej. "más papas", "más carne") — así el producto se agrega directo al carrito y las opciones quedan disponibles para editar después.
-      </p>
-    </div>
-    <label class="relative inline-block w-11 h-6 shrink-0">
-      <input type="checkbox" id="input-prod-variante-obligatoria" checked class="peer opacity-0 w-0 h-0">
-      <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-rose-900/20">
+              <div class="pr-3">
+                <span class="text-sm font-medium text-purple-100">🏷️ Descuento por producto</span>
+                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+                  Actívalo para vender este producto con un % de descuento temporal: días fijos de la semana, por tiempo
+                  (horas/días) o un rango de fechas.
+                </p>
+              </div>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-descuento-activo" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-rose-600 peer-checked:border-rose-500 cursor-pointer transition-colors duration-200
         before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-    </label>
-  </div>
-</div>
-<div class="mb-5">
-  <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-    <div class="pr-3">
-      <span class="text-sm font-medium text-purple-100">Permitir elegir varias opciones</span>
-      <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
-        Actívalo si el cliente puede marcar varias opciones a la vez (ej. hamburguesa con "Papas extras" + "Doble carne" + "Doble huevo").
-        Desactívalo si solo puede elegir una (ej. sabor de gaseosa). Cada opción suma su "Costo extra" al precio.
-      </p>
-    </div>
-    <label class="relative inline-block w-11 h-6 shrink-0">
-      <input type="checkbox" id="input-prod-variantes-multiples" class="peer opacity-0 w-0 h-0">
-      <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-    </label>
-  </div>
-</div>
+              </label>
+            </div>
 
-<div class="mb-5 hidden" id="variantes-cantidad-wrap">
-  <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
-    <div class="pr-3">
-      <span class="text-sm font-medium text-purple-100">Permitir sumar cantidad por opción</span>
-      <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
-        Actívalo si una misma opción se puede repetir (ej. "Papas extras x2", "Doble carne x2").
-        Desactívalo si cada opción marcada solo cuenta una vez, sin importar cuántas veces la toque el cliente.
-      </p>
-    </div>
-    <label class="relative inline-block w-11 h-6 shrink-0">
-      <input type="checkbox" id="input-prod-variantes-cantidad" class="peer opacity-0 w-0 h-0">
-      <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+            <div id="descuento-detalle"
+              class="hidden mt-3 flex flex-col gap-3 rounded-xl bg-[#05040a] border border-rose-900/20 p-3.5">
+              <div>
+                <label
+                  class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Porcentaje
+                  de descuento</label>
+                <input type="number" id="input-prod-descuento-porcentaje" min="1" max="99" step="1" placeholder="Ej. 20"
+                  class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-rose-500 transition-all font-mono">
+              </div>
+
+              <div>
+                <label
+                  class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">¿Cuándo
+                  aplica?</label>
+                <div class="flex gap-2 flex-wrap" id="descuento-modo-toggle">
+                  <button type="button" class="descuento-modo-btn" data-modo="dias_semana">Días fijos</button>
+                  <button type="button" class="descuento-modo-btn" data-modo="duracion">Por tiempo</button>
+                  <button type="button" class="descuento-modo-btn" data-modo="fecha">Rango de fechas</button>
+                </div>
+              </div>
+
+              <div id="descuento-modo-dias" class="hidden flex flex-col gap-2">
+                <p class="text-[10.5px] text-purple-300/50">Se aplicará automáticamente esos días, todo el día.</p>
+                <div class="flex flex-wrap gap-1.5" id="descuento-dias-chips"></div>
+              </div>
+
+              <div id="descuento-modo-duracion" class="hidden grid grid-cols-2 gap-2.5">
+                <input type="number" id="input-descuento-duracion-cantidad" min="1" step="1" placeholder="Cantidad"
+                  class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-rose-500 transition-all font-mono">
+                <select id="input-descuento-duracion-unidad"
+                  class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all">
+                  <option value="horas">Horas</option>
+                  <option value="dias">Días</option>
+                </select>
+                <p class="col-span-2 text-[10.5px] text-purple-300/50 leading-relaxed">⏱️ Empieza a correr desde que
+                  guardes el producto.</p>
+              </div>
+
+              <div id="descuento-modo-fecha" class="hidden flex flex-col gap-2.5">
+                <div class="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-[10px] text-purple-300/50 mb-1">Desde</label>
+                    <input type="date" id="input-descuento-fecha-inicio"
+                      class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all font-mono">
+                  </div>
+                  <div>
+                    <label class="block text-[10px] text-purple-300/50 mb-1">Hasta</label>
+                    <input type="date" id="input-descuento-fecha-fin"
+                      class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all font-mono">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-purple-300/50 mb-1">Hora de cierre del último día</label>
+                  <input type="time" id="input-descuento-fecha-hora"
+                    class="w-full rounded-xl bg-[#0d0a17] border border-purple-900/30 px-3 py-2.5 text-sm text-purple-100 outline-none focus:border-rose-500 transition-all font-mono">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <div class="pr-3">
+                <span class="text-sm font-medium text-purple-100">Selección de variante obligatoria</span>
+                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+                  Actívalo si el cliente SÍ o SÍ debe elegir algo (ej. sabor de gaseosa, helada o al tiempo).
+                  Desactívalo si son extras opcionales (ej. "más papas", "más carne") — así el producto se agrega
+                  directo al carrito y las opciones quedan disponibles para editar después.
+                </p>
+              </div>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-variante-obligatoria" checked class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
         before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
-    </label>
-  </div>
-</div>
+              </label>
+            </div>
+          </div>
+          <div class="mb-5">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <div class="pr-3">
+                <span class="text-sm font-medium text-purple-100">Permitir elegir varias opciones</span>
+                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+                  Actívalo si el cliente puede marcar varias opciones a la vez (ej. hamburguesa con "Papas extras" +
+                  "Doble carne" + "Doble huevo").
+                  Desactívalo si solo puede elegir una (ej. sabor de gaseosa). Cada opción suma su "Costo extra" al
+                  precio.
+                </p>
+              </div>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-variantes-multiples" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-5 hidden" id="variantes-cantidad-wrap">
+            <div
+              class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20">
+              <div class="pr-3">
+                <span class="text-sm font-medium text-purple-100">Permitir sumar cantidad por opción</span>
+                <p class="text-[10.5px] text-purple-300/50 mt-1 leading-relaxed">
+                  Actívalo si una misma opción se puede repetir (ej. "Papas extras x2", "Doble carne x2").
+                  Desactívalo si cada opción marcada solo cuenta una vez, sin importar cuántas veces la toque el
+                  cliente.
+                </p>
+              </div>
+              <label class="relative inline-block w-11 h-6 shrink-0">
+                <input type="checkbox" id="input-prod-variantes-cantidad" class="peer opacity-0 w-0 h-0">
+                <span
+                  class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+        before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+              </label>
+            </div>
+          </div>
           <div class="mb-2">
             <div class="flex items-center justify-between mb-2">
               <label id="label-condiciones"
