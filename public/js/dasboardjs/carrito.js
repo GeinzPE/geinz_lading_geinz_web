@@ -544,6 +544,7 @@ function abrirPromoDetailModal(p) {
   }
 
   const addBtn = document.getElementById("promoDetailAddBtn");
+  addBtn.textContent = `🛒 Agregar al carrito · S/ ${Number(p.precio || 0).toFixed(2)}`;
   addBtn.onclick = () => {
     addToCart(p);
     cerrarPromoDetailModal();
@@ -2628,7 +2629,7 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     actualizarResumenOpciones(p);
   }
 
-  document.getElementById("confirmOptionsBtn").textContent = editKey ? "Guardar cambios" : "Agregar al carrito";
+
   actualizarEstadoBotonConfirmar(p);
   document.getElementById("optionsOverlay").classList.add("show");
   document.body.style.overflow = "hidden";
@@ -2663,6 +2664,12 @@ function actualizarResumenOpciones(p) {
 
 function actualizarEstadoBotonConfirmar(p) {
   const btn = document.getElementById("confirmOptionsBtn");
+
+  // Precio dinámico según lo que esté marcado en seleccionOpciones
+  const precio = calcPrecioFinal(p, seleccionOpciones);
+  const textoBase = cartKeyEnEdicion ? "Guardar cambios" : "Agregar al carrito";
+  btn.textContent = `${textoBase} · S/ ${precio.toFixed(2)}`;
+
   if (p.variantesObligatoria === false) {
     btn.disabled = false;
     return;
