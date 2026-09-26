@@ -499,6 +499,33 @@
             opacity: 1;
             visibility: visible;
         }
+
+        .promos-activas-scroll-row {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            scroll-snap-type: x proximity;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .promos-activas-scroll-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .promos-activas-scroll-row .promo-active-card {
+            flex: 0 0 260px;
+            width: 260px;
+            scroll-snap-align: start;
+        }
+
+        @media (max-width: 480px) {
+            .promos-activas-scroll-row .promo-active-card {
+                flex-basis: 220px;
+                width: 220px;
+            }
+        }
     </style>
 </head>
 
@@ -597,20 +624,23 @@
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PROMOCIONES ACTIVAS</p>
                 <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Ofertas del momento</h2>
             </div>
-            <div id="promosActivasGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div class="gallery-carousel-wrap" id="promosActivasCarouselWrap">
+                <div class="gallery-carousel-wrap" id="promosActivasCarouselWrap">
+                    <div id="promosActivasGrid" class="promos-activas-scroll-row"></div>
+                </div>
             </div>
         </section>
 
-   <section id="secCatalogo" class="mb-20 reveal" style="display:none;">
-    <div class="mb-8">
-        <p class="uppercase tracking-[5px] accent text-sm mb-3">CATÁLOGO</p>
-        <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Catálogo de productos</h2>
-    </div>
-    <div class="gallery-carousel-wrap" id="catalogoCarouselWrap">
-        <div id="catalogoList"></div>
-    </div>
-    <div id="catalogoBtnWrap"></div>
-</section>
+        <section id="secCatalogo" class="mb-20 reveal" style="display:none;">
+            <div class="mb-8">
+                <p class="uppercase tracking-[5px] accent text-sm mb-3">CATÁLOGO</p>
+                <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Catálogo de productos</h2>
+            </div>
+            <div class="gallery-carousel-wrap" id="catalogoCarouselWrap">
+                <div id="catalogoList"></div>
+            </div>
+            <div id="catalogoBtnWrap"></div>
+        </section>
         <section id="secProductos" class="mb-20 reveal">
             <div class="mb-8">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PRODUCTOS Y SERVICIOS</p>
@@ -778,15 +808,15 @@
                 </div>
             </div>
         </section>
-      <section id="secPromos" class="mb-28 reveal" style="display:none;">
-    <div class="mb-10">
-        <p class="uppercase tracking-[5px] accent text-sm mb-3">PROMOCIONES</p>
-        <h2 id="promoTitle" class="text-5xl md:text-7xl font-black leading-[.95]"></h2>
-    </div>
-    <div class="gallery-carousel-wrap" id="promoCarouselWrap">
-        <div id="promoCarousel"></div>
-    </div>
-</section>
+        <section id="secPromos" class="mb-28 reveal" style="display:none;">
+            <div class="mb-10">
+                <p class="uppercase tracking-[5px] accent text-sm mb-3">PROMOCIONES</p>
+                <h2 id="promoTitle" class="text-5xl md:text-7xl font-black leading-[.95]"></h2>
+            </div>
+            <div class="gallery-carousel-wrap" id="promoCarouselWrap">
+                <div id="promoCarousel"></div>
+            </div>
+        </section>
 
         <section id="secCtaExplore" class="pb-20 reveal">
             <div id="ctaBanner" class="relative overflow-hidden rounded-[42px] border border-white/10">

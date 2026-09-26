@@ -39,7 +39,18 @@ function parseFechaISOaMsLima(fechaISO, horaStr) {
   const fechaUTC = Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0);
   return fechaUTC - limaOffsetMs;
 }
-
+function obtenerDiaSemanaLima(fecha = new Date()) {
+  const nombreIngles = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Lima",
+    weekday: "long",
+  }).format(fecha).toLowerCase();
+  const map = {
+    sunday: "domingo", monday: "lunes", tuesday: "martes",
+    wednesday: "miercoles", thursday: "jueves",
+    friday: "viernes", saturday: "sabado",
+  };
+  return map[nombreIngles] || null;
+}
 // Devuelve { porcentaje, expiraEn } si el descuento está vigente AHORA, o null si no aplica.
 function descuentoVigente(descuento, ahora = new Date()) {
   if (!descuento || !descuento.activo) return null;
@@ -48,10 +59,9 @@ function descuentoVigente(descuento, ahora = new Date()) {
 
   if (descuento.modo === "dias_semana") {
     const dias = descuento.dias || [];
-    if (!dias.includes(DIAS_DESCUENTO[ahora.getDay()])) return null;
+    if (!dias.includes(obtenerDiaSemanaLima(ahora))) return null;
     return { porcentaje, expiraEn: null };
   }
-
   if (descuento.modo === "duracion") {
     const expiraEn = Number(descuento.expiraEn) || 0;
     if (!expiraEn || ahora.getTime() >= expiraEn) return null;

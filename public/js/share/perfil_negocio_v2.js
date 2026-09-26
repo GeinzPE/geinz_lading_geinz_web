@@ -2222,6 +2222,7 @@ card.addEventListener("click", (e) => {
       }
     });
   });
+  setupHoverCarousel("promosActivasCarouselWrap", "promosActivasGrid");
 }
 function urlCarritoFiltro(filtro) {
   const aliasKey = _params.alias || _bizAliasKey;

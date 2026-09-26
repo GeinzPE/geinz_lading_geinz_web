@@ -380,7 +380,18 @@ function parseFechaISOaMsLima(fechaISO, horaStr) {
   const fechaUTC = Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0);
   return fechaUTC - limaOffsetMs;
 }
-
+function obtenerDiaSemanaLima(fecha = new Date()) {
+  const nombreIngles = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Lima",
+    weekday: "long",
+  }).format(fecha).toLowerCase();
+  const map = {
+    sunday: "domingo", monday: "lunes", tuesday: "martes",
+    wednesday: "miercoles", thursday: "jueves",
+    friday: "viernes", saturday: "sabado",
+  };
+  return map[nombreIngles] || null;
+}
 // Devuelve { porcentaje, expiraEn } si el descuento está vigente AHORA, o null si no aplica.
 function descuentoVigente(descuento, ahora = new Date()) {
   if (!descuento || !descuento.activo) return null;
@@ -389,7 +400,7 @@ function descuentoVigente(descuento, ahora = new Date()) {
 
   if (descuento.modo === "dias_semana") {
     const dias = descuento.dias || [];
-    if (!dias.includes(DIAS_DESCUENTO[ahora.getDay()])) return null;
+    if (!dias.includes(obtenerDiaSemanaLima(ahora))) return null;
     return { porcentaje, expiraEn: null };
   }
 
@@ -1513,11 +1524,11 @@ function pintarMesaBadge() {
 }
 const METODOS_PAGO_ORDEN = ["yape", "plin", "efectivo", "visa_mastercard", "agora"];
 const METODOS_PAGO_CONFIG = {
-  yape: { label: "Yape", icon: "📱" },
-  plin: { label: "Plin", icon: "📱" },
-  efectivo: { label: "Efectivo", icon: "💵" },
-  visa_mastercard: { label: "Visa / Mastercard", icon: "💳" },
-  agora: { label: "Agora", icon: "🏦" },
+  yape: { label: "Yape", icon: "../../img/yape_logo.webp" },
+  plin: { label: "Plin", icon: "../../img/logo_plin.webp" },
+  efectivo: { label: "Efectivo", icon: "../../img/efectivo_logo.webp" },
+  visa_mastercard: { label: "Visa / Mastercard", icon: "../../img/visa_logo.webp" },
+  agora: { label: "Agora", icon: "../../img/logo_agora.webp" },
 };
 
 function renderMetodosPago(biz) {
@@ -1538,16 +1549,19 @@ function renderMetodosPago(biz) {
 
   wrap.innerHTML = "";
   habilitados.forEach((key, idx) => {
-    const cfg = METODOS_PAGO_CONFIG[key] || { label: key, icon: "💰" };
+    const cfg = METODOS_PAGO_CONFIG[key] || { label: key, icon: "../img/pagos/generico.png" };
     const opt = document.createElement("div");
     opt.className = "toggle-opt" + (idx === 0 ? " active" : "");
     opt.dataset.val = cfg.label;
     opt.dataset.key = key;
-    opt.textContent = `${cfg.icon} ${cfg.label}`;
+    opt.innerHTML = `
+      <img src="${cfg.icon}" alt="${cfg.label}" class="pago-icon"
+           onerror="this.style.display='none'">
+      <span>${cfg.label}</span>
+    `;
     if (idx === 0) opt.style.background = "rgb(var(--dr),var(--dg),var(--db))";
     wrap.appendChild(opt);
   });
-
   const primero = habilitados[0] || "efectivo";
   metodoPagoKey = primero;
   metodoPago = (METODOS_PAGO_CONFIG[primero] || { label: primero }).label;
@@ -2107,7 +2121,7 @@ function productoCard(p, index = 0) {
   const condLine = (p.condiciones || [])
     .map((c) => `${c.nombre}: ${c.opciones.map((o) => o.nombre).join(", ")}`)
     .join(" · ");
-  const countdownTxt = p.esOfertaTiempo && p.expiraEn ? formatVenceOferta(p.expiraEn) : "";
+ const descuentoVenceTxt = descInfoCard ? formatVenceDescuento(p.descuento, descInfoCard) : "";
   const precioHTML = descInfoCard
     ? `<span class="text-gray-500 line-through text-[11px] mr-1.5">S/ ${p.precio.toFixed(2)}</span><span class="display font-extrabold text-[14px] sm:text-[15px]" style="color:#fb7185;">S/ ${(p.precio * (1 - descInfoCard.porcentaje / 100)).toFixed(2)}</span>`
     : `<span class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</span>`;
@@ -2115,7 +2129,7 @@ function productoCard(p, index = 0) {
     <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="mb-0">${precioHTML}</p>
-    ${countdownTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${countdownTxt}</p>` : ""}
+  ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
     ${p.puntos
       ? siguiendoTienda
@@ -2911,6 +2925,17 @@ function promoBadgeHTML(it) {
   const label = (it.categoria || (it.esOfertaTiempo ? "Oferta" : "Promoción")).replace(/</g, "&lt;");
   return `<span class="cart-row-promo-badge" style="display:inline-block;font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;margin-bottom:3px;background:rgba(var(--dr),var(--dg),var(--db),.18);color:rgb(var(--dr),var(--dg),var(--db));">🏷️ ${label}</span>`;
 }
+function descuentoVenceHTMLParaItem(it) {
+  if (!it.precioOriginal) return "";
+  const p = productosPorId.get(it.id);
+  if (!p) return "";
+  const descInfo = descuentoVigente(p.descuento);
+  if (!descInfo) return "";
+  const txt = formatVenceDescuento(p.descuento, descInfo);
+  return txt
+    ? `<p class="text-[10px] font-bold mt-0.5" style="color:#fca5a5;">${txt}</p>`
+    : "";
+}
 function lineaPrecioCarritoHTML(it, precioNum) {
   if (it.precioOriginal) {
     return `<span class="line-through text-gray-600">S/ ${it.precioOriginal.toFixed(2)}</span>
@@ -2964,6 +2989,7 @@ function renderCartList(wrap, items) {
           <p class="font-bold text-[14px] truncate cart-row-nombre">${it.nombre || "Producto"}</p>
             <div class="text-[11px] text-gray-500 cart-row-opciones"${opcionesDetalleHTML(it) ? "" : ' style="display:none"'}>${opcionesDetalleHTML(it)}</div>
           <p class="text-[12.5px] text-gray-500 mb-2 cart-row-precio">${lineaPrecioCarritoHTML(it, precioNum)}</p>
+          <div class="cart-row-descuento-vence">${descuentoVenceHTMLParaItem(it)}</div>
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
@@ -2984,7 +3010,7 @@ function renderCartList(wrap, items) {
       `;
       wrap.appendChild(row);
       rowsMap.set(key, row);
-    } else {
+      } else {
       // Fila ya existía: solo se actualiza texto/precio, el <img> NUNCA se toca
       row.querySelector(".cart-row-nombre").textContent =
         it.nombre || "Producto";
@@ -2993,6 +3019,8 @@ function renderCartList(wrap, items) {
       opcionesEl.innerHTML = detalleHTML;
       opcionesEl.style.display = detalleHTML ? "" : "none";
       row.querySelector(".cart-row-precio").innerHTML = lineaPrecioCarritoHTML(it, precioNum);
+      const descVenceEl = row.querySelector(".cart-row-descuento-vence");
+      if (descVenceEl) descVenceEl.innerHTML = descuentoVenceHTMLParaItem(it);
       const badgeWrap = row.querySelector(".cart-row-promo-badge-wrap");
       if (badgeWrap) badgeWrap.innerHTML = promoBadgeHTML(it);
     }
@@ -3733,6 +3761,29 @@ function parseFechaHoraLimaOferta(fechaStr, horaStr) {
   const limaOffsetMs = -5 * 60 * 60 * 1000;
   const fechaUTC = Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0);
   return fechaUTC - limaOffsetMs;
+}
+const DIAS_DESCUENTO_LABEL_CARRITO = {
+  domingo: "domingo", lunes: "lunes", martes: "martes",
+  miercoles: "miércoles", jueves: "jueves", viernes: "viernes", sabado: "sábado",
+};
+
+function formatVenceDescuento(descuento, descInfo) {
+  if (!descuento || !descInfo) return "";
+
+  if (descuento.modo === "dias_semana") {
+    const dias = (descuento.dias || []).map(
+      (d) => DIAS_DESCUENTO_LABEL_CARRITO[d] || d,
+    );
+    if (!dias.length) return "";
+    return `🏷️ Descuento solo: ${dias.join(", ")}`;
+  }
+
+  if (descInfo.expiraEn) {
+    // Reusa el mismo formateador de "vence hoy/mañana/día" que ya usan las ofertas
+    return formatVenceOferta(descInfo.expiraEn).replace("⏰ Vence", "🏷️ Descuento vence");
+  }
+
+  return "";
 }
 function formatVenceOferta(expiraEnMs) {
   const diff = expiraEnMs - Date.now();

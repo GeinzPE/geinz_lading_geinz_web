@@ -219,10 +219,27 @@ function nombreOfuscado(nombreCompleto) {
   return `${primero} ${resto.slice(0, 2)}***`;
 }
 
-function detectarMetodoPagoQR(metodoTexto) {
+const LABELS_METODO_PAGO_DATOS = {
+  yape: "Yape",
+  plin: "Plin",
+  visa_mastercard: "Visa / Mastercard",
+  agora: "Agora",
+};
+
+const LABEL_CAMPO_NUMERO = {
+  yape: "Número",
+  plin: "Número",
+  visa_mastercard: "Número de cuenta",
+  agora: "Número de cuenta",
+};
+
+function detectarMetodoPagoConDatos(metodoTexto) {
   const t = (metodoTexto || "").toLowerCase();
   if (t.includes("yape")) return "yape";
   if (t.includes("plin")) return "plin";
+  if (t.includes("visa") || t.includes("mastercard") || t.includes("tarjeta"))
+    return "visa_mastercard";
+  if (t.includes("agora")) return "agora";
   if (t.includes("qr")) return "yape"; // genérico, prioriza yape
   return null;
 }
@@ -235,17 +252,32 @@ function actualizarBloquePagoQR() {
   if (!p || !mp) { card.classList.add("hidden"); return; }
 
   const esDelivery = p.cliente?.tipo_entrega === "Delivery";
-  const metodoKey = detectarMetodoPagoQR(p.pago?.metodo);
+  const metodoKey = detectarMetodoPagoConDatos(p.pago?.metodo);
   if (!esDelivery || !metodoKey) { card.classList.add("hidden"); return; }
 
   const info = mp[metodoKey];
   if (!info || !info.enable) { card.classList.add("hidden"); return; }
 
   card.classList.remove("hidden");
-  el("pago-qr-metodo-label").textContent = metodoKey === "yape" ? "Yape" : "Plin";
-  if (info.qr) el("pago-qr-img").src = info.qr;
+  el("pago-qr-metodo-label").textContent =
+    LABELS_METODO_PAGO_DATOS[metodoKey] || metodoKey;
+
+  // El QR solo se muestra si el negocio configuró uno para ese método.
+  // Para Visa/Mastercard o Agora, normalmente no hay QR: se muestra
+  // solo el número/nombre de cuenta y el botón de subir comprobante.
+  const qrImg = el("pago-qr-img");
+  if (info.qr) {
+    qrImg.src = info.qr;
+    qrImg.classList.remove("hidden");
+  } else {
+    qrImg.classList.add("hidden");
+  }
+
+  el("pago-qr-numero-label").textContent =
+    LABEL_CAMPO_NUMERO[metodoKey] || "Número";
   el("pago-qr-nombre").textContent = nombreOfuscado(info.nombre) || "—";
   el("pago-qr-numero").textContent = info.numero || "—";
+
   const nombreNegocio = el("negocio-nombre")?.textContent || "el negocio";
   const total = Number(p.total || 0).toFixed(2);
   el("pago-qr-mensaje").textContent =

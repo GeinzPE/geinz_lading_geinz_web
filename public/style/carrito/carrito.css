@@ -1078,3 +1078,16 @@ body {
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 12px rgba(225,29,72,.5); border: 2px solid rgba(0,0,0,.4);
 }
+.toggle-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pago-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #fff;
+}
