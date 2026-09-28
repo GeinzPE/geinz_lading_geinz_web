@@ -90,7 +90,37 @@
                             <button class="autorej-save" id="autoresSave">Guardar</button>
                         </div>
                     </div>
-
+<div class="autorej-wrap">
+    <button class="autorej-btn" id="deliBtn" title="Configurar tarifa de delivery">
+        <span class="ico">🛵</span>
+        <span class="lbl-text">Delivery</span>
+        <span class="val" id="deliVal">Off</span>
+    </button>
+    <div class="autorej-pop" id="deliPop">
+        <div class="autorej-pop-title">Tarifa de delivery</div>
+        <div class="autorej-pop-sub">Precio base + costo por cada km extra según la distancia al cliente. Se muestra en el detalle de cada pedido delivery.</div>
+        <div class="autorej-toggle-row">
+            <span class="autorej-toggle-lbl">Mostrar tarifa</span>
+            <label class="switch">
+                <input type="checkbox" id="deliToggle">
+                <span class="switch-track"></span>
+            </label>
+        </div>
+        <div class="autorej-input-row">
+            <span>Precio base S/</span>
+            <input type="number" id="deliBase" min="0" step="0.5" value="3">
+        </div>
+        <div class="autorej-input-row">
+            <span>Km incluidos</span>
+            <input type="number" id="deliKmIncl" min="0" step="0.5" value="2">
+        </div>
+        <div class="autorej-input-row">
+            <span>Cada km extra S/</span>
+            <input type="number" id="deliPorKm" min="0" step="0.5" value="1">
+        </div>
+        <button class="autorej-save" id="deliSave">Guardar</button>
+    </div>
+</div>
                     <button class="bell-btn" id="bellBtn" title="Activar sonido y notificaciones">
                         🔔<span class="bell-dot" id="bellDot"></span>
                     </button>
@@ -329,7 +359,13 @@
             <div class="dm-actions" id="dmActions"></div>
         </div>
     </div>
-
+<div id="mapaDeliveryOverlay">
+  <div class="mapa-delivery-full">
+    <button class="mapa-delivery-full-close" id="mapaDeliveryClose">✕</button>
+    <iframe id="mapaDeliveryIframe" src="" loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+  </div>
+</div>
     <div id="toast"></div>
 
 </body>

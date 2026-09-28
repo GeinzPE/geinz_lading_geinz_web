@@ -344,8 +344,81 @@ const NP_CSS = `
 }
 .npc-edit:hover{text-decoration:underline;}
 `;
+const MAPA_CSS = `
+.mapa-delivery-mini{
+  position:relative;width:100%;height:240px;border-radius:14px;overflow:hidden;
+  margin-top:8px;border:1px solid var(--line);cursor:pointer;background:#0a0a0f;
+}
+  .deli-precio{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  margin-top:8px;padding:9px 12px;border-radius:10px;font-size:12.5px;
+  color:#4ade80;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.28);
+}
+.deli-precio strong{font-weight:800;font-size:14px;}
+.deli-precio.total{margin-top:4px;color:#fbbf24;background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.28);}
+.deli-precio.gratis{justify-content:center;font-weight:800;}
+@media (max-width:640px){
+  #deliPop{position:fixed;left:12px;right:12px;top:72px;width:auto;max-width:none;z-index:70;}
+  .mapa-delivery-mini{height:220px;}
+}
+.mapa-delivery-mini iframe{width:100%;height:100%;border:0;pointer-events:none;}
+.mapa-delivery-click-layer{
+  position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;
+  padding-bottom:10px;background:linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.6) 100%);
+  color:#fff;font-size:11.5px;font-weight:800;
+}
+#mapaDeliveryOverlay{
+  display:flex;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.85);
+  align-items:center;justify-content:center;padding:16px;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .28s ease, visibility 0s linear .28s;
+  will-change:opacity;
+}
+#mapaDeliveryOverlay.show{
+  opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity .28s ease, visibility 0s;
+}
+.mapa-delivery-full{
+  position:relative;width:100%;max-width:920px;height:80vh;border-radius:18px;
+  overflow:hidden;border:1px solid var(--line);background:#0a0a0f;
+    opacity:0;transform:scale(.96) translateY(8px);
+  transition:transform .32s cubic-bezier(.22,1,.36,1), opacity .28s ease;
+}
+  #mapaDeliveryOverlay.show .mapa-delivery-full{opacity:1;transform:none;}
+.mapa-delivery-full iframe{width:100%;height:100%;border:0;opacity:0;transition:opacity .35s ease;}
+.mapa-delivery-full iframe.loaded{opacity:1;}
+.mapa-delivery-full-close{
+  position:absolute;top:12px;right:12px;z-index:5;width:36px;height:36px;
+  border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;
+  font-size:16px;cursor:pointer;
+}
+  @media (max-width:820px){
+  .top-actions-scroll{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    align-items:center;
+    gap:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+    padding-bottom:4px;
+  }
+  .top-actions-scroll::-webkit-scrollbar{display:none;}
+  .top-actions-scroll > *{flex:0 0 auto;scroll-snap-align:start;}
+  .top-actions-scroll #clockTime,
+  .top-actions-scroll #clockDate{white-space:nowrap;}
 
-styleTag.textContent = MESA_ADMIN_CSS + NP_CSS + PS_CSS + VOUCHER_CSS;
+  /* Los popovers salen del contenedor con scroll; en fixed no se recortan */
+  #autorejPop,#autoresPop,#deliPop{
+    position:fixed;left:12px;right:12px;top:72px;
+    width:auto;max-width:none;z-index:70;
+  }
+}
+`;
+
+styleTag.textContent = MESA_ADMIN_CSS + NP_CSS + PS_CSS + VOUCHER_CSS + MAPA_CSS;
 /* ══════════════ Identificación del negocio ══════════════ */
 
 const ESTADOS = [
@@ -374,6 +447,9 @@ let bizNombreGlobal = "Geinz";
 let soundEnabled = localStorage.getItem("geinz_sound_enabled") !== "0";
 let audioCtx = null;
 let pedidoSearchActivoId = null;
+let bizLat = null;
+let bizLng = null;
+let bizDataGlobal = null;
 const SND_NUEVO_PEDIDO = "../../sounds/nuevo_pedido_en_geinz.mp3";
 const SND_PEDIDO_CANCELADO = "../../sounds/se_cancelo_un_pedido.mp3";
 const SND_PEDIDO_CANCELADO_PAUSA = "../../sounds/cancelo_pedido_pausa.mp3";
@@ -833,6 +909,108 @@ function opcionesDetalleHtmlLineas(it, color = "#a78bfa") {
     .join("");
 }
 
+/* ══════════════ Distancia y mini-mapa de delivery (Google Maps embed gratis) ══════════════ */
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function mapaDeliveryHTML(p) {
+  if (getOrigen(p).tipo === "mesa") return "";
+  if (p.cliente?.tipo_entrega !== "Delivery") return "";
+  const ubic = p.cliente?.ubicacion;
+  if (!ubic || typeof ubic.lat !== "number" || typeof ubic.lng !== "number")
+    return "";
+  if (bizLat == null || bizLng == null) return "";
+
+  const distKm = calcularDistanciaKm(bizLat, bizLng, ubic.lat, ubic.lng);
+  const mapsUrl = `https://www.google.com/maps?saddr=${bizLat},${bizLng}&daddr=${ubic.lat},${ubic.lng}&output=embed`;
+
+  const envioGratis = p.cupon?.envioGratis === true;
+  const precioDeli = calcularPrecioDelivery(distKm);
+  let precioHtml = "";
+  if (envioGratis) {
+    precioHtml = `<div class="deli-precio gratis">🚚 Envío gratis (promo del negocio)</div>`;
+  } else if (precioDeli !== null) {
+    precioHtml = `
+      <div class="deli-precio">
+        <span>Costo de delivery</span>
+        <strong>${fmtMoney(precioDeli)}</strong>
+      </div>
+      <div class="deli-precio total">
+        <span>Total + delivery</span>
+        <strong>${fmtMoney((Number(p.total) || 0) + precioDeli)}</strong>
+      </div>`;
+  }
+
+  return `
+    <div class="dm-meta-item full">
+      <div class="dm-meta-label">🛵 Distancia al cliente</div>
+      <div class="dm-meta-value">${distKm.toFixed(1)} km en línea recta desde el negocio</div>
+      ${precioHtml}
+      <div class="mapa-delivery-mini" data-maps-url="${escapeHtml(mapsUrl)}">
+        <iframe src="${mapsUrl}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div class="mapa-delivery-click-layer">🔍 Toca para ver la ruta completa</div>
+      </div>
+    </div>`;
+}
+let cerrarMapaTimer;
+
+function bindMapaDeliveryClicks() {
+  document.querySelectorAll(".mapa-delivery-mini").forEach((el) => {
+    el.addEventListener("click", () => {
+      const url = el.dataset.mapsUrl;
+      const overlay = document.getElementById("mapaDeliveryOverlay");
+      const iframe = document.getElementById("mapaDeliveryIframe");
+      if (!overlay || !iframe || !url) return;
+
+      clearTimeout(cerrarMapaTimer);
+      iframe.classList.remove("loaded");
+      iframe.onload = () =>
+        requestAnimationFrame(() => iframe.classList.add("loaded"));
+
+      overlay.classList.add("show");
+      // Se carga el iframe después de que arranca el fade,
+      // así la animación no se traba mientras Google Maps carga
+      setTimeout(() => {
+        iframe.src = url;
+      }, 120);
+    });
+  });
+}
+
+function cerrarMapaDeliveryFullscreen() {
+  const overlay = document.getElementById("mapaDeliveryOverlay");
+  const iframe = document.getElementById("mapaDeliveryIframe");
+  overlay?.classList.remove("show");
+  clearTimeout(cerrarMapaTimer);
+  // Espera a que termine el fade-out antes de vaciar el iframe
+  cerrarMapaTimer = setTimeout(() => {
+    if (iframe) {
+      iframe.onload = null;
+      iframe.classList.remove("loaded");
+      iframe.src = "about:blank";
+    }
+  }, 300);
+}
+
+
+
+document
+  .getElementById("mapaDeliveryClose")
+  ?.addEventListener("click", cerrarMapaDeliveryFullscreen);
+document.getElementById("mapaDeliveryOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "mapaDeliveryOverlay") cerrarMapaDeliveryFullscreen();
+});
+
 function fmtMoney(n) {
   return "S/ " + Number(n || 0).toFixed(2);
 }
@@ -916,9 +1094,15 @@ async function cargarNegocio() {
     const ref = tiendaDoc(localidad, "tiendas", tiendaId);
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : null;
+    bizDataGlobal = data;
     const nombre = data ? data.nombre_tienda || data.nombre : null;
     bizNombreGlobal = nombre || "Geinz";
     bizLogoUrl = data?.img_tienda?.logo_tienda || "";
+    const ubic = data?.ubicacion;
+    if (ubic && typeof ubic.latitud === "number" && typeof ubic.longitud === "number") {
+      bizLat = ubic.latitud;
+      bizLng = ubic.longitud;
+    }
     document.title = `Pedidos en vivo · ${nombre || "Geinz"}`;
   } catch {}
 }
@@ -1049,6 +1233,9 @@ const autorejMinutesInput = document.getElementById("autorejMinutes");
 const autorejVal = document.getElementById("autorejVal");
 const autorejSave = document.getElementById("autorejSave");
 
+const topActionsEl = autorejBtn?.closest(".autorej-wrap")?.parentElement;
+if (topActionsEl) topActionsEl.classList.add("top-actions-scroll");
+
 function paintAutorejBtn() {
   autorejBtn.classList.toggle("on", autoRejectEnabled);
   autorejVal.textContent = autoRejectEnabled ? `${autoRejectMinutes}m` : "Off";
@@ -1097,6 +1284,83 @@ const autoresMinutesInput = document.getElementById("autoresMinutes");
 const autoresVal = document.getElementById("autoresVal");
 const autoresSave = document.getElementById("autoresSave");
 
+/* ══════════════ Tarifa de delivery (base + km extra) ══════════════ */
+function leerNum(key, def) {
+  const v = localStorage.getItem(key);
+  return v !== null && v !== "" && !isNaN(Number(v)) ? Number(v) : def;
+}
+let deliEnabled = localStorage.getItem("geinz_deli_on") === "1";
+let deliBase = leerNum("geinz_deli_base", 3);
+let deliKmIncl = leerNum("geinz_deli_km", 2);
+let deliPorKm = leerNum("geinz_deli_perkm", 1);
+
+const deliBtn = document.getElementById("deliBtn");
+const deliPop = document.getElementById("deliPop");
+const deliToggle = document.getElementById("deliToggle");
+const deliBaseInput = document.getElementById("deliBase");
+const deliKmInclInput = document.getElementById("deliKmIncl");
+const deliPorKmInput = document.getElementById("deliPorKm");
+const deliVal = document.getElementById("deliVal");
+
+function paintDeliBtn() {
+  deliBtn.classList.toggle("on", deliEnabled);
+  deliVal.textContent = deliEnabled ? `S/${deliBase}` : "Off";
+}
+deliToggle.checked = deliEnabled;
+deliBaseInput.value = deliBase;
+deliKmInclInput.value = deliKmIncl;
+deliPorKmInput.value = deliPorKm;
+paintDeliBtn();
+function actualizarVisibilidadDeli() {
+  const wrap = deliBtn.closest(".autorej-wrap");
+  if (wrap) wrap.style.display = originFilter === "whatsapp" ? "block" : "none";
+  if (originFilter !== "whatsapp") deliPop.classList.remove("show");
+}
+actualizarVisibilidadDeli();
+deliBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  deliPop.classList.toggle("show");
+  autorejPop.classList.remove("show");
+  autoresPop.classList.remove("show");
+});
+deliPop.addEventListener("click", (e) => e.stopPropagation());
+// captura: cierra este popover aunque otro botón haga stopPropagation
+document.addEventListener(
+  "click",
+  (e) => {
+    if (!deliPop.contains(e.target) && !deliBtn.contains(e.target))
+      deliPop.classList.remove("show");
+  },
+  true,
+);
+
+const deliSave = document.getElementById("deliSave");
+deliSave.addEventListener("click", () => {
+  const num = (el, def) => Math.max(0, Number(el.value) || def);
+  deliBase = num(deliBaseInput, 0);
+  deliKmIncl = num(deliKmInclInput, 0);
+  deliPorKm = num(deliPorKmInput, 0);
+  deliEnabled = deliToggle.checked;
+  localStorage.setItem("geinz_deli_on", deliEnabled ? "1" : "0");
+  localStorage.setItem("geinz_deli_base", String(deliBase));
+  localStorage.setItem("geinz_deli_km", String(deliKmIncl));
+  localStorage.setItem("geinz_deli_perkm", String(deliPorKm));
+  paintDeliBtn();
+  deliPop.classList.remove("show");
+  showToast(
+    deliEnabled
+      ? `🛵 Tarifa activada: S/ ${deliBase} + S/ ${deliPorKm} por km extra`
+      : "🛵 Tarifa de delivery desactivada",
+  );
+  if (activeModalId && pedidosMap.has(activeModalId)) renderDetail(activeModalId);
+});
+
+function calcularPrecioDelivery(distKm) {
+  if (!deliEnabled) return null;
+  const extra = Math.max(0, distKm - deliKmIncl);
+  const precio = deliBase + extra * deliPorKm;
+  return Math.ceil(precio * 2) / 2; // redondea hacia arriba a 0.50
+}
 function paintAutoresBtn() {
   autoresBtn.classList.toggle("on", autoResEnabled);
   autoresVal.textContent = autoResEnabled ? `${autoResMinutes}m` : "Off";
@@ -1143,6 +1407,7 @@ originBar.querySelectorAll(".origin-chip").forEach((chip) => {
     originBar
       .querySelectorAll(".origin-chip")
       .forEach((c) => c.classList.toggle("active", c === chip));
+          actualizarVisibilidadDeli();
     mesasStripWrap.style.display = originFilter === "mesa" ? "flex" : "none";
     document.getElementById("board").style.display =
       originFilter === "mesa" ? "none" : "flex";
@@ -3033,7 +3298,7 @@ async function aceptarPedidoMesa(numeroMesa, btnEl) {
     }
 
     detenerSoundLoopParaPedidoMesa(numeroMesa);
-    showToast("🍽️ Pedido de mesas agrupadas rechazado");
+    showToast("🍽️ Pedido aceptado");
     closeDetail();
   } catch (err) {
     console.error("Error aceptando pedido de mesa:", err);
@@ -3183,6 +3448,7 @@ const voucherBlock = p.pago?.voucher_url
           <div class="dm-meta-value ${pago.metodo === "Efectivo" && pago.vuelto ? "" : "dim"}">${pago.metodo === "Efectivo" && pago.vuelto ? "Paga con S/ " + escapeHtml(pago.vuelto) : "No aplica"}</div>
         </div>
           ${voucherBlock}
+                  ${mapaDeliveryHTML(p)}
         <div class="dm-meta-item full">
           <div class="dm-meta-label">📝 Nota del cliente</div>
           <div class="dm-meta-value ${p.nota ? "" : "dim"}">${p.nota ? escapeHtml(p.nota) : "Sin especificaciones adicionales"}</div>
@@ -3201,6 +3467,7 @@ const voucherBlock = p.pago?.voucher_url
       <span class="dm-total-val">${fmtMoney(p.total)}</span>
     </div>
   `;
+  bindMapaDeliveryClicks();   // ← ESTA LÍNEA FALTABA
 
   const actionsWrap = document.createElement("div");
   actionsWrap.className = "oc-actions";
@@ -3287,6 +3554,7 @@ async function descontarStockPedido(pedido) {
     if (!it.id || !it.categoria) continue;
     const cantidad = Number(it.cantidad) || 0;
     if (cantidad <= 0) continue;
+        if (it.esPromo) continue; // las promos no tienen doc de stock
     const prodRef = tiendaSubDoc(
       localidad,
       "tiendas",
@@ -3306,6 +3574,7 @@ async function descontarStockPedido(pedido) {
         let agotadoDeEsteItem = null; // ← solo UNA notificación por línea de pedido
 
         // 1) Variante específica (si el pedido trae opciones elegidas)
+             // 1) Variantes (soporta texto, varias opciones y opciones con cantidad)
         const seleccion = it.opciones || null;
         if (
           seleccion &&
@@ -3314,14 +3583,14 @@ async function descontarStockPedido(pedido) {
           data.condiciones.length
         ) {
           updates.condiciones = data.condiciones.map((cond) => {
-            const opcionElegida = seleccion[cond.nombre];
-            if (!opcionElegida) return cond;
+            const elegidas = entradasDeOpcion(seleccion[cond.nombre]);
+            if (!elegidas.length) return cond;
             return {
               ...cond,
               opciones: (cond.opciones || []).map((op) => {
-                if (op.nombre !== opcionElegida || typeof op.stock !== "number")
-                  return op;
-                const nuevoStockOp = Math.max(0, op.stock - cantidad);
+                const hit = elegidas.find(([n]) => n === op.nombre);
+                if (!hit || typeof op.stock !== "number") return op;
+                const nuevoStockOp = Math.max(0, op.stock - hit[1] * cantidad);
                 if (nuevoStockOp <= 0 && op.stock > 0 && !agotadoDeEsteItem) {
                   agotadoDeEsteItem = {
                     nombre: `${data.nombre || it.nombre} (${op.nombre})`,
@@ -4498,7 +4767,65 @@ async function agregarMesasAGrupoExistente(numeroMesaOcupada, numerosNuevos) {
     showToast("❌ No se pudo agregar la mesa al grupo", true);
   }
 }
-
+/* ══════ Helpers copiados del carrito (descuentos / ofertas) ══════ */
+function parseFechaISOaMsLima(fechaISO, horaStr) {
+  if (!fechaISO) return null;
+  const [y, m, d] = fechaISO.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const [hh, mm] = (horaStr || "23:59").split(":").map(Number);
+  return Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0) + 5 * 3600 * 1000;
+}
+function parseFechaHoraLimaOferta(fechaStr, horaStr) {
+  const [d, m, y] = (fechaStr || "").split("/").map(Number);
+  if (!d || !m || !y) return null;
+  const [hh, mm] = (horaStr || "23:59").split(":").map(Number);
+  return Date.UTC(y, m - 1, d, hh || 0, mm || 0, 0) + 5 * 3600 * 1000;
+}
+function obtenerDiaSemanaLima(fecha = new Date()) {
+  const n = new Intl.DateTimeFormat("en-US", { timeZone: "America/Lima", weekday: "long" })
+    .format(fecha).toLowerCase();
+  return { sunday: "domingo", monday: "lunes", tuesday: "martes", wednesday: "miercoles",
+    thursday: "jueves", friday: "viernes", saturday: "sabado" }[n] || null;
+}
+function descuentoVigente(descuento, ahora = new Date()) {
+  if (!descuento || !descuento.activo) return null;
+  const porcentaje = Number(descuento.porcentaje) || 0;
+  if (porcentaje <= 0) return null;
+  if (descuento.modo === "dias_semana") {
+    if (!(descuento.dias || []).includes(obtenerDiaSemanaLima(ahora))) return null;
+    return { porcentaje, expiraEn: null };
+  }
+  if (descuento.modo === "duracion") {
+    const exp = Number(descuento.expiraEn) || 0;
+    if (!exp || ahora.getTime() >= exp) return null;
+    return { porcentaje, expiraEn: exp };
+  }
+  if (descuento.modo === "fecha") {
+    const fin = parseFechaISOaMsLima(descuento.fechaFin, descuento.horaFin || "23:59");
+    if (!fin || ahora.getTime() >= fin) return null;
+    if (descuento.fechaInicio) {
+      const ini = parseFechaISOaMsLima(descuento.fechaInicio, "00:00");
+      if (ini && ahora.getTime() < ini) return null;
+    }
+    return { porcentaje, expiraEn: fin };
+  }
+  return null;
+}
+function seleccionATexto(sel) {
+  return Object.entries(sel || {})
+    .map(([k, v]) => {
+      const e = entradasDeOpcion(v).map(([n, c]) => (c > 1 ? `${n} x${c}` : n));
+      return e.length ? `${k}: ${e.join(", ")}` : null;
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+function precioCardHtml(p) {
+  const d = descuentoVigente(p.descuento);
+  if (!d) return fmtMoney(p.precio);
+  const nuevo = +(p.precio * (1 - d.porcentaje / 100)).toFixed(2);
+  return `<span style="text-decoration:line-through;color:var(--ink-faint);font-size:11px;margin-right:6px;">${fmtMoney(p.precio)}</span><span style="color:#fb7185;">${fmtMoney(nuevo)}</span> <span style="font-size:10px;color:#fb7185;">-${d.porcentaje}%</span>`;
+}
 /* ══════════════ NUEVO PEDIDO (POS directo, para negocios NO restaurante) ══════════════ */
 const NuevoPedido = {
   productos: [],
@@ -4521,130 +4848,99 @@ const NuevoPedido = {
       .toLowerCase()
       .trim();
   },
-
-  cartKeyFor(id, seleccion) {
-    if (!seleccion || !Object.keys(seleccion).length) return id;
-    return `${id}__${Object.keys(seleccion)
-      .sort()
-      .map((k) => `${k}:${seleccion[k]}`)
-      .join("|")}`;
-  },
-  calcPrecioFinal(p, seleccion) {
-    let precio = Number(p.precio) || 0;
-    if (!seleccion) return precio;
-    (p.condiciones || []).forEach((cond) => {
-      const op = cond.opciones.find((o) => o.nombre === seleccion[cond.nombre]);
-      if (op?.costoAdicional) precio += op.costoAdicional;
+  async cargarPromos() {
+    const out = [];
+    const biz = bizDataGlobal;
+    const now = Date.now();
+    const mk = (o) => ({
+      condiciones: [], stock: null, descuento: null,
+      variantesObligatoria: true, variantesMultiples: false, variantesConCantidad: false,
+      esPromo: true, ...o, nombreNorm: this.normalizeText(o.nombre),
     });
+
+    // Banner clickeable con precio
+    const b = biz?.banner;
+    const bPrecio = Number(b?.precio) || 0;
+    const bDesc = String(b?.descripcion || "").trim();
+    if (b?.activo === true && b?.clickeable === true && b?.imagen && bDesc && bPrecio > 0) {
+      out.push(mk({ id: "promo__banner", nombre: bDesc.slice(0, 80), categoria: "Promociones", precio: bPrecio, imagen: b.imagen }));
+    }
+
+    // Promociones normales (ofertas 🔥)
+    const raw = biz?.img_tienda?.lista_img?.promociones;
+    if (raw && typeof raw === "object") {
+      Object.entries(raw).forEach(([pid, p]) => {
+        if (!p || typeof p !== "object") return;
+        const precio = Number(p.precio) || 0;
+        if (precio <= 0) return;
+        const desc = String(p.descripcion || "").trim();
+        out.push(mk({ id: `promo__${pid}`, nombre: (desc || "Promoción").slice(0, 80), categoria: "ofertas 🔥", precio, imagen: p.imagen || "" }));
+      });
+    }
+
+    // Ofertas del momento (con hora/fecha de vencimiento)
+    try {
+      const snap = await getDocs(tiendaSubCol(localidad, "tiendas", tiendaId, "promociones_geinz"));
+      snap.forEach((ds) => {
+        const data = ds.data();
+        const fh = data.datos_hora_fecha || {};
+        const info = data.informacion || data;
+        if (data.estado !== "activo" || fh.activo === false) return;
+        const ini = fh.timestamp_inicio?.toMillis ? fh.timestamp_inicio.toMillis() : null;
+        if (ini && ini > now) return;
+        let fin = fh.timestamp_fin?.toMillis ? fh.timestamp_fin.toMillis() : null;
+        if (fin === null && fh.fecha_fin) fin = parseFechaHoraLimaOferta(fh.fecha_fin, fh.hora_fin);
+        if (fin === null || fin < now) return;
+        const precio = Number(data.precio_publicacion) || 0;
+        if (precio <= 0) return;
+        const img = data.img_container?.lista_img?.[0] || data.img_container?.logo_img || "";
+        const titulo = String(info.titulo || "").trim() || String(info.descripcion || "").trim() || "Oferta";
+        out.push(mk({ id: `promo__activa_${ds.id}`, nombre: titulo.slice(0, 80), categoria: "momentaneas⏰", precio, imagen: img, esOfertaTiempo: true, expiraEn: fin }));
+      });
+    } catch (e) {
+      console.warn("No se pudieron cargar las ofertas activas:", e);
+    }
+    return out;
+  },
+  cartKeyFor(id, sel) {
+    const claves = Object.keys(sel || {}).filter((k) => entradasDeOpcion(sel[k]).length);
+    if (!claves.length) return id;
+    return `${id}__${claves.sort().map((k) =>
+      `${k}:${entradasDeOpcion(sel[k]).map(([n, c]) => `${n}*${c}`).sort().join("+")}`).join("|")}`;
+  },
+  calcPrecioFinal(p, sel) {
+    const d = descuentoVigente(p.descuento);
+    let precio = Number(p.precio) || 0;
+    if (d) precio = +(precio * (1 - d.porcentaje / 100)).toFixed(2);
+    if (!sel) return precio;
+    (p.condiciones || []).forEach((cond) =>
+      entradasDeOpcion(sel[cond.nombre]).forEach(([n, c]) => {
+        const op = cond.opciones.find((o) => o.nombre === n);
+        if (op?.costoAdicional) precio += op.costoAdicional * c;
+      }),
+    );
     return +precio.toFixed(2);
   },
-  getStockDisponible(p, seleccion) {
-    if (!seleccion || !p.condiciones?.length) {
-      return typeof p.stock === "number" ? p.stock : null;
-    }
-    let minStock = null;
-    p.condiciones.forEach((cond) => {
-      const elegido = seleccion[cond.nombre];
-      if (!elegido) return;
-      const op = cond.opciones.find((o) => o.nombre === elegido);
-      if (op && typeof op.stock === "number") {
-        minStock = minStock === null ? op.stock : Math.min(minStock, op.stock);
-      }
-    });
-    return minStock;
-  },
-  abrirOpciones(p, seleccionExistente = null, editKey = null) {
-    this._prodOpc = p;
-    this._editKey = editKey;
-    this._seleccion = seleccionExistente ? { ...seleccionExistente } : {};
-    p.condiciones.forEach((c) => {
-      if (!this._seleccion[c.nombre])
-        this._seleccion[c.nombre] = c.opciones[0].nombre;
-    });
-    document.getElementById("npOptProdNombre").textContent = p.nombre;
-    const body = document.getElementById("npOptBody");
-    body.innerHTML = p.condiciones
-      .map(
-        (c) => `
-                    <div class="np-opt-group">
-                        <div class="np-opt-label">${escapeHtml(c.nombre)}</div>
-                        <div class="np-opt-row">
-                            ${c.opciones
-                              .map((o) => {
-                                const sinStock =
-                                  typeof o.stock === "number" && o.stock <= 0;
-                                return `
-                                <button type="button" class="np-opt-btn${this._seleccion[c.nombre] === o.nombre ? " active" : ""}"
-                                    data-cond="${escapeHtml(c.nombre)}" data-op="${escapeHtml(o.nombre)}" ${sinStock ? "disabled" : ""}>
-                                    ${escapeHtml(o.nombre)}${o.costoAdicional ? ` (+S/ ${o.costoAdicional.toFixed(2)})` : ""}${typeof o.stock === "number" ? ` · ${sinStock ? "Sin stock" : "Quedan " + o.stock}` : ""}
-                                </button>`;
-                              })
-                              .join("")}
-                        </div>
-                    </div>`,
-      )
-      .join("");
-    body.querySelectorAll(".np-opt-btn:not([disabled])").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this._seleccion[btn.dataset.cond] = btn.dataset.op;
-        body
-          .querySelectorAll(`[data-cond="${btn.dataset.cond}"]`)
-          .forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-      });
-    });
-    document.getElementById("npOptOverlay").classList.add("show");
-  },
-  cerrarOpciones() {
-    document.getElementById("npOptOverlay").classList.remove("show");
-    this._prodOpc = null;
-    this._editKey = null;
-  },
-  confirmarOpciones() {
-    if (!this._prodOpc) return;
-    const p = this._prodOpc,
-      seleccion = { ...this._seleccion };
-    if (this._editKey) {
-      const entry = this.carrito.get(this._editKey);
-      const newKey = this.cartKeyFor(p.id, seleccion);
-      const existente = this.carrito.get(newKey);
-      const cantidadFinal =
-        (existente && newKey !== this._editKey ? existente.cantidad : 0) +
-        entry.cantidad;
-
-      const disponible = this.getStockDisponible(p, seleccion);
-      if (typeof disponible === "number" && cantidadFinal > disponible) {
-        showToast(
-          `⚠️ No hay stock suficiente de esa variante (quedan ${disponible})`,
-          true,
-        );
-        return;
-      }
-
-      this.carrito.delete(this._editKey);
-      if (existente && newKey !== this._editKey)
-        existente.cantidad += entry.cantidad;
-      else
-        this.carrito.set(newKey, {
-          ...p,
-          precio: this.calcPrecioFinal(p, seleccion),
-          cantidad: entry.cantidad,
-          cartKey: newKey,
-          seleccion,
-        });
-    } else {
-      this.add(p.id, seleccion);
-    }
-    this.cerrarOpciones();
-    this.updateCardQty(p.id);
-    this.renderCarrito();
+  getStockDisponible(p, sel) {
+    if (!sel || !p.condiciones?.length) return typeof p.stock === "number" ? p.stock : null;
+    let min = null;
+    p.condiciones.forEach((cond) =>
+      entradasDeOpcion(sel[cond.nombre]).forEach(([n, c]) => {
+        const op = cond.opciones.find((o) => o.nombre === n);
+        if (op && typeof op.stock === "number") {
+          const lineas = Math.floor(op.stock / (c || 1));
+          min = min === null ? lineas : Math.min(min, lineas);
+        }
+      }),
+    );
+    return min;
   },
   mapearProducto(pDoc, categoria, d) {
     const condiciones = (d.condiciones || [])
       .map((c) => ({
         nombre: c.nombre,
         opciones: (c.opciones || [])
-          .filter((o) => o.activo)
+          .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
           .map((o) => ({
             nombre: o.nombre,
             costoAdicional: Number(o.costoAdicional) || 0,
@@ -4661,8 +4957,212 @@ const NuevoPedido = {
       imagen: d.imagenes?.[0]?.url || "",
       stock: typeof d.stock === "number" ? d.stock : null,
       condiciones,
+      variantesObligatoria: d.variantesObligatoria !== false,
+      variantesMultiples: d.variantesMultiples === true,
+      variantesConCantidad: d.variantesMultiples === true && d.variantesConCantidad === true,
+      descuento: d.descuento || null,
     };
   },
+
+  cerrarOpciones() {
+    document.getElementById("npOptOverlay").classList.remove("show");
+    this._prodOpc = null;
+    this._editKey = null;
+  },
+  abrirOpciones(p, selEx = null, editKey = null) {
+    const obligatoria = p.variantesObligatoria !== false;
+    const multiple = p.variantesMultiples === true;
+    const conCant = multiple && p.variantesConCantidad === true;
+    this._prodOpc = p;
+    this._editKey = editKey;
+    this._seleccion = {};
+    Object.entries(selEx || {}).forEach(([k, v]) => {
+      if (conCant) {
+        const o = {};
+        entradasDeOpcion(v).forEach(([n, c]) => (o[n] = c));
+        this._seleccion[k] = o;
+      } else if (multiple) {
+        this._seleccion[k] = entradasDeOpcion(v).map(([n]) => n);
+      } else {
+        this._seleccion[k] = Array.isArray(v) ? v[0] : v && typeof v === "object" ? Object.keys(v)[0] : v;
+      }
+    });
+
+    document.getElementById("npOptProdNombre").textContent = p.nombre;
+    const body = document.getElementById("npOptBody");
+    body.innerHTML = "";
+
+    const aviso = (html) => {
+      const el = document.createElement("p");
+      el.style.cssText = "font-size:12px;color:var(--ink-dim);background:rgba(124,92,255,.08);border:1px dashed rgba(124,92,255,.35);border-radius:12px;padding:8px 12px;margin-bottom:10px;line-height:1.4;";
+      el.innerHTML = html;
+      body.appendChild(el);
+    };
+    if (conCant) aviso("✨ Elige opciones y usa + / − para la cantidad de cada una.");
+    else if (multiple) aviso("✨ Puedes elegir <b>varias opciones</b>.");
+    else if (!obligatoria) aviso("✨ Estas opciones son opcionales.");
+
+    p.condiciones.forEach((cond) => {
+      const grupo = document.createElement("div");
+      grupo.className = "np-opt-group";
+      const label = document.createElement("div");
+      label.className = "np-opt-label";
+      label.textContent = multiple ? `${cond.nombre} (elige varias)` : cond.nombre;
+      grupo.appendChild(label);
+
+      if (conCant) {
+        const sel = this._seleccion;
+        if (!sel[cond.nombre] || typeof sel[cond.nombre] !== "object" || Array.isArray(sel[cond.nombre])) sel[cond.nombre] = {};
+        cond.opciones.forEach((op) => {
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--line);margin-bottom:6px;";
+          const info = document.createElement("span");
+          info.style.fontSize = "12.5px";
+          info.textContent = op.costoAdicional ? `${op.nombre} (+S/ ${op.costoAdicional.toFixed(2)} c/u)` : op.nombre;
+          const stepper = document.createElement("div");
+          stepper.style.cssText = "display:flex;align-items:center;gap:8px;";
+          const set = (n) => {
+            if (typeof op.stock === "number" && n > op.stock) return showToast(`⚠️ Solo quedan ${op.stock} de "${op.nombre}"`, true);
+            if (n <= 0) delete sel[cond.nombre][op.nombre];
+            else sel[cond.nombre][op.nombre] = n;
+            paint();
+            this._refrescarOpciones();
+          };
+          const paint = () => {
+            const c = sel[cond.nombre][op.nombre] || 0;
+            stepper.innerHTML = "";
+            const mk = (t, fn) => {
+              const b = document.createElement("button");
+              b.type = "button"; b.className = "npc-ico"; b.textContent = t; b.onclick = fn;
+              return b;
+            };
+            if (c === 0) {
+              const a = document.createElement("button");
+              a.type = "button"; a.className = "np-add-btn"; a.style.cssText = "width:auto;padding:5px 10px;";
+              a.textContent = "Agregar"; a.onclick = () => set(1);
+              stepper.appendChild(a);
+            } else {
+              const n = document.createElement("span");
+              n.style.cssText = "min-width:16px;text-align:center;font-weight:800;font-size:13px;";
+              n.textContent = c;
+              stepper.append(mk("−", () => set(c - 1)), n, mk("+", () => set(c + 1)));
+            }
+          };
+          paint();
+          row.append(info, stepper);
+          grupo.appendChild(row);
+        });
+      } else {
+        const fila = document.createElement("div");
+        fila.className = "np-opt-row";
+        if (!multiple && !this._seleccion[cond.nombre] && (obligatoria || editKey) && cond.opciones.length)
+          this._seleccion[cond.nombre] = cond.opciones[0].nombre;
+
+        cond.opciones.forEach((op) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          const activa = () => multiple
+            ? entradasDeOpcion(this._seleccion[cond.nombre]).some(([n]) => n === op.nombre)
+            : this._seleccion[cond.nombre] === op.nombre;
+          btn.className = "np-opt-btn" + (activa() ? " active" : "");
+          btn.textContent = (op.costoAdicional ? `${op.nombre} (+S/ ${op.costoAdicional.toFixed(2)})` : op.nombre)
+            + (typeof op.stock === "number" ? ` · Quedan ${op.stock}` : "");
+          btn.onclick = () => {
+            if (multiple) {
+              const arr = [...entradasDeOpcion(this._seleccion[cond.nombre]).map(([n]) => n)];
+              const i = arr.indexOf(op.nombre);
+              if (i >= 0) arr.splice(i, 1); else arr.push(op.nombre);
+              if (arr.length) this._seleccion[cond.nombre] = arr; else delete this._seleccion[cond.nombre];
+              btn.classList.toggle("active", i < 0);
+            } else {
+              const ya = this._seleccion[cond.nombre] === op.nombre;
+              fila.querySelectorAll(".np-opt-btn").forEach((b) => b.classList.remove("active"));
+              if (!obligatoria && ya) delete this._seleccion[cond.nombre];
+              else { this._seleccion[cond.nombre] = op.nombre; btn.classList.add("active"); }
+            }
+            this._refrescarOpciones();
+          };
+          fila.appendChild(btn);
+        });
+        grupo.appendChild(fila);
+      }
+      body.appendChild(grupo);
+    });
+
+    if (multiple) {
+      const res = document.createElement("div");
+      res.id = "npOptResumen";
+      res.style.cssText = "border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:12.5px;line-height:1.6;";
+      body.appendChild(res);
+    }
+    this._refrescarOpciones();
+    document.getElementById("npOptOverlay").classList.add("show");
+  },
+
+  _refrescarOpciones() {
+    const p = this._prodOpc;
+    if (!p) return;
+    const btn = document.getElementById("npOptConfirm");
+    btn.textContent = `${this._editKey ? "Guardar cambios" : "Agregar al pedido"} · ${fmtMoney(this.calcPrecioFinal(p, this._seleccion))}`;
+    btn.disabled = p.variantesObligatoria !== false &&
+      p.condiciones.some((c) => !entradasDeOpcion(this._seleccion[c.nombre]).length);
+
+    const res = document.getElementById("npOptResumen");
+    if (!res) return;
+    const filas = [];
+    p.condiciones.forEach((cond) =>
+      entradasDeOpcion(this._seleccion[cond.nombre]).forEach(([n, c]) => {
+        const op = cond.opciones.find((o) => o.nombre === n);
+        const extra = op?.costoAdicional ? `+${fmtMoney(op.costoAdicional * c)}` : "Incluido";
+        filas.push(`<div style="display:flex;justify-content:space-between;"><span>• ${escapeHtml(cond.nombre)}: ${escapeHtml(n)}${c > 1 ? " x" + c : ""}</span><span style="color:var(--ink-dim);">${extra}</span></div>`);
+      }),
+    );
+    res.innerHTML = `<div style="display:flex;justify-content:space-between;"><span>Precio base</span><span>${fmtMoney(p.precio)}</span></div>
+      ${filas.join("") || `<div style="color:var(--ink-dim);">Aún no marcaste ninguna opción.</div>`}
+      <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);"><span>Precio final (c/u)</span><span>${fmtMoney(this.calcPrecioFinal(p, this._seleccion))}</span></div>`;
+  },
+
+  confirmarOpciones() {
+    if (!this._prodOpc) return;
+    const p = this._prodOpc;
+    const seleccion = JSON.parse(JSON.stringify(this._seleccion));
+    Object.keys(seleccion).forEach((k) => { if (!entradasDeOpcion(seleccion[k]).length) delete seleccion[k]; });
+
+    if (p.variantesObligatoria !== false &&
+        p.condiciones.some((c) => !entradasDeOpcion(seleccion[c.nombre]).length))
+      return showToast("Elige una opción en cada campo", true);
+
+    if (this._editKey) {
+      const entry = this.carrito.get(this._editKey);
+      const newKey = this.cartKeyFor(p.id, seleccion);
+      const existente = this.carrito.get(newKey);
+      const cantidadFinal = (existente && newKey !== this._editKey ? existente.cantidad : 0) + entry.cantidad;
+      const disp = this.getStockDisponible(p, seleccion);
+      if (typeof disp === "number" && cantidadFinal > disp)
+        return showToast(`⚠️ No hay stock suficiente de esa variante (quedan ${disp})`, true);
+
+      this.carrito.delete(this._editKey);
+      if (existente && newKey !== this._editKey) existente.cantidad += entry.cantidad;
+      else {
+        const d = descuentoVigente(p.descuento);
+        this.carrito.set(newKey, {
+          ...p,
+          precio: this.calcPrecioFinal(p, seleccion),
+          precioOriginal: d ? p.precio : null,
+          descuentoPorcentaje: d ? d.porcentaje : null,
+          cantidad: entry.cantidad,
+          cartKey: newKey,
+          seleccion,
+        });
+      }
+    } else {
+      this.add(p.id, seleccion);
+    }
+    this.cerrarOpciones();
+    this.updateCardQty(p.id);
+    this.renderCarrito();
+  },
+
 
   async cargarPaginaCategoria(categoria, cursor) {
     const subRef = tiendaSubCol(
@@ -4717,7 +5217,8 @@ const NuevoPedido = {
         ),
       );
 
-      this.productos = primeras.flatMap((r) => r.items);
+const promos = await this.cargarPromos();
+this.productos = [...promos, ...primeras.flatMap((r) => r.items)];
       this.productosPorId = new Map(this.productos.map((p) => [p.id, p]));
       this.cargado = true;
       this.renderFiltros();
@@ -4885,7 +5386,7 @@ const NuevoPedido = {
 <div class="np-card${sinStockTotal ? " sin-stock" : ""}" data-id="${p.id}">
     <div class="np-img-wrap${p.imagen ? "" : " np-noimg"}">${imgHtml}</div>
     <div class="np-name">${escapeHtml(p.nombre)}</div>
-    <div class="np-price">${fmtMoney(p.precio)}</div>
+<div class="np-price">${precioCardHtml(p)}</div>
     ${stockHtml}
     <div class="np-qty-holder">${accion}</div>
 </div>`;
@@ -4896,33 +5397,33 @@ const NuevoPedido = {
   add(id, seleccion = null) {
     const p = this.productosPorId.get(id);
     if (!p) return;
-    if (!seleccion && p.condiciones?.length) {
-      this.abrirOpciones(p);
+    if (p.esOfertaTiempo && p.expiraEn && Date.now() >= p.expiraEn) {
+      showToast("⏰ Esta oferta ya expiró", true);
       return;
     }
+    if (!seleccion && p.condiciones?.length) return this.abrirOpciones(p);
+
     const key = this.cartKeyFor(id, seleccion);
     const entry = this.carrito.get(key);
     const cantActual = entry?.cantidad || 0;
-
-    // 👇 Respeta el stock de la variante elegida (o el total si no hay variante)
     const disponible = this.getStockDisponible(p, seleccion);
     if (typeof disponible === "number" && cantActual >= disponible) {
-      showToast(
-        `⚠️ No queda más stock${seleccion ? " de esta variante" : ""} de "${p.nombre}" (quedan ${disponible})`,
-        true,
-      );
+      showToast(`⚠️ No queda más stock${seleccion ? " de esta variante" : ""} de "${p.nombre}" (quedan ${disponible})`, true);
       return;
     }
-
     if (entry) entry.cantidad += 1;
-    else
+    else {
+      const d = descuentoVigente(p.descuento);
       this.carrito.set(key, {
         ...p,
         precio: this.calcPrecioFinal(p, seleccion),
+        precioOriginal: d ? p.precio : null,
+        descuentoPorcentaje: d ? d.porcentaje : null,
         cantidad: 1,
         cartKey: key,
-        seleccion,
+        seleccion: seleccion || null,
       });
+    }
     this.updateCardQty(id);
     this.renderCarrito();
   },
@@ -4999,11 +5500,7 @@ const NuevoPedido = {
 
     items.forEach((it, idx) => {
       const key = it.cartKey;
-      const opcTxt = it.seleccion
-        ? Object.entries(it.seleccion)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ")
-        : "";
+      const opcTxt = seleccionATexto(it.seleccion);
       const thumb = it.imagen
         ? `<img src="${it.imagen}" alt="" onerror="this.onerror=null;this.src='../img/logo geinz.png';">`
         : `<div class="npc-thumb-ph"><img src="../img/logo geinz.png" alt="" style="width:60%;height:60%;object-fit:contain;"></div>`;
@@ -5029,7 +5526,7 @@ const NuevoPedido = {
                 <button type="button" class="npc-ico danger" data-cart-trash="${key}" title="Quitar del carrito">🗑</button>
             </div>
             <span class="npc-subtotal">${fmtMoney(it.cantidad * it.precio)}</span>
-            ${it.seleccion ? `<button type="button" class="npc-edit" data-cart-edit="${key}" data-cart-edit-id="${it.id}" title="Cambiar opciones">✎ Editar</button>` : ""}
+          ${it.condiciones?.length ?  `<button type="button" class="npc-edit" data-cart-edit="${key}" data-cart-edit-id="${it.id}" title="Cambiar opciones">✎ Editar</button>` : ""}
         </div>
       `;
         wrap.appendChild(row);
@@ -5053,78 +5550,49 @@ const NuevoPedido = {
   },
 
   async verificarYDescontarStock(items) {
-    const refsUnicas = new Map();
-    items.forEach((it) => {
-      if (!refsUnicas.has(it.id)) {
-        refsUnicas.set(
-          it.id,
-          tiendaSubDoc(
-            localidad,
-            "tiendas",
-            tiendaId,
-            "productos",
-            it.categoria,
-            it.categoria,
-            it.id,
-          ),
-        );
-      }
+    const reales = items.filter((it) => !it.esPromo); // las promos no tienen doc de stock
+    if (!reales.length) return { ok: true };
+
+    const refs = new Map();
+    reales.forEach((it) => {
+      if (!refs.has(it.id))
+        refs.set(it.id, tiendaSubDoc(localidad, "tiendas", tiendaId, "productos", it.categoria, it.categoria, it.id));
     });
 
     try {
       await runTransaction(db, async (tx) => {
         const snaps = new Map();
-        for (const [id, ref] of refsUnicas) {
-          const snap = await tx.get(ref);
-          if (snap.exists()) snaps.set(id, snap);
+        for (const [id, ref] of refs) {
+          const s = await tx.get(ref);
+          if (s.exists()) snaps.set(id, s);
         }
-
-        const actualizaciones = new Map();
-        for (const it of items) {
+        const act = new Map();
+        for (const it of reales) {
           const snap = snaps.get(it.id);
-          if (!snap) continue; // sin doc de control de stock, se deja pasar
-          const d = snap.data();
-          let dataNueva = actualizaciones.get(it.id) || { ...d };
+          if (!snap) continue;
+          const dn = act.get(it.id) || { ...snap.data() };
 
-          if (it.seleccion && dataNueva.condiciones) {
-            const condiciones = dataNueva.condiciones.map((c) => ({
-              ...c,
-              opciones: c.opciones.map((o) => ({ ...o })),
-            }));
-            for (const cond of condiciones) {
-              const elegido = it.seleccion[cond.nombre];
-              if (!elegido) continue;
-              const op = cond.opciones.find((o) => o.nombre === elegido);
-              if (op && typeof op.stock === "number") {
-                if (op.stock < it.cantidad) {
-                  throw {
-                    motivo: "sin_stock",
-                    nombre: it.nombre,
-                    disponible: op.stock,
-                    detalle: elegido,
-                  };
+          if (it.seleccion && dn.condiciones) {
+            const conds = dn.condiciones.map((c) => ({ ...c, opciones: c.opciones.map((o) => ({ ...o })) }));
+            for (const cond of conds) {
+              for (const [nombreOp, cant] of entradasDeOpcion(it.seleccion[cond.nombre])) {
+                const op = cond.opciones.find((o) => o.nombre === nombreOp);
+                if (op && typeof op.stock === "number") {
+                  const need = cant * it.cantidad;
+                  if (op.stock < need) throw { motivo: "sin_stock", nombre: it.nombre, disponible: op.stock, detalle: nombreOp };
+                  op.stock -= need;
                 }
-                op.stock -= it.cantidad;
               }
             }
-            dataNueva.condiciones = condiciones;
+            dn.condiciones = conds;
           }
-          if (typeof dataNueva.stock === "number") {
-            if (dataNueva.stock < it.cantidad) {
-              throw {
-                motivo: "sin_stock",
-                nombre: it.nombre,
-                disponible: dataNueva.stock,
-              };
-            }
-            dataNueva.stock -= it.cantidad;
+          if (typeof dn.stock === "number") {
+            if (dn.stock < it.cantidad) throw { motivo: "sin_stock", nombre: it.nombre, disponible: dn.stock };
+            dn.stock -= it.cantidad;
           }
-          actualizaciones.set(it.id, dataNueva);
+          act.set(it.id, dn);
         }
-
-        for (const [id, dataNueva] of actualizaciones) {
-          tx.set(refsUnicas.get(id), dataNueva, { merge: true });
-        }
+        for (const [id, dn] of act) tx.set(refs.get(id), dn, { merge: true });
       });
       return { ok: true };
     } catch (err) {
@@ -5187,8 +5655,10 @@ const NuevoPedido = {
           precio_unitario: it.precio,
           cantidad: it.cantidad,
           subtotal: +(it.precio * it.cantidad).toFixed(2),
-          imagen: it.imagen || "",
+            imagen: it.imagen || "",
           opciones: it.seleccion || null,
+          esPromo: it.esPromo || false,
+          descuentoPorcentaje: it.descuentoPorcentaje || null,
         })),
         total_items: items.reduce((s, i) => s + i.cantidad, 0),
         total: +total.toFixed(2),
@@ -5693,14 +6163,13 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
 
   // Mesas solo se muestran si es restaurante Y tiene local físico
   const debeMostrarMesas = esRestaurante && modeloNegocio === true;
+  // Si NO debe mostrar mesas, quita el chip "Mesas"
+  if (!debeMostrarMesas) {
+    document.querySelector('.origin-chip[data-origin="mesa"]')?.remove();
+    if (autoresBtn) autoresBtn.style.display = "none";
+  }
 
-  if (debeMostrarMesas) return;
-
-  // Oculta chip "Mesas" y reemplaza por "Nuevo pedido"
-  const chipMesas = document.querySelector('.origin-chip[data-origin="mesa"]');
-  if (chipMesas) chipMesas.remove();
-  if (autoresBtn) autoresBtn.style.display = "none";
-
+  // El chip "Nuevo pedido" ahora aparece SIEMPRE
   const chipDirecto = document.createElement("div");
   chipDirecto.className = "origin-chip";
   chipDirecto.dataset.origin = "directo";
@@ -5712,6 +6181,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
     originBar
       .querySelectorAll(".origin-chip")
       .forEach((c) => c.classList.toggle("active", c === chipDirecto));
+    actualizarVisibilidadDeli();
     document.getElementById("board").style.display = "none";
     document.getElementById("statusTabs").style.display = "none";
     mesasStripWrap.style.display = "none";
@@ -5719,15 +6189,15 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
     await NuevoPedido.init();
   });
 
-  document
-    .querySelector('.origin-chip[data-origin="whatsapp"]')
-    ?.addEventListener("click", () => {
-      document.getElementById("nuevoPedidoWrap").style.display = "none";
-      document.getElementById("board").style.display = "flex";
-      document.getElementById("statusTabs").style.display = "flex";
-    });
+  // Al volver a WhatsApp o a Mesas, se oculta el panel de Nuevo pedido
+  ["whatsapp", "mesa"].forEach((origen) => {
+    document
+      .querySelector(`.origin-chip[data-origin="${origen}"]`)
+      ?.addEventListener("click", () => {
+        document.getElementById("nuevoPedidoWrap").style.display = "none";
+      });
+  });
 }
-
 function iniciarListener() {
   if (!tiendaId) return;
   iniciarListenerMesas();

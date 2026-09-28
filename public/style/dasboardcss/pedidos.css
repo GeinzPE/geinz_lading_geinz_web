@@ -2142,3 +2142,28 @@
 .oc-descuento-line {
     background: rgba(74, 222, 128, .1);
 }
+@media (max-width:979px){
+  .head-top{
+    flex-wrap:wrap;
+    row-gap:10px;
+  }
+  .head-id{
+    flex:1 1 100%;
+    min-width:0;
+  }
+  .head-right{
+    flex:1 1 100%;
+    min-width:0;
+    max-width:100%;
+    flex-shrink:1;
+    gap:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    padding-bottom:4px;
+  }
+  .head-right::-webkit-scrollbar{display:none;}
+  .head-right > *{flex:0 0 auto;}
+  .head-clock{white-space:nowrap;}
+}
