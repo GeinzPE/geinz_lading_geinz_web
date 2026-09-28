@@ -2087,12 +2087,18 @@ function formatExpiry(finMs) {
   const diffH = diffMs / 3600000;
   const diffD = diffH / 24;
 
+  // Más de 11 meses (330 días) → no se muestra nada
+  if (diffD > 330) return null;
+
   let cls = "exp-green";
   if (diffH <= 24) cls = "exp-red";
   else if (diffD <= 3) cls = "exp-yellow";
 
   let text;
-  if (diffD >= 1) {
+  if (diffD >= 30) {
+    const meses = Math.floor(diffD / 30);
+    text = `Vence en ${meses} mes${meses !== 1 ? "es" : ""}`;
+  } else if (diffD >= 1) {
     const d = Math.floor(diffD);
     text = `Vence en ${d} día${d !== 1 ? "s" : ""}`;
   } else {
@@ -2101,7 +2107,6 @@ function formatExpiry(finMs) {
   }
   return { text, cls };
 }
-
 function renderActivePromos(promos, localidad) {
   const sec = document.getElementById("secPromosActivas");
   const grid = document.getElementById("promosActivasGrid");
@@ -2150,29 +2155,29 @@ function renderActivePromos(promos, localidad) {
     card.className = "promo-active-card";
     card.innerHTML = `
       <div class="promo-active-img-wrap">
-        <span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>
-        ${precio > 0 ? `<span class="promo-active-price-badge">S/ ${precio.toFixed(2)}</span>` : ""}
-      </div>
-      <div class="promo-active-body">
-        <h3 class="promo-active-title">${info.titulo || ""}</h3>
-        <p class="promo-active-desc">${info.descripcion || ""}</p>
-        <div class="promo-active-actions">
-          ${puedeComprarPromo ? `<button type="button" class="promo-btn-buy-icon" data-buy-promo aria-label="Comprar">
+        ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
+
+        <div class="promo-active-top-actions">
+          ${puedeComprarPromo ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
               <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
             </svg>
-           
           </button>` : ""}
-          ${waLink ? `<a class="promo-icon-circle promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
+          ${waLink ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
             <i class="fa-brands fa-whatsapp"></i>
           </a>` : ""}
-          ${shareAllowed ? `<button class="promo-icon-circle promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+          ${shareAllowed ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
             </svg>
           </button>` : ""}
+        </div>
+
+        <div class="promo-active-bottom-overlay">
+          ${precio > 0 ? `<span class="promo-active-price-badge">S/ ${precio.toFixed(2)}</span>` : ""}
+          <h3 class="promo-active-title">${escapeHtml(info.titulo || "")}</h3>
         </div>
       </div>
     `;
@@ -7035,6 +7040,77 @@ function injectPromoBuyStyles() {
     .promo-icon-circle:hover{ transform:translateY(-2px) scale(1.05); filter:brightness(1.08); }
     .promo-icon-wa{ background:#25D366; }
     .promo-icon-share-circle{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); }
+        /* ══ Ofertas del momento: todo dentro de la imagen ══ */
+    .promos-activas-scroll-row .promo-active-card{
+      position:relative;
+      padding:0 !important;
+      overflow:hidden;
+      border-radius:28px;
+      border:1px solid rgba(255,255,255,.08);
+      background:#0b0b0d;
+      box-shadow:0 14px 34px -14px rgba(0,0,0,.7);
+      transition:transform .25s ease, border-color .25s ease;
+    }
+    .promos-activas-scroll-row .promo-active-card:hover{
+      transform:translateY(-4px);
+      border-color:rgba(var(--dr),var(--dg),var(--db),.5);
+    }
+    .promo-active-card .promo-active-img-wrap{
+      position:relative;
+      width:100%;
+      aspect-ratio:4/5;
+      overflow:hidden;
+    }
+    .promo-active-card .promo-active-img-wrap .img-ph-wrap{
+      position:absolute; inset:0; width:100%; height:100%;
+    }
+    .promo-active-card .promo-active-img-wrap img{
+      width:100%; height:100%; object-fit:cover; display:block;
+    }
+    /* oscurece un poco toda la foto para que se lean los textos */
+    .promo-active-card .promo-active-img-wrap::before{
+      content:""; position:absolute; inset:0; z-index:1;
+      background:rgba(0,0,0,.18); pointer-events:none;
+    }
+    .promo-active-card .promo-expiry-badge{
+      position:absolute; top:12px; left:12px; z-index:3;
+    }
+    /* botones arriba a la derecha, en columna para que no choquen con "Vence en..." */
+    .promo-active-top-actions{
+      position:absolute; top:12px; right:12px; z-index:3;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .promo-icon-btn{
+      width:36px;height:36px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      border:none;cursor:pointer;color:#fff;text-decoration:none;
+      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+      box-shadow:0 6px 16px -4px rgba(0,0,0,.5);
+      transition:transform .2s cubic-bezier(.34,1.4,.4,1), filter .2s ease;
+    }
+    .promo-icon-wa{ background:#25D366; }
+    .promo-icon-share-circle{ background:rgba(var(--dr),var(--dg),var(--db),.92); }
+
+    /* precio + título abajo, sobre la imagen */
+    .promo-active-bottom-overlay{
+      position:absolute; left:0; right:0; bottom:0; z-index:2;
+      padding:48px 16px 16px;
+      display:flex; flex-direction:column; align-items:flex-start; gap:8px;
+      background:linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.6) 50%, rgba(0,0,0,0) 100%);
+    }
+    .promo-active-card .promo-active-price-badge{
+      position:static;
+      font-size:12.5px;font-weight:800;color:#fff;
+      padding:5px 13px;border-radius:999px;
+      background:rgba(var(--dr),var(--dg),var(--db),.92);
+      box-shadow:0 4px 14px -4px rgba(var(--dr),var(--dg),var(--db),.5);
+    }
+    .promo-active-card .promo-active-title{
+      margin:0; font-size:14.5px; font-weight:700; color:#fff; line-height:1.3;
+      text-shadow:0 1px 4px rgba(0,0,0,.5);
+      white-space:normal;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
     .promos-activas-header-row{
   display:flex;
   align-items:center;
