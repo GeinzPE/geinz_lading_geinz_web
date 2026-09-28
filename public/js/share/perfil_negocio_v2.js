@@ -523,6 +523,8 @@ import {
   limit,
   orderBy,
   startAfter,
+  increment,
+  updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   ref as storageRef,
@@ -2107,6 +2109,161 @@ function formatExpiry(finMs) {
   }
   return { text, cls };
 }
+/* ═════════ ESTADÍSTICAS POR PROMO ═════════ */
+const _authReady = new Promise((res) => {
+  const un = onAuthStateChanged(auth, () => {
+    un();
+    res();
+  });
+});
+const _slug = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "") || "sin_dato";
+
+function _rangoEdad(fnac) {
+  // "dd/mm/yyyy"
+  const [d, m, y] = String(fnac || "")
+    .split("/")
+    .map(Number);
+  if (!y) return "sin_dato";
+  const h = new Date();
+  let e = h.getFullYear() - y;
+  if (h.getMonth() + 1 < m || (h.getMonth() + 1 === m && h.getDate() < d)) e--;
+  return e < 18
+    ? "menor_18"
+    : e <= 24
+      ? "18_24"
+      : e <= 34
+        ? "25_34"
+        : e <= 44
+          ? "35_44"
+          : e <= 54
+            ? "45_54"
+            : "55_mas";
+}
+
+let _segCache = null;
+async function _getSegmento() {
+  await _authReady;
+  const uid = auth.currentUser?.uid;
+  if (!uid)
+    return {
+      logeado: false,
+      genero: "anonimo",
+      edad: "anonimo",
+      localidad: "anonimo",
+    };
+  if (_segCache?.uid === uid) return _segCache;
+  let d = {};
+  try {
+    const s = await getDoc(data_user_logeado(uid));
+    if (s.exists()) d = s.data();
+  } catch {}
+  _segCache = {
+    uid,
+    logeado: true,
+    esDueno: d.tienda_propietario?.id_negocio === _params.id,
+    genero: _slug(d.genero),
+    edad: _rangoEdad(d.fecha_nac),
+    localidad: _slug(d.localida || d.localidad), // tu campo viene como "localida"
+  };
+  return _segCache;
+}
+
+/* evento: vistas | clics_detalle | clics_comprar | clics_whatsapp | clics_compartir | clics_carrito */
+const _statBuf = new Map(); // promoId -> { "estadisticas.x.y": n }
+let _statTimer = null;
+let _statPending = 0;
+const STAT_FLUSH_MS = 60000;
+const STAT_FLUSH_MAX = 25;
+
+/* evento: vistas | clics_detalle | clics_comprar | clics_whatsapp | clics_compartir | clics_carrito */
+async function trackPromo(promoId, evento) {
+  if (!promoId || !_params?.id) return;
+  const hoy = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+  }).format(new Date());
+
+  if (evento === "vistas") {
+    const k = `geinz_pv_${promoId}_${hoy}`;
+    try {
+      if (localStorage.getItem(k)) return;
+      localStorage.setItem(k, "1");
+    } catch {}
+  }
+
+  const seg = await _getSegmento();
+  if (seg.esDueno) return;
+
+  const hora = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "America/Lima",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date()),
+  );
+  const g = evento === "vistas" ? "seg_vistas" : "seg_clics";
+
+  const paths = [
+    `estadisticas.${evento}`,
+    `estadisticas.por_dia.${hoy}.${evento}`,
+    `estadisticas.por_hora.${hora}.${evento}`,
+    `estadisticas.${g}.genero.${seg.genero}`,
+    `estadisticas.${g}.edad.${seg.edad}`,
+    `estadisticas.${g}.localidad.${seg.localidad}`,
+    `estadisticas.${g}.acceso.${seg.logeado ? "registrado" : "anonimo"}`,
+  ];
+
+  const entry = _statBuf.get(promoId) || {};
+  paths.forEach((p) => (entry[p] = (entry[p] || 0) + 1));
+  _statBuf.set(promoId, entry);
+  _statPending++;
+
+  if (_statPending >= STAT_FLUSH_MAX) flushStats();
+  else if (!_statTimer) _statTimer = setTimeout(flushStats, STAT_FLUSH_MS);
+}
+
+function flushStats() {
+  clearTimeout(_statTimer);
+  _statTimer = null;
+  if (!_statBuf.size || !_params?.id) return;
+
+  const lote = [..._statBuf.entries()];
+  _statBuf.clear();
+  _statPending = 0;
+
+  lote.forEach(([promoId, campos]) => {
+    const upd = {};
+    Object.entries(campos).forEach(([path, n]) => (upd[path] = increment(n)));
+    const ref = tiendaSubDoc(
+      _params.localidad,
+      "tiendas",
+      _params.id,
+      "promociones_geinz",
+      promoId,
+    );
+    updateDoc(ref, upd).catch((e) => {
+      console.warn("track:", e.message);
+      // Si la promo ya no existe o no hay permiso, no tiene sentido reintentar
+      if (e.code === "permission-denied" || e.code === "not-found") return;
+      const back = _statBuf.get(promoId) || {};
+      Object.entries(campos).forEach(
+        ([p, n]) => (back[p] = (back[p] || 0) + n),
+      );
+      _statBuf.set(promoId, back);
+    });
+  });
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushStats();
+});
+window.addEventListener("pagehide", flushStats);
 function renderActivePromos(promos, localidad) {
   const sec = document.getElementById("secPromosActivas");
   const grid = document.getElementById("promosActivasGrid");
@@ -2158,21 +2315,33 @@ function renderActivePromos(promos, localidad) {
         ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
 
         <div class="promo-active-top-actions">
-          ${puedeComprarPromo ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+          ${
+            puedeComprarPromo
+              ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
               <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
             </svg>
-          </button>` : ""}
-          ${waLink ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
+          </button>`
+              : ""
+          }
+          ${
+            waLink
+              ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
             <i class="fa-brands fa-whatsapp"></i>
-          </a>` : ""}
-          ${shareAllowed ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+          </a>`
+              : ""
+          }
+          ${
+            shareAllowed
+              ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
             </svg>
-          </button>` : ""}
+          </button>`
+              : ""
+          }
         </div>
 
         <div class="promo-active-bottom-overlay">
@@ -2192,9 +2361,34 @@ function renderActivePromos(promos, localidad) {
     imgWrapContainer.prepend(imgWrap);
 
     const onComprarEstaPromo = puedeComprarPromo
-      ? () => agregarAlCarritoPerfil({ promoId: p.id, nombre: info.titulo, precio, imagen: img })
+      ? () => {
+          trackPromo(p.id, "clics_comprar");
+          agregarAlCarritoPerfil({
+            promoId: `activa_${p.id}`,
+            nombre: info.titulo,
+            precio,
+            imagen: img,
+          });
+        }
       : null;
+    // Vista: cuando la card entra en pantalla (1 vez/día/navegador)
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          trackPromo(p.id, "vistas");
+        }
+      },
+      { threshold: 0.6 },
+    );
+    io.observe(card);
 
+    card
+      .querySelector(".promo-icon-wa")
+      ?.addEventListener("click", () => trackPromo(p.id, "clics_whatsapp"));
+    card
+      .querySelector(".promo-icon-share-circle")
+      ?.addEventListener("click", () => trackPromo(p.id, "clics_compartir"));
     card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
       e.stopPropagation();
       onComprarEstaPromo();
@@ -2258,7 +2452,10 @@ function ensurePromosActivasHeader() {
   if (!heading) return;
 
   let headerRow = heading.parentElement;
-  if (!headerRow || !headerRow.classList.contains("promos-activas-header-row")) {
+  if (
+    !headerRow ||
+    !headerRow.classList.contains("promos-activas-header-row")
+  ) {
     headerRow = document.createElement("div");
     headerRow.className = "promos-activas-header-row";
     heading.parentElement.insertBefore(headerRow, heading);
@@ -3503,12 +3700,15 @@ function bindPromoDetailModal() {
   </div>`;
   document.body.appendChild(modal);
 
-  document.getElementById("promoDetailClose").addEventListener("click", closePromoDetailModal);
+  document
+    .getElementById("promoDetailClose")
+    .addEventListener("click", closePromoDetailModal);
   modal.addEventListener("click", (e) => {
     if (e.target.id === "promoDetailModal") closePromoDetailModal();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && modal.classList.contains("open")) closePromoDetailModal();
+    if (e.key === "Escape" && modal.classList.contains("open"))
+      closePromoDetailModal();
   });
 }
 
@@ -3544,7 +3744,8 @@ function openPromoDetailModal(data) {
   img.src = data.img || "";
 
   document.getElementById("promoDetailTitle").textContent = data.titulo || "";
-  document.getElementById("promoDetailDesc").textContent = data.descripcion || "";
+  document.getElementById("promoDetailDesc").textContent =
+    data.descripcion || "";
 
   const priceEl = document.getElementById("promoDetailPrice");
   if (data.precio > 0) {
@@ -3582,16 +3783,20 @@ function openPromoDetailModal(data) {
     ${data.onComprar ? `<button type="button" class="promo-detail-btn promo-detail-btn-buy" id="promoDetailBuyBtn">🛒 Comprar</button>` : ""}
     ${data.shareUrl ? `<button class="promo-detail-btn promo-detail-btn-share" id="promoDetailShareBtn">📤 Compartir</button>` : ""}
   `;
-  document.getElementById("promoDetailBuyBtn")?.addEventListener("click", () => {
-    data.onComprar();
-    closePromoDetailModal();
-  });
+  document
+    .getElementById("promoDetailBuyBtn")
+    ?.addEventListener("click", () => {
+      data.onComprar();
+      closePromoDetailModal();
+    });
   const shareBtn = document.getElementById("promoDetailShareBtn");
   if (shareBtn) {
     shareBtn.addEventListener("click", async () => {
       const fullText = `${data.shareMsg || "Mira esta promo en Geinz 🎁"}\n${data.shareUrl}`;
       if (navigator.share) {
-        try { await navigator.share({ text: fullText }); } catch (e) { }
+        try {
+          await navigator.share({ text: fullText });
+        } catch (e) {}
       } else {
         copyToClipboard(fullText);
       }
@@ -3773,7 +3978,7 @@ function showPromoBanner(biz) {
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-    bannerImg.onerror = () => { };
+    bannerImg.onerror = () => {};
     bannerImg.src = banner.imagen;
   }
 }
@@ -4527,7 +4732,8 @@ function injectPerfilCartStyles() {
 function agregarAlCarritoPerfil({ promoId, nombre, precio, imagen }) {
   const existente = _perfilCarritoItems.find((i) => i.promoId === promoId);
   if (existente) existente.cantidad += 1;
-  else _perfilCarritoItems.push({ promoId, nombre, precio, imagen, cantidad: 1 });
+  else
+    _perfilCarritoItems.push({ promoId, nombre, precio, imagen, cantidad: 1 });
   renderPerfilCartFloat();
   showToast(`${nombre || "Producto"} agregado 🛒`);
 }
@@ -4548,7 +4754,10 @@ function renderPerfilCartFloat() {
     btn.addEventListener("click", abrirPerfilCartPopup);
     document.body.appendChild(btn);
   }
-  const total = _perfilCarritoItems.reduce((s, i) => s + i.cantidad * i.precio, 0);
+  const total = _perfilCarritoItems.reduce(
+    (s, i) => s + i.cantidad * i.precio,
+    0,
+  );
   btn.innerHTML = `🛒 ${count} · S/ ${total.toFixed(2)}`;
 }
 
@@ -4590,7 +4799,10 @@ function cerrarPerfilCartPopup() {
 function pintarPerfilCartPopup() {
   const box = document.getElementById("perfilCartBox");
   if (!box) return;
-  const total = _perfilCarritoItems.reduce((s, i) => s + i.cantidad * i.precio, 0);
+  const total = _perfilCarritoItems.reduce(
+    (s, i) => s + i.cantidad * i.precio,
+    0,
+  );
   box.innerHTML = `
     <h3 style="color:#fff;font-weight:800;font-size:17px;margin:0 0 14px;">Tu selección</h3>
     <div id="pcpItems"></div>
@@ -4645,18 +4857,29 @@ function urlCarritoBase() {
       : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
 }
 
-function irACarritoConPerfil() {
+async function irACarritoConPerfil() {
   if (!_perfilCarritoItems.length) return;
+  const ps = _perfilCarritoItems
+    .filter((i) => String(i.promoId).startsWith("activa_"))
+    .map((i) => trackPromo(i.promoId.slice(7), "clics_carrito"));
+  await Promise.race([
+    Promise.allSettled(ps),
+    new Promise((r) => setTimeout(r, 700)),
+  ]);
+  flushStats(); // ← NUEVO
   try {
     sessionStorage.setItem(
       `geinz_perfil_cart_pending_${_params.id}`,
       JSON.stringify({
-        items: _perfilCarritoItems.map((i) => ({ promoId: i.promoId, cantidad: i.cantidad })),
+        items: _perfilCarritoItems.map((i) => ({
+          promoId: i.promoId,
+          cantidad: i.cantidad,
+        })),
         ts: Date.now(),
       }),
     );
   } catch (e) {
-    console.warn("No se pudo guardar la selección:", e.message);
+    console.warn(e.message);
   }
   window.location.href = urlCarritoBase();
 }
@@ -5143,15 +5366,16 @@ async function render(biz, isInitial = true) {
       card.innerHTML = `
         <div class="promo-card-img-wrap">
           <div class="promo-card-top-actions">
-            ${puedeComprarPromo
-          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+            ${
+              puedeComprarPromo
+                ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
             </button>`
-          : ""
-        }
+                : ""
+            }
             <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -5159,14 +5383,15 @@ async function render(biz, isInitial = true) {
               </svg>
             </button>
           </div>
-          ${promo.precio > 0 || promo.descripcion
-          ? `
+          ${
+            promo.precio > 0 || promo.descripcion
+              ? `
           <div class="promo-card-bottom-overlay">
             ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
             ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
           </div>`
-          : ""
-        }
+              : ""
+          }
         </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -5176,7 +5401,13 @@ async function render(biz, isInitial = true) {
       imgWrapContainer.prepend(imgWrap);
 
       const onComprarEstaPromo = puedeComprarPromo
-        ? () => agregarAlCarritoPerfil({ promoId: promo.id, nombre: promo.titulo, precio: promo.precio, imagen: promo.url })
+        ? () =>
+            agregarAlCarritoPerfil({
+              promoId: promo.id,
+              nombre: promo.titulo,
+              precio: promo.precio,
+              imagen: promo.url,
+            })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -5206,7 +5437,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -5217,7 +5448,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -5228,7 +5459,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -5281,8 +5512,6 @@ async function render(biz, isInitial = true) {
       document
         .getElementById("secContact")
         ?.style.setProperty("display", "none");
- 
-
   }
 
   const exploreBtn = document.getElementById("exploreBtn");
@@ -5892,8 +6121,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-      .toDate()
-      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+        .toDate()
+        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -6445,10 +6674,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
       : "";
     const respuestaHTML = respuestaTexto
       ? `

@@ -393,7 +393,23 @@
         <div>
           <label class="field-label" for="clienteNombre">Nombre del cliente</label>
           <input id="clienteNombre" class="field-input" type="text" placeholder="¿Cómo te llamas?" autocomplete="off">
-        </div>
+                  </div>
+
+                  <div>
+  <label class="field-label" for="clienteWhatsapp">
+    WhatsApp <span id="whatsappOpcionalTxt" class="text-gray-500 normal-case"></span>
+  </label>
+  <input id="clienteWhatsapp" class="field-input" type="tel" inputmode="numeric"
+         placeholder="Ej: 987654321" autocomplete="tel">
+  <p class="text-[11px] text-gray-500 mt-1">Para que el negocio te contacte por tu pedido.</p>
+</div>
+
+<div id="guestNotice" class="hidden rounded-2xl px-3.5 py-3 text-[12px] leading-relaxed"
+     style="background:rgba(var(--dr),var(--dg),var(--db),.12);border:1px dashed rgb(var(--dr),var(--dg),var(--db));">
+  🎁 Estás comprando como invitado. <b>Sin cuenta pierdes los puntos, cupones y ofertas</b>
+  de <span id="guestNoticeBiz">este negocio</span>.
+  <a id="guestLoginLink" href="/registro" class="underline font-bold">Iniciar sesión / Registrarme</a>
+</div>
 
         <div id="entregaField">
           <label class="field-label">Tipo de entrega</label>

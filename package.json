@@ -1,0 +1,23 @@
+{
+  "name": "geinzhosting",
+  "version": "1.0.0",
+  "main": "tailwind.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GeinzPE/geinz_lading_geinz_web.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GeinzPE/geinz_lading_geinz_web/issues"
+  },
+  "homepage": "https://github.com/GeinzPE/geinz_lading_geinz_web#readme",
+  "description": "",
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

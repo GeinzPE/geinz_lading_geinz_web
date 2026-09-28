@@ -1605,6 +1605,176 @@
         padding: 7px 10px;
       }
     }
+        /* ---------- Historial de canjes: chips y estados ---------- */
+    .hist-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .hist-chip {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+    }
+
+    .hist-chip.active {
+      background: linear-gradient(90deg, rgba(139, 92, 246, 0.28), rgba(139, 92, 246, 0.12));
+      border-color: rgba(139, 92, 246, 0.45);
+      color: #fff;
+    }
+
+    .badge.st-activo { background: rgba(232, 184, 75, 0.14); color: var(--gold); }
+    .badge.st-usado { background: var(--success-bg); color: var(--success); }
+    .badge.st-cancelado { background: var(--danger-bg); color: var(--danger); }
+    .badge.st-admin { background: var(--surface-3); color: var(--text-dim); }
+
+    #tablaHistorial tr[data-hidx] { cursor: pointer; }
+
+    .det-grid { display: grid; gap: 8px; margin-top: 10px; }
+    .det-line {
+      display: flex; justify-content: space-between; gap: 12px;
+      font-size: 12.5px; padding: 8px 0; border-bottom: 1px dashed var(--border-soft);
+    }
+    .det-line span:first-child { color: var(--text-faint); }
+    .det-line span:last-child { color: var(--text); text-align: right; word-break: break-word; }
+    /* ===================================================================
+   ESTADÍSTICAS DE CLIENTES — pegar al FINAL de tu <style>
+   Usa tus mismas variables (--violet, --surface, --border-soft, etc.)
+   Solo transform/opacity en animaciones → liviano para equipos modestos.
+   =================================================================== */
+.est-wrap { margin-bottom: 20px; }
+
+.est-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.est-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.est-sub { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+.est-head .hist-chips { margin-bottom: 0; }
+
+/* KPIs */
+.est-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+.est-kpi {
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: 12px; padding: 16px; min-width: 0;
+}
+.est-kpi.main {
+  border-color: rgba(139, 92, 246, 0.45);
+  background: linear-gradient(160deg, rgba(139, 92, 246, 0.18), var(--surface) 70%);
+}
+.est-kpi-label { font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; }
+.est-kpi-value {
+  font-family: var(--font-display); font-size: 24px; font-weight: 700;
+  margin-top: 8px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.est-kpi-sub { font-size: 11.5px; color: var(--text-faint); margin-top: 4px; }
+
+/* Grilla de tarjetas */
+.est-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.est-span2 { grid-column: span 2; }
+.est-card { min-width: 0; }
+.est-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.est-card-head h3 { margin-bottom: 0; }
+.est-card .hint { margin-bottom: 14px; }
+
+/* Barras verticales (pedidos por mes, días de la semana) */
+.est-bars { display: flex; align-items: flex-end; gap: 10px; padding-top: 6px; }
+.est-bar-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.est-bar-val { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; margin-bottom: 5px; color: var(--text); }
+.est-bar {
+  width: 100%; max-width: 48px; min-height: 4px;
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(180deg, var(--violet-bright), var(--violet-deep));
+  transform-origin: bottom;
+  animation: estGrowY .6s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+.est-bar.dim { opacity: .4; }
+.est-bar-lbl { font-size: 11px; color: var(--text-dim); margin-top: 7px; font-weight: 500; }
+.est-bar-sub { font-size: 10px; color: var(--text-faint); margin-top: 1px; white-space: nowrap; }
+@keyframes estGrowY { from { transform: scaleY(0); } }
+@keyframes estGrowX { from { transform: scaleX(0); } }
+
+/* Segmentos de clientes */
+.est-stack { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--surface-3); margin: 6px 0 16px; }
+.est-stack i { display: block; height: 100%; transform-origin: left; animation: estGrowX .7s var(--ease) both; }
+.est-leg { display: flex; flex-direction: column; gap: 10px; }
+.est-leg-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-dim); }
+.est-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.est-leg-row b { margin-left: auto; color: var(--text); font-family: var(--font-mono); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.est-risk {
+  margin-top: 16px; padding: 12px 14px; border-radius: 11px;
+  background: rgba(232, 184, 75, 0.10); border: 1px solid rgba(232, 184, 75, 0.3);
+}
+.est-risk b { color: var(--gold); font-family: var(--font-display); font-size: 18px; }
+.est-risk span { display: block; font-size: 11.5px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+
+/* Ranking */
+.est-rank { display: flex; flex-direction: column; gap: 14px; }
+.est-rank-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.est-pos {
+  width: 24px; height: 24px; border-radius: 8px; background: var(--surface-3);
+  font-size: 11.5px; font-weight: 700; color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+}
+.est-rank-row:first-child .est-pos { background: linear-gradient(145deg, #f3d27a, var(--gold)); color: #2a1d00; }
+.est-rank-main { min-width: 0; }
+.est-rank-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.est-rank-sub { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+.est-rank-amt { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.est-meter { height: 5px; border-radius: 99px; background: var(--surface-3); margin-top: 6px; overflow: hidden; }
+.est-meter i {
+  display: block; height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--violet-deep), var(--violet-bright));
+  transform-origin: left; animation: estGrowX .7s var(--ease) both;
+}
+
+/* Puntos */
+.est-pts-row { margin-bottom: 14px; }
+.est-pts-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
+.est-pts-top b { font-family: var(--font-mono); color: var(--text); font-size: 13px; }
+.est-meter.lg { height: 9px; }
+.est-meter.gold i { background: linear-gradient(90deg, #b8912e, var(--gold)); }
+.est-rate {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 11px 13px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--border-soft);
+  font-size: 12.5px; color: var(--text-dim);
+}
+.est-rate b { font-family: var(--font-display); font-size: 18px; color: var(--text); }
+
+/* Hábitos de compra */
+.est-wk { display: flex; align-items: flex-end; gap: 6px; margin-bottom: 14px; }
+.est-fact { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--border-soft); font-size: 12.5px; }
+.est-fact:last-child { border-bottom: none; padding-bottom: 0; }
+.est-fact span:first-child { color: var(--text-faint); }
+.est-fact span:last-child { color: var(--text); font-weight: 600; text-align: right; }
+
+.est-empty { font-size: 12.5px; color: var(--text-faint); padding: 14px 0; text-align: center; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .est-kpis { grid-template-columns: repeat(2, 1fr); }
+  .est-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 720px) {
+  .est-grid { grid-template-columns: 1fr; }
+  .est-span2 { grid-column: auto; }
+  .est-kpi-value { font-size: 20px; }
+  .est-bars { gap: 6px; }
+}
+@media (max-width: 480px) {
+  .est-kpis { gap: 10px; }
+  .est-kpi { padding: 12px; }
+  .est-kpi-value { font-size: 18px; }
+}
   </style>
 
 </head>
@@ -2001,29 +2171,88 @@
               </a>
             </div>
           </div>
-          <div class="card" style="margin-bottom:18px;">
-            <h3>Agregar cliente manualmente</h3>
-            <p class="hint">Para clientes que compran en tienda y no usan la app. Se guarda directo en esta tienda, sin
-              necesidad de un usuario vinculado.</p>
-            <div class="row-3">
-              <div class="field">
-                <label>Nombre completo</label>
-                <input type="text" id="nuevoClienteNombre" placeholder="Ej: Juana Pérez">
-              </div>
-              <div class="field">
-                <label>Teléfono</label>
-                <input type="text" id="nuevoClienteTelefono" placeholder="Ej: 987654321">
-              </div>
-              <div class="field">
-                <label>Puntos iniciales</label>
-                <input type="number" id="nuevoClientePuntos" placeholder="0" min="0">
-              </div>
-            </div>
-            <div class="actions-row">
-              <button class="btn btn-primary" id="btnAgregarCliente">Agregar cliente</button>
-            </div>
-          </div>
 
+          <!-- ===================================================================
+     ESTADÍSTICAS DE CLIENTES
+     Pegar dentro de <section class="panel" id="panel-clientes">,
+     justo DESPUÉS del cierre </div> de <div class="stat-strip"> y
+     ANTES de <div class="card"> con el título "Clientes y su saldo".
+     =================================================================== -->
+<div class="est-wrap">
+  <div class="est-head">
+    <div>
+      <h3 class="est-title">Estadísticas de tus clientes</h3>
+      <p class="est-sub" id="estRangoTxt">Últimos 30 días</p>
+    </div>
+    <div class="hist-chips" id="estRangoChips">
+      <button type="button" class="hist-chip active" data-dias="30">30 días</button>
+      <button type="button" class="hist-chip" data-dias="90">90 días</button>
+      <button type="button" class="hist-chip" data-dias="0">Todo</button>
+    </div>
+  </div>
+
+  <div class="est-kpis" id="estKpis">
+    <div class="est-kpi main">
+      <div class="est-kpi-label">Ventas de clientes</div>
+      <div class="est-kpi-value" id="estIngresos">S/ 0.00</div>
+      <div class="est-kpi-sub" id="estIngresosSub">0 pedidos</div>
+    </div>
+    <div class="est-kpi">
+      <div class="est-kpi-label">Ticket promedio</div>
+      <div class="est-kpi-value" id="estTicket">S/ 0.00</div>
+      <div class="est-kpi-sub">gasto por pedido</div>
+    </div>
+    <div class="est-kpi">
+      <div class="est-kpi-label">Pedidos por cliente</div>
+      <div class="est-kpi-value" id="estFrecuencia">0.0</div>
+      <div class="est-kpi-sub" id="estFrecuenciaSub">0 clientes compraron</div>
+    </div>
+    <div class="est-kpi">
+      <div class="est-kpi-label">Tasa de recompra</div>
+      <div class="est-kpi-value" id="estRecompra">0%</div>
+      <div class="est-kpi-sub" id="estRecompraSub">clientes que volvieron</div>
+    </div>
+  </div>
+
+  <div class="est-grid">
+    <div class="card est-card est-span2">
+      <div class="est-card-head">
+        <h3>Pedidos por mes</h3>
+        <span id="estMesesDelta"></span>
+      </div>
+      <p class="hint">Últimos 6 meses. El mes actual se resalta y debajo de cada barra ves lo vendido.</p>
+      <div class="est-bars" id="estMeses"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Tipos de cliente</h3>
+      <p class="hint">Según cuántos pedidos ha hecho cada uno.</p>
+      <div class="est-stack" id="estSegBar"></div>
+      <div class="est-leg" id="estSegLeg"></div>
+      <div class="est-risk" id="estRiesgo"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Top clientes</h3>
+      <p class="hint">Los que más han invertido en el periodo.</p>
+      <div class="est-rank" id="estTop"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Puntos: ganados vs. canjeados</h3>
+      <p class="hint">Qué tanto usan tus clientes lo que acumulan.</p>
+      <div id="estPuntos"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Cuándo compran</h3>
+      <p class="hint">Pedidos por día de la semana.</p>
+      <div class="est-wk" id="estSemana"></div>
+      <div id="estHabitos"></div>
+    </div>
+  </div>
+</div>
+         
           <div class="card">
             <h3>Clientes y su saldo</h3>
 
@@ -2087,11 +2316,100 @@
           </div>
         </section>
 
-        <!-- ===== HISTORIAL ===== -->
-        <!-- ===== HISTORIAL ===== -->
+           <!-- ===== HISTORIAL DE CANJES ===== -->
         <section class="panel" id="panel-historial">
+          <!-- ===================================================================
+     ESTADÍSTICAS DE CANJES
+     Pegar dentro de <section class="panel" id="panel-historial">,
+     ARRIBA del <div class="card"> que dice "Historial de canjes"
+     (o sea, como primer hijo de esa sección).
+     Reutiliza el CSS .est-* que ya pegaste para Clientes.
+     =================================================================== -->
+<div class="est-wrap">
+  <div class="est-head">
+    <div>
+      <h3 class="est-title">Estadísticas de canjes</h3>
+      <p class="est-sub" id="hstRangoTxt">Últimos 30 días</p>
+    </div>
+    <div class="hist-chips" id="hstRangoChips">
+      <button type="button" class="hist-chip active" data-dias="30">30 días</button>
+      <button type="button" class="hist-chip" data-dias="90">90 días</button>
+      <button type="button" class="hist-chip" data-dias="0">Todo</button>
+    </div>
+  </div>
+
+  <div class="est-kpis" id="hstKpis">
+    <div class="est-kpi main">
+      <div class="est-kpi-label">Canjes realizados</div>
+      <div class="est-kpi-value" id="hstCanjes">0</div>
+      <div class="est-kpi-sub" id="hstCanjesSub">—</div>
+    </div>
+    <div class="est-kpi">
+      <div class="est-kpi-label">Puntos canjeados</div>
+      <div class="est-kpi-value" id="hstPuntos">0</div>
+      <div class="est-kpi-sub">entregados en recompensas</div>
+    </div>
+    <div class="est-kpi">
+      <div class="est-kpi-label">Cupones usados</div>
+      <div class="est-kpi-value" id="hstUso">0%</div>
+      <div class="est-kpi-sub" id="hstUsoSub">de los generados desde la tarjeta</div>
+    </div>
+    <div class="est-kpi">
+      <div class="est-kpi-label">Esperando ser usados</div>
+      <div class="est-kpi-value" id="hstPend">0</div>
+      <div class="est-kpi-sub" id="hstPendSub">cupones activos</div>
+    </div>
+  </div>
+
+  <div class="est-grid">
+    <div class="card est-card est-span2">
+      <div class="est-card-head">
+        <h3>Canjes por mes</h3>
+        <span id="hstMesesDelta"></span>
+      </div>
+      <p class="hint">Últimos 6 meses (sin contar cancelados ni ajustes). Debajo de cada barra ves los puntos canjeados.</p>
+      <div class="est-bars" id="hstMeses"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Estado de los movimientos</h3>
+      <p class="hint">Cómo terminó cada canje en el periodo.</p>
+      <div class="est-stack" id="hstEstadoBar"></div>
+      <div class="est-leg" id="hstEstadoLeg"></div>
+      <div id="hstAjustes" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Recompensas más canjeadas</h3>
+      <p class="hint">Lo que más piden tus clientes.</p>
+      <div class="est-rank" id="hstTopRec"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Clientes que más canjean</h3>
+      <p class="hint">Tus clientes más activos con la tarjeta.</p>
+      <div class="est-rank" id="hstTopCli"></div>
+    </div>
+
+    <div class="card est-card">
+      <h3>Cuándo canjean</h3>
+      <p class="hint">Canjes por día de la semana.</p>
+      <div class="est-wk" id="hstSemana"></div>
+      <div id="hstHabitos"></div>
+    </div>
+  </div>
+</div>
           <div class="card">
-            <h3>Historial de recompensas canjeadas</h3>
+            <h3>Historial de canjes</h3>
+            <p class="hint">Todo lo que canjearon tus clientes desde su tarjeta (activos, usados en pedido y cancelados) más los canjes y ajustes que registras tú. Toca una fila para ver el detalle.</p>
+
+            <div class="hist-chips" id="histFiltros">
+              <button type="button" class="hist-chip active" data-hfiltro="todos">Todos</button>
+              <button type="button" class="hist-chip" data-hfiltro="activo">⏳ Activos</button>
+              <button type="button" class="hist-chip" data-hfiltro="usado">✅ Usados</button>
+              <button type="button" class="hist-chip" data-hfiltro="cancelado">↩️ Cancelados</button>
+              <button type="button" class="hist-chip" data-hfiltro="admin">🛠️ Admin / Presencial</button>
+            </div>
 
             <div class="search-bar">
               <div class="search-input-wrap">
@@ -2099,11 +2417,12 @@
                   <circle cx="11" cy="11" r="7" />
                   <path d="M21 21l-4.3-4.3" />
                 </svg>
-                <input type="text" id="buscarCanje" placeholder="Buscar por cliente o recompensa">
+                <input type="text" id="buscarCanje" placeholder="Buscar por cliente, recompensa o código">
               </div>
               <button class="btn btn-sm" id="btnRecargarHistorial">Recargar</button>
               <button class="btn btn-sm" id="btnExportarHistorial">Exportar CSV</button>
             </div>
+
             <div class="table-wrap">
               <table>
                 <thead>
@@ -2112,13 +2431,14 @@
                     <th>Cliente</th>
                     <th>Recompensa</th>
                     <th>Puntos</th>
-                    <th>Sucursal</th>
-                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Código</th>
+                    <th>Pedido</th>
                   </tr>
                 </thead>
                 <tbody id="tablaHistorial">
                   <tr>
-                    <td colspan="6" style="text-align:center; color:var(--text-faint);">Cargando…</td>
+                    <td colspan="7" style="text-align:center; color:var(--text-faint);">Cargando…</td>
                   </tr>
                 </tbody>
               </table>

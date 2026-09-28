@@ -1,10 +1,5 @@
 import {
-  onSnapshot,
-  query,
-  orderBy,
-  doc,
-  updateDoc,
-  increment,
+  onSnapshot, query, orderBy, doc, updateDoc, increment, Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { tiendaSubCol } from "../rutas/rutas.js";
 let tiendaId = sessionStorage.getItem("tiendaId");
@@ -73,11 +68,11 @@ function iniciarSuscripcion() {
 
 /* ---------------- Helpers ---------------- */
 function esExpirado(promo) {
+  if (promo.estado && promo.estado !== "activo") return true;
   const fin = promo.datos_hora_fecha?.timestamp_fin?.toDate?.();
   if (!fin) return promo.estado !== "activo";
   return fin.getTime() <= Date.now();
 }
-
 function tiempoRestante(promo) {
   const fin = promo.datos_hora_fecha?.timestamp_fin?.toDate?.();
   if (!fin) return null;
@@ -92,6 +87,43 @@ function tiempoRestante(promo) {
   if (mins > 0) return `${mins}m ${segs}s`;
   return `${segs}s`;
 }
+function fmtLima(ms) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("es-PE", {
+      timeZone: "America/Lima", day: "2-digit", month: "2-digit",
+      year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]),
+  );
+  return { fecha: `${p.day}/${p.month}/${p.year}`, hora: `${p.hour}:${p.minute}` };
+}
+
+function duracionOriginalMs(promo) {
+  const d = promo.datos_hora_fecha || {};
+  const a = d.timestamp_inicio?.toMillis?.();
+  const b = d.timestamp_fin?.toMillis?.();
+  return a && b && b > a ? b - a : null;
+}
+
+function formatDur(ms) {
+  const h = Math.round(ms / 3600000);
+  return h >= 24 ? `${Math.round(h / 24)} día(s)` : `${h} hora(s)`;
+}
+
+async function reactivarPromo(promo, duracionMs) {
+  const ahora = Date.now();
+  const fin = ahora + duracionMs;
+  const i = fmtLima(ahora), f = fmtLima(fin);
+  await updateDoc(doc(promosRef(), promo.id), {
+    estado: "activo",
+    "datos_hora_fecha.activo": true,
+    "datos_hora_fecha.timestamp_inicio": Timestamp.fromMillis(ahora),
+    "datos_hora_fecha.timestamp_fin": Timestamp.fromMillis(fin),
+    "datos_hora_fecha.fecha_inicio": i.fecha,
+    "datos_hora_fecha.hora_inicio": i.hora,
+    "datos_hora_fecha.fecha_fin": f.fecha,
+    "datos_hora_fecha.hora_fin": f.hora,
+  });
+}
 
 /* ---------------- Filtros ---------------- */
 document.querySelectorAll("[data-estado]").forEach((btn) => {
@@ -105,173 +137,327 @@ document.querySelectorAll("[data-estado]").forEach((btn) => {
   });
 });
 
-let chartDistribucion = null;
-let chartCategorias = null;
-let chartSparkline = null;
-let chartConversion = null;
+/* ═════════ Helpers de analítica ═════════ */
+const charts = {};
+const n = (v) => Number(v) || 0;
+const interacciones = (e = {}) =>
+  n(e.clics_detalle) +
+  n(e.clics_comprar) +
+  n(e.clics_whatsapp) +
+  n(e.clics_compartir);
+const ctrDe = (p) => {
+  const e = p.estadisticas || {};
+  return n(e.vistas) ? interacciones(e) / n(e.vistas) : 0;
+};
+const ORDENES = {
+  vistas: (p) => n(p.estadisticas?.vistas),
+  clics: (p) => interacciones(p.estadisticas),
+  comprar: (p) => n(p.estadisticas?.clics_comprar),
+  whatsapp: (p) => n(p.estadisticas?.clics_whatsapp),
+  compartir: (p) => n(p.estadisticas?.clics_compartir),
+  pedidos: (p) => n(p.estadisticas?.pedidos),
+  ctr: ctrDe,
+};
+let ordenActual = "recientes";
+function ordenar(lista) {
+  const c = [...lista];
+  if (ordenActual === "recientes") return c.reverse();
+  return c.sort((a, b) => ORDENES[ordenActual](b) - ORDENES[ordenActual](a));
+}
+el("orden-promos")?.addEventListener("change", (e) => {
+  ordenActual = e.target.value;
+  render();
+});
 
+const ejes = {
+  x: {
+    ticks: { color: "#a1a1aa", font: { size: 10 } },
+    grid: { display: false },
+  },
+  y: {
+    beginAtZero: true,
+    ticks: { color: "#a1a1aa", font: { size: 10 }, precision: 0 },
+    grid: { color: "rgba(255,255,255,0.05)" },
+  },
+};
+const legend = { labels: { color: "#a1a1aa", font: { size: 10 } } };
+
+function mkChart(key, canvasId, cfg) {
+  const ctx = el(canvasId)?.getContext("2d");
+  if (!ctx) return;
+  charts[key]?.destroy();
+  charts[key] = new Chart(ctx, cfg);
+}
+function destruirChartsDetalle() {
+  Object.keys(charts)
+    .filter((k) => k.startsWith("d_"))
+    .forEach((k) => {
+      charts[k].destroy();
+      delete charts[k];
+    });
+}
+function ultimosDias(k) {
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" });
+  return Array.from({ length: k }, (_, i) =>
+    fmt.format(new Date(Date.now() - (k - 1 - i) * 86400000)),
+  );
+}
+
+/* ═════════ Gráficos generales ═════════ */
 function renderChartsGenerales() {
   const activas = promos.filter((p) => !esExpirado(p)).length;
   const expiradas = promos.filter((p) => esExpirado(p)).length;
   const exclusivas = promos.filter((p) => p.exclusivo).length;
 
-  const ctxDist = el("chart-distribucion")?.getContext("2d");
-  if (ctxDist) {
-    if (chartDistribucion) chartDistribucion.destroy();
-    chartDistribucion = new Chart(ctxDist, {
-      type: "doughnut",
-      data: {
-        labels: ["Activas", "Expiradas", "Exclusivas"],
-        datasets: [
-          {
-            data: [activas, expiradas, exclusivas],
-            backgroundColor: ["#34d399", "#f43f5e", "#fbbf24"],
-            borderColor: "#0e0e14",
-            borderWidth: 3,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: { color: "#a1a1aa", font: { size: 11 }, padding: 12 },
-          },
+  mkChart("dist", "chart-distribucion", {
+    type: "doughnut",
+    data: {
+      labels: ["Activas", "Expiradas", "Exclusivas"],
+      datasets: [
+        {
+          data: [activas, expiradas, exclusivas],
+          backgroundColor: ["#34d399", "#f43f5e", "#fbbf24"],
+          borderColor: "#0e0e14",
+          borderWidth: 3,
         },
-        cutout: "70%",
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "70%",
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: "#a1a1aa", font: { size: 11 }, padding: 12 },
+        },
       },
-    });
-  }
-
-  const categorias = {};
-  promos.forEach((p) => {
-    const cat = p.informacion?.categoria || "Sin categoría";
-    categorias[cat] = (categorias[cat] || 0) + 1;
+    },
   });
 
-  const ctxCat = el("chart-categorias")?.getContext("2d");
-  if (ctxCat) {
-    if (chartCategorias) chartCategorias.destroy();
-    const gradient = ctxCat.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, "#a855f7");
-    gradient.addColorStop(1, "#6d28d9");
-
-    chartCategorias = new Chart(ctxCat, {
-      type: "bar",
-      data: {
-        labels: Object.keys(categorias),
-        datasets: [
-          {
-            data: Object.values(categorias),
-            backgroundColor: gradient,
-            borderRadius: 8,
-            maxBarThickness: 36,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: {
-            ticks: { color: "#a1a1aa", font: { size: 10 } },
-            grid: { display: false },
-          },
-          y: {
-            ticks: { color: "#a1a1aa", font: { size: 10 }, precision: 0 },
-            grid: { color: "rgba(255,255,255,0.05)" },
-          },
+  const dias = ultimosDias(14);
+  const sum = (d, f) =>
+    promos.reduce((s, p) => s + f(p.estadisticas?.por_dia?.[d]), 0);
+  mkChart("act", "chart-actividad", {
+    type: "line",
+    data: {
+      labels: dias.map((d) => d.slice(5)),
+      datasets: [
+        {
+          label: "Vistas",
+          data: dias.map((d) => sum(d, (o) => n(o?.vistas))),
+          borderColor: "#71717a",
+          tension: 0.35,
+          pointRadius: 2,
         },
-      },
-    });
-  }
+        {
+          label: "Interacciones",
+          data: dias.map((d) => sum(d, (o) => interacciones(o))),
+          borderColor: "#a855f7",
+          backgroundColor: "rgba(168,85,247,.15)",
+          fill: true,
+          tension: 0.35,
+          pointRadius: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend },
+      scales: ejes,
+    },
+  });
 }
 
-function renderChartsDetalle(promo) {
-  const vistasPorDia = promo.estadisticas?.vistas_por_dia || {};
-  const dias = Object.keys(vistasPorDia).sort().slice(-7);
-  const valores = dias.map((d) => vistasPorDia[d]);
-
-  const ctxSpark = document.getElementById("chart-sparkline")?.getContext("2d");
-  if (ctxSpark) {
-    const gradient = ctxSpark.createLinearGradient(0, 0, 0, 80);
-    gradient.addColorStop(0, "rgba(168, 85, 247, 0.4)");
-    gradient.addColorStop(1, "rgba(168, 85, 247, 0)");
-
-    chartSparkline = new Chart(ctxSpark, {
-      type: "line",
-      data: {
-        labels: dias,
-        datasets: [
-          {
-            data: valores,
-            borderColor: "#a855f7",
-            backgroundColor: gradient,
-            fill: true,
-            tension: 0.4,
-            pointRadius: 0,
-            borderWidth: 2,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: true } },
-        scales: { x: { display: false }, y: { display: false } },
-      },
-    });
+/* ═════════ Analítica de una promo (modal) ═════════ */
+function segChart(key, id, campo, e) {
+  const v = e.seg_vistas?.[campo] || {},
+    c = e.seg_clics?.[campo] || {};
+  const labels = [...new Set([...Object.keys(v), ...Object.keys(c)])];
+  const cont = el(id)?.parentElement;
+  if (!cont) return;
+  if (!labels.length) {
+    cont.innerHTML =
+      '<p class="text-[11px] text-zinc-600 text-center pt-10">Sin datos aún</p>';
+    return;
   }
-
-  const vistas = promo.estadisticas?.vistas || 0;
-  const clics = promo.estadisticas?.clics_contacto || 0;
-
-  const ctxConv = document.getElementById("chart-conversion")?.getContext("2d");
-  if (ctxConv) {
-    chartConversion = new Chart(ctxConv, {
-      type: "doughnut",
-      data: {
-        labels: ["Vistas", "Clics contacto"],
-        datasets: [
-          {
-            data: [vistas, clics],
-            backgroundColor: ["#3f3f46", "#a855f7"],
-            borderColor: "#0b0b10",
-            borderWidth: 3,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "65%",
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: { color: "#a1a1aa", font: { size: 10 } },
-          },
+  mkChart(key, id, {
+    type: "bar",
+    data: {
+      labels: labels.map((l) => l.replace(/_/g, " ")),
+      datasets: [
+        {
+          label: "Vistas",
+          data: labels.map((l) => n(v[l])),
+          backgroundColor: "#3f3f46",
+          borderRadius: 6,
         },
-      },
-    });
-  }
+        {
+          label: "Clics",
+          data: labels.map((l) => n(c[l])),
+          backgroundColor: "#a855f7",
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend },
+      scales: ejes,
+    },
+  });
+}
+
+function renderAnalyticsDetalle(promo) {
+  destruirChartsDetalle();
+  const e = promo.estadisticas || {};
+  const vistas = n(e.vistas),
+    inter = interacciones(e);
+  const kpi = (t, v, c = "text-white") =>
+    `<div class="rounded-xl bg-zinc-900/60 border border-zinc-800 p-2.5 text-center"><p class="text-base font-black font-mono ${c}">${v}</p><p class="text-[9px] uppercase font-bold text-zinc-500">${t}</p></div>`;
+  const bloque = (t, id, h = "h-36") =>
+    `<div class="rounded-xl bg-zinc-900/50 border border-zinc-800 p-3"><p class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">${t}</p><div class="relative ${h}"><canvas id="${id}"></canvas></div></div>`;
+
+  el("detalle-analytics").innerHTML = `
+    <div class="grid grid-cols-3 gap-2">
+      ${kpi("Vistas", vistas)}
+      ${kpi("Abrió detalle", n(e.clics_detalle), "text-purple-300")}
+      ${kpi("Comprar", n(e.clics_comprar), "text-emerald-400")}
+      ${kpi("WhatsApp", n(e.clics_whatsapp), "text-green-400")}
+      ${kpi("Compartir", n(e.clics_compartir), "text-sky-300")}
+      ${kpi("Al carrito", n(e.clics_carrito), "text-amber-300")}
+      ${kpi("Pedidos", n(e.pedidos), "text-white")}
+      ${kpi("Ventas", "S/ " + n(e.ventas_total).toFixed(2), "text-emerald-400")}
+      ${kpi("Interacción", vistas ? ((inter / vistas) * 100).toFixed(1) + "%" : "—", "text-purple-300")}
+    </div>
+    ${bloque("Actividad · 14 días", "d-dia", "h-32")}
+    ${bloque("Embudo de conversión", "d-embudo", "h-36")}
+    ${bloque("Horas con más movimiento", "d-hora", "h-32")}
+    <div class="grid grid-cols-2 gap-3">
+      ${bloque("Género", "d-genero")}${bloque("Edad", "d-edad")}
+      ${bloque("Localidad", "d-loc")}${bloque("Registrados vs anónimos", "d-acc")}
+    </div>`;
+
+  const dias = ultimosDias(14);
+  mkChart("d_dia", "d-dia", {
+    type: "line",
+    data: {
+      labels: dias.map((d) => d.slice(5)),
+      datasets: [
+        {
+          label: "Vistas",
+          data: dias.map((d) => n(e.por_dia?.[d]?.vistas)),
+          borderColor: "#71717a",
+          tension: 0.35,
+          pointRadius: 0,
+        },
+        {
+          label: "Interacciones",
+          data: dias.map((d) => interacciones(e.por_dia?.[d])),
+          borderColor: "#a855f7",
+          backgroundColor: "rgba(168,85,247,.2)",
+          fill: true,
+          tension: 0.35,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend },
+      scales: ejes,
+    },
+  });
+
+  mkChart("d_embudo", "d-embudo", {
+    type: "bar",
+    data: {
+      labels: [
+        "Vistas",
+        "Abrió detalle",
+        "Clic comprar",
+        "Fue al carrito",
+        "Pedidos",
+      ],
+      datasets: [
+        {
+          data: [
+            vistas,
+            n(e.clics_detalle),
+            n(e.clics_comprar),
+            n(e.clics_carrito),
+            n(e.pedidos),
+          ],
+          backgroundColor: [
+            "#3f3f46",
+            "#7c3aed",
+            "#10b981",
+            "#f59e0b",
+            "#22c55e",
+          ],
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: ejes,
+    },
+  });
+
+  const horas = Array.from({ length: 24 }, (_, i) => i);
+  mkChart("d_hora", "d-hora", {
+    type: "bar",
+    data: {
+      labels: horas.map((h) => h + "h"),
+      datasets: [
+        {
+          label: "Vistas",
+          data: horas.map((h) => n(e.por_hora?.[h]?.vistas)),
+          backgroundColor: "#3f3f46",
+        },
+        {
+          label: "Interacciones",
+          data: horas.map((h) => interacciones(e.por_hora?.[h])),
+          backgroundColor: "#a855f7",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend },
+      scales: ejes,
+    },
+  });
+
+  segChart("d_genero", "d-genero", "genero", e);
+  segChart("d_edad", "d-edad", "edad", e);
+  segChart("d_loc", "d-loc", "localidad", e);
+  segChart("d_acc", "d-acc", "acceso", e);
 }
 /* ---------------- Render Principal ---------------- */
 function render() {
-  const filtradas = promos.filter((p) => {
-    const expirado = esExpirado(p);
-    if (filtroEstado === "activo" && expirado) return false;
-    if (filtroEstado === "expirado" && !expirado) return false;
-    if (filtroEstado === "exclusivo" && !p.exclusivo) return false;
-    if (filtroCategoria && p.informacion?.categoria !== filtroCategoria)
-      return false;
-    return true;
-  });
+  const filtradas = ordenar(
+    promos.filter((p) => {
+      const expirado = esExpirado(p);
+      if (filtroEstado === "activo" && expirado) return false;
+      if (filtroEstado === "expirado" && !expirado) return false;
+      if (filtroEstado === "exclusivo" && !p.exclusivo) return false;
+      if (filtroCategoria && p.informacion?.categoria !== filtroCategoria)
+        return false;
+      return true;
+    }),
+  );
 
   renderStats();
-  renderChartsGenerales(); // 👈 agregar esta línea
+  renderChartsGenerales();
 
   const grid = el("promos-grid");
   // ... resto igual
@@ -295,6 +481,11 @@ function renderStats() {
   el("stat-expiradas").textContent = promos.filter((p) => esExpirado(p)).length;
   el("stat-exclusivas").textContent = promos.filter((p) => p.exclusivo).length;
   el("stat-total").textContent = promos.length;
+  const tot = (f) => promos.reduce((s, p) => s + f(p.estadisticas || {}), 0);
+  el("k-vistas").textContent = tot((e) => n(e.vistas));
+  el("k-inter").textContent = tot(interacciones);
+  el("k-comprar").textContent = tot((e) => n(e.clics_comprar));
+  el("k-wa").textContent = tot((e) => n(e.clics_whatsapp));
 }
 
 function renderGrid(items) {
@@ -339,7 +530,7 @@ function renderCard(promo) {
   card.className =
     "promo-card card-enter glass-card rounded-2xl overflow-hidden cursor-pointer";
   card.addEventListener("click", () => abrirDetalle(promo));
-
+  if (expirado) card.classList.add("promo-expired");
   // 👇 al terminar la animación de entrada, soltamos el transform
   card.addEventListener(
     "animationend",
@@ -366,6 +557,12 @@ function renderCard(promo) {
     <div class="p-3.5">
       <p class="text-xs font-bold text-white truncate">${info.nombre_tienda || "Sin nombre"}</p>
       <p class="text-[11px] text-zinc-400 mt-1 line-clamp-2 leading-relaxed font-normal">${info.titulo || ""}</p>
+      <div class="flex items-center gap-3 mt-2.5 text-[10px] font-mono text-zinc-500">
+  <span title="Vistas">👁 ${n(promo.estadisticas?.vistas)}</span>
+  <span title="Interacciones">🖱 ${interacciones(promo.estadisticas)}</span>
+  <span title="Comprar">🛒 ${n(promo.estadisticas?.clics_comprar)}</span>
+  <span title="WhatsApp">💬 ${n(promo.estadisticas?.clics_whatsapp)}</span>
+</div>
     </div>
   `;
 
@@ -388,7 +585,7 @@ function renderCard(promo) {
 }
 /* ---------------- Modal de Detalle ---------------- */
 function abrirDetalle(promo) {
-  registrarVista(promo); // 👈 agregar esta línea al inicio
+
 
   const info = promo.informacion || {};
   const dhf = promo.datos_hora_fecha || {};
@@ -401,7 +598,24 @@ function abrirDetalle(promo) {
             ${imgs.map((u) => `<img src="${u}" class="w-20 h-20 rounded-xl object-cover shrink-0 border border-zinc-700/60">`).join("")}
           </div>`
     : "";
-
+const durOrig = duracionOriginalMs(promo);
+  const panelReactivar = expirado ? `
+    <div id="panel-reactivar" class="p-4 border-b border-zinc-800/80 bg-rose-500/5 space-y-3">
+      <p class="text-xs font-bold text-rose-300">Esta promoción expiró. ¿Quieres reactivarla?</p>
+      ${durOrig ? `<button id="btn-react-igual" class="w-full rounded-xl bg-white text-black text-xs font-bold py-2.5">
+        Reactivar con el mismo plazo (${formatDur(durOrig)})</button>` : ""}
+      <div class="flex gap-2">
+        <input id="react-cant" type="number" min="1" value="1"
+          class="w-20 bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 rounded-xl px-3 py-2 outline-none">
+        <select id="react-unidad"
+          class="bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 rounded-xl px-3 py-2 outline-none">
+          <option value="horas">Horas</option>
+          <option value="dias" selected>Días</option>
+        </select>
+        <button id="btn-react-custom" class="flex-1 rounded-xl bg-purple-500 text-white text-xs font-bold py-2">Reactivar</button>
+      </div>
+      <p id="react-msg" class="text-[11px] text-zinc-500 min-h-[14px]"></p>
+    </div>` : "";
   const pagos = (promo.pagos || [])
     .map((p) => `<span class="tag-chip capitalize">${p}</span>`)
     .join(" ");
@@ -427,15 +641,9 @@ function abrirDetalle(promo) {
             </span>
           </div>
 
-          <div class="grid grid-cols-2 gap-3 p-4 border-b border-zinc-800/80 bg-zinc-950/40">
-  <div class="relative h-20">
-    <canvas id="chart-sparkline"></canvas>
-    <p class="text-[9px] text-zinc-500 mt-1 text-center">Vistas últimos 7 días</p>
-  </div>
-  <div class="relative h-20">
-    <canvas id="chart-conversion"></canvas>
-  </div>
-</div>
+                    ${panelReactivar}
+          <div id="detalle-analytics" class="p-4 border-b border-zinc-800/80 bg-zinc-950/40 space-y-3"></div>
+
           ${galeria}
 
           <div class="p-6 space-y-4">
@@ -534,8 +742,36 @@ function abrirDetalle(promo) {
       `;
 
   el("overlay-detalle").classList.add("show");
-  renderChartsDetalle(promo);
+  renderAnalyticsDetalle(promo); // antes decía renderChartsDetalle (no existe)
   el("btn-cerrar-modal").addEventListener("click", cerrarDetalle);
+
+  if (expirado) {
+    const msg = el("react-msg");
+    let busy = false;
+    const ejecutar = async (ms) => {
+      if (busy) return;
+      busy = true;
+      msg.textContent = "Reactivando…";
+      try {
+        await reactivarPromo(promo, ms);
+        cerrarDetalle(); // el onSnapshot repinta todo solo
+      } catch (e) {
+        console.error(e);
+        msg.textContent = "No se pudo reactivar, intenta de nuevo";
+        busy = false;
+      }
+    };
+    el("btn-react-igual")?.addEventListener("click", () => ejecutar(durOrig));
+    el("btn-react-custom").addEventListener("click", () => {
+      const unidad = el("react-unidad").value;
+      const max = unidad === "horas" ? 20 : 365;
+      const cant = Math.min(
+        Math.max(parseInt(el("react-cant").value, 10) || 1, 1),
+        max,
+      );
+      ejecutar(cant * (unidad === "horas" ? 3600000 : 86400000));
+    });
+  }
 }
 
 function cerrarDetalle() {

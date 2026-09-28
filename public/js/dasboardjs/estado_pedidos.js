@@ -9,13 +9,19 @@ import {
 import {
   getAuth,
   onAuthStateChanged,
+  signInWithCustomToken,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { db } from "/js/db/db.js";
 import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
 import { setFaviconCircular } from "/js/favicon/favicon.js"; // ajusta la ruta a donde tengas el archivo
 
 const auth = getAuth();
-
+const TOKEN_URL = new URLSearchParams(location.search).get("t") || null; // ?t= del invitado
+const AUTH_ORIGIN = "https://geinztech.com";
+// ⚠️ Pon aquí EXACTAMENTE el mismo destino que usa loginPromptLoginBtn en el HTML del carrito
+const LOGIN_URL = "/login.html";
+let bizNombreActual = "";
+let bizLogoActual = "";
 // Cache local: si el pedido se vuelve a abrir (o hay un corte de red breve),
 // se sirve desde disco al instante en vez de esperar a la red.
 try {
@@ -392,18 +398,63 @@ function renderResumenCupon(data) {
 function codigoPedidoCorto(id) {
   return (id || "").slice(0, 6).toUpperCase();
 }
+function hexARgb(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
+  return m
+    ? `${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)}`
+    : "139,92,246";
+}
+
+function abrirLoginPopup() {
+  const acento = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent")
+    .trim();
+  const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
+  u.searchParams.set("o", window.location.origin);
+  u.searchParams.set("r", window.location.href.split("#")[0]); // conserva ?t=
+  u.searchParams.set("n", bizNombreActual || "");
+  if (bizLogoActual) u.searchParams.set("l", bizLogoActual);
+  u.searchParams.set("c", hexARgb(acento));
+  window.location.href = u.toString();
+}
+
+// En dominio propio → auth-popup. En geinztech.com → link normal a login.
+el("auth-cta")?.addEventListener("click", (e) => {
+  if (!ES_DOMINIO_PROPIO) return;
+  e.preventDefault();
+  abrirLoginPopup();
+});
+if (!ES_DOMINIO_PROPIO) {
+  const cta = el("auth-cta");
+  if (cta) cta.href = LOGIN_URL;
+}
+
+// Al volver del login en dominio propio la URL trae #wl_token=...
+const loginPorTokenPromise = (async () => {
+  const p = new URLSearchParams(window.location.hash.slice(1));
+  const t = p.get("wl_token");
+  if (!t) return;
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  try {
+    await signInWithCustomToken(auth, t);
+  } catch (err) {
+    console.error("[pedidos] signInWithCustomToken:", err);
+  }
+})();
 (async () => {
   ids = await resolverRuta();
   if (!ids) {
     showEmpty();
     return;
   }
+  await loginPorTokenPromise;
+
+  let iniciado = false;
   onAuthStateChanged(auth, (user) => {
-    if (!user) {
-      mostrarModalRegistro();
-      return;
-    }
-    init(ids.negocioId, ids.pedidoId, user.uid, ids.localidad);
+    if (iniciado) return;
+    iniciado = true;
+    // Con o sin sesión se intenta cargar; el permiso se decide al leer el pedido
+    init(ids.negocioId, ids.pedidoId, user?.uid || null, ids.localidad);
   });
 })();
 
@@ -530,6 +581,8 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
         const data = snap.data();
         const nombre = data.nombre_tienda || data.nombre || "Negocio";
         const logoUrl = data.img_tienda?.logo_tienda || "";
+        bizNombreActual = nombre;   // ← agregar
+bizLogoActual = logoUrl;    // ← agregar
         el("negocio-nombre").textContent = nombre;
         el("negocio-localidad").textContent = localidad;
         el("negocio-nombre").closest("header") &&
@@ -621,18 +674,21 @@ actualizarBloquePagoQR();
       if (dataJSON === ultimoDataJSON) return;
       ultimoDataJSON = dataJSON;
 
-      // Seguridad: si el pedido tiene dueño registrado y no coincide con el
-      // usuario autenticado, no se muestra el contenido — se pide iniciar
-      // sesión/registrarse.
-      if (data.cliente?.id_cliente && data.cliente.id_cliente !== uidActual) {
-        console.warn(
-          "[pedidos][auth-check] El pedido no pertenece al usuario autenticado → mostrando modal de login",
-        );
-        if (unsubPedido) unsubPedido();
-        mostrarModalRegistro();
-        return;
-      }
+     // Seguridad:
+//  - pedido de usuario registrado → solo ese usuario
+//  - pedido de invitado → solo quien tenga el ?t= correcto
+//  - pedidos viejos sin ninguna de las dos marcas → se muestran como antes
+const duenoId = data.cliente?.id_cliente || null;
+const tokenPedido = data.token_seguimiento || null;
+let autorizado = true;
+if (duenoId) autorizado = duenoId === uidActual;
+else if (tokenPedido) autorizado = TOKEN_URL === tokenPedido;
 
+if (!autorizado) {
+  if (unsubPedido) unsubPedido();
+  mostrarModalRegistro();
+  return;
+}
       const nuevoEstado = normalizarEstado(data.estado);
       renderPedido(data);
 pedidoActualParaPago = data;
@@ -657,14 +713,15 @@ actualizarBloquePagoQR();
       showContent();
       mostrarBannerConexion(!navigator.onLine);
     },
-    (error) => {
-      console.error(
-        "[pedidos] Error de Firestore leyendo PEDIDO:",
-        error.code,
-        error.message,
-      );
-      showEmpty();
-    },
+  (error) => {
+  console.error(
+    "[pedidos] Error de Firestore leyendo PEDIDO:",
+    error.code,
+    error.message,
+  );
+  if (error.code === "permission-denied" && !uidActual) mostrarModalRegistro();
+  else showEmpty();
+},
   );
 }
 
@@ -817,6 +874,23 @@ function abrirModalCancelar(pedidoRef) {
   btnNo.addEventListener("click", onNo);
   overlay.addEventListener("click", onOverlayClick);
 }
+function extrasDe(condiciones, sel) {
+  let t = 0;
+  (condiciones || []).forEach((c) =>
+    entradasDeOpcion(sel?.[c.nombre]).forEach(([n, q]) => {
+      const op = (c.opciones || []).find((o) => o.nombre === n);
+      if (op?.costoAdicional) t += Number(op.costoAdicional) * q;
+    }),
+  );
+  return t;
+}
+const opDisponible = (op) => typeof op.stock !== "number" || op.stock > 0;
+
+function textoRespuesta(r) {
+  if (r.accion === "reemplazo") return "Cambiar por " + (r.producto_elegido?.nombre || "");
+  if (r.accion === "ajuste") return "Ajustar cantidades";
+  return "Continuar sin ese producto";
+}
 function renderPausaBanner(data, pedidoRef) {
   let wrap = el("pausa-wrap");
   if (!wrap) {
@@ -831,153 +905,273 @@ function renderPausaBanner(data, pedidoRef) {
   const pausa = data.pausa || {};
   const respuesta = data.respuesta_cliente;
   const afectados = pausa.productos_afectados || [];
-  const otros = (data.productos || []).filter(
-    (p) => !afectados.some((a) => a.id === p.id),
-  );
+  const productosActuales = Array.isArray(data.productos) ? data.productos : [];
+  const otros = productosActuales.filter((p) => !afectados.some((a) => a.id === p.id));
 
   let restanteTexto = "";
   const creado = toDateFS(pausa.creado_en);
   if (creado) {
-    const msPorUnidad =
-      { minutos: 60000, horas: 3600000, dias: 86400000 }[
-        pausa.tiempo_espera?.unidad
-      ] || 60000;
+    const msPorUnidad = { minutos: 60000, horas: 3600000, dias: 86400000 }[pausa.tiempo_espera?.unidad] || 60000;
     const limite = (pausa.tiempo_espera?.valor || 15) * msPorUnidad;
     const restanteMs = limite - (Date.now() - creado.getTime());
-    restanteTexto =
-      restanteMs > 0
-        ? `⏳ ~${Math.ceil(restanteMs / 60000)} min restantes`
-        : "⏳ El tiempo estimado ya pasó, seguimos coordinando";
+    restanteTexto = restanteMs > 0
+      ? `⏳ ~${Math.ceil(restanteMs / 60000)} min restantes`
+      : "⏳ El tiempo estimado ya pasó, seguimos coordinando";
   }
 
   if (respuesta) {
     wrap.innerHTML = `
       <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
-      <p style="margin:0.6rem 0 0;font-size:0.9rem;">Ya enviaste tu respuesta: <strong>${
-        respuesta.accion === "reemplazo"
-          ? "Cambiar por " + esc(respuesta.producto_elegido?.nombre || "")
-          : "Continuar sin ese producto"
-      }</strong>. El negocio confirmará en breve.</p>
+      <p style="margin:0.6rem 0 0;font-size:0.9rem;">Ya enviaste tu respuesta: <strong>${esc(textoRespuesta(respuesta))}</strong>. El negocio confirmará en breve.</p>
       <button id="pausa-cancelar" style="margin-top:1rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>`;
-    wrap.querySelector("#pausa-cancelar").onclick = () =>
-      abrirModalCancelar(pedidoRef);
+    wrap.querySelector("#pausa-cancelar").onclick = () => abrirModalCancelar(pedidoRef);
     return;
   }
-  wrap.innerHTML = `
-    <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
-    <p style="margin:0.6rem 0 0;font-size:0.9rem;">${
-      esc(pausa.motivo) ||
-      "Uno de los productos de tu pedido no está disponible."
-    }</p>
-    ${restanteTexto ? `<p style="margin:0.3rem 0 0;font-size:0.78rem;color:var(--text-muted);">${restanteTexto}</p>` : ""}
-      <div id="pausa-opciones" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
-    <button id="pausa-confirmar" style="margin-top:1rem;width:100%;padding:0.8rem;border-radius:0.8rem;border:none;background:#38bdf8;color:#04222f;font-weight:700;cursor:pointer;" disabled>Continuar con mi pedido</button>
-    <button id="pausa-cancelar" style="margin-top:0.6rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>
-  
-  `;
 
-  let seleccion = null;
-  const opcionesWrap = wrap.querySelector("#pausa-opciones");
-  const confirmarBtn = wrap.querySelector("#pausa-confirmar");
-  const marcarActivo = (btn) => {
-    opcionesWrap
-      .querySelectorAll("button")
-      .forEach((b) => (b.style.borderColor = "var(--card-border)"));
-    btn.style.borderColor = "#38bdf8";
-    confirmarBtn.disabled = false;
-  };
+  /* ── Estado editable por producto afectado ── */
+  const estado = new Map(); // id -> { linea, cantidad, seleccion }
+  afectados.forEach((a) => {
+    const linea = productosActuales.find((p) => p.id === a.id);
+    if (!linea) return;
+    const seleccion = JSON.parse(JSON.stringify(linea.opciones || {}));
 
-  otros.forEach((p) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.style.cssText =
-      "text-align:left;padding:0.7rem;border-radius:0.7rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);cursor:pointer;font-size:0.85rem;";
-    b.textContent = `Cambiar por: ${p.nombre}`;
-    b.onclick = () => {
-      seleccion = {
-        accion: "reemplazo",
-        producto_elegido: { id: p.id, nombre: p.nombre },
-      };
-      marcarActivo(b);
-    };
-    opcionesWrap.appendChild(b);
+    // Si la variante que tenía ya no tiene stock, se corrige a una disponible
+    (a.condiciones || []).forEach((c) => {
+      const disponibles = (c.opciones || []).filter(opDisponible).map((o) => o.nombre);
+      const v = seleccion[c.nombre];
+      if (v == null) return;
+      if (Array.isArray(v)) seleccion[c.nombre] = v.filter((n) => disponibles.includes(n));
+      else if (typeof v === "object") {
+        Object.keys(v).forEach((n) => { if (!disponibles.includes(n)) delete v[n]; });
+      } else if (!disponibles.includes(v)) {
+        if (disponibles.length) seleccion[c.nombre] = disponibles[0];
+        else delete seleccion[c.nombre];
+      }
+    });
+
+    estado.set(a.id, { linea, cantidad: Number(linea.cantidad) || 0, seleccion });
   });
 
-  const sinProductoBtn = document.createElement("button");
-  sinProductoBtn.type = "button";
-  sinProductoBtn.style.cssText =
-    "text-align:left;padding:0.7rem;border-radius:0.7rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-secondary);cursor:pointer;font-size:0.85rem;";
-  sinProductoBtn.textContent = "Continuar sin este producto";
-  sinProductoBtn.onclick = () => {
-    seleccion = { accion: "sin_producto", producto_elegido: null };
-    marcarActivo(sinProductoBtn);
+  const maxCant = (a, st) => {
+    let max = typeof a.stock_disponible === "number" ? a.stock_disponible : Number(st.linea.cantidad) || 0;
+    (a.condiciones || []).forEach((c) =>
+      entradasDeOpcion(st.seleccion[c.nombre]).forEach(([n, q]) => {
+        const op = (c.opciones || []).find((o) => o.nombre === n);
+        if (op && typeof op.stock === "number") max = Math.min(max, Math.floor(op.stock / (q || 1)));
+      }),
+    );
+    return Math.max(0, max);
   };
-  opcionesWrap.appendChild(sinProductoBtn);
+
+  // Al inicio la cantidad no puede pasar del tope
+  afectados.forEach((a) => {
+    const st = estado.get(a.id);
+    if (st) st.cantidad = Math.min(st.cantidad, maxCant(a, st));
+  });
+
+  let reemplazo = null; // { id, nombre }
+
+  const precioUnit = (a, st) =>
+    typeof a.precio_base === "number"
+      ? +(a.precio_base + extrasDe(a.condiciones, st.seleccion)).toFixed(2)
+      : Number(st.linea.precio_unitario) || 0;
+
+  const construir = () => {
+    let faltante = 0;
+    let lista = [];
+    productosActuales.forEach((it) => {
+      const st = estado.get(it.id);
+      if (!st || st.linea !== it) { lista.push(it); return; }
+      faltante += Math.max(0, (Number(it.cantidad) || 0) - st.cantidad);
+      if (st.cantidad <= 0) return;
+      const a = afectados.find((x) => x.id === it.id);
+      const unit = precioUnit(a, st);
+      lista.push({
+        ...it,
+        cantidad: st.cantidad,
+        opciones: Object.keys(st.seleccion).length ? st.seleccion : null,
+        precio_unitario: unit,
+        subtotal: +(unit * st.cantidad).toFixed(2),
+      });
+    });
+    if (reemplazo && faltante > 0) {
+      lista = lista.map((it) => {
+        if (it.id !== reemplazo.id) return it;
+        const c = (Number(it.cantidad) || 0) + faltante;
+        return { ...it, cantidad: c, subtotal: +(c * Number(it.precio_unitario || 0)).toFixed(2) };
+      });
+    }
+    const total = +lista.reduce((s, it) => s + Number(it.subtotal || 0), 0).toFixed(2);
+    const items = lista.reduce((s, it) => s + (Number(it.cantidad) || 0), 0);
+    return { lista, total, items, faltante };
+  };
+
+  wrap.innerHTML = `
+    <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
+    <p style="margin:0.6rem 0 0;font-size:0.9rem;">${esc(pausa.motivo) || "Algunos productos de tu pedido no están completos."}</p>
+    ${restanteTexto ? `<p style="margin:0.3rem 0 0;font-size:0.78rem;color:var(--text-muted);">${restanteTexto}</p>` : ""}
+    <div id="pausa-ajustes" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.8rem;"></div>
+    ${otros.length ? `<p style="margin:1rem 0 0.4rem;font-size:0.8rem;color:var(--text-secondary);">¿Quieres cambiar lo que falta por otro producto? (opcional)</p><div id="pausa-otros" style="display:flex;flex-direction:column;gap:0.5rem;"></div>` : ""}
+    <p id="pausa-hint" style="margin:0.8rem 0 0;font-size:0.78rem;color:#e5484d;display:none;"></p>
+    <button id="pausa-confirmar" style="margin-top:1rem;width:100%;padding:0.8rem;border-radius:0.8rem;border:none;background:#38bdf8;color:#04222f;font-weight:700;cursor:pointer;">Continuar con mi pedido</button>
+    <button id="pausa-cancelar" style="margin-top:0.6rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>
+  `;
+
+  const ajustesWrap = wrap.querySelector("#pausa-ajustes");
+  const confirmarBtn = wrap.querySelector("#pausa-confirmar");
+  const hint = wrap.querySelector("#pausa-hint");
+
+  const chipCss = (on) =>
+    `padding:0.4rem 0.7rem;border-radius:0.6rem;font-size:0.78rem;cursor:pointer;color:var(--text-primary);background:${on ? "color-mix(in srgb, #38bdf8 20%, transparent)" : "var(--card)"};border:1px solid ${on ? "#38bdf8" : "var(--card-border)"};`;
+
+  function pintarTodo() {
+    ajustesWrap.innerHTML = "";
+    afectados.forEach((a) => {
+      const st = estado.get(a.id);
+      if (!st) return;
+      const max = maxCant(a, st);
+      if (st.cantidad > max) st.cantidad = max;
+      const unit = precioUnit(a, st);
+
+      const card = document.createElement("div");
+      card.style.cssText = "border:1px solid var(--card-border);border-radius:0.9rem;padding:0.85rem;";
+      const stockTxt = typeof a.stock_disponible === "number"
+        ? (a.stock_disponible <= 0 ? "agotado" : `solo quedan ${a.stock_disponible}`)
+        : "";
+      card.innerHTML = `
+        <p style="margin:0;font-weight:700;font-size:0.9rem;">${esc(a.nombre)}</p>
+        <p style="margin:0.15rem 0 0.6rem;font-size:0.78rem;color:var(--text-muted);">Pediste ${st.linea.cantidad}${stockTxt ? " · " + stockTxt : ""}</p>
+        <div class="stepper" style="display:flex;align-items:center;gap:0.8rem;">
+          <button type="button" data-minus style="width:2rem;height:2rem;border-radius:0.6rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);font-weight:700;cursor:pointer;">−</button>
+          <span style="min-width:1.5rem;text-align:center;font-weight:700;">${st.cantidad}</span>
+          <button type="button" data-plus ${st.cantidad >= max ? "disabled" : ""} style="width:2rem;height:2rem;border-radius:0.6rem;border:1px solid var(--card-border);background:var(--card);color:var(--text-primary);font-weight:700;cursor:pointer;${st.cantidad >= max ? "opacity:.35;" : ""}">+</button>
+          <span style="margin-left:auto;font-size:0.85rem;" class="font-mono">S/ ${unit.toFixed(2)} c/u · <b>S/ ${(unit * st.cantidad).toFixed(2)}</b></span>
+        </div>
+        <div data-vars></div>`;
+
+      card.querySelector("[data-minus]").onclick = () => { st.cantidad = Math.max(0, st.cantidad - 1); pintarTodo(); };
+      card.querySelector("[data-plus]").onclick = () => { if (st.cantidad < max) st.cantidad += 1; pintarTodo(); };
+
+      // Variantes: solo las que tienen stock
+      const varsWrap = card.querySelector("[data-vars]");
+      (a.condiciones || []).forEach((c) => {
+        const disp = (c.opciones || []).filter(opDisponible);
+        if (!disp.length) return;
+        const cur = st.seleccion[c.nombre];
+        const multi = Array.isArray(cur) || (cur && typeof cur === "object");
+        const activos = entradasDeOpcion(cur).map(([n]) => n);
+
+        const bloque = document.createElement("div");
+        bloque.style.marginTop = "0.7rem";
+        bloque.innerHTML = `<p style="margin:0 0 0.3rem;font-size:0.72rem;color:var(--text-muted);">${esc(c.nombre)}</p><div style="display:flex;flex-wrap:wrap;gap:0.4rem;"></div>`;
+        const fila = bloque.querySelector("div");
+        disp.forEach((op) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          const on = activos.includes(op.nombre);
+          b.style.cssText = chipCss(on);
+          b.textContent = `${op.nombre}${op.costoAdicional ? ` (+S/ ${Number(op.costoAdicional).toFixed(2)})` : ""}${typeof op.stock === "number" ? ` · quedan ${op.stock}` : ""}`;
+          b.onclick = () => {
+            if (Array.isArray(cur)) {
+              const arr = [...cur];
+              const i = arr.indexOf(op.nombre);
+              if (i >= 0) arr.splice(i, 1); else arr.push(op.nombre);
+              if (arr.length) st.seleccion[c.nombre] = arr; else delete st.seleccion[c.nombre];
+            } else if (multi) {
+              const o = { ...cur };
+              if (o[op.nombre]) delete o[op.nombre]; else o[op.nombre] = 1;
+              if (Object.keys(o).length) st.seleccion[c.nombre] = o; else delete st.seleccion[c.nombre];
+            } else {
+              st.seleccion[c.nombre] = op.nombre;
+            }
+            pintarTodo();
+          };
+          fila.appendChild(b);
+        });
+        varsWrap.appendChild(bloque);
+      });
+
+      ajustesWrap.appendChild(card);
+    });
+
+    const { total, items, faltante, lista } = construir();
+    if (!lista.length) {
+      hint.style.display = "block";
+      hint.textContent = "No queda ningún producto. Elige al menos uno o cancela el pedido.";
+      confirmarBtn.disabled = true;
+      confirmarBtn.style.opacity = ".5";
+    } else {
+      hint.style.display = "none";
+      confirmarBtn.disabled = false;
+      confirmarBtn.style.opacity = "1";
+    }
+    confirmarBtn.textContent = `Continuar · ${items} item${items === 1 ? "" : "s"} · S/ ${total.toFixed(2)}`;
+    wrap.dataset.faltante = faltante;
+  }
+
+  // Cambiar lo que falta por otro producto (opcional)
+  const otrosWrap = wrap.querySelector("#pausa-otros");
+  if (otrosWrap) {
+    otros.forEach((p) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      const paint = () => (b.style.cssText = chipCss(reemplazo?.id === p.id) + "text-align:left;");
+      b.textContent = `Cambiar lo que falta por: ${p.nombre}`;
+      paint();
+      b.onclick = () => {
+        reemplazo = reemplazo?.id === p.id ? null : { id: p.id, nombre: p.nombre };
+        otrosWrap.querySelectorAll("button").forEach((x) => (x.style.cssText = chipCss(false) + "text-align:left;"));
+        paint();
+        pintarTodo();
+      };
+      otrosWrap.appendChild(b);
+    });
+  }
 
   confirmarBtn.onclick = async () => {
-    if (!seleccion || !pedidoRef) return;
+    if (!pedidoRef) return;
+    const { lista, total, items, faltante } = construir();
+    if (!lista.length) return;
+
+    const ajustes = afectados
+      .filter((a) => estado.has(a.id))
+      .map((a) => {
+        const st = estado.get(a.id);
+        return {
+          id: a.id,
+          nombre: a.nombre,
+          cantidad_pedida: Number(st.linea.cantidad) || 0,
+          cantidad_final: st.cantidad,
+          opciones: Object.keys(st.seleccion).length ? st.seleccion : null,
+        };
+      });
+
+    const usaReemplazo = !!reemplazo && faltante > 0;
+    const todoEnCero = ajustes.every((x) => x.cantidad_final === 0);
+
     confirmarBtn.disabled = true;
     confirmarBtn.textContent = "Enviando…";
     try {
-      const productosActuales = Array.isArray(data.productos)
-        ? data.productos
-        : [];
-      const idsAfectados = new Set(afectados.map((a) => a.id));
-      let nuevosProductos;
-
-      if (seleccion.accion === "sin_producto") {
-        // Quita del pedido los productos que se marcaron como agotados
-        nuevosProductos = productosActuales.filter(
-          (it) => !idsAfectados.has(it.id),
-        );
-      } else if (seleccion.accion === "reemplazo") {
-        const idElegido = seleccion.producto_elegido?.id;
-        let cantidadASumar = 0;
-
-        // Quita los afectados y acumula su cantidad para pasarla al producto elegido
-        const sinAfectados = productosActuales.filter((it) => {
-          if (idsAfectados.has(it.id)) {
-            cantidadASumar += Number(it.cantidad) || 0;
-            return false;
-          }
-          return true;
-        });
-
-        nuevosProductos = sinAfectados.map((it) => {
-          if (it.id !== idElegido) return it;
-          const nuevaCantidad = (Number(it.cantidad) || 0) + cantidadASumar;
-          const nuevoSubtotal = +(
-            nuevaCantidad * Number(it.precio_unitario || 0)
-          ).toFixed(2);
-          return { ...it, cantidad: nuevaCantidad, subtotal: nuevoSubtotal };
-        });
-      } else {
-        nuevosProductos = productosActuales;
-      }
-
-      const nuevoTotal = +nuevosProductos
-        .reduce((s, it) => s + Number(it.subtotal || 0), 0)
-        .toFixed(2);
-      const nuevoTotalItems = nuevosProductos.reduce(
-        (s, it) => s + (Number(it.cantidad) || 0),
-        0,
-      );
-
       await updateDoc(pedidoRef, {
-        respuesta_cliente: { ...seleccion, respondido_en: serverTimestamp() },
-        productos: nuevosProductos,
-        total: nuevoTotal,
-        total_items: nuevoTotalItems,
+        respuesta_cliente: {
+          accion: usaReemplazo ? "reemplazo" : todoEnCero ? "sin_producto" : "ajuste",
+          producto_elegido: usaReemplazo ? reemplazo : null,
+          ajustes,
+          respondido_en: serverTimestamp(),
+        },
+        productos: lista,
+        total,
+        total_items: items,
       });
     } catch (err) {
       console.error("[pedidos] No se pudo enviar la respuesta:", err);
       confirmarBtn.disabled = false;
-      confirmarBtn.textContent = "Continuar con mi pedido";
+      pintarTodo();
     }
   };
 
-  wrap.querySelector("#pausa-cancelar").onclick = () =>
-    abrirModalCancelar(pedidoRef);
+  wrap.querySelector("#pausa-cancelar").onclick = () => abrirModalCancelar(pedidoRef);
+  pintarTodo();
 }
 
 /* El cliente cancela su propio pedido mientras está en pausa, sin esperar al negocio */

@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trabajadores y Planilla</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            base: '#000000',
+            panel: '#050505',
+            panel2: '#0D0D0D',
+            line: '#221B35',
+            ink: '#FFFFFF',
+            inkdim: '#CCCCCC',
+            inkfaint: '#888888',
+            primary: '#8855FF',
+          },
+          fontFamily: {
+            display: ['"Bricolage Grotesque"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #000; color: #fff; -webkit-tap-highlight-color: transparent; }
+    .font-display { font-family: 'Bricolage Grotesque', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    * { scrollbar-width: thin; scrollbar-color: #2a2a2a #000; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #000; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 5px; border: 2px solid #000; }
+
+    select, input { color-scheme: dark; }
+
+    .chip { transition: all .15s ease; background: #0D0D0D; border: 1px solid #221B35; color: #CCC; }
+    .chip:hover { border-color: #8855FF; color: #fff; }
+    .chip.active { background: #8855FF; color: #fff; border-color: #8855FF; box-shadow: 0 0 12px rgba(136,85,255,.4); }
+
+    .field {
+      width: 100%; font-size: .875rem; background: #0D0D0D; color: #fff;
+      border: 1px solid #221B35; border-radius: .6rem; padding: .55rem .7rem; outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .field:focus { border-color: #8855FF; box-shadow: 0 0 0 3px rgba(136,85,255,.18); }
+    .field::placeholder { color: #666; }
+    .lbl { display: block; font-size: 11px; letter-spacing: .05em; color: #888; font-weight: 600; margin-bottom: .35rem; }
+
+    .opt {
+      display: flex; align-items: center; gap: .5rem; cursor: pointer; user-select: none;
+      background: #0D0D0D; border: 1px solid #221B35; color: #CCC; border-radius: .6rem;
+      padding: .5rem .7rem; font-size: .8125rem; font-weight: 500;
+      transition: border-color .15s ease, background .15s ease, color .15s ease, transform .1s ease;
+    }
+    .opt:hover { border-color: #8855FF; color: #fff; }
+    .opt:active { transform: scale(.97); }
+    .opt:has(input:checked) { border-color: #8855FF; background: rgba(136,85,255,.16); color: #fff; }
+    .opt input { accent-color: #8855FF; width: 1rem; height: 1rem; flex-shrink: 0; }
+    .opt input:disabled { opacity: .5; }
+
+    .card-in { animation: cardIn .4s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+
+    .fade-in { animation: fadeIn .25s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .overlay { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+    .overlay.open { opacity: 1; pointer-events: auto; }
+    .sheet { transform: translateX(28px); opacity: 0; transition: transform .32s cubic-bezier(.16,1,.3,1), opacity .25s ease; }
+    .overlay.open .sheet { transform: none; opacity: 1; }
+
+    .skeleton-element { background: #0D0D0D; border: 1px solid #1A1A1A; position: relative; overflow: hidden; border-radius: 8px; }
+    .skeleton-element::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(136,85,255,.18), transparent);
+      animation: shimmer 1.6s infinite;
+    }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+    @keyframes loadingBarSlide { 0% { transform: translateX(-100%); } 50% { transform: translateX(60%); } 100% { transform: translateX(220%); } }
+    .loading-bar-fill { animation: loadingBarSlide 1.1s ease-in-out infinite; }
+
+    /* gráficos */
+    .seg { animation: segDraw .9s cubic-bezier(.16,1,.3,1) both; }
+    @keyframes segDraw { from { stroke-dasharray: 0 339.3; } }
+    .grow-x { transform-origin: left; animation: growX .7s cubic-bezier(.16,1,.3,1) both; }
+    @keyframes growX { from { transform: scaleX(0); } }
+    .grow-y { transform-origin: bottom; animation: growY .7s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 12ms); }
+    @keyframes growY { from { transform: scaleY(0); } }
+
+    .cal-cell { transition: transform .12s ease, background .15s ease, border-color .15s ease; }
+    .cal-cell:active { transform: scale(.9); }
+
+    .dim-metrics { opacity: .4; pointer-events: none; }
+    #metricsWrap { transition: opacity .25s ease; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; animation-delay: 0ms !important; }
+    }
+  </style>
+</head>
+
+<body class="text-ink min-h-screen bg-base relative">
+
+  <!-- ======================= CARGA ======================= -->
+  <div id="loadingScreen" class="fixed inset-0 bg-base z-50 flex flex-col p-4 sm:p-8 space-y-6 overflow-hidden">
+    <div class="flex items-center justify-between gap-4 pb-4 border-b border-line/50">
+      <div class="space-y-2">
+        <div class="skeleton-element h-7 w-56"></div>
+        <div class="skeleton-element h-3 w-28"></div>
+      </div>
+      <div class="skeleton-element h-10 w-36 rounded-xl"></div>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="skeleton-element h-28 rounded-2xl"></div>
+      <div class="skeleton-element h-28 rounded-2xl"></div>
+      <div class="skeleton-element h-28 rounded-2xl"></div>
+      <div class="skeleton-element h-28 rounded-2xl"></div>
+    </div>
+    <div class="skeleton-element h-56 rounded-2xl w-full"></div>
+    <div class="skeleton-element flex-1 rounded-2xl w-full"></div>
+  </div>
+
+  <!-- ======================= TOP BAR ======================= -->
+  <header class="sticky top-0 z-30 bg-base/90 backdrop-blur border-b border-line">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+      <div class="leading-tight min-w-0">
+        <h1 class="font-display font-bold text-lg tracking-tight text-white truncate">Trabajadores y planilla</h1>
+        <p class="text-[11px] text-inkfaint font-mono flex items-center gap-1.5" id="connStatus">
+          <span class="w-2 h-2 rounded-full bg-inkfaint animate-pulse" id="connDot"></span>
+          <span id="connText">conectando…</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button id="btnRefresh" title="Actualizar ventas"
+          class="bg-panel2 border border-line text-white text-sm w-10 h-10 rounded-xl hover:border-primary active:scale-95 transition flex items-center justify-center">
+          <span id="refreshIcon" class="inline-block transition-transform duration-500">🔄</span>
+        </button>
+        <button id="btnAddWorker"
+          class="flex items-center gap-2 bg-primary text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">
+          <span class="text-base leading-none">＋</span> <span>Trabajador</span>
+        </button>
+      </div>
+    </div>
+    <div id="rangeLoadingBar" class="hidden h-0.5 bg-primary/10 overflow-hidden">
+      <div class="h-full w-1/3 bg-primary loading-bar-fill"></div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- ======================= RANGO ======================= -->
+    <section class="bg-panel border border-line rounded-2xl p-4">
+      <div class="flex flex-wrap items-center gap-2" id="dateChips">
+        <span class="text-[11px] text-inkfaint font-semibold mr-1">Rango</span>
+        <button data-range="hoy" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Hoy</button>
+        <button data-range="semana" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Esta semana</button>
+        <button data-range="mes" class="chip active px-3 py-1.5 rounded-full text-sm font-medium">Este mes</button>
+        <button data-range="mespasado" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Mes pasado</button>
+        <button data-range="custom" class="chip px-3 py-1.5 rounded-full text-sm font-medium">Personalizado</button>
+        <div id="customRangeBox" class="hidden flex items-center gap-1.5 ml-1">
+          <input type="date" id="customFrom" class="field !w-auto font-mono !py-1.5">
+          <span class="text-inkfaint">→</span>
+          <input type="date" id="customTo" class="field !w-auto font-mono !py-1.5">
+        </div>
+        <span id="rangeEcho" class="ml-auto text-xs font-mono text-primary"></span>
+      </div>
+    </section>
+
+    <div id="metricsWrap" class="space-y-6">
+
+      <!-- ======================= KPIs ======================= -->
+      <section>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="bg-panel border border-line rounded-2xl p-4 card-in" style="--i:0">
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Ventas del rango</p>
+            <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiVentas">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1"><span id="kpiPedidos">0</span> pedidos entregados</p>
+          </div>
+          <div class="bg-panel border border-line rounded-2xl p-4 card-in" style="--i:1">
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Sueldos devengados</p>
+            <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiPlanilla">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1" id="kpiPlanillaPct">0% de las ventas</p>
+          </div>
+          <div class="bg-panel border border-line rounded-2xl p-4 card-in" style="--i:2">
+            <p class="text-[11px] text-inkdim font-semibold mb-1">Ya pagado / por pagar</p>
+            <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiPendiente">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1">pagado: <span id="kpiPagado" class="font-mono">S/ 0.00</span></p>
+          </div>
+          <div class="bg-panel border border-primary/40 rounded-2xl p-4 relative overflow-hidden shadow-lg shadow-primary/5 card-in" style="--i:3">
+            <p class="text-[11px] text-primary font-bold mb-1">Ganancia neta del negocio</p>
+            <p class="font-display font-extrabold text-2xl sm:text-3xl text-white" id="kpiUtilidad">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1" id="kpiUtilidadPct">0% de las ventas</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================= CUENTA CLARA + DONA ======================= -->
+      <section class="grid lg:grid-cols-5 gap-3">
+        <div class="lg:col-span-3 bg-panel border border-line rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-display font-bold text-lg text-white">Cuánto te queda</h2>
+            <span class="text-[11px] font-mono text-inkfaint">de las ventas a tu bolsillo</span>
+          </div>
+          <div class="space-y-3" id="waterfall"></div>
+          <p class="text-sm text-inkdim mt-4 bg-panel2 border border-line rounded-xl px-3 py-2.5" id="frase"></p>
+        </div>
+
+        <div class="lg:col-span-2 bg-panel border border-line rounded-2xl p-4">
+          <h2 class="font-display font-bold text-lg text-white mb-3">A dónde va cada sol</h2>
+          <div class="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center gap-4">
+            <div class="relative w-40 h-40 shrink-0">
+              <svg viewBox="0 0 140 140" class="w-full h-full -rotate-90" id="donut"></svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                <p class="text-[10px] text-inkfaint">te queda</p>
+                <p class="font-display font-extrabold text-lg text-white" id="donutCenter">0%</p>
+              </div>
+            </div>
+            <div class="space-y-2 w-full" id="donutLegend"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================= DÍA A DÍA ======================= -->
+      <section class="grid lg:grid-cols-5 gap-3">
+        <div class="lg:col-span-3 bg-panel border border-line rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+            <h2 class="font-display font-bold text-lg text-white">Ventas vs. sueldos por día</h2>
+            <div class="flex items-center gap-3 text-[11px] text-inkdim">
+              <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-sm bg-primary inline-block"></i>Ventas</span>
+              <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-sm bg-white inline-block"></i>Sueldos</span>
+            </div>
+          </div>
+          <div class="overflow-x-auto pb-1">
+            <div id="dayChart" class="flex items-end gap-[3px] h-40 min-w-full"></div>
+            <div id="dayLabels" class="flex gap-[3px] mt-1.5 text-[9px] font-mono text-inkfaint min-w-full"></div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2 bg-panel border border-line rounded-2xl p-4">
+          <h2 class="font-display font-bold text-lg text-white mb-3">Sueldo por trabajador</h2>
+          <div class="space-y-3 max-h-64 overflow-y-auto pr-1" id="workerBars"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ======================= TRABAJADORES ======================= -->
+    <section>
+      <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <h2 class="font-display font-bold text-xl text-white">Trabajadores <span id="workerCount"
+            class="text-inkfaint font-body font-normal text-base"></span></h2>
+        <div class="relative w-full sm:w-64">
+          <input id="searchWorker" type="text" placeholder="Buscar nombre o DNI…" class="field !pl-8 !py-1.5">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-inkfaint text-sm">🔍</span>
+        </div>
+      </div>
+      <div id="workersGrid" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+      <div id="emptyWorkers" class="hidden text-center py-16 text-inkfaint">
+        <p class="text-3xl mb-2">👷</p>
+        <p class="font-medium text-white">Aún no hay trabajadores</p>
+        <p class="text-sm mt-1">Toca «Trabajador» para registrar el primero.</p>
+      </div>
+      <div id="noStore" class="hidden bg-panel border border-line rounded-2xl p-6 text-center">
+        <p class="text-3xl mb-2">🏪</p>
+        <p class="font-medium text-white">No se recibió la tienda</p>
+        <p class="text-sm text-inkfaint mt-1">Abre esta página desde el dashboard para cargar los datos de tu negocio.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======================= PANEL LATERAL ======================= -->
+  <div id="overlay" class="overlay fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex justify-end">
+    <div class="sheet bg-panel w-full sm:w-[460px] h-full overflow-y-auto shadow-2xl border-l border-line">
+      <div id="panelContent" class="p-5"></div>
+    </div>
+  </div>
+
+  <div id="toast"
+    class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xl shadow-primary/30 z-50 max-w-[90vw] text-center">
+  </div>
+
+  <!-- =====================================================================
+       Ruta en Firebase donde se guardan los trabajadores:
+       Tiendas/peru/departamento/lima/provincia/barranca/distrito/{localidad}
+         /tiendas/{tiendaId}/trabajadores/{trabajadorId}
+
+       Cada documento guarda: nombre, dni, tipoDoc, cargo, telefono, metodoPago,
+       frecuencia, monto, diasPeriodo, diasTrabajo, modoDias, fechaIngreso,
+       asistencia { d20260928: "trabajo" | "medio" | "vacaciones" | "falta" | "descanso" },
+       pagos { p<timestamp>: { tipo: "pago" | "adelanto" | "descuento" | "bono", fecha, monto, nota, metodo } }
+
+       IMPORTANTE: agrega en tus reglas de Firestore permiso de lectura y
+       escritura para la subcolección "trabajadores" (igual que "pedidos").
+       ===================================================================== -->
+  <script type="module">
+    import {
+      query, where, orderBy, limit, onSnapshot, getDocs,
+      addDoc, updateDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Ajusta esta ruta si tu HTML está en otra carpeta
+    import { tiendaSubCol, tiendaSubDoc } from "../js/rutas/rutas.js";
+
+    /* ------------------------------ Utilidades ------------------------------ */
+    const $ = (id) => document.getElementById(id);
+    const pad = (n) => String(n).padStart(2, "0");
+    const ymd = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+    const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const parseIso = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+    const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+    const endOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function fmtMoney(n) {
+      return "S/ " + (Number(n) || 0).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function toDate(ts) {
+      if (!ts) return null;
+      if (typeof ts.toDate === "function") return ts.toDate();
+      if (ts.seconds) return new Date(ts.seconds * 1000);
+      return new Date(ts);
+    }
+    const fechaEfectiva = (p) => toDate(p.timestamp) || toDate(p.actualizado);
+
+    function showToast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.classList.remove("hidden");
+      t.classList.add("fade-in");
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => t.classList.add("hidden"), 2400);
+    }
+
+    function animateNumber(el, to, fmt) {
+      if (!el) return;
+      const from = el._v || 0;
+      el._v = to;
+      cancelAnimationFrame(el._raf);
+      if (reduceMotion || from === to) { el.textContent = fmt(to); return; }
+      const t0 = performance.now(), dur = 550;
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / dur);
+        const e = 1 - Math.pow(1 - k, 3);
+        el.textContent = fmt(from + (to - from) * e);
+        if (k < 1) el._raf = requestAnimationFrame(step);
+      };
+      el._raf = requestAnimationFrame(step);
+    }
+
+    /* ------------------------------ Estado ------------------------------ */
+    let tiendaId = sessionStorage.getItem("tiendaId");
+    let localidad = sessionStorage.getItem("localidad");
+
+    const state = { workers: [], pedidos: [], range: "mes", workersReady: false, pedidosReady: false, search: "" };
+    let started = false;
+    let loadToken = 0;
+    let panel = null; // { tipo: 'form'|'asistencia'|'pagos', id }
+    let cal = { y: 0, m: 0, brush: "trabajo" };
+    let movTipo = "pago";
+
+    /* ------------------------------ Constantes de negocio ------------------------------ */
+    const ESTADOS = {
+      trabajo: { label: "Trabajó", ico: "✅", factor: 1 },
+      medio: { label: "Medio día", ico: "🌗", factor: 0.5 },
+      vacaciones: { label: "Vacaciones", ico: "🏖️", factor: 1 },
+      falta: { label: "Faltó", ico: "❌", factor: 0 },
+      descanso: { label: "Descanso", ico: "😴", factor: 0 },
+    };
+    const PERIODO_NATURAL = { diario: 1, semanal: 7, quincenal: 15, mensual: 30 };
+    const FREC_LABEL = { diario: "por día", semanal: "por semana", quincenal: "por quincena", mensual: "por mes" };
+    const METODOS = { Efectivo: "💵", Yape: "📱", Plin: "📲", Transferencia: "🏦" };
+    const TIPOS_MOV = {
+      pago: { label: "Pago", ico: "✅", cls: "text-white" },
+      adelanto: { label: "Adelanto", ico: "⏩", cls: "text-white" },
+      descuento: { label: "Descuento", ico: "➖", cls: "text-red-400" },
+      bono: { label: "Bono / extra", ico: "➕", cls: "text-primary" },
+    };
+    const DIA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+    const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    function diasTrabajoDe(w) {
+      if (Array.isArray(w.diasTrabajo)) return w.diasTrabajo.map(Number);
+      const r = w.descansoSemana;
+      return [0, 1, 2, 3, 4, 5, 6].filter((d) => r === "" || r == null || String(d) !== String(r));
+    }
+    const descansosDe = (w) => ORDEN_SEMANA.filter((d) => !diasTrabajoDe(w).includes(d)).map((d) => DIA_CORTO[d]);
+    function diasPeriodoAuto(frec, n) {
+      n = Math.max(1, n);
+      if (frec === "diario") return 1;
+      if (frec === "semanal") return n;
+      if (frec === "quincenal") return Math.max(1, Math.round(n * 15 / 7));
+      return Math.max(1, Math.round(n * 30 / 7));
+    }
+
+    /* ------------------------------ Costos (misma config que Historial) ------------------------------ */
+    function loadCostosConfig() {
+      try {
+        const raw = localStorage.getItem("apr_costos_config_v1");
+        if (raw) return JSON.parse(raw);
+      } catch (e) { /* sin acceso a localStorage */ }
+      return { porcentaje: 35, gastosOperativos: 0, overrides: {} };
+    }
+
+    function costoProductos(entregados) {
+      const cfg = loadCostosConfig();
+      let costos = 0;
+      entregados.forEach((p) => {
+        (p.productos || []).forEach((pr) => {
+          const precio = pr.precio_unitario ?? (pr.subtotal && pr.cantidad ? pr.subtotal / pr.cantidad : 0);
+          const ov = cfg.overrides && cfg.overrides[pr.nombre];
+          const unit = ov !== undefined && ov !== null && ov !== "" ? Number(ov) : (Number(precio) || 0) * ((Number(cfg.porcentaje) || 0) / 100);
+          costos += unit * (Number(pr.cantidad) || 0);
+        });
+      });
+      return { costos, gastosOp: Number(cfg.gastosOperativos) || 0 };
+    }
+
+    /* ------------------------------ Rango de fechas ------------------------------ */
+    function getRangeBounds() {
+      const now = new Date();
+      if (state.range === "hoy") return [startOf(now), endOf(now)];
+      if (state.range === "semana") {
+        const day = now.getDay() === 0 ? 7 : now.getDay();
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - (day - 1));
+        return [startOf(monday), endOf(now)];
+      }
+      if (state.range === "mes") return [startOf(new Date(now.getFullYear(), now.getMonth(), 1)), endOf(now)];
+      if (state.range === "mespasado") {
+        const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const last = new Date(now.getFullYear(), now.getMonth(), 0);
+        return [startOf(first), endOf(last)];
+      }
+      const f = $("customFrom").value, t = $("customTo").value;
+      const from = f ? startOf(parseIso(f)) : startOf(new Date(now.getFullYear(), now.getMonth(), 1));
+      const to = t ? endOf(parseIso(t)) : endOf(now);
+      return [from, to < from ? endOf(from) : to];
+    }
+
+    function eachDay(from, to) {
+      const out = [];
+      const d = startOf(from);
+      const limite = startOf(to);
+      let guard = 0;
+      while (d <= limite && guard++ < 400) { out.push(new Date(d)); d.setDate(d.getDate() + 1); }
+      return out;
+    }
+
+    /* ------------------------------ Cálculo de trabajadores ------------------------------ */
+    const tarifaDiaria = (w) => (Number(w.monto) || 0) / Math.max(1, Number(w.diasPeriodo) || 1);
+
+    function calcWorker(w, from, to) {
+      const tarifa = tarifaDiaria(w);
+      const conteo = { trabajo: 0, medio: 0, vacaciones: 0, falta: 0, descanso: 0 };
+      let diasPagados = 0;
+      eachDay(from, to).forEach((d) => {
+        const est = w.asistencia && w.asistencia["d" + ymd(d)];
+        if (est && ESTADOS[est]) { conteo[est]++; diasPagados += ESTADOS[est].factor; }
+      });
+      const base = diasPagados * tarifa;
+      let pagado = 0, adelantos = 0, descuentos = 0, bonos = 0;
+      Object.values(w.pagos || {}).forEach((p) => {
+        if (!p || !p.fecha) return;
+        const f = parseIso(p.fecha);
+        if (f < startOf(from) || f > endOf(to)) return;
+        const m = Number(p.monto) || 0, t = p.tipo || "pago";
+        if (t === "pago") pagado += m;
+        else if (t === "adelanto") { pagado += m; adelantos += m; }
+        else if (t === "descuento") descuentos += m;
+        else if (t === "bono") bonos += m;
+      });
+      const devengado = base + bonos - descuentos;
+      return { tarifa, conteo, diasPagados, base, bonos, descuentos, adelantos, devengado, pagado, pendiente: devengado - pagado };
+    }
+
+    function ultimoPago(w) {
+      let max = null;
+      Object.values(w.pagos || {}).forEach((p) => {
+        const t = p?.tipo || "pago";
+        if (p && p.fecha && (t === "pago" || t === "adelanto") && (!max || p.fecha > max)) max = p.fecha;
+      });
+      return max;
+    }
+
+    function estadoPago(w, calc) {
+      if (calc.pendiente <= 0.5) return { txt: "Al día", cls: "bg-primary/20 text-white border-primary/50" };
+      const last = ultimoPago(w);
+      const periodo = PERIODO_NATURAL[w.frecuencia] || 7;
+      const dias = last ? Math.floor((startOf(new Date()) - parseIso(last)) / 86400000) : 999;
+      if (dias >= periodo) return { txt: "Toca pagar", cls: "bg-white text-black border-white font-bold" };
+      return { txt: "Acumulando", cls: "bg-white/5 text-inkdim border-white/15" };
+    }
+
+    /* ------------------------------ Firebase ------------------------------ */
+    const colTrabajadores = () => tiendaSubCol(localidad, "tiendas", tiendaId, "trabajadores");
+    const docTrabajador = (id) => tiendaSubDoc(localidad, "tiendas", tiendaId, "trabajadores", id);
+
+    function setConn(text, ok) {
+      $("connText").textContent = text;
+      $("connDot").className = "w-2 h-2 rounded-full " +
+        (ok === true ? "bg-primary shadow-[0_0_8px_#8855FF]" : ok === false ? "bg-red-500" : "bg-inkfaint animate-pulse");
+    }
+
+    function ocultarLoader() {
+      const ls = $("loadingScreen");
+      if (ls && !ls.classList.contains("hidden")) {
+        ls.style.transition = "opacity .3s ease";
+        ls.style.opacity = "0";
+        setTimeout(() => ls.classList.add("hidden"), 300);
+      }
+    }
+
+    function normalizarPedido(id, raw) {
+      if (raw && raw.pedido) return { id, ...raw.pedido, esMesa: true };
+      return { id, ...raw, esMesa: false };
+    }
+
+    function escucharTrabajadores() {
+      onSnapshot(colTrabajadores(), (snap) => {
+        state.workers = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+        state.workersReady = true;
+        renderAll();
+        refrescarPanel();
+        if (state.pedidosReady) ocultarLoader();
+      }, (err) => {
+        console.error(err);
+        setConn("⚠️ Error de permisos en «trabajadores»", false);
+        state.workersReady = true;
+        ocultarLoader();
+      });
+    }
+
+    async function cargarPedidos() {
+      const token = ++loadToken;
+      $("rangeLoadingBar").classList.remove("hidden");
+      $("metricsWrap").classList.add("dim-metrics");
+      $("refreshIcon").style.transform = `rotate(${token * 360}deg)`;
+      const [from, to] = getRangeBounds();
+      const q = query(
+        tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos"),
+        where("timestamp", ">=", Timestamp.fromDate(from)),
+        where("timestamp", "<=", Timestamp.fromDate(to)),
+        orderBy("timestamp", "desc"),
+        limit(2000),
+      );
+      try {
+        const snap = await getDocs(q);
+        if (token !== loadToken) return;
+        state.pedidos = snap.docs.map((d) => normalizarPedido(d.id, d.data()));
+        state.pedidosReady = true;
+        setConn(`conectado · ${state.pedidos.length} pedidos en el rango`, true);
+      } catch (err) {
+        console.error(err);
+        if (token !== loadToken) return;
+        setConn("⚠️ Error al leer los pedidos", false);
+        state.pedidosReady = true;
+      }
+      $("rangeLoadingBar").classList.add("hidden");
+      $("metricsWrap").classList.remove("dim-metrics");
+      renderAll();
+      if (state.workersReady) ocultarLoader();
+    }
+
+    /* ------------------------------ Render principal ------------------------------ */
+    function compute() {
+      const [from, to] = getRangeBounds();
+      const entregados = state.pedidos.filter((p) => {
+        const d = fechaEfectiva(p);
+        return d && d >= from && d <= to && (p.estado || "").toLowerCase() === "entregado";
+      });
+      const ventas = entregados.reduce((s, p) => s + (Number(p.total) || 0), 0);
+      const { costos, gastosOp } = costoProductos(entregados);
+      const rows = state.workers.map((w) => ({ w, ...calcWorker(w, from, to) }));
+      const planilla = rows.reduce((s, r) => s + r.devengado, 0);
+      const pagado = rows.reduce((s, r) => s + r.pagado, 0);
+      const utilidad = ventas - costos - gastosOp - planilla;
+      return { from, to, entregados, ventas, costos, gastosOp, rows, planilla, pagado, utilidad };
+    }
+
+    function renderAll() {
+      $("noStore").classList.toggle("hidden", !!(tiendaId && localidad));
+      const data = compute();
+      renderKpis(data);
+      renderWaterfall(data);
+      renderDonut(data);
+      renderDayChart(data);
+      renderWorkerBars(data);
+      renderWorkers(data);
+      const labels = { hoy: "Hoy", semana: "Esta semana", mes: "Este mes", mespasado: "Mes pasado", custom: "Rango personalizado" };
+      $("rangeEcho").textContent = labels[state.range] || "";
+    }
+
+    const fmtM = (n) => fmtMoney(n);
+    const pct = (a, b) => (b > 0 ? (a / b) * 100 : 0);
+
+    function renderKpis(d) {
+      animateNumber($("kpiVentas"), d.ventas, fmtM);
+      $("kpiPedidos").textContent = d.entregados.length;
+      animateNumber($("kpiPlanilla"), d.planilla, fmtM);
+      $("kpiPlanillaPct").textContent = `${pct(d.planilla, d.ventas).toFixed(1)}% de las ventas`;
+      animateNumber($("kpiPendiente"), Math.max(0, d.planilla - d.pagado), fmtM);
+      $("kpiPagado").textContent = fmtMoney(d.pagado);
+      animateNumber($("kpiUtilidad"), d.utilidad, fmtM);
+      $("kpiUtilidad").className = `font-display font-extrabold text-2xl sm:text-3xl ${d.utilidad >= 0 ? "text-white" : "text-red-400"}`;
+      $("kpiUtilidadPct").textContent = `${pct(d.utilidad, d.ventas).toFixed(1)}% de las ventas`;
+    }
+
+    function renderWaterfall(d) {
+      const filas = [
+        { label: "Ventas entregadas", val: d.ventas, sign: "", cls: "bg-primary", txt: "text-white" },
+        { label: "Costo de productos", val: d.costos, sign: "−", cls: "bg-primary/40", txt: "text-inkdim" },
+      ];
+      if (d.gastosOp > 0) filas.push({ label: "Gastos operativos", val: d.gastosOp, sign: "−", cls: "bg-primary/40", txt: "text-inkdim" });
+      filas.push({ label: "Sueldos de trabajadores", val: d.planilla, sign: "−", cls: "bg-white", txt: "text-white" });
+      filas.push({ label: "Te queda a ti", val: d.utilidad, sign: "=", cls: d.utilidad >= 0 ? "bg-primary" : "bg-red-500", txt: d.utilidad >= 0 ? "text-white" : "text-red-400", destacado: true });
+
+      $("waterfall").innerHTML = filas.map((f, i) => {
+        const w = Math.max(0, Math.min(100, pct(Math.abs(f.val), d.ventas)));
+        return `
+        <div class="${f.destacado ? "pt-3 border-t border-line" : ""}">
+          <div class="flex justify-between items-baseline text-sm mb-1.5">
+            <span class="${f.destacado ? "font-display font-bold text-white" : "font-medium text-inkdim"}">${f.sign ? f.sign + " " : ""}${f.label}</span>
+            <span class="font-mono ${f.txt} ${f.destacado ? "font-bold text-base" : ""}">${fmtMoney(f.val)}</span>
+          </div>
+          <div class="h-2.5 rounded-full bg-panel2 overflow-hidden border border-line">
+            <div class="${f.cls} h-full rounded-full grow-x" style="width:${w}%;animation-delay:${i * 70}ms"></div>
+          </div>
+        </div>`;
+      }).join("");
+
+      const fr = $("frase");
+      if (d.ventas > 0) {
+        const a = pct(d.costos + d.gastosOp, d.ventas), b = pct(d.planilla, d.ventas), c = pct(d.utilidad, d.ventas);
+        fr.innerHTML = `Por cada <b class="text-white">S/ 100</b> que vendes: <b class="text-white">S/ ${a.toFixed(0)}</b> van a productos y gastos, <b class="text-white">S/ ${b.toFixed(0)}</b> a sueldos y <b class="${c >= 0 ? "text-primary" : "text-red-400"}">S/ ${c.toFixed(0)}</b> son para ti.`;
+      } else {
+        fr.textContent = "Cuando haya ventas entregadas en este rango, aquí verás cómo se reparte cada sol.";
+      }
+    }
+
+    function renderDonut(d) {
+      const C = 339.292;
+      const partes = [
+        { label: "Te queda", val: Math.max(0, d.utilidad), color: "#8855FF" },
+        { label: "Sueldos", val: d.planilla, color: "#FFFFFF" },
+        { label: "Productos", val: d.costos, color: "#4B2E99" },
+        { label: "Gastos operativos", val: d.gastosOp, color: "#888888" },
+      ].filter((p) => p.val > 0);
+      const total = partes.reduce((s, p) => s + p.val, 0);
+
+      let off = 0;
+      let svg = `<circle cx="70" cy="70" r="54" fill="none" stroke="#0D0D0D" stroke-width="18"/>`;
+      if (total > 0) {
+        partes.forEach((p) => {
+          const len = (p.val / total) * C;
+          svg += `<circle class="seg" cx="70" cy="70" r="54" fill="none" stroke="${p.color}" stroke-width="18" stroke-dasharray="${Math.max(0, len - 1.5)} ${C - Math.max(0, len - 1.5)}" stroke-dashoffset="${-off}"><title>${p.label}: ${fmtMoney(p.val)}</title></circle>`;
+          off += len;
+        });
+      }
+      $("donut").innerHTML = svg;
+      $("donutCenter").textContent = d.ventas > 0 ? `${pct(d.utilidad, d.ventas).toFixed(0)}%` : "—";
+      $("donutCenter").className = `font-display font-extrabold text-lg ${d.utilidad >= 0 ? "text-white" : "text-red-400"}`;
+
+      $("donutLegend").innerHTML = total > 0
+        ? partes.map((p) => `
+          <div class="flex items-center justify-between gap-2 text-xs">
+            <span class="flex items-center gap-2 text-inkdim"><i class="w-2.5 h-2.5 rounded-sm inline-block" style="background:${p.color}"></i>${p.label}</span>
+            <span class="font-mono text-inkfaint">${fmtMoney(p.val)} · ${pct(p.val, total).toFixed(0)}%</span>
+          </div>`).join("")
+        : `<p class="text-xs text-inkfaint">Sin datos en el rango.</p>`;
+    }
+
+    function renderDayChart(d) {
+      const dias = eachDay(d.from, d.to);
+      const ventasDia = {}, sueldoDia = {};
+      d.entregados.forEach((p) => {
+        const k = ymd(fechaEfectiva(p));
+        ventasDia[k] = (ventasDia[k] || 0) + (Number(p.total) || 0);
+      });
+      dias.forEach((dt) => {
+        const k = ymd(dt);
+        state.workers.forEach((w) => {
+          const est = w.asistencia && w.asistencia["d" + k];
+          if (est && ESTADOS[est]) sueldoDia[k] = (sueldoDia[k] || 0) + tarifaDiaria(w) * ESTADOS[est].factor;
+        });
+      });
+
+      const paso = Math.max(1, Math.ceil(dias.length / 62));
+      const cols = [];
+      for (let i = 0; i < dias.length; i += paso) {
+        const grupo = dias.slice(i, i + paso);
+        cols.push({
+          fecha: grupo[0],
+          v: grupo.reduce((s, x) => s + (ventasDia[ymd(x)] || 0), 0),
+          s: grupo.reduce((s, x) => s + (sueldoDia[ymd(x)] || 0), 0),
+        });
+      }
+      const max = Math.max(1, ...cols.map((c) => Math.max(c.v, c.s)));
+      const minW = Math.max(cols.length * 16, 0);
+      const chart = $("dayChart"), labels = $("dayLabels");
+      chart.style.minWidth = minW + "px";
+      labels.style.minWidth = minW + "px";
+
+      chart.innerHTML = cols.map((c, i) => `
+        <div class="flex-1 min-w-[10px] h-full flex items-end justify-center gap-[2px]" title="${c.fecha.toLocaleDateString("es-PE", { day: "2-digit", month: "short" })} · ventas ${fmtMoney(c.v)} · sueldos ${fmtMoney(c.s)}">
+          <div class="w-1/2 rounded-t bg-primary grow-y" style="--i:${i};height:${Math.max(c.v ? (c.v / max) * 100 : 0, c.v ? 3 : 1)}%;opacity:${c.v ? 1 : .25}"></div>
+          <div class="w-1/2 rounded-t bg-white grow-y" style="--i:${i};height:${Math.max(c.s ? (c.s / max) * 100 : 0, c.s ? 3 : 1)}%;opacity:${c.s ? .9 : .15}"></div>
+        </div>`).join("");
+
+      const cada = Math.max(1, Math.ceil(cols.length / 12));
+      labels.innerHTML = cols.map((c, i) =>
+        `<div class="flex-1 min-w-[10px] text-center">${i % cada === 0 ? c.fecha.getDate() : ""}</div>`).join("");
+    }
+
+    function renderWorkerBars(d) {
+      const el = $("workerBars");
+      if (!d.rows.length) { el.innerHTML = `<p class="text-sm text-inkfaint py-3">Agrega trabajadores para ver su costo.</p>`; return; }
+      const max = Math.max(1, ...d.rows.map((r) => r.devengado));
+      el.innerHTML = [...d.rows].sort((a, b) => b.devengado - a.devengado).map((r, i) => `
+        <div>
+          <div class="flex justify-between text-xs mb-1 gap-2">
+            <span class="font-medium text-white truncate">${esc(r.w.nombre)}</span>
+            <span class="font-mono text-inkfaint shrink-0">${fmtMoney(r.devengado)}</span>
+          </div>
+          <div class="h-2 rounded-full bg-panel2 overflow-hidden border border-line relative">
+            <div class="absolute inset-y-0 left-0 rounded-full bg-primary/40 grow-x" style="width:${(Math.max(0, r.devengado) / max) * 100}%;animation-delay:${i * 60}ms"></div>
+            <div class="absolute inset-y-0 left-0 rounded-full bg-primary grow-x" style="width:${(Math.max(0, Math.min(r.pagado, r.devengado)) / max) * 100}%;animation-delay:${i * 60 + 80}ms"></div>
+          </div>
+        </div>`).join("") + `<p class="text-[10px] text-inkfaint pt-1">Barra fuerte = ya pagado · barra suave = por pagar</p>`;
+    }
+
+    function renderWorkers(d) {
+      const q = state.search.trim().toLowerCase();
+      const lista = d.rows.filter((r) => !q || (r.w.nombre || "").toLowerCase().includes(q) || (r.w.dni || "").includes(q));
+      $("workerCount").textContent = state.workers.length ? `(${state.workers.length})` : "";
+      $("emptyWorkers").classList.toggle("hidden", !(state.workersReady && !state.workers.length && tiendaId));
+
+      $("workersGrid").innerHTML = lista.map((r, i) => {
+        const w = r.w;
+        const est = estadoPago(w, r);
+        const prog = r.devengado > 0 ? Math.min(100, (r.pagado / r.devengado) * 100) : 0;
+        const resumen = (r.adelantos || r.descuentos || r.bonos)
+          ? `<p class="text-[11px] text-inkfaint mb-3">${[
+              r.adelantos ? "⏩ Adelantos " + fmtMoney(r.adelantos) : "",
+              r.descuentos ? "➖ Desc. " + fmtMoney(r.descuentos) : "",
+              r.bonos ? "➕ Bonos " + fmtMoney(r.bonos) : "",
+            ].filter(Boolean).join(" · ")}</p>`
+          : "";
+        return `
+        <div class="bg-panel border border-line rounded-2xl p-4 card-in hover:border-primary/50 transition-colors" style="--i:${Math.min(i, 8)}">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-11 h-11 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-display font-bold text-lg shrink-0">${esc((w.nombre || "?").trim().charAt(0).toUpperCase())}</div>
+              <div class="min-w-0">
+                <p class="font-semibold text-white truncate">${esc(w.nombre)}</p>
+                <p class="text-xs text-inkfaint truncate">${w.cargo ? esc(w.cargo) + " · " : ""}${w.tipoDoc === "CE" ? "C.E." : "DNI"} ${esc(w.dni)}</p>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-[11px] border whitespace-nowrap font-semibold ${est.cls}">${est.txt}</span>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-xs text-white font-medium">${METODOS[w.metodoPago] || "💵"} ${esc(w.metodoPago || "Efectivo")}</span>
+            <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-xs text-white font-medium">${fmtMoney(w.monto)} ${FREC_LABEL[w.frecuencia] || ""}</span>
+            <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-xs text-inkdim font-medium">${descansosDe(w).length ? "Descansa " + descansosDe(w).join(", ") : "Sin descanso"}</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="bg-panel2 border border-line rounded-xl px-2.5 py-2">
+              <p class="text-[10px] text-inkfaint">Días pagados</p>
+              <p class="font-mono font-bold text-sm text-white">${r.diasPagados % 1 ? r.diasPagados.toFixed(1) : r.diasPagados}</p>
+            </div>
+            <div class="bg-panel2 border border-line rounded-xl px-2.5 py-2">
+              <p class="text-[10px] text-inkfaint">Le toca</p>
+              <p class="font-mono font-bold text-sm text-white">${fmtMoney(r.devengado)}</p>
+            </div>
+            <div class="bg-panel2 border border-line rounded-xl px-2.5 py-2">
+              <p class="text-[10px] text-inkfaint">Falta pagar</p>
+              <p class="font-mono font-bold text-sm ${r.pendiente > 0.5 ? "text-white" : "text-inkfaint"}">${fmtMoney(Math.max(0, r.pendiente))}</p>
+            </div>
+          </div>
+
+          <div class="h-1.5 rounded-full bg-panel2 overflow-hidden border border-line mb-3">
+            <div class="h-full bg-primary rounded-full transition-all duration-700" style="width:${prog}%"></div>
+          </div>
+
+          ${resumen}
+
+          <div class="grid grid-cols-4 gap-2">
+            <button data-act="asistencia" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-white text-sm font-semibold py-2 rounded-xl hover:border-primary active:scale-95 transition">📅 Días</button>
+            <button data-act="pagos" data-id="${w.id}" class="col-span-2 bg-primary text-white text-sm font-semibold py-2 rounded-xl hover:brightness-110 active:scale-95 transition">💸 Pagar</button>
+            <button data-act="editar" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-white hover:border-primary active:scale-95 transition">✏️ Editar</button>
+            <button data-act="borrar" data-id="${w.id}" class="col-span-2 bg-panel2 border border-line text-inkdim text-xs font-semibold py-1.5 rounded-lg hover:text-red-400 hover:border-red-500/50 active:scale-95 transition">🗑 Eliminar</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    /* ------------------------------ Panel lateral ------------------------------ */
+    function abrirPanel(html, meta) {
+      panel = meta;
+      $("panelContent").innerHTML = html;
+      requestAnimationFrame(() => $("overlay").classList.add("open"));
+    }
+    function cerrarPanel() {
+      $("overlay").classList.remove("open");
+      panel = null;
+    }
+    function refrescarPanel() {
+      if (!panel) return;
+      if (panel.tipo === "asistencia") renderCalBody();
+      if (panel.tipo === "pagos") renderPagosBody(false);
+    }
+    const closeBtn = `<button data-close class="w-8 h-8 rounded-full bg-panel2 hover:bg-line flex items-center justify-center text-lg text-white shrink-0 active:scale-90 transition">✕</button>`;
+
+    /* ---------- Formulario trabajador ---------- */
+    function abrirForm(id) {
+      const w = id ? state.workers.find((x) => x.id === id) : null;
+      const v = w || { tipoDoc: "DNI", frecuencia: "semanal", diasPeriodo: 6, metodoPago: "Efectivo", diasTrabajo: [1, 2, 3, 4, 5, 6], modoDias: "auto", fechaIngreso: iso(new Date()) };
+      const diasSel = diasTrabajoDe(v);
+      const modo = w ? (w.modoDias || "manual") : "auto";
+      const tipoDoc = v.tipoDoc === "CE" ? "CE" : "DNI";
+      const opt = (obj, sel) => Object.keys(obj).map((k) => `<option value="${k}" ${String(sel) === k ? "selected" : ""}>${k}</option>`).join("");
+      const html = `
+        <div class="flex justify-between items-start mb-5 gap-3">
+          <div>
+            <h3 class="font-display font-bold text-xl text-white">${w ? "Editar trabajador" : "Nuevo trabajador"}</h3>
+            <p class="text-xs text-inkfaint mt-1">Se guarda en la nube y se suma a tu planilla</p>
+          </div>
+          ${closeBtn}
+        </div>
+
+        <div class="space-y-4">
+          <div><label class="lbl">Nombre completo</label><input id="fNombre" class="field" value="${esc(v.nombre)}" placeholder="Ej. Juan Pérez"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="col-span-2">
+              <label class="lbl">Documento de identidad</label>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="opt"><input type="radio" name="fTipoDoc" value="DNI" ${tipoDoc === "DNI" ? "checked" : ""}> DNI</label>
+                <label class="opt"><input type="radio" name="fTipoDoc" value="CE" ${tipoDoc === "CE" ? "checked" : ""}> Carné de extranjería</label>
+              </div>
+            </div>
+            <div><label class="lbl" id="fDniLbl">Número</label><input id="fDni" class="field font-mono" value="${esc(v.dni)}"></div>
+            <div><label class="lbl">Cargo (opcional)</label><input id="fCargo" class="field" value="${esc(v.cargo)}" placeholder="Ej. Cocinero"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="lbl">Celular (opcional)</label><input id="fTel" class="field font-mono" inputmode="tel" value="${esc(v.telefono)}" placeholder="9XXXXXXXX"></div>
+            <div><label class="lbl">Fecha de ingreso</label><input id="fIngreso" type="date" class="field font-mono" value="${esc(v.fechaIngreso)}"></div>
+          </div>
+
+          <div class="border-t border-line pt-4 grid grid-cols-2 gap-3">
+            <div><label class="lbl">Método de pago</label><select id="fMetodo" class="field">${opt(METODOS, v.metodoPago)}</select></div>
+            <div><label class="lbl">Cuándo se le paga</label>
+              <select id="fFrec" class="field">
+                ${["diario", "semanal", "quincenal", "mensual"].map((f) => `<option value="${f}" ${v.frecuencia === f ? "selected" : ""}>${f[0].toUpperCase() + f.slice(1)}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+          <div><label class="lbl">Monto por período (S/)</label><input id="fMonto" type="number" min="0" step="0.5" class="field font-mono" value="${v.monto ?? ""}" placeholder="0.00"></div>
+
+          <div>
+            <label class="lbl">Días de la semana que trabaja</label>
+            <div class="grid grid-cols-7 gap-1.5">
+              ${ORDEN_SEMANA.map((d) => `<label class="opt !flex-col !gap-1 !px-0 !py-2 justify-center text-center text-xs"><input type="checkbox" class="fDia" value="${d}" ${diasSel.includes(d) ? "checked" : ""}><span>${DIA_CORTO[d]}</span></label>`).join("")}
+            </div>
+            <p class="text-[11px] text-inkfaint mt-1.5" id="fDescInfo"></p>
+          </div>
+
+          <div>
+            <label class="lbl">Días que se le pagan por período</label>
+            <div class="space-y-2">
+              <label class="opt"><input type="radio" name="fModo" value="auto" ${modo === "auto" ? "checked" : ""}> <span>Automático <span class="text-inkfaint" id="fAutoTxt"></span></span></label>
+              <label class="opt"><input type="radio" name="fModo" value="manual" ${modo === "manual" ? "checked" : ""}> <span class="shrink-0">Manual</span>
+                <input id="fDias" type="number" min="1" step="1" class="field !w-24 !py-1 font-mono ml-auto" value="${v.diasPeriodo ?? ""}"></label>
+            </div>
+          </div>
+
+          <div class="bg-primary/10 border border-primary/30 rounded-xl px-3.5 py-3 text-sm text-white" id="fTarifaInfo"></div>
+
+          <button id="btnSaveWorker" data-id="${w ? w.id : ""}" class="w-full bg-primary text-white font-semibold text-sm py-3 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">💾 Guardar trabajador</button>
+        </div>`;
+      abrirPanel(html, { tipo: "form", id: id || null });
+
+      const getDias = () => [...document.querySelectorAll(".fDia:checked")].map((x) => Number(x.value));
+      const getModo = () => document.querySelector('input[name="fModo"]:checked').value;
+      const info = () => {
+        const sel = getDias();
+        const frec = $("fFrec").value;
+        const auto = diasPeriodoAuto(frec, sel.length);
+        const tipo = document.querySelector('input[name="fTipoDoc"]:checked').value;
+        $("fDniLbl").textContent = tipo === "DNI" ? "N.º de DNI (8 dígitos)" : "N.º de carné (9 a 12 caracteres)";
+        $("fDni").maxLength = tipo === "DNI" ? 8 : 12;
+        $("fDni").inputMode = tipo === "DNI" ? "numeric" : "text";
+        $("fAutoTxt").textContent = `→ ${auto} ${auto === 1 ? "día" : "días"} ${FREC_LABEL[frec]}`;
+        if (getModo() === "auto") $("fDias").value = auto;
+        $("fDias").disabled = getModo() === "auto";
+        const desc = ORDEN_SEMANA.filter((d) => !sel.includes(d)).map((d) => DIA_CORTO[d]);
+        $("fDescInfo").textContent = sel.length
+          ? `Trabaja ${sel.length} ${sel.length === 1 ? "día" : "días"} a la semana · ${desc.length ? "Descansa: " + desc.join(", ") : "Sin día de descanso"}`
+          : "Marca al menos un día";
+        const monto = Number($("fMonto").value) || 0;
+        const dias = Math.max(1, Number($("fDias").value) || 1);
+        $("fTarifaInfo").innerHTML = monto > 0
+          ? `Cada día trabajado le cuesta <b>${fmtMoney(monto / dias)}</b>. Si falta, ese día no se le paga.`
+          : "Escribe el monto y verás cuánto cuesta cada día trabajado.";
+      };
+      document.querySelectorAll(".fDia, input[name='fModo'], input[name='fTipoDoc']").forEach((el) => el.addEventListener("change", info));
+      $("fFrec").addEventListener("change", info);
+      $("fMonto").addEventListener("input", info);
+      $("fDias").addEventListener("input", info);
+      info();
+    }
+
+    async function guardarTrabajador(id) {
+      const nombre = $("fNombre").value.trim();
+      const tipoDoc = document.querySelector('input[name="fTipoDoc"]:checked').value;
+      const dni = $("fDni").value.trim().toUpperCase();
+      const monto = Number($("fMonto").value);
+      const diasTrabajo = [...document.querySelectorAll(".fDia:checked")].map((x) => Number(x.value));
+      const modoDias = document.querySelector('input[name="fModo"]:checked').value;
+      const dias = modoDias === "auto"
+        ? diasPeriodoAuto($("fFrec").value, diasTrabajo.length)
+        : Math.max(1, Number($("fDias").value) || 1);
+      if (!nombre) return showToast("Escribe el nombre del trabajador");
+      if (tipoDoc === "DNI" && !/^\d{8}$/.test(dni)) return showToast("El DNI debe tener 8 dígitos");
+      if (tipoDoc === "CE" && !/^[A-Z0-9]{9,12}$/.test(dni)) return showToast("El carné de extranjería debe tener entre 9 y 12 caracteres");
+      if (state.workers.some((w) => w.dni === dni && w.id !== id)) return showToast("Ya existe un trabajador con ese documento");
+      if (!diasTrabajo.length) return showToast("Marca al menos un día de trabajo");
+      if (!(monto > 0)) return showToast("Escribe cuánto se le paga");
+
+      const data = {
+        nombre, dni, tipoDoc, diasTrabajo, modoDias,
+        cargo: $("fCargo").value.trim(),
+        telefono: $("fTel").value.trim(),
+        fechaIngreso: $("fIngreso").value || iso(new Date()),
+        metodoPago: $("fMetodo").value,
+        frecuencia: $("fFrec").value,
+        monto, diasPeriodo: dias,
+      };
+      const btn = $("btnSaveWorker");
+      btn.disabled = true; btn.textContent = "Guardando…";
+      try {
+        if (id) await updateDoc(docTrabajador(id), data);
+        else await addDoc(colTrabajadores(), { ...data, asistencia: {}, pagos: {}, creado: serverTimestamp() });
+        cerrarPanel();
+        showToast(id ? "Trabajador actualizado" : "Trabajador agregado");
+      } catch (e) {
+        console.error(e);
+        if (btn.isConnected) { btn.disabled = false; btn.textContent = "💾 Guardar trabajador"; }
+        showToast("No se pudo guardar. Revisa los permisos de Firestore.");
+      }
+    }
+
+    async function eliminarTrabajador(id) {
+      const w = state.workers.find((x) => x.id === id);
+      if (!w) return;
+      if (!confirm(`¿Eliminar a ${w.nombre}? Se borrará su asistencia y pagos.`)) return;
+      try { await deleteDoc(docTrabajador(id)); showToast("Trabajador eliminado"); }
+      catch (e) { console.error(e); showToast("No se pudo eliminar."); }
+    }
+
+    /* ---------- Asistencia (calendario) ---------- */
+    function abrirAsistencia(id) {
+      const w = state.workers.find((x) => x.id === id);
+      if (!w) return;
+      const now = new Date();
+      cal = { y: now.getFullYear(), m: now.getMonth(), brush: "trabajo" };
+      const html = `
+        <div class="flex justify-between items-start mb-4 gap-3">
+          <div class="min-w-0">
+            <p class="text-xs text-primary font-semibold mb-0.5">Asistencia</p>
+            <h3 class="font-display font-bold text-xl text-white truncate">${esc(w.nombre)}</h3>
+            <p class="text-xs text-inkfaint mt-1">Elige un pincel y toca los días</p>
+          </div>
+          ${closeBtn}
+        </div>
+        <div id="calBody"></div>`;
+      abrirPanel(html, { tipo: "asistencia", id });
+      renderCalBody();
+    }
+
+    function renderCalBody() {
+      if (!panel || panel.tipo !== "asistencia") return;
+      const w = state.workers.find((x) => x.id === panel.id);
+      const el = $("calBody");
+      if (!w || !el) return;
+      const { y, m, brush } = cal;
+      const diasMes = new Date(y, m + 1, 0).getDate();
+      const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+      const hoyK = ymd(new Date());
+
+      const estilo = {
+        trabajo: "background:#8855FF;color:#fff;border-color:#8855FF;",
+        medio: "background:rgba(136,85,255,.35);color:#fff;border-color:rgba(136,85,255,.6);",
+        vacaciones: "background:transparent;color:#fff;border:1px dashed #fff;",
+        falta: "background:rgba(239,68,68,.18);color:#fca5a5;border-color:rgba(239,68,68,.45);",
+        descanso: "background:rgba(255,255,255,.06);color:#888;border-color:rgba(255,255,255,.12);",
+      };
+
+      let celdas = "";
+      for (let i = 0; i < offset; i++) celdas += `<div></div>`;
+      for (let d = 1; d <= diasMes; d++) {
+        const k = `${y}${pad(m + 1)}${pad(d)}`;
+        const est = w.asistencia && w.asistencia["d" + k];
+        const st = est && ESTADOS[est] ? estilo[est] : "background:#0D0D0D;color:#888;border-color:#221B35;";
+        const hoy = k === hoyK ? "box-shadow:0 0 0 2px #fff;" : "";
+        celdas += `<button data-day="${d}" class="cal-cell aspect-square rounded-xl border text-xs font-semibold flex flex-col items-center justify-center leading-tight" style="${st}${hoy}">
+          <span>${d}</span><span class="text-[10px]">${est && ESTADOS[est] ? ESTADOS[est].ico : ""}</span></button>`;
+      }
+
+      const c = calcWorker(w, new Date(y, m, 1), new Date(y, m, diasMes));
+      el.innerHTML = `
+        <div class="flex flex-wrap gap-1.5 mb-4">
+          ${Object.entries(ESTADOS).map(([k, e]) => `
+            <button data-brush="${k}" class="chip px-2.5 py-1.5 rounded-full text-xs font-medium ${k === brush ? "active" : ""}">${e.ico} ${e.label}</button>`).join("")}
+        </div>
+
+        <div class="flex items-center justify-between mb-3">
+          <button data-mes="-1" class="w-9 h-9 rounded-xl bg-panel2 border border-line hover:border-primary active:scale-90 transition">‹</button>
+          <p class="font-display font-bold text-white">${MESES[m]} ${y}</p>
+          <button data-mes="1" class="w-9 h-9 rounded-xl bg-panel2 border border-line hover:border-primary active:scale-90 transition">›</button>
+        </div>
+
+        <div class="grid grid-cols-7 gap-1.5 text-center text-[10px] text-inkfaint font-semibold mb-1.5">
+          ${["L", "M", "X", "J", "V", "S", "D"].map((x) => `<span>${x}</span>`).join("")}
+        </div>
+        <div class="grid grid-cols-7 gap-1.5 mb-4 fade-in">${celdas}</div>
+
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <button data-fill class="bg-panel2 border border-line text-white text-xs font-semibold py-2.5 rounded-xl hover:border-primary active:scale-95 transition">⚡ Completar hasta hoy</button>
+          <button data-clear class="bg-panel2 border border-line text-inkdim text-xs font-semibold py-2.5 rounded-xl hover:text-red-400 hover:border-red-500/50 active:scale-95 transition">🧹 Limpiar mes</button>
+        </div>
+
+        <div class="bg-panel2 border border-line rounded-xl px-4 py-3">
+          <div class="flex justify-between text-xs text-inkdim mb-1"><span>Trabajó</span><span class="font-mono text-white">${c.conteo.trabajo} días</span></div>
+          <div class="flex justify-between text-xs text-inkdim mb-1"><span>Medio día / vacaciones</span><span class="font-mono text-white">${c.conteo.medio} / ${c.conteo.vacaciones}</span></div>
+          <div class="flex justify-between text-xs text-inkdim mb-2"><span>Faltas / descansos</span><span class="font-mono text-white">${c.conteo.falta} / ${c.conteo.descanso}</span></div>
+          <div class="flex justify-between items-baseline pt-2 border-t border-line">
+            <span class="text-sm text-inkdim">Días trabajados este mes</span>
+            <span class="font-display font-extrabold text-xl text-white">${fmtMoney(c.base)}</span>
+          </div>
+          <p class="text-[11px] text-inkfaint mt-1">${c.diasPagados % 1 ? c.diasPagados.toFixed(1) : c.diasPagados} días pagados × ${fmtMoney(c.tarifa)}</p>
+        </div>`;
+    }
+
+    async function marcarDia(d) {
+      if (!panel) return;
+      const w = state.workers.find((x) => x.id === panel.id);
+      if (!w) return;
+      const key = "d" + `${cal.y}${pad(cal.m + 1)}${pad(d)}`;
+      const actual = w.asistencia && w.asistencia[key];
+      try {
+        await updateDoc(docTrabajador(w.id), { [`asistencia.${key}`]: actual === cal.brush ? deleteField() : cal.brush });
+      } catch (e) { console.error(e); showToast("No se pudo guardar el día."); }
+    }
+
+    async function completarHastaHoy() {
+      if (!panel) return;
+      const w = state.workers.find((x) => x.id === panel.id);
+      if (!w) return;
+      const hoy = startOf(new Date());
+      const ingreso = w.fechaIngreso ? parseIso(w.fechaIngreso) : null;
+      const diasMes = new Date(cal.y, cal.m + 1, 0).getDate();
+      const upd = {};
+      for (let d = 1; d <= diasMes; d++) {
+        const f = new Date(cal.y, cal.m, d);
+        if (f > hoy || (ingreso && f < ingreso)) continue;
+        const key = "d" + ymd(f);
+        if (w.asistencia && w.asistencia[key]) continue;
+        const esDescanso = !diasTrabajoDe(w).includes(f.getDay());
+        upd[`asistencia.${key}`] = esDescanso ? "descanso" : "trabajo";
+      }
+      if (!Object.keys(upd).length) return showToast("No hay días sin marcar hasta hoy");
+      try { await updateDoc(docTrabajador(w.id), upd); showToast("Días completados"); }
+      catch (e) { console.error(e); showToast("No se pudo completar."); }
+    }
+
+    async function limpiarMes() {
+      if (!panel) return;
+      const w = state.workers.find((x) => x.id === panel.id);
+      if (!w || !confirm(`¿Limpiar todo ${MESES[cal.m]} ${cal.y} de ${w.nombre}?`)) return;
+      const upd = {};
+      Object.keys(w.asistencia || {}).forEach((k) => {
+        if (k.startsWith(`d${cal.y}${pad(cal.m + 1)}`)) upd[`asistencia.${k}`] = deleteField();
+      });
+      if (!Object.keys(upd).length) return;
+      try { await updateDoc(docTrabajador(w.id), upd); showToast("Mes limpiado"); }
+      catch (e) { console.error(e); showToast("No se pudo limpiar."); }
+    }
+
+    /* ---------- Pagos, adelantos, descuentos y bonos ---------- */
+    function abrirPagos(id) {
+      const w = state.workers.find((x) => x.id === id);
+      if (!w) return;
+      const html = `
+        <div class="flex justify-between items-start mb-4 gap-3">
+          <div class="min-w-0">
+            <p class="text-xs text-primary font-semibold mb-0.5">Pagos</p>
+            <h3 class="font-display font-bold text-xl text-white truncate">${esc(w.nombre)}</h3>
+            <p class="text-xs text-inkfaint mt-1">${METODOS[w.metodoPago] || ""} ${esc(w.metodoPago)} · ${fmtMoney(w.monto)} ${FREC_LABEL[w.frecuencia] || ""}</p>
+          </div>
+          ${closeBtn}
+        </div>
+        <div id="pagosBody"></div>`;
+      movTipo = "pago";
+      abrirPanel(html, { tipo: "pagos", id });
+      renderPagosBody(true);
+    }
+
+    function renderPagosBody(primera) {
+      if (!panel || panel.tipo !== "pagos") return;
+      const w = state.workers.find((x) => x.id === panel.id);
+      const el = $("pagosBody");
+      if (!w || !el) return;
+      const [from, to] = getRangeBounds();
+      const c = calcWorker(w, from, to);
+      const movs = Object.entries(w.pagos || {}).map(([k, p]) => ({ k, ...p }))
+        .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || b.k.localeCompare(a.k));
+      const prev = primera ? null : { fecha: $("pFecha")?.value, monto: $("pMonto")?.value, nota: $("pNota")?.value };
+      const T = TIPOS_MOV[movTipo];
+      const montoInicial = movTipo === "pago" && c.pendiente > 0 ? c.pendiente.toFixed(2) : "";
+      const motivoObligatorio = movTipo === "descuento" || movTipo === "bono";
+      const ph = { pago: "Ej. pago de la semana", adelanto: "Ej. adelanto para pasajes", descuento: "Ej. préstamo, consumo, daño, tardanza", bono: "Ej. horas extra, propina, incentivo" }[movTipo];
+
+      el.innerHTML = `
+        <div class="bg-panel2 border border-line rounded-xl px-4 py-3 mb-4">
+          <p class="text-[11px] text-inkfaint mb-2">Rango: <span class="text-primary font-mono">${$("rangeEcho").textContent}</span></p>
+          <div class="flex justify-between text-sm text-inkdim mb-1"><span>Días trabajados (${c.diasPagados % 1 ? c.diasPagados.toFixed(1) : c.diasPagados})</span><span class="font-mono text-white">${fmtMoney(c.base)}</span></div>
+          ${c.bonos > 0 ? `<div class="flex justify-between text-sm text-inkdim mb-1"><span>➕ Bonos / extras</span><span class="font-mono text-primary">+ ${fmtMoney(c.bonos)}</span></div>` : ""}
+          ${c.descuentos > 0 ? `<div class="flex justify-between text-sm text-inkdim mb-1"><span>➖ Descuentos</span><span class="font-mono text-red-400">− ${fmtMoney(c.descuentos)}</span></div>` : ""}
+          <div class="flex justify-between text-sm text-inkdim mb-1 pt-1 border-t border-line"><span>Le toca en total</span><span class="font-mono text-white">${fmtMoney(c.devengado)}</span></div>
+          <div class="flex justify-between text-sm text-inkdim mb-1"><span>Ya se le dio</span><span class="font-mono text-white">${fmtMoney(c.pagado)}</span></div>
+          ${c.adelantos > 0 ? `<p class="text-[11px] text-inkfaint text-right mb-1">(incluye ${fmtMoney(c.adelantos)} en adelantos)</p>` : ""}
+          <div class="flex justify-between items-baseline pt-2 border-t border-line">
+            <span class="text-sm text-inkdim">${c.pendiente < -0.5 ? "Se le adelantó de más" : "Falta pagar"}</span>
+            <span class="font-display font-extrabold text-xl ${c.pendiente < -0.5 ? "text-red-400" : "text-white"}">${fmtMoney(Math.abs(c.pendiente) < 0.5 ? 0 : Math.abs(c.pendiente))}</span>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          ${Object.entries(TIPOS_MOV).map(([k, t]) => `<button data-tipo="${k}" class="chip px-3 py-1.5 rounded-full text-xs font-medium ${k === movTipo ? "active" : ""}">${t.ico} ${t.label}</button>`).join("")}
+        </div>
+
+        <div class="space-y-3 mb-5">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="lbl">Fecha</label><input id="pFecha" type="date" class="field font-mono" value="${prev?.fecha || iso(new Date())}"></div>
+            <div><label class="lbl">Monto (S/)</label><input id="pMonto" type="number" min="0" step="0.5" class="field font-mono" value="${prev ? prev.monto : montoInicial}"></div>
+          </div>
+          <div><label class="lbl">${motivoObligatorio ? "Motivo (obligatorio)" : "Motivo / nota (opcional)"}</label><input id="pNota" class="field" value="${esc(prev?.nota || "")}" placeholder="${ph}"></div>
+          <button id="btnSavePago" class="w-full bg-primary text-white font-semibold text-sm py-3 rounded-xl hover:brightness-110 active:scale-95 transition shadow-lg shadow-primary/20">${T.ico} Registrar ${T.label.toLowerCase()}</button>
+        </div>
+
+        <p class="lbl">Historial de movimientos</p>
+        <div class="space-y-2">
+          ${movs.length ? movs.map((p) => {
+            const tipo = p.tipo || "pago";
+            const t = TIPOS_MOV[tipo] || TIPOS_MOV.pago;
+            const signo = tipo === "descuento" ? "−" : tipo === "bono" ? "+" : "";
+            const mostrarMetodo = p.metodo && tipo !== "descuento" && tipo !== "bono";
+            return `
+            <div class="flex items-center justify-between gap-3 bg-panel2 border border-line rounded-xl px-3 py-2.5 fade-in">
+              <div class="min-w-0">
+                <p class="text-sm font-mono font-semibold ${t.cls}">${t.ico} ${signo}${fmtMoney(p.monto)} <span class="text-[10px] font-body text-inkfaint font-medium ml-1">${t.label}</span></p>
+                <p class="text-[11px] text-inkfaint truncate">${p.fecha ? parseIso(p.fecha).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" }) : ""}${mostrarMetodo ? " · " + esc(p.metodo) : ""}${p.nota ? " · " + esc(p.nota) : ""}</p>
+              </div>
+              <button data-delpago="${p.k}" class="text-inkfaint hover:text-red-400 text-sm px-2 py-1 active:scale-90 transition">🗑</button>
+            </div>`;
+          }).join("") : `<p class="text-sm text-inkfaint py-2">Todavía no hay movimientos registrados.</p>`}
+        </div>`;
+    }
+
+    async function registrarPago() {
+      if (!panel) return;
+      const id = panel.id;
+      const w = state.workers.find((x) => x.id === id);
+      if (!w) return;
+      const tipo = movTipo;
+      const monto = Number($("pMonto").value);
+      const fecha = $("pFecha").value;
+      const nota = $("pNota").value.trim();
+      if (!fecha) return showToast("Elige la fecha");
+      if (!(monto > 0)) return showToast("Escribe el monto");
+      if ((tipo === "descuento" || tipo === "bono") && !nota) return showToast("Escribe el motivo");
+      const btn = $("btnSavePago");
+      btn.disabled = true;
+      try {
+        await updateDoc(docTrabajador(id), {
+          [`pagos.p${Date.now()}`]: { tipo, fecha, monto, nota, metodo: w.metodoPago || "Efectivo" },
+        });
+        showToast(`${TIPOS_MOV[tipo].label} registrado`);
+        movTipo = "pago";
+        if (panel && panel.tipo === "pagos" && panel.id === id) renderPagosBody(true);
+      } catch (e) {
+        console.error(e);
+        if (btn.isConnected) btn.disabled = false;
+        showToast("No se pudo registrar.");
+      }
+    }
+
+    async function borrarPago(k) {
+      if (!panel) return;
+      const id = panel.id;
+      if (!confirm("¿Eliminar este movimiento?")) return;
+      try { await updateDoc(docTrabajador(id), { [`pagos.${k}`]: deleteField() }); showToast("Movimiento eliminado"); }
+      catch (e) { console.error(e); showToast("No se pudo eliminar."); }
+    }
+
+    /* ------------------------------ Eventos ------------------------------ */
+    $("btnAddWorker").addEventListener("click", () => { if (!tiendaId) return showToast("Aún no se cargó la tienda"); abrirForm(null); });
+    $("btnRefresh").addEventListener("click", () => { if (tiendaId && localidad) cargarPedidos(); });
+    $("searchWorker").addEventListener("input", (e) => { state.search = e.target.value; renderWorkers(compute()); });
+
+    $("workersGrid").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-act]");
+      if (!b) return;
+      const { act, id } = b.dataset;
+      if (act === "editar") abrirForm(id);
+      if (act === "asistencia") abrirAsistencia(id);
+      if (act === "pagos") abrirPagos(id);
+      if (act === "borrar") eliminarTrabajador(id);
+    });
+
+    $("overlay").addEventListener("click", (e) => {
+      if (e.target.id === "overlay" || e.target.closest("[data-close]")) return cerrarPanel();
+      const t = e.target;
+      const save = t.closest("#btnSaveWorker"); if (save) return guardarTrabajador(save.dataset.id || null);
+      const brush = t.closest("[data-brush]"); if (brush) { cal.brush = brush.dataset.brush; return renderCalBody(); }
+      const mes = t.closest("[data-mes]");
+      if (mes) {
+        cal.m += Number(mes.dataset.mes);
+        if (cal.m < 0) { cal.m = 11; cal.y--; }
+        if (cal.m > 11) { cal.m = 0; cal.y++; }
+        return renderCalBody();
+      }
+      const day = t.closest("[data-day]"); if (day) return marcarDia(Number(day.dataset.day));
+      if (t.closest("[data-fill]")) return completarHastaHoy();
+      if (t.closest("[data-clear]")) return limpiarMes();
+      if (t.closest("#btnSavePago")) return registrarPago();
+      const del = t.closest("[data-delpago]"); if (del) return borrarPago(del.dataset.delpago);
+      const tp = t.closest("[data-tipo]"); if (tp) { movTipo = tp.dataset.tipo; return renderPagosBody(true); }
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panel) cerrarPanel(); });
+
+    $("dateChips").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-range]");
+      if (!btn) return;
+      document.querySelectorAll("#dateChips .chip").forEach((c) => c.classList.remove("active"));
+      btn.classList.add("active");
+      state.range = btn.dataset.range;
+      $("customRangeBox").classList.toggle("hidden", state.range !== "custom");
+      if (tiendaId && localidad) { renderAll(); cargarPedidos(); }
+    });
+    ["customFrom", "customTo"].forEach((id) =>
+      $(id).addEventListener("change", () => { if (state.range === "custom" && tiendaId && localidad) { renderAll(); cargarPedidos(); } }));
+
+    /* ------------------------------ Inicio ------------------------------ */
+    function iniciar() {
+      if (started || !tiendaId || !localidad) return;
+      started = true;
+      escucharTrabajadores();
+      cargarPedidos();
+    }
+
+    if (!tiendaId || !localidad) {
+      window.addEventListener("message", (e) => {
+        if (e.data?.tipo !== "DATOS_TIENDA") return;
+        tiendaId = e.data.tiendaId;
+        localidad = e.data.localidad;
+        iniciar();
+      });
+      setTimeout(() => { if (!started) { $("noStore").classList.remove("hidden"); setConn("sin tienda", false); ocultarLoader(); } }, 6000);
+    }
+    iniciar();
+  </script>
+</body>
+
+</html>

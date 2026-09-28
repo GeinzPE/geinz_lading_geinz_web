@@ -450,6 +450,8 @@ let pedidoSearchActivoId = null;
 let bizLat = null;
 let bizLng = null;
 let bizDataGlobal = null;
+let bizAliasGlobal = null;
+let bizDominioGlobal = null;
 const SND_NUEVO_PEDIDO = "../../sounds/nuevo_pedido_en_geinz.mp3";
 const SND_PEDIDO_CANCELADO = "../../sounds/se_cancelo_un_pedido.mp3";
 const SND_PEDIDO_CANCELADO_PAUSA = "../../sounds/cancelo_pedido_pausa.mp3";
@@ -749,25 +751,65 @@ function pedidoVisible(id, p) {
 }
 
 /* ══════════════ Modal de pausa: elegir producto agotado + mensaje + tiempo ══════════════ */
+const _prodDocCache = new Map();
+
+async function obtenerDocProductoPausa(it) {
+  if (!it.id || !it.categoria || it.esPromo) return null;
+  const key = `${it.categoria}::${it.id}`;
+  if (_prodDocCache.has(key)) return _prodDocCache.get(key);
+  try {
+    const snap = await getDoc(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "productos", it.categoria, it.categoria, it.id),
+    );
+    const d = snap.exists() ? snap.data() : null;
+    _prodDocCache.set(key, d);
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+function extrasOpciones(condiciones, seleccion) {
+  let t = 0;
+  (condiciones || []).forEach((c) =>
+    entradasDeOpcion(seleccion?.[c.nombre]).forEach(([n, q]) => {
+      const op = (c.opciones || []).find((o) => o.nombre === n);
+      if (op?.costoAdicional) t += Number(op.costoAdicional) * q;
+    }),
+  );
+  return t;
+}
+
+function textoRespuestaCliente(r) {
+  if (r.accion === "reemplazo") return "cambiar por " + (r.producto_elegido?.nombre || "");
+  if (r.accion === "cancelado") return "cancelar el pedido";
+  if (r.accion === "ajuste")
+    return (r.ajustes || [])
+      .map((a) => `${a.nombre}: ${a.cantidad_pedida} → ${a.cantidad_final}`)
+      .join(" · ");
+  return "continuar sin ese producto";
+}
+
 function abrirModalPausa(id, p) {
+  _prodDocCache.clear();
   const productos = Array.isArray(p.productos) ? p.productos : [];
   const body = document.getElementById("pausaBody");
-  if (!body) {
-    console.warn(
-      "[pedidos] Falta el elemento #pausaBody en el HTML, agrega el modal de pausa",
-    );
-    return;
-  }
+  if (!body) return;
+
+  const inputCss =
+    "width:90px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;";
+
   body.innerHTML = `
-    <div class="np-opt-label">¿Qué producto(s) se agotaron?</div>
+    <div class="np-opt-label">¿Qué producto(s) no alcanzan?</div>
     <div class="np-opt-row" id="pausaProdRow">
-      ${productos.map((it, i) => `<button type="button" class="np-opt-btn" data-idx="${i}">${escapeHtml(it.nombre)}</button>`).join("")}
+      ${productos.map((it, i) => `<button type="button" class="np-opt-btn" data-idx="${i}">${escapeHtml(it.nombre)} (x${it.cantidad})</button>`).join("")}
     </div>
+    <div id="pausaDetalle"></div>
     <div class="np-opt-label">Mensaje para el cliente (opcional)</div>
-    <textarea id="pausaMotivo" rows="2" style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;padding:8px;font-size:12.5px;" placeholder="Ej: Se nos terminó el pollo a la brasa entero"></textarea>
+    <textarea id="pausaMotivo" rows="2" style="width:100%;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;padding:8px;font-size:12.5px;" placeholder="Ej: Solo nos queda 1 pollo entero"></textarea>
     <div class="np-opt-label" style="margin-top:12px;">Tiempo de espera estimado</div>
     <div style="display:flex;gap:8px;">
-      <input type="number" id="pausaTiempoValor" min="1" value="15" style="width:80px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;">
+      <input type="number" id="pausaTiempoValor" min="1" value="15" style="${inputCss}">
       <select id="pausaTiempoUnidad" style="flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;">
         <option value="minutos">Minutos</option><option value="horas">Horas</option><option value="dias">Días</option>
       </select>
@@ -776,32 +818,109 @@ function abrirModalPausa(id, p) {
   `;
 
   const seleccionados = new Set();
+  const docs = new Map();
+  const detalle = body.querySelector("#pausaDetalle");
+
+  async function pintarTarjeta(i) {
+    const it = productos[i];
+    const d = await obtenerDocProductoPausa(it);
+    docs.set(i, d);
+    if (!seleccionados.has(i)) return; // lo deseleccionó mientras cargaba
+
+    const stockDoc = typeof d?.stock === "number" ? d.stock : null;
+    const valorInicial = stockDoc ?? Math.max(0, (Number(it.cantidad) || 1) - 1);
+    const conds = d?.condiciones || [];
+
+    const card = document.createElement("div");
+    card.dataset.card = i;
+    card.style.cssText =
+      "border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;background:rgba(255,255,255,.03);";
+    card.innerHTML = `
+      <div style="font-weight:800;font-size:13px;">${escapeHtml(it.nombre)}</div>
+      <div style="font-size:11.5px;color:var(--ink-dim);margin-bottom:8px;">El cliente pidió <b>${it.cantidad}</b></div>
+      <div class="np-opt-label">¿Cuántas unidades te quedan?</div>
+      <input type="number" data-stock min="0" value="${valorInicial}" style="${inputCss}">
+      ${
+        conds.length
+          ? `<div class="np-opt-label" style="margin-top:10px;">Stock por variante (0 = agotada, vacío = sin límite)</div>` +
+            conds
+              .map(
+                (c, ci) => `
+            <div style="font-size:11.5px;font-weight:700;color:var(--ink-dim);margin:6px 0;">${escapeHtml(c.nombre)}</div>
+            ${(c.opciones || [])
+              .map(
+                (o, oi) => `
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;font-size:12.5px;">
+                <span>${escapeHtml(o.nombre)}</span>
+                <input type="number" min="0" data-c="${ci}" data-o="${oi}" value="${o.activo === false ? 0 : typeof o.stock === "number" ? o.stock : ""}" style="${inputCss}">
+              </div>`,
+              )
+              .join("")}`,
+              )
+              .join("")
+          : ""
+      }`;
+    detalle.appendChild(card);
+  }
+
   body.querySelectorAll("#pausaProdRow .np-opt-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       btn.classList.toggle("active");
       const idx = Number(btn.dataset.idx);
-      btn.classList.contains("active")
-        ? seleccionados.add(idx)
-        : seleccionados.delete(idx);
+      if (btn.classList.contains("active")) {
+        seleccionados.add(idx);
+        pintarTarjeta(idx);
+      } else {
+        seleccionados.delete(idx);
+        detalle.querySelector(`[data-card="${idx}"]`)?.remove();
+      }
     });
   });
 
   document.getElementById("pausaConfirmarBtn").onclick = async () => {
     if (!seleccionados.size)
-      return showToast("Selecciona al menos un producto agotado", true);
-    const productosAfectados = [...seleccionados].map((i) => ({
-      id: productos[i].id,
-      nombre: productos[i].nombre,
-    }));
-    const valor = Math.max(
-      1,
-      Number(document.getElementById("pausaTiempoValor").value) || 15,
-    );
+      return showToast("Selecciona al menos un producto", true);
+
+    const productosAfectados = [];
+    for (const i of seleccionados) {
+      const it = productos[i];
+      const card = detalle.querySelector(`[data-card="${i}"]`);
+      if (!card) return showToast("Espera un segundo, cargando datos del producto…", true);
+      const d = docs.get(i);
+      const stockDisp = Math.max(0, Number(card.querySelector("[data-stock]").value) || 0);
+
+      let condiciones = null;
+      let precioBase = Number(it.precio_unitario) || 0;
+      if (d?.condiciones?.length) {
+        condiciones = d.condiciones.map((c, ci) => ({
+          nombre: c.nombre,
+          opciones: (c.opciones || []).map((o, oi) => {
+            const v = card.querySelector(`[data-c="${ci}"][data-o="${oi}"]`)?.value;
+            return {
+              nombre: o.nombre,
+              costoAdicional: Number(o.costoAdicional) || 0,
+              stock: v === "" || v == null ? null : Math.max(0, Number(v) || 0),
+            };
+          }),
+        }));
+        precioBase = +(precioBase - extrasOpciones(d.condiciones, it.opciones)).toFixed(2);
+      }
+
+      productosAfectados.push({
+        id: it.id,
+        nombre: it.nombre,
+        cantidad_pedida: Number(it.cantidad) || 0,
+        stock_disponible: stockDisp,
+        precio_base: precioBase,
+        condiciones,
+      });
+    }
+
+    const valor = Math.max(1, Number(document.getElementById("pausaTiempoValor").value) || 15);
     const unidad = document.getElementById("pausaTiempoUnidad").value;
     const motivo = document.getElementById("pausaMotivo").value.trim();
 
-    detenerSoundLoopParaPedido(id); // corta la alarma de "nuevo pedido" si seguía sonando
-
+    detenerSoundLoopParaPedido(id);
     try {
       const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
       await updateDoc(ref, {
@@ -1088,6 +1207,30 @@ function tickTimeAgo() {
 }
 setInterval(tickTimeAgo, 20000);
 
+async function resolverAliasNegocio(data) {
+  // Si el doc de la tienda ya guarda el alias, se usa directo
+  const directo = data?.alias || data?.alias_tienda || data?.alias_url;
+  if (directo) return String(directo);
+
+  // Si no, se busca en alias_tiendas (donde id == tiendaId)
+  try {
+    const snap = await getDocs(
+      query(collection(db, "alias_tiendas"), where("id", "==", tiendaId), limit(1)),
+    );
+    if (!snap.empty) return snap.docs[0].id; // el id del doc ES el alias
+  } catch (e) {
+    console.warn("No se pudo resolver el alias del negocio:", e);
+  }
+  return null;
+}
+function limpiarDominio(d) {
+  if (!d || typeof d !== "string") return null;
+  const limpio = d
+    .trim()
+    .replace(/^https?:\/\//i, "") // quita http(s)://
+    .replace(/\/.*$/, "");        // quita cualquier ruta
+  return limpio || null;
+}
 /* ══════════════ Datos del negocio ══════════════ */
 async function cargarNegocio() {
   try {
@@ -1095,6 +1238,14 @@ async function cargarNegocio() {
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : null;
     bizDataGlobal = data;
+    bizDominioGlobal = limpiarDominio(
+  data?.dominio_propio ||
+    data?.dominio_personalizado ||
+    data?.dominio ||
+    data?.custom_domain ||
+    null,
+);
+    bizAliasGlobal = await resolverAliasNegocio(data);
     const nombre = data ? data.nombre_tienda || data.nombre : null;
     bizNombreGlobal = nombre || "Geinz";
     bizLogoUrl = data?.img_tienda?.logo_tienda || "";
@@ -2292,7 +2443,25 @@ function getPuntosPedido(pedidoId, p) {
    por el rango de fecha activo), resalta la tarjeta ya existente en el DOM
    y hace scroll hacia ella. NUNCA llama a renderBoard() ni toca Firestore,
    así que no "recompone" nada — es puramente visual. */
+function linkSeguimientoPedido(id, p) {
+  let base;
+  if (bizDominioGlobal) {
+    // Dominio propio: mismo formato que usa pedidos.js -> /pedido/{pedidoId}
+    base = `https://${bizDominioGlobal}/pedido/${id}`;
+  } else if (bizAliasGlobal) {
+    base = `https://geinztech.com/perfil/${encodeURIComponent(bizAliasGlobal)}/${id}`;
+  } else {
+    base = `https://geinztech.com/pedidos/${tiendaId}/${id}`; // fallback formato viejo
+  }
 
+  // Pedidos de invitado: la página exige ?t=token_seguimiento
+  const token =
+    !p.cliente?.id_cliente && p.token_seguimiento
+      ? `?t=${encodeURIComponent(p.token_seguimiento)}`
+      : "";
+
+  return base + token;
+}
 function codigoCortoPedido(id) {
   return id.slice(0, 6).toUpperCase();
 }
@@ -2417,6 +2586,7 @@ card.className = "order-card" + (voucherPendienteVer ? " oc-pago-recibido" : "")
     </div>
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
+    ${cliente.whatsapp ? `<div style="font-size:11px;font-weight:700;color:#25d366;margin-top:2px;">📱 ${escapeHtml(cliente.whatsapp)}</div>` : ""}
     ${voucherPendienteVer ? `<div class="oc-voucher-line" style="font-size:11px;font-weight:800;color:#fbbf24;margin-top:2px;">💸 Comprobante de pago recibido, revisa y confirma</div>` : ""}
        ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
        ${Number(p.descuentoCupon) > 0 ? `<div class="oc-descuento-line" style="font-size:11px;font-weight:700;color:#4ade80;margin-top:2px;">🏷️ Descuento aplicado: -${fmtMoney(p.descuentoCupon)}</div>` : ""}
@@ -2467,16 +2637,10 @@ function renderCardActions(container, id, estado, p) {
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
       ${
         r
-          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
-              r.accion === "reemplazo"
-                ? "cambiar por " + (r.producto_elegido?.nombre || "")
-                : r.accion === "cancelado"
-                  ? "cancelar el pedido"
-                  : "continuar sin ese producto",
-            )}</strong></div>`
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
           : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
-      <button class="oc-btn ghost danger" style="width:100%; margin-bottom:10px;" data-action="rechazado">✕ Cancelar pedido</button>
+      <button class="oc-btn ghost danger" style="width:100%; margin-bottom:10px; margin-top:10px;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button> `;
   } else if (estado === "entregado") {
     container.innerHTML = `
@@ -3358,13 +3522,33 @@ function renderDetail(id) {
   const pagoIco = ICONOS_PAGO[pago.metodo] || "💳";
   const origen = getOrigen(p);
 
+  // ── WhatsApp del cliente (ahora `cliente` ya está inicializado) ──
+const waLimpio = String(cliente.whatsapp || "").replace(/[^\d]/g, "");
+const linkPedido = linkSeguimientoPedido(id, p);
+const mensajeWa =
+  `Hola ${cliente.nombre || ""}, te escribimos de ${bizNombreGlobal} por tu pedido ` +
+  `#${id.slice(0, 6).toUpperCase()}. Puedes ver el estado en tiempo real aquí:\n${linkPedido}`;
+
+const whatsappBlock = waLimpio
+  ? `<div class="dm-meta-item full">
+       <div class="dm-meta-label">📱 WhatsApp del cliente</div>
+       <div class="dm-meta-value">
+         ${escapeHtml(cliente.whatsapp)} ·
+         <a href="https://wa.me/${waLimpio}?text=${encodeURIComponent(mensajeWa)}"
+            target="_blank" rel="noopener" style="color:#25d366;font-weight:800;">Escribir →</a>
+       </div>
+     </div>`
+  : "";
+
   detailModal.dataset.status = estado;
   document.getElementById("dmId").innerHTML =
     `#${id.slice(0, 8).toUpperCase()} ${origenTagHtml(p)}${cuponTagHtml(p)}`;
+
   const esSeguidorDetalle =
     clientesSeguidoresCache.get(cliente.id_cliente) === true;
   document.getElementById("dmName").innerHTML =
     `${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidorDetalle ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}`;
+
   const dmTime = document.getElementById("dmTime");
   if (tsMs) {
     dmTime.dataset.ts = tsMs;
@@ -3395,6 +3579,7 @@ function renderDetail(id) {
       })
       .join("") ||
     `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Sin productos registrados</p>`;
+
   const autoNote =
     estado === "rechazado" && p.auto_rechazado
       ? `<div class="dm-meta-item full"><div class="dm-meta-label">⏱️ Motivo</div><div class="dm-meta-value">Rechazado automáticamente por superar ${autoRejectMinutes} min sin pasar a "En proceso"</div></div>`
@@ -3408,16 +3593,18 @@ function renderDetail(id) {
           <div class="dm-meta-value">${escapeHtml(origen.nombre || mesasMap.get(origen.mesaId)?.nombre_alias || "Mesa " + origen.numero)}</div>
         </div>`
       : "";
-const voucherBlock = p.pago?.voucher_url
-  ? `<div class="dm-meta-item full">
-      <div class="dm-meta-label">💸 Comprobante de pago</div>
-      <a href="${p.pago.voucher_url}" target="_blank" rel="noopener">
-        <img src="${p.pago.voucher_url}" alt="Comprobante de pago" style="width:100%;max-width:220px;border-radius:12px;margin-top:6px;border:1px solid var(--line);display:block;">
-      </a>
-    </div>`
-  : "";
+
+  const voucherBlock = p.pago?.voucher_url
+    ? `<div class="dm-meta-item full">
+        <div class="dm-meta-label">💸 Comprobante de pago</div>
+        <a href="${escapeHtml(p.pago.voucher_url)}" target="_blank" rel="noopener">
+          <img src="${escapeHtml(p.pago.voucher_url)}" alt="Comprobante de pago" style="width:100%;max-width:220px;border-radius:12px;margin-top:6px;border:1px solid var(--line);display:block;">
+        </a>
+      </div>`
+    : "";
+
   document.getElementById("dmBody").innerHTML = `
-      ${detalleCuponHtml(p)}
+    ${detalleCuponHtml(p)}
     <div>
       <div class="dm-section-title">Datos del pedido</div>
       <div class="dm-meta-grid">
@@ -3439,6 +3626,7 @@ const voucherBlock = p.pago?.voucher_url
         </div>`
             : ""
         }
+        ${whatsappBlock}
         <div class="dm-meta-item">
           <div class="dm-meta-label">${pagoIco} Método de pago</div>
           <div class="dm-meta-value">${escapeHtml(pago.metodo || "Sin especificar")}</div>
@@ -3447,8 +3635,8 @@ const voucherBlock = p.pago?.voucher_url
           <div class="dm-meta-label">💰 Vuelto</div>
           <div class="dm-meta-value ${pago.metodo === "Efectivo" && pago.vuelto ? "" : "dim"}">${pago.metodo === "Efectivo" && pago.vuelto ? "Paga con S/ " + escapeHtml(pago.vuelto) : "No aplica"}</div>
         </div>
-          ${voucherBlock}
-                  ${mapaDeliveryHTML(p)}
+        ${voucherBlock}
+        ${mapaDeliveryHTML(p)}
         <div class="dm-meta-item full">
           <div class="dm-meta-label">📝 Nota del cliente</div>
           <div class="dm-meta-value ${p.nota ? "" : "dim"}">${p.nota ? escapeHtml(p.nota) : "Sin especificaciones adicionales"}</div>
@@ -3457,9 +3645,13 @@ const voucherBlock = p.pago?.voucher_url
       </div>
     </div>
 
-     <div>
+    <div>
       <div class="dm-section-title">Productos · ${totalItems} item${totalItems === 1 ? "" : "s"}</div>
-      ${origen.tipo === "mesa" && Array.isArray(p.bloques) && p.bloques.length ? bloquesHtml(p.bloques) : `<div class="dm-products">${prodRows}</div>`}
+      ${
+        origen.tipo === "mesa" && Array.isArray(p.bloques) && p.bloques.length
+          ? bloquesHtml(p.bloques)
+          : `<div class="dm-products">${prodRows}</div>`
+      }
     </div>
 
     <div class="dm-total-row">
@@ -3467,7 +3659,8 @@ const voucherBlock = p.pago?.voucher_url
       <span class="dm-total-val">${fmtMoney(p.total)}</span>
     </div>
   `;
-  bindMapaDeliveryClicks();   // ← ESTA LÍNEA FALTABA
+
+  bindMapaDeliveryClicks();
 
   const actionsWrap = document.createElement("div");
   actionsWrap.className = "oc-actions";
@@ -3502,13 +3695,7 @@ function renderModalActions(container, id, estado, p) {
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
       ${
         r
-          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(
-              r.accion === "reemplazo"
-                ? "cambiar por " + (r.producto_elegido?.nombre || "")
-                : r.accion === "cancelado"
-                  ? "cancelar el pedido"
-                  : "continuar sin ese producto",
-            )}</strong></div>`
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
           : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>

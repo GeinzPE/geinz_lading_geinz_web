@@ -113,7 +113,15 @@
                             <span class="sbb-icon">🔲</span>
                             <span class="sbb-label">MI QR</span>
                         </button>
-                    
+
+
+                        <button class="sidebar-btn" id="sbb-trabajadores"
+                            onclick="PanelPerfil.showSection('trabajadores')">
+                            <span class="sbb-icon">👥</span>
+                            <span class="sbb-label">Mis trabajadores</span>
+                        </button>
+
+
                         <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
                             <span class="sbb-icon">⚖️</span>
                             <span class="sbb-label">Legal</span>
@@ -362,7 +370,18 @@
                     </iframe>
                 </div>
 
-
+<!-- ===== MIS TRABAJADORES ===== -->
+<div class="section" id="sec-trabajadores">
+    <iframe id="iframeTrabajadores" src="trabajadores.html" style="
+        width:100%;
+        height:100vh;
+        border:none;
+        display:block;
+        overflow:hidden;
+        background:#0a0a0a;
+    ">
+    </iframe>
+</div>
             </div><!-- /content -->
 
             <!-- BOTON MENU MOBILE -->
@@ -427,7 +446,13 @@
                                 <span>🔲</span>
                                 <span>MI QR</span>
                             </button>
-                      
+                          
+                         <button class="mobile-menu-item" id="mmb-trabajadores"
+    onclick="PanelPerfil.showSection('trabajadores'); PanelPerfil.toggleMobileMenu()">
+    <span>👥</span>
+    <span>Mis trabajadores</span>
+</button>
+
                             <button class="mobile-menu-item" id="mmb-legal"
                                 onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
                                 <span>⚖️</span>
@@ -463,7 +488,7 @@
                         </div>
                     </div>
 
-                  
+
 
 
 

@@ -8,6 +8,7 @@
 import { db } from "../db/db.js";
 import {
   tiendaSubDoc,
+    tiendaSubCol,
   tiendaPathStr,
   tiendasDelDistritoCol,
   categoriasCol,
@@ -1025,48 +1026,6 @@ function cargarDescuentoParaEditar(data) {
   showToast("Editando: " + (data.nombre || "producto"));
 }
 
-/* ===================================================================
-   AGREGAR CLIENTE MANUALMENTE
-   Tiendas/.../distrito/<distrito>/tiendas/<tiendaId>/clientes/<id>
-   =================================================================== */
-document
-  .getElementById("btnAgregarCliente")
-  .addEventListener("click", async () => {
-    const nombre = document.getElementById("nuevoClienteNombre").value.trim();
-    const telefono = document
-      .getElementById("nuevoClienteTelefono")
-      .value.trim();
-    const puntosIniciales =
-      Number(document.getElementById("nuevoClientePuntos").value) || 0;
-    if (!nombre) {
-      showToast("Escribe el nombre del cliente", true);
-      return;
-    }
-    if (!tiendaId) {
-      showToast("Falta el id de la tienda en la URL", true);
-      return;
-    }
-    if (!firebaseReady) {
-      showToast("No se pudo conectar con la base de datos", true);
-      return;
-    }
-    try {
-      await addDoc(clientesCol(distrito, tiendaId), {
-        nombre,
-        telefono,
-        puntos: puntosIniciales,
-        activo: true,
-        origen: "manual",
-        creado: new Date().toISOString(),
-      });
-      document.getElementById("nuevoClienteNombre").value = "";
-      document.getElementById("nuevoClienteTelefono").value = "";
-      document.getElementById("nuevoClientePuntos").value = "";
-      showToast("Cliente agregado");
-    } catch (err) {
-      showToast("Error: " + err.message, true);
-    }
-  });
 
 /* ===================================================================
    MODAL GENÉRICO (ajustar puntos / canjear recompensa / ver pedidos / escáner)
@@ -1592,35 +1551,7 @@ document
     setTimeout(() => ventana.print(), 300);
   });
 
-document
-  .getElementById("btnExportarHistorial")
-  .addEventListener("click", () => {
-    if (!historialDataCache.length) {
-      showToast("No hay historial cargado para exportar", true);
-      return;
-    }
-    const headers = [
-      "Fecha",
-      "Cliente",
-      "Recompensa",
-      "Puntos",
-      "Sucursal",
-      "Tipo",
-    ];
-    const rows = historialDataCache.map((c) => [
-      c.fecha,
-      c.cliente,
-      c.recompensa,
-      c.puntos,
-      c.sucursal,
-      c.tipo,
-    ]);
-    downloadCSV(
-      `historial_${distrito}_${tiendaId || "sin-tienda"}.csv`,
-      headers,
-      rows,
-    );
-  });
+
 
 /* ===================================================================
    AYUDAS PARA NOMBRE / FECHA DE USUARIO
@@ -2095,73 +2026,284 @@ document
 document
   .getElementById("ordenClientes")
   ?.addEventListener("change", aplicarFiltrosClientes);
-
 /* ===================================================================
-   HISTORIAL DE CANJES
-   Tiendas/.../distrito/<distrito>/tiendas/<tiendaId>/canjes
+   HISTORIAL DE CANJES (unificado)
+   Fuentes:
+   1) clientes/{id}/cupones  -> canjes hechos por el cliente desde su tarjeta
+   2) canjes                 -> canjes presenciales y ajustes del admin
    =================================================================== */
+let histFilas = [];
+let histFiltradas = [];
+let histFiltroActivo = "todos";
+const nombresUsuarioCache = {};
+
+async function resolverNombreCliente(clienteId, dataCliente) {
+  if (nombresUsuarioCache[clienteId]) return nombresUsuarioCache[clienteId];
+  let nombre = "";
+  const enCache = clientesRowsCache.find((c) => c.id === clienteId);
+  if (enCache) nombre = enCache.nombre;
+  if (!nombre && dataCliente?.id_usuario) {
+    try {
+      const u = await getDoc(data_user_logeado(dataCliente.id_usuario));
+      if (u.exists()) {
+        const d = u.data();
+        nombre =
+          [capitalizar(d.nombre), capitalizar(d.apellido)]
+            .filter(Boolean)
+            .join(" ") || d.nombre_user || "";
+      }
+    } catch (e) {
+      /* noop */
+    }
+  }
+  nombre = nombre || dataCliente?.nombre || "Cliente";
+  nombresUsuarioCache[clienteId] = nombre;
+  return nombre;
+}
+
+function estadoDeCupon(c) {
+  if (c.estado === "cancelado") return "cancelado";
+  if (c.usado || c.pedidoId) return "usado";
+  return "activo";
+}
+
+const ESTADO_LABEL = {
+  activo: "Activo",
+  usado: "Usado",
+  cancelado: "Cancelado",
+  ajuste: "Ajuste",
+  presencial: "Presencial",
+};
+
+function fechaHoraTxt(d) {
+  return d
+    ? d.toLocaleString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+}
+
 async function loadHistorial() {
   const tbody = document.getElementById("tablaHistorial");
   if (!firebaseReady) return;
-  historialDataCache = [];
+  histFilas = [];
   if (!tiendaId) {
     tbody.innerHTML =
-      '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Falta el id de la tienda en la URL.</td></tr>';
+      '<tr><td colspan="7" style="text-align:center; color:var(--text-faint);">Falta el id de la tienda en la URL.</td></tr>';
     return;
   }
   tbody.innerHTML =
-    '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Cargando…</td></tr>';
-  const rutaCanjes = tiendaPathStr(distrito, "tiendas", tiendaId, "canjes");
+    '<tr><td colspan="7" style="text-align:center; color:var(--text-faint);">Cargando…</td></tr>';
+  showLoading();
   try {
-    const snap = await getDocs(canjesCol(distrito, tiendaId));
-    if (snap.empty) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" style="text-align:center; color:var(--text-faint);">Sin canjes registrados en esta tienda.</td></tr>';
-      return;
-    }
-    let rows = "";
-    // Más recientes primero
-    const docsData = snap.docs
-      .map((d) => d.data())
-      .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
-    docsData.forEach((c) => {
-      const fechaTxt = c.fecha ? formatearFecha(c.fecha) : "—";
-      // Compatibilidad con registros antiguos que usaban "puntosUsados" (siempre positivo, gastado)
+    // 1) canjes/ajustes registrados por el admin
+    const canjesSnap = await getDocs(canjesCol(distrito, tiendaId));
+    canjesSnap.docs.forEach((d) => {
+      const c = d.data();
       const puntos =
         c.puntos != null
           ? Number(c.puntos)
           : c.puntosUsados != null
             ? -Number(c.puntosUsados)
             : 0;
-      const tipo = c.tipo || "canje";
-      const tipoLabel = tipo === "ajuste" ? "Ajuste" : "Canje";
-      const puntosTxt = (puntos > 0 ? "+" : "") + puntos;
-      rows += `<tr>
-  <td data-label="Fecha">${fechaTxt}</td>
-  <td class="cell-name" data-label="Cliente">${escapeHtml(c.cliente || "—")}</td>
-  <td data-label="Recompensa">${escapeHtml(c.recompensa || "—")}</td>
-  <td data-label="Puntos">${puntosTxt}</td>
-  <td data-label="Sucursal">${escapeHtml(c.sucursal || distrito)}</td>
-  <td data-label="Tipo"><span class="badge ${tipo === "ajuste" ? "badge-tipo-ajuste" : "badge-tipo-canje"}">${tipoLabel}</span></td>
-</tr>`;
-      historialDataCache.push({
-        fecha: fechaTxt,
+      const esAjuste = (c.tipo || "canje") === "ajuste";
+      histFilas.push({
+        fecha: toDateSafe(c.fecha),
         cliente: c.cliente || "—",
+        clienteId: c.clienteId || "",
         recompensa: c.recompensa || "—",
-        puntos: puntosTxt,
-        sucursal: c.sucursal || distrito,
-        tipo: tipoLabel,
+        puntos,
+        puntosTxt: (puntos > 0 ? "+" : "") + puntos,
+        estado: esAjuste ? "ajuste" : "presencial",
+        grupo: "admin",
+        codigo: "",
+        pedidoId: "",
+        raw: c,
       });
     });
-    tbody.innerHTML = rows;
+
+    // 2) cupones de cada cliente (canjes hechos desde la tarjeta)
+    const clientesSnap = await getDocs(clientesCol(distrito, tiendaId));
+    await Promise.all(
+      clientesSnap.docs.map(async (cd) => {
+        const dataCli = cd.data();
+        try {
+          const cuponesSnap = await getDocs(
+            tiendaSubCol(distrito, "tiendas", tiendaId, "clientes", cd.id, "cupones"),
+          );
+          if (cuponesSnap.empty) return;
+          const nombre = await resolverNombreCliente(cd.id, dataCli);
+          cuponesSnap.docs.forEach((cu) => {
+            const c = cu.data();
+            const estado = estadoDeCupon(c);
+            const costo = Number(c.costoPuntos ?? 0);
+            histFilas.push({
+              fecha: toDateSafe(c.creado),
+              cliente: nombre,
+              clienteId: cd.id,
+              recompensa: c.nombre || c.productoNombre || "Cupón",
+              puntos: estado === "cancelado" ? 0 : -costo,
+              puntosTxt:
+                estado === "cancelado" ? `0 (devuelto ${costo})` : `-${costo}`,
+              estado,
+              grupo: estado,
+              codigo: c.codigo || cu.id,
+              pedidoId: c.pedidoId || "",
+              raw: c,
+            });
+          });
+        } catch (e) {
+          console.warn("[fidelizacion] No se pudieron leer cupones de", cd.id, e);
+        }
+      }),
+    );
+
+    histFilas.sort((a, b) => (b.fecha?.getTime() || 0) - (a.fecha?.getTime() || 0));
+    aplicarFiltrosHistorial();
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger);">Error: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Error: ${escapeHtml(err.message)}</td></tr>`;
+  } finally {
+    hideLoading();
   }
 }
-document
-  .getElementById("btnRecargarHistorial")
-  .addEventListener("click", loadHistorial);
+
+function aplicarFiltrosHistorial() {
+  const term = (document.getElementById("buscarCanje")?.value || "")
+    .trim()
+    .toLowerCase();
+  histFiltradas = histFilas.filter((f) => {
+    if (histFiltroActivo !== "todos" && f.grupo !== histFiltroActivo) return false;
+    if (!term) return true;
+    return (
+      f.cliente.toLowerCase().includes(term) ||
+      f.recompensa.toLowerCase().includes(term) ||
+      String(f.codigo).toLowerCase().includes(term)
+    );
+  });
+  renderTablaHistorial();
+}
+
+function renderTablaHistorial() {
+  const tbody = document.getElementById("tablaHistorial");
+  if (!histFiltradas.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="7" style="text-align:center; color:var(--text-faint);">Sin movimientos para este filtro.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = histFiltradas
+    .map((f, i) => {
+      const stClass =
+        f.estado === "ajuste" || f.estado === "presencial" ? "st-admin" : `st-${f.estado}`;
+      const pedidoCorto = f.pedidoId ? "#" + String(f.pedidoId).slice(0, 6) : "—";
+      return `<tr data-hidx="${i}">
+  <td data-label="Fecha">${fechaHoraTxt(f.fecha)}</td>
+  <td class="cell-name" data-label="Cliente">${escapeHtml(f.cliente)}</td>
+  <td data-label="Recompensa">${escapeHtml(f.recompensa)}</td>
+  <td data-label="Puntos">${escapeHtml(f.puntosTxt)}</td>
+  <td data-label="Estado"><span class="badge ${stClass}">${ESTADO_LABEL[f.estado]}</span></td>
+  <td data-label="Código" style="font-family:var(--font-mono);">${escapeHtml(f.codigo || "—")}</td>
+  <td data-label="Pedido">${escapeHtml(pedidoCorto)}</td>
+</tr>`;
+    })
+    .join("");
+
+  tbody.querySelectorAll("tr[data-hidx]").forEach((tr) => {
+    tr.onclick = () => abrirDetalleHistorial(histFiltradas[Number(tr.dataset.hidx)]);
+  });
+}
+
+function abrirDetalleHistorial(f) {
+  if (!f) return;
+  const r = f.raw || {};
+  const linea = (k, v) =>
+    v || v === 0
+      ? `<div class="det-line"><span>${k}</span><span>${escapeHtml(String(v))}</span></div>`
+      : "";
+
+  let precios = "";
+  if (r.precioOriginal != null) {
+    precios = `S/ ${Number(r.precioOriginal).toFixed(2)} → S/ ${Number(r.precioFinalEstimado ?? r.precioOriginal).toFixed(2)}`;
+  }
+  let beneficio = "";
+  if (r.tipoBeneficio === "monto") beneficio = `–S/ ${Number(r.descuento?.monto || 0).toFixed(2)}`;
+  else if (r.tipoBeneficio === "porcentaje") beneficio = `–${r.descuento?.porcentaje || 0}%`;
+  else if (r.tipoBeneficio === "cantidad") beneficio = `${r.descuento?.compraUnidades}x${r.descuento?.pagaUnidades}`;
+  else if (r.tipoBeneficio === "gratis") beneficio = "Gratis con puntos";
+
+  let variante = "";
+  if (r.varianteElegida && typeof r.varianteElegida === "object") {
+    variante = Object.entries(r.varianteElegida).map(([k, v]) => `${k}: ${v}`).join(", ");
+  }
+
+  const usadoEn = toDateSafe(r.usadoEn || r.fechaUso);
+  const canceladoEn = toDateSafe(r.canceladoEn);
+  const esCupon = f.grupo !== "admin";
+  const stClass =
+    f.estado === "ajuste" || f.estado === "presencial" ? "st-admin" : "st-" + f.estado;
+
+  openModal(`
+    <h3>Detalle del movimiento</h3>
+    <p class="hint">${escapeHtml(f.cliente)} · <span class="badge ${stClass}">${ESTADO_LABEL[f.estado]}</span></p>
+    <div class="det-grid">
+      ${linea("Fecha", fechaHoraTxt(f.fecha))}
+      ${linea("Recompensa", f.recompensa)}
+      ${linea("Puntos", f.puntosTxt)}
+      ${esCupon ? linea("Código del cupón", f.codigo) : ""}
+      ${esCupon ? linea("Tipo", r.tipo === "producto" ? "Producto de catálogo" : "Descuento manual") : ""}
+      ${linea("Beneficio", beneficio)}
+      ${linea("Precio", precios)}
+      ${linea("Variante", variante)}
+      ${r.compraMinima ? linea("Compra mínima", "S/ " + Number(r.compraMinima).toFixed(2)) : ""}
+      ${linea("Pedido asociado", f.pedidoId)}
+      ${usadoEn ? linea("Usado en", fechaHoraTxt(usadoEn)) : ""}
+      ${canceladoEn ? linea("Cancelado en", fechaHoraTxt(canceladoEn)) : ""}
+      ${!esCupon ? linea("Sucursal", r.sucursal || distrito) : ""}
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-ghost" id="btnCancelarModal">Cerrar</button>
+    </div>
+  `);
+}
+
+/* ---- Filtros (chips) ---- */
+document.querySelectorAll("#histFiltros .hist-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document
+      .querySelectorAll("#histFiltros .hist-chip")
+      .forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    histFiltroActivo = chip.dataset.hfiltro;
+    aplicarFiltrosHistorial();
+  });
+});
+
+document.getElementById("btnRecargarHistorial").addEventListener("click", loadHistorial);
+document.getElementById("buscarCanje").addEventListener("input", aplicarFiltrosHistorial);
+
+/* ---- Exportar CSV (lo que estés viendo filtrado) ---- */
+document.getElementById("btnExportarHistorial").addEventListener("click", () => {
+  if (!histFiltradas.length) {
+    showToast("No hay historial para exportar (revisa el filtro)", true);
+    return;
+  }
+  const headers = ["Fecha", "Cliente", "Recompensa", "Puntos", "Estado", "Código", "Pedido"];
+  const rows = histFiltradas.map((f) => [
+    fechaHoraTxt(f.fecha),
+    f.cliente,
+    f.recompensa,
+    f.puntosTxt,
+    ESTADO_LABEL[f.estado],
+    f.codigo,
+    f.pedidoId,
+  ]);
+  downloadCSV(`historial_${distrito}_${tiendaId || "sin-tienda"}.csv`, headers, rows);
+});
+
 document.getElementById("buscarCanje").addEventListener("input", (e) => {
   const term = e.target.value.toLowerCase();
   document.querySelectorAll("#tablaHistorial tr").forEach((tr) => {
@@ -2213,6 +2355,497 @@ function escapeHtml(str) {
   );
 }
 
+/* ===================================================================
+   ESTADÍSTICAS DE CLIENTES
+   Pegar en fidelizacion.js justo ANTES del bloque "INIT"
+   (donde está function initApp).
+   Lee lo que ya tienes en memoria: clientesRowsCache,
+   historialPorCliente e histFilas. No hace lecturas extra a Firestore.
+   =================================================================== */
+let estRangoDias = 30;
+
+const EST_MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const EST_DIAS_ORDEN = [1, 2, 3, 4, 5, 6, 0]; // Lun → Dom
+const EST_DIAS_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const EST_DIAS_LARGO = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const EST_DIA_MS = 86400000;
+
+const estEl = (id) => document.getElementById(id);
+const estSoles = (n) =>
+  "S/ " + (Number(n) || 0).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const estCorto = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(Math.round(n)));
+const estPct = (a, b) => (b > 0 ? (a / b) * 100 : 0);
+const estPad = (n) => String(n).padStart(2, "0");
+
+/* Número que "sube" suavemente hasta su valor (respeta reduce-motion) */
+function estAnimar(id, valor, formato) {
+  const el = estEl(id);
+  if (!el) return;
+  const desde = el._v || 0;
+  el._v = valor;
+  cancelAnimationFrame(el._raf);
+  if (desde === valor || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    el.textContent = formato(valor);
+    return;
+  }
+  const t0 = performance.now();
+  const paso = (t) => {
+    const k = Math.min(1, (t - t0) / 500);
+    const e = 1 - Math.pow(1 - k, 3);
+    el.textContent = formato(desde + (valor - desde) * e);
+    if (k < 1) el._raf = requestAnimationFrame(paso);
+  };
+  el._raf = requestAnimationFrame(paso);
+}
+
+/* Todos los pedidos reales de todos los clientes, en una sola lista */
+function estPedidosPlanos() {
+  const out = [];
+  clientesRowsCache.forEach((c) => {
+    const info = historialPorCliente[c.id];
+    if (!info) return;
+    info.pedidos.forEach((p) => {
+      const f = p.fechaOrden;
+      const ok = f instanceof Date && !isNaN(f) && f.getTime() > 946684800000; // fecha real (después del año 2000)
+      out.push({
+        clienteId: c.id,
+        nombre: c.nombre,
+        fecha: f,
+        ok,
+        total: Number(p.total) || 0,
+        entrega: p.tipo_entrega || "",
+        puntos: Number(p.puntos_ganados) || 0,
+      });
+    });
+  });
+  return out;
+}
+
+function renderEstadisticas() {
+  if (!estEl("estKpis")) return;
+
+  const corte = estRangoDias > 0 ? Date.now() - estRangoDias * EST_DIA_MS : 0;
+  const todos = estPedidosPlanos();
+  const enRango = todos.filter((p) => estRangoDias === 0 || (p.ok && p.fecha.getTime() >= corte));
+
+  estRangoTxt(enRango);
+  estKpis(enRango);
+  estMeses(todos);
+  estSegmentos();
+  estTop(enRango);
+  estPuntos(enRango, corte);
+  estHabitos(enRango);
+  estCanjesDelMes();
+}
+
+function estRangoTxt() {
+  const t = estRangoDias === 0 ? "Todo el historial" : `Últimos ${estRangoDias} días`;
+  const el = estEl("estRangoTxt");
+  if (el) el.textContent = t;
+}
+
+function estKpis(enRango) {
+  const ingresos = enRango.reduce((s, p) => s + p.total, 0);
+  const n = enRango.length;
+  const porCliente = {};
+  enRango.forEach((p) => (porCliente[p.clienteId] = (porCliente[p.clienteId] || 0) + 1));
+  const activos = Object.keys(porCliente).length;
+  const recompran = Object.values(porCliente).filter((x) => x >= 2).length;
+
+  estAnimar("estIngresos", ingresos, estSoles);
+  estEl("estIngresosSub").textContent = `${n} ${n === 1 ? "pedido" : "pedidos"} en el periodo`;
+  estAnimar("estTicket", n ? ingresos / n : 0, estSoles);
+  estAnimar("estFrecuencia", activos ? n / activos : 0, (v) => v.toFixed(1));
+  estEl("estFrecuenciaSub").textContent = `${activos} ${activos === 1 ? "cliente compró" : "clientes compraron"}`;
+  estAnimar("estRecompra", estPct(recompran, activos), (v) => v.toFixed(0) + "%");
+  estEl("estRecompraSub").textContent = activos
+    ? `${recompran} de ${activos} volvieron a comprar`
+    : "clientes que volvieron";
+}
+
+/* Pedidos por mes (últimos 6 meses, sin importar el filtro de rango) */
+function estMeses(todos) {
+  const hoy = new Date();
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+    meses.push({ y: d.getFullYear(), m: d.getMonth(), n: 0, total: 0 });
+  }
+  todos.forEach((p) => {
+    if (!p.ok) return;
+    const b = meses.find((x) => x.y === p.fecha.getFullYear() && x.m === p.fecha.getMonth());
+    if (b) {
+      b.n++;
+      b.total += p.total;
+    }
+  });
+
+  const max = Math.max(1, ...meses.map((x) => x.n));
+  estEl("estMeses").innerHTML = meses
+    .map((b, i) => {
+      const alto = Math.max(4, Math.round((b.n / max) * 110));
+      return `<div class="est-bar-col" title="${EST_MESES[b.m]} ${b.y}: ${b.n} pedidos · ${estSoles(b.total)}">
+        <div class="est-bar-val">${b.n}</div>
+        <div class="est-bar ${i < 5 ? "dim" : ""}" style="--i:${i};height:${alto}px"></div>
+        <div class="est-bar-lbl">${EST_MESES[b.m]}</div>
+        <div class="est-bar-sub">S/ ${estCorto(b.total)}</div>
+      </div>`;
+    })
+    .join("");
+
+  // Comparación del mes actual contra el anterior
+  const actual = meses[5].n, previo = meses[4].n;
+  const delta = estEl("estMesesDelta");
+  if (previo > 0) {
+    const cambio = ((actual - previo) / previo) * 100;
+    const cls = cambio > 0 ? "on" : cambio < 0 ? "off" : "neutral";
+    const flecha = cambio > 0 ? "▲" : cambio < 0 ? "▼" : "•";
+    delta.innerHTML = `<span class="badge ${cls}">${flecha} ${Math.abs(cambio).toFixed(0)}% vs mes anterior</span>`;
+  } else if (actual > 0) {
+    delta.innerHTML = `<span class="badge on">Mes con actividad nueva</span>`;
+  } else {
+    delta.innerHTML = "";
+  }
+}
+
+/* Tipos de cliente + clientes en riesgo */
+function estSegmentos() {
+  const total = clientesRowsCache.length;
+  const seg = [
+    { label: "Fieles (5+ pedidos)", color: "var(--violet)", n: 0 },
+    { label: "Recurrentes (2 a 4)", color: "var(--violet-bright)", n: 0 },
+    { label: "Nuevos (1 pedido)", color: "var(--magenta)", n: 0 },
+    { label: "Sin pedidos aún", color: "#3a3a44", n: 0 },
+  ];
+  let enRiesgo = 0;
+  const ahora = Date.now();
+  clientesRowsCache.forEach((c) => {
+    const n = c.pedidosCount || 0;
+    if (n >= 5) seg[0].n++;
+    else if (n >= 2) seg[1].n++;
+    else if (n === 1) seg[2].n++;
+    else seg[3].n++;
+    if (n > 0 && c.ultimaVisitaDate && (ahora - c.ultimaVisitaDate.getTime()) / EST_DIA_MS > 30) enRiesgo++;
+  });
+
+  estEl("estSegBar").innerHTML = total
+    ? seg.filter((s) => s.n).map((s, i) => `<i style="width:${estPct(s.n, total)}%;background:${s.color};animation-delay:${i * 80}ms" title="${s.label}: ${s.n}"></i>`).join("")
+    : "";
+  estEl("estSegLeg").innerHTML = total
+    ? seg.map((s) => `<div class="est-leg-row"><i class="est-dot" style="background:${s.color}"></i>${s.label}<b>${s.n} · ${estPct(s.n, total).toFixed(0)}%</b></div>`).join("")
+    : `<div class="est-empty">Aún no hay clientes.</div>`;
+
+  estEl("estRiesgo").innerHTML = `<b>${enRiesgo}</b> ${enRiesgo === 1 ? "cliente en riesgo" : "clientes en riesgo"}
+    <span>Compraron antes pero llevan más de 30 días sin volver. Buen momento para escribirles.</span>`;
+}
+
+/* Ranking: quién más invirtió en el periodo */
+function estTop(enRango) {
+  const mapa = {};
+  enRango.forEach((p) => {
+    if (!mapa[p.clienteId]) mapa[p.clienteId] = { nombre: p.nombre, n: 0, total: 0 };
+    mapa[p.clienteId].n++;
+    mapa[p.clienteId].total += p.total;
+  });
+  const top = Object.values(mapa).sort((a, b) => b.total - a.total).slice(0, 5);
+  const el = estEl("estTop");
+  if (!top.length) {
+    el.innerHTML = `<div class="est-empty">Aún no hay pedidos en este periodo.</div>`;
+    return;
+  }
+  const max = top[0].total || 1;
+  el.innerHTML = top
+    .map((c, i) => `<div class="est-rank-row">
+      <div class="est-pos">${i + 1}</div>
+      <div class="est-rank-main">
+        <div class="est-rank-name">${escapeHtml(c.nombre)}</div>
+        <div class="est-rank-sub">${c.n} ${c.n === 1 ? "pedido" : "pedidos"}</div>
+        <div class="est-meter"><i style="width:${(c.total / max) * 100}%;animation-delay:${i * 70}ms"></i></div>
+      </div>
+      <div class="est-rank-amt">${estSoles(c.total)}</div>
+    </div>`)
+    .join("");
+}
+
+/* Puntos ganados (pedidos) vs. canjeados (historial de canjes) */
+function estPuntos(enRango, corte) {
+  const circulacion = clientesRowsCache.reduce((s, c) => s + (Number(c.puntos) || 0), 0);
+  const ganados = enRango.reduce((s, p) => s + p.puntos, 0);
+  const canjes = (Array.isArray(histFilas) ? histFilas : []).filter(
+    (f) =>
+      (f.estado === "usado" || f.estado === "activo" || f.estado === "presencial") &&
+      f.puntos < 0 &&
+      (estRangoDias === 0 || (f.fecha && f.fecha.getTime() >= corte)),
+  );
+  const canjeados = canjes.reduce((s, f) => s + Math.abs(f.puntos), 0);
+  const tasa = Math.min(100, estPct(canjeados, ganados));
+
+  estEl("estPuntos").innerHTML = `
+    <div class="est-pts-row">
+      <div class="est-pts-top"><span>Ganados por compras</span><b>${ganados.toLocaleString("es-PE")}</b></div>
+      <div class="est-meter lg"><i style="width:${ganados ? 100 : 0}%"></i></div>
+    </div>
+    <div class="est-pts-row">
+      <div class="est-pts-top"><span>Canjeados (${canjes.length} ${canjes.length === 1 ? "canje" : "canjes"})</span><b>${canjeados.toLocaleString("es-PE")}</b></div>
+      <div class="est-meter lg gold"><i style="width:${tasa}%"></i></div>
+    </div>
+    <div class="est-rate"><span>Tasa de canje</span><b>${tasa.toFixed(0)}%</b></div>
+    <div class="est-fact" style="margin-top:10px;"><span>Puntos en circulación ahora</span><span>${circulacion.toLocaleString("es-PE")}</span></div>`;
+}
+
+/* Día fuerte, hora pico y tipo de entrega */
+function estHabitos(enRango) {
+  const dias = Array(7).fill(0), horas = Array(24).fill(0), entregas = {};
+  enRango.forEach((p) => {
+    if (p.ok) {
+      dias[p.fecha.getDay()]++;
+      horas[p.fecha.getHours()]++;
+    }
+    if (p.entrega) entregas[p.entrega] = (entregas[p.entrega] || 0) + 1;
+  });
+
+  const maxDia = Math.max(...dias);
+  const idxDia = dias.indexOf(maxDia);
+  estEl("estSemana").innerHTML = EST_DIAS_ORDEN.map((d, i) => {
+    const alto = Math.max(4, maxDia ? Math.round((dias[d] / maxDia) * 60) : 4);
+    return `<div class="est-bar-col" title="${EST_DIAS_CORTO[d]}: ${dias[d]} pedidos">
+      <div class="est-bar-val">${dias[d]}</div>
+      <div class="est-bar ${d === idxDia && maxDia > 0 ? "" : "dim"}" style="--i:${i};height:${alto}px"></div>
+      <div class="est-bar-lbl">${EST_DIAS_CORTO[d]}</div>
+    </div>`;
+  }).join("");
+
+  const maxHora = Math.max(...horas);
+  const h = horas.indexOf(maxHora);
+  const topEntrega = Object.entries(entregas).sort((a, b) => b[1] - a[1])[0];
+
+  estEl("estHabitos").innerHTML = `
+    <div class="est-fact"><span>Día más fuerte</span><span>${maxDia ? EST_DIAS_LARGO[idxDia] : "—"}</span></div>
+    <div class="est-fact"><span>Hora pico</span><span>${maxHora ? `${estPad(h)}:00 – ${estPad((h + 1) % 24)}:00` : "—"}</span></div>
+    <div class="est-fact"><span>Entrega más usada</span><span>${topEntrega ? escapeHtml(topEntrega[0]) : "—"}</span></div>`;
+}
+
+/* Completa la tarjeta "Canjes este mes" que antes mostraba "—" */
+function estCanjesDelMes() {
+  const el = estEl("statCanjes");
+  if (!el || !Array.isArray(histFilas) || !histFilas.length) return;
+  const hoy = new Date();
+  const n = histFilas.filter(
+    (f) =>
+      (f.estado === "usado" || f.estado === "activo" || f.estado === "presencial") &&
+      f.puntos < 0 &&
+      f.fecha &&
+      f.fecha.getFullYear() === hoy.getFullYear() &&
+      f.fecha.getMonth() === hoy.getMonth(),
+  ).length;
+  el.textContent = n;
+}
+
+/* Chips 30 días / 90 días / Todo */
+document.querySelectorAll("#estRangoChips .hist-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll("#estRangoChips .hist-chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    estRangoDias = Number(chip.dataset.dias);
+    renderEstadisticas();
+  });
+});
+/* ===================================================================
+   ESTADÍSTICAS DE CANJES
+   Pegar en fidelizacion.js DESPUÉS del bloque de "Estadísticas de
+   clientes" (usa sus ayudas: estEl, estSoles, estCorto, estPct,
+   estPad, estAnimar y las constantes EST_*).
+   Lee histFilas, que ya cargas en loadHistorial. Sin lecturas extra.
+   =================================================================== */
+let hstRangoDias = 30;
+
+const HST_ESTADOS = [
+  { k: "usado", label: "Usados en pedido", color: "var(--success)" },
+  { k: "activo", label: "Activos (sin usar)", color: "var(--gold)" },
+  { k: "presencial", label: "Presenciales (admin)", color: "var(--violet-bright)" },
+  { k: "cancelado", label: "Cancelados", color: "var(--danger)" },
+  { k: "ajuste", label: "Ajustes de puntos", color: "#6b6b78" },
+];
+const hstEsCanje = (f) => f.estado === "usado" || f.estado === "activo" || f.estado === "presencial";
+
+function renderEstadisticasCanjes() {
+  if (!estEl("hstKpis")) return;
+  const corte = hstRangoDias > 0 ? Date.now() - hstRangoDias * EST_DIA_MS : 0;
+  const todas = Array.isArray(histFilas) ? histFilas : [];
+  const enRango = todas.filter((f) => hstRangoDias === 0 || (f.fecha && f.fecha.getTime() >= corte));
+
+  estEl("hstRangoTxt").textContent = hstRangoDias === 0 ? "Todo el historial" : `Últimos ${hstRangoDias} días`;
+  hstKpis(enRango);
+  hstMeses(todas);
+  hstEstados(enRango);
+  hstRanking("hstTopRec", enRango, (f) => f.recompensa, "canje");
+  hstRanking("hstTopCli", enRango, (f) => f.cliente, "canje");
+  hstHabitos(enRango);
+}
+
+function hstKpis(enRango) {
+  const canjes = enRango.filter(hstEsCanje);
+  const puntos = canjes.reduce((s, f) => s + Math.abs(f.puntos || 0), 0);
+  const cupones = enRango.filter((f) => f.grupo !== "admin");
+  const usados = cupones.filter((f) => f.estado === "usado").length;
+  const activos = cupones.filter((f) => f.estado === "activo");
+  const presenciales = canjes.filter((f) => f.estado === "presencial").length;
+  const desdeTarjeta = canjes.length - presenciales;
+  const viejos = activos.filter((f) => f.fecha && Date.now() - f.fecha.getTime() > 7 * EST_DIA_MS).length;
+
+  estAnimar("hstCanjes", canjes.length, (v) => String(Math.round(v)));
+  estEl("hstCanjesSub").textContent = `${desdeTarjeta} desde la tarjeta · ${presenciales} presenciales`;
+  estAnimar("hstPuntos", puntos, (v) => Math.round(v).toLocaleString("es-PE"));
+  estAnimar("hstUso", estPct(usados, cupones.length), (v) => v.toFixed(0) + "%");
+  estEl("hstUsoSub").textContent = cupones.length
+    ? `${usados} de ${cupones.length} cupones se usaron`
+    : "aún no hay cupones en el periodo";
+  estAnimar("hstPend", activos.length, (v) => String(Math.round(v)));
+  estEl("hstPendSub").textContent = viejos
+    ? `${viejos} llevan más de 7 días sin usarse`
+    : "cupones activos";
+}
+
+/* Canjes por mes (últimos 6 meses, sin importar el rango) */
+function hstMeses(todas) {
+  const hoy = new Date();
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+    meses.push({ y: d.getFullYear(), m: d.getMonth(), n: 0, pts: 0 });
+  }
+  todas.forEach((f) => {
+    if (!hstEsCanje(f) || !f.fecha) return;
+    const b = meses.find((x) => x.y === f.fecha.getFullYear() && x.m === f.fecha.getMonth());
+    if (b) {
+      b.n++;
+      b.pts += Math.abs(f.puntos || 0);
+    }
+  });
+  const max = Math.max(1, ...meses.map((x) => x.n));
+  estEl("hstMeses").innerHTML = meses
+    .map((b, i) => `<div class="est-bar-col" title="${EST_MESES[b.m]} ${b.y}: ${b.n} canjes · ${b.pts} pts">
+      <div class="est-bar-val">${b.n}</div>
+      <div class="est-bar ${i < 5 ? "dim" : ""}" style="--i:${i};height:${Math.max(4, Math.round((b.n / max) * 110))}px"></div>
+      <div class="est-bar-lbl">${EST_MESES[b.m]}</div>
+      <div class="est-bar-sub">${estCorto(b.pts)} pts</div>
+    </div>`)
+    .join("");
+
+  const actual = meses[5].n, previo = meses[4].n, delta = estEl("hstMesesDelta");
+  if (previo > 0) {
+    const c = ((actual - previo) / previo) * 100;
+    delta.innerHTML = `<span class="badge ${c > 0 ? "on" : c < 0 ? "off" : "neutral"}">${c > 0 ? "▲" : c < 0 ? "▼" : "•"} ${Math.abs(c).toFixed(0)}% vs mes anterior</span>`;
+  } else if (actual > 0) {
+    delta.innerHTML = `<span class="badge on">Mes con actividad nueva</span>`;
+  } else {
+    delta.innerHTML = "";
+  }
+}
+
+/* Estado de los movimientos + ajustes manuales */
+function hstEstados(enRango) {
+  const conteo = {};
+  HST_ESTADOS.forEach((e) => (conteo[e.k] = 0));
+  enRango.forEach((f) => {
+    if (conteo[f.estado] != null) conteo[f.estado]++;
+  });
+  const total = enRango.length;
+
+  estEl("hstEstadoBar").innerHTML = total
+    ? HST_ESTADOS.filter((e) => conteo[e.k])
+        .map((e, i) => `<i style="width:${estPct(conteo[e.k], total)}%;background:${e.color};animation-delay:${i * 80}ms" title="${e.label}: ${conteo[e.k]}"></i>`)
+        .join("")
+    : "";
+  estEl("hstEstadoLeg").innerHTML = total
+    ? HST_ESTADOS.map((e) => `<div class="est-leg-row"><i class="est-dot" style="background:${e.color}"></i>${e.label}<b>${conteo[e.k]} · ${estPct(conteo[e.k], total).toFixed(0)}%</b></div>`).join("")
+    : `<div class="est-empty">Sin movimientos en este periodo.</div>`;
+
+  const ajustes = enRango.filter((f) => f.estado === "ajuste");
+  const suma = ajustes.filter((f) => f.puntos > 0).reduce((s, f) => s + f.puntos, 0);
+  const resta = ajustes.filter((f) => f.puntos < 0).reduce((s, f) => s + Math.abs(f.puntos), 0);
+  estEl("hstAjustes").innerHTML = `
+    <div class="est-fact"><span>Puntos regalados / sumados</span><span>+${suma.toLocaleString("es-PE")}</span></div>
+    <div class="est-fact"><span>Puntos restados</span><span>−${resta.toLocaleString("es-PE")}</span></div>`;
+}
+
+/* Ranking genérico (por recompensa o por cliente) */
+function hstRanking(idEl, enRango, clave, unidad) {
+  const mapa = {};
+  enRango.filter(hstEsCanje).forEach((f) => {
+    const k = clave(f) || "—";
+    if (!mapa[k]) mapa[k] = { nombre: k, n: 0, pts: 0 };
+    mapa[k].n++;
+    mapa[k].pts += Math.abs(f.puntos || 0);
+  });
+  const top = Object.values(mapa).sort((a, b) => b.n - a.n || b.pts - a.pts).slice(0, 5);
+  const el = estEl(idEl);
+  if (!top.length) {
+    el.innerHTML = `<div class="est-empty">Aún no hay canjes en este periodo.</div>`;
+    return;
+  }
+  const max = top[0].n || 1;
+  el.innerHTML = top
+    .map((c, i) => `<div class="est-rank-row">
+      <div class="est-pos">${i + 1}</div>
+      <div class="est-rank-main">
+        <div class="est-rank-name">${escapeHtml(c.nombre)}</div>
+        <div class="est-rank-sub">${c.pts.toLocaleString("es-PE")} pts</div>
+        <div class="est-meter"><i style="width:${(c.n / max) * 100}%;animation-delay:${i * 70}ms"></i></div>
+      </div>
+      <div class="est-rank-amt">${c.n} ${c.n === 1 ? unidad : unidad + "s"}</div>
+    </div>`)
+    .join("");
+}
+
+/* Día fuerte, hora pico y cuánto tardan en usar el cupón */
+function hstHabitos(enRango) {
+  const canjes = enRango.filter((f) => hstEsCanje(f) && f.fecha);
+  const dias = Array(7).fill(0), horas = Array(24).fill(0);
+  canjes.forEach((f) => {
+    dias[f.fecha.getDay()]++;
+    horas[f.fecha.getHours()]++;
+  });
+  const maxDia = Math.max(...dias), idxDia = dias.indexOf(maxDia);
+  estEl("hstSemana").innerHTML = EST_DIAS_ORDEN.map((d, i) => {
+    const alto = Math.max(4, maxDia ? Math.round((dias[d] / maxDia) * 60) : 4);
+    return `<div class="est-bar-col" title="${EST_DIAS_CORTO[d]}: ${dias[d]} canjes">
+      <div class="est-bar-val">${dias[d]}</div>
+      <div class="est-bar ${d === idxDia && maxDia > 0 ? "" : "dim"}" style="--i:${i};height:${alto}px"></div>
+      <div class="est-bar-lbl">${EST_DIAS_CORTO[d]}</div>
+    </div>`;
+  }).join("");
+
+  const maxHora = Math.max(...horas), h = horas.indexOf(maxHora);
+
+  // Tiempo promedio entre que se genera el cupón y se usa en un pedido
+  const tiempos = [];
+  enRango.forEach((f) => {
+    if (f.estado !== "usado" || !f.fecha || !f.raw) return;
+    const u = toDateSafe(f.raw.usadoEn || f.raw.fechaUso);
+    if (u && u >= f.fecha) tiempos.push(u.getTime() - f.fecha.getTime());
+  });
+  let tardaTxt = "—";
+  if (tiempos.length) {
+    const horasProm = tiempos.reduce((s, x) => s + x, 0) / tiempos.length / 3600000;
+    tardaTxt = horasProm < 1 ? "menos de 1 hora" : horasProm < 48 ? `${Math.round(horasProm)} h` : `${(horasProm / 24).toFixed(1)} días`;
+  }
+
+  estEl("hstHabitos").innerHTML = `
+    <div class="est-fact"><span>Día con más canjes</span><span>${maxDia ? EST_DIAS_LARGO[idxDia] : "—"}</span></div>
+    <div class="est-fact"><span>Hora pico</span><span>${maxHora ? `${estPad(h)}:00 – ${estPad((h + 1) % 24)}:00` : "—"}</span></div>
+    <div class="est-fact"><span>Tardan en usar el cupón</span><span>${tardaTxt}</span></div>`;
+}
+
+/* Chips 30 días / 90 días / Todo */
+document.querySelectorAll("#hstRangoChips .hist-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll("#hstRangoChips .hist-chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    hstRangoDias = Number(chip.dataset.dias);
+    renderEstadisticasCanjes();
+  });
+});
 /* ===================================================================
    INIT
    Ya no hay selector de tienda: tiendaId viene por parámetro de URL

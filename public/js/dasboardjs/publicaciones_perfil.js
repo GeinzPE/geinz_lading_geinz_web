@@ -66,6 +66,22 @@ function dataURLtoBlob(dataURL) {
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return new Blob([arr], { type: mime });
 }
+function abrirVisor(url) {
+  if (!url) return;
+  const ov = document.createElement("div");
+  ov.className = "of-visor";
+  ov.innerHTML = `<button type="button" class="of-visor-close">✕</button><img alt="">`;
+  ov.querySelector("img").src = url;
+  const onKey = (e) => { if (e.key === "Escape") cerrar(); };
+  const cerrar = () => {
+    document.removeEventListener("keydown", onKey);
+    ov.classList.add("out");
+    setTimeout(() => ov.remove(), 200);
+  };
+  ov.addEventListener("click", cerrar);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(ov);
+}
 
 // ══════════════ BANNER ══════════════
 const bDesc = document.getElementById("bannerDescripcion");
@@ -83,9 +99,9 @@ const bDescuentoValor = document.getElementById("bannerDescuentoValor");
 const bDescuentoUnidad = document.getElementById("bannerDescuentoUnidad");
 const bClickSub = document.getElementById("bannerClickSub");
 const bSoloSeguidores = document.getElementById("bannerSoloSeguidoresSwitch");
-const bUnaVez = document.getElementById("bannerUnaVezSwitch");
+
 const bSoloSeguidoresRow = document.getElementById("bannerSoloSeguidoresRow");
-const bUnaVezRow = document.getElementById("bannerUnaVezRow");
+
 
 const BANNER_CLICK_SUB = {
   producto: "Si lo activas, al tocar el banner se abrirá el carrito con este producto. La descripción y el precio serán obligatorios.",
@@ -128,7 +144,7 @@ function bannerLeerDescuento() {
 let bannerGuardado = {
   descripcion: "", precio: null, clickeable: false,
   tipo: "producto", descuentoTipo: "porcentaje", descuentoValor: null,
-  soloSeguidores: false, unaVezPorCliente: false,
+  soloSeguidores: false,
 };
 let bannerTipoActual = "producto";
 let bannerDescuentoTipoActual = "porcentaje";
@@ -149,8 +165,8 @@ const bannerHayCambios = () =>
   bannerTipoActual !== (bannerGuardado.tipo || "producto") ||
   bannerDescuentoTipoActual !== (bannerGuardado.descuentoTipo || "porcentaje") ||
   (bannerLeerDescuento() || 0) !== (bannerGuardado.descuentoValor || 0) ||
-  !!bSoloSeguidores?.checked !== !!bannerGuardado.soloSeguidores ||
-  !!bUnaVez?.checked !== !!bannerGuardado.unaVezPorCliente;
+  !!bSoloSeguidores?.checked !== !!bannerGuardado.soloSeguidores;
+
 // Si es clickeable → descripción y precio obligatorios. Si no → opcionales.
 function validarBanner() {
   const obligatorio = bClick.checked;
@@ -176,7 +192,7 @@ function validarBanner() {
   document.getElementById("bannerDescuentoBox")?.classList.toggle("error", faltaDescuento);
 
   if (bSoloSeguidoresRow) bSoloSeguidoresRow.style.display = obligatorio ? "" : "none";
-  if (bUnaVezRow) bUnaVezRow.style.display = obligatorio ? "" : "none";
+
 
   bBtnGuardar.disabled = faltaDesc || faltaPrecio || faltaDescuento;
 
@@ -234,7 +250,7 @@ async function cargarBanner() {
     c.classList.toggle("active", c.dataset.descuentoTipo === bannerDescuentoTipoActual),
   );
   if (bSoloSeguidores) bSoloSeguidores.checked = bannerGuardado.soloSeguidores;
-  if (bUnaVez) bUnaVez.checked = bannerGuardado.unaVezPorCliente;
+  
   pintarTipoBanner();
 }
 
@@ -245,7 +261,7 @@ bBtnGuardar?.addEventListener("click", async () => {
   const clickeable = bClick.checked;
   const tipo = bannerTipoActual;
   const soloSeguidores = !!bSoloSeguidores?.checked;
-  const unaVezPorCliente = !!bUnaVez?.checked;
+
 
   if (clickeable) {
     if (!descripcion) { validarBanner(); return; }
@@ -269,15 +285,14 @@ bBtnGuardar?.addEventListener("click", async () => {
       "banner.tipo": tipo,
       "banner.descuentoTipo": tipo === "descuento" ? bannerDescuentoTipoActual : deleteField(),
       "banner.descuentoValor": tipo === "descuento" && descuentoValor ? descuentoValor : deleteField(),
-      "banner.soloSeguidores": soloSeguidores,
-      "banner.unaVezPorCliente": unaVezPorCliente,
+ 
     });
-    bannerGuardado = {
-      descripcion, precio: tipo === "producto" ? precio : null, clickeable,
-      tipo, descuentoTipo: bannerDescuentoTipoActual,
-      descuentoValor: tipo === "descuento" ? descuentoValor : null,
-      soloSeguidores, unaVezPorCliente,
-    };
+bannerGuardado = {
+  descripcion, precio: tipo === "producto" ? precio : null, clickeable,
+  tipo, descuentoTipo: bannerDescuentoTipoActual,
+  descuentoValor: tipo === "descuento" ? descuentoValor : null,
+  soloSeguidores,
+};
     bannerSetMsg("Cambios guardados", "ok");
     setTimeout(() => { if (bMsg.classList.contains("ok")) bannerSetMsg(""); }, 1500);
     mostrarToast("Banner actualizado correctamente");
@@ -298,6 +313,10 @@ document.getElementById("btnCambiarBanner")?.addEventListener("click", () => {
   document.getElementById("bannerFileInput").click();
 });
 
+document.getElementById("bannerPreviewWrap")?.addEventListener("click", () => {
+  const img = document.getElementById("bannerImgPreview");
+  if (img && img.style.display !== "none" && img.src) abrirVisor(img.src);
+});
 document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -446,29 +465,30 @@ function renderOfertas(map) {
     const card = document.createElement("div");
     card.className = "of-card";
     card.dataset.key = key;
-    card.innerHTML = `
-      <div class="of-img" data-role="img-wrap">
-        <img src="${item.imagen}" alt="">
-        <button type="button" class="of-del" data-role="del" title="Eliminar oferta">✕</button>
-        <div class="of-img-hint">Cambiar imagen</div>
-      </div>
-      <div class="of-body">
-        <textarea class="of-desc" data-role="desc" rows="2" maxlength="80" placeholder="Descripción corta (obligatoria)"></textarea>
-        <div class="of-price" data-role="price-box">
-          <span>S/</span>
-          <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio (obligatorio)">
-        </div>
-        <p class="of-msg" data-role="msg"></p>
-        <button type="button" class="of-save" data-role="save" disabled>Guardar</button>
-      </div>
-    `;
+  card.innerHTML = `
+  <div class="of-img" data-role="img-wrap">
+    <img src="${item.imagen}" alt="">
+    <button type="button" class="of-edit" data-role="edit">📷 Cambiar</button>
+    <button type="button" class="of-del" data-role="del" title="Eliminar oferta">✕</button>
+    <span class="of-price-tag vacio" data-role="tag">Sin precio</span>
+  </div>
+  <div class="of-body">
+    <textarea class="of-desc" data-role="desc" rows="2" maxlength="80" placeholder="Descripción corta (obligatoria)"></textarea>
+    <div class="of-price" data-role="price-box">
+      <span>S/</span>
+      <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio (obligatorio)">
+    </div>
+    <p class="of-msg" data-role="msg"></p>
+    <button type="button" class="of-save" data-role="save" disabled>Guardar</button>
+  </div>
+`;
 
     const desc = card.querySelector('[data-role="desc"]');
     const precio = card.querySelector('[data-role="precio"]');
     const priceBox = card.querySelector('[data-role="price-box"]');
     const msg = card.querySelector('[data-role="msg"]');
     const btn = card.querySelector('[data-role="save"]');
-
+const tag = card.querySelector('[data-role="tag"]');
     desc.value = item.descripcion || "";
     precio.value = Number(item.precio) > 0 ? item.precio : "";
 
@@ -499,6 +519,9 @@ function renderOfertas(map) {
       priceBox.classList.toggle("error", faltan.includes("precio"));
       card.classList.toggle("falta-precio", faltan.length > 0);
       btn.disabled = faltan.length > 0;
+      const p = leerPrecio();
+tag.textContent = p ? "S/ " + p.toFixed(2) : "Sin precio";
+tag.classList.toggle("vacio", !p);
       card.classList.toggle("dirty", faltan.length === 0 && hayCambios());
 
       if (faltan.length) setMsg("Falta " + faltan.join(" y "), "error");
@@ -547,14 +570,18 @@ function renderOfertas(map) {
       }
     });
 
-    card.querySelector('[data-role="img-wrap"]').addEventListener("click", (e) => {
-      if (e.target.closest('[data-role="del"]')) return;
-      cambiarImagenOferta(key);
-    });
-    card.querySelector('[data-role="del"]').addEventListener("click", (e) => {
-      e.stopPropagation();
-      eliminarOferta(key);
-    });
+card.querySelector('[data-role="img-wrap"]').addEventListener("click", (e) => {
+  if (e.target.closest('[data-role="del"]') || e.target.closest('[data-role="edit"]')) return;
+  abrirVisor(normalizarOferta(ofertasCache[key]).imagen);
+});
+card.querySelector('[data-role="edit"]').addEventListener("click", (e) => {
+  e.stopPropagation();
+  cambiarImagenOferta(key);
+});
+card.querySelector('[data-role="del"]').addEventListener("click", (e) => {
+  e.stopPropagation();
+  eliminarOferta(key);
+});
 
     grid.appendChild(card);
   });
