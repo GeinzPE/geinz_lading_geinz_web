@@ -257,9 +257,14 @@ function actualizarBloquePagoQR() {
   const mp = negocioMetodosPagoActual;
   if (!p || !mp) { card.classList.add("hidden"); return; }
 
-  const esDelivery = p.cliente?.tipo_entrega === "Delivery";
+  // Cualquier método que no sea efectivo (Yape, Plin, Visa, Agora)
   const metodoKey = detectarMetodoPagoConDatos(p.pago?.metodo);
-  if (!esDelivery || !metodoKey) { card.classList.add("hidden"); return; }
+  const esMesa = !!p.mesa || p.cliente?.tipo_entrega === "Mesa";
+  const estado = normalizarEstado(p.estado);
+  if (!metodoKey || esMesa || estado === "rechazado") {
+    card.classList.add("hidden");
+    return;
+  }
 
   const info = mp[metodoKey];
   if (!info || !info.enable) { card.classList.add("hidden"); return; }
@@ -268,9 +273,6 @@ function actualizarBloquePagoQR() {
   el("pago-qr-metodo-label").textContent =
     LABELS_METODO_PAGO_DATOS[metodoKey] || metodoKey;
 
-  // El QR solo se muestra si el negocio configuró uno para ese método.
-  // Para Visa/Mastercard o Agora, normalmente no hay QR: se muestra
-  // solo el número/nombre de cuenta y el botón de subir comprobante.
   const qrImg = el("pago-qr-img");
   if (info.qr) {
     qrImg.src = info.qr;
