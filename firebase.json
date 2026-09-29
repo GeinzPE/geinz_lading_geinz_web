@@ -43,11 +43,11 @@
     "rewrites": [
       {
         "source": "/perfil/*/carrito",
-        "destination": "/carrito/carrito.html"
+        "function": "carritoShare"
       },
       {
         "source": "/carrito",
-        "function": "carritoSSR"
+        "function": "carritoShare"
       },
       {
         "source": "/perfil/*/libro_reclamaciones",
@@ -103,7 +103,7 @@
       },
       {
         "source": "/perfil/**",
-        "function": "perfilSSR"
+        "function": "perfilShare"
       },
       {
         "source": "/turismo/**",
@@ -155,11 +155,11 @@
       },
       {
         "source": "/",
-        "function": "perfilSSR"
+        "function": "perfilShare"
       },
       {
         "source": "!/ffmpeg/**",
-   "destination": "/app-shell.html"
+        "destination": "/app-shell.html"
       }
     ]
   }

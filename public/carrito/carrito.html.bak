@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -6,8 +6,7 @@
   <base href="/carrito/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Carrito · Geinz</title>
-  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-  <link rel="stylesheet" href="../../style/tailwind.css">
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Manrope:wght@800&display=swap"
@@ -255,7 +254,7 @@
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.3-4.3" />
           </svg>
-          <input id="searchInput" class="search-input" type="text" placeholder="Buscar producto" autocomplete="off">
+          <input id="searchInput" class="search-input" type="text" placeholder="Buscar producto…" autocomplete="off">
           <div id="searchClear" class="search-clear">✕</div>
         </div>
       </div>

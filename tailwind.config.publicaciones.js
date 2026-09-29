@@ -2,6 +2,7 @@
 
 module.exports = {
   darkMode: 'class',
+  corePlugins: { preflight: false },
   content: [
     './**/*.html',
     './**/*.js',

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -7,8 +7,7 @@
   <title>Tarjeta de Fidelización</title>
 
   <!-- Tailwind CSS -->
-  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-  <link rel="stylesheet" href="../../style/tailwind.css">
+  <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Tipografías: Sora, Inter, IBM Plex Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">

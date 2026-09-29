@@ -19,5 +19,8 @@
   "description": "",
   "devDependencies": {
     "tailwindcss": "^3.4.19"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.7.3"
   }
 }

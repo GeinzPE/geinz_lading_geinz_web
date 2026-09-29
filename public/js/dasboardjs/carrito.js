@@ -2039,13 +2039,12 @@ function applyFilters() {
   }
   if (filtroTexto) {
     const palabras = filtroTexto.split(/\s+/).filter(Boolean);
-    resultado = resultado.filter((p) =>
-      palabras.every(
-        (w) => p.nombreNorm.includes(w) || p.categoriaNorm.includes(w),
-      ),
-    );
+    resultado = resultado.filter((p) => {
+      const nombre = p.nombreNorm ?? normalizeText(p.nombre);
+      const cat = p.categoriaNorm ?? normalizeText(p.categoria);
+      return palabras.every((w) => nombre.includes(w) || cat.includes(w));
+    });
   }
-
   const resultCountEl = document.getElementById("resultCount");
   if (filtroTexto || filtroCategoria !== "Todos") {
     resultCountEl.textContent = `${resultado.length} resultado(s)`;
