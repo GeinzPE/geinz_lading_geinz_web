@@ -2501,6 +2501,34 @@ function calcPrecioFinal(p, seleccion) {
   });
   return +precio.toFixed(2);
 }
+function horaAMin(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s || "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+function hora12(s) {
+  const n = horaAMin(s);
+  if (n == null) return s || "";
+  let h = Math.floor(n / 60);
+  const suf = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${String(n % 60).padStart(2, "0")} ${suf}`;
+}
+function minutosLimaAhora(f = new Date()) {
+  const p = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Lima", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(f);
+  return Number(p.find((x) => x.type === "hour").value) * 60 +
+         Number(p.find((x) => x.type === "minute").value);
+}
+function recargoEnHora(r, f = new Date()) {
+  if (!r || !r.activo) return 0;
+  const monto = Number(r.monto) || 0;
+  const ini = horaAMin(r.desde), fin = horaAMin(r.hasta);
+  if (monto <= 0 || ini == null || fin == null || ini === fin) return 0;
+  const now = minutosLimaAhora(f);
+  const dentro = ini < fin ? now >= ini && now < fin : now >= ini || now < fin;
+  return dentro ? monto : 0;
+}
 function getDeliveryCfg() {
   const d = bizData?.delivery;
   if (!d) return null;
@@ -2559,7 +2587,7 @@ function infoDeliveryPedido() {
   return { costo: r.costo, zona: r.zona || null, aprox: !!r.aprox, gratis: !!r.gratis, recargo: r.recargo || 0, modo: getDeliveryCfg()?.modo || null };
 }
 const DELIVERY_UI_CSS = `
-.dlv-card{margin-top:10px;padding:14px;border-radius:18px;font-size:12.5px;line-height:1.45;
+.dlv-card{margin:4px 0 2px;padding:14px;border-radius:18px;font-size:12.5px;line-height:1.45;
   background:linear-gradient(160deg,rgba(var(--dr),var(--dg),var(--db),.14),rgba(var(--dr),var(--dg),var(--db),.04));
   border:1px solid rgba(var(--dr),var(--dg),var(--db),.35);}
 .dlv-card.hidden{display:none;}
@@ -2575,8 +2603,8 @@ const DELIVERY_UI_CSS = `
 .dlv-cost{display:flex;justify-content:space-between;align-items:center;margin-top:10px;
   padding:9px 12px;border-radius:12px;background:rgba(0,0,0,.25);font-weight:700;}
 .dlv-cost b{font-size:15px;}
-.dlv-note{margin-top:9px;padding:8px 11px;border-radius:12px;font-size:11.5px;font-weight:700;
-  background:rgba(251,191,36,.10);border:1px solid rgba(251,191,36,.3);color:#fcd34d;}
+.dlv-note{margin-top:10px;padding:9px 12px;border-radius:12px;font-size:11.5px;font-weight:600;line-height:1.4;
+  background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.35);color:#fcd34d;}
 .dlv-note.on{background:rgba(248,113,113,.10);border-color:rgba(248,113,113,.35);color:#fca5a5;}
 .dlv-muted{color:#8b8b95;font-weight:500;}
 `;
@@ -2595,7 +2623,7 @@ function pintarDeliveryInfo() {
   if (!el) {
     el = document.createElement("div");
     el.id = "deliveryInfo";
-    document.getElementById("ubicacionStatus")?.after(el);
+     document.getElementById("direccionCollapse")?.after(el);
   }
   el.className = "dlv-card";
   el.style.cssText = "";
