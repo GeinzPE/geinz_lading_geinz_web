@@ -526,6 +526,328 @@
                 width: 220px;
             }
         }
+
+        .fx-card {
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            border-radius: 28px;
+            padding: 22px 24px;
+            background:
+                linear-gradient(135deg, rgba(var(--dr), var(--dg), var(--db), .30) 0%, rgba(var(--dr), var(--dg), var(--db), .08) 55%, rgba(255, 255, 255, .02) 100%);
+            border: 1px solid rgba(var(--dr), var(--dg), var(--db), .42);
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 22px 50px -26px rgba(var(--dr), var(--dg), var(--db), .6), inset 0 1px 0 rgba(255, 255, 255, .08);
+            transition: transform .3s cubic-bezier(.22, .85, .32, 1), box-shadow .3s ease, border-color .3s ease;
+            outline: none;
+        }
+
+        .fx-card::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -60%;
+            width: 35%;
+            height: 100%;
+            background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .10), transparent);
+            transform: skewX(-20deg);
+            animation: fxShine 5s ease-in-out 1.2s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes fxShine {
+            0% {
+                left: -60%;
+            }
+
+            50%,
+            100% {
+                left: 140%;
+            }
+        }
+
+        .fx-card:hover,
+        .fx-card:focus-visible {
+            transform: translateY(-3px);
+            border-color: rgba(var(--dr), var(--dg), var(--db), .75);
+            box-shadow: 0 28px 60px -22px rgba(var(--dr), var(--dg), var(--db), .7), inset 0 1px 0 rgba(255, 255, 255, .12);
+        }
+
+        .fx-card:active {
+            transform: scale(.99);
+        }
+
+        .fx-glow {
+            position: absolute;
+            top: -90px;
+            right: -60px;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(var(--dr), var(--dg), var(--db), .45), transparent 70%);
+            filter: blur(24px);
+            pointer-events: none;
+        }
+
+        .fx-main {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .fx-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 20px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            background: linear-gradient(135deg, rgba(var(--dr), var(--dg), var(--db), .35), rgba(var(--dr), var(--dg), var(--db), .12));
+            border: 1px solid rgba(var(--dr), var(--dg), var(--db), .55);
+            box-shadow: 0 10px 24px -8px rgba(var(--dr), var(--dg), var(--db), .6);
+        }
+
+        .fx-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .fx-text h3 {
+            margin: 0 0 4px;
+            font-size: 19px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -.01em;
+            line-height: 1.25;
+        }
+
+        .fx-text p {
+            margin: 0;
+            font-size: 13.5px;
+            line-height: 1.5;
+            color: #b4b4ba;
+        }
+
+        .fx-cta {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            border-radius: 999px;
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #fff;
+            background: linear-gradient(135deg, rgb(var(--dr), var(--dg), var(--db)), rgba(var(--dr), var(--dg), var(--db), .7));
+            box-shadow: 0 10px 24px -8px rgba(var(--dr), var(--dg), var(--db), .6);
+        }
+
+        .fx-arrow {
+            transition: transform .25s cubic-bezier(.34, 1.4, .4, 1);
+        }
+
+        .fx-card:hover .fx-arrow {
+            transform: translateX(4px);
+        }
+
+        .fx-meta {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .fx-meta:empty {
+            display: none;
+        }
+
+        .fx-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 13px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #e4e4e7;
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid rgba(255, 255, 255, .12);
+        }
+
+        .fx-chip.warn {
+            color: #fde68a;
+            background: rgba(251, 191, 36, .1);
+            border-color: rgba(251, 191, 36, .4);
+        }
+
+        /* ── Móvil ── */
+        @media (max-width:640px) {
+            .fx-card {
+                padding: 18px 16px;
+                border-radius: 24px;
+            }
+
+            .fx-main {
+                flex-wrap: wrap;
+                gap: 14px;
+            }
+
+            .fx-icon {
+                width: 52px;
+                height: 52px;
+                border-radius: 17px;
+                font-size: 24px;
+            }
+
+            .fx-text {
+                flex: 1 1 calc(100% - 70px);
+            }
+
+            .fx-text h3 {
+                font-size: 16.5px;
+            }
+
+            .fx-text p {
+                font-size: 12.5px;
+            }
+
+            .fx-cta {
+                width: 100%;
+                justify-content: center;
+                padding: 13px 18px;
+            }
+
+            .fx-meta {
+                margin-top: 14px;
+                padding-top: 14px;
+            }
+
+            .fx-chip {
+                font-size: 11.5px;
+                padding: 6px 11px;
+            }
+        }
+
+        /* ── Contacto + Fidelización ── */
+        .contact-fidel-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .contact-fidel-grid>section {
+            margin-bottom: 0 !important;
+        }
+
+        @media (min-width:900px) {
+            .contact-fidel-grid.two-cols {
+                grid-template-columns: 1fr 1fr;
+                align-items: start;
+                /* cada caja mide lo suyo, no se estira */
+            }
+
+            .contact-fidel-grid.two-cols .fx-card {
+                padding: 26px 24px;
+                border-radius: 26px;
+            }
+
+            /* texto arriba, tarjeta abajo y centrada (así no se aprieta el texto de la tarjeta) */
+            .contact-fidel-grid.two-cols .fx-split {
+                grid-template-columns: 1fr;
+                gap: 22px;
+                max-width: none;
+                margin: 0;
+            }
+
+            .contact-fidel-grid.two-cols .fx-left {
+                gap: 14px;
+            }
+
+            .contact-fidel-grid.two-cols .fx-left .fx-icon {
+                width: 48px;
+                height: 48px;
+                font-size: 22px;
+                border-radius: 16px;
+            }
+
+            .contact-fidel-grid.two-cols .fx-left .fx-text h3 {
+                font-size: 19px;
+                line-height: 1.2;
+            }
+
+            .contact-fidel-grid.two-cols .fx-left .fx-text p {
+                font-size: 13.5px;
+            }
+
+            .contact-fidel-grid.two-cols .fx-left .fx-cta {
+                padding: 12px 22px;
+                font-size: 13.5px;
+            }
+
+            .contact-fidel-grid.two-cols .fx-right {
+                justify-content: center;
+            }
+
+            .contact-fidel-grid.two-cols .fx-tarjeta-slot {
+                max-width: 230px;
+                margin: 0 auto;
+            }
+        }
+
+        /* Pantallas muy anchas: aquí sí caben texto a la izquierda y tarjeta a la derecha */
+        @media (min-width:1500px) {
+            .contact-fidel-grid.two-cols .fx-split {
+                grid-template-columns: 1fr 250px;
+                gap: 28px;
+                align-items: center;
+            }
+
+            .contact-fidel-grid.two-cols .fx-tarjeta-slot {
+                max-width: 250px;
+            }
+        }
+        .contact-fidel-grid{display:grid;grid-template-columns:1fr;gap:24px}
+.contact-fidel-grid > section{margin-bottom:0 !important}
+@media (min-width:900px){
+  .contact-fidel-grid.two-cols{grid-template-columns:1fr 1fr;align-items:start}
+}
+/* ── Contacto + Fidelización: mismo alto, tarjeta llena su columna ── */
+.contact-fidel-grid{display:grid;grid-template-columns:1fr;gap:24px}
+.contact-fidel-grid > section{margin-bottom:0 !important}
+
+@media (min-width:900px){
+  .contact-fidel-grid.two-cols{
+    grid-template-columns:1fr 1fr !important;
+    align-items:stretch !important;   /* ← ambas cajas del mismo alto */
+  }
+  .contact-fidel-grid.two-cols .fx-wrap{
+    display:flex !important;
+    align-items:stretch !important;
+    justify-content:stretch !important;
+  }
+  .contact-fidel-grid.two-cols .fx-tarjeta-slot{
+    width:100% !important;
+    max-width:none !important;        /* ← mata el max-width:230px / 250px */
+    margin:0 !important;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+  }
+}
+
+/* móvil: una columna, tarjeta a todo el ancho */
+@media (max-width:899px){
+  .contact-fidel-grid .fx-tarjeta-slot{max-width:none !important;width:100%}
+}
     </style>
 </head>
 
@@ -582,7 +904,7 @@
                         <span id="statusText">Cargando horario...</span>
                     </div>
                 </div>
-                <div id="cats" class="flex flex-wrap gap-3 mb-8"></div>
+
                 <section id="secDesc" class="section glass mb-8 reveal">
                     <div class="section-header">Sobre el negocio</div>
                     <div class="section-body">
@@ -625,9 +947,7 @@
                 <h2 class="text-4xl md:text-6xl font-black leading-[.95]">Ofertas del momento</h2>
             </div>
             <div class="gallery-carousel-wrap" id="promosActivasCarouselWrap">
-                <div class="gallery-carousel-wrap" id="promosActivasCarouselWrap">
-                    <div id="promosActivasGrid" class="promos-activas-scroll-row"></div>
-                </div>
+                <div id="promosActivasGrid" class="promos-activas-scroll-row"></div>
             </div>
         </section>
 
@@ -644,7 +964,8 @@
         <section id="secProductos" class="mb-20 reveal">
             <div class="mb-8">
                 <p class="uppercase tracking-[5px] accent text-sm mb-3">PRODUCTOS Y SERVICIOS</p>
-                <h2 id="productosTitle" class="text-4xl md:text-6xl font-black leading-[.95]">Lo mejor del negocio</h2>
+                <h2 id="productosTitle" class="text-4xl md:text-6xl font-black leading-[.95]">Lo mejor del negocio
+                </h2>
             </div>
             <div class="gallery-carousel-wrap" id="productosCarouselWrap">
                 <div id="productosGrid" class="grid grid-cols-2 md:grid-cols-3 gap-5"></div>
@@ -733,32 +1054,36 @@
                 </div>
             </section>
         </section>
+        <div id="contactFidelWrap" class="contact-fidel-grid mb-10">
 
-        <section id="secContact" class="section glass mb-10 reveal">
-            <div class="section-header">Métodos de contacto</div>
-            <div class="section-body">
-                <div id="contactDetail"></div>
-            </div>
-        </section>
-
-
-
-        <section id="secFidelizacion" class="section glass mb-10 reveal" style="display:none;">
-            <div class="section-header">Programa de fidelización</div>
-            <div class="section-body">
-                <div id="fidelizacionCard" class="fidelizacion-card">
-                    <div class="fidelizacion-top">
-                        <div class="fidelizacion-icon">🎁</div>
-                        <div class="fidelizacion-text">
-                            <h3>Obtén tu tarjeta de fidelización</h3>
-                            <p>Consigue recompensas y descuentos exclusivos en este negocio</p>
-                        </div>
-                        <div class="fidelizacion-arrow">→</div>
-                    </div>
-                    <div id="fidelizacionMeta" class="fidelizacion-meta"></div>
+            <section id="secContact" class="section glass mb-10 reveal">
+                <div class="section-header">Métodos de contacto</div>
+                <div class="section-body">
+                    <div id="contactDetail"></div>
                 </div>
-            </div>
-        </section>
+            </section>
+
+
+
+            <section id="secFidelizacion" class="fx-wrap mb-10 reveal" style="display:none;">
+                <div id="fidelizacionCard" class="fx-card" role="button" tabindex="0"
+                    aria-label="Obtener tarjeta de fidelización">
+                    <div class="fx-glow"></div>
+                    <div class="fx-main">
+                        <div class="fx-icon"><span>🎁</span></div>
+                        <div class="fx-text">
+                            <h3>Obtén tu tarjeta de fidelización</h3>
+                            <p>Consigue recompensas y descuentos exclusivos</p>
+                        </div>
+                        <div class="fx-cta">
+                            <span class="fx-cta-label">Ver mi tarjeta</span>
+                            <span class="fx-arrow">→</span>
+                        </div>
+                    </div>
+                    <div id="fidelizacionMeta" class="fx-meta"></div>
+                </div>
+            </section>
+        </div>
         <section id="secReviews" class="section glass mb-10 reveal" style="visibility:hidden;">
             <div class="section-header">Reseñas y calificaciones</div>
             <div class="section-body">
@@ -818,7 +1143,8 @@
                         <p class="uppercase tracking-[5px] text-sm mb-5" style="color: #fff;">Powered by GEINZ</p>
                         <h2 class="text-5xl md:text-7xl font-black leading-[.95] mb-6">Descubre más negocios,
                             promociones y servicios.</h2>
-                        <p class="text-gray-300 text-lg">Explora negocios modernos y experiencias increíbles dentro de
+                        <p class="text-gray-300 text-lg">Explora negocios modernos y experiencias increíbles dentro
+                            de
                             Geinz.</p>
                     </div>
                     <a id="exploreBtn" href="https://geinztech.com"

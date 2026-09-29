@@ -87,7 +87,7 @@ let promoParam = null; // ?promo=ID que llega desde el botón "Comprar" de la la
 let promosGlobal = []; // promociones ya normalizadas (con precio)
 let cuponParam = null; // código que viene en ?cupon=
 let cuponAplicado = null; // datos del cupón ya validado y en uso
-
+let ofertaParam = null;
 let filtroInicialParam = null; // ?filtro=ofertas viene del "Ver todas" de la landing
 async function resolverParamsCarrito() {
   const path = window.location.pathname;
@@ -153,6 +153,7 @@ async function resolverParamsCarrito() {
   cuponParam = qs.get("cupon") || null;
   promoParam = qs.get("promo") || null;
   // Datos de mesa (siempre vienen como query params)
+  ofertaParam = qs.get("oferta") || null;
   mesaId = qs.get("mesaId") || qs.get("mesa");
   mesaNombre = qs.get("mesaNombre") || qs.get("nombre_mesa");
   mesaNumero = qs.get("mesaNumero") || qs.get("numero_mesa");
@@ -585,14 +586,13 @@ let _promoDetailToken = 0;
 function urlCompartirPromo(p) {
   const base = getLandingBase();
   const id = String(p.promoId || "");
-  if (id.startsWith("activa_")) {
-    return `${base}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${encodeURIComponent(id.slice(7))}`;
-  }
   const alias = aliasNegocio || _bizAliasKey;
-  if (alias) {
-    const perfil = `${base}/perfil/${encodeURIComponent(alias)}`;
-    return id === "banner" ? perfil : `${perfil}?p=${encodeURIComponent(id)}`;
-  }
+  const ruta = window.__NEGOCIO_HOSTNAME__
+    ? `${base}/carrito`
+    : alias
+      ? `${base}/perfil/${encodeURIComponent(alias)}/carrito`
+      : null;
+  if (ruta) return `${ruta}?oferta=${encodeURIComponent(id)}&v=1`;
   return `${base}/api/share?t=ti&id=${encodeURIComponent(tiendaId)}&l=${encodeURIComponent(localidad)}`;
 }
 function abrirPromoDetailModal(p) {
@@ -4317,6 +4317,22 @@ function aplicarFiltroInicial() {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, 300);
 }
+// Link compartido: ?oferta=ID | activa_ID | banner → filtra y abre el diálogo
+function aplicarOfertaDesdeLink(ofertaId) {
+  const p = promosGlobal.find((x) => x.promoId === String(ofertaId));
+  if (!p) {
+    showToast("⚠️ Esa oferta ya no está disponible");
+    return;
+  }
+  setActiveCategoria(p.categoria); // "ofertas 🔥" o "momentaneas⏰"
+  setTimeout(() => {
+    document
+      .getElementById(`card-${p.id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    pulseCard(p.id);
+    abrirPromoDetailModal(p);
+  }, 350);
+}
 // Botón "Comprar" de la landing → llega con ?promo=ID → se agrega sola
 function aplicarPromoDesdeLink(promoId) {
   const p = promosGlobal.find((x) => x.promoId === String(promoId));
@@ -4788,5 +4804,6 @@ async function init() {
     showToast("Sesión iniciada, continúa con tu pedido 🛒");
     if (!mesaId) openCheckout();
   }
+  if (ofertaParam) aplicarOfertaDesdeLink(ofertaParam);
 }
 init();

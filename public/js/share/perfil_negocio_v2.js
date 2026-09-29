@@ -2,6 +2,7 @@ import PhotoSwipeLightbox from "https://cdn.jsdelivr.net/npm/photoswipe@5/dist/p
 window.PhotoSwipeLightbox = PhotoSwipeLightbox;
 import { setFaviconCircular } from "../favicon/favicon.js";
 import { registrarTokenWeb } from "../../notificaciones.js";
+import { montarTarjetaFidelizacion } from "../../tarjeta_fidelizacion_desing/tarjeta.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
@@ -561,6 +562,30 @@ function rutaNegocio(sufijo, alias) {
   return null;
 }
 
+// URL base del perfil: dominio propio → "/" ; geinz → "/perfil/alias"
+function urlPerfilCompartir(alias) {
+  if (_esDominioPersonalizado) return `${_baseShareUrl}`;
+  if (alias) return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}`;
+  return null;
+}
+function urlCompartirCarta(alias) {
+  if (_esDominioPersonalizado) return `${_baseShareUrl}/?carta=1`;
+  if (alias) return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}-carta`;
+  return null;
+}
+
+// URL para compartir una promo (activa o normal) → lleva al carrito con la oferta
+function urlCompartirPromo(alias, promoId, { activa = false } = {}) {
+  const base = _esDominioPersonalizado
+    ? `${_baseShareUrl}/carrito`
+    : alias
+      ? `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}/carrito`
+      : null;
+  if (!base) return null;
+  const id = activa ? `activa_${promoId}` : promoId;
+  return `${base}?oferta=${encodeURIComponent(id)}&v=1`;
+}
+
 function abrirLoginPopup() {
   const root = document.documentElement.style;
   const r = root.getPropertyValue("--dr").trim();
@@ -818,19 +843,22 @@ async function getParams() {
     _dominioRegistrado = true;
     const { id, localidad, categoria, alias } = domSnap.data();
 
-    const promoId =
-      new URLSearchParams(window.location.search).get("p") || null;
+ const promoId =
+  new URLSearchParams(window.location.search).get("p") || null;
 
-    return {
-      localidad: (localidad || "").trim().toLowerCase(),
-      subcol: (categoria || "").replace(/\+/g, " "),
-      id,
-      alias: alias || null,
-      promoIndex: null,
-      promoId,
-      wantsCarta: false,
-      mesaToken: null,
-    };
+const wantsCarta =
+  new URLSearchParams(window.location.search).get("carta") === "1";
+
+return {
+  localidad: (localidad || "").trim().toLowerCase(),
+  subcol: (categoria || "").replace(/\+/g, " "),
+  id,
+  alias: alias || null,
+  promoIndex: null,
+  promoId,
+  wantsCarta,      // ← antes era false
+  mesaToken: null,
+};
   }
 
   const path = window.location.pathname;
@@ -1167,17 +1195,12 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   const shareBtn = document.getElementById("cartaShareBtn");
   if (shareBtn) {
     shareBtn.onclick = () => {
-      const shareUrl = aliasKey
-        ? `${_baseShareUrl}/perfil/${aliasKey}-carta`
-        : window.location.href;
-      const fullText = `Mira la carta digital de ${nombreNegocio} 📖\n${shareUrl}`;
-      if (navigator.share) {
-        navigator
-          .share({ text: fullText })
-          .catch(() => copyToClipboard(fullText));
-      } else {
-        copyToClipboard(fullText);
-      }
+const shareUrl = urlCompartirCarta(aliasKey) || window.location.href;
+      compartirNativo({
+        title: `Carta de ${nombreNegocio}`,
+        text: `Mira la carta digital de ${nombreNegocio} 📖`,
+        url: shareUrl,
+      });
     };
   }
 }
@@ -1718,23 +1741,7 @@ document.getElementById("puntosBadge")?.addEventListener("click", () => {
     showToast(_fidelizacionMensajeInactivo);
     return;
   }
-  if (_esDominioPersonalizado) {
-    window.location.href = `${_baseShareUrl}/fidelizacion`;
-    return;
-  }
-  const aliasKey = _params.alias;
-  if (aliasKey && _currentUid) {
-    window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
-  } else {
-    const url = new URL(
-      "../../fidelizacion/fidelizacion_client.html",
-      window.location.href,
-    );
-    url.searchParams.set("localidad", _params.localidad);
-    url.searchParams.set("id", _params.id);
-    if (_currentUid) url.searchParams.set("uid", _currentUid);
-    window.location.href = url.toString();
-  }
+  irAFidelizacion();
 });
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
@@ -2288,7 +2295,10 @@ function renderActivePromos(promos, localidad) {
     const img =
       p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
     const expiry = formatExpiry(p._finMs);
-    const shareUrl = `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
+    const aliasKey = _params.alias || _bizAliasKey;
+    const shareUrl =
+      urlCompartirPromo(aliasKey, p.id, { activa: true }) ||
+      `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`; // fallback si no hay alias
 
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
@@ -2411,17 +2421,13 @@ function renderActivePromos(promos, localidad) {
   });
 
   grid.querySelectorAll(".promo-icon-share-circle").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const url = btn.dataset.shareUrl;
-      const msg = btn.dataset.shareMsg;
-      const fullText = `${msg}\n${url}`;
-      if (navigator.share) {
-        try {
-          await navigator.share({ text: fullText });
-        } catch (e) {}
-      } else {
-        copyToClipboard(fullText);
-      }
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      compartirNativo({
+        title: "Oferta en Geinz",
+        text: btn.dataset.shareMsg || "Mira esta promo en Geinz 🎁",
+        url: btn.dataset.shareUrl,
+      });
     });
   });
   setupHoverCarousel("promosActivasCarouselWrap", "promosActivasGrid");
@@ -2481,25 +2487,81 @@ const DAY_KEYS = [
   { key: "sábado", label: "Sábado" },
   { key: "domingo", label: "Domingo" },
 ];
+const FX_CSS = `
+.fx-wrap{display:flex;justify-content:center;align-items:flex-start}
+.fx-tarjeta-slot{width:100%;max-width:300px}
+`;
+function ensureFidelizacionUI() {
+  const sec = document.getElementById("secFidelizacion");
+  if (!sec || sec.dataset.fx === "1") return;
+
+  if (!document.getElementById("fxStyle")) {
+    const st = document.createElement("style");
+    st.id = "fxStyle";
+    st.textContent = FX_CSS;
+    document.head.appendChild(st);
+  }
+
+  sec.classList.remove("section", "glass");
+  sec.classList.add("fx-wrap");
+  sec.innerHTML = `<div id="fidelizacionTarjetaSlot" class="fx-tarjeta-slot"></div>`;
+  sec.dataset.fx = "1";
+}
 function renderFidelizacion(f) {
   const meta = document.getElementById("fidelizacionMeta");
   if (!meta) return;
-  meta.innerHTML = "";
 
   const chips = [];
-
   if (f.vencimientoActivo) {
     chips.push(
-      `<span class="fidel-chip">⏳ Puntos válidos por ${f.diasVencimiento} días</span>`,
+      `<span class="fx-chip">⏳ Puntos válidos por ${f.diasVencimiento} días</span>`,
     );
     chips.push(
-      `<span class="fidel-chip warn">🔔 Aviso ${f.diasAviso} días antes de vencer</span>`,
+      `<span class="fx-chip warn">🔔 Aviso ${f.diasAviso} días antes de vencer</span>`,
     );
   } else {
-    chips.push(`<span class="fidel-chip">♾️ Tus puntos no vencen</span>`);
+    chips.push(`<span class="fx-chip">♾️ Tus puntos no vencen</span>`);
   }
-
   meta.innerHTML = chips.join("");
+}
+let _tarjetaDestroy = null;
+
+function irAFidelizacion() {
+  if (_esDominioPersonalizado) {
+    window.location.href = `${_baseShareUrl}/fidelizacion`;
+    return;
+  }
+  const aliasKey = _params.alias || _bizAliasKey;
+  const uid = _currentUid || auth.currentUser?.uid || "invitado";
+  if (aliasKey) {
+    window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(uid)}`;
+    return;
+  }
+  const url = new URL("../../fidelizacion/fidelizacion_client.html", window.location.href);
+  url.searchParams.set("localidad", _params.localidad);
+  url.searchParams.set("id", _params.id);
+  if (uid !== "invitado") url.searchParams.set("uid", uid);
+  window.location.href = url.toString();
+}
+
+function montarTarjetaEnPerfil() {
+  if (_tarjetaDestroy) return;
+  const slot = document.getElementById("fidelizacionTarjetaSlot");
+  if (!slot || !_params?.id) return;
+
+  _tarjetaDestroy = montarTarjetaFidelizacion(slot, {
+    negocioId: _params.id,
+    localidad: _params.localidad,
+    fondo: "#0b0b0d",
+    favicon: false,
+    promo: true,
+    onVerTarjeta: irAFidelizacion,
+  });
+}
+
+function desmontarTarjetaEnPerfil() {
+  _tarjetaDestroy?.();
+  _tarjetaDestroy = null;
 }
 function normalizeFidelizacion(f) {
   if (!f || f.activo !== true) return null;
@@ -2666,7 +2728,187 @@ function copyToClipboard(txt) {
       showToast();
     });
 }
+// ══════════════════════════════════════════
+//  COMPARTIR (nativo + panel de respaldo)
+// ══════════════════════════════════════════
+const SHARE_SHEET_CSS = `
+.share-sheet{
+  position:fixed;inset:0;z-index:10020;
+  background:rgba(3,3,3,.55);
+  -webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;visibility:hidden;
+  transition:opacity .3s ease, visibility .3s ease, backdrop-filter .4s ease, -webkit-backdrop-filter .4s ease;
+}
+.share-sheet.open{opacity:1;visibility:visible;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+.share-sheet-box{
+  width:100%;max-width:440px;background:#0b0b0d;
+  border:1px solid rgba(var(--dr),var(--dg),var(--db),.3);border-bottom:none;
+  border-radius:26px 26px 0 0;
+  padding:12px 20px calc(22px + env(safe-area-inset-bottom,0px));
+  transform:translateY(40px);opacity:0;
+  transition:transform .42s cubic-bezier(.22,.85,.32,1), opacity .3s ease;
+  box-shadow:0 -25px 60px -14px rgba(0,0,0,.7), 0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.3);
+}
+.share-sheet.open .share-sheet-box{transform:translateY(0);opacity:1;}
+.share-sheet-handle{width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.22);margin:0 auto 16px;}
+.share-sheet-title{font-size:16px;font-weight:800;color:#fff;margin:0 0 4px;text-align:center;}
+.share-sheet-sub{font-size:12.5px;color:#9c9ca3;margin:0 0 20px;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.share-sheet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 8px;}
+.share-opt{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  background:none;border:none;cursor:pointer;text-decoration:none;color:#d4d4d8;
+  font-size:11.5px;font-weight:600;padding:0;
+}
+.share-opt-ico{
+  width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:22px;color:#fff;transition:transform .2s cubic-bezier(.34,1.4,.4,1), filter .2s ease;
+  box-shadow:0 8px 18px -6px rgba(0,0,0,.6);
+}
+.share-opt:hover .share-opt-ico{transform:translateY(-3px) scale(1.06);filter:brightness(1.1);}
+.share-opt:active .share-opt-ico{transform:scale(.94);}
+.share-sheet-cancel{
+  width:100%;margin-top:22px;padding:13px;border-radius:14px;cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:#d4d4d8;font-weight:700;font-size:13.5px;
+}
+@media (min-width:768px){
+  .share-sheet{align-items:center;padding:24px;}
+  .share-sheet-box{border-radius:26px;border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.3);transform:translateY(18px) scale(.95);}
+  .share-sheet.open .share-sheet-box{transform:none;}
+}
+`;
 
+function injectShareSheetStyles() {
+  if (document.getElementById("shareSheetStyle")) return;
+  const st = document.createElement("style");
+  st.id = "shareSheetStyle";
+  st.textContent = SHARE_SHEET_CSS;
+  document.head.appendChild(st);
+}
+
+function cerrarShareSheet() {
+  document.getElementById("shareSheet")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function abrirShareSheet({ title, text, url }) {
+  injectShareSheetStyles();
+  let sheet = document.getElementById("shareSheet");
+  if (!sheet) {
+    sheet = document.createElement("div");
+    sheet.id = "shareSheet";
+    sheet.className = "share-sheet";
+    sheet.innerHTML = `
+      <div class="share-sheet-box">
+        <div class="share-sheet-handle"></div>
+        <h3 class="share-sheet-title">Compartir</h3>
+        <p class="share-sheet-sub" id="shareSheetSub"></p>
+        <div class="share-sheet-grid" id="shareSheetGrid"></div>
+        <button type="button" class="share-sheet-cancel" id="shareSheetCancel">Cancelar</button>
+      </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener("click", (e) => {
+      if (e.target === sheet) cerrarShareSheet();
+    });
+    sheet
+      .querySelector("#shareSheetCancel")
+      .addEventListener("click", cerrarShareSheet);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && sheet.classList.contains("open"))
+        cerrarShareSheet();
+    });
+  }
+
+  const full = `${text}\n${url}`.trim();
+  const enc = encodeURIComponent;
+  document.getElementById("shareSheetSub").textContent = title || url;
+
+  const opciones = [
+    {
+      label: "WhatsApp",
+      icon: "fa-brands fa-whatsapp",
+      bg: "#25D366",
+      href: `https://wa.me/?text=${enc(full)}`,
+    },
+    {
+      label: "Facebook",
+      icon: "fa-brands fa-facebook-f",
+      bg: "#1877F2",
+      href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`,
+    },
+    {
+      label: "X",
+      icon: "fa-brands fa-x-twitter",
+      bg: "#111",
+      href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`,
+    },
+    {
+      label: "Telegram",
+      icon: "fa-brands fa-telegram",
+      bg: "#229ED9",
+      href: `https://t.me/share/url?url=${enc(url)}&text=${enc(text)}`,
+    },
+    {
+      label: "Correo",
+      icon: "fa-solid fa-envelope",
+      bg: "#6b7280",
+      href: `mailto:?subject=${enc(title || text)}&body=${enc(full)}`,
+    },
+    {
+      label: "Copiar enlace",
+      icon: "fa-solid fa-link",
+      bg: "rgba(var(--dr),var(--dg),var(--db),.95)",
+      copy: true,
+    },
+  ];
+
+  const grid = document.getElementById("shareSheetGrid");
+  grid.innerHTML = "";
+  opciones.forEach((o) => {
+    const el = document.createElement(o.copy ? "button" : "a");
+    el.className = "share-opt";
+    if (o.copy) {
+      el.type = "button";
+      el.addEventListener("click", () => {
+        copyToClipboard(full);
+        cerrarShareSheet();
+      });
+    } else {
+      el.href = o.href;
+      el.target = "_blank";
+      el.rel = "noopener";
+      el.addEventListener("click", () => setTimeout(cerrarShareSheet, 150));
+    }
+    el.innerHTML = `<span class="share-opt-ico" style="background:${o.bg}"><i class="${o.icon}"></i></span>${o.label}`;
+    grid.appendChild(el);
+  });
+
+  sheet.classList.remove("open");
+  void sheet.offsetHeight;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => sheet.classList.add("open")),
+  );
+  document.body.style.overflow = "hidden";
+}
+
+/* Llamar SIEMPRE directo desde un click (sin await antes). */
+async function compartirNativo({ title = "", text = "", url = "" }) {
+  const payload = { title, text, url };
+  if (navigator.share) {
+    try {
+      if (!navigator.canShare || navigator.canShare(payload)) {
+        await navigator.share(payload);
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // el usuario cerró el diálogo: no hacer nada
+      // otro error → cae al panel de respaldo
+    }
+  }
+  abrirShareSheet({ title, text, url });
+}
 function createImageWithPlaceholder({
   src,
   alt = "",
@@ -3791,15 +4033,12 @@ function openPromoDetailModal(data) {
     });
   const shareBtn = document.getElementById("promoDetailShareBtn");
   if (shareBtn) {
-    shareBtn.addEventListener("click", async () => {
-      const fullText = `${data.shareMsg || "Mira esta promo en Geinz 🎁"}\n${data.shareUrl}`;
-      if (navigator.share) {
-        try {
-          await navigator.share({ text: fullText });
-        } catch (e) {}
-      } else {
-        copyToClipboard(fullText);
-      }
+    shareBtn.addEventListener("click", () => {
+      compartirNativo({
+        title: data.titulo || "Promoción en Geinz",
+        text: data.shareMsg || "Mira esta promo en Geinz 🎁",
+        url: data.shareUrl,
+      });
     });
   }
 
@@ -4496,6 +4735,8 @@ let _params = {};
 let _perfilCarritoItems = []; // [{promoId, nombre, precio, imagen, cantidad}]
 let _pagosCache = [];
 let _amenitiesCache = [];
+let _categoriaCache = "";
+let _subcategoriasCache = [];
 const PERFIL_CART_CSS = `
 .perfil-cart-float-btn{
   position:fixed; bottom:calc(24px + env(safe-area-inset-bottom,0px)); left:calc(24px + env(safe-area-inset-left,0px));
@@ -4635,6 +4876,33 @@ function injectMetodosModalStyles() {
 }
 
 function pintarMetodosModal() {
+  // ── Categorías ──
+  const catsWrap = document.getElementById("metodosCatsGrid");
+  const catsSection = document.getElementById("metodosCatsSection");
+  if (catsWrap && catsSection) {
+    catsWrap.innerHTML = "";
+    if (_categoriaCache || _subcategoriasCache.length) {
+      catsSection.style.display = "";
+
+      if (_categoriaCache) {
+        const chip = document.createElement("div");
+        chip.className = "pay-chip";
+        chip.innerHTML = `<span>🏷️</span> ${escapeHtml(_categoriaCache)}`;
+        catsWrap.appendChild(chip);
+      }
+
+      _subcategoriasCache.forEach((s) => {
+        const chip = document.createElement("div");
+        chip.className = "pay-chip";
+        chip.innerHTML = `<span>🔹</span> ${escapeHtml(s)}`;
+        catsWrap.appendChild(chip);
+      });
+    } else {
+      catsSection.style.display = "none";
+    }
+  }
+
+  // ── Métodos de pago + comodidades ──
   const payWrap = document.getElementById("metodosPayGrid");
   const amenWrap = document.getElementById("metodosAmenitiesGrid");
   const paySection = document.getElementById("metodosPaySection");
@@ -4689,6 +4957,10 @@ function abrirMetodosModal() {
           <h4 class="metodos-modal-subtitle">🛋️ Servicios y comodidades</h4>
           <div id="metodosAmenitiesGrid" class="flex flex-wrap gap-4"></div>
         </div>
+        <div id="metodosCatsSection" class="metodos-modal-section">
+  <h4 class="metodos-modal-subtitle">🏷️ Categorías</h4>
+  <div id="metodosCatsGrid" class="flex flex-wrap gap-4"></div>
+</div>
       </div>`;
     document.body.appendChild(modal);
 
@@ -4910,6 +5182,15 @@ function tryHideLoader() {
   if (_colorReady && _followReady && _reviewsReady) {
     hideBizLoader();
   }
+}
+function actualizarLayoutContactoFidel() {
+  const wrap = document.getElementById("contactFidelWrap");
+  const contact = document.getElementById("secContact");
+  const fidel = document.getElementById("secFidelizacion");
+  if (!wrap || !contact || !fidel) return;
+
+  const visible = (el) => el.style.display !== "none";
+  wrap.classList.toggle("two-cols", visible(contact) && visible(fidel));
 }
 async function render(biz, isInitial = true) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
@@ -5146,8 +5427,10 @@ async function render(biz, isInitial = true) {
       ambientesTitleEl.textContent = "Nuestros productos";
     }
   }
-  document.getElementById("cats").innerHTML =
-    `<span class="tag cat">${categoria}</span>${subcategorias.map((s) => `<span class="tag sub">${s}</span>`).join("")}`;
+
+  // Categorías para el modal "Métodos y más"
+  _categoriaCache = categoria !== "—" ? categoria : "";
+  _subcategoriasCache = subcategorias;
 
   // Status badge
   calcStatus(horario);
@@ -5227,7 +5510,11 @@ async function render(biz, isInitial = true) {
   // Métodos de pago + servicios/comodidades → viven en el chip "Métodos y más"
   _pagosCache = pagos;
   if (isInitial) _amenitiesCache = esPresencial ? amenities : [];
-  _navState.metodos = _pagosCache.length > 0 || _amenitiesCache.length > 0;
+  _navState.metodos =
+    _pagosCache.length > 0 ||
+    _amenitiesCache.length > 0 ||
+    !!_categoriaCache ||
+    _subcategoriasCache.length > 0;
   updateQuickNav();
   if (document.getElementById("metodosModal")?.classList.contains("open")) {
     pintarMetodosModal();
@@ -5356,9 +5643,9 @@ async function render(biz, isInitial = true) {
     }
     injectPromoBuyStyles();
     promoImages.forEach((promo) => {
-      const shareBase = biz.alias_key
-        ? `${_baseShareUrl}/perfil/${biz.alias_key}?p=${promo.id}`
-        : `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
+      const shareBase =
+        urlCompartirPromo(biz.alias_key || _params.alias, promo.id) ||
+        `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
       const puedeComprarPromo = promo.precio > 0;
 
       const card = document.createElement("div");
@@ -5431,25 +5718,13 @@ async function render(biz, isInitial = true) {
       promoCarousel.appendChild(card);
     });
     promoCarousel.querySelectorAll(".promo-icon-share").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const url = btn.dataset.shareUrl;
-        const fullText = `Mira lo que encontre en ${nombre} 👀🔥\n${url}`;
-        if (navigator.share)
-          try {
-            await navigator.share({ text: fullText });
-          } catch (e) {}
-        else copyToClipboard(fullText);
-      });
-    });
-    promoCarousel.querySelectorAll(".promo-icon-share").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const url = btn.dataset.shareUrl;
-        const fullText = `Mira lo que encontre en ${nombre} 👀🔥\n${url}`;
-        if (navigator.share)
-          try {
-            await navigator.share({ text: fullText });
-          } catch (e) {}
-        else copyToClipboard(fullText);
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        compartirNativo({
+          title: `Promo de ${nombre}`,
+          text: `Mira lo que encontré en ${nombre} 👀🔥`,
+          url: btn.dataset.shareUrl,
+        });
       });
     });
     promoCarousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
@@ -5482,17 +5757,15 @@ async function render(biz, isInitial = true) {
   const shareBtn = document.getElementById("shareBtn");
   if (shareBtn)
     shareBtn.onclick = () => {
-      // ── Usa alias si existe, si no fallback a URL vieja ──
-      const shareUrl = biz.alias_key
-        ? `${_baseShareUrl}/perfil/${biz.alias_key}`
-        : `${_baseShareUrl}/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
+      const shareUrl =
+        urlPerfilCompartir(biz.alias_key) ||
+        `${_baseShareUrl}/api/share?t=ti&id=${biz.id}&l=${_params.localidad}&c=${(biz.categoria_tienda || "").toLowerCase().replace(/\s+/g, "+")}`;
 
-      const fullText = `Mira ${nombre} en Geinz 🔥\n${shareUrl}`;
-      if (navigator.share)
-        navigator
-          .share({ text: fullText })
-          .catch(() => copyToClipboard(fullText));
-      else copyToClipboard(fullText);
+      compartirNativo({
+        title: nombre,
+        text: `Mira ${nombre} en Geinz 🔥`,
+        url: shareUrl,
+      });
     };
 
   // Ocultar secciones vacías (solo en la carga inicial, ya que dependen de datos NO tiempo real)
@@ -5512,6 +5785,7 @@ async function render(biz, isInitial = true) {
       document
         .getElementById("secContact")
         ?.style.setProperty("display", "none");
+    actualizarLayoutContactoFidel(); // ← agrégala aquí también
   }
 
   const exploreBtn = document.getElementById("exploreBtn");
@@ -5528,13 +5802,18 @@ async function render(biz, isInitial = true) {
   _fidelizacionMensajeInactivo =
     fidelizacionRaw.mensajeInactivo ||
     "Este negocio no tiene el programa de fidelización activo por el momento."; // NUEVO
+  ensureFidelizacionUI();
+  ensureFidelizacionUI();
   const secFidel = document.getElementById("secFidelizacion");
   if (fidelizacion) {
     secFidel.style.display = "";
     renderFidelizacion(fidelizacion);
+    montarTarjetaEnPerfil();
   } else {
     secFidel.style.display = "none";
+    desmontarTarjetaEnPerfil();
   }
+  actualizarLayoutContactoFidel();
   document
     .getElementById("geinzHeader")
     ?.style.setProperty(
@@ -5556,25 +5835,35 @@ async function render(biz, isInitial = true) {
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
-  document.getElementById("fidelizacionCard")?.addEventListener("click", () => {
-    if (_esDominioPersonalizado) {
-      window.location.href = `${_baseShareUrl}/fidelizacion`;
-      return;
-    }
-    const aliasKey = _params.alias || biz?.alias_key;
-    if (aliasKey && _currentUid) {
-      window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
-    } else {
-      const url = new URL(
-        "../../fidelizacion/fidelizacion_client.html",
-        window.location.href,
-      );
-      url.searchParams.set("localidad", _params.localidad);
-      url.searchParams.set("id", _params.id);
-      if (_currentUid) url.searchParams.set("uid", _currentUid);
-      window.location.href = url.toString();
-    }
-  });
+  const fidelCard = document.getElementById("fidelizacionCard");
+  if (fidelCard) {
+    const irAFidelizacion = () => {
+      if (_esDominioPersonalizado) {
+        window.location.href = `${_baseShareUrl}/fidelizacion`;
+        return;
+      }
+      const aliasKey = _params.alias || biz?.alias_key;
+      if (aliasKey && _currentUid) {
+        window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
+      } else {
+        const url = new URL(
+          "../../fidelizacion/fidelizacion_client.html",
+          window.location.href,
+        );
+        url.searchParams.set("localidad", _params.localidad);
+        url.searchParams.set("id", _params.id);
+        if (_currentUid) url.searchParams.set("uid", _currentUid);
+        window.location.href = url.toString();
+      }
+    };
+    fidelCard.onclick = irAFidelizacion;
+    fidelCard.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        irAFidelizacion();
+      }
+    };
+  }
 }
 
 // ── Reglas por plan y modlo de negocio ──
