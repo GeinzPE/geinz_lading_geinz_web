@@ -5316,6 +5316,18 @@ async function render(biz, isInitial = true) {
       }
     }
   }
+  const linkSeguimientoPedido = document.getElementById("linkSeguimientoPedido");
+if (linkSeguimientoPedido) {
+  const ruta = rutaNegocio("seguimiento_pedido", biz.alias_key);5
+  if (ruta) {
+    linkSeguimientoPedido.href = ruta;
+  } else {
+    const u = new URL("../../seguimiento/seguimiento_pedido.html", window.location.href);
+    u.searchParams.set("id", biz.id || _params.id);
+    u.searchParams.set("localidad", _params.localidad);
+    linkSeguimientoPedido.href = u.toString();
+  }
+}
   const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
   if (linkSeguimiento) {
     const libroActivo =

@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#08080a">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Consulta el estado de tu pedido con tu código de seguimiento.">
+  <title>Seguimiento de pedido</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* Se sobrescriben con los colores del logo del negocio */
+      --accent: #8b5cf6;
+      --accent-rgb: 139, 92, 246;
+      --accent-dark: #5b3aa8;
+      --accent-light: #b79cf8;
+      --on-accent: #ffffff;
+
+      --bg: #08080a;
+      --card: #111114;
+      --card-2: #17171b;
+      --border: #232228;
+      --border-soft: rgba(255, 255, 255, .06);
+
+      --text: #f6f4f1;
+      --text-2: #a09b98;
+      --text-3: #64615f;
+
+      --s-pendiente: #d9a441;
+      --s-en_proceso: #4f9df0;
+      --s-en_pausa: #38bdf8;
+      --s-entregado: #5fae7a;
+      --s-rechazado: #d16060;
+
+      --ease: cubic-bezier(.22, 1, .36, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100svh;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text);
+      line-height: 1.5;
+      letter-spacing: -.011em;
+      background:
+        radial-gradient(90% 55% at 50% -10%, rgba(var(--accent-rgb), .16), transparent 62%),
+        radial-gradient(70% 40% at 100% 100%, rgba(var(--accent-rgb), .06), transparent 60%),
+        var(--bg);
+      background-attachment: fixed;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    button, input { font: inherit; color: inherit; }
+    img { max-width: 100%; display: block; }
+    .hidden { display: none !important; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mono { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+
+    a:focus-visible, button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    #app {
+      max-width: 34rem;
+      margin: 0 auto;
+      padding: clamp(1.4rem, 5vw, 3rem) clamp(1rem, 4vw, 1.4rem) 3rem;
+    }
+
+    /* ---------- Cabecera de marca ---------- */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.6rem;
+    }
+
+    .brand-logo {
+      width: 3.6rem;
+      height: 3.6rem;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--card);
+      border: 2px solid rgba(var(--accent-rgb), .55);
+      box-shadow: 0 0 26px -4px rgba(var(--accent-rgb), .55);
+    }
+
+    .brand-logo.letter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.4rem;
+      color: var(--accent-light);
+    }
+
+    .brand-name {
+      margin: 0;
+      font-size: clamp(1.1rem, 4vw, 1.35rem);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -.02em;
+    }
+
+    .brand-sub {
+      margin: .1rem 0 0;
+      font-size: .82rem;
+      color: var(--text-2);
+    }
+
+    /* ---------- Tarjetas ---------- */
+    .card {
+      border-radius: 1.35rem;
+      background-color: var(--card);
+      background-image: linear-gradient(160deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0) 45%);
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .02) inset, 0 24px 44px -30px rgba(0, 0, 0, .9);
+      padding: clamp(1.15rem, 3.4vw, 1.6rem);
+    }
+
+    /* ---------- Buscador ---------- */
+    .search-title {
+      margin: 0 0 .35rem;
+      font-size: clamp(1.25rem, 4.6vw, 1.55rem);
+      font-weight: 700;
+      letter-spacing: -.025em;
+      line-height: 1.2;
+    }
+
+    .search-lead {
+      margin: 0 0 1.15rem;
+      font-size: .9rem;
+      color: var(--text-2);
+    }
+
+    .search-row {
+      display: flex;
+      gap: .55rem;
+    }
+
+    .field {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .field svg.ico {
+      position: absolute;
+      left: .95rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-3);
+      pointer-events: none;
+      transition: color .3s var(--ease);
+    }
+
+    .field:focus-within svg.ico { color: var(--accent-light); }
+
+    #codigo {
+      width: 100%;
+      height: 3.1rem;
+      padding: 0 5.6rem 0 2.75rem;
+      border-radius: .95rem;
+      border: 1px solid var(--border);
+      background: var(--card-2);
+      font-size: .93rem;
+      font-weight: 500;
+      transition: border-color .3s var(--ease), box-shadow .3s var(--ease);
+    }
+
+    #codigo::placeholder { color: var(--text-3); font-weight: 400; }
+
+    #codigo:focus {
+      outline: none;
+      border-color: rgba(var(--accent-rgb), .7);
+      box-shadow: 0 0 0 4px rgba(var(--accent-rgb), .14);
+    }
+
+    .paste-btn {
+      position: absolute;
+      right: .4rem;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 2.2rem;
+      padding: 0 .8rem;
+      border-radius: .65rem;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .05);
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background .25s var(--ease), color .25s var(--ease);
+    }
+
+    .paste-btn:hover { background: rgba(var(--accent-rgb), .18); color: var(--text); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      height: 3.1rem;
+      padding: 0 1.25rem;
+      border: none;
+      border-radius: .95rem;
+      font-weight: 700;
+      font-size: .9rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform .3s var(--ease), box-shadow .3s var(--ease), filter .3s var(--ease);
+    }
+
+    .btn-primary {
+      color: var(--on-accent);
+      background: linear-gradient(155deg, var(--accent-light), var(--accent) 55%, var(--accent-dark));
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .28) inset, 0 16px 30px -16px rgba(var(--accent-rgb), .8);
+    }
+
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255, 255, 255, .3) inset, 0 20px 34px -14px rgba(var(--accent-rgb), .9); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    .btn-ghost {
+      color: var(--text);
+      background: var(--card-2);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover { background: #1d1d22; transform: translateY(-1px); }
+    .btn-block { width: 100%; }
+
+    .help {
+      margin: .95rem 0 0;
+      font-size: .8rem;
+      color: var(--text-3);
+      line-height: 1.55;
+    }
+
+    .help b { color: var(--text-2); font-weight: 600; }
+
+    /* ---------- Resultado ---------- */
+    #result { margin-top: 1rem; }
+
+    .enter { animation: enter .55s var(--ease) both; }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .pv-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .pv-code {
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--text-2);
+      padding: .28rem .65rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--border-soft);
+    }
+
+    .live i {
+      width: .42rem;
+      height: .42rem;
+      border-radius: 50%;
+      background: var(--s-entregado);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+    .pv-status {
+      display: flex;
+      align-items: center;
+      gap: .7rem;
+    }
+
+    .pv-dot {
+      position: relative;
+      width: .8rem;
+      height: .8rem;
+      border-radius: 50%;
+      background: var(--st, var(--accent));
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--st, var(--accent)) 18%, transparent);
+      flex-shrink: 0;
+    }
+
+    .pv-dot.pulse::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      animation: ring 2.2s var(--ease) infinite;
+    }
+
+    @keyframes ring {
+      0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--st, var(--accent)) 50%, transparent); }
+      70% { box-shadow: 0 0 0 12px transparent; }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }
+
+    .pv-label {
+      margin: 0;
+      font-size: clamp(1.2rem, 4.5vw, 1.45rem);
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .pv-msg {
+      margin: .4rem 0 1.4rem;
+      font-size: .88rem;
+      color: var(--text-2);
+    }
+
+    /* Pasos */
+    .steps {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .5rem;
+      width: 4.6rem;
+      flex-shrink: 0;
+    }
+
+    .bub {
+      width: 1.9rem;
+      height: 1.9rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--text-3);
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      transition: all .5s var(--ease);
+    }
+
+    .step.done .bub {
+      color: var(--on-accent);
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .step.current .bub {
+      color: var(--on-accent);
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 5px rgba(var(--accent-rgb), .2);
+    }
+
+    .step .lbl {
+      font-size: .74rem;
+      font-weight: 500;
+      color: var(--text-3);
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .step.done .lbl, .step.current .lbl { color: var(--text); }
+    .step.current .lbl { font-weight: 700; }
+
+    .line {
+      flex: 1;
+      height: 2px;
+      margin-top: .93rem;
+      border-radius: 2px;
+      background: var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .line::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--accent);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform .7s var(--ease);
+    }
+
+    .line.done::after { transform: scaleX(1); }
+
+    .pv-alert {
+      margin-bottom: 1.4rem;
+      padding: .8rem 1rem;
+      border-radius: .9rem;
+      font-size: .86rem;
+      font-weight: 600;
+      color: var(--st);
+      background: color-mix(in srgb, var(--st) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--st) 30%, var(--border));
+    }
+
+    /* Datos */
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem 1.2rem;
+      padding: 1.1rem 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .meta .k {
+      margin: 0 0 .15rem;
+      font-size: .72rem;
+      color: var(--text-3);
+    }
+
+    .meta .v {
+      margin: 0;
+      font-size: .92rem;
+      font-weight: 600;
+    }
+
+    .meta .v.total { color: var(--accent-light); font-size: 1.05rem; }
+
+    /* Productos */
+    .items {
+      list-style: none;
+      margin: 0;
+      padding: 1rem 0 0;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: .7rem;
+    }
+
+    .item { display: flex; align-items: center; gap: .75rem; }
+
+    .item img, .item .ph {
+      width: 2.6rem;
+      height: 2.6rem;
+      border-radius: .7rem;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #000;
+      border: 1px solid var(--border-soft);
+    }
+
+    .item .ph {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-3);
+      background: var(--card-2);
+    }
+
+    .item .nm {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      font-size: .88rem;
+      font-weight: 600;
+    }
+
+    .item .qty {
+      font-size: .82rem;
+      color: var(--text-2);
+      font-weight: 600;
+    }
+
+    .items-more {
+      margin: .8rem 0 0;
+      font-size: .78rem;
+      color: var(--text-3);
+    }
+
+    .pv-cta { margin-top: 1.4rem; }
+
+    /* Estados: cargando / error / auth */
+    .note {
+      text-align: center;
+      padding: clamp(1.6rem, 6vw, 2.2rem) 1.4rem;
+    }
+
+    .note-ico {
+      width: 2.9rem;
+      height: 2.9rem;
+      margin: 0 auto 1rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-light);
+      background: rgba(var(--accent-rgb), .14);
+      border: 1px solid rgba(var(--accent-rgb), .25);
+    }
+
+    .note-ico.err {
+      color: var(--s-rechazado);
+      background: color-mix(in srgb, var(--s-rechazado) 14%, transparent);
+      border-color: color-mix(in srgb, var(--s-rechazado) 25%, transparent);
+    }
+
+    .note h2 { margin: 0 0 .4rem; font-size: 1.05rem; font-weight: 700; letter-spacing: -.02em; }
+    .note p { margin: 0 0 1.2rem; font-size: .87rem; color: var(--text-2); line-height: 1.55; }
+    .note p:last-child { margin-bottom: 0; }
+
+    .spin {
+      width: 1.6rem;
+      height: 1.6rem;
+      margin: .4rem auto 0;
+      border-radius: 50%;
+      border: 3px solid rgba(var(--accent-rgb), .22);
+      border-top-color: var(--accent);
+      animation: spin .75s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Volver */
+    .back {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      margin-top: 1.6rem;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--text-2);
+      text-decoration: none;
+      transition: color .25s var(--ease);
+    }
+
+    .back:hover { color: var(--text); }
+
+    /* Skeleton de arranque */
+    .skel {
+      border-radius: 1.2rem;
+      background: linear-gradient(90deg, #121215 25%, #1a1a1e 37%, #121215 63%);
+      background-size: 800px 100%;
+      animation: shimmer 1.5s linear infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+
+    @media (max-width: 400px) {
+      .search-row { flex-direction: column; }
+      .btn { width: 100%; }
+      .step { width: 4rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- Arranque -->
+    <div id="boot" aria-busy="true">
+      <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1.6rem;">
+        <div class="skel" style="width:3.6rem;height:3.6rem;border-radius:50%;"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:.5rem;">
+          <div class="skel" style="height:1rem;width:55%;"></div>
+          <div class="skel" style="height:.75rem;width:35%;"></div>
+        </div>
+      </div>
+      <div class="skel" style="height:11rem;"></div>
+    </div>
+
+    <!-- Error global (no se pudo identificar el negocio) -->
+    <div id="fatal" class="hidden card note enter">
+      <div class="note-ico err">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16.5v.01" /></svg>
+      </div>
+      <h2>No pudimos abrir esta página</h2>
+      <p>El enlace del negocio no es válido o ya no existe. Vuelve al perfil del negocio e inténtalo otra vez.</p>
+    </div>
+
+    <main id="main" class="hidden">
+      <header class="brand">
+        <img id="brandLogo" class="brand-logo" alt="" width="58" height="58">
+        <div style="min-width:0;">
+          <h1 id="brandName" class="brand-name truncate"></h1>
+          <p class="brand-sub">Seguimiento de pedido</p>
+        </div>
+      </header>
+
+      <section class="card" aria-label="Buscar pedido">
+        <h2 class="search-title">Encuentra tu pedido</h2>
+        <p class="search-lead">Pega tu código de seguimiento para ver en qué estado está.</p>
+
+        <form id="form" class="search-row" autocomplete="off" novalidate>
+          <div class="field">
+            <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input id="codigo" type="text" inputmode="text" enterkeyhint="search" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Código de seguimiento" aria-label="Código de seguimiento">
+            <button id="pasteBtn" type="button" class="paste-btn">Pegar</button>
+          </div>
+          <button id="searchBtn" type="submit" class="btn btn-primary">Buscar</button>
+        </form>
+
+        <p class="help">Tu código aparece en la pantalla de tu pedido, en el botón <b>Copiar código</b>. También puedes pegar el enlace completo del pedido.</p>
+      </section>
+
+      <section id="result" aria-live="polite"></section>
+
+      <a id="backLink" href="#" class="back hidden">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7-7-7 7 7 7" /></svg>
+        <span id="backText">Volver al negocio</span>
+      </a>
+    </main>
+  </div>
+
+  <script type="module">
+    import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { db, auth } from "/js/db/db.js";
+    import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
+    import { setFaviconCircular } from "/js/favicon/favicon.js";
+
+    const AUTH_ORIGIN = "https://geinztech.com";
+    const LOGIN_URL = "/login.html"; // mismo destino que usa el login del carrito
+    const $ = (id) => document.getElementById(id);
+
+    const esc = (s) =>
+      String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+    /* ══════════════ Estado global ══════════════ */
+    let N = null;            // { id, localidad, alias, propio }
+    let bizNombre = "";
+    let bizLogo = "";
+    let uid = null;
+    let unsub = null;
+    let busquedaId = 0;
+    let ultimaBusqueda = null;
+    let ultimoJSON = null;
+    let primerRender = true;
+
+    const ESTADOS = ["pendiente", "en_proceso", "entregado"];
+    const LABELS = {
+      pendiente: "Pendiente",
+      en_proceso: "En proceso",
+      en_pausa: "En pausa",
+      entregado: "Entregado",
+      rechazado: "Rechazado",
+    };
+    const MENSAJES = {
+      pendiente: "Esperando que el negocio confirme tu pedido.",
+      en_proceso: "El negocio está preparando tu pedido.",
+      en_pausa: "Tu pedido está en pausa. Abre el seguimiento completo para responder.",
+      entregado: "Tu pedido fue entregado. ¡Gracias por tu compra!",
+      rechazado: "El negocio no pudo tomar este pedido.",
+    };
+
+    function normalizarEstado(estado) {
+      const e = (estado || "").toLowerCase().trim();
+      if (e.includes("rechaz")) return "rechazado";
+      if (e.includes("entreg")) return "entregado";
+      if (e.includes("pausa")) return "en_pausa";
+      if (e.includes("proceso")) return "en_proceso";
+      return "pendiente";
+    }
+
+    /* ══════════════ Login (dominio propio / normal) ══════════════ */
+    // Al volver del login en dominio propio, la URL trae #wl_token=...
+    async function loginPorToken() {
+      const p = new URLSearchParams(window.location.hash.slice(1));
+      const t = p.get("wl_token");
+      if (!t) return;
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      try { await signInWithCustomToken(auth, t); }
+      catch (e) { console.error("[seguimiento] signInWithCustomToken:", e); }
+    }
+
+    function esperarAuth() {
+      return new Promise((res) => {
+        const un = onAuthStateChanged(auth, (u) => { un(); res(u); });
+      });
+    }
+
+    function abrirLoginPopup() {
+      const rgb = getComputedStyle(document.documentElement).getPropertyValue("--accent-rgb").replace(/\s/g, "") || "139,92,246";
+      const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
+      u.searchParams.set("o", window.location.origin);
+      u.searchParams.set("r", window.location.href.split("#")[0]);
+      u.searchParams.set("n", bizNombre || "");
+      if (bizLogo) u.searchParams.set("l", bizLogo);
+      u.searchParams.set("c", rgb);
+      window.location.href = u.toString();
+    }
+
+    /* ══════════════ Resolver negocio ══════════════ */
+    async function resolverNegocio() {
+      // 1) Dominio propio con datos inyectados por el servidor
+      if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
+        return {
+          id: window.__NEGOCIO_ID__,
+          localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
+          alias: window.__NEGOCIO_ALIAS__ || null,
+          propio: true,
+        };
+      }
+
+      const host = location.hostname;
+      const hostPropio = host !== "geinztech.com" && host !== "www.geinztech.com";
+
+      // 2) Dominio propio sin inyección: se busca en dominio_web_tiendas
+      if (hostPropio) {
+        try {
+          const s = await getDoc(doc(db, "dominio_web_tiendas", host));
+          if (s.exists()) {
+            const d = s.data();
+            return { id: d.id, localidad: (d.localidad || "").trim().toLowerCase(), alias: d.alias || null, propio: true };
+          }
+        } catch (e) { console.warn("[seguimiento] dominio_web_tiendas:", e.message); }
+      }
+
+      // 3) /perfil/{alias}/seguimiento_pedido
+      const partes = location.pathname.split("/").filter(Boolean);
+      const iPerfil = partes.indexOf("perfil");
+      if (iPerfil !== -1 && partes[iPerfil + 1]) {
+        const alias = decodeURIComponent(partes[iPerfil + 1]);
+        try {
+          const s = await getDoc(doc(db, "alias_tiendas", alias));
+          if (s.exists()) {
+            const d = s.data();
+            return { id: d.id, localidad: (d.localidad || "").trim().toLowerCase(), alias, propio: false };
+          }
+        } catch (e) { console.warn("[seguimiento] alias_tiendas:", e.message); }
+      }
+
+      // 4) Fallback ?id=&localidad=
+      const q = new URLSearchParams(location.search);
+      const id = (q.get("id") || "").trim();
+      const localidad = (q.get("localidad") || q.get("l") || "").trim().toLowerCase();
+      if (id && localidad) return { id, localidad, alias: null, propio: false };
+      return null;
+    }
+
+    /* ══════════════ Colores del logo ══════════════ */
+    function colorDelLogo(url) {
+      return new Promise((resolve) => {
+        const fin = setTimeout(() => resolve(null), 2500);
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const size = 40;
+            const cv = document.createElement("canvas");
+            cv.width = cv.height = size;
+            const ctx = cv.getContext("2d", { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, size, size);
+            const data = ctx.getImageData(0, 0, size, size).data;
+            const buckets = {};
+            for (let i = 0; i < data.length; i += 4) {
+              if (data[i + 3] < 128) continue;
+              const r = data[i], g = data[i + 1], b = data[i + 2];
+              const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+              const l = (mx + mn) / 2 / 255;
+              const s = mx === mn ? 0 : (mx - mn) / (255 - Math.abs(mx + mn - 255));
+              if (l > 0.82 || l < 0.07 || s < 0.25) continue;
+              const k = `${r >> 4},${g >> 4},${b >> 4}`;
+              const bk = buckets[k] || (buckets[k] = { r: 0, g: 0, b: 0, n: 0, s: 0 });
+              bk.r += r; bk.g += g; bk.b += b; bk.n++; bk.s += s;
+            }
+            const top = Object.values(buckets).sort((a, b) => b.n * (b.s / b.n) - a.n * (a.s / a.n))[0];
+            clearTimeout(fin);
+            resolve(top ? { r: Math.round(top.r / top.n), g: Math.round(top.g / top.n), b: Math.round(top.b / top.n) } : null);
+          } catch (e) {
+            console.warn("[seguimiento] No se pudo leer el color del logo:", e.message);
+            clearTimeout(fin);
+            resolve(null);
+          }
+        };
+        img.onerror = () => { clearTimeout(fin); resolve(null); };
+        img.src = url + (url.includes("?") ? "&" : "?") + "cb=" + Date.now();
+      });
+    }
+
+    function colorDesdeNombre(nombre) {
+      let h = 0;
+      for (let i = 0; i < nombre.length; i++) { h = (h << 5) - h + nombre.charCodeAt(i); h |= 0; }
+      const hue = Math.abs(h % 360), s = .65, l = .55;
+      const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((hue / 60) % 2) - 1)), m = l - c / 2;
+      const [r, g, b] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+      return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
+    }
+
+    function aplicarColor({ r, g, b }) {
+      // Piso de brillo: el color también se usa como texto sobre fondo oscuro
+      const br = (r + g + b) / 3;
+      if (br < 110) {
+        const k = 110 / Math.max(br, 1);
+        r = Math.min(255, Math.round(r * k)); g = Math.min(255, Math.round(g * k)); b = Math.min(255, Math.round(b * k));
+      }
+      const mix = (v, t, a) => Math.round(v + (t - v) * a);
+      const root = document.documentElement.style;
+      root.setProperty("--accent", `rgb(${r},${g},${b})`);
+      root.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
+      root.setProperty("--accent-dark", `rgb(${Math.round(r * .62)},${Math.round(g * .62)},${Math.round(b * .62)})`);
+      root.setProperty("--accent-light", `rgb(${mix(r, 255, .35)},${mix(g, 255, .35)},${mix(b, 255, .35)})`);
+      // Texto legible sobre el botón de acento
+      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      root.setProperty("--on-accent", lum > 0.62 ? "#160d05" : "#ffffff");
+    }
+
+    /* ══════════════ Cargar negocio ══════════════ */
+    async function cargarNegocio() {
+      const snap = await getDoc(tiendaDoc(N.localidad, "tiendas", N.id));
+      if (!snap.exists()) throw new Error("Negocio no encontrado");
+      const d = snap.data();
+      bizNombre = d.nombre_tienda || d.nombre || "Negocio";
+      bizLogo = d.img_tienda?.logo_tienda || "";
+      if (!N.alias) N.alias = d.alias_key || null;
+
+      $("brandName").textContent = bizNombre;
+      document.title = `Seguimiento de pedido · ${bizNombre}`;
+
+      const logoEl = $("brandLogo");
+      if (bizLogo) {
+        logoEl.src = bizLogo;
+        logoEl.alt = bizNombre;
+        setFaviconCircular(bizLogo);
+        const c = await colorDelLogo(bizLogo);
+        aplicarColor(c || colorDesdeNombre(bizNombre));
+      } else {
+        logoEl.replaceWith(Object.assign(document.createElement("div"), {
+          className: "brand-logo letter",
+          textContent: bizNombre.trim().charAt(0).toUpperCase() || "?",
+        }));
+        aplicarColor(colorDesdeNombre(bizNombre));
+      }
+
+      // Volver al negocio
+      const back = $("backLink");
+      const href = N.propio ? "/" : N.alias ? `https://geinztech.com/perfil/${encodeURIComponent(N.alias)}` : null;
+      if (href) {
+        back.href = href;
+        $("backText").textContent = `Volver a ${bizNombre}`;
+        back.classList.remove("hidden");
+      }
+    }
+
+    /* ══════════════ Código de seguimiento ══════════════
+       Formatos aceptados:
+         - {pedidoId}
+         - {pedidoId}.{token}      (pedidos de invitado)
+         - enlace completo del pedido (con ?t=)                              */
+    function parsearCodigo(raw) {
+      const s = (raw || "").trim();
+      if (!s) return null;
+      let id = s, token = null;
+
+      if (/^https?:\/\//i.test(s) || s.startsWith("/")) {
+        try {
+          const u = new URL(s, location.origin);
+          token = u.searchParams.get("t");
+          const seg = u.pathname.split("/").filter(Boolean);
+          id = seg[seg.length - 1] || "";
+        } catch { return null; }
+      } else {
+        const i = s.indexOf(".");
+        if (i > 0) { id = s.slice(0, i); token = s.slice(i + 1) || null; }
+      }
+      return /^[A-Za-z0-9_-]{6,80}$/.test(id) ? { id, token } : null;
+    }
+
+    function urlPedidoCompleto({ id, token }) {
+      let base;
+      if (N.propio) base = `/pedido/${encodeURIComponent(id)}`;
+      else if (N.alias) base = `https://geinztech.com/perfil/${encodeURIComponent(N.alias)}/${encodeURIComponent(id)}`;
+      else base = `/pedidos/${encodeURIComponent(N.id)}/${encodeURIComponent(id)}`;
+      return token ? `${base}?t=${encodeURIComponent(token)}` : base;
+    }
+
+    /* ══════════════ Render de estados ══════════════ */
+    const ICON_LOCK = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.2"/><path d="M7.5 10.5V7.2a4.5 4.5 0 0 1 9 0v3.3"/></svg>`;
+    const ICON_SEARCH_X = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M9 9l4 4m0-4-4 4"/></svg>`;
+    const ICON_CHECK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>`;
+    const ICON_BOX = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>`;
+
+    const setResult = (html) => { $("result").innerHTML = html; };
+
+    function renderCargando() {
+      setResult(`<div class="card note enter"><div class="spin"></div></div>`);
+    }
+
+    function renderNoEncontrado() {
+      setResult(`
+        <div class="card note enter">
+          <div class="note-ico err">${ICON_SEARCH_X}</div>
+          <h2>No encontramos este pedido</h2>
+          <p>Revisa que el código esté completo o cópialo de nuevo desde la pantalla de tu pedido.</p>
+        </div>`);
+    }
+
+    function renderCodigoInvalido() {
+      setResult(`
+        <div class="card note enter">
+          <div class="note-ico err">${ICON_SEARCH_X}</div>
+          <h2>El código no es válido</h2>
+          <p>Debe verse como una serie de letras y números. Cópialo con el botón «Copiar código» de tu pedido.</p>
+        </div>`);
+    }
+
+    function renderAuth(tipo) {
+      const textos = {
+        login: ["Inicia sesión para ver este pedido", "Por seguridad, solo la persona que hizo el pedido puede verlo. Inicia sesión con la misma cuenta con la que compraste."],
+        otra: ["Este pedido es de otra cuenta", "Estás con una sesión distinta a la que hizo el pedido. Inicia sesión con la cuenta correcta para verlo."],
+        token: ["El código está incompleto", "Este pedido necesita el código completo. Cópialo de nuevo desde la pantalla de tu pedido con el botón «Copiar código»."],
+      }[tipo];
+      const btn = tipo === "token" ? "" : `<a id="loginBtn" class="btn btn-primary btn-block" href="${LOGIN_URL}">Iniciar sesión</a>`;
+      setResult(`
+        <div class="card note enter">
+          <div class="note-ico">${ICON_LOCK}</div>
+          <h2>${textos[0]}</h2>
+          <p>${textos[1]}</p>
+          ${btn}
+        </div>`);
+      $("loginBtn")?.addEventListener("click", (e) => {
+        if (!N.propio) return;
+        e.preventDefault();
+        abrirLoginPopup();
+      });
+    }
+
+    function renderPreview(data, parsed) {
+      const estado = normalizarEstado(data.estado);
+      const rechazado = estado === "rechazado";
+      const cancelado = rechazado && !!data.cancelado_por_cliente;
+      const enPausa = estado === "en_pausa";
+      const paso = enPausa ? (data.pausa?.estado_anterior || "pendiente") : estado;
+      const idx = ESTADOS.indexOf(ESTADOS.includes(paso) ? paso : "pendiente");
+
+      const label = cancelado ? "Pedido cancelado" : LABELS[estado];
+      const msg = cancelado ? "Cancelaste este pedido." : MENSAJES[estado];
+
+      let pasos = "";
+      if (!rechazado) {
+        pasos = `<div class="steps" role="list">` + ESTADOS.map((e, i) => {
+          const cls = i < idx || (i === idx && e === "entregado") ? "done" : i === idx ? "current" : "";
+          const bub = cls === "done" ? ICON_CHECK : i + 1;
+          const linea = i < ESTADOS.length - 1 ? `<div class="line ${i < idx ? "done" : ""}"></div>` : "";
+          return `<div class="step ${cls}" role="listitem"><span class="bub">${bub}</span><span class="lbl">${LABELS[e]}</span></div>${linea}`;
+        }).join("") + `</div>`;
+      } else {
+        pasos = `<div class="pv-alert">${esc(cancelado ? "Este pedido fue cancelado." : "Este pedido fue rechazado.")}</div>`;
+      }
+
+      const productos = Array.isArray(data.productos) ? data.productos : [];
+      const totalItems = data.total_items != null
+        ? Number(data.total_items)
+        : productos.reduce((s, p) => s + (Number(p.cantidad) || 0), 0);
+      const visibles = productos.slice(0, 3);
+      const resto = productos.length - visibles.length;
+
+      const items = visibles.map((p) => `
+        <li class="item">
+          ${p.imagen ? `<img src="${esc(p.imagen)}" alt="" width="42" height="42" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="ph">${ICON_BOX}</span>`}
+          <p class="nm truncate">${esc(p.nombre)}</p>
+          <span class="qty mono">x${esc(p.cantidad || 1)}</span>
+        </li>`).join("");
+
+      const fecha = [data.fecha, data.hora].filter(Boolean).join(" · ") || "—";
+      const codigoCorto = parsed.id.slice(0, 6).toUpperCase();
+
+      setResult(`
+        <article class="card ${primerRender ? "enter" : ""}" style="--st:var(--s-${estado})">
+          <div class="pv-top">
+            <span class="pv-code mono">Pedido #${esc(codigoCorto)}</span>
+            <span class="live"><i></i>En vivo</span>
+          </div>
+          <div class="pv-status">
+            <span class="pv-dot ${estado === "entregado" || rechazado ? "" : "pulse"}"></span>
+            <h2 class="pv-label">${esc(label)}</h2>
+          </div>
+          <p class="pv-msg">${esc(msg)}</p>
+          ${pasos}
+          <div class="meta">
+            <div><p class="k">Fecha</p><p class="v mono">${esc(fecha)}</p></div>
+            <div><p class="k">Entrega</p><p class="v">${esc(data.cliente?.tipo_entrega || "—")}</p></div>
+            <div><p class="k">Productos</p><p class="v mono">${esc(totalItems || productos.length)}</p></div>
+            <div><p class="k">Total</p><p class="v total mono">S/ ${Number(data.total || 0).toFixed(2)}</p></div>
+          </div>
+          ${items ? `<ul class="items">${items}</ul>` : ""}
+          ${resto > 0 ? `<p class="items-more">y ${resto} producto${resto === 1 ? "" : "s"} más</p>` : ""}
+          <div class="pv-cta">
+            <a class="btn btn-primary btn-block" href="${esc(urlPedidoCompleto(parsed))}">Ver seguimiento completo</a>
+          </div>
+        </article>`);
+      primerRender = false;
+    }
+
+    /* ══════════════ Búsqueda en tiempo real ══════════════ */
+    function detener() {
+      if (unsub) { unsub(); unsub = null; }
+    }
+
+    function buscar(parsed) {
+      detener();
+      ultimaBusqueda = parsed;
+      ultimoJSON = null;
+      primerRender = true;
+      const mi = ++busquedaId;
+      renderCargando();
+
+      const ref = tiendaSubDoc(N.localidad, "tiendas", N.id, "pedidos", parsed.id);
+      unsub = onSnapshot(
+        ref,
+        (snap) => {
+          if (mi !== busquedaId) return;
+          if (!snap.exists()) { detener(); renderNoEncontrado(); return; }
+
+          const data = snap.data();
+          const json = JSON.stringify(data);
+          if (json === ultimoJSON) return;
+          ultimoJSON = json;
+
+          // Misma regla de seguridad que la página completa del pedido
+          const dueno = data.cliente?.id_cliente || null;
+          const tokenPedido = data.token_seguimiento || null;
+          let autorizado = true;
+          if (dueno) autorizado = dueno === uid;
+          else if (tokenPedido) autorizado = parsed.token === tokenPedido;
+
+          if (!autorizado) {
+            detener();
+            renderAuth(dueno ? (uid ? "otra" : "login") : "token");
+            return;
+          }
+          renderPreview(data, parsed);
+        },
+        (err) => {
+          if (mi !== busquedaId) return;
+          console.error("[seguimiento] Error leyendo pedido:", err.code, err.message);
+          detener();
+          if (err.code === "permission-denied") renderAuth(uid ? "otra" : "login");
+          else renderNoEncontrado();
+        },
+      );
+    }
+
+    function enviarBusqueda() {
+      const parsed = parsearCodigo($("codigo").value);
+      if (!parsed) {
+        detener();
+        ultimaBusqueda = null;
+        if ($("codigo").value.trim()) renderCodigoInvalido();
+        else $("codigo").focus();
+        return;
+      }
+      buscar(parsed);
+    }
+
+    /* ══════════════ Eventos ══════════════ */
+    $("form").addEventListener("submit", (e) => { e.preventDefault(); enviarBusqueda(); });
+
+    $("pasteBtn").addEventListener("click", async () => {
+      try {
+        const txt = await navigator.clipboard.readText();
+        if (txt) { $("codigo").value = txt.trim(); enviarBusqueda(); }
+      } catch {
+        $("codigo").focus(); // el navegador no dio permiso: que pegue a mano
+      }
+    });
+
+    window.addEventListener("beforeunload", detener);
+
+    /* ══════════════ Init ══════════════ */
+    (async () => {
+      try {
+        await loginPorToken();
+        const u = await esperarAuth();
+        uid = u?.uid || null;
+
+        N = await resolverNegocio();
+        if (!N) throw new Error("Negocio no identificado");
+        await cargarNegocio();
+
+        $("boot").classList.add("hidden");
+        $("main").classList.remove("hidden");
+
+        // Si cambia la sesión (ej. volvió del login), reintenta la búsqueda actual
+        onAuthStateChanged(auth, (nu) => {
+          const nuevo = nu?.uid || null;
+          if (nuevo === uid) return;
+          uid = nuevo;
+          if (ultimaBusqueda) buscar(ultimaBusqueda);
+        });
+
+        // Enlace directo: ?c=CODIGO
+        const c = new URLSearchParams(location.search).get("c");
+        if (c) { $("codigo").value = c; enviarBusqueda(); }
+        else $("codigo").focus({ preventScroll: true });
+      } catch (e) {
+        console.error("[seguimiento]", e);
+        $("boot").classList.add("hidden");
+        $("fatal").classList.remove("hidden");
+      }
+    })();
+  </script>
+</body>
+
+</html>

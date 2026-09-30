@@ -343,6 +343,23 @@
         </div>
 
         <div class="bg-panel border border-line rounded-2xl p-4">
+                  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+          <div class="bg-panel border border-primary/40 rounded-2xl p-4">
+            <p class="text-[11px] uppercase tracking-wider text-primary font-bold mb-1">Venta neta</p>
+            <p class="font-display font-extrabold text-2xl text-white" id="kpiVentaNeta">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1">sin delivery</p>
+          </div>
+          <div class="bg-panel border border-line rounded-2xl p-4">
+            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">🛵 Delivery cobrado</p>
+            <p class="font-display font-extrabold text-2xl text-white" id="kpiDeliveryTotal">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1"><span id="kpiDeliveryCount">0</span> pedidos con delivery</p>
+          </div>
+          <div class="bg-panel border border-line rounded-2xl p-4">
+            <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-1">Ticket neto</p>
+            <p class="font-display font-extrabold text-2xl text-white" id="kpiTicketNeto">S/ 0.00</p>
+            <p class="text-[11px] text-inkfaint mt-1">sin delivery</p>
+          </div>
+        </div>
           <p class="text-[11px] uppercase tracking-wider text-inkdim font-semibold mb-3">Yape/Plin vs. Efectivo/Tarjeta
           </p>
           <div class="space-y-2.5" id="barPago"></div>
@@ -546,6 +563,15 @@
             <option value="recojo">🏬 Recojo en local</option>
             <option value="mesa">🍽️ Mesa</option>
             <option value="directo">🧾 Venta directa</option>
+          </select>
+        </div>
+                <div class="flex items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">Delivery</span>
+          <select id="filterDelivery"
+            class="text-sm border border-line rounded-lg px-2.5 py-1.5 bg-panel2 text-white focus:border-primary outline-none">
+            <option value="todos">Todos</option>
+            <option value="con">🛵 Con delivery cobrado</option>
+            <option value="sin">Sin delivery</option>
           </select>
         </div>
         <div class="flex-1 min-w-[180px] relative">

@@ -1,7 +1,11 @@
 {
   "hosting": {
     "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "cleanUrls": true,
     "headers": [
       {
@@ -33,11 +37,21 @@
       },
       {
         "source": "**/*.@(js|mjs)",
-        "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }]
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
       },
       {
         "source": "**/*.webmanifest",
-        "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }]
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
       }
     ],
     "rewrites": [
@@ -100,6 +114,14 @@
       {
         "source": "/perfil/*/*",
         "destination": "/pedidos/pedidos.html"
+      },
+      {
+        "source": "/perfil/*/seguimiento_pedido",
+        "destination": "/seguimiento/seguimiento_pedido.html"
+      },
+      {
+        "source": "/seguimiento_pedido",
+        "destination": "/seguimiento/seguimiento_pedido.html"
       },
       {
         "source": "/perfil/**",

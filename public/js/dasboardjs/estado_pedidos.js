@@ -450,7 +450,6 @@ const loginPorTokenPromise = (async () => {
     return;
   }
   await loginPorTokenPromise;
-
   let iniciado = false;
   onAuthStateChanged(auth, (user) => {
     if (iniciado) return;
@@ -460,6 +459,28 @@ const loginPorTokenPromise = (async () => {
   });
 })();
 
+/* ══════════════ Copiar código del pedido ══════════════ */
+el("btn-copiar-codigo")?.addEventListener("click", async () => {
+  const btn = el("btn-copiar-codigo");
+  const txt = btn?.querySelector(".copy-text");
+  if (!btn || !txt || !pedidoIdActual) return;
+
+  // usuario registrado: solo el id. Invitado: id.token
+  const codigo = TOKEN_URL ? `${pedidoIdActual}.${TOKEN_URL}` : pedidoIdActual;
+
+  try {
+    await navigator.clipboard.writeText(codigo);
+    txt.textContent = "¡Copiado!";
+    btn.classList.add("copied");
+    clearTimeout(btn._t);
+    btn._t = setTimeout(() => {
+      txt.textContent = "Copiar código";
+      btn.classList.remove("copied");
+    }, 1800);
+  } catch (e) {
+    console.warn("[pedidos] No se pudo copiar el código:", e);
+  }
+});
 // Pide permiso de notificaciones en la primera interacción del cliente
 // (los navegadores bloquean el prompt automático si no hay gesto del usuario)
 document.addEventListener(

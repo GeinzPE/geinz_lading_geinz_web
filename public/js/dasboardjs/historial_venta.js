@@ -175,6 +175,12 @@ function listenPedidos() {
   mostrarCargaRango();
 
   const [from, to] = getRangeBounds();
+  cargarTotalPeriodoAnterior(from, to)
+    .then((t) => {
+      prevTotalState = t;
+      renderAll();
+    })
+    .catch(() => {});
   const col = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const q = query(
     col,
@@ -262,6 +268,20 @@ function opcionesDetalleTexto(pr) {
   return lineas.join(" · ");
 }
 
+// Delivery cobrado en el pedido (0 si es gratis, recojo, mesa, etc.)
+function deliveryDePedido(p) {
+  const d = p.delivery;
+  if (!d || d.gratis) return 0;
+  return Number(d.costo) || 0;
+}
+// Total sin el delivery = venta neta
+function totalSinDelivery(p) {
+  if (typeof p.venta_neta === "number") return p.venta_neta;
+  return Math.max(0, (Number(p.total) || 0) - deliveryDePedido(p));
+}
+function tieneDelivery(p) {
+  return deliveryDePedido(p) > 0;
+}
 function fmtMoney(n) {
   return (
     "S/ " +
@@ -374,7 +394,7 @@ function renderOrigenMetrics(list) {
     counts[getOrigenInfo(p).key]++;
   });
   entregados.forEach((p) => {
-    montos[getOrigenInfo(p).key] += Number(p.total) || 0;
+       montos[getOrigenInfo(p).key] += totalSinDelivery(p);
   });
 
   const totalCount = list.length;
@@ -507,6 +527,9 @@ function getFilteredOrders() {
       if (estadoF !== "todos" && (p.estado || "").toLowerCase() !== estadoF)
         return false;
       const origenF = document.getElementById("filterOrigen").value;
+      const deliF = document.getElementById("filterDelivery")?.value || "todos";
+if (deliF === "con" && !tieneDelivery(p)) return false;
+if (deliF === "sin" && tieneDelivery(p)) return false;
       if (origenF !== "todos" && getOrigenInfo(p).key !== origenF) return false;
       if (q) {
         const nombre = ((p.cliente && p.cliente.nombre) || "").toLowerCase();
@@ -548,7 +571,14 @@ function renderMetrics(list) {
   document.getElementById("kpiOtros").textContent = otros;
   document.getElementById("kpiTicket").textContent = fmtMoney(ticket);
   document.getElementById("kpiItems").textContent = items;
-
+const deliveryTotal = entregados.reduce((s, p) => s + deliveryDePedido(p), 0);
+const conDelivery = entregados.filter(tieneDelivery).length;
+const ventaNeta = total - deliveryTotal;
+const setK = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+setK("kpiVentaNeta", fmtMoney(ventaNeta));
+setK("kpiDeliveryTotal", fmtMoney(deliveryTotal));
+setK("kpiDeliveryCount", conDelivery);
+setK("kpiTicketNeto", fmtMoney(count ? ventaNeta / count : 0));
   const digitalCount = entregados.filter((p) =>
     esBilleteraDigital(p.pago && p.pago.metodo),
   ).length;
@@ -625,22 +655,35 @@ function computeHoraPico(list) {
   return { franjas, horaTop: maxIdx, cantTop: franjas[maxIdx] };
 }
 
-function computeComparativaTotal(from, to) {
-  const [prevFrom, prevTo] = getPreviousRangeBounds(from, to);
-  const prevEntregados = pedidosRaw.filter((p) => {
-    const d = toDate(p.timestamp) || toDate(p.actualizado);
-    return (
-      d &&
-      d >= prevFrom &&
-      d <= prevTo &&
-      (p.estado || "").toLowerCase() === "entregado"
-    );
-  });
-  const prevTotal = prevEntregados.reduce(
-    (s, p) => s + (Number(p.total) || 0),
-    0,
+let prevTotalState = 0;
+const prevCache = new Map();
+
+async function cargarTotalPeriodoAnterior(from, to) {
+  const [pf, pt] = getPreviousRangeBounds(from, to);
+  const key = pf.getTime() + "_" + pt.getTime();
+  if (prevCache.has(key)) return prevCache.get(key);
+  const col = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
+  const snap = await getDocs(
+    query(
+      col,
+      where("timestamp", ">=", Timestamp.fromDate(pf)),
+      where("timestamp", "<=", Timestamp.fromDate(pt)),
+      orderBy("timestamp", "desc"),
+      limit(2000),
+    ),
   );
-  return { prevTotal, prevCount: prevEntregados.length };
+  let total = 0;
+  snap.docs.forEach((d) => {
+    const p = normalizarPedido(d.id, d.data());
+    if ((p.estado || "").toLowerCase() === "entregado")
+      total += Number(p.total) || 0;
+  });
+  prevCache.set(key, total);
+  return total;
+}
+
+function computeComparativaTotal() {
+  return { prevTotal: prevTotalState };
 }
 
 function renderInteligente(entregados, from, to) {
@@ -727,7 +770,7 @@ function computeFinanzas(entregados) {
   let ingresos = 0,
     costos = 0;
   entregados.forEach((p) => {
-    ingresos += Number(p.total) || 0;
+ingresos += totalSinDelivery(p);
     (p.productos || []).forEach((pr) => {
       const precioUnit =
         pr.precio_unitario ??
@@ -904,7 +947,10 @@ function renderList(list) {
       <td class="px-4 py-3">
         <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
       </td>
-      <td class="px-4 py-3 text-right font-mono font-semibold text-white">${fmtMoney(p.total)}</td>
+         <td class="px-4 py-3 text-right font-mono font-semibold text-white">
+        ${fmtMoney(p.total)}
+        ${tieneDelivery(p) ? `<p class="text-[10px] text-inkfaint font-normal">🛵 incl. ${fmtMoney(deliveryDePedido(p))}</p>` : ""}
+      </td>
          <td class="px-4 py-3 text-inkdim">${(p.pago && p.pago.metodo) || "—"}</td>
       <td class="px-4 py-3">${cuponBadge(p)}</td>
       <td class="px-4 py-3">${origenBadge(p)}</td>
@@ -928,8 +974,10 @@ function renderList(list) {
       </div>
           <div class="flex items-center justify-between text-sm mb-2">
         <span class="text-inkfaint text-xs">${fmtFechaHora(p)}</span>
-        <span class="font-mono font-bold text-white">${fmtMoney(p.total)}</span>
-      </div>
+        <span class="font-mono font-bold text-white text-right">
+          ${fmtMoney(p.total)}
+          ${tieneDelivery(p) ? `<span class="block text-[10px] text-inkfaint font-normal">🛵 incl. ${fmtMoney(deliveryDePedido(p))}</span>` : ""}
+        </span>      </div>
       <div class="flex items-center gap-2 flex-wrap">
         ${origenBadge(p)}
         ${cuponBadge(p)}
@@ -1021,12 +1069,20 @@ function openModal(id) {
         <div class="bg-panel2 border border-line rounded-xl px-3">${productosHtml || '<p class="text-sm text-inkfaint py-3">Sin productos</p>'}</div>
       </div>
 
-      <div class="bg-panel2 border border-line rounded-xl px-4 py-3 flex justify-between items-center mb-5">
-        <div>
-          <p class="text-xs text-inkfaint">${p.total_items || ""} ítem(s) · ${(p.pago && p.pago.metodo) || ""}</p>
-          ${p.pago && p.pago.vuelto ? `<p class="text-xs text-inkfaint">Vuelto: S/ ${p.pago.vuelto}</p>` : ""}
+        <div class="bg-panel2 border border-line rounded-xl px-4 py-3 mb-5">
+        ${tieneDelivery(p) ? `
+          <div class="flex justify-between text-xs text-inkdim py-0.5"><span>Productos</span><span class="font-mono">${fmtMoney(totalSinDelivery(p))}</span></div>
+          <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery${p.delivery.zona ? ` · ${p.delivery.zona}` : ""}</span><span class="font-mono">${fmtMoney(deliveryDePedido(p))}</span></div>
+        ` : p.delivery?.gratis ? `
+          <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery</span><span class="font-mono text-green-400">Gratis (promo)</span></div>
+        ` : ""}
+        <div class="flex justify-between items-center ${p.delivery ? "pt-2 mt-1 border-t border-line" : ""}">
+          <div>
+            <p class="text-xs text-inkfaint">${p.total_items || ""} ítem(s) · ${(p.pago && p.pago.metodo) || ""}</p>
+            ${p.pago && p.pago.vuelto ? `<p class="text-xs text-inkfaint">Vuelto: S/ ${p.pago.vuelto}</p>` : ""}
+          </div>
+          <p class="font-display font-extrabold text-xl text-white">${fmtMoney(p.total)}</p>
         </div>
-        <p class="font-display font-extrabold text-xl text-white">${fmtMoney(p.total)}</p>
       </div>
 
       <div class="flex gap-2">
@@ -1060,7 +1116,7 @@ function ticketTextoPlano(p) {
       return opcionesTxt ? `${base}\n   (${opcionesTxt})` : base;
     })
     .join("\n");
-  return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\nTOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ""}\n${p.nota ? "Nota: " + p.nota : ""}`;
+  return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\n${tieneDelivery(p) ? `Productos: ${fmtMoney(totalSinDelivery(p))}\nDelivery: ${fmtMoney(deliveryDePedido(p))}\n` : ""}TOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ""}\n${p.nota ? "Nota: " + p.nota : ""}`;
 }
 function reimprimirTicket() {
   if (!currentOrder) return;
@@ -1107,6 +1163,8 @@ function exportarCSV() {
     "Codigo cupon",
     "Monto descuento (S/)",
     "Puntos usados",
+    "Venta neta (S/)",
+    "Delivery (S/)",
   ];
   const rows = list.map((p) => {
     const productos = (p.productos || [])
@@ -1133,7 +1191,9 @@ function exportarCSV() {
       tipoLabel,
       (p.cupon && p.cupon.codigo) || "",
       (Number(p.descuentoCupon) || 0).toFixed(2),
-      (p.cupon && p.cupon.costoPuntos) || "",
+        (p.cupon && p.cupon.costoPuntos) || "",
+      totalSinDelivery(p).toFixed(2),
+      deliveryDePedido(p).toFixed(2),
     ];
   });
   const entregados = list.filter(
@@ -1153,6 +1213,7 @@ function exportarCSV() {
     ["Margen bruto (S/)", finanzas.margenBruto.toFixed(2)],
     ["Gastos operativos (S/)", (Number(costosConfig.gastosOperativos) || 0).toFixed(2)],
     ["Utilidad neta (S/)", finanzas.utilidadNeta.toFixed(2)],
+    ["Delivery cobrado (S/)", entregados.reduce((s, p) => s + deliveryDePedido(p), 0).toFixed(2)],
   ].map((r) => r.map(csvEscape).join(","));
 
   const csv = [...tablaCsv, ...resumenCsv].join("\n");
@@ -1200,7 +1261,9 @@ function exportarExcel() {
       "Tipo descuento": tipoLabel,
       "Código cupón": (p.cupon && p.cupon.codigo) || "",
       "Monto descuento (S/)": Number(p.descuentoCupon) || 0,
-      "Puntos usados": (p.cupon && p.cupon.costoPuntos) || "",
+       "Puntos usados": (p.cupon && p.cupon.costoPuntos) || "",
+      "Venta neta (S/)": totalSinDelivery(p),
+      "Delivery (S/)": deliveryDePedido(p),
     };
   });
 
@@ -1218,8 +1281,10 @@ function exportarExcel() {
     { wch: 12 },
     { wch: 20 },
     { wch: 14 },
-    { wch: 18 },
+     { wch: 18 },
     { wch: 14 },
+    { wch: 14 },
+    { wch: 12 },
   ];
 
   const wb = XLSX.utils.book_new();
@@ -1262,6 +1327,8 @@ function exportarExcel() {
     { Métrica: "Cantidad efectivo/tarjeta", Valor: efectivoCount },
     { Métrica: "Ventas por Yape/Plin (S/)", Valor: digitalMonto.toFixed(2) },
     { Métrica: "Cantidad Yape/Plin", Valor: digitalCount },
+    { Métrica: "Venta neta sin delivery (S/)", Valor: finanzas.ingresos.toFixed(2) },
+    { Métrica: "Delivery cobrado (S/)", Valor: entregados.reduce((s, p) => s + deliveryDePedido(p), 0).toFixed(2) },
     {
       Métrica: "Nota",
       Valor: "Costos estimados según % configurado en el sistema; no reemplaza comprobantes de compra.",
@@ -1324,7 +1391,7 @@ function exportarPDF() {
     40,
     86,
   );
-  const headers = [["Código", "Fecha/Hora", "Cliente", "Teléfono", "Origen", "Productos", "Pago", "Estado", "Total", "Descuento"]];
+  const headers = [["Código", "Fecha/Hora", "Cliente", "Teléfono", "Origen", "Productos", "Pago", "Estado", "Total", "Delivery", "Descuento"]];
   const body = list.map((p) => {
     const tipo = getTipoCuponPedido(p);
     const tipoLabel =
@@ -1346,6 +1413,7 @@ function exportarPDF() {
       (p.pago && p.pago.metodo) || "",
       p.estado || "",
       fmtMoney(p.total),
+      deliveryDePedido(p) ? fmtMoney(deliveryDePedido(p)) : "—",
       descuentoTxt,
     ];
   });
@@ -1358,21 +1426,11 @@ function exportarPDF() {
     headStyles: { fillColor: [136, 85, 255], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [245, 242, 255] },
     columnStyles: {
-      5: { cellWidth: 140 },
+      5: { cellWidth: 130 },
       8: { halign: "right", cellWidth: 55 },
-      9: { cellWidth: 90 },
+      9: { halign: "right", cellWidth: 50 },
+      10: { cellWidth: 80 },
     },
-    margin: { left: 40, right: 40 },
-  });
-
-  doc.autoTable({
-    head: headers,
-    body: body,
-    startY: 104,
-    styles: { font: "helvetica", fontSize: 8, cellPadding: 5, textColor: [30, 30, 30] },
-    headStyles: { fillColor: [136, 85, 255], textColor: [255, 255, 255], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [245, 242, 255] },
-    columnStyles: { 5: { cellWidth: 160 }, 8: { halign: "right" } },
     margin: { left: 40, right: 40 },
   });
   const fmtFPdf = (d) => d.toISOString().slice(0, 10);
@@ -1440,6 +1498,7 @@ const filterEstado = document.getElementById("filterEstado");
 if (filterEstado) filterEstado.addEventListener("change", renderAll);
 const filterOrigen = document.getElementById("filterOrigen");
 if (filterOrigen) filterOrigen.addEventListener("change", renderAll);
+document.getElementById("filterDelivery")?.addEventListener("change", renderAll);
 const searchBox = document.getElementById("searchBox");
 if (searchBox) searchBox.addEventListener("input", renderAll);
 const btnResetFilters = document.getElementById("btnResetFilters");
@@ -1447,6 +1506,8 @@ if (btnResetFilters) {
   btnResetFilters.addEventListener("click", () => {
     document.getElementById("filterEstado").value = "todos";
     document.getElementById("filterOrigen").value = "todos";
+    const fd = document.getElementById("filterDelivery");
+    if (fd) fd.value = "todos";
     document.getElementById("searchBox").value = "";
     document
       .querySelectorAll("#dateChips .chip")

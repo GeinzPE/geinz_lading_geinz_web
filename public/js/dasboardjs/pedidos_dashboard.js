@@ -443,6 +443,57 @@ const DELI_CSS = `
   color:var(--ink-dim);text-transform:uppercase;letter-spacing:.04em;}
 .deli-rec-grid .deli-inp{width:100%;padding:8px 6px;text-align:center;}
 .deli-rec-hint{margin-top:9px;font-size:11.5px;line-height:1.4;color:#fbbf24;}
+/* ── Popover más ancho y ordenado ── */
+#deliPop{
+  width:min(360px, calc(100vw - 24px));
+  max-height:82vh;
+  overflow-y:auto;
+  padding:16px;
+}
+#deliPop *{box-sizing:border-box;}
+#deliPop .autorej-toggle-row{padding:6px 0;}
+
+/* Tipo de tarifa: etiqueta arriba, select ocupando todo el ancho */
+#deliPop .autorej-input-row:has(#deliModo){
+  flex-direction:column;
+  align-items:stretch;
+  gap:6px;
+  margin:12px 0;
+}
+#deliPop .autorej-input-row:has(#deliModo) > span{
+  font-size:11px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--ink-dim);
+}
+#deliModo{width:100%;height:42px;}
+
+/* Zonas: nombre | precio | basurero, en columnas fijas */
+.deli-zona-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 96px 40px;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.deli-zona-row .deli-inp[type=text]{width:100%;height:40px;}
+.deli-money{gap:6px;}
+.deli-money .deli-inp{width:100%;min-width:0;height:40px;}
+.deli-trash{width:100%;height:40px;}
+
+/* Recargo: Desde / Hasta en 2 columnas, el monto abajo a todo el ancho */
+.deli-rec{margin-top:14px;padding:14px;}
+.deli-rec-grid{grid-template-columns:1fr 1fr;gap:10px;}
+.deli-rec-grid label:nth-child(3){grid-column:1 / -1;}
+.deli-rec-grid .deli-inp{width:100%;height:40px;padding:8px 10px;text-align:left;}
+.deli-rec-grid label:nth-child(3) .deli-inp{text-align:center;font-weight:800;}
+.deli-rec-hint{margin-top:12px;padding:8px 10px;border-radius:10px;
+  background:rgba(251,191,36,.08);}
+
+#deliSave{margin-top:14px;width:100%;}
+
+/* En celular el popover ocupa el ancho de la pantalla */
+@media (max-width:820px){
+  #deliPop{width:auto;max-height:calc(100vh - 90px);}
+}
 `;
 styleTag.textContent =
   MESA_ADMIN_CSS + NP_CSS + PS_CSS + VOUCHER_CSS + MAPA_CSS + DELI_CSS;
@@ -1559,7 +1610,7 @@ deliRecBox.innerHTML = `
     <div class="deli-rec-grid">
       <label>Desde<input type="time" id="deliRecDesde" class="deli-inp"></label>
       <label>Hasta<input type="time" id="deliRecHasta" class="deli-inp"></label>
-      <label>Suma S/<input type="number" id="deliRecMonto" class="deli-inp" min="0" step="0.5"></label>
+<label>Monto extra (S/)<input type="number" id="deliRecMonto" class="deli-inp" min="0" step="0.5"></label>
     </div>
     <p class="deli-rec-hint" id="deliRecHint"></p>
   </div>`;
