@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Escáner · Geinz</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#0a0a0f;color:#fff;font-family:Inter,system-ui,sans-serif;padding:18px;min-height:100vh}
+  h2{margin:0 0 6px}p{color:#9a9aa8;font-size:13px}
+  input{width:100%;padding:14px;border-radius:12px;border:1px solid #2a2a35;background:#14141c;color:#fff;font-size:18px;text-align:center;margin:10px 0}
+  button{width:100%;padding:14px;border:none;border-radius:12px;background:#7c5cff;color:#fff;font-weight:800;font-size:15px}
+  video{width:100%;border-radius:16px;background:#000;aspect-ratio:4/3;object-fit:cover}
+  #err{color:#f87171;min-height:18px}#estado{padding:10px;border-radius:10px;background:rgba(34,197,94,.12);color:#4ade80;font-weight:700;font-size:13px;margin:10px 0;text-align:center}
+  #hist div{font-size:12.5px;padding:6px 0;border-bottom:1px solid #1d1d27;font-family:monospace}
+</style></head><body>
+<div id="paso1">
+  <h2>📱 Escáner Geinz</h2>
+  <p>Escribe la clave de 6 dígitos que aparece en tu computadora.</p>
+  <input id="pin" inputmode="numeric" maxlength="6" placeholder="••••••">
+  <button id="conectar">Conectar</button>
+  <p id="err"></p>
+</div>
+<div id="paso2" hidden>
+  <video id="v" playsinline muted></video>
+  <div id="estado">✅ Conectado. Apunta a un código de barras</div>
+  <input id="manual" inputmode="numeric" placeholder="o escribe el código a mano">
+  <button id="enviarManual">Enviar código</button>
+  <div id="hist"></div>
+</div>
+<script type="module" src="../js/dasboardjs/scanner_movil.js"></script>
+</body></html>

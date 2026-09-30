@@ -220,11 +220,18 @@
 
         <div class="nuevo-pedido-wrap" id="nuevoPedidoWrap" style="display:none;">
             <div class="np-panel">
-                <div class="np-search-wrap" style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="npSearchInput" placeholder="Buscar producto…"
-                        style="flex:1;margin-bottom:0;" />
-                    <button type="button" id="npRefreshBtn" title="Recargar productos"
-                        style="flex-shrink:0;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:16px;cursor:pointer;">🔄</button>
+                <div class="np-search-wrap">
+                    <div class="np-search-box">
+                        <span class="np-search-ico">🔍</span>
+                        <input type="text" id="npSearchInput" placeholder="Buscar producto o escanear código de barras…"
+                            autocomplete="off" />
+                        <button type="button" id="npClearSearch" class="np-search-clear" style="display:none">✕</button>
+                    </div>
+                    <button type="button" class="np-tool-btn" id="npScanCamBtn"
+                        title="Escanear con la cámara">📷</button>
+                    <button type="button" class="np-tool-btn" id="npScanPhoneBtn"
+                        title="Usar mi celular como escáner">📱</button>
+                    <button type="button" class="np-tool-btn" id="npRefreshBtn" title="Recargar productos">🔄</button>
                 </div>
                 <div id="npFiltros" class="np-filtros"></div>
                 <div id="npGrid" class="np-grid"></div>
