@@ -365,7 +365,12 @@ function getPedidoDeMesa(mesaDocId) {
   if (!m) return null;
   if (m.grupoId) {
     const grupo = gruposMap.get(m.grupoId);
-    if (!grupo || grupo.estado !== "activo" || !grupo.pedido) return null;
+    if (
+      !grupo ||
+      !["activo", "pedido_pendiente"].includes(grupo.estado) ||
+      !grupo.pedido
+    )
+      return null;
     return {
       pedido: grupo.pedido,
       pedidoDocId: grupo.pedidoGrupoDocId || null,
@@ -374,7 +379,8 @@ function getPedidoDeMesa(mesaDocId) {
       grupoRef: doc(gruposColRef(), m.grupoId),
     };
   }
-  if (m.estado !== "ocupado" || !m.pedido) return null;
+  if (!["ocupado", "pedido_pendiente"].includes(m.estado) || !m.pedido)
+    return null;
   return {
     pedido: m.pedido,
     pedidoDocId: m.pedidoMesaDocId || null,
@@ -1300,16 +1306,21 @@ function iniciarListenerLlamados() {
 
 /* ══════════════ Listener de mesas y grupos ══════════════ */
 function iniciarListenerMesas() {
-  const q = query(mesasColRef(), orderBy("numero_mesa"));
   onSnapshot(
-    q,
+    mesasColRef(), // 👈 sin query ni orderBy
     (snap) => {
+      console.log("[MOZO]", { tiendaId, localidad, mesas: snap.size });
+      snap.forEach((d) => console.log("[MOZO] mesa:", d.id, d.data()));
+
       const nuevosPedidos = [];
       const listosNuevos = [];
       snap.forEach((d) => {
         const data = d.data();
         const anterior = mesasMap.get(d.id);
-        if (data.estado === "ocupado" && data.pedido) {
+        if (
+          ["ocupado", "pedido_pendiente"].includes(data.estado) &&
+          data.pedido
+        ) {
           const firma = `${data.pedido.hora || ""}|${data.pedido.total_items || 0}`;
           const firmaAnterior = mesaPedidoFirma.get(d.id);
           if (

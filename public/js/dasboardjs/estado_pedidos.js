@@ -1,10 +1,10 @@
 import {
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   updateDoc,
   serverTimestamp,
-  enableIndexedDbPersistence,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth,
@@ -23,14 +23,6 @@ const LOGIN_URL = "/login.html";
 let bizNombreActual = "";
 let bizLogoActual = "";
 // Cache local: si el pedido se vuelve a abrir (o hay un corte de red breve),
-// se sirve desde disco al instante en vez de esperar a la red.
-try {
-  enableIndexedDbPersistence(db).catch((err) => {
-    console.warn("[pedidos] Persistencia local no disponible:", err.code);
-  });
-} catch (e) {
-  console.warn("[pedidos] No se pudo activar la persistencia local:", e);
-}
 
 // ---- Config: fallback de localidad para links viejos (/pedidos/{negocioId}/{pedidoId}) ----
 const LOCALIDAD_FIJA = "barranca";
@@ -38,23 +30,29 @@ let aliasNegocioActual = null;
 const ES_DOMINIO_PROPIO = !!window.__NEGOCIO_HOSTNAME__;
 // ---- Estados del pedido (única fuente de verdad, sin duplicados) ----
 const ESTADOS = ["pendiente", "en_proceso", "entregado"];
+
 const ESTADOS_LABEL = {
   pendiente: "Pendiente",
+  pendiente_pago: "Pendiente de pago",
   en_proceso: "En proceso",
   en_pausa: "En pausa",
   entregado: "Entregado",
   rechazado: "Rechazado",
 };
 
+function requierePagoOnline(data) {
+  const m = data?.pago?.metodo;
+  return !!m && m !== "Efectivo" && !data.mesa;
+}
 function normalizarEstado(estado) {
   const e = (estado || "").toLowerCase().trim();
+  if (e === "pendiente_pago" || e.includes("pago")) return "pendiente_pago";
   if (e === "rechazado" || e.includes("rechaz")) return "rechazado";
   if (e === "entregado" || e.includes("entreg")) return "entregado";
   if (e === "en_pausa" || e.includes("pausa")) return "en_pausa";
   if (e === "en_proceso" || e.includes("proceso")) return "en_proceso";
   return "pendiente";
 }
-
 function toDateFS(ts) {
   return ts && typeof ts.toDate === "function" ? ts.toDate() : null;
 }
@@ -255,19 +253,24 @@ function actualizarBloquePagoQR() {
   if (!card) return;
   const p = pedidoActualParaPago;
   const mp = negocioMetodosPagoActual;
-  if (!p || !mp) { card.classList.add("hidden"); return; }
+  if (!p || !mp) {
+    card.classList.add("hidden");
+    return;
+  }
 
   // Cualquier método que no sea efectivo (Yape, Plin, Visa, Agora)
   const metodoKey = detectarMetodoPagoConDatos(p.pago?.metodo);
   const esMesa = !!p.mesa || p.cliente?.tipo_entrega === "Mesa";
   const estado = normalizarEstado(p.estado);
-  if (!metodoKey || esMesa || estado === "rechazado") {
+  if (!metodoKey || esMesa || estado !== "pendiente_pago") {
     card.classList.add("hidden");
     return;
   }
-
   const info = mp[metodoKey];
-  if (!info || !info.enable) { card.classList.add("hidden"); return; }
+  if (!info || !info.enable) {
+    card.classList.add("hidden");
+    return;
+  }
 
   card.classList.remove("hidden");
   el("pago-qr-metodo-label").textContent =
@@ -302,11 +305,17 @@ function comprimirImagenGenerica(dataURL, maxPx, calidad) {
     img.onload = () => {
       let { width: w, height: h } = img;
       if (w > maxPx || h > maxPx) {
-        if (w >= h) { h = Math.round((h * maxPx) / w); w = maxPx; }
-        else { w = Math.round((w * maxPx) / h); h = maxPx; }
+        if (w >= h) {
+          h = Math.round((h * maxPx) / w);
+          w = maxPx;
+        } else {
+          w = Math.round((w * maxPx) / h);
+          h = maxPx;
+        }
       }
       const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
+      canvas.width = w;
+      canvas.height = h;
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL("image/webp", calidad));
     };
@@ -331,7 +340,10 @@ el("pago-voucher-input")?.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file || !pedidoRefGlobal || !ids) return;
   const btn = el("btn-subir-voucher");
-  if (btn) { btn.disabled = true; btn.textContent = "Subiendo…"; }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Subiendo…";
+  }
   try {
     const dataURL = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -341,8 +353,12 @@ el("pago-voucher-input")?.addEventListener("change", async (e) => {
     });
     const comprimida = await comprimirImagenGenerica(dataURL, 900, 0.85);
     const blob = dataURLtoBlobGenerico(comprimida);
-    const { getStorage, ref: storageRef, uploadBytes, getDownloadURL } =
-      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js");
+    const {
+      getStorage,
+      ref: storageRef,
+      uploadBytes,
+      getDownloadURL,
+    } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js");
     const storage = getStorage();
     const path = `tiendas/${ids.negocioId}/comprobantes_pago/${ids.pedidoId}.webp`;
     const sref = storageRef(storage, path);
@@ -356,7 +372,10 @@ el("pago-voucher-input")?.addEventListener("change", async (e) => {
   } catch (err) {
     console.error("[pedidos] Error subiendo comprobante:", err);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "📎 Enviar comprobante de pago"; }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "📎 Enviar comprobante de pago";
+    }
     e.target.value = "";
   }
 });
@@ -377,7 +396,8 @@ function calcularAhorroCupon(data) {
       const paga = Number(c.descuento?.pagaUnidades) || compra;
       return +Math.max(0, (compra - paga) * orig).toFixed(2);
     }
-    const final = c.precioFinalEstimado != null ? Number(c.precioFinalEstimado) : orig;
+    const final =
+      c.precioFinalEstimado != null ? Number(c.precioFinalEstimado) : orig;
     return +Math.max(0, orig - final).toFixed(2);
   }
   return 0;
@@ -393,7 +413,8 @@ function renderResumenCupon(data) {
   }
   const total = Number(data.total || 0);
   el("resumen-subtotal").textContent = `S/ ${(total + ahorro).toFixed(2)}`;
-  el("resumen-cupon-label").textContent = `🎟️ Cupón ${data.cupon.codigo || ""}`.trim();
+  el("resumen-cupon-label").textContent =
+    `🎟️ Cupón ${data.cupon.codigo || ""}`.trim();
   el("resumen-descuento").textContent = `− S/ ${ahorro.toFixed(2)}`;
   wrap.classList.remove("hidden");
 }
@@ -436,7 +457,11 @@ const loginPorTokenPromise = (async () => {
   const p = new URLSearchParams(window.location.hash.slice(1));
   const t = p.get("wl_token");
   if (!t) return;
-  history.replaceState(null, "", window.location.pathname + window.location.search);
+  history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.search,
+  );
   try {
     await signInWithCustomToken(auth, t);
   } catch (err) {
@@ -445,6 +470,7 @@ const loginPorTokenPromise = (async () => {
 })();
 (async () => {
   ids = await resolverRuta();
+  console.log("[pedidos] ids resueltos:", ids, "| url:", location.href);
   if (!ids) {
     showEmpty();
     return;
@@ -588,71 +614,97 @@ el("leave-confirm-modal")?.addEventListener("click", (e) => {
   if (e.target.id === "leave-confirm-modal") cerrarModalSalir();
 });
 function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
+  console.log("[pedidos] DIAG", {
+    uid: uidActual,
+    negocioId,
+    localidad,
+    injId: window.__NEGOCIO_ID__,
+    injLoc: window.__NEGOCIO_LOCALIDAD__,
+    projectId: db.app.options.projectId,
+    referrer: document.referrer,
+    nav: performance.getEntriesByType("navigation")[0]?.type,
+  });
   pedidoIdActual = pedidoId;
   showSkeleton();
 
   // --- Datos del negocio (logo, nombre, contacto) ---
+  const aplicarNegocio = (data) => {
+    const nombre = data.nombre_tienda || data.nombre || "Negocio";
+    const logoUrl = data.img_tienda?.logo_tienda || "";
+    bizNombreActual = nombre;
+    bizLogoActual = logoUrl;
+    el("negocio-nombre").textContent = nombre;
+    el("negocio-localidad").textContent = localidad;
+    document.title = `Pedido · ${nombre}`;
+
+    const btnVolver = el("btn-volver-negocio");
+    const btnCarito = el("btn-ir-carrito");
+    negocioMetodosPagoActual = data.metodos_pago || null;
+    actualizarBloquePagoQR();
+
+    if (btnVolver) {
+      if (ES_DOMINIO_PROPIO || aliasNegocioActual) {
+        btnVolver.href = ES_DOMINIO_PROPIO
+          ? "/"
+          : `https://geinztech.com/perfil/${aliasNegocioActual}`;
+        el("btn-volver-negocio-texto").textContent = `Volver a ${nombre}`;
+        btnVolver.classList.remove("hidden");
+      } else {
+        btnVolver.classList.add("hidden");
+      }
+    }
+    if (btnCarito) {
+      if (ES_DOMINIO_PROPIO || aliasNegocioActual) {
+        btnCarito.href = ES_DOMINIO_PROPIO
+          ? "/carrito"
+          : `https://geinztech.com/perfil/${aliasNegocioActual}/carrito`;
+        el("btn-carrito-texto").textContent = `Ir a carrito de ${nombre}`;
+        btnCarito.classList.remove("hidden");
+      } else {
+        btnCarito.classList.add("hidden");
+      }
+    }
+
+    const wa = data.metodo_contacto?.whatsapp;
+    if (wa?.estado && wa?.numero) renderBotonWhatsapp(wa.numero, nombre);
+
+    if (logoUrl) {
+      el("logo-img").alt = nombre;
+      el("logo-img").src = logoUrl;
+      setFaviconCircular(logoUrl);
+      colorListo = new Promise((resolve) => {
+        enIdle(() => extraerColorDominante(logoUrl).then(resolve));
+        setTimeout(resolve, 2500);
+      });
+    }
+  };
+
   try {
     const negocioRef = tiendaDoc(localidad, "tiendas", negocioId);
+    console.log("[pedidos] ruta negocio:", negocioRef.path);
+
+    // Lectura directa al servidor (diagnóstico + respaldo)
+    getDocFromServer(negocioRef)
+      .then((s) => {
+        console.log("[pedidos] negocio servidor existe:", s.exists());
+        if (s.exists()) aplicarNegocio(s.data());
+      })
+      .catch((e) =>
+        console.error("[pedidos] negocio servidor error:", e.code, e.message),
+      );
+
     unsubNegocio = onSnapshot(
       negocioRef,
       (snap) => {
         if (!snap.exists()) {
-          console.warn("[pedidos] El documento del NEGOCIO no existe");
+          if (snap.metadata.fromCache) return; // el getDocFromServer de arriba cubre este caso
+          console.warn(
+            "[pedidos] El documento del NEGOCIO no existe (servidor)",
+          );
+          el("negocio-nombre").textContent = "Negocio";
           return;
         }
-        const data = snap.data();
-        const nombre = data.nombre_tienda || data.nombre || "Negocio";
-        const logoUrl = data.img_tienda?.logo_tienda || "";
-        bizNombreActual = nombre;   // ← agregar
-bizLogoActual = logoUrl;    // ← agregar
-        el("negocio-nombre").textContent = nombre;
-        el("negocio-localidad").textContent = localidad;
-        el("negocio-nombre").closest("header") &&
-          (document.title = `Pedido · ${nombre}`);
-        const btnVolver = el("btn-volver-negocio");
-        const btnCarito = el("btn-ir-carrito");
-        negocioMetodosPagoActual = data.metodos_pago || null;
-actualizarBloquePagoQR();
-        if (btnVolver) {
-          if (ES_DOMINIO_PROPIO || aliasNegocioActual) {
-            btnVolver.href = ES_DOMINIO_PROPIO
-              ? "/"
-              : `https://geinztech.com/perfil/${aliasNegocioActual}`;
-            el("btn-volver-negocio-texto").textContent = `Volver a ${nombre}`;
-            btnVolver.classList.remove("hidden");
-          } else {
-            btnVolver.classList.add("hidden");
-          }
-        }
-        if (btnCarito) {
-          if (ES_DOMINIO_PROPIO || aliasNegocioActual) {
-            btnCarito.href = ES_DOMINIO_PROPIO
-              ? "/carrito"
-              : `https://geinztech.com/perfil/${aliasNegocioActual}/carrito`;
-            el("btn-carrito-texto").textContent = `Ir a carrito de ${nombre}`;
-            btnCarito.classList.remove("hidden");
-          } else {
-            btnCarito.classList.add("hidden");
-          }
-        }
-
-        // Botón de contacto por WhatsApp, si el negocio lo tiene habilitado
-        const wa = data.metodo_contacto?.whatsapp;
-        if (wa?.estado && wa?.numero) {
-          renderBotonWhatsapp(wa.numero, nombre);
-        }
-
-        if (logoUrl) {
-          el("logo-img").alt = nombre;
-          el("logo-img").src = logoUrl;
-          setFaviconCircular(logoUrl); // favicon del negocio, se actualiza en tiempo real si el logo cambia
-
-          colorListo = new Promise((resolve) => {
-            enIdle(() => extraerColorDominante(logoUrl).then(resolve));
-            setTimeout(resolve, 2500);
-          });
-        }
+        aplicarNegocio(snap.data());
       },
       (error) => {
         console.error(
@@ -675,6 +727,7 @@ actualizarBloquePagoQR();
     "pedidos",
     pedidoId,
   );
+  console.log("[pedidos] ruta pedido:", pedidoRef.path);
   pedidoRefGlobal = pedidoRef; // guardamos la referencia para el banner de pausa
 
   let ultimoDataJSON = null; // evita re-render si el snapshot no trae cambios reales
@@ -697,25 +750,25 @@ actualizarBloquePagoQR();
       if (dataJSON === ultimoDataJSON) return;
       ultimoDataJSON = dataJSON;
 
-     // Seguridad:
-//  - pedido de usuario registrado → solo ese usuario
-//  - pedido de invitado → solo quien tenga el ?t= correcto
-//  - pedidos viejos sin ninguna de las dos marcas → se muestran como antes
-const duenoId = data.cliente?.id_cliente || null;
-const tokenPedido = data.token_seguimiento || null;
-let autorizado = true;
-if (duenoId) autorizado = duenoId === uidActual;
-else if (tokenPedido) autorizado = TOKEN_URL === tokenPedido;
+      // Seguridad:
+      //  - pedido de usuario registrado → solo ese usuario
+      //  - pedido de invitado → solo quien tenga el ?t= correcto
+      //  - pedidos viejos sin ninguna de las dos marcas → se muestran como antes
+      const duenoId = data.cliente?.id_cliente || null;
+      const tokenPedido = data.token_seguimiento || null;
+      let autorizado = true;
+      if (duenoId) autorizado = duenoId === uidActual;
+      else if (tokenPedido) autorizado = TOKEN_URL === tokenPedido;
 
-if (!autorizado) {
-  if (unsubPedido) unsubPedido();
-  mostrarModalRegistro();
-  return;
-}
+      if (!autorizado) {
+        if (unsubPedido) unsubPedido();
+        mostrarModalRegistro();
+        return;
+      }
       const nuevoEstado = normalizarEstado(data.estado);
       renderPedido(data);
-pedidoActualParaPago = data;
-actualizarBloquePagoQR();
+      pedidoActualParaPago = data;
+      actualizarBloquePagoQR();
       // Si el estado cambió respecto al anterior (y no es la primera carga),
       // dispara la notificación push del navegador.
       if (
@@ -736,15 +789,16 @@ actualizarBloquePagoQR();
       showContent();
       mostrarBannerConexion(!navigator.onLine);
     },
-  (error) => {
-  console.error(
-    "[pedidos] Error de Firestore leyendo PEDIDO:",
-    error.code,
-    error.message,
-  );
-  if (error.code === "permission-denied" && !uidActual) mostrarModalRegistro();
-  else showEmpty();
-},
+    (error) => {
+      console.error(
+        "[pedidos] Error de Firestore leyendo PEDIDO:",
+        error.code,
+        error.message,
+      );
+      if (error.code === "permission-denied" && !uidActual)
+        mostrarModalRegistro();
+      else showEmpty();
+    },
   );
 }
 
@@ -783,6 +837,8 @@ function notificarCambioEstado(nuevoEstado, data) {
     rechazado: data.cancelado_por_cliente
       ? "Cancelaste tu pedido correctamente."
       : "Tu pedido fue rechazado.",
+    pendiente_pago:
+      "¡Tu pedido fue aceptado! Sube tu comprobante de pago para continuar.",
   };
 
   const nombreNegocio = el("negocio-nombre")?.textContent || "Geinz";
@@ -910,7 +966,8 @@ function extrasDe(condiciones, sel) {
 const opDisponible = (op) => typeof op.stock !== "number" || op.stock > 0;
 
 function textoRespuesta(r) {
-  if (r.accion === "reemplazo") return "Cambiar por " + (r.producto_elegido?.nombre || "");
+  if (r.accion === "reemplazo")
+    return "Cambiar por " + (r.producto_elegido?.nombre || "");
   if (r.accion === "ajuste") return "Ajustar cantidades";
   return "Continuar sin ese producto";
 }
@@ -929,17 +986,23 @@ function renderPausaBanner(data, pedidoRef) {
   const respuesta = data.respuesta_cliente;
   const afectados = pausa.productos_afectados || [];
   const productosActuales = Array.isArray(data.productos) ? data.productos : [];
-  const otros = productosActuales.filter((p) => !afectados.some((a) => a.id === p.id));
+  const otros = productosActuales.filter(
+    (p) => !afectados.some((a) => a.id === p.id),
+  );
 
   let restanteTexto = "";
   const creado = toDateFS(pausa.creado_en);
   if (creado) {
-    const msPorUnidad = { minutos: 60000, horas: 3600000, dias: 86400000 }[pausa.tiempo_espera?.unidad] || 60000;
+    const msPorUnidad =
+      { minutos: 60000, horas: 3600000, dias: 86400000 }[
+        pausa.tiempo_espera?.unidad
+      ] || 60000;
     const limite = (pausa.tiempo_espera?.valor || 15) * msPorUnidad;
     const restanteMs = limite - (Date.now() - creado.getTime());
-    restanteTexto = restanteMs > 0
-      ? `⏳ ~${Math.ceil(restanteMs / 60000)} min restantes`
-      : "⏳ El tiempo estimado ya pasó, seguimos coordinando";
+    restanteTexto =
+      restanteMs > 0
+        ? `⏳ ~${Math.ceil(restanteMs / 60000)} min restantes`
+        : "⏳ El tiempo estimado ya pasó, seguimos coordinando";
   }
 
   if (respuesta) {
@@ -947,7 +1010,8 @@ function renderPausaBanner(data, pedidoRef) {
       <span class="eyebrow" style="color:#38bdf8;">⏸️ Pedido en pausa</span>
       <p style="margin:0.6rem 0 0;font-size:0.9rem;">Ya enviaste tu respuesta: <strong>${esc(textoRespuesta(respuesta))}</strong>. El negocio confirmará en breve.</p>
       <button id="pausa-cancelar" style="margin-top:1rem;width:100%;padding:0.75rem;border-radius:0.8rem;border:1px solid #e5484d;background:transparent;color:#e5484d;font-weight:600;cursor:pointer;">Cancelar pedido</button>`;
-    wrap.querySelector("#pausa-cancelar").onclick = () => abrirModalCancelar(pedidoRef);
+    wrap.querySelector("#pausa-cancelar").onclick = () =>
+      abrirModalCancelar(pedidoRef);
     return;
   }
 
@@ -960,27 +1024,40 @@ function renderPausaBanner(data, pedidoRef) {
 
     // Si la variante que tenía ya no tiene stock, se corrige a una disponible
     (a.condiciones || []).forEach((c) => {
-      const disponibles = (c.opciones || []).filter(opDisponible).map((o) => o.nombre);
+      const disponibles = (c.opciones || [])
+        .filter(opDisponible)
+        .map((o) => o.nombre);
       const v = seleccion[c.nombre];
       if (v == null) return;
-      if (Array.isArray(v)) seleccion[c.nombre] = v.filter((n) => disponibles.includes(n));
+      if (Array.isArray(v))
+        seleccion[c.nombre] = v.filter((n) => disponibles.includes(n));
       else if (typeof v === "object") {
-        Object.keys(v).forEach((n) => { if (!disponibles.includes(n)) delete v[n]; });
+        Object.keys(v).forEach((n) => {
+          if (!disponibles.includes(n)) delete v[n];
+        });
       } else if (!disponibles.includes(v)) {
         if (disponibles.length) seleccion[c.nombre] = disponibles[0];
         else delete seleccion[c.nombre];
       }
     });
 
-    estado.set(a.id, { linea, cantidad: Number(linea.cantidad) || 0, seleccion });
+    estado.set(a.id, {
+      linea,
+      cantidad: Number(linea.cantidad) || 0,
+      seleccion,
+    });
   });
 
   const maxCant = (a, st) => {
-    let max = typeof a.stock_disponible === "number" ? a.stock_disponible : Number(st.linea.cantidad) || 0;
+    let max =
+      typeof a.stock_disponible === "number"
+        ? a.stock_disponible
+        : Number(st.linea.cantidad) || 0;
     (a.condiciones || []).forEach((c) =>
       entradasDeOpcion(st.seleccion[c.nombre]).forEach(([n, q]) => {
         const op = (c.opciones || []).find((o) => o.nombre === n);
-        if (op && typeof op.stock === "number") max = Math.min(max, Math.floor(op.stock / (q || 1)));
+        if (op && typeof op.stock === "number")
+          max = Math.min(max, Math.floor(op.stock / (q || 1)));
       }),
     );
     return Math.max(0, max);
@@ -1004,7 +1081,10 @@ function renderPausaBanner(data, pedidoRef) {
     let lista = [];
     productosActuales.forEach((it) => {
       const st = estado.get(it.id);
-      if (!st || st.linea !== it) { lista.push(it); return; }
+      if (!st || st.linea !== it) {
+        lista.push(it);
+        return;
+      }
       faltante += Math.max(0, (Number(it.cantidad) || 0) - st.cantidad);
       if (st.cantidad <= 0) return;
       const a = afectados.find((x) => x.id === it.id);
@@ -1021,10 +1101,16 @@ function renderPausaBanner(data, pedidoRef) {
       lista = lista.map((it) => {
         if (it.id !== reemplazo.id) return it;
         const c = (Number(it.cantidad) || 0) + faltante;
-        return { ...it, cantidad: c, subtotal: +(c * Number(it.precio_unitario || 0)).toFixed(2) };
+        return {
+          ...it,
+          cantidad: c,
+          subtotal: +(c * Number(it.precio_unitario || 0)).toFixed(2),
+        };
       });
     }
-    const total = +lista.reduce((s, it) => s + Number(it.subtotal || 0), 0).toFixed(2);
+    const total = +lista
+      .reduce((s, it) => s + Number(it.subtotal || 0), 0)
+      .toFixed(2);
     const items = lista.reduce((s, it) => s + (Number(it.cantidad) || 0), 0);
     return { lista, total, items, faltante };
   };
@@ -1057,10 +1143,14 @@ function renderPausaBanner(data, pedidoRef) {
       const unit = precioUnit(a, st);
 
       const card = document.createElement("div");
-      card.style.cssText = "border:1px solid var(--card-border);border-radius:0.9rem;padding:0.85rem;";
-      const stockTxt = typeof a.stock_disponible === "number"
-        ? (a.stock_disponible <= 0 ? "agotado" : `solo quedan ${a.stock_disponible}`)
-        : "";
+      card.style.cssText =
+        "border:1px solid var(--card-border);border-radius:0.9rem;padding:0.85rem;";
+      const stockTxt =
+        typeof a.stock_disponible === "number"
+          ? a.stock_disponible <= 0
+            ? "agotado"
+            : `solo quedan ${a.stock_disponible}`
+          : "";
       card.innerHTML = `
         <p style="margin:0;font-weight:700;font-size:0.9rem;">${esc(a.nombre)}</p>
         <p style="margin:0.15rem 0 0.6rem;font-size:0.78rem;color:var(--text-muted);">Pediste ${st.linea.cantidad}${stockTxt ? " · " + stockTxt : ""}</p>
@@ -1072,8 +1162,14 @@ function renderPausaBanner(data, pedidoRef) {
         </div>
         <div data-vars></div>`;
 
-      card.querySelector("[data-minus]").onclick = () => { st.cantidad = Math.max(0, st.cantidad - 1); pintarTodo(); };
-      card.querySelector("[data-plus]").onclick = () => { if (st.cantidad < max) st.cantidad += 1; pintarTodo(); };
+      card.querySelector("[data-minus]").onclick = () => {
+        st.cantidad = Math.max(0, st.cantidad - 1);
+        pintarTodo();
+      };
+      card.querySelector("[data-plus]").onclick = () => {
+        if (st.cantidad < max) st.cantidad += 1;
+        pintarTodo();
+      };
 
       // Variantes: solo las que tienen stock
       const varsWrap = card.querySelector("[data-vars]");
@@ -1098,12 +1194,16 @@ function renderPausaBanner(data, pedidoRef) {
             if (Array.isArray(cur)) {
               const arr = [...cur];
               const i = arr.indexOf(op.nombre);
-              if (i >= 0) arr.splice(i, 1); else arr.push(op.nombre);
-              if (arr.length) st.seleccion[c.nombre] = arr; else delete st.seleccion[c.nombre];
+              if (i >= 0) arr.splice(i, 1);
+              else arr.push(op.nombre);
+              if (arr.length) st.seleccion[c.nombre] = arr;
+              else delete st.seleccion[c.nombre];
             } else if (multi) {
               const o = { ...cur };
-              if (o[op.nombre]) delete o[op.nombre]; else o[op.nombre] = 1;
-              if (Object.keys(o).length) st.seleccion[c.nombre] = o; else delete st.seleccion[c.nombre];
+              if (o[op.nombre]) delete o[op.nombre];
+              else o[op.nombre] = 1;
+              if (Object.keys(o).length) st.seleccion[c.nombre] = o;
+              else delete st.seleccion[c.nombre];
             } else {
               st.seleccion[c.nombre] = op.nombre;
             }
@@ -1120,7 +1220,8 @@ function renderPausaBanner(data, pedidoRef) {
     const { total, items, faltante, lista } = construir();
     if (!lista.length) {
       hint.style.display = "block";
-      hint.textContent = "No queda ningún producto. Elige al menos uno o cancela el pedido.";
+      hint.textContent =
+        "No queda ningún producto. Elige al menos uno o cancela el pedido.";
       confirmarBtn.disabled = true;
       confirmarBtn.style.opacity = ".5";
     } else {
@@ -1138,12 +1239,19 @@ function renderPausaBanner(data, pedidoRef) {
     otros.forEach((p) => {
       const b = document.createElement("button");
       b.type = "button";
-      const paint = () => (b.style.cssText = chipCss(reemplazo?.id === p.id) + "text-align:left;");
+      const paint = () =>
+        (b.style.cssText =
+          chipCss(reemplazo?.id === p.id) + "text-align:left;");
       b.textContent = `Cambiar lo que falta por: ${p.nombre}`;
       paint();
       b.onclick = () => {
-        reemplazo = reemplazo?.id === p.id ? null : { id: p.id, nombre: p.nombre };
-        otrosWrap.querySelectorAll("button").forEach((x) => (x.style.cssText = chipCss(false) + "text-align:left;"));
+        reemplazo =
+          reemplazo?.id === p.id ? null : { id: p.id, nombre: p.nombre };
+        otrosWrap
+          .querySelectorAll("button")
+          .forEach(
+            (x) => (x.style.cssText = chipCss(false) + "text-align:left;"),
+          );
         paint();
         pintarTodo();
       };
@@ -1177,7 +1285,11 @@ function renderPausaBanner(data, pedidoRef) {
     try {
       await updateDoc(pedidoRef, {
         respuesta_cliente: {
-          accion: usaReemplazo ? "reemplazo" : todoEnCero ? "sin_producto" : "ajuste",
+          accion: usaReemplazo
+            ? "reemplazo"
+            : todoEnCero
+              ? "sin_producto"
+              : "ajuste",
           producto_elegido: usaReemplazo ? reemplazo : null,
           ajustes,
           respondido_en: serverTimestamp(),
@@ -1193,7 +1305,8 @@ function renderPausaBanner(data, pedidoRef) {
     }
   };
 
-  wrap.querySelector("#pausa-cancelar").onclick = () => abrirModalCancelar(pedidoRef);
+  wrap.querySelector("#pausa-cancelar").onclick = () =>
+    abrirModalCancelar(pedidoRef);
   pintarTodo();
 }
 
@@ -1260,6 +1373,63 @@ function opcionesDetalleLineas(p) {
   });
   return lineas;
 }
+function renderTiempoEstimado(data, estadoActual) {
+  let box = el("tiempo-estimado");
+  if (!box) {
+    box = document.createElement("p");
+    box.id = "tiempo-estimado";
+    box.className = "hidden text-secondary";
+    box.style.cssText = "margin:1rem 0 0;font-size:0.9rem;line-height:1.5;";
+    el("timeline").insertAdjacentElement("afterend", box);
+  }
+  const t = data.tiempo_estimado;
+  if (!t || estadoActual === "rechazado" || estadoActual === "entregado") {
+    box.classList.add("hidden");
+    return;
+  }
+
+  let txt = `⏱️ Tiempo estimado: <strong>${esc(t.min)}–${esc(t.max)} min</strong>`;
+
+  // Ya aceptado: mostramos la hora aproximada
+  const desde = toDateFS(data.tiempo_estimado_desde);
+  if (estadoActual === "en_proceso" && desde) {
+    const f = (min) =>
+      new Date(desde.getTime() + min * 60000).toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    txt += `<br><span class="text-muted" style="font-size:0.8rem;">Listo aprox. entre ${f(t.min)} y ${f(t.max)}</span>`;
+  }
+  box.innerHTML = txt;
+  box.classList.remove("hidden");
+}
+function renderTiempoEstimado(data, estadoActual) {
+  let box = el("tiempo-estimado");
+  if (!box) {
+    box = document.createElement("p");
+    box.id = "tiempo-estimado";
+    box.className = "hidden text-secondary";
+    box.style.cssText = "margin:1rem 0 0;font-size:0.9rem;line-height:1.5;";
+    el("timeline").insertAdjacentElement("afterend", box);
+  }
+  const t = data.tiempo_estimado;
+  if (!t || estadoActual === "rechazado" || estadoActual === "entregado") {
+    box.classList.add("hidden");
+    return;
+  }
+  let txt = `⏱️ Tiempo estimado: <strong>${esc(t.min)}–${esc(t.max)} min</strong>`;
+  const desde = toDateFS(data.tiempo_estimado_desde);
+  if (estadoActual === "en_proceso" && desde) {
+    const f = (min) =>
+      new Date(desde.getTime() + min * 60000).toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    txt += `<br><span class="text-muted" style="font-size:0.8rem;">Listo aprox. entre ${f(t.min)} y ${f(t.max)}</span>`;
+  }
+  box.innerHTML = txt;
+  box.classList.remove("hidden");
+}
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
@@ -1270,7 +1440,13 @@ function renderPedido(data) {
   const estadoParaTimeline = enPausa
     ? data.pausa?.estado_anterior || "pendiente"
     : estadoActual;
-  renderTimeline(estadoParaTimeline, esRechazado, !!data.cancelado_por_cliente);
+    renderTiempoEstimado(data, estadoActual);
+  renderTimeline(
+    estadoParaTimeline,
+    esRechazado,
+    !!data.cancelado_por_cliente,
+    requierePagoOnline(data),
+  );
 
   if (enPausa) renderPausaBanner(data, pedidoRefGlobal);
   else quitarPausaBanner();
@@ -1291,14 +1467,21 @@ function renderPedido(data) {
   // Una vez que el negocio lo acepta (en_proceso) o lo mueve a cualquier
   // otro estado, la opción desaparece.
   const btnCancelar = el("btn-cancelar-pedido");
-  if (btnCancelar) {
-    btnCancelar.classList.toggle("hidden", estadoActual !== "pendiente");
-  }
+  const puedeCancelar =
+    estadoActual === "pendiente" ||
+    (estadoActual === "pendiente_pago" && !data.pago?.voucher_url);
+  btnCancelar?.classList.toggle("hidden", !puedeCancelar);
+
+  el("aviso-pago-futuro")?.classList.toggle(
+    "hidden",
+    !(estadoActual === "pendiente" && requierePagoOnline(data)),
+  );
   el("pedido-fecha-hora").textContent = [data.fecha, data.hora]
     .filter(Boolean)
     .join(" · ");
 
   const dot = el("status-dot");
+  dot.dataset.status = estadoActual;
   dot.classList.remove("pulse");
   dot.style.backgroundColor = "";
   if (esRechazado) {
@@ -1398,6 +1581,7 @@ function renderTimeline(
   estadoActual,
   esRechazado,
   canceladoPorCliente = false,
+  conPago = false,
 ) {
   const cont = el("timeline");
   cont.innerHTML = "";
@@ -1414,12 +1598,15 @@ function renderTimeline(
     return;
   }
 
-  const idxActual = ESTADOS.indexOf(estadoActual);
+  const FLUJO = conPago
+    ? ["pendiente", "pendiente_pago", "en_proceso", "entregado"]
+    : ["pendiente", "en_proceso", "entregado"];
+  const idxActual = FLUJO.indexOf(estadoActual);
   const frag = document.createDocumentFragment();
 
-  ESTADOS.forEach((estado, i) => {
+  FLUJO.forEach((estado, i) => {
     const activo = i <= idxActual;
-    const isLast = i === ESTADOS.length - 1;
+    const isLast = i === FLUJO.length - 1;
 
     const item = document.createElement("div");
     item.className = "tl-item";

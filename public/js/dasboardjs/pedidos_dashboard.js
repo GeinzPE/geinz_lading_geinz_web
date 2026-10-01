@@ -18,7 +18,7 @@ import {
   addDoc,
   runTransaction,
   increment,
-    deleteDoc,
+  deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { iniciarCamara } from "./scan_camara.js";
 import { db } from "../db/db.js";
@@ -61,6 +61,7 @@ const RESERVA_PREFIJO_URL = "../../sounds/prefijos/reserva_prefijo.mp3";
 const RESERVA_Y_URL = "../../sounds/y.mp3";
 const SND_PAGO_RECIBIDO = "../../sounds/comprovante_de_pago_recibido.mp3";
 const voucherNotificados = new Set();
+
 function playPagoRecibidoAlarm() {
   playSoundOnce(SND_PAGO_RECIBIDO);
 }
@@ -341,6 +342,87 @@ const NP_UI_CSS = `
 .np-card .np-price{
   flex-shrink:0;
 }
+  .np-det-modal{width:min(480px,94vw);max-height:92vh;overflow-y:auto;scrollbar-width:none;}
+.np-det-modal::-webkit-scrollbar{display:none;}
+.np-det-img.compact{aspect-ratio:16/9;max-height:28vh;}
+
+#npDetVars{margin:4px 0 14px;}
+.np-var-group{margin-bottom:14px;}
+.np-var-title{font-size:13px;font-weight:800;margin-bottom:8px;display:flex;align-items:baseline;gap:8px;}
+.np-var-title small{font-size:10.5px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.04em;}
+.np-var-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;}
+
+.np-var-btn{
+  min-height:58px;padding:8px 12px;border-radius:14px;
+  border:2px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;
+  font-size:15px;font-weight:800;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  transition:transform .1s ease,border-color .15s,background .15s;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+.np-var-btn:active{transform:scale(.96);}
+.np-var-btn em{font-style:normal;font-size:12px;color:#a78bfa;font-weight:700;}
+.np-var-btn small{font-size:10.5px;color:var(--ink-dim);font-weight:600;}
+.np-var-btn.active{background:#7c5cff;border-color:#a78bfa;box-shadow:0 0 0 3px rgba(124,92,255,.25);}
+.np-var-btn.active em,.np-var-btn.active small{color:#fff;}
+
+.np-var-qty{
+  grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 12px;border-radius:14px;border:2px solid var(--line);background:var(--bg,#0a0a0f);
+}
+.np-var-qty.active{border-color:#7c5cff;background:rgba(124,92,255,.12);}
+.np-var-qty-info b{display:block;font-size:14.5px;}
+.np-var-qty-info small{font-size:11px;color:var(--ink-dim);}
+.np-var-qty-ctrl{display:flex;align-items:center;gap:10px;}
+.np-var-qty-ctrl span{min-width:26px;text-align:center;font-size:18px;font-weight:800;}
+.np-var-qty-ctrl button{
+  width:48px;height:48px;border-radius:12px;border:none;background:var(--surface);
+  color:#fff;font-size:22px;font-weight:900;cursor:pointer;touch-action:manipulation;
+}
+.np-var-qty-ctrl button:active{transform:scale(.94);}
+.np-var-qty-ctrl button:disabled{opacity:.3;}
+
+.np-det-step.big{padding:4px;}
+.np-det-step.big button{width:52px;height:52px;font-size:22px;border-radius:12px;touch-action:manipulation;}
+.np-det-step.big span{min-width:34px;font-size:18px;}
+.np-det-big{min-height:60px;font-size:15px;border-radius:14px;}
+.np-det-actions{position:sticky;bottom:0;background:var(--surface);padding-top:10px;}
+img[data-fade]{
+  opacity:0;
+  transition:opacity .45s ease;
+}
+img[data-fade].loaded{opacity:1;}
+.np-img-wrap,.np-det-img{
+  background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 75%);
+  background-size:200% 100%;
+  animation:np-shimmer 1.2s linear infinite;
+}
+.np-img-wrap:has(img.loaded),.np-det-img:has(img.loaded){
+  animation:none;background:#1a1a20;
+}
+  .np-line{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 12px;margin-bottom:8px;border-radius:14px;
+  border:2px solid var(--line);background:var(--bg,#0a0a0f);
+}
+.np-line.editing{border-color:#7c5cff;background:rgba(124,92,255,.12);}
+.np-line-info{min-width:0;flex:1;}
+.np-line-info b{display:block;font-size:13.5px;line-height:1.25;}
+.np-line-info small{font-size:11.5px;color:var(--ink-dim);}
+.np-line-ctrl{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.np-line-ctrl span{min-width:28px;text-align:center;font-size:18px;font-weight:800;}
+.np-line-ctrl button{
+  width:46px;height:46px;border-radius:12px;border:none;
+  background:var(--surface);color:#fff;font-size:22px;font-weight:900;
+  cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.np-line-ctrl button:active{transform:scale(.93);}
+.np-line-ctrl button.ed{font-size:18px;color:#a78bfa;}
+.np-line-ctrl button.tr{font-size:18px;background:rgba(248,113,113,.12);color:#f87171;}
+
+/* Botones del carrito del panel derecho, más grandes */
+.npc-ico{width:34px !important;height:34px !important;font-size:17px !important;border-radius:9px !important;}
+.npc-edit{font-size:12.5px !important;padding:4px 0 !important;}
 `;
 const DELI_CSS = `
 #deliModo, .deli-inp{
@@ -699,31 +781,45 @@ const MAPA_CSS = `
     width:auto;max-width:none;z-index:70;
   }
 }
+  .vista-oculta{display:none !important;}
+
+/* Para que Mesas y Nuevo pedido ocupen su espacio y scrolleen por dentro */
+#mesasStripWrap{flex:1 1 0;min-height:0;overflow:hidden;}
+#mesasStripWrap .mesas-panel{height:100%;display:flex;flex-direction:column;}
+#mesasStripWrap .mesas-panel-body{flex:1;min-height:0;overflow-y:auto;}
 `;
 
-
 styleTag.textContent =
-  MESA_ADMIN_CSS + NP_CSS + NP_UI_CSS + PS_CSS + VOUCHER_CSS + MAPA_CSS + DELI_CSS;
+  MESA_ADMIN_CSS +
+  NP_CSS +
+  NP_UI_CSS +
+  PS_CSS +
+  VOUCHER_CSS +
+  MAPA_CSS +
+  DELI_CSS;
 /* ══════════════ Identificación del negocio ══════════════ */
 
 const ESTADOS = [
   "pendiente",
+  "pendiente_pago",
   "en_proceso",
   "en_pausa",
   "entregado",
   "rechazado",
 ];
-const pedidosMap = new Map(); // id -> data
-const mesasMap = new Map(); // docId -> data (numero_mesa, nombre_alias, ...)
-const gruposMap = new Map();
-const clientesSeguidoresCache = new Map(); // uid -> true/false (existe en /clientes)
 const prevMoney = {
   pendiente: 0,
+  pendiente_pago: 0,
   en_proceso: 0,
   en_pausa: 0,
   entregado: 0,
   rechazado: 0,
 };
+const pedidosMap = new Map(); // id -> data
+const mesasMap = new Map(); // docId -> data (numero_mesa, nombre_alias, ...)
+const gruposMap = new Map();
+const clientesSeguidoresCache = new Map(); // uid -> true/false (existe en /clientes)
+
 let activeTab = "pendiente";
 let activeModalId = null;
 let isFirstSnapshot = true;
@@ -908,7 +1004,7 @@ function reproducirSiguienteAlarma() {
     alarmaActual.repeticionesRestantes -= 1;
     if (alarmaActual.repeticionesRestantes > 0) {
       audio.currentTime = 0;
-      audio.play().catch(() => { });
+      audio.play().catch(() => {});
     } else {
       reproducirSiguienteAlarma();
     }
@@ -1135,24 +1231,25 @@ function abrirModalPausa(id, p) {
       <div style="font-size:11.5px;color:var(--ink-dim);margin-bottom:8px;">El cliente pidió <b>${it.cantidad}</b></div>
       <div class="np-opt-label">¿Cuántas unidades te quedan?</div>
       <input type="number" data-stock min="0" value="${valorInicial}" style="${inputCss}">
-      ${conds.length
-        ? `<div class="np-opt-label" style="margin-top:10px;">Stock por variante (0 = agotada, vacío = sin límite)</div>` +
-        conds
-          .map(
-            (c, ci) => `
+      ${
+        conds.length
+          ? `<div class="np-opt-label" style="margin-top:10px;">Stock por variante (0 = agotada, vacío = sin límite)</div>` +
+            conds
+              .map(
+                (c, ci) => `
             <div style="font-size:11.5px;font-weight:700;color:var(--ink-dim);margin:6px 0;">${escapeHtml(c.nombre)}</div>
             ${(c.opciones || [])
-                .map(
-                  (o, oi) => `
+              .map(
+                (o, oi) => `
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;font-size:12.5px;">
                 <span>${escapeHtml(o.nombre)}</span>
                 <input type="number" min="0" data-c="${ci}" data-o="${oi}" value="${o.activo === false ? 0 : typeof o.stock === "number" ? o.stock : ""}" style="${inputCss}">
               </div>`,
-                )
-                .join("")}`,
-          )
-          .join("")
-        : ""
+              )
+              .join("")}`,
+              )
+              .join("")
+          : ""
       }`;
     detalle.appendChild(card);
   }
@@ -1344,10 +1441,14 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+function requierePagoOnline(p) {
+  const m = p?.pago?.metodo;
+  return getOrigen(p).tipo === "whatsapp" && !!m && m !== "Efectivo";
 }
 function deliPrecioHtmlPedido(p) {
   const d = p.delivery;
@@ -1568,10 +1669,10 @@ async function cargarNegocio() {
     aplicarDeliveryDesdeDB(data?.delivery);
     bizDominioGlobal = limpiarDominio(
       data?.dominio_propio ||
-      data?.dominio_personalizado ||
-      data?.dominio ||
-      data?.custom_domain ||
-      null,
+        data?.dominio_personalizado ||
+        data?.dominio ||
+        data?.custom_domain ||
+        null,
     );
     bizAliasGlobal = await resolverAliasNegocio(data);
     const nombre = data ? data.nombre_tienda || data.nombre : null;
@@ -1587,7 +1688,7 @@ async function cargarNegocio() {
       bizLng = ubic.longitud;
     }
     document.title = `Pedidos en vivo · ${nombre || "Geinz"}`;
-  } catch { }
+  } catch {}
 }
 
 /* ══════════════ Sonido de notificación (Web Audio, sin archivos externos) ══════════════ */
@@ -1694,7 +1795,7 @@ bellBtn.addEventListener("click", async () => {
     if (window.Notification && Notification.permission === "default") {
       try {
         await Notification.requestPermission();
-      } catch { }
+      } catch {}
     }
     showToast("🔔 Notificaciones de sonido activadas");
   } else {
@@ -1827,7 +1928,9 @@ function deliPintarRecargo() {
   document.getElementById("deliRecDesde").value = deliRecargo.desde;
   document.getElementById("deliRecHasta").value = deliRecargo.hasta;
   document.getElementById("deliRecMonto").value = deliRecargo.monto;
-  document.getElementById("deliRecBody").classList.toggle("off", !deliRecargo.activo);
+  document
+    .getElementById("deliRecBody")
+    .classList.toggle("off", !deliRecargo.activo);
   document.getElementById("deliRecHint").textContent =
     `Desde las ${hora12(deliRecargo.desde)} hasta las ${hora12(deliRecargo.hasta)} el delivery cuesta S/ ${Number(deliRecargo.monto || 0).toFixed(2)} más.`;
 }
@@ -1836,7 +1939,10 @@ deliRecBox.addEventListener("input", () => {
     activo: document.getElementById("deliRecOn").checked,
     desde: document.getElementById("deliRecDesde").value,
     hasta: document.getElementById("deliRecHasta").value,
-    monto: Math.max(0, Number(document.getElementById("deliRecMonto").value) || 0),
+    monto: Math.max(
+      0,
+      Number(document.getElementById("deliRecMonto").value) || 0,
+    ),
   };
   deliPintarRecargo();
 });
@@ -1845,18 +1951,23 @@ deliPintarRecargo();
 function deliPintarZonas() {
   const l = document.getElementById("deliZonasList");
   l.innerHTML =
-    deliZonas.map((z, i) => `
+    deliZonas
+      .map(
+        (z, i) => `
       <div class="deli-zona-row">
         <input class="deli-inp" type="text" data-zn="${i}" value="${escapeHtml(z.nombre)}" placeholder="Ej: Barranca centro" maxlength="40">
         <div class="deli-money"><span>S/</span>
           <input class="deli-inp" type="number" data-zp="${i}" min="0" step="0.5" value="${z.precio}">
         </div>
         <button type="button" data-zd="${i}" class="deli-trash">🗑</button>
-      </div>`).join("") ||
+      </div>`,
+      )
+      .join("") ||
     `<div style="font-size:12px;color:var(--ink-faint);padding:6px 0;">Agrega los lugares donde haces delivery y su precio.</div>`;
 }
 document.getElementById("deliZonasList").addEventListener("input", (e) => {
-  const zn = e.target.dataset.zn, zp = e.target.dataset.zp;
+  const zn = e.target.dataset.zn,
+    zp = e.target.dataset.zp;
   if (zn !== undefined) deliZonas[zn].nombre = e.target.value;
   if (zp !== undefined) deliZonas[zp].precio = e.target.value;
 });
@@ -1905,7 +2016,9 @@ function pintarDeliModo() {
   deliFijaBox.style.display = m === "fija" ? "block" : "none";
   deliZonasBox.style.display = m === "zonas" ? "block" : "none";
   [deliBaseInput, deliKmInclInput, deliPorKmInput].forEach(
-    (i) => (i.closest(".autorej-input-row").style.display = m === "distancia" ? "flex" : "none"),
+    (i) =>
+      (i.closest(".autorej-input-row").style.display =
+        m === "distancia" ? "flex" : "none"),
   );
 }
 deliModoEl.addEventListener("change", pintarDeliModo);
@@ -1915,9 +2028,13 @@ function aplicarDeliveryDesdeDB(d) {
   if (!d) return;
   deliHace = d.hace !== false;
   deliEnabled = d.tarifa_activa === true;
-  deliModo = d.modo === "fija" ? "fija" : d.modo === "zonas" ? "zonas" : "distancia";
+  deliModo =
+    d.modo === "fija" ? "fija" : d.modo === "zonas" ? "zonas" : "distancia";
   deliZonas = Array.isArray(d.zonas)
-    ? d.zonas.map((z) => ({ nombre: z.nombre || "", precio: Number(z.precio) || 0 }))
+    ? d.zonas.map((z) => ({
+        nombre: z.nombre || "",
+        precio: Number(z.precio) || 0,
+      }))
     : [];
   deliPintarZonas();
   deliBase = Number(d.base) || 0;
@@ -1969,7 +2086,10 @@ deliSave.addEventListener("click", async () => {
   deliHace = deliHaceEl.checked;
   deliEnabled = deliToggle.checked;
   deliZonas = deliZonas
-    .map((z) => ({ nombre: String(z.nombre || "").trim(), precio: Math.max(0, Number(z.precio) || 0) }))
+    .map((z) => ({
+      nombre: String(z.nombre || "").trim(),
+      precio: Math.max(0, Number(z.precio) || 0),
+    }))
     .filter((z) => z.nombre);
   if (deliModo === "zonas" && !deliZonas.length)
     return showToast("Agrega al menos una zona", true);
@@ -1992,7 +2112,8 @@ deliSave.addEventListener("click", async () => {
     });
     deliPop.classList.remove("show");
     showToast(deliHace ? "🛵 Delivery guardado" : "🛵 Delivery desactivado");
-    if (activeModalId && pedidosMap.has(activeModalId)) renderDetail(activeModalId);
+    if (activeModalId && pedidosMap.has(activeModalId))
+      renderDetail(activeModalId);
   } catch (e) {
     console.error(e);
     showToast("❌ No se pudo guardar el delivery", true);
@@ -2012,15 +2133,21 @@ function hora12(s) {
 }
 function minutosLimaAhora(f = new Date()) {
   const p = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Lima", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    timeZone: "America/Lima",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
   }).formatToParts(f);
-  return Number(p.find((x) => x.type === "hour").value) * 60 +
-    Number(p.find((x) => x.type === "minute").value);
+  return (
+    Number(p.find((x) => x.type === "hour").value) * 60 +
+    Number(p.find((x) => x.type === "minute").value)
+  );
 }
 function recargoEnHora(r, f = new Date()) {
   if (!r || !r.activo) return 0;
   const monto = Number(r.monto) || 0;
-  const ini = horaAMin(r.desde), fin = horaAMin(r.hasta);
+  const ini = horaAMin(r.desde),
+    fin = horaAMin(r.hasta);
   if (monto <= 0 || ini == null || fin == null || ini === fin) return 0;
   const now = minutosLimaAhora(f);
   const dentro = ini < fin ? now >= ini && now < fin : now >= ini || now < fin;
@@ -2072,6 +2199,27 @@ autoresSave.addEventListener("click", () => {
 /* ══════════════ Control de filtro de origen (Todos / WhatsApp / Mesas) ══════════════
            Esto SOLO filtra en el cliente sobre lo que ya trajo la query de fecha — no requiere
            una nueva suscripción a Firestore, porque el volumen ya está acotado por fecha. */
+           const VISTAS = {
+  whatsapp: { board: true,  tabs: true,  mesas: false, directo: false },
+  mesa:     { board: false, tabs: false, mesas: true,  directo: false },
+  directo:  { board: false, tabs: false, mesas: false, directo: true  },
+};
+
+function aplicarVista(origen) {
+  const v = VISTAS[origen] || VISTAS.whatsapp;
+  const set = (id, show, displayMostrado = "") => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle("vista-oculta", !show);
+    el.style.display = show ? displayMostrado : ""; // quita el inline viejo
+  };
+  set("board", v.board);
+  set("statusTabs", v.tabs);
+  set("mesasStripWrap", v.mesas, "flex");
+  set("nuevoPedidoWrap", v.directo, "flex");
+  document.getElementById("mesaEmptyBanner")?.classList.add("vista-oculta");
+}
+aplicarVista("whatsapp");
 const originBar = document.getElementById("originBar");
 const mesasStripWrap = document.getElementById("mesasStripWrap");
 
@@ -2082,12 +2230,7 @@ originBar.querySelectorAll(".origin-chip").forEach((chip) => {
       .querySelectorAll(".origin-chip")
       .forEach((c) => c.classList.toggle("active", c === chip));
     actualizarVisibilidadDeli();
-    mesasStripWrap.style.display = originFilter === "mesa" ? "flex" : "none";
-    document.getElementById("board").style.display =
-      originFilter === "mesa" ? "none" : "flex";
-    document.getElementById("statusTabs").style.display =
-      originFilter === "mesa" ? "none" : "flex";
-
+aplicarVista(originFilter);
     // El auto-rechazo por tiempo es una funcionalidad exclusiva de WhatsApp
     const autorejWrapEl = document.querySelector(".autorej-wrap");
     if (autorejWrapEl)
@@ -2327,16 +2470,17 @@ function renderMesaGrid() {
    ${horaReservaHtml}
         ${reservaTimerHtml}
         ${puedeReservar ? `<button class="mesa-reservar-btn" data-mesa-reservar="${m.numero_mesa}">${estadoVisual === "reservada" ? "Quitar reserva" : "Reservar"}</button>` : ""}
-   ${estadoVisual === "reserva_pendiente"
-            ? `
+   ${
+     estadoVisual === "reserva_pendiente"
+       ? `
   <div class="mesa-reserva-solicitante">${escapeHtml(m.reserva?.nombre || "")}</div>
   <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(m.reserva?.hora || "—")}${m.reserva?.personas ? ` · ${escapeHtml(String(m.reserva.personas))} pers.` : ""}</div>
   <div style="display:flex;gap:6px;margin-top:6px;">
     <button class="mesa-reservar-btn" data-reserva-aceptar="${m.numero_mesa}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
     <button class="mesa-reservar-btn" data-reserva-rechazar="${m.numero_mesa}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
   </div>`
-            : ""
-          }
+       : ""
+   }
     </div>`;
       }
 
@@ -2376,8 +2520,8 @@ function renderMesaGrid() {
           : "";
       const reservaTimerHtml =
         primero.estadoVisual === "reservada" &&
-          autoResEnabled &&
-          grupoInfo?.reservado_en
+        autoResEnabled &&
+        grupoInfo?.reservado_en
           ? `<div class="mesa-reserva-timer" data-reserva-ts="${toDate(grupoInfo.reservado_en)?.getTime() || ""}">⏳ calculando…</div>`
           : "";
 
@@ -2391,16 +2535,17 @@ function renderMesaGrid() {
     ${horaReservaHtml}
         ${reservaTimerHtml}
              ${primero.estadoVisual === "reservada" ? `<button class="mesa-reservar-btn" data-grupo-reservar="${bloque.grupoId}">Quitar reserva</button>` : ""}
-     ${primero.estadoVisual === "reserva_pendiente"
-          ? `
+     ${
+       primero.estadoVisual === "reserva_pendiente"
+         ? `
   <div class="mesa-reserva-solicitante">${escapeHtml(grupoInfo?.reserva?.nombre || "")}</div>
   <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(grupoInfo?.reserva?.hora || "—")}${grupoInfo?.reserva?.personas ? ` · ${escapeHtml(String(grupoInfo.reserva.personas))} pers.` : ""}</div>
   <div style="display:flex;gap:6px;margin-top:6px;">
     <button class="mesa-reservar-btn" data-grupo-reserva-aceptar="${bloque.grupoId}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
     <button class="mesa-reservar-btn" data-grupo-reserva-rechazar="${bloque.grupoId}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
   </div>`
-          : ""
-        }
+         : ""
+     }
         <button class="mesa-desagrupar-btn" data-grupo-desagrupar="${bloque.grupoId}">⇱ Desagrupar</button>
     </div>`;
     })
@@ -2748,8 +2893,8 @@ function detalleCuponHtml(p) {
   if (tipo === "canje_puntos" && prodCanjeado) {
     const varianteTxt = prodCanjeado.opciones
       ? Object.entries(prodCanjeado.opciones)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
       : "";
 
     filas.push(`
@@ -3112,7 +3257,8 @@ function buildCard(id, p) {
     ${voucherPendienteVer ? `<div class="oc-voucher-line" style="font-size:11px;font-weight:800;color:#fbbf24;margin-top:2px;">💸 Comprobante de pago recibido, revisa y confirma</div>` : ""}
        ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
        ${Number(p.descuentoCupon) > 0 ? `<div class="oc-descuento-line" style="font-size:11px;font-weight:700;color:#4ade80;margin-top:2px;">🏷️ Descuento aplicado: -${fmtMoney(p.descuentoCupon)}</div>` : ""}
-    <div class="oc-summary">
+      ${p.tiempo_estimado ? `<div style="font-size:11px;font-weight:700;color:#a78bfa;margin-top:2px;">⏱️ ${p.tiempo_estimado.min}–${p.tiempo_estimado.max} min</div>` : ""}
+       <div class="oc-summary">
    <span class="oc-summary-left">${origenTagHtml(p)}${cuponTagHtml(p)}</span>
       <div class="oc-summary-right">
         <span class="oc-summary-total">${fmtMoney(p.total)}</span>
@@ -3133,33 +3279,47 @@ function buildCard(id, p) {
 function renderCardActions(container, id, estado, p) {
   container.innerHTML = "";
 
-  if (estado === "pendiente") {
-    const puntosCalc = getPuntosPedido(id, p);
-    const puntosNota =
-      puntosCalc > 0
-        ? `<div class="oc-puntos-aceptar">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
-        : "";
-    container.innerHTML = `
-      ${puntosNota}
-      <div class="oc-actions">
-        <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
-        <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
-        <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar →</button>
-      </div>`;
-  } else if (estado === "en_proceso") {
-    container.innerHTML = `
-      <div class="oc-actions">
-        <button class="oc-btn ghost" data-action="pendiente">← Pendiente</button>
-        <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
-        <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
-      </div>`;
-  } else if (estado === "en_pausa") {
+if (estado === "pendiente") {
+  const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
+  const txt = requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar →";
+  const puntosCalc = getPuntosPedido(id, p);
+  const puntosNota =
+    puntosCalc > 0
+      ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
+      : "";
+  container.innerHTML = `
+    ${puntosNota}
+    <div class="oc-actions">
+      <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
+      <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
+      <button class="oc-btn primary v-violet" data-action="${destino}">${txt}</button>
+    </div>`;
+}else if (estado === "pendiente_pago") {
+  const tieneVoucher = !!p.pago?.voucher_url;
+  container.innerHTML = `
+    <div class="oc-final-tag" style="width:100%;background:rgba(251,191,36,.12);color:#fbbf24;">
+      ${tieneVoucher ? "💸 Comprobante recibido, revísalo" : "⏳ Esperando comprobante del cliente"}
+    </div>
+    <div class="oc-actions" style="margin-top:8px;">
+      <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
+      <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
+      <button class="oc-btn primary v-green" data-action="en_proceso" ${tieneVoucher ? "" : "disabled"}>✅ Confirmar pago</button>
+    </div>`;
+} else if (estado === "en_proceso") {
+  // ya NO hay botón de pausar
+  container.innerHTML = `
+    <div class="oc-actions">
+      <button class="oc-btn ghost" data-action="${requierePagoOnline(p) ? "pendiente_pago" : "pendiente"}">← Atrás</button>
+      <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
+    </div>`;
+} else if (estado === "en_pausa") {
     const r = p.respuesta_cliente;
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
-      ${r
-        ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
-        : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      ${
+        r
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
+          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%; margin-bottom:10px; margin-top:10px;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button> `;
@@ -3188,7 +3348,7 @@ function renderCardActions(container, id, estado, p) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
-      cambiarEstado(id, btn.dataset.action, btn);
+      accionEstado(id, p, estado, btn.dataset.action, btn);
     });
   });
 }
@@ -3207,7 +3367,7 @@ function openDetail(id) {
   const p = pedidosMap.get(id);
   if (p?.pago?.voucher_url && !p.pago?.voucher_visto) {
     const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
-    updateDoc(ref, { "pago.voucher_visto": true }).catch(() => { });
+    updateDoc(ref, { "pago.voucher_visto": true }).catch(() => {});
   }
 }
 function closeDetail() {
@@ -3246,9 +3406,9 @@ function renderMesaDetail(numeroMesa) {
   const grupoLabel =
     mesasDelGrupo && mesasDelGrupo.length > 1
       ? ` · Unida con ${mesasDelGrupo
-        .filter((m) => m.numero !== numeroMesa)
-        .map((m) => m.nombre || "Mesa " + m.numero)
-        .join(", ")}`
+          .filter((m) => m.numero !== numeroMesa)
+          .map((m) => m.nombre || "Mesa " + m.numero)
+          .join(", ")}`
       : "";
   document.getElementById("dmTime").innerHTML =
     `<span class="pulse"></span><span class="ts-label">${activos.length} pedido${activos.length === 1 ? "" : "s"} sin pagar${grupoLabel}</span>`;
@@ -3267,9 +3427,9 @@ function renderMesaDetail(numeroMesa) {
           Array.isArray(p.bloques) && p.bloques.length
             ? bloquesHtml(p.bloques)
             : `<div class="dm-products">${productos
-              .map((it) => {
-                const ptsItem = getPuntosItemDesdeCache(it);
-                return `
+                .map((it) => {
+                  const ptsItem = getPuntosItemDesdeCache(it);
+                  return `
           <div class="dm-prod-row">
             <div>
               <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
@@ -3279,8 +3439,8 @@ function renderMesaDetail(numeroMesa) {
             </div>
             <div class="dm-prod-price">S/ ${Number(it.subtotal || 0).toFixed(2)}</div>
           </div>`;
-              })
-              .join("")}</div>`;
+                })
+                .join("")}</div>`;
 
         return `
       <div style="border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; background:var(--surface);">
@@ -3309,14 +3469,15 @@ function renderMesaDetail(numeroMesa) {
             <div class="dm-section-title">Detalle completo de la mesa</div>
             ${bloquesDePedidos}
         </div>
-        ${totalPuntosGanados > 0
-      ? `
+        ${
+          totalPuntosGanados > 0
+            ? `
     <div class="dm-meta-item full" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:10px 12px;">
       <div class="dm-meta-label">🎁 Puntos a otorgar</div>
       <div class="dm-meta-value" style="color:#fbbf24;font-weight:800;">+${totalPuntosGanados} puntos en total</div>
     </div>`
-      : ""
-    }
+            : ""
+        }
 
         
     <div class="dm-total-row">
@@ -3617,7 +3778,7 @@ async function desagruparGrupo(grupoId) {
   if (activos > 0) {
     const ok = window.confirm(
       "Este grupo tiene un pedido activo compartido. Al desagrupar, las mesas se separarán " +
-      "pero el pedido NO se marcará como pagado (seguirá existiendo en el sistema). ¿Deseas continuar?",
+        "pero el pedido NO se marcará como pagado (seguirá existiendo en el sistema). ¿Deseas continuar?",
     );
     if (!ok) return;
   }
@@ -4026,8 +4187,9 @@ function bloquesHtml(bloques) {
 function renderDetail(id) {
   const p = pedidosMap.get(id);
   if (!p) {
-    closeDetail();
-    return;
+    npBeep(false);
+    npNoEncontrado(code);
+    return false;
   }
 
   const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
@@ -4142,14 +4304,15 @@ function renderDetail(id) {
           <div class="dm-meta-label">${entregaIco} Tipo de entrega</div>
           <div class="dm-meta-value">${escapeHtml(cliente.tipo_entrega || (origen.tipo === "mesa" ? "Consumo en mesa" : "Sin especificar"))}</div>
         </div>
-        ${cliente.tipo_entrega === "Delivery"
-      ? `
+        ${
+          cliente.tipo_entrega === "Delivery"
+            ? `
         <div class="dm-meta-item full">
           <div class="dm-meta-label">📍 Dirección de entrega</div>
           <div class="dm-meta-value ${cliente.direccion ? "" : "dim"}">${cliente.direccion ? escapeHtml(cliente.direccion) : "Sin dirección registrada"}</div>
         </div>`
-      : ""
-    }
+            : ""
+        }
         ${whatsappBlock}
         <div class="dm-meta-item">
           <div class="dm-meta-label">${pagoIco} Método de pago</div>
@@ -4172,10 +4335,11 @@ function renderDetail(id) {
 
     <div>
       <div class="dm-section-title">Productos · ${totalItems} item${totalItems === 1 ? "" : "s"}</div>
-      ${origen.tipo === "mesa" && Array.isArray(p.bloques) && p.bloques.length
-      ? bloquesHtml(p.bloques)
-      : `<div class="dm-products">${prodRows}</div>`
-    }
+      ${
+        origen.tipo === "mesa" && Array.isArray(p.bloques) && p.bloques.length
+          ? bloquesHtml(p.bloques)
+          : `<div class="dm-products">${prodRows}</div>`
+      }
     </div>
 
     <div class="dm-total-row">
@@ -4199,18 +4363,28 @@ function renderDetail(id) {
 function renderModalActions(container, id, estado, p) {
   container.innerHTML = "";
 
-  if (estado === "pendiente") {
-    const puntosCalc = getPuntosPedido(id, p);
-    const puntosNota =
-      puntosCalc > 0
-        ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
-        : "";
-    container.innerHTML = `
-      ${puntosNota}
-      <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
-      <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
-      <button class="oc-btn primary v-violet" data-action="en_proceso">Aceptar pedido →</button>`;
-  } else if (estado === "en_proceso") {
+if (estado === "pendiente") {
+  const puntosCalc = getPuntosPedido(id, p);
+  const puntosNota = puntosCalc > 0
+    ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
+    : "";
+  const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
+  const txt = requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar pedido →";
+  container.innerHTML = `
+    ${puntosNota}
+    <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
+    <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
+    <button class="oc-btn primary v-violet" data-action="${destino}">${txt}</button>`;
+} else if (estado === "pendiente_pago") {
+  const tieneVoucher = !!p.pago?.voucher_url;
+  container.innerHTML = `
+    <div class="oc-final-tag" style="width:100%;background:rgba(251,191,36,.12);color:#fbbf24;">
+      ${tieneVoucher ? "💸 Comprobante recibido, revísalo" : "⏳ Esperando comprobante del cliente"}
+    </div>
+    <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
+    <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
+    <button class="oc-btn primary v-green" data-action="en_proceso" ${tieneVoucher ? "" : "disabled"}>✅ Confirmar pago</button>`;
+} else if (estado === "en_proceso") {
     container.innerHTML = `
       <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
@@ -4219,9 +4393,10 @@ function renderModalActions(container, id, estado, p) {
     const r = p.respuesta_cliente;
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
-      ${r
-        ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
-        : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      ${
+        r
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
+          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button>`;
@@ -4247,7 +4422,7 @@ function renderModalActions(container, id, estado, p) {
       if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
       if (btn.dataset.action === "_aceptar")
         return abrirModalTiempo(id, p, btn);
-      cambiarEstado(id, btn.dataset.action, btn);
+      accionEstado(id, p, estado, btn.dataset.action, btn);
     });
   });
 }
@@ -4370,7 +4545,7 @@ async function devolverPuntosCuponSiAplica(pedidoId, pedido) {
         usado: false,
         estado: "activo",
         pedidoId: null,
-      }).catch(() => { });
+      }).catch(() => {});
     }
     // NUEVO: registro en el historial de puntos del cliente
     await addDoc(
@@ -4502,6 +4677,8 @@ function labelEstadoParaCliente(estado) {
       en_pausa: "Tu pedido está en pausa, revisa los detalles",
       entregado: "¡Tu pedido fue entregado! Gracias por tu compra",
       rechazado: "Tu pedido fue rechazado",
+      pendiente_pago:
+        "¡Tu pedido fue aceptado! Sube tu comprobante de pago para que lo preparemos",
     }[estado] || "El estado de tu pedido cambió"
   );
 }
@@ -4549,7 +4726,17 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (nuevoEstado === "en_proceso" && "tiempoEstimadoMin" in opts) {
       payload.tiempo_estimado_min = opts.tiempoEstimadoMin;
       payload.tiempo_estimado_desde = serverTimestamp();
+       }
+    if (nuevoEstado === "pendiente_pago") payload.pago_solicitado_en = serverTimestamp();
+    if (opts.tiempo) {
+      const esDel = pedidosMap.get(pedidoId)?.cliente?.tipo_entrega === "Delivery";
+      payload.tiempo_estimado = {
+        min: opts.tiempo.min,
+        max: opts.tiempo.max,
+        tipo: esDel ? "delivery" : "recojo",
+      };
     }
+    if (nuevoEstado === "en_proceso") payload.tiempo_estimado_desde = serverTimestamp();
 
     // ═══ 1) Actualiza el estado YA MISMO, sin esperar nada más ═══
     await updateDoc(ref, payload);
@@ -4658,6 +4845,7 @@ function labelEstado(e) {
       en_pausa: "En pausa",
       entregado: "Entregado",
       rechazado: "Rechazado",
+      pendiente_pago: "Pendiente de pago",
     }[e] || e
   );
 }
@@ -4828,6 +5016,7 @@ setInterval(chequearReservasVencidas, 15000);
 function renderBoard() {
   const grupos = {
     pendiente: [],
+    pendiente_pago: [],
     en_proceso: [],
     en_pausa: [],
     entregado: [],
@@ -4885,20 +5074,22 @@ function renderBoard() {
 
     body.innerHTML = "";
     if (!count) {
-      const icoMap = {
-        pendiente: "🌙",
-        en_proceso: "🧊",
-        en_pausa: "⏸️",
-        entregado: "📭",
-        rechazado: "🚫",
-      };
-      const msgMap = {
-        pendiente: "No hay pedidos pendientes",
-        en_proceso: "Nada en preparación ahora mismo",
-        en_pausa: "Ningún pedido en pausa",
-        entregado: "Aún no hay entregas registradas",
-        rechazado: "Sin pedidos rechazados",
-      };
+ const icoMap = {
+  pendiente: "🌙",
+  pendiente_pago: "💸",
+  en_proceso: "🧊",
+  en_pausa: "⏸️",
+  entregado: "📭",
+  rechazado: "🚫",
+};
+const msgMap = {
+  pendiente: "No hay pedidos pendientes",
+  pendiente_pago: "Ningún pedido esperando pago",
+  en_proceso: "Nada en preparación ahora mismo",
+  en_pausa: "Ningún pedido en pausa",
+  entregado: "Aún no hay entregas registradas",
+  rechazado: "Sin pedidos rechazados",
+};
       body.innerHTML = `<div class="col-empty"><div class="ce-ico">${icoMap[estado]}</div><p>${msgMap[estado]} en este periodo</p></div>`;
       return;
     }
@@ -5106,7 +5297,7 @@ async function aplicarEstadoGrupal(estadoDestino) {
       (num) =>
         getPedidosDeMesa(num).length > 0 ||
         [...mesasMap.values()].find((m) => m.numero_mesa === num)?.estado ===
-        "ocupado",
+          "ocupado",
     );
     const nuevas = numeros.filter((num) => !yaOcupadas.includes(num));
     if (yaOcupadas.length === 1 && nuevas.length > 0) {
@@ -5565,6 +5756,8 @@ const NuevoPedido = {
   filtroTexto: "",
   metodoPago: "Efectivo",
   cargado: false,
+  catalogoCompleto: false,
+  cargadoEn: 0,
   listenersListos: false,
   cargando: false,
   PAGINA_TAM: 40,
@@ -5682,12 +5875,12 @@ const NuevoPedido = {
     }
     return out;
   },
-    /* ── Progreso de carga ── */
+  /* ── Progreso de carga ── */
   mostrarSkeletons() {
     const grid = document.getElementById("npGrid");
     const empty = document.getElementById("npEmpty");
     if (empty) empty.style.display = "none";
-        this.cardEls.clear();
+    this.cardEls.clear();
     grid.innerHTML = Array.from({ length: 12 })
       .map(
         () => `
@@ -5938,8 +6131,8 @@ const NuevoPedido = {
           const activa = () =>
             multiple
               ? entradasDeOpcion(this._seleccion[cond.nombre]).some(
-                ([n]) => n === op.nombre,
-              )
+                  ([n]) => n === op.nombre,
+                )
               : this._seleccion[cond.nombre] === op.nombre;
           btn.className = "np-opt-btn" + (activa() ? " active" : "");
           btn.textContent =
@@ -6083,11 +6276,11 @@ const NuevoPedido = {
     );
     const base = cursor
       ? query(
-        subRef,
-        orderBy("nombre"),
-        startAfter(cursor),
-        limit(this.PAGINA_TAM),
-      )
+          subRef,
+          orderBy("nombre"),
+          startAfter(cursor),
+          limit(this.PAGINA_TAM),
+        )
       : query(subRef, orderBy("nombre"), limit(this.PAGINA_TAM));
     const snap = await getDocs(base);
     const items = [];
@@ -6106,6 +6299,8 @@ const NuevoPedido = {
   async cargarCatalogo(forceReload = false) {
     if ((this.cargado && !forceReload) || this.cargando) return;
     this.cargando = true;
+    this.catalogoCompleto = false;
+    let huboError = false;
     if (forceReload) {
       this.productos = [];
       this.productosPorId = new Map();
@@ -6127,6 +6322,7 @@ const NuevoPedido = {
           this.cargarPaginaCategoria(categoria, null)
             .catch((err) => {
               console.warn(`No se pudo cargar "${categoria}":`, err);
+              huboError = true;
               return { items: [], agotada: true, cursor: null };
             })
             .then((r) => {
@@ -6155,10 +6351,21 @@ const NuevoPedido = {
           this.categorias.map((categoria, i) =>
             !primeras[i].agotada
               ? this.seguirCargandoCategoria(categoria, primeras[i].cursor)
-              : null,
+              : true,
           ),
-        ).finally(() => this.ocultarProgreso());
+        )
+          .then((rs) => {
+            if (!huboError && rs.every(Boolean)) {
+              this.catalogoCompleto = true;
+              this.cargadoEn = Date.now();
+            }
+          })
+          .finally(() => this.ocultarProgreso());
       } else {
+        if (!huboError) {
+          this.catalogoCompleto = true;
+          this.cargadoEn = Date.now();
+        }
         this.ocultarProgreso();
       }
     } catch (err) {
@@ -6179,7 +6386,7 @@ const NuevoPedido = {
         res = await this.cargarPaginaCategoria(categoria, cursor);
       } catch (err) {
         console.warn(`Error paginando "${categoria}":`, err);
-        break;
+        return false;
       }
       res.items.forEach((p) => {
         if (!this.productosPorId.has(p.id)) {
@@ -6191,6 +6398,7 @@ const NuevoPedido = {
       agotada = res.agotada;
       cursor = res.cursor;
     }
+    return true;
   },
 
   async refrescar() {
@@ -6230,27 +6438,32 @@ const NuevoPedido = {
 
   getFiltrados() {
     let res = this.productos;
-    if (this.filtroCat !== "Todos") res = res.filter((p) => p.categoria === this.filtroCat);
-     if (this.filtroTexto)
-    res = res.filter(
-      (p) =>
-        p.nombreNorm.includes(this.filtroTexto) ||
-        (p.codigoBarras || "").includes(this.filtroTexto) ||
-        (p.id || "").toLowerCase() === this.filtroTexto,
-    );
+    if (this.filtroCat !== "Todos")
+      res = res.filter((p) => p.categoria === this.filtroCat);
+    if (this.filtroTexto)
+      res = res.filter(
+        (p) =>
+          p.nombreNorm.includes(this.filtroTexto) ||
+          (p.codigoBarras || "").includes(this.filtroTexto) ||
+          (p.id || "").toLowerCase() === this.filtroTexto,
+      );
     return res;
   },
   imgTag(p) {
     return p.imagen
-      ? `<img src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" onerror="this.parentElement.classList.add('np-noimg');this.outerHTML='<div class=&quot;np-logo-circle&quot;><img src=&quot;../img/logo geinz.png&quot; alt=&quot;&quot;></div>';">`
+      ? `<img data-fade src="${p.imagen}" alt="${escapeHtml(p.nombre)}" loading="lazy" onload="this.classList.add('loaded')" onerror="this.parentElement.classList.add('np-noimg');this.outerHTML='<div class=&quot;np-logo-circle&quot;><img src=&quot;../img/logo geinz.png&quot; alt=&quot;&quot;></div>';">`
       : `<div class="np-logo-circle"><img src="../img/logo geinz.png" alt=""></div>`;
   },
   cantEnCarrito(id) {
-    return [...this.carrito.values()].filter((i) => i.id === id).reduce((s, i) => s + i.cantidad, 0);
+    return [...this.carrito.values()]
+      .filter((i) => i.id === id)
+      .reduce((s, i) => s + i.cantidad, 0);
   },
 
   updateCardQty(id) {
-    const card = document.querySelector(`.np-card[data-id="${CSS.escape(id)}"]`);
+    const card = document.querySelector(
+      `.np-card[data-id="${CSS.escape(id)}"]`,
+    );
     if (!card) return;
     const n = this.cantEnCarrito(id);
     card.classList.toggle("in-cart", n > 0);
@@ -6272,7 +6485,8 @@ const NuevoPedido = {
 
   crearCard(p) {
     const tieneVar = p.condiciones?.length > 0;
-    const sinStock = typeof p.stock === "number" && p.stock <= 0 && !tieneVar;
+    const sinStock =
+      p.agotado || (typeof p.stock === "number" && p.stock <= 0 && !tieneVar);
     const el = document.createElement("div");
     el.className = "np-card" + (sinStock ? " sin-stock" : "");
     el.dataset.id = p.id;
@@ -6281,6 +6495,9 @@ const NuevoPedido = {
       <div class="np-img-wrap${p.imagen ? "" : " np-noimg"}">${this.imgTag(p)}${sinStock ? `<span class="np-tag-agotado">Agotado</span>` : ""}</div>
       <div class="np-name">${escapeHtml(p.nombre)}</div>
       <div class="np-price">${precioCardHtml(p)}</div>`;
+    el.querySelectorAll("img[data-fade]").forEach((i) => {
+      if (i.complete && i.naturalWidth) i.classList.add("loaded");
+    });
     return el;
   },
 
@@ -6322,146 +6539,516 @@ const NuevoPedido = {
   abrirDetalle(id) {
     const p = this.productosPorId.get(id);
     if (!p) return;
+    if (p.esOfertaTiempo && p.expiraEn && Date.now() >= p.expiraEn) {
+      showToast("⏰ Esta oferta ya expiró", true);
+      return;
+    }
     const tieneVar = p.condiciones?.length > 0;
-    const n = this.cantEnCarrito(id);
-    const max = typeof p.stock === "number" && !tieneVar ? Math.max(0, p.stock - n) : Infinity;
-    this._det = { id, qty: max === 0 ? 0 : 1, max };
+    this._det = { id, qty: 1, sel: {}, editKey: null };
+
     document.getElementById("npDetBody").innerHTML = `
-    <div class="np-det-img">${this.imgTag(p)}</div>
+    <div class="np-det-img${tieneVar ? " compact" : ""}">${this.imgTag(p)}</div>
     <div class="np-det-info">
       <div class="np-det-cat">${escapeHtml(p.categoria || "")}</div>
       <h3 class="np-det-name">${escapeHtml(p.nombre)}</h3>
       <div class="np-det-price">${precioCardHtml(p)}</div>
       ${p.descripcion ? `<p class="np-det-desc">${escapeHtml(p.descripcion)}</p>` : ""}
       <div class="np-det-meta">
-        ${typeof p.stock === "number" && !tieneVar ? `<span class="np-det-chip ${p.stock <= 0 ? "bad" : ""}">📦 ${p.stock <= 0 ? "Sin stock" : "Quedan " + p.stock}</span>` : ""}
+        ${typeof p.stock === "number" && !tieneVar ? `<span id="npDetStockChip" class="np-det-chip"></span>` : ""}
         ${p.codigoBarras ? `<span class="np-det-chip mono">▌▌ ${escapeHtml(p.codigoBarras)}</span>` : ""}
-        ${tieneVar ? `<span class="np-det-chip">🎛️ Tiene opciones</span>` : ""}
-        ${n ? `<span class="np-det-chip ok">🛒 ${n} en el pedido</span>` : ""}
       </div>
+      <div id="npDetLineas"></div>
+      <div id="npDetVars"></div>
       <div class="np-det-actions" id="npDetActions"></div>
     </div>`;
-    this.pintarAccionesDetalle();
+    document.querySelectorAll("#npDetBody img[data-fade]").forEach((i) => {
+      if (i.complete && i.naturalWidth) i.classList.add("loaded");
+    });
+    this.refrescarDetalle();
     document.getElementById("npDetOverlay").classList.add("show");
   },
-  pintarAccionesDetalle() {
-    const { id, qty, max } = this._det;
-    const p = this.productosPorId.get(id);
-    const box = document.getElementById("npDetActions");
-    if (p.condiciones?.length) {
-      box.innerHTML = `<button class="np-confirmar-btn" style="background:#7c5cff;color:#fff;" id="npDetOpts">Elegir opciones</button>`;
-      box.querySelector("#npDetOpts").onclick = () => { this.cerrarDetalle(); this.abrirOpciones(p); };
+  /* Líneas del carrito de ESTE producto, con controles grandes */
+  pintarLineasCarrito() {
+    const d = this._det;
+    const box = document.getElementById("npDetLineas");
+    if (!box || !d) return;
+    const lineas = [...this.carrito.values()].filter((i) => i.id === d.id);
+    if (!lineas.length) {
+      box.innerHTML = "";
       return;
     }
-    if (max === 0) { box.innerHTML = `<button class="np-confirmar-btn" disabled>Sin stock</button>`; return; }
+    const totalU = lineas.reduce((s, i) => s + i.cantidad, 0);
+    box.innerHTML =
+      `<div class="np-var-title">🛒 En el pedido <small>${totalU} unid.</small></div>` +
+      lineas
+        .map((it, i) => {
+          const opc = seleccionATexto(it.seleccion);
+          const editando = d.editKey === it.cartKey;
+          return `
+        <div class="np-line${editando ? " editing" : ""}">
+          <div class="np-line-info">
+            <b>${escapeHtml(opc || it.nombre)}</b>
+            <small>${fmtMoney(it.precio)} c/u · ${fmtMoney(it.precio * it.cantidad)}</small>
+          </div>
+          <div class="np-line-ctrl">
+            <button type="button" data-lm="${i}">−</button>
+            <span>${it.cantidad}</span>
+            <button type="button" data-lp="${i}">+</button>
+            ${it.condiciones?.length ? `<button type="button" class="ed" data-le="${i}">✎</button>` : ""}
+            <button type="button" class="tr" data-lt="${i}">🗑</button>
+          </div>
+        </div>`;
+        })
+        .join("");
+
+    const key = (b, attr) => lineas[Number(b.dataset[attr])].cartKey;
+    box.querySelectorAll("[data-lm]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          this.removeByKey(key(b, "lm"));
+          this.refrescarDetalle();
+        }),
+    );
+    box.querySelectorAll("[data-lp]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          this.addByKey(key(b, "lp"));
+          this.refrescarDetalle();
+        }),
+    );
+    box.querySelectorAll("[data-lt]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          this.eliminarByKey(key(b, "lt"));
+          this.refrescarDetalle();
+        }),
+    );
+    box.querySelectorAll("[data-le]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          const k = key(b, "le");
+          if (d.editKey === k) {
+            d.editKey = null;
+            d.sel = {};
+          } else {
+            d.editKey = k;
+            d.sel = JSON.parse(
+              JSON.stringify(this.carrito.get(k).seleccion || {}),
+            );
+          }
+          this.refrescarDetalle();
+          document
+            .getElementById("npDetVars")
+            ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }),
+    );
+  },
+
+  guardarEdicionDetalle(sel) {
+    const d = this._det;
+    const p = this.productosPorId.get(d.id);
+    const entry = this.carrito.get(d.editKey);
+    if (!entry) return;
+    const newKey = this.cartKeyFor(p.id, sel);
+    const existente = this.carrito.get(newKey);
+    const fusion = existente && newKey !== d.editKey;
+    const cantFinal = (fusion ? existente.cantidad : 0) + entry.cantidad;
+    const disp = this.getStockDisponible(p, sel);
+    if (typeof disp === "number" && cantFinal > disp)
+      return showToast(`⚠️ No hay stock suficiente (quedan ${disp})`, true);
+
+    this.carrito.delete(d.editKey);
+    if (fusion) existente.cantidad += entry.cantidad;
+    else {
+      const dsc = descuentoVigente(p.descuento);
+      this.carrito.set(newKey, {
+        ...p,
+        precio: this.calcPrecioFinal(p, sel),
+        precioOriginal: dsc ? p.precio : null,
+        descuentoPorcentaje: dsc ? dsc.porcentaje : null,
+        cantidad: entry.cantidad,
+        cartKey: newKey,
+        seleccion: sel,
+      });
+    }
+    d.editKey = null;
+    d.sel = {};
+    this.updateCardQty(p.id);
+    this.renderCarrito();
+    this.refrescarDetalle();
+    showToast("✏️ Línea actualizada");
+  },
+  /* Variantes dentro del diálogo, con botones grandes */
+  cantOpcionEnCarrito(p, condNombre, opNombre, excluirKey = null) {
+    let t = 0;
+    this.carrito.forEach((it) => {
+      if (it.id !== p.id || !it.seleccion || it.cartKey === excluirKey) return;
+      entradasDeOpcion(it.seleccion[condNombre]).forEach(([n, c]) => {
+        if (n === opNombre) t += c * it.cantidad;
+      });
+    });
+    return t;
+  },
+  pintarChipStock() {
+    const d = this._det;
+    const p = d && this.productosPorId.get(d.id);
+    const chip = document.getElementById("npDetStockChip");
+    if (!chip || !p || typeof p.stock !== "number" || p.condiciones?.length)
+      return;
+    const libre = Math.max(0, p.stock - this.cantEnCarrito(p.id));
+    const quedaran = Math.max(0, libre - (d.qty || 0));
+    chip.classList.toggle("bad", libre <= 0);
+    chip.textContent =
+      libre <= 0
+        ? "📦 Sin stock"
+        : `📦 Quedan ${libre} · quedarán ${quedaran} al agregar`;
+  },
+
+  refrescarDetalle() {
+    const d = this._det;
+    if (!d) return;
+    // si la línea que se editaba ya no existe, salir del modo edición
+    if (d.editKey && !this.carrito.has(d.editKey)) {
+      d.editKey = null;
+      d.sel = {};
+    }
+    this.pintarAccionesDetalle();
+    this.pintarVariantesDetalle();
+    this.pintarChipStock();
+    this.pintarLineasCarrito();
+  },
+  pintarVariantesDetalle() {
+    const { id, sel } = this._det;
+    const p = this.productosPorId.get(id);
+    const box = document.getElementById("npDetVars");
+    if (!box) return;
+    if (!p.condiciones?.length) {
+      box.innerHTML = "";
+      return;
+    }
+
+    const multiple = p.variantesMultiples === true;
+    const conCant = multiple && p.variantesConCantidad === true;
+    const obligatoria = p.variantesObligatoria !== false;
+
+    box.innerHTML = "";
+    p.condiciones.forEach((cond) => {
+      const grupo = document.createElement("div");
+      grupo.className = "np-var-group";
+      const titulo = document.createElement("div");
+      titulo.className = "np-var-title";
+      titulo.innerHTML = `${escapeHtml(cond.nombre)}
+      <small>${conCant ? "elige y usa + / −" : multiple ? "elige varias" : obligatoria ? "obligatorio" : "opcional"}</small>`;
+      grupo.appendChild(titulo);
+
+      const fila = document.createElement("div");
+      fila.className = "np-var-row";
+
+      cond.opciones.forEach((op) => {
+        const extra = op.costoAdicional
+          ? ` +S/ ${op.costoAdicional.toFixed(2)}`
+          : "";
+        const enCar = this.cantOpcionEnCarrito(
+          p,
+          cond.nombre,
+          op.nombre,
+          this._det.editKey,
+        );
+
+        const marcada = entradasDeOpcion(sel[cond.nombre]).find(
+          ([n]) => n === op.nombre,
+        );
+        const mult = this._det.editKey
+          ? this.carrito.get(this._det.editKey)?.cantidad || 1
+          : this._det.qty || 1;
+        const usando = marcada ? marcada[1] * mult : 0;
+        const stockTxt =
+          typeof op.stock === "number"
+            ? usando > 0
+              ? `Quedarán ${Math.max(0, op.stock - enCar - usando)}`
+              : `Quedan ${Math.max(0, op.stock - enCar)}`
+            : "";
+
+        if (conCant) {
+          if (
+            !sel[cond.nombre] ||
+            typeof sel[cond.nombre] !== "object" ||
+            Array.isArray(sel[cond.nombre])
+          )
+            sel[cond.nombre] = {};
+          const c = sel[cond.nombre][op.nombre] || 0;
+          const row = document.createElement("div");
+          row.className = "np-var-qty" + (c > 0 ? " active" : "");
+          row.innerHTML = `
+          <div class="np-var-qty-info"><b>${escapeHtml(op.nombre)}${extra}</b>${stockTxt ? `<small>${stockTxt}</small>` : ""}</div>
+          <div class="np-var-qty-ctrl">
+            <button type="button" data-m ${c === 0 ? "disabled" : ""}>−</button>
+            <span>${c}</span>
+            <button type="button" data-p>+</button>
+          </div>`;
+          const set = (n) => {
+            if (typeof op.stock === "number" && n > op.stock)
+              return showToast(
+                `⚠️ Solo quedan ${op.stock} de "${op.nombre}"`,
+                true,
+              );
+            if (n <= 0) delete sel[cond.nombre][op.nombre];
+            else sel[cond.nombre][op.nombre] = n;
+            this.pintarVariantesDetalle();
+            this.pintarAccionesDetalle();
+            this.refrescarDetalle();
+          };
+          row.querySelector("[data-m]").onclick = () => set(c - 1);
+          row.querySelector("[data-p]").onclick = () => set(c + 1);
+          fila.appendChild(row);
+          return;
+        }
+
+        const activa = entradasDeOpcion(sel[cond.nombre]).some(
+          ([n]) => n === op.nombre,
+        );
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "np-var-btn" + (activa ? " active" : "");
+        btn.innerHTML = `<span>${escapeHtml(op.nombre)}</span>${extra ? `<em>${extra}</em>` : ""}${stockTxt ? `<small>${stockTxt}</small>` : ""}`;
+        btn.onclick = () => {
+          if (multiple) {
+            const arr = entradasDeOpcion(sel[cond.nombre]).map(([n]) => n);
+            const i = arr.indexOf(op.nombre);
+            if (i >= 0) arr.splice(i, 1);
+            else arr.push(op.nombre);
+            if (arr.length) sel[cond.nombre] = arr;
+            else delete sel[cond.nombre];
+          } else {
+            if (sel[cond.nombre] === op.nombre && !obligatoria)
+              delete sel[cond.nombre];
+            else sel[cond.nombre] = op.nombre;
+          }
+          this.pintarVariantesDetalle();
+          this.pintarAccionesDetalle();
+        };
+        fila.appendChild(btn);
+      });
+
+      grupo.appendChild(fila);
+      box.appendChild(grupo);
+    });
+  },
+
+  pintarAccionesDetalle() {
+    const d = this._det;
+    const p = this.productosPorId.get(d.id);
+    const box = document.getElementById("npDetActions");
+    if (!box) return;
+    const tieneVar = p.condiciones?.length > 0;
+
+    const sel = {};
+    Object.keys(d.sel || {}).forEach((k) => {
+      if (entradasDeOpcion(d.sel[k]).length)
+        sel[k] = JSON.parse(JSON.stringify(d.sel[k]));
+    });
+    const hayOps = Object.keys(sel).length > 0;
+    const faltan =
+      tieneVar &&
+      p.variantesObligatoria !== false &&
+      p.condiciones.some((c) => !entradasDeOpcion(sel[c.nombre]).length);
+
+    /* ── Modo edición de una línea del carrito ── */
+    if (d.editKey) {
+      const entry = this.carrito.get(d.editKey);
+      const precio = this.calcPrecioFinal(p, hayOps ? sel : null);
+      box.innerHTML = `
+        <button class="np-confirmar-btn np-det-big" id="npDetGuardar" ${faltan ? "disabled" : ""}>
+          ${faltan ? "Elige una opción" : `Guardar cambios · ${fmtMoney(precio * entry.cantidad)}`}
+        </button>
+        <button class="oc-btn ghost np-det-big" id="npDetCancelEdit" style="flex:0 0 auto;padding:0 16px;">Cancelar</button>`;
+      box.querySelector("#npDetGuardar").onclick = () => {
+        if (!faltan) this.guardarEdicionDetalle(sel);
+      };
+      box.querySelector("#npDetCancelEdit").onclick = () => {
+        d.editKey = null;
+        d.sel = {};
+        this.refrescarDetalle();
+      };
+      return;
+    }
+
+    /* ── Modo agregar ── */
+    let max;
+    if (tieneVar) {
+      const disp = this.getStockDisponible(p, hayOps ? sel : null);
+      const enCarrito =
+        this.carrito.get(this.cartKeyFor(p.id, sel))?.cantidad || 0;
+      max = typeof disp === "number" ? Math.max(0, disp - enCarrito) : Infinity;
+    } else {
+      max =
+        typeof p.stock === "number"
+          ? Math.max(0, p.stock - this.cantEnCarrito(p.id))
+          : Infinity;
+    }
+    if (d.qty > max) d.qty = max;
+    if (d.qty < 1 && max > 0) d.qty = 1;
+    const qty = d.qty;
+
+    if (max === 0) {
+      box.innerHTML = `<button class="np-confirmar-btn np-det-big" disabled>${tieneVar && faltan ? "Elige una opción" : "Sin más stock"}</button>`;
+      return;
+    }
+
+    const precio = this.calcPrecioFinal(p, hayOps ? sel : null);
     box.innerHTML = `
-    <div class="np-det-step"><button id="npDetMenos" ${qty <= 1 ? "disabled" : ""}>−</button><span>${qty}</span><button id="npDetMas" ${qty >= max ? "disabled" : ""}>+</button></div>
-    <button class="np-confirmar-btn" id="npDetAdd">Agregar · ${fmtMoney(this.calcPrecioFinal(p, null) * qty)}</button>`;
-    box.querySelector("#npDetMenos").onclick = () => { this._det.qty--; this.pintarAccionesDetalle(); };
-    box.querySelector("#npDetMas").onclick = () => { this._det.qty++; this.pintarAccionesDetalle(); };
+    <div class="np-det-step big">
+      <button id="npDetMenos" ${qty <= 1 ? "disabled" : ""}>−</button>
+      <span>${qty}</span>
+      <button id="npDetMas" ${qty >= max ? "disabled" : ""}>+</button>
+    </div>
+    <button class="np-confirmar-btn np-det-big" id="npDetAdd" ${faltan ? "disabled" : ""}>
+      ${faltan ? "Elige una opción" : `Agregar · ${fmtMoney(precio * qty)}`}
+    </button>`;
+
+    box.querySelector("#npDetMenos").onclick = () => {
+      d.qty--;
+      this.refrescarDetalle();
+    };
+    box.querySelector("#npDetMas").onclick = () => {
+      d.qty++;
+      this.refrescarDetalle();
+    };
     box.querySelector("#npDetAdd").onclick = () => {
-      for (let i = 0; i < qty; i++) this.add(id);
+      if (faltan) return;
+      const seleccion = tieneVar ? JSON.parse(JSON.stringify(sel)) : null;
+      for (let i = 0; i < qty; i++) this.add(d.id, seleccion);
       this.cerrarDetalle();
     };
   },
-  cerrarDetalle() { document.getElementById("npDetOverlay").classList.remove("show"); },
+  cerrarDetalle() {
+    document.getElementById("npDetOverlay").classList.remove("show");
+  },
 
   /* Busca por código exacto: primero en memoria, luego en Firestore */
-/* Busca en Firestore: primero por código de barras (texto o número), luego por ID del documento */
-async buscarCodigoEnDB(code) {
-  const registrar = (snap, cat) => {
-    const d = snap.data();
-    if (d.disponible === false) return null;
-    const p = this.mapearProducto(snap, cat, d);
-    if (!this.productosPorId.has(p.id)) {
-      this.productos.push(p);
-      this.productosPorId.set(p.id, p);
-      this.renderGrid();
-    }
-    return this.productosPorId.get(p.id);
-  };
-
-  const variantes = [code];
-  if (/^\d+$/.test(code)) variantes.push(Number(code)); // por si el código se guardó como número
-
-  for (const cat of this.categorias) {
-    try {
-      const colRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos", cat, cat);
-
-      // 1) por código de barras
-      for (const v of variantes) {
-        const s = await getDocs(query(colRef, where("codigo_barras", "==", v), limit(1)));
-        if (!s.empty) {
-          const p = registrar(s.docs[0], cat);
-          if (p) return p;
-        }
+  /* Busca en Firestore: primero por código de barras (texto o número), luego por ID del documento */
+  async buscarCodigoEnDB(code) {
+    const registrar = (snap, cat) => {
+      const d = snap.data();
+      if (d.disponible === false) return null;
+      const p = this.mapearProducto(snap, cat, d);
+      if (!this.productosPorId.has(p.id)) {
+        this.productos.push(p);
+        this.productosPorId.set(p.id, p);
+        this.renderGrid();
       }
+      return this.productosPorId.get(p.id);
+    };
 
-      // 2) por ID del producto
-      if (!code.includes("/")) {
-        const byId = await getDoc(
-          tiendaSubDoc(localidad, "tiendas", tiendaId, "productos", cat, cat, code),
+    const variantes = [code];
+    if (/^\d+$/.test(code)) variantes.push(Number(code));
+
+    const buscarEnCategoria = async (cat) => {
+      try {
+        const colRef = tiendaSubCol(
+          localidad,
+          "tiendas",
+          tiendaId,
+          "productos",
+          cat,
+          cat,
         );
-        if (byId.exists()) {
-          const p = registrar(byId, cat);
-          if (p) return p;
-        }
+        const [porCodigo, byId] = await Promise.all([
+          Promise.all(
+            variantes.map((v) =>
+              getDocs(query(colRef, where("codigo_barras", "==", v), limit(1))),
+            ),
+          ),
+          code.includes("/")
+            ? null
+            : getDoc(
+                tiendaSubDoc(
+                  localidad,
+                  "tiendas",
+                  tiendaId,
+                  "productos",
+                  cat,
+                  cat,
+                  code,
+                ),
+              ),
+        ]);
+        for (const s of porCodigo)
+          if (!s.empty) return registrar(s.docs[0], cat);
+        if (byId?.exists()) return registrar(byId, cat);
+      } catch (e) {
+        console.warn("Búsqueda por código/ID:", e);
       }
-    } catch (e) {
-      console.warn("Búsqueda por código/ID:", e);
-    }
-  }
-  return null;
-},
+      return null;
+    };
 
-async procesarCodigo(raw) {
-  const code = String(raw || "").trim();
-  if (code.length < 3) return false;
+    // Todas las categorías a la vez; responde apenas alguna lo encuentra
+    return new Promise((resolve) => {
+      let pendientes = this.categorias.length;
+      if (!pendientes) return resolve(null);
+      this.categorias.forEach((cat) =>
+        buscarEnCategoria(cat).then((p) => {
+          if (p) resolve(p);
+          else if (--pendientes === 0) resolve(null);
+        }),
+      );
+    });
+  },
+  async procesarCodigo(raw) {
+    const code = String(raw || "").trim();
+    if (code.length < 3) return false;
 
-  // Mientras se elige la variante (o se procesa otro código), se ignoran más escaneos
-  if (this._prodOpc || this._procesando) return false;
-  this._procesando = true;
+    // Mientras se elige la variante (o se procesa otro código), se ignoran más escaneos
+    if (this._prodOpc || this._procesando) return false;
+    this._procesando = true;
 
-  try {
-    if (!this.cargado) await this.cargarCatalogo();
+    try {
+      if (!this.cargado) await this.cargarCatalogo();
+      let p = this.productos.find(
+        (x) => x.id === code || (x.codigoBarras && x.codigoBarras === code),
+      );
+      if (!p) {
+        // Catálogo completo y reciente (menos de 10 min): si no está en memoria, no existe
+        const fresco =
+          this.catalogoCompleto && Date.now() - this.cargadoEn < 10 * 60 * 1000;
+        if (!fresco) p = await this.buscarCodigoEnDB(code);
+      }
 
-    let p = this.productos.find(
-      (x) => x.id === code || (x.codigoBarras && x.codigoBarras === code),
-    );
-    if (!p) p = await this.buscarCodigoEnDB(code);
+      if (!p) {
+        npBeep(false);
+        showToast(`❌ "${code}" no coincide con ningún código ni ID`, true);
+        return false;
+      }
 
-    if (!p) {
-      npBeep(false);
-      showToast(`❌ "${code}" no coincide con ningún código ni ID`, true);
-      return false;
-    }
+      npBeep(true);
 
-    npBeep(true);
+      // Tiene variantes, pero ya no queda ninguna con stock
+      if (p.tieneVariantes && !p.condiciones?.length) {
+        showToast(`⚠️ "${p.nombre}" no tiene variantes disponibles`, true);
+        return false;
+      }
 
-    // Tiene variantes, pero ya no queda ninguna con stock
-    if (p.tieneVariantes && !p.condiciones?.length) {
-      showToast(`⚠️ "${p.nombre}" no tiene variantes disponibles`, true);
-      return false;
-    }
-
-    // Tiene variantes: SIEMPRE se pregunta antes de agregar
-    if (p.condiciones?.length) {
-      this.abrirOpciones(p);
+      // Tiene variantes: SIEMPRE se pregunta antes de agregar
+      if (p.condiciones?.length) {
+        this.abrirDetalle(p.id);
+        return true;
+      }
+      const antes = this.cantEnCarrito(p.id);
+      this.add(p.id);
+      if (this.cantEnCarrito(p.id) > antes) showToast(`✅ ${p.nombre}`);
       return true;
+    } finally {
+      this._procesando = false;
     }
-
-    const antes = this.cantEnCarrito(p.id);
-    this.add(p.id);
-    if (this.cantEnCarrito(p.id) > antes) showToast(`✅ ${p.nombre}`);
-    return true;
-  } finally {
-    this._procesando = false;
-  }
-},
+  },
 
   add(id, seleccion = null) {
     const p = this.productosPorId.get(id);
     if (!p) return;
+    if (p.agotado) {
+      showToast(`⚠️ "${p.nombre}" está agotado`, true);
+      return;
+    }
     if (p.esOfertaTiempo && p.expiraEn && Date.now() >= p.expiraEn) {
       showToast("⏰ Esta oferta ya expiró", true);
       return;
@@ -6617,9 +7204,10 @@ async procesarCodigo(raw) {
     document.getElementById("npConfirmarBtn").disabled = items.length === 0;
   },
 
-  async verificarYDescontarStock(items) {
-    const reales = items.filter((it) => !it.esPromo); // las promos no tienen doc de stock
-    if (!reales.length) return { ok: true };
+  async verificarYDescontarStock(items, factor = 1) {
+    const reales = items.filter((it) => !it.esPromo);
+    const agotados = [];
+    if (!reales.length) return { ok: true, agotados };
 
     const refs = new Map();
     reales.forEach((it) => {
@@ -6640,61 +7228,127 @@ async procesarCodigo(raw) {
 
     try {
       await runTransaction(db, async (tx) => {
+        agotados.length = 0; // por si la transacción se reintenta
         const snaps = new Map();
         for (const [id, ref] of refs) {
           const s = await tx.get(ref);
           if (s.exists()) snaps.set(id, s);
         }
         const act = new Map();
+
         for (const it of reales) {
           const snap = snaps.get(it.id);
           if (!snap) continue;
           const dn = act.get(it.id) || { ...snap.data() };
 
-          if (it.seleccion && dn.condiciones) {
+          // ── Variantes ──
+          if (it.seleccion && Array.isArray(dn.condiciones)) {
             const conds = dn.condiciones.map((c) => ({
               ...c,
-              opciones: c.opciones.map((o) => ({ ...o })),
+              opciones: (c.opciones || []).map((o) => ({ ...o })),
             }));
             for (const cond of conds) {
               for (const [nombreOp, cant] of entradasDeOpcion(
                 it.seleccion[cond.nombre],
               )) {
                 const op = cond.opciones.find((o) => o.nombre === nombreOp);
-                if (op && typeof op.stock === "number") {
-                  const need = cant * it.cantidad;
-                  if (op.stock < need)
+                if (!op || typeof op.stock !== "number") continue;
+                const delta = cant * it.cantidad;
+                if (factor === 1) {
+                  if (op.stock < delta)
                     throw {
                       motivo: "sin_stock",
                       nombre: it.nombre,
                       disponible: op.stock,
                       detalle: nombreOp,
                     };
-                  op.stock -= need;
+                  op.stock -= delta;
+                  if (op.stock <= 0) {
+                    op.activo = false;
+                    agotados.push({
+                      nombre: `${dn.nombre || it.nombre} (${op.nombre})`,
+                    });
+                  }
+                } else {
+                  if (op.stock <= 0) op.activo = true;
+                  op.stock += delta;
                 }
               }
             }
             dn.condiciones = conds;
           }
+
+          // ── Stock general del producto ──
           if (typeof dn.stock === "number") {
-            if (dn.stock < it.cantidad)
-              throw {
-                motivo: "sin_stock",
-                nombre: it.nombre,
-                disponible: dn.stock,
-              };
-            dn.stock -= it.cantidad;
+            if (factor === 1) {
+              if (dn.stock < it.cantidad)
+                throw {
+                  motivo: "sin_stock",
+                  nombre: it.nombre,
+                  disponible: dn.stock,
+                };
+              dn.stock -= it.cantidad;
+              if (dn.stock <= 0) {
+                if (dn.autoDesactivar) dn.disponible = false;
+                agotados.push({ nombre: dn.nombre || it.nombre });
+              }
+            } else {
+              if (dn.stock <= 0 && dn.autoDesactivar) dn.disponible = true;
+              dn.stock += it.cantidad;
+            }
           }
           act.set(it.id, dn);
         }
         for (const [id, dn] of act) tx.set(refs.get(id), dn, { merge: true });
       });
-      return { ok: true };
+      return { ok: true, agotados };
     } catch (err) {
       if (err?.motivo === "sin_stock") return { ok: false, ...err };
-      console.error("Error verificando stock (Nuevo pedido):", err);
+      console.error("Error ajustando stock (Nuevo pedido):", err);
       return { ok: false, motivo: "error_generico" };
     }
+  },
+
+  /* Refleja el descuento en el catálogo local para que la pantalla no muestre stock viejo */
+  sincronizarStockLocal(items) {
+    items.forEach((it) => {
+      if (it.esPromo) return;
+      const p = this.productosPorId.get(it.id);
+      if (!p) return;
+
+      if (typeof p.stock === "number")
+        p.stock = Math.max(0, p.stock - it.cantidad);
+
+      if (it.seleccion && p.condiciones?.length) {
+        p.condiciones = p.condiciones
+          .map((cond) => ({
+            ...cond,
+            opciones: cond.opciones
+              .map((op) => {
+                const hit = entradasDeOpcion(it.seleccion[cond.nombre]).find(
+                  ([n]) => n === op.nombre,
+                );
+                if (!hit || typeof op.stock !== "number") return op;
+                return {
+                  ...op,
+                  stock: Math.max(0, op.stock - hit[1] * it.cantidad),
+                };
+              })
+              .filter((op) => typeof op.stock !== "number" || op.stock > 0),
+          }))
+          .filter((c) => c.opciones.length);
+        if (!p.condiciones.length) p.agotado = true; // se quedó sin ninguna variante
+      }
+
+      // Repinta solo la tarjeta de este producto (en su mismo lugar)
+      const viejo = this.cardEls.get(p.id);
+      if (viejo) {
+        const nuevo = this.crearCard(p);
+        viejo.replaceWith(nuevo);
+        this.cardEls.set(p.id, nuevo);
+      }
+    });
+    this.renderGrid();
   },
   async confirmar() {
     const items = [...this.carrito.values()];
@@ -6759,6 +7413,15 @@ async procesarCodigo(raw) {
         total: +total.toFixed(2),
         negocio: { id: tiendaId, nombre: bizNombreGlobal, localidad },
       });
+      this.sincronizarStockLocal(items);
+      if (stockCheck.agotados?.length) {
+        playStockAgotadoAlarm();
+        const nombres = stockCheck.agotados.map((a) => a.nombre).join(", ");
+        showToast(`📦 Sin stock: ${nombres}`, true);
+        notificarStockAgotado(nombres);
+      } else {
+        showToast("✅ Pedido registrado");
+      }
 
       this.carrito.clear();
       document.getElementById("npClienteNombre").value = "";
@@ -6773,7 +7436,13 @@ async procesarCodigo(raw) {
       showToast("✅ Pedido registrado");
     } catch (err) {
       console.error("Error registrando pedido directo:", err);
-      showToast("❌ No se pudo registrar el pedido", true);
+      // El pedido no se guardó: devolvemos el stock que ya se había descontado
+      await this.verificarYDescontarStock(items, -1);
+      this.cargarCatalogo(true);
+      showToast(
+        "❌ No se pudo registrar el pedido, el stock se restauró",
+        true,
+      );
     } finally {
       btn.disabled = false;
       btn.textContent = "Registrar pedido";
@@ -6784,8 +7453,10 @@ async procesarCodigo(raw) {
     await this.cargarCatalogo();
 
     if (this.listenersListos) return; // evita re-registrar listeners
-   
+    this.listenersListos = true;
+
     const inp = document.getElementById("npSearchInput");
+
     const clr = document.getElementById("npClearSearch");
     const limpiar = () => {
       if (inp) inp.value = "";
@@ -6798,22 +7469,33 @@ async procesarCodigo(raw) {
       if (clr) clr.style.display = e.target.value ? "flex" : "none";
       this.renderGrid();
     });
-      inp?.addEventListener("keydown", (e) => {
+    inp?.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       const v = inp.value.trim();
-      const esCodigo = /^\d{6,}$/.test(v);                    // código de barras
+      const esCodigo = /^\d{6,}$/.test(v); // código de barras
       const esId = this.productosPorId.has(v) || /^[A-Za-z0-9_-]{15,}$/.test(v); // ID
       if (esCodigo || esId) {
         e.preventDefault();
         this.procesarCodigo(v).then((ok) => ok && limpiar());
       }
     });
-    clr?.addEventListener("click", () => { limpiar(); inp?.focus(); });
+    clr?.addEventListener("click", () => {
+      limpiar();
+      inp?.focus();
+    });
 
-    document.getElementById("npScanCamBtn")?.addEventListener("click", abrirCamara);
-    document.getElementById("npScanPhoneBtn")?.addEventListener("click", abrirEmparejar);
-    document.getElementById("npRefreshBtn")?.addEventListener("click", () => this.refrescar());
-    document.getElementById("npConfirmarBtn")?.addEventListener("click", () => this.confirmar());
+    document
+      .getElementById("npScanCamBtn")
+      ?.addEventListener("click", abrirCamara);
+    document
+      .getElementById("npScanPhoneBtn")
+      ?.addEventListener("click", abrirEmparejar);
+    document
+      .getElementById("npRefreshBtn")
+      ?.addEventListener("click", () => this.refrescar());
+    document
+      .getElementById("npConfirmarBtn")
+      ?.addEventListener("click", () => this.confirmar());
 
     document.getElementById("npGrid")?.addEventListener("click", (e) => {
       const c = e.target.closest(".np-card");
@@ -6846,18 +7528,80 @@ async procesarCodigo(raw) {
     });
   },
 };
+/* ══════ Cartel central: producto no encontrado ══════ */
+const npNfStyle = document.createElement("style");
+npNfStyle.textContent = `
+#npNoEncontrado{
+  position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.45);opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .12s ease, visibility 0s linear .12s;
+}
+#npNoEncontrado.show{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .12s ease, visibility 0s;}
+.np-nf-box{
+  background:var(--surface,#14141c);border:2px solid #f87171;border-radius:20px;
+  padding:22px 28px;text-align:center;color:#fff;max-width:min(320px,88vw);
+  box-shadow:0 12px 40px rgba(248,113,113,.28);
+  animation:np-nf-pop .22s cubic-bezier(.34,1.56,.64,1);
+}
+.np-nf-ico{font-size:42px;line-height:1;margin-bottom:8px;}
+.np-nf-title{font-size:17px;font-weight:800;color:#f87171;}
+.np-nf-code{font-family:monospace;font-size:12.5px;color:var(--ink-dim);margin-top:6px;word-break:break-all;}
+@keyframes np-nf-pop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+`;
+document.head.appendChild(npNfStyle);
+
+let _npNfTimer;
+function npNoEncontrado(code) {
+  let ov = document.getElementById("npNoEncontrado");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "npNoEncontrado";
+    ov.innerHTML = `
+      <div class="np-nf-box">
+        <div class="np-nf-ico">🚫</div>
+        <div class="np-nf-title">Ese producto no existe</div>
+        <div class="np-nf-code"></div>
+      </div>`;
+    ov.addEventListener("click", () => {
+      clearTimeout(_npNfTimer);
+      ov.classList.remove("show");
+    });
+    document.body.appendChild(ov);
+  }
+  ov.querySelector(".np-nf-code").textContent = code || "";
+
+  // reinicia la animación si se escanea otro código seguido
+  const box = ov.querySelector(".np-nf-box");
+  box.style.animation = "none";
+  void box.offsetWidth;
+  box.style.animation = "";
+
+  ov.classList.add("show");
+  clearTimeout(_npNfTimer);
+  _npNfTimer = setTimeout(() => ov.classList.remove("show"), 1500);
+}
 /* ══════ Sonido de confirmación del escáner ══════ */
 function npBeep(ok) {
-  const ctx = ensureAudio(); if (!ctx) return;
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.frequency.value = ok ? 1200 : 220; o.type = ok ? "sine" : "sawtooth";
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const o = ctx.createOscillator(),
+    g = ctx.createGain();
+  o.frequency.value = ok ? 1200 : 220;
+  o.type = ok ? "sine" : "sawtooth";
   g.gain.setValueAtTime(0.12, ctx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (ok ? 0.12 : 0.35));
-  o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (ok ? 0.13 : 0.36));
+  g.gain.exponentialRampToValueAtTime(
+    0.001,
+    ctx.currentTime + (ok ? 0.12 : 0.35),
+  );
+  o.connect(g).connect(ctx.destination);
+  o.start();
+  o.stop(ctx.currentTime + (ok ? 0.13 : 0.36));
 }
 
 /* ══════ Diálogos (se inyectan solos, no tocas el HTML) ══════ */
-document.body.insertAdjacentHTML("beforeend", `
+document.body.insertAdjacentHTML(
+  "beforeend",
+  `
 <div id="npDetOverlay" class="np-opt-overlay"><div class="np-opt-modal np-det-modal"><button class="np-det-x" id="npDetX">✕</button><div id="npDetBody"></div></div></div>
 <div id="npCamOverlay" class="np-opt-overlay"><div class="np-opt-modal np-cam-box">
   <div class="np-opt-head"><span>📷 Escanear código</span><button id="npCamX">✕</button></div>
@@ -6865,18 +7609,24 @@ document.body.insertAdjacentHTML("beforeend", `
   <p class="np-cam-hint">Apunta al código de barras. Puedes escanear varios seguidos.</p></div></div>
 <div id="npPairOverlay" class="np-opt-overlay"><div class="np-opt-modal np-pair-box">
   <div class="np-opt-head"><span>📱 Celular como escáner</span><button id="npPairX">✕</button></div>
-  <div id="npPairBody"></div></div></div>`);
+  <div id="npPairBody"></div></div></div>`,
+);
 
 document.getElementById("npDetX").onclick = () => NuevoPedido.cerrarDetalle();
-document.getElementById("npDetOverlay").addEventListener("click", (e) => { if (e.target.id === "npDetOverlay") NuevoPedido.cerrarDetalle(); });
-document.getElementById("npPairX").onclick = () => document.getElementById("npPairOverlay").classList.remove("show");
+document.getElementById("npDetOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "npDetOverlay") NuevoPedido.cerrarDetalle();
+});
+document.getElementById("npPairX").onclick = () =>
+  document.getElementById("npPairOverlay").classList.remove("show");
 
 /* ══════ Cámara de esta misma pantalla ══════ */
 let pararCam = null;
 async function abrirCamara() {
   document.getElementById("npCamOverlay").classList.add("show");
   try {
-    pararCam = await iniciarCamara(document.getElementById("npCamVideo"), (c) => NuevoPedido.procesarCodigo(c));
+    pararCam = await iniciarCamara(document.getElementById("npCamVideo"), (c) =>
+      NuevoPedido.procesarCodigo(c),
+    );
   } catch (e) {
     console.warn(e);
     showToast("No se pudo abrir la cámara (permiso o falta HTTPS)", true);
@@ -6884,7 +7634,8 @@ async function abrirCamara() {
   }
 }
 function cerrarCamara() {
-  pararCam?.(); pararCam = null;
+  pararCam?.();
+  pararCam = null;
   document.getElementById("npCamOverlay").classList.remove("show");
 }
 document.getElementById("npCamX").onclick = cerrarCamara;
@@ -6892,24 +7643,40 @@ document.getElementById("npCamX").onclick = cerrarCamara;
 /* ══════ Lector USB de minimarket (actúa como teclado: escribe rápido + Enter) ══════
    Funciona aunque no tengas el cursor en ningún campo. Si el cursor está en el
    buscador, lo maneja el listener del input (números + Enter). */
-let _wBuf = "", _wLast = 0;
-document.addEventListener("keydown", (e) => {
-  if (originFilter !== "directo") return;
-  if (e.target.matches?.("input,textarea,select")) return;
-  const ahora = Date.now();
-  if (e.key === "Enter") {
-    if (_wBuf.length >= 4) { e.preventDefault(); const c = _wBuf; _wBuf = ""; NuevoPedido.procesarCodigo(c); }
-    _wBuf = ""; return;
-  }
-  if (e.key.length !== 1) return;
-  if (ahora - _wLast > 60) _wBuf = ""; // un humano escribe más lento que 60ms
-  _wBuf += e.key; _wLast = ahora;
-}, true);
+let _wBuf = "",
+  _wLast = 0;
+document.addEventListener(
+  "keydown",
+  (e) => {
+    if (originFilter !== "directo") return;
+    if (e.target.matches?.("input,textarea,select")) return;
+    const ahora = Date.now();
+    if (e.key === "Enter") {
+      if (_wBuf.length >= 4) {
+        e.preventDefault();
+        const c = _wBuf;
+        _wBuf = "";
+        NuevoPedido.procesarCodigo(c);
+      }
+      _wBuf = "";
+      return;
+    }
+    if (e.key.length !== 1) return;
+    if (ahora - _wLast > 60) _wBuf = ""; // un humano escribe más lento que 60ms
+    _wBuf += e.key;
+    _wLast = ahora;
+  },
+  true,
+);
 
 /* ══════ Celular sin cable: QR + clave ══════ */
-let scanSesion = null, scanClave = "", unsubCodigos = null;
-const scanSesRef = (sid) => tiendaSubDoc(localidad, "tiendas", tiendaId, "scan_sesiones", sid);
-const scanColRef = (sid) => tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones", sid, "codigos");
+let scanSesion = null,
+  scanClave = "",
+  unsubCodigos = null;
+const scanSesRef = (sid) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, "scan_sesiones", sid);
+const scanColRef = (sid) =>
+  tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones", sid, "codigos");
 /* Borra una sesión completa: primero sus códigos, luego el documento */
 async function borrarSesionScan(sid) {
   if (!sid) return;
@@ -6963,7 +7730,9 @@ window.addEventListener("pagehide", () => {
 function pintarEstadoCelular(conectado) {
   const el = document.getElementById("npPairEstado");
   if (el) {
-    el.textContent = conectado ? "✅ Celular conectado, ya puedes escanear" : "⏳ Esperando al celular…";
+    el.textContent = conectado
+      ? "✅ Celular conectado, ya puedes escanear"
+      : "⏳ Esperando al celular…";
     el.classList.toggle("ok", conectado);
   }
   document.getElementById("npScanPhoneBtn")?.classList.toggle("on", conectado);
@@ -6977,19 +7746,31 @@ async function abrirEmparejar() {
   if (!scanSesion) {
     body.innerHTML = `<p class="np-pair-steps">Generando código…</p>`;
     try {
-      await limpiarSesionesViejas(); 
+      await limpiarSesionesViejas();
       scanClave = String(Math.floor(100000 + Math.random() * 900000));
-      const ref = doc(tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones"));
-      await setDoc(ref, { clave: scanClave, creado: serverTimestamp(), expira: Date.now() + 4 * 3600 * 1000 });
+      const ref = doc(
+        tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones"),
+      );
+      await setDoc(ref, {
+        clave: scanClave,
+        creado: serverTimestamp(),
+        expira: Date.now() + 4 * 3600 * 1000,
+      });
       scanSesion = ref.id;
 
       unsubCodigos = onSnapshot(scanColRef(scanSesion), (snap) => {
         snap.docChanges().forEach((ch) => {
           if (ch.type !== "added") return;
           const d = ch.doc.data();
-          deleteDoc(ch.doc.ref).catch(() => { });
-          if (d.tipo === "hola") { pintarEstadoCelular(true); return; }
-          if (d.codigo) { pintarEstadoCelular(true); NuevoPedido.procesarCodigo(d.codigo); }
+          deleteDoc(ch.doc.ref).catch(() => {});
+          if (d.tipo === "hola") {
+            pintarEstadoCelular(true);
+            return;
+          }
+          if (d.codigo) {
+            pintarEstadoCelular(true);
+            NuevoPedido.procesarCodigo(d.codigo);
+          }
         });
       });
     } catch (e) {
@@ -7000,15 +7781,16 @@ async function abrirEmparejar() {
   }
 
   // import.meta.url = ruta real de pedidos_dashboard.js, que está en la MISMA carpeta
-// que scanner_movil.html (js/dasboardjs/), así que siempre apunta bien
-const urlScanner = new URL("./scanner_movil.html", import.meta.url);
-urlScanner.search = new URLSearchParams({
-  l: localidad,
-  t: tiendaId,
-  s: scanSesion,
-}).toString();
-const url = urlScanner.href;
-  const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm")).default;
+  // que scanner_movil.html (js/dasboardjs/), así que siempre apunta bien
+  const urlScanner = new URL("./scanner_movil.html", import.meta.url);
+  urlScanner.search = new URLSearchParams({
+    l: localidad,
+    t: tiendaId,
+    s: scanSesion,
+  }).toString();
+  const url = urlScanner.href;
+  const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm"))
+    .default;
   const img = await QR.toDataURL(url, { width: 240, margin: 1 });
 
   body.innerHTML = `
@@ -7019,8 +7801,11 @@ const url = urlScanner.href;
     <div id="npPairEstado" class="np-pair-estado">⏳ Esperando al celular…</div>
     <button class="oc-btn ghost danger" style="width:100%;" id="npPairFin">Terminar sesión</button>`;
   document.getElementById("npPairFin").onclick = async () => {
-    unsubCodigos?.(); unsubCodigos = null;
-    try { await deleteDoc(scanSesRef(scanSesion)); } catch { }
+    unsubCodigos?.();
+    unsubCodigos = null;
+    try {
+      await deleteDoc(scanSesRef(scanSesion));
+    } catch {}
     scanSesion = null;
     pintarEstadoCelular(false);
     ov.classList.remove("show");
@@ -7161,8 +7946,8 @@ function iniciarListenerMesas() {
         reservasNuevasParaAlertar.forEach(({ data }) => {
           const numeros = data.grupoId
             ? (gruposMap.get(data.grupoId)?.mesas || [])
-              .map((m) => m.numero)
-              .filter(Boolean)
+                .map((m) => m.numero)
+                .filter(Boolean)
             : [data.numero_mesa];
           encolarAlarmaReserva(numeros.length ? numeros : [data.numero_mesa]);
         });
@@ -7470,10 +8255,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       .querySelectorAll(".origin-chip")
       .forEach((c) => c.classList.toggle("active", c === chipDirecto));
     actualizarVisibilidadDeli();
-    document.getElementById("board").style.display = "none";
-    document.getElementById("statusTabs").style.display = "none";
-    mesasStripWrap.style.display = "none";
-    document.getElementById("nuevoPedidoWrap").style.display = "flex";
+aplicarVista("directo");
     await NuevoPedido.init();
   });
 
@@ -7483,7 +8265,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       .querySelector(`.origin-chip[data-origin="${origen}"]`)
       ?.addEventListener("click", () => {
         document.getElementById("nuevoPedidoWrap").style.display = "none";
-          cerrarSesionCelular(); 
+        cerrarSesionCelular();
       });
   });
 }
@@ -7742,16 +8524,16 @@ function dlvPintarLista() {
   const cont = document.getElementById("dlvList");
   cont.innerHTML = lista.length
     ? lista
-      .map(
-        (c) => `
+        .map(
+          (c) => `
       <div class="dlv-item">
         <div class="dlv-av">${dlvAvatar(c)}</div>
         <div class="dlv-info"><b>${escapeHtml(c.nombre)}</b><small>+${escapeHtml(c.numero)}</small></div>
         <button type="button" class="dlv-mini" data-edit="${c.id}" title="Editar">✎</button>
         <button type="button" class="dlv-mini danger" data-del="${c.id}" title="Eliminar">🗑</button>
       </div>`,
-      )
-      .join("")
+        )
+        .join("")
     : `<div class="dlv-empty">Aún no agregaste deliverys.</div>`;
   const lleno = lista.length >= DLV_MAX && !dlvEditId;
   document.getElementById("dlvForm").style.display = lleno ? "none" : "flex";
@@ -7842,7 +8624,12 @@ const DLV_CAMPOS = [
   { k: "cliente", ico: "👤", label: "Nombre del cliente", def: true },
   { k: "celular", ico: "📱", label: "Celular del cliente", def: true },
   { k: "direccion", ico: "📍", label: "Dirección / referencia", def: true },
-  { k: "pin", ico: "📌", label: "Ubicación del cliente (pin en Maps)", def: false },
+  {
+    k: "pin",
+    ico: "📌",
+    label: "Ubicación del cliente (pin en Maps)",
+    def: false,
+  },
   { k: "ruta", ico: "🗺️", label: "Link de ruta en Google Maps", def: true },
   { k: "productos", ico: "🛍️", label: "Lista de productos", def: false },
   { k: "total", ico: "💰", label: "Total del pedido", def: false },
@@ -7856,7 +8643,7 @@ function dlvCfgLeer() {
   let guardado = {};
   try {
     guardado = JSON.parse(localStorage.getItem(dlvCfgKey()) || "{}");
-  } catch { }
+  } catch {}
   const cfg = { intro: guardado.intro || "" };
   DLV_CAMPOS.forEach((c) => {
     cfg[c.k] = typeof guardado[c.k] === "boolean" ? guardado[c.k] : c.def;
@@ -7866,7 +8653,7 @@ function dlvCfgLeer() {
 function dlvCfgGuardar(cfg) {
   try {
     localStorage.setItem(dlvCfgKey(), JSON.stringify(cfg));
-  } catch { }
+  } catch {}
 }
 
 const DLV_EJEMPLO = {
@@ -7878,7 +8665,12 @@ const DLV_EJEMPLO = {
     ubicacion: { lat: -11.1067, lng: -77.6053 },
   },
   productos: [
-    { nombre: "Pollo a la brasa", cantidad: 1, subtotal: 45, opciones: { Presa: "Pecho" } },
+    {
+      nombre: "Pollo a la brasa",
+      cantidad: 1,
+      subtotal: 45,
+      opciones: { Presa: "Pecho" },
+    },
     { nombre: "Chicha morada", cantidad: 2, subtotal: 12 },
   ],
   total: 57,
@@ -7930,20 +8722,23 @@ function dlvTab(t) {
   dlvManage
     .querySelectorAll("[data-tab]")
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
-  document.getElementById("dlvTabContactos").style.display = t === "contactos" ? "block" : "none";
-  document.getElementById("dlvTabMensaje").style.display = t === "mensaje" ? "block" : "none";
+  document.getElementById("dlvTabContactos").style.display =
+    t === "contactos" ? "block" : "none";
+  document.getElementById("dlvTabMensaje").style.display =
+    t === "mensaje" ? "block" : "none";
   if (t === "mensaje") dlvPintarConfig();
 }
-dlvManage.querySelectorAll("[data-tab]").forEach((b) =>
-  b.addEventListener("click", () => dlvTab(b.dataset.tab)),
-);
+dlvManage
+  .querySelectorAll("[data-tab]")
+  .forEach((b) => b.addEventListener("click", () => dlvTab(b.dataset.tab)));
 /* ── Mensaje de WhatsApp para el delivery ── */
 function dlvCostoDeliveryTexto(p, ejemplo) {
   if (ejemplo) return "S/ 5.00";
   if (p.delivery?.costo != null)
     return p.delivery.gratis
       ? "Gratis (promo)"
-      : fmtMoney(p.delivery.costo) + (p.delivery.zona ? ` (${p.delivery.zona})` : "");
+      : fmtMoney(p.delivery.costo) +
+          (p.delivery.zona ? ` (${p.delivery.zona})` : "");
   if (p.cupon?.envioGratis === true) return "Gratis (promo)";
   const ub = p.cliente?.ubicacion;
   if (!ub || typeof ub.lat !== "number" || bizLat == null || bizLng == null)
@@ -7957,7 +8752,8 @@ function dlvCostoDeliveryTexto(p, ejemplo) {
 function dlvMensaje(id, p, cfg = dlvCfgLeer(), ejemplo = false) {
   const c = p.cliente || {};
   const ub = c.ubicacion;
-  const tieneUb = ub && typeof ub.lat === "number" && typeof ub.lng === "number";
+  const tieneUb =
+    ub && typeof ub.lat === "number" && typeof ub.lng === "number";
   const L = [];
 
   if (cfg.intro) L.push(cfg.intro, "");
@@ -7969,13 +8765,15 @@ function dlvMensaje(id, p, cfg = dlvCfgLeer(), ejemplo = false) {
     const tel = String(c.whatsapp || "").replace(/\D/g, "");
     if (tel) L.push(`📱 Cel: +${tel}`);
   }
-  if (cfg.direccion && c.direccion) L.push(`📍 Dirección / Ref: ${c.direccion}`);
+  if (cfg.direccion && c.direccion)
+    L.push(`📍 Dirección / Ref: ${c.direccion}`);
 
   if (cfg.pin && tieneUb)
     L.push(`📌 Ubicación: https://www.google.com/maps?q=${ub.lat},${ub.lng}`);
 
   if (cfg.ruta && tieneUb) {
-    const origin = bizLat != null && bizLng != null ? `&origin=${bizLat},${bizLng}` : "";
+    const origin =
+      bizLat != null && bizLng != null ? `&origin=${bizLat},${bizLng}` : "";
     L.push(
       `🗺️ Ruta: https://www.google.com/maps/dir/?api=1${origin}&destination=${ub.lat},${ub.lng}&travelmode=driving`,
     );
@@ -8003,7 +8801,8 @@ function dlvMensaje(id, p, cfg = dlvCfgLeer(), ejemplo = false) {
     const pago = p.pago || {};
     if (pago.metodo) {
       let t = `💳 Pago: ${pago.metodo}`;
-      if (pago.metodo === "Efectivo" && pago.vuelto) t += ` (paga con S/ ${pago.vuelto})`;
+      if (pago.metodo === "Efectivo" && pago.vuelto)
+        t += ` (paga con S/ ${pago.vuelto})`;
       L.push(t);
     }
   }
@@ -8049,4 +8848,142 @@ function dlvAbrirSelector(id, p) {
     });
   }
   dlvPick.classList.add("show");
+}
+
+
+/* ══════════════ TIEMPOS ESTIMADOS ══════════════ */
+function getTiemposCfg() {
+  const t = bizDataGlobal?.tiempos_estimados || {};
+  const rango = (r, dMin, dMax) => ({
+    min: Number(r?.min) || dMin,
+    max: Number(r?.max) || dMax,
+  });
+  return {
+    activo: t.activo !== false,
+    delivery: rango(t.delivery, 20, 30),
+    recojo: rango(t.recojo, 10, 15),
+  };
+}
+
+/* ── Modal de ajustes ── */
+const tmpOv = document.createElement("div");
+tmpOv.className = "dlv-ov";
+tmpOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span>⏱️ Tiempos estimados</span><button type="button" data-x>✕</button></div>
+    <p class="dlv-cfg-sub">Este rango se le muestra al cliente al confirmar su pedido. Podrás cambiarlo en cada pedido cuando lo aceptes.</p>
+    <div class="dlv-cfg-row">
+      <span class="l">Mostrar tiempo al cliente</span>
+      <label class="switch"><input type="checkbox" id="tmpActivo"><span class="switch-track"></span></label>
+    </div>
+    <div class="dlv-prev-title">🛵 Delivery (minutos)</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="number" id="tmpDelMin" class="deli-inp" min="1" style="flex:1"> <span>a</span>
+      <input type="number" id="tmpDelMax" class="deli-inp" min="1" style="flex:1">
+    </div>
+    <div class="dlv-prev-title">🏬 Recojo en local (minutos)</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="number" id="tmpRecMin" class="deli-inp" min="1" style="flex:1"> <span>a</span>
+      <input type="number" id="tmpRecMax" class="deli-inp" min="1" style="flex:1">
+    </div>
+    <button type="button" class="np-confirmar-btn" id="tmpGuardar" style="margin-top:16px;">Guardar</button>
+  </div>`;
+document.body.appendChild(tmpOv);
+tmpOv.addEventListener("click", (e) => {
+  if (e.target === tmpOv || e.target.hasAttribute("data-x"))
+    tmpOv.classList.remove("show");
+});
+
+function abrirAjusteTiempos() {
+  const c = getTiemposCfg();
+  document.getElementById("tmpActivo").checked = c.activo;
+  document.getElementById("tmpDelMin").value = c.delivery.min;
+  document.getElementById("tmpDelMax").value = c.delivery.max;
+  document.getElementById("tmpRecMin").value = c.recojo.min;
+  document.getElementById("tmpRecMax").value = c.recojo.max;
+  tmpOv.classList.add("show");
+}
+
+document.getElementById("tmpGuardar").addEventListener("click", async () => {
+  const n = (id) => Math.max(1, Math.round(Number(document.getElementById(id).value) || 1));
+  const delivery = { min: n("tmpDelMin"), max: n("tmpDelMax") };
+  const recojo = { min: n("tmpRecMin"), max: n("tmpRecMax") };
+  if (delivery.max < delivery.min || recojo.max < recojo.min)
+    return showToast("El máximo no puede ser menor que el mínimo", true);
+  const cfg = {
+    activo: document.getElementById("tmpActivo").checked,
+    delivery,
+    recojo,
+  };
+  try {
+    await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
+      tiempos_estimados: cfg,
+    });
+    bizDataGlobal = { ...(bizDataGlobal || {}), tiempos_estimados: cfg };
+    tmpOv.classList.remove("show");
+    showToast("⏱️ Tiempos guardados");
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo guardar", true);
+  }
+});
+
+// Botón en la barra superior (muévelo a tu HTML si prefieres)
+const tmpBtn = document.createElement("button");
+tmpBtn.type = "button";
+tmpBtn.className = "oc-btn ghost";
+tmpBtn.textContent = "⏱️ Tiempos";
+tmpBtn.addEventListener("click", abrirAjusteTiempos);
+(topActionsEl || document.body).appendChild(tmpBtn);
+
+/* ── Modal al aceptar un pedido: pide/ajusta el tiempo ── */
+function pedirTiempo(p) {
+  return new Promise((resolve) => {
+    const cfg = getTiemposCfg();
+    const esDelivery = p.cliente?.tipo_entrega === "Delivery";
+    const base = p.tiempo_estimado || (esDelivery ? cfg.delivery : cfg.recojo);
+
+    const ov = document.createElement("div");
+    ov.className = "dlv-ov";
+    ov.innerHTML = `
+      <div class="dlv-box">
+        <div class="dlv-head"><span>⏱️ ¿Cuánto se demorará?</span><button type="button" data-x>✕</button></div>
+        <p class="dlv-cfg-sub">${esDelivery ? "🛵 Delivery" : "🏬 Recojo"} · Se lo mostramos al cliente en su seguimiento.</p>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" id="ptMin" class="deli-inp" min="1" value="${base.min}" style="flex:1"> <span>a</span>
+          <input type="number" id="ptMax" class="deli-inp" min="1" value="${base.max}" style="flex:1"> <span>min</span>
+        </div>
+        <button type="button" class="np-confirmar-btn" id="ptOk" style="margin-top:16px;">Confirmar y aceptar</button>
+        <button type="button" class="oc-btn ghost" id="ptKeep" style="width:100%;margin-top:8px;">Mantener el tiempo actual</button>
+      </div>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add("show"));
+
+    const cerrar = (val) => {
+      ov.classList.remove("show");
+      setTimeout(() => ov.remove(), 300);
+      resolve(val);
+    };
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov || e.target.hasAttribute("data-x")) cerrar(null);
+    });
+    ov.querySelector("#ptKeep").onclick = () => cerrar({});
+    ov.querySelector("#ptOk").onclick = () => {
+      const min = Math.max(1, Math.round(Number(ov.querySelector("#ptMin").value) || 1));
+      const max = Math.max(1, Math.round(Number(ov.querySelector("#ptMax").value) || 1));
+      if (max < min) return showToast("El máximo no puede ser menor que el mínimo", true);
+      cerrar({ min, max });
+    };
+  });
+}
+
+async function accionEstado(id, p, estado, accion, btn) {
+  const pide =
+    accion === "en_proceso" &&
+    (estado === "pendiente" || estado === "pendiente_pago") &&
+    getOrigen(p).tipo === "whatsapp";
+  if (!pide) return cambiarEstado(id, accion, btn);
+  const r = await pedirTiempo(p);
+  if (r === null) return; // canceló
+  cambiarEstado(id, accion, btn, { tiempo: r.min ? r : null });
 }

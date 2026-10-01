@@ -6,6 +6,7 @@ import {
   query,
   orderBy,
   limit,
+  where,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -22,7 +23,7 @@ import {
 import { db, storage } from "../db/db.js";
 import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
 import { initImportador } from "../dasboardjs/import_producto.js";
-
+import { iniciarCamara } from "./scan_camara.js";
 /* ---------------- Adaptación de textos según categoría de negocio ---------------- */
 // Esto NO cambia la estructura de datos ni los campos: solo adapta los textos de
 // ejemplo/placeholder para que el panel se sienta natural en cualquier rubro
@@ -203,11 +204,191 @@ function toast(msg, type = "") {
 }
 
 /* ---------------- Modal Controls ---------------- */
+/* ---------------- Código numérico / escáner ---------------- */
+const categoriasLista = new Map(); // id -> nombre
+let scanModo = "nuevo"; // "nuevo" (desde el menú) | "campo" (desde el modal de producto)
+let pararCam = null;
+let scanProcesando = false;
+
+const soloDigitos = (v) => String(v || "").replace(/\D/g, "");
+
+// Busca el código en TODAS las secciones (ID del doc). Devuelve {categoriaId,id,data} o null
+async function buscarProductoPorCodigo(codigo) {
+  const cats = await getDocs(categoriasRef);
+  const res = await Promise.all(
+    cats.docs.map(async (c) => {
+      // 1) por ID del documento
+      const s = await getDoc(doc(productosRef(c.id), codigo));
+      if (s.exists()) return { categoriaId: c.id, id: s.id, data: s.data() };
+      // 2) por el campo codigo_barras (productos antiguos)
+      const q2 = await getDocs(
+        query(productosRef(c.id), where("codigo_barras", "==", codigo), limit(1)),
+      );
+      if (!q2.empty) {
+        const d = q2.docs[0];
+        return { categoriaId: c.id, id: d.id, data: d.data() };
+      }
+      return null;
+    }),
+  );
+  return res.find(Boolean) || null;
+}
+async function generarCodigoNumerico() {
+  for (let i = 0; i < 5; i++) {
+    const c = String(Date.now()) + String(Math.floor(Math.random() * 10));
+    if (!(await buscarProductoPorCodigo(c))) return c;
+  }
+  return String(Date.now()) + String(Math.floor(Math.random() * 1000));
+}
+
+function llenarSelectCategorias() {
+  const guardada = sessionStorage.getItem("scanCategoria") || "";
+  ["scan-categoria", "pair-categoria"].forEach((id) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = "";
+    categoriasLista.forEach((nombre, cid) => {
+      const o = document.createElement("option");
+      o.value = cid;
+      o.textContent = nombre;
+      sel.appendChild(o);
+    });
+    if (categoriasLista.has(guardada)) sel.value = guardada;
+  });
+}
+["scan-categoria", "pair-categoria"].forEach((id) => {
+  document.getElementById(id).addEventListener("change", (e) => {
+    sessionStorage.setItem("scanCategoria", e.target.value);
+    llenarSelectCategorias();
+  });
+});
+document.getElementById("scan-categoria").addEventListener("change", (e) =>
+  sessionStorage.setItem("scanCategoria", e.target.value),
+);
+
+function abrirScanner(modo) {
+  scanModo = modo;
+  document.getElementById("scan-categoria-wrap").classList.toggle("hidden", modo !== "nuevo");
+  document.getElementById("scan-titulo").textContent =
+    modo === "nuevo" ? "Escanear producto" : "Escanear código";
+  if (modo === "nuevo") llenarSelectCategorias();
+  openOverlay("overlay-scan");
+  setTimeout(() => document.getElementById("scan-input-usb").focus(), 250);
+}
+
+async function encenderCamaraScan() {
+  document.getElementById("scan-video-wrap").classList.remove("hidden");
+  try {
+    pararCam = await iniciarCamara(document.getElementById("scan-video"), (c) =>
+      manejarCodigoEscaneado(c),
+    );
+  } catch (e) {
+    console.warn(e);
+    toast("No se pudo abrir la cámara (permiso o falta HTTPS).", "error");
+    detenerCamaraScan();
+  }
+}
+function detenerCamaraScan() {
+  pararCam?.();
+  pararCam = null;
+  document.getElementById("scan-video-wrap")?.classList.add("hidden");
+}
+
+async function manejarCodigoEscaneado(raw) {
+  const codigo = soloDigitos(raw);
+  if (codigo.length < 3 || scanProcesando) return;
+  scanProcesando = true;
+  try {
+    const ya = await buscarProductoPorCodigo(codigo);
+
+    if (scanModo === "campo") {
+      if (ya && ya.id !== productoEditandoId) {
+        toast(`Ese código ya existe: "${ya.data.nombre}"`, "error");
+        return;
+      }
+      document.getElementById("input-prod-codigo").value = codigo;
+      closeOverlay("overlay-scan");
+      toast("Código capturado.");
+      return;
+    }
+
+    // modo "nuevo"
+    const catId = document.getElementById("scan-categoria").value;
+    closeOverlay("overlay-scan");
+    if (ya) {
+      toast("Ese producto ya existe, abriéndolo para editar.");
+      abrirModalEditarProducto(ya.categoriaId, ya.id, ya.data);
+      return;
+    }
+    if (!catId) {
+      toast("Primero crea una sección (categoría).", "error");
+      return;
+    }
+    abrirModalNuevoProducto(catId, categoriasLista.get(catId) || catId, codigo);
+  } finally {
+    setTimeout(() => (scanProcesando = false), 800);
+  }
+}
+
+document.getElementById("btn-escanear-producto").addEventListener("click", () => abrirScanner("nuevo"));
+document.getElementById("btn-prod-scan-cam").addEventListener("click", () => abrirScanner("campo"));
+document.getElementById("scan-btn-cam").addEventListener("click", encenderCamaraScan);
+
+// Lector USB dentro del overlay
+document.getElementById("scan-input-usb").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const v = e.target.value;
+  e.target.value = "";
+  manejarCodigoEscaneado(v);
+});
+
+// Campo de código en el modal: solo dígitos, y Enter (lector USB) no envía el formulario
+const inputCodigo = document.getElementById("input-prod-codigo");
+inputCodigo.addEventListener("input", () => {
+  if (!inputCodigo.readOnly) inputCodigo.value = soloDigitos(inputCodigo.value);
+});
+inputCodigo.addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const codigo = soloDigitos(inputCodigo.value);
+  if (!codigo || inputCodigo.readOnly) return;
+  const ya = await buscarProductoPorCodigo(codigo);
+  if (ya && ya.id !== productoEditandoId)
+    toast(`Ese código ya existe: "${ya.data.nombre}"`, "error");
+  else toast("Código listo.");
+});
+
+// Lector USB "global": escanear en la pantalla sin tener ningún campo enfocado
+let _wBuf = "", _wLast = 0;
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches?.("input,textarea,select")) return;
+  if (document.querySelector(".overlay.show")) return;
+  const ahora = Date.now();
+  if (e.key === "Enter") {
+    if (_wBuf.length >= 4) {
+      e.preventDefault();
+      const c = _wBuf;
+      _wBuf = "";
+      scanModo = "nuevo";
+      llenarSelectCategorias();
+      manejarCodigoEscaneado(c);
+    }
+    _wBuf = "";
+    return;
+  }
+  if (e.key.length !== 1) return;
+  if (ahora - _wLast > 60) _wBuf = ""; // una persona escribe más lento que 60ms
+  _wBuf += e.key;
+  _wLast = ahora;
+}, true);
 function openOverlay(id) {
   document.getElementById(id).classList.add("show");
 }
+
 function closeOverlay(id) {
   document.getElementById(id).classList.remove("show");
+  if (id === "overlay-scan") detenerCamaraScan();
 }
 document.querySelectorAll("[data-close]").forEach((btn) => {
   btn.addEventListener("click", () => closeOverlay(btn.dataset.close));
@@ -356,6 +537,22 @@ btnStockBajo.addEventListener("click", () => setFiltroEstado("stockbajo"));
 btnAgotadoHoy.addEventListener("click", () => setFiltroEstado("agotadohoy"));
 btnCategorias.addEventListener("click", () => setFiltroEstado("categorias"));
 btnDescuento.addEventListener("click", () => setFiltroEstado("descuento"));
+
+/* ---------------- Tamaño de vista (Grande / Mediano / Pequeño) ---------------- */
+function setVista(v) {
+  document.body.dataset.vista = v;
+  try { localStorage.setItem("vistaProductos", v); } catch {}
+  document.querySelectorAll(".vista-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.vista === v),
+  );
+}
+document.querySelectorAll(".vista-btn").forEach((b) =>
+  b.addEventListener("click", () => setVista(b.dataset.vista)),
+);
+let vistaGuardada = "grande";
+try { vistaGuardada = localStorage.getItem("vistaProductos") || "grande"; } catch {}
+setVista(vistaGuardada);
+
 /* ---------------- Menú desplegable "Agregar" ---------------- */
 const toggleAccionesBtn = document.getElementById("btn-acciones-toggle");
 const menuAcciones = document.getElementById("panel-actions-menu");
@@ -828,7 +1025,7 @@ function actualizarVisibilidadCantidadPorOpcion() {
 document
   .getElementById("input-prod-variantes-multiples")
   .addEventListener("change", actualizarVisibilidadCantidadPorOpcion);
-function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
+function abrirModalNuevoProducto(categoriaId, categoriaNombre, codigoPrefill = "") {
   categoriaActivaParaProducto = categoriaId;
   productoEditandoId = null;
   productoEditandoCategoriaId = null;
@@ -839,6 +1036,11 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   document.getElementById("input-prod-variantes-multiples").checked = false;
   document.getElementById("input-prod-variantes-cantidad").checked = false;
   document.getElementById("form-producto").reset();
+    inputCodigo.value = codigoPrefill;
+  inputCodigo.readOnly = false;
+  document.getElementById("btn-prod-scan-cam").disabled = false;
+  document.getElementById("prod-codigo-hint").textContent =
+    "Déjalo vacío y se genera un número automático.";
   document.getElementById("input-prod-disponible").checked = true;
   document.getElementById("input-prod-stock").value = "";
   document.getElementById("input-prod-auto-desactivar").checked = false;
@@ -853,7 +1055,7 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre) {
   document.getElementById("producto-cat-hint").textContent =
     `Se incluirá en "${categoriaNombre}".`;
   document.getElementById("btn-guardar-producto-label").textContent =
-    "Guardar cambios";
+    "Crear producto";
     document.getElementById("input-prod-descuento-activo").checked = false;
 document.getElementById("descuento-detalle").classList.add("hidden");
 document.getElementById("input-prod-descuento-porcentaje").value = "";
@@ -894,6 +1096,13 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
     })),
   }));
   document.getElementById("form-producto").reset();
+    const idEsNumerico = /^\d+$/.test(productoId);
+  inputCodigo.value = idEsNumerico ? productoId : (data.codigo_barras || "");
+  inputCodigo.readOnly = idEsNumerico;
+  document.getElementById("btn-prod-scan-cam").disabled = idEsNumerico;
+  document.getElementById("prod-codigo-hint").textContent = idEsNumerico
+    ? "Este código es el ID del producto y no se puede cambiar."
+    : "Producto antiguo: puedes asignarle un código de barras para poder escanearlo.";
   document.getElementById("input-prod-variante-obligatoria").checked =
     data.variantesObligatoria !== false; // default true si no existe (productos viejos)
 document.getElementById("input-prod-variantes-multiples").checked =
@@ -1089,6 +1298,15 @@ if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
 
     try {
       if (productoEditandoId) {
+        const idEsNum = /^\d+$/.test(productoEditandoId);
+const codigoEdit = idEsNum ? productoEditandoId : soloDigitos(inputCodigo.value);
+if (!idEsNum && codigoEdit) {
+  const ya = await buscarProductoPorCodigo(codigoEdit);
+  if (ya && ya.id !== productoEditandoId) {
+    toast(`Ese código ya lo tiene "${ya.data.nombre}".`, "error");
+    return;
+  }
+}
         const docRef = doc(
           productosRef(productoEditandoCategoriaId),
           productoEditandoId,
@@ -1136,6 +1354,7 @@ if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
   variantesConCantidad,
   descuento,
   imagenes: [...conservadas, ...subidas],
+  codigo_barras: codigoEdit,
 });
         await sincronizarProductoEnCarritoPerfil(productoEditandoId, {
           nombre,
@@ -1145,7 +1364,21 @@ if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
 
         toast(`"${nombre}" actualizado.`);
       } else {
-        const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto));
+   let codigoFinal = soloDigitos(inputCodigo.value);
+if (codigoFinal) {
+  if (codigoFinal.length < 3) {
+    toast("El código debe tener al menos 3 dígitos.", "error");
+    return;
+  }
+  const ya = await buscarProductoPorCodigo(codigoFinal);
+  if (ya) {
+    toast(`Ya existe el código ${codigoFinal}: "${ya.data.nombre}"`, "error");
+    return;
+  }
+} else {
+  codigoFinal = await generarCodigoNumerico();
+}
+const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto), codigoFinal);
        await setDoc(nuevoDocRef, {
   nombre,
   descripcion,
@@ -1165,6 +1398,7 @@ if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
   descuento,
   imagenes: [],
   createdAt: serverTimestamp(),
+    codigo_barras: codigoFinal,
 });
         const archivos = imagenesSeleccionadas.filter(Boolean);
         const imagenes = [];
@@ -1216,233 +1450,249 @@ function skeletonCardHTML() {
 function renderSkeletons(grid, count = 8) {
   grid.innerHTML = Array.from({ length: count }, skeletonCardHTML).join("");
 }
+function textoVigenciaDescuento(d, info) {
+  if (d.modo === "dias_semana") {
+    const orden = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
+    return "📅 " + orden.filter((x) => (d.dias || []).includes(x))
+      .map((x) => DIAS_DESCUENTO_LABEL[x]).join(", ");
+  }
+  if (d.modo === "duracion" && info.expiraEn) {
+    const ms = Math.max(0, info.expiraEn - Date.now());
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h >= 24 ? `⏱️ Quedan ${Math.floor(h / 24)}d ${h % 24}h` : `⏱️ Quedan ${h}h ${m}m`;
+  }
+  if (d.modo === "fecha") {
+    const f = (d.fechaFin || "").split("-").reverse().join("/");
+    return `🗓️ Hasta ${f} ${d.horaFin || ""}`;
+  }
+  return "";
+}
 /* ---------------- Render Tarjeta Producto ---------------- */
 function renderProductoCard(categoriaId, productoId, data) {
   const card = document.createElement("div");
   card.className =
-    "producto-card animate-fadeIn group relative flex flex-col rounded-2xl bg-[#0d0a17] border border-purple-900/20 overflow-hidden hover:border-purple-800/40 transition-all duration-200 hover:scale-[1.01] cursor-pointer";
+    "producto-card animate-fadeIn group relative flex flex-col rounded-2xl bg-[#0d0a17] border border-purple-900/20 overflow-hidden hover:border-purple-800/40 transition-colors duration-200 cursor-pointer";
   card.dataset.nombre = (
-    data.nombre +
-    " " +
-    (data.descripcion || "")
+    data.nombre + " " + (data.descripcion || "") + " " +
+    (data.codigo_barras || "") + " " + productoId
   ).toLowerCase();
   card.dataset.disponible = data.disponible ? "true" : "false";
   card.dataset.agotadoHoy = data.agotadoHoy ? "true" : "false";
-  // 'stock' queda vacío en el dataset si el producto no tiene control de stock (data.stock === null/undefined)
   card.dataset.stock = typeof data.stock === "number" ? String(data.stock) : "";
-  // FIX PRINCIPAL #2: ahora la tarjeta completa abre el modal de edición al hacer clic
-  // (antes solo funcionaba el ícono del lápiz). Se ignoran los clics hechos sobre botones
-  // internos (disponible / editar / eliminar) para no interferir con esas acciones.
   card.addEventListener("click", (e) => {
     if (e.target.closest("button")) return;
     abrirModalEditarProducto(categoriaId, productoId, data);
   });
 
   const imagenes = data.imagenes || [];
-  imagenes.forEach((img) => {
-    if (img.url) loadedImageUrls.add(img.url);
-  });
+  imagenes.forEach((img) => { if (img.url) loadedImageUrls.add(img.url); });
 
-  const imgWrap = document.createElement("div");
   const descuentoInfo = descuentoVigente(data.descuento);
-card.dataset.descuento = descuentoInfo ? "true" : "false";
-if (descuentoInfo) {
-  const badgeDesc = document.createElement("div");
-  badgeDesc.className = "prod-descuento-badge-admin";
-  badgeDesc.textContent = `-${descuentoInfo.porcentaje}%`;
-  imgWrap.appendChild(badgeDesc);
-}
+  card.dataset.descuento = descuentoInfo ? "true" : "false";
+
+  /* ---------- IMAGEN ---------- */
+  const imgWrap = document.createElement("div");
   imgWrap.className =
     "relative w-full aspect-square bg-[#05040a] overflow-hidden border-b border-purple-900/20";
-
-  if (imagenes.length === 0) {
-    imgWrap.innerHTML = `
-      <div class="img-placeholder-fallback">
-        <img src="../img/logo geinz.png" alt="">
-      </div>`;
-  } else {
-    imgWrap.innerHTML = `
-      <div class="img-placeholder-fallback">
-        <img src="../img/logo geinz.png" alt="">
-      </div>`;
+  imgWrap.innerHTML = `
+    <div class="img-placeholder-fallback">
+      <img src="../img/logo geinz.png" alt="">
+    </div>`;
+  if (imagenes.length) {
     const imgEl = document.createElement("img");
     imgEl.src = imagenes[0].url;
     imgEl.loading = "lazy";
     imgEl.className =
       "img-real-foto w-full h-full object-cover block group-hover:scale-105 transition-transform duration-300";
-    imgEl.onerror = () => {
-      imgEl.classList.add("is-broken");
-    };
+    imgEl.onerror = () => imgEl.classList.add("is-broken");
     imgWrap.appendChild(imgEl);
   }
+  // FIX: el badge se agrega DESPUÉS del innerHTML (antes se borraba)
+  if (descuentoInfo) {
+    const badge = document.createElement("div");
+    badge.className = "prod-descuento-badge-admin";
+    badge.textContent = `-${descuentoInfo.porcentaje}%`;
+    imgWrap.appendChild(badge);
+  }
 
+  /* ---------- CUERPO ---------- */
   const body = document.createElement("div");
-  body.className = "flex flex-col p-4 flex-1 justify-between gap-3";
+  body.className = "pc-body flex flex-col p-3.5 flex-1 justify-between gap-3";
 
   const infoSection = document.createElement("div");
 
   const nombreEl = document.createElement("h3");
-  nombreEl.className =
-    "font-bold text-[15px] text-white leading-snug line-clamp-1";
+  nombreEl.className = "pc-nombre font-bold text-[15px] text-white leading-snug line-clamp-1";
   nombreEl.textContent = data.nombre;
 
   const descEl = document.createElement("p");
-  descEl.className =
-    "text-xs text-purple-300/60 mt-1 line-clamp-2 leading-relaxed";
+  descEl.className = "pc-desc text-xs text-purple-300/60 mt-1 line-clamp-2 leading-relaxed";
   descEl.textContent = data.descripcion || "Sin descripción adicional.";
 
   infoSection.appendChild(nombreEl);
   infoSection.appendChild(descEl);
 
+  /* ---------- VARIANTES (máx. 3 chips por grupo, el resto "+N") ---------- */
   const condiciones = data.condiciones || [];
   if (condiciones.length) {
     const condWrap = document.createElement("div");
-    condWrap.className = "flex flex-col gap-1 mt-2";
+    condWrap.className = "pc-cond flex flex-col gap-1.5 mt-2.5";
     condiciones.forEach((cond) => {
       const activas = (cond.opciones || []).filter((o) => o.activo);
       if (!activas.length) return;
       const row = document.createElement("div");
       row.className = "flex flex-wrap items-center gap-1";
       const tag = document.createElement("span");
-      tag.className = "text-[10px] font-mono text-purple-400/60";
+      tag.className = "text-[10px] font-mono text-purple-400/60 mr-0.5";
       tag.textContent = `${cond.nombre}:`;
       row.appendChild(tag);
-      activas.forEach((op) => {
-        const chip = document.createElement("span");
-        const stockBajo =
-          typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
+
+      activas.slice(0, 3).forEach((op) => {
         const sinStock = typeof op.stock === "number" && op.stock <= 0;
-        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border ${
+        const stockBajo = typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
+        const chip = document.createElement("span");
+        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
           sinStock
             ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
             : stockBajo
               ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
               : "bg-purple-950/40 border-purple-800/30 text-purple-300"
         }`;
-        let txt = op.costoAdicional
-          ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})`
-          : op.nombre;
-        if (typeof op.stock === "number") txt += ` · Stock: ${op.stock}`;
+        let txt = op.nombre;
+        if (op.costoAdicional) txt += ` +${Number(op.costoAdicional).toFixed(2)}`;
+        if (typeof op.stock === "number") txt += ` · ${op.stock}`;
         chip.textContent = txt;
         row.appendChild(chip);
       });
+      if (activas.length > 3) {
+        const mas = document.createElement("span");
+        mas.className = "text-[10px] text-purple-400/50";
+        mas.textContent = `+${activas.length - 3}`;
+        row.appendChild(mas);
+      }
       condWrap.appendChild(row);
     });
     infoSection.appendChild(condWrap);
   }
+
+  /* ---------- PARTE INFERIOR ---------- */
   const bottomSection = document.createElement("div");
-  bottomSection.className =
-    "pt-2 border-t border-purple-900/20 flex flex-col gap-2.5";
+  bottomSection.className = "pt-3 border-t border-purple-900/20 flex flex-col gap-2.5";
 
+  // Promo (solo el recuadro, sin chip repetido)
+  if (descuentoInfo) {
+    const promo = document.createElement("div");
+    promo.className =
+      "pc-promo rounded-lg bg-rose-950/40 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-200 leading-snug";
+    promo.innerHTML = `<strong class="font-bold">🏷️ -${descuentoInfo.porcentaje}% OFF</strong>
+      <span class="pc-promo-vig block text-[10px] text-rose-300/70 font-mono">${textoVigenciaDescuento(data.descuento, descuentoInfo)}</span>`;
+    bottomSection.appendChild(promo);
+  } else if (data.descuento?.activo && data.descuento.modo === "dias_semana") {
+    const prog = document.createElement("div");
+    prog.className = "pc-promo text-[10px] text-rose-300/50 font-mono leading-snug";
+    prog.textContent = `🏷️ -${data.descuento.porcentaje}% programado · ${textoVigenciaDescuento(data.descuento, {})}`;
+    bottomSection.appendChild(prog);
+  }
+
+  // FILA 1: precio (izquierda) + stock (derecha)
   const priceRow = document.createElement("div");
-  priceRow.className = "flex items-center justify-between";
+  priceRow.className = "flex items-end justify-between gap-2";
 
-  const precioEl = document.createElement("span");
-  precioEl.className = "font-mono text-base font-bold text-violet-300";
-  precioEl.textContent = `S/ ${Number(data.precio).toFixed(2)}`;
-
-  const codeEl = document.createElement("span");
-  codeEl.className =
-    "font-mono text-[10px] text-purple-400/40 bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-900/30";
-  codeEl.textContent = `#${productoId.slice(0, 5)}`;
-
+  const precioEl = document.createElement("div");
+  precioEl.className = "pc-precio flex flex-col leading-tight whitespace-nowrap";
+  if (descuentoInfo) {
+    const precioFinal = Number(data.precio) * (1 - descuentoInfo.porcentaje / 100);
+    precioEl.innerHTML = `
+      <span class="font-mono text-[11px] text-purple-400/50 line-through">S/ ${Number(data.precio).toFixed(2)}</span>
+      <span class="font-mono text-lg font-bold text-rose-300">S/ ${precioFinal.toFixed(2)}</span>`;
+  } else {
+    precioEl.innerHTML = `<span class="font-mono text-lg font-bold text-violet-300">S/ ${Number(data.precio).toFixed(2)}</span>`;
+  }
   priceRow.appendChild(precioEl);
-if (descuentoInfo) {
-  const descChip = document.createElement("span");
-  descChip.className = "font-mono text-[10px] px-2 py-0.5 rounded-md border bg-rose-950/40 text-rose-300 border-rose-500/20";
-  descChip.textContent = `-${descuentoInfo.porcentaje}% activo`;
-  priceRow.appendChild(descChip);
-}
+
   if (typeof data.stock === "number") {
-    const stockEl = document.createElement("span");
     const stockColor =
       data.stock <= 0
         ? "bg-rose-950/40 text-rose-400 border-rose-500/20"
         : data.stock < STOCK_BAJO_UMBRAL
           ? "bg-amber-950/40 text-amber-400 border-amber-500/20"
           : "bg-emerald-950/40 text-emerald-400 border-emerald-500/20";
-    stockEl.className = `font-mono text-[10px] px-2 py-0.5 rounded-md border ${stockColor}`;
-    stockEl.textContent = `Stock: ${data.stock}`;
+    const stockEl = document.createElement("span");
+    stockEl.className = `font-mono text-[11px] px-2 py-1 rounded-lg border whitespace-nowrap ${stockColor}`;
+    stockEl.textContent = `Stock ${data.stock}`;
     priceRow.appendChild(stockEl);
   }
 
-  priceRow.appendChild(codeEl);
+  // FILA 2: código (propia fila, ya no pelea con el precio)
+  const codeEl = document.createElement("div");
+  codeEl.className =
+    "pc-code font-mono text-[10px] text-purple-400/40 truncate";
+  codeEl.textContent = `#${data.codigo_barras || productoId.slice(0, 8)}`;
+  codeEl.title = data.codigo_barras || productoId;
 
+  // FILA 3: acciones en UNA sola línea
   const actionRow = document.createElement("div");
-  actionRow.className = "flex items-center justify-between gap-2";
+  actionRow.className = "flex items-center gap-1.5 flex-wrap";
 
   const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
-  estadoBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
+  estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
     data.disponible
       ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
       : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
   }`;
-  estadoBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${data.disponible ? "bg-emerald-400" : "bg-rose-400"}"></span><span>${data.disponible ? "Disponible" : "Agotado"}</span>`;
+  estadoBtn.title = data.disponible ? "Disponible (clic para marcar agotado)" : "Agotado (clic para activar)";
+  estadoBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${data.disponible ? "bg-emerald-400" : "bg-rose-400"}"></span><span class="pc-estado-txt">${data.disponible ? "Disponible" : "Agotado"}</span>`;
   estadoBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     estadoBtn.disabled = true;
     try {
-      await updateDoc(doc(productosRef(categoriaId), productoId), {
-        disponible: !data.disponible,
-      });
+      await updateDoc(doc(productosRef(categoriaId), productoId), { disponible: !data.disponible });
     } catch (err) {
       console.error(err);
       toast("Error al cambiar disponibilidad.", "error");
-    } finally {
-      estadoBtn.disabled = false;
-    }
+    } finally { estadoBtn.disabled = false; }
   });
 
-  // Botón rápido "Agotado hoy": un clic, no abre el modal, no toca el stock.
   const agotadoHoyBtn = document.createElement("button");
   agotadoHoyBtn.type = "button";
-  agotadoHoyBtn.title =
-    "Marcar/quitar 'Agotado hoy' (se acabó por hoy, mañana vuelve solo)";
-  agotadoHoyBtn.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider border transition-all ${
+  agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (mañana vuelve solo)";
+  agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
     data.agotadoHoy
       ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
       : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
   }`;
-  agotadoHoyBtn.textContent = data.agotadoHoy
-    ? "Agotado hoy ✓"
-    : "Marcar agotado hoy";
+  agotadoHoyBtn.innerHTML = `<span>🔸</span><span class="pc-agotadohoy-txt">${data.agotadoHoy ? "Agotado hoy" : "Agotar hoy"}</span>`;
   agotadoHoyBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     agotadoHoyBtn.disabled = true;
     try {
-      await updateDoc(doc(productosRef(categoriaId), productoId), {
-        agotadoHoy: !data.agotadoHoy,
-      });
+      await updateDoc(doc(productosRef(categoriaId), productoId), { agotadoHoy: !data.agotadoHoy });
     } catch (err) {
       console.error(err);
       toast("Error al actualizar 'Agotado hoy'.", "error");
-    } finally {
-      agotadoHoyBtn.disabled = false;
-    }
+    } finally { agotadoHoyBtn.disabled = false; }
   });
 
-  const delBtn = document.createElement("button");
-  delBtn.type = "button";
-  delBtn.className =
-    "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 hover:bg-rose-950/30 transition-colors";
-  delBtn.title = "Eliminar producto";
-  delBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>`;
-  delBtn.addEventListener("click", (e) => {
+  const iconBtnBase = "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/50 transition-colors";
+
+  const carritoBtn = document.createElement("button");
+  carritoBtn.type = "button";
+  carritoBtn.dataset.carritoPerfilBtn = "1";
+  carritoBtn.dataset.productoId = productoId;
+  carritoBtn.className = `${iconBtnBase} hover:text-amber-300 hover:bg-amber-950/30`;
+  carritoBtn.title = "Agregar al carrito de perfil";
+  carritoBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>`;
+  carritoBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    askConfirm(
-      "¿Eliminar producto?",
-      `"${data.nombre}" será removido permanentemente.`,
-      () => {
-        return eliminarProducto(categoriaId, productoId, data.nombre, imagenes);
-      },
-    );
+    toggleProductoEnCarritoPerfil(categoriaId, productoId, data);
   });
+  if (carritoPerfilActual.some((p) => p.productoId === productoId)) carritoBtn.classList.add("en-carrito");
 
   const editBtn = document.createElement("button");
   editBtn.type = "button";
-  editBtn.className =
-    "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-violet-300 hover:bg-violet-950/30 transition-colors";
+  editBtn.className = `${iconBtnBase} hover:text-violet-300 hover:bg-violet-950/30`;
   editBtn.title = "Editar producto";
   editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
   editBtn.addEventListener("click", (e) => {
@@ -1450,45 +1700,26 @@ if (descuentoInfo) {
     abrirModalEditarProducto(categoriaId, productoId, data);
   });
 
-  const carritoBtn = document.createElement("button");
-  carritoBtn.type = "button";
-  carritoBtn.dataset.carritoPerfilBtn = "1";
-  carritoBtn.dataset.productoId = productoId;
-  carritoBtn.className =
-    "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-amber-300 hover:bg-amber-950/30 transition-colors";
-  carritoBtn.title = "Agregar al carrito de perfil";
-  carritoBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>`;
-  carritoBtn.addEventListener("click", (e) => {
+  const delBtn = document.createElement("button");
+  delBtn.type = "button";
+  delBtn.className = `${iconBtnBase} hover:text-rose-400 hover:bg-rose-950/30`;
+  delBtn.title = "Eliminar producto";
+  delBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>`;
+  delBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    toggleProductoEnCarritoPerfil(categoriaId, productoId, data);
+    askConfirm("¿Eliminar producto?", `"${data.nombre}" será removido permanentemente.`,
+      () => eliminarProducto(categoriaId, productoId, data.nombre, imagenes));
   });
-  if (carritoPerfilActual.some((p) => p.productoId === productoId)) {
-    carritoBtn.classList.add("en-carrito");
-  }
 
-  const filaEstados = document.createElement("div");
-  filaEstados.className = "flex items-center gap-2 flex-wrap";
-  filaEstados.appendChild(estadoBtn);
-  filaEstados.appendChild(agotadoHoyBtn);
+  const iconos = document.createElement("div");
+  iconos.className = "flex items-center gap-0.5 ml-auto";
+  iconos.append(carritoBtn, editBtn, delBtn);
 
-  const filaIconos = document.createElement("div");
-  filaIconos.className = "flex items-center justify-end gap-1.5";
-  filaIconos.appendChild(carritoBtn);
-  filaIconos.appendChild(editBtn);
-  filaIconos.appendChild(delBtn);
+  actionRow.append(estadoBtn, agotadoHoyBtn, iconos);
 
-  actionRow.className = "flex flex-col gap-2";
-  actionRow.appendChild(filaEstados);
-  actionRow.appendChild(filaIconos);
-
-  bottomSection.appendChild(priceRow);
-  bottomSection.appendChild(actionRow);
-
-  body.appendChild(infoSection);
-  body.appendChild(bottomSection);
-
-  card.appendChild(imgWrap);
-  card.appendChild(body);
+  bottomSection.append(priceRow, codeEl, actionRow);
+  body.append(infoSection, bottomSection);
+  card.append(imgWrap, body);
   return card;
 }
 
@@ -1661,6 +1892,7 @@ function renderCategoriaShell(categoriaId, data) {
 
   seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
   seccion.querySelector(".categoria-titulo").textContent = data.nombre;
+    categoriasLista.set(categoriaId, data.nombre);
 }
 
 /* ---------------- Filtro Combinado Avanzado ---------------- */
@@ -1850,7 +2082,8 @@ onSnapshot(
       if (!idsActuales.has(id)) {
         if (categoriaListeners[id]) categoriaListeners[id]();
         delete categoriaListeners[id];
-        delete categoriaLimite[id];
+         delete categoriaLimite[id];
+        categoriasLista.delete(id);
         el.remove();
       }
     });
@@ -2273,3 +2506,148 @@ cartaListaEl?.addEventListener("input", (e) => {
 });
 
 actualizarVisibilidadCarta();
+/* ---------------- Celular como escáner (QR + clave) ---------------- */
+let scanSesion = null;
+let scanClave = "";
+let unsubCodigos = null;
+
+const scanSesRef = (sid) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, "scan_sesiones", sid);
+const scanColRef = (sid) =>
+  tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones", sid, "codigos");
+
+async function borrarSesionScan(sid) {
+  if (!sid) return;
+  try {
+    const snap = await getDocs(scanColRef(sid));
+    if (!snap.empty) {
+      const batch = writeBatch(db);
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+  try {
+    await deleteDoc(scanSesRef(sid));
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+function pintarEstadoCelular(conectado) {
+  const el = document.getElementById("pair-estado");
+  if (!el) return;
+  el.textContent = conectado
+    ? "✅ Celular conectado, ya puedes escanear"
+    : "⏳ Esperando al celular…";
+  el.className =
+    "text-xs font-semibold rounded-lg px-3 py-2 mt-3 " +
+    (conectado
+      ? "bg-emerald-950/40 text-emerald-300"
+      : "bg-amber-950/40 text-amber-300");
+}
+
+function alLlegarCodigoCelular(raw) {
+  const codigo = soloDigitos(raw);
+  if (codigo.length < 3) return;
+  pintarEstadoCelular(true);
+
+  // Si el modal de producto ya está abierto, el código va al campo
+  if (document.getElementById("overlay-producto").classList.contains("show")) {
+    if (!inputCodigo.readOnly) {
+      inputCodigo.value = codigo;
+      toast("Código capturado desde el celular.");
+    }
+    return;
+  }
+
+  closeOverlay("overlay-pair");
+  scanModo = "nuevo";
+  llenarSelectCategorias();
+  manejarCodigoEscaneado(codigo);
+}
+
+async function abrirEmparejarCelular() {
+   llenarSelectCategorias(); 
+  openOverlay("overlay-pair");
+  const body = document.getElementById("pair-body");
+
+  if (!scanSesion) {
+    body.innerHTML = `<p class="text-purple-300/60 text-xs">Generando código…</p>`;
+    try {
+      scanClave = String(Math.floor(100000 + Math.random() * 900000));
+      const ref = doc(tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones"));
+      await setDoc(ref, {
+        clave: scanClave,
+        creado: serverTimestamp(),
+        expira: Date.now() + 4 * 3600 * 1000,
+      });
+      scanSesion = ref.id;
+
+      unsubCodigos = onSnapshot(scanColRef(scanSesion), (snap) => {
+        snap.docChanges().forEach((ch) => {
+          if (ch.type !== "added") return;
+          const d = ch.doc.data();
+          deleteDoc(ch.doc.ref).catch(() => {});
+          if (d.tipo === "hola") {
+            pintarEstadoCelular(true);
+            return;
+          }
+          if (d.codigo) alLlegarCodigoCelular(d.codigo);
+        });
+      });
+    } catch (e) {
+      console.error(e);
+      body.innerHTML = `<p class="text-rose-300 text-xs">No se pudo crear la sesión. Revisa las reglas de Firestore.</p>`;
+      return;
+    }
+  }
+
+  // scanner_movil.html está en la MISMA carpeta que este archivo
+  const urlScanner = new URL("./scanner_movil.html", import.meta.url);
+  urlScanner.search = new URLSearchParams({
+    l: localidad,
+    t: tiendaId,
+    s: scanSesion,
+  }).toString();
+
+  const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm")).default;
+  const img = await QR.toDataURL(urlScanner.href, { width: 240, margin: 1 });
+
+  body.innerHTML = `
+    <img src="${img}" alt="QR" class="mx-auto w-52 h-52 rounded-xl bg-white p-2">
+    <p class="text-purple-300/70 text-xs text-left mt-3 leading-relaxed">
+      1. Escanea este QR con la cámara del celular.<br>
+      2. Escribe la clave de abajo.<br>
+      3. Escanea productos: se abren aquí solos.
+    </p>
+    <div class="text-[10.5px] font-bold uppercase tracking-wider text-purple-300/60 mt-3">Clave</div>
+    <div class="font-mono text-3xl font-extrabold tracking-[.25em] text-violet-300">${scanClave}</div>
+    <div id="pair-estado"></div>`;
+  pintarEstadoCelular(false);
+}
+
+async function terminarSesionCelular() {
+  const sid = scanSesion;
+  unsubCodigos?.();
+  unsubCodigos = null;
+  scanSesion = null;
+  scanClave = "";
+  closeOverlay("overlay-pair");
+  await borrarSesionScan(sid);
+  toast("Sesión del celular terminada.");
+}
+
+document
+  .getElementById("btn-celular-scanner")
+  .addEventListener("click", abrirEmparejarCelular);
+document
+  .getElementById("pair-fin")
+  .addEventListener("click", terminarSesionCelular);
+
+window.addEventListener("pagehide", () => {
+  if (!scanSesion) return;
+  unsubCodigos?.();
+  deleteDoc(scanSesRef(scanSesion)).catch(() => {});
+});

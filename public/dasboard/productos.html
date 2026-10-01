@@ -443,6 +443,7 @@
       border-radius: 12px;
       background: #05040a;
       border: 1px solid rgba(139, 92, 246, 0.15);
+      overflow: hidden;
     }
 
     .carta-coleccion-head {
@@ -520,7 +521,17 @@
     .carta-body-inner {
       overflow: hidden;
       min-height: 0;
-      padding: 0 14px 14px;
+      padding: 0 14px;
+      /* sin padding vertical */
+    }
+
+    .carta-coleccion-body:not(.open) .carta-body-inner {
+      visibility: hidden;
+      /* nada asoma ni se puede enfocar cerrado */
+    }
+
+    .carta-coleccion-body.open .carta-body-inner {
+      visibility: visible;
     }
 
     .carta-textarea {
@@ -561,6 +572,8 @@
       grid-template-columns: repeat(5, 1fr);
       gap: 6px;
       margin-top: 10px;
+      margin-bottom: 14px;
+      /* ← el espacio de abajo ahora vive aquí */
     }
 
     @media (max-width: 480px) {
@@ -754,6 +767,152 @@
       border-radius: 999px;
       box-shadow: 0 2px 8px rgba(225, 29, 72, .5);
     }
+
+    /* Selector de vista */
+    .vista-btn {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(196, 181, 253, .5);
+      transition: all .15s;
+    }
+
+    .vista-btn.active {
+      color: #fff;
+      background: rgba(139, 92, 246, .25);
+    }
+
+    /* ===== MEDIANO ===== */
+    body[data-vista="mediano"] .productos-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .75rem;
+    }
+
+    @media (min-width:640px) {
+      body[data-vista="mediano"] .productos-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width:768px) {
+      body[data-vista="mediano"] .productos-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width:1024px) {
+      body[data-vista="mediano"] .productos-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+    }
+
+    body[data-vista="mediano"] .pc-body {
+      padding: .7rem;
+      gap: .5rem;
+    }
+
+    body[data-vista="mediano"] .pc-nombre {
+      font-size: 13px;
+    }
+
+    body[data-vista="mediano"] .pc-desc {
+      font-size: 10.5px;
+      -webkit-line-clamp: 1;
+    }
+
+    body[data-vista="mediano"] .pc-cond,
+    body[data-vista="mediano"] .pc-code {
+      display: none;
+    }
+
+    body[data-vista="mediano"] .btn-card-add {
+      min-height: 180px;
+    }
+
+    /* ===== PEQUEÑO ===== */
+    body[data-vista="pequeno"] .productos-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: .5rem;
+    }
+
+    @media (min-width:640px) {
+      body[data-vista="pequeno"] .productos-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width:768px) {
+      body[data-vista="pequeno"] .productos-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width:1024px) {
+      body[data-vista="pequeno"] .productos-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+    }
+
+    body[data-vista="pequeno"] .pc-body {
+      padding: .5rem;
+      gap: .4rem;
+    }
+
+    body[data-vista="pequeno"] .pc-nombre {
+      font-size: 11.5px;
+    }
+
+    body[data-vista="pequeno"] .pc-desc,
+    body[data-vista="pequeno"] .pc-cond,
+    body[data-vista="pequeno"] .pc-code,
+    body[data-vista="pequeno"] .pc-btn-agotadohoy {
+      display: none;
+    }
+
+    body[data-vista="pequeno"] .pc-precio {
+      font-size: 12px;
+    }
+
+    body[data-vista="pequeno"] .pc-precio span {
+      font-size: inherit;
+    }
+
+    body[data-vista="pequeno"] .pc-promo {
+      font-size: 9.5px;
+      padding: 3px 6px;
+    }
+
+    body[data-vista="pequeno"] .pc-promo-vig {
+      font-size: 8.5px;
+    }
+
+    body[data-vista="pequeno"] .prod-descuento-badge-admin {
+      font-size: 9px;
+      padding: 2px 6px;
+      top: 4px;
+      left: 4px;
+    }
+
+    body[data-vista="pequeno"] .btn-card-add {
+      min-height: 110px;
+    }
+
+    body[data-vista="pequeno"] .btn-card-add span {
+      font-size: 10px;
+    }
+    /* Mediano: quita descripción larga y variantes */
+body[data-vista="mediano"] .pc-desc { display: none; }
+
+/* Pequeño: solo foto, nombre, precio, stock y estado */
+body[data-vista="pequeno"] .pc-cond,
+body[data-vista="pequeno"] .pc-desc,
+body[data-vista="pequeno"] .pc-code,
+body[data-vista="pequeno"] .pc-estado-txt,
+body[data-vista="pequeno"] .pc-agotadohoy-txt { display: none; }
+
+body[data-vista="pequeno"] .pc-precio span { font-size: 13px; }
+body[data-vista="pequeno"] .pc-body { padding: .5rem; gap: .4rem; }
   </style>
 </head>
 
@@ -835,6 +994,14 @@
             </svg>
             <span>Nueva categoría</span>
           </button>
+          <button type="button" id="btn-escanear-producto" class="panel-actions-item">
+            <span>📷</span>
+            <span>Escanear producto</span>
+          </button>
+          <button type="button" id="btn-celular-scanner" class="panel-actions-item">
+            <span>📱</span>
+            <span>Celular como escáner</span>
+          </button>
           <!-- btn-importar-productos se inyecta aquí solo, desde import_producto.js -->
         </div>
       </div>
@@ -857,6 +1024,17 @@
         </svg>
         <input type="text" id="input-busqueda" placeholder="Buscar categorías o productos..."
           class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 pl-10 pr-4 py-2.5 text-sm text-purple-100 placeholder-purple-400/40 outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600 transition-all">
+      </div>
+
+      <!-- Selector de tamaño de vista -->
+      <div id="vista-toggle"
+        class="flex items-center gap-1 p-1 rounded-xl bg-[#05040a] border border-purple-900/30 shrink-0">
+        <button type="button" class="vista-btn" data-vista="grande" title="Grande"><span
+            class="hidden sm:inline">Grande</span><span class="sm:hidden">G</span></button>
+        <button type="button" class="vista-btn" data-vista="mediano" title="Mediano"><span
+            class="hidden sm:inline">Mediano</span><span class="sm:hidden">M</span></button>
+        <button type="button" class="vista-btn" data-vista="pequeno" title="Pequeño"><span
+            class="hidden sm:inline">Pequeño</span><span class="sm:hidden">P</span></button>
       </div>
 
       <!-- Indicadores Interactivos (Filtros Clickeables) -->
@@ -1020,7 +1198,20 @@
 
       <form id="form-producto" novalidate>
         <div id="tab-basico" class="tab-panel-form active-tab-panel">
-
+          <div class="mb-4">
+            <label for="input-prod-codigo"
+              class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Código
+              de barras / ID (opcional)</label>
+            <div class="flex gap-2">
+              <input type="text" id="input-prod-codigo" inputmode="numeric" maxlength="30"
+                placeholder="Escanea o escribe el código"
+                class="flex-1 min-w-0 rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all font-mono read-only:opacity-60">
+              <button type="button" id="btn-prod-scan-cam"
+                class="shrink-0 w-11 rounded-xl bg-violet-950/40 hover:bg-violet-900/50 border border-violet-800/30 text-lg disabled:opacity-40"
+                title="Escanear con cámara">📷</button>
+            </div>
+            <p id="prod-codigo-hint" class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed"></p>
+          </div>
           <div class="mb-4">
             <label for="input-prod-nombre"
               class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Nombre
@@ -1385,6 +1576,62 @@
     </div>
   </div>
 
+  <div class="overlay fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-scan">
+    <div class="modal w-full max-w-md rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6">
+      <h3 id="scan-titulo" class="text-lg font-bold text-white mb-1">Escanear producto</h3>
+      <p class="text-purple-300/60 text-xs mb-4">Usa tu lector de código de barras (haz clic en el campo y escanea) o la
+        cámara.</p>
+
+      <div id="scan-categoria-wrap" class="mb-4">
+        <label
+          class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Guardar
+          en la sección</label>
+        <select id="scan-categoria"
+          class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600"></select>
+      </div>
+
+      <input type="text" id="scan-input-usb" inputmode="numeric" autocomplete="off"
+        placeholder="Lector USB: escanea aquí"
+        class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono">
+
+      <button type="button" id="scan-btn-cam"
+        class="mt-3 w-full rounded-xl px-4 py-2.5 text-sm font-medium text-purple-200 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-800/30">📷
+        Usar cámara</button>
+
+      <div id="scan-video-wrap" class="hidden relative mt-3 rounded-xl overflow-hidden bg-black aspect-[4/3]">
+        <video id="scan-video" playsinline muted class="w-full h-full object-cover"></video>
+        <div class="absolute left-[12%] right-[12%] top-1/2 h-0.5 bg-rose-400 shadow-[0_0_12px_#f87171] animate-pulse">
+        </div>
+      </div>
+
+      <div class="flex justify-end mt-5">
+        <button type="button" data-close="overlay-scan"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  <div class="overlay fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+    id="overlay-pair">
+    <div class="modal w-full max-w-sm rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6 text-center">
+      <h3 class="text-lg font-bold text-white mb-3">📱 Celular como escáner</h3>
+      <div class="text-left mb-4">
+        <label
+          class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Guardar
+          productos escaneados en</label>
+        <select id="pair-categoria"
+          class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 outline-none focus:border-violet-600"></select>
+      </div>
+      <div id="pair-body"></div>
+      <div class="flex justify-center gap-2.5 mt-4">
+        <button type="button" data-close="overlay-pair"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cerrar</button>
+        <button type="button" id="pair-fin"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-rose-300 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/30 transition-all">Terminar
+          sesión</button>
+      </div>
+    </div>
+  </div>
   <div class="fixed bottom-5 right-5 left-5 sm:left-auto z-[200] flex flex-col gap-2 items-end" id="toast-wrap"></div>
 
 

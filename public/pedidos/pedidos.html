@@ -958,6 +958,10 @@
       border-color: color-mix(in srgb, var(--state-entregado) 45%, var(--card-border));
       background: color-mix(in srgb, var(--state-entregado) 12%, transparent);
     }
+    .status-dot[data-status="pendiente_pago"], .status-dot.is-pendiente_pago {
+  background-color: #fbbf24;
+  box-shadow: 0 0 0 4px rgba(251,191,36,.14);
+}
   </style>
 
   <script type="module" src="/js/dasboardjs/estado_pedidos.js"></script>
@@ -1044,7 +1048,9 @@
           <span id="status-label" class="font-display status-label"></span>
         </div>
         <div id="timeline"></div>
-
+<p id="aviso-pago-futuro" class="hidden text-secondary" style="margin:1rem 0 0;font-size:0.85rem;line-height:1.5;">
+  💸 Cuando el negocio acepte tu pedido te avisaremos para que subas tu comprobante de pago.
+</p>
         <button id="btn-cancelar-pedido" type="button" class="cancel-btn hidden">Cancelar pedido</button>
 
         <div id="puntos-wrap" class="hidden divider-top" style="display:flex;align-items:center;gap:0.6rem;">

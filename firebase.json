@@ -1,11 +1,7 @@
 {
   "hosting": {
     "public": "public",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "cleanUrls": true,
     "headers": [
       {
@@ -64,6 +60,10 @@
         "function": "carritoShare"
       },
       {
+        "source": "/-mesa-*",
+        "function": "carritoShare"
+      },
+      {
         "source": "/perfil/*/libro_reclamaciones",
         "destination": "/legal/libro_reclamaciones.html"
       },
@@ -116,6 +116,10 @@
         "destination": "/pedidos/pedidos.html"
       },
       {
+        "source": "/pedidos/**",
+        "destination": "/pedidos/pedidos.html"
+      },
+      {
         "source": "/perfil/*/seguimiento_pedido",
         "destination": "/seguimiento/seguimiento_pedido.html"
       },
@@ -143,10 +147,7 @@
         "source": "/api/share",
         "function": "share"
       },
-      {
-        "source": "/pedidos/**",
-        "destination": "/pedidos/pedidos.html"
-      },
+
       {
         "source": "/logindata/login",
         "function": "staticSSR"

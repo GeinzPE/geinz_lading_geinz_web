@@ -1,6 +1,15 @@
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs,
-  addDoc, serverTimestamp, writeBatch, runTransaction,
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  addDoc,
+  serverTimestamp,
+  writeBatch,
+  runTransaction,
   increment, // ← AGREGAR
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
@@ -80,6 +89,52 @@ let cuponParam = null; // código que viene en ?cupon=
 let cuponAplicado = null; // datos del cupón ya validado y en uso
 let ofertaParam = null;
 let filtroInicialParam = null; // ?filtro=ofertas viene del "Ver todas" de la landing
+let mesaIdPath = null;
+async function validarMesaDesdePath() {
+  console.log("[MESA] path:", location.pathname, "| mesaIdPath:", mesaIdPath, "| tiendaId:", tiendaId);
+  if (!mesaIdPath || !tiendaId) return;
+
+  const aplicar = (id, d) => {
+    console.log("[MESA] doc encontrado:", id, d);
+    mesaId = id;
+    mesaNombre =
+      mesaNombre || d.mesaNombre || d.nombre_mesa || d.nombreMesa || d.nombre || null;
+    mesaNumero =
+      mesaNumero || d.mesaNumero || d.numero_mesa || d.numeroMesa || d.numero || d.num || d.n || null;
+    if (!mesaNumero && mesaNombre) {
+      const m = String(mesaNombre).match(/\d+/);
+      if (m) mesaNumero = m[0];
+    }
+  };
+
+  try {
+    // 1) Por ID directo
+    for (const id of [mesaIdPath, `-mesa-${mesaIdPath}`]) {
+      const snap = await getDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", id));
+      if (snap.exists()) return aplicar(id, snap.data());
+    }
+
+    // 2) Por cualquier campo (código, token, slug, qr...)
+    const all = await getDocs(tiendaSubCol(localidad, "tiendas", tiendaId, "mesas"));
+    console.log("[MESA] mesas en la DB:", all.size);
+    const buscado = String(mesaIdPath).toLowerCase();
+    for (const m of all.docs) {
+      const d = m.data();
+      const coincide =
+        m.id.toLowerCase().includes(buscado) ||
+        Object.values(d).some(
+          (v) => typeof v === "string" && v.toLowerCase().includes(buscado),
+        );
+      if (coincide) return aplicar(m.id, d);
+    }
+  } catch (e) {
+    console.warn("No se pudo validar la mesa:", e);
+  }
+
+  console.warn("[MESA] no se encontró ninguna mesa para:", mesaIdPath);
+  mesaId = null;
+  showToast("⚠️ Esa mesa no existe");
+}
 async function resolverParamsCarrito() {
   const path = window.location.pathname;
   const qs = new URLSearchParams(window.location.search);
@@ -145,7 +200,9 @@ async function resolverParamsCarrito() {
   promoParam = qs.get("promo") || null;
   // Datos de mesa (siempre vienen como query params)
   ofertaParam = qs.get("oferta") || null;
-  mesaId = qs.get("mesaId") || qs.get("mesa");
+  const mesaPath = path.match(/^\/-mesa-([^/]+)\/?$/);
+  mesaIdPath = mesaPath ? decodeURIComponent(mesaPath[1]) : null;
+  mesaId = qs.get("mesaId") || qs.get("mesa") || mesaIdPath;
   mesaNombre = qs.get("mesaNombre") || qs.get("nombre_mesa");
   mesaNumero = qs.get("mesaNumero") || qs.get("numero_mesa");
   // Cupón por link (?cupon=CODIGO)
@@ -186,7 +243,7 @@ let siguiendoTienda = false; // true si el usuario ya tiene doc en clientes/{uid
 let clienteLat = null;
 let clienteLng = null;
 let filtroPromoCategoria = "Todos";
-let zonaDeliverySel = null; 
+let zonaDeliverySel = null;
 function renderFiltrosPromos() {
   const wrap = document.getElementById("filtrosPromos");
   if (!wrap) return;
@@ -634,7 +691,12 @@ function abrirPromoDetailModal(p) {
   shareBtn.onclick = async () => {
     const texto = `Mira esta promo en ${bizNombre} 🎁\n${urlCompartirPromo(p)}`;
     if (navigator.share) {
-      try { await navigator.share({ text: texto }); return; } catch (e) { if (e?.name === "AbortError") return; }
+      try {
+        await navigator.share({ text: texto });
+        return;
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+      }
     }
     try {
       await navigator.clipboard.writeText(texto);
@@ -1213,7 +1275,7 @@ async function aplicarCuponDesdeDoc(data) {
       "[CUPON] es cupón MANUAL (descuento %, monto o mínimo de compra), no se agrega producto",
     );
   }
-pintarDeliveryInfo();
+  pintarDeliveryInfo();
   updateCartUI();
   console.log("[CUPON] updateCartUI() ejecutado, estado actual del carrito:", [
     ...carrito.entries(),
@@ -1338,7 +1400,7 @@ function quitarCupon() {
   }
   cuponAplicado = null;
   updateCartUI();
-  pintarDeliveryInfo();   // ← reemplaza el bloque "delivery: ..." por esto
+  pintarDeliveryInfo(); // ← reemplaza el bloque "delivery: ..." por esto
   showToast("Cupón removido");
 }
 
@@ -2515,15 +2577,21 @@ function hora12(s) {
 }
 function minutosLimaAhora(f = new Date()) {
   const p = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Lima", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    timeZone: "America/Lima",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
   }).formatToParts(f);
-  return Number(p.find((x) => x.type === "hour").value) * 60 +
-         Number(p.find((x) => x.type === "minute").value);
+  return (
+    Number(p.find((x) => x.type === "hour").value) * 60 +
+    Number(p.find((x) => x.type === "minute").value)
+  );
 }
 function recargoEnHora(r, f = new Date()) {
   if (!r || !r.activo) return 0;
   const monto = Number(r.monto) || 0;
-  const ini = horaAMin(r.desde), fin = horaAMin(r.hasta);
+  const ini = horaAMin(r.desde),
+    fin = horaAMin(r.hasta);
   if (monto <= 0 || ini == null || fin == null || ini === fin) return 0;
   const now = minutosLimaAhora(f);
   const dentro = ini < fin ? now >= ini && now < fin : now >= ini || now < fin;
@@ -2533,23 +2601,42 @@ function getDeliveryCfg() {
   const d = bizData?.delivery;
   if (!d) return null;
   return {
-    hace: d.hace !== false, tarifaActiva: d.tarifa_activa === true,
-    modo: d.modo === "fija" ? "fija" : d.modo === "zonas" ? "zonas" : "distancia",
-    base: Number(d.base) || 0, kmIncl: Number(d.km_incluidos) || 0,
-    porKm: Number(d.por_km) || 0, fija: Number(d.fija) || 0, texto: d.texto || "",
+    hace: d.hace !== false,
+    tarifaActiva: d.tarifa_activa === true,
+    modo:
+      d.modo === "fija" ? "fija" : d.modo === "zonas" ? "zonas" : "distancia",
+    base: Number(d.base) || 0,
+    kmIncl: Number(d.km_incluidos) || 0,
+    porKm: Number(d.por_km) || 0,
+    fija: Number(d.fija) || 0,
+    texto: d.texto || "",
     zonas: Array.isArray(d.zonas)
-      ? d.zonas.filter((z) => z && z.nombre).map((z) => ({ nombre: String(z.nombre), precio: Number(z.precio) || 0 }))
+      ? d.zonas
+          .filter((z) => z && z.nombre)
+          .map((z) => ({
+            nombre: String(z.nombre),
+            precio: Number(z.precio) || 0,
+          }))
       : [],
     recargo: d.recargo
-      ? { activo: d.recargo.activo === true, desde: d.recargo.desde || "", hasta: d.recargo.hasta || "", monto: Number(d.recargo.monto) || 0 }
+      ? {
+          activo: d.recargo.activo === true,
+          desde: d.recargo.desde || "",
+          hasta: d.recargo.hasta || "",
+          monto: Number(d.recargo.monto) || 0,
+        }
       : null,
   };
 }
 
 function distanciaKm(lat1, lon1, lat2, lon2) {
-  const R = 6371, rad = Math.PI / 180;
-  const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  const R = 6371,
+    rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad,
+    dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -2559,10 +2646,13 @@ function calcularDeliveryCliente() {
   if (!cfg || !cfg.hace || !cfg.tarifaActiva) return null;
   if (cuponAplicado?.envioGratis) return { costo: 0, gratis: true };
   const rec = recargoEnHora(cfg.recargo);
-  if (cfg.modo === "fija") return { costo: cfg.fija + rec, texto: cfg.texto, recargo: rec };
+  if (cfg.modo === "fija")
+    return { costo: cfg.fija + rec, texto: cfg.texto, recargo: rec };
   if (cfg.modo === "zonas") {
     const z = cfg.zonas.find((x) => x.nombre === zonaDeliverySel);
-    return z ? { costo: z.precio + rec, zona: z.nombre, recargo: rec } : { pedirZona: true };
+    return z
+      ? { costo: z.precio + rec, zona: z.nombre, recargo: rec }
+      : { pedirZona: true };
   }
   const u = bizData?.ubicacion;
   if (clienteLat != null && u && typeof u.latitud === "number") {
@@ -2571,7 +2661,12 @@ function calcularDeliveryCliente() {
     const costo = Math.ceil((cfg.base + extra * cfg.porKm) * 2) / 2 + rec;
     return { costo, distKm, aprox: true, recargo: rec };
   }
-  return { desde: cfg.base + rec, kmIncl: cfg.kmIncl, porKm: cfg.porKm, recargo: rec };
+  return {
+    desde: cfg.base + rec,
+    kmIncl: cfg.kmIncl,
+    porKm: cfg.porKm,
+    recargo: rec,
+  };
 }
 
 function refrescarResumenCheckout() {
@@ -2579,12 +2674,29 @@ function refrescarResumenCheckout() {
     renderCheckoutSummary();
 }
 
+function tiempoEstimadoPedido() {
+  if (mesaId) return null;
+  const t = bizData?.tiempos_estimados;
+  if (!t || t.activo === false) return null;
+  const tipo = tipoEntrega === "Delivery" ? "delivery" : "recojo";
+  const min = Number(t[tipo]?.min),
+    max = Number(t[tipo]?.max);
+  if (!min || !max || max < min) return null;
+  return { min, max, tipo };
+}
 // Costo de delivery que se suma al total (null si no aplica o aún no se conoce)
 function infoDeliveryPedido() {
   if (mesaId || tipoEntrega !== "Delivery" || delivDesactivado()) return null;
   const r = calcularDeliveryCliente();
   if (!r || r.costo == null) return null;
-  return { costo: r.costo, zona: r.zona || null, aprox: !!r.aprox, gratis: !!r.gratis, recargo: r.recargo || 0, modo: getDeliveryCfg()?.modo || null };
+  return {
+    costo: r.costo,
+    zona: r.zona || null,
+    aprox: !!r.aprox,
+    gratis: !!r.gratis,
+    recargo: r.recargo || 0,
+    modo: getDeliveryCfg()?.modo || null,
+  };
 }
 const DELIVERY_UI_CSS = `
 .dlv-card{margin:4px 0 2px;padding:14px;border-radius:18px;font-size:12.5px;line-height:1.45;
@@ -2623,7 +2735,7 @@ function pintarDeliveryInfo() {
   if (!el) {
     el = document.createElement("div");
     el.id = "deliveryInfo";
-     document.getElementById("direccionCollapse")?.after(el);
+    document.getElementById("direccionCollapse")?.after(el);
   }
   el.className = "dlv-card";
   el.style.cssText = "";
@@ -2634,7 +2746,18 @@ function pintarDeliveryInfo() {
     return;
   }
 
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const esc = (s) =>
+    String(s).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
   const money = (n) => "S/ " + Number(n).toFixed(2);
   const r = calcularDeliveryCliente();
   const rec = cfg.tarifaActiva ? recargoEnHora(cfg.recargo) : 0;
@@ -2642,15 +2765,19 @@ function pintarDeliveryInfo() {
   let aviso = "";
   const rc = cfg.recargo;
   if (cfg.tarifaActiva && rc?.activo && rc.monto > 0 && !r?.gratis) {
-    aviso = rec > 0
-      ? `<div class="dlv-note on">🌙 Recargo horario activo: +${money(rec)} (hasta las ${hora12(rc.hasta)})</div>`
-      : `<div class="dlv-note">🕗 Desde las ${hora12(rc.desde)} hasta las ${hora12(rc.hasta)} el delivery sube +${money(rc.monto)}</div>`;
+    aviso =
+      rec > 0
+        ? `<div class="dlv-note on">🌙 Recargo horario activo: +${money(rec)} (hasta las ${hora12(rc.hasta)})</div>`
+        : `<div class="dlv-note">🕗 Desde las ${hora12(rc.desde)} hasta las ${hora12(rc.hasta)} el delivery sube +${money(rc.monto)}</div>`;
   }
 
   let html = "";
   if (cfg.tarifaActiva && cfg.modo === "zonas" && !r?.gratis) {
     const opts = cfg.zonas
-      .map((z) => `<option value="${esc(z.nombre)}"${z.nombre === zonaDeliverySel ? " selected" : ""}>${esc(z.nombre)} — ${money(z.precio + rec)}</option>`)
+      .map(
+        (z) =>
+          `<option value="${esc(z.nombre)}"${z.nombre === zonaDeliverySel ? " selected" : ""}>${esc(z.nombre)} — ${money(z.precio + rec)}</option>`,
+      )
       .join("");
     html = `<div class="dlv-title">🛵 ¿A qué zona llevamos tu pedido?</div>
       <div class="dlv-select-wrap">
@@ -2676,14 +2803,18 @@ function pintarDeliveryInfo() {
   el.classList.remove("hidden");
 
   const sel = el.querySelector("#deliveryZonaSel");
-  if (sel) sel.onchange = () => { zonaDeliverySel = sel.value || null; pintarDeliveryInfo(); };
+  if (sel)
+    sel.onchange = () => {
+      zonaDeliverySel = sel.value || null;
+      pintarDeliveryInfo();
+    };
   refrescarResumenCheckout();
 }
 
 // Si pasa la hora del recargo con el checkout abierto, se actualiza solo
-setInterval(() => { if (tipoEntrega === "Delivery" && !mesaId && bizData) pintarDeliveryInfo(); }, 60000);
-
-
+setInterval(() => {
+  if (tipoEntrega === "Delivery" && !mesaId && bizData) pintarDeliveryInfo();
+}, 60000);
 
 function addToCart(p, seleccion = null) {
   // ══ Bloqueo por horario: no se puede agregar nada nuevo si el negocio está cerrado ══
@@ -3417,7 +3548,7 @@ function setCollapseOpen(el, open) {
   el.classList.toggle("open", open);
 }
 function obtenerUbicacionCliente() {
-    if (delivDesactivado()) return; 
+  if (delivDesactivado()) return;
   const btn = document.getElementById("obtenerUbicacionBtn");
   const btnTexto = document.getElementById("ubicacionBtnTexto");
   const statusEl = document.getElementById("ubicacionStatus");
@@ -3465,11 +3596,11 @@ function delivDesactivado() {
 
 function ocultarTodoDelivery() {
   const ids = [
-    "obtenerUbicacionBtn",   // botón "Usar mi ubicación"
-    "ubicacionStatus",       // texto de lat/lng
-    "deliveryInfo",          // costo de delivery
-    "soloDeliveryBanner",    // banner solo delivery
-    "direccionCollapse",     // campo de dirección
+    "obtenerUbicacionBtn", // botón "Usar mi ubicación"
+    "ubicacionStatus", // texto de lat/lng
+    "deliveryInfo", // costo de delivery
+    "soloDeliveryBanner", // banner solo delivery
+    "direccionCollapse", // campo de dirección
   ];
   ids.forEach((id) => {
     const el = document.getElementById(id);
@@ -3506,7 +3637,6 @@ function aplicarDisponibilidadDelivery() {
   if (!delivDesactivado()) return;
   ocultarTodoDelivery();
 }
-
 
 document
   .getElementById("obtenerUbicacionBtn")
@@ -3559,8 +3689,10 @@ function renderCheckoutSummary() {
       .map((it) => {
         const etiquetas = [];
         if (it.esCanje) etiquetas.push("🎁 Canjeado con puntos");
-        else if (it.esPromo) etiquetas.push(`🏷️ ${it.categoria || "Promoción"}`);
-        if (it.precioOriginal) etiquetas.push(`🏷️ -${it.descuentoPorcentaje}% OFF`);
+        else if (it.esPromo)
+          etiquetas.push(`🏷️ ${it.categoria || "Promoción"}`);
+        if (it.precioOriginal)
+          etiquetas.push(`🏷️ -${it.descuentoPorcentaje}% OFF`);
         const etiquetasTxt = etiquetas.join(" · ");
         const detalle = opcionesDetalleHTML(it);
         return `
@@ -3583,7 +3715,16 @@ function renderCheckoutSummary() {
       <span>🛵 Delivery${deliv.zona ? ` · ${deliv.zona}` : ""}${deliv.aprox ? " (aprox.)" : ""}</span>
       <span>${deliv.gratis ? "Gratis" : "S/ " + deliv.costo.toFixed(2)}</span>
     </div>`
-      : "");
+      : "") +
+    (() => {
+      const t = tiempoEstimadoPedido();
+      return t
+        ? `<div class="step-summary-row">
+      <span>⏱️ Tiempo estimado ${t.tipo === "delivery" ? "de entrega" : "para recojo"}</span>
+      <span>${t.min}–${t.max} min</span>
+    </div>`
+        : "";
+    })();
 
   document.getElementById("checkoutTotal").textContent = total.toFixed(2);
 
@@ -3669,7 +3810,8 @@ async function guardarPedidoEnDB({
 document.getElementById("entregaToggle").addEventListener("click", (e) => {
   const opt = e.target.closest(".toggle-opt");
   if (!opt) return;
-  if (getDeliveryCfg()?.hace === false && opt.dataset.val === "Delivery") return;
+  if (getDeliveryCfg()?.hace === false && opt.dataset.val === "Delivery")
+    return;
   tipoEntrega = opt.dataset.val;
   document.querySelectorAll("#entregaToggle .toggle-opt").forEach((o) => {
     const active = o === opt;
@@ -3733,7 +3875,7 @@ document
       showToast("Falta tu nombre");
       return;
     }
-     if (tipoEntrega === "Delivery" && !direccion) {
+    if (tipoEntrega === "Delivery" && !direccion) {
       direccionInput.classList.add("field-error");
       direccionInput.focus();
       showToast("Falta la dirección de entrega");
@@ -3741,8 +3883,12 @@ document
     }
     const cfgD = getDeliveryCfg();
     if (
-      tipoEntrega === "Delivery" && !mesaId && cfgD?.tarifaActiva &&
-      cfgD.modo === "zonas" && !cuponAplicado?.envioGratis && !zonaDeliverySel
+      tipoEntrega === "Delivery" &&
+      !mesaId &&
+      cfgD?.tarifaActiva &&
+      cfgD.modo === "zonas" &&
+      !cuponAplicado?.envioGratis &&
+      !zonaDeliverySel
     ) {
       showToast("Elige tu zona de entrega");
       document.getElementById("deliveryZonaSel")?.focus();
@@ -3775,7 +3921,7 @@ document
     const items = [...carrito.values()];
     const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio, 0);
     const descuentoCupon = calcularDescuentoCupon(subtotal);
-     const deliv = infoDeliveryPedido();
+    const deliv = infoDeliveryPedido();
     const total = +(subtotal - descuentoCupon + (deliv?.costo || 0)).toFixed(2);
 
     const btn = document.getElementById("sendWhatsappBtn");
@@ -3831,9 +3977,10 @@ document
       })),
       total_items: items.reduce((s, i) => s + i.cantidad, 0),
       total: +total.toFixed(2),
-     subtotal: +subtotal.toFixed(2),
+      subtotal: +subtotal.toFixed(2),
       descuentoCupon,
       delivery: deliv,
+      tiempo_estimado: tiempoEstimadoPedido(),
       cupon: cuponAplicado
         ? {
             codigo: cuponAplicado.codigo,
@@ -4907,7 +5054,9 @@ const _loginPorTokenPromise = (async () => {
 })();
 async function init() {
   await resolverParamsCarrito();
+  await validarMesaDesdePath();
   await _loginPorTokenPromise;
+  pintarMesaBadge();    
   setBusinessFaviconById({ localidad, id: tiendaId });
   paintToggleDefaults();
   bindCartEditDelegation(document.getElementById("drawerItems"));
