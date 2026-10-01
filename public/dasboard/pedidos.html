@@ -218,53 +218,58 @@
         <div class="mesa-empty-banner" id="mesaEmptyBanner" style="display:none;"></div>
 
 
-        <div class="nuevo-pedido-wrap" id="nuevoPedidoWrap" style="display:none;">
-            <div class="np-panel">
-                <div class="np-search-wrap">
-                    <div class="np-search-box">
-                        <span class="np-search-ico">🔍</span>
-                        <input type="text" id="npSearchInput" placeholder="Buscar producto o escanear código de barras…"
-                            autocomplete="off" />
-                        <button type="button" id="npClearSearch" class="np-search-clear" style="display:none">✕</button>
-                    </div>
-                    <button type="button" class="np-tool-btn" id="npScanCamBtn"
-                        title="Escanear con la cámara">📷</button>
-                    <button type="button" class="np-tool-btn" id="npScanPhoneBtn"
-                        title="Usar mi celular como escáner">📱</button>
-                    <button type="button" class="np-tool-btn" id="npRefreshBtn" title="Recargar productos">🔄</button>
-                </div>
-                <div id="npFiltros" class="np-filtros"></div>
-                <div id="npGrid" class="np-grid"></div>
-                <div id="npEmpty" class="np-empty" style="display:none;">Sin productos en el catálogo.</div>
-            </div>
+     <div id="nuevoPedidoWrap" class="nuevo-pedido-wrap" style="display:none">
 
-            <div id="npOptOverlay" class="np-opt-overlay">
-                <div class="np-opt-modal">
-                    <div class="np-opt-head">
-                        <span id="npOptProdNombre">Opciones</span>
-                        <button id="npOptClose">✕</button>
-                    </div>
-                    <div id="npOptBody"></div>
-                    <button id="npOptConfirm" class="np-confirmar-btn">Agregar</button>
-                </div>
-            </div>
+  <!-- Catálogo -->
+  <div class="np-panel">
+    <div class="np-search-wrap">
+      <div class="np-search-box">
+        <span class="np-search-ico">🔍</span>
+        <input type="text" id="npSearchInput" placeholder="Buscar producto o código…" autocomplete="off">
+        <button type="button" class="np-search-clear" id="npClearSearch" style="display:none">✕</button>
+      </div>
+      <button type="button" class="np-tool-btn" id="npScanCamBtn" title="Escanear con cámara">📷</button>
+      <button type="button" class="np-tool-btn" id="npScanPhoneBtn" title="Celular como escáner">📱</button>
+      <button type="button" class="np-tool-btn" id="npRefreshBtn" title="Actualizar productos">🔄</button>
+    </div>
 
-            <div class="np-cart-panel">
-                <div class="np-cart-head">🧾 Pedido nuevo</div>
-                <input type="text" id="npClienteNombre" placeholder="Nombre del cliente (opcional)"
-                    class="np-cliente-input" />
-                <div class="np-pago-row" id="npPagoRow">
-                    <button type="button" class="np-pago-btn active" data-pago="Efectivo">💵 Efectivo</button>
-                    <button type="button" class="np-pago-btn" data-pago="QR">📱 QR (Yape/Plin)</button>
-                </div>
-                <div id="npCartItems" class="np-cart-items"></div>
-                <div class="np-cart-total">
-                    <span>Total</span>
-                    <span id="npCartTotal">S/ 0.00</span>
-                </div>
-                <button id="npConfirmarBtn" class="np-confirmar-btn" disabled>Registrar pedido</button>
-            </div>
-        </div>
+       <div class="np-filtros" id="npFiltros"></div>
+
+    <!-- Barra de progreso de carga -->
+    <div class="np-progress" id="npProgress">
+      <div class="np-progress-bar" id="npProgressBar"></div>
+    </div>
+    <div class="np-progress-txt" id="npProgressTxt"></div>
+
+    <div class="np-grid" id="npGrid"></div>
+    <div class="np-empty" id="npEmpty" style="display:none">No se encontraron productos</div>
+  </div>
+
+  <!-- Carrito -->
+  <div class="np-cart-panel">
+    <div class="np-cart-head">🧾 Pedido actual</div>
+    <input type="text" id="npClienteNombre" class="np-cliente-input" placeholder="Nombre del cliente (opcional)">
+    <div class="np-pago-row" id="npPagoRow">
+      <button type="button" class="np-pago-btn active" data-pago="Efectivo">💵 Efectivo</button>
+      <button type="button" class="np-pago-btn" data-pago="Yape / Plin">📱 Yape / Plin</button>
+    </div>
+    <div class="np-cart-items" id="npCartItems"></div>
+    <div class="np-cart-total"><span>Total</span><span id="npCartTotal">S/ 0.00</span></div>
+    <button type="button" id="npConfirmarBtn" class="np-confirmar-btn" disabled>Registrar pedido</button>
+  </div>
+</div>
+
+<!-- Modal de opciones/variantes -->
+<div id="npOptOverlay" class="np-opt-overlay">
+  <div class="np-opt-modal">
+    <div class="np-opt-head">
+      <span id="npOptProdNombre"></span>
+      <button type="button" id="npOptClose">✕</button>
+    </div>
+    <div id="npOptBody"></div>
+    <button type="button" id="npOptConfirm" class="np-confirmar-btn" style="margin-top:12px;">Agregar al pedido</button>
+  </div>
+</div>
 
         <div class="board" id="board">
             <div class="board-col col-active" data-status="pendiente">

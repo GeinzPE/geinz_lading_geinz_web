@@ -1,29 +1,184 @@
 <!DOCTYPE html>
-<html lang="es"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0f">
 <title>Escáner · Geinz</title>
 <style>
-  *{box-sizing:border-box}body{margin:0;background:#0a0a0f;color:#fff;font-family:Inter,system-ui,sans-serif;padding:18px;min-height:100vh}
-  h2{margin:0 0 6px}p{color:#9a9aa8;font-size:13px}
-  input{width:100%;padding:14px;border-radius:12px;border:1px solid #2a2a35;background:#14141c;color:#fff;font-size:18px;text-align:center;margin:10px 0}
-  button{width:100%;padding:14px;border:none;border-radius:12px;background:#7c5cff;color:#fff;font-weight:800;font-size:15px}
-  video{width:100%;border-radius:16px;background:#000;aspect-ratio:4/3;object-fit:cover}
-  #err{color:#f87171;min-height:18px}#estado{padding:10px;border-radius:10px;background:rgba(34,197,94,.12);color:#4ade80;font-weight:700;font-size:13px;margin:10px 0;text-align:center}
-  #hist div{font-size:12.5px;padding:6px 0;border-bottom:1px solid #1d1d27;font-family:monospace}
-</style></head><body>
-<div id="paso1">
-  <h2>📱 Escáner Geinz</h2>
-  <p>Escribe la clave de 6 dígitos que aparece en tu computadora.</p>
-  <input id="pin" inputmode="numeric" maxlength="6" placeholder="••••••">
-  <button id="conectar">Conectar</button>
-  <p id="err"></p>
+  :root{--bg:#0a0a0f;--surface:#14141c;--line:#262633;--ink:#fff;--dim:#9a9aa8;--violet:#7c5cff;--green:#4ade80;--red:#f87171;--amber:#fbbf24}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  body{min-height:100vh;padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));
+    background:radial-gradient(120% 60% at 50% -10%,rgba(124,92,255,.22),transparent 60%),var(--bg)}
+  .wrap{max-width:440px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .brand .logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#7c5cff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:19px}
+  .brand h1{font-size:17px;margin:0;font-weight:800}
+  .brand small{display:block;color:var(--dim);font-size:11.5px;font-weight:600}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
+  .card h2{margin:0 0 6px;font-size:18px}
+  .card p{margin:0 0 16px;color:var(--dim);font-size:13px;line-height:1.5}
+
+  #pin{width:100%;padding:16px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:#fff;
+    font-size:28px;font-weight:800;text-align:center;letter-spacing:.45em;text-indent:.45em;outline:none;transition:border-color .2s,box-shadow .2s}
+  #pin:focus{border-color:var(--violet);box-shadow:0 0 0 4px rgba(124,92,255,.18)}
+  #pin::placeholder{color:#3a3a4a}
+  .btn{width:100%;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#7c5cff,#6a4af0);color:#fff;
+    font-weight:800;font-size:15px;cursor:pointer;margin-top:12px;transition:transform .12s,opacity .2s}
+  .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.5}
+  #err{color:var(--red);font-size:12.5px;font-weight:700;min-height:18px;margin:12px 0 0;text-align:center}
+
+  .status{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;border-radius:999px;
+    background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:12.5px;font-weight:800;margin-bottom:12px}
+  .status .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.4s infinite}
+  .status.bad{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--red)}
+  .status.bad .dot{background:var(--red);animation:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.6)}70%{box-shadow:0 0 0 8px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+
+  .cam{position:relative;border-radius:22px;overflow:hidden;background:#000;aspect-ratio:3/4;border:1px solid var(--line)}
+  .cam video{width:100%;height:100%;object-fit:cover;display:block}
+  .cam::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.55));pointer-events:none}
+
+  .frame{position:absolute;left:12%;right:12%;top:30%;bottom:30%;z-index:2;pointer-events:none}
+  .frame i{position:absolute;width:26px;height:26px;border:3px solid #fff;border-radius:6px;transition:border-color .2s}
+  .frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+  .frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+  .frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+  .frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+  .frame .line{position:absolute;left:6%;right:6%;top:0;height:2px;background:linear-gradient(90deg,transparent,#f87171,transparent);
+    box-shadow:0 0 14px #f87171;animation:scan 1.8s ease-in-out infinite}
+  @keyframes scan{0%,100%{top:4%}50%{top:94%}}
+  .frame.ok i{border-color:var(--green)}
+  .frame.ok .line{background:linear-gradient(90deg,transparent,var(--green),transparent);box-shadow:0 0 14px var(--green)}
+
+  .cam-top{position:absolute;top:12px;left:12px;right:12px;z-index:3;display:flex;justify-content:space-between;align-items:center}
+  .chip{padding:6px 11px;border-radius:999px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);font-size:11.5px;font-weight:800}
+  .flash{width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.55);
+    backdrop-filter:blur(6px);font-size:21px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:all .2s}
+  .flash.on{background:var(--amber);border-color:var(--amber);box-shadow:0 0 22px rgba(251,191,36,.65);color:#1a1200}
+  .flash[hidden]{display:none}
+
+  .hint{text-align:center;font-size:12px;color:var(--dim);margin:12px 0}
+
+  .last{display:none;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;margin-bottom:12px;
+    background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);animation:pop .25s}
+  .last.show{display:flex}
+  .last .l{font-size:10.5px;color:var(--green);font-weight:800;letter-spacing:.05em}
+  .last .c{font-family:ui-monospace,monospace;font-size:17px;font-weight:800}
+  @keyframes pop{from{transform:scale(.95);opacity:0}to{transform:none;opacity:1}}
+
+  .manual{display:flex;gap:8px}
+  .manual input{flex:1;min-width:0;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:#fff;font-size:16px;outline:none}
+  .manual input:focus{border-color:var(--violet)}
+  .manual button{padding:0 18px;border:none;border-radius:12px;background:var(--violet);color:#fff;font-weight:800;cursor:pointer}
+
+  .hist-head{display:flex;justify-content:space-between;margin:18px 2px 8px;font-size:12px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+  #hist{max-height:30vh;overflow-y:auto}
+  #hist div{display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:6px;border-radius:10px;background:var(--surface);
+    border:1px solid var(--line);font-family:ui-monospace,monospace;font-size:13px}
+  #hist span{color:var(--dim);font-size:11px}
+
+  /* Skeleton de conexión */
+  @keyframes shimmer{0%{background-position:-480px 0}100%{background-position:480px 0}}
+  .sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 0%,rgba(255,255,255,.1) 40%,rgba(255,255,255,.04) 80%);
+    background-size:960px 100%;animation:shimmer 1.5s linear infinite;border-radius:14px}
+  .sk-cam{aspect-ratio:3/4;border-radius:22px;border:1px solid var(--line)}
+  .sk-line{height:12px;border-radius:8px}
+  .sk-input{height:46px;margin-top:14px;border-radius:12px}
+  .sk-status{background:rgba(124,92,255,.1)!important;border-color:rgba(124,92,255,.3)!important;color:#a78bfa!important}
+  .sk-status .dot{background:#a78bfa!important}
+  .sk-bar{height:4px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;margin:14px 0 0}
+  .sk-bar i{display:block;height:100%;width:8%;border-radius:99px;background:linear-gradient(90deg,#7c5cff,#a78bfa);transition:width .5s cubic-bezier(.22,1,.36,1)}
+  .sk-steps{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .sk-step{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;background:var(--surface);
+    border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--dim);transition:all .25s}
+  .sk-step i{width:16px;height:16px;border-radius:50%;border:2px solid #3a3a4a;flex-shrink:0}
+  .sk-step.act{color:#fff;border-color:rgba(124,92,255,.5)}
+  .sk-step.act i{border-color:#7c5cff;border-top-color:transparent;animation:spin .8s linear infinite}
+  .sk-step.ok{color:var(--green)}
+  .sk-step.ok i{border-color:var(--green);background:var(--green)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Sesión terminada */
+  .fin{text-align:center;padding:34px 20px}
+  .fin .ico{width:72px;height:72px;margin:0 auto 16px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:32px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);animation:pop .3s}
+  .fin h2{margin:0 0 8px;font-size:19px}
+  .fin p{margin:0 0 6px}
+  .fin .tot{display:inline-block;margin-top:10px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.05);
+    border:1px solid var(--line);font-size:12px;font-weight:800;color:var(--dim)}
+
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="logo">📦</div>
+    <div><h1>Escáner Geinz</h1><small>Celular conectado a tu caja</small></div>
+  </div>
+
+  <!-- Paso 1: clave -->
+  <div id="paso1" class="card">
+    <h2>🔐 Conectar</h2>
+    <p>Escribe la clave de 6 dígitos que aparece en la pantalla de tu computadora.</p>
+    <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" autocomplete="off">
+    <button class="btn" id="conectar">Conectar</button>
+    <p id="err"></p>
+  </div>
+
+  <!-- Carga / skeleton -->
+  <div id="pasoCarga" hidden>
+    <div class="status sk-status"><span class="dot"></span><span id="cargaTxt">Verificando clave…</span></div>
+    <div class="sk sk-cam"></div>
+    <div class="sk-bar"><i id="skBar"></i></div>
+    <div class="sk-steps">
+      <div class="sk-step" id="stClave"><i></i><span>Verificando clave</span></div>
+      <div class="sk-step" id="stCam"><i></i><span>Abriendo cámara</span></div>
+    </div>
+    <div class="sk sk-line" style="width:70%;margin:16px auto 0"></div>
+    <div class="sk sk-input"></div>
+  </div>
+
+  <!-- Escáner -->
+  <div id="paso2" hidden>
+    <div class="status" id="estado"><span class="dot"></span><span id="estadoTxt">Conectado · apunta al código de barras</span></div>
+
+    <div class="cam">
+      <video id="v" playsinline muted></video>
+      <div class="cam-top">
+        <span class="chip" id="contador">0 escaneados</span>
+        <button type="button" class="flash" id="flash" title="Linterna" hidden>🔦</button>
+      </div>
+      <div class="frame" id="frame"><i></i><i></i><i></i><i></i><div class="line"></div></div>
+    </div>
+
+    <div class="hint" id="hintFlash">Si hay poca luz, toca 🔦 para encender el flash</div>
+
+    <div class="last" id="last"><span style="font-size:22px">✅</span><div><div class="l">ÚLTIMO CÓDIGO</div><div class="c" id="lastCode"></div></div></div>
+
+    <div class="manual">
+      <input id="manual" inputmode="numeric" placeholder="O escribe el código a mano">
+      <button id="enviarManual" type="button">Enviar</button>
+    </div>
+
+    <div class="hist-head"><span>Historial</span><span id="histN"></span></div>
+    <div id="hist"></div>
+  </div>
+
+  <!-- Sesión terminada -->
+  <div id="paso3" class="card fin" hidden>
+    <div class="ico">🔌</div>
+    <h2>Sesión terminada</h2>
+    <p>La sesión se cerró desde la computadora y la cámara se apagó.</p>
+    <p>Para volver a escanear, genera un nuevo QR en tu panel.</p>
+    <span class="tot" id="finTotal"></span>
+  </div>
 </div>
-<div id="paso2" hidden>
-  <video id="v" playsinline muted></video>
-  <div id="estado">✅ Conectado. Apunta a un código de barras</div>
-  <input id="manual" inputmode="numeric" placeholder="o escribe el código a mano">
-  <button id="enviarManual">Enviar código</button>
-  <div id="hist"></div>
-</div>
-<script type="module" src="../js/dasboardjs/scanner_movil.js"></script>
-</body></html>
+<script type="module" src="./scanner_movil.js"></script>
+</body>
+</html>

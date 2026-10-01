@@ -18,6 +18,7 @@ import {
   addDoc,
   runTransaction,
   increment,
+    deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { iniciarCamara } from "./scan_camara.js";
 import { db } from "../db/db.js";
@@ -197,6 +198,149 @@ const NP_UI_CSS = `
 .np-pair-pin{font-family:monospace;font-size:30px;font-weight:800;letter-spacing:.25em;color:#a78bfa;margin:2px 0 10px;}
 .np-pair-estado{font-size:12.5px;font-weight:700;padding:8px;border-radius:10px;background:rgba(251,191,36,.1);color:#fbbf24;margin-bottom:10px;}
 .np-pair-estado.ok{background:rgba(34,197,94,.12);color:#4ade80;}
+/* ── Layout del panel: que la grilla tenga scroll propio ── */
+.nuevo-pedido-wrap{
+  display:flex;
+  flex-wrap:nowrap !important;   /* ← LA CLAVE: sin wrap, el alto queda fijo al espacio disponible */
+  gap:14px;
+  padding:14px;
+  flex:1 1 0;
+  min-height:0;
+  overflow:hidden;
+  align-items:stretch;
+}
+.np-panel{ overflow:hidden; }
+.np-cart-panel{ align-self:stretch; height:auto !important; }
+.np-panel{
+  flex:2;
+  min-width:0;
+  min-height:0;
+  display:flex;
+  flex-direction:column;       /* buscador + chips arriba, grilla abajo */
+}
+.np-search-wrap,
+.np-filtros{ flex-shrink:0; }
+
+.np-grid{
+  flex:1;                       /* ocupa todo el espacio que sobra */
+  min-height:0;                 /* clave para que el overflow funcione en flex */
+  max-height:none;              /* quita el límite viejo */
+  overflow-y:auto;              /* ← el scroll vertical */
+  overflow-x:hidden;
+  align-content:start;
+  padding:2px 6px 16px 2px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(124,92,255,.5) transparent;
+}
+.np-grid::-webkit-scrollbar{ width:8px; }
+.np-grid::-webkit-scrollbar-thumb{ background:rgba(124,92,255,.45); border-radius:8px; }
+.np-grid::-webkit-scrollbar-track{ background:transparent; }
+
+/* Carrito: también con alto propio y scroll interno en los items */
+.np-cart-panel{
+  max-height:none;
+  min-height:0;
+  height:100%;
+}
+.np-cart-items{ min-height:0; overflow-y:auto; }
+
+/* Celular: apilado, scroll normal de la página */
+@media (max-width:820px){
+  .nuevo-pedido-wrap{ flex-direction:column; height:auto; flex:none; overflow:visible; }
+  .np-panel{ flex:none; }
+  .np-grid{ max-height:70vh; }
+  .np-cart-panel{ height:auto; }
+}
+  /* Scroll invisible (se puede seguir deslizando con rueda, touch o trackpad) */
+.np-grid,
+.np-cart-items,
+.np-filtros{
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.np-grid::-webkit-scrollbar,
+.np-cart-items::-webkit-scrollbar,
+.np-filtros::-webkit-scrollbar{
+  display:none;
+  width:0;
+  height:0;
+}
+  /* ── Barra de progreso ── */
+.np-progress{
+  flex-shrink:0;
+  height:4px;
+  border-radius:999px;
+  background:rgba(255,255,255,.06);
+  overflow:hidden;
+  margin:-4px 0 10px;
+  opacity:0;
+  transition:opacity .25s ease;
+}
+.np-progress.show{opacity:1;}
+.np-progress-bar{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#7c5cff,#a78bfa);
+  box-shadow:0 0 10px rgba(124,92,255,.6);
+  transition:width .35s ease;
+}
+.np-progress.indeterminate .np-progress-bar{
+  width:35%;
+  animation:np-indet 1.1s ease-in-out infinite;
+}
+@keyframes np-indet{
+  0%{transform:translateX(-100%);}
+  100%{transform:translateX(300%);}
+}
+.np-progress-txt{
+  flex-shrink:0;
+  font-size:11.5px;
+  font-weight:700;
+  color:var(--ink-dim);
+  margin:-4px 0 8px;
+  min-height:0;
+}
+.np-progress-txt:empty{display:none;}
+
+/* ── Skeletons (tarjetas "fantasma" mientras carga) ── */
+.np-skel{
+  border-radius:12px;
+  border:1px solid var(--line);
+  overflow:hidden;
+  background:var(--bg,#0a0a0f);
+}
+.np-skel .s-img{aspect-ratio:1;}
+.np-skel .s-line{height:10px;border-radius:6px;margin:10px 10px 0;}
+.np-skel .s-line.short{width:50%;margin-bottom:12px;}
+.np-skel .s-img,.np-skel .s-line{
+  background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.11) 50%,rgba(255,255,255,.04) 75%);
+  background-size:200% 100%;
+  animation:np-shimmer 1.2s linear infinite;
+}
+@keyframes np-shimmer{
+  0%{background-position:200% 0;}
+  100%{background-position:-200% 0;}
+}
+  /* Las tarjetas NO se encogen: la grilla hace scroll en vez de aplastarlas */
+.np-grid{
+  grid-auto-rows:max-content !important;
+  align-content:start !important;
+}
+.np-card{
+  flex-shrink:0;
+  height:max-content;
+  min-height:max-content;
+}
+.np-card .np-img-wrap{
+  flex-shrink:0;
+  aspect-ratio:1/1;
+  height:auto;
+}
+.np-card .np-name,
+.np-card .np-price{
+  flex-shrink:0;
+}
 `;
 const DELI_CSS = `
 #deliModo, .deli-inp{
@@ -369,7 +513,6 @@ const NP_CSS = `
         .np-pago-row{display:flex;gap:8px;margin-bottom:10px;}
 .np-pago-btn{flex:1;padding:8px 0;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:var(--ink-dim);font-weight:700;font-size:12.5px;cursor:pointer;}
 .np-pago-btn.active{background:#7c5cff;border-color:#7c5cff;color:#fff;}
-.nuevo-pedido-wrap{display:flex;gap:14px;padding:14px;flex-wrap:wrap;}
 .np-panel{flex:2;min-width:280px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;}
 .np-search-wrap input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:13px;margin-bottom:10px;}
 .np-filtros{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;}
@@ -478,6 +621,11 @@ const NP_CSS = `
   cursor:pointer;padding:0;
 }
 .npc-edit:hover{text-decoration:underline;}
+.nuevo-pedido-wrap{display:flex;gap:14px;padding:14px;flex-wrap:wrap;}
+@media (min-width:980px){
+  .app-shell{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+}
+  
 `;
 const MAPA_CSS = `
 .mapa-delivery-mini{
@@ -5534,6 +5682,48 @@ const NuevoPedido = {
     }
     return out;
   },
+    /* ── Progreso de carga ── */
+  mostrarSkeletons() {
+    const grid = document.getElementById("npGrid");
+    const empty = document.getElementById("npEmpty");
+    if (empty) empty.style.display = "none";
+        this.cardEls.clear();
+    grid.innerHTML = Array.from({ length: 12 })
+      .map(
+        () => `
+      <div class="np-skel">
+        <div class="s-img"></div>
+        <div class="s-line"></div>
+        <div class="s-line short"></div>
+      </div>`,
+      )
+      .join("");
+  },
+  setProgreso(pct, texto = "") {
+    const wrap = document.getElementById("npProgress");
+    const bar = document.getElementById("npProgressBar");
+    const txt = document.getElementById("npProgressTxt");
+    if (!wrap || !bar) return;
+    wrap.classList.add("show");
+    if (pct === null) {
+      wrap.classList.add("indeterminate");
+    } else {
+      wrap.classList.remove("indeterminate");
+      bar.style.width = Math.min(100, Math.max(0, pct)) + "%";
+    }
+    if (txt) txt.textContent = texto;
+  },
+  ocultarProgreso() {
+    const wrap = document.getElementById("npProgress");
+    const bar = document.getElementById("npProgressBar");
+    const txt = document.getElementById("npProgressTxt");
+    if (bar) bar.style.width = "100%";
+    setTimeout(() => {
+      wrap?.classList.remove("show", "indeterminate");
+      if (bar) bar.style.width = "0%";
+      if (txt) txt.textContent = "";
+    }, 450);
+  },
   cartKeyFor(id, sel) {
     const claves = Object.keys(sel || {}).filter(
       (k) => entradasDeOpcion(sel[k]).length,
@@ -5920,21 +6110,37 @@ const NuevoPedido = {
       this.productos = [];
       this.productosPorId = new Map();
     }
+    this.mostrarSkeletons();
+    this.setProgreso(null, "Buscando categorías…");
     try {
       const catRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos");
       const catSnap = await getDocs(catRef);
       this.categorias = catSnap.docs.map((d) => d.id);
 
-      // Primera página de cada categoría, en paralelo → carga rápida inicial
+      const totalCats = this.categorias.length || 1;
+      let hechas = 0;
+      this.setProgreso(5, `Cargando productos (0/${totalCats})…`);
+
+      // Primera página de cada categoría, en paralelo
       const primeras = await Promise.all(
         this.categorias.map((categoria) =>
-          this.cargarPaginaCategoria(categoria, null).catch((err) => {
-            console.warn(`No se pudo cargar "${categoria}":`, err);
-            return { items: [], agotada: true, cursor: null };
-          }),
+          this.cargarPaginaCategoria(categoria, null)
+            .catch((err) => {
+              console.warn(`No se pudo cargar "${categoria}":`, err);
+              return { items: [], agotada: true, cursor: null };
+            })
+            .then((r) => {
+              hechas++;
+              this.setProgreso(
+                5 + (hechas / totalCats) * 85,
+                `Cargando productos (${hechas}/${totalCats})…`,
+              );
+              return r;
+            }),
         ),
       );
 
+      this.setProgreso(92, "Cargando promociones…");
       const promos = await this.cargarPromos();
       this.productos = [...promos, ...primeras.flatMap((r) => r.items)];
       this.productosPorId = new Map(this.productos.map((p) => [p.id, p]));
@@ -5942,12 +6148,24 @@ const NuevoPedido = {
       this.renderFiltros();
       this.renderGrid();
 
-      // El resto se sigue trayendo de fondo, sin bloquear la pantalla
-      this.categorias.forEach((categoria, i) => {
-        if (!primeras[i].agotada) {
-          this.seguirCargandoCategoria(categoria, primeras[i].cursor);
-        }
-      });
+      const pendientes = this.categorias.filter((_, i) => !primeras[i].agotada);
+      if (pendientes.length) {
+        this.setProgreso(null, "Cargando más productos…");
+        Promise.all(
+          this.categorias.map((categoria, i) =>
+            !primeras[i].agotada
+              ? this.seguirCargandoCategoria(categoria, primeras[i].cursor)
+              : null,
+          ),
+        ).finally(() => this.ocultarProgreso());
+      } else {
+        this.ocultarProgreso();
+      }
+    } catch (err) {
+      console.error("Error cargando catálogo:", err);
+      this.ocultarProgreso();
+      document.getElementById("npGrid").innerHTML = "";
+      showToast("❌ No se pudo cargar el catálogo", true);
     } finally {
       this.cargando = false;
     }
@@ -6013,8 +6231,13 @@ const NuevoPedido = {
   getFiltrados() {
     let res = this.productos;
     if (this.filtroCat !== "Todos") res = res.filter((p) => p.categoria === this.filtroCat);
-    if (this.filtroTexto)
-      res = res.filter((p) => p.nombreNorm.includes(this.filtroTexto) || (p.codigoBarras || "").includes(this.filtroTexto));
+     if (this.filtroTexto)
+    res = res.filter(
+      (p) =>
+        p.nombreNorm.includes(this.filtroTexto) ||
+        (p.codigoBarras || "").includes(this.filtroTexto) ||
+        (p.id || "").toLowerCase() === this.filtroTexto,
+    );
     return res;
   },
   imgTag(p) {
@@ -6045,25 +6268,57 @@ const NuevoPedido = {
     } else b?.remove();
   },
 
+  cardEls: new Map(), // id -> <div> de la tarjeta (se crea UNA sola vez)
+
+  crearCard(p) {
+    const tieneVar = p.condiciones?.length > 0;
+    const sinStock = typeof p.stock === "number" && p.stock <= 0 && !tieneVar;
+    const el = document.createElement("div");
+    el.className = "np-card" + (sinStock ? " sin-stock" : "");
+    el.dataset.id = p.id;
+    el.title = p.nombre;
+    el.innerHTML = `
+      <div class="np-img-wrap${p.imagen ? "" : " np-noimg"}">${this.imgTag(p)}${sinStock ? `<span class="np-tag-agotado">Agotado</span>` : ""}</div>
+      <div class="np-name">${escapeHtml(p.nombre)}</div>
+      <div class="np-price">${precioCardHtml(p)}</div>`;
+    return el;
+  },
+
+  // Solo actualiza el badge y el borde, sin tocar la imagen
+  sincronizarCard(el, p) {
+    const n = this.cantEnCarrito(p.id);
+    el.classList.toggle("in-cart", n > 0);
+    let b = el.querySelector(".np-badge");
+    if (n > 0) {
+      if (!b) {
+        b = document.createElement("span");
+        b.className = "np-badge";
+        el.querySelector(".np-img-wrap").appendChild(b);
+      }
+      b.textContent = n;
+    } else b?.remove();
+  },
+
   renderGrid() {
     const grid = document.getElementById("npGrid");
     const empty = document.getElementById("npEmpty");
-    const filtrados = this.getFiltrados();
-    if (!filtrados.length) { grid.innerHTML = ""; empty.style.display = "block"; return; }
-    empty.style.display = "none";
-    grid.innerHTML = filtrados.map((p) => {
-      const tieneVar = p.condiciones?.length > 0;
-      const n = this.cantEnCarrito(p.id);
-      const sinStock = typeof p.stock === "number" && p.stock <= 0 && !tieneVar;
-      return `
-<div class="np-card${sinStock ? " sin-stock" : ""}${n ? " in-cart" : ""}" data-id="${escapeHtml(p.id)}" title="${escapeHtml(p.nombre)}">
-  <div class="np-img-wrap${p.imagen ? "" : " np-noimg"}">${this.imgTag(p)}${n ? `<span class="np-badge">${n}</span>` : ""}${sinStock ? `<span class="np-tag-agotado">Agotado</span>` : ""}</div>
-  <div class="np-name">${escapeHtml(p.nombre)}</div>
-  <div class="np-price">${precioCardHtml(p)}</div>
-</div>`;
-    }).join("");
-  },
+    grid.querySelectorAll(".np-skel").forEach((e) => e.remove());
 
+    const visibles = new Set(this.getFiltrados().map((p) => p.id));
+
+    this.productos.forEach((p) => {
+      let el = this.cardEls.get(p.id);
+      if (!el) {
+        el = this.crearCard(p);
+        this.cardEls.set(p.id, el);
+      }
+      if (el.parentElement !== grid) grid.appendChild(el); // solo se agrega si es nueva
+      el.style.display = visibles.has(p.id) ? "" : "none"; // filtrar = mostrar/ocultar
+      this.sincronizarCard(el, p);
+    });
+
+    empty.style.display = visibles.size ? "none" : "block";
+  },
   abrirDetalle(id) {
     const p = this.productosPorId.get(id);
     if (!p) return;
@@ -6112,36 +6367,97 @@ const NuevoPedido = {
   cerrarDetalle() { document.getElementById("npDetOverlay").classList.remove("show"); },
 
   /* Busca por código exacto: primero en memoria, luego en Firestore */
-  async buscarCodigoEnDB(code) {
-    for (const cat of this.categorias) {
-      try {
-        const s = await getDocs(query(
-          tiendaSubCol(localidad, "tiendas", tiendaId, "productos", cat, cat),
-          where("codigo_barras", "==", code), limit(1)));
-        if (s.empty) continue;
-        const d = s.docs[0].data();
-        if (d.disponible === false) continue;
-        const p = this.mapearProducto(s.docs[0], cat, d);
-        if (!this.productosPorId.has(p.id)) { this.productos.push(p); this.productosPorId.set(p.id, p); this.renderGrid(); }
-        return this.productosPorId.get(p.id);
-      } catch (e) { console.warn("Búsqueda por código:", e); }
+/* Busca en Firestore: primero por código de barras (texto o número), luego por ID del documento */
+async buscarCodigoEnDB(code) {
+  const registrar = (snap, cat) => {
+    const d = snap.data();
+    if (d.disponible === false) return null;
+    const p = this.mapearProducto(snap, cat, d);
+    if (!this.productosPorId.has(p.id)) {
+      this.productos.push(p);
+      this.productosPorId.set(p.id, p);
+      this.renderGrid();
     }
-    return null;
-  },
-  async procesarCodigo(raw) {
-    const code = String(raw || "").trim();
-    if (code.length < 3) return false;
+    return this.productosPorId.get(p.id);
+  };
+
+  const variantes = [code];
+  if (/^\d+$/.test(code)) variantes.push(Number(code)); // por si el código se guardó como número
+
+  for (const cat of this.categorias) {
+    try {
+      const colRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos", cat, cat);
+
+      // 1) por código de barras
+      for (const v of variantes) {
+        const s = await getDocs(query(colRef, where("codigo_barras", "==", v), limit(1)));
+        if (!s.empty) {
+          const p = registrar(s.docs[0], cat);
+          if (p) return p;
+        }
+      }
+
+      // 2) por ID del producto
+      if (!code.includes("/")) {
+        const byId = await getDoc(
+          tiendaSubDoc(localidad, "tiendas", tiendaId, "productos", cat, cat, code),
+        );
+        if (byId.exists()) {
+          const p = registrar(byId, cat);
+          if (p) return p;
+        }
+      }
+    } catch (e) {
+      console.warn("Búsqueda por código/ID:", e);
+    }
+  }
+  return null;
+},
+
+async procesarCodigo(raw) {
+  const code = String(raw || "").trim();
+  if (code.length < 3) return false;
+
+  // Mientras se elige la variante (o se procesa otro código), se ignoran más escaneos
+  if (this._prodOpc || this._procesando) return false;
+  this._procesando = true;
+
+  try {
     if (!this.cargado) await this.cargarCatalogo();
-    let p = this.productos.find((x) => x.codigoBarras && x.codigoBarras === code);
+
+    let p = this.productos.find(
+      (x) => x.id === code || (x.codigoBarras && x.codigoBarras === code),
+    );
     if (!p) p = await this.buscarCodigoEnDB(code);
-    if (!p) { npBeep(false); showToast(`❌ Código ${code} no encontrado`, true); return false; }
+
+    if (!p) {
+      npBeep(false);
+      showToast(`❌ "${code}" no coincide con ningún código ni ID`, true);
+      return false;
+    }
+
     npBeep(true);
-    if (p.condiciones?.length) { this.abrirOpciones(p); return true; }
+
+    // Tiene variantes, pero ya no queda ninguna con stock
+    if (p.tieneVariantes && !p.condiciones?.length) {
+      showToast(`⚠️ "${p.nombre}" no tiene variantes disponibles`, true);
+      return false;
+    }
+
+    // Tiene variantes: SIEMPRE se pregunta antes de agregar
+    if (p.condiciones?.length) {
+      this.abrirOpciones(p);
+      return true;
+    }
+
     const antes = this.cantEnCarrito(p.id);
     this.add(p.id);
     if (this.cantEnCarrito(p.id) > antes) showToast(`✅ ${p.nombre}`);
     return true;
-  },
+  } finally {
+    this._procesando = false;
+  }
+},
 
   add(id, seleccion = null) {
     const p = this.productosPorId.get(id);
@@ -6468,37 +6784,42 @@ const NuevoPedido = {
     await this.cargarCatalogo();
 
     if (this.listenersListos) return; // evita re-registrar listeners
-    this.listenersListos = true;
-
+   
     const inp = document.getElementById("npSearchInput");
     const clr = document.getElementById("npClearSearch");
-    const limpiar = () => { inp.value = ""; this.filtroTexto = ""; clr.style.display = "none"; this.renderGrid(); };
-    inp.addEventListener("input", (e) => {
+    const limpiar = () => {
+      if (inp) inp.value = "";
+      this.filtroTexto = "";
+      if (clr) clr.style.display = "none";
+      this.renderGrid();
+    };
+    inp?.addEventListener("input", (e) => {
       this.filtroTexto = this.normalizeText(e.target.value);
-      clr.style.display = e.target.value ? "flex" : "none";
+      if (clr) clr.style.display = e.target.value ? "flex" : "none";
       this.renderGrid();
     });
-    inp.addEventListener("keydown", (e) => {
-      // código escrito a mano (o lector USB dentro del buscador) + Enter
-      if (e.key === "Enter" && /^\d{6,}$/.test(inp.value.trim())) {
+      inp?.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const v = inp.value.trim();
+      const esCodigo = /^\d{6,}$/.test(v);                    // código de barras
+      const esId = this.productosPorId.has(v) || /^[A-Za-z0-9_-]{15,}$/.test(v); // ID
+      if (esCodigo || esId) {
         e.preventDefault();
-        this.procesarCodigo(inp.value).then((ok) => ok && limpiar());
+        this.procesarCodigo(v).then((ok) => ok && limpiar());
       }
     });
-    clr.addEventListener("click", () => { limpiar(); inp.focus(); });
-    document.getElementById("npScanCamBtn").addEventListener("click", abrirCamara);
-    document.getElementById("npScanPhoneBtn").addEventListener("click", abrirEmparejar);
+    clr?.addEventListener("click", () => { limpiar(); inp?.focus(); });
 
-    document.getElementById("npGrid").addEventListener("click", (e) => {
+    document.getElementById("npScanCamBtn")?.addEventListener("click", abrirCamara);
+    document.getElementById("npScanPhoneBtn")?.addEventListener("click", abrirEmparejar);
+    document.getElementById("npRefreshBtn")?.addEventListener("click", () => this.refrescar());
+    document.getElementById("npConfirmarBtn")?.addEventListener("click", () => this.confirmar());
+
+    document.getElementById("npGrid")?.addEventListener("click", (e) => {
       const c = e.target.closest(".np-card");
       if (c) this.abrirDetalle(c.dataset.id);
     });
-    document
-      .getElementById("npRefreshBtn")
-      ?.addEventListener("click", () => this.refrescar());
-    document
-      .getElementById("npConfirmarBtn")
-      .addEventListener("click", () => this.confirmar());
+
     document.querySelectorAll("#npPagoRow .np-pago-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         this.metodoPago = btn.dataset.pago;
@@ -6508,7 +6829,7 @@ const NuevoPedido = {
       });
     });
 
-    document.getElementById("npCartItems").addEventListener("click", (e) => {
+    document.getElementById("npCartItems")?.addEventListener("click", (e) => {
       const plusBtn = e.target.closest("[data-cart-plus]");
       const minusBtn = e.target.closest("[data-cart-minus]");
       const trashBtn = e.target.closest("[data-cart-trash]");
@@ -6518,9 +6839,8 @@ const NuevoPedido = {
       else if (trashBtn) this.eliminarByKey(trashBtn.dataset.cartTrash);
       else if (editBtn) {
         const key = editBtn.dataset.cartEdit;
-        const id = editBtn.dataset.cartEditId;
         const entry = this.carrito.get(key);
-        const p = this.productosPorId.get(id);
+        const p = this.productosPorId.get(editBtn.dataset.cartEditId);
         if (entry && p) this.abrirOpciones(p, entry.seleccion, key);
       }
     });
@@ -6590,7 +6910,56 @@ document.addEventListener("keydown", (e) => {
 let scanSesion = null, scanClave = "", unsubCodigos = null;
 const scanSesRef = (sid) => tiendaSubDoc(localidad, "tiendas", tiendaId, "scan_sesiones", sid);
 const scanColRef = (sid) => tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones", sid, "codigos");
+/* Borra una sesión completa: primero sus códigos, luego el documento */
+async function borrarSesionScan(sid) {
+  if (!sid) return;
+  try {
+    const snap = await getDocs(scanColRef(sid));
+    if (!snap.empty) {
+      const batch = writeBatch(db);
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } catch (e) {
+    console.warn("No se pudieron borrar los códigos de la sesión:", e);
+  }
+  try {
+    await deleteDoc(scanSesRef(sid));
+  } catch (e) {
+    console.warn("No se pudo borrar la sesión:", e);
+  }
+}
 
+/* Cierra la sesión actual y deja la base limpia */
+async function cerrarSesionCelular() {
+  const sid = scanSesion;
+  unsubCodigos?.();
+  unsubCodigos = null;
+  scanSesion = null;
+  scanClave = "";
+  pintarEstadoCelular(false);
+  await borrarSesionScan(sid);
+}
+
+/* Borra cualquier sesión vieja que haya quedado (pestaña cerrada de golpe, corte de internet, etc.) */
+async function limpiarSesionesViejas() {
+  try {
+    const snap = await getDocs(
+      tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones"),
+    );
+    await Promise.all(snap.docs.map((d) => borrarSesionScan(d.id)));
+  } catch (e) {
+    console.warn("No se pudieron limpiar sesiones viejas:", e);
+  }
+}
+
+/* Al cerrar o recargar la página: borrado de último momento */
+window.addEventListener("pagehide", () => {
+  if (!scanSesion) return;
+  const sid = scanSesion;
+  unsubCodigos?.();
+  deleteDoc(scanSesRef(sid)).catch(() => {});
+});
 function pintarEstadoCelular(conectado) {
   const el = document.getElementById("npPairEstado");
   if (el) {
@@ -6608,6 +6977,7 @@ async function abrirEmparejar() {
   if (!scanSesion) {
     body.innerHTML = `<p class="np-pair-steps">Generando código…</p>`;
     try {
+      await limpiarSesionesViejas(); 
       scanClave = String(Math.floor(100000 + Math.random() * 900000));
       const ref = doc(tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones"));
       await setDoc(ref, { clave: scanClave, creado: serverTimestamp(), expira: Date.now() + 4 * 3600 * 1000 });
@@ -6629,8 +6999,15 @@ async function abrirEmparejar() {
     }
   }
 
-  const base = location.origin + location.pathname.replace(/[^/]*$/, "");
-  const url = `${base}scanner_movil.html?l=${encodeURIComponent(localidad)}&t=${encodeURIComponent(tiendaId)}&s=${scanSesion}`;
+  // import.meta.url = ruta real de pedidos_dashboard.js, que está en la MISMA carpeta
+// que scanner_movil.html (js/dasboardjs/), así que siempre apunta bien
+const urlScanner = new URL("./scanner_movil.html", import.meta.url);
+urlScanner.search = new URLSearchParams({
+  l: localidad,
+  t: tiendaId,
+  s: scanSesion,
+}).toString();
+const url = urlScanner.href;
   const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm")).default;
   const img = await QR.toDataURL(url, { width: 240, margin: 1 });
 
@@ -7106,6 +7483,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       .querySelector(`.origin-chip[data-origin="${origen}"]`)
       ?.addEventListener("click", () => {
         document.getElementById("nuevoPedidoWrap").style.display = "none";
+          cerrarSesionCelular(); 
       });
   });
 }
