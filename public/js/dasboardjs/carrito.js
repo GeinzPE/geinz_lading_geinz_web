@@ -11,6 +11,7 @@ import {
   writeBatch,
   runTransaction,
   increment, // ← AGREGAR
+  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   tiendaDoc,
@@ -90,17 +91,92 @@ let cuponAplicado = null; // datos del cupón ya validado y en uso
 let ofertaParam = null;
 let filtroInicialParam = null; // ?filtro=ofertas viene del "Ver todas" de la landing
 let mesaIdPath = null;
+let mozoAsignadoMesa = null;
+
+async function cargarMozosActivos() {
+  try {
+    const snap = await getDocs(
+      tiendaSubCol(localidad, "tiendas", tiendaId, "mozos"),
+    );
+    return snap.docs
+      .map((d) => ({
+        id: d.id,
+        nombre: d.data().nombre,
+        activo: d.data().activo,
+      }))
+      .filter((m) => m.activo !== false && m.nombre);
+  } catch {
+    return [];
+  }
+}
+// Devuelve {id,nombre}, null (cualquiera / no hay mozos) o undefined (canceló)
+function elegirMozo() {
+  return new Promise(async (resolve) => {
+    if (pedidoActivoMesa?.mozoAsignado)
+      return resolve(pedidoActivoMesa.mozoAsignado); // la mesa ya tiene mozo
+    const mozos = await cargarMozosActivos();
+    if (!mozos.length) return resolve(null);
+
+    const ov = document.createElement("div");
+    ov.style.cssText =
+      "position:fixed;inset:0;z-index:10060;background:rgba(3,3,3,.8);display:flex;align-items:center;justify-content:center;padding:20px;";
+    ov.innerHTML = `
+      <div style="width:100%;max-width:360px;background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);border-radius:24px;padding:24px;color:#fff;">
+        <p style="font-weight:800;font-size:17px;margin:0 0 4px;">¿Quién te atiende?</p>
+        <p style="font-size:12.5px;color:#a1a1aa;margin:0 0 16px;">Elige a tu mozo para enviarle el pedido.</p>
+        <div id="mzOpts" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;"></div>
+        <button id="mzCancel" style="width:100%;margin-top:12px;padding:11px;border-radius:12px;background:rgba(255,255,255,.06);color:#d4d4d8;border:1px solid rgba(255,255,255,.1);">Cancelar</button>
+      </div>`;
+    const estiloBtn =
+      "padding:13px;border-radius:14px;font-weight:700;font-size:14px;color:#fff;border:1px solid rgba(var(--dr),var(--dg),var(--db),.5);background:rgba(var(--dr),var(--dg),var(--db),.12);cursor:pointer;";
+    const wrap = ov.querySelector("#mzOpts");
+    [...mozos, { id: null, nombre: "Cualquier mozo" }].forEach((m) => {
+      const b = document.createElement("button");
+      b.style.cssText = estiloBtn;
+      b.textContent = m.id ? `🧑‍🍳 ${m.nombre}` : m.nombre;
+      b.onclick = () => {
+        ov.remove();
+        resolve(m.id ? { id: m.id, nombre: m.nombre } : null);
+      };
+      wrap.appendChild(b);
+    });
+    ov.querySelector("#mzCancel").onclick = () => {
+      ov.remove();
+      resolve(undefined);
+    };
+    document.body.appendChild(ov);
+  });
+}
 async function validarMesaDesdePath() {
-  console.log("[MESA] path:", location.pathname, "| mesaIdPath:", mesaIdPath, "| tiendaId:", tiendaId);
+  console.log(
+    "[MESA] path:",
+    location.pathname,
+    "| mesaIdPath:",
+    mesaIdPath,
+    "| tiendaId:",
+    tiendaId,
+  );
   if (!mesaIdPath || !tiendaId) return;
 
   const aplicar = (id, d) => {
     console.log("[MESA] doc encontrado:", id, d);
     mesaId = id;
     mesaNombre =
-      mesaNombre || d.mesaNombre || d.nombre_mesa || d.nombreMesa || d.nombre || null;
+      mesaNombre ||
+      d.mesaNombre ||
+      d.nombre_mesa ||
+      d.nombreMesa ||
+      d.nombre ||
+      null;
     mesaNumero =
-      mesaNumero || d.mesaNumero || d.numero_mesa || d.numeroMesa || d.numero || d.num || d.n || null;
+      mesaNumero ||
+      d.mesaNumero ||
+      d.numero_mesa ||
+      d.numeroMesa ||
+      d.numero ||
+      d.num ||
+      d.n ||
+      null;
     if (!mesaNumero && mesaNombre) {
       const m = String(mesaNombre).match(/\d+/);
       if (m) mesaNumero = m[0];
@@ -110,12 +186,16 @@ async function validarMesaDesdePath() {
   try {
     // 1) Por ID directo
     for (const id of [mesaIdPath, `-mesa-${mesaIdPath}`]) {
-      const snap = await getDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", id));
+      const snap = await getDoc(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", id),
+      );
       if (snap.exists()) return aplicar(id, snap.data());
     }
 
     // 2) Por cualquier campo (código, token, slug, qr...)
-    const all = await getDocs(tiendaSubCol(localidad, "tiendas", tiendaId, "mesas"));
+    const all = await getDocs(
+      tiendaSubCol(localidad, "tiendas", tiendaId, "mesas"),
+    );
     console.log("[MESA] mesas en la DB:", all.size);
     const buscado = String(mesaIdPath).toLowerCase();
     for (const m of all.docs) {
@@ -834,7 +914,12 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const bloquesFinal = [...bloquesPrevios, nuevoBloque];
 
   const pedidosColRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
-
+  const inter = bizData?.mesas_config?.mozoIntermediario === true;
+  const estadosIni = inter
+    ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
+    : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
+  const mozoAsig = mozoAsignadoMesa || pedidoActivoMesa?.mozoAsignado || null;
+  const conMozo = mozoAsig ? { mozoAsignado: mozoAsig } : {};
   /* ═══ CASO 1: mesa dentro de un grupo activo ═══ */
   if (grupoActivo) {
     const pedido = {
@@ -845,7 +930,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
         direccion: "",
       },
       estado: "pendiente",
-      estadoMozo: "pendiente_revision", // ← AGREGAR esta línea en los DOS pedidos
+      ...estadosIni,
       pago: {
         metodo: metodoPago,
         vuelto: metodoPagoKey === "efectivo" ? vuelto || "" : "",
@@ -872,7 +957,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
     batch.set(
       grupoActivo.ref,
       {
-        estado: grupoEraNuevo ? "pedido_pendiente" : "activo",
+        estado: inter && grupoEraNuevo ? "pedido_pendiente" : "activo",
         pedido,
         pedidoGrupoDocId: pedidoDocId,
       },
@@ -889,7 +974,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
       batch.set(
         mRef,
         {
-          estado: grupoEraNuevo ? "pedido_pendiente" : "ocupado",
+          estado: inter && grupoEraNuevo ? "pedido_pendiente" : "ocupado",
           hay_pedido_nuevo: true,
           pago: "pendiente",
           pedidoMesaDocId: pedidoDocId,
@@ -915,7 +1000,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
       direccion: "",
     },
     estado: "pendiente",
-    estadoMozo: "pendiente_revision",
+    ...estadosIni,
     pago: { metodo: "En mesa", vuelto: "" },
     mesa: {
       id: mesaId,
@@ -945,7 +1030,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
     // sin bloquear la mesa (ya fue aceptada antes). Si es la PRIMERA vez
     // que llega un pedido, la mesa queda en "pedido_pendiente" hasta que
     // el negocio la acepte desde el dashboard.
-    estado: yaHabiaSesionActiva ? "ocupado" : "pedido_pendiente",
+    estado: yaHabiaSesionActiva || !inter ? "ocupado" : "pedido_pendiente",
     hay_pedido_nuevo: true,
     pago: "pendiente",
     mesaNombre: mesaNombre || mesaDataActual.mesaNombre || null,
@@ -1021,13 +1106,34 @@ async function cancelarPedidoMesa() {
   }).catch(() => {});
 }
 
+const PASOS_MESA = [
+  ["aceptado", "✅", "Aceptado"],
+  ["en_preparacion", "🔥", "En preparación"],
+  ["entregado", "🍽️", "Entregado"],
+];
+
+async function enviarLlamado(motivo) {
+  await addDoc(tiendaSubCol(localidad, "tiendas", tiendaId, "llamados_mesa"), {
+    mesaId,
+    mesaNumero: Number(mesaNumero) || null,
+    mesaNombre: mesaNombre || null,
+    motivo, // "ayuda" | "cuenta"
+    estado: "pendiente",
+    mozoAsignado: pedidoActivoMesa?.mozoAsignado || null,
+    timestamp: serverTimestamp(),
+  });
+}
+
 function renderPedidoActivoMesa(pedido) {
   const main = document.querySelector("main .min-w-0");
   if (!main) return;
+  document.getElementById("pedidoActivoWrap")?.remove();
 
-  // Si ya existe un banner de pedido activo, lo quitamos antes de crear el nuevo
-  const anterior = document.getElementById("pedidoActivoWrap");
-  if (anterior) anterior.remove();
+  const est =
+    pedido.estadoMesa ||
+    (pedido.estadoMozo === "confirmado" ? "aceptado" : "pendiente");
+  const idx = PASOS_MESA.findIndex((p) => p[0] === est);
+  const color = "rgb(var(--dr),var(--dg),var(--db))";
 
   const wrap = document.createElement("div");
   wrap.id = "pedidoActivoWrap";
@@ -1035,64 +1141,143 @@ function renderPedidoActivoMesa(pedido) {
   wrap.innerHTML = `
     <div class="flex items-center justify-between">
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
-      <span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background: rgba(var(--dr),var(--dg),var(--db),.15); color: rgb(var(--dr),var(--dg),var(--db));">
-        ${pedido.estado === "ocupado" ? "Ocupado" : pedido.estado}
-      </span>
+      <span class="text-[11px] text-gray-500">${pedido.hora || ""}</span>
     </div>
-  <p class="text-[12px] text-gray-500 -mt-2">Pedido a las ${pedido.hora} · Pago: ${pedido.pago.metodo}</p>
+    ${
+      idx < 0
+        ? `<div class="text-center text-[13px] font-bold py-2.5 rounded-2xl" style="background:rgba(251,191,36,.12);color:#fbbf24;">⏳ Esperando que el mozo confirme tu pedido</div>`
+        : `<div style="display:flex;">${PASOS_MESA.map(
+            (
+              p,
+              i,
+            ) => `<div style="flex:1;text-align:center;opacity:${i <= idx ? 1 : 0.3};">
+              <div style="font-size:22px;">${p[1]}</div>
+              <div style="font-size:10.5px;font-weight:800;${i === idx ? "color:" + color + ";" : ""}">${p[2]}</div>
+            </div>`,
+          ).join("")}</div>`
+    }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
-      <span class="display font-extrabold text-xl">S/ ${pedido.total.toFixed(2)}</span>
+      <span class="display font-extrabold text-xl">S/ ${Number(pedido.total || 0).toFixed(2)}</span>
     </div>
-    <p class="text-[12px] text-gray-500 text-center">Si necesitas cambiar algo, avísale directamente al mozo.</p>
+    <div class="grid grid-cols-2 gap-2">
+      <button id="paMozo" class="glass rounded-2xl py-3 font-bold text-[13px]">🔔 Llamar al mozo</button>
+      <button id="paCuenta" class="glass rounded-2xl py-3 font-bold text-[13px]">🧾 Pedir la cuenta</button>
+    </div>
+    ${est === "pendiente" ? `<button id="paCancel" class="rounded-2xl py-3 font-bold text-[13px]" style="background:rgba(248,113,113,.12);color:#f87171;">✕ Cancelar pedido</button>` : ""}
   `;
 
-  const itemsWrap = wrap.querySelector("#pedidoActivoItems");
-  const bloques =
-    pedido.bloques && pedido.bloques.length ? pedido.bloques : null;
-
-  if (bloques) {
-    bloques.forEach((bloque, idx) => {
-      const bloqueWrap = document.createElement("div");
-      bloqueWrap.className = "flex flex-col gap-1.5";
-      bloqueWrap.innerHTML = `<p class="text-[11px] font-bold text-gray-500 uppercase tracking-wide mt-1">
-            ${idx === 0 ? "Pedido inicial" : "Agregado"} · ${bloque.hora}
-          </p>`;
-      bloque.items.forEach((it) => {
-        const row = document.createElement("div");
-        row.className =
-          "item-row flex items-center gap-3 glass rounded-2xl p-3";
-        row.innerHTML = `
-          ${imgOrLogoHTML(it.imagen, it.nombre, "w-14 h-14 rounded-xl bg-white/5 flex-shrink-0")}
-          <div class="flex-1 min-w-0">
-            <p class="font-bold text-[14px] truncate">${it.nombre}</p>
-            <p class="text-[12.5px] text-gray-500">${it.cantidad} × S/ ${it.precio_unitario.toFixed(2)}</p>
-          </div>
-          <span class="font-bold text-[14px]">S/ ${it.subtotal.toFixed(2)}</span>
-        `;
-        bloqueWrap.appendChild(row);
-      });
-      itemsWrap.appendChild(bloqueWrap);
-    });
-  } else {
-    // Compatibilidad con pedidos viejos sin "bloques" (creados antes de este cambio)
-    pedido.productos.forEach((it) => {
-      const row = document.createElement("div");
-      row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
-      row.innerHTML = `
+  const filaHTML = (it) => `
+    <div class="item-row flex items-center gap-3 glass rounded-2xl p-3">
       ${imgOrLogoHTML(it.imagen, it.nombre, "w-14 h-14 rounded-xl bg-white/5 flex-shrink-0")}
       <div class="flex-1 min-w-0">
         <p class="font-bold text-[14px] truncate">${it.nombre}</p>
-        <p class="text-[12.5px] text-gray-500">${it.cantidad} × S/ ${it.precio_unitario.toFixed(2)}</p>
+        <p class="text-[12.5px] text-gray-500">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)}</p>
       </div>
-      <span class="font-bold text-[14px]">S/ ${it.subtotal.toFixed(2)}</span>
-    `;
-      itemsWrap.appendChild(row);
-    });
+      <span class="font-bold text-[14px]">S/ ${Number(it.subtotal || 0).toFixed(2)}</span>
+    </div>`;
+  const itemsWrap = wrap.querySelector("#pedidoActivoItems");
+  if (pedido.bloques?.length && !pedido.editadoPorMozo) {
+    itemsWrap.innerHTML = pedido.bloques
+      .map(
+        (b, i) =>
+          `<p class="text-[11px] font-bold text-gray-500 uppercase tracking-wide mt-1">${i === 0 ? "Pedido inicial" : "Agregado"} · ${b.hora}</p>` +
+          b.items.map(filaHTML).join(""),
+      )
+      .join("");
+  } else {
+    itemsWrap.innerHTML = (pedido.productos || []).map(filaHTML).join("");
   }
 
+  const llamar = (btn, motivo, msg) => {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.style.opacity = ".5";
+      try {
+        await enviarLlamado(motivo);
+        showToast(msg);
+      } catch (e) {
+        console.error(e);
+        showToast("⚠️ No se pudo enviar, intenta de nuevo");
+      }
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+      }, 60000);
+    };
+  };
+  llamar(wrap.querySelector("#paMozo"), "ayuda", "🔔 Avisamos al mozo");
+  llamar(
+    wrap.querySelector("#paCuenta"),
+    "cuenta",
+    "🧾 El mozo ya viene con la cuenta",
+  );
+
+  const cancel = wrap.querySelector("#paCancel");
+  if (cancel)
+    cancel.onclick = async () => {
+      if (!window.confirm("¿Cancelar tu pedido?")) return;
+      try {
+        await cancelarPedidoMesa();
+        aplicarPedidoEnVivo(null);
+        showToast("Pedido cancelado");
+      } catch (e) {
+        console.error(e);
+        showToast("⚠️ No se pudo cancelar");
+      }
+    };
+
   main.prepend(wrap);
+}
+
+/* Seguimiento en vivo: el pedido se actualiza solo (estado, cambios del mozo, cancelación) */
+function aplicarPedidoEnVivo(p) {
+  pedidoActivoMesa = p ? { ...p, estado: "ocupado" } : null;
+  if (p) renderPedidoActivoMesa(pedidoActivoMesa);
+  else document.getElementById("pedidoActivoWrap")?.remove();
+}
+let _unsubGrupoMesa = null;
+let _grupoVisto = null;
+function iniciarSeguimientoMesa() {
+  if (!mesaId) return;
+  onSnapshot(
+    tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaId),
+    (snap) => {
+      const d = snap.exists() ? snap.data() : null;
+      if (!d) return;
+      if (d.grupoId) {
+        if (_grupoVisto !== d.grupoId) {
+          _grupoVisto = d.grupoId;
+          _unsubGrupoMesa?.();
+          _unsubGrupoMesa = onSnapshot(
+            tiendaSubDoc(
+              localidad,
+              "tiendas",
+              tiendaId,
+              "grupos_mesas",
+              d.grupoId,
+            ),
+            (gs) => {
+              const g = gs.exists() ? gs.data() : null;
+              aplicarPedidoEnVivo(
+                g && ["activo", "pedido_pendiente"].includes(g.estado)
+                  ? g.pedido
+                  : null,
+              );
+            },
+          );
+        }
+        return;
+      }
+      _grupoVisto = null;
+      _unsubGrupoMesa?.();
+      _unsubGrupoMesa = null;
+      aplicarPedidoEnVivo(
+        ["ocupado", "pedido_pendiente"].includes(d.estado) ? d.pedido : null,
+      );
+    },
+  );
 }
 
 async function confirmarPedidoMesaDirecto() {
@@ -1115,6 +1300,9 @@ async function confirmarPedidoMesaDirecto() {
     showToast("El WhatsApp no es válido");
     return;
   }
+  const mozoElegido = await elegirMozo();
+  if (mozoElegido === undefined) return; // canceló
+  mozoAsignadoMesa = mozoElegido;
   const tokenSeguimiento = esInvitado
     ? crypto.randomUUID().replace(/-/g, "")
     : null;
@@ -3320,6 +3508,7 @@ function textoPuntosHTML(puntosTotales, esCheckout = false) {
 
 function updateCartUI() {
   const items = [...carrito.values()];
+  persistirCarrito();
   const count = items.reduce((s, i) => s + i.cantidad, 0);
   const subtotal = items.reduce((s, i) => s + i.cantidad * (i.precio || 0), 0);
   const descuentoCupon = calcularDescuentoCupon(subtotal);
@@ -4066,7 +4255,8 @@ document
     const pedidoId = resultado.id;
     registrarConversionOfertas(items);
     pedidoEnviado = true;
-
+    carrito.clear(); // opcional pero recomendado
+    limpiarCarritoPersistido();
     if (esInvitado) {
       try {
         localStorage.setItem(
@@ -5014,6 +5204,89 @@ async function restaurarCarritoTrasLogin() {
   if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon);
   return restauroAlgo;
 }
+/* ══════════ Persistencia del carrito (sobrevive a recargar la página) ══════════ */
+const CART_PERSIST_KEY = () =>
+  `geinz_cart_persist_${tiendaId}_${mesaId || "web"}`;
+
+function persistirCarrito() {
+  if (!tiendaId) return;
+  try {
+    const items = [...carrito.values()]
+      .filter((it) => !it.esCanje) // los canjes se reaplican con el cupón
+      .map((it) => ({
+        id: it.id,
+        cantidad: it.cantidad,
+        seleccion: it.seleccion || null,
+      }));
+    if (!items.length) {
+      sessionStorage.removeItem(CART_PERSIST_KEY());
+      return;
+    }
+    sessionStorage.setItem(
+      CART_PERSIST_KEY(),
+      JSON.stringify({
+        items,
+        cupon: cuponAplicado?.codigo || null,
+        ts: Date.now(),
+      }),
+    );
+  } catch (e) {
+    console.warn("No se pudo persistir el carrito:", e.message);
+  }
+}
+
+async function restaurarCarritoPersistido() { 
+  let data = null;
+  try {
+    const raw = sessionStorage.getItem(CART_PERSIST_KEY());
+    if (!raw) return false;
+    data = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  // caduca a las 4 horas (mismo criterio que el dispositivo en mesa)
+  if (!data || Date.now() - (data.ts || 0) > 4 * 3600 * 1000) {
+    sessionStorage.removeItem(CART_PERSIST_KEY());
+    return false;
+  }
+
+  let restauro = false;
+  (data.items || []).forEach(({ id, cantidad, seleccion }) => {
+    const p = productosPorId.get(id); // incluye promos y ofertas
+    if (!p || !cantidad) return;
+    // si una oferta con tiempo ya venció, no se restaura
+    if (p.esOfertaTiempo && p.expiraEn && Date.now() >= p.expiraEn) return;
+
+    const key = cartKeyFor(id, seleccion);
+    if (carrito.has(key)) return; // ya lo puso otro flujo (login, promo, etc.)
+
+    let cant = cantidad;
+    const { stock } = getStockInfo(p, seleccion);
+    if (stock !== null) cant = Math.min(cant, stock);
+    if (cant <= 0) return;
+
+    const descInfo = descuentoVigente(p.descuento);
+    carrito.set(key, {
+      ...p,
+      precio: calcPrecioFinal(p, seleccion),
+      precioOriginal: descInfo ? Number(p.precio) || 0 : null,
+      descuentoPorcentaje: descInfo ? descInfo.porcentaje : null,
+      cantidad: cant,
+      cartKey: key,
+      seleccion: seleccion || null,
+    });
+    restauro = true;
+  });
+    if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon); // ← AGREGAR AQUÍ
+
+  return restauro;
+}
+
+function limpiarCarritoPersistido() {
+  try {
+    sessionStorage.removeItem(CART_PERSIST_KEY());
+  } catch {}
+}
 
 function abrirLoginPopup() {
   guardarCarritoParaLogin();
@@ -5052,11 +5325,58 @@ const _loginPorTokenPromise = (async () => {
     showToast("No se pudo iniciar sesión, intenta de nuevo");
   }
 })();
+function getDeviceId() {
+  let id = localStorage.getItem("geinz_device");
+  if (!id) {
+    id = crypto.randomUUID().replace(/-/g, "");
+    localStorage.setItem("geinz_device", id);
+  }
+  return id;
+}
+function mostrarMesaLlena(max) {
+  const ov = document.createElement("div");
+  ov.style.cssText =
+    "position:fixed;inset:0;z-index:99999;background:#050505;color:#fff;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;";
+  ov.innerHTML = `<div style="max-width:340px;"><div style="font-size:46px;">🪑</div>
+    <p style="font-weight:800;font-size:18px;margin:10px 0 6px;">Esta mesa ya está completa</p>
+    <p style="font-size:13.5px;color:#a1a1aa;line-height:1.5;">Ya hay ${max} dispositivos conectados a esta mesa. Pídele al mozo que te ayude.</p></div>`;
+  document.body.appendChild(ov);
+}
+// true = puede entrar. Cada dispositivo ocupa un lugar durante 4 h.
+async function registrarDispositivoMesa() {
+  const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaId);
+  const me = getDeviceId();
+  const ahora = Date.now();
+  const TTL = 4 * 3600 * 1000;
+  let max = 4;
+  try {
+    const ok = await runTransaction(db, async (tx) => {
+      const s = await tx.get(ref);
+      if (!s.exists()) return true;
+      const d = s.data();
+      max = Number(d.sillas) || 4;
+      const lista = (d.dispositivos || []).filter((x) => ahora - x.ts < TTL);
+      const i = lista.findIndex((x) => x.id === me);
+      if (i >= 0) lista[i] = { id: me, ts: ahora };
+      else {
+        if (lista.length >= max) return false;
+        lista.push({ id: me, ts: ahora });
+      }
+      tx.update(ref, { dispositivos: lista });
+      return true;
+    });
+    if (!ok) mostrarMesaLlena(max);
+    return ok;
+  } catch (e) {
+    console.warn("No se pudo registrar el dispositivo:", e);
+    return true; // si falla la red, no se bloquea al cliente
+  }
+}
 async function init() {
   await resolverParamsCarrito();
   await validarMesaDesdePath();
   await _loginPorTokenPromise;
-  pintarMesaBadge();    
+  pintarMesaBadge();
   setBusinessFaviconById({ localidad, id: tiendaId });
   paintToggleDefaults();
   bindCartEditDelegation(document.getElementById("drawerItems"));
@@ -5112,7 +5432,10 @@ async function init() {
     hidePageLoader();
     return;
   }
-
+  if (mesaId && !(await registrarDispositivoMesa())) {
+    hidePageLoader();
+    return;
+  }
   const biz = await loadTienda();
   const ofertasActivas = await loadOfertasActivas(); // ← NUEVO
   promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas]; // ← MODIFICADO
@@ -5145,11 +5468,7 @@ async function init() {
   console.log("HORARIO DEBUG:", horarioEstado, bizData?.horario_atencion);
   pintarBannerHorario(horarioEstado);
 
-  if (pedidoMesa) {
-    pedidoActivoMesa = pedidoMesa;
-    renderPedidoActivoMesa(pedidoMesa);
-  }
-
+  if (mesaId) iniciarSeguimientoMesa();
   // Sin productos Y sin promos → mensaje de vacío (igual que antes)
   if (!productos.length && !promosGlobal.length) {
     document.getElementById("lista").innerHTML = "";
@@ -5167,6 +5486,7 @@ async function init() {
     document.getElementById("lista").innerHTML = "";
   }
   const carritoRestaurado = await restaurarCarritoTrasLogin();
+  if (!carritoRestaurado)await restaurarCarritoPersistido(); // ← AGREGAR
   renderFiltros(catalogoGlobal);
   buildAllCards(catalogoGlobal);
   applyFilters();

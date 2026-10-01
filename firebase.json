@@ -112,6 +112,11 @@
         "function": "pedidoSSR"
       },
       {
+        "source": "/perfil/*/trabajadores",
+        "destination": "/pedidos/mozo.html"
+      },
+      { "source": "/trabajadores", "destination": "/mozo/mozo.html" },
+      {
         "source": "/perfil/*/*",
         "destination": "/pedidos/pedidos.html"
       },

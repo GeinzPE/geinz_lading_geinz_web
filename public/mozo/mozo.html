@@ -405,22 +405,16 @@
   </div>
 
   <!-- ══════════════ Selector de mozo (bloquea hasta elegir) ══════════════ -->
-  <div id="mozoSelectOverlay" class="overlay" style="z-index:250;">
-    <div class="surface rounded-3xl p-6 w-full max-w-sm">
-      <h2 class="font-extrabold text-lg mb-1">¿Quién eres?</h2>
-      <p class="text-xs text-[var(--ink-dim)] mb-5">Elige tu nombre para empezar a atender mesas.</p>
-      <div id="mozoListWrap" class="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto thin-scroll"></div>
-      <div id="mozoEmptyMsg" class="hidden text-xs text-[var(--ink-faint)] mb-4">Aún no hay mozos registrados. Agrega el
-        primero abajo.</div>
-      <div class="flex gap-2">
-        <input id="inputNuevoMozo" type="text" placeholder="Nombre del nuevo mozo" maxlength="40"
-          class="field-input flex-1">
-        <button id="btnAgregarMozo" class="btn-primary px-4" style="width:auto;">
-          <span id="btnAgregarMozoLabel">+ Agregar</span>
-        </button>
-      </div>
-    </div>
+<div id="mozoSelectOverlay" class="overlay" style="z-index:250;">
+  <div class="surface rounded-3xl p-6 w-full max-w-sm">
+    <h2 class="font-extrabold text-lg mb-1">Ingreso de trabajadores</h2>
+    <p class="text-xs text-[var(--ink-dim)] mb-5">Usa el usuario y PIN que te dio el negocio.</p>
+    <input id="mzUser" type="text" placeholder="Usuario" class="field-input mb-2" autocomplete="username">
+    <input id="mzPin" type="password" inputmode="numeric" placeholder="PIN" class="field-input mb-3" autocomplete="current-password">
+    <p id="mzError" class="hidden text-xs text-red-400 mb-3"></p>
+    <button id="mzLoginBtn" class="btn-primary w-full">Entrar</button>
   </div>
+</div>
 
   <!-- ══════════════ App principal ══════════════ -->
   <div id="app" class="hidden">
@@ -573,6 +567,10 @@
 
       <!-- Acciones -->
       <div class="px-5 pb-5 pt-1 flex flex-col gap-2 sticky bottom-0 surface">
+                <div class="grid grid-cols-2 gap-2">
+          <button id="det-btn-prep" class="btn-ghost text-xs">🔥 En preparación</button>
+          <button id="det-btn-entregado" class="btn-ghost text-xs">🍽️ Entregado</button>
+        </div>
         <div class="grid grid-cols-2 gap-2">
           <button id="det-btn-guardar" class="btn-ghost">Guardar cambios</button>
           <button id="det-btn-confirmar" class="btn-primary">

@@ -2303,7 +2303,8 @@ function getPedidosDeMesa(numeroMesa) {
 
     const pseudoPedido = {
       estado: "pendiente",
-      estadoMozo: m.pedido.estadoMozo || null,
+           estadoMozo: m.pedido.estadoMozo || null,
+      estadoMesa: m.pedido.estadoMesa || null,
       timestamp: m.pedido.timestamp,
       fecha: m.pedido.fecha,
       hora: m.pedido.hora,
@@ -3539,6 +3540,19 @@ function renderMesaDetail(numeroMesa) {
     dmActions.appendChild(btn);
   } else {
     dmActions.innerHTML = `<div class="oc-final-tag" style="width:100%;background:var(--green-soft);color:var(--green);">✅ Mesa libre</div>`;
+  }
+    if (activos.length && !esPendienteAceptar) {
+    const fila = document.createElement("div");
+    fila.style.cssText = "display:flex;gap:8px;width:100%;margin-bottom:8px;";
+    [["en_preparacion", "🔥 En preparación"], ["entregado", "🍽️ Entregado"]].forEach(([est, txt]) => {
+      const b = document.createElement("button");
+      b.className = "oc-btn ghost";
+      b.style.flex = "1";
+      b.textContent = txt;
+      b.onclick = () => setEstadoMesaAdmin(numeroMesa, est);
+      fila.appendChild(b);
+    });
+    dmActions.prepend(fila);
   }
 }
 async function toggleReservaMesa(numeroMesa) {
@@ -7921,7 +7935,9 @@ function iniciarListenerMesas() {
         bellRingFeedback();
         nuevosPedidosMesa.forEach(({ data }) => {
           const numero = data.mesaNumero ?? data.pedido?.mesa?.numero ?? null;
-          const necesitaConfirmar = data.pedido?.estadoMozo !== "confirmado";
+       const necesitaConfirmar =
+  data.pedido?.estadoMozo !== "confirmado" &&
+  bizDataGlobal?.mesas_config?.mozoIntermediario !== true;
           if (necesitaConfirmar) encolarAlarmaMesa(numero);
           else playMesaChime();
           const nombreMesa = data.mesaNombre || `Mesa ${numero ?? ""}`;
@@ -8987,3 +9003,170 @@ async function accionEstado(id, p, estado, accion, btn) {
   if (r === null) return; // canceló
   cambiarEstado(id, accion, btn, { tiempo: r.min ? r : null });
 }
+/* ══════════════ MOZOS (solo en la vista Mesas) ══════════════ */
+const mozosCol = () => tiendaSubCol(localidad, "tiendas", tiendaId, "mozos");
+async function mzHash(pin, usuario) {
+  const b = new TextEncoder().encode(`${tiendaId}:${usuario}:${pin}`);
+  const h = await crypto.subtle.digest("SHA-256", b);
+  return [...new Uint8Array(h)].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+let mzLista = [];
+
+const mzOv = document.createElement("div");
+mzOv.className = "dlv-ov";
+mzOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span>🧑‍🍳 Mozos</span><button type="button" data-x>✕</button></div>
+    <p class="dlv-cfg-sub">Cada mozo entra con su usuario y PIN en <b id="mzLink"></b></p>
+    <div id="mzList"></div>
+    <div class="dlv-form">
+      <input type="text" id="mzNombre" placeholder="Nombre del mozo" maxlength="40" autocomplete="off">
+      <input type="text" id="mzUsuario" placeholder="Usuario (sin espacios)" maxlength="20" autocomplete="off">
+      <input type="tel" id="mzPin" placeholder="PIN (4 a 8 números)" inputmode="numeric" maxlength="8" autocomplete="off">
+      <button type="button" class="np-confirmar-btn" id="mzGuardar">Agregar mozo</button>
+    </div>
+  </div>`;
+document.body.appendChild(mzOv);
+mzOv.addEventListener("click", (e) => {
+  if (e.target === mzOv || e.target.hasAttribute("data-x")) mzOv.classList.remove("show");
+});
+
+function mzPintar() {
+  document.getElementById("mzList").innerHTML = mzLista.length
+    ? mzLista.map((m) => `
+      <div class="dlv-item">
+        <div class="dlv-av"><span>${escapeHtml((m.nombre || "?")[0].toUpperCase())}</span></div>
+        <div class="dlv-info"><b>${escapeHtml(m.nombre)}</b><small>@${escapeHtml(m.usuario || "")}${m.activo === false ? " · inactivo" : ""}</small></div>
+        <button class="dlv-mini" data-mz-pin="${m.id}" title="Cambiar PIN">🔑</button>
+        <button class="dlv-mini" data-mz-tog="${m.id}" title="Activar/desactivar">${m.activo === false ? "▶" : "⏸"}</button>
+        <button class="dlv-mini danger" data-mz-del="${m.id}" title="Eliminar">🗑</button>
+      </div>`).join("")
+    : `<div class="dlv-empty">Aún no hay mozos.</div>`;
+}
+async function mzAbrir() {
+  const base = bizDominioGlobal ? `https://${bizDominioGlobal}/trabajadores`
+    : bizAliasGlobal ? `geinztech.com/perfil/${bizAliasGlobal}/trabajadores` : "(configura tu alias)";
+  document.getElementById("mzLink").textContent = base;
+  const snap = await getDocs(mozosCol());
+  mzLista = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  mzPintar();
+  mzOv.classList.add("show");
+}
+document.getElementById("mzList").addEventListener("click", async (e) => {
+  const pin = e.target.closest("[data-mz-pin]"), tog = e.target.closest("[data-mz-tog]"), del = e.target.closest("[data-mz-del]");
+  const id = (pin || tog || del)?.dataset.mzPin || (tog || del)?.dataset.mzTog || del?.dataset.mzDel;
+  const m = mzLista.find((x) => x.id === id);
+  if (!m) return;
+  try {
+    if (pin) {
+      const nuevo = window.prompt(`Nuevo PIN para ${m.nombre} (4 a 8 números):`, "");
+      if (nuevo === null) return;
+      if (!/^\d{4,8}$/.test(nuevo)) return showToast("El PIN debe tener 4 a 8 números", true);
+      await updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id), { pinHash: await mzHash(nuevo, m.usuario) });
+      showToast("🔑 PIN actualizado");
+    } else if (tog) {
+      await updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id), { activo: m.activo === false });
+    } else if (del && window.confirm(`¿Eliminar a ${m.nombre}?`)) {
+      await deleteDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id));
+    }
+    mzAbrir();
+  } catch (err) { console.error(err); showToast("❌ No se pudo actualizar", true); }
+});
+document.getElementById("mzGuardar").addEventListener("click", async () => {
+  const nombre = document.getElementById("mzNombre").value.trim();
+  const usuario = document.getElementById("mzUsuario").value.trim().toLowerCase().replace(/\s+/g, "");
+  const pin = document.getElementById("mzPin").value.trim();
+  if (!nombre || !usuario) return showToast("Falta nombre o usuario", true);
+  if (!/^\d{4,8}$/.test(pin)) return showToast("El PIN debe tener 4 a 8 números", true);
+  if (mzLista.some((m) => m.usuario === usuario)) return showToast("Ese usuario ya existe", true);
+  try {
+    await setDoc(doc(mozosCol()), {
+      nombre, usuario, pinHash: await mzHash(pin, usuario), activo: true, creadoEn: serverTimestamp(),
+    });
+    ["mzNombre", "mzUsuario", "mzPin"].forEach((i) => (document.getElementById(i).value = ""));
+    showToast("✅ Mozo agregado");
+    mzAbrir();
+  } catch (err) { console.error(err); showToast("❌ No se pudo guardar", true); }
+});
+
+// Botón dentro de la vista Mesas
+const mzBtn = document.createElement("button");
+mzBtn.type = "button";
+mzBtn.className = "mg-btn mg-reservar";
+mzBtn.textContent = "🧑‍🍳 Mozos";
+mzBtn.addEventListener("click", mzAbrir);
+document.querySelector(".mesas-panel-head")?.appendChild(mzBtn);
+
+/* ══════════════ ESTADO DE MESA + CONFIG DE MESAS ══════════════ */
+async function setEstadoMesaAdmin(numero, nuevo) {
+  const act = getPedidosDeMesa(numero)[0];
+  if (!act) return;
+  const [mesaDocId, pp] = act;
+  const b = writeBatch(db);
+  if (pp.grupoId) {
+    const g = gruposMap.get(pp.grupoId);
+    b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", pp.grupoId),
+      { pedido: { ...g.pedido, estadoMesa: nuevo } }, { merge: true });
+  } else {
+    const m = mesasMap.get(mesaDocId);
+    b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId),
+      { pedido: { ...m.pedido, estadoMesa: nuevo } }, { merge: true });
+  }
+  if (pp.pedidoDocId)
+    b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pp.pedidoDocId),
+      { estadoMesa: nuevo }, { merge: true });
+  try {
+    await b.commit();
+    showToast(nuevo === "entregado" ? "🍽️ Marcado como entregado" : "🔥 En preparación");
+  } catch (e) { console.error(e); showToast("❌ No se pudo actualizar", true); }
+}
+
+const mcOv = document.createElement("div");
+mcOv.className = "dlv-ov";
+mcOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span>⚙️ Configurar mesas</span><button type="button" data-x>✕</button></div>
+    <div class="dlv-cfg-row"><span class="l">El mozo confirma los pedidos primero</span>
+      <label class="switch"><input type="checkbox" id="mcInter"><span class="switch-track"></span></label></div>
+    <p class="dlv-cfg-sub">Activado: el pedido del cliente pasa por el mozo antes de llegar al panel. Desactivado: llega directo.</p>
+    <div class="dlv-prev-title">Sillas por mesa (máx. dispositivos con el QR)</div>
+    <div id="mcList"></div>
+    <button type="button" class="np-confirmar-btn" id="mcGuardar" style="margin-top:14px;">Guardar</button>
+  </div>`;
+document.body.appendChild(mcOv);
+mcOv.addEventListener("click", (e) => {
+  if (e.target === mcOv || e.target.hasAttribute("data-x")) mcOv.classList.remove("show");
+});
+function mcAbrir() {
+  document.getElementById("mcInter").checked = bizDataGlobal?.mesas_config?.mozoIntermediario === true;
+  document.getElementById("mcList").innerHTML = [...mesasMap.entries()]
+    .sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0))
+    .map(([id, m]) => `
+      <div class="dlv-item">
+        <div class="dlv-info"><b>${escapeHtml(m.nombre_alias || "Mesa " + m.numero_mesa)}</b></div>
+        <span style="font-size:12px;">🪑</span>
+        <input type="number" min="1" max="30" value="${Number(m.sillas) || 4}" data-sillas="${id}" class="deli-inp" style="width:64px;">
+      </div>`).join("") || `<div class="dlv-empty">No hay mesas.</div>`;
+  mcOv.classList.add("show");
+}
+document.getElementById("mcGuardar").addEventListener("click", async () => {
+  try {
+    const inter = document.getElementById("mcInter").checked;
+    await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), { "mesas_config.mozoIntermediario": inter });
+    bizDataGlobal = { ...(bizDataGlobal || {}), mesas_config: { mozoIntermediario: inter } };
+    const b = writeBatch(db);
+    document.querySelectorAll("[data-sillas]").forEach((i) => {
+      b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", i.dataset.sillas),
+        { sillas: Math.max(1, Math.min(30, Math.round(Number(i.value) || 4))) }, { merge: true });
+    });
+    await b.commit();
+    mcOv.classList.remove("show");
+    showToast("⚙️ Configuración guardada");
+  } catch (e) { console.error(e); showToast("❌ No se pudo guardar", true); }
+});
+const mcBtn = document.createElement("button");
+mcBtn.type = "button";
+mcBtn.className = "mg-btn mg-reservar";
+mcBtn.textContent = "⚙️ Config. mesas";
+mcBtn.addEventListener("click", mcAbrir);
+document.querySelector(".mesas-panel-head")?.appendChild(mcBtn);
