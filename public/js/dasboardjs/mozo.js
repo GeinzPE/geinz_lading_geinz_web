@@ -1,5 +1,5 @@
 import { db } from "../db/db.js";
-import { tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
+import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
 import {
   doc,
   setDoc,
@@ -188,6 +188,21 @@ const mesasMap = new Map();
 const gruposMap = new Map();
 const llamadosMap = new Map();
 const mozosMap = new Map();
+let mesasCfg = {};
+let edicionSucia = false; // evita que un snapshot borre lo que el mozo está armando
+let hayPendienteCliente = false;
+const puedeGestionar = () => esAdmin || mesasCfg.mozoPermisos === true;
+function iniciarListenerConfig() {
+  onSnapshot(tiendaDoc(localidad, "tiendas", tiendaId), (s) => {
+    mesasCfg = s.data()?.mesas_config || {};
+    if (
+      mesaAbiertaId &&
+      !edicionSucia &&
+      document.getElementById("overlay-detalle").classList.contains("show")
+    )
+      pintarDetalleMesa(mesaAbiertaId);
+  });
+}
 let catalogo = [];
 let catalogoListo = false;
 let mozoActivo = null; // {id, nombre}
@@ -371,14 +386,7 @@ async function cargarCatalogo() {
       catSnap.docs.map(async (catDoc) => {
         const categoria = catDoc.id;
         const subSnap = await getDocs(
-          tiendaSubCol(
-            localidad,
-            "tiendas",
-            tiendaId,
-            "productos",
-            categoria,
-            categoria,
-          ),
+          tiendaSubCol(localidad, "tiendas", tiendaId, "productos", categoria, categoria),
         );
         const arr = [];
         subSnap.forEach((pDoc) => {
@@ -388,7 +396,7 @@ async function cargarCatalogo() {
             .map((c) => ({
               nombre: c.nombre,
               opciones: (c.opciones || [])
-                .filter((o) => o.activo)
+                .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
                 .map((o) => ({
                   nombre: o.nombre,
                   costoAdicional: Number(o.costoAdicional) || 0,
@@ -405,6 +413,10 @@ async function cargarCatalogo() {
             imagen: d.imagenes?.[0]?.url || "",
             stock: typeof d.stock === "number" ? d.stock : null,
             condiciones,
+            variantesObligatoria: d.variantesObligatoria !== false,
+            variantesMultiples: d.variantesMultiples === true,
+            variantesConCantidad: d.variantesMultiples === true && d.variantesConCantidad === true,
+            descuento: d.descuento || null,
           });
         });
         return arr;
@@ -446,15 +458,37 @@ function getPedidoDeMesa(mesaDocId) {
   };
 }
 
-function getLlamadoActivo(mesaNumero) {
-  return (
-    [...llamadosMap.values()].find(
-      (l) =>
-        Number(l.mesaNumero) === Number(mesaNumero) && l.estado === "pendiente",
-    ) || null
-  );
+function numsDeMesa(m) {
+  if (!m.grupoId) return [m.numero_mesa];
+  return [...mesasMap.values()]
+    .filter((x) => x.grupoId === m.grupoId)
+    .map((x) => x.numero_mesa);
 }
 
+function getLlamadoActivo(nums) {
+  const lista = (Array.isArray(nums) ? nums : [nums]).map(Number);
+  const l = [...llamadosMap.values()].filter(
+    (x) => lista.includes(Number(x.mesaNumero)) && x.estado === "pendiente",
+  );
+  return l.find((x) => x.motivo === "cuenta") || l[0] || null;
+}
+
+function computeEstadoVisual(mesaDocId) {
+  const m = mesasMap.get(mesaDocId);
+  const info = getPedidoDeMesa(mesaDocId);
+  const llamado = getLlamadoActivo(numsDeMesa(m));
+
+  if (llamado && llamado.motivo === "cuenta") return "cuenta";
+  if (llamado && llamado.motivo === "ayuda") return "ayuda";
+  if (m.estado === "reservada") return "reservada";
+  if (!info) return m.estado === "ocupado" ? "ocupada" : "libre";
+
+  const pedido = info.pedido;
+  if (pedido.estadoMozo !== "confirmado" || pedido.pendienteMozo?.length)
+    return "pendiente";
+  if (pedido.estado === "listo") return "listo";
+  return "preparacion";
+}
 /* ══════════════ Estado visual de una mesa ══════════════ */
 const MOTIVO_LABEL = {
   confirmar_pedido: "Confirmar pedido",
@@ -463,21 +497,6 @@ const MOTIVO_LABEL = {
   ayuda: "Necesita ayuda",
 };
 
-function computeEstadoVisual(mesaDocId) {
-  const m = mesasMap.get(mesaDocId);
-  const info = getPedidoDeMesa(mesaDocId);
-  const llamado = getLlamadoActivo(m.numero_mesa);
-
-  if (llamado && llamado.motivo === "cuenta") return "cuenta";
-  if (m.estado === "reservada") return "reservada";
-  if (!info) return "libre";
-
-  const pedido = info.pedido;
-  if (pedido.estado === "listo") return "listo";
-  if (pedido.estadoMozo !== "confirmado") return "pendiente";
-  return "preparacion";
-}
-
 const ESTADO_META = {
   libre: { label: "Libre", dot: "🟢", cls: "st-libre" },
   pendiente: { label: "Por confirmar", dot: "🟠", cls: "st-pendiente" },
@@ -485,8 +504,19 @@ const ESTADO_META = {
   listo: { label: "Listo", dot: "🟣", cls: "st-listo" },
   cuenta: { label: "Pide la cuenta", dot: "🔴", cls: "st-cuenta" },
   reservada: { label: "Reservada", dot: "🟣", cls: "st-reservada" },
+  ayuda: { label: "Llama al mozo", dot: "🟠", cls: "st-ayuda" },
+  ocupada: { label: "Ocupada", dot: "🟡", cls: "st-ocupada" },
 };
-
+document.head.insertAdjacentHTML(
+  "beforeend",
+  `<style>
+.mesa-card.st-pendiente{border-color:#fbbf24 !important;background:rgba(251,191,36,.14) !important;--pc:251,191,36;animation:mz-p 1.1s ease-in-out infinite;}
+.mesa-card.st-cuenta{border-color:#f87171 !important;background:rgba(248,113,113,.16) !important;--pc:248,113,113;animation:mz-p 1s ease-in-out infinite;}
+.mesa-card.st-ayuda{border-color:#fb923c !important;background:rgba(251,146,60,.16) !important;--pc:251,146,60;animation:mz-p 1s ease-in-out infinite;}
+.mesa-card.st-listo{border-color:#a78bfa !important;background:rgba(167,139,250,.16) !important;--pc:167,139,250;animation:mz-p 1.6s ease-in-out infinite;}
+@keyframes mz-p{0%,100%{box-shadow:0 0 0 0 rgba(var(--pc),.5);}50%{box-shadow:0 0 0 10px rgba(var(--pc),0);}}
+</style>`,
+);
 /* ══════════════ Tablero de mesas ══════════════ */
 function renderMesaGrid() {
   const grid = document.getElementById("mesaGrid");
@@ -547,7 +577,7 @@ function renderMesaGrid() {
         ${info ? `<span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>` : `<span class="text-[11px] text-[var(--ink-faint)]">Sin pedido</span>`}
         ${mozoNombre ? `<span class="text-[10.5px] text-[var(--ink-faint)] truncate">👤 ${escapeHtml(mozoNombre)}</span>` : ""}
       `;
-      card.addEventListener("click", () => abrirDetalleMesa(mesaDocId));
+       card.addEventListener("click", () => clickMesa(mesaDocId));
     } else {
       const grupo = gruposMap.get(bloque.grupoId);
       const nombres = bloque.integrantes
@@ -573,16 +603,18 @@ function renderMesaGrid() {
         <span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>
       `;
       card.addEventListener("click", () =>
-        abrirDetalleMesa(bloque.integrantes[0][0]),
+         clickMesa(bloque.integrantes[0][0]),
       );
     }
+          const idsCard = bloque.tipo === "single" ? [bloque.mesaDocId] : bloque.integrantes.map((x) => x[0]);
+      if (modoUnir && idsCard.every((i) => selUnir.has(i))) card.style.outline = "3px solid #7c5cff";
     grid.appendChild(card);
   });
 
   actualizarIndicadores();
-
   if (
     mesaAbiertaId &&
+    !edicionSucia &&
     document.getElementById("overlay-detalle").classList.contains("show")
   ) {
     pintarDetalleMesa(mesaAbiertaId);
@@ -624,6 +656,7 @@ function abrirDetalleMesa(mesaDocId) {
   mesaAbiertaId = mesaDocId;
   const m = mesasMap.get(mesaDocId);
   grupoAbiertoId = m?.grupoId || null;
+  edicionSucia = false;
   pintarDetalleMesa(mesaDocId);
   openOverlay("overlay-detalle");
 }
@@ -637,7 +670,7 @@ function pintarDetalleMesa(mesaDocId) {
   const info = getPedidoDeMesa(mesaDocId);
   const estado = computeEstadoVisual(mesaDocId);
   const meta = ESTADO_META[estado];
-  const llamado = getLlamadoActivo(m.numero_mesa);
+  const llamado = getLlamadoActivo(numsDeMesa(m));
 
   document.getElementById("det-titulo").textContent =
     m.nombre_alias || `Mesa ${m.numero_mesa}`;
@@ -685,9 +718,32 @@ function pintarDetalleMesa(mesaDocId) {
         }),
       };
   if (!pedidoEnEdicion.productos) pedidoEnEdicion.productos = [];
-
+  const pend = pedidoEnEdicion.pendienteMozo || [];
+  hayPendienteCliente = pend.length > 0;
+  if (hayPendienteCliente) {
+    pend.forEach((b) =>
+      b.items.forEach((it) => {
+        const ex = pedidoEnEdicion.productos.find(
+          (x) =>
+            x.id === it.id && claveSel(x.opciones) === claveSel(it.opciones),
+        );
+        if (ex) {
+          ex.cantidad += it.cantidad;
+          ex.subtotal = +(ex.cantidad * ex.precio_unitario).toFixed(2);
+        } else
+          pedidoEnEdicion.productos.push({
+            ...it,
+            observacion: it.observacion || "",
+          });
+      }),
+    );
+    recalcularTotales();
+    pedidoEnEdicion.estadoMozo = "pendiente_revision";
+  }
   document.getElementById("det-nota-cliente").textContent =
-    pedidoEnEdicion.nota || "Sin especificaciones";
+    (hayPendienteCliente
+      ? "🆕 El cliente agregó productos: revísalos y confirma. "
+      : "") + (pedidoEnEdicion.nota || "Sin especificaciones");
   document.getElementById("det-nota-interna").value =
     pedidoEnEdicion.notaInterna || "";
 
@@ -702,17 +758,13 @@ function pintarDetalleMesa(mesaDocId) {
     yaConfirmado || pedidoEnEdicion.productos.length === 0;
   btnConfirmar.style.opacity = btnConfirmar.disabled ? ".5" : "1";
 
-  document.getElementById("det-btn-cancelar-pedido").style.display = info
-    ? ""
-    : "none";
-  document.getElementById("det-btn-liberar").style.display = info ? "" : "none";
+   const gestion = puedeGestionar();
+  document.getElementById("det-btn-cancelar-pedido").style.display = info && gestion ? "" : "none";
+  document.getElementById("det-btn-liberar").style.display = info && gestion ? "" : "none";
   const confirmado = !!info && pedidoEnEdicion.estadoMozo === "confirmado";
-  document.getElementById("det-btn-prep").style.display = confirmado
-    ? ""
-    : "none";
-  document.getElementById("det-btn-entregado").style.display = confirmado
-    ? ""
-    : "none";
+  document.getElementById("det-btn-prep").style.display = confirmado && gestion ? "" : "none";
+  document.getElementById("det-btn-entregado").style.display = confirmado && gestion ? "" : "none";
+  edicionSucia = false;
 }
 
 function recalcularTotales() {
@@ -755,6 +807,7 @@ function pintarProductosEdicion() {
     const row = document.createElement("div");
     row.className = "surface-2 rounded-2xl p-3 flex flex-col gap-2";
     const opcionesTxt = opcionesATexto(it.opciones);
+    const tieneVar = !!catalogo.find((c) => c.id === it.id)?.condiciones?.length;
     row.innerHTML = `
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
@@ -762,7 +815,10 @@ function pintarProductosEdicion() {
           ${opcionesTxt ? `<p class="text-[10.5px] text-[var(--ink-faint)] truncate">${escapeHtml(opcionesTxt)}</p>` : ""}
           <p class="text-[11px] text-[var(--ink-dim)] mono">S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</p>
         </div>
-        <button data-remove="${idx}" class="text-red-400/70 hover:text-red-400 text-xs font-bold flex-shrink-0">Quitar</button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          ${tieneVar ? `<button data-edit="${idx}" class="text-violet-300 text-xs font-bold">✎ Variantes</button>` : ""}
+          <button data-remove="${idx}" class="text-red-400/70 hover:text-red-400 text-xs font-bold">Quitar</button>
+        </div>
       </div>
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2">
@@ -778,35 +834,36 @@ function pintarProductosEdicion() {
     wrap.appendChild(row);
   });
 
-  wrap
-    .querySelectorAll("[data-plus]")
-    .forEach((b) =>
-      b.addEventListener("click", () => cambiarCantidad(+b.dataset.plus, +1)),
-    );
-  wrap
-    .querySelectorAll("[data-minus]")
-    .forEach((b) =>
-      b.addEventListener("click", () => cambiarCantidad(+b.dataset.minus, -1)),
-    );
-  wrap
-    .querySelectorAll("[data-remove]")
-    .forEach((b) =>
-      b.addEventListener("click", () => quitarProducto(+b.dataset.remove)),
-    );
+  wrap.querySelectorAll("[data-plus]").forEach((b) =>
+    b.addEventListener("click", () => cambiarCantidad(+b.dataset.plus, +1)),
+  );
+  wrap.querySelectorAll("[data-minus]").forEach((b) =>
+    b.addEventListener("click", () => cambiarCantidad(+b.dataset.minus, -1)),
+  );
+  wrap.querySelectorAll("[data-remove]").forEach((b) =>
+    b.addEventListener("click", () => quitarProducto(+b.dataset.remove)),
+  );
+  wrap.querySelectorAll("[data-edit]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const it = pedidoEnEdicion.productos[+b.dataset.edit];
+      const p = catalogo.find((c) => c.id === it.id);
+      if (p) abrirOpcionesProducto(p, it.opciones, +b.dataset.edit);
+    }),
+  );
   wrap.querySelectorAll("[data-obs]").forEach((inp) =>
     inp.addEventListener("input", () => {
+      edicionSucia = true;
       pedidoEnEdicion.productos[+inp.dataset.obs].observacion = inp.value;
     }),
   );
 
-  document.getElementById("det-total").textContent = fmtMoney(
-    pedidoEnEdicion.total,
-  );
+  document.getElementById("det-total").textContent = fmtMoney(pedidoEnEdicion.total);
 }
 
 function cambiarCantidad(idx, delta) {
   const it = pedidoEnEdicion.productos[idx];
   if (!it) return;
+  edicionSucia = true;
   it.cantidad = Math.max(1, (it.cantidad || 1) + delta);
   it.subtotal = +(it.cantidad * it.precio_unitario).toFixed(2);
   recalcularTotales();
@@ -814,11 +871,13 @@ function cambiarCantidad(idx, delta) {
   refrescarBotonConfirmar();
 }
 function quitarProducto(idx) {
+  edicionSucia = true;
   pedidoEnEdicion.productos.splice(idx, 1);
   recalcularTotales();
   pintarProductosEdicion();
   refrescarBotonConfirmar();
 }
+
 function refrescarBotonConfirmar() {
   const btn = document.getElementById("det-btn-confirmar");
   const yaConfirmado = pedidoEnEdicion.estadoMozo === "confirmado";
@@ -903,7 +962,7 @@ function pintarPicker(lista) {
       <div class="w-11 h-11 rounded-xl bg-black/30 flex-shrink-0 overflow-hidden">${p.imagen ? `<img src="${p.imagen}" class="w-full h-full object-cover">` : ""}</div>
       <div class="flex-1 min-w-0">
         <p class="font-bold text-[13px] truncate">${escapeHtml(p.nombre)}</p>
-        <p class="text-[11px] text-[var(--ink-dim)]">${escapeHtml(p.categoria)} · <span class="mono">S/ ${p.precio.toFixed(2)}</span></p>
+        <p class="text-[11px] text-[var(--ink-dim)]">${escapeHtml(p.categoria)} · <span class="mono">S/ ${calcPrecioFinal(p, null).toFixed(2)}</span></p>
         ${condTxt ? `<p class="text-[10px] text-[var(--ink-faint)] mt-0.5 truncate">Opciones: ${escapeHtml(condTxt)}</p>` : ""}
       </div>
       <div class="flex-shrink-0">${stockBadgeHtml(p.stock)}</div>
@@ -924,118 +983,223 @@ function pintarPicker(lista) {
   });
 }
 
-/* ══════════════ Opciones/condiciones del producto ══════════════ */
-let productoParaOpciones = null;
-let seleccionOpcionesActual = {};
-
-function abrirOpcionesProducto(p) {
-  productoParaOpciones = p;
-  seleccionOpcionesActual = {};
-  document.getElementById("opciones-prod-nombre").textContent = p.nombre;
-  const body = document.getElementById("opciones-body");
-  body.innerHTML = "";
-
-  p.condiciones.forEach((cond) => {
-    const wrap = document.createElement("div");
-    const label = document.createElement("p");
-    label.className =
-      "text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-2";
-    label.textContent = cond.nombre;
-    wrap.appendChild(label);
-
-    const optsWrap = document.createElement("div");
-    optsWrap.className = "flex flex-wrap gap-2";
-    const primeraDisponible = cond.opciones.find(
-      (o) => !(typeof o.stock === "number" && o.stock <= 0),
-    );
-    cond.opciones.forEach((op) => {
-      const agotada = typeof op.stock === "number" && op.stock <= 0;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className =
-        "toggle-opt" +
-        (op === primeraDisponible ? " active" : "") +
-        (agotada ? " agotado" : "");
-      btn.textContent = op.costoAdicional
-        ? `${op.nombre} (+S/ ${op.costoAdicional.toFixed(2)})`
-        : op.nombre;
-      if (agotada) {
-        btn.disabled = true;
-      } else {
-        btn.addEventListener("click", () => {
-          optsWrap
-            .querySelectorAll(".toggle-opt")
-            .forEach((o) => o.classList.remove("active"));
-          btn.classList.add("active");
-          seleccionOpcionesActual[cond.nombre] = op.nombre;
-        });
-      }
-      optsWrap.appendChild(btn);
-    });
-    wrap.appendChild(optsWrap);
-    body.appendChild(wrap);
-    if (primeraDisponible)
-      seleccionOpcionesActual[cond.nombre] = primeraDisponible.nombre;
-  });
-
-  openOverlay("overlay-picker-opciones");
+/* ══════════════ Variantes / precio / stock (igual que el carrito) ══════════════ */
+function entradasDe(v) {
+  if (v && typeof v === "object" && !Array.isArray(v))
+    return Object.entries(v).filter(([, c]) => (Number(c) || 0) > 0);
+  if (Array.isArray(v)) return v.map((n) => [n, 1]);
+  return v ? [[v, 1]] : [];
 }
-document
-  .getElementById("opciones-btn-agregar")
-  .addEventListener("click", () => {
-    if (!productoParaOpciones) return;
-    agregarProductoAlPedido(productoParaOpciones, {
-      ...seleccionOpcionesActual,
-    });
-    closeOverlay("overlay-picker-opciones");
-    closeOverlay("overlay-picker");
-  });
 
-function calcPrecioFinal(p, seleccion) {
+function claveSel(sel) {
+  return Object.keys(sel || {})
+    .filter((k) => entradasDe(sel[k]).length)
+    .sort()
+    .map((k) => `${k}:${entradasDe(sel[k]).map(([n, c]) => `${n}*${c}`).sort().join("+")}`)
+    .join("|");
+}
+
+function descuentoVigente(d, ahora = new Date()) {
+  if (!d || !d.activo) return null;
+  const pct = Number(d.porcentaje) || 0;
+  if (pct <= 0) return null;
+  const dias = { sunday: "domingo", monday: "lunes", tuesday: "martes", wednesday: "miercoles", thursday: "jueves", friday: "viernes", saturday: "sabado" };
+  const hoy = dias[new Intl.DateTimeFormat("en-US", { timeZone: "America/Lima", weekday: "long" }).format(ahora).toLowerCase()];
+  if (d.modo === "dias_semana") return (d.dias || []).includes(hoy) ? { porcentaje: pct } : null;
+  if (d.modo === "duracion") return Number(d.expiraEn) > ahora.getTime() ? { porcentaje: pct } : null;
+  if (d.modo === "fecha") {
+    const ms = (f, h) => {
+      const [y, mo, dd] = (f || "").split("-").map(Number);
+      if (!y) return null;
+      const [hh, mm] = (h || "23:59").split(":").map(Number);
+      return Date.UTC(y, mo - 1, dd, hh || 0, mm || 0) + 5 * 3600 * 1000;
+    };
+    const fin = ms(d.fechaFin, d.horaFin);
+    const ini = d.fechaInicio ? ms(d.fechaInicio, "00:00") : null;
+    if (!fin || ahora.getTime() >= fin || (ini && ahora.getTime() < ini)) return null;
+    return { porcentaje: pct };
+  }
+  return null;
+}
+
+function calcPrecioFinal(p, sel) {
+  const d = descuentoVigente(p.descuento);
   let precio = Number(p.precio) || 0;
-  if (!seleccion) return precio;
-  (p.condiciones || []).forEach((cond) => {
-    const elegido = seleccion[cond.nombre];
-    if (!elegido) return;
-    const op = cond.opciones.find((o) => o.nombre === elegido);
-    if (op && op.costoAdicional) precio += op.costoAdicional;
-  });
+  if (d) precio = +(precio * (1 - d.porcentaje / 100)).toFixed(2);
+  (p.condiciones || []).forEach((cond) =>
+    entradasDe(sel?.[cond.nombre]).forEach(([n, c]) => {
+      const op = cond.opciones.find((o) => o.nombre === n);
+      if (op?.costoAdicional) precio += op.costoAdicional * c;
+    }),
+  );
   return +precio.toFixed(2);
 }
 
-function agregarProductoAlPedido(p, seleccion = null) {
-  const precioFinal = calcPrecioFinal(p, seleccion);
-  const clavesSeleccion = seleccion
-    ? Object.keys(seleccion)
-        .sort()
-        .map((k) => `${k}:${seleccion[k]}`)
-        .join("|")
-    : "";
-  const existente = pedidoEnEdicion.productos.find((it) => {
-    const itClaves = it.opciones
-      ? Object.keys(it.opciones)
-          .sort()
-          .map((k) => `${k}:${it.opciones[k]}`)
-          .join("|")
-      : "";
-    return it.id === p.id && itClaves === clavesSeleccion;
+function stockMax(p, sel) {
+  if (sel && p.condiciones?.length) {
+    let min = null;
+    p.condiciones.forEach((cond) =>
+      entradasDe(sel[cond.nombre]).forEach(([n, c]) => {
+        const op = cond.opciones.find((o) => o.nombre === n);
+        if (op && typeof op.stock === "number") {
+          const l = Math.floor(op.stock / (c || 1));
+          min = min === null ? l : Math.min(min, l);
+        }
+      }),
+    );
+    return min;
+  }
+  return typeof p.stock === "number" ? p.stock : null;
+}
+
+/* ══════════════ Popup de variantes (nuevo / editar línea) ══════════════ */
+let productoParaOpciones = null;
+let seleccionOpcionesActual = {};
+let opcionesEditIdx = null;
+
+function refrescarBtnOpciones() {
+  const p = productoParaOpciones;
+  const btn = document.getElementById("opciones-btn-agregar");
+  const falta =
+    p.variantesObligatoria !== false &&
+    p.condiciones.some((c) => !entradasDe(seleccionOpcionesActual[c.nombre]).length);
+  btn.disabled = falta;
+  btn.style.opacity = falta ? ".5" : "1";
+  btn.textContent = `${opcionesEditIdx != null ? "Guardar cambios" : "Agregar"} · ${fmtMoney(calcPrecioFinal(p, seleccionOpcionesActual))}`;
+}
+
+function abrirOpcionesProducto(p, selEx = null, editIdx = null) {
+  productoParaOpciones = p;
+  opcionesEditIdx = editIdx;
+  const multi = p.variantesMultiples === true;
+  const conCant = multi && p.variantesConCantidad === true;
+  const oblig = p.variantesObligatoria !== false;
+
+  seleccionOpcionesActual = {};
+  Object.entries(selEx || {}).forEach(([k, v]) => {
+    if (conCant) { const o = {}; entradasDe(v).forEach(([n, c]) => (o[n] = c)); seleccionOpcionesActual[k] = o; }
+    else if (multi) seleccionOpcionesActual[k] = entradasDe(v).map(([n]) => n);
+    else seleccionOpcionesActual[k] = entradasDe(v)[0]?.[0];
   });
+  if (!multi && oblig)
+    p.condiciones.forEach((c) => {
+      if (!seleccionOpcionesActual[c.nombre] && c.opciones.length)
+        seleccionOpcionesActual[c.nombre] = c.opciones[0].nombre;
+    });
+
+  document.getElementById("opciones-prod-nombre").textContent = p.nombre;
+  const body = document.getElementById("opciones-body");
+
+  const pintar = () => {
+    body.innerHTML = "";
+    p.condiciones.forEach((cond) => {
+      const wrap = document.createElement("div");
+      wrap.innerHTML = `<p class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-2">${escapeHtml(cond.nombre)}${multi ? " (varias)" : ""}</p>`;
+      const box = document.createElement("div");
+      box.className = "flex flex-wrap gap-2";
+
+      cond.opciones.forEach((op) => {
+        const extra = op.costoAdicional ? ` (+S/ ${op.costoAdicional.toFixed(2)})` : "";
+
+        if (conCant) {
+          const sel = (seleccionOpcionesActual[cond.nombre] ||= {});
+          const c = sel[op.nombre] || 0;
+          const row = document.createElement("div");
+          row.className = "flex items-center justify-between w-full surface-2 rounded-xl px-3 py-2";
+          row.innerHTML = `<span class="text-[12.5px]">${escapeHtml(op.nombre)}${extra}</span>
+            <div class="flex items-center gap-2"><button type="button" class="qty-btn" data-m>−</button>
+            <span class="w-5 text-center font-bold text-sm">${c}</span>
+            <button type="button" class="qty-btn" data-p>+</button></div>`;
+          row.querySelector("[data-m]").onclick = () => { if (c <= 1) delete sel[op.nombre]; else sel[op.nombre] = c - 1; pintar(); };
+          row.querySelector("[data-p]").onclick = () => {
+            if (typeof op.stock === "number" && c + 1 > op.stock)
+              return toast(`Solo quedan ${op.stock} de "${op.nombre}"`, "error");
+            sel[op.nombre] = c + 1; pintar();
+          };
+          box.appendChild(row);
+          return;
+        }
+
+        const activa = entradasDe(seleccionOpcionesActual[cond.nombre]).some(([n]) => n === op.nombre);
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "toggle-opt" + (activa ? " active" : "");
+        b.textContent = op.nombre + extra;
+        b.onclick = () => {
+          if (multi) {
+            const arr = entradasDe(seleccionOpcionesActual[cond.nombre]).map(([n]) => n);
+            const i = arr.indexOf(op.nombre);
+            if (i >= 0) arr.splice(i, 1); else arr.push(op.nombre);
+            if (arr.length) seleccionOpcionesActual[cond.nombre] = arr;
+            else delete seleccionOpcionesActual[cond.nombre];
+          } else if (activa && !oblig) delete seleccionOpcionesActual[cond.nombre];
+          else seleccionOpcionesActual[cond.nombre] = op.nombre;
+          pintar();
+        };
+        box.appendChild(b);
+      });
+      wrap.appendChild(box);
+      body.appendChild(wrap);
+    });
+    refrescarBtnOpciones();
+  };
+  pintar();
+  openOverlay("overlay-picker-opciones");
+}
+
+document.getElementById("opciones-btn-agregar").addEventListener("click", () => {
+  if (!productoParaOpciones) return;
+  const sel = JSON.parse(JSON.stringify(seleccionOpcionesActual));
+  Object.keys(sel).forEach((k) => { if (!entradasDe(sel[k]).length) delete sel[k]; });
+  const seleccion = Object.keys(sel).length ? sel : null;
+  if (opcionesEditIdx != null) reemplazarLinea(opcionesEditIdx, productoParaOpciones, seleccion);
+  else agregarProductoAlPedido(productoParaOpciones, seleccion);
+  closeOverlay("overlay-picker-opciones");
+  closeOverlay("overlay-picker");
+});
+
+function reemplazarLinea(idx, p, seleccion) {
+  const it = pedidoEnEdicion.productos[idx];
+  if (!it) return;
+  edicionSucia = true;
+  const precio = calcPrecioFinal(p, seleccion);
+  it.opciones = seleccion;
+  it.precio_unitario = precio;
+  it.subtotal = +(precio * it.cantidad).toFixed(2);
+  recalcularTotales();
+  pintarProductosEdicion();
+  refrescarBotonConfirmar();
+  toast("Variantes actualizadas");
+}
+
+function agregarProductoAlPedido(p, seleccion = null) {
+  edicionSucia = true;
+  const key = claveSel(seleccion);
+  const items = pedidoEnEdicion.productos;
+  const existente = items.find((it) => it.id === p.id && claveSel(it.opciones) === key);
+  const max = stockMax(p, seleccion);
+  const enPedido =
+    seleccion && p.condiciones?.length
+      ? existente?.cantidad || 0
+      : items.filter((it) => it.id === p.id).reduce((s, i) => s + i.cantidad, 0);
+  if (max !== null && enPedido + 1 > max)
+    return toast(max <= 0 ? "Sin stock" : `Solo quedan ${max} disponible(s)`, "error");
+
   if (existente) {
     existente.cantidad += 1;
-    existente.subtotal = +(
-      existente.cantidad * existente.precio_unitario
-    ).toFixed(2);
+    existente.subtotal = +(existente.cantidad * existente.precio_unitario).toFixed(2);
   } else {
-    pedidoEnEdicion.productos.push({
+    const precio = calcPrecioFinal(p, seleccion);
+    items.push({
       id: p.id,
-      cartKey: p.id + "_" + Date.now(),
+      cartKey: p.id + "_" + Date.now() + Math.random().toString(36).slice(2, 6),
       nombre: p.nombre,
       categoria: p.categoria,
-      precio_unitario: precioFinal,
+      precio_unitario: precio,
       cantidad: 1,
-      subtotal: precioFinal,
+      subtotal: precio,
       imagen: p.imagen || "",
-      opciones: seleccion || null,
+      opciones: seleccion,
       observacion: "",
     });
   }
@@ -1044,50 +1208,48 @@ function agregarProductoAlPedido(p, seleccion = null) {
   refrescarBotonConfirmar();
   toast(`${p.nombre} agregado`);
 }
-
 /* ══════════════ Guardar cambios ══════════════ */
 async function persistirPedido({ marcarConfirmado = false } = {}) {
   const m = mesasMap.get(mesaAbiertaId);
   if (!m) throw new Error("Mesa no encontrada");
 
-  pedidoEnEdicion.notaInterna = document
-    .getElementById("det-nota-interna")
-    .value.trim();
+  pedidoEnEdicion.notaInterna = document.getElementById("det-nota-interna").value.trim();
   const personasVal = document.getElementById("det-personas").value;
   const mozoSelId = document.getElementById("det-mozo-select").value;
   const mozoSelNombre = mozoSelId ? mozosMap.get(mozoSelId)?.nombre : null;
   recalcularTotales();
+  delete pedidoEnEdicion.timestamp; // no pisar la hora original del pedido
   if (getPedidoDeMesa(mesaAbiertaId)) pedidoEnEdicion.editadoPorMozo = true;
   if (marcarConfirmado) {
-        pedidoEnEdicion.estadoMesa = "aceptado";
+    pedidoEnEdicion.estadoMesa = "aceptado";
     pedidoEnEdicion.estadoMozo = "confirmado";
     pedidoEnEdicion.mozoConfirmo = mozoActivo;
+    pedidoEnEdicion.pendienteMozo = [];
     pedidoEnEdicion.historial = arrayUnion({
       accion: "confirmado",
       quien: mozoActivo?.nombre || "Mozo",
       cuando: new Date().toISOString(),
     });
-    pedidoEnEdicion.caja = {
-      notificado: true,
-      notificadoEn: new Date().toISOString(),
-    };
+    pedidoEnEdicion.caja = { notificado: true, notificadoEn: new Date().toISOString() };
   }
 
-  const mozoAsignadoObj = mozoSelId
-    ? { id: mozoSelId, nombre: mozoSelNombre }
-    : null;
-  const personas =
-    personasVal === "" ? null : Math.max(0, parseInt(personasVal, 10) || 0);
+  const mozoAsignadoObj = mozoSelId ? { id: mozoSelId, nombre: mozoSelNombre } : null;
+  const personas = personasVal === "" ? null : Math.max(0, parseInt(personasVal, 10) || 0);
 
   const batch = writeBatch(db);
   const info = getPedidoDeMesa(mesaAbiertaId);
+  const grupoSinPedido =
+    !info && m.grupoId && gruposMap.get(m.grupoId)?.estado === "activo"
+      ? gruposMap.get(m.grupoId)
+      : null;
 
   if (info && info.esGrupo) {
     batch.set(
       info.grupoRef,
       { pedido: pedidoEnEdicion, ...(marcarConfirmado ? { estado: "activo" } : {}) },
       { merge: true },
-    );    if (info.pedidoDocId) {
+    );
+    if (info.pedidoDocId) {
       batch.set(
         doc(pedidosColRef(), info.pedidoDocId),
         { ...pedidoEnEdicion, mozoAsignado: mozoAsignadoObj },
@@ -1098,14 +1260,14 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
     (grupo?.mesas || []).forEach((mm) => {
       batch.set(
         doc(mesasColRef(), mm.id),
-               { mozoAsignado: mozoAsignadoObj, personas, ...(marcarConfirmado ? { estado: "ocupado" } : {}) },
+        { mozoAsignado: mozoAsignadoObj, personas, ...(marcarConfirmado ? { estado: "ocupado" } : {}) },
         { merge: true },
       );
     });
   } else if (info) {
     batch.set(
       doc(mesasColRef(), mesaAbiertaId),
-           {
+      {
         pedido: pedidoEnEdicion,
         mozoAsignado: mozoAsignadoObj,
         personas,
@@ -1120,44 +1282,57 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
         { merge: true },
       );
     }
+  } else if (!pedidoEnEdicion.productos.length) {
+    batch.set(doc(mesasColRef(), mesaAbiertaId), { mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
+  } else if (grupoSinPedido) {
+    // mesas unidas que todavía no tenían pedido
+    const nuevoRef = doc(pedidosColRef());
+    const pedidoFinal = {
+      ...pedidoEnEdicion,
+      mesas: grupoSinPedido.mesas || [],
+      negocio: { id: tiendaId, nombre: "", localidad },
+      mozoAsignado: mozoAsignadoObj,
+      timestamp: serverTimestamp(),
+    };
+    batch.set(
+      doc(gruposColRef(), m.grupoId),
+      { pedido: pedidoFinal, pedidoGrupoDocId: nuevoRef.id, estado: "activo" },
+      { merge: true },
+    );
+    (grupoSinPedido.mesas || []).forEach((mm) =>
+      batch.set(
+        doc(mesasColRef(), mm.id),
+        { estado: "ocupado", pago: "pendiente", pedidoMesaDocId: nuevoRef.id, mozoAsignado: mozoAsignadoObj, personas },
+        { merge: true },
+      ),
+    );
+    batch.set(nuevoRef, { ...pedidoFinal, grupoId: m.grupoId });
   } else {
-    // Mesa sin pedido activo: el mozo toma el pedido manualmente
-    if (!pedidoEnEdicion.productos.length) {
-      batch.set(
-        doc(mesasColRef(), mesaAbiertaId),
-        { mozoAsignado: mozoAsignadoObj, personas },
-        { merge: true },
-      );
-    } else {
-      const nuevoPedidoRef = doc(pedidosColRef());
-      const pedidoFinal = {
-        ...pedidoEnEdicion,
-        mesa: {
-          id: mesaAbiertaId,
-          nombre: m.nombre_alias || null,
-          numero: m.numero_mesa,
-        },
-        negocio: { id: tiendaId, nombre: "", localidad },
+    const nuevoPedidoRef = doc(pedidosColRef());
+    const pedidoFinal = {
+      ...pedidoEnEdicion,
+      mesa: { id: mesaAbiertaId, nombre: m.nombre_alias || null, numero: m.numero_mesa },
+      negocio: { id: tiendaId, nombre: "", localidad },
+      mozoAsignado: mozoAsignadoObj,
+      timestamp: serverTimestamp(),
+    };
+    batch.set(
+      doc(mesasColRef(), mesaAbiertaId),
+      {
+        estado: "ocupado",
+        pago: "pendiente",
+        pedido: pedidoFinal,
+        pedidoMesaDocId: nuevoPedidoRef.id,
         mozoAsignado: mozoAsignadoObj,
-        timestamp: serverTimestamp(),
-      };
-      batch.set(
-        doc(mesasColRef(), mesaAbiertaId),
-        {
-          estado: "ocupado",
-          pago: "pendiente",
-          pedido: pedidoFinal,
-          pedidoMesaDocId: nuevoPedidoRef.id,
-          mozoAsignado: mozoAsignadoObj,
-          personas,
-        },
-        { merge: true },
-      );
-      batch.set(nuevoPedidoRef, { ...pedidoFinal, mesaId: mesaAbiertaId });
-    }
+        personas,
+      },
+      { merge: true },
+    );
+    batch.set(nuevoPedidoRef, { ...pedidoFinal, mesaId: mesaAbiertaId });
   }
 
   await batch.commit();
+  edicionSucia = false;
 }
 
 /* ══════════════ Descuento de inventario al confirmar ══════════════ */
@@ -1192,6 +1367,7 @@ async function descontarInventario(productos) {
 document
   .getElementById("det-btn-guardar")
   .addEventListener("click", async () => {
+        if (hayPendienteCliente) return toast("Confirma (o quita) los productos nuevos del cliente primero", "error");
     const btn = document.getElementById("det-btn-guardar");
     btn.disabled = true;
     const original = btn.textContent;
@@ -1215,7 +1391,7 @@ document.getElementById("det-btn-confirmar").addEventListener("click", () => {
     "El pedido pasará a cocina, se descontará el inventario y no podrás editarlo desde aquí después.",
     async () => {
       await persistirPedido({ marcarConfirmado: true });
-  
+
       toast("✅ Pedido enviado a cocina");
       closeOverlay("overlay-detalle");
     },
@@ -1391,12 +1567,12 @@ function iniciarListenerMesas() {
           ["ocupado", "pedido_pendiente"].includes(data.estado) &&
           data.pedido
         ) {
-          const firma = `${data.pedido.hora || ""}|${data.pedido.total_items || 0}`;
+                const firma = `${data.pedido.hora || ""}|${data.pedido.total_items || 0}|${data.pedido.pendienteMozo?.length || 0}`;
           const firmaAnterior = mesaPedidoFirma.get(d.id);
           if (
             !firstMesasSnapshot &&
             firma !== firmaAnterior &&
-            data.pedido.estadoMozo !== "confirmado" &&
+                (data.pedido.estadoMozo !== "confirmado" || data.pedido.pendienteMozo?.length) &&
             visibleParaMozo(data)
           )
             nuevosPedidos.push(data);
@@ -1447,18 +1623,44 @@ function iniciarListenerMesas() {
     },
   );
 }
+const grupoFirma = new Map();
+let primerGrupos = true;
 function iniciarListenerGrupos() {
   onSnapshot(
     gruposColRef(),
     (snap) => {
       gruposMap.clear();
-      snap.forEach((d) => gruposMap.set(d.id, { id: d.id, ...d.data() }));
+      snap.forEach((d) => {
+        const g = { id: d.id, ...d.data() };
+        gruposMap.set(d.id, g);
+        const p = g.pedido;
+        if (p && ["activo", "pedido_pendiente"].includes(g.estado)) {
+          const f = `${p.total_items || 0}|${p.pendienteMozo?.length || 0}|${p.estadoMozo}`;
+          const necesita =
+            p.estadoMozo !== "confirmado" || p.pendienteMozo?.length;
+          const visible =
+            !g.mozoAsignado || esAdmin || g.mozoAsignado?.id === mozoActivo?.id;
+          if (
+            !primerGrupos &&
+            grupoFirma.get(d.id) !== f &&
+            necesita &&
+            visible
+          ) {
+            soundPedidoNuevo();
+            bellRing();
+            toast(
+              `🍽️ Pedido nuevo en ${(g.mesas || []).map((m) => m.nombre).join(" + ")}`,
+            );
+          }
+          grupoFirma.set(d.id, f);
+        }
+      });
+      primerGrupos = false;
       renderMesaGrid();
     },
     (err) => console.error("Error escuchando grupos:", err),
   );
 }
-
 function hideLoader() {
   const loader = document.getElementById("pageLoader");
   if (loader) loader.remove();
@@ -1470,20 +1672,42 @@ async function setEstadoMesa(nuevo) {
   const p = { ...info.pedido, estadoMesa: nuevo };
   const batch = writeBatch(db);
   if (info.esGrupo) batch.set(info.grupoRef, { pedido: p }, { merge: true });
-  else batch.set(doc(mesasColRef(), mesaAbiertaId), { pedido: p }, { merge: true });
+  else
+    batch.set(
+      doc(mesasColRef(), mesaAbiertaId),
+      { pedido: p },
+      { merge: true },
+    );
   if (info.pedidoDocId)
-    batch.set(doc(pedidosColRef(), info.pedidoDocId), { estadoMesa: nuevo }, { merge: true });
+    batch.set(
+      doc(pedidosColRef(), info.pedidoDocId),
+      { estadoMesa: nuevo },
+      { merge: true },
+    );
   try {
     await batch.commit();
-    toast(nuevo === "entregado" ? "🍽️ Marcado como entregado" : "🔥 En preparación");
+    toast(
+      nuevo === "entregado" ? "🍽️ Marcado como entregado" : "🔥 En preparación",
+    );
   } catch (e) {
     console.error(e);
     toast("No se pudo actualizar.", "error");
   }
 }
-document.getElementById("det-btn-prep").addEventListener("click", () => setEstadoMesa("en_preparacion"));
-document.getElementById("det-btn-entregado").addEventListener("click", () => setEstadoMesa("entregado"));
+document
+  .getElementById("det-btn-prep")
+  .addEventListener("click", () => setEstadoMesa("en_preparacion"));
+document
+  .getElementById("det-btn-entregado")
+  .addEventListener("click", () => setEstadoMesa("entregado"));
 /* ══════════════ Arranque ══════════════ */
+/* Si el mozo toca notas/personas/mozo, no se le repinta encima */
+["det-nota-interna", "det-personas", "det-mozo-select"].forEach((id) => {
+  const el = document.getElementById(id);
+  el.addEventListener("input", () => (edicionSucia = true));
+  el.addEventListener("change", () => (edicionSucia = true));
+});
+
 async function arrancar() {
   const ok = await resolverTienda();
   if (!ok) {
@@ -1491,6 +1715,7 @@ async function arrancar() {
     toast("No se pudo identificar el negocio.", "error");
     return;
   }
+  iniciarListenerConfig();
   iniciarListenerMozos();
   iniciarListenerMesas();
   iniciarListenerGrupos();
@@ -1506,4 +1731,92 @@ async function arrancar() {
     openOverlay("mozoSelectOverlay");
   }
 }
+/* ══════════════ Unir / separar mesas ══════════════ */
+let modoUnir = false;
+const selUnir = new Set();
+
+document.body.insertAdjacentHTML("beforeend", `
+<button id="unirToggle" style="position:fixed;right:14px;bottom:14px;z-index:49;padding:12px 16px;border-radius:999px;border:none;background:#7c5cff;color:#fff;font-weight:800;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.4);">🔗 Unir mesas</button>
+<div id="unirBar" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:none;gap:8px;align-items:center;padding:10px 14px;background:#0d0a17;border-top:1px solid rgba(124,92,255,.4);">
+  <span id="unirTxt" style="flex:1;font-size:12.5px;font-weight:700;"></span>
+  <button id="unirOk" style="padding:10px 14px;border-radius:10px;border:none;background:#22c55e;color:#04240f;font-weight:800;font-size:12.5px;">Unir</button>
+  <button id="unirSep" style="padding:10px 14px;border-radius:10px;border:none;background:#f59e0b;color:#1a1200;font-weight:800;font-size:12.5px;">Separar</button>
+  <button id="unirX" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-weight:700;font-size:12.5px;">✕</button>
+</div>`);
+
+function pintarUnirBar() {
+  document.getElementById("unirBar").style.display = modoUnir ? "flex" : "none";
+  document.getElementById("unirToggle").style.display = modoUnir ? "none" : "block";
+  document.getElementById("unirTxt").textContent = `${selUnir.size} mesa(s) seleccionada(s)`;
+}
+function salirModoUnir() { modoUnir = false; selUnir.clear(); pintarUnirBar(); renderMesaGrid(); }
+document.getElementById("unirToggle").onclick = () => { modoUnir = true; pintarUnirBar(); renderMesaGrid(); };
+document.getElementById("unirX").onclick = salirModoUnir;
+
+function clickMesa(mesaDocId) {
+  if (!modoUnir) return abrirDetalleMesa(mesaDocId);
+  const m = mesasMap.get(mesaDocId);
+  const ids = m?.grupoId
+    ? [...mesasMap.entries()].filter(([, x]) => x.grupoId === m.grupoId).map(([id]) => id)
+    : [mesaDocId];
+  const todas = ids.every((i) => selUnir.has(i));
+  ids.forEach((i) => (todas ? selUnir.delete(i) : selUnir.add(i)));
+  pintarUnirBar();
+  renderMesaGrid();
+}
+
+document.getElementById("unirOk").onclick = async () => {
+  const mesas = [...selUnir].map((id) => ({ id, ...mesasMap.get(id) }));
+  if (mesas.length < 2) return toast("Selecciona al menos 2 mesas", "error");
+  const gids = [...new Set(mesas.map((m) => m.grupoId).filter(Boolean))];
+  if (gids.length > 1) return toast("Hay más de un grupo en la selección", "error");
+  const sueltasConPedido = mesas.filter((m) => !m.grupoId && getPedidoDeMesa(m.id));
+  if (sueltasConPedido.length > 1 || (gids.length && sueltasConPedido.length))
+    return toast("Solo una de las mesas puede tener pedido", "error");
+
+  const base = gids[0] ? gruposMap.get(gids[0]) : null;
+  const grupoId = gids[0] || doc(gruposColRef()).id;
+  const lista = base ? [...(base.mesas || [])] : [];
+  mesas.forEach((m) => {
+    if (!lista.some((x) => x.id === m.id))
+      lista.push({ id: m.id, nombre: m.nombre_alias || `Mesa ${m.numero_mesa}`, numero: m.numero_mesa });
+  });
+  const suelto = sueltasConPedido[0] ? getPedidoDeMesa(sueltasConPedido[0].id) : null;
+  const pedDocId = suelto?.pedidoDocId || base?.pedidoGrupoDocId || null;
+
+  const batch = writeBatch(db);
+  const g = { estado: "activo", mesas: lista };
+  if (!base) { g.creado_en = serverTimestamp(); g.pedido = null; g.pedidoGrupoDocId = null; }
+  if (suelto) { g.pedido = { ...suelto.pedido, mesas: lista }; g.pedidoGrupoDocId = suelto.pedidoDocId; }
+  batch.set(doc(gruposColRef(), grupoId), g, { merge: true });
+
+  mesas.forEach((m) => {
+    const patch = { estado: "ocupado", grupoId, grupo_color: "#f59e0b", reservado_en: null, hora_reservada: null };
+    if (pedDocId) patch.pedidoMesaDocId = pedDocId;
+    if (suelto && m.id === sueltasConPedido[0].id) patch.pedido = null;
+    batch.set(doc(mesasColRef(), m.id), patch, { merge: true });
+  });
+  if (suelto?.pedidoDocId)
+    batch.set(doc(pedidosColRef(), suelto.pedidoDocId), { mesas: lista, grupoId }, { merge: true });
+
+  try { await batch.commit(); toast("🔗 Mesas unidas"); salirModoUnir(); }
+  catch (e) { console.error(e); toast("No se pudo unir", "error"); }
+};
+
+document.getElementById("unirSep").onclick = async () => {
+  const gids = [...new Set([...selUnir].map((id) => mesasMap.get(id)?.grupoId).filter(Boolean))];
+  if (!gids.length) return toast("No hay mesas unidas en la selección", "error");
+  if (gids.some((g) => gruposMap.get(g)?.pedido))
+    return toast("Ese grupo tiene pedido: libéralo o cóbralo primero", "error");
+  const batch = writeBatch(db);
+  gids.forEach((gid) => {
+    (gruposMap.get(gid)?.mesas || []).forEach((mm) =>
+      batch.set(doc(mesasColRef(), mm.id),
+        { estado: "libre", grupoId: null, grupo_color: null, pedidoMesaDocId: null }, { merge: true }),
+    );
+    batch.set(doc(gruposColRef(), gid), { estado: "cerrado" }, { merge: true });
+  });
+  try { await batch.commit(); toast("⇱ Mesas separadas"); salirModoUnir(); }
+  catch (e) { console.error(e); toast("No se pudo separar", "error"); }
+};
 arrancar();

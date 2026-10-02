@@ -1,0 +1,292 @@
+/* =====================================================================
+   comprobante.js  ·  Módulo exportable de comprobante electrónico (ticket)
+   ---------------------------------------------------------------------
+   Uso rápido:
+     import { cargarConfigComprobante, imprimirComprobante } from "./comprobante.js";
+     imprimirComprobante(pedido, cargarConfigComprobante(tiendaId));
+
+   - `pedido`  → el mismo objeto que usas en Historial de ventas (normalizado o crudo).
+   - `config`  → lo que el usuario configura UNA vez en la pantalla de plantilla.
+   ===================================================================== */
+
+const LS_KEY = "apr_comprobante_cfg_v1_";
+
+/* ---------------------------- CONFIG ---------------------------- */
+export const CONFIG_DEFAULT = {
+  negocio: { nombre: "", lema: "", ruc: "", telefono: "", direccion: "", redes: "", logo: "" },
+  documento: { tipo: "COMPROBANTE DE VENTA", serie: "B001", mostrarNumero: true, sinValorTributario: false },
+  igv: { activo: false, tasa: 18 }, // activo = precios incluyen IGV y se muestra el desglose
+  mostrar: {
+    cliente: true, telefonoCliente: false, direccionCliente: true, metodoPago: true,
+    nota: true, opcionesProductos: true, enLetras: true, qr: true,
+  },
+  qr: { plantilla: "https://minegocio.pe/c/{codigo}", texto: "Escanea para ver tu comprobante" },
+  pie: "¡GRACIAS POR SU PREFERENCIA!",
+  papel: "80", // "80" | "58"
+};
+
+const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+function merge(a, b) {
+  const r = Array.isArray(a) ? [...a] : { ...a };
+  if (!isObj(b)) return r;
+  for (const k in b) r[k] = isObj(a?.[k]) && isObj(b[k]) ? merge(a[k], b[k]) : b[k];
+  return r;
+}
+
+/** Lee la config guardada. `defaults` (opcional) rellena el negocio, ej: { nombre: nombreTienda } */
+export function cargarConfigComprobante(tiendaId, defaults = {}) {
+  let guardada = null;
+  try { guardada = JSON.parse(localStorage.getItem(LS_KEY + (tiendaId || "")) || "null"); } catch {}
+  return merge(merge(CONFIG_DEFAULT, { negocio: defaults }), guardada);
+}
+/** Guarda la config. Cámbiala por Firestore si quieres que viaje entre dispositivos. */
+export function guardarConfigComprobante(tiendaId, cfg) {
+  try { localStorage.setItem(LS_KEY + (tiendaId || ""), JSON.stringify(cfg)); return true; } catch { return false; }
+}
+
+/* ---------------------------- LOGO ---------------------------- */
+/** Recorta el logo en círculo; con bn=true lo pasa a blanco/negro con tramado (ideal térmica). Devuelve dataURL. */
+export function procesarLogo(src, { bn = true, size = 240 } = {}) {
+  return new Promise((ok, no) => {
+    const go = (url) => {
+      const img = new Image();
+      img.onerror = () => no(new Error("No se pudo leer la imagen"));
+      img.onload = () => {
+        const S = size, cv = document.createElement("canvas");
+        cv.width = cv.height = S;
+        const x = cv.getContext("2d");
+        x.fillStyle = "#fff"; x.fillRect(0, 0, S, S);
+        x.save(); x.beginPath(); x.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2); x.clip();
+        const k = Math.max(S / img.width, S / img.height), w = img.width * k, h = img.height * k;
+        x.drawImage(img, (S - w) / 2, (S - h) / 2, w, h); x.restore();
+        if (bn) {
+          const id = x.getImageData(0, 0, S, S), d = id.data, g = new Float32Array(S * S);
+          for (let i = 0; i < S * S; i++) g[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+          for (let y = 0; y < S; y++) for (let c = 0; c < S; c++) { // Floyd–Steinberg
+            const i = y * S + c, o = g[i], n = o < 128 ? 0 : 255, e = o - n; g[i] = n;
+            if (c < S - 1) g[i + 1] += (e * 7) / 16;
+            if (y < S - 1) { if (c > 0) g[i + S - 1] += (e * 3) / 16; g[i + S] += (e * 5) / 16; if (c < S - 1) g[i + S + 1] += e / 16; }
+          }
+          for (let i = 0; i < S * S; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = g[i]; d[i * 4 + 3] = 255; }
+          x.putImageData(id, 0, 0);
+        }
+        const out = document.createElement("canvas"); out.width = out.height = S;
+        const o = out.getContext("2d");
+        o.fillStyle = "#fff"; o.fillRect(0, 0, S, S);
+        o.beginPath(); o.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2); o.clip(); o.drawImage(cv, 0, 0);
+        ok(out.toDataURL("image/png"));
+      };
+      img.src = url;
+    };
+    if (typeof src === "string") return go(src);
+    const r = new FileReader(); r.onload = () => go(r.result); r.onerror = () => no(new Error("Lectura fallida")); r.readAsDataURL(src);
+  });
+}
+
+/* ---------------------------- HELPERS ---------------------------- */
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = (n) => (Math.round(((Number(n) || 0) + Number.EPSILON) * 100) / 100).toFixed(2);
+
+const U = ["", "UNO", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE", "DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISEIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE", "VEINTE", "VEINTIUNO", "VEINTIDOS", "VEINTITRES", "VEINTICUATRO", "VEINTICINCO", "VEINTISEIS", "VEINTISIETE", "VEINTIOCHO", "VEINTINUEVE"];
+const D = ["", "", "", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"];
+const C = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"];
+function words(n) {
+  if (n === 0) return "CERO"; if (n === 100) return "CIEN"; if (n < 30) return U[n];
+  if (n < 100) return D[Math.floor(n / 10)] + (n % 10 ? " Y " + U[n % 10] : "");
+  if (n < 1000) return C[Math.floor(n / 100)] + (n % 100 ? " " + words(n % 100) : "");
+  if (n < 1e6) { const m = Math.floor(n / 1000); return (m === 1 ? "MIL" : words(m) + " MIL") + (n % 1000 ? " " + words(n % 1000) : ""); }
+  return String(n);
+}
+export const montoEnLetras = (t) => { const e = Math.floor(t), c = Math.round((t - e) * 100); return `SON: ${words(e)} CON ${String(c).padStart(2, "0")}/100 SOLES`; };
+
+// Pedidos de mesa vienen como { pedido: {...} }; los deja con forma plana.
+function normalizar(raw) { return raw && raw.pedido ? { id: raw.id, ...raw.pedido } : raw || {}; }
+const codigoDe = (p) => (p.id || "").slice(-6).toUpperCase();
+
+function fechaDe(p) {
+  const t = p.timestamp || p.actualizado;
+  let d = null;
+  if (t) d = typeof t.toDate === "function" ? t.toDate() : t.seconds ? new Date(t.seconds * 1000) : new Date(t);
+  if (d && !isNaN(d)) {
+    const z = (n) => String(n).padStart(2, "0");
+    return `${z(d.getDate())}/${z(d.getMonth() + 1)}/${d.getFullYear()}  ${z(d.getHours())}:${z(d.getMinutes())}`;
+  }
+  return [p.fecha, p.hora].filter(Boolean).join("  ") || "";
+}
+
+function entradasOpcion(v) {
+  if (v && typeof v === "object" && !Array.isArray(v)) return Object.entries(v).filter(([, c]) => (Number(c) || 0) > 0);
+  if (Array.isArray(v)) return v.map((n) => [n, 1]);
+  return v ? [[v, 1]] : [];
+}
+function opcionesLineas(pr) {
+  const out = [];
+  Object.entries(pr.opciones || {}).forEach(([cond, v]) =>
+    entradasOpcion(v).forEach(([nom, c]) => out.push(`${cond}: ${nom}${c > 1 ? " x" + c : ""}`)));
+  if (pr.variaciones) out.push(pr.variaciones);
+  if (pr.adicionales) out.push(pr.adicionales);
+  if (pr.comentario) out.push(pr.comentario);
+  return out;
+}
+
+/* ---------------------------- QR ---------------------------- */
+let _qrP;
+function cargarQR() {
+  if (window.qrcode) return Promise.resolve();
+  return (_qrP ||= new Promise((ok, no) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+    s.onload = ok; s.onerror = () => no(new Error("QR lib")); document.head.appendChild(s);
+  }));
+}
+async function qrDataURL(texto) {
+  try { await cargarQR(); const q = window.qrcode(0, "M"); q.addData(texto); q.make(); return q.createDataURL(5, 0); }
+  catch { return ""; }
+}
+
+/* ---------------------------- ESTILOS ---------------------------- */
+export const CSS_COMPROBANTE = `
+.cpv,.cpv *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cpv{width:72mm;background:#fff;color:#000;padding:5mm 4mm 6mm;font:12px/1.4 "Courier New",monospace}
+.cpv.w58{width:48mm;font-size:10.5px;padding:4mm 2.5mm 5mm}
+.cpv .c{text-align:center}.cpv .b{font-weight:700}.cpv .sm{font-size:.88em}.cpv .w{word-break:break-word}.cpv .r{text-align:right}
+.cpv .logo{display:block;width:24mm;height:24mm;border-radius:50%;margin:0 auto 3mm;border:1.2px solid #000;padding:.6mm;object-fit:cover;background:#fff}
+.cpv.w58 .logo{width:19mm;height:19mm}
+.cpv .name{font-size:1.3em;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-align:center;word-break:break-word}
+.cpv .lema{font-style:italic;text-align:center;font-size:.88em}
+.cpv .badge{border:1.5px solid #000;padding:1.6mm 1mm;margin:2mm 0;text-align:center}
+.cpv .badge .t{font-size:.92em;letter-spacing:.08em;font-weight:700}.cpv .badge .n{font-size:1.2em;font-weight:700;margin-top:.5mm}
+.cpv .kv{display:flex;gap:6px;justify-content:space-between}.cpv .kv span:first-child{flex:none}.cpv .kv span:last-child{text-align:right;word-break:break-word}
+.cpv .dash{border:0;border-top:1px dashed #000;margin:2.5mm 0}.cpv .dbl{border:0;border-top:3px double #000;margin:2.5mm 0}
+.cpv table{width:100%;border-collapse:collapse}
+.cpv th{font-size:.85em;letter-spacing:.06em;text-align:left;padding-bottom:1mm;border-bottom:1px solid #000}
+.cpv td{padding:.4mm 0;vertical-align:top}.cpv tr.it td{padding-top:1.4mm}
+.cpv .grand{border:1.5px solid #000;padding:1.6mm 2mm;margin-top:2mm;display:flex;justify-content:space-between;font-size:1.3em;font-weight:700}
+.cpv .words{font-size:.88em;margin-top:2mm;font-style:italic}
+.cpv .orn{text-align:center;letter-spacing:.5em;font-size:.8em;margin:2mm 0}
+.cpv .qr{display:flex;justify-content:center;margin:3.5mm 0 1mm}
+.cpv .qr img{width:30mm;height:30mm;padding:1.2mm;border:1px solid #000;image-rendering:pixelated}
+.cpv .legal{border:1px dashed #000;text-align:center;font-size:.8em;padding:1mm;margin:2mm 0;letter-spacing:.03em}
+`;
+
+/* ---------------------------- RENDER ---------------------------- */
+/**
+ * Devuelve el HTML del ticket (string) a partir de un pedido y la config.
+ * opciones: { numero, qr, atendidoPor }  → sobreescriben lo calculado.
+ */
+export async function comprobanteHTML(pedido, config, opciones = {}) {
+  const cfg = merge(CONFIG_DEFAULT, config), p = normalizar(pedido);
+  const n = cfg.negocio, d = cfg.documento, m = cfg.mostrar, cli = p.cliente || {};
+  const codigo = codigoDe(p);
+  const numero = opciones.numero || p.numeroComprobante || [d.serie, codigo].filter(Boolean).join("-");
+
+  const prods = p.productos || [];
+  const sumProd = prods.reduce((s, x) => s + (Number(x.subtotal ?? (Number(x.cantidad) || 0) * (Number(x.precio_unitario) || 0)) || 0), 0);
+  const desc = Number(p.descuentoCupon) || 0;
+  const deliv = p.delivery && !p.delivery.gratis ? Number(p.delivery.costo) || 0 : 0;
+  const total = typeof p.total === "number" ? p.total : Math.max(0, sumProd - desc) + deliv;
+  const base = cfg.igv.activo ? total / (1 + (Number(cfg.igv.tasa) || 18) / 100) : total;
+  const igv = total - base;
+
+  const filas = prods.map((x) => {
+    const cant = Number(x.cantidad) || 0;
+    const imp = Number(x.subtotal ?? cant * (Number(x.precio_unitario) || 0)) || 0;
+    const pu = Number(x.precio_unitario ?? (cant ? imp / cant : 0)) || 0;
+    const ops = m.opcionesProductos ? opcionesLineas(x) : [];
+    return `<tr class="it"><td colspan="2" class="w">${esc(x.nombre)}</td></tr>`
+      + ops.map((o) => `<tr><td colspan="2" class="sm w">&nbsp;+ ${esc(o)}</td></tr>`).join("")
+      + `<tr><td>${cant} x ${money(pu)}</td><td class="r">${x.esCanje ? "CANJE" : money(imp)}</td></tr>`;
+  }).join("");
+
+  const atendido = opciones.atendidoPor || p.atendidoPor;
+  const entrega = cli.tipo_entrega || (p.mesa && p.mesa.numero != null ? `Mesa ${p.mesa.numero}` : "");
+  const kv = (a, b) => (b ? `<div class="kv"><span>${a}</span><span>${esc(b)}</span></div>` : "");
+  const doc = cli.documento || cli.dni || cli.ruc;
+
+  let qrHtml = "";
+  if (m.qr) {
+    const txt = opciones.qr || String(cfg.qr.plantilla || "").replace(/\{codigo\}/g, codigo).replace(/\{id\}/g, p.id || "");
+    const img = txt ? await qrDataURL(txt) : "";
+    if (img) qrHtml = `<div class="qr"><img src="${img}" alt="QR"></div>${cfg.qr.texto ? `<div class="c sm w">${esc(cfg.qr.texto)}</div>` : ""}`;
+  }
+
+  return `<div class="cpv ${cfg.papel === "58" ? "w58" : ""}">
+    ${n.logo ? `<img class="logo" src="${n.logo}" alt="">` : ""}
+    <div class="name">${esc(n.nombre)}</div>
+    ${n.lema ? `<div class="lema">${esc(n.lema)}</div>` : ""}
+    ${n.ruc ? `<div class="c b">RUC ${esc(n.ruc)}</div>` : ""}
+    ${n.direccion ? `<div class="c sm w">${esc(n.direccion)}</div>` : ""}
+    ${n.telefono ? `<div class="c sm">WhatsApp/Tel: ${esc(n.telefono)}</div>` : ""}
+    ${n.redes ? `<div class="c sm w">${esc(n.redes)}</div>` : ""}
+    <div class="badge"><div class="t">${esc(d.tipo)}</div>${d.mostrarNumero && numero ? `<div class="n">${esc(numero)}</div>` : ""}</div>
+    ${kv("Fecha:", fechaDe(p))}
+    ${kv("Atendido por:", atendido)}
+    ${m.cliente ? kv("Cliente:", cli.nombre || "CLIENTE VARIOS") + kv(cli.tipoDoc ? cli.tipoDoc + ":" : "Doc.:", doc) : ""}
+    ${m.cliente && m.telefonoCliente ? kv("Tel.:", cli.telefono || cli.whatsapp || cli.celular) : ""}
+    ${m.cliente && m.direccionCliente ? kv("Dir.:", cli.direccion) : ""}
+    ${kv("Entrega:", entrega)}
+    ${m.metodoPago ? kv("Pago:", p.pago && p.pago.metodo) : ""}
+    <hr class="dbl">
+    <table><tr><th>DESCRIPCIÓN</th><th class="r">IMPORTE</th></tr>${filas}</table>
+    <hr class="dash">
+    <table>
+      ${desc > 0 || deliv > 0 || (p.delivery && p.delivery.gratis) ? `<tr><td>Subtotal</td><td class="r">S/ ${money(sumProd)}</td></tr>` : ""}
+      ${desc > 0 ? `<tr><td>Descuento${p.cupon && p.cupon.codigo ? " (" + esc(p.cupon.codigo) + ")" : ""}</td><td class="r">- S/ ${money(desc)}</td></tr>` : ""}
+      ${deliv > 0 ? `<tr><td>Delivery${p.delivery.zona ? " · " + esc(p.delivery.zona) : ""}</td><td class="r">S/ ${money(deliv)}</td></tr>` : ""}
+      ${p.delivery && p.delivery.gratis ? `<tr><td>Delivery</td><td class="r">GRATIS</td></tr>` : ""}
+      ${cfg.igv.activo ? `<tr><td>Op. gravada</td><td class="r">S/ ${money(base)}</td></tr><tr><td>IGV (${Number(cfg.igv.tasa) || 18}%)</td><td class="r">S/ ${money(igv)}</td></tr>` : ""}
+    </table>
+    <div class="grand"><span>TOTAL</span><span>S/ ${money(total)}</span></div>
+    ${p.pago && Number(p.pago.vuelto) ? `<div class="kv" style="margin-top:1.5mm"><span>Vuelto:</span><span>S/ ${money(p.pago.vuelto)}</span></div>` : ""}
+    ${m.enLetras ? `<div class="words w">${montoEnLetras(total)}</div>` : ""}
+    ${m.nota && p.nota ? `<div class="sm w" style="margin-top:2mm">Nota: ${esc(p.nota)}</div>` : ""}
+    <div class="orn">• • •</div>
+    ${qrHtml}
+    <hr class="dash">
+    ${d.sinValorTributario ? `<div class="legal">DOCUMENTO SIN VALOR TRIBUTARIO</div>` : ""}
+    <div class="c sm w" style="white-space:pre-line">${esc(cfg.pie)}</div>
+  </div>`;
+}
+
+/** Dibuja el comprobante dentro de un elemento (vista previa). */
+export async function renderComprobante(el, pedido, config, opciones) {
+  if (!document.getElementById("cpv-style")) {
+    const s = document.createElement("style"); s.id = "cpv-style"; s.textContent = CSS_COMPROBANTE; document.head.appendChild(s);
+  }
+  el.innerHTML = await comprobanteHTML(pedido, config, opciones);
+}
+
+/** Imprime el comprobante (iframe oculto, sin abrir pestañas). */
+export async function imprimirComprobante(pedido, config, opciones) {
+  const cfg = merge(CONFIG_DEFAULT, config);
+  const html = await comprobanteHTML(pedido, cfg, opciones);
+  const f = document.createElement("iframe");
+  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(f);
+  const w = f.contentDocument;
+  w.open();
+  w.write(`<!doctype html><html><head><meta charset="utf-8"><title>Comprobante</title><style>${CSS_COMPROBANTE}@page{size:${cfg.papel}mm auto;margin:0}body{margin:0}</style></head><body>${html}</body></html>`);
+  w.close();
+  await new Promise((r) => {
+    let k = w.images.length; if (!k) return r();
+    [...w.images].forEach((i) => (i.complete ? --k || r() : (i.onload = i.onerror = () => --k || r())));
+    setTimeout(r, 1500);
+  });
+  f.contentWindow.focus(); f.contentWindow.print();
+  setTimeout(() => f.remove(), 2000);
+}
+
+/* ---------------------------- DEMO (solo para la vista previa) ---------------------------- */
+export function pedidoDemo() {
+  return {
+    id: "DEMO8F3K2A", timestamp: new Date(),
+    cliente: { nombre: "Juan Pérez", telefono: "999 888 777", direccion: "Jr. Los Pinos 456", tipo_entrega: "Delivery" },
+    productos: [
+      { nombre: "Pollo a la brasa 1/4", cantidad: 1, precio_unitario: 16, subtotal: 16, opciones: { Cremas: { Mayonesa: 1, "Ají": 1 } } },
+      { nombre: "Gaseosa 500ml", cantidad: 2, precio_unitario: 2.5, subtotal: 5 },
+      { nombre: "Postre del día", cantidad: 1, precio_unitario: 0, subtotal: 0, esCanje: true },
+    ],
+    descuentoCupon: 2, cupon: { codigo: "BIENVENIDO" }, delivery: { costo: 3, zona: "Centro" },
+    total: 22, pago: { metodo: "Yape" }, nota: "Sin ají por favor",
+  };
+}

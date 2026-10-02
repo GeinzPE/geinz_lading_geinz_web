@@ -4506,7 +4506,7 @@ input:checked+.slider:before {
 }
 
 .sidebar-group-body.open {
-    max-height: 300px;
+ max-height: 600px;  
 }
 
 .sidebar.collapsed .sidebar-group-header .sbb-label,
@@ -4567,7 +4567,7 @@ input:checked+.slider:before {
 }
 
 .mobile-menu-group-body.open {
-    max-height: 400px;
+    max-height: 700px;   /* antes 400px */
     padding-top: 4px;
     padding-bottom: 4px;
 }

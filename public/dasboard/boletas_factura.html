@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi comprobante</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050505;--surface:#0B0B0F;--surface2:#111114;--border:#1C1C22;--border2:#23232B;
+  --accent:#7C3AED;--accent2:#9F67F5;--text:#F5F5F7;--text2:#A1A1AA;--text3:#71717A;--ok:#34D399;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-y:auto}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#000}
+::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:5px}
+
+.wrap{max-width:1180px;margin:auto;padding:22px 18px 90px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:22px;align-items:start}
+@media(max-width:900px){.wrap{grid-template-columns:1fr;padding-top:70px}}
+
+h1{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px}
+.sub{font-size:13px;color:var(--text3);margin-bottom:18px}
+.col{display:flex;flex-direction:column;gap:14px}
+
+.card{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:18px}
+.card h2{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;margin-bottom:14px}
+.hint{font-size:12px;color:var(--text3);margin:-8px 0 12px;line-height:1.5}
+
+label.f{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px}
+input[type=text],input[type=number],select,textarea{
+  width:100%;margin-top:5px;padding:11px 13px;background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:10px;color:var(--text);font:inherit;font-size:14px;outline:none;transition:.15s}
+textarea{resize:vertical;min-height:60px;line-height:1.5}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,58,237,.14)}
+select option{background:#111114}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px;cursor:pointer}
+.sw:last-child{border-bottom:0}
+.sw small{display:block;color:var(--text3);font-size:11.5px;margin-top:2px}
+.sw input{display:none}
+.sw i{position:relative;width:40px;height:23px;border-radius:20px;background:#2a2a33;flex:none;transition:.2s}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+i{background:var(--accent)}
+.sw input:checked+i::after{transform:translateX(17px)}
+
+.logo-box{display:flex;gap:16px;align-items:center}
+.drop{width:88px;height:88px;border-radius:50%;border:2px dashed #3a2e5a;background:var(--surface2);display:grid;place-items:center;overflow:hidden;cursor:pointer;flex:none;color:var(--text3);font-size:11px;text-align:center}
+.drop:hover{border-color:var(--accent)}
+.drop img{width:100%;height:100%;object-fit:cover}
+.logo-ctl{display:flex;flex-direction:column;gap:9px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;transition:.15s}
+.btn{background:var(--accent);color:#fff}.btn:hover{background:var(--accent2)}
+.sec{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}.sec:hover{border-color:var(--accent)}
+.chk{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--text2)}
+
+.preview{position:sticky;top:18px}
+@media(max-width:900px){.preview{position:static}}
+.paper{background:#1a1a20;border:1px solid var(--border2);border-radius:16px;padding:20px 0;display:flex;justify-content:center;overflow-x:auto}
+.paper.w58 .tk{transform:none}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(5,5,5,.94);backdrop-filter:blur(14px);border-top:1px solid var(--border2);padding:12px 18px;display:flex;gap:10px;justify-content:flex-end;align-items:center}
+.bar .msg{margin-right:auto;font-size:12.5px;color:var(--text3)}
+.bar .msg.ok{color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="col">
+    <div>
+      <h1>Mi comprobante</h1>
+      <p class="sub">Configúralo una vez. Se usará en cada venta que imprimas desde el historial.</p>
+    </div>
+
+    <div class="card">
+      <h2>Logo</h2>
+      <div class="logo-box">
+        <div class="drop" id="drop"><span>Subir<br>logo</span></div>
+        <div class="logo-ctl">
+          <input type="file" id="logoFile" accept="image/*" hidden>
+          <div class="btns">
+            <button class="btn" id="logoBtn" type="button">Subir imagen</button>
+            <button class="sec" id="logoDel" type="button">Quitar</button>
+          </div>
+          <label class="chk"><input type="checkbox" id="logoBw" checked> Blanco y negro (mejor en impresora térmica)</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tu negocio</h2>
+      <label class="f">Nombre<input type="text" data-k="negocio.nombre"></label>
+      <label class="f">Eslogan o rubro (opcional)<input type="text" data-k="negocio.lema" placeholder="Ej: Postres caseros"></label>
+      <div class="row">
+        <label class="f">RUC (opcional)<input type="text" data-k="negocio.ruc" maxlength="11" inputmode="numeric"></label>
+        <label class="f">WhatsApp / Teléfono<input type="text" data-k="negocio.telefono"></label>
+      </div>
+      <label class="f">Dirección o zona<input type="text" data-k="negocio.direccion"></label>
+      <label class="f" style="margin:0">Redes sociales<input type="text" data-k="negocio.redes" placeholder="@minegocio"></label>
+    </div>
+
+    <div class="card">
+      <h2>Documento</h2>
+      <label class="f">Tipo
+        <select id="tipoSel" data-k="documento.tipo">
+          <option>BOLETA DE VENTA ELECTRÓNICA</option>
+          <option>COMPROBANTE DE VENTA</option>
+          <option>NOTA DE VENTA</option>
+          <option>TICKET DE VENTA</option>
+          <option>RECIBO DE PAGO</option>
+          <option>PROFORMA / COTIZACIÓN</option>
+        </select>
+      </label>
+      <label class="f">Serie<input type="text" data-k="documento.serie" maxlength="6"></label>
+      <label class="sw"><span>Mostrar serie y número<small>Ej: B001-8F3K2A</small></span><input type="checkbox" data-k="documento.mostrarNumero"><i></i></label>
+      <label class="sw"><span>Documento sin valor tributario<small>Actívalo si no tienes RUC</small></span><input type="checkbox" data-k="documento.sinValorTributario"><i></i></label>
+      <label class="sw"><span>Precios incluyen IGV<small>Muestra el desglose de IGV</small></span><input type="checkbox" data-k="igv.activo"><i></i></label>
+    </div>
+
+    <div class="card">
+      <h2>Qué mostrar</h2>
+      <label class="sw"><span>Datos del cliente</span><input type="checkbox" data-k="mostrar.cliente"><i></i></label>
+      <label class="sw"><span>Teléfono del cliente</span><input type="checkbox" data-k="mostrar.telefonoCliente"><i></i></label>
+      <label class="sw"><span>Dirección del cliente</span><input type="checkbox" data-k="mostrar.direccionCliente"><i></i></label>
+      <label class="sw"><span>Método de pago</span><input type="checkbox" data-k="mostrar.metodoPago"><i></i></label>
+      <label class="sw"><span>Opciones de productos<small>Cremas, extras, comentarios</small></span><input type="checkbox" data-k="mostrar.opcionesProductos"><i></i></label>
+      <label class="sw"><span>Nota del pedido</span><input type="checkbox" data-k="mostrar.nota"><i></i></label>
+      <label class="sw"><span>Monto en letras</span><input type="checkbox" data-k="mostrar.enLetras"><i></i></label>
+      <label class="sw"><span>Código QR</span><input type="checkbox" data-k="mostrar.qr"><i></i></label>
+    </div>
+
+    <div class="card">
+      <h2>QR, mensaje y papel</h2>
+      <label class="f">Enlace del QR
+        <input type="text" data-k="qr.plantilla" placeholder="https://minegocio.pe/c/{codigo}">
+      </label>
+      <p class="hint">Usa {codigo} para insertar el código de cada venta.</p>
+      <label class="f">Texto bajo el QR<input type="text" data-k="qr.texto"></label>
+      <label class="f">Mensaje final<textarea data-k="pie" rows="2"></textarea></label>
+      <label class="f" style="margin:0">Ancho de papel
+        <select data-k="papel"><option value="80">80 mm</option><option value="58">58 mm</option></select>
+      </label>
+    </div>
+  </div>
+
+  <div class="preview">
+    <div class="sub" style="margin-bottom:10px">Vista previa con una venta de ejemplo</div>
+    <div class="paper"><div id="ticket"></div></div>
+  </div>
+</div>
+
+<div class="bar">
+  <span class="msg" id="msg"></span>
+  <button class="sec" id="btnPrint" type="button">Probar impresión</button>
+  <button class="btn" id="btnSave" type="button">Guardar cambios</button>
+</div>
+
+<script type="module">
+import {
+  cargarConfigComprobante, guardarConfigComprobante, procesarLogo,
+  renderComprobante, imprimirComprobante, pedidoDemo
+} from "../js/dasboardjs/comprobantes.js";   // ← ajusta la ruta si guardas el módulo en otra carpeta
+
+/* ── ID de la tienda ──
+   Ajusta esta línea a como obtienes el id de tu negocio (storage.js, sesión, etc.).
+   Por ahora lo toma de ?tienda=... y, si no, de localStorage("tiendaId"). */
+const TIENDA_ID = new URLSearchParams(location.search).get("tienda")
+               || localStorage.getItem("tiendaId") || "";
+
+const $ = (id) => document.getElementById(id);
+let cfg = cargarConfigComprobante(TIENDA_ID);
+let logoOriginal = "";
+
+/* get/set por ruta "a.b.c" */
+const get = (o, p) => p.split(".").reduce((x, k) => x?.[k], o);
+const set = (o, p, v) => { const ks = p.split("."); const l = ks.pop(); ks.reduce((x, k) => (x[k] ??= {}), o)[l] = v; };
+
+function pintarFormulario() {
+  document.querySelectorAll("[data-k]").forEach((el) => {
+    const v = get(cfg, el.dataset.k);
+    if (el.type === "checkbox") el.checked = !!v; else el.value = v ?? "";
+  });
+  pintarLogo();
+}
+function pintarLogo() {
+  $("drop").innerHTML = cfg.negocio.logo ? `<img src="${cfg.negocio.logo}" alt="logo">` : "<span>Subir<br>logo</span>";
+}
+
+let t;
+function vista() {
+  clearTimeout(t);
+  t = setTimeout(async () => {
+    await renderComprobante($("ticket"), pedidoDemo(), cfg);
+    $("msg").textContent = ""; $("msg").className = "msg";
+  }, 120);
+}
+
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (!el.dataset?.k) return;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.k === "negocio.ruc") {
+    v = v.replace(/\D/g, ""); el.value = v;
+    set(cfg, "documento.sinValorTributario", !v);              // sin RUC → sin valor tributario
+    document.querySelector('[data-k="documento.sinValorTributario"]').checked = !v;
+  }
+  set(cfg, el.dataset.k, v);
+  $("msg").textContent = "Cambios sin guardar";
+  vista();
+});
+
+/* Logo */
+async function aplicarLogo() {
+  if (!logoOriginal) { cfg.negocio.logo = ""; pintarLogo(); return vista(); }
+  try { cfg.negocio.logo = await procesarLogo(logoOriginal, { bn: $("logoBw").checked }); }
+  catch { $("msg").textContent = "No se pudo leer la imagen"; }
+  pintarLogo(); vista();
+}
+$("drop").onclick = $("logoBtn").onclick = () => $("logoFile").click();
+$("logoFile").onchange = (e) => {
+  const f = e.target.files[0]; if (!f || !f.type.startsWith("image/")) return;
+  const r = new FileReader(); r.onload = () => { logoOriginal = r.result; aplicarLogo(); }; r.readAsDataURL(f);
+};
+$("logoDel").onclick = () => { logoOriginal = ""; $("logoFile").value = ""; aplicarLogo(); };
+$("logoBw").onchange = () => { if (logoOriginal) aplicarLogo(); };
+
+/* Guardar / probar */
+$("btnSave").onclick = () => {
+  const ok = guardarConfigComprobante(TIENDA_ID, cfg);
+  $("msg").textContent = ok ? "Guardado ✓" : "No se pudo guardar";
+  $("msg").className = "msg" + (ok ? " ok" : "");
+};
+$("btnPrint").onclick = () => imprimirComprobante(pedidoDemo(), cfg);
+
+pintarFormulario();
+vista();
+</script>
+</body>
+</html>

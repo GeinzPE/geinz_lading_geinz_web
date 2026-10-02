@@ -316,10 +316,24 @@ const ORIGENES_INFO = {
   directo: { label: "Venta directa", icon: "🧾", color: "bg-primary/25" },
 };
 
+function esPedidoDeMesa(p) {
+  const tipoEntrega = (p.cliente && p.cliente.tipo_entrega) || "";
+  const metodo = ((p.pago && p.pago.metodo) || "").toLowerCase();
+  return (
+    p.esMesa === true ||
+    tipoEntrega === "En mesa" ||
+    metodo === "en mesa" ||
+    (p.mesa && p.mesa.numero != null) ||
+    (p.mesaId && p.mesaNumero != null) ||
+    (Array.isArray(p.mesas) && p.mesas.length > 0) ||
+    (Array.isArray(p.mesasGrupo) && p.mesasGrupo.length > 0)
+  );
+}
+
 function getOrigenInfo(p) {
   const tipoEntrega = (p.cliente && p.cliente.tipo_entrega) || "";
   let key = "delivery";
-  if (p.esMesa === true || tipoEntrega === "En mesa") key = "mesa";
+  if (esPedidoDeMesa(p)) key = "mesa";
   else if (tipoEntrega === "Venta directa") key = "directo";
   else if (tipoEntrega === "Recojo en local") key = "recojo";
   return { key, ...ORIGENES_INFO[key] };

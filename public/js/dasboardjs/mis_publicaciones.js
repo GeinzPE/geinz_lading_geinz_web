@@ -2,6 +2,8 @@ import {
   onSnapshot, query, orderBy, doc, updateDoc, increment, Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { tiendaSubCol } from "../rutas/rutas.js";
+import { initExport, botonesExportDetalleHtml, enlazarExportDetalle, panelReactivarHtml }
+  from "./exportar_publicaciones.js";
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
@@ -599,23 +601,8 @@ function abrirDetalle(promo) {
           </div>`
     : "";
 const durOrig = duracionOriginalMs(promo);
-  const panelReactivar = expirado ? `
-    <div id="panel-reactivar" class="p-4 border-b border-zinc-800/80 bg-rose-500/5 space-y-3">
-      <p class="text-xs font-bold text-rose-300">Esta promoción expiró. ¿Quieres reactivarla?</p>
-      ${durOrig ? `<button id="btn-react-igual" class="w-full rounded-xl bg-white text-black text-xs font-bold py-2.5">
-        Reactivar con el mismo plazo (${formatDur(durOrig)})</button>` : ""}
-      <div class="flex gap-2">
-        <input id="react-cant" type="number" min="1" value="1"
-          class="w-20 bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 rounded-xl px-3 py-2 outline-none">
-        <select id="react-unidad"
-          class="bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 rounded-xl px-3 py-2 outline-none">
-          <option value="horas">Horas</option>
-          <option value="dias" selected>Días</option>
-        </select>
-        <button id="btn-react-custom" class="flex-1 rounded-xl bg-purple-500 text-white text-xs font-bold py-2">Reactivar</button>
-      </div>
-      <p id="react-msg" class="text-[11px] text-zinc-500 min-h-[14px]"></p>
-    </div>` : "";
+const panelReactivar = expirado ? panelReactivarHtml(durOrig ? formatDur(durOrig) : null) : "";
+
   const pagos = (promo.pagos || [])
     .map((p) => `<span class="tag-chip capitalize">${p}</span>`)
     .join(" ");
@@ -636,6 +623,8 @@ const durOrig = duracionOriginalMs(promo);
             }
             <div class="absolute inset-0 bg-gradient-to-t from-[#0b0b10] via-transparent to-black/40"></div>
             <button id="btn-cerrar-modal" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 backdrop-blur text-zinc-300 hover:text-white border border-white/10 flex items-center justify-center transition-colors">✕</button>
+            ${botonesExportDetalleHtml()}
+
             <span class="absolute bottom-3 right-3 timer-chip ${expirado ? "expired" : ""} text-[11px] font-mono font-bold px-3 py-1 rounded-lg text-white">
               ${tiempoRestante(promo) ? `⏳ ${tiempoRestante(promo)}` : "🔴 Expirado"}
             </span>
@@ -744,7 +733,7 @@ const durOrig = duracionOriginalMs(promo);
   el("overlay-detalle").classList.add("show");
   renderAnalyticsDetalle(promo); // antes decía renderChartsDetalle (no existe)
   el("btn-cerrar-modal").addEventListener("click", cerrarDetalle);
-
+enlazarExportDetalle(promo); 
   if (expirado) {
     const msg = el("react-msg");
     let busy = false;
@@ -783,3 +772,4 @@ el("overlay-detalle").addEventListener("click", (e) => {
 });
 
 if (tiendaId && localidad) iniciarSuscripcion();
+initExport({ getPromos: () => promos, esExpirado });

@@ -140,7 +140,14 @@ const MESA_ADMIN_CSS = `
         .mb-check{display:none;position:absolute;top:14px;left:14px;width:22px;height:22px;border-radius:50%;background:#7c5cff;color:#fff;align-items:center;justify-content:center;font-size:12px;font-weight:900;box-shadow:0 0 0 2px var(--bg,#08080c);}
         .mesa-box.selected .mb-check{display:flex;}
         .oc-btn.v-amber{background:var(--amber,#f59e0b);color:#1a1200;}
-        
+        .mesa-box.al-cuenta{border-color:#f87171 !important;background:rgba(248,113,113,.16);--pc:248,113,113;animation:mesa-al 1s ease-in-out infinite;}
+.mesa-box.al-ayuda{border-color:#fb923c !important;background:rgba(251,146,60,.16);--pc:251,146,60;animation:mesa-al 1s ease-in-out infinite;}
+.mesa-box.al-mozo{border-color:#38bdf8 !important;background:rgba(56,189,248,.10);border-style:dashed;}
+.mesa-box.al-listo{border-color:#a78bfa !important;background:rgba(167,139,250,.16);--pc:167,139,250;animation:mesa-al 1.6s ease-in-out infinite;}
+@keyframes mesa-al{0%,100%{box-shadow:0 0 0 0 rgba(var(--pc),.5);}50%{box-shadow:0 0 0 10px rgba(var(--pc),0);}}
+.mesa-alerta-badge{display:inline-block;margin-top:4px;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.1);}
+.mesa-alerta-badge.cuenta{color:#f87171;} .mesa-alerta-badge.ayuda{color:#fb923c;}
+.mesa-alerta-badge.mozo{color:#38bdf8;} .mesa-alerta-badge.listo{color:#a78bfa;}
         `;
 const NP_UI_CSS = `
 .np-search-wrap{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
@@ -1075,6 +1082,14 @@ function getOrigen(p) {
       numero: Number(p.mesaNumero),
       nombre: p.mesaNombre || null,
       mesaId: p.mesaId,
+    };
+  }
+  if (Array.isArray(p?.mesas) && p.mesas.length) {
+    return {
+      tipo: "mesa",
+      numero: Number(p.mesas[0].numero),
+      nombre: p.mesas.map((m) => m.nombre).join(" + "),
+      mesaId: p.mesas[0].id,
     };
   }
   return { tipo: "whatsapp", numero: null, nombre: null, mesaId: null };
@@ -2199,10 +2214,10 @@ autoresSave.addEventListener("click", () => {
 /* ══════════════ Control de filtro de origen (Todos / WhatsApp / Mesas) ══════════════
            Esto SOLO filtra en el cliente sobre lo que ya trajo la query de fecha — no requiere
            una nueva suscripción a Firestore, porque el volumen ya está acotado por fecha. */
-           const VISTAS = {
-  whatsapp: { board: true,  tabs: true,  mesas: false, directo: false },
-  mesa:     { board: false, tabs: false, mesas: true,  directo: false },
-  directo:  { board: false, tabs: false, mesas: false, directo: true  },
+const VISTAS = {
+  whatsapp: { board: true, tabs: true, mesas: false, directo: false },
+  mesa: { board: false, tabs: false, mesas: true, directo: false },
+  directo: { board: false, tabs: false, mesas: false, directo: true },
 };
 
 function aplicarVista(origen) {
@@ -2230,7 +2245,7 @@ originBar.querySelectorAll(".origin-chip").forEach((chip) => {
       .querySelectorAll(".origin-chip")
       .forEach((c) => c.classList.toggle("active", c === chip));
     actualizarVisibilidadDeli();
-aplicarVista(originFilter);
+    aplicarVista(originFilter);
     // El auto-rechazo por tiempo es una funcionalidad exclusiva de WhatsApp
     const autorejWrapEl = document.querySelector(".autorej-wrap");
     if (autorejWrapEl)
@@ -2254,6 +2269,108 @@ aplicarVista(originFilter);
            Muestra TODAS las mesas registradas en /mesas, tengan o no pedidos ahora mismo.
            El punto verde indica que esa mesa tiene al menos un pedido pendiente o en proceso
            dentro del periodo de fecha actualmente cargado. */
+/* ── Mozo intermediario / alertas de mesa ── */
+const llamadosMap = new Map();
+let llamadosPrimero = true;
+let llamadosIniciado = false;
+
+function pedidoEsperaMozo(ped) {
+  return (
+    bizDataGlobal?.mesas_config?.mozoIntermediario === true &&
+    ped?.estadoMozo !== "confirmado" &&
+    !ped?.mozoConfirmo
+  );
+}
+function mesaEsperaMozo(m) {
+  const g = m.grupoId ? gruposMap.get(m.grupoId) : null;
+  const ped = g ? g.pedido : m.pedido;
+  return !!ped && pedidoEsperaMozo(ped);
+}
+// cuenta > ayuda > esperando mozo > listo
+function alertaDeMesas(lista) {
+  if (!lista.some((m) => ["ocupado", "pedido_pendiente"].includes(m.estado)))
+    return "";
+  const nums = new Set(lista.map((m) => Number(m.numero_mesa)));
+  const ll = [...llamadosMap.values()].filter(
+    (l) => l.estado === "pendiente" && nums.has(Number(l.mesaNumero)),
+  );
+  if (ll.some((l) => l.motivo === "cuenta")) return "cuenta";
+  if (ll.some((l) => l.motivo === "ayuda")) return "ayuda";
+  if (lista.some(mesaEsperaMozo)) return "mozo";
+  if (
+    lista.some(
+      (m) =>
+        (m.grupoId ? gruposMap.get(m.grupoId)?.pedido : m.pedido)?.estado ===
+        "listo",
+    )
+  )
+    return "listo";
+  return "";
+}
+const AL_LABEL = {
+  cuenta: "🧾 Pide la cuenta",
+  ayuda: "🔔 Llama al mozo",
+  mozo: "🧑‍🍳 Esperando al mozo",
+  listo: "✅ Pedido listo",
+};
+function alertaBadgeHtml(al) {
+  return al
+    ? `<span class="mesa-alerta-badge ${al}">${AL_LABEL[al]}</span>`
+    : "";
+}
+async function atenderLlamadosMesa(nums) {
+  const ls = [...llamadosMap.values()].filter((l) =>
+    nums.includes(Number(l.mesaNumero)),
+  );
+  await Promise.all(
+    ls.map((l) =>
+      updateDoc(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "llamados_mesa", l.id),
+        {
+          estado: "atendido",
+          atendidoPor: "Panel",
+          atendidoEn: serverTimestamp(),
+        },
+      ),
+    ),
+  );
+}
+function iniciarListenerLlamados() {
+  if (!tiendaId || llamadosIniciado) return;
+  llamadosIniciado = true;
+  onSnapshot(
+    query(
+      tiendaSubCol(localidad, "tiendas", tiendaId, "llamados_mesa"),
+      where("estado", "==", "pendiente"),
+    ),
+    (snap) => {
+      const nuevos = [];
+      snap.docChanges().forEach((ch) => {
+        if (ch.type === "removed") return llamadosMap.delete(ch.doc.id);
+        const d = { id: ch.doc.id, ...ch.doc.data() };
+        if (ch.type === "added" && !llamadosPrimero) nuevos.push(d);
+        llamadosMap.set(ch.doc.id, d);
+      });
+      llamadosPrimero = false;
+      if (originFilter === "mesa") renderMesaGrid();
+      if (activeModalId && String(activeModalId).startsWith("mesa:"))
+        renderMesaDetail(Number(String(activeModalId).split(":")[1]));
+      if (nuevos.length) {
+        playMesaChime();
+        bellRingFeedback();
+        showToast(
+          nuevos
+            .map(
+              (l) =>
+                `${l.motivo === "cuenta" ? "🧾" : "🔔"} ${l.mesaNombre || "Mesa " + l.mesaNumero}`,
+            )
+            .join(" · "),
+        );
+      }
+    },
+    (err) => console.warn("llamados_mesa:", err),
+  );
+}
 function getPedidosDeMesa(numeroMesa) {
   const activos = [];
   mesasMap.forEach((m, mesaDocId) => {
@@ -2263,6 +2380,7 @@ function getPedidosDeMesa(numeroMesa) {
     if (m.grupoId) {
       const grupo = gruposMap.get(m.grupoId);
       if (!grupo || grupo.estado !== "activo" || !grupo.pedido) return;
+      if (pedidoEsperaMozo(grupo.pedido)) return;
       const pseudoPedido = {
         estado: "pendiente",
         estadoMozo: grupo.pedido.estadoMozo || null,
@@ -2282,7 +2400,7 @@ function getPedidosDeMesa(numeroMesa) {
         pago: grupo.pedido.pago || {},
         nota: grupo.pedido.nota || "",
         productos: grupo.pedido.productos || [],
-        bloques: grupo.pedido.bloques || [],
+        bloques: grupo.pedido.editadoPorMozo ? [] : grupo.pedido.bloques || [],
         total_items: grupo.pedido.total_items || 0,
         total: grupo.pedido.total || 0,
         pedidoDocId: grupo.pedidoGrupoDocId || null,
@@ -2300,10 +2418,10 @@ function getPedidosDeMesa(numeroMesa) {
       !m.pedido
     )
       return;
-
+    if (pedidoEsperaMozo(m.pedido)) return;
     const pseudoPedido = {
       estado: "pendiente",
-           estadoMozo: m.pedido.estadoMozo || null,
+      estadoMozo: m.pedido.estadoMozo || null,
       estadoMesa: m.pedido.estadoMesa || null,
       timestamp: m.pedido.timestamp,
       fecha: m.pedido.fecha,
@@ -2329,7 +2447,7 @@ function getPedidosDeMesa(numeroMesa) {
   return activos;
 }
 function getMesaEstadoVisual(m, activos) {
-  if (activos.length > 0 || m.estado === "ocupado") {
+  if (activos.length > 0 || m.estado === "ocupado" || mesaEsperaMozo(m)) {
     const sinConfirmar = activos.some(([, p]) => p.estadoMozo !== "confirmado");
     return sinConfirmar ? "pedido_pendiente" : "ocupada";
   }
@@ -2439,6 +2557,7 @@ function renderMesaGrid() {
     .map((bloque) => {
       if (bloque.tipo === "single") {
         const { m, mesaDocId, activos, estadoVisual } = bloque;
+        const alerta = estadoVisual === "libre" ? "" : alertaDeMesas([m]);
         const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
         const label = {
           ocupada: "Ocupada",
@@ -2462,9 +2581,10 @@ function renderMesaGrid() {
             ? `<div class="mesa-reserva-timer" data-reserva-ts="${toDate(m.reservado_en)?.getTime() || ""}">⏳ calculando…</div>`
             : "";
         return `
-    <div class="mesa-box ${estadoVisual}${esSeleccionable ? " selectable" : ""}${estaSeleccionada ? " selected" : ""}" data-mesa="${m.numero_mesa}" data-mesa-doc="${mesaDocId}" data-selectable="${esSeleccionable}">
+    <div class="mesa-box ${estadoVisual} al-${alerta}${esSeleccionable ? " selectable" : ""}${estaSeleccionada ? " selected" : ""}" data-mesa="${m.numero_mesa}" data-mesa-doc="${mesaDocId}" data-selectable="${esSeleccionable}">
         <span class="mb-check">✓</span>
         <span class="mb-status"><span class="dot"></span>${label}</span>
+                ${alertaBadgeHtml(alerta)}
         <div class="mb-name">${escapeHtml(m.nombre_alias || "Mesa " + m.numero_mesa)}</div>
         <div class="mb-total">${estadoVisual === "ocupada" ? fmtMoney(total) : "—"}</div>
      ${estadoVisual === "ocupada" ? `<div class="mb-count">${activos.length ? `${activos.length} pedido${activos.length === 1 ? "" : "s"}` : "Sin pedido registrado"}</div>` : ""}
@@ -2488,6 +2608,7 @@ function renderMesaGrid() {
       // Tarjeta única para todo el grupo: un solo total, un solo estado, abarca varias columnas
       const integrantes = bloque.integrantes;
       const primero = integrantes[0];
+      const alerta = alertaDeMesas(integrantes.map((x) => x.m));
       const color = colorParaEstadoGrupo(primero.estadoVisual);
       const nombres = integrantes
         .map((x) => x.m.nombre_alias || `Mesa ${x.m.numero_mesa}`)
@@ -2527,9 +2648,10 @@ function renderMesaGrid() {
           : "";
 
       return `
-    <div class="mesa-box grupo ${primero.estadoVisual}${esSeleccionableGrupo ? " selectable" : ""}${grupoSeleccionado ? " selected" : ""}" data-mesa="${primero.m.numero_mesa}" data-grupo-id="${bloque.grupoId}" data-selectable="${esSeleccionableGrupo}" style="--grupo-color:${color}; grid-column: span ${anchoSpan};">
+   <div class="mesa-box grupo ${primero.estadoVisual} al-${alerta}${esSeleccionableGrupo ? " selectable" : ""}${grupoSeleccionado ? " selected" : ""}" data-mesa="${primero.m.numero_mesa}" data-grupo-id="${bloque.grupoId}" data-selectable="${esSeleccionableGrupo}" style="--grupo-color:${color}; grid-column: span ${anchoSpan};">
         <span class="mb-check">✓</span>
         <span class="mb-status"><span class="dot"></span>${labelEstadoGrupo} · Grupo</span>
+                ${alertaBadgeHtml(alerta)}
         <div class="mb-name">${escapeHtml(nombres)}</div>
         <div class="mb-total">${primero.estadoVisual === "ocupada" ? fmtMoney(totalGrupo) : "—"}</div>
         ${primero.estadoVisual === "ocupada" ? `<div class="mb-count">${totalPedidos} pedido${totalPedidos === 1 ? "" : "s"} · cuenta única</div>` : ""}
@@ -3280,24 +3402,24 @@ function buildCard(id, p) {
 function renderCardActions(container, id, estado, p) {
   container.innerHTML = "";
 
-if (estado === "pendiente") {
-  const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
-  const txt = requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar →";
-  const puntosCalc = getPuntosPedido(id, p);
-  const puntosNota =
-    puntosCalc > 0
-      ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
-      : "";
-  container.innerHTML = `
+  if (estado === "pendiente") {
+    const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
+    const txt = requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar →";
+    const puntosCalc = getPuntosPedido(id, p);
+    const puntosNota =
+      puntosCalc > 0
+        ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
+        : "";
+    container.innerHTML = `
     ${puntosNota}
     <div class="oc-actions">
       <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar</button>
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
       <button class="oc-btn primary v-violet" data-action="${destino}">${txt}</button>
     </div>`;
-}else if (estado === "pendiente_pago") {
-  const tieneVoucher = !!p.pago?.voucher_url;
-  container.innerHTML = `
+  } else if (estado === "pendiente_pago") {
+    const tieneVoucher = !!p.pago?.voucher_url;
+    container.innerHTML = `
     <div class="oc-final-tag" style="width:100%;background:rgba(251,191,36,.12);color:#fbbf24;">
       ${tieneVoucher ? "💸 Comprobante recibido, revísalo" : "⏳ Esperando comprobante del cliente"}
     </div>
@@ -3306,14 +3428,14 @@ if (estado === "pendiente") {
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar</button>
       <button class="oc-btn primary v-green" data-action="en_proceso" ${tieneVoucher ? "" : "disabled"}>✅ Confirmar pago</button>
     </div>`;
-} else if (estado === "en_proceso") {
-  // ya NO hay botón de pausar
-  container.innerHTML = `
+  } else if (estado === "en_proceso") {
+    // ya NO hay botón de pausar
+    container.innerHTML = `
     <div class="oc-actions">
       <button class="oc-btn ghost" data-action="${requierePagoOnline(p) ? "pendiente_pago" : "pendiente"}">← Atrás</button>
       <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
     </div>`;
-} else if (estado === "en_pausa") {
+  } else if (estado === "en_pausa") {
     const r = p.respuesta_cliente;
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
@@ -3464,8 +3586,21 @@ function renderMesaDetail(numeroMesa) {
     (s, [, pOrder]) => s + (Number(pOrder.puntos_ganados) || 0),
     0,
   );
-
+  const numsLlamado =
+    mesasDelGrupo?.length > 1
+      ? mesasDelGrupo.map((m) => Number(m.numero))
+      : [Number(numeroMesa)];
+  const llamadosAct = [...llamadosMap.values()].filter((l) =>
+    numsLlamado.includes(Number(l.mesaNumero)),
+  );
+  const llamadosHtml = llamadosAct.length
+    ? `<div class="dm-cupon-card" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.35);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+         <b style="font-size:12.5px;">${llamadosAct.map((l) => (l.motivo === "cuenta" ? "🧾 Pide la cuenta" : "🔔 Necesita al mozo")).join(" · ")}</b>
+         <button type="button" class="oc-btn ghost" id="dmAtenderLlamado">Marcar atendido</button>
+       </div>`
+    : "";
   document.getElementById("dmBody").innerHTML = `
+        ${llamadosHtml}
         <div>
             <div class="dm-section-title">Detalle completo de la mesa</div>
             ${bloquesDePedidos}
@@ -3486,7 +3621,9 @@ function renderMesaDetail(numeroMesa) {
       <span class="dm-total-val">${fmtMoney(total)}</span>
     </div>
   `;
-
+  document
+    .getElementById("dmAtenderLlamado")
+    ?.addEventListener("click", () => atenderLlamadosMesa(numsLlamado));
   const esPendienteAceptar =
     activos.length > 0 &&
     activos.some(([, p]) => p.estadoMozo !== "confirmado");
@@ -3541,10 +3678,13 @@ function renderMesaDetail(numeroMesa) {
   } else {
     dmActions.innerHTML = `<div class="oc-final-tag" style="width:100%;background:var(--green-soft);color:var(--green);">✅ Mesa libre</div>`;
   }
-    if (activos.length && !esPendienteAceptar) {
+  if (activos.length && !esPendienteAceptar) {
     const fila = document.createElement("div");
     fila.style.cssText = "display:flex;gap:8px;width:100%;margin-bottom:8px;";
-    [["en_preparacion", "🔥 En preparación"], ["entregado", "🍽️ Entregado"]].forEach(([est, txt]) => {
+    [
+      ["en_preparacion", "🔥 En preparación"],
+      ["entregado", "🍽️ Entregado"],
+    ].forEach(([est, txt]) => {
       const b = document.createElement("button");
       b.className = "oc-btn ghost";
       b.style.flex = "1";
@@ -4377,28 +4517,31 @@ function renderDetail(id) {
 function renderModalActions(container, id, estado, p) {
   container.innerHTML = "";
 
-if (estado === "pendiente") {
-  const puntosCalc = getPuntosPedido(id, p);
-  const puntosNota = puntosCalc > 0
-    ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
-    : "";
-  const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
-  const txt = requierePagoOnline(p) ? "Aceptar y pedir pago →" : "Aceptar pedido →";
-  container.innerHTML = `
+  if (estado === "pendiente") {
+    const puntosCalc = getPuntosPedido(id, p);
+    const puntosNota =
+      puntosCalc > 0
+        ? `<div class="oc-puntos-aceptar" style="width:100%;">🎁 Al aceptar, el cliente ganará <strong>+${puntosCalc} puntos</strong></div>`
+        : "";
+    const destino = requierePagoOnline(p) ? "pendiente_pago" : "en_proceso";
+    const txt = requierePagoOnline(p)
+      ? "Aceptar y pedir pago →"
+      : "Aceptar pedido →";
+    container.innerHTML = `
     ${puntosNota}
     <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
     <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
     <button class="oc-btn primary v-violet" data-action="${destino}">${txt}</button>`;
-} else if (estado === "pendiente_pago") {
-  const tieneVoucher = !!p.pago?.voucher_url;
-  container.innerHTML = `
+  } else if (estado === "pendiente_pago") {
+    const tieneVoucher = !!p.pago?.voucher_url;
+    container.innerHTML = `
     <div class="oc-final-tag" style="width:100%;background:rgba(251,191,36,.12);color:#fbbf24;">
       ${tieneVoucher ? "💸 Comprobante recibido, revísalo" : "⏳ Esperando comprobante del cliente"}
     </div>
     <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
     <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
     <button class="oc-btn primary v-green" data-action="en_proceso" ${tieneVoucher ? "" : "disabled"}>✅ Confirmar pago</button>`;
-} else if (estado === "en_proceso") {
+  } else if (estado === "en_proceso") {
     container.innerHTML = `
       <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
@@ -4740,17 +4883,20 @@ async function cambiarEstado(pedidoId, nuevoEstado, btnEl, opts = {}) {
     if (nuevoEstado === "en_proceso" && "tiempoEstimadoMin" in opts) {
       payload.tiempo_estimado_min = opts.tiempoEstimadoMin;
       payload.tiempo_estimado_desde = serverTimestamp();
-       }
-    if (nuevoEstado === "pendiente_pago") payload.pago_solicitado_en = serverTimestamp();
+    }
+    if (nuevoEstado === "pendiente_pago")
+      payload.pago_solicitado_en = serverTimestamp();
     if (opts.tiempo) {
-      const esDel = pedidosMap.get(pedidoId)?.cliente?.tipo_entrega === "Delivery";
+      const esDel =
+        pedidosMap.get(pedidoId)?.cliente?.tipo_entrega === "Delivery";
       payload.tiempo_estimado = {
         min: opts.tiempo.min,
         max: opts.tiempo.max,
         tipo: esDel ? "delivery" : "recojo",
       };
     }
-    if (nuevoEstado === "en_proceso") payload.tiempo_estimado_desde = serverTimestamp();
+    if (nuevoEstado === "en_proceso")
+      payload.tiempo_estimado_desde = serverTimestamp();
 
     // ═══ 1) Actualiza el estado YA MISMO, sin esperar nada más ═══
     await updateDoc(ref, payload);
@@ -5088,22 +5234,22 @@ function renderBoard() {
 
     body.innerHTML = "";
     if (!count) {
- const icoMap = {
-  pendiente: "🌙",
-  pendiente_pago: "💸",
-  en_proceso: "🧊",
-  en_pausa: "⏸️",
-  entregado: "📭",
-  rechazado: "🚫",
-};
-const msgMap = {
-  pendiente: "No hay pedidos pendientes",
-  pendiente_pago: "Ningún pedido esperando pago",
-  en_proceso: "Nada en preparación ahora mismo",
-  en_pausa: "Ningún pedido en pausa",
-  entregado: "Aún no hay entregas registradas",
-  rechazado: "Sin pedidos rechazados",
-};
+      const icoMap = {
+        pendiente: "🌙",
+        pendiente_pago: "💸",
+        en_proceso: "🧊",
+        en_pausa: "⏸️",
+        entregado: "📭",
+        rechazado: "🚫",
+      };
+      const msgMap = {
+        pendiente: "No hay pedidos pendientes",
+        pendiente_pago: "Ningún pedido esperando pago",
+        en_proceso: "Nada en preparación ahora mismo",
+        en_pausa: "Ningún pedido en pausa",
+        entregado: "Aún no hay entregas registradas",
+        rechazado: "Sin pedidos rechazados",
+      };
       body.innerHTML = `<div class="col-empty"><div class="ce-ico">${icoMap[estado]}</div><p>${msgMap[estado]} en este periodo</p></div>`;
       return;
     }
@@ -7868,7 +8014,7 @@ let mesasFirstSnapshot = true;
 const mesaPedidoSignatures = new Map(); // mesaDocId -> firma del último pedido ya notificado
 
 function firmaPedidoMesa(pedido) {
-  return `${pedido?.hora || ""}|${pedido?.total_items || 0}|${pedido?.total || 0}`;
+  return `${pedido?.total_items || 0}|${pedido?.total || 0}|${pedido?.estadoMozo || ""}`;
 }
 
 function iniciarListenerMesas() {
@@ -7915,7 +8061,11 @@ function iniciarListenerMesas() {
         ) {
           const firma = firmaPedidoMesa(data.pedido);
           const firmaAnterior = mesaPedidoSignatures.get(d.id);
-          if (!mesasFirstSnapshot && firma !== firmaAnterior) {
+          if (
+            !mesasFirstSnapshot &&
+            firma !== firmaAnterior &&
+            !pedidoEsperaMozo(data.pedido)
+          ) {
             nuevosPedidosMesa.push({ mesaId: d.id, data });
           }
           mesaPedidoSignatures.set(d.id, firma);
@@ -7935,11 +8085,7 @@ function iniciarListenerMesas() {
         bellRingFeedback();
         nuevosPedidosMesa.forEach(({ data }) => {
           const numero = data.mesaNumero ?? data.pedido?.mesa?.numero ?? null;
-       const necesitaConfirmar =
-  data.pedido?.estadoMozo !== "confirmado" &&
-  bizDataGlobal?.mesas_config?.mozoIntermediario !== true;
-          if (necesitaConfirmar) encolarAlarmaMesa(numero);
-          else playMesaChime();
+          playMesaChime();
           const nombreMesa = data.mesaNombre || `Mesa ${numero ?? ""}`;
           notificarPedidoMesa(nombreMesa, data.pedido);
         });
@@ -8199,23 +8345,40 @@ function suscribirPedidos() {
 }
 
 let gruposListenerIniciado = false;
+let primerGruposDash = true;
+const grupoFirmaDash = new Map();
 function iniciarListenerGrupos() {
   if (!tiendaId || gruposListenerIniciado) return;
   gruposListenerIniciado = true;
-  const gruposRef = tiendaSubCol(
-    localidad,
-    "tiendas",
-    tiendaId,
-    "grupos_mesas",
-  );
+  const gruposRef = tiendaSubCol(localidad, "tiendas", tiendaId, "grupos_mesas");
   onSnapshot(
     gruposRef,
     (snap) => {
+      const nuevos = [];
       gruposMap.clear();
-      snap.forEach((d) => gruposMap.set(d.id, { id: d.id, ...d.data() }));
+      snap.forEach((d) => {
+        const g = { id: d.id, ...d.data() };
+        gruposMap.set(d.id, g);
+        const p = g.pedido;
+        if (p && ["activo", "pedido_pendiente"].includes(g.estado)) {
+          const f = `${p.total_items || 0}|${p.total || 0}|${p.estadoMozo || ""}`;
+          if (!primerGruposDash && grupoFirmaDash.get(d.id) !== f && !pedidoEsperaMozo(p))
+            nuevos.push(g);
+          grupoFirmaDash.set(d.id, f);
+        }
+      });
+      primerGruposDash = false;
       if (originFilter === "mesa") renderMesaGrid();
       if (activeModalId && String(activeModalId).startsWith("mesa:")) {
         renderMesaDetail(Number(String(activeModalId).split(":")[1]));
+      }
+      if (nuevos.length) {
+        playMesaChime();
+        bellRingFeedback();
+        showToast(
+          "🍽️ Pedido nuevo en " +
+            nuevos.map((g) => (g.mesas || []).map((m) => m.nombre).join(" + ")).join(", "),
+        );
       }
     },
     (err) => console.warn("No se pudieron cargar los grupos de mesas:", err),
@@ -8271,7 +8434,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       .querySelectorAll(".origin-chip")
       .forEach((c) => c.classList.toggle("active", c === chipDirecto));
     actualizarVisibilidadDeli();
-aplicarVista("directo");
+    aplicarVista("directo");
     await NuevoPedido.init();
   });
 
@@ -8289,6 +8452,7 @@ function iniciarListener() {
   if (!tiendaId) return;
   iniciarListenerMesas();
   iniciarListenerGrupos();
+  iniciarListenerLlamados();
   suscribirPedidos();
 }
 
@@ -8866,7 +9030,6 @@ function dlvAbrirSelector(id, p) {
   dlvPick.classList.add("show");
 }
 
-
 /* ══════════════ TIEMPOS ESTIMADOS ══════════════ */
 function getTiemposCfg() {
   const t = bizDataGlobal?.tiempos_estimados || {};
@@ -8888,6 +9051,7 @@ tmpOv.innerHTML = `
   <div class="dlv-box">
     <div class="dlv-head"><span>⏱️ Tiempos estimados</span><button type="button" data-x>✕</button></div>
     <p class="dlv-cfg-sub">Este rango se le muestra al cliente al confirmar su pedido. Podrás cambiarlo en cada pedido cuando lo aceptes.</p>
+
     <div class="dlv-cfg-row">
       <span class="l">Mostrar tiempo al cliente</span>
       <label class="switch"><input type="checkbox" id="tmpActivo"><span class="switch-track"></span></label>
@@ -8921,7 +9085,8 @@ function abrirAjusteTiempos() {
 }
 
 document.getElementById("tmpGuardar").addEventListener("click", async () => {
-  const n = (id) => Math.max(1, Math.round(Number(document.getElementById(id).value) || 1));
+  const n = (id) =>
+    Math.max(1, Math.round(Number(document.getElementById(id).value) || 1));
   const delivery = { min: n("tmpDelMin"), max: n("tmpDelMax") };
   const recojo = { min: n("tmpRecMin"), max: n("tmpRecMax") };
   if (delivery.max < delivery.min || recojo.max < recojo.min)
@@ -8985,9 +9150,16 @@ function pedirTiempo(p) {
     });
     ov.querySelector("#ptKeep").onclick = () => cerrar({});
     ov.querySelector("#ptOk").onclick = () => {
-      const min = Math.max(1, Math.round(Number(ov.querySelector("#ptMin").value) || 1));
-      const max = Math.max(1, Math.round(Number(ov.querySelector("#ptMax").value) || 1));
-      if (max < min) return showToast("El máximo no puede ser menor que el mínimo", true);
+      const min = Math.max(
+        1,
+        Math.round(Number(ov.querySelector("#ptMin").value) || 1),
+      );
+      const max = Math.max(
+        1,
+        Math.round(Number(ov.querySelector("#ptMax").value) || 1),
+      );
+      if (max < min)
+        return showToast("El máximo no puede ser menor que el mínimo", true);
       cerrar({ min, max });
     };
   });
@@ -9008,7 +9180,9 @@ const mozosCol = () => tiendaSubCol(localidad, "tiendas", tiendaId, "mozos");
 async function mzHash(pin, usuario) {
   const b = new TextEncoder().encode(`${tiendaId}:${usuario}:${pin}`);
   const h = await crypto.subtle.digest("SHA-256", b);
-  return [...new Uint8Array(h)].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return [...new Uint8Array(h)]
+    .map((x) => x.toString(16).padStart(2, "0"))
+    .join("");
 }
 let mzLista = [];
 
@@ -9028,24 +9202,32 @@ mzOv.innerHTML = `
   </div>`;
 document.body.appendChild(mzOv);
 mzOv.addEventListener("click", (e) => {
-  if (e.target === mzOv || e.target.hasAttribute("data-x")) mzOv.classList.remove("show");
+  if (e.target === mzOv || e.target.hasAttribute("data-x"))
+    mzOv.classList.remove("show");
 });
 
 function mzPintar() {
   document.getElementById("mzList").innerHTML = mzLista.length
-    ? mzLista.map((m) => `
+    ? mzLista
+        .map(
+          (m) => `
       <div class="dlv-item">
         <div class="dlv-av"><span>${escapeHtml((m.nombre || "?")[0].toUpperCase())}</span></div>
         <div class="dlv-info"><b>${escapeHtml(m.nombre)}</b><small>@${escapeHtml(m.usuario || "")}${m.activo === false ? " · inactivo" : ""}</small></div>
         <button class="dlv-mini" data-mz-pin="${m.id}" title="Cambiar PIN">🔑</button>
         <button class="dlv-mini" data-mz-tog="${m.id}" title="Activar/desactivar">${m.activo === false ? "▶" : "⏸"}</button>
         <button class="dlv-mini danger" data-mz-del="${m.id}" title="Eliminar">🗑</button>
-      </div>`).join("")
+      </div>`,
+        )
+        .join("")
     : `<div class="dlv-empty">Aún no hay mozos.</div>`;
 }
 async function mzAbrir() {
-  const base = bizDominioGlobal ? `https://${bizDominioGlobal}/trabajadores`
-    : bizAliasGlobal ? `geinztech.com/perfil/${bizAliasGlobal}/trabajadores` : "(configura tu alias)";
+  const base = bizDominioGlobal
+    ? `https://${bizDominioGlobal}/trabajadores`
+    : bizAliasGlobal
+      ? `geinztech.com/perfil/${bizAliasGlobal}/trabajadores`
+      : "(configura tu alias)";
   document.getElementById("mzLink").textContent = base;
   const snap = await getDocs(mozosCol());
   mzLista = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -9053,40 +9235,75 @@ async function mzAbrir() {
   mzOv.classList.add("show");
 }
 document.getElementById("mzList").addEventListener("click", async (e) => {
-  const pin = e.target.closest("[data-mz-pin]"), tog = e.target.closest("[data-mz-tog]"), del = e.target.closest("[data-mz-del]");
-  const id = (pin || tog || del)?.dataset.mzPin || (tog || del)?.dataset.mzTog || del?.dataset.mzDel;
+  const pin = e.target.closest("[data-mz-pin]"),
+    tog = e.target.closest("[data-mz-tog]"),
+    del = e.target.closest("[data-mz-del]");
+  const id =
+    (pin || tog || del)?.dataset.mzPin ||
+    (tog || del)?.dataset.mzTog ||
+    del?.dataset.mzDel;
   const m = mzLista.find((x) => x.id === id);
   if (!m) return;
   try {
     if (pin) {
-      const nuevo = window.prompt(`Nuevo PIN para ${m.nombre} (4 a 8 números):`, "");
+      const nuevo = window.prompt(
+        `Nuevo PIN para ${m.nombre} (4 a 8 números):`,
+        "",
+      );
       if (nuevo === null) return;
-      if (!/^\d{4,8}$/.test(nuevo)) return showToast("El PIN debe tener 4 a 8 números", true);
-      await updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id), { pinHash: await mzHash(nuevo, m.usuario) });
+      if (!/^\d{4,8}$/.test(nuevo))
+        return showToast("El PIN debe tener 4 a 8 números", true);
+      await updateDoc(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id),
+        { pinHash: await mzHash(nuevo, m.usuario) },
+      );
       showToast("🔑 PIN actualizado");
     } else if (tog) {
-      await updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id), { activo: m.activo === false });
+      await updateDoc(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id),
+        { activo: m.activo === false },
+      );
     } else if (del && window.confirm(`¿Eliminar a ${m.nombre}?`)) {
-      await deleteDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id));
+      await deleteDoc(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id),
+      );
     }
     mzAbrir();
-  } catch (err) { console.error(err); showToast("❌ No se pudo actualizar", true); }
+  } catch (err) {
+    console.error(err);
+    showToast("❌ No se pudo actualizar", true);
+  }
 });
 document.getElementById("mzGuardar").addEventListener("click", async () => {
   const nombre = document.getElementById("mzNombre").value.trim();
-  const usuario = document.getElementById("mzUsuario").value.trim().toLowerCase().replace(/\s+/g, "");
+  const usuario = document
+    .getElementById("mzUsuario")
+    .value.trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
   const pin = document.getElementById("mzPin").value.trim();
   if (!nombre || !usuario) return showToast("Falta nombre o usuario", true);
-  if (!/^\d{4,8}$/.test(pin)) return showToast("El PIN debe tener 4 a 8 números", true);
-  if (mzLista.some((m) => m.usuario === usuario)) return showToast("Ese usuario ya existe", true);
+  if (!/^\d{4,8}$/.test(pin))
+    return showToast("El PIN debe tener 4 a 8 números", true);
+  if (mzLista.some((m) => m.usuario === usuario))
+    return showToast("Ese usuario ya existe", true);
   try {
     await setDoc(doc(mozosCol()), {
-      nombre, usuario, pinHash: await mzHash(pin, usuario), activo: true, creadoEn: serverTimestamp(),
+      nombre,
+      usuario,
+      pinHash: await mzHash(pin, usuario),
+      activo: true,
+      creadoEn: serverTimestamp(),
     });
-    ["mzNombre", "mzUsuario", "mzPin"].forEach((i) => (document.getElementById(i).value = ""));
+    ["mzNombre", "mzUsuario", "mzPin"].forEach(
+      (i) => (document.getElementById(i).value = ""),
+    );
     showToast("✅ Mozo agregado");
     mzAbrir();
-  } catch (err) { console.error(err); showToast("❌ No se pudo guardar", true); }
+  } catch (err) {
+    console.error(err);
+    showToast("❌ No se pudo guardar", true);
+  }
 });
 
 // Botón dentro de la vista Mesas
@@ -9105,20 +9322,34 @@ async function setEstadoMesaAdmin(numero, nuevo) {
   const b = writeBatch(db);
   if (pp.grupoId) {
     const g = gruposMap.get(pp.grupoId);
-    b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", pp.grupoId),
-      { pedido: { ...g.pedido, estadoMesa: nuevo } }, { merge: true });
+    b.set(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", pp.grupoId),
+      { pedido: { ...g.pedido, estadoMesa: nuevo } },
+      { merge: true },
+    );
   } else {
     const m = mesasMap.get(mesaDocId);
-    b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId),
-      { pedido: { ...m.pedido, estadoMesa: nuevo } }, { merge: true });
+    b.set(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId),
+      { pedido: { ...m.pedido, estadoMesa: nuevo } },
+      { merge: true },
+    );
   }
   if (pp.pedidoDocId)
-    b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pp.pedidoDocId),
-      { estadoMesa: nuevo }, { merge: true });
+    b.set(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pp.pedidoDocId),
+      { estadoMesa: nuevo },
+      { merge: true },
+    );
   try {
     await b.commit();
-    showToast(nuevo === "entregado" ? "🍽️ Marcado como entregado" : "🔥 En preparación");
-  } catch (e) { console.error(e); showToast("❌ No se pudo actualizar", true); }
+    showToast(
+      nuevo === "entregado" ? "🍽️ Marcado como entregado" : "🔥 En preparación",
+    );
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo actualizar", true);
+  }
 }
 
 const mcOv = document.createElement("div");
@@ -9129,40 +9360,64 @@ mcOv.innerHTML = `
     <div class="dlv-cfg-row"><span class="l">El mozo confirma los pedidos primero</span>
       <label class="switch"><input type="checkbox" id="mcInter"><span class="switch-track"></span></label></div>
     <p class="dlv-cfg-sub">Activado: el pedido del cliente pasa por el mozo antes de llegar al panel. Desactivado: llega directo.</p>
+        <div class="dlv-cfg-row"><span class="l">Los mozos pueden liberar, cancelar y cambiar estados</span>
+      <label class="switch"><input type="checkbox" id="mcPerm"><span class="switch-track"></span></label></div>
     <div class="dlv-prev-title">Sillas por mesa (máx. dispositivos con el QR)</div>
     <div id="mcList"></div>
     <button type="button" class="np-confirmar-btn" id="mcGuardar" style="margin-top:14px;">Guardar</button>
   </div>`;
 document.body.appendChild(mcOv);
 mcOv.addEventListener("click", (e) => {
-  if (e.target === mcOv || e.target.hasAttribute("data-x")) mcOv.classList.remove("show");
+  if (e.target === mcOv || e.target.hasAttribute("data-x"))
+    mcOv.classList.remove("show");
 });
 function mcAbrir() {
-  document.getElementById("mcInter").checked = bizDataGlobal?.mesas_config?.mozoIntermediario === true;
-  document.getElementById("mcList").innerHTML = [...mesasMap.entries()]
-    .sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0))
-    .map(([id, m]) => `
+  document.getElementById("mcInter").checked =
+    bizDataGlobal?.mesas_config?.mozoIntermediario === true;
+  document.getElementById("mcPerm").checked =
+    bizDataGlobal?.mesas_config?.mozoPermisos === true;
+
+  document.getElementById("mcList").innerHTML =
+    [...mesasMap.entries()]
+      .sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0))
+      .map(
+        ([id, m]) => `
       <div class="dlv-item">
         <div class="dlv-info"><b>${escapeHtml(m.nombre_alias || "Mesa " + m.numero_mesa)}</b></div>
         <span style="font-size:12px;">🪑</span>
         <input type="number" min="1" max="30" value="${Number(m.sillas) || 4}" data-sillas="${id}" class="deli-inp" style="width:64px;">
-      </div>`).join("") || `<div class="dlv-empty">No hay mesas.</div>`;
+      </div>`,
+      )
+      .join("") || `<div class="dlv-empty">No hay mesas.</div>`;
   mcOv.classList.add("show");
 }
 document.getElementById("mcGuardar").addEventListener("click", async () => {
   try {
-    const inter = document.getElementById("mcInter").checked;
-    await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), { "mesas_config.mozoIntermediario": inter });
-    bizDataGlobal = { ...(bizDataGlobal || {}), mesas_config: { mozoIntermediario: inter } };
+      const inter = document.getElementById("mcInter").checked;
+    const perm = document.getElementById("mcPerm").checked;
+    await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
+      "mesas_config.mozoIntermediario": inter,
+      "mesas_config.mozoPermisos": perm,
+    });
+    bizDataGlobal = {
+      ...(bizDataGlobal || {}),
+      mesas_config: { mozoIntermediario: inter, mozoPermisos: perm },
+    };
     const b = writeBatch(db);
     document.querySelectorAll("[data-sillas]").forEach((i) => {
-      b.set(tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", i.dataset.sillas),
-        { sillas: Math.max(1, Math.min(30, Math.round(Number(i.value) || 4))) }, { merge: true });
+      b.set(
+        tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", i.dataset.sillas),
+        { sillas: Math.max(1, Math.min(30, Math.round(Number(i.value) || 4))) },
+        { merge: true },
+      );
     });
     await b.commit();
     mcOv.classList.remove("show");
     showToast("⚙️ Configuración guardada");
-  } catch (e) { console.error(e); showToast("❌ No se pudo guardar", true); }
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo guardar", true);
+  }
 });
 const mcBtn = document.createElement("button");
 mcBtn.type = "button";

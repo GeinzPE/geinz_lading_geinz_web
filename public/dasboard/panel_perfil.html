@@ -93,7 +93,7 @@
 
                         <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
                             <span class="sbb-icon">📢</span>
-                            <span class="sbb-label">Publicidad</span>
+                            <span class="sbb-label">Publicidad/Ofertas</span>
                         </button>
 
                         <button class="sidebar-btn" id="sbb-fidelizacion" onclick="PanelPerfil.loadFidelizacion()">
@@ -126,6 +126,13 @@
                             <span class="sbb-icon">⚖️</span>
                             <span class="sbb-label">Legal</span>
                             <span class="notif-dot" id="dot-legal"></span>
+                        </button>
+
+
+                        <button class="sidebar-btn" id="sbb-comprobante"
+                            onclick="PanelPerfil.showSection('comprobante')">
+                            <span class="sbb-icon">🧾</span>
+                            <span class="sbb-label">Comprobante</span>
                         </button>
                     </div>
                 </div>
@@ -205,6 +212,11 @@
     "></iframe>
                 </div>
 
+                <div class="section" id="sec-comprobante">
+                    <iframe id="iframeComprobante" src="boletas_factura.html" style="
+        width:100%; height:100vh; border:none; display:block;
+        overflow:hidden; background:#0a0a0a;"></iframe>
+                </div>
                 <!-- ===== PERFIL (ahora es un frame aparte) ===== -->
                 <div class="section" id="sec-perfil">
                     <iframe id="iframePerfil" src="perfil.html" style="
@@ -370,9 +382,9 @@
                     </iframe>
                 </div>
 
-<!-- ===== MIS TRABAJADORES ===== -->
-<div class="section" id="sec-trabajadores">
-    <iframe id="iframeTrabajadores" src="trabajadores.html" style="
+                <!-- ===== MIS TRABAJADORES ===== -->
+                <div class="section" id="sec-trabajadores">
+                    <iframe id="iframeTrabajadores" src="trabajadores.html" style="
         width:100%;
         height:100vh;
         border:none;
@@ -380,8 +392,8 @@
         overflow:hidden;
         background:#0a0a0a;
     ">
-    </iframe>
-</div>
+                    </iframe>
+                </div>
             </div><!-- /content -->
 
             <!-- BOTON MENU MOBILE -->
@@ -426,7 +438,7 @@
                             <button class="mobile-menu-item" id="mmb-publicidad"
                                 onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
                                 <span>📢</span>
-                                <span>Publicidad</span>
+                                <span>Publicidad/Ofertas</span>
                             </button>
 
                             <button class="mobile-menu-item" id="mmb-fidelizacion"
@@ -446,18 +458,23 @@
                                 <span>🔲</span>
                                 <span>MI QR</span>
                             </button>
-                          
-                         <button class="mobile-menu-item" id="mmb-trabajadores"
-    onclick="PanelPerfil.showSection('trabajadores'); PanelPerfil.toggleMobileMenu()">
-    <span>👥</span>
-    <span>Mis trabajadores</span>
-</button>
+
+                            <button class="mobile-menu-item" id="mmb-trabajadores"
+                                onclick="PanelPerfil.showSection('trabajadores'); PanelPerfil.toggleMobileMenu()">
+                                <span>👥</span>
+                                <span>Mis trabajadores</span>
+                            </button>
 
                             <button class="mobile-menu-item" id="mmb-legal"
                                 onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
                                 <span>⚖️</span>
                                 <span>Legal</span>
                                 <span class="notif-dot" id="dot-legal-mobile"></span>
+                            </button>
+                            <button class="mobile-menu-item" id="mmb-comprobante"
+                                onclick="PanelPerfil.showSection('comprobante'); PanelPerfil.toggleMobileMenu()">
+                                <span>🧾</span>
+                                <span>Comprobante</span>
                             </button>
                         </div>
                     </div>

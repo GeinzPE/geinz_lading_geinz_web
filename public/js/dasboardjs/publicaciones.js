@@ -35,7 +35,7 @@ let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
 let precioYaSeteado = false;
 let terminosAceptados = false;
-let tipoPublicacionActual = "plataforma"; // "plataforma" | "perfil"
+let tipoPublicacionActual = "perfil"; // "plataforma" | "perfil"
 
 let tipoTextoIA = "venta";
 let tipoImagenIA = "venta";
@@ -559,8 +559,8 @@ function renderBullets(tipo) {
     )
     .join("");
 }
-
 window.selectTipoPublicacion = function (el) {
+  if (el.disabled || el.classList.contains("is-disabled")) return;
   document
     .querySelectorAll("#tipoPubSelector .tipo-pub-chip")
     .forEach((c) => c.classList.remove("active"));

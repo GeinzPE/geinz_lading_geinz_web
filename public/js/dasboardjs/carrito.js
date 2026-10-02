@@ -42,6 +42,30 @@ function getLandingBase() {
   return LANDING_BASE_URL;
 }
 const AUTH_ORIGIN = "https://geinztech.com";
+function statsCuponUpdate(pedido) {
+  const hoy = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+  }).format(new Date());
+  const desc = pedido.descuentoCupon || 0;
+  const u = {
+    usos: increment(1),
+    descuento_total: increment(desc),
+    ventas_total: increment(pedido.total || 0),
+    [`por_dia.${hoy}.usos`]: increment(1),
+    [`por_dia.${hoy}.descuento`]: increment(desc),
+    [`por_dia.${hoy}.ventas`]: increment(pedido.total || 0),
+  };
+  const uid = usuarioLogeado?.id;
+  if (uid) {
+    u[`usuarios.${uid}.nombre`] = nombreUsuarioLogeado || "Cliente";
+    u[`usuarios.${uid}.seguidor`] = !!siguiendoTienda;
+    u[`usuarios.${uid}.usos`] = increment(1);
+    u[`usuarios.${uid}.ultimo`] = Date.now();
+  } else {
+    u.usos_invitado = increment(1);
+  }
+  return u;
+}
 async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
   const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const nuevoPedidoRef = doc(pedidosRef);
@@ -49,24 +73,36 @@ async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
 
   try {
     await runTransaction(db, async (tx) => {
-      // El stock YA NO se valida ni se descuenta aquí. El carrito solo
-      // registra el pedido; el descuento real ocurre en pedidos_dashboard.js
-      // cuando el negocio acepta (en_proceso) o entrega el pedido.
+      let multi = false;
       if (cuponRef) {
         const cuponSnap = await tx.get(cuponRef);
-        if (!cuponSnap.exists() || cuponSnap.data().usado) {
-          throw { motivo: "cupon_invalido" };
-        }
+        if (!cuponSnap.exists()) throw { motivo: "cupon_invalido" };
+        const c = cuponSnap.data();
+        multi = c.multiuso === true;
+        if (multi) {
+          if (
+            c.activo === false ||
+            (c.expiraEn && Date.now() >= c.expiraEn) ||
+            (c.usosMaximos && (c.usos || 0) >= c.usosMaximos)
+          )
+            throw { motivo: "cupon_invalido" };
+        } else if (c.usado) throw { motivo: "cupon_invalido" };
       }
 
-      tx.set(nuevoPedidoRef, construirPedido());
+      const pedido = construirPedido();
+      tx.set(nuevoPedidoRef, pedido);
+
       if (cuponRef) {
-        tx.update(cuponRef, {
-          usado: true,
-          estado: "usado",
-          pedidoId: nuevoPedidoRef.id,
-          usadoEn: serverTimestamp(),
-        });
+        if (multi) {
+         tx.update(cuponRef, statsCuponUpdate(pedido));
+        } else {
+          tx.update(cuponRef, {
+            usado: true,
+            estado: "usado",
+            pedidoId: nuevoPedidoRef.id,
+            usadoEn: serverTimestamp(),
+          });
+        }
       }
     });
 
@@ -804,7 +840,10 @@ async function loadPedidoMesa() {
     const snap = await getDoc(ref);
     if (!snap.exists()) return null;
     const data = snap.data();
-    if (data?.estado === "ocupado" && data?.pedido) {
+    if (
+      ["ocupado", "pedido_pendiente"].includes(data?.estado) &&
+      data?.pedido
+    ) {
       return { ...data.pedido, estado: data.estado };
     }
     return null;
@@ -837,7 +876,10 @@ async function resolveGrupoActivo() {
       grupoId,
     );
     const grupoSnap = await getDoc(grupoRef);
-    if (!grupoSnap.exists() || grupoSnap.data()?.estado !== "activo")
+    if (
+      !grupoSnap.exists() ||
+      !["activo", "pedido_pendiente"].includes(grupoSnap.data()?.estado)
+    )
       return null;
 
     return { id: grupoSnap.id, ref: grupoRef, ...grupoSnap.data() };
@@ -911,15 +953,55 @@ async function llamarMozo({ nombre, nota, items, total }) {
       .reduce((s, i) => s + i.cantidad * i.precio, 0)
       .toFixed(2),
   };
-  const bloquesFinal = [...bloquesPrevios, nuevoBloque];
+  let bloquesFinal = [...bloquesPrevios, nuevoBloque];
 
   const pedidosColRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const inter = bizData?.mesas_config?.mozoIntermediario === true;
-  const estadosIni = inter
-    ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
-    : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
+  // Mesa que el mozo ya confirmó: lo nuevo espera su OK sin tocar lo que ya está en cocina
+  const esRonda = inter && !!pedidoActivoMesa?.mozoConfirmo;
+  let productosGuardar = productosFinal;
+  let totalGuardar = totalFinal;
+  if (esRonda) {
+    productosGuardar = productosPrevios.map((p) => ({ ...p }));
+    totalGuardar = productosGuardar.reduce(
+      (s, i) => s + Number(i.subtotal || 0),
+      0,
+    );
+    bloquesFinal = bloquesPrevios;
+  }
+  const cuponMesa = cuponAplicado || pedidoActivoMesa?.cupon || null;
+  const descCupon = descuentoDeCupon(cuponMesa, totalGuardar);
+  const subtotalGuardar = +totalGuardar.toFixed(2);
+  const totalConDesc = +(totalGuardar - descCupon).toFixed(2);
+  const cuponGuardar = cuponMesa
+    ? {
+        codigo: cuponMesa.codigo,
+        tipo: cuponMesa.tipo,
+        origen: cuponMesa.origen || null,
+        tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
+        porcentajeManual: cuponMesa.porcentajeManual ?? null,
+        montoManual: cuponMesa.montoManual ?? null,
+        compraMinima: cuponMesa.compraMinima ?? 0,
+      }
+    : null;
+  const estadosIni = esRonda
+    ? {
+        estadoMozo: "confirmado",
+        estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
+      }
+    : inter
+      ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
+      : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
   const mozoAsig = mozoAsignadoMesa || pedidoActivoMesa?.mozoAsignado || null;
-  const conMozo = mozoAsig ? { mozoAsignado: mozoAsig } : {};
+  const extraMozo = {
+    ...(mozoAsig ? { mozoAsignado: mozoAsig } : {}),
+    ...(pedidoActivoMesa?.mozoConfirmo
+      ? { mozoConfirmo: pedidoActivoMesa.mozoConfirmo }
+      : {}),
+    pendienteMozo: esRonda
+      ? [...(pedidoActivoMesa.pendienteMozo || []), nuevoBloque]
+      : [],
+  };
   /* ═══ CASO 1: mesa dentro de un grupo activo ═══ */
   if (grupoActivo) {
     const pedido = {
@@ -931,18 +1013,18 @@ async function llamarMozo({ nombre, nota, items, total }) {
       },
       estado: "pendiente",
       ...estadosIni,
-      pago: {
-        metodo: metodoPago,
-        vuelto: metodoPagoKey === "efectivo" ? vuelto || "" : "",
-      },
-
+      ...extraMozo,
+      pago: { metodo: "En mesa", vuelto: "" },
       mesas: grupoActivo.mesas || [],
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
       nota: notaFinal,
-      productos: productosFinal,
+      productos: productosGuardar,
       bloques: bloquesFinal,
-      total_items: productosFinal.reduce((s, i) => s + i.cantidad, 0),
-      total: +totalFinal.toFixed(2),
+      total_items: productosGuardar.reduce((s, i) => s + i.cantidad, 0),
+      total: totalConDesc,
+      subtotal: subtotalGuardar,
+      descuentoCupon: descCupon,
+      cupon: cuponGuardar,
       fecha: pedidoActivoMesa?.fecha || now.toLocaleDateString("es-PE"),
       hora: horaActual,
       timestamp: serverTimestamp(),
@@ -976,6 +1058,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
         {
           estado: inter && grupoEraNuevo ? "pedido_pendiente" : "ocupado",
           hay_pedido_nuevo: true,
+          ...(mozoAsig ? { mozoAsignado: mozoAsig } : {}),
           pago: "pendiente",
           pedidoMesaDocId: pedidoDocId,
         },
@@ -1001,6 +1084,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
     },
     estado: "pendiente",
     ...estadosIni,
+    ...extraMozo,
     pago: { metodo: "En mesa", vuelto: "" },
     mesa: {
       id: mesaId,
@@ -1009,10 +1093,13 @@ async function llamarMozo({ nombre, nota, items, total }) {
     },
     negocio: { id: tiendaId, nombre: bizNombre, localidad },
     nota: notaFinal,
-    productos: productosFinal,
+    productos: productosGuardar,
     bloques: bloquesFinal,
-    total_items: productosFinal.reduce((s, i) => s + i.cantidad, 0),
-    total: +totalFinal.toFixed(2),
+    total_items: productosGuardar.reduce((s, i) => s + i.cantidad, 0),
+    total: totalConDesc,
+    subtotal: subtotalGuardar,
+    descuentoCupon: descCupon,
+    cupon: cuponGuardar,
     fecha: pedidoActivoMesa?.fecha || now.toLocaleDateString("es-PE"),
     hora: horaActual,
     timestamp: serverTimestamp(),
@@ -1026,6 +1113,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
 
   const dataToSave = {
     ...mesaDataActual,
+    ...(mozoAsig ? { mozoAsignado: mozoAsig } : {}),
     // Si ya había una sesión activa en la mesa, el pedido nuevo se suma
     // sin bloquear la mesa (ya fue aceptada antes). Si es la PRIMERA vez
     // que llega un pedido, la mesa queda en "pedido_pendiente" hasta que
@@ -1157,6 +1245,14 @@ function renderPedidoActivoMesa(pedido) {
           ).join("")}</div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
+    ${
+      Number(pedido.descuentoCupon || 0) > 0
+        ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
+             <span>🎟️ Cupón ${pedido.cupon?.codigo || ""}</span>
+             <span>-S/ ${Number(pedido.descuentoCupon).toFixed(2)}</span>
+           </div>`
+        : ""
+    }
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
       <span class="display font-extrabold text-xl">S/ ${Number(pedido.total || 0).toFixed(2)}</span>
@@ -1165,7 +1261,7 @@ function renderPedidoActivoMesa(pedido) {
       <button id="paMozo" class="glass rounded-2xl py-3 font-bold text-[13px]">🔔 Llamar al mozo</button>
       <button id="paCuenta" class="glass rounded-2xl py-3 font-bold text-[13px]">🧾 Pedir la cuenta</button>
     </div>
-    ${est === "pendiente" ? `<button id="paCancel" class="rounded-2xl py-3 font-bold text-[13px]" style="background:rgba(248,113,113,.12);color:#f87171;">✕ Cancelar pedido</button>` : ""}
+  ${est === "pendiente" && !pedido.mozoConfirmo ? `<button id="paCancel" class= "rounded-2xl py-3 font-bold text-[13px]" style="background:rgba(248,113,113,.12);color:#f87171;">✕ Cancelar pedido</button>` : ""}
   `;
 
   const filaHTML = (it) => `
@@ -1188,6 +1284,15 @@ function renderPedidoActivoMesa(pedido) {
       .join("");
   } else {
     itemsWrap.innerHTML = (pedido.productos || []).map(filaHTML).join("");
+  }
+  if (pedido.pendienteMozo?.length) {
+    itemsWrap.innerHTML += pedido.pendienteMozo
+      .map(
+        (b) =>
+          `<p class="text-[11px] font-bold uppercase tracking-wide mt-1" style="color:#fbbf24;">⏳ Esperando al mozo · ${b.hora}</p>` +
+          b.items.map(filaHTML).join(""),
+      )
+      .join("");
   }
 
   const llamar = (btn, motivo, msg) => {
@@ -1300,6 +1405,18 @@ async function confirmarPedidoMesaDirecto() {
     showToast("El WhatsApp no es válido");
     return;
   }
+  if (cuponAplicado?.tipo === "manual") {
+    const min = Number(cuponAplicado.compraMinima || 0);
+    const nuevo = [...carrito.values()].reduce(
+      (s, i) => s + i.cantidad * i.precio,
+      0,
+    );
+    const acumulado = nuevo + Number(pedidoActivoMesa?.subtotal || 0);
+    if (min > 0 && acumulado < min) {
+      showToast(`⚠️ El cupón requiere compra mínima de S/ ${min.toFixed(2)}`);
+      return;
+    }
+  }
   const mozoElegido = await elegirMozo();
   if (mozoElegido === undefined) return; // canceló
   mozoAsignadoMesa = mozoElegido;
@@ -1322,7 +1439,11 @@ async function confirmarPedidoMesaDirecto() {
   [btnMobile, btnDesktop].forEach((b) => {
     if (b) b.innerHTML = "Enviando…";
   });
-
+  const refCupon = cuponAplicado?._ref;
+  const contarUso =
+    !!refCupon &&
+    cuponAplicado.multiuso === true &&
+    pedidoActivoMesa?.cupon?.codigo !== cuponAplicado.codigo;
   try {
     const pedido = await llamarMozo({
       nombre: nombreUsuarioLogeado || "Cliente en mesa",
@@ -1331,6 +1452,10 @@ async function confirmarPedidoMesaDirecto() {
       total,
     });
     pedidoActivoMesa = pedido;
+    if (contarUso) {
+    updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
+    }
+    cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
     updateCartUI();
     closeDrawer();
@@ -1364,22 +1489,17 @@ function ajustarTextosMesa() {
 
 /* ══════════════ Cupones (fidelización) ══════════════ */
 
-function calcularDescuentoCupon(subtotal) {
-  if (!cuponAplicado || cuponAplicado.tipo !== "manual") return 0;
-  const minimo = Number(cuponAplicado.compraMinima || 0);
-  if (subtotal < minimo) return 0;
-  if (cuponAplicado.tipoDescuentoManual === "porcentaje") {
-    return +(
-      subtotal *
-      (Number(cuponAplicado.porcentajeManual || 0) / 100)
-    ).toFixed(2);
-  }
-  if (cuponAplicado.tipoDescuentoManual === "monto") {
-    return +Math.min(subtotal, Number(cuponAplicado.montoManual || 0)).toFixed(
-      2,
-    );
-  }
+function descuentoDeCupon(c, subtotal) {
+  if (!c || c.tipo !== "manual") return 0;
+  if (subtotal < Number(c.compraMinima || 0)) return 0;
+  if (c.tipoDescuentoManual === "porcentaje")
+    return +(subtotal * (Number(c.porcentajeManual || 0) / 100)).toFixed(2);
+  if (c.tipoDescuentoManual === "monto")
+    return +Math.min(subtotal, Number(c.montoManual || 0)).toFixed(2);
   return 0;
+}
+function calcularDescuentoCupon(subtotal) {
+  return descuentoDeCupon(cuponAplicado, subtotal);
 }
 
 async function agregarProductoDeCupon(cupon) {
@@ -1435,11 +1555,16 @@ async function aplicarCuponDesdeDoc(data) {
     data.varianteElegida,
   );
 
-  if (data.estado === "usado" || data.usado) {
-    console.log("[CUPON] rechazado: ya estaba usado");
+  const esMulti = data.multiuso === true;
+  if (!esMulti && (data.estado === "usado" || data.usado)) {
     showToast("⚠️ Este cupón ya fue utilizado");
     return;
   }
+  if (data.activo === false) return showToast("⚠️ Este cupón está desactivado");
+  if (data.expiraEn && Date.now() >= data.expiraEn)
+    return showToast("⚠️ Este cupón ya venció");
+  if (data.usosMaximos && (data.usos || 0) >= data.usosMaximos)
+    return showToast("⚠️ Este cupón ya se agotó");
   if (data.negocioId && data.negocioId !== tiendaId) {
     console.log("[CUPON] rechazado: negocioId no coincide", {
       cuponNegocioId: data.negocioId,
@@ -1450,6 +1575,16 @@ async function aplicarCuponDesdeDoc(data) {
   }
 
   cuponAplicado = data;
+  const aud = data.audiencia || "todos";
+if (aud !== "todos" && !usuarioLogeado) {
+  showToast("🔒 Inicia sesión para usar este cupón");
+  openLoginPromptModal();
+  return;
+}
+if (aud === "seguidores" && !siguiendoTienda) {
+  showToast(`⭐ Este cupón es solo para seguidores de ${bizNombre}`);
+  return;
+}
   console.log("[CUPON] cuponAplicado seteado en memoria:", cuponAplicado);
 
   if (data.origen === "fidelizacion") activarGuardaCupon();
@@ -3927,74 +4062,6 @@ function renderCheckoutSummary() {
   renderCuponBar(subtotal);
 }
 
-/* ══════════════ Guardar pedido en Firestore ══════════════ */
-async function guardarPedidoEnDB({
-  nombre,
-  tipoEntrega,
-  direccion,
-  metodoPago,
-  vuelto,
-  nota,
-  items,
-  total,
-}) {
-  // DESPUÉS
-  const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
-  const now = new Date();
-
-  const pedido = {
-    estado: "pendiente",
-    fecha: now.toLocaleDateString("es-PE"),
-    hora: now.toLocaleTimeString("es-PE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    timestamp: serverTimestamp(),
-    cliente: {
-      id_cliente: usuarioLogeado?.id || null,
-      nombre,
-      tipo_entrega: tipoEntrega,
-      direccion: tipoEntrega === "Delivery" ? direccion : "",
-      ubicacion:
-        tipoEntrega === "Delivery" && clienteLat != null && clienteLng != null
-          ? { lat: clienteLat, lng: clienteLng }
-          : null,
-    },
-
-    mesa: mesaId
-      ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
-      : null,
-
-    pago: {
-      metodo: metodoPago,
-      vuelto: metodoPago === "Efectivo" ? vuelto || "" : "",
-    },
-    nota: nota || "",
-    productos: items.map((it) => ({
-      id: it.id,
-      nombre: it.nombre,
-      categoria: it.categoria,
-      precio_unitario: it.precio,
-      cantidad: it.cantidad,
-      subtotal: +(it.precio * it.cantidad).toFixed(2),
-      imagen: it.imagen || "",
-      opciones: it.seleccion || null,
-      esCanje: it.esCanje || false, // 👈 FALTA en tu doc actual
-      cuponCodigo: it.cuponCodigo || null, // 👈 FALTA en tu doc actual
-    })),
-    total_items: items.reduce((s, i) => s + i.cantidad, 0),
-    total: +total.toFixed(2),
-    negocio: { id: tiendaId, nombre: bizNombre, localidad },
-  };
-
-  const docRef = await addDoc(pedidosRef, pedido);
-  return docRef.id;
-}
-/* Toggle: tipo de entrega */
 /* Toggle: tipo de entrega */
 document.getElementById("entregaToggle").addEventListener("click", (e) => {
   const opt = e.target.closest(".toggle-opt");
@@ -4113,6 +4180,16 @@ document
     const deliv = infoDeliveryPedido();
     const total = +(subtotal - descuentoCupon + (deliv?.costo || 0)).toFixed(2);
 
+    if (
+      cuponAplicado?.tipo === "manual" &&
+      !cuponAplicado.envioGratis &&
+      Number(cuponAplicado.compraMinima || 0) > subtotal
+    ) {
+      showToast(
+        `⚠️ El cupón requiere compra mínima de S/ ${Number(cuponAplicado.compraMinima).toFixed(2)}`,
+      );
+      return;
+    }
     const btn = document.getElementById("sendWhatsappBtn");
     btn.disabled = true;
     const textoOriginal = btn.innerHTML;
@@ -5235,7 +5312,7 @@ function persistirCarrito() {
   }
 }
 
-async function restaurarCarritoPersistido() { 
+async function restaurarCarritoPersistido() {
   let data = null;
   try {
     const raw = sessionStorage.getItem(CART_PERSIST_KEY());
@@ -5277,7 +5354,7 @@ async function restaurarCarritoPersistido() {
     });
     restauro = true;
   });
-    if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon); // ← AGREGAR AQUÍ
+  if (data.cupon && !cuponAplicado) await buscarYAplicarCupon(data.cupon); // ← AGREGAR AQUÍ
 
   return restauro;
 }
@@ -5486,7 +5563,7 @@ async function init() {
     document.getElementById("lista").innerHTML = "";
   }
   const carritoRestaurado = await restaurarCarritoTrasLogin();
-  if (!carritoRestaurado)await restaurarCarritoPersistido(); // ← AGREGAR
+  if (!carritoRestaurado) await restaurarCarritoPersistido(); // ← AGREGAR
   renderFiltros(catalogoGlobal);
   buildAllCards(catalogoGlobal);
   applyFilters();
