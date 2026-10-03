@@ -10,7 +10,11 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 import { tiendaSubCol } from "../rutas/rutas.js";
-
+import {
+  obtenerConfigComprobante,
+  imprimirComprobante,
+  registrarComprobante,
+} from "./comprobantes.js";
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
@@ -235,7 +239,7 @@ function listenPedidos() {
 // Esta función los deja a todos con la misma forma para que el resto del código no tenga que distinguir.
 function normalizarPedido(id, raw) {
   if (raw && raw.pedido) {
-    return { id, ...raw.pedido, esMesa: true };
+    return { id, ...raw.pedido, comprobante: raw.comprobante, esMesa: true };
   }
   return { id, ...raw, esMesa: false };
 }
@@ -545,7 +549,11 @@ function getFilteredOrders() {
 if (deliF === "con" && !tieneDelivery(p)) return false;
 if (deliF === "sin" && tieneDelivery(p)) return false;
       if (origenF !== "todos" && getOrigenInfo(p).key !== origenF) return false;
-      if (q) {
+      if (
+        document.getElementById("filterComprobante")?.value === "con" &&
+        !p.comprobante?.numero
+      )
+        return false;      if (q) {
         const nombre = ((p.cliente && p.cliente.nombre) || "").toLowerCase();
         const tel = telefonoCliente(p).toLowerCase();
         const cod = codigoPedido(p).toLowerCase();
@@ -956,7 +964,7 @@ function renderList(list) {
     .map(
       (p) => `
     <tr class="row-hover cursor-pointer fade-in" onclick="window.openModal('${p.id}')">
-      <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${codigoPedido(p)}</td>
+         <td class="px-4 py-3 font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? `<p class="text-[10px] text-inkfaint font-normal">🧾 ${p.comprobante.numero}</p>` : ""}</td>
       <td class="px-4 py-3 text-inkdim">${fmtFechaHora(p)}</td>
       <td class="px-4 py-3">
         <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
@@ -981,7 +989,7 @@ function renderList(list) {
     <div class="bg-panel border border-line rounded-2xl p-4 fade-in active:scale-[.98] transition hover:border-primary/50" onclick="window.openModal('${p.id}')">
       <div class="flex justify-between items-start mb-2">
         <div>
-          <p class="font-mono text-xs font-semibold text-primary">${codigoPedido(p)}</p>
+           <p class="font-mono text-xs font-semibold text-primary">${codigoPedido(p)}${p.comprobante?.numero ? ` · 🧾 ${p.comprobante.numero}` : ""}</p>
           <p class="font-medium text-white">${(p.cliente && p.cliente.nombre) || "Sin nombre"}</p>
         </div>
         ${estadoBadge(p.estado)}
@@ -1100,8 +1108,7 @@ function openModal(id) {
       </div>
 
       <div class="flex gap-2">
-        <button onclick="window.reimprimirTicket()" class="flex-1 bg-panel2 border border-line font-semibold text-sm py-2.5 rounded-xl hover:bg-line transition text-white">🖨️ Reimprimir</button>
-        <button onclick="window.exportarTicketWhatsApp()" class="flex-1 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl hover:brightness-110 transition shadow-lg shadow-primary/20">📤 Enviar comprobante</button>
+        <button onclick="window.reimprimirTicket()" class="flex-1 bg-panel2 border border-line font-semibold text-sm py-2.5 rounded-xl hover:bg-line transition text-white">${p.comprobante?.numero ? "🖨️ Reimprimir boleta" : "🧾 Sacar boleta"}</button>        <button onclick="window.exportarTicketWhatsApp()" class="flex-1 bg-primary text-white font-semibold text-sm py-2.5 rounded-xl hover:brightness-110 transition shadow-lg shadow-primary/20">📤 Enviar comprobante</button>
       </div>
     `;
   }
@@ -1132,17 +1139,25 @@ function ticketTextoPlano(p) {
     .join("\n");
   return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\n${tieneDelivery(p) ? `Productos: ${fmtMoney(totalSinDelivery(p))}\nDelivery: ${fmtMoney(deliveryDePedido(p))}\n` : ""}TOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ""}\n${p.nota ? "Nota: " + p.nota : ""}`;
 }
-function reimprimirTicket() {
+async function reimprimirTicket() {
   if (!currentOrder) return;
-  const w = window.open("", "_blank", "width=380,height=600");
-  w.document.write(
-    `<pre style="font-family:'JetBrains Mono',monospace;font-size:13px;white-space:pre-wrap;padding:16px;background:#000000;color:#FFFFFF;">${ticketTextoPlano(currentOrder)}</pre>`,
-  );
-  w.document.close();
-  w.focus();
-  w.print();
+  const p = currentOrder;
+  try {
+    const cfg = await obtenerConfigComprobante(tiendaId, localidad, {
+      nombre: nombreTienda || "",
+    });
+    // Solo escribe en la DB la primera vez; las reimpresiones no gastan nada.
+    const numero = await registrarComprobante(tiendaId, localidad, p, cfg);
+    if (numero && !p.comprobante?.numero) {
+      p.comprobante = { ...(p.comprobante || {}), numero };
+      renderAll(); // actualiza el 🧾 en la lista
+    }
+    await imprimirComprobante(p, cfg, { numero });
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo imprimir la boleta");
+  }
 }
-
 function exportarTicketWhatsApp() {
   if (!currentOrder) return;
   const tel = telefonoCliente(currentOrder);
@@ -1497,7 +1512,7 @@ if (dateChips) {
     if (currentRange !== "custom") listenPedidos(); // custom espera a que se llenen las 2 fechas
   });
 }
-
+document.getElementById("filterComprobante")?.addEventListener("change", renderAll);
 const customFrom = document.getElementById("customFrom");
 if (customFrom)
   customFrom.addEventListener("change", () => {
@@ -1522,6 +1537,8 @@ if (btnResetFilters) {
     document.getElementById("filterOrigen").value = "todos";
     const fd = document.getElementById("filterDelivery");
     if (fd) fd.value = "todos";
+        const fc = document.getElementById("filterComprobante");
+    if (fc) fc.value = "todos";
     document.getElementById("searchBox").value = "";
     document
       .querySelectorAll("#dateChips .chip")

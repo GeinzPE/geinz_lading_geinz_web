@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mi comprobante</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="module" src="../js/dasboardjs/boletas_facturas.js"></script>
 <style>
 :root{
   --bg:#050505;--surface:#0B0B0F;--surface2:#111114;--border:#1C1C22;--border2:#23232B;
@@ -156,85 +157,6 @@ button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:10px;p
   <button class="btn" id="btnSave" type="button">Guardar cambios</button>
 </div>
 
-<script type="module">
-import {
-  cargarConfigComprobante, guardarConfigComprobante, procesarLogo,
-  renderComprobante, imprimirComprobante, pedidoDemo
-} from "../js/dasboardjs/comprobantes.js";   // ← ajusta la ruta si guardas el módulo en otra carpeta
 
-/* ── ID de la tienda ──
-   Ajusta esta línea a como obtienes el id de tu negocio (storage.js, sesión, etc.).
-   Por ahora lo toma de ?tienda=... y, si no, de localStorage("tiendaId"). */
-const TIENDA_ID = new URLSearchParams(location.search).get("tienda")
-               || localStorage.getItem("tiendaId") || "";
-
-const $ = (id) => document.getElementById(id);
-let cfg = cargarConfigComprobante(TIENDA_ID);
-let logoOriginal = "";
-
-/* get/set por ruta "a.b.c" */
-const get = (o, p) => p.split(".").reduce((x, k) => x?.[k], o);
-const set = (o, p, v) => { const ks = p.split("."); const l = ks.pop(); ks.reduce((x, k) => (x[k] ??= {}), o)[l] = v; };
-
-function pintarFormulario() {
-  document.querySelectorAll("[data-k]").forEach((el) => {
-    const v = get(cfg, el.dataset.k);
-    if (el.type === "checkbox") el.checked = !!v; else el.value = v ?? "";
-  });
-  pintarLogo();
-}
-function pintarLogo() {
-  $("drop").innerHTML = cfg.negocio.logo ? `<img src="${cfg.negocio.logo}" alt="logo">` : "<span>Subir<br>logo</span>";
-}
-
-let t;
-function vista() {
-  clearTimeout(t);
-  t = setTimeout(async () => {
-    await renderComprobante($("ticket"), pedidoDemo(), cfg);
-    $("msg").textContent = ""; $("msg").className = "msg";
-  }, 120);
-}
-
-document.addEventListener("input", (e) => {
-  const el = e.target;
-  if (!el.dataset?.k) return;
-  let v = el.type === "checkbox" ? el.checked : el.value;
-  if (el.dataset.k === "negocio.ruc") {
-    v = v.replace(/\D/g, ""); el.value = v;
-    set(cfg, "documento.sinValorTributario", !v);              // sin RUC → sin valor tributario
-    document.querySelector('[data-k="documento.sinValorTributario"]').checked = !v;
-  }
-  set(cfg, el.dataset.k, v);
-  $("msg").textContent = "Cambios sin guardar";
-  vista();
-});
-
-/* Logo */
-async function aplicarLogo() {
-  if (!logoOriginal) { cfg.negocio.logo = ""; pintarLogo(); return vista(); }
-  try { cfg.negocio.logo = await procesarLogo(logoOriginal, { bn: $("logoBw").checked }); }
-  catch { $("msg").textContent = "No se pudo leer la imagen"; }
-  pintarLogo(); vista();
-}
-$("drop").onclick = $("logoBtn").onclick = () => $("logoFile").click();
-$("logoFile").onchange = (e) => {
-  const f = e.target.files[0]; if (!f || !f.type.startsWith("image/")) return;
-  const r = new FileReader(); r.onload = () => { logoOriginal = r.result; aplicarLogo(); }; r.readAsDataURL(f);
-};
-$("logoDel").onclick = () => { logoOriginal = ""; $("logoFile").value = ""; aplicarLogo(); };
-$("logoBw").onchange = () => { if (logoOriginal) aplicarLogo(); };
-
-/* Guardar / probar */
-$("btnSave").onclick = () => {
-  const ok = guardarConfigComprobante(TIENDA_ID, cfg);
-  $("msg").textContent = ok ? "Guardado ✓" : "No se pudo guardar";
-  $("msg").className = "msg" + (ok ? " ok" : "");
-};
-$("btnPrint").onclick = () => imprimirComprobante(pedidoDemo(), cfg);
-
-pintarFormulario();
-vista();
-</script>
 </body>
 </html>

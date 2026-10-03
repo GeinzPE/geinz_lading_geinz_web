@@ -1403,33 +1403,6 @@ function renderTiempoEstimado(data, estadoActual) {
   box.innerHTML = txt;
   box.classList.remove("hidden");
 }
-function renderTiempoEstimado(data, estadoActual) {
-  let box = el("tiempo-estimado");
-  if (!box) {
-    box = document.createElement("p");
-    box.id = "tiempo-estimado";
-    box.className = "hidden text-secondary";
-    box.style.cssText = "margin:1rem 0 0;font-size:0.9rem;line-height:1.5;";
-    el("timeline").insertAdjacentElement("afterend", box);
-  }
-  const t = data.tiempo_estimado;
-  if (!t || estadoActual === "rechazado" || estadoActual === "entregado") {
-    box.classList.add("hidden");
-    return;
-  }
-  let txt = `⏱️ Tiempo estimado: <strong>${esc(t.min)}–${esc(t.max)} min</strong>`;
-  const desde = toDateFS(data.tiempo_estimado_desde);
-  if (estadoActual === "en_proceso" && desde) {
-    const f = (min) =>
-      new Date(desde.getTime() + min * 60000).toLocaleTimeString("es-PE", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    txt += `<br><span class="text-muted" style="font-size:0.8rem;">Listo aprox. entre ${f(t.min)} y ${f(t.max)}</span>`;
-  }
-  box.innerHTML = txt;
-  box.classList.remove("hidden");
-}
 function renderPedido(data) {
   const estadoActual = normalizarEstado(data.estado);
   const esRechazado = estadoActual === "rechazado";
