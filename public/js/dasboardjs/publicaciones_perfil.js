@@ -1,44 +1,45 @@
 import { tiendaSubDoc } from "../rutas/rutas.js";
+import { storage } from "../db/db.js";
 import {
-  getFirestore, updateDoc, getDoc, deleteField,
+  updateDoc, getDoc, deleteField,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
-  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject,
+  ref as storageRef, uploadBytes, getDownloadURL, deleteObject,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-import { getApps, initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFV4SF7hMFifKz45GaBiu2xwTq7T_gxBQ",
-  authDomain: "geinzworkapp.firebaseapp.com",
-  projectId: "geinzworkapp",
-  storageBucket: "geinzworkapp.appspot.com",
-  messagingSenderId: "921389328767",
-  appId: "1:921389328767:web:dc6fffc43a51444f5b524a",
-};
-
-const app = getApps().find(a => a.name === "[DEFAULT]") || initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const storage = getStorage(app);
-
+// ══════════════ DATOS DE LA TIENDA + HANDSHAKE ══════════════
 let TIENDA_ID = null, LOCALIDAD = null, TIENDA_REF = null;
+let datosRecibidos = false;
 
-// ── Recibe datos del panel padre ──
+function iniciarConDatos({ id, localidad }) {
+  if (!id || !localidad) return;
+  TIENDA_ID = id;
+  LOCALIDAD = localidad;
+  TIENDA_REF = tiendaSubDoc(LOCALIDAD, "tiendas", TIENDA_ID);
+  datosRecibidos = true;
+  cargarBanner();
+  cargarOfertas();
+}
+
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
-  if (e.data?.type === "DATOS_TIENDA") {
-    TIENDA_ID = e.data.id;
-    LOCALIDAD = e.data.localidad;
-    TIENDA_REF = tiendaSubDoc(LOCALIDAD, "tiendas", TIENDA_ID);
-    cargarBanner();
-    cargarOfertas();
-  }
-  if (e.data?.type === "PATCH_TIENDA") {
-    const diff = e.data.payload;
+  if (e.data?.type === "DATOS_TIENDA") iniciarConDatos(e.data);
+  if (e.data?.type === "PATCH_TIENDA" && TIENDA_REF) {
+    const diff = e.data.payload || {};
     if ("banner.activo" in diff || "banner.imagen" in diff) cargarBanner();
-    Object.keys(diff).some(k => k.startsWith("img_tienda.lista_img.promociones")) && cargarOfertas();
+    if (Object.keys(diff).some((k) => k.startsWith("img_tienda.lista_img.promociones"))) cargarOfertas();
   }
 });
 
+// El iframe PIDE los datos al padre y reintenta hasta recibirlos
+function pedirDatos(intento = 0) {
+  if (datosRecibidos || window.parent === window) return;
+  window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin);
+  if (intento < 12) setTimeout(() => pedirDatos(intento + 1), 500);
+}
+pedirDatos();
+
+// ══════════════ UTILIDADES ══════════════
 function comprimirImagen(dataURL, maxPx, calidad) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -66,6 +67,12 @@ function dataURLtoBlob(dataURL) {
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return new Blob([arr], { type: mime });
 }
+
+// Evita que el navegador muestre la imagen vieja cuando se reemplaza en la misma ruta
+function conVersion(url) {
+  return url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
+}
+
 function abrirVisor(url) {
   if (!url) return;
   const ov = document.createElement("div");
@@ -81,6 +88,25 @@ function abrirVisor(url) {
   ov.addEventListener("click", cerrar);
   document.addEventListener("keydown", onKey);
   document.body.appendChild(ov);
+}
+
+function mostrarToast(texto) {
+  let wrap = document.getElementById("ofToastWrap");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "ofToastWrap";
+    wrap.className = "of-toast-wrap";
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement("div");
+  t.className = "of-toast";
+  t.innerHTML = `<span class="of-toast-ico">✓</span><span></span>`;
+  t.lastElementChild.textContent = texto;
+  wrap.appendChild(t);
+  setTimeout(() => {
+    t.classList.add("out");
+    setTimeout(() => t.remove(), 260);
+  }, 2600);
 }
 
 // ══════════════ BANNER ══════════════
@@ -99,9 +125,7 @@ const bDescuentoValor = document.getElementById("bannerDescuentoValor");
 const bDescuentoUnidad = document.getElementById("bannerDescuentoUnidad");
 const bClickSub = document.getElementById("bannerClickSub");
 const bSoloSeguidores = document.getElementById("bannerSoloSeguidoresSwitch");
-
 const bSoloSeguidoresRow = document.getElementById("bannerSoloSeguidoresRow");
-
 
 const BANNER_CLICK_SUB = {
   producto: "Si lo activas, al tocar el banner se abrirá el carrito con este producto. La descripción y el precio serán obligatorios.",
@@ -109,38 +133,6 @@ const BANNER_CLICK_SUB = {
   envio_gratis: "Si lo activas, al tocar el banner se abrirá el carrito con el envío gratis ya aplicado. La descripción será obligatoria.",
 };
 
-function pintarTipoBanner() {
-  bTipoRow?.querySelectorAll(".bn-tipo-chip").forEach((c) => {
-    c.classList.toggle("active", c.dataset.tipo === bannerTipoActual);
-  });
-  if (bCampoPrecio) bCampoPrecio.style.display = bannerTipoActual === "producto" ? "" : "none";
-  if (bCampoDescuento) bCampoDescuento.classList.toggle("show", bannerTipoActual === "descuento");
-  if (bClickSub) bClickSub.textContent = BANNER_CLICK_SUB[bannerTipoActual] || BANNER_CLICK_SUB.producto;
-  validarBanner();
-}
-
-bTipoRow?.addEventListener("click", (e) => {
-  const chip = e.target.closest("[data-tipo]");
-  if (!chip) return;
-  bannerTipoActual = chip.dataset.tipo;
-  pintarTipoBanner();
-});
-
-document.querySelectorAll('#bannerCampoDescuento [data-descuento-tipo]').forEach((chip) => {
-  chip.addEventListener("click", () => {
-    bannerDescuentoTipoActual = chip.dataset.descuentoTipo;
-    document.querySelectorAll('#bannerCampoDescuento [data-descuento-tipo]').forEach((c) =>
-      c.classList.toggle("active", c === chip),
-    );
-    if (bDescuentoUnidad) bDescuentoUnidad.textContent = bannerDescuentoTipoActual === "porcentaje" ? "%" : "S/";
-    validarBanner();
-  });
-});
-
-function bannerLeerDescuento() {
-  const n = parseFloat(String(bDescuentoValor?.value || "").replace(",", "."));
-  return n > 0 ? n : null;
-}
 let bannerGuardado = {
   descripcion: "", precio: null, clickeable: false,
   tipo: "producto", descuentoTipo: "porcentaje", descuentoValor: null,
@@ -148,12 +140,19 @@ let bannerGuardado = {
 };
 let bannerTipoActual = "producto";
 let bannerDescuentoTipoActual = "porcentaje";
+
 const bannerLeerPrecio = () => {
-  const n = parseFloat(String(bPrecio.value).replace(",", "."));
+  const n = parseFloat(String(bPrecio?.value ?? "").replace(",", "."));
   return n > 0 ? n : null;
 };
 
+function bannerLeerDescuento() {
+  const n = parseFloat(String(bDescuentoValor?.value || "").replace(",", "."));
+  return n > 0 ? n : null;
+}
+
 const bannerSetMsg = (texto, tipo = "") => {
+  if (!bMsg) return;
   bMsg.textContent = texto;
   bMsg.className = "of-msg" + (tipo ? " " + tipo : "");
 };
@@ -167,8 +166,9 @@ const bannerHayCambios = () =>
   (bannerLeerDescuento() || 0) !== (bannerGuardado.descuentoValor || 0) ||
   !!bSoloSeguidores?.checked !== !!bannerGuardado.soloSeguidores;
 
-// Si es clickeable → descripción y precio obligatorios. Si no → opcionales.
+// Si es clickeable → descripción y precio/valor obligatorios. Si no → opcionales.
 function validarBanner() {
+  if (!bClick || !bDesc) return;
   const obligatorio = bClick.checked;
   const esProducto = bannerTipoActual === "producto";
   const esDescuento = bannerTipoActual === "descuento";
@@ -193,7 +193,6 @@ function validarBanner() {
 
   if (bSoloSeguidoresRow) bSoloSeguidoresRow.style.display = obligatorio ? "" : "none";
 
-
   bBtnGuardar.disabled = faltaDesc || faltaPrecio || faltaDescuento;
 
   if (faltaDesc || faltaPrecio || faltaDescuento) {
@@ -208,19 +207,58 @@ function validarBanner() {
   }
 }
 
+function pintarTipoBanner() {
+  bTipoRow?.querySelectorAll(".bn-tipo-chip").forEach((c) => {
+    c.classList.toggle("active", c.dataset.tipo === bannerTipoActual);
+  });
+  if (bCampoPrecio) bCampoPrecio.style.display = bannerTipoActual === "producto" ? "" : "none";
+  if (bCampoDescuento) bCampoDescuento.classList.toggle("show", bannerTipoActual === "descuento");
+  if (bClickSub) bClickSub.textContent = BANNER_CLICK_SUB[bannerTipoActual] || BANNER_CLICK_SUB.producto;
+  validarBanner();
+}
+
+bTipoRow?.addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-tipo]");
+  if (!chip) return;
+  bannerTipoActual = chip.dataset.tipo;
+  pintarTipoBanner();
+});
+
+document.querySelectorAll("#bannerCampoDescuento [data-descuento-tipo]").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    bannerDescuentoTipoActual = chip.dataset.descuentoTipo;
+    document.querySelectorAll("#bannerCampoDescuento [data-descuento-tipo]").forEach((c) =>
+      c.classList.toggle("active", c === chip),
+    );
+    if (bDescuentoUnidad) bDescuentoUnidad.textContent = bannerDescuentoTipoActual === "porcentaje" ? "%" : "S/";
+    validarBanner();
+  });
+});
+
 bDesc?.addEventListener("input", validarBanner);
 bPrecio?.addEventListener("input", validarBanner);
 bClick?.addEventListener("change", validarBanner);
 bDescuentoValor?.addEventListener("input", validarBanner);
-async function cargarBanner() {
-  const snap = await getDoc(TIENDA_REF);
-  const banner = snap.data()?.banner || {};
+
+async function cargarBanner(intento = 0) {
+  if (!TIENDA_REF) return;
+
+  let banner = {};
+  try {
+    const snap = await getDoc(TIENDA_REF);
+    banner = snap.data()?.banner || {};
+  } catch (err) {
+    console.error("[banner] falló getDoc:", err.code, err.message);
+    if (intento < 3) setTimeout(() => cargarBanner(intento + 1), 1000 * (intento + 1));
+    return;
+  }
+
   const img = document.getElementById("bannerImgPreview");
   const ph = document.getElementById("bannerPlaceholder");
   const sw = document.getElementById("bannerActivoSwitch");
 
   if (banner.imagen) {
-    img.src = banner.imagen;
+    img.src = conVersion(banner.imagen);
     img.style.display = "block";
     ph.style.display = "none";
   } else {
@@ -237,8 +275,8 @@ async function cargarBanner() {
     descuentoTipo: banner.descuentoTipo || "porcentaje",
     descuentoValor: Number(banner.descuentoValor) > 0 ? Number(banner.descuentoValor) : null,
     soloSeguidores: banner.soloSeguidores === true,
-    unaVezPorCliente: banner.unaVezPorCliente === true,
   };
+
   bDesc.value = bannerGuardado.descripcion;
   bPrecio.value = bannerGuardado.precio ?? "";
   bClick.checked = bannerGuardado.clickeable;
@@ -246,22 +284,24 @@ async function cargarBanner() {
   bannerDescuentoTipoActual = bannerGuardado.descuentoTipo;
   if (bDescuentoValor) bDescuentoValor.value = bannerGuardado.descuentoValor ?? "";
   if (bDescuentoUnidad) bDescuentoUnidad.textContent = bannerDescuentoTipoActual === "porcentaje" ? "%" : "S/";
-  document.querySelectorAll('#bannerCampoDescuento [data-descuento-tipo]').forEach((c) =>
+  document.querySelectorAll("#bannerCampoDescuento [data-descuento-tipo]").forEach((c) =>
     c.classList.toggle("active", c.dataset.descuentoTipo === bannerDescuentoTipoActual),
   );
   if (bSoloSeguidores) bSoloSeguidores.checked = bannerGuardado.soloSeguidores;
-  
+
   pintarTipoBanner();
 }
 
 bBtnGuardar?.addEventListener("click", async () => {
+  if (!TIENDA_REF) { bannerSetMsg("Aún cargando datos de la tienda, espera un momento", "error"); return; }
+
   const descripcion = bDesc.value.trim();
   const precio = bannerLeerPrecio();
   const descuentoValor = bannerLeerDescuento();
   const clickeable = bClick.checked;
   const tipo = bannerTipoActual;
-  const soloSeguidores = !!bSoloSeguidores?.checked;
-
+  // Solo tiene sentido si el banner es clickeable
+  const soloSeguidores = clickeable && !!bSoloSeguidores?.checked;
 
   if (clickeable) {
     if (!descripcion) { validarBanner(); return; }
@@ -285,14 +325,18 @@ bBtnGuardar?.addEventListener("click", async () => {
       "banner.tipo": tipo,
       "banner.descuentoTipo": tipo === "descuento" ? bannerDescuentoTipoActual : deleteField(),
       "banner.descuentoValor": tipo === "descuento" && descuentoValor ? descuentoValor : deleteField(),
- 
+      "banner.soloSeguidores": soloSeguidores ? true : deleteField(),
     });
-bannerGuardado = {
-  descripcion, precio: tipo === "producto" ? precio : null, clickeable,
-  tipo, descuentoTipo: bannerDescuentoTipoActual,
-  descuentoValor: tipo === "descuento" ? descuentoValor : null,
-  soloSeguidores,
-};
+
+    bannerGuardado = {
+      descripcion,
+      precio: tipo === "producto" ? precio : null,
+      clickeable,
+      tipo,
+      descuentoTipo: bannerDescuentoTipoActual,
+      descuentoValor: tipo === "descuento" ? descuentoValor : null,
+      soloSeguidores,
+    };
     bannerSetMsg("Cambios guardados", "ok");
     setTimeout(() => { if (bMsg.classList.contains("ok")) bannerSetMsg(""); }, 1500);
     mostrarToast("Banner actualizado correctamente");
@@ -306,7 +350,16 @@ bannerGuardado = {
 });
 
 document.getElementById("bannerActivoSwitch")?.addEventListener("change", async (e) => {
-  await updateDoc(TIENDA_REF, { "banner.activo": e.target.checked });
+  const sw = e.target;
+  if (!TIENDA_REF) { sw.checked = !sw.checked; return; }
+  const nuevo = sw.checked;
+  try {
+    await updateDoc(TIENDA_REF, { "banner.activo": nuevo });
+  } catch (err) {
+    console.error(err);
+    sw.checked = !nuevo; // revierte si falló
+    alert("No se pudo cambiar el estado del banner");
+  }
 });
 
 document.getElementById("btnCambiarBanner")?.addEventListener("click", () => {
@@ -317,13 +370,14 @@ document.getElementById("bannerPreviewWrap")?.addEventListener("click", () => {
   const img = document.getElementById("bannerImgPreview");
   if (img && img.style.display !== "none" && img.src) abrirVisor(img.src);
 });
+
 document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
   e.target.value = "";
+  if (!TIENDA_REF) { alert("Aún cargando datos de la tienda, intenta en un momento"); return; }
   if (!confirm("¿Actualizar el banner?")) return;
 
-  // Overlay de carga sobre el banner
   const wrap = document.getElementById("bannerPreviewWrap");
   const ov = document.createElement("div");
   ov.className = "of-img-loading";
@@ -351,43 +405,26 @@ document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
   reader.onerror = () => { ov.remove(); alert("No se pudo leer la imagen"); };
   reader.readAsDataURL(file);
 });
-// ══════════════ OFERTAS (antes "promociones") ══════════════
-async function cargarOfertas() {
-  const grid = document.getElementById("ofertasGrid");
-  if (!grid) { console.warn("[ofertas] no existe #ofertasGrid en el HTML"); return; }
-  console.log("[ofertas] leyendo…", TIENDA_REF?.path);
-  try {
-    const snap = await getDoc(TIENDA_REF);
-    const map = snap.data()?.img_tienda?.lista_img?.promociones || {};
-    console.log("[ofertas] encontradas:", Object.keys(map).length);
-    renderOfertas(map);
-  } catch (err) {
-    console.error("[ofertas] falló getDoc:", err.code, err.message);
-    grid.innerHTML = `<p class="of-msg error">No se pudieron cargar las ofertas. <button type="button" id="ofReintentar">Reintentar</button></p>`;
-    document.getElementById("ofReintentar").onclick = cargarOfertas;
-  }
-}
+
+// ══════════════ OFERTAS ══════════════
 let ofertasCache = {};
 const MAX_OFERTAS = 5;
 let subiendoOferta = false;
 
-function mostrarToast(texto) {
-  let wrap = document.getElementById("ofToastWrap");
-  if (!wrap) {
-    wrap = document.createElement("div");
-    wrap.id = "ofToastWrap";
-    wrap.className = "of-toast-wrap";
-    document.body.appendChild(wrap);
+async function cargarOfertas(intento = 0) {
+  const grid = document.getElementById("ofertasGrid");
+  if (!grid) { console.warn("[ofertas] no existe #ofertasGrid en el HTML"); return; }
+  if (!TIENDA_REF) return;
+  try {
+    const snap = await getDoc(TIENDA_REF);
+    const map = snap.data()?.img_tienda?.lista_img?.promociones || {};
+    renderOfertas(map);
+  } catch (err) {
+    console.error("[ofertas] falló getDoc:", err.code, err.message);
+    if (intento < 3) { setTimeout(() => cargarOfertas(intento + 1), 1000 * (intento + 1)); return; }
+    grid.innerHTML = `<p class="of-msg error">No se pudieron cargar las ofertas. <button type="button" id="ofReintentar">Reintentar</button></p>`;
+    document.getElementById("ofReintentar").onclick = () => cargarOfertas();
   }
-  const t = document.createElement("div");
-  t.className = "of-toast";
-  t.innerHTML = `<span class="of-toast-ico">✓</span><span></span>`;
-  t.lastElementChild.textContent = texto;
-  wrap.appendChild(t);
-  setTimeout(() => {
-    t.classList.add("out");
-    setTimeout(() => t.remove(), 260);
-  }, 2600);
 }
 
 // Muestra el esqueleto mientras sube la imagen. Devuelve una función para quitarlo.
@@ -406,7 +443,7 @@ function mostrarSkeletonOferta(oldKey) {
     return () => ov.remove();
   }
 
-  // Oferta nueva: tarjeta esqueleto (oculta el botón "Agregar" mientras tanto)
+  // Oferta nueva: tarjeta esqueleto
   const add = grid.querySelector(".of-add");
   if (add) add.style.display = "none";
 
@@ -431,6 +468,7 @@ function mostrarSkeletonOferta(oldKey) {
     if (add) add.style.display = "";
   };
 }
+
 function normalizarOferta(val) {
   if (typeof val === "string") return { imagen: val, descripcion: "" }; // formato viejo
   if (val && typeof val === "object") return val;
@@ -446,11 +484,12 @@ async function guardarOferta(key, cambios) {
   if (!String(nuevo.descripcion || "").trim()) throw new Error("DESCRIPCION_REQUERIDA");
   if (!(Number(nuevo.precio) > 0)) throw new Error("PRECIO_REQUERIDO");
 
-  ofertasCache[key] = nuevo;
   await updateDoc(TIENDA_REF, {
     [`img_tienda.lista_img.promociones.${key}`]: nuevo,
   });
+  ofertasCache[key] = nuevo; // solo se actualiza el caché si Firestore guardó bien
 }
+
 function renderOfertas(map) {
   const grid = document.getElementById("ofertasGrid");
   if (!grid) return;
@@ -465,30 +504,34 @@ function renderOfertas(map) {
     const card = document.createElement("div");
     card.className = "of-card";
     card.dataset.key = key;
-  card.innerHTML = `
-  <div class="of-img" data-role="img-wrap">
-    <img src="${item.imagen}" alt="">
-    <button type="button" class="of-edit" data-role="edit">📷 Cambiar</button>
-    <button type="button" class="of-del" data-role="del" title="Eliminar oferta">✕</button>
-    <span class="of-price-tag vacio" data-role="tag">Sin precio</span>
-  </div>
-  <div class="of-body">
-    <textarea class="of-desc" data-role="desc" rows="2" maxlength="80" placeholder="Descripción corta (obligatoria)"></textarea>
-    <div class="of-price" data-role="price-box">
-      <span>S/</span>
-      <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio (obligatorio)">
-    </div>
-    <p class="of-msg" data-role="msg"></p>
-    <button type="button" class="of-save" data-role="save" disabled>Guardar</button>
-  </div>
-`;
+    card.innerHTML = `
+      <div class="of-img" data-role="img-wrap">
+        <img alt="">
+        <button type="button" class="of-edit" data-role="edit">📷 Cambiar</button>
+        <button type="button" class="of-del" data-role="del" title="Eliminar oferta">✕</button>
+        <span class="of-price-tag vacio" data-role="tag">Sin precio</span>
+      </div>
+      <div class="of-body">
+        <textarea class="of-desc" data-role="desc" rows="2" maxlength="80" placeholder="Descripción corta (obligatoria)"></textarea>
+        <div class="of-price" data-role="price-box">
+          <span>S/</span>
+          <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio (obligatorio)">
+        </div>
+        <p class="of-msg" data-role="msg"></p>
+        <button type="button" class="of-save" data-role="save" disabled>Guardar</button>
+      </div>
+    `;
+
+    const imgEl = card.querySelector("img");
+    if (item.imagen) imgEl.src = conVersion(item.imagen);
 
     const desc = card.querySelector('[data-role="desc"]');
     const precio = card.querySelector('[data-role="precio"]');
     const priceBox = card.querySelector('[data-role="price-box"]');
     const msg = card.querySelector('[data-role="msg"]');
     const btn = card.querySelector('[data-role="save"]');
-const tag = card.querySelector('[data-role="tag"]');
+    const tag = card.querySelector('[data-role="tag"]');
+
     desc.value = item.descripcion || "";
     precio.value = Number(item.precio) > 0 ? item.precio : "";
 
@@ -519,9 +562,10 @@ const tag = card.querySelector('[data-role="tag"]');
       priceBox.classList.toggle("error", faltan.includes("precio"));
       card.classList.toggle("falta-precio", faltan.length > 0);
       btn.disabled = faltan.length > 0;
+
       const p = leerPrecio();
-tag.textContent = p ? "S/ " + p.toFixed(2) : "Sin precio";
-tag.classList.toggle("vacio", !p);
+      tag.textContent = p ? "S/ " + p.toFixed(2) : "Sin precio";
+      tag.classList.toggle("vacio", !p);
       card.classList.toggle("dirty", faltan.length === 0 && hayCambios());
 
       if (faltan.length) setMsg("Falta " + faltan.join(" y "), "error");
@@ -533,7 +577,6 @@ tag.classList.toggle("vacio", !p);
     precio.addEventListener("input", pintarEstado);
 
     btn.addEventListener("click", async () => {
-      // Si no cambió nada, no se guarda
       if (!hayCambios()) {
         setMsg("Sin cambios");
         setTimeout(() => { if (msg.textContent === "Sin cambios") setMsg(""); }, 1500);
@@ -565,23 +608,22 @@ tag.classList.toggle("vacio", !p);
         }
         btn.textContent = "Guardar";
       } finally {
-        // vuelve a bloquear si quedó incompleto
         btn.disabled = !desc.value.trim() || !leerPrecio();
       }
     });
 
-card.querySelector('[data-role="img-wrap"]').addEventListener("click", (e) => {
-  if (e.target.closest('[data-role="del"]') || e.target.closest('[data-role="edit"]')) return;
-  abrirVisor(normalizarOferta(ofertasCache[key]).imagen);
-});
-card.querySelector('[data-role="edit"]').addEventListener("click", (e) => {
-  e.stopPropagation();
-  cambiarImagenOferta(key);
-});
-card.querySelector('[data-role="del"]').addEventListener("click", (e) => {
-  e.stopPropagation();
-  eliminarOferta(key);
-});
+    card.querySelector('[data-role="img-wrap"]').addEventListener("click", (e) => {
+      if (e.target.closest('[data-role="del"]') || e.target.closest('[data-role="edit"]')) return;
+      abrirVisor(imgEl.src || normalizarOferta(ofertasCache[key]).imagen);
+    });
+    card.querySelector('[data-role="edit"]').addEventListener("click", (e) => {
+      e.stopPropagation();
+      cambiarImagenOferta(key);
+    });
+    card.querySelector('[data-role="del"]').addEventListener("click", (e) => {
+      e.stopPropagation();
+      eliminarOferta(key);
+    });
 
     grid.appendChild(card);
   });
@@ -594,8 +636,10 @@ card.querySelector('[data-role="del"]').addEventListener("click", (e) => {
     grid.appendChild(addCard);
   }
 }
+
 function cambiarImagenOferta(oldKey) {
   if (subiendoOferta) return;
+  if (!TIENDA_REF) { alert("Aún cargando datos de la tienda, intenta en un momento"); return; }
 
   const actual = oldKey ? normalizarOferta(ofertasCache[oldKey]) : { imagen: "", descripcion: "" };
   const input = document.createElement("input");
@@ -647,13 +691,8 @@ function cambiarImagenOferta(oldKey) {
   input.click();
 }
 
-async function guardarDescripcionOferta(key, imagenUrl, descripcion) {
-  await updateDoc(TIENDA_REF, {
-    [`img_tienda.lista_img.promociones.${key}`]: { imagen: imagenUrl, descripcion },
-  });
-}
-
 async function eliminarOferta(key) {
+  if (!TIENDA_REF) return;
   if (!confirm("¿Eliminar esta oferta por completo?")) return;
   try {
     const path = `tiendas/${TIENDA_ID}/imagenes/promociones/${key}.webp`;
