@@ -76,8 +76,14 @@
       text-align: left;
     }
 
-    .box.is-wide::-webkit-scrollbar { width: 6px; }
-    .box.is-wide::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 6px; }
+    .box.is-wide::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .box.is-wide::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .12);
+      border-radius: 6px;
+    }
 
     /* línea fina con el color del negocio en el borde superior */
     .box::before {
@@ -609,43 +615,82 @@
         transition: none !important;
       }
     }
+
     .init-skel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.init-skel .hero { margin: 0 auto 24px; }
-.init-skel .actions { width: 100%; }
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-.skel-line {
-  position: relative;
-  overflow: hidden;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .05);
-}
-.skel-line.title { height: 21px; width: 64%; margin: 0 auto 10px; }
-.skel-line.desc1 { height: 13px; width: 88%; margin: 0 auto 8px; }
-.skel-line.desc2 { height: 13px; width: 55%; margin: 0 auto 24px; }
+    .init-skel .hero {
+      margin: 0 auto 24px;
+    }
 
-/* sumá .skel-line acá para que comparta el shimmer morado con --rgb */
-.skel::after,
-.skel-line::after,
-.avatar.is-loading::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(var(--rgb), .16), transparent);
-  animation: shimmer 1.7s ease-in-out infinite;
-}
+    .init-skel .actions {
+      width: 100%;
+    }
 
-/* fade suave al revelar el contenido real */
-#logoWrap:not([hidden]),
-#title:not([hidden]),
-#msg:not([hidden]),
-#viewMain:not([hidden]) {
-  animation: fade .4s ease both;
-}
+    .skel-line {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .05);
+    }
+
+    .skel-line.title {
+      height: 21px;
+      width: 64%;
+      margin: 0 auto 10px;
+    }
+
+    .skel-line.desc1 {
+      height: 13px;
+      width: 88%;
+      margin: 0 auto 8px;
+    }
+
+    .skel-line.desc2 {
+      height: 13px;
+      width: 55%;
+      margin: 0 auto 24px;
+    }
+
+    /* sumá .skel-line acá para que comparta el shimmer morado con --rgb */
+    .skel::after,
+    .skel-line::after,
+    .avatar.is-loading::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(var(--rgb), .16), transparent);
+      animation: shimmer 1.7s ease-in-out infinite;
+    }
+
+    /* fade suave al revelar el contenido real */
+    #logoWrap:not([hidden]),
+    #title:not([hidden]),
+    #msg:not([hidden]),
+    #viewMain:not([hidden]) {
+      animation: fade .4s ease both;
+    }
+
+    /* cada grupo configurable se comporta como una columna del form */
+    [data-campo] {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .dni-status {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dni-status:empty {
+      display: none;
+    }
   </style>
 </head>
 
@@ -727,120 +772,144 @@
     </form>
 
     <!-- Vista: crear cuenta (mismos campos y misma base que login.js) -->
-    <form id="viewRegister" hidden>
+  <form id="viewRegister" hidden>
 
-      <div class="row-2">
-        <div class="field-group">
-          <label class="field-label" for="regNombre">Nombre</label>
-          <input id="regNombre" type="text" placeholder="Nombre" autocomplete="given-name" />
+  <div data-campo="dni">
+    <div class="field-group">
+      <label class="field-label" for="regDni">DNI</label>
+      <input id="regDni" type="text" inputmode="numeric" placeholder="8 dígitos" maxlength="8" autocomplete="off" />
+    </div>
+    <p class="dni-status" id="dniStatus"></p>
+    <p class="field-error" id="errRegDni"></p>
+  </div>
+
+  <div data-campo="nombres">
+    <div class="row-2">
+      <div class="field-group">
+        <label class="field-label" for="regNombre">Nombre</label>
+        <input id="regNombre" type="text" placeholder="Nombre" autocomplete="given-name" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="regApellido">Apellido</label>
+        <input id="regApellido" type="text" placeholder="Apellido" autocomplete="family-name" />
+      </div>
+    </div>
+    <p class="field-error" id="errRegNombre"></p>
+  </div>
+
+  <div data-campo="username">
+    <div class="field-group">
+      <label class="field-label" for="regUsername">Nombre de usuario</label>
+      <input id="regUsername" type="text" placeholder="mi_usuario" autocomplete="username" />
+    </div>
+    <p class="field-error" id="errRegUsername"></p>
+  </div>
+
+  <div data-campo="telefono">
+    <div class="field-group">
+      <label class="field-label">País (teléfono)</label>
+      <select id="regPaisTel">
+        <option value="" disabled selected hidden>Seleccionar país</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="regTelefono">Número de teléfono</label>
+      <div class="phone-row">
+        <div class="phone-prefix" id="regPrefixBox">
+          <span id="regPrefixFlag">🇵🇪</span>
+          <span id="regPrefixCode">+51</span>
         </div>
-        <div class="field-group">
-          <label class="field-label" for="regApellido">Apellido</label>
-          <input id="regApellido" type="text" placeholder="Apellido" autocomplete="family-name" />
-        </div>
+        <input id="regTelefono" type="tel" placeholder="987 654 321" autocomplete="tel-national" maxlength="12" />
       </div>
-      <p class="field-error" id="errRegNombre"></p>
+    </div>
+    <p class="field-error" id="errRegTelefono"></p>
+  </div>
 
-      <div class="field-group">
-        <label class="field-label" for="regUsername">Nombre de usuario</label>
-        <input id="regUsername" type="text" placeholder="mi_usuario" autocomplete="username" />
-      </div>
-      <p class="field-error" id="errRegUsername"></p>
+  <div data-campo="genero">
+    <div class="field-group">
+      <label class="field-label" for="regGenero">Género</label>
+      <select id="regGenero">
+        <option value="" disabled selected hidden>Seleccionar</option>
+        <option value="Masculino">Masculino</option>
+        <option value="Femenino">Femenino</option>
+        <option value="Otro">Otro</option>
+      </select>
+    </div>
+    <p class="field-error" id="errRegGenero"></p>
+  </div>
 
-      <div class="field-group">
-        <label class="field-label">País (teléfono)</label>
-        <select id="regPaisTel">
-          <option value="" disabled selected hidden>Seleccionar país</option>
-        </select>
-      </div>
+  <div data-campo="ubicacion">
+    <p class="section-title">Ubicación</p>
+    <div class="field-group">
+      <label class="field-label">Departamento</label>
+      <select id="regDepartamento">
+        <option value="" disabled selected hidden>Selecciona</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Provincia</label>
+      <select id="regProvincia" disabled>
+        <option value="" disabled selected hidden>Elige depto.</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Distrito</label>
+      <select id="regDistrito" disabled>
+        <option value="" disabled selected hidden>Elige provincia</option>
+      </select>
+    </div>
+    <p class="field-error" id="errRegUbicacion"></p>
+  </div>
 
-      <div class="field-group">
-        <label class="field-label" for="regTelefono">Número de teléfono</label>
-        <div class="phone-row">
-          <div class="phone-prefix" id="regPrefixBox">
-            <span id="regPrefixFlag">🇵🇪</span>
-            <span id="regPrefixCode">+51</span>
-          </div>
-          <input id="regTelefono" type="tel" placeholder="987 654 321" autocomplete="tel-national" maxlength="12" />
-        </div>
-      </div>
-      <p class="field-error" id="errRegTelefono"></p>
+  <div data-campo="fecha_nac">
+    <div class="field-group">
+      <label class="field-label" for="regFechaNac">Fecha de nacimiento</label>
+      <input id="regFechaNac" type="date" autocomplete="bday" />
+    </div>
+    <p class="field-error" id="errRegFecha"></p>
+  </div>
 
-      <div class="field-group">
-        <label class="field-label" for="regGenero">Género</label>
-        <select id="regGenero">
-          <option value="" disabled selected hidden>Seleccionar</option>
-          <option value="Masculino">Masculino</option>
-          <option value="Femenino">Femenino</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-      <p class="field-error" id="errRegGenero"></p>
+  <div data-campo="nacionalidad">
+    <div class="field-group">
+      <label class="field-label">Nacionalidad</label>
+      <select id="regNacionalidad">
+        <option value="" disabled selected hidden>Seleccionar país</option>
+      </select>
+    </div>
+    <p class="field-error" id="errRegNacionalidad"></p>
+  </div>
+  <!-- estos 2 hidden SIEMPRE fuera del wrapper: guardan el país por defecto aunque la nacionalidad esté apagada -->
+  <input type="hidden" id="regCodPais" />
+  <input type="hidden" id="regNombrePais" />
 
-      <p class="section-title">Ubicación</p>
-      <div class="field-group">
-        <label class="field-label">Departamento</label>
-        <select id="regDepartamento">
-          <option value="" disabled selected hidden>Selecciona</option>
-        </select>
-      </div>
-      <div class="field-group">
-        <label class="field-label">Provincia</label>
-        <select id="regProvincia" disabled>
-          <option value="" disabled selected hidden>Elige depto.</option>
-        </select>
-      </div>
-      <div class="field-group">
-        <label class="field-label">Distrito</label>
-        <select id="regDistrito" disabled>
-          <option value="" disabled selected hidden>Elige provincia</option>
-        </select>
-      </div>
-      <p class="field-error" id="errRegUbicacion"></p>
+  <!-- Siempre visibles -->
+  <div class="field-group">
+    <label class="field-label" for="regEmail">Correo electrónico</label>
+    <input id="regEmail" type="email" placeholder="tucorreo@gmail.com" autocomplete="email" />
+  </div>
+  <p class="field-error" id="errRegEmail"></p>
 
-      <div class="field-group">
-        <label class="field-label" for="regFechaNac">Fecha de nacimiento</label>
-        <input id="regFechaNac" type="date" autocomplete="bday" />
-      </div>
-      <p class="field-error" id="errRegFecha"></p>
+  <div class="row-2">
+    <div class="field-group">
+      <label class="field-label" for="regPass">Contraseña</label>
+      <input id="regPass" type="password" placeholder="Mín. 8 caracteres" autocomplete="new-password" />
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="regPass2">Confirmar</label>
+      <input id="regPass2" type="password" placeholder="Repite" autocomplete="new-password" />
+    </div>
+  </div>
+  <p class="field-error" id="errRegPass"></p>
 
-      <div class="field-group">
-        <label class="field-label">Nacionalidad</label>
-        <select id="regNacionalidad">
-          <option value="" disabled selected hidden>Seleccionar país</option>
-        </select>
-        <input type="hidden" id="regCodPais" />
-        <input type="hidden" id="regNombrePais" />
-      </div>
-      <p class="field-error" id="errRegNacionalidad"></p>
+  <div class="checkbox-row">
+    <input type="checkbox" id="regTerms" />
+    <label for="regTerms">Acepto los términos de servicio y la política de privacidad.</label>
+  </div>
+  <p class="field-error" id="errRegTerms"></p>
 
-      <div class="field-group">
-        <label class="field-label" for="regEmail">Correo electrónico</label>
-        <input id="regEmail" type="email" placeholder="tucorreo@gmail.com" autocomplete="email" />
-      </div>
-      <p class="field-error" id="errRegEmail"></p>
-
-      <div class="row-2">
-        <div class="field-group">
-          <label class="field-label" for="regPass">Contraseña</label>
-          <input id="regPass" type="password" placeholder="Mín. 8 caracteres" autocomplete="new-password" />
-        </div>
-        <div class="field-group">
-          <label class="field-label" for="regPass2">Confirmar</label>
-          <input id="regPass2" type="password" placeholder="Repite" autocomplete="new-password" />
-        </div>
-      </div>
-      <p class="field-error" id="errRegPass"></p>
-
-      <div class="checkbox-row">
-        <input type="checkbox" id="regTerms" />
-        <label for="regTerms">Acepto los términos de servicio y la política de privacidad.</label>
-      </div>
-      <p class="field-error" id="errRegTerms"></p>
-
-      <button id="btnRegSubmit" class="btn-primary" type="submit">Crear cuenta</button>
-      <button class="btn-link" type="button" data-back>← Volver</button>
-    </form>
+  <button id="btnRegSubmit" class="btn-primary" type="submit">Crear cuenta</button>
+  <button class="btn-link" type="button" data-back>← Volver</button>
+</form>
 
     <!-- Vista: cargando (skeleton) -->
     <div id="viewLoading" class="loading" role="status" aria-live="polite" hidden>

@@ -22,7 +22,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { iniciarCamara } from "./scan_camara.js";
 import { db } from "../db/db.js";
-
+import {
+  cachearConfigComprobante, obtenerConfigComprobante,
+  imprimirComprobante, registrarComprobante,
+} from "./comprobantes.js";
 import {
   tiendaDoc,
   tiendaSubDoc,
@@ -1703,6 +1706,20 @@ function limpiarDominio(d) {
     .replace(/\/.*$/, ""); // quita cualquier ruta
   return limpio || null;
 }
+async function imprimirComprobantePedido(pedido) {
+  try {
+    const cfg = await obtenerConfigComprobante(tiendaId, localidad, {
+      nombre: bizNombreGlobal,
+    });
+    const numero = await registrarComprobante(tiendaId, localidad, pedido, cfg);
+    await imprimirComprobante(pedido, cfg, { numero });
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo imprimir el comprobante", true);
+  }
+}
+window.imprimirComprobantePedido = imprimirComprobantePedido;
+window.imprimirComprobantePedido = imprimirComprobantePedido;
 /* ══════════════ Datos del negocio ══════════════ */
 async function cargarNegocio() {
   try {
@@ -1710,6 +1727,7 @@ async function cargarNegocio() {
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : null;
     bizDataGlobal = data;
+    if (tiendaId) cachearConfigComprobante(tiendaId, data?.config_comprobante);
     aplicarDeliveryDesdeDB(data?.delivery);
     bizDominioGlobal = limpiarDominio(
       data?.dominio_propio ||
@@ -3693,7 +3711,7 @@ function renderMesaDetail(numeroMesa) {
       rechazarPedidoMesa(numeroMesa, btnRechazar),
     );
     dmActions.appendChild(btnRechazar);
-  } else if (activos.length > 0) {
+   } else if (activos.length > 0) {
     // Ocupada CON pedido: hay que cobrar antes de liberar
     const btn = document.createElement("button");
     btn.className = "oc-btn primary v-green";
@@ -3711,6 +3729,17 @@ function renderMesaDetail(numeroMesa) {
       rechazarPedidoMesa(numeroMesa, btnRechazar),
     );
     dmActions.appendChild(btnRechazar);
+
+    const btnCmp = document.createElement("button");
+    btnCmp.className = "oc-btn ghost";
+    btnCmp.style.cssText = "width:100%;margin-top:8px;";
+    btnCmp.textContent = "🖨️ Imprimir comprobante";
+    btnCmp.addEventListener("click", async () => {
+      for (const [, pp] of activos) {
+        await imprimirComprobantePedido({ ...pp, id: pp.pedidoDocId });
+      }
+    });
+    dmActions.appendChild(btnCmp);
   } else if (ocupada) {
     // Ocupada SIN pedido registrado: no hay nada que cobrar, solo liberar
     const btn = document.createElement("button");
@@ -4384,11 +4413,7 @@ function bloquesHtml(bloques) {
 }
 function renderDetail(id) {
   const p = pedidosMap.get(id);
-  if (!p) {
-    npBeep(false);
-    npNoEncontrado(code);
-    return false;
-  }
+  if (!p) return false;
 
   const estado = ESTADOS.includes(p.estado) ? p.estado : "pendiente";
   const fecha = toDate(p.timestamp);
@@ -4572,9 +4597,10 @@ function renderModalActions(container, id, estado, p) {
       ? "Aceptar y pedir pago →"
       : "Aceptar pedido →";
     container.innerHTML = `
-    ${puntosNota}
+    ${puntosNota} 
     <button class="oc-btn ghost danger" data-action="rechazado">✕ Rechazar pedido</button>
     <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
+    
     <button class="oc-btn primary v-violet" data-action="${destino}">${txt}</button>`;
   } else if (estado === "pendiente_pago") {
     const tieneVoucher = !!p.pago?.voucher_url;
@@ -4607,9 +4633,10 @@ function renderModalActions(container, id, estado, p) {
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button>`;
   } else if (estado === "entregado") {
-    container.innerHTML = `
-      <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
-      <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
+container.innerHTML = `
+  <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
+  <button class="oc-btn ghost" style="width:100%;" data-action="_comprobante">🖨️ Imprimir comprobante</button>
+  <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
   } else if (estado === "rechazado") {
     const auto = !!p.auto_rechazado;
     const canceladoCliente = !!p.cancelado_por_cliente;
@@ -4626,10 +4653,12 @@ function renderModalActions(container, id, estado, p) {
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation?.();
-      if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
-      if (btn.dataset.action === "_aceptar")
-        return abrirModalTiempo(id, p, btn);
-      accionEstado(id, p, estado, btn.dataset.action, btn);
+ if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
+if (btn.dataset.action === "_comprobante")
+  return imprimirComprobantePedido({ id, ...p });
+if (btn.dataset.action === "_aceptar")
+  return abrirModalTiempo(id, p, btn);
+accionEstado(id, p, estado, btn.dataset.action, btn);
     });
   });
 }

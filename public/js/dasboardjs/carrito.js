@@ -1387,7 +1387,7 @@ function iniciarSeguimientoMesa() {
 
 async function confirmarPedidoMesaDirecto() {
   if (!carrito.size) return;
-
+  if (avisarProductosNoDisponibles()) return;
   const waInput = document.getElementById("clienteWhatsapp");
   waInput.classList.remove("field-error");
   const whatsappRaw = waInput.value.trim();
@@ -1884,6 +1884,7 @@ async function loadProductosCatalogo(biz) {
   const porCategoria = await Promise.all(
     catSnap.docs.map(async (catDoc) => {
       const categoria = catDoc.id;
+      const horarioCat = normalizarHorarioCategoria(catDoc.data()?.horario_categoria);
       const subRef = tiendaSubCol(
         localidad,
         "tiendas",
@@ -1941,6 +1942,11 @@ async function loadProductosCatalogo(biz) {
                 }
               : null,
           descuento: d.descuento || null,
+          horarioCat,
+horarioProd:
+  d.disponibleDesde && d.disponibleHasta
+    ? { desde: d.disponibleDesde, hasta: d.disponibleHasta }
+    : null,
         });
       });
       return arr;
@@ -2626,6 +2632,7 @@ function productoCard(p, index = 0) {
     <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
     <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
     <p class="mb-0">${precioHTML}</p>
+  
   ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
     ${
@@ -2636,6 +2643,11 @@ function productoCard(p, index = 0) {
         : ""
     }  `;
 
+      const dispEl = document.createElement("p");
+  dispEl.id = `disp-${p.id}`;
+  dispEl.className = "prod-disp-msg";
+  dispEl.style.display = "none";
+  info.appendChild(dispEl);
   const qtyWrap = document.createElement("div");
   qtyWrap.className = "flex-shrink-0 prod-qty-row";
   qtyWrap.id = `qty-${p.id}`;
@@ -2649,7 +2661,7 @@ function productoCard(p, index = 0) {
       abrirPromoDetailModal(p);
     });
   }
-
+pintarDisponibilidad(card, dispEl, p);
   return card;
 }
 
@@ -2696,10 +2708,13 @@ function renderQtyControls(container, p, cartKey = null) {
     plus.className = "qty-btn";
     plus.textContent = "+";
     plus.onclick = () => addToCart(p, carrito.get(cartKey)?.seleccion || null);
-    if (!horarioEstado.abierto) {
+      const dispLinea = estadoDisponibilidadProducto(p);
+    if (!horarioEstado.abierto || !dispLinea.disponible) {
       plus.disabled = true;
       plus.classList.add("opacity-30", "cursor-not-allowed");
-      plus.title = horarioEstado.mensaje || "Cerrado ahora";
+      plus.title = !dispLinea.disponible
+        ? dispLinea.mensaje
+        : horarioEstado.mensaje || "Cerrado ahora";
     }
 
     stepper.append(minus, count, plus);
@@ -2709,6 +2724,17 @@ function renderQtyControls(container, p, cartKey = null) {
 
   // Caso 2: tarjeta principal de un producto CON condiciones -> siempre abre el popup
   // Caso 2: tarjeta principal de un producto CON condiciones
+  // Caso 2: tarjeta principal de un producto CON condiciones
+  const disp = estadoDisponibilidadProducto(p);
+  if (!disp.disponible && !productoEnCarrito(p.id)) {
+    const btn = document.createElement("button");
+    btn.className = "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
+    btn.textContent = "No disponible ahora";
+    btn.title = disp.mensaje;
+    btn.disabled = true;
+    container.appendChild(btn);
+    return;
+  }
   if (p.condiciones && p.condiciones.length) {
     const variantes = [...carrito.values()].filter((it) => it.id === p.id);
     const totalCantidad = variantes.reduce((s, it) => s + it.cantidad, 0);
@@ -2736,7 +2762,7 @@ function renderQtyControls(container, p, cartKey = null) {
       btn.className = "btn-add accent-grad pop";
       btn.textContent = `${totalCantidad} en carrito · Agregar otra`;
       btn.onclick = () => addToCart(p);
-      if (!horarioEstado.abierto) {
+         if (!horarioEstado.abierto || !disp.disponible) {
         btn.disabled = true;
         btn.classList.add("opacity-40", "cursor-not-allowed");
         btn.title = horarioEstado.mensaje || "Cerrado ahora";
@@ -2744,7 +2770,9 @@ function renderQtyControls(container, p, cartKey = null) {
       container.appendChild(btn);
     }
     return;
+    
   }
+  
   // Caso 3: tarjeta principal de un producto SIN condiciones (comportamiento original)
   const cantidad = carrito.get(p.id)?.cantidad || 0;
   if (cantidad === 0) {
@@ -2779,7 +2807,7 @@ function renderQtyControls(container, p, cartKey = null) {
     plus.className = "qty-btn";
     plus.textContent = "+";
     plus.onclick = () => addToCart(p);
-    if (!horarioEstado.abierto) {
+    if (!horarioEstado.abierto || !disp.disponible) {
       plus.disabled = true;
       plus.classList.add("opacity-30", "cursor-not-allowed");
       plus.title = horarioEstado.mensaje || "Cerrado ahora";
@@ -3148,6 +3176,11 @@ function addToCart(p, seleccion = null) {
   }
   if (!horarioEstado.abierto) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
+    return;
+  }
+    const disp = estadoDisponibilidadProducto(p);
+  if (!disp.disponible) {
+    showToast(`🕐 ${disp.mensaje}`);
     return;
   }
   if (!seleccion && p.condiciones && p.condiciones.length) {
@@ -3574,9 +3607,11 @@ function syncMainListCard(id) {
   const cardEl = document.getElementById(`card-${id}`);
   const qtyWrap = document.getElementById(`qty-${id}`);
   if (qtyWrap) renderQtyControls(qtyWrap, p);
-  if (cardEl) cardEl.classList.toggle("in-cart", productoEnCarrito(id));
+  if (cardEl) {
+    cardEl.classList.toggle("in-cart", productoEnCarrito(id));
+    pintarDisponibilidad(cardEl, document.getElementById(`disp-${id}`), p);
+  }
 }
-
 function pulseCard(id) {
   const cardEl = document.getElementById(`card-${id}`);
   if (!cardEl) return;
@@ -3971,6 +4006,7 @@ function openCheckout() {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
   }
+    if (avisarProductosNoDisponibles()) return;
   renderCheckoutSummary();
   const nombreInput = document.getElementById("clienteNombre");
   if (nombreUsuarioLogeado && nombreInput && !nombreInput.value.trim()) {
@@ -5449,6 +5485,124 @@ async function registrarDispositivoMesa() {
     return true; // si falla la red, no se bloquea al cliente
   }
 }
+/* ══════════════ Disponibilidad por categoría / producto ══════════════ */
+function normalizarHorarioCategoria(h) {
+  if (!h || h.activo !== true || !h.dias) return null;
+  return { activo: true, mensaje: String(h.mensaje || "").trim(), dias: h.dias };
+}
+
+// Parte "de hoy" de una ventana (si cruza medianoche, solo cuenta desde la hora de inicio)
+function ventanaHoy(cfg, mins) {
+  if (!cfg || !cfg.activo) return false;
+  const ini = horaAMin(cfg.desde), fin = horaAMin(cfg.hasta);
+  if (ini == null || fin == null || ini === fin) return true; // sin horas = todo el día
+  return ini < fin ? mins >= ini && mins < fin : mins >= ini;
+}
+// Parte de la madrugada de una ventana que empezó AYER y cruza medianoche
+function ventanaAyer(cfg, mins) {
+  if (!cfg || !cfg.activo) return false;
+  const ini = horaAMin(cfg.desde), fin = horaAMin(cfg.hasta);
+  return ini != null && fin != null && fin < ini && mins < fin;
+}
+function rangoSimple(desde, hasta, mins) {
+  const ini = horaAMin(desde), fin = horaAMin(hasta);
+  if (ini == null || fin == null || ini === fin) return true;
+  return ini < fin ? mins >= ini && mins < fin : mins >= ini || mins < fin;
+}
+
+function textoProximaVentana(h, ahora) {
+  const mins = minutosLimaAhora(ahora);
+  for (let off = 0; off < 8; off++) {
+    const f = new Date(ahora.getTime() + off * 86400000);
+    const dia = obtenerDiaSemanaLima(f);
+    const cfg = h.dias?.[dia];
+    if (!cfg || !cfg.activo) continue;
+    const ini = horaAMin(cfg.desde) ?? 0;
+    if (off === 0 && ini <= mins) continue;
+    const hora = hora12(cfg.desde || "00:00");
+    if (off === 0) return `Disponible hoy desde las ${hora}`;
+    if (off === 1) return `Disponible mañana desde las ${hora}`;
+    return `Disponible el ${DIAS_DESCUENTO_LABEL_CARRITO[dia] || dia} desde las ${hora}`;
+  }
+  return "No disponible por ahora";
+}
+
+// → { disponible: true } o { disponible: false, mensaje }
+function estadoDisponibilidadProducto(p, ahora = new Date()) {
+  const mins = minutosLimaAhora(ahora);
+
+  const h = p?.horarioCat;
+  if (h?.activo) {
+    const hoy = h.dias?.[obtenerDiaSemanaLima(ahora)];
+    const ayer = h.dias?.[obtenerDiaSemanaLima(new Date(ahora.getTime() - 86400000))];
+    if (!ventanaHoy(hoy, mins) && !ventanaAyer(ayer, mins)) {
+      return {
+        disponible: false,
+        mensaje: [h.mensaje, textoProximaVentana(h, ahora)].filter(Boolean).join(" · "),
+      };
+    }
+  }
+
+  const hp = p?.horarioProd;
+  if (hp?.desde && hp?.hasta && !rangoSimple(hp.desde, hp.hasta, mins)) {
+    return {
+      disponible: false,
+      mensaje: `Disponible de ${hora12(hp.desde)} a ${hora12(hp.hasta)}`,
+    };
+  }
+  return { disponible: true, mensaje: "" };
+}
+
+const DISP_CSS = `
+.prod-card.no-disp .prod-img-wrap{filter:grayscale(.85);opacity:.55;}
+.prod-disp-msg{margin-top:6px;font-size:10.5px;font-weight:700;line-height:1.35;color:#fcd34d;
+  background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.35);border-radius:10px;padding:5px 8px;}
+`;
+(function inyectarEstilosDisp() {
+  if (document.getElementById("dispStyle")) return;
+  const st = document.createElement("style");
+  st.id = "dispStyle";
+  st.textContent = DISP_CSS;
+  document.head.appendChild(st);
+})();
+
+function pintarDisponibilidad(cardEl, msgEl, p) {
+  const disp = estadoDisponibilidadProducto(p);
+  cardEl?.classList.toggle("no-disp", !disp.disponible);
+  if (msgEl) {
+    msgEl.textContent = disp.disponible ? "" : `🕐 ${disp.mensaje}`;
+    msgEl.style.display = disp.disponible ? "none" : "block";
+  }
+}
+
+// Si algo del carrito quedó fuera de horario, avisa y devuelve true (para frenar el pedido)
+function avisarProductosNoDisponibles() {
+  const malos = [...carrito.values()].filter(
+    (it) => !it.esCanje && !estadoDisponibilidadProducto(it).disponible,
+  );
+  if (!malos.length) return false;
+  const d = estadoDisponibilidadProducto(malos[0]);
+  showToast(
+    `🕐 "${malos[0].nombre}": ${d.mensaje}${malos.length > 1 ? ` (+${malos.length - 1} más)` : ""}`,
+  );
+  return true;
+}
+
+// Habilita / bloquea solo cuando cambia el estado de un producto (sin parpadeos)
+const _dispPrev = new Map();
+function refrescarDisponibilidadCategorias() {
+  let cambio = false;
+  productosGlobal.forEach((p) => {
+    if (!p.horarioCat && !p.horarioProd) return;
+    const d = estadoDisponibilidadProducto(p);
+    const firma = d.disponible ? "1" : "0:" + d.mensaje;
+    if (_dispPrev.get(p.id) === firma) return;
+    _dispPrev.set(p.id, firma);
+    syncMainListCard(p.id);
+    cambio = true;
+  });
+  if (cambio) updateCartUI();
+}
 async function init() {
   await resolverParamsCarrito();
   await validarMesaDesdePath();
@@ -5572,7 +5726,8 @@ async function init() {
   iniciarValidacionHorarioEnVivo();
   iniciarValidacionOfertasEnVivo();
   iniciarValidacionDescuentosEnVivo();
-
+  refrescarDisponibilidadCategorias();
+  setInterval(refrescarDisponibilidadCategorias, 30000);
   const carritoDesdePerfil = await aplicarCarritoDesdePerfil();
   if (carritoDesdePerfil) {
     showToast("Tu selección se agregó al carrito 🛒");

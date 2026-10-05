@@ -5,10 +5,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../db/db.js";
 
-const PAIS = "peru";
-const DEPARTAMENTO = "lima"; // hardcodeado por ahora, dinámico más adelante
-const PROVINCIA = "barranca"; // hardcodeado por ahora, dinámico más adelante
-
+let PAIS = "peru";
+let DEPARTAMENTO = "lima";
+let PROVINCIA = "barranca";
+export function setUbicacion({ pais, departamento, provincia } = {}) {
+  if (pais) PAIS = pais;
+  if (departamento) DEPARTAMENTO = departamento;
+  if (provincia) PROVINCIA = provincia;
+}
 function buildPath(localidad, ...resto) {
   // localidad aquí = distrito (barranca, supe, paramonga, pativilca, puerto-supe)
   return [
@@ -250,4 +254,28 @@ export function tiendaCuponDoc(localidad, negocioId, cuponId) {
 
 export function tiendaServiciosDoc(localidad, negocioId) {
   return tiendaSubDoc(localidad, "tiendas_servicios_geinz_activos", negocioId);
+}
+
+
+// ── Registro configurable por tienda ──
+// .../tiendas/<negocioId>/registro/campos
+export function registroCamposDoc(localidad, negocioId) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "registro", "campos");
+}
+
+// .../tiendas/<negocioId>/registro/usuarios_registados/registrados/<uid>
+export function registradosCol(localidad, negocioId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "registro", "usuarios_registados", "registrados");
+}
+export function registradoDoc(localidad, negocioId, uid) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "registro", "usuarios_registados", "registrados", uid);
+}
+
+// ── Caché de DNI por distrito ──
+// .../distrito/<localidad>/dnis/<dni>
+export function dniDoc(localidad, dni) {
+  return tiendaSubDoc(localidad, "dnis", dni);
+}
+export function dnisCol(localidad) {
+  return tiendaSubCol(localidad, "dnis");
 }

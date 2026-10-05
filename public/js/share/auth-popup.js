@@ -22,6 +22,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 // 👇 mismo db.js que usa login.js: misma base de datos, mismas colecciones
 import { auth, db } from "../db/db.js";
+import { registradoDoc, setUbicacion } from "../rutas/rutas.js";
 
 const TAG = "[auth-popup]";
 const log = (...a) => console.log(TAG, ...a);
@@ -44,6 +45,12 @@ try {
 // ── Branding del negocio (blindado: nunca hardcodeamos un nombre aquí) ──
 const nombre = (qs.get("n") || "").trim().slice(0, 80);
 const logo = qs.get("l") || "";
+
+// Tienda a la que pertenece este login. Ya NO viene en la URL:
+// la resuelve el servidor a partir del dominio (configRegistroDominio).
+let negocioId = "";
+let distritoNeg = "";
+let ubicNeg = { pais: "", departamento: "", provincia: "" };
 
 const rawColor = qs.get("c") || "";
 const [r, g, b] = /^\d{1,3},\d{1,3},\d{1,3}$/.test(rawColor)
@@ -320,6 +327,122 @@ async function initUbicacionRegistro() {
 }
 
 /* =========================================================
+   CAMPOS DEL REGISTRO (configurados por la tienda) + DNI
+========================================================= */
+const CAMPOS_DEFAULT = {
+  dni: false, nombres: true, username: true, telefono: true,
+  genero: true, ubicacion: true, fecha_nac: true, nacionalidad: true,
+};
+let camposReg = { ...CAMPOS_DEFAULT };
+
+// El servidor identifica la tienda por el dominio (o=...) y devuelve
+// su id, su distrito y los booleanos de registro/campos.
+async function cargarCamposRegistro() {
+  if (!origenNegocio) {
+    logErr("Falta ?o= en la URL del popup. Se usan los campos por defecto.");
+    return;
+  }
+  try {
+    const fn = httpsCallable(functions, "configRegistroDominio");
+    const { data } = await fn({ origin: origenNegocio });
+
+    negocioId = data.negocioId || "";
+    distritoNeg = data.distrito || "";
+ubicNeg = { pais: data.pais, departamento: data.departamento, provincia: data.provincia };
+    Object.keys(CAMPOS_DEFAULT).forEach((k) => {
+      if (typeof data.campos?.[k] === "boolean") camposReg[k] = data.campos[k];
+    });
+
+    try {
+      setUbicacion({ pais: data.pais, departamento: data.departamento, provincia: data.provincia });
+    } catch (e) {
+      logErr("setUbicacion falló:", e.message);
+    }
+
+    log("tienda:", negocioId, "|", distritoNeg, "| campos:", { ...camposReg });
+  } catch (err) {
+    logErr("Error cargando configuración del registro:", err.code || err.message);
+  }
+}
+// se precarga al abrir el popup, para que al tocar "Crear cuenta" ya esté listo
+const camposPromise = cargarCamposRegistro();
+
+function aplicarCamposRegistro() {
+  document.querySelectorAll("#viewRegister [data-campo]").forEach((el) => {
+    el.hidden = !camposReg[el.dataset.campo];
+  });
+}
+
+/* ── DNI → autocompletar ── */
+const titulo = (s) =>
+  String(s || "").toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase()).trim();
+
+function normalizarFecha(f) {
+  if (!f) return "";
+  const s = String(f).trim();
+  let m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/); // dd/mm/yyyy
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);               // yyyy-mm-dd
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+}
+function normalizarGenero(g) {
+  const s = String(g || "").trim().toLowerCase();
+  if (["m", "masculino", "hombre", "1"].includes(s)) return "Masculino";
+  if (["f", "femenino", "mujer", "2"].includes(s)) return "Femenino";
+  return "";
+}
+
+// La consulta a PeruAPI pasa por la Cloud Function consultarDni (CORS + key en el servidor)
+async function consultarDni(dni) {
+  const fn = httpsCallable(functions, "consultarDni");
+  const { data: d } = await fn({ dni });
+  return {
+    nombre: titulo(d.nombres),
+    apellido: titulo([d.apellido_paterno, d.apellido_materno].filter(Boolean).join(" ")),
+    fechaNac: normalizarFecha(d.fecha_nacimiento),
+    genero: normalizarGenero(d.sexo),
+  };
+}
+
+function liberarCamposDni() {
+  $("regNombre").readOnly = false;
+  $("regApellido").readOnly = false;
+}
+
+let dniUltimo = "";
+$("regDni").addEventListener("input", async () => {
+  const inp = $("regDni");
+  inp.value = inp.value.replace(/\D/g, "").slice(0, 8);
+  const dni = inp.value;
+  $("errRegDni").textContent = "";
+
+  if (dni.length < 8) {
+    dniUltimo = "";
+    $("dniStatus").textContent = "";
+    liberarCamposDni();
+    return;
+  }
+  if (dni === dniUltimo) return;
+  dniUltimo = dni;
+
+  $("dniStatus").textContent = "Buscando tus datos…";
+  try {
+    const p = await consultarDni(dni);
+    if (inp.value !== dni) return; // cambió mientras consultaba
+    if (p.nombre) { $("regNombre").value = p.nombre; $("regNombre").readOnly = true; }
+    if (p.apellido) { $("regApellido").value = p.apellido; $("regApellido").readOnly = true; }
+    if (p.fechaNac) $("regFechaNac").value = p.fechaNac;
+    if (p.genero) $("regGenero").value = p.genero;
+    $("dniStatus").textContent = p.nombre ? "✓ Datos encontrados" : "No encontramos datos, complétalos a mano.";
+    if (!p.nombre) liberarCamposDni();
+  } catch (err) {
+    logErr("Error consultando DNI:", err);
+    $("dniStatus").textContent = "No pudimos consultar el DNI, completa los datos a mano.";
+    liberarCamposDni();
+  }
+});
+
+/* =========================================================
    Vistas
 ========================================================= */
 const views = {
@@ -345,13 +468,17 @@ function show(name) {
   $("box").classList.toggle("is-wide", name === "register");
 }
 $("btnGoLogin").addEventListener("click", () => show("login"));
-$("btnGoRegister").addEventListener("click", () => {
-  show("register");
-  cargarSelectsPais();
-  initUbicacionRegistro();
+
+async function abrirRegistro() {
+  await camposPromise;
+  aplicarCamposRegistro();
+  cargarSelectsPais(); // siempre: deja los valores por defecto (Perú) aunque esos campos estén ocultos
+  if (camposReg.ubicacion) initUbicacionRegistro();
   const fechaInput = $("regFechaNac");
   if (fechaInput) fechaInput.max = new Date().toISOString().split("T")[0];
-});
+  show("register");
+}
+$("btnGoRegister").addEventListener("click", abrirRegistro);
 document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => show("main")));
 
 /* =========================================================
@@ -385,13 +512,7 @@ async function checkEmailExists() {
 
     if (snap.empty) {
       $("loginEmailError").innerHTML = `Este correo no está registrado.<button type="button" class="btn-link-inline" id="linkIrRegistro">Crear cuenta</button>`;
-      $("linkIrRegistro").addEventListener("click", () => {
-        show("register");
-        cargarSelectsPais();
-        initUbicacionRegistro();
-        const fechaInput = $("regFechaNac");
-        if (fechaInput) fechaInput.max = new Date().toISOString().split("T")[0];
-      });
+      $("linkIrRegistro").addEventListener("click", abrirRegistro);
       return;
     }
 
@@ -442,15 +563,18 @@ function setErr(id, msg) {
 
 function validarRegistro() {
   [
-    "errRegNombre", "errRegUsername", "errRegTelefono", "errRegGenero",
+    "errRegDni", "errRegNombre", "errRegUsername", "errRegTelefono", "errRegGenero",
     "errRegUbicacion", "errRegFecha", "errRegNacionalidad", "errRegEmail",
     "errRegPass", "errRegTerms",
   ].forEach((id) => setErr(id, ""));
 
+  const c = camposReg;
   const datos = {
+    dni: $("regDni").value.trim(),
     nombre: $("regNombre").value.trim(),
     apellido: $("regApellido").value.trim(),
     username: $("regUsername").value.trim().toLowerCase().replace(/[^a-z0-9_.]/g, ""),
+    usernameAuto: !c.username,
     telefono: $("regTelefono").value.trim().replace(/\D/g, ""),
     prefijoTel: $("regPrefixCode").textContent.trim() || "+51",
     genero: $("regGenero").value,
@@ -466,53 +590,56 @@ function validarRegistro() {
 
   let ok = true;
 
-  if (!datos.nombre || datos.nombre.length < 2 || !datos.apellido || datos.apellido.length < 2) {
+  if (c.dni && !/^\d{8}$/.test(datos.dni)) {
+    setErr("errRegDni", "Ingresa un DNI de 8 dígitos.");
+    ok = false;
+  }
+  if (c.nombres && (datos.nombre.length < 2 || datos.apellido.length < 2)) {
     setErr("errRegNombre", "Ingresa un nombre y apellido válidos (mín. 2 caracteres).");
     ok = false;
   }
-  if (!datos.username || datos.username.length < 3) {
+  if (c.username && (!datos.username || datos.username.length < 3)) {
     setErr("errRegUsername", "El usuario debe tener al menos 3 caracteres.");
     ok = false;
   }
-  if (!datos.telefono || !/^\d{7,15}$/.test(datos.telefono)) {
+  if (c.telefono && !/^\d{7,15}$/.test(datos.telefono)) {
     setErr("errRegTelefono", "Número inválido (7–15 dígitos).");
     ok = false;
   }
-  if (!datos.genero) {
+  if (c.genero && !datos.genero) {
     setErr("errRegGenero", "Selecciona tu género.");
     ok = false;
   }
-  if (!datos.ubicacion.dep || !datos.ubicacion.prov || !datos.ubicacion.dist) {
+  if (c.ubicacion && (!datos.ubicacion.dep || !datos.ubicacion.prov || !datos.ubicacion.dist)) {
     setErr("errRegUbicacion", "Selecciona departamento, provincia y distrito.");
     ok = false;
   }
-  if (!datos.fechaNac) {
-    setErr("errRegFecha", "Selecciona tu fecha de nacimiento.");
-    ok = false;
-  } else {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const nacido = new Date(datos.fechaNac + "T00:00:00");
-    if (isNaN(nacido.getTime()) || nacido >= hoy) {
-      setErr("errRegFecha", "Fecha inválida.");
+  if (c.fecha_nac) {
+    if (!datos.fechaNac) {
+      setErr("errRegFecha", "Selecciona tu fecha de nacimiento.");
       ok = false;
     } else {
-      const edad =
-        hoy.getFullYear() - nacido.getFullYear() -
-        (hoy < new Date(hoy.getFullYear(), nacido.getMonth(), nacido.getDate()) ? 1 : 0);
-      if (edad < 13) {
-        setErr("errRegFecha", "Debes tener al menos 13 años.");
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const nacido = new Date(datos.fechaNac + "T00:00:00");
+      if (isNaN(nacido.getTime()) || nacido >= hoy) {
+        setErr("errRegFecha", "Fecha inválida.");
         ok = false;
-      } else if (edad > 110) {
-        setErr("errRegFecha", "Fecha de nacimiento inválida.");
-        ok = false;
+      } else {
+        const edad =
+          hoy.getFullYear() - nacido.getFullYear() -
+          (hoy < new Date(hoy.getFullYear(), nacido.getMonth(), nacido.getDate()) ? 1 : 0);
+        if (edad < 13) { setErr("errRegFecha", "Debes tener al menos 13 años."); ok = false; }
+        else if (edad > 110) { setErr("errRegFecha", "Fecha de nacimiento inválida."); ok = false; }
       }
     }
   }
-  if (!datos.codPais || !datos.nombrePais) {
+  if (c.nacionalidad && (!datos.codPais || !datos.nombrePais)) {
     setErr("errRegNacionalidad", "Selecciona tu nacionalidad.");
     ok = false;
   }
+
+  // Siempre obligatorios
   if (!datos.correo) {
     setErr("errRegEmail", "Ingresa tu correo electrónico.");
     ok = false;
@@ -538,10 +665,24 @@ function validarRegistro() {
   return ok ? datos : null;
 }
 
+// Si la tienda apagó "usuario", se genera uno libre a partir del correo
+async function generarUsernameLibre(correo) {
+  const base = correo.split("@")[0].toLowerCase().replace(/[^a-z0-9_.]/g, "").slice(0, 16) || "user";
+  for (let i = 0; i < 6; i++) {
+    const cand = base + Math.floor(1000 + Math.random() * 9000);
+    if (!(await getDoc(usernameDoc(cand))).exists()) return cand;
+  }
+  const e = new Error("username en uso");
+  e.code = "custom/username-en-uso";
+  throw e;
+}
+
 async function crearCuentaConDatos(datos) {
   // Username único
-  const usernameSnap = await getDoc(usernameDoc(datos.username));
-  if (usernameSnap.exists()) {
+  let username = datos.username;
+  if (datos.usernameAuto) {
+    username = await generarUsernameLibre(datos.correo);
+  } else if ((await getDoc(usernameDoc(username))).exists()) {
     const e = new Error("username en uso");
     e.code = "custom/username-en-uso";
     throw e;
@@ -556,12 +697,12 @@ async function crearCuentaConDatos(datos) {
 
   const cred = await createUserWithEmailAndPassword(auth, datos.correo, datos.pass1);
   const uid = cred.user.uid;
-  const usernameFinal = "@" + datos.username.replace(/^@/, "");
+  const usernameFinal = "@" + username.replace(/^@/, "");
   const fechaRegistro = new Date().toLocaleDateString("es-PE");
 
-  await setDoc(correoDoc(uid), { correo: datos.correo, tipo: "email" });
-  await setDoc(usernameDoc(datos.username), { id_registrado: uid, nombres_user: usernameFinal });
-  await setDoc(userDoc(uid), {
+  // Mismas claves de siempre (vacías si el campo estaba apagado) para no romper el resto de la app.
+  // El DNI NO se guarda: solo se usó para autocompletar.
+  const perfil = {
     nombre: datos.nombre,
     apellido: datos.apellido,
     correo: datos.correo,
@@ -577,13 +718,35 @@ async function crearCuentaConDatos(datos) {
     cod_pais: datos.codPais,
     nacionalidad_nacimiento: datos.nombrePais,
     tipo_login: "email",
-    contacto: {
-      cod_telefonico: datos.prefijoTel,
-      nombre_pais_numero: datos.nombrePais,
-      numero_user: Number(datos.telefono),
-    },
-    creado_server: serverTimestamp(),
-  });
+    contacto: datos.telefono
+      ? {
+        cod_telefonico: datos.prefijoTel,
+        nombre_pais_numero: datos.nombrePais,
+        numero_user: Number(datos.telefono),
+      }
+      : null,
+  };
+
+  await setDoc(correoDoc(uid), { correo: datos.correo, tipo: "email" });
+  await setDoc(usernameDoc(username), { id_registrado: uid, nombres_user: usernameFinal });
+  await setDoc(userDoc(uid), { ...perfil, creado_server: serverTimestamp() });
+
+  // Copia en la tienda: .../registro/usuarios_registados/registrados/<uid>
+  // Si falla no tumba el registro (la cuenta ya existe), solo se registra el error.
+  if (negocioId && distritoNeg) {
+    try {
+      await setDoc(registradoDoc(distritoNeg, negocioId, uid), {
+        ...perfil,
+        campos_pedidos: { ...camposReg },
+        creado_server: serverTimestamp(),
+      });
+      log("copiado a registrados:", negocioId, uid);
+    } catch (err) {
+      logErr("No se pudo copiar a registrados:", err.code || err.message);
+    }
+  } else {
+    logErr("Sin tienda resuelta: no se copia a registrados.");
+  }
 }
 
 $("viewRegister").addEventListener("submit", (e) => {

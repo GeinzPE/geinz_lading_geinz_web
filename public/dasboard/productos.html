@@ -1633,7 +1633,64 @@ body[data-vista="pequeno"] .pc-body { padding: .5rem; gap: .4rem; }
     </div>
   </div>
   <div class="fixed bottom-5 right-5 left-5 sm:left-auto z-[200] flex flex-col gap-2 items-end" id="toast-wrap"></div>
+<!-- Modal: Horario de categoría -->
+<div class="overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+  id="overlay-horario-cat">
+  <div
+    class="modal w-full max-w-lg rounded-2xl bg-[#0d0a17] border border-purple-900/30 shadow-2xl p-6 max-h-[90vh] overflow-y-auto thin-scroll">
+    <h3 class="text-lg font-bold text-white mb-1">🕐 Horario de la categoría</h3>
+    <p class="text-purple-300/60 text-xs mb-5">
+      Categoría: <strong id="horario-cat-nombre" class="text-purple-200"></strong>.
+      Los productos se verán siempre, pero solo se podrán comprar en el horario que definas.
+    </p>
 
+    <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#05040a] border border-purple-900/20 mb-4">
+      <span class="text-sm font-medium text-purple-100">Activar horario para esta categoría</span>
+      <label class="relative inline-block w-11 h-6 shrink-0">
+        <input type="checkbox" id="horario-activo" class="peer opacity-0 w-0 h-0">
+        <span
+          class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+          before:content-[''] before:absolute before:w-4 before:h-4 before:left-1 before:top-1 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-5"></span>
+      </label>
+    </div>
+
+    <div id="horario-detalle" class="hidden flex flex-col gap-4">
+      <div>
+        <label
+          class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 mb-1.5 font-mono">Mensaje
+          para el cliente (opcional)</label>
+        <input type="text" id="horario-mensaje" maxlength="80" placeholder="Ej. Menú del día: solo en el almuerzo"
+          class="w-full rounded-xl bg-[#05040a] border border-purple-900/30 px-3.5 py-2.5 text-sm text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 transition-all">
+        <p class="text-[10.5px] text-purple-300/50 mt-1.5 leading-relaxed">
+          Se mostrará en cada producto bloqueado, junto con cuándo vuelve a estar disponible.
+        </p>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-purple-300/70 font-mono">Días y
+            horas</label>
+          <button type="button" id="horario-copiar-lunes"
+            class="text-[11px] font-medium text-violet-300 hover:text-violet-200">Copiar lunes a todos</button>
+        </div>
+        <div id="horario-dias-list" class="flex flex-col gap-2"></div>
+        <p class="text-[10.5px] text-purple-300/50 mt-2 leading-relaxed">
+          Apaga un día para que la categoría no esté disponible ese día completo. Deja las horas vacías para que esté
+          disponible todo el día.
+        </p>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-2.5 mt-6">
+      <button type="button" data-close="overlay-horario-cat"
+        class="rounded-xl px-4 py-2.5 text-sm font-medium text-purple-200 bg-white/5 hover:bg-white/10 transition-all">Cancelar</button>
+      <button type="button" id="btn-guardar-horario"
+        class="rounded-xl px-5 py-2.5 text-sm font-medium text-white bg-violet-800 hover:bg-violet-700 transition-all min-w-[120px] flex items-center justify-center">
+        <span id="btn-guardar-horario-label">Guardar horario</span>
+      </button>
+    </div>
+  </div>
+</div>
 
 </body>
 

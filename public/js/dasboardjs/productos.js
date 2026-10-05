@@ -1858,8 +1858,12 @@ function renderCategoriaShell(categoriaId, data) {
         <div class="flex items-center gap-3 min-w-0">
           <h2 class="categoria-titulo text-lg sm:text-xl font-bold text-white tracking-tight truncate"></h2>
           <span class="categoria-count font-mono text-xs px-2.5 py-0.5 rounded-full bg-purple-950/50 text-purple-300 border border-purple-800/30 shrink-0"></span>
-        </div>
+      <span class="categoria-horario-badge hidden shrink-0 font-mono text-[10px] px-2 py-0.5 rounded-full bg-amber-950/40 text-amber-300 border border-amber-500/20">🕐 Con horario</span>
+          </div>
         <div class="categoria-actions flex items-center gap-2 shrink-0">
+        <button class="btn-horario-categoria inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-amber-200 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/25 transition-all active:scale-95">
+  🕐 Horario
+</button>
           <button class="btn-add-producto inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-purple-200 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-800/30 transition-all active:scale-95">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
             Agregar producto
@@ -1876,6 +1880,9 @@ function renderCategoriaShell(categoriaId, data) {
     seccion.querySelector(".btn-add-producto").addEventListener("click", () => {
       abrirModalNuevoProducto(categoriaId, data.nombre);
     });
+    seccion.querySelector(".btn-horario-categoria").addEventListener("click", () => {
+  abrirModalHorarioCategoria(categoriaId, seccion._catData || data);
+});
     seccion
       .querySelector(".btn-del-categoria")
       .addEventListener("click", () => {
@@ -1891,6 +1898,10 @@ function renderCategoriaShell(categoriaId, data) {
   }
 
   seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
+  seccion._catData = data;
+seccion
+  .querySelector(".categoria-horario-badge")
+  ?.classList.toggle("hidden", !data.horario_categoria?.activo);
   seccion.querySelector(".categoria-titulo").textContent = data.nombre;
     categoriasLista.set(categoriaId, data.nombre);
 }
@@ -2650,4 +2661,122 @@ window.addEventListener("pagehide", () => {
   if (!scanSesion) return;
   unsubCodigos?.();
   deleteDoc(scanSesRef(scanSesion)).catch(() => {});
+});
+/* ---------------- Horario por categoría ---------------- */
+const DIAS_HORARIO = [
+  ["lunes", "Lunes"], ["martes", "Martes"], ["miercoles", "Miércoles"],
+  ["jueves", "Jueves"], ["viernes", "Viernes"], ["sabado", "Sábado"], ["domingo", "Domingo"],
+];
+let horarioCatId = null;
+
+const INPUT_HORA_CLS =
+  "hor-hora flex-1 min-w-0 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2 py-1.5 text-xs text-purple-100 outline-none focus:border-violet-600 font-mono transition-opacity";
+
+function htmlFilaDiaHorario(key, label, cfg) {
+  return `
+    <div data-dia="${key}" class="flex items-center gap-2.5 rounded-xl bg-[#05040a] border border-purple-900/20 px-3 py-2">
+      <label class="relative inline-block w-9 h-5 shrink-0">
+        <input type="checkbox" class="hor-activo peer opacity-0 w-0 h-0" ${cfg.activo !== false ? "checked" : ""}>
+        <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+          before:content-[''] before:absolute before:w-3.5 before:h-3.5 before:left-0.5 before:top-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-4"></span>
+      </label>
+      <span class="w-[74px] shrink-0 text-xs font-semibold text-purple-100">${label}</span>
+      <input type="time" class="${INPUT_HORA_CLS} hor-desde" value="${cfg.desde || ""}">
+      <span class="text-purple-400/50 text-xs">–</span>
+      <input type="time" class="${INPUT_HORA_CLS} hor-hasta" value="${cfg.hasta || ""}">
+    </div>`;
+}
+
+function pintarFilaDiaHorario(row) {
+  const on = row.querySelector(".hor-activo").checked;
+  row.querySelectorAll(".hor-hora").forEach((i) => {
+    i.disabled = !on;
+    i.classList.toggle("opacity-40", !on);
+  });
+}
+
+function actualizarPanelHorario() {
+  const on = document.getElementById("horario-activo").checked;
+  document.getElementById("horario-detalle").classList.toggle("hidden", !on);
+}
+
+function abrirModalHorarioCategoria(catId, data) {
+  horarioCatId = catId;
+  const h = data?.horario_categoria || {};
+  document.getElementById("horario-cat-nombre").textContent = data?.nombre || catId;
+  document.getElementById("horario-activo").checked = h.activo === true;
+  document.getElementById("horario-mensaje").value = h.mensaje || "";
+
+  const list = document.getElementById("horario-dias-list");
+  list.innerHTML = DIAS_HORARIO.map(([k, l]) =>
+    htmlFilaDiaHorario(k, l, h.dias?.[k] || { activo: true, desde: "", hasta: "" }),
+  ).join("");
+  list.querySelectorAll("[data-dia]").forEach(pintarFilaDiaHorario);
+
+  actualizarPanelHorario();
+  openOverlay("overlay-horario-cat");
+}
+
+document.getElementById("horario-activo").addEventListener("change", actualizarPanelHorario);
+
+document.getElementById("horario-dias-list").addEventListener("change", (e) => {
+  if (!e.target.classList.contains("hor-activo")) return;
+  pintarFilaDiaHorario(e.target.closest("[data-dia]"));
+});
+
+document.getElementById("horario-copiar-lunes").addEventListener("click", () => {
+  const rows = [...document.querySelectorAll("#horario-dias-list [data-dia]")];
+  const base = rows[0];
+  const activo = base.querySelector(".hor-activo").checked;
+  const desde = base.querySelector(".hor-desde").value;
+  const hasta = base.querySelector(".hor-hasta").value;
+  rows.slice(1).forEach((r) => {
+    r.querySelector(".hor-activo").checked = activo;
+    r.querySelector(".hor-desde").value = desde;
+    r.querySelector(".hor-hasta").value = hasta;
+    pintarFilaDiaHorario(r);
+  });
+  toast("Horario del lunes copiado a todos los días.");
+});
+
+document.getElementById("btn-guardar-horario").addEventListener("click", async () => {
+  if (!horarioCatId) return;
+  const activo = document.getElementById("horario-activo").checked;
+  const mensaje = document.getElementById("horario-mensaje").value.trim();
+
+  const dias = {};
+  let hayDiaActivo = false;
+  let error = null;
+  document.querySelectorAll("#horario-dias-list [data-dia]").forEach((row) => {
+    const key = row.dataset.dia;
+    const on = row.querySelector(".hor-activo").checked;
+    const desde = row.querySelector(".hor-desde").value || "";
+    const hasta = row.querySelector(".hor-hasta").value || "";
+    if (on && (!!desde !== !!hasta)) error = `En ${key} completa la hora de inicio y la de fin (o deja ambas vacías).`;
+    if (on) hayDiaActivo = true;
+    dias[key] = { activo: on, desde: on ? desde : "", hasta: on ? hasta : "" };
+  });
+
+  if (activo && error) return toast(error, "error");
+  if (activo && !hayDiaActivo)
+    return toast("Activa al menos un día, o apaga el horario de la categoría.", "error");
+
+  const btn = document.getElementById("btn-guardar-horario");
+  const label = document.getElementById("btn-guardar-horario-label");
+  const original = label.textContent;
+  btn.disabled = true;
+  label.innerHTML = '<span class="spinner"></span>';
+  try {
+    await updateDoc(doc(categoriasRef, horarioCatId), {
+      horario_categoria: { activo, mensaje, dias },
+    });
+    closeOverlay("overlay-horario-cat");
+    toast(activo ? "Horario guardado." : "Horario desactivado.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo guardar el horario.", "error");
+  } finally {
+    btn.disabled = false;
+    label.textContent = original;
+  }
 });

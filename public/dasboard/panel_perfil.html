@@ -121,6 +121,11 @@
                             <span class="sbb-label">Mis trabajadores</span>
                         </button>
 
+                        <button class="sidebar-btn" id="sbb-usuarios" onclick="PanelPerfil.showSection('usuarios')">
+                            <span class="sbb-icon">🪪</span>
+                            <span class="sbb-label">Mis usuarios</span>
+                        </button>
+
 
                         <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
                             <span class="sbb-icon">⚖️</span>
@@ -394,6 +399,12 @@
     ">
                     </iframe>
                 </div>
+
+                <div class="section" id="sec-usuarios">
+                    <iframe id="iframeUsuarios" src="usuarios.html" style="
+        width:100%; height:100vh; border:none; display:block;
+        overflow:hidden; background:#0a0a0a;"></iframe>
+                </div>
             </div><!-- /content -->
 
             <!-- BOTON MENU MOBILE -->
@@ -463,6 +474,12 @@
                                 onclick="PanelPerfil.showSection('trabajadores'); PanelPerfil.toggleMobileMenu()">
                                 <span>👥</span>
                                 <span>Mis trabajadores</span>
+                            </button>
+
+                            <button class="mobile-menu-item" id="mmb-usuarios"
+                                onclick="PanelPerfil.showSection('usuarios'); PanelPerfil.toggleMobileMenu()">
+                                <span>🪪</span>
+                                <span>Mis usuarios</span>
                             </button>
 
                             <button class="mobile-menu-item" id="mmb-legal"
