@@ -958,10 +958,18 @@
       border-color: color-mix(in srgb, var(--state-entregado) 45%, var(--card-border));
       background: color-mix(in srgb, var(--state-entregado) 12%, transparent);
     }
-    .status-dot[data-status="pendiente_pago"], .status-dot.is-pendiente_pago {
-  background-color: #fbbf24;
-  box-shadow: 0 0 0 4px rgba(251,191,36,.14);
-}
+
+    .status-dot[data-status="pendiente_pago"],
+    .status-dot.is-pendiente_pago {
+      background-color: #fbbf24;
+      box-shadow: 0 0 0 4px rgba(251, 191, 36, .14);
+    }
+
+    .status-dot[data-status="listo"],
+    .status-dot.is-listo {
+      background-color: #2dd4bf;
+      box-shadow: 0 0 0 4px rgba(45, 212, 191, .14);
+    }
   </style>
 
   <script type="module" src="/js/dasboardjs/estado_pedidos.js"></script>
@@ -1048,9 +1056,20 @@
           <span id="status-label" class="font-display status-label"></span>
         </div>
         <div id="timeline"></div>
-<p id="aviso-pago-futuro" class="hidden text-secondary" style="margin:1rem 0 0;font-size:0.85rem;line-height:1.5;">
-  💸 Cuando el negocio acepte tu pedido te avisaremos para que subas tu comprobante de pago.
-</p>
+        <p id="aviso-pago-futuro" class="hidden text-secondary"
+          style="margin:1rem 0 0;font-size:0.85rem;line-height:1.5;">
+          💸 Cuando el negocio acepte tu pedido te avisaremos para que subas tu comprobante de pago.
+        </p>
+        <div id="en-local-wrap" class="hidden" style="margin-top:1rem;">
+          <button id="btn-en-local" type="button"
+            style="width:100%;padding:.85rem;border-radius:.9rem;border:none;background:#ec4899;color:#fff;font-weight:700;font-size:.9rem;cursor:pointer;">
+            📍 Ya estoy en el local
+          </button>
+          <div id="en-local-ok" class="hidden"
+            style="padding:.75rem .9rem;border-radius:.85rem;background:rgba(236,72,153,.12);border:1px solid rgba(236,72,153,.35);font-size:.85rem;font-weight:600;">
+            ✅ Ya avisamos al negocio que llegaste
+          </div>
+        </div>
         <button id="btn-cancelar-pedido" type="button" class="cancel-btn hidden">Cancelar pedido</button>
 
         <div id="puntos-wrap" class="hidden divider-top" style="display:flex;align-items:center;gap:0.6rem;">

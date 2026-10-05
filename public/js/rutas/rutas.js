@@ -238,7 +238,6 @@ export function clienteCuponDoc(localidad, negocioId, clienteId, cuponId) {
     cuponId,
   );
 }
-
 // ── Cupones globales del negocio (promociones públicas) ──
 export function tiendaCuponesCol(localidad, negocioId) {
   return tiendaSubCol(localidad, "tiendas", negocioId, "cupones");

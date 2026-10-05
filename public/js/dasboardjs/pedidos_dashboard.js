@@ -51,7 +51,7 @@ const SND_NUEVO_PEDIDO_DESCUENTO = "../../sounds/pedido_entrante_descuento.mp3";
 const SND_NUEVO_PEDIDO_CUPON_DESCUENTO =
   "../../sounds/pedido_entrante_cupon_descuento.mp3";
 const SND_CANJE_PUNTOS = "../../sounds/canje_de_puntos.mp3";
-
+const SND_CLIENTE_EN_LOCAL = "../../sounds/cliente_local.mp3"; // ← pon aquí el nombre real de tu mp3
 const SND_NUEVO_PEDIDO_DELIVERY = "../../sounds/nuevo_pedido_delivery.mp3";
 const SND_NUEVO_PEDIDO_RECOJO = "../../sounds/nuevo_pedido_presencial.mp3";
 const ID_PRUEBA = tiendaId;
@@ -810,6 +810,7 @@ const ESTADOS = [
   "pendiente",
   "pendiente_pago",
   "en_proceso",
+  "listo",
   "en_pausa",
   "entregado",
   "rechazado",
@@ -818,6 +819,7 @@ const prevMoney = {
   pendiente: 0,
   pendiente_pago: 0,
   en_proceso: 0,
+  listo: 0,
   en_pausa: 0,
   entregado: 0,
   rechazado: 0,
@@ -1461,9 +1463,36 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+function estadoHabilitado(e) {
+  if (
+    ["pendiente", "en_proceso", "listo", "entregado", "rechazado"].includes(e)
+  )
+    return true;
+  return bizDataGlobal?.pedidos_config?.estados?.[e] !== false;
+}
 function requierePagoOnline(p) {
   const m = p?.pago?.metodo;
-  return getOrigen(p).tipo === "whatsapp" && !!m && m !== "Efectivo";
+  return (
+    getOrigen(p).tipo === "whatsapp" &&
+    estadoHabilitado("pendiente_pago") &&
+    !!m &&
+    m !== "Efectivo"
+  );
+}
+function aplicarEstadosVisibles(grupos) {
+  ESTADOS.forEach((e) => {
+    const mostrar = estadoHabilitado(e) || grupos?.[e]?.length > 0;
+    document
+      .querySelector(`.stab[data-s="${e}"]`)
+      ?.classList.toggle("vista-oculta", !mostrar);
+    document
+      .querySelector(`.board-col[data-status="${e}"]`)
+      ?.classList.toggle("vista-oculta", !mostrar);
+  });
+}
+function quitarPausaSiOff(container) {
+  if (!estadoHabilitado("en_pausa"))
+    container.querySelector('[data-action="_pausar"]')?.remove();
 }
 function deliPrecioHtmlPedido(p) {
   const d = p.delivery;
@@ -3362,8 +3391,11 @@ function buildCard(id, p) {
 
   const card = document.createElement("div");
   const voucherPendienteVer = !!p.pago?.voucher_url && !p.pago?.voucher_visto;
+  const enLocalPend = !!p.cliente_en_local && !p.cliente_en_local_visto;
   card.className =
-    "order-card" + (voucherPendienteVer ? " oc-pago-recibido" : "");
+    "order-card" +
+    (voucherPendienteVer ? " oc-pago-recibido" : "") +
+    (enLocalPend ? " oc-en-local" : "");
   card.id = `order-${id}`;
 
   const hitArea = document.createElement("div");
@@ -3377,8 +3409,8 @@ function buildCard(id, p) {
     <div class="oc-name">${escapeHtml(cliente.nombre || "Cliente sin nombre")}${esSeguidor ? ` <span style="font-size:10px;font-weight:800;color:#7c5cff;background:rgba(124,92,255,.15);padding:2px 7px;border-radius:999px;">⭐ Seguidor</span>` : ""}</div>
     <div class="oc-entrega-line">${entregaIco} ${escapeHtml(cliente.tipo_entrega || "Sin especificar")}</div>
     ${cliente.whatsapp ? `<div style="font-size:11px;font-weight:700;color:#25d366;margin-top:2px;">📱 ${escapeHtml(cliente.whatsapp)}</div>` : ""}
-    ${voucherPendienteVer ? `<div class="oc-voucher-line" style="font-size:11px;font-weight:800;color:#fbbf24;margin-top:2px;">💸 Comprobante de pago recibido, revisa y confirma</div>` : ""}
-       ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
+    ${p.cliente_en_local ? `<div style="font-size:11px;font-weight:800;color:#ec4899;margin-top:2px;">📍 Cliente en el local</div>` : ""}
+           ${getPuntosPedido(id, p) > 0 ? `<div class="oc-puntos-line" style="font-size:11px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${getPuntosPedido(id, p)} pts al cliente</div>` : ""}
        ${Number(p.descuentoCupon) > 0 ? `<div class="oc-descuento-line" style="font-size:11px;font-weight:700;color:#4ade80;margin-top:2px;">🏷️ Descuento aplicado: -${fmtMoney(p.descuentoCupon)}</div>` : ""}
       ${p.tiempo_estimado ? `<div style="font-size:11px;font-weight:700;color:#a78bfa;margin-top:2px;">⏱️ ${p.tiempo_estimado.min}–${p.tiempo_estimado.max} min</div>` : ""}
        <div class="oc-summary">
@@ -3433,6 +3465,13 @@ function renderCardActions(container, id, estado, p) {
     container.innerHTML = `
     <div class="oc-actions">
       <button class="oc-btn ghost" data-action="${requierePagoOnline(p) ? "pendiente_pago" : "pendiente"}">← Atrás</button>
+      <button class="oc-btn primary v-green" data-action="listo">Listo ✓</button>
+    </div>`;
+  } else if (estado === "listo") {
+    container.innerHTML = `
+    <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Listo${p.cliente_en_local ? " · 📍 cliente en el local" : ""}</div>
+    <div class="oc-actions" style="margin-top:8px;">
+      <button class="oc-btn ghost" data-action="en_proceso">← Atrás</button>
       <button class="oc-btn primary v-green" data-action="entregado">Entregado ✓</button>
     </div>`;
   } else if (estado === "en_pausa") {
@@ -3491,6 +3530,11 @@ function openDetail(id) {
   if (p?.pago?.voucher_url && !p.pago?.voucher_visto) {
     const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
     updateDoc(ref, { "pago.voucher_visto": true }).catch(() => {});
+  }
+  if (p?.cliente_en_local && !p.cliente_en_local_visto) {
+    updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id), {
+      cliente_en_local_visto: true,
+    }).catch(() => {});
   }
 }
 function closeDetail() {
@@ -4545,7 +4589,12 @@ function renderModalActions(container, id, estado, p) {
     container.innerHTML = `
       <button class="oc-btn ghost" data-action="pendiente">← Volver a pendiente</button>
       <button class="oc-btn ghost" data-action="_pausar">⏸️ Pausar pedido</button>
-      <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
+      <button class="oc-btn primary v-green"data-action="listo">Marcar listo ✓</button>`;
+  } else if (estado === "listo") {
+    container.innerHTML = `
+    <div class="oc-final-tag" style="width:100%;background:rgba(45,212,191,.12);color:#2dd4bf;">🛎️ Pedido listo${p.cliente_en_local ? " · 📍 cliente en el local" : ""}</div>
+    <button class="oc-btn ghost" data-action="en_proceso">← Volver a en proceso</button>
+    <button class="oc-btn primary v-green" data-action="entregado">Marcar entregado ✓</button>`;
   } else if (estado === "en_pausa") {
     const r = p.respuesta_cliente;
     container.innerHTML = `
@@ -4573,6 +4622,7 @@ function renderModalActions(container, id, estado, p) {
       <div class="oc-final-tag${auto ? " auto" : ""}" style="width:100%;">${tagTexto}</div>
       <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="pendiente">↺ Reactivar pedido</span></div>`;
   }
+  quitarPausaSiOff(container);
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation?.();
@@ -4836,6 +4886,7 @@ function labelEstadoParaCliente(estado) {
       rechazado: "Tu pedido fue rechazado",
       pendiente_pago:
         "¡Tu pedido fue aceptado! Sube tu comprobante de pago para que lo preparemos",
+      listo: "¡Tu pedido está listo! Puedes recogerlo en el local",
     }[estado] || "El estado de tu pedido cambió"
   );
 }
@@ -5006,6 +5057,7 @@ function labelEstado(e) {
       entregado: "Entregado",
       rechazado: "Rechazado",
       pendiente_pago: "Pendiente de pago",
+      listo: "Ningún pedido listo",
     }[e] || e
   );
 }
@@ -5178,11 +5230,11 @@ function renderBoard() {
     pendiente: [],
     pendiente_pago: [],
     en_proceso: [],
+    listo: [],
     en_pausa: [],
     entregado: [],
     rechazado: [],
   };
-
   if (originFilter === "mesa") {
     renderMesaGrid();
     document.getElementById("mesaEmptyBanner").style.display = "none";
@@ -5214,7 +5266,7 @@ function renderBoard() {
     });
 
   const totalVisible = ESTADOS.reduce((s, e) => s + grupos[e].length, 0);
-
+  aplicarEstadosVisibles(grupos);
   ESTADOS.forEach((estado) => {
     const body = document.getElementById(`col-${estado}`);
     if (!body) return; // por si el HTML todavía no tiene la columna de en_pausa
@@ -5238,6 +5290,7 @@ function renderBoard() {
         pendiente: "🌙",
         pendiente_pago: "💸",
         en_proceso: "🧊",
+        listo: "🛎️",
         en_pausa: "⏸️",
         entregado: "📭",
         rechazado: "🚫",
@@ -5246,6 +5299,7 @@ function renderBoard() {
         pendiente: "No hay pedidos pendientes",
         pendiente_pago: "Ningún pedido esperando pago",
         en_proceso: "Nada en preparación ahora mismo",
+        listo: "Ningún pedido listo",
         en_pausa: "Ningún pedido en pausa",
         entregado: "Aún no hay entregas registradas",
         rechazado: "Sin pedidos rechazados",
@@ -8172,6 +8226,7 @@ function suscribirPedidos() {
       const canceladosPorClienteEnPausa = []; // canceló estando en pausa
       const canceladosPorClientePendiente = []; // canceló estando pendiente (sin pasar por pausa)
       const pagosRecibidosNuevos = [];
+      const enLocalNuevos = [];
       snap.docChanges().forEach((change) => {
         const id = change.doc.id;
         const data = change.doc.data();
@@ -8239,6 +8294,8 @@ function suscribirPedidos() {
             voucherNotificados.add(id);
             pagosRecibidosNuevos.push({ id, data });
           }
+          if (data.cliente_en_local && !anterior?.cliente_en_local)
+            enLocalNuevos.push({ id, data });
         }
 
         if (change.type === "removed") {
@@ -8301,6 +8358,13 @@ function suscribirPedidos() {
         );
       }
 
+      if (enLocalNuevos.length) {
+        playSoundOnce(SND_CLIENTE_EN_LOCAL); // suena una sola vez
+        bellRingFeedback();
+        showToast(
+          `📍 ${enLocalNuevos.map(({ data }) => data.cliente?.nombre || "Cliente").join(", ")} ya está en el local`,
+        );
+      }
       if (canceladosPorClienteEnPausa.length) {
         playCanceladoPorClienteAlarm();
         bellRingFeedback();
@@ -8350,7 +8414,12 @@ const grupoFirmaDash = new Map();
 function iniciarListenerGrupos() {
   if (!tiendaId || gruposListenerIniciado) return;
   gruposListenerIniciado = true;
-  const gruposRef = tiendaSubCol(localidad, "tiendas", tiendaId, "grupos_mesas");
+  const gruposRef = tiendaSubCol(
+    localidad,
+    "tiendas",
+    tiendaId,
+    "grupos_mesas",
+  );
   onSnapshot(
     gruposRef,
     (snap) => {
@@ -8362,7 +8431,11 @@ function iniciarListenerGrupos() {
         const p = g.pedido;
         if (p && ["activo", "pedido_pendiente"].includes(g.estado)) {
           const f = `${p.total_items || 0}|${p.total || 0}|${p.estadoMozo || ""}`;
-          if (!primerGruposDash && grupoFirmaDash.get(d.id) !== f && !pedidoEsperaMozo(p))
+          if (
+            !primerGruposDash &&
+            grupoFirmaDash.get(d.id) !== f &&
+            !pedidoEsperaMozo(p)
+          )
             nuevos.push(g);
           grupoFirmaDash.set(d.id, f);
         }
@@ -8377,7 +8450,9 @@ function iniciarListenerGrupos() {
         bellRingFeedback();
         showToast(
           "🍽️ Pedido nuevo en " +
-            nuevos.map((g) => (g.mesas || []).map((m) => m.nombre).join(" + ")).join(", "),
+            nuevos
+              .map((g) => (g.mesas || []).map((m) => m.nombre).join(" + "))
+              .join(", "),
         );
       }
     },
@@ -9393,7 +9468,7 @@ function mcAbrir() {
 }
 document.getElementById("mcGuardar").addEventListener("click", async () => {
   try {
-      const inter = document.getElementById("mcInter").checked;
+    const inter = document.getElementById("mcInter").checked;
     const perm = document.getElementById("mcPerm").checked;
     await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
       "mesas_config.mozoIntermediario": inter,
@@ -9425,3 +9500,196 @@ mcBtn.className = "mg-btn mg-reservar";
 mcBtn.textContent = "⚙️ Config. mesas";
 mcBtn.addEventListener("click", mcAbrir);
 document.querySelector(".mesas-panel-head")?.appendChild(mcBtn);
+
+const extraStyle = document.createElement("style");
+extraStyle.textContent = `
+.order-card.oc-en-local{border-color:#ec4899 !important;box-shadow:0 0 0 3px rgba(236,72,153,.2),0 8px 26px rgba(236,72,153,.28);animation:oc-local-glow 1.3s ease-in-out infinite;}
+@keyframes oc-local-glow{0%,100%{box-shadow:0 0 0 3px rgba(236,72,153,.2),0 8px 26px rgba(236,72,153,.28);}50%{box-shadow:0 0 0 7px rgba(236,72,153,.32),0 10px 32px rgba(236,72,153,.4);}}
+.stab[data-s="listo"] .dot{background:#2dd4bf;}
+.est-legend{display:flex;flex-wrap:wrap;gap:8px 14px;padding:8px 16px;font-size:11.5px;font-weight:700;color:var(--ink-dim);}
+.est-legend span{display:inline-flex;align-items:center;gap:6px;}
+.est-legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
+#statusTabs.vista-oculta + .est-legend{display:none;}
+/* Menú de configuración */
+#cfgPanel{position:fixed;right:12px;left:auto;top:70px;margin:0;width:min(440px,calc(100vw - 24px));z-index:60;display:none;grid-template-columns:1fr 1fr;gap:10px;padding:14px;max-height:calc(100vh - 100px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);}#cfgPanel.show{display:grid;}
+#cfgPanel .autorej-wrap{display:block;position:static;min-width:0;}
+#cfgPanel .autorej-wrap:has(#autoresBtn[style*="none"]){display:none;}
+#cfgPanel .autorej-btn,#cfgPanel .oc-btn{width:100%;min-height:44px;justify-content:flex-start;white-space:nowrap;}
+@media (max-width:480px){#cfgPanel{grid-template-columns:1fr;top:64px;}}
+`;
+document.head.appendChild(extraStyle);
+/* ══════════ Menú de configuración ordenado + leyenda + estados ══════════ */
+(function () {
+  const headRight = document.querySelector(".head-right");
+  if (!headRight) return;
+
+  const box = document.createElement("div");
+  box.style.position = "relative";
+  box.innerHTML = `<button type="button" class="autorej-btn" id="cfgBtn"><span class="ico">⚙️</span><span class="lbl-text">Configuración</span></button><div id="cfgPanel"></div>`;
+  headRight.insertBefore(box, document.getElementById("bellBtn"));
+  const panel = box.querySelector("#cfgPanel");
+
+  headRight
+    .querySelectorAll(".autorej-wrap")
+    .forEach((w) => panel.appendChild(w));
+
+  /* Modal: estados del pedido */
+  const estOv = document.createElement("div");
+  estOv.className = "dlv-ov";
+  const filas = [
+    ["pendiente", "Pendiente", true],
+    ["pendiente_pago", "Pendiente de pago", false],
+    ["en_proceso", "En proceso", true],
+    ["listo", "Listo", true],
+    ["en_pausa", "En pausa", false],
+    ["entregado", "Entregado", true],
+  ];
+  estOv.innerHTML = `
+    <div class="dlv-box">
+      <div class="dlv-head"><span>📋 Estados del pedido</span><button type="button" data-x>✕</button></div>
+      <p class="dlv-cfg-sub">Activa o desactiva los estados opcionales. Los obligatorios no se pueden apagar.</p>
+      ${filas
+        .map(
+          ([k, l, fijo]) => `
+        <div class="dlv-cfg-row"><span class="l">${l}${fijo ? " (obligatorio)" : ""}</span>
+          <label class="switch"><input type="checkbox" data-est="${k}" ${fijo ? "checked disabled" : ""}><span class="switch-track"></span></label>
+        </div>`,
+        )
+        .join("")}
+      <button type="button" class="np-confirmar-btn" id="estGuardar" style="margin-top:14px;">Guardar</button>
+    </div>`;
+  document.body.appendChild(estOv);
+  estOv.addEventListener("click", (e) => {
+    if (e.target === estOv || e.target.hasAttribute("data-x"))
+      estOv.classList.remove("show");
+  });
+
+  const estBtn = document.createElement("button");
+  estBtn.type = "button";
+  estBtn.className = "oc-btn ghost";
+  estBtn.textContent = "📋 Estados del pedido";
+  estBtn.addEventListener("click", () => {
+    estOv.querySelectorAll("[data-est]").forEach((i) => {
+      if (!i.disabled) i.checked = estadoHabilitado(i.dataset.est);
+    });
+    estOv.classList.add("show");
+  });
+  panel.appendChild(estBtn);
+
+  document.getElementById("estGuardar").addEventListener("click", async () => {
+    const estados = {};
+    estOv
+      .querySelectorAll("[data-est]:not([disabled])")
+      .forEach((i) => (estados[i.dataset.est] = i.checked));
+    try {
+      await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
+        "pedidos_config.estados": estados,
+      });
+      bizDataGlobal = { ...(bizDataGlobal || {}), pedidos_config: { estados } };
+      estOv.classList.remove("show");
+      renderBoard();
+      showToast("📋 Estados guardados");
+    } catch (e) {
+      console.error(e);
+      showToast("❌ No se pudo guardar", true);
+    }
+  });
+
+  /* Mover "Tiempos" al panel y cerrar el panel al abrir modales */
+  if (typeof tmpBtn !== "undefined") panel.appendChild(tmpBtn);
+  [tmpBtn, estBtn, document.getElementById("deliverysBtn")].forEach((b) =>
+    b?.addEventListener("click", () => panel.classList.remove("show")),
+  );
+
+  box.querySelector("#cfgBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.classList.toggle("show");
+  });
+  document.addEventListener("click", (e) => {
+    if (!panel.contains(e.target)) panel.classList.remove("show");
+  });
+
+  /* Leyenda de colores bajo las pestañas de estado */
+  const tabs = document.getElementById("statusTabs");
+  if (tabs) {
+    const lg = document.createElement("div");
+    lg.className = "est-legend";
+    lg.innerHTML = [
+      ["#ec4899", "Cliente en local"],
+      ["#fbbf24", "Pago enviado"],
+      ["#2dd4bf", "Listo"],
+      ["#38bdf8", "En pausa"],
+    ]
+      .map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`)
+      .join("");
+    tabs.after(lg);
+  }
+})();
+/* Sacar cuadros y panel al body, fijos y visibles en PC y móvil */
+["autorejPop", "autoresPop", "deliPop"].forEach((id) => {
+  const pop = document.getElementById(id);
+  if (pop) document.body.appendChild(pop);
+});
+const cfgPanelEl = document.getElementById("cfgPanel");
+if (cfgPanelEl) document.body.appendChild(cfgPanelEl);
+
+["autorejBtn", "autoresBtn", "deliBtn"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("click", () => {
+    document.getElementById("cfgPanel")?.classList.remove("show");
+  });
+});
+
+const fixStyle = document.createElement("style");
+fixStyle.textContent = `
+#cfgPanel{position:fixed !important;right:12px !important;left:auto !important;top:70px !important;margin:0 !important;transform:none !important;z-index:200 !important;}
+
+#popBackdrop{
+  position:fixed;inset:0;z-index:250;
+  background:rgba(4,4,8,.72);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;visibility:hidden;
+  transition:opacity .28s ease, visibility 0s linear .28s;
+}
+#popBackdrop.show{opacity:1;visibility:visible;transition:opacity .28s ease, visibility 0s;}
+
+#autorejPop,#autoresPop,#deliPop{
+  position:fixed !important;left:50% !important;top:50% !important;right:auto !important;bottom:auto !important;
+  margin:0 !important;width:min(400px,92vw) !important;max-height:86vh;overflow-y:auto;
+  z-index:300 !important;padding:20px !important;border-radius:20px !important;
+  background:var(--surface,#14141c) !important;border:1px solid var(--line) !important;
+  box-shadow:0 30px 90px rgba(0,0,0,.65) !important;
+  display:block !important;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:translate(-50%,-46%) scale(.94) !important;
+  transition:opacity .25s ease, transform .32s cubic-bezier(.22,1,.36,1), visibility 0s linear .32s;
+}
+#autorejPop.show,#autoresPop.show,#deliPop.show{
+  opacity:1 !important;visibility:visible !important;pointer-events:auto !important;
+  transform:translate(-50%,-50%) scale(1) !important;
+  transition:opacity .25s ease, transform .32s cubic-bezier(.22,1,.36,1), visibility 0s;
+}
+`;
+document.head.appendChild(fixStyle);
+
+/* Fondo oscuro que aparece cuando se abre cualquiera de los 3 cuadros */
+const popBackdrop = document.createElement("div");
+popBackdrop.id = "popBackdrop";
+document.body.appendChild(popBackdrop);
+
+const popsEls = ["autorejPop", "autoresPop", "deliPop"]
+  .map((id) => document.getElementById(id))
+  .filter(Boolean);
+const syncBackdrop = () =>
+  popBackdrop.classList.toggle(
+    "show",
+    popsEls.some((p) => p.classList.contains("show")),
+  );
+popsEls.forEach((p) =>
+  new MutationObserver(syncBackdrop).observe(p, {
+    attributes: true,
+    attributeFilter: ["class"],
+  }),
+);
+popBackdrop.addEventListener("click", () =>
+  popsEls.forEach((p) => p.classList.remove("show")),
+);

@@ -38,14 +38,19 @@ const ESTADOS_LABEL = {
   en_pausa: "En pausa",
   entregado: "Entregado",
   rechazado: "Rechazado",
+  listo: "Listo",
 };
 
+let pagoOnlineHabilitado = true;
 function requierePagoOnline(data) {
   const m = data?.pago?.metodo;
-  return !!m && m !== "Efectivo" && !data.mesa;
+  const activo =
+    pagoOnlineHabilitado || normalizarEstado(data?.estado) === "pendiente_pago";
+  return activo && !!m && m !== "Efectivo" && !data.mesa;
 }
 function normalizarEstado(estado) {
   const e = (estado || "").toLowerCase().trim();
+  if (e === "listo" || e.includes("listo")) return "listo";
   if (e === "pendiente_pago" || e.includes("pago")) return "pendiente_pago";
   if (e === "rechazado" || e.includes("rechaz")) return "rechazado";
   if (e === "entregado" || e.includes("entreg")) return "entregado";
@@ -640,6 +645,9 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
     const btnVolver = el("btn-volver-negocio");
     const btnCarito = el("btn-ir-carrito");
     negocioMetodosPagoActual = data.metodos_pago || null;
+    pagoOnlineHabilitado =
+      data.pedidos_config?.estados?.pendiente_pago !== false;
+    if (pedidoActualParaPago) renderPedido(pedidoActualParaPago);
     actualizarBloquePagoQR();
 
     if (btnVolver) {
@@ -839,6 +847,7 @@ function notificarCambioEstado(nuevoEstado, data) {
       : "Tu pedido fue rechazado.",
     pendiente_pago:
       "¡Tu pedido fue aceptado! Sube tu comprobante de pago para continuar.",
+    listo: "¡Tu pedido está listo! 🎉",
   };
 
   const nombreNegocio = el("negocio-nombre")?.textContent || "Geinz";
@@ -1373,36 +1382,7 @@ function opcionesDetalleLineas(p) {
   });
   return lineas;
 }
-function renderTiempoEstimado(data, estadoActual) {
-  let box = el("tiempo-estimado");
-  if (!box) {
-    box = document.createElement("p");
-    box.id = "tiempo-estimado";
-    box.className = "hidden text-secondary";
-    box.style.cssText = "margin:1rem 0 0;font-size:0.9rem;line-height:1.5;";
-    el("timeline").insertAdjacentElement("afterend", box);
-  }
-  const t = data.tiempo_estimado;
-  if (!t || estadoActual === "rechazado" || estadoActual === "entregado") {
-    box.classList.add("hidden");
-    return;
-  }
 
-  let txt = `⏱️ Tiempo estimado: <strong>${esc(t.min)}–${esc(t.max)} min</strong>`;
-
-  // Ya aceptado: mostramos la hora aproximada
-  const desde = toDateFS(data.tiempo_estimado_desde);
-  if (estadoActual === "en_proceso" && desde) {
-    const f = (min) =>
-      new Date(desde.getTime() + min * 60000).toLocaleTimeString("es-PE", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    txt += `<br><span class="text-muted" style="font-size:0.8rem;">Listo aprox. entre ${f(t.min)} y ${f(t.max)}</span>`;
-  }
-  box.innerHTML = txt;
-  box.classList.remove("hidden");
-}
 function renderTiempoEstimado(data, estadoActual) {
   let box = el("tiempo-estimado");
   if (!box) {
@@ -1440,7 +1420,7 @@ function renderPedido(data) {
   const estadoParaTimeline = enPausa
     ? data.pausa?.estado_anterior || "pendiente"
     : estadoActual;
-    renderTiempoEstimado(data, estadoActual);
+  renderTiempoEstimado(data, estadoActual);
   renderTimeline(
     estadoParaTimeline,
     esRechazado,
@@ -1479,7 +1459,11 @@ function renderPedido(data) {
   el("pedido-fecha-hora").textContent = [data.fecha, data.hora]
     .filter(Boolean)
     .join(" · ");
-
+  const esRecojo = /recojo/i.test(data.cliente?.tipo_entrega || "");
+  const aceptado = ["pendiente_pago", "en_proceso", "listo"].includes(estadoActual);
+  el("en-local-wrap")?.classList.toggle("hidden", !(esRecojo && aceptado));
+  el("btn-en-local")?.classList.toggle("hidden", !!data.cliente_en_local);
+  el("en-local-ok")?.classList.toggle("hidden", !data.cliente_en_local);
   const dot = el("status-dot");
   dot.dataset.status = estadoActual;
   dot.classList.remove("pulse");
@@ -1598,9 +1582,9 @@ function renderTimeline(
     return;
   }
 
-  const FLUJO = conPago
-    ? ["pendiente", "pendiente_pago", "en_proceso", "entregado"]
-    : ["pendiente", "en_proceso", "entregado"];
+    const FLUJO = conPago
+    ? ["pendiente", "pendiente_pago", "en_proceso", "listo", "entregado"]
+    : ["pendiente", "en_proceso", "listo", "entregado"];
   const idxActual = FLUJO.indexOf(estadoActual);
   const frag = document.createDocumentFragment();
 
@@ -1731,3 +1715,21 @@ function extraerColorDominante(url) {
     img.src = url;
   });
 }
+
+el("btn-en-local")?.addEventListener("click", async () => {
+  const b = el("btn-en-local");
+  if (!b || !pedidoRefGlobal) return;
+  b.disabled = true;
+  b.textContent = "Avisando…";
+  try {
+    await updateDoc(pedidoRefGlobal, {
+      cliente_en_local: true,
+      cliente_en_local_en: serverTimestamp(),
+      cliente_en_local_visto: false,
+    });
+  } catch (e) {
+    console.error(e);
+    b.disabled = false;
+    b.textContent = "📍 Ya estoy en el local";
+  }
+});

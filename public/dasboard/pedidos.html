@@ -173,6 +173,8 @@
                 <div class="stab" data-s="en_proceso"><span class="dot"></span><span class="lbl">En proceso</span><span
                         class="num" id="cnt-en_proceso">0</span><span class="money" id="money-en_proceso">S/ 0.00</span>
                 </div>
+                <div class="stab" data-s="listo"><span class="dot"></span><span class="lbl">Listo</span><span
+                        class="num" id="cnt-listo">0</span><span class="money" id="money-listo">S/ 0.00</span></div>
                 <div class="stab" data-s="en_pausa"><span class="dot"></span><span class="lbl">En pausa</span><span
                         class="num" id="cnt-en_pausa">0</span><span class="money" id="money-en_pausa">S/ 0.00</span>
                 </div>
@@ -326,6 +328,22 @@
                     </div>
                 </div>
                 <div class="col-body" id="col-en_proceso"></div>
+            </div>
+            <div class="board-col" data-status="listo">
+                <div class="col-head">
+                    <div class="col-head-left">
+                        <div class="col-ico">🛎️</div>
+                        <div>
+                            <div class="col-name">Listo</div>
+                            <div class="col-sub">Listo para entregar/recoger</div>
+                        </div>
+                    </div>
+                    <div class="col-stats">
+                        <div class="col-count"><span id="head-cnt-listo">0</span> pedidos</div>
+                        <div class="col-money" id="head-money-listo">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="col-body" id="col-listo"></div>
             </div>
             <div class="board-col" data-status="en_pausa">
                 <div class="col-head">
