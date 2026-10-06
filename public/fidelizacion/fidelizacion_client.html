@@ -21,6 +21,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
 
   <script type="module" src="/js/fidelizacion.js/fidelizacion.js"></script>
+ 
+  <link rel="stylesheet" href="/js/fidelizacion.js/fidelizacion_ui_front.css">
   <style>
     :root {
       --brand-vivid: #6b7280;
@@ -682,11 +684,10 @@
 
     /* Encabezados de columna (Canjea tus puntos / Historial), para
        que ambas secciones compartan la misma jerarquía visual. */
-    #colRecompensas>.flex,
-    .hp-toggle-btn {
-      min-height: 44px;
-    }
-
+ #colRecompensas > .flex {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
     /* ==========================================================
        TABLET (768px – 1279px): la tarjeta queda fija a la
        izquierda; recompensas e historial forman una sola columna
@@ -699,14 +700,12 @@
         padding-bottom: 2.5rem;
       }
 
-      #appContent {
+         #appContent {
         width: 100%;
         max-width: 900px;
         display: grid;
         grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
-        grid-template-areas:
-          "carta recompensas"
-          "carta historial";
+        grid-template-areas: "carta recompensas";
         column-gap: 32px;
         row-gap: 28px;
         align-items: start;
@@ -768,13 +767,11 @@
         justify-content: center;
       }
 
-      #appContent {
+        #appContent {
         width: 100%;
         max-width: min(1180px, 88vw);
         grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
-        grid-template-areas:
-          "carta recompensas"
-          "carta historial";
+        grid-template-areas: "carta recompensas";
         column-gap: 56px;
         row-gap: 36px;
       }
@@ -852,6 +849,9 @@
         transition: none !important;
       }
     }
+    #colRecompensas h2 {
+  color: #fff !important;
+}
   </style>
 </head>
 
@@ -1027,67 +1027,11 @@
       <div id="rewardsGrid" class="grid grid-cols-2 gap-2.5 sm:gap-3">
         <!-- Se llenan dinámicamente -->
       </div>
-      <!-- ============ CUPONES ACTIVOS ============ -->
-      <div id="cuponesSection" class="hp-section mb-6 hidden">
-        <button id="cuponesToggleBtn" type="button" class="hp-toggle-btn">
-          <span class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full shrink-0" style="background:#4ade80; box-shadow:0 0 10px #4ade80;"></span>
-            <span class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase">Cupones
-              activos</span>
-          </span>
-          <span class="flex items-center gap-2">
-            <span id="cuponesCountBadge" class="hp-count-badge">0</span>
-            <svg id="cuponesChevron" class="hp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </span>
-        </button>
 
-        <div id="cuponesBody" class="hp-body">
-          <div class="hp-body-inner">
-            <div id="cuponesList" class="flex flex-col gap-2"></div>
-          </div>
-        </div>
-      </div>
     </div>
 
 
-    <!-- ============ COLUMNA 3 (desktop): HISTORIAL ============ -->
-    <div id="colHistorial">
-      <div id="historialSection" class="hp-section mt-8 md:mt-0">
-        <button id="hpToggleBtn" type="button" class="hp-toggle-btn">
-          <span class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full shrink-0" style="background: var(--brand-vivid);"></span>
-            <span
-              class="font-display font-semibold text-[14px] sm:text-base tracking-wide text-white uppercase">Historial
-              de puntos</span>
-          </span>
-          <span class="flex items-center gap-2">
-            <span id="hpCountBadge" class="hp-count-badge">0</span>
-            <svg id="hpChevron" class="hp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </span>
-        </button>
-
-        <div id="hpBody" class="hp-body">
-          <div class="hp-body-inner">
-            <div id="hpFiltros" class="hp-filtros">
-              <button type="button" class="hp-chip active" data-filtro="todos">Todos</button>
-              <button type="button" class="hp-chip" data-filtro="ganado">🎉 Ganados</button>
-              <button type="button" class="hp-chip" data-filtro="canje">🎁 Canjes</button>
-              <button type="button" class="hp-chip" data-filtro="devolucion">↩️ Devueltos</button>
-            </div>
-
-            <div id="historialPuntosList" class="flex flex-col gap-2"></div>
-
-            <button id="hpVerMasBtn" type="button" class="hp-vermas-btn hidden">Ver más</button>
-          </div>
-        </div>
-      </div>
-    </div>
+   
 
     <p id="errorBox"
       class="hidden mt-6 text-xs text-red-400/80 bg-red-500/5 border border-red-500/20 rounded-xl p-3 text-center"></p>

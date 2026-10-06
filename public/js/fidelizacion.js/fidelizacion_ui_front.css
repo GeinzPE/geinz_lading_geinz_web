@@ -1,0 +1,233 @@
+/* ===================================================================
+   fidelizacion_ui.css  ·  Premios + carrito + panel lateral
+   Usa tus variables: --brand-vivid, --bg-base. Sin backdrop-filter
+   (caro en gama baja); todo anima solo transform/opacity.
+   =================================================================== */
+:root {
+  --fx-ok: #4ade80;      /* ganados */
+  --fx-out: #fb7185;     /* canjes (rojo suave, no agresivo) */
+  --fx-back: #38bdf8;    /* devueltos */
+  --fx-warn: #fbbf24;
+  --fx-surface: #0d0e12;
+  --fx-line: rgba(255, 255, 255, .08);
+  --fx-ease: cubic-bezier(.22, .85, .32, 1);
+}
+
+/* ---------- Cabecera de "Canjea tus puntos" ---------- */
+.fx-head-actions { display: flex; align-items: center; gap: 8px; }
+.fx-pill-btn {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 13px; border-radius: 999px; cursor: pointer; color: #fff;
+  font: 700 11.5px/1 'IBM Plex Mono', monospace; letter-spacing: .02em;
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--fx-line);
+  transition: transform .15s ease, border-color .2s ease, background .2s ease;
+}
+.fx-pill-btn:hover { border-color: color-mix(in srgb, var(--brand-vivid) 60%, transparent); background: color-mix(in srgb, var(--brand-vivid) 14%, transparent); }
+.fx-pill-btn:active { transform: scale(.95); }
+.fx-pill-btn svg { width: 15px; height: 15px; }
+.fx-badge {
+  position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; display: grid; place-items: center; font-size: 10px; font-weight: 800;
+  background: var(--brand-vivid); color: #fff; box-shadow: 0 0 0 2px var(--bg-base);
+  transform: scale(0); transition: transform .3s var(--fx-ease);
+}
+.fx-badge.on { transform: scale(1); }
+.fx-badge.pop { animation: fxPop .35s var(--fx-ease); }
+@keyframes fxPop { 50% { transform: scale(1.35); } }
+
+/* ---------- Tarjetas de premio ---------- */
+.fx-card {
+  position: relative; display: flex; flex-direction: column; min-width: 0; padding: 14px;
+  border-radius: 18px; background: linear-gradient(180deg, rgba(20,22,28,.94), rgba(9,10,13,.98));
+  border: 1px solid var(--fx-line); overflow: hidden;
+  transition: transform .2s var(--fx-ease), border-color .2s ease;
+  content-visibility: auto; contain-intrinsic-size: 200px 180px;
+}
+.fx-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-vivid) 80%, transparent), transparent); }
+.fx-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--brand-vivid) 45%, transparent); }
+.fx-card.in-cart { border-color: color-mix(in srgb, var(--brand-vivid) 70%, transparent); }
+.fx-thumb { width: 42px; height: 42px; border-radius: 12px; overflow: hidden; display: grid; place-items: center; margin-bottom: 10px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--brand-vivid) 14%, rgba(255,255,255,.03)); border: 1px solid color-mix(in srgb, var(--brand-vivid) 28%, transparent); }
+.fx-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fx-thumb svg { width: 20px; height: 20px; color: var(--brand-vivid); }
+.fx-name { margin: 0; font: 700 13px/1.3 'Inter', sans-serif; color: #fff; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fx-sub { margin: 4px 0 0; font: 500 10.5px/1.4 'IBM Plex Mono', monospace; color: rgba(255,255,255,.4); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fx-cost { margin: 8px 0 12px; font: 700 12px 'IBM Plex Mono', monospace; color: color-mix(in srgb, var(--brand-vivid) 80%, white 20%); }
+.fx-act { margin-top: auto; min-height: 36px; }
+
+.fx-add {
+  width: 100%; height: 36px; border: 0; border-radius: 11px; cursor: pointer; color: #fff;
+  font: 700 12px 'Inter', sans-serif;
+  background: linear-gradient(135deg, var(--brand-vivid), color-mix(in srgb, var(--brand-vivid) 75%, black 25%));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-vivid) 35%, transparent);
+  transition: transform .15s ease, filter .2s ease;
+}
+.fx-add:hover { filter: brightness(1.12); }
+.fx-add:active { transform: scale(.96); }
+
+.fx-lock { height: 36px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+.fx-lock span { font: 600 10px 'IBM Plex Mono', monospace; color: rgba(255,255,255,.35); }
+.fx-meter { height: 4px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
+.fx-meter i { display: block; height: 100%; border-radius: inherit; background: var(--brand-vivid); transform-origin: left; transition: transform .5s var(--fx-ease); }
+
+.fx-step { display: flex; align-items: center; justify-content: space-between; height: 36px; padding: 0 4px; border-radius: 11px;
+  background: color-mix(in srgb, var(--brand-vivid) 16%, transparent); border: 1px solid color-mix(in srgb, var(--brand-vivid) 45%, transparent); }
+.fx-step button { width: 28px; height: 28px; border: 0; border-radius: 8px; cursor: pointer; color: #fff; font-size: 16px; font-weight: 700; background: rgba(255,255,255,.08); transition: transform .12s ease, background .2s ease; }
+.fx-step button:active:not(:disabled) { transform: scale(.86); }
+.fx-step button:disabled { opacity: .3; cursor: not-allowed; }
+.fx-step b { min-width: 22px; text-align: center; font: 800 13px 'IBM Plex Mono', monospace; color: #fff; }
+
+/* ---------- Overlay + panel lateral + diálogo (base común) ---------- */
+.fx-overlay { position: fixed; inset: 0; z-index: 10040; background: rgba(3,3,3,.72); opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s ease; }
+.fx-overlay.open { opacity: 1; visibility: visible; }
+
+.fx-drawer {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 100%);
+  display: flex; flex-direction: column; background: var(--fx-surface);
+  border-left: 1px solid color-mix(in srgb, var(--brand-vivid) 35%, transparent);
+  box-shadow: -25px 0 60px -14px rgba(0,0,0,.8);
+  transform: translate3d(100%, 0, 0); transition: transform .42s var(--fx-ease);
+}
+.fx-overlay.open .fx-drawer { transform: none; }
+
+.fx-dhead { display: flex; align-items: center; justify-content: space-between; padding: 18px 18px 12px; }
+.fx-dtitle { margin: 0; font: 700 15px 'Sora', sans-serif; color: #fff; letter-spacing: .03em; text-transform: uppercase; }
+.fx-x { width: 34px; height: 34px; border: 0; border-radius: 50%; cursor: pointer; color: #fff; background: rgba(255,255,255,.08); transition: transform .2s ease, background .2s ease; }
+.fx-x:hover { background: rgba(255,255,255,.16); transform: rotate(90deg); }
+
+.fx-tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; margin: 0 18px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--fx-line); }
+.fx-tab { position: relative; z-index: 1; height: 34px; border: 0; background: none; cursor: pointer; color: rgba(255,255,255,.5); font: 700 12px 'Inter', sans-serif; transition: color .25s ease; }
+.fx-tab.active { color: #fff; }
+.fx-tabs::before { content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 9px; background: color-mix(in srgb, var(--brand-vivid) 30%, transparent); border: 1px solid color-mix(in srgb, var(--brand-vivid) 55%, transparent); transition: transform .35s var(--fx-ease); }
+.fx-tabs[data-t="1"]::before { transform: translateX(100%); }
+
+.fx-chips { display: flex; gap: 6px; overflow-x: auto; padding: 14px 18px 4px; scrollbar-width: none; }
+.fx-chips::-webkit-scrollbar { display: none; }
+.fx-chip { flex-shrink: 0; padding: 7px 12px; border-radius: 999px; cursor: pointer; font: 700 10.5px 'IBM Plex Mono', monospace; color: rgba(255,255,255,.5); background: rgba(255,255,255,.04); border: 1px solid var(--fx-line); transition: background .2s ease, color .2s ease, border-color .2s ease; }
+.fx-chip.active { color: #fff; background: color-mix(in srgb, var(--brand-vivid) 24%, transparent); border-color: color-mix(in srgb, var(--brand-vivid) 55%, transparent); }
+
+.fx-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 12px 18px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
+.fx-pane { display: none; flex-direction: column; gap: 8px; }
+.fx-pane.show { display: flex; animation: fxIn .35s var(--fx-ease); }
+@keyframes fxIn { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- Filas del historial (verde / rojo / azul suaves) ---------- */
+.fx-row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid var(--fx-line);
+  content-visibility: auto; contain-intrinsic-size: 58px; animation: fxIn .35s var(--fx-ease) both; }
+.fx-ico { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; font-size: 15px; }
+.fx-row.ganado .fx-ico { background: rgba(74,222,128,.12); }
+.fx-row.canje .fx-ico { background: rgba(251,113,133,.12); }
+.fx-row.devolucion .fx-ico { background: rgba(56,189,248,.12); }
+.fx-row.ajuste .fx-ico { background: rgba(251,191,36,.12); }
+.fx-rmain { flex: 1; min-width: 0; }
+.fx-rtitle { font: 600 12.5px 'Inter', sans-serif; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-rdate { margin-top: 2px; font: 500 10.5px 'IBM Plex Mono', monospace; color: rgba(255,255,255,.35); }
+.fx-pts { font: 800 12px 'IBM Plex Mono', monospace; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+.fx-row.ganado .fx-pts { color: var(--fx-ok); background: rgba(74,222,128,.1); }
+.fx-row.canje .fx-pts { color: var(--fx-out); background: rgba(251,113,133,.1); }
+.fx-row.devolucion .fx-pts { color: var(--fx-back); background: rgba(56,189,248,.1); }
+.fx-row.ajuste .fx-pts { color: var(--fx-warn); background: rgba(251,191,36,.1); }
+
+.fx-skel { height: 58px; border-radius: 14px; background: linear-gradient(90deg, #121418 25%, #1c1f26 37%, #121418 63%); background-size: 800px 100%; animation: fxSh 1.4s linear infinite; }
+@keyframes fxSh { to { background-position: -800px 0; } }
+.fx-empty { padding: 36px 10px; text-align: center; font: 500 12.5px 'Inter', sans-serif; color: rgba(255,255,255,.4); }
+.fx-more { margin-top: 4px; height: 40px; border-radius: 12px; cursor: pointer; color: rgba(255,255,255,.7); font: 700 11.5px 'IBM Plex Mono', monospace; background: rgba(255,255,255,.04); border: 1px solid var(--fx-line); }
+.fx-more:disabled { opacity: .4; }
+
+/* Cupones */
+.fx-cupon { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(74,222,128,.05); border: 1px solid rgba(74,222,128,.22); }
+.fx-cupon-btn { flex-shrink: 0; padding: 8px 11px; border-radius: 10px; cursor: pointer; font: 700 10.5px 'IBM Plex Mono', monospace; color: var(--fx-warn); background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.35); }
+.fx-cupon-btn:disabled { opacity: .5; }
+
+/* ---------- Diálogo del carrito ---------- */
+.fx-modal { position: absolute; left: 50%; bottom: 0; width: min(440px, 100%); max-height: 88dvh; display: flex; flex-direction: column;
+  background: var(--fx-surface); border: 1px solid color-mix(in srgb, var(--brand-vivid) 35%, transparent); border-radius: 24px 24px 0 0;
+  transform: translate(-50%, 100%); transition: transform .42s var(--fx-ease); box-shadow: 0 -25px 60px -14px rgba(0,0,0,.8); }
+.fx-overlay.open .fx-modal { transform: translate(-50%, 0); }
+@media (min-width: 768px) {
+  .fx-modal { bottom: auto; top: 50%; border-radius: 24px; transform: translate(-50%, -46%) scale(.95); opacity: 0; transition: transform .4s var(--fx-ease), opacity .25s ease; }
+  .fx-overlay.open .fx-modal { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.fx-line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--fx-line); }
+.fx-line:last-child { border-bottom: 0; }
+.fx-line img, .fx-line .fx-thumb { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; margin: 0; flex-shrink: 0; }
+.fx-line .fx-rmain { min-width: 0; }
+.fx-line .fx-step { width: 92px; flex-shrink: 0; }
+.fx-sum { padding: 14px 18px calc(18px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--fx-line); display: flex; flex-direction: column; gap: 8px; }
+.fx-sum-row { display: flex; justify-content: space-between; font: 600 12.5px 'Inter', sans-serif; color: rgba(255,255,255,.6); }
+.fx-sum-row b { color: #fff; font-family: 'IBM Plex Mono', monospace; }
+.fx-confirm { height: 46px; border: 0; border-radius: 14px; cursor: pointer; color: #fff; font: 800 13.5px 'Inter', sans-serif;
+  background: linear-gradient(135deg, var(--brand-vivid), color-mix(in srgb, var(--brand-vivid) 75%, black 25%)); box-shadow: 0 8px 22px color-mix(in srgb, var(--brand-vivid) 40%, transparent); }
+.fx-confirm:disabled { opacity: .55; cursor: wait; }
+.fx-err { display: none; font: 600 12px 'Inter', sans-serif; color: var(--fx-out); text-align: center; }
+.fx-err.show { display: block; }
+
+/* Toast */
+.fx-toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 10060; transform: translate(-50%, 20px); opacity: 0; padding: 11px 18px; border-radius: 999px; background: #15161b; color: #fff; font: 600 12.5px 'Inter', sans-serif; border: 1px solid var(--fx-line); transition: transform .3s var(--fx-ease), opacity .3s ease; pointer-events: none; }
+.fx-toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-overlay, .fx-drawer, .fx-modal, .fx-card, .fx-row, .fx-pane, .fx-badge, .fx-tabs::before, .fx-meter i { transition: none !important; animation: none !important; }
+}
+/* ---------- Premio que vuela al carrito ---------- */
+.fx-fly {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--brand-vivid) 25%, #0b0c10);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, .55),
+    0 0 0 2px var(--brand-vivid),
+    0 0 22px color-mix(in srgb, var(--brand-vivid) 70%, transparent);
+  will-change: transform, opacity;
+}
+.fx-fly img { width: 100%; height: 100%; object-fit: cover; }
+.fx-fly svg { width: 58%; height: 58%; color: var(--brand-vivid); }
+
+/* Rebote + onda del botón del carrito al recibirlo */
+@keyframes fxBump {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); }
+  65%  { transform: scale(.94); }
+  100% { transform: scale(1); }
+}
+@keyframes fxRing {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-vivid) 70%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+.fx-pill-btn.fx-bump {
+  animation: fxBump .45s cubic-bezier(.34, 1.56, .64, 1), fxRing .6s ease-out;
+}
+
+/* Botón "Agregado" para descuentos (solo 1) */
+.fx-added {
+  width: 100%;
+  padding: 8px 0;
+  border-radius: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--brand-vivid) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-vivid) 55%, transparent);
+  transition: filter .15s ease;
+}
+.fx-added:hover { filter: brightness(1.2); }
+
+.fx-once {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, .35);
+  margin-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-fly { display: none; }
+  .fx-pill-btn.fx-bump { animation: none; }
+}

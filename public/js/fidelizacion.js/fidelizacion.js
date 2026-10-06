@@ -11,6 +11,7 @@ import {
   orderBy,
   limit,
   where,
+  startAfter,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   onAuthStateChanged,
@@ -25,6 +26,7 @@ import {
   tiendaSubCol,
 } from "../rutas/rutas.js";
 import { setFaviconCircular } from "../favicon/favicon.js";
+import { initFidelizacionUI } from "./fidelizacion_ui_front.js";
 
 const LANDING_BASE_URL = "https://geinztech.com";
 const LOCALIDAD_FIJA = "barranca";
@@ -32,7 +34,6 @@ const AUTH_ORIGIN = "https://geinztech.com";
 const ES_DOMINIO_PROPIO =
   location.hostname !== "geinztech.com" &&
   location.hostname !== "www.geinztech.com";
-const USUARIOS_ROOT = "Trabajadores_Usuarios_Drivers/users/users";
 const LOGO_FALLBACK_URL =
   "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
 
@@ -41,6 +42,23 @@ const NIVELES = [
   { min: 150, label: "Nivel Plata" },
   { min: 400, label: "Nivel Oro VIP" },
 ];
+
+const HP_PAGE_SIZE = 15;
+
+/* ══════════════ Estado global ══════════════ */
+let LOCALIDAD = LOCALIDAD_FIJA;
+let NEGOCIO_ID = null;
+let ALIAS_NEGOCIO = null;
+let UID_ACTUAL = null;
+let ui = null;
+let horarioEstado = { abierto: true, mensaje: "" };
+let horarioCheckInterval = null;
+let brandDarkHex = "#2e1065";
+const qrState = { code: null, colorReady: false, rendered: false };
+let _esperandoToken = new URLSearchParams(window.location.hash.slice(1)).has(
+  "wl_token",
+);
+
 /* ══════════════ Horario de atención ══════════════ */
 const DIAS_SEMANA = [
   "domingo",
@@ -60,9 +78,6 @@ const DIAS_SEMANA_LABEL = {
   viernes: "viernes",
   sabado: "sábado",
 };
-
-let horarioEstado = { abierto: true, mensaje: "" };
-let horarioCheckInterval = null;
 
 function parseHoraAMinutos(str) {
   if (!str || typeof str !== "string" || !str.includes(":")) return null;
@@ -132,7 +147,7 @@ function evaluarHorarioNegocio(biz, fecha = new Date()) {
 
   for (const bloque of bloques) {
     const inicio = parseHoraAMinutos(bloque.h_apertura);
-    let fin = parseHoraAMinutos(bloque.h_cierre);
+    const fin = parseHoraAMinutos(bloque.h_cierre);
     if (inicio === null || fin === null) continue;
 
     if (fin <= inicio) {
@@ -159,14 +174,8 @@ function evaluarHorarioNegocio(biz, fecha = new Date()) {
 }
 
 /* ══════════════ Resolución de ruta ══════════════
-   Formato nuevo y seguro: /perfil/{alias}/fidelizacion/{uid}
-     -> se resuelve el negocio real (id + localidad) consultando alias_tiendas,
-        igual que en carrito.js / estado_pedidos.js. El {uid} del path es
-        informativo (la tarjeta siempre es la del usuario autenticado); no
-        se usa para las consultas, pero queda disponible por si se necesita
-        más adelante (ej. validar que coincide con auth.currentUser.uid).
-   Formato viejo (compatibilidad con links ya enviados):
-     ?localidad=&id=   -> usa esos valores tal cual, LOCALIDAD_FIJA si falta. */
+   Formato nuevo: /perfil/{alias}/fidelizacion/{uid}
+   Formato viejo: ?localidad=&id= */
 
 async function resolverNegocioDesdeAlias(alias) {
   try {
@@ -178,10 +187,7 @@ async function resolverNegocioDesdeAlias(alias) {
       }
     }
   } catch (e) {
-    console.error(
-      "[fidelizacion] No se pudo resolver el alias del negocio:",
-      e,
-    );
+    console.error("[fidelizacion] No se pudo resolver el alias:", e);
   }
   return null;
 }
@@ -197,8 +203,6 @@ function parseRutaCruda() {
   }
 
   const partes = window.location.pathname.split("/").filter(Boolean);
-
-  // Formato nuevo: /perfil/{alias}/fidelizacion/{uid}
   const idxPerfil = partes.indexOf("perfil");
   const idxFidel = partes.indexOf("fidelizacion");
   if (idxPerfil !== -1 && idxFidel !== -1 && idxFidel === idxPerfil + 2) {
@@ -208,12 +212,10 @@ function parseRutaCruda() {
       uidPath: partes[idxFidel + 1] || null,
     };
   }
-
   return null;
 }
 
 async function resolverRuta() {
-  // PRIORIDAD 0: viene inyectado por fidelizacionSSR (dominio propio)
   if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
     return {
       negocioId: window.__NEGOCIO_ID__,
@@ -233,14 +235,8 @@ async function resolverRuta() {
   ALIAS_NEGOCIO = cruda.alias;
   return { negocioId: resuelto.id, localidad: resuelto.localidad };
 }
-// ─── Estas dos se completan de forma async antes de arrancar (ver INIT al final) ───
-let LOCALIDAD = LOCALIDAD_FIJA;
-let NEGOCIO_ID = null;
-let ALIAS_NEGOCIO = null;
-let UID_ACTUAL = null;
-// ── Login en dominio personalizado ──
-let _esperandoToken = new URLSearchParams(window.location.hash.slice(1)).has("wl_token");
 
+/* ══════════════ Login en dominio personalizado ══════════════ */
 function abrirLoginPopup(nombre, logoUrl, rgb) {
   const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
   u.searchParams.set("o", window.location.origin);
@@ -256,7 +252,11 @@ function abrirLoginPopup(nombre, logoUrl, rgb) {
   const p = new URLSearchParams(window.location.hash.slice(1));
   const t = p.get("wl_token");
   if (!t) return;
-  history.replaceState(null, "", window.location.pathname + window.location.search);
+  history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.search,
+  );
   try {
     await signInWithCustomToken(auth, t);
     // onAuthStateChanged (en el INIT) se dispara solo y carga la tarjeta
@@ -267,6 +267,7 @@ function abrirLoginPopup(nombre, logoUrl, rgb) {
   }
 })();
 
+/* ══════════════ Datos ══════════════ */
 async function cargarProductos(negocioId) {
   try {
     const col = tiendaDescuentosCol(LOCALIDAD, negocioId);
@@ -292,6 +293,46 @@ async function cargarUsuario(idUsuario) {
   return snap.exists() ? snap.data() : {};
 }
 
+async function verificarDisponibilidadRecompensa(p) {
+  // las recompensas manuales siempre están disponibles
+  if (p.origen !== "catalogo" || !p.productoId || !p.categoria) return true;
+
+  try {
+    const prodRef = doc(
+      tiendaSubCol(
+        LOCALIDAD,
+        "tiendas",
+        NEGOCIO_ID,
+        "productos",
+        p.categoria,
+        p.categoria,
+      ),
+      p.productoId,
+    );
+    const prodSnap = await getDoc(prodRef);
+    if (!prodSnap.exists() || prodSnap.data().disponible === false)
+      return false;
+
+    const prodData = prodSnap.data();
+    const ve = p.varianteElegida;
+    if (ve && typeof ve === "object") {
+      for (const [condNombre, opcionNombre] of Object.entries(ve)) {
+        const cond = (prodData.condiciones || []).find(
+          (c) => c.nombre === condNombre,
+        );
+        const op = cond?.opciones?.find((o) => o.nombre === opcionNombre);
+        const sinStock = typeof op?.stock === "number" && op.stock <= 0;
+        if (!cond || !op || op.activo === false || sinStock) return false;
+      }
+    }
+    return true;
+  } catch (e) {
+    console.warn("No se pudo verificar disponibilidad de recompensa:", e);
+    return true;
+  }
+}
+
+/* ══════════════ Logo / color de marca ══════════════ */
 function cargarLogoYColor(logoURL, nombreTienda) {
   return new Promise((resolve) => {
     const img = document.getElementById("logoImg");
@@ -300,14 +341,13 @@ function cargarLogoYColor(logoURL, nombreTienda) {
       return;
     }
 
-    // Actualiza el favicon dinámicamente con el logo del negocio
     setFaviconCircular(logoURL);
 
     img.src = logoURL;
     img.onload = async () => {
       img.classList.remove("hidden");
       document.getElementById("logoSkeleton")?.remove();
-      let color = await getDominantColor(img);
+      const color = await getDominantColor(img);
       resolve(color || colorFromName(nombreTienda));
     };
     img.onerror = () => {
@@ -315,134 +355,6 @@ function cargarLogoYColor(logoURL, nombreTienda) {
       resolve(colorFromName(nombreTienda));
     };
   });
-}
-
-let brandDarkHex = "#2e1065";
-const qrState = { code: null, colorReady: false, rendered: false };
-
-function calcularNivel(puntos) {
-  let elegido = NIVELES[0];
-  for (const n of NIVELES) {
-    if (puntos >= n.min) elegido = n;
-  }
-  return elegido.label;
-}
-
-function capitalizar(texto) {
-  return String(texto || "")
-    .trim()
-    .toLowerCase()
-    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
-}
-
-function formatearFechaInicio(timestamp) {
-  try {
-    const fecha = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-    return new Intl.DateTimeFormat("es-PE", {
-      month: "short",
-      year: "numeric",
-    }).format(fecha);
-  } catch {
-    return null;
-  }
-}
-
-function showError(msg) {
-  const box = document.getElementById("errorBox");
-  if (!box) return;
-  box.innerHTML = msg;
-  box.classList.remove("hidden");
-}
-
-/* ── Gate: no logeado. Oculta la tarjeta (sin destruirla) y muestra
-   el aviso dentro del contenedor de skeleton. ── */
-async function showLoginGate() {
-  const skel = document.getElementById("fullSkeleton");
-  if (!skel) return;
-
-  let nombre = "";
-  let logo = "";
-  if (ES_DOMINIO_PROPIO) {
-    try {
-      const snap = await getDoc(tiendaDoc(LOCALIDAD, "tiendas", NEGOCIO_ID));
-      const t = snap.exists() ? snap.data() : {};
-      nombre = t.nombre_tienda || t.nombre || "";
-      logo = t.img_tienda?.logo_tienda || t.logoURL || t.logo || t.urlLogo || "";
-    } catch (e) {
-      console.warn("No se pudo cargar el negocio para el login:", e.message);
-    }
-  }
-
-  const c = colorFromName(nombre || "Fidelidad");
-  const rgb = `${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)}`;
-
-  const avatar = logo
-    ? `<img src="${logo}" alt="Logo" class="w-full h-full object-cover">`
-    : `<div class="w-full h-full skeleton"></div>`;
-
-  const accion = ES_DOMINIO_PROPIO
-    ? `<button id="btnLoginWl" type="button" class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</button>`
-    : `<a href="../logindata/login.html?redirect=${encodeURIComponent(window.location.href)}"
-         class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</a>`;
-
-  skel.innerHTML = `
-    <div class="w-full max-w-sm mx-auto text-center px-4">
-      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
-        <div class="logo-avatar mb-5"><div class="logo-avatar-inner">${avatar}</div></div>
-        <p class="font-display font-semibold text-white text-base mb-2">Inicia sesión para ver tu tarjeta</p>
-        <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Necesitas tu cuenta de Geinz para ver tus puntos y canjear recompensas.</p>
-        ${accion}
-      </div>
-    </div>`;
-
-  if (ES_DOMINIO_PROPIO) {
-    document
-      .getElementById("btnLoginWl")
-      .addEventListener("click", () => abrirLoginPopup(nombre, logo, rgb));
-  }
-}
-
-/* ── Gate: logeado pero no sigue el negocio. Igual: oculta, no destruye. ── */
-function showFollowGate(nombreTienda, logoURL, onFollow) {
-  const skel = document.getElementById("fullSkeleton");
-  if (!skel) return;
-
-  if (logoURL) {
-    setFaviconCircular(logoURL);
-  }
-
-  skel.innerHTML = `
-    <div class="w-full max-w-sm mx-auto text-center px-4">
-      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
-        <div class="logo-avatar mb-5"><div class="logo-avatar-inner">
-          ${logoURL ? `<img src="${logoURL}" alt="Logo" class="w-full h-full object-cover" crossorigin="anonymous">` : `<div class="w-full h-full skeleton"></div>`}
-        </div></div>
-        <p class="font-display font-semibold text-white text-base mb-2">Sigue a ${nombreTienda || "este negocio"}</p>
-        <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Para ver tu tarjeta y las recompensas que puedes canjear, primero debes seguir este negocio.</p>
-        <button id="btnSeguirNegocio" class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold w-full max-w-[220px]">Seguir negocio</button>
-        <p id="followError" class="hidden text-red-400/80 text-xs mt-3"></p>
-      </div>
-    </div>`;
-
-  document
-    .getElementById("btnSeguirNegocio")
-    .addEventListener("click", async (e) => {
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      btn.textContent = "Siguiendo...";
-      try {
-        await onFollow();
-      } catch (err) {
-        console.error(err);
-        btn.disabled = false;
-        btn.textContent = "Seguir negocio";
-        const errEl = document.getElementById("followError");
-        if (errEl) {
-          errEl.textContent = "No se pudo completar, intenta de nuevo.";
-          errEl.classList.remove("hidden");
-        }
-      }
-    });
 }
 
 function getDominantColor(imgEl) {
@@ -480,10 +392,7 @@ function getDominantColor(imgEl) {
 
         if (l > 0.8 || l < 0.1 || s < 0.25) continue;
 
-        const br = r >> 4,
-          bg = g >> 4,
-          bb = b >> 4;
-        const key = `${br},${bg},${bb}`;
+        const key = `${r >> 4},${g >> 4},${b >> 4}`;
         if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
         buckets[key].count++;
         buckets[key].r += r;
@@ -610,6 +519,157 @@ function aplicarColorMarca({ r, g, b }) {
   tryRenderQR();
 }
 
+/* ══════════════ Utilidades de UI ══════════════ */
+function calcularNivel(puntos) {
+  let elegido = NIVELES[0];
+  for (const n of NIVELES) {
+    if (puntos >= n.min) elegido = n;
+  }
+  return elegido.label;
+}
+
+function capitalizar(texto) {
+  return String(texto || "")
+    .trim()
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+}
+
+function formatearFechaInicio(timestamp) {
+  try {
+    const fecha = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+    return new Intl.DateTimeFormat("es-PE", {
+      month: "short",
+      year: "numeric",
+    }).format(fecha);
+  } catch {
+    return null;
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById("errorBox");
+  if (!box) return;
+  box.innerHTML = msg;
+  box.classList.remove("hidden");
+}
+
+function revealCard() {
+  const skel = document.getElementById("fullSkeleton");
+  const content = document.getElementById("appContent");
+  if (!content) return;
+  content.style.opacity = "1";
+  content.style.pointerEvents = "auto";
+  if (skel) {
+    skel.style.transition = "opacity .4s ease";
+    skel.style.opacity = "0";
+    setTimeout(() => skel.remove(), 420);
+  }
+}
+
+/* ── Gate: no logeado ── */
+async function showLoginGate() {
+  const skel = document.getElementById("fullSkeleton");
+  if (!skel) return;
+
+  let nombre = "";
+  let logo = "";
+  if (ES_DOMINIO_PROPIO) {
+    try {
+      const snap = await getDoc(tiendaDoc(LOCALIDAD, "tiendas", NEGOCIO_ID));
+      const t = snap.exists() ? snap.data() : {};
+      nombre = t.nombre_tienda || t.nombre || "";
+      logo =
+        t.img_tienda?.logo_tienda || t.logoURL || t.logo || t.urlLogo || "";
+    } catch (e) {
+      console.warn("No se pudo cargar el negocio para el login:", e.message);
+    }
+  }
+
+  const c = colorFromName(nombre || "Fidelidad");
+  const rgb = `${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)}`;
+
+  const avatar = logo
+    ? `<img src="${logo}" alt="Logo" class="w-full h-full object-cover">`
+    : `<div class="w-full h-full skeleton"></div>`;
+
+  const accion = ES_DOMINIO_PROPIO
+    ? `<button id="btnLoginWl" type="button" class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</button>`
+    : `<a href="../logindata/login.html?redirect=${encodeURIComponent(window.location.href)}"
+         class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold inline-block">Iniciar sesión</a>`;
+
+  skel.innerHTML = `
+    <div class="w-full max-w-sm mx-auto text-center px-4">
+      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
+        <div class="logo-avatar mb-5"><div class="logo-avatar-inner">${avatar}</div></div>
+        <p class="font-display font-semibold text-white text-base mb-2">Inicia sesión para ver tu tarjeta</p>
+        <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Necesitas tu cuenta de Geinz para ver tus puntos y canjear recompensas.</p>
+        ${accion}
+      </div>
+    </div>`;
+
+  if (ES_DOMINIO_PROPIO) {
+    document
+      .getElementById("btnLoginWl")
+      .addEventListener("click", () => abrirLoginPopup(nombre, logo, rgb));
+  }
+}
+
+/* ── Gate: logeado pero no sigue el negocio ── */
+function showFollowGate(nombreTienda, logoURL, onFollow) {
+  const skel = document.getElementById("fullSkeleton");
+  if (!skel) return;
+
+  if (logoURL) setFaviconCircular(logoURL);
+
+  skel.innerHTML = `
+    <div class="w-full max-w-sm mx-auto text-center px-4">
+      <div class="rounded-[24px] border border-white/5 bg-[#0d0e12] px-6 py-10 flex flex-col items-center">
+        <div class="logo-avatar mb-5"><div class="logo-avatar-inner">
+          ${logoURL ? `<img src="${logoURL}" alt="Logo" class="w-full h-full object-cover" crossorigin="anonymous">` : `<div class="w-full h-full skeleton"></div>`}
+        </div></div>
+        <p class="font-display font-semibold text-white text-base mb-2">Sigue a ${nombreTienda || "este negocio"}</p>
+        <p class="text-white/40 text-xs font-mono-card mb-6 leading-relaxed">Para ver tu tarjeta y las recompensas que puedes canjear, primero debes seguir este negocio.</p>
+        <button id="btnSeguirNegocio" class="btn-redeem px-6 py-3 rounded-xl text-sm font-semibold w-full max-w-[220px]">Seguir negocio</button>
+        <p id="followError" class="hidden text-red-400/80 text-xs mt-3"></p>
+      </div>
+    </div>`;
+
+  document
+    .getElementById("btnSeguirNegocio")
+    .addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = "Siguiendo...";
+      try {
+        await onFollow();
+      } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+        btn.textContent = "Seguir negocio";
+        const errEl = document.getElementById("followError");
+        if (errEl) {
+          errEl.textContent = "No se pudo completar, intenta de nuevo.";
+          errEl.classList.remove("hidden");
+        }
+      }
+    });
+}
+
+async function seguirNegocio(uid) {
+  const ref = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
+  await setDoc(ref, {
+    id: uid,
+    id_usuario: uid,
+    puntos: 0,
+    fecha_inicio: serverTimestamp(),
+    ultimo_consumo: serverTimestamp(),
+  });
+}
+
+/* ══════════════ Tilt / Flip / QR / Barcode ══════════════ */
+let tiltFlipIniciado = false;
+
 function initTilt() {
   const scene = document.querySelector(".card-scene");
   if (!scene) return;
@@ -632,7 +692,6 @@ function initTilt() {
 
   scene.addEventListener("mousemove", (e) => updateTilt(e.clientX, e.clientY));
   scene.addEventListener("mouseleave", resetTilt);
-
   scene.addEventListener(
     "touchstart",
     (e) => {
@@ -643,9 +702,7 @@ function initTilt() {
   );
   scene.addEventListener(
     "touchmove",
-    (e) => {
-      updateTilt(e.touches[0].clientX, e.touches[0].clientY);
-    },
+    (e) => updateTilt(e.touches[0].clientX, e.touches[0].clientY),
     { passive: true },
   );
   scene.addEventListener("touchend", () => {
@@ -741,12 +798,17 @@ function pintarQR(codigoStr, colorHex) {
 
 function tryRenderQR() {
   if (qrState.rendered || !qrState.code) return;
+  // qr-code-styling carga con defer: si aún no está, reintenta
+  if (typeof window.QRCodeStyling !== "function") {
+    setTimeout(tryRenderQR, 300);
+    return;
+  }
   pintarQR(qrState.code, brandDarkHex);
   qrState.rendered = true;
 }
 
+/* ══════════════ Textos de recompensas ══════════════ */
 function textoVariante(p) {
-  // Prioriza el texto ya armado si viene de la DB
   if (p.varianteTexto) return p.varianteTexto;
 
   const ve = p.varianteElegida;
@@ -757,6 +819,7 @@ function textoVariante(p) {
   }
   return null;
 }
+
 function textoBeneficio(p) {
   if (p.origen !== "catalogo" || p.precioOriginal == null) return null;
   const orig = Number(p.precioOriginal);
@@ -789,513 +852,86 @@ function textoBeneficio(p) {
   }
 }
 
-function generarCodigoCupon() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I para que no se confundan al leerlo
-  let codigo = "";
-  for (let i = 0; i < 8; i++) {
-    codigo += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return codigo;
-}
-
-async function verificarDisponibilidadRecompensa(p) {
-  // las recompensas manuales (no ligadas a un producto del catálogo) siempre están disponibles
-  if (p.origen !== "catalogo" || !p.productoId || !p.categoria) return true;
-
-  try {
-    const prodRef = doc(
-      tiendaSubCol(
-        LOCALIDAD,
-        "tiendas",
-        NEGOCIO_ID,
-        "productos",
-        p.categoria,
-        p.categoria,
-      ),
-      p.productoId,
-    );
-    const prodSnap = await getDoc(prodRef);
-    if (!prodSnap.exists() || prodSnap.data().disponible === false)
-      return false;
-
-    const prodData = prodSnap.data();
-    const ve = p.varianteElegida;
-    if (ve && typeof ve === "object") {
-      for (const [condNombre, opcionNombre] of Object.entries(ve)) {
-        const cond = (prodData.condiciones || []).find(
-          (c) => c.nombre === condNombre,
-        );
-        const op = cond?.opciones?.find((o) => o.nombre === opcionNombre);
-        const sinStock = typeof op?.stock === "number" && op.stock <= 0;
-        if (!cond || !op || op.activo === false || sinStock) return false;
-      }
-    }
-    return true;
-  } catch (e) {
-    console.warn("No se pudo verificar disponibilidad de recompensa:", e);
-    return true; // si falla la verificación, no bloqueamos por las dudas
-  }
-}
-/* Descuenta puntos y crea el cupón en una sola transacción atómica */
-async function canjearRecompensa(producto, uid, puntosActuales) {
-  console.log(
-    "[CUPON] (fidelizacion) canjearRecompensa() con producto:",
-    producto,
-  );
-  console.log(
-    "[CUPON] (fidelizacion) varianteElegida del producto a canjear:",
-    producto.varianteElegida,
-  );
-  const costo = Number(producto.costoPuntos ?? 0);
-  if (puntosActuales < costo) {
-    showError("No tienes suficientes puntos para este canje.");
-    return null;
-  }
-  const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
-  const codigo = generarCodigoCupon();
-  const cuponRef = clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, codigo);
-  const esProducto = producto.origen === "catalogo";
-
-  // Referencia al producto REAL del catálogo (no al doc de la recompensa,
-  // que puede estar desactualizado). Solo aplica si es canje de producto.
-  const productoRealRef =
-    esProducto && producto.productoId && producto.categoria
-      ? doc(
-        tiendaSubCol(
-          LOCALIDAD,
-          "tiendas",
-          NEGOCIO_ID,
-          "productos",
-          producto.categoria,
-          producto.categoria,
-        ),
-        producto.productoId,
-      )
-      : null;
-
-  try {
-    await runTransaction(db, async (tx) => {
-      const clienteSnap = await tx.get(clienteRef);
-      if (!clienteSnap.exists()) throw { motivo: "sin_cliente" };
-
-      const puntosDb = Number(clienteSnap.data().puntos ?? 0);
-      if (puntosDb < costo) throw { motivo: "sin_puntos" };
-
-      // ── Validación en tiempo real: ¿el producto/variante sigue existiendo? ──
-      if (productoRealRef) {
-        const prodSnap = await tx.get(productoRealRef);
-        if (!prodSnap.exists() || prodSnap.data().disponible === false) {
-          throw { motivo: "producto_no_disponible" };
-        }
-
-        const prodData = prodSnap.data();
-        const ve = producto.varianteElegida;
-        if (ve && typeof ve === "object") {
-          for (const [condNombre, opcionNombre] of Object.entries(ve)) {
-            const cond = (prodData.condiciones || []).find(
-              (c) => c.nombre === condNombre,
-            );
-            const op = cond?.opciones?.find((o) => o.nombre === opcionNombre);
-            const sinStock = typeof op?.stock === "number" && op.stock <= 0;
-            if (!cond || !op || op.activo === false || sinStock) {
-              throw { motivo: "variante_no_disponible" };
-            }
-          }
-        }
-      }
-
-      const cuponSnap = await tx.get(cuponRef);
-      if (cuponSnap.exists()) throw { motivo: "codigo_duplicado" };
-
-      const cuponData = {
-        codigo,
-        tipo: esProducto ? "producto" : "manual",
-        origen: "fidelizacion",
-        costoPuntos: costo,
-        nombre: producto.nombre || null,
-        productoId: esProducto ? producto.productoId || null : null,
-        productoNombre: esProducto ? producto.nombre || null : null,
-        tipoBeneficio: esProducto ? producto.tipoBeneficio || null : null,
-        descuento: esProducto ? producto.descuento || null : null,
-        varianteElegida: esProducto ? producto.varianteElegida || null : null, // ← nuevo
-        precioOriginal: esProducto ? (producto.precioOriginal ?? null) : null,
-        precioFinalEstimado: esProducto
-          ? (producto.precioFinalEstimado ?? null)
-          : null,
-        compraMinima: !esProducto ? Number(producto.compraMinima ?? 0) : null,
-        tipoDescuentoManual: !esProducto
-          ? producto.tipoDescuentoManual || null
-          : null,
-        porcentajeManual: !esProducto
-          ? (producto.porcentajeManual ?? null)
-          : null,
-        montoManual: !esProducto ? (producto.montoManual ?? null) : null,
-        clienteId: uid,
-        negocioId: NEGOCIO_ID,
-        localidad: LOCALIDAD,
-        estado: "activo",
-        usado: false,
-        pedidoId: null,
-        creado: serverTimestamp(),
-      };
-      tx.update(clienteRef, { puntos: puntosDb - costo });
-      tx.set(cuponRef, cuponData);
-    });
-
-    try {
-      await addDoc(
-        tiendaSubCol(
-          LOCALIDAD,
-          "tiendas",
-          NEGOCIO_ID,
-          "clientes",
-          uid,
-          "historial",
-        ),
-        {
-          tipo: "canje",
-          fecha: serverTimestamp(),
-          puntos: -costo,
-          concepto: producto.nombre || "Canje de recompensa",
-          codigoCupon: codigo,
-        },
-      );
-    } catch (e) {
-      console.warn("No se pudo registrar el historial de canje:", e);
-    }
-
-    return codigo;
-    console.log(
-      "[CUPON] (fidelizacion) cupón creado con código:",
-      codigo,
-      "| varianteElegida guardada:",
-      producto.varianteElegida,
-    );
-  } catch (err) {
-    console.error("Error canjeando recompensa:", err);
-    if (err?.motivo === "sin_puntos")
-      showError("Tus puntos cambiaron, ya no te alcanza para este canje.");
-    else if (err?.motivo === "producto_no_disponible")
-      showError("Este producto ya no está disponible para canjear.");
-    else if (err?.motivo === "variante_no_disponible")
-      showError("Esa variante ya no está disponible, elige otra recompensa.");
-    else showError("No se pudo procesar el canje, intenta de nuevo.");
-    return null;
-  }
-}
-
-async function onCanjearClick(btn, producto, puntosActuales) {
-  if (!horarioEstado.abierto) {
-    showError(
-      horarioEstado.mensaje ||
-      "El negocio está cerrado ahora, no se puede canjear.",
-    );
-    return;
-  }
-  if (!UID_ACTUAL) {
-    showError("Debes iniciar sesión.");
-    return;
-  }
-  const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Canjeando...";
-
-  const codigo = await canjearRecompensa(producto, UID_ACTUAL, puntosActuales);
-  if (!codigo) {
-    btn.disabled = false;
-    btn.textContent = original;
-    // refresca la lista de recompensas por si esta ya no está disponible
-    const productosFrescos = await cargarProductos(NEGOCIO_ID);
-    inicializarFiltrosRecompensas(productosFrescos, puntosActuales);
-    return;
-  }
-
-  const ES_DOMINIO_PROPIO =
-    location.hostname !== "geinztech.com" &&
-    location.hostname !== "www.geinztech.com";
-
-  const destino = ES_DOMINIO_PROPIO
-    ? `/carrito?cupon=${encodeURIComponent(codigo)}`
-    : ALIAS_NEGOCIO
-      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito?cupon=${encodeURIComponent(codigo)}`
-      : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${encodeURIComponent(codigo)}`;
-  btn.textContent = "¡Canjeado! Yendo al carrito…";
-  setTimeout(() => {
-    window.location.href = destino;
-  }, 500);
-}
-
-function renderRecompensas(productos, puntosCliente) {
-  const grid = document.getElementById("rewardsGrid");
-  if (!grid) return;
-
-  // fade-out suave del contenido anterior antes de reemplazarlo
-  grid.style.transition = "opacity 0.15s ease";
-  grid.style.opacity = "0";
-
-  setTimeout(() => {
-    grid.innerHTML = "";
-
-    if (!productos.length) {
-      grid.innerHTML = `<p class="col-span-2 text-center text-white/30 text-xs font-mono-card py-6">Aún no hay recompensas disponibles.</p>`;
-      grid.style.opacity = "1";
-      return;
-    }
-
-    productos.forEach((p) => {
-      const costo = Number(p.costoPuntos ?? 0);
-      const disponible = p.disponible !== false;
-      const alcanza =
-        disponible && puntosCliente >= costo && horarioEstado.abierto;
-      const beneficioTxt = textoBeneficio(p);
-      const varianteTxt = textoVariante(p);
-      const el = document.createElement("div");
-      el.className =
-        "reward-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between";
-      el.innerHTML = `
-        <div class="min-w-0">
-          <div class="reward-icon overflow-hidden mb-2.5">
-            ${p.imagenUrl
-          ? `<img src="${p.imagenUrl}" alt="${p.nombre || ""}" class="w-full h-full object-cover rounded-xl"
-                     loading="eager" decoding="async"
-                     onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'text-base sm:text-lg',textContent:'🎁'}))">`
-          : `<span class="text-base sm:text-lg">🎁</span>`
-        }
-          </div>
-          <p class="font-display text-[12.5px] sm:text-xs font-semibold leading-tight text-white break-words">${p.nombre || "Producto"}</p>
-          ${beneficioTxt ? `<p class="font-mono-card text-[10px] sm:text-[10.5px] text-white/45 mt-1 leading-snug">${beneficioTxt}</p>` : ""}
-          ${varianteTxt ? `<p class="font-mono-card text-[10px] sm:text-[10.5px] text-white/40 mt-1 leading-snug">🔸 ${varianteTxt}</p>` : ""}
-          <p class="font-mono-card text-[10.5px] sm:text-xs text-white/40 mt-1">${costo} pts</p>
-        </div>
-     <button class="btn-redeem mt-3 sm:mt-4 text-[11px] font-mono-card font-semibold rounded-lg py-2 w-full active:scale-[0.97]" ${alcanza ? "" : "disabled"}>
-    ${!disponible ? "AGOTADO" : !horarioEstado.abierto ? "CERRADO" : alcanza ? "CANJEAR" : "BLOQUEADO"}
-  </button>
-      `;
-      if (alcanza) {
-        const btn = el.querySelector(".btn-redeem");
-        btn.addEventListener("click", () =>
-          onCanjearClick(btn, p, puntosCliente),
-        );
-      }
-      grid.appendChild(el);
-    });
-
-    grid.style.opacity = "1";
-  }, 150);
-}
-
-/* ══════════════════════════════════════════
-   FILTROS DE RECOMPENSAS POR CATEGORÍA
-   Solo se activan si los productos traen un campo de categoría
-   en la base de datos (categoria / categoriaNombre). Si ningún
-   producto lo trae, la barra de filtros no se muestra y todo
-   sigue funcionando exactamente igual que antes.
-   ══════════════════════════════════════════ */
-let rfProductosTodos = [];
-let rfFiltroActivo = "todos";
-
 function rfCategoriaDe(p) {
   return p.categoria || p.categoriaNombre || p.categoria_producto || null;
 }
 
-function inicializarFiltrosRecompensas(productos, puntosCliente) {
-  rfProductosTodos = productos;
-  rfFiltroActivo = "todos";
+const plano = (html) => String(html || "").replace(/<[^>]+>/g, "");
 
-  const cont = document.getElementById("rewardsFiltros");
-  if (!cont) {
-    renderRecompensas(productos, puntosCliente);
-    return;
-  }
+function pintarPuntosDOM(n) {
+  const t = Number(n || 0).toLocaleString("es-PE");
+  const c = document.getElementById("clientPoints");
+  if (c) c.textContent = t;
+  const h = document.getElementById("pointsHint");
+  if (h) h.textContent = `${t} pts`;
+}
 
-  const categorias = [...new Set(productos.map(rfCategoriaDe).filter(Boolean))];
+function premiosParaUI(productos) {
+  return productos
+    .filter((p) => p.disponible !== false)
+    .map((p) => ({
+      id: p.id,
+      nombre: p.nombre || "Producto",
+      costoPuntos: Number(p.costoPuntos ?? 0),
+      imagenUrl: p.imagenUrl || "",
+      detalle: [plano(textoBeneficio(p)), textoVariante(p)]
+        .filter(Boolean)
+        .join(" · "),
+      categoria: rfCategoriaDe(p),
+         unico: p.origen !== "catalogo",
+      // campos que necesita el canje real (se conservan tal cual)
+      origen: p.origen,
+      productoId: p.productoId,
+      tipoBeneficio: p.tipoBeneficio,
+      descuento: p.descuento,
+      varianteElegida: p.varianteElegida,
+      precioOriginal: p.precioOriginal,
+      precioFinalEstimado: p.precioFinalEstimado,
+      compraMinima: p.compraMinima,
+      tipoDescuentoManual: p.tipoDescuentoManual,
+      porcentajeManual: p.porcentajeManual,
+      montoManual: p.montoManual,
+    }));
+}
 
-  // Sin categorías (o solo una) en la DB -> no mostrar filtros
-  if (categorias.length < 2) {
-    cont.className = "";
-    cont.innerHTML = "";
-    renderRecompensas(productos, puntosCliente);
-    return;
-  }
-
-  cont.className = "hp-filtros mb-1";
-  cont.innerHTML = `
-    <button type="button" class="hp-chip active" data-cat="todos">Todos</button>
-    ${categorias
-      .map(
-        (c) =>
-          `<button type="button" class="hp-chip" data-cat="${c}">${c}</button>`,
+/* ══════════════ Historial paginado (para el módulo UI) ══════════════ */
+async function fetchHistorialUI({ cursor }) {
+  const ref = tiendaSubCol(
+    LOCALIDAD,
+    "tiendas",
+    NEGOCIO_ID,
+    "clientes",
+    UID_ACTUAL,
+    "historial",
+  );
+  const q = cursor
+    ? query(
+        ref,
+        orderBy("fecha", "desc"),
+        startAfter(cursor),
+        limit(HP_PAGE_SIZE),
       )
-      .join("")}
-  `;
-
-  cont.querySelectorAll(".hp-chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      cont
-        .querySelectorAll(".hp-chip")
-        .forEach((c) => c.classList.remove("active"));
-      chip.classList.add("active");
-      rfFiltroActivo = chip.dataset.cat;
-
-      const filtrados =
-        rfFiltroActivo === "todos"
-          ? rfProductosTodos
-          : rfProductosTodos.filter((p) => rfCategoriaDe(p) === rfFiltroActivo);
-
-      renderRecompensas(filtrados, puntosCliente);
-    });
+    : query(ref, orderBy("fecha", "desc"), limit(HP_PAGE_SIZE));
+  const snap = await getDocs(q);
+  const rows = snap.docs.map((d) => {
+    const h = d.data();
+    const puntos = Number(h.puntos ?? h.puntos_ganados ?? 0);
+    return {
+      tipo: h.tipo || (puntos >= 0 ? "ganado" : "canje"),
+      concepto: h.concepto || (puntos >= 0 ? "Puntos ganados" : "Canje"),
+      fecha: h.fecha?.toDate ? h.fecha.toDate() : null,
+      puntos,
+    };
   });
-
-  renderRecompensas(productos, puntosCliente);
+  return {
+    rows,
+    cursor: snap.docs[snap.docs.length - 1] || null,
+    hayMas: snap.docs.length === HP_PAGE_SIZE,
+  };
 }
 
-function revealCard() {
-  const skel = document.getElementById("fullSkeleton");
-  const content = document.getElementById("appContent");
-  if (!content) return;
-  content.style.opacity = "1";
-  content.style.pointerEvents = "auto";
-  if (skel) {
-    skel.style.transition = "opacity .4s ease";
-    skel.style.opacity = "0";
-    setTimeout(() => skel.remove(), 420);
-  }
-}
-
-async function seguirNegocio(uid) {
-  const ref = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
-  await setDoc(ref, {
-    id: uid,
-    id_usuario: uid,
-    puntos: 0,
-    fecha_inicio: serverTimestamp(),
-    ultimo_consumo: serverTimestamp(),
-  });
-}
-
-function formatearFechaHistorial(ts) {
-  try {
-    const fecha = ts?.toDate ? ts.toDate() : new Date(ts);
-    return new Intl.DateTimeFormat("es-PE", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(fecha);
-  } catch {
-    return "";
-  }
-}
-
-const HP_PAGE_SIZE = 15;
-let hpTodosLosMovimientos = []; // caché en memoria de todo lo ya traído de Firestore
-let hpFiltroActivo = "todos";
-let hpVisibleCount = HP_PAGE_SIZE;
-let hpUidActual = null;
-let hpCargando = false;
-
-function hpRenderRow(h) {
-  const iconMap = { ganado: "🎉", canje: "🎁", devolucion: "↩️" };
-  const puntos = Number(h.puntos ?? h.puntos_ganados ?? 0);
-  const positivo = puntos >= 0;
-  const icon = iconMap[h.tipo] || (positivo ? "🎉" : "🎁");
-  return `
-    <div class="hp-row">
-      <div class="min-w-0">
-        <p class="hp-concepto">${icon} ${h.concepto || (positivo ? "Puntos ganados" : "Canje")}</p>
-        <p class="hp-fecha">${formatearFechaHistorial(h.fecha)}</p>
-      </div>
-      <span class="hp-puntos ${positivo ? "positivo" : "negativo"}">${positivo ? "+" : ""}${puntos} pts</span>
-    </div>`;
-}
-
-function hpPintarLista() {
-  const cont = document.getElementById("historialPuntosList");
-  const verMasBtn = document.getElementById("hpVerMasBtn");
-  const countBadge = document.getElementById("hpCountBadge");
-  if (!cont) return;
-
-  const filtrados =
-    hpFiltroActivo === "todos"
-      ? hpTodosLosMovimientos
-      : hpTodosLosMovimientos.filter((h) => h.tipo === hpFiltroActivo);
-
-  if (countBadge) countBadge.textContent = hpTodosLosMovimientos.length;
-
-  if (!filtrados.length) {
-    cont.innerHTML = `<p class="text-center text-white/30 text-xs font-mono-card py-4">Sin movimientos en esta categoría.</p>`;
-    if (verMasBtn) verMasBtn.classList.add("hidden");
-    return;
-  }
-
-  const visibles = filtrados.slice(0, hpVisibleCount);
-  cont.innerHTML = visibles.map(hpRenderRow).join("");
-
-  if (verMasBtn) {
-    const hayMasEnFiltro = visibles.length < filtrados.length;
-    verMasBtn.classList.toggle("hidden", !hayMasEnFiltro);
-    verMasBtn.textContent = "Ver más";
-    verMasBtn.disabled = false;
-  }
-}
-
-async function hpCargarMasDesdeDB() {
-  if (hpCargando || !hpUidActual) return;
-  hpCargando = true;
-  try {
-    const ref = tiendaSubCol(
-      LOCALIDAD,
-      "tiendas",
-      NEGOCIO_ID,
-      "clientes",
-      hpUidActual,
-      "historial",
-    );
-    const q = query(
-      ref,
-      orderBy("fecha", "desc"),
-      limit(hpTodosLosMovimientos.length + HP_PAGE_SIZE),
-    );
-    const snap = await getDocs(q);
-    hpTodosLosMovimientos = snap.docs.map((d) => d.data());
-  } catch (e) {
-    console.warn("No se pudo cargar más historial:", e);
-  } finally {
-    hpCargando = false;
-  }
-}
-
-async function cargarHistorialPuntos(uid) {
-  const cont = document.getElementById("historialPuntosList");
-  if (!cont) return;
-  hpUidActual = uid;
-
-  try {
-    const ref = tiendaSubCol(
-      LOCALIDAD,
-      "tiendas",
-      NEGOCIO_ID,
-      "clientes",
-      uid,
-      "historial",
-    );
-    const q = query(ref, orderBy("fecha", "desc"), limit(HP_PAGE_SIZE));
-    const snap = await getDocs(q);
-    hpTodosLosMovimientos = snap.docs.map((d) => d.data());
-    hpVisibleCount = HP_PAGE_SIZE;
-    hpPintarLista();
-  } catch (e) {
-    console.warn("No se pudo cargar el historial de puntos:", e);
-    cont.innerHTML = `<p class="text-center text-white/30 text-xs font-mono-card py-4">No se pudo cargar el historial.</p>`;
-  }
-}
-
-/* ══════════════════════════════════════════
-   CUPONES ACTIVOS
-   ══════════════════════════════════════════ */
-
+/* ══════════════ Cupones ══════════════ */
 function cuponesCol(uid) {
-  // Si tu subcolección real tiene otro nombre, cámbialo aquí:
   return tiendaSubCol(
     LOCALIDAD,
     "tiendas",
@@ -1304,62 +940,6 @@ function cuponesCol(uid) {
     uid,
     "cupones",
   );
-}
-
-let cuponesToggleWired = false;
-
-function renderCupones(lista) {
-  const wrap = document.getElementById("cuponesSection");
-  const cont = document.getElementById("cuponesList");
-  const badge = document.getElementById("cuponesCountBadge");
-  if (!wrap || !cont) return;
-
-  if (badge) badge.textContent = lista.length;
-
-  if (!lista.length) {
-    wrap.classList.add("hidden");
-    cont.innerHTML = "";
-    return;
-  }
-  wrap.classList.remove("hidden");
-
-  // Engancha el toggle solo una vez (la primera vez que aparecen cupones)
-  if (!cuponesToggleWired) {
-    const toggleBtn = document.getElementById("cuponesToggleBtn");
-    if (toggleBtn) {
-      toggleBtn.addEventListener("click", () => wrap.classList.toggle("open"));
-    }
-    cuponesToggleWired = true;
-  }
-
-  cont.innerHTML = lista
-    .map((c) => {
-      const nombre = c.nombre || c.productoNombre || "Cupón";
-      let detalle = `${c.costoPuntos ?? 0} pts`;
-      if (c.tipoBeneficio === "monto" && c.descuento?.monto != null) {
-        detalle += ` · –S/ ${Number(c.descuento.monto).toFixed(2)}`;
-      } else if (
-        c.tipoBeneficio === "porcentaje" &&
-        c.descuento?.porcentaje != null
-      ) {
-        detalle += ` · –${c.descuento.porcentaje}%`;
-      }
-      return `
-        <div class="cupon-row">
-          <div class="min-w-0">
-            <p class="cupon-nombre">${nombre}</p>
-            <p class="cupon-detalle">${detalle}</p>
-            <p class="cupon-codigo">${c.codigo}</p>
-          </div>
-          <button class="btn-cancelar-cupon" data-codigo="${c.codigo}">Cancelar</button>
-        </div>`;
-    })
-    .join("");
-
-  cont.querySelectorAll(".btn-cancelar-cupon").forEach((btn) => {
-    const cupon = lista.find((x) => x.codigo === btn.dataset.codigo);
-    btn.addEventListener("click", () => onCancelarCuponClick(btn, cupon));
-  });
 }
 
 async function cargarCuponesActivos(uid) {
@@ -1371,17 +951,22 @@ async function cargarCuponesActivos(uid) {
       orderBy("creado", "desc"),
     );
     const snap = await getDocs(q);
-    const cupones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderCupones(cupones);
+    ui?.setCupones(
+      snap.docs.map((d) => {
+        const c = d.data();
+        return {
+          id: d.id,
+          ...c,
+          nombre: c.nombre || c.productoNombre || "Cupón",
+        };
+      }),
+    );
   } catch (e) {
-    // Si Firestore pide un índice compuesto, el error trae el link
-    // para crearlo automáticamente en la consola.
     console.warn("No se pudieron cargar los cupones activos:", e);
   }
 }
 
-/* Devuelve los puntos del cupón al cliente y lo marca como cancelado,
-   todo en una transacción atómica (igual que el canje). */
+/* Devuelve los puntos del cupón y lo marca como cancelado (transacción atómica) */
 async function cancelarCupon(cupon, uid) {
   const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
   const cuponRef = clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, cupon.codigo);
@@ -1444,76 +1029,205 @@ async function cancelarCupon(cupon, uid) {
   }
 }
 
-async function refrescarTrasCancelacion(uid) {
-  const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
-  const snap = await getDoc(clienteRef);
-  const puntos = Number(snap.data()?.puntos ?? 0);
-
-  document.getElementById("clientPoints") &&
-    (document.getElementById("clientPoints").textContent =
-      puntos.toLocaleString("es-PE"));
-  document.getElementById("pointsHint") &&
-    (document.getElementById("pointsHint").textContent =
-      `${puntos.toLocaleString("es-PE")} pts`);
-
-  const productos = await cargarProductos(NEGOCIO_ID);
-  inicializarFiltrosRecompensas(productos, puntos);
-  await cargarCuponesActivos(uid);
-  await cargarHistorialPuntos(uid);
-}
-
-async function onCancelarCuponClick(btn, cupon) {
-  if (!UID_ACTUAL || !cupon) return;
-  const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Cancelando...";
-
+async function onCancelarCuponUI(cupon) {
   const ok = await cancelarCupon(cupon, UID_ACTUAL);
-  if (ok) {
-    await refrescarTrasCancelacion(UID_ACTUAL);
-  } else {
-    btn.disabled = false;
-    btn.textContent = original;
-  }
+  if (!ok) throw new Error("No se pudo cancelar");
+  const snap = await getDoc(clienteDoc(LOCALIDAD, NEGOCIO_ID, UID_ACTUAL));
+  const puntos = Number(snap.data()?.puntos ?? 0);
+  pintarPuntosDOM(puntos);
+  ui?.setPuntos(puntos);
+  await cargarCuponesActivos(UID_ACTUAL);
 }
-function initHistorialPuntosUI() {
-  const section = document.getElementById("historialSection");
-  const toggleBtn = document.getElementById("hpToggleBtn");
-  if (toggleBtn && section) {
-    toggleBtn.addEventListener("click", () => section.classList.toggle("open"));
-  }
 
-  document.querySelectorAll("#hpFiltros .hp-chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      document
-        .querySelectorAll("#hpFiltros .hp-chip")
-        .forEach((c) => c.classList.remove("active"));
-      chip.classList.add("active");
-      hpFiltroActivo = chip.dataset.filtro;
-      hpVisibleCount = HP_PAGE_SIZE;
-      hpPintarLista();
-    });
+/* ══════════════ Canje ══════════════ */
+function generarCodigoCupon() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I
+  let codigo = "";
+  for (let i = 0; i < 8; i++) {
+    codigo += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return codigo;
+}
+
+function armarCuponData(producto, codigo, uid) {
+  const esProducto = producto.origen === "catalogo";
+  return {
+    codigo,
+    tipo: esProducto ? "producto" : "manual",
+    origen: "fidelizacion",
+    costoPuntos: Number(producto.costoPuntos ?? 0),
+    nombre: producto.nombre || null,
+    productoId: esProducto ? producto.productoId || null : null,
+    productoNombre: esProducto ? producto.nombre || null : null,
+    tipoBeneficio: esProducto ? producto.tipoBeneficio || null : null,
+    descuento: esProducto ? producto.descuento || null : null,
+    varianteElegida: esProducto ? producto.varianteElegida || null : null,
+    precioOriginal: esProducto ? (producto.precioOriginal ?? null) : null,
+    precioFinalEstimado: esProducto
+      ? (producto.precioFinalEstimado ?? null)
+      : null,
+    compraMinima: !esProducto ? Number(producto.compraMinima ?? 0) : null,
+    tipoDescuentoManual: !esProducto
+      ? producto.tipoDescuentoManual || null
+      : null,
+    porcentajeManual: !esProducto ? (producto.porcentajeManual ?? null) : null,
+    montoManual: !esProducto ? (producto.montoManual ?? null) : null,
+    clienteId: uid,
+    negocioId: NEGOCIO_ID,
+    localidad: LOCALIDAD,
+    estado: "activo",
+    usado: false,
+    pedidoId: null,
+    creado: serverTimestamp(),
+  };
+}
+
+/* Canje de VARIOS premios en UNA sola transacción (todo o nada) */
+async function canjearVarios(itemsIn, uid) {
+  const items = itemsIn.map((it) => ({
+    premio: it.premio,
+    cantidad: it.premio?.unico ? 1 : it.cantidad,
+  }));
+  const unidades = [];
+  items.forEach(({ premio, cantidad }) => {
+    for (let i = 0; i < cantidad; i++) unidades.push(premio);
+  });
+  if (!unidades.length) throw new Error("No elegiste ningún premio");
+
+  const total = unidades.reduce((s, p) => s + Number(p.costoPuntos || 0), 0);
+  const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
+
+  const codigos = new Set();
+  while (codigos.size < unidades.length) codigos.add(generarCodigoCupon());
+  const lista = [...codigos];
+  const cuponRefs = lista.map((c) =>
+    clienteCuponDoc(LOCALIDAD, NEGOCIO_ID, uid, c),
+  );
+
+  // Un solo ref por producto real del catálogo
+  const prodRefs = new Map();
+  unidades.forEach((p) => {
+    if (
+      p.origen === "catalogo" &&
+      p.productoId &&
+      p.categoria &&
+      !prodRefs.has(p.productoId)
+    ) {
+      prodRefs.set(
+        p.productoId,
+        doc(
+          tiendaSubCol(
+            LOCALIDAD,
+            "tiendas",
+            NEGOCIO_ID,
+            "productos",
+            p.categoria,
+            p.categoria,
+          ),
+          p.productoId,
+        ),
+      );
+    }
   });
 
-  const verMasBtn = document.getElementById("hpVerMasBtn");
-  if (verMasBtn) {
-    verMasBtn.addEventListener("click", async () => {
-      verMasBtn.disabled = true;
-      verMasBtn.textContent = "Cargando…";
-      const antes = hpTodosLosMovimientos.length;
-      await hpCargarMasDesdeDB();
-      if (hpTodosLosMovimientos.length === antes) {
-        // ya no hay más en la base de datos
-        hpVisibleCount = hpTodosLosMovimientos.length + 1;
-      } else {
-        hpVisibleCount += HP_PAGE_SIZE;
-      }
-      hpPintarLista();
-    });
-  }
-}
-initHistorialPuntosUI();
+  let puntosRestantes = 0;
+  await runTransaction(db, async (tx) => {
+    // ---- lecturas ----
+    const cs = await tx.get(clienteRef);
+    if (!cs.exists()) throw new Error("No encontramos tu tarjeta");
+    const puntosDb = Number(cs.data().puntos ?? 0);
+    if (puntosDb < total)
+      throw new Error("Tus puntos cambiaron, ya no te alcanzan");
 
+    const prodData = new Map();
+    for (const [id, ref] of prodRefs) {
+      const s = await tx.get(ref);
+      prodData.set(id, s.exists() ? s.data() : null);
+    }
+    for (const ref of cuponRefs) {
+      const s = await tx.get(ref);
+      if (s.exists()) throw new Error("Código duplicado, intenta de nuevo");
+    }
+
+    // ---- validaciones ----
+    for (const p of unidades) {
+      if (!prodRefs.has(p.productoId)) continue;
+      const d = prodData.get(p.productoId);
+      if (!d || d.disponible === false)
+        throw new Error(`"${p.nombre}" ya no está disponible`);
+      const ve = p.varianteElegida;
+      if (ve && typeof ve === "object") {
+        for (const [cn, on] of Object.entries(ve)) {
+          const cond = (d.condiciones || []).find((c) => c.nombre === cn);
+          const op = cond?.opciones?.find((o) => o.nombre === on);
+          const sinStock = typeof op?.stock === "number" && op.stock <= 0;
+          if (!cond || !op || op.activo === false || sinStock)
+            throw new Error(
+              `La variante de "${p.nombre}" ya no está disponible`,
+            );
+        }
+      }
+    }
+
+    // ---- escrituras ----
+    puntosRestantes = puntosDb - total;
+    tx.update(clienteRef, { puntos: puntosRestantes });
+    unidades.forEach((p, i) =>
+      tx.set(cuponRefs[i], armarCuponData(p, lista[i], uid)),
+    );
+  });
+
+  // Historial (una línea por premio, fuera de la transacción)
+  const histRef = tiendaSubCol(
+    LOCALIDAD,
+    "tiendas",
+    NEGOCIO_ID,
+    "clientes",
+    uid,
+    "historial",
+  );
+  await Promise.all(
+    items.map(({ premio, cantidad }) =>
+      addDoc(histRef, {
+        tipo: "canje",
+        fecha: serverTimestamp(),
+        puntos: -Number(premio.costoPuntos || 0) * cantidad,
+        concepto:
+          cantidad > 1
+            ? `${premio.nombre} ×${cantidad}`
+            : premio.nombre || "Canje de recompensa",
+      }).catch((e) => console.warn("historial canje:", e)),
+    ),
+  );
+
+  return { codigos: lista, puntosRestantes };
+}
+
+function irAlCarritoConCupon(codigo) {
+  const destino = ES_DOMINIO_PROPIO
+    ? `/carrito?cupon=${encodeURIComponent(codigo)}`
+    : ALIAS_NEGOCIO
+      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito?cupon=${encodeURIComponent(codigo)}`
+      : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${encodeURIComponent(codigo)}`;
+  window.location.href = destino;
+}
+
+async function onCanjearUI(items) {
+  if (!horarioEstado.abierto)
+    throw new Error(horarioEstado.mensaje || "El negocio está cerrado ahora");
+  if (!UID_ACTUAL) throw new Error("Debes iniciar sesión");
+
+  const { codigos, puntosRestantes } = await canjearVarios(items, UID_ACTUAL);
+  // Solo el texto de la tarjeta: el módulo ya resta los puntos en su estado.
+  pintarPuntosDOM(puntosRestantes);
+  cargarCuponesActivos(UID_ACTUAL);
+
+  // Un solo premio: te lleva al carrito con el cupón aplicado.
+  if (codigos.length === 1)
+    setTimeout(() => irAlCarritoConCupon(codigos[0]), 700);
+}
+
+/* ══════════════ Carga principal ══════════════ */
 async function cargarDatos(uid) {
   try {
     if (!NEGOCIO_ID || !uid) throw new Error("Faltan parámetros.");
@@ -1565,27 +1279,24 @@ async function cargarDatos(uid) {
     const codigo = cliente.id || clienteSnap.id;
     const clienteDesde = formatearFechaInicio(cliente.fecha_inicio);
 
-    document.getElementById("clientName") &&
-      (document.getElementById("clientName").textContent = nombreCliente);
-    document.getElementById("clientPoints") &&
-      (document.getElementById("clientPoints").textContent =
-        puntos.toLocaleString("es-PE"));
-    document.getElementById("clientCode") &&
-      (document.getElementById("clientCode").textContent = "ID: " + codigo);
-    document.getElementById("tierBadge") &&
-      (document.getElementById("tierBadge").textContent = nivel);
-    document.getElementById("pointsHint") &&
-      (document.getElementById("pointsHint").textContent =
-        `${puntos.toLocaleString("es-PE")} pts`);
+    const setText = (id, txt) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    };
+    setText("clientName", nombreCliente);
+    setText("clientCode", "ID: " + codigo);
+    setText("tierBadge", nivel);
+    pintarPuntosDOM(puntos);
     renderBarcode(String(codigo));
 
     qrState.code = String(codigo);
     tryRenderQR();
 
-    if (clienteDesde) {
+    if (clienteDesde && !document.getElementById("clienteDesdeTxt")) {
       const pointsEl = document.getElementById("clientPoints");
       if (pointsEl) {
         const p = document.createElement("p");
+        p.id = "clienteDesdeTxt";
         p.className =
           "fluid-eyebrow text-white/30 mt-1.5 font-mono-card uppercase";
         p.textContent = `Cliente desde ${clienteDesde}`;
@@ -1593,20 +1304,36 @@ async function cargarDatos(uid) {
       }
     }
 
-    inicializarFiltrosRecompensas(productos, puntos);
-    cargarHistorialPuntos(uid);
+    // ── Módulo UI nuevo (recompensas, historial, cupones) ──
+    if (!ui) {
+      ui = initFidelizacionUI({
+        grid: document.getElementById("rewardsGrid"),
+        filtros: document.getElementById("rewardsFiltros"),
+        header: document.getElementById("pointsHint").parentElement,
+        onCanjear: onCanjearUI,
+        fetchHistorial: fetchHistorialUI,
+        onCancelarCupon: onCancelarCuponUI,
+      });
+    }
+    ui.setPuntos(puntos);
+    ui.setPremios(premiosParaUI(productos));
     cargarCuponesActivos(uid);
-    initTilt();
-    initFlip();
+
+    if (!tiltFlipIniciado) {
+      initTilt();
+      initFlip();
+      tiltFlipIniciado = true;
+    }
+
+    // Revisa el horario cada 30 s; si cambia, refresca los premios
     if (horarioCheckInterval) clearInterval(horarioCheckInterval);
     horarioCheckInterval = setInterval(() => {
       const nuevoEstado = evaluarHorarioNegocio(tienda, new Date());
       const cambio = nuevoEstado.abierto !== horarioEstado.abierto;
       horarioEstado = nuevoEstado;
-      if (cambio) {
-        inicializarFiltrosRecompensas(productos, puntos);
-      }
+      if (cambio && ui) ui.setPremios(premiosParaUI(productos));
     }, 30000);
+
     revealCard();
   } catch (err) {
     console.error(err);
@@ -1616,12 +1343,7 @@ async function cargarDatos(uid) {
   }
 }
 
-/* ══════════════════════════════════════════
-   INIT
-   Primero se resuelve la ruta (alias -> negocioId + localidad, o el
-   formato viejo por query params), y recién con eso se arranca el
-   listener de autenticación.
-   ══════════════════════════════════════════ */
+/* ══════════════ INIT ══════════════ */
 (async () => {
   const ruta = await resolverRuta();
   if (!ruta) {
@@ -1633,7 +1355,7 @@ async function cargarDatos(uid) {
 
   onAuthStateChanged(auth, (user) => {
     if (!user) {
-      if (_esperandoToken) return; // se está iniciando sesión con el token, no mostrar el gate
+      if (_esperandoToken) return;
       showLoginGate();
       return;
     }

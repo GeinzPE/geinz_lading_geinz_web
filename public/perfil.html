@@ -14,6 +14,7 @@
     <meta charset="UTF-8" />
     <script>document.documentElement.classList.add('geinz-loading');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
     <title>Geinz Business</title>
     <!-- SEO base (el JS las sobreescribe con datos reales) -->
     <meta name="description" content="Encuentra negocios locales en Geinz">
@@ -44,6 +45,13 @@
         rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
+        <!-- Panzoom bloquea el render: ponle defer -->
+<script defer src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+
+<!-- Conexiones tempranas -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
 </head>
 
 <body>

@@ -391,7 +391,7 @@ function paintActivePromoChip() {
     b.style.background = activo ? "rgb(var(--dr),var(--dg),var(--db))" : "";
   });
 }
-import { setBusinessFaviconById } from "../favicon/favicon.js";
+import { setFaviconCircular } from "../favicon/favicon.js";
 function normalizeText(s) {
   return (s || "")
     .toString()
@@ -1876,9 +1876,9 @@ function getStockInfo(p, seleccion) {
 function getStockDisponible(p, seleccion) {
   return getStockInfo(p, seleccion).stock;
 }
-async function loadProductosCatalogo(biz) {
+async function loadProductosCatalogo(bizOrPromise) {
   const catRef = tiendaSubCol(localidad, "tiendas", tiendaId, "productos");
-  const catSnap = await getDocs(catRef);
+  const [biz, catSnap] = await Promise.all([bizOrPromise, getDocs(catRef)]);
 
   // Trae todas las categorías en paralelo (mucho más rápido con catálogos grandes)
   const porCategoria = await Promise.all(
@@ -2113,44 +2113,35 @@ async function renderTienda(biz) {
   document.title = `Carrito · ${bizNombre}`;
 
   const logoUrl = biz?.img_tienda?.logo_tienda || null;
-  _bizLogoUrl = logoUrl; // se usa la URL directa; el navegador ya la cachea, no hace falta canvas
+  _bizLogoUrl = logoUrl;
   _bizAliasKey = biz.alias_key || null;
   const logoImg = document.getElementById("bizLogo");
   const logoPh = document.getElementById("bizLogoPh");
+
+  const colorKey = `geinz_color_${tiendaId}`;
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(colorKey) || "null"); } catch {}
 
   if (logoUrl) {
     logoImg.src = logoUrl;
     logoImg.style.display = "block";
     logoPh.classList.add("hidden");
 
-    await new Promise((resolve) => {
-      let resuelto = false;
-      const finalizar = () => {
-        if (!resuelto) {
-          resuelto = true;
-          resolve();
-        }
-      };
-
-      const temp = new Image();
+    if (cached) {
+      applyColor(cached);                      // instantáneo, sin esperar nada
+    } else {
+      applyColor(colorFromName(bizNombre));    // color provisional
+      const temp = new Image();                // en segundo plano, NO se espera
       temp.crossOrigin = "anonymous";
       temp.onload = async () => {
         const color = await getDominantColor(temp);
-        applyColor(color || colorFromName(bizNombre));
-        finalizar();
+        if (color) {
+          applyColor(color);
+          try { localStorage.setItem(colorKey, JSON.stringify(color)); } catch {}
+        }
       };
-      temp.onerror = () => {
-        applyColor(colorFromName(bizNombre));
-        finalizar();
-      };
-      temp.src =
-        logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
-
-      setTimeout(() => {
-        if (!resuelto) applyColor(colorFromName(bizNombre));
-        finalizar();
-      }, 4000);
-    });
+      temp.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=1"; // fijo, ya no Date.now()
+    }
   } else {
     _bizLogoUrl = null;
     logoPh.classList.remove("hidden");
@@ -5606,54 +5597,38 @@ async function init() {
   await validarMesaDesdePath();
   await _loginPorTokenPromise;
   pintarMesaBadge();
-  setBusinessFaviconById({ localidad, id: tiendaId });
+  // (se quitó setBusinessFaviconById: ahora se pone más abajo con el biz ya cargado)
   paintToggleDefaults();
   bindCartEditDelegation(document.getElementById("drawerItems"));
   bindCartEditDelegation(document.getElementById("sidebarItems"));
-  pintarMesaBadge();
   if (mesaId) {
     tipoEntrega = "En mesa";
     document.getElementById("entregaField")?.classList.add("hidden");
     document.getElementById("direccionCollapse")?.classList.remove("open");
     document.getElementById("direccionCollapse")?.classList.add("hidden");
-    document
-      .getElementById("pagoToggle")
-      ?.closest("div")
-      ?.classList.add("hidden");
+    document.getElementById("pagoToggle")?.closest("div")?.classList.add("hidden");
     document.getElementById("efectivoCollapse")?.classList.add("hidden");
     ajustarTextosMesa();
 
-    // Nuevo: en modo mesa, el botón de checkout NO abre el modal,
-    // manda el pedido directo a la DB.
+    const avisoCerrado = () =>
+      showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     const btnMobile = document.getElementById("checkoutBtnMobile");
     const btnDesktop = document.getElementById("checkoutBtnDesktop");
     if (btnMobile)
       btnMobile.onclick = () => {
-        if (!horarioEstado.abierto) {
-          showToast(
-            `🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`,
-          );
-          return;
-        }
+        if (!horarioEstado.abierto) return avisoCerrado();
         confirmarPedidoMesaDirecto();
       };
     if (btnDesktop)
       btnDesktop.onclick = () => {
-        if (!horarioEstado.abierto) {
-          showToast(
-            `🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`,
-          );
-          return;
-        }
+        if (!horarioEstado.abierto) return avisoCerrado();
         confirmarPedidoMesaDirecto();
       };
   }
 
   if (!tiendaId) {
     document.getElementById("lista").innerHTML = "";
-    document
-      .getElementById("emptyMsg")
-      .querySelector("p.font-bold").textContent = "Falta información";
+    document.getElementById("emptyMsg").querySelector("p.font-bold").textContent = "Falta información";
     document.getElementById("emptyMsg").querySelector("p.text-sm").textContent =
       "No se indicó el negocio (falta ?id= en la URL).";
     document.getElementById("emptyMsg").classList.remove("hidden");
@@ -5665,18 +5640,19 @@ async function init() {
     hidePageLoader();
     return;
   }
-  const biz = await loadTienda();
-  const ofertasActivas = await loadOfertasActivas(); // ← NUEVO
-  promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas]; // ← MODIFICADO
-  const [productos, pedidoMesa] = await Promise.all([
-    loadProductosCatalogo(biz),
-    loadPedidoMesa(),
-    cargarUsuarioLogeado(),
-  ]);
-  // productosGlobal/productosPorId deben quedar listos ANTES de aplicar
-  // un cupón (?cupon=), porque agregarProductoDeCupon() busca el producto
-  // ahí. Antes se llenaba después, así que el cupón de producto siempre
-  // fallaba con "producto NO está en productosPorId" al venir por link.
+
+  // ── Todas las lecturas salen a la vez ──
+  const bizP = loadTienda();
+  const ofertasP = loadOfertasActivas();
+  const productosP = loadProductosCatalogo(bizP);
+  const pedidoP = loadPedidoMesa();
+  const usuarioP = cargarUsuarioLogeado();
+
+  const biz = await bizP;
+  const ofertasActivas = await ofertasP;
+  promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas];
+  const [productos, pedidoMesa] = await Promise.all([productosP, pedidoP, usuarioP]);
+
   productosGlobal = productos;
   productosPorId = new Map(productos.map((p) => [p.id, p]));
   promosGlobal.forEach((p) => productosPorId.set(p.id, p));
@@ -5691,14 +5667,12 @@ async function init() {
   aplicarModeloNegocio(biz);
   aplicarDisponibilidadDelivery();
   renderMetodosPago(biz);
-  // Se evalúa el horario ANTES de construir las tarjetas, así ya nacen
-  // con el estado correcto (abierto/cerrado) sin parpadeo.
+
   horarioEstado = evaluarHorarioNegocio(bizData, new Date());
-  console.log("HORARIO DEBUG:", horarioEstado, bizData?.horario_atencion);
   pintarBannerHorario(horarioEstado);
 
   if (mesaId) iniciarSeguimientoMesa();
-  // Sin productos Y sin promos → mensaje de vacío (igual que antes)
+
   if (!productos.length && !promosGlobal.length) {
     document.getElementById("lista").innerHTML = "";
     document.getElementById("emptyMsg").classList.remove("hidden");
@@ -5707,25 +5681,29 @@ async function init() {
     return;
   }
 
+  // ── Se restaura el carrito ANTES de pintar, y se pinta UNA sola vez ──
+  const carritoRestaurado = await restaurarCarritoTrasLogin();
+  if (!carritoRestaurado) await restaurarCarritoPersistido();
+
   if (catalogoGlobal.length) {
     renderFiltros(catalogoGlobal);
     buildAllCards(catalogoGlobal);
-    renderLista(catalogoGlobal);
+    applyFilters();
   } else {
     document.getElementById("lista").innerHTML = "";
   }
-  const carritoRestaurado = await restaurarCarritoTrasLogin();
-  if (!carritoRestaurado) await restaurarCarritoPersistido(); // ← AGREGAR
-  renderFiltros(catalogoGlobal);
-  buildAllCards(catalogoGlobal);
-  applyFilters();
   updateCartUI();
   hidePageLoader();
+
+  // Favicon con los datos que ya tenemos (sin otra lectura a Firestore)
+  if (biz?.img_tienda?.logo_tienda) setFaviconCircular(biz.img_tienda.logo_tienda);
+
   iniciarValidacionHorarioEnVivo();
   iniciarValidacionOfertasEnVivo();
   iniciarValidacionDescuentosEnVivo();
   refrescarDisponibilidadCategorias();
   setInterval(refrescarDisponibilidadCategorias, 30000);
+
   const carritoDesdePerfil = await aplicarCarritoDesdePerfil();
   if (carritoDesdePerfil) {
     showToast("Tu selección se agregó al carrito 🛒");
@@ -5739,4 +5717,5 @@ async function init() {
   }
   if (ofertaParam) aplicarOfertaDesdeLink(ofertaParam);
 }
+init();
 init();

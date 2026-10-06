@@ -1,5 +1,3 @@
-import PhotoSwipeLightbox from "https://cdn.jsdelivr.net/npm/photoswipe@5/dist/photoswipe-lightbox.esm.js";
-window.PhotoSwipeLightbox = PhotoSwipeLightbox;
 import { setFaviconCircular } from "../favicon/favicon.js";
 import { registrarTokenWeb } from "../../notificaciones.js";
 import { montarTarjetaFidelizacion } from "../../tarjeta_fidelizacion_desing/tarjeta.js";
@@ -852,6 +850,19 @@ window.addEventListener("message", async (e) => {
     showToast("No se pudo iniciar sesión, intenta de nuevo");
   }
 })();
+const _cGet = (k, ttl = 6 * 3600e3) => {
+  try {
+    const o = JSON.parse(localStorage.getItem(k) || "null");
+    return o && Date.now() - o.t < ttl ? o.d : null;
+  } catch {
+    return null;
+  }
+};
+const _cSet = (k, d) => {
+  try {
+    localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
+  } catch {}
+};
 async function getParams() {
   // ═══ NUEVO: detectar dominio conectado ═══
   const hostname = window.location.hostname;
@@ -859,10 +870,16 @@ async function getParams() {
     hostname !== "geinztech.com" && hostname !== "www.geinztech.com";
 
   if (esDominioPropio) {
-    const domSnap = await getDoc(doc(db, "dominio_web_tiendas", hostname));
-    if (!domSnap.exists()) throw new Error("Dominio no configurado");
+    const key = `geinz_dom_${hostname}`;
+    let data = _cGet(key);
+    if (!data) {
+      const domSnap = await getDoc(doc(db, "dominio_web_tiendas", hostname));
+      if (!domSnap.exists()) throw new Error("Dominio no configurado");
+      data = domSnap.data();
+      _cSet(key, data);
+    }
     _dominioRegistrado = true;
-    const { id, localidad, categoria, alias } = domSnap.data();
+    const { id, localidad, categoria, alias } = data;
 
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
@@ -903,10 +920,15 @@ async function getParams() {
       alias = alias.slice(0, mesaMatch.index);
     }
 
-    const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
-    if (!aliasSnap.exists()) throw new Error("Perfil no encontrado");
-
-    const { id, localidad, categoria } = aliasSnap.data();
+    const akey = `geinz_alias_${alias}`;
+    let adata = _cGet(akey);
+    if (!adata) {
+      const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
+      if (!aliasSnap.exists()) throw new Error("Perfil no encontrado");
+      adata = aliasSnap.data();
+      _cSet(akey, adata);
+    }
+    const { id, localidad, categoria } = adata;
 
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
@@ -1800,8 +1822,12 @@ function bindFollowButton({ localidad, id }, biz) {
       btn.onclick = () => {
         openLoginPromptModal();
       };
+      // El esqueleto se va cuando ya se obtuvieron los colores del logo
       _followReady = true;
+      _reviewsReady = true;
       tryHideLoader();
+      // Seguro: si el logo tarda demasiado, se quita igual a los 6s
+      setTimeout(hideBizLoader, 6000);
       return;
     }
 
@@ -5467,38 +5493,43 @@ async function render(biz, isInitial = true) {
   // ── COLOR + LOGO: solo la primera vez ──
   if (!_colorReady) {
     applyDominantColor(colorFromName(nombre));
-
     const heroImg = document.getElementById("bizLogoHero");
     const heroPlaceholder = document.getElementById("bizLogoPlaceholderHero");
-
     if (logoUrl) {
       heroImg.src = logoUrl;
       heroImg.style.display = "block";
       heroPlaceholder.style.display = "none";
-
       setFaviconCircular(logoUrl);
-
-      const tempImg = new Image();
-      tempImg.crossOrigin = "anonymous";
-      tempImg.onload = () => {
-        getDominantColor(tempImg).then((color) => {
-          if (color) applyDominantColor(color);
-          _colorReady = true;
-          tryHideLoader();
-        });
-      };
-      tempImg.onerror = () => {
+      const colKey = `geinz_color_${logoUrl}`;
+      const colCached = _cGet(colKey, 30 * 24 * 3600e3);
+      if (colCached) {
+        applyDominantColor(colCached);
         _colorReady = true;
         tryHideLoader();
-      };
-      tempImg.src =
-        logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
+      } else {
+        const tempImg = new Image();
+        tempImg.crossOrigin = "anonymous";
+        tempImg.onload = () => {
+          getDominantColor(tempImg).then((color) => {
+            if (color) {
+              applyDominantColor(color);
+              _cSet(colKey, color);
+            }
+            _colorReady = true;
+            tryHideLoader();
+          });
+        };
+        tempImg.onerror = () => {
+          _colorReady = true;
+          tryHideLoader();
+        };
+        tempImg.src = logoUrl;
+      }
     } else {
       _colorReady = true;
       tryHideLoader();
     }
   }
-
   // ── CONTENIDO: siempre se actualiza ──
   document.getElementById("bizName").textContent = nombre;
   document.title = nombre;
@@ -7444,6 +7475,7 @@ async function eliminarMiReview() {
 // ══════════════════════════════════════════
 //  INIT (rápido: loader se quita apenas hay contenido)
 // ══════════════════════════════════════════
+
 (async () => {
   try {
     const params = await getParams();
@@ -7453,22 +7485,23 @@ async function eliminarMiReview() {
       return;
     }
 
-    // Negocio + servicios en paralelo
-    const [biz, servicios] = await Promise.all([
-      loadBusiness(params),
-      loadServicios(params),
-    ]);
+    const ck = `geinz_biz_${params.id}`;
+    const cached = _cGet(ck, 24 * 3600e3);
+    let biz, servicios;
+    if (cached) {
+      ({ biz, servicios } = cached);
+      Promise.all([loadBusiness(params), loadServicios(params)])
+        .then(([b, s]) => _cSet(ck, { biz: b, servicios: s }))
+        .catch(() => {});
+    } else {
+      [biz, servicios] = await Promise.all([
+        loadBusiness(params),
+        loadServicios(params),
+      ]);
+      _cSet(ck, { biz, servicios });
+    }
     _F = calcFlags(servicios);
 
-    showPromoBanner(biz);
-    await render(biz, true);
-
-    // ⚡ Contenido listo → fuera el loader YA (no espera reseñas ni follow)
-    _followReady = true;
-    _reviewsReady = true;
-    hideBizLoader();
-
-    // Todo lo demás arranca en paralelo, nada se espera
     listenBusinessRealtime(params);
     listenMesasRealtime(
       params,
@@ -7476,15 +7509,19 @@ async function eliminarMiReview() {
       biz.modelo_negocio !== false,
     );
     bindFollowButton(params, biz);
+    listenActivePromosRealtime(params);
+
+    showPromoBanner(biz);
+    await render(biz, true);
+
+    _followReady = true;
+    _reviewsReady = true;
+    hideBizLoader();
+
     injectReviewsStyles();
     bindReputacionBadgeClick();
     bindReviewsFilterEvents(params);
-    listenActivePromosRealtime(params);
 
-    // Pedidos activos del cliente (tiempo real)
-    onAuthStateChanged(auth, (u) => escucharPedidosActivos(u?.uid || null));
-
-    // Reseñas: se cargan después, sin bloquear lo visible
     setTimeout(() => {
       Promise.all([
         cargarResumenReviews(params),
@@ -7944,7 +7981,9 @@ function injectUserPanelStyles() {
 
 // ── utilidades ──
 function _edadExacta(fnac) {
-  const [d, m, y] = String(fnac || "").split("/").map(Number);
+  const [d, m, y] = String(fnac || "")
+    .split("/")
+    .map(Number);
   if (!d || !m || !y) return null;
   const h = new Date();
   let e = h.getFullYear() - y;
@@ -7983,6 +8022,12 @@ async function esperarFollowReady(ms = 4000) {
 // ── estructura del panel ──
 function ensureUserPanel() {
   injectUserPanelStyles();
+  if (!document.getElementById("paStyle")) {
+    const s = document.createElement("style");
+    s.id = "paStyle";
+    s.textContent = PEDIDOS_ACTIVOS_CSS;
+    document.head.appendChild(s);
+  }
   let ov = document.getElementById("userPanel");
   if (ov) return ov;
 
@@ -7990,55 +8035,67 @@ function ensureUserPanel() {
   ov.id = "userPanel";
   ov.className = "up-overlay";
   ov.innerHTML = `
-    <div class="up-box" role="dialog" aria-modal="true" aria-label="Mi cuenta">
+    <div class="up-box">
       <div class="up-handle"></div>
       <button class="up-close" id="upClose" type="button" aria-label="Cerrar">✕</button>
       <div class="up-scroll" id="upScroll"></div>
     </div>`;
   document.body.appendChild(ov);
 
-  ov.addEventListener("click", (e) => {
-    if (e.target === ov) cerrarUserPanel();
-  });
   ov.querySelector("#upClose").addEventListener("click", cerrarUserPanel);
 
-  // Un solo listener para todo el contenido (no se vuelve a enlazar al repintar)
-  ov.querySelector("#upScroll").addEventListener("click", (e) => {
-    const t = e.target.closest("[data-act]");
-    if (!t) return;
-    const act = t.dataset.act;
-    if (act === "orden") {
-      const open = t.closest(".up-order").classList.toggle("open");
-      t.setAttribute("aria-expanded", open ? "true" : "false");
-    } else if (act === "editar") {
-      _upEditando = true;
-      pintarUserPanel();
-    } else if (act === "cancelar") {
-      _upEditando = false;
-      pintarUserPanel();
-    } else if (act === "guardar") {
-      guardarDatosUserPanel(t);
-    } else if (act === "mas") {
-      cargarMasPedidosUserPanel(t);
-    } else if (act === "seguir") {
-      cerrarUserPanel();
-      document.getElementById("followBtn")?.click();
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov) return cerrarUserPanel();
+    const el = e.target.closest("[data-act]");
+    if (!el) return;
+    switch (el.dataset.act) {
+      case "editar":
+        _upEditando = true;
+        pintarUserPanel();
+        break;
+      case "cancelar":
+        _upEditando = false;
+        pintarUserPanel();
+        break;
+      case "guardar":
+        guardarDatosUserPanel(el);
+        break;
+      case "orden": {
+        const o = el.closest(".up-order");
+        const abierto = o.classList.toggle("open");
+        el.setAttribute("aria-expanded", abierto);
+        break;
+      }
+      case "mas":
+        cargarMasPedidosUserPanel(el);
+        break;
+      case "seguir":
+        cerrarUserPanel();
+        document.getElementById("followBtn")?.click();
+        break;
+      case "pv-filtro":
+        if (!_upState) break;
+        _upState.pvFiltro = el.dataset.f;
+        _upState.pvVisibles = PV_BATCH;
+        _upRepintarVivos();
+        break;
+      case "pv-mas":
+        if (!_upState) break;
+        _upState.pvVisibles = (_upState.pvVisibles || PV_BATCH) + PV_BATCH;
+        _upRepintarVivos();
+        break;
     }
   });
 
   if (!_upKeyBound) {
     _upKeyBound = true;
     document.addEventListener("keydown", (e) => {
-      if (
-        e.key === "Escape" &&
-        document.getElementById("userPanel")?.classList.contains("open")
-      )
+      if (e.key === "Escape" && ov.classList.contains("open"))
         cerrarUserPanel();
     });
   }
   return ov;
 }
-
 function cerrarUserPanel() {
   document.getElementById("userPanel")?.classList.remove("open");
   document.body.style.overflow = "";
@@ -8089,6 +8146,31 @@ async function traerPedidosUserPanel(st) {
   st.lastDoc = snap.docs[snap.docs.length - 1] || st.lastDoc;
   st.hayMas = snap.docs.length === UP_BATCH;
 }
+async function traerPedidosVivosUserPanel(st) {
+  const { localidad, id } = _params;
+  const snap = await getDocs(
+    query(
+      tiendaSubCol(localidad, "tiendas", id, "pedidos"),
+      where("cliente.id_cliente", "==", st.uid),
+      limit(20),
+    ),
+  );
+  st.pedidosVivos = snap.docs
+    .map((d) => {
+      const x = d.data();
+      return {
+        id: d.id,
+        est: _paNormalizar(x.estado),
+        total: Number(x.total) || 0,
+        tipo: x.cliente?.tipo_entrega || "",
+        actualizado: x.actualizado || null,
+      };
+    })
+    .sort(
+      (a, b) =>
+        (b.actualizado?.toMillis?.() || 0) - (a.actualizado?.toMillis?.() || 0),
+    );
+}
 
 async function traerAgregadoUserPanel(st) {
   try {
@@ -8107,13 +8189,17 @@ async function traerAgregadoUserPanel(st) {
 async function cargarUserPanel(uid) {
   await esperarFollowReady();
   const sig = _siguiendoNegocio;
+
+  // Si hay cache vigente, solo refresca los pedidos en curso
   if (
     _upState &&
     _upState.uid === uid &&
     _upState.sig === sig &&
     Date.now() - _upState.ts < UP_TTL
-  )
+  ) {
+    await traerPedidosVivosUserPanel(_upState).catch(() => {});
     return;
+  }
 
   const st = {
     uid,
@@ -8121,6 +8207,7 @@ async function cargarUserPanel(uid) {
     raw: {},
     cliente: null,
     orders: [],
+    pedidosVivos: [], // ← NUEVO
     lastDoc: null,
     hayMas: false,
     agg: null,
@@ -8132,6 +8219,10 @@ async function cargarUserPanel(uid) {
         st.raw = s.exists() ? s.data() : {};
       })
       .catch((e) => console.warn("Perfil:", e.message)),
+    // ← NUEVO: siempre se cargan, siga o no al negocio
+    traerPedidosVivosUserPanel(st).catch((e) =>
+      console.warn("Pedidos en curso:", e.code, e.message),
+    ),
   ];
   if (sig) {
     const { localidad, id } = _params;
@@ -8150,7 +8241,6 @@ async function cargarUserPanel(uid) {
   await Promise.all(tareas);
   _upState = st;
 }
-
 // ── pintado ──
 function _upAvatarHTML(foto, ini) {
   return `<div class="up-avatar">${escapeHtml(ini)}${foto ? `<img src="${escapeHtml(foto)}" alt="" referrerpolicy="no-referrer">` : ""}</div>`;
@@ -8166,7 +8256,8 @@ function _upBindAvatar(sc) {
 
 function pintarUserPanelSkeleton(sc, user) {
   const p = _userProfileCache[user.uid] || {};
-  const nombre = `${p.nombre || user.displayName || ""} ${p.apellido || ""}`.trim();
+  const nombre =
+    `${p.nombre || user.displayName || ""} ${p.apellido || ""}`.trim();
   sc.innerHTML =
     _upHeaderHTML({
       nombre,
@@ -8195,7 +8286,9 @@ function _upDatosHTML(raw, user, edad) {
 }
 
 function _upFormHTML(raw) {
-  const completo = String(raw.nombre_completo || "").trim().split(" ");
+  const completo = String(raw.nombre_completo || "")
+    .trim()
+    .split(" ");
   const nom = String(raw.nombre || raw.nombre_user || completo[0] || "").trim();
   const ape = String(raw.apellido || completo.slice(1).join(" ") || "").trim();
   const hoy = new Date().toISOString().slice(0, 10);
@@ -8251,17 +8344,78 @@ function _upOrderHTML(o) {
 }
 
 const _upMoreBtnHTML = `<button type="button" class="up-btn-ghost up-more" data-act="mas">Ver más pedidos</button>`;
+const PV_BATCH = 5;
+const PV_FILTROS = [
+  ["todos", "Todos"],
+  ["pendiente", "Pendientes"],
+  ["en_proceso", "En proceso"],
+  ["en_pausa", "En pausa"],
+  ["entregado", "Entregados"],
+  ["rechazado", "Rechazados"],
+];
 
+function _upVivosInnerHTML(st) {
+  const todos = st.pedidosVivos || [];
+  if (!todos.length) return "";
+  const f = st.pvFiltro || "todos";
+  const vis = st.pvVisibles || PV_BATCH;
+  const lista = f === "todos" ? todos : todos.filter((p) => p.est === f);
+  const mostrar = lista.slice(0, vis);
+  const restantes = lista.length - mostrar.length;
+
+  const chips = PV_FILTROS.map(([k, label]) => {
+    const n =
+      k === "todos" ? todos.length : todos.filter((p) => p.est === k).length;
+    if (k !== "todos" && !n) return "";
+    return `<button type="button" class="pv-chip${f === k ? " active" : ""}" data-act="pv-filtro" data-f="${k}">${label} (${n})</button>`;
+  }).join("");
+
+  const filas = mostrar.length
+    ? mostrar
+        .map((p) => {
+          const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+          return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
+            <span class="pa-dot"></span>
+            <div class="pa-main">
+              <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
+              <div class="pa-state">${e.label}${p.tipo ? " · " + escapeHtml(p.tipo) : ""}</div>
+            </div>
+            <div class="pa-total">${_fmtSoles(p.total)}</div>
+            <span class="pa-go">Ver →</span>
+          </a>`;
+        })
+        .join("")
+    : `<div class="up-empty">No tienes pedidos en este estado.</div>`;
+
+  const mas =
+    restantes > 0
+      ? `<button type="button" class="up-btn-ghost up-more" data-act="pv-mas">Ver más (${Math.min(PV_BATCH, restantes)} de ${restantes})</button>`
+      : "";
+
+  return `<h4 class="up-sec-title">Mis pedidos</h4>
+    <div class="pv-chips">${chips}</div>
+    ${filas}${mas}`;
+}
+
+function _upPedidosVivosHTML(st) {
+  if (!(st.pedidosVivos || []).length) return "";
+  return `<div class="up-sec" id="upVivos">${_upVivosInnerHTML(st)}</div>`;
+}
+
+function _upRepintarVivos() {
+  const el = document.getElementById("upVivos");
+  if (el && _upState) el.innerHTML = _upVivosInnerHTML(_upState);
+}
 function _upPedidosHTML(st) {
   const negocio = escapeHtml(_bizNombre || "este negocio");
   if (!st.sig) {
-    return `<div class="up-sec"><h4 class="up-sec-title">Mis pedidos</h4>
+    return `<div class="up-sec"><h4 class="up-sec-title">Historial de pedidos</h4>
       <div class="up-cta"><div class="up-cta-ico">🛍️</div>
         <p>Sigue a <b>${negocio}</b> para ver tus pedidos, tus puntos y cuánto has comprado.</p>
         <button type="button" class="up-btn" data-act="seguir">Seguir negocio</button>
       </div></div>`;
   }
-  return `<div class="up-sec"><h4 class="up-sec-title">Mis pedidos</h4>
+  return `<div class="up-sec"><h4 class="up-sec-title">Historial de pedidos</h4>
     <div id="upTiles">${_upTilesHTML(st)}</div>
     <div id="upOrders">${st.orders.length ? st.orders.map((o) => _upOrderHTML(o)).join("") : `<div class="up-empty">Todavía no tienes pedidos en ${negocio}.</div>`}</div>
     <div id="upMoreWrap">${st.hayMas ? _upMoreBtnHTML : ""}</div>
@@ -8289,8 +8443,8 @@ function pintarUserPanel() {
   sc.innerHTML =
     _upHeaderHTML({ nombre: completo, foto, sub }) +
     (_upEditando ? _upFormHTML(raw) : _upDatosHTML(raw, user, edad)) +
+    _upPedidosVivosHTML(st) +
     _upPedidosHTML(st);
-  _upBindAvatar(sc);
 }
 
 async function cargarMasPedidosUserPanel(btn) {
@@ -8307,12 +8461,13 @@ async function cargarMasPedidosUserPanel(btn) {
     btn.textContent = "Ver más pedidos";
     return;
   }
-  document
-    .getElementById("upOrders")
-    ?.insertAdjacentHTML(
-      "beforeend",
-      st.orders.slice(start).map((o) => _upOrderHTML(o)).join(""),
-    );
+  document.getElementById("upOrders")?.insertAdjacentHTML(
+    "beforeend",
+    st.orders
+      .slice(start)
+      .map((o) => _upOrderHTML(o))
+      .join(""),
+  );
   const tiles = document.getElementById("upTiles");
   if (tiles) tiles.innerHTML = _upTilesHTML(st);
   const wrap = document.getElementById("upMoreWrap");
@@ -8331,7 +8486,9 @@ async function guardarDatosUserPanel(btn) {
   };
 
   const nombre = (document.getElementById("upEdNombre")?.value || "").trim();
-  const apellido = (document.getElementById("upEdApellido")?.value || "").trim();
+  const apellido = (
+    document.getElementById("upEdApellido")?.value || ""
+  ).trim();
   const fnac = _inputToFnac(document.getElementById("upEdFnac")?.value);
 
   if (nombre.length < 2) return setErr("Escribe tu nombre");
@@ -8440,7 +8597,10 @@ function volarAlCarrito(imagen) {
   if (imagen)
     ball.style.backgroundImage = `url("${String(imagen).replace(/"/g, "%22")}")`;
 
-  x.style.transitionDuration = y.style.transitionDuration = ball.style.transitionDuration = `${dur}s`;
+  x.style.transitionDuration =
+    y.style.transitionDuration =
+    ball.style.transitionDuration =
+      `${dur}s`;
   if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
 
   y.appendChild(ball);
@@ -8454,10 +8614,13 @@ function volarAlCarrito(imagen) {
     y.style.transform = `translate3d(0,${dy}px,0)`;
   });
 
-  setTimeout(() => {
-    x.remove();
-    bumpCartBtn();
-  }, dur * 1000 + 80);
+  setTimeout(
+    () => {
+      x.remove();
+      bumpCartBtn();
+    },
+    dur * 1000 + 80,
+  );
 }
 
 // Guarda de dónde se hizo clic (promos activas, promos normales y botón "Comprar" del detalle)
@@ -8498,13 +8661,33 @@ const PEDIDOS_ACTIVOS_CSS = `
 .pa-state{font-size:12px;color:var(--c);font-weight:700;margin-top:2px;}
 .pa-total{font-size:13px;font-weight:800;}
 .pa-go{font-size:12px;font-weight:700;opacity:.8;}
+.pv-chips{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;}
+.pv-chips::-webkit-scrollbar{display:none;}
+.pv-chip{flex-shrink:0;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;color:#d4d4d8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);cursor:pointer;font-family:inherit;transition:background .2s ease,border-color .2s ease;}
+.pv-chip:hover{border-color:rgba(var(--dr),var(--dg),var(--db),.5);}
+.pv-chip.active{color:#fff;border-color:transparent;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
 `;
-
 const PA_ESTADOS = {
   pendiente: { label: "Pendiente", color: "#d9a441" },
   en_proceso: { label: "En proceso", color: "#4f9df0" },
   en_pausa: { label: "En pausa · responde aquí", color: "#38bdf8" },
 };
+const PA_ESTADOS_TODOS = {
+  ...PA_ESTADOS,
+  entregado: { label: "Entregado", color: "#4ade80" },
+  rechazado: { label: "Rechazado", color: "#f87171" },
+};
+// Variantes por si algún pedido viejo se guardó con otro formato
+const PA_ESTADOS_QUERY = [
+  "pendiente",
+  "en_proceso",
+  "en_pausa",
+  "Pendiente",
+  "En proceso",
+  "En pausa",
+  "en proceso",
+  "en pausa",
+];
 
 function _paNormalizar(e) {
   e = (e || "").toLowerCase().trim();
@@ -8515,84 +8698,11 @@ function _paNormalizar(e) {
   return "pendiente";
 }
 
+// Va a /pedido/{id} (dominio propio) o /perfil/{alias}/{id}, igual que seguimiento
 function _paUrl(pedidoId) {
   const alias = _params.alias || _bizAliasKey;
   if (_esDominioPersonalizado) return `/pedido/${encodeURIComponent(pedidoId)}`;
   if (alias)
     return `/perfil/${encodeURIComponent(alias)}/${encodeURIComponent(pedidoId)}`;
   return `/pedidos/${encodeURIComponent(_params.id)}/${encodeURIComponent(pedidoId)}`;
-}
-
-let _paUnsub = null;
-let _paUid = undefined;
-
-function escucharPedidosActivos(uid) {
-  if (_paUid === uid) return;
-  _paUnsub?.();
-  _paUnsub = null;
-  _paUid = uid;
-  if (!uid) {
-    renderPedidosActivos([]);
-    return;
-  }
-
-  if (!document.getElementById("paStyle")) {
-    const st = document.createElement("style");
-    st.id = "paStyle";
-    st.textContent = PEDIDOS_ACTIVOS_CSS;
-    document.head.appendChild(st);
-  }
-
-  // "in" + "==" NO necesita índice compuesto (a diferencia de not-in)
-  const q = query(
-    tiendaSubCol(_params.localidad, "tiendas", _params.id, "pedidos"),
-    where("cliente.id_cliente", "==", uid),
-    where("estado", "in", ["pendiente", "en_proceso", "en_pausa"]),
-    limit(5),
-  );
-
-  _paUnsub = onSnapshot(
-    q,
-    (snap) => {
-      const lista = [];
-      snap.forEach((d) => {
-        const data = d.data();
-        const est = _paNormalizar(data.estado);
-        if (est === "entregado" || est === "rechazado") return;
-        lista.push({ id: d.id, est, total: Number(data.total) || 0 });
-      });
-      renderPedidosActivos(lista);
-    },
-    (e) => console.warn("Pedidos activos:", e.code, e.message),
-  );
-}
-
-function renderPedidosActivos(lista) {
-  let box = document.getElementById("pedidosActivosBox");
-  if (!lista.length) {
-    box?.remove();
-    return;
-  }
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "pedidosActivosBox";
-    box.className = "pa-box";
-    document.getElementById("quickNavRow")?.after(box);
-  }
-  box.innerHTML =
-    `<h4 class="pa-title"><span class="pa-live"></span> Mis pedidos en curso (${lista.length})</h4>` +
-    lista
-      .map((p) => {
-        const e = PA_ESTADOS[p.est] || PA_ESTADOS.pendiente;
-        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color}">
-        <span class="pa-dot"></span>
-        <div class="pa-main">
-          <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
-          <div class="pa-state">${e.label}</div>
-        </div>
-        <div class="pa-total">S/ ${p.total.toFixed(2)}</div>
-        <span class="pa-go">Ver →</span>
-      </a>`;
-      })
-      .join("");
 }
