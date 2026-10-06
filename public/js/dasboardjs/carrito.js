@@ -4836,10 +4836,8 @@ async function loadOfertasActivas() {
         precio_publicacion: data.precio_publicacion, // ← este sigue en la raíz
       });
 
-      if (data.estado !== "activo") {
-        console.log(
-          `[OFERTAS] ${docSnap.id} descartada: estado="${data.estado}" (debe ser "activo")`,
-        );
+          if (data.desactivada === true) {
+        console.log(`[OFERTAS] ${docSnap.id} descartada: desactivada`);
         return;
       }
       if (fh.activo === false) {

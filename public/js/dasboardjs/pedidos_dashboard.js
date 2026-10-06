@@ -724,7 +724,7 @@ const MAPA_CSS = `
   position:relative;width:100%;height:240px;border-radius:14px;overflow:hidden;
   margin-top:8px;border:1px solid var(--line);cursor:pointer;background:#0a0a0f;
 }
-  .deli-precio{
+.deli-precio{
   display:flex;justify-content:space-between;align-items:center;gap:8px;
   margin-top:8px;padding:9px 12px;border-radius:10px;font-size:12.5px;
   color:#4ade80;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.28);
@@ -756,10 +756,10 @@ const MAPA_CSS = `
 .mapa-delivery-full{
   position:relative;width:100%;max-width:920px;height:80vh;border-radius:18px;
   overflow:hidden;border:1px solid var(--line);background:#0a0a0f;
-    opacity:0;transform:scale(.96) translateY(8px);
+  opacity:0;transform:scale(.96) translateY(8px);
   transition:transform .32s cubic-bezier(.22,1,.36,1), opacity .28s ease;
 }
-  #mapaDeliveryOverlay.show .mapa-delivery-full{opacity:1;transform:none;}
+#mapaDeliveryOverlay.show .mapa-delivery-full{opacity:1;transform:none;}
 .mapa-delivery-full iframe{width:100%;height:100%;border:0;opacity:0;transition:opacity .35s ease;}
 .mapa-delivery-full iframe.loaded{opacity:1;}
 .mapa-delivery-full-close{
@@ -767,7 +767,7 @@ const MAPA_CSS = `
   border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;
   font-size:16px;cursor:pointer;
 }
-  @media (max-width:820px){
+@media (max-width:820px){
   .top-actions-scroll{
     display:flex !important;
     flex-wrap:nowrap !important;
@@ -791,12 +791,29 @@ const MAPA_CSS = `
     width:auto;max-width:none;z-index:70;
   }
 }
-  .vista-oculta{display:none !important;}
+.vista-oculta{display:none !important;}
 
-/* Para que Mesas y Nuevo pedido ocupen su espacio y scrolleen por dentro */
+/* Para que Mesas y Nuevo pedido ocupen su espacio y scrolleen por dentro (PC) */
 #mesasStripWrap{flex:1 1 0;min-height:0;overflow:hidden;}
 #mesasStripWrap .mesas-panel{height:100%;display:flex;flex-direction:column;}
 #mesasStripWrap .mesas-panel-body{flex:1;min-height:0;overflow-y:auto;}
+
+/* Celular: Mesas toma su alto natural y la página hace scroll normal */
+@media (max-width:820px){
+  #mesasStripWrap{
+    flex:none !important;
+    height:auto !important;
+    min-height:0;
+    overflow:visible !important;
+  }
+  #mesasStripWrap .mesas-panel{
+    height:auto !important;
+  }
+  #mesasStripWrap .mesas-panel-body{
+    flex:none;
+    overflow:visible;
+  }
+}
 `;
 
 styleTag.textContent =
@@ -9281,6 +9298,7 @@ async function accionEstado(id, p, estado, accion, btn) {
 }
 /* ══════════════ MOZOS (solo en la vista Mesas) ══════════════ */
 const mozosCol = () => tiendaSubCol(localidad, "tiendas", tiendaId, "mozos");
+
 async function mzHash(pin, usuario) {
   const b = new TextEncoder().encode(`${tiendaId}:${usuario}:${pin}`);
   const h = await crypto.subtle.digest("SHA-256", b);
@@ -9288,21 +9306,26 @@ async function mzHash(pin, usuario) {
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
 }
-let mzLista = [];
+
+let mzLista = []; // mozos (/mozos)
+let mzTrab = []; // trabajadores (/trabajadores)
+let mzSel = null; // trabajador al que se le está creando el acceso
 
 const mzOv = document.createElement("div");
 mzOv.className = "dlv-ov";
 mzOv.innerHTML = `
   <div class="dlv-box">
     <div class="dlv-head"><span>🧑‍🍳 Mozos</span><button type="button" data-x>✕</button></div>
-    <p class="dlv-cfg-sub">Cada mozo entra con su usuario y PIN en <b id="mzLink"></b></p>
+    <p class="dlv-cfg-sub">Elige cuáles de tus trabajadores son mozos. Cada mozo entra con su usuario y PIN en <b id="mzLink"></b></p>
     <div id="mzList"></div>
-    <div class="dlv-form">
-      <input type="text" id="mzNombre" placeholder="Nombre del mozo" maxlength="40" autocomplete="off">
+    <div class="dlv-form" id="mzForm" style="display:none;">
+      <div class="dlv-prev-title" id="mzFormTitulo"></div>
       <input type="text" id="mzUsuario" placeholder="Usuario (sin espacios)" maxlength="20" autocomplete="off">
       <input type="tel" id="mzPin" placeholder="PIN (4 a 8 números)" inputmode="numeric" maxlength="8" autocomplete="off">
-      <button type="button" class="np-confirmar-btn" id="mzGuardar">Agregar mozo</button>
+      <button type="button" class="np-confirmar-btn" id="mzGuardar">Guardar mozo</button>
+      <button type="button" class="oc-btn ghost" id="mzCancelar" style="width:100%;">Cancelar</button>
     </div>
+    <div id="mzSueltos"></div>
   </div>`;
 document.body.appendChild(mzOv);
 mzOv.addEventListener("click", (e) => {
@@ -9311,21 +9334,88 @@ mzOv.addEventListener("click", (e) => {
 });
 
 function mzPintar() {
-  document.getElementById("mzList").innerHTML = mzLista.length
-    ? mzLista
+  const porTrab = new Map(
+    mzLista.filter((m) => m.trabajadorId).map((m) => [m.trabajadorId, m]),
+  );
+  const libres = mzTrab.filter((t) => !porTrab.has(t.id));
+  const sueltos = mzLista.filter(
+    (m) => !m.trabajadorId || !mzTrab.some((t) => t.id === m.trabajadorId),
+  );
+
+  const list = document.getElementById("mzList");
+  list.innerHTML = mzTrab.length
+    ? mzTrab
+        .map((t) => {
+          const m = porTrab.get(t.id);
+          const av = `<div class="dlv-av"><span>${escapeHtml((t.nombre || "?")[0].toUpperCase())}</span></div>`;
+          if (!m)
+            return `<div class="dlv-item">${av}
+              <div class="dlv-info"><b>${escapeHtml(t.nombre)}</b><small>${escapeHtml(t.cargo || "Trabajador")}</small></div>
+              <button type="button" class="oc-btn ghost" data-mz-nuevo="${t.id}">Hacer mozo</button></div>`;
+          return `<div class="dlv-item">${av}
+            <div class="dlv-info"><b>${escapeHtml(t.nombre)} <span style="font-size:10px;color:#a78bfa;">🧑‍🍳 Mozo</span></b>
+              <small>@${escapeHtml(m.usuario || "")}${m.activo === false ? " · inactivo" : ""}</small></div>
+            <button class="dlv-mini" data-mz-pin="${m.id}" title="Cambiar PIN">🔑</button>
+            <button class="dlv-mini" data-mz-tog="${m.id}" title="Activar/desactivar">${m.activo === false ? "▶" : "⏸"}</button>
+            <button class="dlv-mini danger" data-mz-del="${m.id}" title="Quitar como mozo">🗑</button></div>`;
+        })
+        .join("")
+    : `<div class="dlv-empty">Aún no tienes trabajadores. Regístralos primero en <b>Trabajadores y planilla</b>.</div>`;
+
+  // Mozos viejos que no están vinculados a ningún trabajador
+  document.getElementById("mzSueltos").innerHTML = sueltos.length
+    ? `<div class="dlv-prev-title">Mozos sin vincular</div>` +
+      sueltos
         .map(
-          (m) => `
-      <div class="dlv-item">
-        <div class="dlv-av"><span>${escapeHtml((m.nombre || "?")[0].toUpperCase())}</span></div>
-        <div class="dlv-info"><b>${escapeHtml(m.nombre)}</b><small>@${escapeHtml(m.usuario || "")}${m.activo === false ? " · inactivo" : ""}</small></div>
-        <button class="dlv-mini" data-mz-pin="${m.id}" title="Cambiar PIN">🔑</button>
-        <button class="dlv-mini" data-mz-tog="${m.id}" title="Activar/desactivar">${m.activo === false ? "▶" : "⏸"}</button>
-        <button class="dlv-mini danger" data-mz-del="${m.id}" title="Eliminar">🗑</button>
-      </div>`,
+          (m) => `<div class="dlv-item">
+            <div class="dlv-av"><span>${escapeHtml((m.nombre || "?")[0].toUpperCase())}</span></div>
+            <div class="dlv-info"><b>${escapeHtml(m.nombre)}</b><small>@${escapeHtml(m.usuario || "")}</small></div>
+            ${
+              libres.length
+                ? `<select class="deli-inp" data-mz-link="${m.id}" style="max-width:130px;">
+                     <option value="">Vincular a…</option>
+                     ${libres.map((t) => `<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join("")}
+                   </select>`
+                : ""
+            }
+            <button class="dlv-mini danger" data-mz-del="${m.id}" title="Eliminar">🗑</button></div>`,
         )
         .join("")
-    : `<div class="dlv-empty">Aún no hay mozos.</div>`;
+    : "";
 }
+
+async function mzCargar() {
+  const [mSnap, tSnap] = await Promise.all([
+    getDocs(mozosCol()),
+    getDocs(tiendaSubCol(localidad, "tiendas", tiendaId, "trabajadores")).catch(
+      () => ({ docs: [] }),
+    ),
+  ]);
+  mzLista = mSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  mzTrab = tSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+
+  // Si cambió el nombre del trabajador, se actualiza el del mozo
+  mzLista.forEach((m) => {
+    const t = mzTrab.find((x) => x.id === m.trabajadorId);
+    if (t && t.nombre !== m.nombre) {
+      m.nombre = t.nombre;
+      updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", m.id), {
+        nombre: t.nombre,
+      }).catch(() => {});
+    }
+  });
+  mzPintar();
+}
+
+function mzCerrarForm() {
+  mzSel = null;
+  document.getElementById("mzForm").style.display = "none";
+  document.getElementById("mzUsuario").value = "";
+  document.getElementById("mzPin").value = "";
+}
+
 async function mzAbrir() {
   const base = bizDominioGlobal
     ? `https://${bizDominioGlobal}/trabajadores`
@@ -9333,77 +9423,119 @@ async function mzAbrir() {
       ? `geinztech.com/perfil/${bizAliasGlobal}/trabajadores`
       : "(configura tu alias)";
   document.getElementById("mzLink").textContent = base;
-  const snap = await getDocs(mozosCol());
-  mzLista = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  mzPintar();
+  mzCerrarForm();
+  await mzCargar();
   mzOv.classList.add("show");
 }
-document.getElementById("mzList").addEventListener("click", async (e) => {
-  const pin = e.target.closest("[data-mz-pin]"),
-    tog = e.target.closest("[data-mz-tog]"),
-    del = e.target.closest("[data-mz-del]");
-  const id =
-    (pin || tog || del)?.dataset.mzPin ||
-    (tog || del)?.dataset.mzTog ||
-    del?.dataset.mzDel;
+
+function mzNuevo(trabId) {
+  const t = mzTrab.find((x) => x.id === trabId);
+  if (!t) return;
+  mzSel = trabId;
+  document.getElementById("mzFormTitulo").textContent =
+    `Acceso para ${t.nombre}`;
+  document.getElementById("mzUsuario").value = (t.nombre || "")
+    .split(" ")[0]
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+  document.getElementById("mzPin").value = "";
+  const f = document.getElementById("mzForm");
+  f.style.display = "flex";
+  f.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  document.getElementById("mzPin").focus();
+}
+
+mzOv.addEventListener("click", async (e) => {
+  const nuevo = e.target.closest("[data-mz-nuevo]");
+  const pin = e.target.closest("[data-mz-pin]");
+  const tog = e.target.closest("[data-mz-tog]");
+  const del = e.target.closest("[data-mz-del]");
+  if (e.target.id === "mzCancelar") return mzCerrarForm();
+  if (nuevo) return mzNuevo(nuevo.dataset.mzNuevo);
+
+  const btn = pin || tog || del;
+  if (!btn) return;
+  const id = btn.dataset.mzPin || btn.dataset.mzTog || btn.dataset.mzDel;
   const m = mzLista.find((x) => x.id === id);
   if (!m) return;
+  const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id);
   try {
     if (pin) {
-      const nuevo = window.prompt(
+      const nuevoPin = window.prompt(
         `Nuevo PIN para ${m.nombre} (4 a 8 números):`,
         "",
       );
-      if (nuevo === null) return;
-      if (!/^\d{4,8}$/.test(nuevo))
+      if (nuevoPin === null) return;
+      if (!/^\d{4,8}$/.test(nuevoPin))
         return showToast("El PIN debe tener 4 a 8 números", true);
-      await updateDoc(
-        tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id),
-        { pinHash: await mzHash(nuevo, m.usuario) },
-      );
+      await updateDoc(ref, { pinHash: await mzHash(nuevoPin, m.usuario) });
       showToast("🔑 PIN actualizado");
     } else if (tog) {
-      await updateDoc(
-        tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id),
-        { activo: m.activo === false },
-      );
-    } else if (del && window.confirm(`¿Eliminar a ${m.nombre}?`)) {
-      await deleteDoc(
-        tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", id),
-      );
+      await updateDoc(ref, { activo: m.activo === false });
+    } else if (
+      del &&
+      window.confirm(
+        m.trabajadorId
+          ? `¿Quitar a ${m.nombre} como mozo? Seguirá en tu planilla.`
+          : `¿Eliminar a ${m.nombre}?`,
+      )
+    ) {
+      await deleteDoc(ref);
     }
-    mzAbrir();
+    mzCargar();
   } catch (err) {
     console.error(err);
     showToast("❌ No se pudo actualizar", true);
   }
 });
+
+// Vincular un mozo viejo a un trabajador
+mzOv.addEventListener("change", async (e) => {
+  const sel = e.target.closest("[data-mz-link]");
+  if (!sel || !sel.value) return;
+  const t = mzTrab.find((x) => x.id === sel.value);
+  if (!t) return;
+  try {
+    await updateDoc(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", sel.dataset.mzLink),
+      { trabajadorId: t.id, nombre: t.nombre },
+    );
+    showToast(`🔗 Vinculado a ${t.nombre}`);
+    mzCargar();
+  } catch (err) {
+    console.error(err);
+    showToast("❌ No se pudo vincular", true);
+  }
+});
+
 document.getElementById("mzGuardar").addEventListener("click", async () => {
-  const nombre = document.getElementById("mzNombre").value.trim();
+  const t = mzTrab.find((x) => x.id === mzSel);
+  if (!t) return showToast("Elige un trabajador", true);
   const usuario = document
     .getElementById("mzUsuario")
     .value.trim()
     .toLowerCase()
     .replace(/\s+/g, "");
   const pin = document.getElementById("mzPin").value.trim();
-  if (!nombre || !usuario) return showToast("Falta nombre o usuario", true);
+  if (!usuario) return showToast("Falta el usuario", true);
   if (!/^\d{4,8}$/.test(pin))
     return showToast("El PIN debe tener 4 a 8 números", true);
   if (mzLista.some((m) => m.usuario === usuario))
     return showToast("Ese usuario ya existe", true);
   try {
     await setDoc(doc(mozosCol()), {
-      nombre,
+      nombre: t.nombre,
       usuario,
       pinHash: await mzHash(pin, usuario),
       activo: true,
+      trabajadorId: t.id,
       creadoEn: serverTimestamp(),
     });
-    ["mzNombre", "mzUsuario", "mzPin"].forEach(
-      (i) => (document.getElementById(i).value = ""),
-    );
-    showToast("✅ Mozo agregado");
-    mzAbrir();
+    mzCerrarForm();
+    showToast(`✅ ${t.nombre} ahora es mozo`);
+    mzCargar();
   } catch (err) {
     console.error(err);
     showToast("❌ No se pudo guardar", true);
@@ -9417,7 +9549,6 @@ mzBtn.className = "mg-btn mg-reservar";
 mzBtn.textContent = "🧑‍🍳 Mozos";
 mzBtn.addEventListener("click", mzAbrir);
 document.querySelector(".mesas-panel-head")?.appendChild(mzBtn);
-
 /* ══════════════ ESTADO DE MESA + CONFIG DE MESAS ══════════════ */
 async function setEstadoMesaAdmin(numero, nuevo) {
   const act = getPedidosDeMesa(numero)[0];

@@ -1,9 +1,19 @@
 import {
-  onSnapshot, query, orderBy, doc, updateDoc, increment, Timestamp,
+  onSnapshot,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+  increment,
+  Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { tiendaSubCol } from "../rutas/rutas.js";
-import { initExport, botonesExportDetalleHtml, enlazarExportDetalle, panelReactivarHtml }
-  from "./exportar_publicaciones.js";
+import {
+  initExport,
+  botonesExportDetalleHtml,
+  enlazarExportDetalle,
+  panelReactivarHtml,
+} from "./exportar_publicaciones.js";
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
@@ -92,11 +102,21 @@ function tiempoRestante(promo) {
 function fmtLima(ms) {
   const p = Object.fromEntries(
     new Intl.DateTimeFormat("es-PE", {
-      timeZone: "America/Lima", day: "2-digit", month: "2-digit",
-      year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-    }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]),
+      timeZone: "America/Lima",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(ms))
+      .map((x) => [x.type, x.value]),
   );
-  return { fecha: `${p.day}/${p.month}/${p.year}`, hora: `${p.hour}:${p.minute}` };
+  return {
+    fecha: `${p.day}/${p.month}/${p.year}`,
+    hora: `${p.hour}:${p.minute}`,
+  };
 }
 
 function duracionOriginalMs(promo) {
@@ -110,13 +130,23 @@ function formatDur(ms) {
   const h = Math.round(ms / 3600000);
   return h >= 24 ? `${Math.round(h / 24)} día(s)` : `${h} hora(s)`;
 }
+const estaDesactivada = (p) => p.desactivada === true;
+
+async function setDesactivada(promo, valor) {
+  await updateDoc(doc(promosRef(), promo.id), {
+    desactivada: valor,
+    desactivada_en: valor ? Timestamp.now() : null,
+  });
+}
 
 async function reactivarPromo(promo, duracionMs) {
   const ahora = Date.now();
   const fin = ahora + duracionMs;
-  const i = fmtLima(ahora), f = fmtLima(fin);
+  const i = fmtLima(ahora),
+    f = fmtLima(fin);
   await updateDoc(doc(promosRef(), promo.id), {
     estado: "activo",
+    desactivada: false,
     "datos_hora_fecha.activo": true,
     "datos_hora_fecha.timestamp_inicio": Timestamp.fromMillis(ahora),
     "datos_hora_fecha.timestamp_fin": Timestamp.fromMillis(fin),
@@ -207,7 +237,9 @@ function ultimosDias(k) {
 
 /* ═════════ Gráficos generales ═════════ */
 function renderChartsGenerales() {
-  const activas = promos.filter((p) => !esExpirado(p)).length;
+  const activas = promos.filter(
+    (p) => !esExpirado(p) && !estaDesactivada(p),
+  ).length;
   const expiradas = promos.filter((p) => esExpirado(p)).length;
   const exclusivas = promos.filter((p) => p.exclusivo).length;
 
@@ -449,7 +481,10 @@ function render() {
   const filtradas = ordenar(
     promos.filter((p) => {
       const expirado = esExpirado(p);
-      if (filtroEstado === "activo" && expirado) return false;
+      if (filtroEstado === "activo" && (expirado || estaDesactivada(p)))
+        return false;
+      if (filtroEstado === "desactivado" && (expirado || !estaDesactivada(p)))
+        return false;
       if (filtroEstado === "expirado" && !expirado) return false;
       if (filtroEstado === "exclusivo" && !p.exclusivo) return false;
       if (filtroCategoria && p.informacion?.categoria !== filtroCategoria)
@@ -479,7 +514,9 @@ function render() {
   }, 150); // debe matchear la duración del transition de #promos-grid
 }
 function renderStats() {
-  el("stat-activas").textContent = promos.filter((p) => !esExpirado(p)).length;
+  el("stat-activas").textContent = promos.filter(
+    (p) => !esExpirado(p) && !estaDesactivada(p),
+  ).length;
   el("stat-expiradas").textContent = promos.filter((p) => esExpirado(p)).length;
   el("stat-exclusivas").textContent = promos.filter((p) => p.exclusivo).length;
   el("stat-total").textContent = promos.length;
@@ -509,6 +546,10 @@ function renderGrid(items) {
     document.querySelectorAll("[data-timer-id]").forEach((elTimer) => {
       const promo = promos.find((p) => p.id === elTimer.dataset.timerId);
       if (!promo) return;
+      if (estaDesactivada(promo) && !esExpirado(promo)) {
+        elTimer.textContent = "⏸ Desactivada";
+        return;
+      }
       const restante = tiempoRestante(promo);
       if (restante) {
         elTimer.textContent = `⏳ ${restante}`;
@@ -532,7 +573,8 @@ function renderCard(promo) {
   card.className =
     "promo-card card-enter glass-card rounded-2xl overflow-hidden cursor-pointer";
   card.addEventListener("click", () => abrirDetalle(promo));
-  if (expirado) card.classList.add("promo-expired");
+  const desact = !expirado && estaDesactivada(promo);
+  if (expirado || desact) card.classList.add("promo-expired");
   // 👇 al terminar la animación de entrada, soltamos el transform
   card.addEventListener(
     "animationend",
@@ -553,7 +595,7 @@ function renderCard(promo) {
       <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20"></div>
       ${promo.exclusivo ? `<span class="absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-400 text-black shadow-md">👑 Exclusiva</span>` : ""}
       <span data-timer-id="${promo.id}" class="timer-chip ${expirado ? "expired" : ""} absolute bottom-2.5 right-2.5 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg text-white">
-        ${restanteInicial ? `⏳ ${restanteInicial}` : "🔴 Expirado"}
+           ${desact ? "⏸ Desactivada" : restanteInicial ? `⏳ ${restanteInicial}` : "🔴 Expirado"}
       </span>
     </div>
     <div class="p-3.5">
@@ -587,8 +629,6 @@ function renderCard(promo) {
 }
 /* ---------------- Modal de Detalle ---------------- */
 function abrirDetalle(promo) {
-
-
   const info = promo.informacion || {};
   const dhf = promo.datos_hora_fecha || {};
   const ubic = promo.ubicacion || {};
@@ -600,9 +640,24 @@ function abrirDetalle(promo) {
             ${imgs.map((u) => `<img src="${u}" class="w-20 h-20 rounded-xl object-cover shrink-0 border border-zinc-700/60">`).join("")}
           </div>`
     : "";
-const durOrig = duracionOriginalMs(promo);
-const panelReactivar = expirado ? panelReactivarHtml(durOrig ? formatDur(durOrig) : null) : "";
+  const durOrig = duracionOriginalMs(promo);
+  const panelReactivar = expirado
+    ? panelReactivarHtml(durOrig ? formatDur(durOrig) : null)
+    : "";
 
+  const panelOnOff = !expirado
+    ? `
+  <div class="p-4 border-b border-zinc-800/80 bg-zinc-950/40 flex items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-bold text-white">${promo.desactivada ? "Publicación desactivada" : "Publicación activa"}</p>
+      <p class="text-[11px] text-zinc-500">${promo.desactivada ? "No se ve en tu perfil ni en el carrito." : "Visible en tu perfil y en el carrito."}</p>
+    </div>
+    <button id="btn-toggle-activa" type="button"
+      class="shrink-0 text-xs font-bold px-4 py-2 rounded-xl ${promo.desactivada ? "bg-emerald-500 text-black" : "bg-rose-500/15 text-rose-300 border border-rose-500/30"}">
+      ${promo.desactivada ? "Activar" : "Desactivar"}
+    </button>
+  </div>`
+    : "";
   const pagos = (promo.pagos || [])
     .map((p) => `<span class="tag-chip capitalize">${p}</span>`)
     .join(" ");
@@ -630,7 +685,8 @@ const panelReactivar = expirado ? panelReactivarHtml(durOrig ? formatDur(durOrig
             </span>
           </div>
 
-                    ${panelReactivar}
+                                  ${panelReactivar}
+                    ${panelOnOff}
           <div id="detalle-analytics" class="p-4 border-b border-zinc-800/80 bg-zinc-950/40 space-y-3"></div>
 
           ${galeria}
@@ -733,7 +789,20 @@ const panelReactivar = expirado ? panelReactivarHtml(durOrig ? formatDur(durOrig
   el("overlay-detalle").classList.add("show");
   renderAnalyticsDetalle(promo); // antes decía renderChartsDetalle (no existe)
   el("btn-cerrar-modal").addEventListener("click", cerrarDetalle);
-enlazarExportDetalle(promo); 
+  enlazarExportDetalle(promo);
+  el("btn-toggle-activa")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    try {
+      await setDesactivada(promo, !promo.desactivada);
+      cerrarDetalle(); // el onSnapshot repinta solo
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = "Error, reintenta";
+    }
+  });
   if (expirado) {
     const msg = el("react-msg");
     let busy = false;

@@ -569,7 +569,7 @@ function urlPerfilCompartir(alias) {
   return null;
 }
 function urlCompartirCarta(alias) {
-  if (_esDominioPersonalizado) return `${_baseShareUrl}/?carta=1`;
+  if (_esDominioPersonalizado) return `${_baseShareUrl}/-carta`;
   if (alias) return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}-carta`;
   return null;
 }
@@ -847,8 +847,8 @@ async function getParams() {
   new URLSearchParams(window.location.search).get("p") || null;
 
 const wantsCarta =
-  new URLSearchParams(window.location.search).get("carta") === "1";
-
+  new URLSearchParams(window.location.search).get("carta") === "1" ||
+  window.location.pathname.replace(/\/+$/, "") === "/-carta";
 return {
   localidad: (localidad || "").trim().toLowerCase(),
   subcol: (categoria || "").replace(/\+/g, " "),
@@ -1052,6 +1052,10 @@ function listenActivePromosRealtime({ localidad, id }) {
           "fh.hora_fin": fh.hora_fin,
         });
 
+             if (data.desactivada === true) {
+          console.log(`   ❌ descartada: desactivada por el negocio`);
+          return;
+        }
         const estadoOk = data.estado === "activo";
         const activoOk = fh.activo !== false;
         if (!estadoOk || !activoOk) {
@@ -7379,11 +7383,12 @@ async function eliminarMiReview() {
             .toLowerCase()
             .includes("comida");
           if (esComida && secciones.length > 0) {
-            setTimeout(() => {
+                      const irACarta = () =>
               document
                 .getElementById("secCarta")
                 ?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }, 350);
+            setTimeout(irACarta, 350);
+            setTimeout(irACarta, 1500); // reajusta cuando terminan de cargar las imágenes
           } else {
             const nombreNegocio =
               biz.nombre_tienda || biz.nombre || "Este negocio";
