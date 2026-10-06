@@ -1,5 +1,5 @@
 import {
-  getDoc, setDoc, getDocs, serverTimestamp,
+  getDoc, setDoc, getDocs, updateDoc, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 // Ajusta la ruta según dónde esté paths.js en tu proyecto
 import { registroCamposDoc, registradosCol } from "../rutas/rutas.js";
@@ -27,6 +27,9 @@ const DEFAULT = {
   genero: true, ubicacion: true, fecha_nac: true, nacionalidad: true,
 };
 let estado = { ...DEFAULT };
+
+// uid -> referencia del documento (para poder bloquear / desbloquear)
+const refsUsuarios = new Map();
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -108,26 +111,57 @@ $("lista").addEventListener("change", async (e) => {
   }
 });
 
+// Teléfono completo: acepta {contacto:{cod_telefonico, numero_user}} o campos sueltos
+function telefonoDe(u) {
+  const c = u.contacto && typeof u.contacto === "object" ? u.contacto : u;
+  const cod = c.cod_telefonico ?? u.cod_telefonico ?? "";
+  const num = c.numero_user ?? u.numero_user ?? "";
+  return num === "" ? "" : `${cod}${num}`;
+}
+
 async function cargarRegistrados() {
   const tb = $("registrados");
   try {
     const snap = await getDocs(registradosCol(localidad, negocioId));
+    refsUsuarios.clear();
     if (snap.empty) {
-      tb.innerHTML = `<tr><td colspan="3">Aún no hay usuarios registrados.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="9">Aún no hay usuarios registrados.</td></tr>`;
       return;
     }
     tb.innerHTML = snap.docs
       .map((d) => {
         const u = d.data();
+        const uid = u.id_user || d.id;
+        refsUsuarios.set(uid, d.ref);
         const nombre = [u.nombre, u.apellido].filter(Boolean).join(" ") || u.nombre_user;
-        return `<tr><td>${esc(nombre)}</td><td>${esc(u.correo)}</td><td>${esc(u.fecha_registrada)}</td></tr>`;
+        return `<tr
+            data-uid="${esc(uid)}"
+            data-bloqueado="${u.bloqueado === true ? "1" : ""}"
+            data-genero="${esc(u.genero || "")}"
+            data-nacionalidad="${esc(u.nacionalidad_nacimiento || u.nacionalidad || "")}"
+            data-nacimiento="${esc(u.fecha_nac || "")}"
+            data-telefono="${esc(telefonoDe(u))}">
+          <td>${esc(nombre)}</td><td>${esc(u.correo)}</td><td>${esc(u.fecha_registrada)}</td>
+        </tr>`;
       })
       .join("");
   } catch (e) {
     console.error("[usuarios] registrados:", e);
-    tb.innerHTML = `<tr><td colspan="3">No se pudo cargar la lista (${esc(e.code || e.message)}).</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="9">No se pudo cargar la lista (${esc(e.code || e.message)}).</td></tr>`;
   }
 }
+
+// La página (usuarios.html) llama a esta función al confirmar Bloquear / Desbloquear.
+// Si lanza error, la página deja la fila como estaba y muestra el aviso.
+window.UsuariosUI = window.UsuariosUI || {};
+window.UsuariosUI.setBloqueo = async (uid, bloquear) => {
+  const ref = refsUsuarios.get(uid);
+  if (!ref) throw new Error("Usuario no encontrado");
+  await updateDoc(ref, {
+    bloqueado: !!bloquear,
+    bloqueado_en: bloquear ? serverTimestamp() : null,
+  });
+};
 
 if (contextoValido()) {
   cargar();

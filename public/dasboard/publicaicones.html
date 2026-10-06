@@ -1114,9 +1114,7 @@
             <button type="button" class="vista-tab" data-vista="ofertas">
                 <i class="ti ti-tag" aria-hidden="true"></i> Ofertas
             </button>
-            <button type="button" class="vista-tab" data-vista="cupones">
-                <i class="ti ti-ticket" aria-hidden="true"></i> Cupones
-            </button>
+
         </div>
 
         <!-- ══════════════════════ VISTA 1: PUBLICAR ══════════════════════ -->
@@ -1893,8 +1891,7 @@
             </div>
 
         </div>
-        <!-- ══════════════════════ FIN VISTA 3 ══════════════════════ -->
-<div id="vista-cupones" style="display:none"></div>
+
     </div>
 
     <!-- Modal Detalle (Mis Publicaciones) -->
@@ -1908,8 +1905,6 @@
     <script type="module" src="../js/dasboardjs/publicaciones.js"></script>
     <script type="module" src="../js/dasboardjs/mis_publicaciones.js"></script>
     <script type="module" src="../js/dasboardjs/publicaciones_perfil.js"></script>
-    <script type="module" src="../js/dasboardjs/creacion_cupones.js"></script>
-
     <!-- ── Lógica del switch de vistas ── -->
     <script>
         document.querySelectorAll('.vista-tab').forEach(tab => {
@@ -1917,10 +1912,9 @@
                 document.querySelectorAll('.vista-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 const vista = tab.dataset.vista;
-             document.getElementById('vista-publicar').style.display = vista === 'publicar' ? 'block' : 'none';
-document.getElementById('vista-mis').style.display = vista === 'mis' ? 'block' : 'none';
-document.getElementById('vista-ofertas').style.display = vista === 'ofertas' ? 'block' : 'none';
-document.getElementById('vista-cupones').style.display = vista === 'cupones' ? 'block' : 'none';   // ← ESTA
+                document.getElementById('vista-publicar').style.display = vista === 'publicar' ? 'block' : 'none';
+                document.getElementById('vista-mis').style.display = vista === 'mis' ? 'block' : 'none';
+                document.getElementById('vista-ofertas').style.display = vista === 'ofertas' ? 'block' : 'none';
             });
         });
     </script>
