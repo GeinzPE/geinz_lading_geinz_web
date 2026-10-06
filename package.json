@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "tailwind.config.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:perfil": "tailwindcss -c tailwind.config.perfil.js -i ./src/perfil.input.css -o ./public/tailwind-perfil.css --minify",
+    "watch:perfil": "tailwindcss -c tailwind.config.perfil.js -i ./src/perfil.input.css -o ./public/tailwind-perfil.css --watch"
   },
   "repository": {
     "type": "git",

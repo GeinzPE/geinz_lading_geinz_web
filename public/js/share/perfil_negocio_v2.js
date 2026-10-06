@@ -12,6 +12,7 @@ let _fidelizacionActiva = false;
 let _bannerShown = false;
 let _fidelizacionMensajeInactivo =
   "Este negocio no tiene el programa de fidelización activo por el momento.";
+
 function capitalizarPrimeraLetra(texto) {
   if (!texto) return "";
   const t = String(texto).trim().toLowerCase();
@@ -526,6 +527,9 @@ import {
   startAfter,
   increment,
   updateDoc,
+  getAggregateFromServer,
+  sum,
+  count,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   ref as storageRef,
@@ -539,6 +543,8 @@ import {
   tiendaSubCol,
   tiendaSubDoc,
   data_user_logeado,
+  tiendaServiciosDoc,
+  clienteHistorialCol,
 } from "../rutas/rutas.js";
 import {
   onAuthStateChanged,
@@ -570,7 +576,8 @@ function urlPerfilCompartir(alias) {
 }
 function urlCompartirCarta(alias) {
   if (_esDominioPersonalizado) return `${_baseShareUrl}/-carta`;
-  if (alias) return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}-carta`;
+  if (alias)
+    return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}-carta`;
   return null;
 }
 
@@ -684,6 +691,20 @@ async function actualizarHeaderUsuario(user) {
   header
     .querySelector("#wlLogoutBtn")
     .addEventListener("click", abrirConfirmarCerrarSesion);
+
+  injectUserPanelStyles();
+  const wlLeft = header.querySelector(".wl-user-left");
+  wlLeft.classList.add("wl-user-clickable");
+  wlLeft.setAttribute("role", "button");
+  wlLeft.setAttribute("aria-label", "Abrir mi cuenta");
+  wlLeft.tabIndex = 0;
+  wlLeft.addEventListener("click", abrirUserPanel);
+  wlLeft.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      abrirUserPanel();
+    }
+  });
 
   document.getElementById("wlUserSub").textContent =
     `Bienvenido a ${_bizNombre || "este negocio"}`;
@@ -843,22 +864,22 @@ async function getParams() {
     _dominioRegistrado = true;
     const { id, localidad, categoria, alias } = domSnap.data();
 
- const promoId =
-  new URLSearchParams(window.location.search).get("p") || null;
+    const promoId =
+      new URLSearchParams(window.location.search).get("p") || null;
 
-const wantsCarta =
-  new URLSearchParams(window.location.search).get("carta") === "1" ||
-  window.location.pathname.replace(/\/+$/, "") === "/-carta";
-return {
-  localidad: (localidad || "").trim().toLowerCase(),
-  subcol: (categoria || "").replace(/\+/g, " "),
-  id,
-  alias: alias || null,
-  promoIndex: null,
-  promoId,
-  wantsCarta,      // ← antes era false
-  mesaToken: null,
-};
+    const wantsCarta =
+      new URLSearchParams(window.location.search).get("carta") === "1" ||
+      window.location.pathname.replace(/\/+$/, "") === "/-carta";
+    return {
+      localidad: (localidad || "").trim().toLowerCase(),
+      subcol: (categoria || "").replace(/\+/g, " "),
+      id,
+      alias: alias || null,
+      promoIndex: null,
+      promoId,
+      wantsCarta, // ← antes era false
+      mesaToken: null,
+    };
   }
 
   const path = window.location.pathname;
@@ -1052,7 +1073,7 @@ function listenActivePromosRealtime({ localidad, id }) {
           "fh.hora_fin": fh.hora_fin,
         });
 
-             if (data.desactivada === true) {
+        if (data.desactivada === true) {
           console.log(`   ❌ descartada: desactivada por el negocio`);
           return;
         }
@@ -1199,7 +1220,7 @@ function renderCarta(secciones, categoria, aliasKey, nombreNegocio) {
   const shareBtn = document.getElementById("cartaShareBtn");
   if (shareBtn) {
     shareBtn.onclick = () => {
-const shareUrl = urlCompartirCarta(aliasKey) || window.location.href;
+      const shareUrl = urlCompartirCarta(aliasKey) || window.location.href;
       compartirNativo({
         title: `Carta de ${nombreNegocio}`,
         text: `Mira la carta digital de ${nombreNegocio} 📖`,
@@ -1219,10 +1240,11 @@ function normalizarCategoria(cat) {
 
 function listenMesasRealtime({ localidad, id }, categoria, esPresencial) {
   const sec = document.getElementById("secMesas");
-  injectMesasStyles(); // ← SIEMPRE se inyecta el CSS, sin importar la categoría
+  injectMesasStyles();
   const esComida = normalizarCategoria(categoria) === "comida y restaurantes";
-  _reservasActivas = esComida && esPresencial;
-  if (!_reservasActivas) {
+  const verMesas = esComida && esPresencial && _F.mesas;
+  _reservasActivas = verMesas && _F.reserva;
+  if (!verMesas) {
     if (sec) sec.style.display = "none";
     return;
   }
@@ -1246,6 +1268,10 @@ function renderMesas(snap) {
   _mesasCache = mesas;
   sec.style.display = "";
   grid.innerHTML = "";
+
+  const multi = document.getElementById("mesasMultiWrap");
+  if (multi) multi.style.display = _reservasActivas ? "" : "none";
+
   mesas.forEach((m) => {
     const esOcupada = m.estado === "ocupado";
     const esReservada = m.estado === "reservada";
@@ -1267,12 +1293,12 @@ function renderMesas(snap) {
           : "Libre";
     const chip = document.createElement("div");
     chip.className = "mesa-chip " + claseEstado;
+    if (libre && !_reservasActivas) chip.style.cursor = "default";
     chip.innerHTML = `<span class="mesa-num">${m.numero_mesa ?? m.mesaNumero ?? "-"}</span><span class="mesa-estado">${textoEstado}</span>`;
-    if (libre) {
+    if (libre && _reservasActivas) {
       chip.addEventListener("click", () => openMesaReservaModal(m));
     }
     grid.appendChild(chip);
-    // ← BORRA esta línea (dentro del forEach)
   });
   sincronizarMiReservaDesdeMesas();
 }
@@ -1716,6 +1742,7 @@ async function ensureClienteRecord({ localidad, id }, uid) {
   }
 }
 async function loadPuntosCliente({ localidad, id }, uid) {
+  if (!_F.fidel) return renderPuntosBadge(0);
   try {
     const clienteRef = doc(
       tiendaSubCol(localidad, "tiendas", id, "clientes"),
@@ -1758,6 +1785,7 @@ function bindFollowButton({ localidad, id }, biz) {
 
   function setFollowUI(following) {
     isFollowing = following;
+    _siguiendoNegocio = following;
     btn.classList.toggle("following", following);
     icon.textContent = following ? "✅" : "➕";
     text.textContent = following ? "Siguiendo" : "Seguir";
@@ -2320,7 +2348,7 @@ function renderActivePromos(promos, localidad) {
         )}`
       : null;
 
-    const puedeComprarPromo = precio > 0;
+    const puedeComprarPromo = precio > 0 && _F.carrito;
 
     const card = document.createElement("div");
     card.className = "promo-active-card";
@@ -2449,12 +2477,10 @@ function urlCarritoFiltro(filtro) {
 function ensurePromosActivasHeader() {
   const sec = document.getElementById("secPromosActivas");
   if (!sec || document.getElementById("promosActivasVerTodas")) return;
+  if (!_F.carrito) return;
 
   injectPromoBuyStyles();
 
-  // Busca el título "Ofertas del momento". Si tu título tiene otra
-  // etiqueta/clase distinta y esto no lo encuentra, dime cuál es
-  // el HTML exacto de esa sección y ajusto el selector.
   let heading = [...sec.querySelectorAll("h1,h2,h3,h4,p")].find((el) =>
     el.textContent.trim().toLowerCase().includes("ofertas del momento"),
   );
@@ -2541,7 +2567,10 @@ function irAFidelizacion() {
     window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(uid)}`;
     return;
   }
-  const url = new URL("../../fidelizacion/fidelizacion_client.html", window.location.href);
+  const url = new URL(
+    "../../fidelizacion/fidelizacion_client.html",
+    window.location.href,
+  );
   url.searchParams.set("localidad", _params.localidad);
   url.searchParams.set("id", _params.id);
   if (uid !== "invitado") url.searchParams.set("uid", uid);
@@ -4316,7 +4345,7 @@ function renderBannerCta(banner, biz, bannerModal) {
   if (!media) return;
   media.querySelector("#bannerCta")?.remove();
 
-  if (banner.clickeable !== true) return;
+  if (banner.clickeable !== true || !_F.carrito) return;
   const desc = String(banner.descripcion || "").trim();
   const tipo = banner.tipo || "producto";
   if (!desc) return;
@@ -5011,6 +5040,7 @@ function agregarAlCarritoPerfil({ promoId, nombre, precio, imagen }) {
   else
     _perfilCarritoItems.push({ promoId, nombre, precio, imagen, cantidad: 1 });
   renderPerfilCartFloat();
+  volarAlCarrito(imagen);
   showToast(`${nombre || "Producto"} agregado 🛒`);
 }
 
@@ -5182,6 +5212,42 @@ let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
 let _followReady = false;
 let _reviewsReady = false;
 let _currentPuntos = 0; // NUEVO: true cuando ya sabemos si el user sigue o no
+let _F = {
+  esBasico: true,
+  mesas: false,
+  reserva: false,
+  carta: false,
+  carrito: false,
+  fidel: false,
+  bannerGeinz: false,
+};
+
+async function loadServicios({ localidad, id }) {
+  try {
+    const s = await getDoc(tiendaServiciosDoc(localidad, id));
+    return s.exists() ? s.data() : {};
+  } catch (e) {
+    console.warn(
+      "No se pudo cargar tiendas_servicios_geinz_activos:",
+      e.message,
+    );
+    return {};
+  }
+}
+
+function calcFlags(s = {}) {
+  const on = (path) => path.split(".").reduce((a, k) => a?.[k], s) === true;
+  const plan = String(s.plan || "basico").toLowerCase();
+  return {
+    esBasico: plan === "basico",
+    mesas: on("modulos.pedidos_vivos.mesas"),
+    reserva: on("mesa.reserva"),
+    carta: on("modulos.productos.cartas"),
+    carrito: on("modulos.pedidos_vivos.carrito"),
+    fidel: on("apartados_dasboard.fidelizacion"),
+    bannerGeinz: on("footer.geinz"),
+  };
+}
 function tryHideLoader() {
   if (_colorReady && _followReady && _reviewsReady) {
     hideBizLoader();
@@ -5320,18 +5386,24 @@ async function render(biz, isInitial = true) {
       }
     }
   }
-  const linkSeguimientoPedido = document.getElementById("linkSeguimientoPedido");
-if (linkSeguimientoPedido) {
-  const ruta = rutaNegocio("seguimiento_pedido", biz.alias_key);5
-  if (ruta) {
-    linkSeguimientoPedido.href = ruta;
-  } else {
-    const u = new URL("../../seguimiento/seguimiento_pedido.html", window.location.href);
-    u.searchParams.set("id", biz.id || _params.id);
-    u.searchParams.set("localidad", _params.localidad);
-    linkSeguimientoPedido.href = u.toString();
+  const linkSeguimientoPedido = document.getElementById(
+    "linkSeguimientoPedido",
+  );
+  if (linkSeguimientoPedido) {
+    const ruta = rutaNegocio("seguimiento_pedido", biz.alias_key);
+    5;
+    if (ruta) {
+      linkSeguimientoPedido.href = ruta;
+    } else {
+      const u = new URL(
+        "../../seguimiento/seguimiento_pedido.html",
+        window.location.href,
+      );
+      u.searchParams.set("id", biz.id || _params.id);
+      u.searchParams.set("localidad", _params.localidad);
+      linkSeguimientoPedido.href = u.toString();
+    }
   }
-}
   const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
   if (linkSeguimiento) {
     const libroActivo =
@@ -5662,7 +5734,7 @@ if (linkSeguimientoPedido) {
       const shareBase =
         urlCompartirPromo(biz.alias_key || _params.alias, promo.id) ||
         `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
-      const puedeComprarPromo = promo.precio > 0;
+      const puedeComprarPromo = promo.precio > 0 && _F.carrito;
 
       const card = document.createElement("div");
       card.className = "promo-card";
@@ -5813,7 +5885,7 @@ if (linkSeguimientoPedido) {
   // ── Reglas por plan y modelo de negocio ──
 
   const fidelizacionRaw = biz.fidelizacion || {};
-  const fidelizacion = normalizeFidelizacion(fidelizacionRaw);
+  const fidelizacion = _F.fidel ? normalizeFidelizacion(fidelizacionRaw) : null;
   _fidelizacionActiva = !!fidelizacion; // NUEVO
   _fidelizacionMensajeInactivo =
     fidelizacionRaw.mensajeInactivo ||
@@ -5838,7 +5910,7 @@ if (linkSeguimientoPedido) {
     );
   document
     .getElementById("secCtaExplore")
-    ?.style.setProperty("display", esPremium ? "none" : "");
+    ?.style.setProperty("display", _F.esBasico || _F.bannerGeinz ? "" : "none");
   document
     .getElementById("mainContent")
     ?.style.setProperty(
@@ -6263,6 +6335,35 @@ const REVIEWS_CSS = `
   .rv-lightbox-nav{width:38px;height:38px;font-size:16px;}
   .rv-lightbox-back span{display:none;}
   .rv-lightbox-topbar{padding:12px 14px;}
+}
+  .reviews-summary{align-items:center;gap:32px}
+.reviews-summary-score{display:flex;flex-direction:column;gap:6px}
+.reviews-word{font-size:13px;font-weight:700;color:rgba(var(--dr),var(--dg),var(--db),.95)}
+.reviews-breakdown{flex:1;min-width:240px;max-width:380px;display:flex;flex-direction:column;gap:8px}
+.reviews-breakdown-row{display:grid;grid-template-columns:72px 1fr 28px;align-items:center;gap:10px;font-size:12px}
+.reviews-breakdown-label{color:#d4d4d8;font-weight:600}
+.reviews-breakdown-bar{height:7px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.reviews-breakdown-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#fbbf24,#f59e0b);transition:width .6s cubic-bezier(.22,.85,.32,1)}
+.reviews-breakdown-count{text-align:right;color:var(--muted,#9c9ca3);font-weight:700}
+.reviews-cta-btn{align-self:center;height:auto}
+
+.reviews-empty-hero{display:none}
+#secReviews.is-empty .reviews-summary{flex-direction:column;justify-content:center;text-align:center;gap:10px;padding:44px 24px}
+#secReviews.is-empty .reviews-summary-score,
+#secReviews.is-empty .reviews-summary-right,
+#secReviews.is-empty .reviews-breakdown,
+#secReviews.is-empty .reviews-filters,
+#secReviews.is-empty #reviewsEmpty{display:none !important}
+#secReviews.is-empty .reviews-empty-hero{display:block}
+#secReviews.is-empty .reviews-empty-hero::before{content:"★";display:flex;align-items:center;justify-content:center;width:64px;height:64px;margin:0 auto 14px;border-radius:50%;font-size:30px;color:#fbbf24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)}
+.reviews-empty-title{font-size:18px;font-weight:800;color:#fff}
+.reviews-empty-sub{font-size:13px;color:var(--muted,#9c9ca3);margin-top:4px}
+#secReviews.is-empty .reviews-cta-btn{margin:10px 0 0}
+
+@media (max-width:640px){
+  .reviews-summary{padding:20px;gap:20px}
+  .reviews-breakdown{max-width:none;width:100%}
+  .reviews-cta-btn{margin-left:0;width:100%;justify-content:center}
 }
 `;
 let _rvPhotos = [];
@@ -6889,12 +6990,15 @@ const REVIEWS_LIST_BATCH = 3;
 let _reviewsAllData = [];
 
 function renderReviewsSummary(reviews) {
-  document.getElementById("secReviews").style.visibility = "visible";
+  const secReviews = document.getElementById("secReviews");
+  secReviews.style.visibility = "visible";
+  secReviews.classList.toggle("is-empty", !reviews.length);
 
   const avgEl = document.getElementById("reviewsAvgNum");
   const starsEl = document.getElementById("reviewsAvgStars");
   const countEl = document.getElementById("reviewsCountText");
   const btnLabel = document.getElementById("btnAbrirReviewLabel");
+  const wordEl = document.getElementById("reviewsWordLabel");
 
   if (btnLabel)
     btnLabel.textContent = _misReview ? "Editar mi reseña" : "Dejar una reseña";
@@ -6902,7 +7006,8 @@ function renderReviewsSummary(reviews) {
   if (!reviews.length) {
     if (avgEl) avgEl.textContent = "0.0";
     if (starsEl) starsEl.innerHTML = starsHTML(0);
-    if (countEl) countEl.textContent = `${reviews.length} reseñas`;
+    if (countEl) countEl.textContent = "0 reseñas";
+    if (wordEl) wordEl.textContent = "";
     renderReviewsBreakdown(reviews);
     updateHeroRatingBadge(0, 0);
     return;
@@ -6912,7 +7017,6 @@ function renderReviewsSummary(reviews) {
     reviews.reduce((s, r) => s + (Number(r.calificacion) || 0), 0) /
     reviews.length;
   if (avgEl) avgEl.textContent = avg.toFixed(1);
-  const wordEl = document.getElementById("reviewsWordLabel");
   if (wordEl) {
     wordEl.textContent =
       avg >= 4.5
@@ -6929,6 +7033,7 @@ function renderReviewsSummary(reviews) {
   if (countEl)
     countEl.textContent = `${reviews.length} reseña${reviews.length !== 1 ? "s" : ""}`;
 
+  renderReviewsBreakdown(reviews);
   updateHeroRatingBadge(avg, reviews.length);
 }
 
@@ -7336,73 +7441,93 @@ async function eliminarMiReview() {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  INIT (rápido: loader se quita apenas hay contenido)
+// ══════════════════════════════════════════
 (async () => {
   try {
-    console.log("✅ INIT arrancó");
     const params = await getParams();
-    console.log("✅ params:", params);
     _params = params;
     if (params.mesaToken) {
       await resolveMesaYRedirigir(params, params.mesaToken);
       return;
     }
 
-    const biz = await loadBusiness(params);
-    console.log(
-      "✅ biz keys:",
-      Object.keys(biz),
-      "| carritoPerfil:",
-      biz.carritoPerfil,
-    );
-    showPromoBanner(biz); // ← se dispara ANTES de todo el resto del render
+    // Negocio + servicios en paralelo
+    const [biz, servicios] = await Promise.all([
+      loadBusiness(params),
+      loadServicios(params),
+    ]);
+    _F = calcFlags(servicios);
+
+    showPromoBanner(biz);
     await render(biz, true);
 
+    // ⚡ Contenido listo → fuera el loader YA (no espera reseñas ni follow)
+    _followReady = true;
+    _reviewsReady = true;
+    hideBizLoader();
+
+    // Todo lo demás arranca en paralelo, nada se espera
     listenBusinessRealtime(params);
     listenMesasRealtime(
       params,
       biz.categoria_tienda,
       biz.modelo_negocio !== false,
     );
-    bindFollowButton(params, biz); // ← ya está bien ubicado, no cambies el orden
+    bindFollowButton(params, biz);
     injectReviewsStyles();
     bindReputacionBadgeClick();
     bindReviewsFilterEvents(params);
-    await cargarResumenReviews(params);
-    await cargarReviewsPagina(params, true);
-    // Ofertas activas (promociones_geinz) → tiempo real
     listenActivePromosRealtime(params);
-    // Carta digital (solo aplica si es "comida y restaurantes") → tiempo real
-    listenCartaRealtime(
-      params,
-      biz.categoria_tienda,
-      biz.alias_key,
-      biz.nombre_tienda || biz.nombre,
-      (secciones) => {
-        if (params.wantsCarta) {
+
+    // Pedidos activos del cliente (tiempo real)
+    onAuthStateChanged(auth, (u) => escucharPedidosActivos(u?.uid || null));
+
+    // Reseñas: se cargan después, sin bloquear lo visible
+    setTimeout(() => {
+      Promise.all([
+        cargarResumenReviews(params),
+        cargarReviewsPagina(params, true),
+      ]).catch((e) => console.warn("reseñas:", e.message));
+    }, 250);
+
+    if (_F.carta) {
+      listenCartaRealtime(
+        params,
+        biz.categoria_tienda,
+        biz.alias_key,
+        biz.nombre_tienda || biz.nombre,
+        (secciones) => {
+          if (!params.wantsCarta) return;
           const esComida = (biz.categoria_tienda || "")
             .toLowerCase()
             .includes("comida");
           if (esComida && secciones.length > 0) {
-                      const irACarta = () =>
+            const irACarta = () =>
               document
                 .getElementById("secCarta")
                 ?.scrollIntoView({ behavior: "smooth", block: "start" });
             setTimeout(irACarta, 350);
-            setTimeout(irACarta, 1500); // reajusta cuando terminan de cargar las imágenes
+            setTimeout(irACarta, 1500);
           } else {
             const nombreNegocio =
               biz.nombre_tienda || biz.nombre || "Este negocio";
             showSnackbar(`${nombreNegocio} no tiene carta digital disponible`);
           }
-        }
-      },
-    );
-
-    // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
-    // Catálogo de productos → NO tiempo real (se obtiene en cada carga normal)
+        },
+      );
+    } else {
+      _navState.carta = false;
+      updateQuickNav();
+      document.getElementById("secCarta")?.style.setProperty("display", "none");
+      if (params.wantsCarta) {
+        showSnackbar("Este negocio no tiene carta digital disponible");
+      }
+    }
   } catch (err) {
     console.error(err);
-    showNotFoundScreen(err.message); // ← debe capturarlo
+    showNotFoundScreen(err.message);
   }
 })();
 injectLightboxStyles();
@@ -7674,13 +7799,12 @@ function injectPromoBuyStyles() {
 }
 // ── 2. Pinta 5 productos en línea vertical + botón "Ver catálogo" (arriba si hay productos)
 function renderProductosCatalogo(productos, localidad, id, aliasKey) {
-  console.log("🛒 renderProductosCatalogo →", productos?.length, productos);
   const sec = document.getElementById("secCatalogo");
   const btnWrap = document.getElementById("catalogoBtnWrap");
   const list = document.getElementById("catalogoList");
   if (!sec || !list) return;
 
-  if (!productos.length) {
+  if (!_F.carrito || !productos.length) {
     sec.style.display = "none";
     return;
   }
@@ -7727,3 +7851,748 @@ setupHoverCarousel("productosCarouselWrap", "productosGrid");
 setupHoverCarousel("ambientesCarouselWrap", "ambientesGrid");
 setupHoverCarousel("catalogoCarouselWrap", "catalogoList");
 setupHoverCarousel("promoCarouselWrap", "promoCarousel");
+// ═══════════════════════════════════════════════════════════════
+//  PANEL DE USUARIO (dominio propio) + ANIMACIÓN "VOLAR AL CARRITO"
+// ═══════════════════════════════════════════════════════════════
+let _siguiendoNegocio = false;
+let _lastBuyOrigin = null;
+let _upState = null;
+let _upKeyBound = false;
+let _upEditando = false;
+const UP_BATCH = 8; // pedidos por página
+const UP_TTL = 60000; // cache del panel (ms)
+
+const USER_PANEL_CSS = `
+.wl-user-clickable{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.wl-user-clickable .wl-user-avatar{transition:box-shadow .2s ease,transform .15s ease;}
+.wl-user-clickable:hover .wl-user-avatar{box-shadow:0 0 0 3px rgba(var(--dr),var(--dg),var(--db),.35);}
+.wl-user-clickable:active .wl-user-avatar{transform:scale(.94);}
+
+.up-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:10009;background:rgba(3,3,3,.62);display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:opacity .28s ease,visibility .28s ease;}
+.up-overlay.open{opacity:1;visibility:visible;}
+.up-box{position:relative;width:100%;max-width:520px;max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.3);border-bottom:none;border-radius:26px 26px 0 0;transform:translate3d(0,100%,0);transition:transform .42s cubic-bezier(.22,.85,.32,1);will-change:transform;box-shadow:0 -25px 60px -14px rgba(0,0,0,.7),0 0 40px -12px rgba(var(--dr),var(--dg),var(--db),.3);}
+.up-overlay.open .up-box{transform:translate3d(0,0,0);}
+.up-handle{width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.22);margin:10px auto 0;flex-shrink:0;}
+.up-close{position:absolute;top:12px;right:14px;z-index:2;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s ease;}
+.up-close:hover{background:rgba(255,255,255,.16);}
+.up-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:18px 20px calc(26px + env(safe-area-inset-bottom,0px));}
+.up-head{display:flex;align-items:center;gap:14px;margin:0 36px 20px 0;}
+.up-avatar{position:relative;width:60px;height:60px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;background:linear-gradient(135deg,rgba(var(--dr),var(--dg),var(--db),.9),rgba(var(--dr),var(--dg),var(--db),.4));border:2px solid rgba(var(--dr),var(--dg),var(--db),.55);}
+.up-avatar img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
+.up-head-txt{min-width:0;}
+.up-name{font-size:17px;font-weight:800;color:#fff;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.up-sub{font-size:12px;color:#9c9ca3;margin-top:3px;line-height:1.35;}
+.up-sec{margin-bottom:24px;}
+.up-sec-top{display:flex;align-items:center;justify-content:space-between;}
+.up-sec-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(var(--dr),var(--dg),var(--db),.95);margin:0 0 12px;}
+.up-link{background:none;border:none;padding:0 0 12px;font-size:12.5px;font-weight:700;color:#fff;cursor:pointer;opacity:.85;}
+.up-row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13.5px;}
+.up-row:last-child{border-bottom:none;}
+.up-label{color:#9c9ca3;flex-shrink:0;}
+.up-val{color:#fff;font-weight:600;text-align:right;overflow-wrap:anywhere;}
+.up-empty{font-size:13px;color:#9c9ca3;text-align:center;padding:18px 0;}
+.up-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.up-tile{padding:12px 6px;border-radius:14px;text-align:center;background:rgba(var(--dr),var(--dg),var(--db),.1);border:1px solid rgba(var(--dr),var(--dg),var(--db),.28);}
+.up-tile b{display:block;font-size:15px;font-weight:800;color:#fff;line-height:1.2;}
+.up-tile span{display:block;font-size:10px;color:#9c9ca3;margin-top:3px;text-transform:uppercase;letter-spacing:.05em;}
+.up-order{border-radius:16px;margin-bottom:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);overflow:hidden;}
+.up-order-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;background:none;border:none;color:inherit;text-align:left;cursor:pointer;font-family:inherit;}
+.up-order-date{font-size:13px;font-weight:700;color:#fff;}
+.up-order-sub{font-size:11.5px;color:#9c9ca3;margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.up-chip{padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(var(--dr),var(--dg),var(--db),.25);border:1px solid rgba(var(--dr),var(--dg),var(--db),.5);}
+.up-order-right{text-align:right;flex-shrink:0;}
+.up-order-total{font-size:14px;font-weight:800;color:#fff;}
+.up-order-pts{font-size:11px;font-weight:700;color:#4ade80;margin-top:3px;}
+.up-order-body{display:none;padding:4px 14px 12px;border-top:1px solid rgba(255,255,255,.06);}
+.up-order.open .up-order-body{display:block;animation:upFade .25s ease;}
+.up-item{display:flex;gap:8px;padding:8px 0;font-size:12.5px;color:#d4d4d8;}
+.up-item-n{color:#9c9ca3;font-weight:700;flex-shrink:0;}
+.up-item-name{flex:1;min-width:0;}
+.up-item-sub{font-weight:700;color:#fff;flex-shrink:0;}
+@keyframes upFade{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
+.up-btn{width:100%;padding:13px;border:none;border-radius:14px;font-weight:700;font-size:13.5px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
+.up-btn:disabled{opacity:.6;cursor:default;}
+.up-btn-ghost{width:100%;padding:12px;margin-top:8px;border-radius:14px;font-weight:600;font-size:13px;color:#d4d4d8;cursor:pointer;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);}
+.up-more{margin-top:6px;}
+.up-cta{text-align:center;padding:22px 18px;border-radius:18px;background:rgba(var(--dr),var(--dg),var(--db),.08);border:1px solid rgba(var(--dr),var(--dg),var(--db),.25);}
+.up-cta-ico{font-size:30px;margin-bottom:8px;}
+.up-cta p{font-size:13.5px;line-height:1.55;color:#c8c8cf;margin:0 0 16px;}
+.up-field{display:block;margin-bottom:12px;}
+.up-field span{display:block;font-size:11px;color:#9c9ca3;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
+.up-input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#fff;font-size:14px;box-sizing:border-box;font-family:inherit;color-scheme:dark;}
+.up-input:focus{outline:none;border-color:rgba(var(--dr),var(--dg),var(--db),.6);}
+.up-error{display:none;font-size:12px;color:#ff6b6b;margin:0 0 10px;}
+.up-skel{border-radius:16px;margin-bottom:12px;background:rgba(255,255,255,.05);animation:upPulse 1.2s ease-in-out infinite;}
+@keyframes upPulse{0%,100%{opacity:.5;}50%{opacity:1;}}
+
+@media (min-width:1024px){
+  .up-overlay{align-items:stretch;justify-content:flex-end;}
+  .up-box{max-width:420px;max-height:none;height:100%;border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.3);border-right:none;border-radius:24px 0 0 24px;transform:translate3d(100%,0,0);box-shadow:-25px 0 60px -14px rgba(0,0,0,.7),0 0 40px -12px rgba(var(--dr),var(--dg),var(--db),.3);}
+  .up-handle{display:none;}
+  .up-close{top:16px;}
+  .up-scroll{padding-top:24px;}
+}
+`;
+
+function injectUserPanelStyles() {
+  if (document.getElementById("userPanelStyle")) return;
+  const st = document.createElement("style");
+  st.id = "userPanelStyle";
+  st.textContent = USER_PANEL_CSS;
+  document.head.appendChild(st);
+}
+
+// ── utilidades ──
+function _edadExacta(fnac) {
+  const [d, m, y] = String(fnac || "").split("/").map(Number);
+  if (!d || !m || !y) return null;
+  const h = new Date();
+  let e = h.getFullYear() - y;
+  if (h.getMonth() + 1 < m || (h.getMonth() + 1 === m && h.getDate() < d)) e--;
+  return e >= 0 && e < 120 ? e : null;
+}
+const _fmtSoles = (n) => `S/ ${(Number(n) || 0).toFixed(2)}`;
+function _fmtFecha(ts, conHora) {
+  const d = ts?.toDate ? ts.toDate() : null;
+  if (!d) return "—";
+  const f = d.toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  if (!conHora) return f;
+  return `${f} · ${d.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}`;
+}
+const _fnacToInput = (f) => {
+  const [d, m, y] = String(f || "").split("/");
+  return d && m && y
+    ? `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+    : "";
+};
+const _inputToFnac = (v) => {
+  const [y, m, d] = String(v || "").split("-");
+  return y && m && d ? `${d}/${m}/${y}` : "";
+};
+async function esperarFollowReady(ms = 4000) {
+  const t = Date.now();
+  while (!_followReady && Date.now() - t < ms) {
+    await new Promise((r) => setTimeout(r, 120));
+  }
+}
+
+// ── estructura del panel ──
+function ensureUserPanel() {
+  injectUserPanelStyles();
+  let ov = document.getElementById("userPanel");
+  if (ov) return ov;
+
+  ov = document.createElement("div");
+  ov.id = "userPanel";
+  ov.className = "up-overlay";
+  ov.innerHTML = `
+    <div class="up-box" role="dialog" aria-modal="true" aria-label="Mi cuenta">
+      <div class="up-handle"></div>
+      <button class="up-close" id="upClose" type="button" aria-label="Cerrar">✕</button>
+      <div class="up-scroll" id="upScroll"></div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov) cerrarUserPanel();
+  });
+  ov.querySelector("#upClose").addEventListener("click", cerrarUserPanel);
+
+  // Un solo listener para todo el contenido (no se vuelve a enlazar al repintar)
+  ov.querySelector("#upScroll").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-act]");
+    if (!t) return;
+    const act = t.dataset.act;
+    if (act === "orden") {
+      const open = t.closest(".up-order").classList.toggle("open");
+      t.setAttribute("aria-expanded", open ? "true" : "false");
+    } else if (act === "editar") {
+      _upEditando = true;
+      pintarUserPanel();
+    } else if (act === "cancelar") {
+      _upEditando = false;
+      pintarUserPanel();
+    } else if (act === "guardar") {
+      guardarDatosUserPanel(t);
+    } else if (act === "mas") {
+      cargarMasPedidosUserPanel(t);
+    } else if (act === "seguir") {
+      cerrarUserPanel();
+      document.getElementById("followBtn")?.click();
+    }
+  });
+
+  if (!_upKeyBound) {
+    _upKeyBound = true;
+    document.addEventListener("keydown", (e) => {
+      if (
+        e.key === "Escape" &&
+        document.getElementById("userPanel")?.classList.contains("open")
+      )
+        cerrarUserPanel();
+    });
+  }
+  return ov;
+}
+
+function cerrarUserPanel() {
+  document.getElementById("userPanel")?.classList.remove("open");
+  document.body.style.overflow = "";
+  _upEditando = false;
+}
+
+async function abrirUserPanel() {
+  if (!_esDominioPersonalizado) return;
+  const user = auth.currentUser;
+  if (!user) {
+    openLoginPromptModal();
+    return;
+  }
+  const ov = ensureUserPanel();
+  _upEditando = false;
+
+  const sc = ov.querySelector("#upScroll");
+  sc.scrollTop = 0;
+  pintarUserPanelSkeleton(sc, user);
+
+  ov.classList.remove("open");
+  void ov.offsetHeight;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => ov.classList.add("open")),
+  );
+  document.body.style.overflow = "hidden";
+
+  try {
+    await cargarUserPanel(user.uid);
+  } catch (e) {
+    console.warn("Panel de usuario:", e.message);
+  }
+  if (!ov.classList.contains("open") || auth.currentUser?.uid !== user.uid)
+    return;
+  pintarUserPanel();
+}
+
+// ── datos (pocas lecturas: perfil 1 + cliente 1 + 8 pedidos + 1 agregado, cacheado 60s) ──
+async function traerPedidosUserPanel(st) {
+  const { localidad, id } = _params;
+  const cond = [orderBy("fecha", "desc")];
+  if (st.lastDoc) cond.push(startAfter(st.lastDoc));
+  cond.push(limit(UP_BATCH));
+  const snap = await getDocs(
+    query(clienteHistorialCol(localidad, id, st.uid), ...cond),
+  );
+  snap.forEach((d) => st.orders.push({ id: d.id, ...d.data() }));
+  st.lastDoc = snap.docs[snap.docs.length - 1] || st.lastDoc;
+  st.hayMas = snap.docs.length === UP_BATCH;
+}
+
+async function traerAgregadoUserPanel(st) {
+  try {
+    const { localidad, id } = _params;
+    const r = await getAggregateFromServer(
+      clienteHistorialCol(localidad, id, st.uid),
+      { pedidos: count(), gastado: sum("total") },
+    );
+    const d = r.data();
+    st.agg = { pedidos: d.pedidos || 0, gastado: d.gastado || 0 };
+  } catch (e) {
+    console.warn("Agregado del historial:", e.message);
+  }
+}
+
+async function cargarUserPanel(uid) {
+  await esperarFollowReady();
+  const sig = _siguiendoNegocio;
+  if (
+    _upState &&
+    _upState.uid === uid &&
+    _upState.sig === sig &&
+    Date.now() - _upState.ts < UP_TTL
+  )
+    return;
+
+  const st = {
+    uid,
+    sig,
+    raw: {},
+    cliente: null,
+    orders: [],
+    lastDoc: null,
+    hayMas: false,
+    agg: null,
+    ts: Date.now(),
+  };
+  const tareas = [
+    getDoc(data_user_logeado(uid))
+      .then((s) => {
+        st.raw = s.exists() ? s.data() : {};
+      })
+      .catch((e) => console.warn("Perfil:", e.message)),
+  ];
+  if (sig) {
+    const { localidad, id } = _params;
+    tareas.push(
+      getDoc(tiendaSubDoc(localidad, "tiendas", id, "clientes", uid))
+        .then((s) => {
+          st.cliente = s.exists() ? s.data() : null;
+        })
+        .catch((e) => console.warn("Cliente:", e.message)),
+      traerPedidosUserPanel(st).catch((e) =>
+        console.warn("Historial:", e.message),
+      ),
+      traerAgregadoUserPanel(st),
+    );
+  }
+  await Promise.all(tareas);
+  _upState = st;
+}
+
+// ── pintado ──
+function _upAvatarHTML(foto, ini) {
+  return `<div class="up-avatar">${escapeHtml(ini)}${foto ? `<img src="${escapeHtml(foto)}" alt="" referrerpolicy="no-referrer">` : ""}</div>`;
+}
+function _upHeaderHTML({ nombre, foto, sub }) {
+  const ini = (nombre || "?").trim().charAt(0).toUpperCase() || "?";
+  return `<div class="up-head">${_upAvatarHTML(foto, ini)}<div class="up-head-txt"><div class="up-name">${escapeHtml(nombre || "Usuario")}</div><div class="up-sub">${escapeHtml(sub || "")}</div></div></div>`;
+}
+function _upBindAvatar(sc) {
+  const im = sc.querySelector(".up-avatar img");
+  if (im) im.addEventListener("error", () => im.remove());
+}
+
+function pintarUserPanelSkeleton(sc, user) {
+  const p = _userProfileCache[user.uid] || {};
+  const nombre = `${p.nombre || user.displayName || ""} ${p.apellido || ""}`.trim();
+  sc.innerHTML =
+    _upHeaderHTML({
+      nombre,
+      foto: p.foto || user.photoURL || "",
+      sub: `Tu cuenta en ${_bizNombre || "este negocio"}`,
+    }) +
+    `<div class="up-skel" style="height:64px"></div><div class="up-skel" style="height:130px"></div><div class="up-skel" style="height:90px"></div>`;
+  _upBindAvatar(sc);
+}
+
+function _upDatosHTML(raw, user, edad) {
+  const rows = [];
+  const add = (l, v) => {
+    if (v !== null && v !== undefined && String(v).trim() !== "")
+      rows.push(
+        `<div class="up-row"><span class="up-label">${l}</span><span class="up-val">${escapeHtml(String(v))}</span></div>`,
+      );
+  };
+  const loc = raw.localida || raw.localidad;
+  add("Edad", edad !== null ? `${edad} años` : null);
+  add("Fecha de nacimiento", raw.fecha_nac);
+  add("Género", raw.genero ? capitalizarPrimeraLetra(raw.genero) : null);
+  add("Localidad", loc ? capitalizarPrimeraLetra(loc) : null);
+  add("Correo", user.email);
+  return `<div class="up-sec"><div class="up-sec-top"><h4 class="up-sec-title">Mis datos</h4><button type="button" class="up-link" data-act="editar">Editar</button></div>${rows.length ? rows.join("") : `<div class="up-empty">Aún no tienes datos completos.</div>`}</div>`;
+}
+
+function _upFormHTML(raw) {
+  const completo = String(raw.nombre_completo || "").trim().split(" ");
+  const nom = String(raw.nombre || raw.nombre_user || completo[0] || "").trim();
+  const ape = String(raw.apellido || completo.slice(1).join(" ") || "").trim();
+  const hoy = new Date().toISOString().slice(0, 10);
+  return `<div class="up-sec">
+    <h4 class="up-sec-title">Editar mis datos</h4>
+    <label class="up-field"><span>Nombre</span><input class="up-input" id="upEdNombre" type="text" maxlength="40" value="${escapeHtml(nom)}"></label>
+    <label class="up-field"><span>Apellido</span><input class="up-input" id="upEdApellido" type="text" maxlength="40" value="${escapeHtml(ape)}"></label>
+    <label class="up-field"><span>Fecha de nacimiento</span><input class="up-input" id="upEdFnac" type="date" max="${hoy}" value="${_fnacToInput(raw.fecha_nac)}"></label>
+    <p class="up-error" id="upEdError"></p>
+    <button type="button" class="up-btn" data-act="guardar">Guardar</button>
+    <button type="button" class="up-btn-ghost" data-act="cancelar">Cancelar</button>
+  </div>`;
+}
+
+function _upTilesHTML(st) {
+  const pedidos = st.agg ? st.agg.pedidos : st.orders.length;
+  const mas = !st.agg && st.hayMas ? "+" : "";
+  const gastado = st.agg
+    ? st.agg.gastado
+    : st.orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const puntos = Number(st.cliente?.puntos ?? _currentPuntos) || 0;
+  return `<div class="up-tiles">
+    <div class="up-tile"><b>${pedidos}${mas}</b><span>Pedidos</span></div>
+    <div class="up-tile"><b>${_fmtSoles(gastado)}</b><span>Total comprado</span></div>
+    <div class="up-tile"><b>${puntos}</b><span>Puntos</span></div>
+  </div>`;
+}
+
+function _upOrderHTML(o) {
+  const prods = Array.isArray(o.productos) ? o.productos : [];
+  const n = prods.reduce((s, p) => s + (Number(p.cantidad) || 1), 0);
+  const pts = Number(o.puntos_ganados) || 0;
+  const items = prods
+    .map((p) => {
+      const cant = Number(p.cantidad) || 1;
+      const sub = p.subtotal ?? (Number(p.precio_unitario) || 0) * cant;
+      return `<div class="up-item"><span class="up-item-n">${cant}×</span><span class="up-item-name">${escapeHtml(capitalizarPrimeraLetra(p.nombre || "Producto"))}</span><span class="up-item-sub">${_fmtSoles(sub)}</span></div>`;
+    })
+    .join("");
+  return `<div class="up-order">
+    <button type="button" class="up-order-head" data-act="orden" aria-expanded="false">
+      <div class="up-order-main">
+        <div class="up-order-date">${_fmtFecha(o.fecha, true)}</div>
+        <div class="up-order-sub">${o.tipo_entrega ? `<span class="up-chip">${escapeHtml(o.tipo_entrega)}</span>` : ""}<span>${n} producto${n !== 1 ? "s" : ""}</span></div>
+      </div>
+      <div class="up-order-right">
+        <div class="up-order-total">${_fmtSoles(o.total)}</div>
+        ${pts > 0 ? `<div class="up-order-pts">+${pts} pts</div>` : ""}
+      </div>
+    </button>
+    <div class="up-order-body">${items || `<div class="up-empty">Sin detalle</div>`}</div>
+  </div>`;
+}
+
+const _upMoreBtnHTML = `<button type="button" class="up-btn-ghost up-more" data-act="mas">Ver más pedidos</button>`;
+
+function _upPedidosHTML(st) {
+  const negocio = escapeHtml(_bizNombre || "este negocio");
+  if (!st.sig) {
+    return `<div class="up-sec"><h4 class="up-sec-title">Mis pedidos</h4>
+      <div class="up-cta"><div class="up-cta-ico">🛍️</div>
+        <p>Sigue a <b>${negocio}</b> para ver tus pedidos, tus puntos y cuánto has comprado.</p>
+        <button type="button" class="up-btn" data-act="seguir">Seguir negocio</button>
+      </div></div>`;
+  }
+  return `<div class="up-sec"><h4 class="up-sec-title">Mis pedidos</h4>
+    <div id="upTiles">${_upTilesHTML(st)}</div>
+    <div id="upOrders">${st.orders.length ? st.orders.map((o) => _upOrderHTML(o)).join("") : `<div class="up-empty">Todavía no tienes pedidos en ${negocio}.</div>`}</div>
+    <div id="upMoreWrap">${st.hayMas ? _upMoreBtnHTML : ""}</div>
+  </div>`;
+}
+
+function pintarUserPanel() {
+  const sc = document.getElementById("upScroll");
+  const st = _upState;
+  const user = auth.currentUser;
+  if (!sc || !st || !user || st.uid !== user.uid) return;
+  const raw = st.raw || {};
+  const nom = String(raw.nombre || raw.nombre_user || "").trim();
+  const ape = String(raw.apellido || "").trim();
+  const completo =
+    `${nom} ${ape}`.trim() ||
+    String(raw.nombre_completo || user.displayName || "").trim();
+  const foto = raw.foto || user.photoURL || "";
+  const edad = _edadExacta(raw.fecha_nac);
+  const sub =
+    st.sig && st.cliente?.fecha_inicio
+      ? `Cliente de ${_bizNombre || "este negocio"} desde ${_fmtFecha(st.cliente.fecha_inicio)}`
+      : `Tu cuenta en ${_bizNombre || "este negocio"}`;
+
+  sc.innerHTML =
+    _upHeaderHTML({ nombre: completo, foto, sub }) +
+    (_upEditando ? _upFormHTML(raw) : _upDatosHTML(raw, user, edad)) +
+    _upPedidosHTML(st);
+  _upBindAvatar(sc);
+}
+
+async function cargarMasPedidosUserPanel(btn) {
+  const st = _upState;
+  if (!st || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = "Cargando…";
+  const start = st.orders.length;
+  try {
+    await traerPedidosUserPanel(st);
+  } catch (e) {
+    console.warn("Más pedidos:", e.message);
+    btn.disabled = false;
+    btn.textContent = "Ver más pedidos";
+    return;
+  }
+  document
+    .getElementById("upOrders")
+    ?.insertAdjacentHTML(
+      "beforeend",
+      st.orders.slice(start).map((o) => _upOrderHTML(o)).join(""),
+    );
+  const tiles = document.getElementById("upTiles");
+  if (tiles) tiles.innerHTML = _upTilesHTML(st);
+  const wrap = document.getElementById("upMoreWrap");
+  if (wrap) wrap.innerHTML = st.hayMas ? _upMoreBtnHTML : "";
+}
+
+async function guardarDatosUserPanel(btn) {
+  const uid = auth.currentUser?.uid;
+  const st = _upState;
+  if (!uid || !st) return;
+  const errEl = document.getElementById("upEdError");
+  const setErr = (m) => {
+    if (!errEl) return;
+    errEl.textContent = m;
+    errEl.style.display = m ? "block" : "none";
+  };
+
+  const nombre = (document.getElementById("upEdNombre")?.value || "").trim();
+  const apellido = (document.getElementById("upEdApellido")?.value || "").trim();
+  const fnac = _inputToFnac(document.getElementById("upEdFnac")?.value);
+
+  if (nombre.length < 2) return setErr("Escribe tu nombre");
+  if (fnac) {
+    const [d, m, y] = fnac.split("/").map(Number);
+    if (!y || y < 1900 || new Date(y, m - 1, d) > new Date())
+      return setErr("Fecha de nacimiento no válida");
+  }
+
+  setErr("");
+  btn.disabled = true;
+  btn.textContent = "Guardando…";
+  try {
+    const payload = { nombre, apellido };
+    if (fnac) payload.fecha_nac = fnac;
+    if (st.raw.nombre_completo !== undefined)
+      payload.nombre_completo = `${nombre} ${apellido}`.trim();
+
+    await updateDoc(data_user_logeado(uid), payload);
+    Object.assign(st.raw, payload);
+
+    delete _userProfileCache[uid];
+    delete _reviewUserNameCache[uid];
+    _segCache = null;
+
+    const primer = capitalizarPrimeraLetra(nombre.split(" ")[0]);
+    const hello = document.getElementById("wlUserHello");
+    if (hello) hello.textContent = `Hola, ${primer} 👋`;
+    const av = document.getElementById("wlUserAvatar");
+    if (av && !av.querySelector("img"))
+      av.textContent = primer.charAt(0).toUpperCase();
+
+    _upEditando = false;
+    pintarUserPanel();
+    showToast("Datos actualizados ✅");
+  } catch (e) {
+    console.error("Guardar datos:", e);
+    btn.disabled = false;
+    btn.textContent = "Guardar";
+    setErr("No se pudo guardar, intenta de nuevo");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BOLITA QUE VUELA AL CARRITO (solo transform/opacity → GPU, fluido en equipos básicos)
+// ═══════════════════════════════════════════════════════════════
+const FLY_CSS = `
+.fly-x{position:fixed;left:0;top:0;width:34px;height:34px;z-index:10030;pointer-events:none;will-change:transform;transition:transform .7s cubic-bezier(.45,0,.55,1);}
+.fly-y{width:100%;height:100%;will-change:transform;transition:transform .7s cubic-bezier(.5,-.75,.85,.55);}
+.fly-ball{width:100%;height:100%;box-sizing:border-box;border-radius:50%;border:2px solid #fff;background-color:rgb(var(--dr),var(--dg),var(--db));background-size:cover;background-position:center;box-shadow:0 6px 16px rgba(0,0,0,.45),0 0 14px rgba(var(--dr),var(--dg),var(--db),.8);transition:transform .7s cubic-bezier(.5,0,.9,.6),opacity .7s ease-in;}
+.fly-x.go .fly-ball{transform:scale(.4);opacity:.85;}
+@keyframes pcBump{0%{transform:scale(1);}40%{transform:scale(1.14);}100%{transform:scale(1);}}
+.perfil-cart-float-btn.bump{animation:pcBump .38s cubic-bezier(.22,.85,.32,1);}
+`;
+
+function injectFlyStyles() {
+  if (document.getElementById("flyStyle")) return;
+  const st = document.createElement("style");
+  st.id = "flyStyle";
+  st.textContent = FLY_CSS;
+  document.head.appendChild(st);
+}
+
+function bumpCartBtn() {
+  const b = document.getElementById("perfilCartFloatBtn");
+  if (!b) return;
+  injectFlyStyles();
+  b.classList.remove("bump");
+  void b.offsetWidth;
+  b.classList.add("bump");
+  setTimeout(() => b.classList.remove("bump"), 450);
+}
+
+function volarAlCarrito(imagen) {
+  const o = _lastBuyOrigin;
+  _lastBuyOrigin = null;
+  const target = document.getElementById("perfilCartFloatBtn");
+  if (!target) return;
+  injectFlyStyles();
+
+  const reducir =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!o || Date.now() - o.t > 1500 || reducir) {
+    bumpCartBtn();
+    return;
+  }
+
+  const S = 34;
+  const tr = target.getBoundingClientRect();
+  const sx = o.x - S / 2;
+  const sy = o.y - S / 2;
+  const tx = tr.left + 26 - S / 2;
+  const ty = tr.top + tr.height / 2 - S / 2;
+  const dy = ty - sy;
+  const dist = Math.hypot(tx - sx, dy);
+  const dur = Math.min(0.85, Math.max(0.5, dist / 1100));
+
+  const x = document.createElement("div");
+  x.className = "fly-x";
+  x.style.transform = `translate3d(${sx}px,${sy}px,0)`;
+  const y = document.createElement("div");
+  y.className = "fly-y";
+  const ball = document.createElement("div");
+  ball.className = "fly-ball";
+  if (imagen)
+    ball.style.backgroundImage = `url("${String(imagen).replace(/"/g, "%22")}")`;
+
+  x.style.transitionDuration = y.style.transitionDuration = ball.style.transitionDuration = `${dur}s`;
+  if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
+
+  y.appendChild(ball);
+  x.appendChild(y);
+  document.body.appendChild(x);
+  void x.offsetWidth;
+
+  requestAnimationFrame(() => {
+    x.classList.add("go");
+    x.style.transform = `translate3d(${tx}px,${sy}px,0)`;
+    y.style.transform = `translate3d(0,${dy}px,0)`;
+  });
+
+  setTimeout(() => {
+    x.remove();
+    bumpCartBtn();
+  }, dur * 1000 + 80);
+}
+
+// Guarda de dónde se hizo clic (promos activas, promos normales y botón "Comprar" del detalle)
+document.addEventListener(
+  "click",
+  (e) => {
+    const b =
+      e.target.closest &&
+      e.target.closest("[data-buy-promo], #promoDetailBuyBtn");
+    if (!b) return;
+    const r = b.getBoundingClientRect();
+    _lastBuyOrigin = {
+      x: r.left + r.width / 2,
+      y: r.top + r.height / 2,
+      t: Date.now(),
+    };
+  },
+  true,
+);
+
+// ═══════════════════════════════════════════════════════════════
+//  MIS PEDIDOS ACTIVOS (tiempo real, máx. 5)
+//  Ruta: .../tiendas/{id}/pedidos  → cliente.id_cliente == uid
+// ═══════════════════════════════════════════════════════════════
+const PEDIDOS_ACTIVOS_CSS = `
+.pa-box{margin-top:18px;display:flex;flex-direction:column;gap:8px;animation:paIn .4s cubic-bezier(.22,.85,.32,1) both;}
+@keyframes paIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.pa-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(var(--dr),var(--dg),var(--db),.95);margin:0 0 2px;display:flex;align-items:center;gap:8px;}
+.pa-live{width:7px;height:7px;border-radius:50%;background:#4ade80;animation:paBlink 1.6s ease-in-out infinite;}
+@keyframes paBlink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.pa-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;text-decoration:none;color:#fff;
+  background:rgba(255,255,255,.04);border:1px solid rgba(var(--dr),var(--dg),var(--db),.3);
+  transition:transform .18s ease,border-color .18s ease,background .18s ease;}
+.pa-row:hover{transform:translateY(-2px);border-color:rgba(var(--dr),var(--dg),var(--db),.6);background:rgba(var(--dr),var(--dg),var(--db),.08);}
+.pa-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 20%,transparent);}
+.pa-main{flex:1;min-width:0;}
+.pa-code{font-size:13.5px;font-weight:800;}
+.pa-state{font-size:12px;color:var(--c);font-weight:700;margin-top:2px;}
+.pa-total{font-size:13px;font-weight:800;}
+.pa-go{font-size:12px;font-weight:700;opacity:.8;}
+`;
+
+const PA_ESTADOS = {
+  pendiente: { label: "Pendiente", color: "#d9a441" },
+  en_proceso: { label: "En proceso", color: "#4f9df0" },
+  en_pausa: { label: "En pausa · responde aquí", color: "#38bdf8" },
+};
+
+function _paNormalizar(e) {
+  e = (e || "").toLowerCase().trim();
+  if (e.includes("rechaz")) return "rechazado";
+  if (e.includes("entreg")) return "entregado";
+  if (e.includes("pausa")) return "en_pausa";
+  if (e.includes("proceso")) return "en_proceso";
+  return "pendiente";
+}
+
+function _paUrl(pedidoId) {
+  const alias = _params.alias || _bizAliasKey;
+  if (_esDominioPersonalizado) return `/pedido/${encodeURIComponent(pedidoId)}`;
+  if (alias)
+    return `/perfil/${encodeURIComponent(alias)}/${encodeURIComponent(pedidoId)}`;
+  return `/pedidos/${encodeURIComponent(_params.id)}/${encodeURIComponent(pedidoId)}`;
+}
+
+let _paUnsub = null;
+let _paUid = undefined;
+
+function escucharPedidosActivos(uid) {
+  if (_paUid === uid) return;
+  _paUnsub?.();
+  _paUnsub = null;
+  _paUid = uid;
+  if (!uid) {
+    renderPedidosActivos([]);
+    return;
+  }
+
+  if (!document.getElementById("paStyle")) {
+    const st = document.createElement("style");
+    st.id = "paStyle";
+    st.textContent = PEDIDOS_ACTIVOS_CSS;
+    document.head.appendChild(st);
+  }
+
+  // "in" + "==" NO necesita índice compuesto (a diferencia de not-in)
+  const q = query(
+    tiendaSubCol(_params.localidad, "tiendas", _params.id, "pedidos"),
+    where("cliente.id_cliente", "==", uid),
+    where("estado", "in", ["pendiente", "en_proceso", "en_pausa"]),
+    limit(5),
+  );
+
+  _paUnsub = onSnapshot(
+    q,
+    (snap) => {
+      const lista = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        const est = _paNormalizar(data.estado);
+        if (est === "entregado" || est === "rechazado") return;
+        lista.push({ id: d.id, est, total: Number(data.total) || 0 });
+      });
+      renderPedidosActivos(lista);
+    },
+    (e) => console.warn("Pedidos activos:", e.code, e.message),
+  );
+}
+
+function renderPedidosActivos(lista) {
+  let box = document.getElementById("pedidosActivosBox");
+  if (!lista.length) {
+    box?.remove();
+    return;
+  }
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "pedidosActivosBox";
+    box.className = "pa-box";
+    document.getElementById("quickNavRow")?.after(box);
+  }
+  box.innerHTML =
+    `<h4 class="pa-title"><span class="pa-live"></span> Mis pedidos en curso (${lista.length})</h4>` +
+    lista
+      .map((p) => {
+        const e = PA_ESTADOS[p.est] || PA_ESTADOS.pendiente;
+        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color}">
+        <span class="pa-dot"></span>
+        <div class="pa-main">
+          <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
+          <div class="pa-state">${e.label}</div>
+        </div>
+        <div class="pa-total">S/ ${p.total.toFixed(2)}</div>
+        <span class="pa-go">Ver →</span>
+      </a>`;
+      })
+      .join("");
+}

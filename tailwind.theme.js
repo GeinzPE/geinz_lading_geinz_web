@@ -1,4 +1,5 @@
-﻿module.exports = {
+﻿// tailwind.theme.js
+module.exports = {
   extend: {
     colors: {
       base: '#000000',

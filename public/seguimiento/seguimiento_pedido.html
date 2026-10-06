@@ -585,6 +585,7 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
     }
+        body, .brand-logo, .btn-primary { transition: background-color .5s ease, border-color .5s ease, box-shadow .5s ease; }
   </style>
 </head>
 
@@ -851,22 +852,22 @@
       $("brandName").textContent = bizNombre;
       document.title = `Seguimiento de pedido · ${bizNombre}`;
 
+      // Color instantáneo (por nombre); el del logo llega después sin bloquear
+      aplicarColor(colorDesdeNombre(bizNombre));
+
       const logoEl = $("brandLogo");
       if (bizLogo) {
         logoEl.src = bizLogo;
         logoEl.alt = bizNombre;
         setFaviconCircular(bizLogo);
-        const c = await colorDelLogo(bizLogo);
-        aplicarColor(c || colorDesdeNombre(bizNombre));
+        colorDelLogo(bizLogo).then((c) => { if (c) aplicarColor(c); });
       } else {
         logoEl.replaceWith(Object.assign(document.createElement("div"), {
           className: "brand-logo letter",
           textContent: bizNombre.trim().charAt(0).toUpperCase() || "?",
         }));
-        aplicarColor(colorDesdeNombre(bizNombre));
       }
 
-      // Volver al negocio
       const back = $("backLink");
       const href = N.propio ? "/" : N.alias ? `https://geinztech.com/perfil/${encodeURIComponent(N.alias)}` : null;
       if (href) {
@@ -875,7 +876,6 @@
         back.classList.remove("hidden");
       }
     }
-
     /* ══════════════ Código de seguimiento ══════════════
        Formatos aceptados:
          - {pedidoId}
@@ -1102,20 +1102,22 @@
     window.addEventListener("beforeunload", detener);
 
     /* ══════════════ Init ══════════════ */
+      /* ══════════════ Init ══════════════ */
     (async () => {
       try {
         await loginPorToken();
-        const u = await esperarAuth();
-        uid = u?.uid || null;
 
-        N = await resolverNegocio();
+        // ⚡ Auth y negocio en paralelo
+        const [u, negocio] = await Promise.all([esperarAuth(), resolverNegocio()]);
+        uid = u?.uid || null;
+        N = negocio;
         if (!N) throw new Error("Negocio no identificado");
+
         await cargarNegocio();
 
         $("boot").classList.add("hidden");
         $("main").classList.remove("hidden");
 
-        // Si cambia la sesión (ej. volvió del login), reintenta la búsqueda actual
         onAuthStateChanged(auth, (nu) => {
           const nuevo = nu?.uid || null;
           if (nuevo === uid) return;
@@ -1123,7 +1125,6 @@
           if (ultimaBusqueda) buscar(ultimaBusqueda);
         });
 
-        // Enlace directo: ?c=CODIGO
         const c = new URLSearchParams(location.search).get("c");
         if (c) { $("codigo").value = c; enviarBusqueda(); }
         else $("codigo").focus({ preventScroll: true });
