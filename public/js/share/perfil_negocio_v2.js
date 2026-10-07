@@ -861,7 +861,7 @@ const _cGet = (k, ttl = 6 * 3600e3) => {
 const _cSet = (k, d) => {
   try {
     localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
-  } catch {}
+  } catch { }
 };
 async function getParams() {
   // ═══ NUEVO: detectar dominio conectado ═══
@@ -1805,31 +1805,32 @@ function bindFollowButton({ localidad, id }, biz) {
   let isFollowing = false;
   let isBusy = false;
 
-  function setFollowUI(following) {
-    isFollowing = following;
-    _siguiendoNegocio = following;
-    btn.classList.toggle("following", following);
-    icon.textContent = following ? "✅" : "➕";
-    text.textContent = following ? "Siguiendo" : "Seguir";
+ function setFollowUI(following) {
+  const cambio = _siguiendoNegocio !== following;
+  isFollowing = following;
+  _siguiendoNegocio = following;
+  btn.classList.toggle("following", following);
+  icon.textContent = following ? "✅" : "➕";
+  text.textContent = following ? "Siguiendo" : "Seguir";
+  if (cambio) {
+    _upState = null; // el caché del panel ya no sirve
+    refrescarUserPanelSiAbierto(); // si está abierto, se repinta solo
   }
-
+}
   onAuthStateChanged(auth, async (user) => {
     const uid = user?.uid || null;
     _currentUid = uid;
     actualizarHeaderUsuario(user);
 
-    if (!uid) {
-      btn.onclick = () => {
-        openLoginPromptModal();
-      };
-      // El esqueleto se va cuando ya se obtuvieron los colores del logo
-      _followReady = true;
-      _reviewsReady = true;
-      tryHideLoader();
-      // Seguro: si el logo tarda demasiado, se quita igual a los 6s
-      setTimeout(hideBizLoader, 6000);
-      return;
-    }
+if (!uid) {
+  btn.onclick = () => { openLoginPromptModal(); };
+  _followChecked = true;   // ← nuevo
+  _followReady = true;
+  _reviewsReady = true;
+  tryHideLoader();
+  setTimeout(hideBizLoader, 6000);
+  return;
+}
 
     const favoritoRef = doc(
       db,
@@ -1846,6 +1847,7 @@ function bindFollowButton({ localidad, id }, biz) {
     );
     const snap = await getDoc(clienteRef);
     setFollowUI(snap.exists());
+    _followChecked = true;  
     _followReady = true;
     tryHideLoader();
 
@@ -2228,7 +2230,7 @@ async function _getSegmento() {
   try {
     const s = await getDoc(data_user_logeado(uid));
     if (s.exists()) d = s.data();
-  } catch {}
+  } catch { }
   _segCache = {
     uid,
     logeado: true,
@@ -2259,7 +2261,7 @@ async function trackPromo(promoId, evento) {
     try {
       if (localStorage.getItem(k)) return;
       localStorage.setItem(k, "1");
-    } catch {}
+    } catch { }
   }
 
   const seg = await _getSegmento();
@@ -2370,8 +2372,8 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-          `${waMsg}: ${shareUrl}`,
-        )}`
+        `${waMsg}: ${shareUrl}`,
+      )}`
       : null;
 
     const puedeComprarPromo = precio > 0 && _F.carrito;
@@ -2383,33 +2385,30 @@ function renderActivePromos(promos, localidad) {
         ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
 
         <div class="promo-active-top-actions">
-          ${
-            puedeComprarPromo
-              ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+          ${puedeComprarPromo
+        ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
               <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
             </svg>
           </button>`
-              : ""
-          }
-          ${
-            waLink
-              ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
+        : ""
+      }
+          ${waLink
+        ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
             <i class="fa-brands fa-whatsapp"></i>
           </a>`
-              : ""
-          }
-          ${
-            shareAllowed
-              ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+        : ""
+      }
+          ${shareAllowed
+        ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
             </svg>
           </button>`
-              : ""
-          }
+        : ""
+      }
         </div>
 
         <div class="promo-active-bottom-overlay">
@@ -2430,14 +2429,14 @@ function renderActivePromos(promos, localidad) {
 
     const onComprarEstaPromo = puedeComprarPromo
       ? () => {
-          trackPromo(p.id, "clics_comprar");
-          agregarAlCarritoPerfil({
-            promoId: `activa_${p.id}`,
-            nombre: info.titulo,
-            precio,
-            imagen: img,
-          });
-        }
+        trackPromo(p.id, "clics_comprar");
+        agregarAlCarritoPerfil({
+          promoId: `activa_${p.id}`,
+          nombre: info.titulo,
+          precio,
+          imagen: img,
+        });
+      }
       : null;
     // Vista: cuando la card entra en pantalla (1 vez/día/navegador)
     const io = new IntersectionObserver(
@@ -4276,7 +4275,7 @@ function showPromoBanner(biz) {
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-    bannerImg.onerror = () => {};
+    bannerImg.onerror = () => { };
     bannerImg.src = banner.imagen;
   }
 }
@@ -5772,16 +5771,15 @@ async function render(biz, isInitial = true) {
       card.innerHTML = `
         <div class="promo-card-img-wrap">
           <div class="promo-card-top-actions">
-            ${
-              puedeComprarPromo
-                ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+            ${puedeComprarPromo
+          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
             </button>`
-                : ""
-            }
+          : ""
+        }
             <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -5789,15 +5787,14 @@ async function render(biz, isInitial = true) {
               </svg>
             </button>
           </div>
-          ${
-            promo.precio > 0 || promo.descripcion
-              ? `
+          ${promo.precio > 0 || promo.descripcion
+          ? `
           <div class="promo-card-bottom-overlay">
             ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
             ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
           </div>`
-              : ""
-          }
+          : ""
+        }
         </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -5808,12 +5805,12 @@ async function render(biz, isInitial = true) {
 
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
-            agregarAlCarritoPerfil({
-              promoId: promo.id,
-              nombre: promo.titulo,
-              precio: promo.precio,
-              imagen: promo.url,
-            })
+          agregarAlCarritoPerfil({
+            promoId: promo.id,
+            nombre: promo.titulo,
+            precio: promo.precio,
+            imagen: promo.url,
+          })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -5853,7 +5850,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) {}
+          } catch (e) { }
         else copyToClipboard(fullText);
       });
     });
@@ -6558,8 +6555,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-        .toDate()
-        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+      .toDate()
+      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -7115,10 +7112,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -7492,7 +7489,7 @@ async function eliminarMiReview() {
       ({ biz, servicios } = cached);
       Promise.all([loadBusiness(params), loadServicios(params)])
         .then(([b, s]) => _cSet(ck, { biz: b, servicios: s }))
-        .catch(() => {});
+        .catch(() => { });
     } else {
       [biz, servicios] = await Promise.all([
         loadBusiness(params),
@@ -7897,6 +7894,7 @@ let _upState = null;
 let _upKeyBound = false;
 let _upEditando = false;
 const UP_BATCH = 8; // pedidos por página
+let _followChecked = false;
 const UP_TTL = 60000; // cache del panel (ms)
 
 const USER_PANEL_CSS = `
@@ -8014,7 +8012,7 @@ const _inputToFnac = (v) => {
 };
 async function esperarFollowReady(ms = 4000) {
   const t = Date.now();
-  while (!_followReady && Date.now() - t < ms) {
+  while (!_followChecked && Date.now() - t < ms) {
     await new Promise((r) => setTimeout(r, 120));
   }
 }
@@ -8096,6 +8094,13 @@ function ensureUserPanel() {
   }
   return ov;
 }
+function refrescarUserPanelSiAbierto() {
+  const ov = document.getElementById("userPanel");
+  if (!ov?.classList.contains("open") || !auth.currentUser) return;
+  cargarUserPanel(auth.currentUser.uid)
+    .then(pintarUserPanel)
+    .catch((e) => console.warn("Refresco panel:", e.message));
+}
 function cerrarUserPanel() {
   document.getElementById("userPanel")?.classList.remove("open");
   document.body.style.overflow = "";
@@ -8163,13 +8168,11 @@ async function traerPedidosVivosUserPanel(st) {
         est: _paNormalizar(x.estado),
         total: Number(x.total) || 0,
         tipo: x.cliente?.tipo_entrega || "",
-        actualizado: x.actualizado || null,
+        ts: x.timestamp || null,
+        fechaTxt: [x.fecha, x.hora].filter(Boolean).join(" · "), // respaldo
       };
     })
-    .sort(
-      (a, b) =>
-        (b.actualizado?.toMillis?.() || 0) - (a.actualizado?.toMillis?.() || 0),
-    );
+    .sort((a, b) => (b.ts?.toMillis?.() || 0) - (a.ts?.toMillis?.() || 0));
 }
 
 async function traerAgregadoUserPanel(st) {
@@ -8197,7 +8200,7 @@ async function cargarUserPanel(uid) {
     _upState.sig === sig &&
     Date.now() - _upState.ts < UP_TTL
   ) {
-    await traerPedidosVivosUserPanel(_upState).catch(() => {});
+    await traerPedidosVivosUserPanel(_upState).catch(() => { });
     return;
   }
 
@@ -8347,13 +8350,12 @@ const _upMoreBtnHTML = `<button type="button" class="up-btn-ghost up-more" data-
 const PV_BATCH = 5;
 const PV_FILTROS = [
   ["todos", "Todos"],
-  ["pendiente", "Pendientes"],
+  ["pendiente", "Pendiente"],
+  ["pendiente_pago", "Pendiente de pago"],
   ["en_proceso", "En proceso"],
-  ["en_pausa", "En pausa"],
-  ["entregado", "Entregados"],
-  ["rechazado", "Rechazados"],
+  ["listo", "Listo"],
+  ["entregado", "Entregado"],
 ];
-
 function _upVivosInnerHTML(st) {
   const todos = st.pedidosVivos || [];
   if (!todos.length) return "";
@@ -8363,28 +8365,28 @@ function _upVivosInnerHTML(st) {
   const mostrar = lista.slice(0, vis);
   const restantes = lista.length - mostrar.length;
 
-  const chips = PV_FILTROS.map(([k, label]) => {
-    const n =
-      k === "todos" ? todos.length : todos.filter((p) => p.est === k).length;
-    if (k !== "todos" && !n) return "";
-    return `<button type="button" class="pv-chip${f === k ? " active" : ""}" data-act="pv-filtro" data-f="${k}">${label} (${n})</button>`;
-  }).join("");
+ const chips = PV_FILTROS.map(([k, label]) => {
+  const n =
+    k === "todos" ? todos.length : todos.filter((p) => p.est === k).length;
+  return `<button type="button" class="pv-chip${f === k ? " active" : ""}${n ? "" : " vacio"}" data-act="pv-filtro" data-f="${k}">${label} (${n})</button>`;
+}).join("");
 
   const filas = mostrar.length
     ? mostrar
-        .map((p) => {
-          const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
-          return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
+      .map((p) => {
+        const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
             <span class="pa-dot"></span>
-            <div class="pa-main">
-              <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
-              <div class="pa-state">${e.label}${p.tipo ? " · " + escapeHtml(p.tipo) : ""}</div>
-            </div>
+           <div class="pa-main">
+  <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
+  <div class="pa-state">${e.label}${p.tipo ? " · " + escapeHtml(p.tipo) : ""}</div>
+  <div class="pa-date">🗓️ ${p.ts ? _fmtFecha(p.ts, true) : escapeHtml(p.fechaTxt || "—")}</div>
+</div>
             <div class="pa-total">${_fmtSoles(p.total)}</div>
             <span class="pa-go">Ver →</span>
           </a>`;
-        })
-        .join("")
+      })
+      .join("")
     : `<div class="up-empty">No tienes pedidos en este estado.</div>`;
 
   const mas =
@@ -8600,7 +8602,7 @@ function volarAlCarrito(imagen) {
   x.style.transitionDuration =
     y.style.transitionDuration =
     ball.style.transitionDuration =
-      `${dur}s`;
+    `${dur}s`;
   if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
 
   y.appendChild(ball);
@@ -8666,10 +8668,14 @@ const PEDIDOS_ACTIVOS_CSS = `
 .pv-chip{flex-shrink:0;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;color:#d4d4d8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);cursor:pointer;font-family:inherit;transition:background .2s ease,border-color .2s ease;}
 .pv-chip:hover{border-color:rgba(var(--dr),var(--dg),var(--db),.5);}
 .pv-chip.active{color:#fff;border-color:transparent;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));}
+.pa-date{font-size:11px;color:var(--muted,#9c9ca3);margin-top:3px;font-weight:600;}
+.pv-chip.vacio{opacity:.5;}
 `;
 const PA_ESTADOS = {
   pendiente: { label: "Pendiente", color: "#d9a441" },
+  pendiente_pago: { label: "Por pagar · sube tu comprobante", color: "#fbbf24" },
   en_proceso: { label: "En proceso", color: "#4f9df0" },
+  listo: { label: "Listo", color: "#2dd4bf" },
   en_pausa: { label: "En pausa · responde aquí", color: "#38bdf8" },
 };
 const PA_ESTADOS_TODOS = {
@@ -8693,6 +8699,8 @@ function _paNormalizar(e) {
   e = (e || "").toLowerCase().trim();
   if (e.includes("rechaz")) return "rechazado";
   if (e.includes("entreg")) return "entregado";
+  if (e.includes("pago")) return "pendiente_pago";
+  if (e.includes("listo")) return "listo";
   if (e.includes("pausa")) return "en_pausa";
   if (e.includes("proceso")) return "en_proceso";
   return "pendiente";

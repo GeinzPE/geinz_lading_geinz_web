@@ -1927,6 +1927,8 @@ async function loadProductosCatalogo(bizOrPromise) {
           imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
           imagen: d.imagenes?.[0]?.url || "",
           condiciones,
+                    tuvoCondiciones: (d.condiciones || []).length > 0,   // ← NUEVO
+
           stock: typeof d.stock === "number" ? d.stock : null,
           variantesObligatoria: d.variantesObligatoria !== false,
           variantesMultiples: d.variantesMultiples === true,
@@ -2656,6 +2658,25 @@ pintarDisponibilidad(card, dispEl, p);
   return card;
 }
 
+function productoSinStock(p) {
+  if (p.esPromo || p.esOfertaTiempo) return false;
+  if (typeof p.stock === "number" && p.stock <= 0) return true;
+  // Tenía variantes obligatorias pero todas se agotaron (el catálogo las filtró)
+  if (p.tuvoCondiciones && (!p.condiciones || !p.condiciones.length) && p.variantesObligatoria !== false) {
+    return true;
+  }
+  return false;
+}
+
+function crearBadgeSinStock() {
+  const btn = document.createElement("button");
+  btn.className = "btn-add pop opacity-50 cursor-not-allowed bg-white/5 text-gray-400";
+  btn.style.cssText =
+    "background:rgba(255,255,255,.06);color:#9ca3af;border:1px solid rgba(255,255,255,.1);box-shadow:none;width:100%;white-space:normal;line-height:1.15;font-size:clamp(10.5px,2.9vw,13px);padding-left:6px;padding-right:6px;";
+  btn.textContent = "Sin stock disponible";
+  btn.disabled = true;
+  return btn;
+}
 function renderQtyControls(container, p, cartKey = null) {
   container.innerHTML = "";
 
@@ -2724,6 +2745,10 @@ function renderQtyControls(container, p, cartKey = null) {
     btn.title = disp.mensaje;
     btn.disabled = true;
     container.appendChild(btn);
+    return;
+  }
+    if (!productoEnCarrito(p.id) && productoSinStock(p)) {
+    container.appendChild(crearBadgeSinStock());
     return;
   }
   if (p.condiciones && p.condiciones.length) {
@@ -5718,4 +5743,4 @@ async function init() {
   if (ofertaParam) aplicarOfertaDesdeLink(ofertaParam);
 }
 init();
-init();
+
