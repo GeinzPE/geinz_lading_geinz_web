@@ -1,0 +1,2392 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-4BP2DTKKBR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-4BP2DTKKBR');
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>GEINZ TECNOLOGÍA - Tu tienda online con carrito de compras y 0% de comisión | Placas NFC</title>
+  <meta name="description"
+    content="Crea tu tienda online con carrito de compras, pedidos a WhatsApp y 0% de comisión. Conoce a tus clientes, cuadra tu caja, usa tu dominio propio y fideliza con Placas NFC y tarjeta de puntos 3D. Para negocios en Perú.">
+  <meta name="keywords"
+    content="Geinz, tienda online, carrito de compras, sin comisiones, placas NFC, fidelización, pedidos WhatsApp, dominio personalizado, restaurantes, licorerías, minimarkets, tiendas Perú">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="GEINZ - Tu tienda online con carrito de compras y 0% de comisión">
+  <meta property="og:description"
+    content="Vende directo a tus clientes, conoce quién te compra y fidelízalo. Sin comisiones.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://geinztech.com/">
+  <!-- Reemplazar con og_geinz.png (1200x630) -->
+  <meta property="og:image" content="https://geinztech.com/img/og_geinz.png">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="icon" href="img/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-96x96.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <link rel="manifest" href="img/icons/site.webmanifest">
+  <script type="module" src="js/indexv2.js"></script>
+  <script type="application/ld+json">
+  { "@context":"https://schema.org","@type":"Person","name":"Benjamín Sebastián López Abarca","jobTitle":"CEO & Founder",
+    "worksFor":{"@type":"Organization","name":"Geinz Tecnología E.I.R.L.","url":"https://geinztech.com"},
+    "url":"https://geinztech.com","sameAs":["https://www.linkedin.com/in/tu-perfil-real"] }
+  </script>
+
+  <style>
+    :root {
+      --p1: #8B5CF6;
+      --p2: #A855F7;
+      --card: #080808;
+      --line: rgba(255, 255, 255, .07);
+    }
+
+    * {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--p2);
+      outline-offset: 3px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 90px;
+    }
+
+    /* Sin scroll horizontal en ninguna pantalla (solo carruseles internos, si existieran) */
+    html {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      max-width: 100%;
+      position: relative;
+      background: #000;
+      color: #f3f4f6;
+      min-height: 100vh;
+    }
+
+    main,
+    header,
+    footer {
+      max-width: 100%;
+      overflow-x: clip;
+    }
+
+    /* El header no debe recortar el menú desplegable móvil */
+    header {
+      overflow: visible;
+    }
+
+    .sec {
+      overflow-x: clip;
+    }
+
+    img,
+    video,
+    svg {
+      max-width: 100%;
+    }
+
+    .wrap>*,
+    .grid>*,
+    .flex>* {
+      min-width: 0;
+    }
+
+    .glow {
+      max-width: 100vw;
+    }
+
+    .btn {
+      max-width: 100%;
+    }
+
+    p,
+    h1,
+    h2,
+    h3,
+    li,
+    a,
+    span {
+      overflow-wrap: break-word;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(139, 92, 246, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(139, 92, 246, .045) 1px, transparent 1px);
+      background-size: 48px 48px;
+      -webkit-mask-image: radial-gradient(circle at 50% 20%, #000 20%, transparent 75%);
+      mask-image: radial-gradient(circle at 50% 20%, #000 20%, transparent 75%);
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 1200px;
+      margin: auto;
+      padding: 0 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .sec {
+      padding: 56px 0;
+      position: relative;
+    }
+
+    @media(min-width:768px) {
+      .sec {
+        padding: 92px 0;
+      }
+    }
+
+    .grad {
+      background: linear-gradient(135deg, #fff 25%, #c4b5fd 60%, #a855f7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      transition: border-color .3s, box-shadow .3s;
+    }
+
+    .card:hover {
+      border-color: rgba(168, 85, 247, .45);
+      box-shadow: 0 0 0 1px rgba(168, 85, 247, .15), 0 24px 60px -24px rgba(139, 92, 246, .4);
+    }
+
+    .glow {
+      position: absolute;
+      width: min(620px, 90vw);
+      height: min(620px, 90vw);
+      background: radial-gradient(circle, rgba(139, 92, 246, .18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: .85rem;
+      transition: transform .25s, box-shadow .25s, background .25s;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-main {
+      background: linear-gradient(135deg, var(--p1), var(--p2));
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(139, 92, 246, .4);
+    }
+
+    .btn-main:hover {
+      box-shadow: 0 14px 44px rgba(168, 85, 247, .6);
+    }
+
+    .btn-ghost {
+      border: 1px solid rgba(168, 85, 247, .4);
+      color: #e5e7eb;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(139, 92, 246, .12);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 99px;
+      background: rgba(139, 92, 246, .1);
+      border: 1px solid rgba(139, 92, 246, .3);
+      color: #c4b5fd;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .ico {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: rgba(139, 92, 246, .12);
+      border: 1px solid rgba(139, 92, 246, .28);
+      flex-shrink: 0;
+    }
+
+    /* ===== Jerarquía tipográfica ===== */
+    .eyebrow {
+      font-size: .75rem;
+      font-weight: 700;
+      color: #a78bfa;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      text-wrap: balance;
+    }
+
+    h2.t {
+      font-size: clamp(1.75rem, 3.6vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -.025em;
+      line-height: 1.12;
+      text-wrap: balance;
+    }
+
+    h3 {
+      line-height: 1.25;
+      letter-spacing: -.01em;
+    }
+
+    /* Escala mínima legible: nada por debajo de 11px y textos de apoyo en 13px */
+    body .text-xs {
+      font-size: .8125rem;
+      line-height: 1.55;
+    }
+
+    body .text-sm {
+      font-size: .9375rem;
+      line-height: 1.6;
+    }
+
+    body .text-\[10px\] {
+      font-size: .6875rem;
+    }
+
+    body .text-\[11px\] {
+      font-size: .75rem;
+    }
+
+    .rubro-tag {
+      font-size: 11px;
+    }
+
+    .tag {
+      font-size: 12px;
+    }
+
+    p {
+      text-wrap: pretty;
+    }
+
+    /* ===== NAVBAR (corregido: sin saltos de línea ni solapes) ===== */
+    .nav-links a {
+      white-space: nowrap;
+    }
+
+    .brand-name {
+      white-space: nowrap;
+    }
+
+    .nav-actions {
+      flex-shrink: 0;
+    }
+
+    .nav-actions .btn,
+    .nav-actions button {
+      white-space: nowrap;
+    }
+
+    #mobileMenu {
+      display: none;
+    }
+
+    #mobileMenu.open {
+      display: block;
+    }
+
+    #mobileMenu a,
+    #mobileMenu button.mlink {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 14px 6px;
+      font-size: .95rem;
+      font-weight: 600;
+      color: #d1d5db;
+      border-bottom: 1px solid var(--line);
+    }
+
+    #mobileMenu a:last-child {
+      border-bottom: 0;
+    }
+
+    .burger {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, .1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+
+    /* ===== Hero con frases dinámicas ===== */
+    .hero-title {
+      min-height: 4.5em;
+    }
+
+    /* reserva espacio para que nada salte */
+    @media(min-width:640px) {
+      .hero-title {
+        min-height: 3.4em;
+      }
+    }
+
+    .hero-sub {
+      min-height: 8.5em;
+    }
+
+    @media(min-width:640px) {
+      .hero-sub {
+        min-height: 6.2em;
+      }
+    }
+
+    .rot {
+      transition: opacity .45s ease, transform .45s ease, filter .45s ease;
+    }
+
+    .rot.out {
+      opacity: 0;
+      transform: translateY(10px);
+      filter: blur(4px);
+    }
+
+    .rot-dots {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .rot-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, .18);
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      transition: width .3s, background .3s;
+    }
+
+    .rot-dot.on {
+      width: 26px;
+      background: linear-gradient(90deg, var(--p1), var(--p2));
+    }
+
+    /* Slot de imagen/mockup: se llena desde GEINZ_DATA o desde tu DB */
+    .slot {
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #0b0b0f;
+      border: 1px dashed rgba(168, 85, 247, .3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #6b7280;
+      font-size: 11px;
+      padding: 14px;
+      width: 100%;
+      height: 100%;
+      min-height: 140px;
+    }
+
+    .slot::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(167, 139, 250, .08), transparent);
+      animation: sh 2.2s infinite;
+    }
+
+    .slot.has-img {
+      border-style: solid;
+      border-color: rgba(255, 255, 255, .08);
+    }
+
+    .slot.has-img::after,
+    .slot.has-img span {
+      display: none;
+    }
+
+    .slot img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 2;
+    }
+
+    @keyframes sh {
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    /* ===== Galería bento: miniaturas llenas + clic para ver en grande ===== */
+    .bento {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .bento>figure {
+      margin: 0;
+      position: relative;
+      aspect-ratio: 4 / 3;
+      min-width: 0;
+      outline: none;
+    }
+
+    .bento>figure.clickable {
+      cursor: zoom-in;
+    }
+
+    .bento .card {
+      position: absolute;
+      inset: 0;
+      height: 100%;
+      padding: 0;
+      overflow: hidden;
+      border-radius: 24px;
+      background: #0b0b0f;
+    }
+
+    .bento .shot-bg {
+      display: none;
+    }
+
+    /* Miniatura: llena toda la tarjeta (la imagen completa se ve al hacer clic) */
+    .bento .shot {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+      transition: transform .5s ease;
+    }
+
+    .bento>figure.clickable:hover .shot {
+      transform: scale(1.04);
+    }
+
+    .bento>figure.clickable:focus-visible .card {
+      outline: 2px solid var(--p2);
+      outline-offset: 3px;
+    }
+
+    .bento .shot-ph {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0b0b0f;
+      border: 1px dashed rgba(168, 85, 247, .3);
+      color: #6b7280;
+      font-size: 11px;
+    }
+
+    /* Icono de ampliar */
+    .bento>figure.clickable::after {
+      content: '⤢';
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 6;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: #fff;
+      background: rgba(0, 0, 0, .55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, .12);
+      opacity: 0;
+      transition: opacity .25s;
+      pointer-events: none;
+    }
+
+    .bento>figure.clickable:hover::after,
+    .bento>figure.clickable:focus-visible::after {
+      opacity: 1;
+    }
+
+    @media (hover: none) {
+      .bento>figure.clickable::after {
+        opacity: 1;
+      }
+    }
+
+    /* Título sobre degradado abajo */
+    .bento figcaption {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      padding: 44px 18px 14px;
+      background: linear-gradient(transparent, rgba(0, 0, 0, .9));
+      border-radius: 0 0 24px 24px;
+      pointer-events: none;
+    }
+
+    /* Tablet: 2 columnas */
+    @media (max-width: 899px) {
+
+      .bento>figure:nth-child(1),
+      .bento>figure:nth-child(6) {
+        grid-column: span 2;
+        aspect-ratio: 16 / 10;
+      }
+
+      .bento>figure:nth-child(4) {
+        aspect-ratio: 9 / 14;
+        grid-row: span 2;
+      }
+    }
+
+    /* Escritorio: el grid de antes (4 columnas) */
+    @media (min-width: 900px) {
+      .bento {
+        grid-template-columns: repeat(4, 1fr);
+        grid-auto-rows: 240px;
+      }
+
+      .bento>figure {
+        aspect-ratio: auto;
+      }
+
+      .bento>figure:nth-child(1) {
+        grid-column: span 2;
+        grid-row: span 2;
+      }
+
+      .bento>figure:nth-child(4) {
+        grid-row: span 2;
+      }
+
+      .bento>figure:nth-child(6) {
+        grid-column: span 2;
+      }
+    }
+
+    /* Celular: 1 columna */
+    @media (max-width: 560px) {
+      .bento {
+        grid-template-columns: 1fr;
+      }
+
+      .bento>figure:nth-child(1),
+      .bento>figure:nth-child(6) {
+        grid-column: auto;
+      }
+
+      .bento>figure {
+        aspect-ratio: 4 / 3;
+      }
+
+      .bento>figure:nth-child(4) {
+        aspect-ratio: 4 / 5.5;
+        grid-row: auto;
+      }
+    }
+
+    /* ===== Visor de imágenes (lightbox) ===== */
+    .lb {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 56px 72px;
+      background: rgba(0, 0, 0, .92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .25s ease, visibility .25s ease;
+      touch-action: pan-y;
+      overscroll-behavior: contain;
+    }
+
+    .lb.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .lb-stage {
+      margin: 0;
+      max-width: 100%;
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .lb-stage img {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: calc(100vh - 56px - 56px - 70px);
+      max-height: calc(100dvh - 56px - 56px - 70px);
+      object-fit: contain;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .8);
+      background: #0b0b0f;
+      transition: opacity .2s ease;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .lb-stage img.fade {
+      opacity: 0;
+    }
+
+    .lb-cap {
+      text-align: center;
+      max-width: 640px;
+    }
+
+    .lb-cap strong {
+      display: block;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .lb-cap span {
+      display: block;
+      margin-top: 2px;
+      font-size: 13px;
+      color: #9ca3af;
+      font-weight: 300;
+    }
+
+    .lb-close,
+    .lb-nav {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: rgba(255, 255, 255, .08);
+      color: #fff;
+      cursor: pointer;
+      transition: background .2s, transform .2s, border-color .2s;
+    }
+
+    .lb-close:hover,
+    .lb-nav:hover {
+      background: rgba(139, 92, 246, .35);
+      border-color: rgba(168, 85, 247, .6);
+    }
+
+    .lb-close {
+      top: 14px;
+      right: 14px;
+      width: 42px;
+      height: 42px;
+      font-size: 18px;
+    }
+
+    .lb-nav {
+      top: 50%;
+      width: 48px;
+      height: 48px;
+      margin-top: -24px;
+    }
+
+    .lb-nav:hover {
+      transform: scale(1.06);
+    }
+
+    .lb-prev {
+      left: 14px;
+    }
+
+    .lb-next {
+      right: 14px;
+    }
+
+    .lb-count {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      font-weight: 700;
+      color: #9ca3af;
+      letter-spacing: .08em;
+    }
+
+    @media (max-width: 640px) {
+      .lb {
+        padding: 64px 12px 24px;
+      }
+
+      .lb-stage img {
+        max-height: calc(100vh - 64px - 24px - 80px);
+        max-height: calc(100dvh - 64px - 24px - 80px);
+      }
+
+      .lb-nav {
+        width: 42px;
+        height: 42px;
+        margin-top: -21px;
+        background: rgba(0, 0, 0, .55);
+      }
+
+      .lb-prev {
+        left: 6px;
+      }
+
+      .lb-next {
+        right: 6px;
+      }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity .7s, transform .7s;
+    }
+
+    .reveal.active {
+      opacity: 1;
+      transform: none;
+    }
+
+    .plan.featured {
+      border-color: rgba(168, 85, 247, .6);
+      background: linear-gradient(180deg, rgba(139, 92, 246, .1), var(--card) 55%);
+    }
+
+    .check li {
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      color: #d1d5db;
+      margin-top: 12px;
+      line-height: 1.45;
+    }
+
+    .check li::before {
+      content: '✓';
+      color: var(--p2);
+      font-weight: 800;
+    }
+
+    .rubro-tag {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid rgba(255, 255, 255, .07);
+      color: rgba(255, 255, 255, .6);
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 14px 5px 5px;
+      border-radius: 99px;
+      border: 1px solid rgba(139, 92, 246, .25);
+      background: rgba(139, 92, 246, .06);
+      cursor: pointer;
+      max-width: 170px;
+    }
+
+    @media(max-width:1023px) {
+      .user-pill {
+        padding: 4px;
+      }
+
+      .user-pill #userAvatarName {
+        display: none;
+      }
+    }
+
+    .avatar-sk {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .05);
+      transition: opacity .4s;
+    }
+
+    .avatar-sk.loaded {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    details.faq {
+      border-bottom: 1px solid var(--line);
+      padding: 20px 0;
+    }
+
+    details.faq summary {
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 15px;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    details.faq summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.faq summary::after {
+      content: '+';
+      color: var(--p2);
+      font-size: 20px;
+      line-height: 1;
+      transition: transform .25s;
+    }
+
+    details.faq[open] summary::after {
+      transform: rotate(45deg);
+    }
+
+    details.faq p {
+      color: #9ca3af;
+      font-size: 14px;
+      line-height: 1.7;
+      margin-top: 12px;
+      font-weight: 300;
+      max-width: 760px;
+    }
+
+    .startup {
+      border-radius: 32px;
+      border: 1px solid rgba(139, 92, 246, .25);
+      background: linear-gradient(135deg, rgba(139, 92, 246, .14), #000 45%, rgba(168, 85, 247, .08));
+      padding: 48px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    @media(min-width:768px) {
+      .startup {
+        padding: 64px 56px;
+      }
+    }
+
+    .payment-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .85);
+      backdrop-filter: blur(20px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media(prefers-reduced-motion:reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+
+      .reveal {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    /* Beneficios */
+    .benefit {
+      padding: 26px;
+    }
+
+    .benefit .gain {
+      display: inline-block;
+      margin-top: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #86efac;
+    }
+
+    .og-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 99px;
+      margin-bottom: 12px;
+    }
+
+    .og-label.bad {
+      background: rgba(255, 255, 255, .05);
+      color: #9ca3af;
+      border: 1px solid rgba(255, 255, 255, .1);
+    }
+
+    .og-label.good {
+      background: rgba(34, 197, 94, .1);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, .3);
+    }
+
+    .chip {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 99px;
+      background: rgba(139, 92, 246, .1);
+      border: 1px solid rgba(139, 92, 246, .3);
+      color: #ddd6fe;
+    }
+
+    /* Loader */
+    #page-skeleton {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity .6s, visibility .6s;
+    }
+
+    #page-skeleton.hidden-sk {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .gz-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .gz-frame {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gz-halo {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;
+      background: conic-gradient(from 0deg, #8B5CF6, #c084fc, transparent 65%, #8B5CF6);
+      animation: spin 2s linear infinite;
+    }
+
+    .gz-halo::before {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: #000;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .gz-logo {
+      position: relative;
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      object-fit: cover;
+      z-index: 2;
+    }
+
+    .gz-word {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: .2em;
+      text-shadow: 0 0 20px rgba(167, 139, 250, .5);
+    }
+
+    .gz-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gz-track {
+      width: 120px;
+      height: 2px;
+      background: rgba(255, 255, 255, .08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    #gzProgressFill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #8B5CF6, #c084fc);
+      transition: width .3s;
+    }
+
+    #gzProgressPct {
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, .45);
+      min-width: 28px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    html.skip-heavy-loader #page-skeleton {
+      transition-duration: .2s;
+    }
+
+    .og-image-container {
+      width: 100%;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: #0b0b0f;
+    }
+
+    .og-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      /* respeta la proporción real, no recorta */
+      object-fit: contain;
+      object-position: top;
+      /* por si algún día fijas una altura, el dominio queda arriba */
+    }
+
+    .ia-carousel {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      aspect-ratio: var(--ratio, 4 / 5);
+      /* proporción fija, igual para todas las imágenes */
+      border-radius: 24px;
+      overflow: hidden;
+      background: #0b0b0f;
+      border: 1px solid rgba(168, 85, 247, .35);
+      box-shadow: 0 24px 60px -24px rgba(139, 92, 246, .45);
+    }
+
+    .ia-slide {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      /* llena el marco sin deformar */
+      object-position: top center;
+      /* muestra la parte de arriba de la captura */
+      opacity: 0;
+      transition: opacity .7s ease;
+    }
+
+    .ia-slide.on {
+      opacity: 1;
+    }
+
+    /* puntos sobre un degradado para que se lean siempre */
+    .ia-dots {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 22px 0 12px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      z-index: 5;
+      background: linear-gradient(transparent, rgba(0, 0, 0, .55));
+    }
+
+    .ia-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      border: 0;
+      padding: 0;
+      background: rgba(255, 255, 255, .35);
+      cursor: pointer;
+      transition: width .3s, background .3s;
+    }
+
+    .ia-dot.on {
+      width: 24px;
+      background: linear-gradient(90deg, var(--p1), var(--p2));
+    }
+
+    .emo {
+      width: 1.25em;
+      height: 1.25em;
+      object-fit: contain;
+      vertical-align: -0.25em;
+      display: inline-block;
+    }
+
+    .ico .emo {
+      width: 32px;
+      height: 32px;
+      vertical-align: 0;
+    }
+
+    .tag .emo {
+      width: 1.3em;
+      height: 1.3em;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="page-skeleton" aria-hidden="true">
+    <div class="gz-loader">
+      <div class="gz-frame">
+        <div class="gz-halo"></div><img src="img/logo geinz.png" class="gz-logo" alt="">
+      </div>
+      <div class="gz-word">GEINZ</div>
+      <div class="gz-bar">
+        <div class="gz-track">
+          <div id="gzProgressFill"></div>
+        </div><span id="gzProgressPct">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== NAVBAR ========== -->
+  <header class="sticky top-0 z-50 pt-3">
+    <div class="wrap">
+      <nav class="card py-3 px-4 sm:px-6"
+        style="background:rgba(8,8,8,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)"
+        aria-label="Principal">
+        <div class="flex items-center justify-between gap-3 flex-nowrap">
+          <a href="#top" class="flex items-center gap-3 shrink-0">
+            <img src="img/logo geinz.png" class="w-9 h-9 object-contain rounded-xl" alt="Logo GEINZ">
+            <span class="brand-name font-extrabold text-sm tracking-wide">GEINZ</span>
+            <span class="hidden xl:inline tag" style="padding:3px 10px;font-size:10px;white-space:nowrap">SaaS &amp;
+              NFC</span>
+          </a>
+          <div class="nav-links hidden lg:flex items-center gap-5 xl:gap-7 text-sm font-semibold text-gray-300">
+            <a href="#beneficios" class="hover:text-white transition-colors">Beneficios</a>
+            <a href="#fisico-virtual" class="hover:text-white transition-colors">Físico y virtual</a>
+            <a href="#rubros" class="hover:text-white transition-colors">Soluciones</a>
+            <a href="#tap" class="hover:text-white transition-colors">Placas NFC</a>
+            <a href="#precios" class="hover:text-white transition-colors">Precios</a>
+          </div>
+          <div class="nav-actions flex items-center gap-2">
+            <button onclick="openBusinessPanel()"
+              class="hidden lg:block px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-gray-200 hover:bg-white/5 transition-all">Iniciar
+              sesión</button>
+            <div id="userAvatarWrap" style="display:none" class="user-pill">
+              <div style="position:relative;width:32px;height:32px;flex-shrink:0">
+                <div id="userAvatarSk" class="avatar-sk"></div>
+                <img id="userAvatarImg" alt="Perfil"
+                  style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid rgba(139,92,246,.5);position:relative;z-index:2;opacity:0;transition:opacity .4s">
+              </div>
+              <span id="userAvatarName" class="text-xs font-bold truncate" style="max-width:110px">Usuario</span>
+            </div>
+            <a href="#demo" class="btn btn-main" style="padding:10px 18px;font-size:.78rem">Probar Demo</a>
+            <button id="burger" class="burger lg:hidden" aria-label="Abrir menú" aria-expanded="false"
+              aria-controls="mobileMenu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <!-- Menú móvil / tablet -->
+        <div id="mobileMenu" class="lg:hidden mt-3 pt-2 border-t border-white/5">
+          <a href="#beneficios">Beneficios</a>
+          <a href="#fisico-virtual">Físico y virtual</a>
+          <a href="#rubros">Soluciones</a>
+          <a href="#tap">Placas NFC</a>
+          <a href="#precios">Precios</a>
+          <button class="mlink" onclick="openBusinessPanel()">Iniciar sesión</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ========== HERO (frases dinámicas) ========== -->
+    <section class="sec" style="padding-top:48px">
+      <div class="glow" style="top:-140px;left:0"></div>
+      <div class="wrap grid lg:grid-cols-12 gap-12 items-center">
+        <div class="lg:col-span-7 space-y-6">
+          <span class="tag"><img class="emo" src="img/icons_index/carrito.png" alt=""> Tu tienda propia · sin
+            intermediarios</span>
+          <!-- La primera frase queda en el HTML para SEO; el script rota las demás -->
+          <h1 id="heroTitle"
+            class="hero-title rot text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] grad max-w-3xl"
+            aria-live="polite">Tu tienda online con carrito de compras y 0% de comisión.</h1>
+          <p id="heroSub" class="hero-sub rot text-gray-300 text-base sm:text-lg max-w-xl leading-relaxed font-light">
+            Recibe pedidos directo en tu WhatsApp, conoce quién te compra y haz que vuelvan con tu tarjeta de puntos 3D.
+            Tus clientes piden con un toque desde la mesa o desde tu enlace, y el 100% de la venta es tuyo.</p>
+          <div class="rot-dots" id="heroDots" role="tablist" aria-label="Frases del hero"></div>
+          <div class="flex flex-col sm:flex-row gap-3 pt-2">
+            <a href="visor.html" class="btn btn-main">Ver Demo Interactiva en Vivo</a>
+            <a href="registrogeinz.html" class="btn btn-ghost">Crear mi tienda gratis</a>
+          </div>
+          <div class="grid grid-cols-3 gap-3 pt-4 max-w-md">
+            <div>
+              <p class="text-2xl font-extrabold">0%</p>
+              <p class="text-xs text-gray-500">comisión por pedido</p>
+            </div>
+            <div>
+              <p class="text-2xl font-extrabold">10 s</p>
+              <p class="text-xs text-gray-500">para probar la demo</p>
+            </div>
+            <div>
+              <p class="text-2xl font-extrabold">0</p>
+              <p class="text-xs text-gray-500">apps que instalar</p>
+            </div>
+          </div>
+        </div>
+        <div class="lg:col-span-5">
+          <!-- Reemplazar con imagen_nfc_hero.png (editable en GEINZ_DATA.images.hero o desde tu DB) -->
+          <div style="aspect-ratio:4/5;max-height:540px" data-slot="hero"
+            data-hint="imagen_nfc_hero.png · Placa NFC + PWA en celular"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== BENEFICIOS (¿qué le falta a tu negocio?) ========== -->
+    <section id="beneficios" class="sec reveal">
+      <div class="glow" style="top:10%;left:-10%"></div>
+      <div class="wrap">
+        <div class="max-w-2xl mb-12 space-y-3">
+          <p class="eyebrow">Todo lo que tu negocio gana</p>
+          <h2 class="t">Deja de vender a ciegas. Conoce y controla tu negocio.</h2>
+          <p class="text-gray-400 font-light">Una carta de papel o un chat de WhatsApp te dejan sin datos. Con GEINZ
+            cada venta te enseña algo y cada cliente tiene un motivo para volver.</p>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <article class="card benefit">
+            <div class="ico"><img class="emo" src="img/icons_index/clientes.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Sabe quién te compra</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Mira qué clientes han comprado, quién es tu
+              cliente más fiel y quién es el más recurrente. Ya no dependes de tu memoria.</p>
+            <span class="gain">✓ Clientes identificados</span>
+          </article>
+          <article class="card benefit">
+            <div class="ico"><img class="emo" src="img/icons_index/recibos.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Cuadra tu caja más rápido</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Todos tus pedidos y ventas del día quedan
+              registrados con su estado. Al cerrar, cuadras en minutos y no con cuaderno y calculadora.</p>
+            <span class="gain">✓ Cierre de caja sin dolor de cabeza</span>
+          </article>
+          <article class="card benefit">
+            <div class="ico"><img class="emo" src="img/icons_index/internet.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Tu presencia digital con tu propio dominio</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Ten tu tienda en <span
+                class="text-gray-200">www.tunegocio.com</span> y no en un enlace genérico. Se ve profesional, se
+              recuerda fácil y genera confianza.</p>
+            <span class="gain">✓ Dominio personalizado</span>
+          </article>
+          <article class="card benefit">
+            <div class="ico"><img class="emo" src="img/icons_index/chat.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Enlaces que se ven profesionales al compartir</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Cuando compartes tu tienda o tu tarjeta de
+              fidelización por WhatsApp o redes, sale con tu logo, título y foto (Meta OG). Tus clientes lo abren más.
+            </p>
+            <span class="gain">✓ Vista previa con tu marca</span>
+          </article>
+          <article class="card benefit">
+            <div class="ico"><img class="emo" src="img/icons_index/rayo.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Cambios en tiempo real</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Cambia precios, apaga lo agotado y ajusta
+              tus horarios desde el celular. Se actualiza al instante en tu carta, tus placas y tus enlaces.</p>
+            <span class="gain">✓ Sin reimprimir ni esperar</span>
+          </article>
+          <article class="card benefit">
+            <div class="ico"><img class="emo" src="img/icons_index/mapa%20(1).png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Que te encuentren y lleguen fácil</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Tus clientes ven dónde estás y crean la
+              ruta con un toque, directo en su mapa. Menos llamadas de "¿dónde queda?" y más visitas.</p>
+            <span class="gain">✓ Ubicación y ruta en un clic</span>
+          </article>
+        </div>
+
+        <!-- Comparativa de enlace compartido: reemplaza las imágenes en GEINZ_DATA.images.ogGeinz y .ogCustom -->
+        <div class="mt-16">
+          <div class="max-w-2xl mb-8 space-y-3">
+            <p class="eyebrow">Así se ve tu enlace al compartirlo</p>
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight">Tu marca en cada mensaje, con GEINZ o con tu
+              dominio</h3>
+            <p class="text-gray-400 font-light text-sm">Comparte tu tienda o tu tarjeta de fidelización y mira cómo la
+              ve tu cliente en WhatsApp. Empieza con el enlace de GEINZ y, cuando quieras, pasa a tu propio dominio.</p>
+          </div>
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="card p-5">
+              <span class="og-label bad">Con enlace GEINZ</span>
+              <div class="og-image-container">
+                <img src="img/dominio2.png" alt="Vista previa de un enlace compartido con GEINZ" class="og-image"
+                  loading="lazy">
+              </div>
+              <p class="text-gray-400 text-xs mt-3 font-light">
+                Disponible desde el Plan Digital: tu logo y tu título al compartir.
+              </p>
+            </div>
+
+            <div class="card p-5" style="border-color:rgba(168,85,247,.45)">
+              <span class="og-label good">Con tu dominio personalizado</span>
+              <div class="og-image-container">
+                <img src="img/dominio1.png" alt="Vista previa con tu dominio personalizado" class="og-image"
+                  loading="lazy">
+              </div>
+              <p class="text-gray-300 text-xs mt-3 font-light">
+                Tu marca de principio a fin:
+                <span class="text-purple-300 font-semibold">www.tunegocio.com</span>
+                y tu tarjeta de fidelización con tu nombre.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PUBLICACIONES CON IA + FACEBOOK ========== -->
+    <section id="publicaciones" class="sec reveal">
+      <div class="glow" style="top:10%;left:-10%"></div>
+      <div class="wrap grid lg:grid-cols-12 gap-10 items-center">
+        <div class="lg:col-span-7 space-y-5">
+          <p class="eyebrow">Marketing con Inteligencia Artificial</p>
+          <h2 class="t">Sube una foto y deja que la IA cree tu publicación</h2>
+          <p class="text-gray-400 font-light leading-relaxed">Crea publicaciones para tus productos y promociones sin
+            salir de GEINZ. Pasas la imagen, la inteligencia artificial te arma el texto, y con tu página de Facebook
+            conectada lo publicas en tu tienda y en Facebook a la vez.</p>
+          <ol class="list-none p-0 m-0 grid sm:grid-cols-3 gap-4 pt-2">
+            <li class="card p-5">
+              <div class="ico"><img class="emo" src="img/icons_index/camara.png" alt=""></div>
+              <h3 class="font-bold text-sm mt-4">1. Sube tu imagen</h3>
+              <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">La foto de tu producto, plato o
+                promoción.</p>
+            </li>
+            <li class="card p-5">
+              <div class="ico"><img class="emo" src="img/icons_index/estrellas.png" alt=""></div>
+              <h3 class="font-bold text-sm mt-4">2. La IA crea el texto</h3>
+              <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Obtienes una publicación lista para
+                revisar y ajustar a tu gusto.</p>
+            </li>
+            <li class="card p-5">
+              <div class="ico"><img class="emo" src="img/icons_index/megafono.png" alt=""></div>
+              <h3 class="font-bold text-sm mt-4">3. Publica en un clic</h3>
+              <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Sale en tu tienda y en tu Página de
+                Facebook al mismo tiempo.</p>
+            </li>
+          </ol>
+          <ul class="check list-none p-0">
+            <li>Conexión directa con tu Página de Facebook</li>
+            <li>Un solo lugar para vender y para promocionar</li>
+            <li>Ahorra tiempo y deja de pagar a alguien solo para redactar tus posts</li>
+          </ul>
+        </div>
+        <div class="lg:col-span-5">
+          <div class="ia-carousel" id="iaCarousel" role="group" aria-label="Ejemplos de publicaciones creadas con IA">
+            <img src="img/gen1.JPG" style="--ratio:5/5" alt="Paso 1: subir la imagen del producto" class="ia-slide on">
+            <img src="img/gen2.JPG" style="--ratio:5/5" alt="Paso 2: la IA genera el texto de la publicación"
+              class="ia-slide">
+            <img src="img/gen3.JPG" style="--ratio:5/5" alt="Paso 3: revisar y ajustar la publicación" class="ia-slide">
+            <img src="img/gen4.JPG" style="--ratio:5/5" alt="Publicación lista en la tienda y en Facebook"
+              class="ia-slide">
+            <div class="ia-dots" id="iaDots"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== FÍSICO Y VIRTUAL ========== -->
+    <section id="fisico-virtual" class="sec reveal">
+      <div class="glow" style="top:0;right:-10%"></div>
+      <div class="wrap">
+        <div class="max-w-2xl mb-12 space-y-3">
+          <p class="eyebrow">Con local o sin local</p>
+          <h2 class="t">Para negocios físicos y también para tiendas 100% virtuales</h2>
+          <p class="text-gray-400 font-light">¿Tienes un local a la calle o vendes solo por Instagram, TikTok o
+            WhatsApp? GEINZ está adaptado para los dos casos. Elige el tuyo y mira cómo te sirve.</p>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+          <!-- Físico -->
+          <article class="card p-8 flex flex-col">
+            <span class="tag self-start"><img class="emo" src="img/icons_index/tienda.png" alt=""> Negocio físico</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold mt-4 tracking-tight">Tienes un local, mesas o vitrina</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Restaurantes, cafeterías, licorerías,
+              minimarkets, tiendas de ropa y cualquier comercio donde el cliente llega a tu local.</p>
+            <ul class="check list-none p-0 mt-4 flex-1">
+              <li>Placa NFC + QR en cada mesa, mostrador o vitrina: piden acercando el celular</li>
+              <li>Pedidos para consumir en el local, para llevar o delivery por zonas</li>
+              <li>Pedido directo a cocina y a tu WhatsApp, con estados en tiempo real</li>
+              <li>Horarios por bloques y stock que se apaga cuando se agota</li>
+              <li>Ubicación y ruta en un toque para que te encuentren fácil</li>
+              <li>Tarjeta de puntos 3D para que vuelvan a tu local</li>
+            </ul>
+          </article>
+
+          <!-- Virtual -->
+          <article class="card p-8 flex flex-col"
+            style="border-color:rgba(168,85,247,.45);background:linear-gradient(180deg,rgba(139,92,246,.08),var(--card) 55%)">
+            <span class="tag self-start"><img class="emo" src="img/icons_index/bolsa-artguru.png" alt=""> Negocio
+              virtual</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold mt-4 tracking-tight">Vendes online, sin local físico</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Emprendedores y marcas que venden por redes
+              sociales o WhatsApp y no tienen una tienda a la calle. No necesitas dirección física para empezar.</p>
+            <ul class="check list-none p-0 mt-4 flex-1">
+              <li>Tu propia tienda con carrito de compras y tu enlace (o tu dominio) para poner en la bio de Instagram,
+                TikTok o Facebook</li>
+              <li>Catálogo con fotos HD, variantes de talla y color, y stock por variante</li>
+              <li>Pedidos ordenados en tu panel, no perdidos entre chats</li>
+              <li>Zonas de reparto y coordinación de envío con el cliente por WhatsApp</li>
+              <li>Seguimiento de pedido para que tu cliente sepa en qué va su compra</li>
+              <li>Placas NFC o QR en tarjetas, empaques y stands de ferias que llevan a tu tienda</li>
+              <li>0% de comisión: dejas de depender de marketplaces y apps de delivery</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="card mt-6 p-6 text-center" style="border-color:rgba(139,92,246,.3)">
+          <p class="text-sm text-gray-300 font-light">¿Tienes local <span class="font-bold text-white">y</span> también
+            vendes online? Con la misma tienda atiendes a quienes llegan a tu local y a quienes te compran desde su
+            casa.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== TAP-TO-ORDER ========== -->
+    <section id="tap" class="sec reveal">
+      <div class="wrap">
+        <div class="max-w-2xl mb-12 space-y-3">
+          <p class="eyebrow">Placas NFC Tap-to-Order</p>
+          <h2 class="t">De la mesa a tu panel en 3 pasos</h2>
+          <p class="text-gray-400 font-light">Una placa de acrílico con NFC y QR en cada mesa, mostrador o vitrina. El
+            cliente la usa sin descargar nada y tú recibes el pedido al instante.</p>
+        </div>
+        <ol class="grid md:grid-cols-3 gap-5 list-none p-0 m-0">
+          <li class="card p-7">
+            <div class="ico"><img class="emo" src="img/icons_index/celular.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">1. El cliente aproxima su celular</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">NFC o QR instantáneo, sin instalar nada.
+              Funciona en Android y iPhone modernos.</p>
+          </li>
+          <li class="card p-7">
+            <div class="ico"><img class="emo" src="img/icons_index/carrito.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">2. Arma su carrito y envía su pedido</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">PWA ultrarrápida con tus fotos y precios.
+              El pedido llega directo a tu panel y a tu WhatsApp.</p>
+          </li>
+          <li class="card p-7">
+            <div class="ico"><img class="emo" src="img/icons_index/tarjeta.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">3. Acumula puntos en su Tarjeta 3D</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Canjea cupones y regresa. Cada compra suma,
+              sin tarjetas de cartón que se pierden.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ========== PANEL + GALERÍA DE MOCKUPS ========== -->
+    <section id="panel" class="sec reveal">
+      <div class="glow" style="top:20%;right:-10%"></div>
+      <div class="wrap">
+        <div class="max-w-2xl mb-10 space-y-3">
+          <p class="eyebrow">Panel de control</p>
+          <h2 class="t">Tu negocio bajo control, en tiempo real</h2>
+          <p class="text-gray-400 font-light">Todo lo que cambias en el panel se actualiza al instante en tu carta, tus
+            placas y los enlaces que compartes.</p>
+        </div>
+
+        <ul class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 list-none p-0 mb-10">
+          <li class="card p-5">
+            <div class="ico"><img class="emo" src="img/icons_index/paquete.png" alt=""></div>
+            <h3 class="font-bold text-sm mt-4">Stock y horarios por bloques</h3>
+            <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Apaga lo agotado y programa tu atención
+              por bloques.</p>
+          </li>
+          <li class="card p-5">
+            <div class="ico"><img class="emo" src="img/icons_index/delivery.png" alt=""></div>
+            <h3 class="font-bold text-sm mt-4">Estados de pedido y delivery</h3>
+            <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed"><span
+                class="text-amber-300">Pendiente</span>, <span class="text-blue-300">En cocina</span>, <span
+                class="text-emerald-300">Entregado</span>, con zonas de reparto.</p>
+          </li>
+          <li class="card p-5">
+            <div class="ico"><img class="emo" src="img/icons_index/paletapincel.png" alt=""></div>
+            <h3 class="font-bold text-sm mt-4">Personalización instantánea</h3>
+            <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Logo, fotos HD y precios en segundos.</p>
+          </li>
+          <li class="card p-5">
+            <div class="ico">🏆</div>
+            <h3 class="font-bold text-sm mt-4">Clientes y cierre de caja</h3>
+            <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Ve tu cliente más fiel y el más
+              recurrente, y cuadra tus ventas del día.</p>
+          </li>
+        </ul>
+
+        <!-- Galería de mockups: reemplaza cada imagen en GEINZ_DATA.gallery (o desde tu DB) -->
+        <div class="bento" id="gallery"></div>
+      </div>
+    </section>
+
+    <!-- ========== EQUIPO Y GASTOS DE PERSONAL ========== -->
+    <section id="equipo" class="sec reveal">
+      <div class="glow" style="top:10%;right:0"></div>
+      <div class="wrap grid lg:grid-cols-12 gap-10 items-center">
+        <div class="lg:col-span-5 order-last lg:order-first">
+          <div class="ia-carousel" role="group" aria-label="Panel de equipo, pagos y ganancias">
+            <img src="img/sueldo1.JPG" alt="Panel de equipo: trabajadores y pagos en soles" class="ia-slide on">
+            <img src="img/sueldo2.JPG" alt="Resumen de ganancias y gastos de personal" class="ia-slide">
+            <div class="ia-dots"></div>
+          </div>
+        </div>
+        <div class="lg:col-span-7 space-y-5">
+          <p class="eyebrow">Gestión de tu equipo</p>
+          <h2 class="t">Controla cuánto ganas y cuánto inviertes en tu equipo</h2>
+          <p class="text-gray-400 font-light leading-relaxed">Registra a tus trabajadores, asígnales su pago en soles y
+            mira en un solo panel qué te generan tus ventas y cuánto destinas a tu personal. Decisiones con números, no
+            con suposiciones.</p>
+          <div class="grid sm:grid-cols-3 gap-4 pt-2">
+            <div class="card p-5">
+              <div class="ico"><img class="emo" src="img/icons_index/trabajador.png" alt=""></div>
+              <h3 class="font-bold mt-4">Asigna pagos en soles</h3>
+              <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Define cuánto recibe cada trabajador y
+                actualízalo cuando lo necesites.</p>
+            </div>
+            <div class="card p-5">
+              <div class="ico"><img class="emo" src="img/icons_index/graficos.png" alt=""></div>
+              <h3 class="font-bold mt-4">Mira tus ganancias</h3>
+              <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Ventas e ingresos de tu negocio a la
+                vista, siempre al día.</p>
+            </div>
+            <div class="card p-5">
+              <div class="ico"><img class="emo" src="img/icons_index/dinero.png" alt=""></div>
+              <h3 class="font-bold mt-4">Controla tus gastos de personal</h3>
+              <p class="text-gray-400 text-xs mt-1.5 font-light leading-relaxed">Sabe cuánto gastas en tu equipo y
+                administra esos pagos desde tu panel.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== RUBROS (dinámico) ========== -->
+    <section id="rubros" class="sec reveal">
+      <div class="wrap">
+        <div class="max-w-2xl mb-12 space-y-3">
+          <p class="eyebrow">Soluciones por rubro</p>
+          <h2 class="t">Si vendes, GEINZ se adapta a tu negocio</h2>
+          <p class="text-gray-400 font-light">No es solo para restaurantes. Cada rubro se configura con su propio tipo
+            de catálogo, variantes y flujo de pedidos.</p>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5" id="rubrosGrid"></div>
+      </div>
+    </section>
+
+    <!-- ========== CONFIANZA Y CUMPLIMIENTO ========== -->
+    <section id="confianza" class="sec reveal">
+      <div class="wrap">
+        <div class="max-w-2xl mb-12 space-y-3">
+          <p class="eyebrow">Confianza y cumplimiento</p>
+          <h2 class="t">Vende tranquilo: tu tienda viene con lo que un negocio formal necesita</h2>
+          <p class="text-gray-400 font-light">Muchos negocios online no tienen sus documentos en regla y eso genera
+            desconfianza y problemas con los clientes. En GEINZ tu tienda ya incluye lo importante.</p>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <article class="card p-6">
+            <div class="ico"><img class="emo" src="img/icons_index/libro.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Libro de Reclamaciones digital</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Tus clientes registran su reclamo desde tu
+              tienda. Te ayuda a cumplir con la obligación de contar con libro de reclamaciones y a evitar multas de
+              Indecopi.</p>
+          </article>
+          <article class="card p-6">
+            <div class="ico"><img class="emo" src="img/icons_index/pergamino.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Términos y Condiciones</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Reglas claras de compra, entrega y cambios
+              publicadas en tu tienda, para que no haya malentendidos con tus clientes.</p>
+          </article>
+          <article class="card p-6">
+            <div class="ico"><img class="emo" src="img/icons_index/candado.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Políticas de Privacidad</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Informa cómo cuidas los datos de tus
+              clientes. Más confianza al momento de comprar y mejor imagen para tu marca.</p>
+          </article>
+          <article class="card p-6">
+            <div class="ico"><img class="emo" src="img/icons_index/paquete.png" alt=""></div>
+            <h3 class="text-lg font-bold mt-5">Seguimiento de pedidos</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Tus clientes consultan en tu página el
+              estado de lo que compraron: pendiente, en preparación o entregado. Menos "¿ya salió mi pedido?" por chat.
+            </p>
+          </article>
+        </div>
+        <p class="text-[11px] text-gray-600 mt-6 font-light">Los documentos legales son plantillas editables para tu
+          negocio; te recomendamos revisarlos con tu asesor legal o contable.</p>
+      </div>
+    </section>
+
+    <!-- ========== COMPARATIVA ========== -->
+    <section class="sec reveal">
+      <div class="wrap">
+        <div class="max-w-2xl mb-10 space-y-3">
+          <p class="eyebrow">¿Por qué cambiar?</p>
+          <h2 class="t">Carta de papel y apps de delivery vs. GEINZ</h2>
+        </div>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="card p-7">
+            <h3 class="font-bold text-gray-400">Como vendes hoy</h3>
+            <ul class="list-none p-0 mt-4 space-y-3 text-sm text-gray-400 font-light">
+              <li>✕ Cartas impresas que se desactualizan y cuestan reimprimir</li>
+              <li>✕ Comisiones de 20–30% en apps de delivery</li>
+              <li>✕ No sabes quién te compra ni cuándo regresa</li>
+              <li>✕ Pedidos por chat sin orden ni estado</li>
+              <li>✕ Cuadrar la caja te toma horas</li>
+              <li>✕ Un enlace genérico que no genera confianza</li>
+            </ul>
+          </div>
+          <div class="card p-7" style="border-color:rgba(168,85,247,.45)">
+            <h3 class="font-bold text-purple-300">Con GEINZ</h3>
+            <ul class="list-none p-0 mt-4 space-y-3 text-sm text-gray-200 font-light">
+              <li>✓ Carta digital que cambias en segundos, siempre al día</li>
+              <li>✓ Sin comisiones: vendes directo a tus clientes</li>
+              <li>✓ Ves quién compra, tu cliente más fiel y el más recurrente</li>
+              <li>✓ Tarjeta de puntos 3D que los hace volver</li>
+              <li>✓ Panel con estados de pedido, stock y delivery</li>
+              <li>✓ Cierre de caja rápido y tu propio dominio</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== COBERTURA: retirada temporalmente (se conserva oculta por si js/indexv2.js usa estos IDs) ========== -->
+    <section id="localidades" hidden>
+      <div id="citiesGrid"></div>
+      <button onclick="abrirCategoria('promociones')" id="btn-promos" disabled>Hub de Promociones</button>
+      <button onclick="abrirCategoria('comercios')" id="btn-comercios" disabled>Explorar negocios activos</button>
+    </section>
+
+    <!-- ========== PRECIOS ========== -->
+    <section id="precios" class="sec reveal">
+      <div class="wrap">
+        <div class="text-center max-w-2xl mx-auto mb-12 space-y-3">
+          <p class="eyebrow">Precios y combos</p>
+          <h2 class="t">Empieza gratis. Crece con tu local.</h2>
+          <p class="text-gray-400 font-light">Sin comisiones por venta. Elige el plan que se ajusta a tu negocio.</p>
+        </div>
+        <div class="grid md:grid-cols-3 gap-5">
+          <article class="card plan p-8 flex flex-col">
+            <h3 class="text-lg font-extrabold">Plan Digital</h3>
+            <p class="mt-3"><span class="text-4xl font-extrabold">S/ 0</span> <span
+                class="text-gray-500 text-sm">gratis</span></p>
+            <ul class="check list-none p-0 mt-4 flex-1">
+              <li>PWA básica con carrito de compras</li>
+              <li>Pedidos directo a WhatsApp</li>
+              <li>Panel de gestión</li>
+            </ul>
+            <a href="registrogeinz.html" class="btn btn-ghost mt-8">Crear mi tienda gratis</a>
+          </article>
+          <article class="card plan featured p-8 flex flex-col relative">
+            <span class="absolute text-[10px] font-bold px-3 py-1 rounded-full text-white"
+              style="top:-12px;right:24px;background:linear-gradient(90deg,#8B5CF6,#A855F7)">MÁS ELEGIDO</span>
+            <h3 class="text-lg font-extrabold">Combo NFC Pro</h3>
+            <p class="mt-3"><span class="text-4xl font-extrabold">S/ 49</span> <span class="text-gray-400 text-sm">/ mes
+                + Pack</span></p>
+            <ul class="check list-none p-0 mt-4 flex-1">
+              <li>PWA completa</li>
+              <li>Tarjeta de Fidelización 3D</li>
+              <li>Pack de Placas NFC de acrílico personalizadas</li>
+              <li>Control de Stock y Horarios</li>
+            </ul>
+            <a href="https://wa.me/51958120920?text=Hola%20GEINZ%2C%20quiero%20el%20Combo%20NFC%20Pro" target="_blank"
+              rel="noopener noreferrer" class="btn btn-main mt-8">Quiero el Combo NFC Pro</a>
+          </article>
+          <article class="card plan p-8 flex flex-col">
+            <h3 class="text-lg font-extrabold">Enterprise / A Medida</h3>
+            <p class="mt-3"><span class="text-4xl font-extrabold">Cotiza</span></p>
+            <ul class="check list-none p-0 mt-4 flex-1">
+              <li>Múltiples sucursales</li>
+              <li>WhatsApp Cloud API</li>
+              <li>Integración con tu CRM</li>
+              <li>Soporte prioritario</li>
+            </ul>
+            <a href="https://wa.me/51958120920?text=Hola%20GEINZ%2C%20necesito%20un%20plan%20Enterprise" target="_blank"
+              rel="noopener noreferrer" class="btn btn-ghost mt-8">Hablar con ventas</a>
+          </article>
+        </div>
+
+        <!-- Placas NFC por separado -->
+        <div class="card mt-8 p-6 md:p-10 grid md:grid-cols-12 gap-8 items-center"
+          style="border-color:rgba(168,85,247,.35);background:linear-gradient(135deg,rgba(139,92,246,.1),var(--card) 60%)">
+          <div class="md:col-span-7 space-y-4">
+            <span class="tag"><img class="emo" src="img/icons_index/celular_flecha.png" alt=""> También puedes pedir
+              solo la placa</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight">Placas NFC personalizadas, por la cantidad que
+              necesites</h3>
+            <p class="text-gray-400 text-sm font-light leading-relaxed">No necesitas contratar un plan para empezar.
+              Pide 1 placa para probar cómo se ve con tu logo, o un pack para todas tus mesas, mostradores y sucursales.
+              Tú decides a dónde apunta cada una:</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="chip"><img class="emo" src="img/icons_index/internet.png" alt=""> Tu página web</span>
+              <span class="chip"><img class="emo" src="img/icons_index/carrito.png" alt=""> Tu tienda GEINZ</span>
+              <span class="chip"><img class="emo" src="img/icons_index/chat.png" alt=""> Tu WhatsApp</span>
+              <span class="chip"><img class="emo" src="img/icons_index/camara.png" alt=""> Instagram</span>
+              <span class="chip"><img class="emo" src="img/icons_index/tikto.png" alt=""> TikTok</span>
+              <span class="chip"><img class="emo" src="img/icons_index/like.png" alt=""> Facebook</span>
+              <span class="chip"><img class="emo" src="img/icons_index/estrella.png" alt=""> Reseñas de Google</span>
+              <span class="chip"><img class="emo" src="img/icons_index/mapa%20(1).png" alt=""> Ubicación en el
+                mapa</span>
+            </div>
+            <ul class="check list-none p-0">
+              <li>Acrílico con tu logo y colores de marca</li>
+              <li>NFC + QR en la misma placa, sin instalar apps</li>
+              <li>Pide desde 1 unidad para probar, o por cantidades</li>
+              <li>Cambia a dónde apunta cuando quieras, sin reimprimir</li>
+            </ul>
+            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+              <a href="https://wa.me/51958120920?text=Hola%20GEINZ%2C%20quiero%20pedir%20placas%20NFC%20con%20mi%20logo.%20Necesito%20___%20unidades"
+                target="_blank" rel="noopener noreferrer" class="btn btn-main">Pedir mis placas NFC</a>
+              <a href="https://wa.me/51958120920?text=Hola%20GEINZ%2C%20quiero%20probar%20una%20placa%20NFC%20con%20mi%20logo"
+                target="_blank" rel="noopener noreferrer" class="btn btn-ghost">Probar 1 placa con mi logo</a>
+            </div>
+          </div>
+          <div class="md:col-span-5">
+            <div class="ia-carousel" style="--ratio:1/1;max-width:420px" role="group"
+              aria-label="Placas NFC personalizadas con logo">
+              <img src="img/nfc1.png" alt="Placa NFC de acrílico con logo en mesa" class="ia-slide on" loading="lazy">
+              <img src="img/nfc2.png" alt="Placa NFC personalizada para mostrador" class="ia-slide" loading="lazy">
+              <img src="img/nfc3.png" alt="Cliente acercando el celular a la placa NFC" class="ia-slide" loading="lazy">
+              <img src="img/nfc4.png" alt="Pack de placas NFC con diferentes diseños" class="ia-slide" loading="lazy">
+              <div class="ia-dots"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PRODUCTOS ADICIONALES ========== -->
+    <section class="sec reveal">
+      <div class="wrap">
+        <div class="mb-10 space-y-3">
+          <p class="eyebrow">Ecosistema GEINZ</p>
+          <h2 class="t">Productos adicionales</h2>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <a href="https://geinztech.com/generatorqr.html" class="card p-7 block"><span
+              class="text-[10px] font-bold text-green-400">● Disponible gratis</span>
+            <h3 class="text-xl font-bold mt-4">Geinz QR Tech</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Códigos QR con degradados de marca, logo
+              incrustado y marcos. Incluye API abierta.</p>
+          </a>
+          <a href="https://scag.site/" target="_blank" rel="noopener noreferrer" class="card p-7 block"><span
+              class="text-[10px] font-bold text-green-400">● Disponible</span>
+            <h3 class="text-xl font-bold mt-4">Plataforma SCAG</h3>
+            <p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">Gestión académica y estudiantil para
+              instituciones educativas.</p>
+          </a>
+          <div class="card p-7 opacity-60"><span class="text-[10px] font-bold text-gray-400">Próximamente</span>
+            <h3 class="text-xl font-bold mt-4 text-gray-400">Geinz Studio</h3>
+            <p class="text-gray-600 text-sm mt-2 font-light leading-relaxed">Plantillas y artes automáticos para tus
+              promociones.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== STARTUP BANNER ========== -->
+    <section class="sec reveal">
+      <div class="wrap">
+        <div class="startup grid md:grid-cols-12 gap-10 items-center">
+          <div class="md:col-span-7 space-y-5">
+            <p class="text-xs font-bold text-gray-400"><img class="emo" src="img/icons_index/bandera_peru-artguru.png"
+                alt=""> Startup peruana</p>
+            <h2 class="t grad">GEINZ, la plataforma que todo negocio peruano necesitaba</h2>
+            <p class="text-gray-400 font-light leading-relaxed max-w-xl">Nacimos en Barranca con una misión clara:
+              democratizar las herramientas tecnológicas para que cada negocio, sin importar su ciudad, tenga su propia
+              tienda virtual y compita con las grandes marcas. IA, automatización y visibilidad digital al alcance de tu
+              mano.</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="rubro-tag">Inteligencia Artificial</span><span class="rubro-tag">Tienda virtual
+                propia</span><span class="rubro-tag">Dominio personalizado</span><span class="rubro-tag">App nativa
+                Android</span>
+            </div>
+          </div>
+          <div class="md:col-span-5 flex justify-center"><img src="img/daniel_fuerte.webp" alt="Fundador de GEINZ"
+              loading="lazy" class="w-full max-w-[360px] h-auto object-contain"
+              style="filter:drop-shadow(0 20px 40px rgba(0,0,0,.6))"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== FAQ ========== -->
+    <section id="faq" class="sec reveal">
+      <div class="wrap max-w-3xl">
+        <div class="mb-8 space-y-3">
+          <p class="eyebrow">Preguntas frecuentes</p>
+          <h2 class="t">Lo que más nos preguntan</h2>
+        </div>
+        <details class="faq">
+          <summary>¿Mis clientes tienen que instalar una app?</summary>
+          <p>No. La tienda abre en el navegador al acercar el celular a la placa NFC, escanear el QR o abrir tu enlace.
+            Es una PWA, así que además pueden guardarla en su pantalla de inicio si quieren.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Cobran comisión por mis ventas?</summary>
+          <p>No. Vendes directo a tus clientes y el 100% del pedido es tuyo. Pagas solo el plan que elijas (el Plan
+            Digital es gratis).</p>
+        </details>
+        <details class="faq">
+          <summary>¿Sirve para mi tipo de negocio?</summary>
+          <p>Sí. Funciona para gastronomía, licorerías, minimarkets, ropa y otros comercios. El catálogo se configura
+            según tu rubro: variantes de talla y color, combos, stock dinámico o carta por categorías.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Puedo administrar los pagos de mis trabajadores?</summary>
+          <p>Sí. Desde tu panel registras a tu equipo, asignas el pago de cada trabajador en soles y ves cuánto gastas
+            en personal frente a lo que ganas con tus ventas.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Puedo crear publicaciones con IA y subirlas a Facebook?</summary>
+          <p>Sí. Subes la imagen de tu producto o promoción, la inteligencia artificial te arma la publicación y, con tu
+            Página de Facebook conectada, puedes publicarla a la vez en tu tienda y en Facebook desde GEINZ.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Sirve si no tengo un local físico?</summary>
+          <p>Sí. GEINZ funciona igual para negocios virtuales: tienes tu tienda con carrito de compras, tu enlace o
+            dominio para compartir en redes, panel de pedidos y seguimiento para tus clientes. No necesitas una
+            dirección física para empezar.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Incluye libro de reclamaciones, términos y privacidad?</summary>
+          <p>Sí. Tu tienda incluye Libro de Reclamaciones digital, Términos y Condiciones y Políticas de Privacidad,
+            además de seguimiento de pedidos para tus clientes. Son documentos base editables; te sugerimos revisarlos
+            con tu asesor legal.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Podré saber quiénes son mis mejores clientes?</summary>
+          <p>Sí. En tu panel ves qué clientes han comprado, quién es tu cliente más fiel y quién es el más recurrente,
+            para que puedas premiarlos y hacerlos volver con tu tarjeta de puntos.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Puedo usar mi propio dominio?</summary>
+          <p>Sí. Puedes tener tu tienda en tu propio dominio (por ejemplo, www.tunegocio.com) y compartir tus enlaces y
+            tu tarjeta de fidelización con tu marca, logo y título en la vista previa de WhatsApp y redes.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Qué incluye el Combo NFC Pro?</summary>
+          <p>PWA completa, Tarjeta de Fidelización 3D, un pack de placas NFC de acrílico personalizadas con tu marca y
+            control de stock y horarios, por S/ 49 al mes más el pack.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Puedo pedir solo las placas NFC?</summary>
+          <p>Sí. Puedes pedir placas por cantidad, incluso una sola para probar cómo se ve con tu logo. Cada placa puede
+            apuntar a tu web, tu tienda GEINZ, tu WhatsApp, tus redes sociales o tus reseñas de Google. Escríbenos por
+            WhatsApp y te cotizamos.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Puedo probarlo antes de pagar?</summary>
+          <p>Sí. Entra a la demo interactiva sin registro, mira la tienda como la ve tu cliente y prueba el panel de
+            administración desde tu propio celular.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Tengo varias sucursales, qué hago?</summary>
+          <p>El plan Enterprise permite múltiples sucursales, integración con tu CRM, WhatsApp Cloud API y soporte
+            prioritario. Escríbenos por WhatsApp y armamos una propuesta a medida.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ========== CTA FINAL ========== -->
+    <section id="demo" class="sec reveal">
+      <div class="wrap">
+        <div class="card relative overflow-hidden text-center px-6 py-14 md:py-20"
+          style="background:linear-gradient(160deg,rgba(139,92,246,.16),#000 60%);border-color:rgba(139,92,246,.35)">
+          <div class="max-w-2xl mx-auto space-y-5">
+            <h2 class="t grad">Prueba GEINZ en tu propio celular en 10 segundos</h2>
+            <p class="text-gray-400 font-light">Sin registro ni tarjeta. Mira la tienda como la ve tu cliente y manipula
+              el panel como si fuera tuyo.</p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center pt-3">
+              <!-- Ajusta estas rutas a tus demos reales -->
+              <a href="/demo/restaurante" class="btn btn-main">Ver tienda demo</a>
+              <a href="/demo/panel" class="btn btn-ghost">Probar panel de administración</a>
+            </div>
+            <div class="flex flex-wrap gap-5 justify-center text-xs text-gray-500 pt-2">
+              <a href="/demo/licoreria" class="hover:text-white">Demo licorería</a>
+              <a href="/demo/ropa" class="hover:text-white">Demo tienda de ropa</a>
+              <a href="https://wa.me/51958120920?text=Hola%20GEINZ%2C%20quiero%20mi%20Placa%20NFC%20y%20una%20demo"
+                target="_blank" rel="noopener noreferrer" class="hover:text-white">Pedir mi placa por WhatsApp</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="border-t border-white/5 pt-14 pb-8 relative z-10 bg-black">
+    <div class="wrap">
+      <h2 class="sr-only">Información de la empresa, contacto y legal</h2>
+      <div class="grid md:grid-cols-3 gap-5 mb-12">
+        <div class="card p-6">
+          <p class="text-xs font-bold text-purple-400">Entidad jurídica</p>
+          <h3 class="font-extrabold mt-1.5">GEINZ TECNOLOGÍA E.I.R.L.</h3>
+          <p class="text-xs text-gray-500 mt-4 font-mono">RUC: 20615632580</p>
+        </div>
+        <div class="card p-6">
+          <p class="text-xs font-bold text-purple-400">Estatus de plataforma</p>
+          <p class="flex items-center gap-2 mt-2 text-sm font-semibold"><span
+              class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Todos los nodos operativos</p>
+          <p class="text-xs text-gray-500 mt-4">Régimen Legal MYPE Tributario</p>
+        </div>
+        <div class="card p-6">
+          <p class="text-xs font-bold text-purple-400">Hub central</p>
+          <h3 class="text-sm font-semibold mt-1.5">Barranca, Lima — Perú</h3>
+          <p class="text-xs text-gray-500 mt-4">Despliegue técnico descentralizado</p>
+        </div>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 pt-8 border-t border-white/5">
+        <div class="space-y-3 text-xs">
+          <h3 class="font-bold text-gray-300">Soporte y Legal</h3>
+          <a href="seguridad_geinz/terminos_y_condiciones" class="block text-gray-500 hover:text-white">Términos y
+            Condiciones del Servicio</a>
+          <a href="seguridad_geinz/politicas_devoluciones" class="block text-gray-500 hover:text-white">Políticas de
+            Devolución de Fondos</a>
+          <a href="seguridad_geinz/libro_reclamaciones" class="block text-gray-500 hover:text-white">Libro de
+            Reclamaciones Digital</a>
+        </div>
+        <div class="space-y-3 text-xs text-gray-500">
+          <h3 class="font-bold text-gray-300">Contacto</h3>
+          <p>+51 958 120 920</p>
+          <p>soybenjadesing@gmail.com</p>
+          <button onclick="openAboutUs()" class="hover:text-white">Acerca de nosotros</button>
+        </div>
+        <div class="lg:col-span-2 space-y-3">
+          <h3 class="text-xs font-bold text-gray-300">Misión de desarrollo</h3>
+          <p class="text-xs text-gray-500 leading-relaxed font-light">Estructurado con el fin de transformar la
+            infraestructura de comercio digital del país. Proveemos herramientas tecnológicas modulares para que
+            microempresas de cualquier región compitan con herramientas digitales de primer nivel.</p>
+        </div>
+      </div>
+      <div
+        class="mt-12 pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-3 text-[11px] text-gray-500">
+        <p>© 2026 GEINZ TECNOLOGÍA E.I.R.L. Todos los derechos reservados.</p>
+        <p>Ingeniería Web Premium por <span class="text-gray-400 font-medium">Benjamin SLA</span></p>
+      </div>
+    </div>
+  </footer>
+
+  <div id="paymentOverlay" class="payment-overlay hidden">
+    <div class="card p-8 text-center max-w-sm w-[90%]">
+      <div class="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <h3 id="paymentTitle" class="text-base font-bold">Procesando transacción</h3>
+      <p id="paymentText" class="text-gray-500 text-xs mt-1.5 leading-relaxed">Conectando con los servidores seguros de
+        Culqi. Mantén esta ventana abierta...</p>
+    </div>
+  </div>
+  <div id="lb" class="lb" role="dialog" aria-modal="true" aria-label="Vista ampliada" aria-hidden="true">
+    <div class="lb-count" id="lbCount"></div>
+    <button type="button" class="lb-close" id="lbClose" aria-label="Cerrar">✕</button>
+    <button type="button" class="lb-nav lb-prev" id="lbPrev" aria-label="Anterior">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </button>
+    <figure class="lb-stage">
+      <img id="lbImg" alt="">
+      <figcaption class="lb-cap"><strong id="lbTitle"></strong><span id="lbDesc"></span></figcaption>
+    </figure>
+    <button type="button" class="lb-nav lb-next" id="lbNext" aria-label="Siguiente">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </button>
+  </div>
+  <script>
+    /* =====================================================
+       CONTENIDO DINÁMICO — edita aquí o cárgalo desde tu DB
+       Para usar tu base de datos: pon la URL de tu endpoint en
+       GEINZ_API (debe devolver JSON con las mismas llaves:
+       hero, images, gallery, rubros). Lo que llegue
+       reemplaza a lo de abajo; si falla, se usa este respaldo.
+
+       hero.phrases -> lista de { title, sub } que rotan en el hero
+       hero.interval -> milisegundos entre frases (por defecto 5500)
+
+       Imágenes referenciales a subir (images):
+         hero     -> imagen_nfc_hero.png
+         ogGeinz  -> vista previa del enlace compartido con GEINZ
+         ogCustom -> vista previa del enlace con dominio personalizado
+         placa    -> mockup de la placa NFC con logo
+       ===================================================== */
+    var GEINZ_API = null; // ej: '/api/landing'
+
+    var GEINZ_DATA = {
+      hero: {
+        interval: 5500,
+        phrases: [
+          {
+            title: 'Tu tienda online con carrito de compras y 0% de comisión.',
+            sub: 'Recibe pedidos directo en tu WhatsApp, conoce quién te compra y haz que vuelvan con tu tarjeta de puntos 3D. Tus clientes piden con un toque desde la mesa o desde tu enlace, y el 100% de la venta es tuyo.'
+          },
+          {
+            title: 'Cada pedido llega a tu WhatsApp. Cada sol se queda contigo.',
+            sub: 'Olvídate de las comisiones de 20–30% de las apps de delivery. Vendes directo a tus clientes y pagas solo tu plan, que puede ser gratis.'
+          },
+          {
+            title: 'Un toque en la mesa y el pedido ya está en tu panel.',
+            sub: 'Placa de acrílico con NFC y QR: tu cliente acerca el celular, arma su carrito y tú recibes el pedido al instante, sin instalar ninguna app.'
+          },
+          {
+            title: 'Sabe quién te compra y haz que vuelva una y otra vez.',
+            sub: 'Mira quién es tu cliente más fiel, quién es el más recurrente y premia a todos con una tarjeta de puntos 3D que no se pierde.'
+          },
+          {
+            title: 'Tu marca, tu dominio y tu tienda abierta las 24 horas.',
+            sub: 'Usa www.tunegocio.com, comparte enlaces con tu logo en WhatsApp y vende desde tu local o solo por Instagram y TikTok.'
+          },
+          {
+            title: 'Sube una foto y la IA crea tu publicación por ti.',
+            sub: 'Genera el texto de tus promociones y publícalo a la vez en tu tienda y en tu Página de Facebook, sin pagar a nadie solo por redactar.'
+          }
+        ]
+      },
+      images: {
+        hero: '',
+        ogGeinz: 'img/dominio1.jpg',
+        ogCustom: 'img/dominio2.jpg',
+        placa: '', ia: '', equipo: ''
+      },
+      gallery: [
+        { src: 'img/principal.JPG', hint: 'mockup_dashboard.png', title: 'Dashboard general', desc: 'Ventas, pedidos y stock en una sola vista', frame: true },
+        { src: 'img/gesiton_pedidos.JPG', hint: 'mockup_pedidos.png', title: 'Gestión de pedidos', desc: 'Pendiente → En cocina → Entregado' },
+        { src: 'img/produtos.JPG', hint: 'mockup_stock.png', title: 'Control de stock', desc: 'Apaga lo agotado y programa horarios' },
+        { src: 'img/mockup_pwa_movil.png', hint: 'mockup_pwa_movil.png', title: 'Tienda PWA en celular', desc: 'Lo que ve tu cliente al acercar su celular' },
+        { src: 'img/tarjeta_fidelizacion.JPG', hint: 'mockup_tarjeta_3d.png', title: 'Tarjeta de puntos 3D', desc: 'Fidelización que hace volver' },
+        { src: 'img/clientes_fieles2.JPG', hint: 'mockup_clientes.png', title: 'Clientes más fieles', desc: 'Quién compra, quién regresa y quién vale más' }
+      ],
+      rubros: [
+        { icon: 'img/icons_index/hamburgesa.png', title: 'Restaurantes y Gastronomía', desc: 'Pedido desde la mesa, carta siempre al día y aviso inmediato a cocina.', tags: ['Carrito', 'Mesas', 'Cocina'] },
+        { icon: 'img/icons_index/botella.png', title: 'Licorerías y Minimarkets', desc: 'Stock en tiempo real, combos en segundos y delivery por zonas.', tags: ['Stock dinámico', 'Combos', 'Delivery'] },
+        { icon: 'img/icons_index/camiseta.png', title: 'Ropa y Retail', desc: 'Catálogo por talla y color con stock por variante. Una placa en vitrina y listo.', tags: ['Variantes', 'Tallas', 'Colores'] },
+        { icon: 'img/icons_index/cafe.png', title: 'Cafeterías y Panaderías', desc: 'Carta rápida, pedidos para llevar y puntos por cada visita.', tags: ['Para llevar', 'Fidelización'] },
+        { icon: 'img/icons_index/bolsa-artguru.png', title: 'Tiendas 100% virtuales', desc: 'Vendes por Instagram, TikTok o WhatsApp sin local físico: tu tienda, carrito y seguimiento de pedidos.', tags: ['Sin local', 'Redes sociales', 'Envíos'] }
+      ]
+    };
+
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+    /* Slot de imagen: si src carga, se muestra; si no, queda el recuadro con la pista del archivo */
+    function slotHTML(src, hint, alt) {
+      return '<div class="slot' + (src ? ' has-img' : '') + '"><span>' + esc(hint) + '</span>' +
+        (src ? '<img src="' + esc(src) + '" alt="' + esc(alt || hint) + '" loading="lazy" onerror="this.parentNode.classList.remove(\'has-img\');this.remove()">' : '') + '</div>';
+    }
+    /* Slot de la galería: detecta si la imagen es vertical y la muestra completa */
+
+    var SLOT_ALTS = {
+      hero: 'Placa NFC GEINZ y tienda digital en celular',
+      ogGeinz: 'Vista previa de un enlace compartido con GEINZ',
+      ogCustom: 'Vista previa de un enlace compartido con dominio personalizado',
+      placa: 'Placa NFC de acrílico con logo del negocio',
+      ia: 'Publicación creada con inteligencia artificial y publicada en Facebook',
+      equipo: 'Panel de equipo con pagos a trabajadores, ganancias y gastos de personal'
+    };
+
+    /* ===== Hero: frases rotativas ===== */
+    var heroRot = { timer: null, i: 0, phrases: [], interval: 5500, paused: false };
+
+    function heroShow(i, instant) {
+      var t = document.getElementById('heroTitle'), s = document.getElementById('heroSub');
+      var p = heroRot.phrases[i]; if (!p || !t || !s) return;
+      heroRot.i = i;
+      function apply() {
+        t.textContent = p.title; s.textContent = p.sub;
+        t.classList.remove('out'); s.classList.remove('out');
+      }
+      document.querySelectorAll('#heroDots .rot-dot').forEach(function (d, k) {
+        d.classList.toggle('on', k === i); d.setAttribute('aria-selected', k === i ? 'true' : 'false');
+      });
+      if (instant) { apply(); return; }
+      t.classList.add('out'); s.classList.add('out');
+      setTimeout(apply, 450);
+    }
+
+    function heroNext() { heroShow((heroRot.i + 1) % heroRot.phrases.length); }
+
+    function heroStart() {
+      clearInterval(heroRot.timer);
+      if (heroRot.phrases.length < 2) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      heroRot.timer = setInterval(function () { if (!heroRot.paused && !document.hidden) heroNext(); }, heroRot.interval);
+    }
+
+    function heroInit(h) {
+      var phrases = (h && h.phrases && h.phrases.length) ? h.phrases : [];
+      heroRot.phrases = phrases; heroRot.interval = (h && h.interval) || 5500; heroRot.i = 0;
+      var dots = document.getElementById('heroDots');
+      dots.innerHTML = phrases.map(function (_, k) {
+        return '<button type="button" class="rot-dot' + (k === 0 ? ' on' : '') + '" role="tab" aria-label="Frase ' + (k + 1) + '" data-i="' + k + '"></button>';
+      }).join('');
+      dots.style.display = phrases.length > 1 ? 'flex' : 'none';
+      dots.onclick = function (e) {
+        var b = e.target.closest('.rot-dot'); if (!b) return;
+        heroShow(+b.dataset.i); heroStart();
+      };
+      var box = document.getElementById('heroTitle').parentNode;
+      box.onmouseenter = function () { heroRot.paused = true; };
+      box.onmouseleave = function () { heroRot.paused = false; };
+      if (phrases.length) heroShow(0, true);
+      heroStart();
+    }
+
+    function render(d) {
+      document.querySelectorAll('[data-slot]').forEach(function (el) {
+        var key = el.dataset.slot;
+        el.innerHTML = slotHTML(d.images && d.images[key], el.dataset.hint, SLOT_ALTS[key]);
+      });
+
+      var lbList = (d.gallery || []).filter(function (g) { return g.src; });
+      window.GEINZ_LB_ITEMS = lbList;
+      var gi = 0;
+      document.getElementById('gallery').innerHTML = (d.gallery || []).map(function (g) {
+        var has = !!g.src;
+        var attrs = has ? ' class="clickable" data-i="' + (gi++) + '" tabindex="0" role="button" aria-label="Ver ' + esc(g.title) + ' en grande"' : '';
+        var media = has
+          ? '<img class="shot" src="' + esc(g.src) + '" alt="' + esc(g.title) + '" loading="lazy" ' +
+          'onerror="this.parentNode.innerHTML=\'<div class=&quot;shot-ph&quot;>' + esc(g.hint) + '</div>\'">'
+          : '<div class="shot-ph">' + esc(g.hint) + '</div>';
+        return '<figure' + attrs + '><div class="card">' + media + '</div>' +
+          '<figcaption><p class="font-bold text-sm">' + esc(g.title) + '</p>' +
+          '<p class="text-xs text-gray-400 font-light mt-0.5">' + esc(g.desc) + '</p></figcaption></figure>';
+      }).join('');
+
+      document.getElementById('rubrosGrid').innerHTML = (d.rubros || []).map(function (r) {
+        return '<article class="card p-6"><div class="ico"><img class="emo" src="' + esc(r.icon) + '" alt=""></div><h3 class="text-lg font-bold mt-5">' + esc(r.title) + '</h3><p class="text-gray-400 text-sm mt-2 font-light leading-relaxed">' + esc(r.desc) + '</p><div class="flex flex-wrap gap-1.5 mt-4">' +
+          (r.tags || []).map(function (t) { return '<span class="rubro-tag">' + esc(t) + '</span>'; }).join('') + '</div></article>';
+      }).join('');
+      /* Sección de cobertura/ciudades retirada por ahora. Para reactivarla: quita "hidden" de #localidades y vuelve a renderizar #citiesGrid. */
+    }
+    render(GEINZ_DATA);
+    heroInit(GEINZ_DATA.hero);
+    if (GEINZ_API) {
+      fetch(GEINZ_API).then(function (r) { return r.json(); }).then(function (db) {
+        var imgs = Object.assign({}, GEINZ_DATA.images, db.images || {});
+        render({ images: imgs, gallery: db.gallery || GEINZ_DATA.gallery, rubros: db.rubros || GEINZ_DATA.rubros });
+        if (db.hero && db.hero.phrases && db.hero.phrases.length) heroInit(db.hero);
+      }).catch(function () { /* se queda con el respaldo */ });
+    }
+
+    /* Menú móvil */
+    (function () {
+      var b = document.getElementById('burger'), m = document.getElementById('mobileMenu');
+      if (!b || !m) return;
+      b.addEventListener('click', function () {
+        var open = m.classList.toggle('open'); b.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      m.addEventListener('click', function (e) { if (e.target.closest('a,button')) { m.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); } });
+    })();
+
+    /* Respaldo de funciones globales: js/indexv2.js las sobrescribe si las define */
+    window.openAboutUs = window.openAboutUs || function () { location.href = 'nosotros.html'; };
+    window.openBusinessPanel = window.openBusinessPanel || function () { location.href = 'login.html'; };
+    window.seleccionarLocalidad = window.seleccionarLocalidad || function () { };
+    window.abrirCategoria = window.abrirCategoria || function () { };
+
+    /* Loader */
+    (function () {
+      var fill = document.getElementById('gzProgressFill'), pct = document.getElementById('gzProgressPct'),
+        sk = document.getElementById('page-skeleton'), v = 0, done = false;
+      var t = setInterval(function () { if (done) return; v = Math.min(92, v + (92 - v) * 0.08 + 0.5); fill.style.width = v + '%'; pct.textContent = Math.round(v) + '%'; }, 60);
+      function finish() { if (done) return; done = true; clearInterval(t); fill.style.width = '100%'; pct.textContent = '100%'; setTimeout(function () { sk.classList.add('hidden-sk'); }, 250); }
+      window.addEventListener('load', finish); setTimeout(finish, 4000);
+    })();
+
+    /* Reveal */
+    (function () {
+      var els = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('active'); }); return; }
+      var io = new IntersectionObserver(function (en) { en.forEach(function (x) { if (x.isIntersecting) { x.target.classList.add('active'); io.unobserve(x.target); } }); }, { threshold: 0.1 });
+      els.forEach(function (e) { io.observe(e); });
+    })();
+    /* Carruseles de mockups (IA y Equipo): cada uno calcula su propio ratio */
+    document.querySelectorAll('.ia-carousel').forEach(function (box) {
+      var dotsBox = box.querySelector('.ia-dots');
+      var slides = box.querySelectorAll('.ia-slide');
+      if (!dotsBox || !slides.length) return;
+      var i = 0, timer, paused = false;
+
+      dotsBox.innerHTML = Array.prototype.map.call(slides, function (_, k) {
+        return '<button type="button" class="ia-dot' + (k === 0 ? ' on' : '') + '" aria-label="Imagen ' + (k + 1) + '" data-i="' + k + '"></button>';
+      }).join('');
+      dotsBox.style.display = slides.length > 1 ? 'flex' : 'none';
+
+      function show(n) {
+        i = (n + slides.length) % slides.length;
+        slides.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+        dotsBox.querySelectorAll('.ia-dot').forEach(function (d, k) { d.classList.toggle('on', k === i); });
+      }
+      function start() {
+        clearInterval(timer);
+        if (slides.length < 2) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        timer = setInterval(function () { if (!paused && !document.hidden) show(i + 1); }, 3500);
+      }
+
+      dotsBox.addEventListener('click', function (e) {
+        var b = e.target.closest('.ia-dot'); if (!b) return;
+        show(+b.dataset.i); start();
+      });
+      box.addEventListener('mouseenter', function () { paused = true; });
+      box.addEventListener('mouseleave', function () { paused = false; });
+
+      /* Ajusta el marco a la proporción real de la primera imagen */
+
+
+      start();
+    });
+    /* Visor de imágenes de la galería */
+    (function () {
+      var lb = document.getElementById('lb'), img = document.getElementById('lbImg'),
+        tt = document.getElementById('lbTitle'), ds = document.getElementById('lbDesc'),
+        ct = document.getElementById('lbCount'), gal = document.getElementById('gallery');
+      if (!lb || !gal) return;
+      var cur = 0, lastFocus = null, token = 0, tx = null;
+
+      function items() { return window.GEINZ_LB_ITEMS || []; }
+
+      function show(i) {
+        var list = items(); if (!list.length) return;
+        cur = (i + list.length) % list.length;
+        var g = list[cur], my = ++token;
+        img.classList.add('fade');
+        var pre = new Image();
+        pre.onload = pre.onerror = function () {
+          if (my !== token) return;              /* evita parpadeos si cambias rápido */
+          img.src = g.src; img.alt = g.title || '';
+          tt.textContent = g.title || ''; ds.textContent = g.desc || '';
+          ct.textContent = (cur + 1) + ' / ' + list.length;
+          img.classList.remove('fade');
+        };
+        pre.src = g.src;
+        [1, -1].forEach(function (d) { new Image().src = list[(cur + d + list.length) % list.length].src; });
+        var multi = list.length > 1;
+        document.getElementById('lbPrev').style.display = multi ? '' : 'none';
+        document.getElementById('lbNext').style.display = multi ? '' : 'none';
+      }
+
+      function open(i) {
+        lastFocus = document.activeElement;
+        show(i);
+        lb.classList.add('open'); lb.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        document.getElementById('lbClose').focus();
+      }
+      function close() {
+        lb.classList.remove('open'); lb.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        token++;
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
+      }
+
+      gal.addEventListener('click', function (e) {
+        var f = e.target.closest('figure.clickable'); if (f) open(+f.dataset.i);
+      });
+      gal.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('figure.clickable')) { e.preventDefault(); open(+e.target.dataset.i); }
+      });
+
+      document.getElementById('lbClose').addEventListener('click', close);
+      document.getElementById('lbPrev').addEventListener('click', function () { show(cur - 1); });
+      document.getElementById('lbNext').addEventListener('click', function () { show(cur + 1); });
+      lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+
+      document.addEventListener('keydown', function (e) {
+        if (!lb.classList.contains('open')) return;
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowLeft') show(cur - 1);
+        else if (e.key === 'ArrowRight') show(cur + 1);
+      });
+
+      /* Deslizar con el dedo en el celular */
+      lb.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+      lb.addEventListener('touchend', function (e) {
+        if (tx == null) return;
+        var dx = e.changedTouches[0].clientX - tx; tx = null;
+        if (Math.abs(dx) > 50) show(dx < 0 ? cur + 1 : cur - 1);
+      }, { passive: true });
+    })();
+  </script>
+</body>
+
+</html>

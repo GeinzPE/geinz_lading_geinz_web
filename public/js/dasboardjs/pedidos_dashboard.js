@@ -23,8 +23,10 @@ import {
 import { iniciarCamara } from "./scan_camara.js";
 import { db } from "../db/db.js";
 import {
-  cachearConfigComprobante, obtenerConfigComprobante,
-  imprimirComprobante, registrarComprobante,
+  cachearConfigComprobante,
+  prepararCfgComprobante,
+  imprimirComprobante,
+  registrarComprobante,
 } from "./comprobantes.js";
 import {
   tiendaDoc,
@@ -1723,18 +1725,30 @@ function limpiarDominio(d) {
     .replace(/\/.*$/, ""); // quita cualquier ruta
   return limpio || null;
 }
+
+
 async function imprimirComprobantePedido(pedido) {
   try {
-    const cfg = await obtenerConfigComprobante(tiendaId, localidad, {
+    const id = pedido.id || pedido.pedidoDocId || null;
+    const datos = {
+      ...pedido,
+      id,
+      negocio: { id: tiendaId, nombre: bizNombreGlobal, localidad },
+    };
+    // hereda: fuente, toggles, datos del negocio, QR de seguimiento
+    const cfg = await prepararCfgComprobante(tiendaId, localidad, datos, {
+      tiendaData: bizDataGlobal,
       nombre: bizNombreGlobal,
     });
-    const numero = await registrarComprobante(tiendaId, localidad, pedido, cfg);
-    await imprimirComprobante(pedido, cfg, { numero });
+    const numero = await registrarComprobante(tiendaId, localidad, datos, cfg);
+    await imprimirComprobante(datos, cfg, { numero });
   } catch (e) {
     console.error(e);
     showToast("❌ No se pudo imprimir el comprobante", true);
   }
 }
+window.imprimirComprobantePedido = imprimirComprobantePedido;
+window.imprimirComprobantePedido = imprimirComprobantePedido;
 window.imprimirComprobantePedido = imprimirComprobantePedido;
 window.imprimirComprobantePedido = imprimirComprobantePedido;
 /* ══════════════ Datos del negocio ══════════════ */
@@ -3728,7 +3742,7 @@ function renderMesaDetail(numeroMesa) {
       rechazarPedidoMesa(numeroMesa, btnRechazar),
     );
     dmActions.appendChild(btnRechazar);
-   } else if (activos.length > 0) {
+  } else if (activos.length > 0) {
     // Ocupada CON pedido: hay que cobrar antes de liberar
     const btn = document.createElement("button");
     btn.className = "oc-btn primary v-green";
@@ -3753,7 +3767,18 @@ function renderMesaDetail(numeroMesa) {
     btnCmp.textContent = "🖨️ Imprimir comprobante";
     btnCmp.addEventListener("click", async () => {
       for (const [, pp] of activos) {
-        await imprimirComprobantePedido({ ...pp, id: pp.pedidoDocId });
+        const real = pedidosMap.get(pp.pedidoDocId) || {};
+        await imprimirComprobantePedido({
+          ...pp, // base: mesa, bloques
+          ...real, // datos reales: cliente, pago, cupón, descuento, comprobante
+          // lo más actual viene de la mesa
+          productos: pp.productos,
+          total: pp.total,
+          total_items: pp.total_items,
+          bloques: pp.bloques,
+          mesa: pp.mesa,
+          id: pp.pedidoDocId,
+        });
       }
     });
     dmActions.appendChild(btnCmp);
@@ -4650,7 +4675,7 @@ function renderModalActions(container, id, estado, p) {
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button>`;
   } else if (estado === "entregado") {
-container.innerHTML = `
+    container.innerHTML = `
   <div class="oc-final-tag" style="width:100%;">✅ Este pedido ya fue entregado</div>
   <button class="oc-btn ghost" style="width:100%;" data-action="_comprobante">🖨️ Imprimir comprobante</button>
   <div class="dm-undo-row" style="width:100%;"><span class="oc-undo" data-action="en_proceso">↺ Reabrir pedido</span></div>`;
@@ -4670,12 +4695,12 @@ container.innerHTML = `
   container.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation?.();
- if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
-if (btn.dataset.action === "_comprobante")
-  return imprimirComprobantePedido({ id, ...p });
-if (btn.dataset.action === "_aceptar")
-  return abrirModalTiempo(id, p, btn);
-accionEstado(id, p, estado, btn.dataset.action, btn);
+      if (btn.dataset.action === "_pausar") return abrirModalPausa(id, p);
+      if (btn.dataset.action === "_comprobante")
+        return imprimirComprobantePedido({ id, ...p });
+      if (btn.dataset.action === "_aceptar")
+        return abrirModalTiempo(id, p, btn);
+      accionEstado(id, p, estado, btn.dataset.action, btn);
     });
   });
 }
@@ -7622,7 +7647,7 @@ const NuevoPedido = {
     btn.disabled = true;
     btn.textContent = "Verificando stock…";
 
-    // 👉 NUEVO: valida y descuenta stock ANTES de registrar el pedido
+    // Valida y descuenta stock ANTES de registrar el pedido
     const stockCheck = await this.verificarYDescontarStock(items);
     if (!stockCheck.ok) {
       btn.disabled = false;
@@ -7645,9 +7670,9 @@ const NuevoPedido = {
         tiendaId,
         "pedidos",
       );
-      await addDoc(pedidosRef, {
+      const payload = {
         estado: "entregado",
-        stock_descontado: true, // 👈 ya lo descontamos arriba, cambiarEstado no lo vuelve a tocar
+        stock_descontado: true, // ya lo descontamos arriba, cambiarEstado no lo vuelve a tocar
         fecha: now.toLocaleDateString("es-PE"),
         hora: now.toLocaleTimeString("es-PE", {
           hour: "2-digit",
@@ -7672,7 +7697,16 @@ const NuevoPedido = {
         total_items: items.reduce((s, i) => s + i.cantidad, 0),
         total: +total.toFixed(2),
         negocio: { id: tiendaId, nombre: bizNombreGlobal, localidad },
+      };
+      const ref = await addDoc(pedidosRef, payload);
+
+      // Comprobante automático (sin await: no bloquea el registro)
+      imprimirComprobantePedido({
+        ...payload,
+        id: ref.id,
+        timestamp: Timestamp.now(),
       });
+
       this.sincronizarStockLocal(items);
       if (stockCheck.agotados?.length) {
         playStockAgotadoAlarm();

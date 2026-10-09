@@ -161,21 +161,7 @@ const TIENDA_ID_STORAGE = tiendaId;
 const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
 const categoriasRef = collection(tiendaDocRef, "productos");
 
-let fidelizacionActiva = false;
 
-async function cargarFidelizacion() {
-  try {
-    const snap = await getDoc(tiendaDocRef);
-    const data = snap.data() || {};
-    fidelizacionActiva = !!data.fidelizacion?.activo;
-    document
-      .getElementById("puntos-section")
-      ?.classList.toggle("hidden", !fidelizacionActiva);
-  } catch (err) {
-    console.error(err);
-  }
-}
-cargarFidelizacion();
 function productosRef(categoriaId) {
   return collection(doc(categoriasRef, categoriaId), categoriaId);
 }
@@ -997,13 +983,7 @@ document.getElementById("btn-add-condicion").addEventListener("click", () => {
 document
   .getElementById("input-prod-stock")
   .addEventListener("input", validarConsistenciaStock);
-document
-  .getElementById("input-prod-puntos-activo")
-  ?.addEventListener("change", (e) => {
-    document
-      .getElementById("puntos-detalle")
-      .classList.toggle("hidden", !e.target.checked);
-  });
+
 document.getElementById("input-prod-imgs").addEventListener("change", (e) => {
   const file = e.target.files[0];
   const slot = parseInt(e.target.dataset.targetSlot || "0", 10);
@@ -1045,10 +1025,6 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre, codigoPrefill = "
   document.getElementById("input-prod-stock").value = "";
   document.getElementById("input-prod-auto-desactivar").checked = false;
   document.getElementById("input-prod-agotado-hoy").checked = false;
-  document.getElementById("input-prod-puntos-activo").checked = false;
-  document.getElementById("puntos-detalle").classList.add("hidden");
-  document.getElementById("input-prod-puntos-cantidad").value = "";
-  document.getElementById("input-prod-puntos-descripcion").value = "";
   document.getElementById("input-prod-unidad").value = "";
   document.getElementById("input-prod-horario-desde").value = "";
   document.getElementById("input-prod-horario-hasta").value = "";
@@ -1120,15 +1096,6 @@ document.getElementById("input-prod-nombre").value = data.nombre || "";
   document.getElementById("input-prod-auto-desactivar").checked =
     !!data.autoDesactivar;
   document.getElementById("input-prod-agotado-hoy").checked = !!data.agotadoHoy;
-  const puntos = data.puntos || {};
-  document.getElementById("input-prod-puntos-activo").checked = !!puntos.activo;
-  document
-    .getElementById("puntos-detalle")
-    .classList.toggle("hidden", !puntos.activo);
-  document.getElementById("input-prod-puntos-cantidad").value =
-    puntos.cantidad ?? "";
-  document.getElementById("input-prod-puntos-descripcion").value =
-    puntos.descripcion || "";
   document.getElementById("input-prod-unidad").value = data.unidadMedida || "";
   document.getElementById("input-prod-horario-desde").value =
     data.disponibleDesde || "";
@@ -1181,26 +1148,7 @@ document
     ).checked;
     const unidadMedida =
       document.getElementById("input-prod-unidad").value || null;
-    const puntosActivo = document.getElementById(
-      "input-prod-puntos-activo",
-    ).checked;
-    const puntosCantidad = puntosActivo
-      ? Math.max(
-          0,
-          parseInt(
-            document.getElementById("input-prod-puntos-cantidad").value,
-            10,
-          ) || 0,
-        )
-      : 0;
-    const puntosDescripcion = puntosActivo
-      ? document.getElementById("input-prod-puntos-descripcion").value.trim()
-      : "";
-    const puntos = {
-      activo: puntosActivo && puntosCantidad > 0,
-      cantidad: puntosCantidad,
-      descripcion: puntosDescripcion,
-    };
+   
     const disponibleDesde =
       document.getElementById("input-prod-horario-desde").value || null;
     const disponibleHasta =
@@ -1345,7 +1293,6 @@ if (!idEsNum && codigoEdit) {
   stock,
   autoDesactivar,
   agotadoHoy,
-  puntos,
   unidadMedida,
   disponibleDesde,
   disponibleHasta,

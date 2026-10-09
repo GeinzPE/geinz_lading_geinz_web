@@ -14,7 +14,15 @@ import {
 import { db } from "/js/db/db.js";
 import { tiendaDoc, tiendaSubDoc } from "/js/rutas/rutas.js";
 import { setFaviconCircular } from "/js/favicon/favicon.js"; // ajusta la ruta a donde tengas el archivo
-
+import {
+  configurarColoresNegocio,
+  aplicarColoresDesdeCache,
+  cargarColoresNegocio,
+  leerColorActual,
+} from "../colores_dinamicos/dinamicos.js"; // ajusta la ruta real
+configurarColoresNegocio({ legible: true });
+// Fondo oscuro → colores aclarados para que el texto sea legible
+configurarColoresNegocio({ legible: true });
 const auth = getAuth();
 const TOKEN_URL = new URLSearchParams(location.search).get("t") || null; // ?t= del invitado
 const AUTH_ORIGIN = "https://geinztech.com";
@@ -434,15 +442,13 @@ function hexARgb(hex) {
 }
 
 function abrirLoginPopup() {
-  const acento = getComputedStyle(document.documentElement)
-    .getPropertyValue("--accent")
-    .trim();
+  const c = leerColorActual() || { r: 194, g: 112, b: 61 };
   const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
   u.searchParams.set("o", window.location.origin);
-  u.searchParams.set("r", window.location.href.split("#")[0]); // conserva ?t=
+  u.searchParams.set("r", window.location.href.split("#")[0]);
   u.searchParams.set("n", bizNombreActual || "");
   if (bizLogoActual) u.searchParams.set("l", bizLogoActual);
-  u.searchParams.set("c", hexARgb(acento));
+  u.searchParams.set("c", `${c.r},${c.g},${c.b}`);
   window.location.href = u.toString();
 }
 
@@ -631,7 +637,7 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
   });
   pedidoIdActual = pedidoId;
   showSkeleton();
-
+aplicarColoresDesdeCache(negocioId);
   // --- Datos del negocio (logo, nombre, contacto) ---
   const aplicarNegocio = (data) => {
     const nombre = data.nombre_tienda || data.nombre || "Negocio";
@@ -676,15 +682,19 @@ function init(negocioId, pedidoId, uidActual, localidad = LOCALIDAD_FIJA) {
     const wa = data.metodo_contacto?.whatsapp;
     if (wa?.estado && wa?.numero) renderBotonWhatsapp(wa.numero, nombre);
 
-    if (logoUrl) {
-      el("logo-img").alt = nombre;
-      el("logo-img").src = logoUrl;
-      setFaviconCircular(logoUrl);
-      colorListo = new Promise((resolve) => {
-        enIdle(() => extraerColorDominante(logoUrl).then(resolve));
-        setTimeout(resolve, 2500);
-      });
-    }
+  if (logoUrl) {
+  el("logo-img").alt = nombre;
+  el("logo-img").src = logoUrl;
+  setFaviconCircular(logoUrl);
+}
+
+// Colores dinámicos del negocio (color_marca → logo → nombre)
+if (!colorListo) {
+  colorListo = Promise.race([
+    cargarColoresNegocio({ id: negocioId, localidad, biz: data }).catch(() => {}),
+    new Promise((r) => setTimeout(r, 2500)),
+  ]);
+}
   };
 
   try {

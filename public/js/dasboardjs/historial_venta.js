@@ -11,7 +11,7 @@ import {
 
 import { tiendaSubCol } from "../rutas/rutas.js";
 import {
-  obtenerConfigComprobante,
+  prepararCfgComprobante,
   imprimirComprobante,
   registrarComprobante,
 } from "./comprobantes.js";
@@ -1143,14 +1143,15 @@ async function reimprimirTicket() {
   if (!currentOrder) return;
   const p = currentOrder;
   try {
-    const cfg = await obtenerConfigComprobante(tiendaId, localidad, {
+    // hereda: fuente, toggles, datos del negocio, QR de seguimiento
+    const cfg = await prepararCfgComprobante(tiendaId, localidad, p, {
       nombre: nombreTienda || "",
     });
     // Solo escribe en la DB la primera vez; las reimpresiones no gastan nada.
     const numero = await registrarComprobante(tiendaId, localidad, p, cfg);
     if (numero && !p.comprobante?.numero) {
       p.comprobante = { ...(p.comprobante || {}), numero };
-      renderAll(); // actualiza el 🧾 en la lista
+      renderAll();
     }
     await imprimirComprobante(p, cfg, { numero });
   } catch (e) {

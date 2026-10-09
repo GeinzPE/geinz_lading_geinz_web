@@ -101,7 +101,7 @@ async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
 
       if (cuponRef) {
         if (multi) {
-         tx.update(cuponRef, statsCuponUpdate(pedido));
+          tx.update(cuponRef, statsCuponUpdate(pedido));
         } else {
           tx.update(cuponRef, {
             usado: true,
@@ -407,7 +407,6 @@ function normalizeText(s) {
     .toLowerCase()
     .trim();
 }
-
 
 function parseFechaISOaMsLima(fechaISO, horaStr) {
   if (!fechaISO) return null;
@@ -1318,7 +1317,7 @@ async function confirmarPedidoMesaDirecto() {
     });
     pedidoActivoMesa = pedido;
     if (contarUso) {
-    updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
+      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
     }
     cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
@@ -1441,15 +1440,15 @@ async function aplicarCuponDesdeDoc(data) {
 
   cuponAplicado = data;
   const aud = data.audiencia || "todos";
-if (aud !== "todos" && !usuarioLogeado) {
-  showToast("🔒 Inicia sesión para usar este cupón");
-  openLoginPromptModal();
-  return;
-}
-if (aud === "seguidores" && !siguiendoTienda) {
-  showToast(`⭐ Este cupón es solo para seguidores de ${bizNombre}`);
-  return;
-}
+  if (aud !== "todos" && !usuarioLogeado) {
+    showToast("🔒 Inicia sesión para usar este cupón");
+    openLoginPromptModal();
+    return;
+  }
+  if (aud === "seguidores" && !siguiendoTienda) {
+    showToast(`⭐ Este cupón es solo para seguidores de ${bizNombre}`);
+    return;
+  }
   console.log("[CUPON] cuponAplicado seteado en memoria:", cuponAplicado);
 
   if (data.origen === "fidelizacion") activarGuardaCupon();
@@ -1703,6 +1702,60 @@ function cargarUsuarioLogeado() {
     });
   });
 }
+let _siguiendoBusy = false;
+
+async function seguirNegocioDesdeCarrito() {
+  if (_siguiendoBusy || !usuarioLogeado || siguiendoTienda) return;
+  _siguiendoBusy = true;
+  try {
+    const uid = usuarioLogeado.id;
+    const ubic = bizData?.ubicacion || {};
+    const clienteRef = clienteDoc(localidad, tiendaId, uid);
+    const favoritoRef = doc(
+      db,
+      "Trabajadores_Usuarios_Drivers",
+      "users",
+      "users",
+      uid,
+      "favoritos",
+      tiendaId,
+    );
+
+    const yaExiste = await getDoc(clienteRef);
+    const dataCliente = {
+      id: uid,
+      id_usuario: uid,
+      fecha_inicio: serverTimestamp(),
+      ultimo_consumo: serverTimestamp(),
+    };
+    if (!yaExiste.exists()) dataCliente.puntos = 0;
+
+    await Promise.all([
+      setDoc(favoritoRef, {
+        id_tienda_lugar: tiendaId,
+        img_tienda_lugar: bizData?.img_tienda?.logo_tienda || "",
+        latitud: ubic.latitud ?? null,
+        longitud: ubic.longitud ?? null,
+        localidad_lugar_tienda: localidad,
+        nombre_lugar_tienda: bizData?.nombre_tienda || bizData?.nombre || "",
+        timesLap_local: String(Date.now()),
+      }),
+      setDoc(clienteRef, dataCliente, { merge: true }),
+    ]);
+
+    siguiendoTienda = true;
+    showToast(`✅ Ahora sigues a ${bizNombre}`);
+    updateCartUI();
+    renderCheckoutSummary?.();
+    // refresca las tarjetas para que cambie "Sigue la tienda para ganar puntos" por "+X pts"
+    productosGlobal.forEach((p) => syncMainListCard(p.id));
+  } catch (e) {
+    console.error("Error al seguir:", e);
+    showToast("No se pudo seguir, intenta de nuevo");
+  } finally {
+    _siguiendoBusy = false;
+  }
+}
 /* ══════════════ Datos (una sola carga) ══════════════ */
 async function loadTienda() {
   try {
@@ -1749,7 +1802,9 @@ async function loadProductosCatalogo(bizOrPromise) {
   const porCategoria = await Promise.all(
     catSnap.docs.map(async (catDoc) => {
       const categoria = catDoc.id;
-      const horarioCat = normalizarHorarioCategoria(catDoc.data()?.horario_categoria);
+      const horarioCat = normalizarHorarioCategoria(
+        catDoc.data()?.horario_categoria,
+      );
       const subRef = tiendaSubCol(
         localidad,
         "tiendas",
@@ -1792,7 +1847,7 @@ async function loadProductosCatalogo(bizOrPromise) {
           imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
           imagen: d.imagenes?.[0]?.url || "",
           condiciones,
-                    tuvoCondiciones: (d.condiciones || []).length > 0,   // ← NUEVO
+          tuvoCondiciones: (d.condiciones || []).length > 0, // ← NUEVO
 
           stock: typeof d.stock === "number" ? d.stock : null,
           variantesObligatoria: d.variantesObligatoria !== false,
@@ -1810,10 +1865,10 @@ async function loadProductosCatalogo(bizOrPromise) {
               : null,
           descuento: d.descuento || null,
           horarioCat,
-horarioProd:
-  d.disponibleDesde && d.disponibleHasta
-    ? { desde: d.disponibleDesde, hasta: d.disponibleHasta }
-    : null,
+          horarioProd:
+            d.disponibleDesde && d.disponibleHasta
+              ? { desde: d.disponibleDesde, hasta: d.disponibleHasta }
+              : null,
         });
       });
       return arr;
@@ -2118,6 +2173,16 @@ document.getElementById("guestLoginLink")?.addEventListener("click", (e) => {
   abrirLoginPopup();
 });
 bindLoginPromptEvents();
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-puntos-accion]");
+  if (!btn) return;
+  e.preventDefault();
+  if (btn.dataset.puntosAccion === "login") {
+    openLoginPromptModal();
+  } else if (btn.dataset.puntosAccion === "seguir") {
+    seguirNegocioDesdeCarrito();
+  }
+});
 /* Cuando el carrito viene de una mesa (QR), el botón "atrás" ya no debe
        hacer history.back() (puede llevar a un sitio raro o no ir a ningún lado
        si la mesa fue la primera pantalla abierta). En su lugar, manda a la
@@ -2477,15 +2542,15 @@ function productoCard(p, index = 0) {
   
   ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-    ${
-      p.puntos
-        ? siguiendoTienda
-          ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-          : `<p class="text-[10px] text-gray-500 mt-1">⭐ Sigue la tienda para ganar puntos</p>`
-        : ""
-    }  `;
+   ${
+     p.puntos
+       ? siguiendoTienda
+         ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+         : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
+       : ""
+   } `;
 
-      const dispEl = document.createElement("p");
+  const dispEl = document.createElement("p");
   dispEl.id = `disp-${p.id}`;
   dispEl.className = "prod-disp-msg";
   dispEl.style.display = "none";
@@ -2503,7 +2568,7 @@ function productoCard(p, index = 0) {
       abrirPromoDetailModal(p);
     });
   }
-pintarDisponibilidad(card, dispEl, p);
+  pintarDisponibilidad(card, dispEl, p);
   return card;
 }
 
@@ -2511,7 +2576,11 @@ function productoSinStock(p) {
   if (p.esPromo || p.esOfertaTiempo) return false;
   if (typeof p.stock === "number" && p.stock <= 0) return true;
   // Tenía variantes obligatorias pero todas se agotaron (el catálogo las filtró)
-  if (p.tuvoCondiciones && (!p.condiciones || !p.condiciones.length) && p.variantesObligatoria !== false) {
+  if (
+    p.tuvoCondiciones &&
+    (!p.condiciones || !p.condiciones.length) &&
+    p.variantesObligatoria !== false
+  ) {
     return true;
   }
   return false;
@@ -2519,7 +2588,8 @@ function productoSinStock(p) {
 
 function crearBadgeSinStock() {
   const btn = document.createElement("button");
-  btn.className = "btn-add pop opacity-50 cursor-not-allowed bg-white/5 text-gray-400";
+  btn.className =
+    "btn-add pop opacity-50 cursor-not-allowed bg-white/5 text-gray-400";
   btn.style.cssText =
     "background:rgba(255,255,255,.06);color:#9ca3af;border:1px solid rgba(255,255,255,.1);box-shadow:none;width:100%;white-space:normal;line-height:1.15;font-size:clamp(10.5px,2.9vw,13px);padding-left:6px;padding-right:6px;";
   btn.textContent = "Sin stock disponible";
@@ -2569,7 +2639,7 @@ function renderQtyControls(container, p, cartKey = null) {
     plus.className = "qty-btn";
     plus.textContent = "+";
     plus.onclick = () => addToCart(p, carrito.get(cartKey)?.seleccion || null);
-      const dispLinea = estadoDisponibilidadProducto(p);
+    const dispLinea = estadoDisponibilidadProducto(p);
     if (!horarioEstado.abierto || !dispLinea.disponible) {
       plus.disabled = true;
       plus.classList.add("opacity-30", "cursor-not-allowed");
@@ -2589,14 +2659,15 @@ function renderQtyControls(container, p, cartKey = null) {
   const disp = estadoDisponibilidadProducto(p);
   if (!disp.disponible && !productoEnCarrito(p.id)) {
     const btn = document.createElement("button");
-    btn.className = "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
+    btn.className =
+      "btn-add pop opacity-40 cursor-not-allowed bg-white/5 text-gray-400";
     btn.textContent = "No disponible ahora";
     btn.title = disp.mensaje;
     btn.disabled = true;
     container.appendChild(btn);
     return;
   }
-    if (!productoEnCarrito(p.id) && productoSinStock(p)) {
+  if (!productoEnCarrito(p.id) && productoSinStock(p)) {
     container.appendChild(crearBadgeSinStock());
     return;
   }
@@ -2627,7 +2698,7 @@ function renderQtyControls(container, p, cartKey = null) {
       btn.className = "btn-add accent-grad pop";
       btn.textContent = `${totalCantidad} en carrito · Agregar otra`;
       btn.onclick = () => addToCart(p);
-         if (!horarioEstado.abierto || !disp.disponible) {
+      if (!horarioEstado.abierto || !disp.disponible) {
         btn.disabled = true;
         btn.classList.add("opacity-40", "cursor-not-allowed");
         btn.title = horarioEstado.mensaje || "Cerrado ahora";
@@ -2635,9 +2706,8 @@ function renderQtyControls(container, p, cartKey = null) {
       container.appendChild(btn);
     }
     return;
-    
   }
-  
+
   // Caso 3: tarjeta principal de un producto SIN condiciones (comportamiento original)
   const cantidad = carrito.get(p.id)?.cantidad || 0;
   if (cantidad === 0) {
@@ -3043,7 +3113,7 @@ function addToCart(p, seleccion = null) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
   }
-    const disp = estadoDisponibilidadProducto(p);
+  const disp = estadoDisponibilidadProducto(p);
   if (!disp.disponible) {
     showToast(`🕐 ${disp.mensaje}`);
     return;
@@ -3525,22 +3595,30 @@ function textoPuntosHTML(puntosTotales, esCheckout = false) {
       ? `🎁 Ganas ${puntosTotales} puntos con este pedido`
       : `🎁 Ganas ${puntosTotales} puntos`;
   }
-  if (!usuarioLogeado) {
-    return `⭐ Inicia sesión para ganar puntos con <strong>${(bizNombre || "este negocio").replace(/</g, "&lt;")}</strong>`;
-  }
-  const alias = bizData?.alias_negocio;
-  const nombreSeguro = (bizNombre || "esta tienda").replace(/</g, "&lt;");
-  const mensaje = `⭐ Sigue a <strong>${nombreSeguro}</strong> para ganar y canjear puntos`;
 
-  if (alias) {
-    const href = window.__NEGOCIO_HOSTNAME__
-      ? getLandingBase()
-      : `${LANDING_BASE_URL}/perfil/${encodeURIComponent(alias)}`;
-    return `<a href="${href}" target="_blank" rel="noopener" style="text-decoration:underline;">${mensaje}</a>`;
+  const nombreSeguro = escapeHtmlCarrito(bizNombre || "este negocio");
+  const estilo =
+    "background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;text-align:left;";
+
+  if (!usuarioLogeado) {
+    return `<button type="button" data-puntos-accion="login" style="${estilo}">⭐ Inicia sesión para ganar puntos con <strong>${nombreSeguro}</strong></button>`;
   }
-  return mensaje;
+  return `<button type="button" data-puntos-accion="seguir" style="${estilo}">⭐ Sigue a <strong>${nombreSeguro}</strong> para ganar y canjear puntos</button>`;
 }
 
+function escapeHtmlCarrito(s) {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    (m) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[m],
+  );
+}
 function updateCartUI() {
   const items = [...carrito.values()];
   persistirCarrito();
@@ -3871,7 +3949,7 @@ function openCheckout() {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
   }
-    if (avisarProductosNoDisponibles()) return;
+  if (avisarProductosNoDisponibles()) return;
   renderCheckoutSummary();
   const nombreInput = document.getElementById("clienteNombre");
   if (nombreUsuarioLogeado && nombreInput && !nombreInput.value.trim()) {
@@ -4701,7 +4779,7 @@ async function loadOfertasActivas() {
         precio_publicacion: data.precio_publicacion, // ← este sigue en la raíz
       });
 
-          if (data.desactivada === true) {
+      if (data.desactivada === true) {
         console.log(`[OFERTAS] ${docSnap.id} descartada: desactivada`);
         return;
       }
@@ -5351,24 +5429,31 @@ async function registrarDispositivoMesa() {
 /* ══════════════ Disponibilidad por categoría / producto ══════════════ */
 function normalizarHorarioCategoria(h) {
   if (!h || h.activo !== true || !h.dias) return null;
-  return { activo: true, mensaje: String(h.mensaje || "").trim(), dias: h.dias };
+  return {
+    activo: true,
+    mensaje: String(h.mensaje || "").trim(),
+    dias: h.dias,
+  };
 }
 
 // Parte "de hoy" de una ventana (si cruza medianoche, solo cuenta desde la hora de inicio)
 function ventanaHoy(cfg, mins) {
   if (!cfg || !cfg.activo) return false;
-  const ini = horaAMin(cfg.desde), fin = horaAMin(cfg.hasta);
+  const ini = horaAMin(cfg.desde),
+    fin = horaAMin(cfg.hasta);
   if (ini == null || fin == null || ini === fin) return true; // sin horas = todo el día
   return ini < fin ? mins >= ini && mins < fin : mins >= ini;
 }
 // Parte de la madrugada de una ventana que empezó AYER y cruza medianoche
 function ventanaAyer(cfg, mins) {
   if (!cfg || !cfg.activo) return false;
-  const ini = horaAMin(cfg.desde), fin = horaAMin(cfg.hasta);
+  const ini = horaAMin(cfg.desde),
+    fin = horaAMin(cfg.hasta);
   return ini != null && fin != null && fin < ini && mins < fin;
 }
 function rangoSimple(desde, hasta, mins) {
-  const ini = horaAMin(desde), fin = horaAMin(hasta);
+  const ini = horaAMin(desde),
+    fin = horaAMin(hasta);
   if (ini == null || fin == null || ini === fin) return true;
   return ini < fin ? mins >= ini && mins < fin : mins >= ini || mins < fin;
 }
@@ -5397,11 +5482,14 @@ function estadoDisponibilidadProducto(p, ahora = new Date()) {
   const h = p?.horarioCat;
   if (h?.activo) {
     const hoy = h.dias?.[obtenerDiaSemanaLima(ahora)];
-    const ayer = h.dias?.[obtenerDiaSemanaLima(new Date(ahora.getTime() - 86400000))];
+    const ayer =
+      h.dias?.[obtenerDiaSemanaLima(new Date(ahora.getTime() - 86400000))];
     if (!ventanaHoy(hoy, mins) && !ventanaAyer(ayer, mins)) {
       return {
         disponible: false,
-        mensaje: [h.mensaje, textoProximaVentana(h, ahora)].filter(Boolean).join(" · "),
+        mensaje: [h.mensaje, textoProximaVentana(h, ahora)]
+          .filter(Boolean)
+          .join(" · "),
       };
     }
   }
@@ -5467,9 +5555,9 @@ function refrescarDisponibilidadCategorias() {
   if (cambio) updateCartUI();
 }
 async function init() {
-await resolverParamsCarrito();
-aplicarColoresDesdeCache(tiendaId); // ← nueva: 0 ms si ya visitó este negocio
-await validarMesaDesdePath();
+  await resolverParamsCarrito();
+  aplicarColoresDesdeCache(tiendaId); // ← nueva: 0 ms si ya visitó este negocio
+  await validarMesaDesdePath();
   await _loginPorTokenPromise;
   pintarMesaBadge();
   // (se quitó setBusinessFaviconById: ahora se pone más abajo con el biz ya cargado)
@@ -5481,12 +5569,17 @@ await validarMesaDesdePath();
     document.getElementById("entregaField")?.classList.add("hidden");
     document.getElementById("direccionCollapse")?.classList.remove("open");
     document.getElementById("direccionCollapse")?.classList.add("hidden");
-    document.getElementById("pagoToggle")?.closest("div")?.classList.add("hidden");
+    document
+      .getElementById("pagoToggle")
+      ?.closest("div")
+      ?.classList.add("hidden");
     document.getElementById("efectivoCollapse")?.classList.add("hidden");
     ajustarTextosMesa();
 
     const avisoCerrado = () =>
-      showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
+      showToast(
+        `🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`,
+      );
     const btnMobile = document.getElementById("checkoutBtnMobile");
     const btnDesktop = document.getElementById("checkoutBtnDesktop");
     if (btnMobile)
@@ -5503,7 +5596,9 @@ await validarMesaDesdePath();
 
   if (!tiendaId) {
     document.getElementById("lista").innerHTML = "";
-    document.getElementById("emptyMsg").querySelector("p.font-bold").textContent = "Falta información";
+    document
+      .getElementById("emptyMsg")
+      .querySelector("p.font-bold").textContent = "Falta información";
     document.getElementById("emptyMsg").querySelector("p.text-sm").textContent =
       "No se indicó el negocio (falta ?id= en la URL).";
     document.getElementById("emptyMsg").classList.remove("hidden");
@@ -5526,7 +5621,11 @@ await validarMesaDesdePath();
   const biz = await bizP;
   const ofertasActivas = await ofertasP;
   promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas];
-  const [productos, pedidoMesa] = await Promise.all([productosP, pedidoP, usuarioP]);
+  const [productos, pedidoMesa] = await Promise.all([
+    productosP,
+    pedidoP,
+    usuarioP,
+  ]);
 
   productosGlobal = productos;
   productosPorId = new Map(productos.map((p) => [p.id, p]));
@@ -5571,7 +5670,8 @@ await validarMesaDesdePath();
   hidePageLoader();
 
   // Favicon con los datos que ya tenemos (sin otra lectura a Firestore)
-  if (biz?.img_tienda?.logo_tienda) setFaviconCircular(biz.img_tienda.logo_tienda);
+  if (biz?.img_tienda?.logo_tienda)
+    setFaviconCircular(biz.img_tienda.logo_tienda);
 
   iniciarValidacionHorarioEnVivo();
   iniciarValidacionOfertasEnVivo();
@@ -5593,4 +5693,3 @@ await validarMesaDesdePath();
   if (ofertaParam) aplicarOfertaDesdeLink(ofertaParam);
 }
 init();
-

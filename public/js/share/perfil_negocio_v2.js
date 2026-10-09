@@ -1863,12 +1863,7 @@ document.getElementById("puntosBadge")?.addEventListener("click", () => {
     showToast(_fidelizacionMensajeInactivo);
     return;
   }
-  if (_heroFlipToggle) {
-    document
-      .getElementById("heroFlip")
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    _heroFlipToggle(true);
-  } else irAFidelizacion();
+  irAFidelizacion();
 });
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
@@ -4372,23 +4367,55 @@ function closeLoginPromptModal() {
 }
 
 function showPromoBanner(biz) {
-  if (_bannerShown) return;
+  if (_bannerShown) return Promise.resolve();
   const bannerModal = document.getElementById("bannerModal");
   const bannerImg = document.getElementById("bannerImg");
-  if (!bannerModal || !bannerImg) return;
+  const bannerBg = document.getElementById("bannerBg");
+  if (!bannerModal || !bannerImg) return Promise.resolve();
 
   const banner = biz.banner || {};
-  if (banner.activo === true && banner.imagen) {
-    renderBannerCta(banner, biz, bannerModal); // ← NUEVO
+  if (!(banner.activo === true && banner.imagen)) return Promise.resolve();
 
-    bannerImg.onload = () => {
+  _bannerReady = false; // el loader esperará al banner
+  renderBannerCta(banner, biz, bannerModal);
+
+  return new Promise((resolve) => {
+    let abierto = false;
+
+    const abrir = () => {
+      if (abierto || _bannerShown) return;
+      abierto = true;
+      const ratio = bannerImg.naturalWidth / bannerImg.naturalHeight;
+      const ar = Math.min(1.91, Math.max(0.8, ratio));
+      bannerModal.querySelector(".banner-modal-box").style.setProperty("--banner-ar", ar);
+      bannerModal.querySelector(".banner-modal-media").style.setProperty("--banner-ar", ar);
       bannerModal.classList.add("open");
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-    bannerImg.onerror = () => {};
+
+    const liberarLoader = () => {
+      if (_bannerReady) return;
+      _bannerReady = true;
+      resolve();
+    };
+
+    // tope de 4s: si la imagen tarda demasiado, el perfil no se queda esperando
+    const timer = setTimeout(liberarLoader, 4000);
+
+    bannerImg.onload = () => {
+      clearTimeout(timer);
+      abrir();          // el modal se abre justo cuando el skeleton se va
+      liberarLoader();
+    };
+    bannerImg.onerror = () => {
+      clearTimeout(timer);
+      liberarLoader();
+    };
+
+    if (bannerBg) bannerBg.src = banner.imagen;
     bannerImg.src = banner.imagen;
-  }
+  });
 }
 // ── Botón "Ir al carrito" del banner clickeable ──
 const BANNER_CTA_CSS = `
@@ -5348,6 +5375,7 @@ let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
 let _marcaSig = null;
 let _followReady = false;
 let _reviewsReady = false;
+let _bannerReady = true; 
 let _currentPuntos = 0; // NUEVO: true cuando ya sabemos si el user sigue o no
 let _F = {
   esBasico: true,
@@ -5358,7 +5386,11 @@ let _F = {
   fidel: false,
   bannerGeinz: false,
 };
-
+function tryHideLoader() {
+  if (_colorReady && _followReady && _reviewsReady && _bannerReady) {
+    hideBizLoader();
+  }
+}
 async function loadServicios({ localidad, id }) {
   try {
     const s = await getDoc(tiendaServiciosDoc(localidad, id));
@@ -5385,11 +5417,7 @@ function calcFlags(s = {}) {
     bannerGeinz: on("footer.geinz"),
   };
 }
-function tryHideLoader() {
-  if (_colorReady && _followReady && _reviewsReady) {
-    hideBizLoader();
-  }
-}
+
 function actualizarLayoutContactoFidel() {
   const wrap = document.getElementById("contactFidelWrap");
   const contact = document.getElementById("secContact");
@@ -7635,11 +7663,12 @@ function irAReviews() {
     bindFollowButton(params, biz);
     listenActivePromosRealtime(params);
 
-    showPromoBanner(biz);
+    const bannerPromise = showPromoBanner(biz); // ← ya NO va suelto, se guarda
     await render(biz, true);
 
     _followReady = true;
     _reviewsReady = true;
+    await bannerPromise;   // ← espera a que la imagen del banner esté lista
     hideBizLoader();
 
     injectReviewsStyles();

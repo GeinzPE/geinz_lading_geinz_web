@@ -13,6 +13,7 @@
   <script type="module" src="../js/dasboardjs/fidelizacion.js"></script>
   <script src="../js/graficos/chart.umd.min.js"></script>
   <script type="module" src="../js/dasboardjs/creacion_cupones.js"></script>
+    <script type="module" src="../js/dasboardjs/puntos_por_producto.js"></script>
   <style>
     /* ===================================================================
    FIDELIZACIÓN — CSS responsive, mobile-first
@@ -2528,6 +2529,87 @@
               </div>
             </div>
           </div>
+                  <!-- ===== PRODUCTOS QUE REGALAN PUNTOS (nuevo) ===== -->
+        <div class="grid grid-2" id="ppSeccion" style="margin-top:18px;">
+
+          <div class="card">
+            <h3>⭐ Productos que regalan puntos</h3>
+            <p class="hint">Elige qué productos de tu catálogo le dan puntos al cliente cuando los compra. Esto es
+              distinto a «Nuevo producto a canjear» (arriba): allá el cliente <b>gasta</b> puntos para llevarse algo;
+              aquí el cliente <b>gana</b> puntos por comprar.</p>
+
+            <div class="item-row" style="margin-bottom:16px; align-items:flex-start;">
+              <div class="item-main">
+                <div class="item-title">¿Cómo se configura?</div>
+                <div class="item-sub" style="line-height:1.6; white-space:normal;">
+                  1. Elige la <b>categoría</b> y el <b>producto</b>.<br>
+                  2. Escribe cuántos <b>puntos</b> gana el cliente al comprarlo.<br>
+                  3. Pulsa <b>Guardar puntos</b>. El producto aparecerá en la lista de la derecha.<br>
+                  <span style="display:block;margin-top:6px;">Los puntos solo se entregan si la tarjeta de fidelidad
+                    está <b>activa</b> (pestaña «Estado y vencimiento»).</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="row-2">
+              <div class="field">
+                <label>Categoría</label>
+                <select class="field-input" id="ppCategoria">
+                  <option value="">Cargando…</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Producto</label>
+                <select class="field-input" id="ppProducto" disabled>
+                  <option value="">Elige una categoría primero</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="item-row" id="ppPreview" style="display:none; margin-bottom:14px;">
+              <div class="item-icon"><img id="ppPreviewImg" alt=""
+                  style="width:100%; height:100%; object-fit:cover; border-radius:8px;"></div>
+              <div class="item-main">
+                <div class="item-title" id="ppPreviewNombre">—</div>
+                <div class="item-sub" id="ppPreviewSub">—</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Puntos que gana el cliente</label>
+              <input type="number" id="ppCantidad" placeholder="Ej: 10" min="1" step="1">
+              <div class="desc">Cuántos puntos recibe el cliente al comprar este producto. Ej: si pones 10 y un
+                cliente lo compra, se suma 10 a su saldo. Piensa en relación al «Costo en puntos» de tus recompensas
+                para que juntar puntos no sea ni muy fácil ni imposible.</div>
+            </div>
+
+            <div class="field">
+              <label>Descripción corta (opcional)</label>
+              <input type="text" id="ppDescripcion" maxlength="60" placeholder="Ej: Duplica puntos esta semana">
+              <div class="desc">Mensaje breve que acompaña el beneficio. Déjalo vacío si no necesitas explicar
+                nada.</div>
+            </div>
+
+            <div class="actions-row">
+              <button class="btn btn-primary" id="ppGuardar" disabled>Guardar puntos</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+              <div>
+                <h3>Productos con puntos</h3>
+                <p class="hint">Estos son los productos que hoy regalan puntos. Apaga el interruptor para pausar sin
+                  perder la configuración, o quita el producto para dejar de regalar puntos.</p>
+              </div>
+              <button class="btn btn-sm" id="ppRecargar">Recargar</button>
+            </div>
+            <div class="item-list" id="ppLista">
+              <div class="empty-state">Aún no hay productos que regalen puntos.</div>
+            </div>
+          </div>
+
+        </div>
         </section>
 
         <!-- ===== CLIENTES ===== -->

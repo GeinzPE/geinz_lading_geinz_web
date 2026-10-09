@@ -20,12 +20,16 @@
 
   <style>
     :root {
-      --accent: #c2703d;
-      --accent-dark: #8f4e28;
-      --accent-soft: #2a1f18;
-      --accent-glow: rgba(194, 112, 61, .35);
-      --accent-light: color-mix(in srgb, var(--accent) 60%, white);
+      --dr: 194;
+      --dg: 112;
+      --db: 61;
 
+      --accent: rgb(var(--dr), var(--dg), var(--db));
+      --accent-dark: rgb(calc(var(--dr) * .65), calc(var(--dg) * .65), calc(var(--db) * .65));
+      --accent-soft: rgb(calc(var(--dr) * .18), calc(var(--dg) * .18), calc(var(--db) * .18));
+      --accent-glow: rgba(var(--dr), var(--dg), var(--db), .35);
+      --accent-light: color-mix(in srgb, var(--accent) 60%, white);
+      --bg: #08080a;
       --bg: #08080a;
       --bg-elevated: #0e0e11;
       --card: #131316;
@@ -969,6 +973,11 @@
     .status-dot.is-listo {
       background-color: #2dd4bf;
       box-shadow: 0 0 0 4px rgba(45, 212, 191, .14);
+    }
+
+    .auth-cta,
+    .copy-btn.copied {
+      background: var(--brand-grad, linear-gradient(155deg, var(--accent-light), var(--accent) 55%, var(--accent-dark)));
     }
   </style>
 
