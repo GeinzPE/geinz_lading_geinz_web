@@ -1092,3 +1092,11 @@ body {
   background: #fff;
 
 }
+/* ── Degradado de marca (si el negocio no lo tiene, usa el color sólido) ── */
+.accent-grad,
+.btn-add,
+.toggle-opt.active,
+.chip.active,
+.promo-detail-btn {
+  background: var(--brand-grad, rgb(var(--dr), var(--dg), var(--db)));
+}

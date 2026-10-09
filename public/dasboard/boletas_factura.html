@@ -1,162 +1,560 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mi comprobante</title>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script type="module" src="../js/dasboardjs/boletas_facturas.js"></script>
-<style>
-:root{
-  --bg:#050505;--surface:#0B0B0F;--surface2:#111114;--border:#1C1C22;--border2:#23232B;
-  --accent:#7C3AED;--accent2:#9F67F5;--text:#F5F5F7;--text2:#A1A1AA;--text3:#71717A;--ok:#34D399;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-y:auto}
-::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#000}
-::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:5px}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi comprobante</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&family=Courier+Prime:wght@400;700&family=Roboto+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <script type="module" src="../js/dasboardjs/boletas_facturas.js"></script>
 
-.wrap{max-width:1180px;margin:auto;padding:22px 18px 90px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:22px;align-items:start}
-@media(max-width:900px){.wrap{grid-template-columns:1fr;padding-top:70px}}
+  <style>
+    :root {
+      --bg: #050505;
+      --surface: #0B0B0F;
+      --surface2: #111114;
+      --border: #1C1C22;
+      --border2: #23232B;
+      --accent: #7C3AED;
+      --accent2: #9F67F5;
+      --text: #F5F5F7;
+      --text2: #A1A1AA;
+      --text3: #71717A;
+      --ok: #34D399;
+    }
 
-h1{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px}
-.sub{font-size:13px;color:var(--text3);margin-bottom:18px}
-.col{display:flex;flex-direction:column;gap:14px}
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent
+    }
 
-.card{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:18px}
-.card h2{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;margin-bottom:14px}
-.hint{font-size:12px;color:var(--text3);margin:-8px 0 12px;line-height:1.5}
+    html,
+    body {
+      height: 100%
+    }
 
-label.f{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:12px}
-input[type=text],input[type=number],select,textarea{
-  width:100%;margin-top:5px;padding:11px 13px;background:var(--surface2);border:1.5px solid var(--border);
-  border-radius:10px;color:var(--text);font:inherit;font-size:14px;outline:none;transition:.15s}
-textarea{resize:vertical;min-height:60px;line-height:1.5}
-input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,58,237,.14)}
-select option{background:#111114}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-y: auto
+    }
 
-.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px;cursor:pointer}
-.sw:last-child{border-bottom:0}
-.sw small{display:block;color:var(--text3);font-size:11.5px;margin-top:2px}
-.sw input{display:none}
-.sw i{position:relative;width:40px;height:23px;border-radius:20px;background:#2a2a33;flex:none;transition:.2s}
-.sw i::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;transition:.2s}
-.sw input:checked+i{background:var(--accent)}
-.sw input:checked+i::after{transform:translateX(17px)}
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px
+    }
 
-.logo-box{display:flex;gap:16px;align-items:center}
-.drop{width:88px;height:88px;border-radius:50%;border:2px dashed #3a2e5a;background:var(--surface2);display:grid;place-items:center;overflow:hidden;cursor:pointer;flex:none;color:var(--text3);font-size:11px;text-align:center}
-.drop:hover{border-color:var(--accent)}
-.drop img{width:100%;height:100%;object-fit:cover}
-.logo-ctl{display:flex;flex-direction:column;gap:9px}
-.btns{display:flex;gap:8px;flex-wrap:wrap}
-button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;transition:.15s}
-.btn{background:var(--accent);color:#fff}.btn:hover{background:var(--accent2)}
-.sec{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}.sec:hover{border-color:var(--accent)}
-.chk{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--text2)}
+    ::-webkit-scrollbar-track {
+      background: #000
+    }
 
-.preview{position:sticky;top:18px}
-@media(max-width:900px){.preview{position:static}}
-.paper{background:#1a1a20;border:1px solid var(--border2);border-radius:16px;padding:20px 0;display:flex;justify-content:center;overflow-x:auto}
-.paper.w58 .tk{transform:none}
-.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(5,5,5,.94);backdrop-filter:blur(14px);border-top:1px solid var(--border2);padding:12px 18px;display:flex;gap:10px;justify-content:flex-end;align-items:center}
-.bar .msg{margin-right:auto;font-size:12.5px;color:var(--text3)}
-.bar .msg.ok{color:var(--ok)}
-</style>
+    ::-webkit-scrollbar-thumb {
+      background: #2a2a2a;
+      border-radius: 5px
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: auto;
+      padding: 22px 18px 90px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      gap: 22px;
+      align-items: start
+    }
+
+    @media(max-width:900px) {
+      .wrap {
+        grid-template-columns: 1fr;
+        padding-top: 70px
+      }
+    }
+
+    h1 {
+      font-family: 'Sora', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 4px
+    }
+
+    .sub {
+      font-size: 13px;
+      color: var(--text3);
+      margin-bottom: 18px
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 18px
+    }
+
+    .card h2 {
+      font-family: 'Sora', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 14px
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--text3);
+      margin: -8px 0 12px;
+      line-height: 1.5
+    }
+
+    label.f {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 12px
+    }
+
+    input[type=text],
+    input[type=number],
+    select,
+    textarea {
+      width: 100%;
+      margin-top: 5px;
+      padding: 11px 13px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: .15s
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+      line-height: 1.5
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, .14)
+    }
+
+    select option {
+      background: #111114
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px
+    }
+
+    .sw {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13.5px;
+      cursor: pointer
+    }
+
+    .sw:last-child {
+      border-bottom: 0
+    }
+
+    .sw small {
+      display: block;
+      color: var(--text3);
+      font-size: 11.5px;
+      margin-top: 2px
+    }
+
+    .sw input {
+      display: none
+    }
+
+    .sw i {
+      position: relative;
+      width: 40px;
+      height: 23px;
+      border-radius: 20px;
+      background: #2a2a33;
+      flex: none;
+      transition: .2s
+    }
+
+    .sw i::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #fff;
+      transition: .2s
+    }
+
+    .sw input:checked+i {
+      background: var(--accent)
+    }
+
+    .sw input:checked+i::after {
+      transform: translateX(17px)
+    }
+
+    .logo-box {
+      display: flex;
+      gap: 16px;
+      align-items: center
+    }
+
+    .drop {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      border: 2px dashed #3a2e5a;
+      background: var(--surface2);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      cursor: pointer;
+      flex: none;
+      color: var(--text3);
+      font-size: 11px;
+      text-align: center
+    }
+
+    .drop:hover {
+      border-color: var(--accent)
+    }
+
+    .drop img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover
+    }
+
+    .logo-ctl {
+      display: flex;
+      flex-direction: column;
+      gap: 9px
+    }
+
+    .btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    button {
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: .15s
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff
+    }
+
+    .btn:hover {
+      background: var(--accent2)
+    }
+
+    .sec {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border2)
+    }
+
+    .sec:hover {
+      border-color: var(--accent)
+    }
+
+    .chk {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 12.5px;
+      color: var(--text2)
+    }
+
+    .preview {
+      position: sticky;
+      top: 18px
+    }
+
+    @media(max-width:900px) {
+      .preview {
+        position: static
+      }
+    }
+
+    .paper {
+      background: #1a1a20;
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 20px 0;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto
+    }
+
+    .paper.w58 .tk {
+      transform: none
+    }
+
+    .bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      background: rgba(5, 5, 5, .94);
+      backdrop-filter: blur(14px);
+      border-top: 1px solid var(--border2);
+      padding: 12px 18px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      align-items: center
+    }
+
+    .bar .msg {
+      margin-right: auto;
+      font-size: 12.5px;
+      color: var(--text3)
+    }
+
+    .bar .msg.ok {
+      color: var(--ok)
+    }
+
+    .bar .msg.err {
+      color: #F87171
+    }
+
+    .bar {
+      overflow: hidden
+    }
+
+    /* barra de progreso */
+    .prog {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: transparent;
+      opacity: 0;
+      transition: opacity .2s
+    }
+
+    .prog.on {
+      opacity: 1
+    }
+
+    .prog::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      background: var(--accent2);
+      border-radius: 3px;
+      animation: progMove 1s ease-in-out infinite
+    }
+
+    @keyframes progMove {
+      0% {
+        left: -40%
+      }
+
+      100% {
+        left: 100%
+      }
+    }
+
+    /* botón guardando */
+    .btn.cargando {
+      opacity: .75;
+      cursor: wait
+    }
+
+    .btn.cargando::before {
+      content: "";
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 8px;
+      vertical-align: -1px;
+      border: 2px solid rgba(255, 255, 255, .35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: giro .7s linear infinite
+    }
+
+    .btn.listo {
+      background: var(--ok);
+      color: #052e1b
+    }
+
+    .btn.fallo {
+      background: #DC2626
+    }
+
+    @keyframes giro {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+  </style>
 </head>
-<body>
-<div class="wrap">
-  <div class="col">
-    <div>
-      <h1>Mi comprobante</h1>
-      <p class="sub">Configúralo una vez. Se usará en cada venta que imprimas desde el historial.</p>
-    </div>
 
-    <div class="card">
-      <h2>Logo</h2>
-      <div class="logo-box">
-        <div class="drop" id="drop"><span>Subir<br>logo</span></div>
-        <div class="logo-ctl">
-          <input type="file" id="logoFile" accept="image/*" hidden>
-          <div class="btns">
-            <button class="btn" id="logoBtn" type="button">Subir imagen</button>
-            <button class="sec" id="logoDel" type="button">Quitar</button>
+<body>
+  <div class="wrap">
+    <div class="col">
+      <div>
+        <h1>Mi comprobante</h1>
+        <p class="sub">Configúralo una vez. Se usará en cada venta que imprimas desde el historial.</p>
+      </div>
+
+      <div class="card">
+        <h2>Logo</h2>
+        <div class="logo-box">
+          <div class="drop" id="drop"><span>Subir<br>logo</span></div>
+          <div class="logo-ctl">
+            <input type="file" id="logoFile" accept="image/*" hidden>
+            <div class="btns">
+              <button class="btn" id="logoBtn" type="button">Subir imagen</button>
+              <button class="sec" id="logoDel" type="button">Quitar</button>
+            </div>
+            <label class="chk"><input type="checkbox" id="logoBw" checked> Blanco y negro (mejor en impresora
+              térmica)</label>
           </div>
-          <label class="chk"><input type="checkbox" id="logoBw" checked> Blanco y negro (mejor en impresora térmica)</label>
         </div>
       </div>
-    </div>
 
-    <div class="card">
-      <h2>Tu negocio</h2>
-      <label class="f">Nombre<input type="text" data-k="negocio.nombre"></label>
-      <label class="f">Eslogan o rubro (opcional)<input type="text" data-k="negocio.lema" placeholder="Ej: Postres caseros"></label>
-      <div class="row">
-        <label class="f">RUC (opcional)<input type="text" data-k="negocio.ruc" maxlength="11" inputmode="numeric"></label>
-        <label class="f">WhatsApp / Teléfono<input type="text" data-k="negocio.telefono"></label>
+      <div class="card">
+        <h2>Tu negocio</h2>
+        <label class="f">Nombre<input type="text" data-k="negocio.nombre"></label>
+        <label class="f">Eslogan o rubro (opcional)<input type="text" data-k="negocio.lema"
+            placeholder="Ej: Postres caseros"></label>
+        <div class="row">
+          <label class="f">RUC (opcional)<input type="text" data-k="negocio.ruc" maxlength="11"
+              inputmode="numeric"></label>
+          <label class="f">WhatsApp / Teléfono<input type="text" data-k="negocio.telefono"></label>
+        </div>
+        <label class="f">Dirección o zona<input type="text" data-k="negocio.direccion"></label>
+        <label class="f" style="margin:0">Redes sociales<input type="text" data-k="negocio.redes"
+            placeholder="@minegocio"></label>
       </div>
-      <label class="f">Dirección o zona<input type="text" data-k="negocio.direccion"></label>
-      <label class="f" style="margin:0">Redes sociales<input type="text" data-k="negocio.redes" placeholder="@minegocio"></label>
+
+      <div class="card">
+        <h2>Documento</h2>
+        <label class="f">Tipo
+          <select id="tipoSel" data-k="documento.tipo">
+            <option>BOLETA DE VENTA ELECTRÓNICA</option>
+            <option>COMPROBANTE DE VENTA</option>
+            <option>NOTA DE VENTA</option>
+            <option>TICKET DE VENTA</option>
+            <option>RECIBO DE PAGO</option>
+            <option>PROFORMA / COTIZACIÓN</option>
+          </select>
+        </label>
+        <label class="f">Fuente del comprobante
+          <select data-k="estilo.fuente">
+            <option value="">Predeterminada</option>
+            <option value="arial">Arial (simple)</option>
+            <option value="dmsans">DM Sans (moderna)</option>
+            <option value="sora">Sora (redondeada)</option>
+            <option value="courier">Courier (estilo ticket)</option>
+            <option value="robotomono">Roboto Mono (técnica)</option>
+          </select>
+        </label>
+        <label class="f">Serie<input type="text" data-k="documento.serie" maxlength="6"></label>
+        <label class="sw"><span>Mostrar serie y número<small>Ej: B001-8F3K2A</small></span><input type="checkbox"
+            data-k="documento.mostrarNumero"><i></i></label>
+        <label class="sw"><span>Documento sin valor tributario<small>Actívalo si no tienes RUC</small></span><input
+            type="checkbox" data-k="documento.sinValorTributario"><i></i></label>
+        <label class="sw"><span>Precios incluyen IGV<small>Muestra el desglose de IGV</small></span><input
+            type="checkbox" data-k="igv.activo"><i></i></label>
+      </div>
+
+      <div class="card">
+        <h2>Qué mostrar</h2>
+        <label class="sw"><span>Datos del cliente</span><input type="checkbox" data-k="mostrar.cliente"><i></i></label>
+        <label class="sw"><span>Teléfono del cliente</span><input type="checkbox"
+            data-k="mostrar.telefonoCliente"><i></i></label>
+        <label class="sw"><span>Dirección del cliente</span><input type="checkbox"
+            data-k="mostrar.direccionCliente"><i></i></label>
+        <label class="sw"><span>Método de pago</span><input type="checkbox" data-k="mostrar.metodoPago"><i></i></label>
+        <label class="sw"><span>Opciones de productos<small>Cremas, extras, comentarios</small></span><input
+            type="checkbox" data-k="mostrar.opcionesProductos"><i></i></label>
+        <label class="sw"><span>Nota del pedido</span><input type="checkbox" data-k="mostrar.nota"><i></i></label>
+        <label class="sw"><span>Monto en letras</span><input type="checkbox" data-k="mostrar.enLetras"><i></i></label>
+        <label class="sw"><span>Código QR</span><input type="checkbox" data-k="mostrar.qr"><i></i></label>
+      </div>
+
+      <div class="card">
+        <h2>QR, mensaje y papel</h2>
+        <label class="f">Enlace del QR
+          <input type="text" data-k="qr.plantilla" placeholder="https://minegocio.pe/c/{codigo}">
+        </label>
+        <p class="hint">Usa {codigo} para insertar el código de cada venta.</p>
+        <label class="f">Texto bajo el QR<input type="text" data-k="qr.texto"></label>
+        <label class="f">Mensaje final<textarea data-k="pie" rows="2"></textarea></label>
+        <label class="f" style="margin:0">Ancho de papel
+          <select data-k="papel">
+            <option value="80">80 mm</option>
+            <option value="58">58 mm</option>
+          </select>
+        </label>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Documento</h2>
-      <label class="f">Tipo
-        <select id="tipoSel" data-k="documento.tipo">
-          <option>BOLETA DE VENTA ELECTRÓNICA</option>
-          <option>COMPROBANTE DE VENTA</option>
-          <option>NOTA DE VENTA</option>
-          <option>TICKET DE VENTA</option>
-          <option>RECIBO DE PAGO</option>
-          <option>PROFORMA / COTIZACIÓN</option>
-        </select>
-      </label>
-      <label class="f">Serie<input type="text" data-k="documento.serie" maxlength="6"></label>
-      <label class="sw"><span>Mostrar serie y número<small>Ej: B001-8F3K2A</small></span><input type="checkbox" data-k="documento.mostrarNumero"><i></i></label>
-      <label class="sw"><span>Documento sin valor tributario<small>Actívalo si no tienes RUC</small></span><input type="checkbox" data-k="documento.sinValorTributario"><i></i></label>
-      <label class="sw"><span>Precios incluyen IGV<small>Muestra el desglose de IGV</small></span><input type="checkbox" data-k="igv.activo"><i></i></label>
-    </div>
-
-    <div class="card">
-      <h2>Qué mostrar</h2>
-      <label class="sw"><span>Datos del cliente</span><input type="checkbox" data-k="mostrar.cliente"><i></i></label>
-      <label class="sw"><span>Teléfono del cliente</span><input type="checkbox" data-k="mostrar.telefonoCliente"><i></i></label>
-      <label class="sw"><span>Dirección del cliente</span><input type="checkbox" data-k="mostrar.direccionCliente"><i></i></label>
-      <label class="sw"><span>Método de pago</span><input type="checkbox" data-k="mostrar.metodoPago"><i></i></label>
-      <label class="sw"><span>Opciones de productos<small>Cremas, extras, comentarios</small></span><input type="checkbox" data-k="mostrar.opcionesProductos"><i></i></label>
-      <label class="sw"><span>Nota del pedido</span><input type="checkbox" data-k="mostrar.nota"><i></i></label>
-      <label class="sw"><span>Monto en letras</span><input type="checkbox" data-k="mostrar.enLetras"><i></i></label>
-      <label class="sw"><span>Código QR</span><input type="checkbox" data-k="mostrar.qr"><i></i></label>
-    </div>
-
-    <div class="card">
-      <h2>QR, mensaje y papel</h2>
-      <label class="f">Enlace del QR
-        <input type="text" data-k="qr.plantilla" placeholder="https://minegocio.pe/c/{codigo}">
-      </label>
-      <p class="hint">Usa {codigo} para insertar el código de cada venta.</p>
-      <label class="f">Texto bajo el QR<input type="text" data-k="qr.texto"></label>
-      <label class="f">Mensaje final<textarea data-k="pie" rows="2"></textarea></label>
-      <label class="f" style="margin:0">Ancho de papel
-        <select data-k="papel"><option value="80">80 mm</option><option value="58">58 mm</option></select>
-      </label>
+    <div class="preview">
+      <div class="sub" style="margin-bottom:10px">Vista previa con una venta de ejemplo</div>
+      <div class="paper">
+        <div id="ticket"></div>
+      </div>
     </div>
   </div>
-
-  <div class="preview">
-    <div class="sub" style="margin-bottom:10px">Vista previa con una venta de ejemplo</div>
-    <div class="paper"><div id="ticket"></div></div>
-  </div>
-</div>
 
 <div class="bar">
+  <div class="prog" id="prog"></div>
   <span class="msg" id="msg"></span>
+  <button class="sec" id="btnTraerNegocio" type="button">Traer datos de mi negocio</button>
   <button class="sec" id="btnPrint" type="button">Probar impresión</button>
   <button class="btn" id="btnSave" type="button">Guardar cambios</button>
 </div>
 
-
 </body>
+
 </html>

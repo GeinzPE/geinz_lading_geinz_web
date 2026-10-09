@@ -38,7 +38,8 @@
   .tag { font-size:12px; padding:1px 8px; border-radius:99px; background:var(--soft); color:var(--accent); font-weight:600; margin-right:6px; }
   .pager { display:flex; justify-content:space-between; align-items:center; margin-top:12px; color:var(--muted); font-size:14px; }
   .pager div { display:flex; gap:8px; }
-  #prev { width:72px; height:72px; object-fit:cover; border-radius:8px; margin-top:8px; display:block; }
+  .made { margin:4px 0 0; padding:10px 12px; border:1px solid var(--accent); background:var(--soft); border-radius:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .made[hidden] { display:none; } .made code { word-break:break-all; }
   dialog { border:1px solid var(--line); border-radius:12px; background:var(--panel); color:var(--ink); padding:0; width:min(760px,94vw); max-height:90vh; }
   dialog::backdrop { background:rgba(0,0,0,.45); }
   .dh { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:10px; }
@@ -66,11 +67,13 @@
 
   <section>
     <h2>Crear tienda</h2>
+    <p class="sub" style="margin:0 0 6px">Solo se crea la tienda y su ID. El logo, las imágenes y el resto los completas después desde el dashboard. El alias se genera solo con el nombre.</p>
     <div class="grid">
       <div><label for="nombre">Nombre del negocio</label><input id="nombre"></div>
       <div><label for="cat">Categoría</label><select id="cat"><option value="">Cargando…</option></select></div>
-      <div><label for="subcat">Subcategoría</label><select id="subcat"><option value="">Sin subcategoría</option></select></div>
     </div>
+    <label>Subcategorías (puedes marcar varias)</label>
+    <div class="fg" id="subcat"><span style="color:var(--muted);font-size:14px">Elige una categoría</span></div>
     <label for="desc">Descripción</label><input id="desc">
     <div class="grid">
       <div><label for="pais">País</label><input id="pais" list="dl-pais" value="peru"></div>
@@ -82,9 +85,8 @@
     <div class="grid">
       <div><label for="owners">UID del dueño (varios con coma)</label><input id="owners"></div>
       <div><label for="dias">Días de acceso</label><input id="dias" type="number" value="30" min="1"></div>
-      <div><label for="logo">Logo</label><input id="logo" type="file" accept="image/*"><img id="prev" alt="Vista previa del logo" hidden></div>
     </div>
-    <fieldset><legend>Dueño del negocio</legend>
+    <fieldset><legend>Dueño del negocio (opcional)</legend>
       <div class="grid">
         <div><label for="odni">DNI</label><input id="odni" inputmode="numeric" maxlength="8"></div>
         <div><label for="onom">Nombres</label><input id="onom"></div>
@@ -93,6 +95,7 @@
       </div>
     </fieldset>
     <p><button class="primary" id="create">Crear tienda</button></p>
+    <div class="made" id="made" hidden></div>
     <datalist id="dl-pais"></datalist><datalist id="dl-dep"></datalist><datalist id="dl-prov"></datalist><datalist id="dl-dist"></datalist>
   </section>
 
@@ -123,7 +126,7 @@
 </main>
 
 <dialog id="dlg">
-  <div class="dh"><div><b id="dname"></b><br><small id="durl" style="color:var(--muted)"></small></div><button id="dclose" aria-label="Cerrar">Cerrar</button></div>
+  <div class="dh"><div><b id="dname"></b><br><small id="durl" style="color:var(--muted)"></small></div><div style="display:flex;gap:8px;align-items:flex-start"><button id="dcpid">Copiar ID</button><button id="dclose" aria-label="Cerrar">Cerrar</button></div></div>
   <div class="db">
     <p id="dstor" style="margin:10px 0 0">Calculando almacenamiento…</p>
     <fieldset><legend>Dominio</legend>
@@ -146,6 +149,13 @@ const PAGE = 10;
 let pending = 0, tt;
 const busy = (d) => { pending += d; $("bar").classList.toggle("on", pending > 0); };
 function toast(t, ok = true, ms = 3200) { const e = $("toast"); e.textContent = t; e.className = "on" + (ok ? "" : " err"); clearTimeout(tt); tt = setTimeout(() => (e.className = ""), ms); }
+
+// ---- copiar al portapapeles (con respaldo si el navegador lo bloquea) ----
+async function copyText(text, btn, label = "Copiar") {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+  if (btn) { btn.textContent = "Copiado"; setTimeout(() => (btn.textContent = label), 1200); }
+}
 
 try {
   const k = localStorage.getItem("geinz_admin_key"); if (k) { $("key").value = k; $("remember").checked = true; }
@@ -191,34 +201,23 @@ fetch("https://restcountries.com/v3.1/all?fields=name,translations").then((r) =>
   .catch(() => fill("dl-pais", ["peru"]));
 onPais();
 
-// ---- logo ----
-let logoData = "";
-$("logo").addEventListener("change", (e) => {
-  const f = e.target.files[0];
-  if (!f) { logoData = ""; $("prev").hidden = true; return; }
-  const img = new Image();
-  img.onload = () => {
-    const s = Math.min(1, 512 / Math.max(img.width, img.height)), c = document.createElement("canvas");
-    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    logoData = c.toDataURL("image/webp", 0.85); $("prev").src = logoData; $("prev").hidden = false;
-  };
-  img.src = URL.createObjectURL(f);
-});
-
-// ---- crear tienda ----
+// ---- crear tienda (sin logo ni imágenes) ----
 $("create").addEventListener("click", async () => {
   $("create").disabled = true;
   try {
     const d = await api("tiendas-createStore", {
-      nombre: $("nombre").value, categoria: $("cat").value, subcategoria: $("subcat").value,
+      nombre: $("nombre").value, categoria: $("cat").value,
+      subcategorias: [...$("subcat").querySelectorAll("input:checked")].map((i) => i.value),
       descripcion: $("desc").value,
       pais: $("pais").value, departamento: $("dep").value, provincia: $("prov").value, distrito: $("dist").value,
-      localidad: $("loc").value, dias: +$("dias").value || 30, logo: logoData,
+      localidad: $("loc").value, dias: +$("dias").value || 30,
       dueno_dni: $("odni").value, dueno_nombre: $("onom").value,
       dueno_apellido: $("oape").value, dueno_telefono: $("otel").value,
       propietarios: $("owners").value.split(",").map((s) => s.trim()).filter(Boolean) });
     STORES.unshift(d.store); page = 1; render();
+    $("made").hidden = false;
+    $("made").innerHTML = `<span>Tienda creada · alias <b>${esc(d.alias)}</b> · ID <code>${esc(d.id)}</code></span><button data-cpid="${esc(d.id)}">Copiar ID</button>`;
+    $("nombre").value = ""; $("desc").value = "";
     toast(`Tienda creada · alias ${d.alias}`);
   } catch (e) { toast(e.message, false); } finally { $("create").disabled = false; }
 });
@@ -226,9 +225,10 @@ $("create").addEventListener("click", async () => {
 // ---- categorías desde Firestore (Tiendas/categorias/categorias) ----
 let CATS = [];
 function fillSub() {
-  const c = CATS.find((x) => x.id === $("cat").value);
-  $("subcat").innerHTML = '<option value="">Sin subcategoría</option>' +
-    ((c && c.subcategorias) || []).map((s) => `<option>${esc(s)}</option>`).join("");
+  const c = CATS.find((x) => x.id === $("cat").value), subs = (c && c.subcategorias) || [];
+  $("subcat").innerHTML = subs.length
+    ? subs.map((s) => `<label class="sw"><input type="checkbox" value="${esc(s)}">${esc(s)}</label>`).join("")
+    : '<span style="color:var(--muted);font-size:14px">Sin subcategorías</span>';
 }
 $("cat").addEventListener("change", fillSub);
 async function loadCats() {
@@ -300,7 +300,7 @@ function render() {
         `<td>${esc(s.distrito)}<br><small>${esc(s.provincia)}, ${esc(s.departamento)}</small></td>` +
         `<td>${l ? '<span class="tag">dominio</span>' : '<span class="tag">por defecto</span>'}<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace("https://", ""))}</a></td>` +
         `<td data-mb="${esc(s.id)}">…</td>` +
-        `<td><button data-edit="${esc(s.id)}">Administrar</button></td></tr>`;
+        `<td><button data-edit="${esc(s.id)}">Administrar</button> <button data-cpid="${esc(s.id)}" title="Copiar ID de la tienda">ID</button></td></tr>`;
     }).join("") + "</table>";
   }
   const from = all.length ? (page - 1) * PAGE + 1 : 0;
@@ -316,6 +316,7 @@ document.addEventListener("click", (e) => {
   if (e.target.id === "pp") { page--; render(); }
   if (e.target.id === "pn") { page++; render(); }
   const b = e.target.closest("[data-edit]"); if (b) openStore(b.dataset.edit);
+  const c = e.target.closest("[data-cpid]"); if (c) copyText(c.dataset.cpid, c, c.textContent === "Copiado" ? "ID" : c.textContent);
 });
 
 // ---- administrar tienda: servicios + dominio ----
@@ -341,29 +342,39 @@ const pre = (s) => ({ id: s.id, pais: s.pais, departamento: s.departamento, prov
 
 async function openStore(id) {
   cur = STORES.find((s) => s.id === id); if (!cur) return;
+  // el diálogo SIEMPRE abre: aunque la tienda no tenga servicios configurados se puede asignar dominio
+  $("dform").innerHTML = ""; $("dsave").hidden = false;
   try {
     const d = await api("tiendas-getServices", pre(cur));
     d.services.panel_admin = { ...(d.services.panel_admin || {}), fecha_fin: d.fecha_fin_iso };
-    $("dform").innerHTML = GROUPS.filter((g) => !g[3] || g[3](cur)).map(([title, pfx, fields]) => `<fieldset><legend>${title}</legend><div class="fg">` + fields.map((f) => {
+    $("dform").innerHTML = (d.exists ? "" : '<p style="color:var(--muted);margin:10px 0 0">Esta tienda aún no tiene servicios configurados. Se muestran los valores por defecto; al guardar se crean.</p>') +
+      GROUPS.filter((g) => !g[3] || g[3](cur)).map(([title, pfx, fields]) => `<fieldset><legend>${title}</legend><div class="fg">` + fields.map((f) => {
       const [name, t = "bool"] = f.split(":"), path = pfx ? `${pfx}.${name}` : name, v = getp(d.services, path);
       const label = esc(name.replace(/[._]/g, " "));
       if (t === "bool") return `<label class="sw"><input type="checkbox" data-p="${path}" data-t="bool" ${v ? "checked" : ""}>${label}</label>`;
       return `<div><label>${label}<input data-p="${path}" data-t="${t}" type="${t === "int" ? "number" : t === "date" ? "date" : "text"}" ${t === "int" ? 'min="0"' : ""} value="${esc(v ?? "")}"></label></div>`;
     }).join("") + "</div></fieldset>").join("");
-    drawDomain(); showStor(); loadUsage([cur.id]); $("dlg").showModal();
-  } catch (e) { toast(e.message, false); }
+  } catch (e) { toast(e.message, false); $("dsave").hidden = true; }
+  drawDomain(); showStor(); loadUsage([cur.id]); $("dlg").showModal();
 }
 function drawDomain() {
   const l = linkOf(cur.id);
   $("dname").textContent = cur.nombre;
+  $("dcpid").dataset.cpid = cur.id;
   $("durl").innerHTML = `Sitio por defecto: <a href="${DEFAULT_URL(esc(cur.alias))}" target="_blank" rel="noopener">${DEFAULT_URL(esc(cur.alias)).replace("https://", "")}</a>`;
   $("dcur").textContent = l ? `Actual: ${l.domain}` : "Sin dominio propio";
-  $("dsel").innerHTML = '<option value="">Elegir dominio…</option>' + DOMS.map((x) => `<option>${esc(x.domain)}</option>`).join("");
+  // un dominio solo puede apuntar a una tienda: se marca cuáles ya están en uso
+  $("dsel").innerHTML = '<option value="">Elegir dominio…</option>' + DOMS.map((x) => {
+    const k = LINKS.find((z) => z.domain === x.domain), s = k && k.id !== cur.id && STORES.find((t) => t.id === k.id);
+    return `<option value="${esc(x.domain)}">${esc(x.domain)}${s ? ` (en uso: ${esc(s.nombre)})` : ""}</option>`;
+  }).join("");
   $("dunassign").hidden = !l;
 }
 $("dclose").addEventListener("click", () => $("dlg").close());
 $("dassign").addEventListener("click", async () => {
   const domain = $("dsel").value; if (!domain) return toast("Elige un dominio.", false);
+  const k = LINKS.find((z) => z.domain === domain);
+  if (k && k.id !== cur.id && !confirm(`${domain} ya apunta a otra tienda. ¿Moverlo a ${cur.nombre}?`)) return;
   try {
     await api("tiendas-assignDomain", { domain, ...pre(cur) });
     LINKS = LINKS.filter((k) => k.domain !== domain && k.id !== cur.id); LINKS.push({ domain, id: cur.id, alias: cur.alias });
@@ -432,7 +443,7 @@ document.addEventListener("click", async (e) => {
   if (e.target.id === "dpp") { dpage--; renderDomains(); }
   if (e.target.id === "dpn") { dpage++; renderDomains(); }
   const cp = e.target.closest("[data-copy]");
-  if (cp) { navigator.clipboard.writeText(cp.dataset.copy); cp.textContent = "Copiado"; setTimeout(() => (cp.textContent = "Copiar"), 1200); }
+  if (cp) copyText(cp.dataset.copy, cp);
   const chk = e.target.closest("[data-chk]"), rm = e.target.closest("[data-rm]");
   try {
     if (chk) { const r = await api("domains-checkDomain", { domain: chk.dataset.chk }); upsertDom(r.domain); renderDomains(); toast(r.domain.nextStep || "Revisado", true, 6000); }

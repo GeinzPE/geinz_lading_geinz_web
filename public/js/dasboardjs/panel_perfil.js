@@ -172,13 +172,13 @@ window.PanelPerfil = {
   map: null,
   mapMarker: null,
   mapMarkerActual: null,
-_PAGO_CONFIG: {
-  yape: { digits: 9 },
-  plin: { digits: 9 },
-  agora: { digits: 9 },
-  visa_mastercard: { digits: 20 },
-},
-_pagoQrPending: {},
+  _PAGO_CONFIG: {
+    yape: { digits: 9 },
+    plin: { digits: 9 },
+    agora: { digits: 9 },
+    visa_mastercard: { digits: 20 },
+  },
+  _pagoQrPending: {},
   // ── IDs / refs Firebase ─────────────────────
   // ── IDs / refs Firebase ─────────────────────
   TIENDA_ID: tiendaId,
@@ -211,6 +211,7 @@ _pagoQrPending: {},
     this._injectFieldSaveBtnStyles();
     this._initDraggableBtn();
     this._initFirebase();
+    this._bindBuscadorDireccion();
 
     // "Calienta" el audio con el primer click del usuario (los navegadores
     // bloquean el autoplay hasta que hay interacción)
@@ -235,7 +236,356 @@ _pagoQrPending: {},
       { once: true },
     );
   },
+  // ═══════════════════════════════════════════
+  //  COLORES DE LA MARCA
+  // ═══════════════════════════════════════════
 
+  _rgbToHex({ r, g, b }) {
+    return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+  },
+  _hexToRgb(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  },
+
+  // Extrae hasta 8 colores distintos. Si el logo es monocromo, incluye grises.
+  _extraerPaleta(src, max = 8) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const S = 100;
+          const c = document.createElement("canvas");
+          c.width = c.height = S;
+          const ctx = c.getContext("2d");
+          ctx.drawImage(img, 0, 0, S, S);
+          const d = ctx.getImageData(0, 0, S, S).data;
+
+          const build = (estricto) => {
+            const bk = {};
+            for (let i = 0; i < d.length; i += 4) {
+              const r = d[i],
+                g = d[i + 1],
+                b = d[i + 2],
+                a = d[i + 3];
+              if (a < 128) continue;
+              const mx = Math.max(r, g, b),
+                mn = Math.min(r, g, b);
+              const l = (mx + mn) / 510;
+              if (l < 0.06 || l > 0.95) continue;
+              const s =
+                mx === mn ? 0 : (mx - mn) / (255 - Math.abs(mx + mn - 255));
+              if (estricto && s < 0.25) continue;
+              const k = `${r >> 4},${g >> 4},${b >> 4}`;
+              const o = bk[k] || (bk[k] = { n: 0, r: 0, g: 0, b: 0 });
+              o.n++;
+              o.r += r;
+              o.g += g;
+              o.b += b;
+            }
+            return Object.values(bk)
+              .sort((x, y) => y.n - x.n)
+              .map((o) => ({
+                r: Math.round(o.r / o.n),
+                g: Math.round(o.g / o.n),
+                b: Math.round(o.b / o.n),
+              }));
+          };
+
+          let lista = build(true);
+          if (lista.length < 3) lista = lista.concat(build(false));
+          const out = [];
+          for (const col of lista) {
+            if (
+              out.every(
+                (o) => Math.hypot(o.r - col.r, o.g - col.g, o.b - col.b) > 50,
+              )
+            )
+              out.push(col);
+            if (out.length >= max) break;
+          }
+          resolve(out);
+        } catch (e) {
+          console.warn("No se pudo leer el logo (CORS):", e.message);
+          resolve([]);
+        }
+      };
+      img.onerror = () => resolve([]);
+      img.src = src;
+    });
+  },
+
+  _colorSel: null,
+  _color2: null,
+  _degActivo: false,
+  _angulo: 135,
+  _colorGuardadoSig: "",
+  _colorPaleta: [],
+
+  _colorSig() {
+    const h1 = this._colorSel ? this._rgbToHex(this._colorSel) : "";
+    const h2 =
+      this._degActivo && this._color2 ? this._rgbToHex(this._color2) : "";
+    return `${h1}|${h2}|${h2 ? this._angulo : ""}`;
+  },
+
+  async _initColorPanel(data) {
+    const cm = data.color_marca || {};
+    const deg = cm.degradado || {};
+    const sw = document.getElementById("colorDinamicoSwitch");
+    if (sw) sw.checked = cm.activo === true;
+
+    this._colorPaleta = Array.isArray(cm.paleta) ? cm.paleta : [];
+    this._colorSel = cm.r != null ? { r: cm.r, g: cm.g, b: cm.b } : null;
+    this._color2 = deg.r != null ? { r: deg.r, g: deg.g, b: deg.b } : null;
+    this._degActivo = deg.activo === true && !!this._color2;
+    this._angulo = Number(deg.angulo) || 135;
+
+    // Firma de lo GUARDADO (si no hay nada guardado queda vacía)
+    this._colorGuardadoSig = this._colorSig();
+
+    // Sin color guardado → arranca con el primer color de la paleta
+    if (!this._colorSel && this._colorPaleta.length) {
+      this._colorSel = { ...this._colorPaleta[0] };
+    }
+
+    const dsw = document.getElementById("degradadoSwitch");
+    if (dsw) dsw.checked = this._degActivo;
+    const ang = document.getElementById("degradadoAngulo");
+    if (ang) ang.value = String(this._angulo);
+
+    this._renderColorPanel();
+
+    const logo = data.img_tienda?.logo_tienda;
+    if (!this._colorPaleta.length && logo) {
+      this._colorPaleta = await this._extraerPaleta(logo);
+      if (!this._colorSel && this._colorPaleta.length) {
+        this._colorSel = { ...this._colorPaleta[0] };
+      }
+      this._renderColorPanel();
+    }
+  },
+
+  _pintarPaleta(wrapId, selHex, onPick) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    if (!this._colorPaleta.length) {
+      wrap.innerHTML =
+        '<span style="font-size:12.5px;color:#888">No se pudieron leer colores del logo. Elige uno manualmente.</span>';
+      return;
+    }
+    this._colorPaleta.forEach((c) => {
+      const hex = this._rgbToHex(c);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.title = hex;
+      b.style.cssText = `width:44px;height:44px;border-radius:50%;cursor:pointer;background:${hex};
+        border:3px solid ${hex === selHex ? "#fff" : "rgba(255,255,255,.15)"};
+        box-shadow:${hex === selHex ? "0 0 0 2px #7c4dff" : "none"};`;
+      b.onclick = () => onPick(c);
+      wrap.appendChild(b);
+    });
+  },
+
+  _renderColorPanel() {
+    const prev = document.getElementById("colorPreview");
+    const man = document.getElementById("colorManual");
+    const man2 = document.getElementById("colorManual2");
+    const disp = document.getElementById("colorDisplay");
+    const box = document.getElementById("degradadoBox");
+    const degPrev = document.getElementById("degradadoPreview");
+
+    const h1 = this._colorSel ? this._rgbToHex(this._colorSel) : "";
+    const h2 = this._color2 ? this._rgbToHex(this._color2) : "";
+
+    this._pintarPaleta("colorPaleta", h1, (c) => this._seleccionarColor(c));
+    this._pintarPaleta("colorPaleta2", h2, (c) => this._seleccionarColor2(c));
+
+    if (prev) {
+      prev.style.background = h1 || "transparent";
+      prev.textContent = h1 ? h1.toUpperCase() : "Sin color elegido";
+    }
+    if (man && h1) man.value = h1;
+    if (man2 && h2) man2.value = h2;
+    if (box) box.style.display = this._degActivo ? "" : "none";
+    if (degPrev) {
+      degPrev.style.background =
+        h1 && h2
+          ? `linear-gradient(${this._angulo}deg, ${h1}, ${h2})`
+          : "transparent";
+    }
+    if (disp) {
+      disp.textContent = h1
+        ? this._degActivo && h2
+          ? `Degradado: ${h1.toUpperCase()} → ${h2.toUpperCase()}`
+          : `Color: ${h1.toUpperCase()}`
+        : "Color de tu perfil público";
+    }
+
+    const btn = document.getElementById("fieldSaveBtn-color");
+    if (btn && !btn.classList.contains("saving")) {
+const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._colorGuardadoSig.startsWith("#"));
+      btn.style.display = "flex";
+      btn.disabled = !cambio;
+      btn.style.opacity = cambio ? "1" : ".55";
+      btn.innerHTML = !h1
+        ? "Elige un color"
+        : cambio
+          ? "✓ Guardar y aplicar en mi perfil"
+          : "✓ Color aplicado en tu perfil";
+    }
+  },
+
+  _seleccionarColor(c) {
+    this._colorSel = { r: c.r, g: c.g, b: c.b };
+    this._renderColorPanel();
+  },
+  _seleccionarColor2(c) {
+    this._color2 = { r: c.r, g: c.g, b: c.b };
+    this._renderColorPanel();
+  },
+  elegirColorManual(hex) {
+    const c = this._hexToRgb(hex);
+    if (c) this._seleccionarColor(c);
+  },
+  elegirColor2Manual(hex) {
+    const c = this._hexToRgb(hex);
+    if (c) this._seleccionarColor2(c);
+  },
+  toggleDegradado(on) {
+    this._degActivo = on;
+    // primera vez: sugiere un segundo color a partir de la paleta
+    if (on && !this._color2) {
+      const base = this._colorSel;
+      const otro = this._colorPaleta.find(
+        (c) =>
+          !base || Math.hypot(c.r - base.r, c.g - base.g, c.b - base.b) > 60,
+      ) || { r: 124, g: 77, b: 255 };
+      this._color2 = { r: otro.r, g: otro.g, b: otro.b };
+    }
+    this._renderColorPanel();
+  },
+  setAnguloDegradado(v) {
+    this._angulo = Number(v) || 135;
+    this._renderColorPanel();
+  },
+
+    async toggleColorMarca(enabled) {
+    try {
+      await this._updateDoc(this.TIENDA_REF, { "color_marca.activo": enabled });
+      this.showToast(
+        enabled ? "Colores personalizados activados" : "Color automático activado",
+      );
+      if (enabled && !this._colorGuardadoSig) {
+        this.showToast("Elige un color y pulsa Guardar");
+      }
+    } catch (e) {
+      console.error(e);
+      this.showToast("Error al actualizar");
+    }
+  },
+  async saveColorMarca() {
+    if (!this._colorSel) return;
+    const btn = document.getElementById("fieldSaveBtn-color");
+    if (btn) {
+      btn.classList.add("saving");
+      btn.innerHTML = "Guardando...";
+    }
+    try {
+      const sw = document.getElementById("colorDinamicoSwitch");
+      if (sw) sw.checked = true;
+      const hex = this._rgbToHex(this._colorSel);
+      const conDeg = this._degActivo && !!this._color2;
+      const degradado = conDeg
+        ? {
+            activo: true,
+            r: this._color2.r,
+            g: this._color2.g,
+            b: this._color2.b,
+            hex: this._rgbToHex(this._color2),
+            angulo: this._angulo,
+          }
+        : { activo: false };
+
+      await this._updateDoc(this.TIENDA_REF, {
+        color_marca: {
+          activo: true,
+          r: this._colorSel.r,
+          g: this._colorSel.g,
+          b: this._colorSel.b,
+          hex,
+          paleta: this._colorPaleta,
+          degradado,
+        },
+      });
+      this._colorGuardadoSig = this._colorSig();
+      this._hideFieldBtn(btn);
+      if (btn) btn.innerHTML = "✓ Guardar color";
+      this.showToast("✓ Color guardado y activado");
+    } catch (e) {
+      console.error(e);
+      if (btn) btn.classList.remove("saving");
+      this._renderColorPanel();
+      this.showToast("❌ Error al guardar color");
+    }
+  },
+  _bindBuscadorDireccion() {
+    const input = document.getElementById("fieldBuscarDireccion");
+    const box = document.getElementById("sugerenciasDireccion");
+    if (!input || !box) return;
+    let timer,
+      token = 0;
+
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (q.length < 3) {
+        box.style.display = "none";
+        box.innerHTML = "";
+        return;
+      }
+
+      timer = setTimeout(async () => {
+        if (typeof mapboxgl === "undefined" || !mapboxgl.accessToken) return;
+        const my = ++token;
+        const lat = this.currentData?.ubicacion?.latitud ?? -10.7594699;
+        const lng = this.currentData?.ubicacion?.longitud ?? -77.7608478;
+        try {
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json` +
+              `?access_token=${mapboxgl.accessToken}&autocomplete=true&country=pe&language=es&limit=5&proximity=${lng},${lat}`,
+          );
+          const data = await res.json();
+          if (my !== token) return;
+          box.innerHTML = "";
+          (data.features || []).forEach((f) => {
+            const item = document.createElement("div");
+            item.className = "addr-suggest-item";
+            item.textContent = f.place_name;
+            item.onclick = () => {
+              const [flng, flat] = f.center;
+              input.value = f.place_name;
+              box.style.display = "none";
+              this._onMapPointChanged(flat, flng, false, f.place_name);
+            };
+            box.appendChild(item);
+          });
+          box.style.display = box.children.length ? "block" : "none";
+        } catch (e) {
+          console.error(e);
+        }
+      }, 350);
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#fieldBuscarDireccion, #sugerenciasDireccion"))
+        box.style.display = "none";
+    });
+  },
   _ensureResenaAudio() {
     if (!this._resenaAudio) {
       this._resenaAudio = new Audio("../../sounds/nueva_review_cliente.mp3"); // 👈 ajusta el nombre real
@@ -555,7 +905,7 @@ _pagoQrPending: {},
             servicios_productos: "productosGrid",
           };
           this.populatePhotoGrid(gridMap[tipo], val || [], 6, tipo);
-        } 
+        }
       } else if (key === "modelo_negocio") {
         // 👈 NUEVO
         this.aplicarVisibilidadUbicacion(val === true);
@@ -597,6 +947,7 @@ _pagoQrPending: {},
     }
 
     this.updateCatDisplay();
+    this._initColorPanel(data);
 
     if (data.ubicacion) {
       this.setField("fieldDireccion", data.ubicacion["dirección"] || "");
@@ -641,15 +992,15 @@ _pagoQrPending: {},
       this.setField("fieldPlinTitular", mp.plin.nombre || "");
       this.setField("fieldPlinAlias", mp.plin.numero || "");
     }
-["yape", "plin", "agora", "visa_mastercard"].forEach((m) => {
-  const info = mp[m] || {};
-  this.setField(`pagoNombre-${m}`, info.nombre || "");
-  this.setField(`pagoNumero-${m}`, info.numero || "");
-  this._originalValues[`pagoNombre-${m}`] = info.nombre || "";
-  this._originalValues[`pagoNumero-${m}`] = info.numero || "";
-  this._loadQrPreview(m, info.qr || "");
-  this._togglePagoDetails(m, info.enable === true);
-});
+    ["yape", "plin", "agora", "visa_mastercard"].forEach((m) => {
+      const info = mp[m] || {};
+      this.setField(`pagoNombre-${m}`, info.nombre || "");
+      this.setField(`pagoNumero-${m}`, info.numero || "");
+      this._originalValues[`pagoNombre-${m}`] = info.nombre || "";
+      this._originalValues[`pagoNumero-${m}`] = info.numero || "";
+      this._loadQrPreview(m, info.qr || "");
+      this._togglePagoDetails(m, info.enable === true);
+    });
     const imgs = data.img_tienda?.lista_img;
     this.populatePhotoGrid(
       "ambienteGrid",
@@ -667,6 +1018,7 @@ _pagoQrPending: {},
       this.setField("fieldAforo", data.aforo_max);
 
     this._originalValues = {
+      ...this._originalValues,
       businessName: data.nombre_tienda || "",
       businessDesc: data.descripcion || "",
       fieldAforo: data.aforo_max !== undefined ? String(data.aforo_max) : "",
@@ -836,6 +1188,10 @@ _pagoQrPending: {},
             await this._updateDoc(lugarRef, { img: finalURL });
 
             this.loadAvatar(finalURL);
+            this._extraerPaleta(comprimida).then((p) => {
+              this._colorPaleta = p;
+              this._renderColorPanel();
+            });
             this.showToast("✓ Logo actualizado");
           } catch (err) {
             console.error("Error subiendo logo:", err);
@@ -848,16 +1204,12 @@ _pagoQrPending: {},
       });
     }
 
-    if (profileSection) {
-      profileSection.addEventListener("input", (e) => {
-        if (this.activeSection !== "perfil") return;
-        if (e.target.closest("#sec-publicidad")) return;
-        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
-          this._checkFieldChanged(e.target.id);
-        }
-      });
-    }
-
+    document.addEventListener("input", (e) => {
+      const id = e.target?.id;
+      if (!id) return;
+      if (id.startsWith("pagoNombre-") || id.startsWith("pagoNumero-")) return;
+      this._checkFieldChanged(id);
+    });
     document
       .querySelectorAll('.pay-methods-wrapper input[type="checkbox"]')
       .forEach((cb) => {
@@ -921,8 +1273,8 @@ _pagoQrPending: {},
       btn.innerHTML = "Guardando...";
       try {
         await onSave();
-        btn.classList.remove("visible", "saving");
-        btn.innerHTML = `✓ Guardar ${label}`;
+        if (btn) btn.classList.remove("saving");
+        this._renderColorPanel();
       } catch {
         btn.classList.remove("saving");
         btn.innerHTML = `✓ Guardar ${label}`;
@@ -932,125 +1284,144 @@ _pagoQrPending: {},
   },
 
   _showFieldBtn(btn) {
-    btn?.classList.add("visible");
+    if (!btn) return;
+    btn.classList.add("visible");
+    btn.style.display = "inline-flex";
   },
   _hideFieldBtn(btn) {
-    btn?.classList.remove("visible");
+    if (!btn) return;
+    btn.classList.remove("visible", "saving");
+    btn.style.display = "none";
+  },
+  _sanitizeNumero(method) {
+    const el = document.getElementById(`pagoNumero-${method}`);
+    if (!el) return;
+    let v = el.value.replace(/\D/g, "");
+    if (method !== "visa_mastercard" && v.startsWith("51") && v.length > 9)
+      v = v.slice(2);
+    const max = this._PAGO_CONFIG[method]?.digits;
+    if (max) v = v.slice(0, max);
+    el.value = v;
+    this._checkPagoChanged(method);
   },
 
-  _sanitizeNumero(method) {
-  const el = document.getElementById(`pagoNumero-${method}`);
-  if (!el) return;
-  let v = el.value.replace(/\D/g, "");
-  if (method !== "visa_mastercard" && v.startsWith("51") && v.length > 9) v = v.slice(2);
-  const max = this._PAGO_CONFIG[method]?.digits;
-  if (max) v = v.slice(0, max);
-  el.value = v;
-  this._checkPagoChanged(method);
-},
-
-_checkPagoChanged(method) {
-  const btn = document.getElementById(`fieldSaveBtn-pago-${method}`);
-  if (!btn) return;
-  const nombre = document.getElementById(`pagoNombre-${method}`)?.value || "";
-  const numero = document.getElementById(`pagoNumero-${method}`)?.value || "";
-  const changed =
-    nombre !== (this._originalValues[`pagoNombre-${method}`] || "") ||
-    numero !== (this._originalValues[`pagoNumero-${method}`] || "") ||
-    !!this._pagoQrPending[method];
-  changed ? this._showFieldBtn(btn) : this._hideFieldBtn(btn);
-},
-
-_togglePagoDetails(method, show) {
-  document.getElementById(`payDetails-${method}`)?.classList.toggle("open", !!show);
-},
-
-_loadQrPreview(method, url) {
-  const img = document.getElementById(`qrImg-${method}`);
-  const ph = document.getElementById(`qrPlaceholder-${method}`);
-  if (!img || !ph) return;
-  img.classList.remove("loaded");
-  if (url) {
-    img.onload = () => img.classList.add("loaded");
-    img.src = url;
-    ph.style.display = "none";
-  } else {
-    img.removeAttribute("src");
-    ph.style.display = "flex";
-  }
-},
-
-openPagoQR(method) {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/png,image/jpeg,image/webp";
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      this._pagoQrPending[method] = ev.target.result;
-      const img = document.getElementById(`qrImg-${method}`);
-      const ph = document.getElementById(`qrPlaceholder-${method}`);
-      if (img) {
-        img.classList.remove("loaded");
-        img.onload = () => img.classList.add("loaded");
-        img.src = ev.target.result;
-      }
-      if (ph) ph.style.display = "none";
-      this._checkPagoChanged(method);
-    };
-    reader.readAsDataURL(file);
-  };
-  input.click();
-},
-
-async savePagoMethodInfo(method) {
-  const btn = document.getElementById(`fieldSaveBtn-pago-${method}`);
-  if (btn) { btn.classList.add("saving"); btn.innerHTML = "Guardando..."; }
-  const restoreBtn = (label) => {
+  _checkPagoChanged(method) {
+    const btn = document.getElementById(`fieldSaveBtn-pago-${method}`);
     if (!btn) return;
-    btn.classList.remove("saving");
-    btn.innerHTML = label;
-  };
-  try {
-    const nombre = document.getElementById(`pagoNombre-${method}`)?.value.trim() || "";
-    const numero = document.getElementById(`pagoNumero-${method}`)?.value.trim() || "";
+    const nombre = document.getElementById(`pagoNombre-${method}`)?.value || "";
+    const numero = document.getElementById(`pagoNumero-${method}`)?.value || "";
+    const changed =
+      nombre !== (this._originalValues[`pagoNombre-${method}`] || "") ||
+      numero !== (this._originalValues[`pagoNumero-${method}`] || "") ||
+      !!this._pagoQrPending[method];
+    changed ? this._showFieldBtn(btn) : this._hideFieldBtn(btn);
+  },
 
-    if (method !== "visa_mastercard" && numero && numero.length !== 9) {
-      this.showToast("❌ El número debe tener 9 dígitos");
-      restoreBtn(btn.dataset.label || "✓ Guardar");
-      return;
+  _togglePagoDetails(method, show) {
+    document
+      .getElementById(`payDetails-${method}`)
+      ?.classList.toggle("open", !!show);
+  },
+
+  _loadQrPreview(method, url) {
+    const img = document.getElementById(`qrImg-${method}`);
+    const ph = document.getElementById(`qrPlaceholder-${method}`);
+    if (!img || !ph) return;
+    img.classList.remove("loaded");
+    if (url) {
+      img.onload = () => img.classList.add("loaded");
+      img.src = url;
+      ph.style.display = "none";
+    } else {
+      img.removeAttribute("src");
+      ph.style.display = "flex";
     }
+  },
 
-    const updateData = {
-      [`metodos_pago.${method}.nombre`]: nombre,
-      [`metodos_pago.${method}.numero`]: numero,
+  openPagoQR(method) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        this._pagoQrPending[method] = ev.target.result;
+        const img = document.getElementById(`qrImg-${method}`);
+        const ph = document.getElementById(`qrPlaceholder-${method}`);
+        if (img) {
+          img.classList.remove("loaded");
+          img.onload = () => img.classList.add("loaded");
+          img.src = ev.target.result;
+        }
+        if (ph) ph.style.display = "none";
+        this._checkPagoChanged(method);
+      };
+      reader.readAsDataURL(file);
     };
+    input.click();
+  },
 
-    const pendingQr = this._pagoQrPending[method];
-    if (pendingQr) {
-      const comprimida = await this._comprimirImagen(pendingQr, 600, 0.85);
-      const blob = this._dataURLtoBlob(comprimida);
-      const ref = this._storageRef(this._storage, `tiendas/${this.TIENDA_ID}/qr_pagos/${method}.webp`);
-      await this._uploadBytes(ref, blob, { contentType: "image/webp" });
-      updateData[`metodos_pago.${method}.qr`] = await this._getDownloadURL(ref);
-      delete this._pagoQrPending[method];
+  async savePagoMethodInfo(method) {
+    const btn = document.getElementById(`fieldSaveBtn-pago-${method}`);
+    const labelOrig = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.classList.add("saving");
+      btn.innerHTML = "Guardando...";
     }
+    const restaurar = () => {
+      if (!btn) return;
+      btn.classList.remove("saving");
+      btn.innerHTML = labelOrig;
+    };
+    try {
+      const nombre =
+        document.getElementById(`pagoNombre-${method}`)?.value.trim() || "";
+      const numero =
+        document.getElementById(`pagoNumero-${method}`)?.value.trim() || "";
 
-    await this._updateDoc(this.TIENDA_REF, updateData);
+      if (method !== "visa_mastercard" && numero && numero.length !== 9) {
+        this.showToast("❌ El número debe tener 9 dígitos");
+        restaurar();
+        return;
+      }
 
-    this._originalValues[`pagoNombre-${method}`] = nombre;
-    this._originalValues[`pagoNumero-${method}`] = numero;
+      const updateData = {
+        [`metodos_pago.${method}.nombre`]: nombre,
+        [`metodos_pago.${method}.numero`]: numero,
+      };
 
-    if (btn) { btn.classList.remove("visible", "saving"); btn.innerHTML = btn.dataset.label || "✓ Guardar"; }
-    this.showToast("✓ Datos de pago guardados");
-  } catch (e) {
-    console.error("Error guardando método de pago:", e);
-    restoreBtn(btn?.dataset.label || "✓ Guardar");
-    this.showToast("❌ Error al guardar");
-  }
-},
+      const pendingQr = this._pagoQrPending[method];
+      if (pendingQr) {
+        const comprimida = await this._comprimirImagen(pendingQr, 600, 0.85);
+        const blob = this._dataURLtoBlob(comprimida);
+        const ref = this._storageRef(
+          this._storage,
+          `tiendas/${this.TIENDA_ID}/qr_pagos/${method}.webp`,
+        );
+        await this._uploadBytes(ref, blob, { contentType: "image/webp" });
+        updateData[`metodos_pago.${method}.qr`] =
+          await this._getDownloadURL(ref);
+      }
+
+      await this._updateDoc(this.TIENDA_REF, updateData);
+
+      delete this._pagoQrPending[method];
+      this._originalValues[`pagoNombre-${method}`] = nombre;
+      this._originalValues[`pagoNumero-${method}`] = numero;
+
+      if (btn) {
+        this._hideFieldBtn(btn);
+        btn.innerHTML = labelOrig;
+      }
+      this.showToast("✓ Datos de pago guardados");
+    } catch (e) {
+      console.error("Error guardando método de pago:", e);
+      restaurar();
+      this.showToast("❌ Error al guardar");
+    }
+  },
   _checkFieldChanged(fieldId) {
     const el = document.getElementById(fieldId);
     const btn = document.getElementById("fieldSaveBtn-" + fieldId);
@@ -1106,11 +1477,19 @@ async savePagoMethodInfo(method) {
         id: "fieldInstagram",
         label: "Instagram",
         save: async (val) => {
-          const clean = val.replace("@", "");
+          const clean = val
+            .trim()
+            .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+            .replace(/^@/, "")
+            .replace(/\/$/, "");
           await fs._updateDoc(fs.TIENDA_REF, {
             "metodo_contacto.instagram.nombre": clean,
+            "metodo_contacto.instagram.url": clean
+              ? `https://instagram.com/${clean}`
+              : "",
           });
-          fs._originalValues["fieldInstagram"] = "@" + clean;
+          fs._originalValues["fieldInstagram"] = clean ? "@" + clean : "";
+          fs.setField("fieldInstagram", clean ? "@" + clean : "");
           fs.showToast("✓ Instagram guardado");
         },
       },
@@ -1118,10 +1497,13 @@ async savePagoMethodInfo(method) {
         id: "fieldFacebook",
         label: "Facebook",
         save: async (val) => {
+          let url = val.trim();
+          if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
           await fs._updateDoc(fs.TIENDA_REF, {
-            "metodo_contacto.facebook.url": val,
+            "metodo_contacto.facebook.url": url,
           });
-          fs._originalValues["fieldFacebook"] = val;
+          fs._originalValues["fieldFacebook"] = url;
+          fs.setField("fieldFacebook", url);
           fs.showToast("✓ Facebook guardado");
         },
       },
@@ -1129,10 +1511,19 @@ async savePagoMethodInfo(method) {
         id: "fieldTiktok",
         label: "TikTok",
         save: async (val) => {
+          let url = val.trim();
+          if (url && !/^https?:\/\//i.test(url)) {
+            const user = url
+              .replace(/^(www\.)?tiktok\.com\/@?/i, "")
+              .replace(/^@/, "")
+              .replace(/\/$/, "");
+            url = `https://www.tiktok.com/@${user}`;
+          }
           await fs._updateDoc(fs.TIENDA_REF, {
-            "metodo_contacto.tiktok.url": val,
+            "metodo_contacto.tiktok.url": url,
           });
-          fs._originalValues["fieldTiktok"] = val;
+          fs._originalValues["fieldTiktok"] = url;
+          fs.setField("fieldTiktok", url);
           fs.showToast("✓ TikTok guardado");
         },
       },
@@ -1140,10 +1531,13 @@ async savePagoMethodInfo(method) {
         id: "fieldWeb",
         label: "sitio web",
         save: async (val) => {
+          let url = val.trim();
+          if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
           await fs._updateDoc(fs.TIENDA_REF, {
-            "metodo_contacto.sitio_web.url": val,
+            "metodo_contacto.sitio_web.url": url,
           });
-          fs._originalValues["fieldWeb"] = val;
+          fs._originalValues["fieldWeb"] = url;
+          fs.setField("fieldWeb", url);
           fs.showToast("✓ Sitio web guardado");
         },
       },
@@ -1151,7 +1545,7 @@ async savePagoMethodInfo(method) {
         id: "businessName",
         label: "nombre",
         save: async (val) => {
-          if (!val.trim()) return;
+          if (!val.trim()) throw new Error("nombre vacío");
           await fs._updateDoc(fs.TIENDA_REF, {
             nombre_tienda: val,
             nombre_lower: val.toLowerCase(),
@@ -1176,7 +1570,7 @@ async savePagoMethodInfo(method) {
         label: "aforo",
         save: async (val) => {
           const num = parseInt(val);
-          if (isNaN(num)) return;
+          if (isNaN(num)) throw new Error("aforo inválido");
           await fs._updateDoc(fs.TIENDA_REF, { aforo_max: num });
           fs._originalValues["fieldAforo"] = String(num);
           fs.showToast("✓ Aforo guardado");
@@ -1293,45 +1687,42 @@ async savePagoMethodInfo(method) {
   // ═══════════════════════════════════════════
   //  _onMapPointChanged — única definición
   // ═══════════════════════════════════════════
-  async _onMapPointChanged(lat, lng, fromDrag = false) {
-    // 1. Mostrar pin naranja (cambia display a flex para que se vea)
+  async _onMapPointChanged(
+    lat,
+    lng,
+    fromDrag = false,
+    direccionConocida = null,
+  ) {
     const elPendiente = document.getElementById("markerPendienteEl");
     if (elPendiente) elPendiente.style.display = "flex";
 
-    // 2. Si vino de click (no drag) mover el pin naranja a la nueva posición
-    if (!fromDrag) {
-      this.mapMarker.setLngLat([lng, lat]);
-    }
-
-    // 3. Centrar mapa suavemente
+    if (!fromDrag) this.mapMarker.setLngLat([lng, lat]);
     this.map.flyTo({ center: [lng, lat], zoom: 18 });
 
-    // 4. Reverse geocoding para actualizar el campo dirección
-    try {
-      const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`,
-      );
-      const data = await res.json();
-      const place = data.features?.[0];
-      if (place) {
-        document.getElementById("fieldDireccion").value = place.place_name;
-        this._checkFieldChanged("fieldDireccion");
+    if (direccionConocida) {
+      document.getElementById("fieldDireccion").value = direccionConocida;
+      this._checkFieldChanged("fieldDireccion");
+    } else {
+      try {
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`,
+        );
+        const data = await res.json();
+        const place = data.features?.[0];
+        if (place) {
+          document.getElementById("fieldDireccion").value = place.place_name;
+          this._checkFieldChanged("fieldDireccion");
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
 
-    // 5. Guardar pending y calcular zona
     this._pendingLat = lat;
     this._pendingLng = lng;
     this._pendingZona = GeofencingManager.obtenerNombreZona(lat, lng);
-
-    // 6. Mostrar botón de guardar
-    // 6. Mostrar botón de guardar
-    const btn = document.getElementById("fieldSaveBtn-coordenadas");
-    if (btn) this._showFieldBtn(btn);
+    this._showFieldBtn(document.getElementById("fieldSaveBtn-coordenadas"));
   },
-
   // ═══════════════════════════════════════════
   //  OBTENER UBICACIÓN ACTUAL (GPS del dispositivo)
   // ═══════════════════════════════════════════
@@ -1406,13 +1797,15 @@ async savePagoMethodInfo(method) {
         const zona =
           this._pendingZona ?? GeofencingManager.obtenerNombreZona(lat, lng);
 
-        await this._updateDoc(this.TIENDA_REF, {
+        const dir = document.getElementById("fieldDireccion")?.value.trim();
+        const upd = {
           "ubicacion.latitud": lat,
           "ubicacion.longitud": lng,
           "ubicacion.zona": zona,
           geohash,
-        });
-
+        };
+        if (dir) upd["ubicacion.dirección"] = dir;
+        await this._updateDoc(this.TIENDA_REF, upd);
         const lugarRef = this._doc(this.db, "lugares", this.TIENDA_REF.id);
         await this._updateDoc(lugarRef, {
           "ubicacion.latitud": lat,
@@ -1439,7 +1832,16 @@ async savePagoMethodInfo(method) {
         this._pendingLng = null;
         this._pendingZona = null;
 
-        btn.classList.remove("visible", "saving");
+        if (dir) {
+          this._originalValues["fieldDireccion"] = dir;
+          this._hideFieldBtn(
+            document.getElementById("fieldSaveBtn-fieldDireccion"),
+          );
+        }
+        const buscador = document.getElementById("fieldBuscarDireccion");
+        if (buscador) buscador.value = "";
+
+        this._hideFieldBtn(btn);
         btn.innerHTML = "✓ Guardar nueva ubicación";
         this.showToast(
           zona ? `✓ Ubicación guardada · ${zona}` : "✓ Ubicación guardada",
@@ -1476,7 +1878,7 @@ async savePagoMethodInfo(method) {
         const lugarRef = this._doc(this.db, "lugares", this.TIENDA_REF.id);
         await this._updateDoc(lugarRef, { tag: this.selectedSubcats });
         this._originalSubcats = [...this.selectedSubcats];
-        btn.classList.remove("visible", "saving");
+        this._hideFieldBtn(btn);
         btn.innerHTML = "✓ Guardar subcategorías";
         this.showToast("✓ Subcategorías guardadas");
       } catch (e) {
@@ -1621,6 +2023,10 @@ async savePagoMethodInfo(method) {
       await this._updateDoc(lugarRef, { img: finalURL });
 
       this.loadAvatar(finalURL);
+      this._extraerPaleta(comprimida).then((p) => {
+        this._colorPaleta = p;
+        this._renderColorPanel();
+      });
       this._avatarPendingDataURL = null;
       this.closeModal("modalFotoPerfil");
       this.showToast("✓ Logo actualizado");
@@ -1799,8 +2205,6 @@ async savePagoMethodInfo(method) {
     }
   },
 
-
-
   // ═══════════════════════════════════════════
   //  VINCULAR CUENTA
   // ═══════════════════════════════════════════
@@ -1960,18 +2364,21 @@ async savePagoMethodInfo(method) {
   // ═══════════════════════════════════════════
   //  SWITCHES
   // ═══════════════════════════════════════════
-async togglePayMethod(method, enabled) {
-  try {
-    await this._updateDoc(this.TIENDA_REF, {
-      [`metodos_pago.${method}.enable`]: enabled,
-    });
-    this._togglePagoDetails(method, enabled); // 👈 nuevo
-    this.showToast(`${method.toUpperCase()} ${enabled ? "activado" : "desactivado"}`);
-  } catch (e) {
-    console.error("Error togglePayMethod:", e);
-    this.showToast("Error al actualizar método de pago");
-  }
-},
+  async togglePayMethod(method, enabled) {
+    try {
+      await this._updateDoc(this.TIENDA_REF, {
+        [`metodos_pago.${method}.enable`]: enabled,
+      });
+      this._togglePagoDetails(method, enabled);
+      if (enabled) this._checkPagoChanged(method);
+      this.showToast(
+        `${method.toUpperCase()} ${enabled ? "activado" : "desactivado"}`,
+      );
+    } catch (e) {
+      console.error("Error togglePayMethod:", e);
+      this.showToast("Error al actualizar método de pago");
+    }
+  },
 
   async toggleContactMethod(method, enabled) {
     try {
@@ -1981,6 +2388,19 @@ async togglePayMethod(method, enabled) {
       this.showToast(
         `${this._getContactName(method)} ${enabled ? "activado" : "desactivado"}`,
       );
+      const fieldId = {
+        llamada: "fieldTelefono",
+        whatsapp: "fieldWhatsapp",
+        instagram: "fieldInstagram",
+        facebook: "fieldFacebook",
+        tiktok: "fieldTiktok",
+        sitio_web: "fieldWeb",
+      }[method];
+      const el = document.getElementById(fieldId);
+      if (enabled && el && !el.value.trim()) {
+        this.showToast("Escribe el dato y pulsa Guardar");
+        el.focus();
+      }
     } catch (e) {
       console.error("Error toggleContactMethod:", e);
       this.showToast("Error al actualizar");

@@ -4,7 +4,8 @@ import { montarTarjetaFidelizacion } from "../../tarjeta_fidelizacion_desing/tar
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
-
+let _heroFlipBound = false;
+let _heroFlipToggle = null;
 let _currentUid = null; // NUEVO
 let _fidelizacionActiva = false;
 let _bannerShown = false;
@@ -230,7 +231,65 @@ function applyDominantColor({ r, g, b }) {
     ctaGlow.style.background = `rgba(${r},${g},${b},.3)`;
   }
 }
+/** Aplica color 1 + (opcional) color 2 como degradado en todo el perfil */
+function aplicarMarca(cm) {
+  const c1 = { r: cm.r, g: cm.g, b: cm.b };
+  const g = cm.degradado;
+  const c2 =
+    g?.activo === true && g.r != null ? { r: g.r, g: g.g, b: g.b } : null;
+  applyDominantColor(c1);
+  aplicarDegradado(c1, c2, Number(g?.angulo) || 135);
+}
 
+function aplicarDegradado(c1, c2, ang = 135) {
+  const root = document.documentElement;
+  let st = document.getElementById("brandGradStyle");
+
+  if (!c2) {
+    ["--d2r", "--d2g", "--db2", "--d2b", "--brand-grad"].forEach((v) =>
+      root.style.removeProperty(v),
+    );
+    st?.remove();
+    return;
+  }
+
+  root.style.setProperty("--d2r", c2.r);
+  root.style.setProperty("--d2g", c2.g);
+  root.style.setProperty("--d2b", c2.b);
+  root.style.setProperty(
+    "--brand-grad",
+    `linear-gradient(${ang}deg, rgb(${c1.r},${c1.g},${c1.b}), rgb(${c2.r},${c2.g},${c2.b}))`,
+  );
+
+  // Fondos decorativos que applyDominantColor pinta con un solo color
+  const blob = document.getElementById("heroBlobBg");
+  if (blob)
+    blob.style.background = `linear-gradient(${ang}deg, rgba(${c1.r},${c1.g},${c1.b},.28), rgba(${c2.r},${c2.g},${c2.b},.28))`;
+  const grad = document.getElementById("ctaGradient");
+  if (grad)
+    grad.style.background = `linear-gradient(135deg, rgba(${c1.r},${c1.g},${c1.b},.55) 0%, rgba(${c2.r},${c2.g},${c2.b},.4) 55%, #000 100%)`;
+  const glow = document.getElementById("ctaGlow");
+  if (glow) glow.style.background = `rgba(${c2.r},${c2.g},${c2.b},.3)`;
+
+  if (!st) {
+    st = document.createElement("style");
+    st.id = "brandGradStyle";
+    document.head.appendChild(st);
+  }
+  st.textContent = `
+    .btn-primary, .follow-btn.following, .reviews-cta-btn, .mesas-multi-btn,
+    .mesa-reserva-submit, .login-prompt-btn-primary, .pcp-btn-go, .up-btn,
+    .perfil-cart-float-btn, .mesa-reserva-float-btn,
+    .reviews-filter-chip.active, .pv-chip.active, .carta-filter-chip.active,
+    .review-avatar, .wl-user-avatar, .share-opt-ico[style*="--dr"] {
+      background: var(--brand-grad) !important;
+    }
+    .promo-icon-share, .promo-icon-share-circle,
+    .promo-card-price, .promo-active-price-badge {
+      background: var(--brand-grad) !important;
+    }
+  `;
+}
 /**
  * Fallback: color derivado del nombre (cuando el logo no carga o
  * no se puede leer por CORS).
@@ -861,7 +920,7 @@ const _cGet = (k, ttl = 6 * 3600e3) => {
 const _cSet = (k, d) => {
   try {
     localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
-  } catch { }
+  } catch {}
 };
 async function getParams() {
   // ═══ NUEVO: detectar dominio conectado ═══
@@ -1790,11 +1849,11 @@ function renderPuntosBadge(puntos) {
 }
 
 document.getElementById("puntosBadge")?.addEventListener("click", () => {
-  if (!_fidelizacionActiva) {
-    showToast(_fidelizacionMensajeInactivo);
-    return;
-  }
-  irAFidelizacion();
+  if (!_fidelizacionActiva) { showToast(_fidelizacionMensajeInactivo); return; }
+  if (_heroFlipToggle) {
+    document.getElementById("heroFlip")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    _heroFlipToggle(true);
+  } else irAFidelizacion();
 });
 function bindFollowButton({ localidad, id }, biz) {
   const btn = document.getElementById("followBtn");
@@ -1805,32 +1864,34 @@ function bindFollowButton({ localidad, id }, biz) {
   let isFollowing = false;
   let isBusy = false;
 
- function setFollowUI(following) {
-  const cambio = _siguiendoNegocio !== following;
-  isFollowing = following;
-  _siguiendoNegocio = following;
-  btn.classList.toggle("following", following);
-  icon.textContent = following ? "✅" : "➕";
-  text.textContent = following ? "Siguiendo" : "Seguir";
-  if (cambio) {
-    _upState = null; // el caché del panel ya no sirve
-    refrescarUserPanelSiAbierto(); // si está abierto, se repinta solo
+  function setFollowUI(following) {
+    const cambio = _siguiendoNegocio !== following;
+    isFollowing = following;
+    _siguiendoNegocio = following;
+    btn.classList.toggle("following", following);
+    icon.textContent = following ? "✅" : "➕";
+    text.textContent = following ? "Siguiendo" : "Seguir";
+    if (cambio) {
+      _upState = null; // el caché del panel ya no sirve
+      refrescarUserPanelSiAbierto(); // si está abierto, se repinta solo
+    }
   }
-}
   onAuthStateChanged(auth, async (user) => {
     const uid = user?.uid || null;
     _currentUid = uid;
     actualizarHeaderUsuario(user);
 
-if (!uid) {
-  btn.onclick = () => { openLoginPromptModal(); };
-  _followChecked = true;   // ← nuevo
-  _followReady = true;
-  _reviewsReady = true;
-  tryHideLoader();
-  setTimeout(hideBizLoader, 6000);
-  return;
-}
+    if (!uid) {
+      btn.onclick = () => {
+        openLoginPromptModal();
+      };
+      _followChecked = true; // ← nuevo
+      _followReady = true;
+      _reviewsReady = true;
+      tryHideLoader();
+      setTimeout(hideBizLoader, 6000);
+      return;
+    }
 
     const favoritoRef = doc(
       db,
@@ -1847,7 +1908,7 @@ if (!uid) {
     );
     const snap = await getDoc(clienteRef);
     setFollowUI(snap.exists());
-    _followChecked = true;  
+    _followChecked = true;
     _followReady = true;
     tryHideLoader();
 
@@ -2230,7 +2291,7 @@ async function _getSegmento() {
   try {
     const s = await getDoc(data_user_logeado(uid));
     if (s.exists()) d = s.data();
-  } catch { }
+  } catch {}
   _segCache = {
     uid,
     logeado: true,
@@ -2261,7 +2322,7 @@ async function trackPromo(promoId, evento) {
     try {
       if (localStorage.getItem(k)) return;
       localStorage.setItem(k, "1");
-    } catch { }
+    } catch {}
   }
 
   const seg = await _getSegmento();
@@ -2372,8 +2433,8 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-        `${waMsg}: ${shareUrl}`,
-      )}`
+          `${waMsg}: ${shareUrl}`,
+        )}`
       : null;
 
     const puedeComprarPromo = precio > 0 && _F.carrito;
@@ -2385,30 +2446,33 @@ function renderActivePromos(promos, localidad) {
         ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
 
         <div class="promo-active-top-actions">
-          ${puedeComprarPromo
-        ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+          ${
+            puedeComprarPromo
+              ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
               <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
             </svg>
           </button>`
-        : ""
-      }
-          ${waLink
-        ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
+              : ""
+          }
+          ${
+            waLink
+              ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
             <i class="fa-brands fa-whatsapp"></i>
           </a>`
-        : ""
-      }
-          ${shareAllowed
-        ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+              : ""
+          }
+          ${
+            shareAllowed
+              ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
             </svg>
           </button>`
-        : ""
-      }
+              : ""
+          }
         </div>
 
         <div class="promo-active-bottom-overlay">
@@ -2429,14 +2493,14 @@ function renderActivePromos(promos, localidad) {
 
     const onComprarEstaPromo = puedeComprarPromo
       ? () => {
-        trackPromo(p.id, "clics_comprar");
-        agregarAlCarritoPerfil({
-          promoId: `activa_${p.id}`,
-          nombre: info.titulo,
-          precio,
-          imagen: img,
-        });
-      }
+          trackPromo(p.id, "clics_comprar");
+          agregarAlCarritoPerfil({
+            promoId: `activa_${p.id}`,
+            nombre: info.titulo,
+            precio,
+            imagen: img,
+          });
+        }
       : null;
     // Vista: cuando la card entra en pantalla (1 vez/día/navegador)
     const io = new IntersectionObserver(
@@ -2602,21 +2666,54 @@ function irAFidelizacion() {
   window.location.href = url.toString();
 }
 
-function montarTarjetaEnPerfil() {
-  if (_tarjetaDestroy) return;
-  const slot = document.getElementById("fidelizacionTarjetaSlot");
-  if (!slot || !_params?.id) return;
 
-  _tarjetaDestroy = montarTarjetaFidelizacion(slot, {
-    negocioId: _params.id,
-    localidad: _params.localidad,
-    fondo: "#0b0b0d",
-    favicon: false,
-    promo: true,
-    onVerTarjeta: irAFidelizacion,
+function setupHeroFlip(activa) {
+  const flip = document.getElementById("heroFlip");
+  const front = document.getElementById("heroFlipFront");
+  const slot = document.getElementById("heroCardSlot");
+  if (!flip || !front || !slot) return;
+
+  flip.classList.toggle("has-card", activa);
+  if (!activa) {
+    flip.classList.remove("is-flipped");
+    front.removeAttribute("role");
+    front.removeAttribute("tabindex");
+    desmontarTarjetaEnPerfil();
+    return;
+  }
+  front.setAttribute("role", "button");
+  front.setAttribute("aria-label", "Ver mi tarjeta de fidelización");
+  front.tabIndex = 0;
+
+  if (_heroFlipBound) return;
+  _heroFlipBound = true;
+
+  // La tarjeta se monta solo al primer giro (ahorra lecturas a Firestore)
+  _heroFlipToggle = (abrir) => {
+    if (abrir && !_tarjetaDestroy) {
+      _tarjetaDestroy = montarTarjetaFidelizacion(slot, {
+        negocioId: _params.id,
+        localidad: _params.localidad,
+        fondo: "#0b0b0d",
+        favicon: false,
+        soloFrente: true,
+        llenar: true,
+      });
+    }
+    flip.classList.toggle("is-flipped", abrir);
+  };
+
+  front.addEventListener("click", () => _heroFlipToggle(true));
+  front.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      _heroFlipToggle(true);
+    }
   });
+  document
+    .getElementById("heroFlipBack")
+    .addEventListener("click", () => _heroFlipToggle(false));
 }
-
 function desmontarTarjetaEnPerfil() {
   _tarjetaDestroy?.();
   _tarjetaDestroy = null;
@@ -4275,7 +4372,7 @@ function showPromoBanner(biz) {
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-    bannerImg.onerror = () => { };
+    bannerImg.onerror = () => {};
     bannerImg.src = banner.imagen;
   }
 }
@@ -5234,6 +5331,7 @@ let _bizLogoUrl = null;
 let _bizNombre = "";
 let _bizAliasKey = null;
 let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
+let _marcaSig = null;
 let _followReady = false;
 let _reviewsReady = false;
 let _currentPuntos = 0; // NUEVO: true cuando ya sabemos si el user sigue o no
@@ -5490,8 +5588,21 @@ async function render(biz, isInitial = true) {
     }
   }
   // ── COLOR + LOGO: solo la primera vez ──
+  const _cm = biz.color_marca;
+  const _tieneColor = _cm?.activo === true && _cm.r != null;
+  const _sig = _tieneColor
+    ? JSON.stringify([_cm.r, _cm.g, _cm.b, _cm.degradado || null])
+    : "";
+  const COLOR_NEUTRO = { r: 135, g: 135, b: 135 };
   if (!_colorReady) {
-    applyDominantColor(colorFromName(nombre));
+    const colKey = logoUrl ? `geinz_color_${logoUrl}` : null;
+    const colCached = colKey ? _cGet(colKey, 30 * 24 * 3600e3) : null;
+
+    if (_tieneColor) {
+      aplicarMarca(_cm);
+      _marcaSig = _sig;
+    } else applyDominantColor(colCached || colorFromName(nombre));
+
     const heroImg = document.getElementById("bizLogoHero");
     const heroPlaceholder = document.getElementById("bizLogoPlaceholderHero");
     if (logoUrl) {
@@ -5499,10 +5610,7 @@ async function render(biz, isInitial = true) {
       heroImg.style.display = "block";
       heroPlaceholder.style.display = "none";
       setFaviconCircular(logoUrl);
-      const colKey = `geinz_color_${logoUrl}`;
-      const colCached = _cGet(colKey, 30 * 24 * 3600e3);
-      if (colCached) {
-        applyDominantColor(colCached);
+      if (_tieneColor || colCached) {
         _colorReady = true;
         tryHideLoader();
       } else {
@@ -5510,10 +5618,8 @@ async function render(biz, isInitial = true) {
         tempImg.crossOrigin = "anonymous";
         tempImg.onload = () => {
           getDominantColor(tempImg).then((color) => {
-            if (color) {
-              applyDominantColor(color);
-              _cSet(colKey, color);
-            }
+            applyDominantColor(color || COLOR_NEUTRO);
+            _cSet(colKey, color || COLOR_NEUTRO);
             _colorReady = true;
             tryHideLoader();
           });
@@ -5528,6 +5634,14 @@ async function render(biz, isInitial = true) {
       _colorReady = true;
       tryHideLoader();
     }
+  } else if (_tieneColor) {
+    aplicarMarca(_cm);
+    _tarjetaDestroy?.setBrand?.(_cm);
+    if (_marcaSig && _marcaSig !== _sig) showToast("🎨 Colores actualizados");
+    _marcaSig = _sig;
+  } else {
+    aplicarDegradado(null, null); // el dueño apagó el color: quita el degradado
+    _tarjetaDestroy?.setBrand?.(null);
   }
   // ── CONTENIDO: siempre se actualiza ──
   document.getElementById("bizName").textContent = nombre;
@@ -5771,15 +5885,16 @@ async function render(biz, isInitial = true) {
       card.innerHTML = `
         <div class="promo-card-img-wrap">
           <div class="promo-card-top-actions">
-            ${puedeComprarPromo
-          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+            ${
+              puedeComprarPromo
+                ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
             </button>`
-          : ""
-        }
+                : ""
+            }
             <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -5787,14 +5902,15 @@ async function render(biz, isInitial = true) {
               </svg>
             </button>
           </div>
-          ${promo.precio > 0 || promo.descripcion
-          ? `
+          ${
+            promo.precio > 0 || promo.descripcion
+              ? `
           <div class="promo-card-bottom-overlay">
             ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
             ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
           </div>`
-          : ""
-        }
+              : ""
+          }
         </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -5805,12 +5921,12 @@ async function render(biz, isInitial = true) {
 
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
-          agregarAlCarritoPerfil({
-            promoId: promo.id,
-            nombre: promo.titulo,
-            precio: promo.precio,
-            imagen: promo.url,
-          })
+            agregarAlCarritoPerfil({
+              promoId: promo.id,
+              nombre: promo.titulo,
+              precio: promo.precio,
+              imagen: promo.url,
+            })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -5850,7 +5966,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) { }
+          } catch (e) {}
         else copyToClipboard(fullText);
       });
     });
@@ -5918,18 +6034,7 @@ async function render(biz, isInitial = true) {
   _fidelizacionMensajeInactivo =
     fidelizacionRaw.mensajeInactivo ||
     "Este negocio no tiene el programa de fidelización activo por el momento."; // NUEVO
-  ensureFidelizacionUI();
-  ensureFidelizacionUI();
-  const secFidel = document.getElementById("secFidelizacion");
-  if (fidelizacion) {
-    secFidel.style.display = "";
-    renderFidelizacion(fidelizacion);
-    montarTarjetaEnPerfil();
-  } else {
-    secFidel.style.display = "none";
-    desmontarTarjetaEnPerfil();
-  }
-  actualizarLayoutContactoFidel();
+  setupHeroFlip(!!fidelizacion);
   document
     .getElementById("geinzHeader")
     ?.style.setProperty(
@@ -6555,8 +6660,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-      .toDate()
-      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+        .toDate()
+        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -7112,10 +7217,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -7489,7 +7594,7 @@ async function eliminarMiReview() {
       ({ biz, servicios } = cached);
       Promise.all([loadBusiness(params), loadServicios(params)])
         .then(([b, s]) => _cSet(ck, { biz: b, servicios: s }))
-        .catch(() => { });
+        .catch(() => {});
     } else {
       [biz, servicios] = await Promise.all([
         loadBusiness(params),
@@ -8200,7 +8305,7 @@ async function cargarUserPanel(uid) {
     _upState.sig === sig &&
     Date.now() - _upState.ts < UP_TTL
   ) {
-    await traerPedidosVivosUserPanel(_upState).catch(() => { });
+    await traerPedidosVivosUserPanel(_upState).catch(() => {});
     return;
   }
 
@@ -8365,17 +8470,17 @@ function _upVivosInnerHTML(st) {
   const mostrar = lista.slice(0, vis);
   const restantes = lista.length - mostrar.length;
 
- const chips = PV_FILTROS.map(([k, label]) => {
-  const n =
-    k === "todos" ? todos.length : todos.filter((p) => p.est === k).length;
-  return `<button type="button" class="pv-chip${f === k ? " active" : ""}${n ? "" : " vacio"}" data-act="pv-filtro" data-f="${k}">${label} (${n})</button>`;
-}).join("");
+  const chips = PV_FILTROS.map(([k, label]) => {
+    const n =
+      k === "todos" ? todos.length : todos.filter((p) => p.est === k).length;
+    return `<button type="button" class="pv-chip${f === k ? " active" : ""}${n ? "" : " vacio"}" data-act="pv-filtro" data-f="${k}">${label} (${n})</button>`;
+  }).join("");
 
   const filas = mostrar.length
     ? mostrar
-      .map((p) => {
-        const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
-        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
+        .map((p) => {
+          const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+          return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
             <span class="pa-dot"></span>
            <div class="pa-main">
   <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
@@ -8385,8 +8490,8 @@ function _upVivosInnerHTML(st) {
             <div class="pa-total">${_fmtSoles(p.total)}</div>
             <span class="pa-go">Ver →</span>
           </a>`;
-      })
-      .join("")
+        })
+        .join("")
     : `<div class="up-empty">No tienes pedidos en este estado.</div>`;
 
   const mas =
@@ -8602,7 +8707,7 @@ function volarAlCarrito(imagen) {
   x.style.transitionDuration =
     y.style.transitionDuration =
     ball.style.transitionDuration =
-    `${dur}s`;
+      `${dur}s`;
   if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
 
   y.appendChild(ball);
@@ -8673,7 +8778,10 @@ const PEDIDOS_ACTIVOS_CSS = `
 `;
 const PA_ESTADOS = {
   pendiente: { label: "Pendiente", color: "#d9a441" },
-  pendiente_pago: { label: "Por pagar · sube tu comprobante", color: "#fbbf24" },
+  pendiente_pago: {
+    label: "Por pagar · sube tu comprobante",
+    color: "#fbbf24",
+  },
   en_proceso: { label: "En proceso", color: "#4f9df0" },
   listo: { label: "Listo", color: "#2dd4bf" },
   en_pausa: { label: "En pausa · responde aquí", color: "#38bdf8" },

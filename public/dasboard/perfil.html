@@ -244,9 +244,87 @@
         </div>
 
     </div>
+    <!-- Colores de la marca -->
+    <div class="expand-section" id="expColores">
+        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+            <div class="expand-header-icon icon-pink">🎨</div>
+            <div class="expand-header-text">
+                <div class="expand-header-title">Colores de la marca</div>
+                <div class="expand-header-sub" id="colorDisplay">Color de tu perfil público</div>
+            </div>
+            <div class="expand-arrow">▼</div>
+        </div>
+        <div class="expand-body">
+            <div class="contact-item" style="margin-bottom:14px">
+                <div class="contact-text">
+                    <div class="contact-name">Usar estos colores en mi perfil</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px">
+                        Apagado: el color se calcula solo a partir de tu logo.
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="colorDinamicoSwitch"
+                        onchange="PanelPerfil.toggleColorMarca(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
 
+            <div class="subcat-label">Colores detectados en tu logo</div>
+            <div id="colorPaleta" style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 16px"></div>
+
+            <div class="subcat-label">O elige tu propio color</div>
+            <div style="display:flex;align-items:center;gap:12px;margin:8px 0 16px">
+                <input type="color" id="colorManual" value="#7c4dff"
+                    style="width:56px;height:44px;border:none;background:none;cursor:pointer;padding:0"
+                    oninput="PanelPerfil.elegirColorManual(this.value)">
+                <div id="colorPreview" style="flex:1;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.12);
+                    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;">
+                    Sin color elegido
+                </div>
+            </div>
+
+    
+            <div class="contact-item" style="margin:6px 0 14px">
+                <div class="contact-text">
+                    <div class="contact-name">Usar degradado</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px">Mezcla dos colores en botones, fondos y tu
+                        tarjeta.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="degradadoSwitch" onchange="PanelPerfil.toggleDegradado(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div id="degradadoBox" style="display:none">
+                <div class="subcat-label">Segundo color (de tu logo)</div>
+                <div id="colorPaleta2" style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 16px"></div>
+
+                <div class="subcat-label">O elige el segundo color</div>
+                <div style="display:flex;align-items:center;gap:12px;margin:8px 0 16px">
+                    <input type="color" id="colorManual2" value="#ff4d6d"
+                        style="width:56px;height:44px;border:none;background:none;cursor:pointer;padding:0"
+                        oninput="PanelPerfil.elegirColor2Manual(this.value)">
+                    <select class="form-input" id="degradadoAngulo"
+                        onchange="PanelPerfil.setAnguloDegradado(this.value)">
+                        <option value="135">Diagonal ↘</option>
+                        <option value="45">Diagonal ↗</option>
+                        <option value="90">Horizontal →</option>
+                        <option value="180">Vertical ↓</option>
+                    </select>
+                </div>
+
+                <div id="degradadoPreview"
+                    style="height:56px;border-radius:14px;border:1px solid rgba(255,255,255,.12);margin-bottom:16px">
+                </div>
+            </div>
+            <button id="fieldSaveBtn-color" class="field-save-btn visible"
+    style="display:flex;width:100%;justify-content:center;padding:13px;margin-top:6px;opacity:.55"
+    disabled onclick="PanelPerfil.saveColorMarca()">Elige un color</button>
+        </div>
+    </div>
     <!-- Ubicación -->
-    <div class="expand-section"  id="expUbicacionSection">
+    <div class="expand-section" id="expUbicacionSection">
         <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
             <div class="expand-header-icon icon-blue">📍</div>
             <div class="expand-header-text">
@@ -256,6 +334,44 @@
             <div class="expand-arrow">▼</div>
         </div>
         <div class="expand-body">
+            <div class="form-field" style="position:relative">
+                <label class="form-label" for="fieldBuscarDireccion">Agregar dirección</label>
+                <input class="form-input" id="fieldBuscarDireccion" type="text"
+                    placeholder="Escribe la dirección y elige una opción" autocomplete="off">
+                <div id="sugerenciasDireccion" class="addr-suggest"></div>
+            </div>
+            <style>
+                .addr-suggest {
+                    display: none;
+                    position: absolute;
+                    left: 0;
+                    right: 0;
+                    top: 100%;
+                    z-index: 50;
+                    margin-top: 4px;
+                    background: #13101f;
+                    border: 1px solid rgba(124, 77, 255, .35);
+                    border-radius: 12px;
+                    overflow: hidden;
+                    box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+                }
+
+                .addr-suggest-item {
+                    padding: 11px 14px;
+                    font-size: 13.5px;
+                    color: #fff;
+                    cursor: pointer;
+                    border-bottom: 1px solid rgba(255, 255, 255, .06);
+                }
+
+                .addr-suggest-item:last-child {
+                    border-bottom: none;
+                }
+
+                .addr-suggest-item:hover {
+                    background: rgba(124, 77, 255, .2);
+                }
+            </style>
             <div class="map-wrapper">
                 <div id="mapBoxPerfil"></div>
             </div>
@@ -443,165 +559,189 @@
 
             <div class="card">
 
-            <div class="pay-methods">
+                <div class="pay-methods">
 
-    <!-- Yape -->
-    <div class="pay-method-block">
-        <div class="pay-method">
-            <div class="pay-icon-img"><img src="../img/yape_logo.webp" alt="Yape"></div>
-            <div class="pay-info"><div class="pay-name">Yape</div></div>
-            <label class="switch">
-                <input type="checkbox" data-method="yape"
-                    onchange="PanelPerfil.togglePayMethod('yape', this.checked)">
-                <span class="slider"></span>
-            </label>
-        </div>
-        <div class="pay-method-details" id="payDetails-yape">
-            <div class="pay-qr-row">
-                <div class="pay-qr-preview" id="qrPreview-yape" onclick="PanelPerfil.openPagoQR('yape')">
-                    <img id="qrImg-yape" alt="QR Yape">
-                    <span id="qrPlaceholder-yape" class="pay-qr-placeholder">📷<br>Subir QR</span>
+                    <!-- Yape -->
+                    <div class="pay-method-block">
+                        <div class="pay-method">
+                            <div class="pay-icon-img"><img src="../img/yape_logo.webp" alt="Yape"></div>
+                            <div class="pay-info">
+                                <div class="pay-name">Yape</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" data-method="yape"
+                                    onchange="PanelPerfil.togglePayMethod('yape', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="pay-method-details" id="payDetails-yape">
+                            <div class="pay-qr-row">
+                                <div class="pay-qr-preview" id="qrPreview-yape"
+                                    onclick="PanelPerfil.openPagoQR('yape')">
+                                    <img id="qrImg-yape" alt="QR Yape">
+                                    <span id="qrPlaceholder-yape" class="pay-qr-placeholder">📷<br>Subir QR</span>
+                                </div>
+                                <p class="pay-qr-text">Sube el QR de tu Yape para que tus clientes te paguen directo.
+                                </p>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="pagoNombre-yape">Nombre del titular</label>
+                                <input class="form-input" id="pagoNombre-yape" type="text" placeholder="Ej: Juan Pérez"
+                                    oninput="PanelPerfil._checkPagoChanged('yape')">
+                                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte de tu
+                                    nombre y apellido.</span>
+                            </div>
+                            <div class="form-field" style="margin-bottom:0">
+                                <label class="form-label" for="pagoNumero-yape">Número de Yape</label>
+                                <input class="form-input" id="pagoNumero-yape" type="tel" inputmode="numeric"
+                                    maxlength="9" placeholder="987654321" oninput="PanelPerfil._sanitizeNumero('yape')">
+                                <span class="field-hint">9 dígitos, sin +51.</span>
+                            </div>
+                            <button id="fieldSaveBtn-pago-yape" class="field-save-btn" style="margin-top:12px"
+                                onclick="PanelPerfil.savePagoMethodInfo('yape')">✓ Guardar datos de Yape</button>
+                        </div>
+                    </div>
+
+                    <!-- Plin -->
+                    <div class="pay-method-block">
+                        <div class="pay-method">
+                            <div class="pay-icon-img"><img src="../img/logo_plin.webp" alt="Plin"></div>
+                            <div class="pay-info">
+                                <div class="pay-name">Plin</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" data-method="plin"
+                                    onchange="PanelPerfil.togglePayMethod('plin', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="pay-method-details" id="payDetails-plin">
+                            <div class="pay-qr-row">
+                                <div class="pay-qr-preview" id="qrPreview-plin"
+                                    onclick="PanelPerfil.openPagoQR('plin')">
+                                    <img id="qrImg-plin" alt="QR Plin">
+                                    <span id="qrPlaceholder-plin" class="pay-qr-placeholder">📷<br>Subir QR</span>
+                                </div>
+                                <p class="pay-qr-text">Sube el QR de tu Plin para que tus clientes te paguen directo.
+                                </p>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="pagoNombre-plin">Nombre del titular</label>
+                                <input class="form-input" id="pagoNombre-plin" type="text" placeholder="Ej: Juan Pérez"
+                                    oninput="PanelPerfil._checkPagoChanged('plin')">
+                                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte de tu
+                                    nombre y apellido.</span>
+                            </div>
+                            <div class="form-field" style="margin-bottom:0">
+                                <label class="form-label" for="pagoNumero-plin">Número de Plin</label>
+                                <input class="form-input" id="pagoNumero-plin" type="tel" inputmode="numeric"
+                                    maxlength="9" placeholder="987654321" oninput="PanelPerfil._sanitizeNumero('plin')">
+                                <span class="field-hint">9 dígitos, sin +51.</span>
+                            </div>
+                            <button id="fieldSaveBtn-pago-plin" class="field-save-btn" style="margin-top:12px"
+                                onclick="PanelPerfil.savePagoMethodInfo('plin')">✓ Guardar datos de Plin</button>
+                        </div>
+                    </div>
+
+                    <!-- Agora -->
+                    <div class="pay-method-block">
+                        <div class="pay-method">
+                            <div class="pay-icon-img"><img src="../img/logo_agora.webp" alt="Agora"></div>
+                            <div class="pay-info">
+                                <div class="pay-name">Agora / SIP</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" data-method="agora"
+                                    onchange="PanelPerfil.togglePayMethod('agora', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="pay-method-details" id="payDetails-agora">
+                            <div class="pay-qr-row">
+                                <div class="pay-qr-preview" id="qrPreview-agora"
+                                    onclick="PanelPerfil.openPagoQR('agora')">
+                                    <img id="qrImg-agora" alt="QR Agora">
+                                    <span id="qrPlaceholder-agora" class="pay-qr-placeholder">📷<br>Subir QR</span>
+                                </div>
+                                <p class="pay-qr-text">Sube el QR o comprobante para pagos por Agora/SIP.</p>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="pagoNombre-agora">Nombre del titular</label>
+                                <input class="form-input" id="pagoNombre-agora" type="text" placeholder="Ej: Juan Pérez"
+                                    oninput="PanelPerfil._checkPagoChanged('agora')">
+                                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte de tu
+                                    nombre y apellido.</span>
+                            </div>
+                            <div class="form-field" style="margin-bottom:0">
+                                <label class="form-label" for="pagoNumero-agora">Número</label>
+                                <input class="form-input" id="pagoNumero-agora" type="tel" inputmode="numeric"
+                                    maxlength="9" placeholder="987654321"
+                                    oninput="PanelPerfil._sanitizeNumero('agora')">
+                                <span class="field-hint">9 dígitos, sin +51.</span>
+                            </div>
+                            <button id="fieldSaveBtn-pago-agora" class="field-save-btn" style="margin-top:12px"
+                                onclick="PanelPerfil.savePagoMethodInfo('agora')">✓ Guardar datos de Agora</button>
+                        </div>
+                    </div>
+
+                    <!-- Efectivo (sin cambios) -->
+                    <div class="pay-method">
+                        <div class="pay-icon-img"><img src="../img/efectivo_logo.webp" alt="Efectivo"></div>
+                        <div class="pay-info">
+                            <div class="pay-name">Efectivo</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" data-method="efectivo"
+                                onchange="PanelPerfil.togglePayMethod('efectivo', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Visa / Mastercard -->
+                    <div class="pay-method-block">
+                        <div class="pay-method">
+                            <div class="pay-icon-img"><img src="../img/visa_logo.webp" alt="Visa"></div>
+                            <div class="pay-info">
+                                <div class="pay-name">Visa / Mastercard</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" data-method="visa_mastercard"
+                                    onchange="PanelPerfil.togglePayMethod('visa_mastercard', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="pay-method-details" id="payDetails-visa_mastercard">
+                            <div class="pay-qr-row">
+                                <div class="pay-qr-preview" id="qrPreview-visa_mastercard"
+                                    onclick="PanelPerfil.openPagoQR('visa_mastercard')">
+                                    <img id="qrImg-visa_mastercard" alt="Foto/QR">
+                                    <span id="qrPlaceholder-visa_mastercard" class="pay-qr-placeholder">📷<br>Subir
+                                        foto</span>
+                                </div>
+                                <p class="pay-qr-text">Puedes subir el QR de tu banco o una foto de tu tarjeta/cuenta.
+                                </p>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="pagoNombre-visa_mastercard">Titular y banco</label>
+                                <input class="form-input" id="pagoNombre-visa_mastercard" type="text"
+                                    placeholder="Ej: Juan Pérez — BCP"
+                                    oninput="PanelPerfil._checkPagoChanged('visa_mastercard')">
+                                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte del
+                                    nombre.</span>
+                            </div>
+                            <div class="form-field" style="margin-bottom:0">
+                                <label class="form-label" for="pagoNumero-visa_mastercard">N° de cuenta o CCI</label>
+                                <input class="form-input" id="pagoNumero-visa_mastercard" type="tel" inputmode="numeric"
+                                    maxlength="20" placeholder="00219412345678901234"
+                                    oninput="PanelPerfil._sanitizeNumero('visa_mastercard')">
+                            </div>
+                            <button id="fieldSaveBtn-pago-visa_mastercard" class="field-save-btn"
+                                style="margin-top:12px" onclick="PanelPerfil.savePagoMethodInfo('visa_mastercard')">✓
+                                Guardar datos</button>
+                        </div>
+                    </div>
+
                 </div>
-                <p class="pay-qr-text">Sube el QR de tu Yape para que tus clientes te paguen directo.</p>
-            </div>
-            <div class="form-field">
-                <label class="form-label" for="pagoNombre-yape">Nombre del titular</label>
-                <input class="form-input" id="pagoNombre-yape" type="text" placeholder="Ej: Juan Pérez"
-                    oninput="PanelPerfil._checkPagoChanged('yape')">
-                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte de tu nombre y apellido.</span>
-            </div>
-            <div class="form-field" style="margin-bottom:0">
-                <label class="form-label" for="pagoNumero-yape">Número de Yape</label>
-                <input class="form-input" id="pagoNumero-yape" type="tel" inputmode="numeric" maxlength="9"
-                    placeholder="987654321" oninput="PanelPerfil._sanitizeNumero('yape')">
-                <span class="field-hint">9 dígitos, sin +51.</span>
-            </div>
-            <button id="fieldSaveBtn-pago-yape" class="field-save-btn" style="margin-top:12px"
-                onclick="PanelPerfil.savePagoMethodInfo('yape')">✓ Guardar datos de Yape</button>
-        </div>
-    </div>
-
-    <!-- Plin -->
-    <div class="pay-method-block">
-        <div class="pay-method">
-            <div class="pay-icon-img"><img src="../img/logo_plin.webp" alt="Plin"></div>
-            <div class="pay-info"><div class="pay-name">Plin</div></div>
-            <label class="switch">
-                <input type="checkbox" data-method="plin"
-                    onchange="PanelPerfil.togglePayMethod('plin', this.checked)">
-                <span class="slider"></span>
-            </label>
-        </div>
-        <div class="pay-method-details" id="payDetails-plin">
-            <div class="pay-qr-row">
-                <div class="pay-qr-preview" id="qrPreview-plin" onclick="PanelPerfil.openPagoQR('plin')">
-                    <img id="qrImg-plin" alt="QR Plin">
-                    <span id="qrPlaceholder-plin" class="pay-qr-placeholder">📷<br>Subir QR</span>
-                </div>
-                <p class="pay-qr-text">Sube el QR de tu Plin para que tus clientes te paguen directo.</p>
-            </div>
-            <div class="form-field">
-                <label class="form-label" for="pagoNombre-plin">Nombre del titular</label>
-                <input class="form-input" id="pagoNombre-plin" type="text" placeholder="Ej: Juan Pérez"
-                    oninput="PanelPerfil._checkPagoChanged('plin')">
-                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte de tu nombre y apellido.</span>
-            </div>
-            <div class="form-field" style="margin-bottom:0">
-                <label class="form-label" for="pagoNumero-plin">Número de Plin</label>
-                <input class="form-input" id="pagoNumero-plin" type="tel" inputmode="numeric" maxlength="9"
-                    placeholder="987654321" oninput="PanelPerfil._sanitizeNumero('plin')">
-                <span class="field-hint">9 dígitos, sin +51.</span>
-            </div>
-            <button id="fieldSaveBtn-pago-plin" class="field-save-btn" style="margin-top:12px"
-                onclick="PanelPerfil.savePagoMethodInfo('plin')">✓ Guardar datos de Plin</button>
-        </div>
-    </div>
-
-    <!-- Agora -->
-    <div class="pay-method-block">
-        <div class="pay-method">
-            <div class="pay-icon-img"><img src="../img/logo_agora.webp" alt="Agora"></div>
-            <div class="pay-info"><div class="pay-name">Agora / SIP</div></div>
-            <label class="switch">
-                <input type="checkbox" data-method="agora"
-                    onchange="PanelPerfil.togglePayMethod('agora', this.checked)">
-                <span class="slider"></span>
-            </label>
-        </div>
-        <div class="pay-method-details" id="payDetails-agora">
-            <div class="pay-qr-row">
-                <div class="pay-qr-preview" id="qrPreview-agora" onclick="PanelPerfil.openPagoQR('agora')">
-                    <img id="qrImg-agora" alt="QR Agora">
-                    <span id="qrPlaceholder-agora" class="pay-qr-placeholder">📷<br>Subir QR</span>
-                </div>
-                <p class="pay-qr-text">Sube el QR o comprobante para pagos por Agora/SIP.</p>
-            </div>
-            <div class="form-field">
-                <label class="form-label" for="pagoNombre-agora">Nombre del titular</label>
-                <input class="form-input" id="pagoNombre-agora" type="text" placeholder="Ej: Juan Pérez"
-                    oninput="PanelPerfil._checkPagoChanged('agora')">
-                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte de tu nombre y apellido.</span>
-            </div>
-            <div class="form-field" style="margin-bottom:0">
-                <label class="form-label" for="pagoNumero-agora">Número</label>
-                <input class="form-input" id="pagoNumero-agora" type="tel" inputmode="numeric" maxlength="9"
-                    placeholder="987654321" oninput="PanelPerfil._sanitizeNumero('agora')">
-                <span class="field-hint">9 dígitos, sin +51.</span>
-            </div>
-            <button id="fieldSaveBtn-pago-agora" class="field-save-btn" style="margin-top:12px"
-                onclick="PanelPerfil.savePagoMethodInfo('agora')">✓ Guardar datos de Agora</button>
-        </div>
-    </div>
-
-    <!-- Efectivo (sin cambios) -->
-    <div class="pay-method">
-        <div class="pay-icon-img"><img src="../img/efectivo_logo.webp" alt="Efectivo"></div>
-        <div class="pay-info"><div class="pay-name">Efectivo</div></div>
-        <label class="switch">
-            <input type="checkbox" data-method="efectivo"
-                onchange="PanelPerfil.togglePayMethod('efectivo', this.checked)">
-            <span class="slider"></span>
-        </label>
-    </div>
-
-    <!-- Visa / Mastercard -->
-    <div class="pay-method-block">
-        <div class="pay-method">
-            <div class="pay-icon-img"><img src="../img/visa_logo.webp" alt="Visa"></div>
-            <div class="pay-info"><div class="pay-name">Visa / Mastercard</div></div>
-            <label class="switch">
-                <input type="checkbox" data-method="visa_mastercard"
-                    onchange="PanelPerfil.togglePayMethod('visa_mastercard', this.checked)">
-                <span class="slider"></span>
-            </label>
-        </div>
-        <div class="pay-method-details" id="payDetails-visa_mastercard">
-            <div class="pay-qr-row">
-                <div class="pay-qr-preview" id="qrPreview-visa_mastercard" onclick="PanelPerfil.openPagoQR('visa_mastercard')">
-                    <img id="qrImg-visa_mastercard" alt="Foto/QR">
-                    <span id="qrPlaceholder-visa_mastercard" class="pay-qr-placeholder">📷<br>Subir foto</span>
-                </div>
-                <p class="pay-qr-text">Puedes subir el QR de tu banco o una foto de tu tarjeta/cuenta.</p>
-            </div>
-            <div class="form-field">
-                <label class="form-label" for="pagoNombre-visa_mastercard">Titular y banco</label>
-                <input class="form-input" id="pagoNombre-visa_mastercard" type="text"
-                    placeholder="Ej: Juan Pérez — BCP"
-                    oninput="PanelPerfil._checkPagoChanged('visa_mastercard')">
-                <span class="field-hint">Por seguridad, a tus clientes solo se les mostrará parte del nombre.</span>
-            </div>
-            <div class="form-field" style="margin-bottom:0">
-                <label class="form-label" for="pagoNumero-visa_mastercard">N° de cuenta o CCI</label>
-                <input class="form-input" id="pagoNumero-visa_mastercard" type="tel" inputmode="numeric" maxlength="20"
-                    placeholder="00219412345678901234"
-                    oninput="PanelPerfil._sanitizeNumero('visa_mastercard')">
-            </div>
-            <button id="fieldSaveBtn-pago-visa_mastercard" class="field-save-btn" style="margin-top:12px"
-                onclick="PanelPerfil.savePagoMethodInfo('visa_mastercard')">✓ Guardar datos</button>
-        </div>
-    </div>
-
-</div>
 
             </div>
 

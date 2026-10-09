@@ -27,6 +27,13 @@ import {
   onAuthStateChanged,
   signInWithCustomToken,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  configurarColoresNegocio,
+  cargarColoresNegocio,
+  aplicarColoresDesdeCache,
+} from "../../js/colores_dinamicos/dinamicos.js";
+
+configurarColoresNegocio({ legible: true });
 const db = getFirestore();
 /* ══════════════ Config de enlaces ══════════════
        DASHBOARD_BASE_URL: a donde apunta el link que se manda por WhatsApp.
@@ -401,148 +408,6 @@ function normalizeText(s) {
     .trim();
 }
 
-/* ══════════════ Color dominante del logo ══════════════ */
-function colorFromName(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash << 5) - hash + name.charCodeAt(i);
-    hash |= 0;
-  }
-  const hue = Math.abs(hash % 360);
-  const s = 0.65,
-    l = 0.55;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = l - c / 2;
-  let r = 0,
-    g = 0,
-    b = 0;
-  if (hue < 60) {
-    r = c;
-    g = x;
-    b = 0;
-  } else if (hue < 120) {
-    r = x;
-    g = c;
-    b = 0;
-  } else if (hue < 180) {
-    r = 0;
-    g = c;
-    b = x;
-  } else if (hue < 240) {
-    r = 0;
-    g = x;
-    b = c;
-  } else if (hue < 300) {
-    r = x;
-    g = 0;
-    b = c;
-  } else {
-    r = c;
-    g = 0;
-    b = x;
-  }
-  return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255),
-  };
-}
-
-function relativeLuminance({ r, g, b }) {
-  const lin = (v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  };
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-}
-
-function ensureLegible(color) {
-  let { r, g, b } = color;
-  const MIN_LUM = 0.26;
-  let intentos = 0;
-  while (relativeLuminance({ r, g, b }) < MIN_LUM && intentos < 10) {
-    r = Math.min(255, r + 16);
-    g = Math.min(255, g + 16);
-    b = Math.min(255, b + 16);
-    intentos++;
-  }
-  return { r, g, b };
-}
-function getDominantColor(imgEl) {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas");
-    const SIZE = 80;
-    canvas.width = SIZE;
-    canvas.height = SIZE;
-    const ctx = canvas.getContext("2d");
-    const tryExtract = () => {
-      try {
-        ctx.drawImage(imgEl, 0, 0, SIZE, SIZE);
-        const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
-        const buckets = {};
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i],
-            g = data[i + 1],
-            b = data[i + 2],
-            a = data[i + 3];
-          if (a < 128) continue;
-          const rn = r / 255,
-            gn = g / 255,
-            bn = b / 255;
-          const max = Math.max(rn, gn, bn),
-            min = Math.min(rn, gn, bn);
-          const l = (max + min) / 2;
-          const s =
-            max === min
-              ? 0
-              : l > 0.5
-                ? (max - min) / (2 - max - min)
-                : (max - min) / (max + min);
-          if (l > 0.72 || l < 0.1 || s < 0.28) continue;
-          const key = `${r >> 4},${g >> 4},${b >> 4}`;
-          if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
-          buckets[key].count++;
-          buckets[key].r += r;
-          buckets[key].g += g;
-          buckets[key].b += b;
-        }
-        const sorted = Object.values(buckets).sort((a, b) => b.count - a.count);
-        if (!sorted.length) return resolve(null);
-        const top = sorted[0];
-        resolve({
-          r: Math.round(top.r / top.count),
-          g: Math.round(top.g / top.count),
-          b: Math.round(top.b / top.count),
-        });
-      } catch {
-        resolve(null);
-      }
-    };
-    if (imgEl.complete && imgEl.naturalWidth > 0) tryExtract();
-    else {
-      imgEl.onload = tryExtract;
-      imgEl.onerror = () => resolve(null);
-    }
-  });
-}
-
-function applyColor({ r, g, b }) {
-  const legible = ensureLegible({ r, g, b });
-  document.documentElement.style.setProperty("--dr", legible.r);
-  document.documentElement.style.setProperty("--dg", legible.g);
-  document.documentElement.style.setProperty("--db", legible.b);
-}
-
-const DIAS_DESCUENTO = [
-  "domingo",
-  "lunes",
-  "martes",
-  "miercoles",
-  "jueves",
-  "viernes",
-  "sabado",
-];
 
 function parseFechaISOaMsLima(fechaISO, horaStr) {
   if (!fechaISO) return null;
@@ -2120,35 +1985,19 @@ async function renderTienda(biz) {
   const logoImg = document.getElementById("bizLogo");
   const logoPh = document.getElementById("bizLogoPh");
 
-  const colorKey = `geinz_color_${tiendaId}`;
-  let cached = null;
-  try { cached = JSON.parse(localStorage.getItem(colorKey) || "null"); } catch {}
+  // Colores dinámicos (color_marca → logo → nombre). Sin lectura extra: ya tenemos biz.
+  cargarColoresNegocio({ id: tiendaId, localidad, biz }).catch((e) =>
+    console.warn("colores:", e.message),
+  );
 
   if (logoUrl) {
     logoImg.src = logoUrl;
     logoImg.style.display = "block";
     logoPh.classList.add("hidden");
-
-    if (cached) {
-      applyColor(cached);                      // instantáneo, sin esperar nada
-    } else {
-      applyColor(colorFromName(bizNombre));    // color provisional
-      const temp = new Image();                // en segundo plano, NO se espera
-      temp.crossOrigin = "anonymous";
-      temp.onload = async () => {
-        const color = await getDominantColor(temp);
-        if (color) {
-          applyColor(color);
-          try { localStorage.setItem(colorKey, JSON.stringify(color)); } catch {}
-        }
-      };
-      temp.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=1"; // fijo, ya no Date.now()
-    }
   } else {
     _bizLogoUrl = null;
     logoPh.classList.remove("hidden");
     logoPh.classList.add("flex");
-    applyColor(colorFromName(bizNombre));
   }
   pintarLogoEnBotones();
 }
@@ -5618,8 +5467,9 @@ function refrescarDisponibilidadCategorias() {
   if (cambio) updateCartUI();
 }
 async function init() {
-  await resolverParamsCarrito();
-  await validarMesaDesdePath();
+await resolverParamsCarrito();
+aplicarColoresDesdeCache(tiendaId); // ← nueva: 0 ms si ya visitó este negocio
+await validarMesaDesdePath();
   await _loginPorTokenPromise;
   pintarMesaBadge();
   // (se quitó setBusinessFaviconById: ahora se pone más abajo con el biz ya cargado)

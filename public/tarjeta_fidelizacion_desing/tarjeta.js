@@ -22,18 +22,31 @@
    ========================================================================== */
 
 import { db, auth } from "/js/db/db.js";
-import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  onAuthStateChanged,
+  signInWithCustomToken,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { tiendaDoc, clienteDoc, data_user_logeado } from "/js/rutas/rutas.js";
 import { setFaviconCircular } from "/js/favicon/favicon.js";
 
 /* ══════════════ Config ══════════════ */
 const LOCALIDAD_FIJA = "barranca";
 const AUTH_ORIGIN = "https://geinztech.com";
-const ES_DOMINIO_PROPIO = location.hostname !== "geinztech.com" && location.hostname !== "www.geinztech.com";
-const LOGO_FALLBACK_URL = "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
-const QR_LIB = "https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js";
-const FONTS_HREF = "https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;600&family=IBM+Plex+Mono:wght@500;700&display=swap";
+const ES_DOMINIO_PROPIO =
+  location.hostname !== "geinztech.com" &&
+  location.hostname !== "www.geinztech.com";
+const LOGO_FALLBACK_URL =
+  "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
+const QR_LIB =
+  "https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js";
+const FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;600&family=IBM+Plex+Mono:wght@500;700&display=swap";
 
 const NIVELES = [
   { min: 0, label: "Nivel Bronce" },
@@ -174,6 +187,38 @@ const CSS = `
   border:1px solid color-mix(in srgb,var(--brand-vivid) 45%,transparent)}
 .fid .fx-chip.warn{color:#fde68a;border-color:rgba(253,230,138,.35);background:rgba(251,191,36,.08)}
 .fid .fx-msg{font-size:12px;line-height:1.5;color:rgba(255,255,255,.6);margin-top:14px;max-width:92%}
+/* ── Degradado de marca ── */
+.fid{--brand-ang:135deg;
+  --brand-vivid-2:color-mix(in srgb,var(--brand-vivid) 80%,black 20%);
+  --brand-grad:linear-gradient(var(--brand-ang),var(--brand-vivid),var(--brand-vivid-2))}
+.fid .btn,.fid .logo-avatar{background:var(--brand-grad)}
+.fid .points{background:linear-gradient(180deg,#fff 30%,color-mix(in srgb,var(--brand-vivid-2) 80%,white 20%) 100%);
+  -webkit-background-clip:text;background-clip:text}
+.fid .card{background:
+  radial-gradient(130% 90% at 0% 0%,color-mix(in srgb,var(--brand-vivid) 28%,transparent) 0%,transparent 60%),
+  radial-gradient(120% 90% at 100% 100%,color-mix(in srgb,var(--brand-vivid-2) 26%,transparent) 0%,transparent 60%),
+  linear-gradient(170deg,#12141a 0%,#0a0b0e 60%,#060709 100%)}
+.fid .card::after{background:linear-gradient(135deg,color-mix(in srgb,var(--brand-vivid) 80%,white 20%) 0%,rgba(255,255,255,.1) 40%,transparent 60%,color-mix(in srgb,var(--brand-vivid-2) 70%,transparent) 100%)}
+/* ── llenar: ocupa todo el alto de su contenedor ── */
+.fid.fid--fill{max-width:none;margin:0;height:100%;display:flex;flex-direction:column}
+.fid.fid--fill .fid-content,.fid.fid--fill .scene,.fid.fid--fill .tilt{flex:1;display:flex;width:100%;min-height:0}
+.fid.fid--fill .flipper{flex:1;width:100%}
+.fid.fid--fill .card{flex:1;min-height:0;justify-content:space-between}
+.fid.fid--fill .gate-card{flex:1;max-width:none;justify-content:center}
+/* ── solo frente: sin giro interno ni QR ── */
+.fid.fid--solo .flip-icon{display:none}
+.fid.fid--solo .flipper{cursor:default}
+.fid.fid--fill .gate-card{
+  border:0;border-radius:clamp(20px,4.5vw,24px);
+  background:
+    radial-gradient(130% 90% at 0% 0%,color-mix(in srgb,var(--brand-vivid) 30%,transparent) 0%,transparent 60%),
+    radial-gradient(120% 90% at 100% 100%,color-mix(in srgb,var(--brand-vivid-2) 28%,transparent) 0%,transparent 60%),
+    linear-gradient(170deg,#12141a 0%,#0a0b0e 60%,#060709 100%);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--brand-vivid) 40%,rgba(255,255,255,.12)),
+    0 20px 50px -15px color-mix(in srgb,var(--brand-vivid) 30%,transparent);
+}
+.fid.fid--fill .gate-title{font-size:18px}
+.fid.fid--fill .gate-text{color:rgba(255,255,255,.55)}
 `;
 
 function inyectarRecursos() {
@@ -194,12 +239,23 @@ function inyectarRecursos() {
 
 /* ══════════════ Helpers de color (puros) ══════════════ */
 const rgbToHex = (r, g, b) =>
-  "#" + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  "#" +
+  [r, g, b]
+    .map((v) =>
+      Math.max(0, Math.min(255, Math.round(v)))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("");
 
 function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s = 0;
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
+  let h = 0,
+    s = 0;
   const l = (max + min) / 2;
   if (max !== min) {
     const d = max - min;
@@ -224,9 +280,33 @@ function hslToRgb(h, s, l) {
   };
   const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
   const p = 2 * l - q;
-  return { r: f(p, q, h + 1 / 3) * 255, g: f(p, q, h) * 255, b: f(p, q, h - 1 / 3) * 255 };
+  return {
+    r: f(p, q, h + 1 / 3) * 255,
+    g: f(p, q, h) * 255,
+    b: f(p, q, h - 1 / 3) * 255,
+  };
 }
+const COLOR_NEUTRO = { r: 135, g: 135, b: 135 };
 
+function marcaDePagina() {
+  const cs = getComputedStyle(document.documentElement);
+  const n = (v) => parseInt(cs.getPropertyValue(v), 10);
+  const r = n("--dr"), g = n("--dg"), b = n("--db");
+  if ([r, g, b].some(Number.isNaN)) return null;
+  const r2 = n("--d2r"), g2 = n("--d2g"), b2 = n("--d2b");
+  const c2 = [r2, g2, b2].some(Number.isNaN) ? null : { r: r2, g: g2, b: b2 };
+  return { c1: { r, g, b }, c2, ang: 135 };
+}
+function leerMarca(t) {
+  const cm = t?.color_marca;
+  if (cm?.activo !== true || cm.r == null) return null;
+  const g = cm.degradado;
+  return {
+    c1: { r: cm.r, g: cm.g, b: cm.b },
+    c2: g?.activo === true && g.r != null ? { r: g.r, g: g.g, b: g.b } : null,
+    ang: Number(g?.angulo) || 135,
+  };
+}
 function colorFromName(name) {
   let hash = 0;
   const str = name || "Fidelidad";
@@ -247,31 +327,50 @@ function getDominantColor(img) {
     const data = ctx.getImageData(0, 0, S, S).data;
     const buckets = {};
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const r = data[i],
+        g = data[i + 1],
+        b = data[i + 2];
       if (data[i + 3] < 128) continue;
       const { s, l } = rgbToHsl(r, g, b);
       if (l > 0.8 || l < 0.1 || s < 0.25) continue;
       const key = `${r >> 4},${g >> 4},${b >> 4}`;
       const k = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
-      k.n++; k.r += r; k.g += g; k.b += b;
+      k.n++;
+      k.r += r;
+      k.g += g;
+      k.b += b;
     }
     let top = null;
     for (const k of Object.values(buckets)) if (!top || k.n > top.n) top = k;
-    return top ? { r: top.r / top.n, g: top.g / top.n, b: top.b / top.n } : null;
+    return top
+      ? { r: top.r / top.n, g: top.g / top.n, b: top.b / top.n }
+      : null;
   } catch {
     return null;
   }
 }
 
-const calcularNivel = (pts) => NIVELES.reduce((acc, n) => (pts >= n.min ? n : acc), NIVELES[0]).label;
-const capitalizar = (t) => String(t || "").trim().toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+const calcularNivel = (pts) =>
+  NIVELES.reduce((acc, n) => (pts >= n.min ? n : acc), NIVELES[0]).label;
+const capitalizar = (t) =>
+  String(t || "")
+    .trim()
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 const logoDeTienda = (t) =>
-  t?.img_tienda?.logo_tienda || t?.logoURL || t?.logo || t?.urlLogo || LOGO_FALLBACK_URL;
+  t?.img_tienda?.logo_tienda ||
+  t?.logoURL ||
+  t?.logo ||
+  t?.urlLogo ||
+  LOGO_FALLBACK_URL;
 
 function formatearFechaInicio(ts) {
   try {
     const f = ts?.toDate ? ts.toDate() : new Date(ts);
-    return new Intl.DateTimeFormat("es-PE", { month: "short", year: "numeric" }).format(f);
+    return new Intl.DateTimeFormat("es-PE", {
+      month: "short",
+      year: "numeric",
+    }).format(f);
   } catch {
     return null;
   }
@@ -280,21 +379,33 @@ function formatearFechaInicio(ts) {
 /* ══════════════ Ruta ══════════════ */
 async function resolverRuta() {
   if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
-    return { negocioId: window.__NEGOCIO_ID__, localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase() };
+    return {
+      negocioId: window.__NEGOCIO_ID__,
+      localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
+    };
   }
   const params = new URLSearchParams(location.search);
   if (params.get("id")) {
-    return { negocioId: params.get("id"), localidad: params.get("localidad") || LOCALIDAD_FIJA };
+    return {
+      negocioId: params.get("id"),
+      localidad: params.get("localidad") || LOCALIDAD_FIJA,
+    };
   }
   const partes = location.pathname.split("/").filter(Boolean);
   const iP = partes.indexOf("perfil");
   const iF = partes.indexOf("fidelizacion");
   if (iP !== -1 && iF === iP + 2) {
     try {
-      const snap = await getDoc(doc(db, "alias_tiendas", decodeURIComponent(partes[iP + 1])));
+      const snap = await getDoc(
+        doc(db, "alias_tiendas", decodeURIComponent(partes[iP + 1])),
+      );
       if (snap.exists()) {
         const d = snap.data();
-        if (d.id && d.localidad) return { negocioId: d.id, localidad: d.localidad.trim().toLowerCase() };
+        if (d.id && d.localidad)
+          return {
+            negocioId: d.id,
+            localidad: d.localidad.trim().toLowerCase(),
+          };
       }
     } catch (e) {
       console.error("[fidelizacion] alias:", e);
@@ -325,18 +436,23 @@ function cargarLibQR() {
    COMPONENTE
    ══════════════════════════════════════════════════════════════════════════ */
 export function montarTarjetaFidelizacion(container, opts = {}) {
-  if (!container) throw new Error("montarTarjetaFidelizacion: falta el contenedor.");
+  if (!container)
+    throw new Error("montarTarjetaFidelizacion: falta el contenedor.");
   inyectarRecursos();
 
   const root = document.createElement("div");
   root.className = "fid";
   if (opts.promo) root.classList.add("fid--promo");
+  if (opts.llenar) root.classList.add("fid--fill");
+  if (opts.soloFrente) root.classList.add("fid--solo");
   if (opts.fondo) root.style.setProperty("--fid-bg", opts.fondo);
   container.appendChild(root);
 
   let LOCALIDAD = opts.localidad || LOCALIDAD_FIJA;
   let NEGOCIO_ID = opts.negocioId || null;
-  let esperandoToken = new URLSearchParams(location.hash.slice(1)).has("wl_token");
+  let esperandoToken = new URLSearchParams(location.hash.slice(1)).has(
+    "wl_token",
+  );
   let destruido = false;
   let unsubAuth = null;
   let brandDarkHex = "#2e1065";
@@ -345,30 +461,54 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
   const q = (sel) => root.querySelector(sel);
 
   /* ── Color de marca (scopeado al componente) ── */
-  function aplicarColorMarca({ r, g, b }) {
+  function aplicarColorMarca({ r, g, b }, c2 = null, ang = 135) {
     const { h, s } = rgbToHsl(r, g, b);
-    const vivid = hslToRgb(h, Math.max(s, 0.6), 0.5);
-    const glow = hslToRgb(h, Math.max(s, 0.65), 0.35);
-    const dark = hslToRgb(h, Math.max(s, 0.5), 0.12);
-    root.style.setProperty("--brand-vivid", rgbToHex(vivid.r, vivid.g, vivid.b));
+    // gris/blanco/negro se quedan grises (antes se volvían rojos)
+    const sat = s < 0.12 ? s : Math.max(s, 0.6);
+    const vivid = hslToRgb(h, sat, 0.5);
+    const glow = hslToRgb(h, s < 0.12 ? s : Math.max(s, 0.65), 0.35);
+    const dark = hslToRgb(h, s < 0.12 ? s : Math.max(s, 0.5), 0.12);
+    root.style.setProperty(
+      "--brand-vivid",
+      rgbToHex(vivid.r, vivid.g, vivid.b),
+    );
     root.style.setProperty("--brand-glow", rgbToHex(glow.r, glow.g, glow.b));
     brandDarkHex = rgbToHex(dark.r, dark.g, dark.b);
     root.style.setProperty("--brand-dark", brandDarkHex);
+
+    if (c2) {
+      const h2 = rgbToHsl(c2.r, c2.g, c2.b);
+      const v2 = hslToRgb(h2.h, h2.s < 0.12 ? h2.s : Math.max(h2.s, 0.6), 0.5);
+      root.style.setProperty("--brand-vivid-2", rgbToHex(v2.r, v2.g, v2.b));
+      root.style.setProperty("--brand-ang", `${ang}deg`);
+    } else {
+      root.style.removeProperty("--brand-vivid-2");
+      root.style.removeProperty("--brand-ang");
+    }
     colorReady = true;
+  }
+
+    function aplicarMarcaPagina() {
+    const m = marcaDePagina();
+    if (!m) return false;
+    aplicarColorMarca(m.c1, m.c2, m.ang);
+    return true;
   }
 
   function cargarLogoYColor(logoURL, nombre) {
     return new Promise((resolve) => {
       const img = q("[data-ref=logo]");
-      if (!img || !logoURL) return resolve(colorFromName(nombre));
+      if (!img || !logoURL) return resolve(COLOR_NEUTRO);
       if (opts.favicon !== false) setFaviconCircular(logoURL);
-      img.onload = () => resolve(getDominantColor(img) || colorFromName(nombre));
-      img.onerror = () => resolve(colorFromName(nombre));
+      img.onload = () => resolve(getDominantColor(img) || COLOR_NEUTRO);
+      img.onerror = () => resolve(COLOR_NEUTRO);
       img.src = logoURL;
     });
   }
 
   function showError(msg) {
+setTimeout(() => container.querySelector("#heroCardSkel")?.classList.add("hide"), 350);
+
     let box = q("[data-ref=error]");
     if (!box) {
       box = document.createElement("p");
@@ -381,7 +521,9 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
 
   /* ── QR ── */
   async function renderQR() {
+    if (opts.soloFrente) return;
     if (qr.rendered || !qr.code || !colorReady) return;
+
     try {
       await cargarLibQR();
     } catch {
@@ -410,7 +552,12 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
   function initTilt() {
     const scene = q(".scene");
     const card = q(".tilt");
-    if (!scene || !card || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (
+      !scene ||
+      !card ||
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
     const MAX = 6;
     let raf = 0;
     const update = (x, y) => {
@@ -430,11 +577,19 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
     };
     scene.addEventListener("mousemove", (e) => update(e.clientX, e.clientY));
     scene.addEventListener("mouseleave", reset);
-    scene.addEventListener("touchstart", (e) => {
-      scene.classList.add("is-active");
-      update(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-    scene.addEventListener("touchmove", (e) => update(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+    scene.addEventListener(
+      "touchstart",
+      (e) => {
+        scene.classList.add("is-active");
+        update(e.touches[0].clientX, e.touches[0].clientY);
+      },
+      { passive: true },
+    );
+    scene.addEventListener(
+      "touchmove",
+      (e) => update(e.touches[0].clientX, e.touches[0].clientY),
+      { passive: true },
+    );
     scene.addEventListener("touchend", () => {
       scene.classList.remove("is-active");
       reset();
@@ -444,6 +599,12 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
   function initFlip() {
     const flipper = q(".flipper");
     if (!flipper) return;
+    if (opts.soloFrente) {
+      flipper.removeAttribute("role");
+      flipper.removeAttribute("tabindex");
+      flipper.removeAttribute("aria-label");
+      return;
+    }
     const toggle = () => {
       flipper.classList.toggle("is-flipped");
       renderQR();
@@ -491,13 +652,18 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
                 <div class="perforation" style="margin-top:16px"></div>
               </div>
 
+                         ${
+                           opts.soloFrente
+                             ? ""
+                             : `
               <div class="card face back">
                 <div class="sheen"></div>
                 <p class="eyebrow font-mono" style="margin-bottom:20px">Tu código QR</p>
                 <div class="qr-frame"><div class="qr-host" data-ref="qr"></div></div>
                 <p class="font-mono code-text" data-ref="qrtext" style="margin-top:20px"></p>
                 <p class="eyebrow" style="margin-top:24px;color:rgba(255,255,255,.25)">Toca para volver</p>
-              </div>
+              </div>`
+                         }
 
             </div>
           </div>
@@ -519,13 +685,15 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
   }
 
   async function showLoginGate() {
-    let nombre = "", logo = "";
+    let nombre = "",
+      logo = "";
     if (ES_DOMINIO_PROPIO && NEGOCIO_ID) {
       try {
         const snap = await getDoc(tiendaDoc(LOCALIDAD, "tiendas", NEGOCIO_ID));
         const t = snap.exists() ? snap.data() : {};
         nombre = t.nombre_tienda || t.nombre || "";
-        logo = t.img_tienda?.logo_tienda || t.logoURL || t.logo || t.urlLogo || "";
+        logo =
+          t.img_tienda?.logo_tienda || t.logoURL || t.logo || t.urlLogo || "";
       } catch (e) {
         console.warn("No se pudo cargar el negocio para el login:", e.message);
       }
@@ -534,7 +702,9 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
 
     const c = colorFromName(nombre || "Fidelidad");
     const rgb = `${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)}`;
-    root.style.setProperty("--brand-vivid", rgbToHex(c.r, c.g, c.b));
+    if (!(opts.llenar && aplicarMarcaPagina())) {
+      root.style.setProperty("--brand-vivid", rgbToHex(c.r, c.g, c.b));
+    }
 
     const accion = ES_DOMINIO_PROPIO
       ? `<button data-ref="login" type="button" class="btn">Iniciar sesión</button>`
@@ -547,13 +717,16 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
         <p class="font-mono gate-text">Necesitas tu cuenta de Geinz para ver tus puntos.</p>
         ${accion}
       </div>`;
-
+    container.querySelector("#heroCardSkel")?.classList.add("hide");
     if (ES_DOMINIO_PROPIO) {
-      q("[data-ref=login]").addEventListener("click", () => abrirLoginPopup(nombre, logo, rgb));
+      q("[data-ref=login]").addEventListener("click", () =>
+        abrirLoginPopup(nombre, logo, rgb),
+      );
     }
   }
 
   function showFollowGate(nombre, logo, onFollow) {
+        if (opts.llenar) aplicarMarcaPagina();
     if (logo && opts.favicon !== false) setFaviconCircular(logo);
     root.innerHTML = `
       <div class="gate-card">
@@ -563,7 +736,7 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
         <button data-ref="follow" class="btn" style="width:100%;max-width:220px">Seguir negocio</button>
         <p data-ref="followerr" class="gate-err fid-hidden"></p>
       </div>`;
-
+    container.querySelector("#heroCardSkel")?.classList.add("hide");
     q("[data-ref=follow]").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
@@ -633,7 +806,8 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
     if (typeof opts.urlTarjeta === "function") return opts.urlTarjeta();
     if (typeof opts.urlTarjeta === "string") return opts.urlTarjeta;
     if (ES_DOMINIO_PROPIO) return `${location.origin}/fidelizacion`;
-    if (t?.alias_key) return `${AUTH_ORIGIN}/perfil/${encodeURIComponent(t.alias_key)}/fidelizacion`;
+    if (t?.alias_key)
+      return `${AUTH_ORIGIN}/perfil/${encodeURIComponent(t.alias_key)}/fidelizacion`;
     return `${AUTH_ORIGIN}/fidelizacion/fidelizacion_client.html?localidad=${encodeURIComponent(LOCALIDAD)}&id=${encodeURIComponent(NEGOCIO_ID)}`;
   }
 
@@ -681,7 +855,9 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
 
       const color = await cargarLogoYColor(logo, nombre);
       if (destruido) return;
-      aplicarColorMarca(color);
+      const marca = leerMarca(t);
+      if (marca) aplicarColorMarca(marca.c1, marca.c2, marca.ang);
+      else aplicarColorMarca(color);
 
       // QR = ruta a la que lleva "Ver mi tarjeta"
       qr.code = urlTarjeta(t);
@@ -695,7 +871,10 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
 
       initTilt();
       initFlip();
-      requestAnimationFrame(() => q("[data-ref=content]")?.classList.add("is-ready"));
+      requestAnimationFrame(() =>
+        q("[data-ref=content]")?.classList.add("is-ready"),
+      );
+      container.querySelector("#heroCardSkel")?.classList.add("hide");
       (window.requestIdleCallback || ((f) => setTimeout(f, 800)))(renderQR);
     } catch (err) {
       console.error(err);
@@ -731,7 +910,8 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
       if (destruido) return;
 
       const tienda = tiendaSnap.exists() ? tiendaSnap.data() : {};
-      const nombreTienda = tienda.nombre_tienda || tienda.nombre || "Mi Negocio";
+      const nombreTienda =
+        tienda.nombre_tienda || tienda.nombre || "Mi Negocio";
       const logoURL = logoDeTienda(tienda);
 
       if (!clienteSnap.exists()) {
@@ -751,10 +931,14 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
         cargarUsuario(cliente.id_usuario),
       ]);
       if (destruido) return;
-      aplicarColorMarca(colorLogo);
+      const marca = leerMarca(tienda);
+      if (marca) aplicarColorMarca(marca.c1, marca.c2, marca.ang);
+      else aplicarColorMarca(colorLogo);
 
       const nombreCliente =
-        [capitalizar(usuario.nombre), capitalizar(usuario.apellido)].filter(Boolean).join(" ") ||
+        [capitalizar(usuario.nombre), capitalizar(usuario.apellido)]
+          .filter(Boolean)
+          .join(" ") ||
         usuario.nombre_user ||
         "Cliente Frecuente";
       const puntos = Number(cliente.puntos ?? 0);
@@ -764,7 +948,8 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
       q("[data-ref=name]").textContent = nombreCliente;
       q("[data-ref=points]").textContent = puntos.toLocaleString("es-PE");
       q("[data-ref=tier]").textContent = calcularNivel(puntos);
-      q("[data-ref=qrtext]").textContent = "ID: " + codigo;
+      const qt = q("[data-ref=qrtext]");
+      if (qt) qt.textContent = "ID: " + codigo;
       if (desde) {
         const el = q("[data-ref=since]");
         el.textContent = `Cliente desde ${desde}`;
@@ -775,7 +960,10 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
       qr.rendered = false;
       initTilt();
       initFlip();
-      requestAnimationFrame(() => q("[data-ref=content]")?.classList.add("is-ready"));
+      requestAnimationFrame(() =>
+        q("[data-ref=content]")?.classList.add("is-ready"),
+      );
+      container.querySelector("#heroCardSkel")?.classList.add("hide");
       (window.requestIdleCallback || ((f) => setTimeout(f, 800)))(renderQR);
     } catch (err) {
       console.error(err);
@@ -827,12 +1015,16 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
     });
   })();
 
-  /* ── Desmontar ── */
-  return function destroy() {
+  const api = function destroy() {
     destruido = true;
     if (unsubAuth) unsubAuth();
     root.remove();
   };
+  api.setBrand = (cm) => {
+    const m = leerMarca({ color_marca: cm });
+    if (m) aplicarColorMarca(m.c1, m.c2, m.ang);
+  };
+  return api;
 }
 
 export default montarTarjetaFidelizacion;

@@ -11,6 +11,10 @@ import {
   reclamacionesCol,
 } from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
 import { setFaviconCircular } from "../js/favicon/favicon.js"; // ══════════════════════════════════════════
+import {
+  cargarColoresNegocio,
+  aplicarColoresDesdeCache,
+} from "../js/colores_dinamicos/dinamicos.js"
 //  CONFIG DE CAMPOS DINÁMICOS
 //  clave del mapa "campos" en Firestore → cómo se pinta en el form
 //  "group" agrupa visualmente el campo en la sección 1 (Tus datos)
@@ -202,97 +206,8 @@ async function resolverNegocio() {
   return { id, localidad: localidad.trim().toLowerCase() };
 }
 
-// ══════════════════════════════════════════
-//  COLOR DOMINANTE DEL LOGO (mismo criterio que perfil_negocio_v2)
-// ══════════════════════════════════════════
-function getDominantColor(imgEl) {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas");
-    const SIZE = 80;
-    canvas.width = SIZE;
-    canvas.height = SIZE;
-    const ctx = canvas.getContext("2d");
-    try {
-      ctx.drawImage(imgEl, 0, 0, SIZE, SIZE);
-      const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
-      const buckets = {};
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i],
-          g = data[i + 1],
-          b = data[i + 2],
-          a = data[i + 3];
-        if (a < 128) continue;
-        const rn = r / 255,
-          gn = g / 255,
-          bn = b / 255;
-        const max = Math.max(rn, gn, bn),
-          min = Math.min(rn, gn, bn);
-        const l = (max + min) / 2;
-        const s =
-          max === min
-            ? 0
-            : l > 0.5
-              ? (max - min) / (2 - max - min)
-              : (max - min) / (max + min);
-        if (l > 0.72 || l < 0.1 || s < 0.28) continue;
-        const key = `${r >> 4},${g >> 4},${b >> 4}`;
-        if (!buckets[key]) buckets[key] = { count: 0, r: 0, g: 0, b: 0 };
-        buckets[key].count++;
-        buckets[key].r += r;
-        buckets[key].g += g;
-        buckets[key].b += b;
-      }
-      const sorted = Object.values(buckets).sort((a, b) => b.count - a.count);
-      if (!sorted.length) return resolve(null);
-      const top = sorted[0];
-      resolve({
-        r: Math.round(top.r / top.count),
-        g: Math.round(top.g / top.count),
-        b: Math.round(top.b / top.count),
-      });
-    } catch (e) {
-      resolve(null);
-    }
-  });
-}
 
-function colorFromName(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++)
-    hash = (hash << 5) - hash + name.charCodeAt(i);
-  hash |= 0;
-  const hue = Math.abs(hash % 360);
-  const s = 0.65,
-    l = 0.55;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = l - c / 2;
-  let r = 0,
-    g = 0,
-    b = 0;
-  if (hue < 60) [r, g, b] = [c, x, 0];
-  else if (hue < 120) [r, g, b] = [x, c, 0];
-  else if (hue < 180) [r, g, b] = [0, c, x];
-  else if (hue < 240) [r, g, b] = [0, x, c];
-  else if (hue < 300) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255),
-  };
-}
 
-function applyColor({ r, g, b }) {
-  document.documentElement.style.setProperty("--dr", r);
-  document.documentElement.style.setProperty("--dg", g);
-  document.documentElement.style.setProperty("--db", b);
-
-  const blob1 = document.getElementById("blobUno");
-  const blob2 = document.getElementById("blobDos");
-  if (blob1) blob1.style.background = `rgba(${r},${g},${b},.10)`;
-  if (blob2) blob2.style.background = `rgba(${r},${g},${b},.08)`;
-}
 // ══════════════════════════════════════════
 //  OPCIONES DINÁMICAS (selects) DESDE LA DB
 //  Acepta array de strings o mapa { "DNI": true, "CE": true, ... }
@@ -504,7 +419,7 @@ function generarCodigoSeguimiento() {
 
   try {
     const { id, localidad } = await resolverNegocio();
-
+aplicarColoresDesdeCache(id);
     // 1) Validar que el negocio tenga el libro activo en su footer
     const tiendaRef = tiendaDoc(localidad, "tiendas", id);
     const tiendaSnap = await getDoc(tiendaRef);
@@ -539,33 +454,19 @@ function generarCodigoSeguimiento() {
     const logoLetter = document.getElementById("bizLogoLetter");
 
     // Promesa que se resuelve solo cuando el color ya fue aplicado
-    const colorReady = new Promise((resolve) => {
-      if (logoUrl) {
-        logoImg.src = logoUrl;
-        logoImg.style.display = "block";
-        logoLetter.style.display = "none";
+// Colores dinámicos (color_marca → logo → nombre), usando el biz que ya leíste
+const colorReady = cargarColoresNegocio({ id, localidad, biz }).catch((e) =>
+  console.warn("colores:", e.message),
+);
 
-        setFaviconCircular(logoUrl);
-
-        const tempImg = new Image();
-        tempImg.crossOrigin = "anonymous";
-        tempImg.onload = async () => {
-          const color = await getDominantColor(tempImg);
-          applyColor(color || colorFromName(nombre));
-          resolve();
-        };
-        tempImg.onerror = () => {
-          applyColor(colorFromName(nombre));
-          resolve();
-        };
-        tempImg.src =
-          logoUrl + (logoUrl.includes("?") ? "&" : "?") + "cb=" + Date.now();
-      } else {
-        logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
-        applyColor(colorFromName(nombre));
-        resolve();
-      }
-    });
+if (logoUrl) {
+  logoImg.src = logoUrl;
+  logoImg.style.display = "block";
+  logoLetter.style.display = "none";
+  setFaviconCircular(logoUrl);
+} else {
+  logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
+}
 
     // 4) Pintar contenido dinámico del libro (título, descripción, RUC, razón social)
     document.getElementById("libroTitulo").textContent =

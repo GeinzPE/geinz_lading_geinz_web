@@ -3027,3 +3027,219 @@ main>section:has(#secAddr) {
         width: 100%
     }
 }
+
+/* ── Logo del hero: tarjeta fija que gira en 3D ── */
+.hero-flip{
+  width:100%;
+  margin:0 auto;
+  perspective:1400px;
+  position:relative; z-index:1;
+}
+
+.hero-flip-inner{
+  position:relative; display:grid;
+  min-height:420px;
+  transform-style:preserve-3d;
+  transition:transform .75s cubic-bezier(.34,1.3,.64,1);
+  will-change:transform;
+}
+
+.hero-flip.is-flipped .hero-flip-inner {
+    transform: rotateY(180deg);
+}
+
+.hero-flip-face {
+    grid-area: 1/1;
+    border-radius: 1.75rem;
+    overflow: hidden;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* sin backdrop-filter aquí: rompe backface-visibility en Chrome */
+.hero-flip-front {
+    position: relative;
+    display: flex;
+    padding: 14px;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .08);
+    box-shadow: 0 25px 60px -20px rgba(0, 0, 0, .7), 0 0 50px -20px rgba(var(--dr), var(--dg), var(--db), .35);
+}
+
+.hero-flip-back {
+    transform: rotateY(180deg);
+    display: flex;
+}
+
+.hero-flip:not(.is-flipped) .hero-flip-back {
+    pointer-events: none;
+}
+
+.hero-flip.is-flipped .hero-flip-front {
+    pointer-events: none;
+}
+
+/* el logo ya no se estira ni se recorta */
+.hero-flip .hero-logo-container {
+    flex: 1;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    border-radius: 1.25rem;
+    background: #0d0d0d;
+}
+
+.hero-flip .hero-logo-container img {
+    object-fit: contain;
+}
+
+/* hint solo si el negocio tiene fidelización */
+.hero-flip-hint {
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%);
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    background: rgba(8, 8, 10, .6);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--dr), var(--dg), var(--db), .5);
+    box-shadow: 0 8px 20px -6px rgba(0, 0, 0, .6);
+    transition: transform .25s ease;
+}
+
+.hero-flip.has-card .hero-flip-hint {
+    display: inline-flex;
+}
+
+.hero-flip.has-card .hero-flip-front {
+    cursor: pointer;
+}
+
+.hero-flip.has-card .hero-flip-front:hover .hero-flip-hint {
+    transform: translateX(-50%) translateY(-3px);
+}
+
+.hero-card-slot {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+}
+
+.hero-card-slot>.fid {
+    flex: 1;
+}
+
+.hero-flip-back-btn {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 20;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    font-size: 16px;
+    background: rgba(255, 255, 255, .1);
+    transition: background .2s ease, transform .2s ease;
+}
+
+.hero-flip-back-btn:hover {
+    background: rgba(255, 255, 255, .2);
+    transform: rotate(-60deg);
+}
+
+@media (prefers-reduced-motion:reduce) {
+    .hero-flip-inner {
+        transition: none;
+    }
+}
+/* ── Escritorio grande (xl, 2 columnas): tamaño como antes ── */
+@media (min-width:1280px){
+  .hero-flip-inner{ min-height:480px; max-height:540px; }
+}
+
+/* ── Medias (una sola columna, antes se estiraba): tarjeta limitada ── */
+@media (min-width:641px) and (max-width:1279px){
+  .hero-flip{ width:min(100%,460px); }
+  .hero-flip-inner{ aspect-ratio:10/12; min-height:0; }
+}
+
+/* ── Móvil: más compacta ── */
+@media (max-width:640px){
+  .hero-flip{ width:min(100%,380px); }
+  .hero-flip-inner{ aspect-ratio:10/12; min-height:0; }
+}
+@media (min-width:1024px){
+  main > section:first-of-type{
+    grid-template-columns:1fr .8fr !important;
+    gap:2.5rem !important;
+    align-items:center;
+  }
+}
+@media (min-width:1024px) and (max-width:1279px){
+  #bizName{ font-size:clamp(3rem,6vw,4.5rem) !important; letter-spacing:-3px !important; }
+}
+/* 2 columnas (laptop chica y escritorio) */
+@media (min-width:1024px){
+  .hero-flip-inner{ min-height:460px; max-height:540px; }
+}
+
+/* 1 columna, tablet */
+@media (min-width:641px) and (max-width:1023px){
+  .hero-flip{ width:min(100%,460px); }
+  .hero-flip-inner{ aspect-ratio:10/12; min-height:0; }
+}
+
+/* móvil */
+@media (max-width:640px){
+  .hero-flip{ width:min(100%,380px); }
+  .hero-flip-inner{ aspect-ratio:10/12; min-height:0; }
+}
+/* ── Skeleton de la tarjeta (colores dinámicos de la marca) ── */
+.hero-card-slot{ position:relative; }
+.hero-card-skel{
+  position:absolute; inset:0; z-index:5;
+  display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+  padding:30px 26px;
+  border-radius:1.75rem;
+  background:
+    radial-gradient(130% 90% at 50% 0%, rgba(var(--dr),var(--dg),var(--db),.28) 0%, transparent 65%),
+    linear-gradient(170deg,#12141a 0%,#0a0b0e 60%,#060709 100%);
+  box-shadow:0 0 0 1px rgba(var(--dr),var(--dg),var(--db),.35);
+  overflow:hidden;
+  transition:opacity .35s ease, visibility .35s ease;
+}
+.hero-card-skel.hide{ opacity:0; visibility:hidden; pointer-events:none; }
+
+.hero-card-skel > *{
+  position:relative; overflow:hidden;
+  background:rgba(var(--dr),var(--dg),var(--db),.14);
+  border-radius:12px;
+}
+.hero-card-skel > *::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.08) 45%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.08) 55%,transparent 100%);
+  background-size:200% 100%;
+  animation:hcsShimmer 1.6s infinite;
+}
+@keyframes hcsShimmer{ 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+
+.hcs-avatar{ width:78px; height:78px; border-radius:50% !important; flex-shrink:0; }
+.hcs-line{ height:16px; }
+.hcs-sm{ height:10px; }
+.hcs-w40{ width:40%; } .hcs-w50{ width:50%; } .hcs-w60{ width:60%; } .hcs-w70{ width:70%; }
+.hcs-divider{ width:100%; height:1px !important; border-radius:0 !important; background:rgba(var(--dr),var(--dg),var(--db),.3) !important; }
+.hcs-divider::after{ display:none; }
+.hcs-points{ width:46%; height:54px; border-radius:14px; }
