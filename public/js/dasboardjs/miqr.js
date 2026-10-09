@@ -27,7 +27,7 @@ import {
   tiendaSubCol,
   tiendaServiciosDoc,
 } from "../rutas/rutas.js";
-
+import { cargarColoresNegocio } from "../../js/colores_dinamicos/dinamicos.js";
 // ------------------------------------------------------------
 // Cola global para llamadas a la Cloud Function de QR.
 // La función solo soporta 1 Chrome (Puppeteer) a la vez por
@@ -143,7 +143,8 @@ const QrNegocio = {
     });
 
     const mesasSection = document.getElementById("mesasSection");
-    const mesasVisibles = !mesasSection || mesasSection.style.display !== "none";
+    const mesasVisibles =
+      !mesasSection || mesasSection.style.display !== "none";
     const mesas = mesasVisibles
       ? MesasNegocio._mesas.filter((m) => (m.qr_origen || "geinz") !== objetivo)
       : [];
@@ -301,6 +302,8 @@ const QrNegocio = {
           return `${base}/carrito`;
         case "reclamaciones":
           return `${base}/libro_reclamaciones`;
+        case "reviews":
+          return `${base}/-reviews`;
         default:
           throw new Error("Tipo de QR desconocido: " + tipo);
       }
@@ -315,6 +318,8 @@ const QrNegocio = {
         return `https://geinztech.com/perfil/${info.alias}/carrito`;
       case "reclamaciones":
         return `https://geinztech.com/perfil/${info.alias}/libro_reclamaciones`;
+      case "reviews":
+        return `https://geinztech.com/perfil/${info.alias}-reviews`;
       default:
         throw new Error("Tipo de QR desconocido: " + tipo);
     }
@@ -487,7 +492,7 @@ const QrNegocio = {
           `Tu tienda no tiene un logo configurado (img_tienda.logo_tienda). Sube el logo de tu perfil para poder generar el QR.`,
         );
       }
-
+      const extraColores = await QrColores.payloadExtra();
       const payload = {
         url,
         dotShape: "dots",
@@ -496,6 +501,7 @@ const QrNegocio = {
         width: QR_REQUEST_SIZE,
         height: QR_REQUEST_SIZE,
         logo,
+        ...extraColores,
       };
 
       const blobOriginal = await encolarLlamadaApiQr(payload);
@@ -537,8 +543,7 @@ const QrNegocio = {
 
     await this._cargarModoDominio();
 
-    const tipos = ["perfil", "carta", "carrito", "reclamaciones"];
-
+    const tipos = ["perfil", "carta", "carrito", "reclamaciones", "reviews"];
     await Promise.all(
       tipos.map(async (tipo) => {
         const preview = document.getElementById(`qrPreview${this._cap(tipo)}`);
@@ -636,8 +641,427 @@ async function aplicarVisibilidadPorCategoria() {
   // Ya se sabe qué tiles/secciones están visibles: recalcula el aviso
   QrNegocio.actualizarAviso();
 }
+// ================================================================
+// QR COLORES — decide si el QR usa los colores del logo (automático)
+// o los colores/degradado de la marca (color_marca del perfil).
+// ================================================================
+const QrColores = {
+  _modo: "logo", // "logo" | "marca" | "personalizado"
+  _marca: null, // color_marca del perfil (solo si está activo)
+  _t: 0,
+  _pruebaUrl: null,
+  _auto: true, // degradado automático si hay un solo color
+  _custom: ["#7c4dff"], // colores personalizados (1 a 3)
+  _customGuardado: "", // firma de lo que está guardado en Firestore
+
+  _$(id) {
+    return document.getElementById(id);
+  },
+
+  // Colección aparte: tiendas/{id}/config_qr/colores
+  _docRef() {
+    return tiendaSubDoc(localidad, "tiendas", tiendaId, "config_qr", "colores");
+  },
+
+  // ── utilidades de color ──
+  _hex({ r, g, b }) {
+    return (
+      "#" +
+      [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")
+    );
+  },
+  _hexToRgb(h) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(h || "");
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  },
+  _mix(a, b, t) {
+    return {
+      r: a.r + (b.r - a.r) * t,
+      g: a.g + (b.g - a.g) * t,
+      b: a.b + (b.b - a.b) * t,
+    };
+  },
+  _lum({ r, g, b }) {
+    const f = (v) => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  },
+  _rgb2hsl({ r, g, b }) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const mx = Math.max(r, g, b),
+      mn = Math.min(r, g, b);
+    const l = (mx + mn) / 2,
+      d = mx - mn;
+    let h = 0,
+      s = 0;
+    if (d) {
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      if (mx === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (mx === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    return { h, s, l };
+  },
+  _hsl2rgb({ h, s, l }) {
+    h = ((h % 360) + 360) % 360;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r = 0,
+      g = 0,
+      b = 0;
+    if (h < 60) [r, g, b] = [c, x, 0];
+    else if (h < 120) [r, g, b] = [x, c, 0];
+    else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c];
+    else if (h < 300) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 };
+  },
+  // Color sólido → [oscuro, base, tono vecino]
+  _gradAuto(c) {
+    const { h, s, l } = this._rgb2hsl(c);
+    const sat = Math.max(s, 0.55);
+    const baseL = Math.min(l, 0.45);
+    return [
+      this._hsl2rgb({ h: h - 18, s: sat, l: Math.max(0.18, baseL - 0.14) }),
+      this._hsl2rgb({ h, s: sat, l: baseL }),
+      this._hsl2rgb({ h: h + 28, s: sat, l: Math.min(0.5, baseL + 0.04) }),
+    ];
+  },
+
+  // ── lectura de datos ──
+  async _leerMarca() {
+    try {
+      const c = await cargarColoresNegocio({
+        id: tiendaId,
+        localidad,
+        aplicar: false,
+        forzar: true,
+      });
+      this._marca = c && c.fuente === "color_marca" ? c : null;
+    } catch (err) {
+      console.warn("QrColores: no se pudo leer color_marca.", err);
+      this._marca = null;
+    }
+    this._t = Date.now();
+    if (window.PreviewQr) window.PreviewQr._paletteCache = null;
+  },
+
+  // Lee la config propia del QR (colección aparte)
+  async _leerConfig() {
+    try {
+      const snap = await getDoc(this._docRef());
+      if (!snap.exists()) return false;
+      const d = snap.data();
+      if (["logo", "marca", "personalizado"].includes(d.modo))
+        this._modo = d.modo;
+      if (Array.isArray(d.colores) && d.colores.length) {
+        this._custom = d.colores.filter((h) => this._hexToRgb(h)).slice(0, 3);
+        if (!this._custom.length) this._custom = ["#7c4dff"];
+        this._customGuardado = this._firma();
+      }
+      if (typeof d.auto_degradado === "boolean") this._auto = d.auto_degradado;
+      return true;
+    } catch (err) {
+      console.warn("QrColores: no se pudo leer config_qr/colores.", err);
+      return false;
+    }
+  },
+
+  _firma() {
+    return JSON.stringify(this._custom);
+  },
+
+  // ── colores finales para la API ──
+  _stopsRgb() {
+    if (this._modo === "personalizado") {
+      const cs = this._custom.map((h) => this._hexToRgb(h)).filter(Boolean);
+      if (!cs.length) return null;
+      if (cs.length === 1)
+        return this._auto ? this._gradAuto(cs[0]) : [cs[0], cs[0], cs[0]];
+      if (cs.length === 2) return [cs[0], this._mix(cs[0], cs[1], 0.5), cs[1]];
+      return cs.slice(0, 3);
+    }
+    if (this._modo === "marca" && this._marca) {
+      const m = this._marca;
+      const c1 = { r: m.r, g: m.g, b: m.b };
+      if (m.degradado) {
+        const c2 = { r: m.degradado.r, g: m.degradado.g, b: m.degradado.b };
+        return [c1, this._mix(c1, c2, 0.5), c2];
+      }
+      if (this._auto) return this._gradAuto(c1);
+      return [c1, c1, c1];
+    }
+    return null; // modo logo
+  },
+
+  coloresApi() {
+    const s = this._stopsRgb();
+    return s ? s.map((c) => this._hex(c)) : null;
+  },
+
+  async payloadExtra() {
+    if (Date.now() - this._t > 15000) await this._leerMarca();
+    const colors = this.coloresApi();
+    return colors ? { colors } : {};
+  },
+
+  // ── interfaz ──
+  _renderCustom() {
+    const wrap = this._$("qrCustomColores");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    this._custom.forEach((hex, i) => {
+      const item = document.createElement("div");
+      item.className =
+        "flex items-center gap-1.5 rounded-[12px] border border-white/10 bg-white/[0.04] p-1.5";
+
+      const inp = document.createElement("input");
+      inp.type = "color";
+      inp.value = hex;
+      inp.className = "h-9 w-12 cursor-pointer border-0 bg-transparent p-0";
+      inp.addEventListener("input", () => {
+        this._custom[i] = inp.value;
+        this._cambio();
+      });
+      item.appendChild(inp);
+
+      const code = document.createElement("span");
+      code.className = "text-[11px] font-semibold uppercase text-neutral-400";
+      code.textContent = hex;
+      inp.addEventListener("input", () => (code.textContent = inp.value));
+      item.appendChild(code);
+
+      if (this._custom.length > 1) {
+        const del = document.createElement("button");
+        del.type = "button";
+        del.title = "Quitar color";
+        del.className =
+          "flex h-7 w-7 items-center justify-center rounded-[8px] text-[12px] text-neutral-400 hover:bg-white/[0.1]";
+        del.textContent = "✕";
+        del.addEventListener("click", () => {
+          this._custom.splice(i, 1);
+          this._cambio(true);
+        });
+        item.appendChild(del);
+      }
+      wrap.appendChild(item);
+    });
+    this._$("qrCustomAdd")?.classList.toggle(
+      "hidden",
+      this._custom.length >= 3,
+    );
+  },
+
+  _pintar(editor = true) {
+    const sw = this._$("qrColoresSwatch");
+    if (!sw) return;
+
+    const ids = {
+      logo: "qrModoLogo",
+      marca: "qrModoMarca",
+      personalizado: "qrModoCustom",
+    };
+    Object.entries(ids).forEach(([m, id]) =>
+      this._$(id)?.setAttribute("aria-pressed", String(this._modo === m)),
+    );
+    const btnM = this._$("qrModoMarca");
+    if (btnM) btnM.disabled = !this._marca;
+
+    this._$("qrCustomBox")?.classList.toggle(
+      "hidden",
+      this._modo !== "personalizado",
+    );
+    if (editor) this._renderCustom();
+
+    const bs = this._$("btnGuardarColores");
+    if (bs) {
+      const sucio = this._firma() !== this._customGuardado;
+      bs.disabled = !sucio;
+      bs.textContent = sucio ? "Guardar colores" : "✓ Colores guardados";
+    }
+
+    const desc = this._$("qrColoresDesc");
+    const aviso = this._$("qrColoresAviso");
+    const stops = this._stopsRgb();
+
+    if (stops) {
+      const [a, mid, c] = stops;
+      const igual =
+        this._hex(a) === this._hex(c) && this._hex(a) === this._hex(mid);
+      sw.style.background = igual
+        ? this._hex(a)
+        : `linear-gradient(90deg, ${this._hex(a)}, ${this._hex(mid)}, ${this._hex(c)})`;
+      sw.textContent = "";
+      desc.textContent =
+        this._modo === "personalizado"
+          ? "Tus QR usarán los colores que elegiste."
+          : "Tus QR usarán los colores de tu marca.";
+      aviso.textContent = stops.some((s) => this._lum(s) > 0.5)
+        ? "⚠ Alguno de estos colores es muy claro: el QR podría costar escanearlo. Prueba con un tono más oscuro."
+        : "";
+    } else {
+      sw.style.background =
+        "repeating-linear-gradient(135deg,#1d1d22 0 10px,#141417 10px 20px)";
+      sw.textContent = "Colores detectados desde tu logo";
+      desc.textContent =
+        "Tus QR usarán los colores que se detectan solos en tu logo.";
+      aviso.textContent = "";
+    }
+  },
+
+  // Cambió algo en los colores personalizados
+  _cambio(redibujar = false) {
+    if (window.PreviewQr) window.PreviewQr._paletteCache = null;
+    this._pintar(redibujar);
+  },
+
+  async _guardarCampos(campos) {
+    try {
+      await setDoc(
+        this._docRef(),
+        { ...campos, actualizado_en: serverTimestamp() },
+        { merge: true },
+      );
+      return true;
+    } catch (err) {
+      console.error("QrColores: no se pudo guardar.", err);
+      UI.toast("No se pudo guardar. Revisa tu conexión.", true);
+      return false;
+    }
+  },
+
+  async _setModo(modo) {
+    if (modo === "marca" && !this._marca) return;
+    this._modo = modo;
+    if (window.PreviewQr) window.PreviewQr._paletteCache = null;
+    this._pintar();
+    await this._guardarCampos({ modo });
+    UI.toast(
+      "Los QR nuevos usarán estos colores. Regenera los existentes con ↻.",
+    );
+  },
+
+  _agregarColor() {
+    if (this._custom.length >= 3) return;
+    const base = this._hexToRgb(this._custom[this._custom.length - 1]);
+    const h = this._rgb2hsl(base || { r: 124, g: 77, b: 255 });
+    const nuevo = this._hex(this._hsl2rgb({ h: h.h + 40, s: h.s, l: h.l }));
+    this._custom.push(nuevo);
+    this._cambio(true);
+  },
+
+  async guardarCustom() {
+    const btn = this._$("btnGuardarColores");
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    const ok = await this._guardarCampos({
+      modo: this._modo,
+      colores: this._custom,
+      auto_degradado: this._auto,
+    });
+    if (ok) {
+      this._customGuardado = this._firma();
+      UI.toast("Colores guardados.");
+    }
+    this._pintar(false);
+  },
+
+  // QR de prueba (no se guarda)
+  async probar() {
+    const btn = this._$("btnProbarColores");
+    const box = this._$("qrColoresPrueba");
+    const img = this._$("qrColoresPruebaImg");
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Generando…";
+    try {
+      const info = await QrNegocio._obtenerInfoTienda();
+      const logo = await QrNegocio._logoBase64();
+      if (!logo)
+        throw new Error("Sube el logo de tu perfil para probar el QR.");
+      await QrNegocio._cargarModoDominio();
+
+      const url = QrNegocio._armarUrl("perfil", info);
+      const extra = await this.payloadExtra();
+      const blob = await encolarLlamadaApiQr({
+        url,
+        dotShape: "dots",
+        onlyQr: true,
+        autoColor: true,
+        width: QR_REQUEST_SIZE,
+        height: QR_REQUEST_SIZE,
+        logo,
+        ...extra,
+      });
+
+      if (this._pruebaUrl) URL.revokeObjectURL(this._pruebaUrl);
+      this._pruebaUrl = URL.createObjectURL(blob);
+      img.src = this._pruebaUrl;
+      box.classList.remove("hidden");
+      box.classList.add("flex");
+    } catch (err) {
+      UI.toast(err.message || "No se pudo generar la prueba.", true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  },
+
+  async init() {
+    const [, hayConfig] = await Promise.all([
+      this._leerMarca(),
+      this._leerConfig(),
+    ]);
+
+    // Sin config guardada: usa los colores de marca si existen
+    if (!hayConfig) this._modo = this._marca ? "marca" : "logo";
+    // Si guardó "marca" pero ya no hay color de marca activo
+    if (this._modo === "marca" && !this._marca) this._modo = "logo";
+
+    this._$("qrModoLogo")?.addEventListener("click", () =>
+      this._setModo("logo"),
+    );
+    this._$("qrModoMarca")?.addEventListener("click", () =>
+      this._setModo("marca"),
+    );
+    this._$("qrModoCustom")?.addEventListener("click", () =>
+      this._setModo("personalizado"),
+    );
+    this._$("qrCustomAdd")?.addEventListener("click", () =>
+      this._agregarColor(),
+    );
+    this._$("btnGuardarColores")?.addEventListener("click", () =>
+      this.guardarCustom(),
+    );
+    this._$("btnProbarColores")?.addEventListener("click", () => this.probar());
+
+    const chk = this._$("qrAutoDeg");
+    if (chk) {
+      chk.checked = this._auto;
+      chk.addEventListener("change", async () => {
+        this._auto = chk.checked;
+        if (window.PreviewQr) window.PreviewQr._paletteCache = null;
+        this._pintar(false);
+        await this._guardarCampos({ auto_degradado: this._auto });
+      });
+    }
+
+    this._pintar();
+  },
+};
+window.QrColores = QrColores;
 window.QrNegocio = QrNegocio;
 QrNegocio.init();
+QrColores.init();
 aplicarVisibilidadPorCategoria();
 
 // ================================================================
@@ -696,6 +1120,7 @@ const MesasNegocio = {
       );
     }
 
+    const extraColores = await QrColores.payloadExtra();
     const payload = {
       url,
       dotShape: "dots",
@@ -704,6 +1129,7 @@ const MesasNegocio = {
       width: QR_REQUEST_SIZE,
       height: QR_REQUEST_SIZE,
       logo,
+      ...extraColores,
     };
 
     return await encolarLlamadaApiQr(payload);
@@ -1308,6 +1734,10 @@ const PreviewQr = {
       brand: "LIBRO DE RECLAMACIONES",
       sub: "Escanea para presentar tu reclamo",
     },
+    reviews: {
+      brand: "DÉJANOS TU RESEÑA",
+      sub: "Escanea y cuéntanos tu experiencia",
+    },
   },
 
   async openNegocio(tipo) {
@@ -1422,7 +1852,26 @@ const PreviewQr = {
   // texto + sombras. Se cachea: solo se calcula una vez por visita.
   async _obtenerPaletteDeLogo() {
     if (this._paletteCache) return this._paletteCache;
-
+    // Si el QR usa colores de marca, la tarjeta también
+    const marca = QrColores.coloresApi();
+    if (marca) {
+      const c1 = marca[0];
+      const c2 = marca[2];
+      const solido = c1 === c2;
+      const a = solido ? this._shade(c1, -0.25) : c1;
+      const d = solido ? this._shade(c1, 0.3) : c2;
+      this._paletteCache = {
+        g1: a,
+        g2: this._lerp(a, d, 0.33),
+        g3: this._lerp(a, d, 0.66),
+        g4: d,
+        text: this._shade(c1, 0.55),
+        shadow: this._toRgba(c1, 0.45),
+        glow1: this._toRgba(c1, 0.25),
+        glow2: this._toRgba(d, 0.25),
+      };
+      return this._paletteCache;
+    }
     const fallback = {
       g1: "#7c4dff",
       g2: "#a855f7",

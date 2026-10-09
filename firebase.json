@@ -181,12 +181,16 @@
         "source": "/legal/seguimiento_reclamaciones/**",
         "destination": "/legal/seguimiento_reclamaciones.html"
       },
-        {
+      {
         "source": "/",
         "function": "perfilShare"
       },
       {
         "source": "/-carta",
+        "function": "perfilShare"
+      },
+      {
+        "source": "/-reviews",
         "function": "perfilShare"
       },
       {

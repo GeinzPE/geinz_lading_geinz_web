@@ -946,6 +946,9 @@ async function getParams() {
     const wantsCarta =
       new URLSearchParams(window.location.search).get("carta") === "1" ||
       window.location.pathname.replace(/\/+$/, "") === "/-carta";
+    const wantsReviews =
+      new URLSearchParams(window.location.search).get("reviews") === "1" ||
+      window.location.pathname.replace(/\/+$/, "") === "/-reviews";
     return {
       localidad: (localidad || "").trim().toLowerCase(),
       subcol: (categoria || "").replace(/\+/g, " "),
@@ -954,6 +957,7 @@ async function getParams() {
       promoIndex: null,
       promoId,
       wantsCarta, // ← antes era false
+      wantsReviews,
       mesaToken: null,
     };
   }
@@ -966,9 +970,13 @@ async function getParams() {
     if (!alias) throw new Error("Alias inválido");
 
     let wantsCarta = false;
+    let wantsReviews = false;
     if (alias.endsWith("-carta")) {
       wantsCarta = true;
       alias = alias.replace(/-carta$/, "");
+    } else if (alias.endsWith("-reviews")) {
+      wantsReviews = true;
+      alias = alias.replace(/-reviews$/, "");
     }
 
     // Detecta sufijo de mesa: alias-mesa-{token}
@@ -1000,6 +1008,7 @@ async function getParams() {
       promoIndex: null,
       promoId,
       wantsCarta,
+      wantsReviews,
       mesaToken,
     };
   }
@@ -1022,6 +1031,7 @@ async function getParams() {
     alias: null,
     promoIndex,
     wantsCarta: false,
+    wantsReviews: false,
     mesaToken: null,
   };
 }
@@ -1849,9 +1859,14 @@ function renderPuntosBadge(puntos) {
 }
 
 document.getElementById("puntosBadge")?.addEventListener("click", () => {
-  if (!_fidelizacionActiva) { showToast(_fidelizacionMensajeInactivo); return; }
+  if (!_fidelizacionActiva) {
+    showToast(_fidelizacionMensajeInactivo);
+    return;
+  }
   if (_heroFlipToggle) {
-    document.getElementById("heroFlip")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document
+      .getElementById("heroFlip")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
     _heroFlipToggle(true);
   } else irAFidelizacion();
 });
@@ -2665,7 +2680,6 @@ function irAFidelizacion() {
   if (uid !== "invitado") url.searchParams.set("uid", uid);
   window.location.href = url.toString();
 }
-
 
 function setupHeroFlip(activa) {
   const flip = document.getElementById("heroFlip");
@@ -7571,6 +7585,14 @@ async function eliminarMiReview() {
     }
   }
 }
+function irAReviews() {
+  const sec = document.getElementById("secReviews");
+  if (!sec) return;
+  sec.style.scrollMarginTop = "90px"; // deja espacio para el header
+  const ir = () => sec.scrollIntoView({ behavior: "smooth", block: "start" });
+  ir();
+  setTimeout(ir, 900); // reajusta cuando terminan de cargar las imágenes
+}
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
@@ -7628,7 +7650,11 @@ async function eliminarMiReview() {
       Promise.all([
         cargarResumenReviews(params),
         cargarReviewsPagina(params, true),
-      ]).catch((e) => console.warn("reseñas:", e.message));
+      ])
+        .catch((e) => console.warn("reseñas:", e.message))
+        .finally(() => {
+          if (params.wantsReviews) irAReviews();
+        });
     }, 250);
 
     if (_F.carta) {

@@ -152,6 +152,15 @@
                 transition: none !important;
             }
         }
+
+        #qrColoresCard [data-modo][aria-pressed="true"] {
+            background: rgba(124, 77, 255, .3);
+            color: #fff
+        }
+
+        #qrColoresCard [data-modo]:disabled {
+            opacity: .4
+        }
     </style>
 </head>
 
@@ -211,6 +220,72 @@
                 </div>
             </div>
 
+            <!-- Colores del QR -->
+            <!-- Colores del QR -->
+            <div id="qrColoresCard" class="mt-6 rounded-[18px] border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div class="font-display text-[14px] font-semibold text-white">Colores del QR</div>
+                        <p id="qrColoresDesc" class="mt-1 text-[12px] text-neutral-500">Cargando colores…</p>
+                    </div>
+                    <div class="flex w-fit flex-wrap rounded-[12px] border border-white/10 bg-white/[0.04] p-1">
+                        <button id="qrModoLogo" data-modo="logo" type="button" aria-pressed="false"
+                            class="rounded-[9px] px-3 py-2 text-[12px] font-semibold text-neutral-400 transition-colors">Logo</button>
+                        <button id="qrModoMarca" data-modo="marca" type="button" aria-pressed="false"
+                            class="rounded-[9px] px-3 py-2 text-[12px] font-semibold text-neutral-400 transition-colors disabled:cursor-not-allowed">Mi
+                            marca</button>
+                        <button id="qrModoCustom" data-modo="personalizado" type="button" aria-pressed="false"
+                            class="rounded-[9px] px-3 py-2 text-[12px] font-semibold text-neutral-400 transition-colors">Personalizado</button>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex items-center gap-3">
+                    <div id="qrColoresSwatch"
+                        class="flex h-10 flex-1 items-center justify-center rounded-[10px] border border-white/10 text-[11.5px] font-semibold text-neutral-400">
+                    </div>
+                    <button id="btnProbarColores" type="button"
+                        class="font-display shrink-0 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-4 py-2.5 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 active:scale-95 disabled:opacity-50">
+                        Probar QR
+                    </button>
+                </div>
+
+                <!-- Editor de colores personalizados -->
+                <div id="qrCustomBox" class="mt-4 hidden rounded-[12px] border border-white/10 bg-white/[0.03] p-3.5">
+                    <p class="text-[12px] text-neutral-400">Elige 1 color, o 2 a 3 para hacer un degradado. Se guarda
+                        para tu negocio.</p>
+                    <div id="qrCustomColores" class="mt-3 flex flex-wrap items-center gap-2.5"></div>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <button id="qrCustomAdd" type="button"
+                            class="rounded-[10px] border border-white/10 bg-white/[0.05] px-3 py-2 text-[12px] font-semibold text-neutral-200 hover:bg-white/[0.1]">+
+                            Agregar color</button>
+                        <button id="btnGuardarColores" type="button"
+                            class="font-display rounded-[10px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-4 py-2 text-[12px] font-semibold text-[#d4caff] disabled:opacity-60">Guardar
+                            colores</button>
+                    </div>
+                </div>
+
+                <label
+                    class="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-[12px] border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                    <span>
+                        <span class="block text-[12.5px] font-semibold text-white">Degradado automático</span>
+                        <span class="mt-0.5 block text-[11.5px] text-neutral-500">Si usas un solo color, le agrega un
+                            degradado elegante.</span>
+                    </span>
+                    <input id="qrAutoDeg" type="checkbox" checked class="h-5 w-5 accent-[#7c4dff]">
+                </label>
+
+                <div id="qrColoresPrueba" class="mt-4 hidden items-center gap-4">
+                    <div
+                        class="relative h-[130px] w-[130px] shrink-0 overflow-hidden rounded-[14px] border border-white/10 bg-white">
+                        <img id="qrColoresPruebaImg" alt="Prueba de QR" class="h-full w-full object-contain">
+                    </div>
+                    <p class="text-[12px] leading-relaxed text-neutral-400">
+                        Así se verá tu QR con estos colores. Si te gusta, pulsa ↻ en cada QR para regenerarlo.
+                    </p>
+                </div>
+
+                <p id="qrColoresAviso" class="mt-3 text-[12px] text-amber-300"></p>
+            </div>
             <!-- grid de tarjetas -->
             <div class="mt-7 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
 
@@ -380,7 +455,46 @@
                         </a>
                     </div>
                 </div>
+                <!-- ===== QR RESEÑAS ===== -->
+                <div class="qr-tile group relative flex cursor-pointer flex-col gap-3.5 overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#7c4dff]/40 hover:bg-white/[0.045] hover:shadow-[0_20px_44px_-20px_rgba(124,77,255,.5)] sm:p-5"
+                    id="qrTileReviews" data-tipo="reviews" onclick="QrNegocio.onTileClick(event,'reviews')">
 
+                    <span
+                        class="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#7c4dff]/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
+
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#7c4dff]/20 bg-gradient-to-br from-[#7c4dff]/25 to-[#7c4dff]/5 text-[18px]">
+                            ⭐</div>
+                        <div>
+                            <div class="font-display text-[14px] font-semibold text-white">Reseñas</div>
+                            <div class="mt-0.5 text-[11px] text-neutral-500">Para que tus clientes te califiquen</div>
+                        </div>
+                    </div>
+
+                    <div class="qr-preview relative aspect-square overflow-hidden rounded-[16px] border border-dashed border-white/[0.14] bg-[#050506] transition-colors duration-300 group-hover:border-[#7c4dff]/45"
+                        id="qrPreviewReviews">
+                        <div class="flex h-full w-full flex-col items-center justify-center gap-2.5">
+                            <span
+                                class="pointer-events-none absolute h-[46%] w-[46%] animate-spin rounded-full border border-dashed border-[#7c4dff]/35 [animation-duration:9s]"></span>
+                            <span
+                                class="relative flex h-[36px] w-[36px] animate-pulse items-center justify-center rounded-full border border-[#7c4dff]/40 text-[20px] font-light text-[#7c4dff]">+</span>
+                            <span class="relative text-[11px] font-semibold tracking-wide text-neutral-500">Toca para
+                                crear</span>
+                        </div>
+                    </div>
+
+                    <div class="hidden items-center gap-2" id="qrActionsReviews">
+                        <button
+                            class="btn-qr-mini flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.04] text-[15px] text-neutral-300 transition-colors hover:bg-white/[0.09] active:scale-95 sm:h-10 sm:w-10"
+                            title="Regenerar" onclick="event.stopPropagation(); QrNegocio.generar('reviews')">↻</button>
+                        <a class="font-display btn-qr-download flex flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-[#7c4dff]/45 bg-gradient-to-b from-[#7c4dff]/25 to-[#7c4dff]/10 px-3 py-3 text-[12.5px] font-semibold text-[#d4caff] transition-colors hover:from-[#7c4dff]/35 hover:to-[#7c4dff]/15 active:scale-95 sm:py-2.5"
+                            id="qrDescargaReviews" title="Descargar en alta resolución" download="qr-reviews.png"
+                            onclick="event.stopPropagation(); event.preventDefault(); PreviewQr.openNegocio('reviews');">
+                            <span>⬇</span><span>Descargar HD</span>
+                        </a>
+                    </div>
+                </div>
             </div>
             <!-- aviso: QR desfasados respecto al dominio -->
             <div id="qrDominioAviso"
