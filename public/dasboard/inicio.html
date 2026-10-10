@@ -972,6 +972,109 @@
         .action-btn.hidden-plan {
             display: none;
         }
+
+        /* ── Detalle del plan ── */
+        .pl-grupo {
+            margin-bottom: 22px;
+        }
+
+        .pl-grupo-t {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            margin: 0 0 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pl-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .pl-k {
+            color: var(--text);
+        }
+
+        .pl-v {
+            text-align: right;
+            color: var(--text);
+        }
+
+        .pl-v b {
+            font-size: 15px;
+            color: #fff;
+        }
+
+        .pl-si {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 99px;
+            background: rgba(62, 207, 142, .12);
+            color: var(--green);
+            border: 1px solid rgba(62, 207, 142, .25);
+        }
+
+        .pl-no {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 99px;
+            background: var(--surface-2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .pl-plan {
+            font-weight: 700;
+            letter-spacing: .06em;
+            padding: 3px 12px;
+            border-radius: 99px;
+            background: var(--purple-dim);
+            color: #c3b3ff;
+            border: 1px solid var(--purple-soft);
+        }
+
+        .pl-resto {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .pl-urgente {
+            color: #f27478;
+            font-weight: 600;
+        }
+
+        .pl-sub {
+            margin: 14px 0 4px;
+            padding-left: 12px;
+            border-left: 2px solid var(--purple-soft);
+        }
+
+        .pl-sub-t {
+            margin: 0 0 2px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--purple);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        .perm-grupo-t {
+            grid-column: 1 / -1;
+            margin: 6px 0 0;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--purple);
+        }
     </style>
 </head>
 
@@ -1243,10 +1346,9 @@
                     <p class="role-user" id="ajDominio">—</p>
                 </div>
             </div>
-
             <div class="card">
                 <p class="section-title">Apartados disponibles</p>
-                <div class="role-perms" id="ajApartadosList"></div>
+                <div id="ajApartadosList"></div>
             </div>
 
             <div class="card">

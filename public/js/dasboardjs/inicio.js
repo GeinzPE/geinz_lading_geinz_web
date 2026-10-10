@@ -11,7 +11,7 @@ import {
 
 import "../db/db.js";
 import { tiendaDoc, tiendaSubDoc, tiendaSubCol, tiendaServiciosDoc } from "../rutas/rutas.js";
-
+import { seccionDelPlan, resumenPlan, htmlDetallePlan } from "../../js/structure/structure_min.js";
 // ── Detección dinámica de tienda/localidad (vía postMessage del padre) ──
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
@@ -54,51 +54,40 @@ let SERVICIOS = null; // último snapshot de tiendas_servicios_geinz_activos
 //  campos = campos de apartados_dasboard que la habilitan (basta 1 en true)
 //           null = no depende del plan
 // ══════════════════════════════════════════════════════════════
-const SECCIONES = [
-  { key: "perfil",           label: "Perfil",              campos: null },
-  { key: "publicidad",       label: "Publicidad",          campos: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"] },
-  { key: "fidelizacion",     label: "Fidelización",        campos: ["fidelizacion"] },
-  { key: "mispublicaciones", label: "Reseñas",             campos: ["review"] },
-  { key: "qr",               label: "Mi QR",               campos: ["qr_general"] },
-  { key: "historialgasto",   label: "Historial de gasto",  campos: null },
-  { key: "productos",        label: "Productos",           campos: ["productos"] },
-  { key: "historial",        label: "Historial de ventas", campos: ["historial_ventas"] },
-  { key: "pedidos",          label: "Pedidos en vivo",     campos: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"] },
-  { key: "legal",            label: "Legal",               campos: ["libro_reclamaciones", "politicas_privacidad", "terminos_condiciones"] },
-  { key: "recargas",         label: "Recargas",            campos: null },
-];
-const TODOS_LOS_PERMISOS = SECCIONES.map((s) => s.key);
-
 // Por si algún botón de inicio.html usa otro nombre en data-perm
 const ALIAS = { resenas: "mispublicaciones", review: "mispublicaciones", miweb: "qr", web: "qr" };
 const resolverClave = (k) => ALIAS[k] || k;
 
-const APARTADOS_LABELS = {
-  productos: "Productos",
-  historial_ventas: "Historial de ventas",
-  pedidios_vivos: "Pedidos en vivo",
-  pedidos_mesas: "Pedidos en vivo (mesas)",
-  pedidos_presencial: "Pedidos en vivo (presencial)",
-  qr_general: "Mi QR",
-  fidelizacion: "Fidelización",
-  review: "Reseñas",
-  publicidad_perfil: "Publicidad (perfil)",
-  publicidad_dias: "Publicidad (días)",
-  publicidad_estatica: "Publicidad (estática)",
-  libro_reclamaciones: "Legal — libro de reclamaciones",
-  politicas_privacidad: "Legal — política de privacidad",
-  terminos_condiciones: "Legal — términos y condiciones",
-};
+const GRUPOS_ROL = [
+  { id: "mi_negocio", titulo: "Mi negocio" },
+  { id: "operacion", titulo: "Operación y ventas" },
+  { id: "clientes", titulo: "Clientes y fidelización" },
+];
 
+const SECCIONES = [
+  // Mi negocio
+  { key: "perfil", label: "Perfil", grupo: "mi_negocio" },
+  { key: "comprobantes", label: "Comprobante", grupo: "mi_negocio" },
+  { key: "trabajadores", label: "Mis trabajadores", grupo: "mi_negocio" },
+  { key: "legal", label: "Legal", grupo: "mi_negocio" },
+  // Operación y ventas
+  { key: "pedidos", label: "Pedidos en vivo", grupo: "operacion" },
+  { key: "productos", label: "Productos", grupo: "operacion" },
+  { key: "historial", label: "Historial de ventas", grupo: "operacion" },
+  // Clientes y fidelización
+  { key: "usuarios", label: "Mis usuarios", grupo: "clientes" },
+  { key: "fidelizacion", label: "Cupones y Puntos", grupo: "clientes" },
+  { key: "publicidad", label: "Publicidad/Ofertas", grupo: "clientes" },
+  { key: "mispublicaciones", label: "Reseñas", grupo: "clientes" },
+  { key: "qr", label: "Mi QR", grupo: "clientes" },
+  // Internas (no se asignan a roles)
+  { key: "historialgasto", label: "Historial de gasto" },
+  { key: "recargas", label: "Recargas" },
+];
+const TODOS_LOS_PERMISOS = SECCIONES.map((s) => s.key);
 // ── Reglas ──
 // 1) PLAN: solo existe lo que está en true en la DB
-function planPermite(key) {
-  const sec = SECCIONES.find((s) => s.key === key);
-  if (!sec) return false;
-  if (sec.campos === null) return true;
-  const ap = SERVICIOS?.apartados_dasboard;
-  return !!ap && sec.campos.some((c) => ap[c] === true);
-}
+function planPermite(key) { return seccionDelPlan(SERVICIOS, key); }
 // 2) ROL: admin ve todo lo del plan; los demás solo lo que el admin les marcó
 function rolPermite(key, sesion = getSession()) {
   if (!sesion) return false;
@@ -110,7 +99,7 @@ function seccionVisible(key, sesion = getSession()) {
 }
 // Lo que el admin puede asignar a un rol = solo lo que el plan tiene activo
 function permisosDelPlan() {
-  return SECCIONES.filter((s) => planPermite(s.key));
+  return SECCIONES.filter((s) => s.grupo && planPermite(s.key));
 }
 
 const esc = (s) =>
@@ -142,22 +131,25 @@ function aplicarVisibilidad() {
 // ── Comunicación con el panel (padre) ──
 function serviciosParaPadre() {
   if (!SERVICIOS) return null;
+  const secciones = {};
+  SECCIONES.forEach((s) => (secciones[s.key] = planPermite(s.key)));
   return {
-    plan: SERVICIOS.plan || null,
-    apartados_dasboard: { ...(SERVICIOS.apartados_dasboard || {}) },
+    plan: resumenPlan(SERVICIOS).plan,
+    secciones, // nuevo: lo que el padre debería leer
+    apartados_dasboard: { ...(SERVICIOS.apartados_dasboard || {}) }, // se deja para no romper al padre
   };
 }
 function broadcastServicios() {
   const data = serviciosParaPadre();
-  try { sessionStorage.setItem("serviciosActivos", JSON.stringify(data)); } catch (e) {}
+  try { sessionStorage.setItem("serviciosActivos", JSON.stringify(data)); } catch (e) { }
   try {
     window.parent.postMessage({ type: "SERVICIOS_UPDATE", servicios: data }, window.location.origin);
-  } catch (e) {}
+  } catch (e) { }
 }
 function broadcastRolActivo(sesion) {
   try {
     window.parent.postMessage({ type: "ROL_ACTIVO_UPDATE", rol: sesion }, window.location.origin);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 let unsubServicios = null;
@@ -168,7 +160,7 @@ function listenServicios() {
     ref,
     (snap) => {
       SERVICIOS = snap.exists() ? snap.data() : {};
-      MAX_ROLES = Number(SERVICIOS.apartados_dasboard?.roles_maximos) || 5;
+      MAX_ROLES = resumenPlan(SERVICIOS).rolesMax;
       broadcastServicios();
       aplicarVisibilidad();
 
@@ -415,7 +407,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
     updateDoc(tiendaSubDoc(LOCALIDAD, "tiendas", NEGOCIO_ID, "roles", match.id), {
       ultimoAcceso: serverTimestamp(),
-    }).catch(() => {});
+    }).catch(() => { });
 
     setMsg("loMsg", `Bienvenido, ${data.nombre}. Ingresando…`, "info");
     setTimeout(() => enterPanel(sesion), 400);
@@ -665,9 +657,17 @@ function buildPermGrid(gridId) {
   const grid = document.getElementById(gridId);
   if (!grid) return;
   const marcados = new Set([...grid.querySelectorAll("input:checked")].map((i) => i.value));
-  grid.innerHTML = permisosDelPlan()
-    .map((p) => `<label class="perm-chip"><input type="checkbox" value="${p.key}"> ${esc(p.label)}</label>`)
-    .join("");
+  const disponibles = permisosDelPlan();
+
+  grid.innerHTML = disponibles.length
+    ? GRUPOS_ROL.map((g) => {
+        const items = disponibles.filter((p) => p.grupo === g.id);
+        if (!items.length) return "";
+        return `<p class="perm-grupo-t">${esc(g.titulo)}</p>` +
+          items.map((p) => `<label class="perm-chip"><input type="checkbox" value="${p.key}"> ${esc(p.label)}</label>`).join("");
+      }).join("")
+    : `<p class="empty" style="grid-column:1/-1;">Tu plan no tiene secciones para asignar.</p>`;
+
   grid.querySelectorAll("input").forEach((i) => (i.checked = marcados.has(i.value)));
 }
 function initPermGrid() { buildPermGrid("permGrid"); }
@@ -695,11 +695,11 @@ function renderRoles(docs) {
       const perms = data.esAdmin
         ? `<span class="admin-tag">Acceso total</span>`
         : (data.permisos || [])
-            .map((p) => {
-              const found = SECCIONES.find((x) => x.key === p);
-              return `<span class="perm-tag">${esc(found ? found.label : p)}</span>`;
-            })
-            .join("");
+          .map((p) => {
+            const found = SECCIONES.find((x) => x.key === p);
+            return `<span class="perm-tag">${esc(found ? found.label : p)}</span>`;
+          })
+          .join("");
       return `
         <div class="role-item">
           <div>
@@ -707,16 +707,15 @@ function renderRoles(docs) {
             <p class="role-user">@${esc(data.usuario)}</p>
             <div class="role-perms">${perms}</div>
           </div>
-          ${
-            data.esAdmin
-              ? ""
-              : `<div style="display:flex;flex-direction:column;gap:6px;">
+          ${data.esAdmin
+          ? ""
+          : `<div style="display:flex;flex-direction:column;gap:6px;">
                   <button class="delete-btn" data-id="${d.id}">Eliminar</button>
                   <button class="back-btn" data-edit-id="${d.id}" data-edit-nombre="${esc(data.nombre)}"
                     data-edit-permisos="${esc(JSON.stringify(data.permisos || []))}">Editar permisos</button>
                   <button class="back-btn" data-reset-id="${d.id}" data-reset-nombre="${esc(data.nombre)}">Nueva contraseña</button>
                 </div>`
-          }
+        }
         </div>`;
     })
     .join("");
@@ -920,27 +919,27 @@ function guardarSonido(key, valor) {
 
 function renderAjustes() {
   if (!SERVICIOS) return;
-  document.getElementById("ajPlan").textContent = SERVICIOS.plan || "—";
-  document.getElementById("ajCreditos").textContent = SERVICIOS.apartados_dasboard?.creditos_AI ?? 0;
-  document.getElementById("ajFechaFin").textContent = SERVICIOS.panel_admin?.fecha_fin || "—";
-  document.getElementById("ajRolesMax").textContent = MAX_ROLES;
+
+  // ── Plan ──
+  const r = resumenPlan(SERVICIOS);
+  document.getElementById("ajPlan").textContent = r.plan || "—";
+  document.getElementById("ajCreditos").textContent = r.creditos;
+  document.getElementById("ajFechaFin").textContent = r.fechaFin || "—";
+  document.getElementById("ajRolesMax").textContent = r.rolesMax;
 
   const dominioRow = document.getElementById("ajDominioRow");
-  if (SERVICIOS.plan === "pro" && SERVICIOS.dominio) {
+  if (r.dominio && r.dominioPersonalizado) {
     dominioRow.classList.remove("hidden");
-    document.getElementById("ajDominio").textContent = SERVICIOS.dominio;
+    document.getElementById("ajDominio").textContent = r.dominio;
   } else {
     dominioRow.classList.add("hidden");
   }
 
-  const apartados = SERVICIOS.apartados_dasboard || {};
-  document.getElementById("ajApartadosList").innerHTML = Object.keys(APARTADOS_LABELS)
-    .map((k) => {
-      const activo = apartados[k] === true;
-      return `<span class="perm-tag" style="${activo ? "" : "opacity:.4;text-decoration:line-through;"}">${APARTADOS_LABELS[k]}</span>`;
-    })
-    .join("");
+  // ── Apartados disponibles (detalle, solo lectura) ──
+  // ── Apartados disponibles (detalle tal cual de la DB) ──
+  document.getElementById("ajApartadosList").innerHTML = htmlDetallePlan(SERVICIOS);
 
+  // ── Sonidos de alertas ──
   const sonidosEl = document.getElementById("ajSonidosGrid");
   sonidosEl.innerHTML = SONIDO_KEYS.map(
     (key) => `

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Probar y editar servicios Geinz</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --bd:#334155; --tx:#e2e8f0; --mut:#94a3b8; --ac:#38bdf8; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:20px; font-family:system-ui,sans-serif; background:var(--bg); color:var(--tx); }
+  h1 { font-size:20px; margin:0 0 16px; }
+  form#f { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; background:var(--card); padding:14px; border-radius:10px; border:1px solid var(--bd); }
+  label { font-size:12px; color:var(--mut); display:flex; flex-direction:column; gap:4px; }
+  input, select, textarea { padding:7px 8px; border-radius:6px; border:1px solid var(--bd); background:var(--bg); color:var(--tx); font:inherit; font-size:13px; }
+  input[type=checkbox] { width:18px; height:18px; padding:0; accent-color:var(--ok); }
+  button { font:inherit; cursor:pointer; }
+  .btn { padding:10px; border:0; border-radius:6px; background:var(--ac); color:#04202e; font-weight:700; }
+  form#f .btn { grid-column:1/-1; }
+  #estado { margin:14px 0; font-size:13px; color:var(--mut); word-break:break-all; line-height:1.5; }
+  #estado.error { color:var(--bad); } #estado.ok { color:var(--ok); }
+  #barra { display:none; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  #barra small { color:var(--mut); }
+  details { margin:4px 0 4px 14px; border-left:2px solid var(--bd); padding-left:10px; }
+  details > summary { cursor:pointer; padding:4px 0; font-weight:600; }
+  .tipo { font-weight:400; font-size:11px; color:var(--mut); margin-left:6px; }
+  .raiz > details { margin-left:0; background:var(--card); border:1px solid var(--bd); border-radius:10px; padding:8px 12px; margin-bottom:10px; }
+  .raiz > details > summary { color:var(--ac); font-size:16px; }
+  .fila { display:flex; align-items:center; gap:8px; padding:3px 0 3px 14px; font-size:13px; flex-wrap:wrap; }
+  .fila .k { color:var(--mut); min-width:190px; }
+  .fila input[type=text], .fila input[type=number], .fila input[type=datetime-local] { min-width:180px; }
+  .v-null { color:var(--mut); font-style:italic; }
+  .acc { margin-left:12px; }
+  .mini { padding:2px 8px; border-radius:5px; border:1px solid var(--bd); background:var(--bg); color:var(--tx); font-size:12px; font-weight:400; }
+  .mini.verde { background:#14532d; border-color:#166534; }
+  .mini.rojo { background:#450a0a; border-color:#7f1d1d; }
+  .dirty { color:var(--warn); font-size:11px; font-weight:400; margin-left:8px; }
+  pre { background:var(--card); padding:12px; border-radius:8px; overflow:auto; font-size:12px; border:1px solid var(--bd); }
+  dialog { background:var(--card); color:var(--tx); border:1px solid var(--bd); border-radius:12px; padding:18px; width:min(420px,92vw); }
+  dialog::backdrop { background:rgba(0,0,0,.6); }
+  dialog h2 { font-size:15px; margin:0 0 12px; word-break:break-all; }
+  dialog .campo { margin-bottom:10px; }
+  dialog .campo input, dialog .campo select, dialog .campo textarea { width:100%; }
+  dialog .botones { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+</style>
+</head>
+<body>
+  <h1>Probar y editar tiendas_servicios_geinz_activos</h1>
+
+  <form id="f">
+    <label>País <input name="pais" value="peru"></label>
+    <label>Departamento <input name="departamento" value="lima"></label>
+    <label>Provincia <input name="provincia" value="barranca"></label>
+    <label>Localidad (distrito) <input name="localidad" value="barranca"></label>
+    <label>Negocio ID <input name="negocioId" value="loPE3dhhbkNgy2pvmkNx"></label>
+    <button type="submit" class="btn">Obtener datos</button>
+  </form>
+
+  <div id="estado"></div>
+
+  <div id="barra">
+    <button id="guardarTodo" class="btn" type="button">Guardar todo lo modificado</button>
+    <small>"Guardar" reemplaza el apartado completo en Firestore con lo que ves aquí.</small>
+  </div>
+
+  <div id="resultado" class="raiz"></div>
+
+  <details style="margin-left:0">
+    <summary>Ver JSON crudo</summary>
+    <pre id="crudo"></pre>
+  </details>
+
+  <!-- Diálogo para agregar campos -->
+  <dialog id="dlg">
+    <form id="df">
+      <h2 id="dlgTitulo"></h2>
+      <div class="campo" id="nombreWrap">
+        <label>Nombre del campo <input id="dnombre" type="text" autocomplete="off"></label>
+      </div>
+      <div class="campo">
+        <label>Tipo
+          <select id="dtipo">
+            <option value="string">string (texto)</option>
+            <option value="number">number (int64 / double)</option>
+            <option value="boolean">boolean</option>
+            <option value="map">map (objeto vacío)</option>
+            <option value="array">array (vacío)</option>
+            <option value="json">json (map/array con contenido)</option>
+            <option value="timestamp">timestamp</option>
+            <option value="null">null</option>
+          </select>
+        </label>
+      </div>
+      <div class="campo" id="dvalorWrap"></div>
+      <div class="botones">
+        <button type="button" class="mini" id="dcancel">Cancelar</button>
+        <button type="submit" class="btn">Agregar</button>
+      </div>
+    </form>
+  </dialog>
+
+<script type="module">
+  import { obtenerServiciosGeinz, guardarServiciosGeinz } from "../js/structure/structure_min.js";
+  import { Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const $f = document.getElementById("f");
+  const $estado = document.getElementById("estado");
+  const $res = document.getElementById("resultado");
+  const $crudo = document.getElementById("crudo");
+  const $barra = document.getElementById("barra");
+  const $dlg = document.getElementById("dlg");
+  const $df = document.getElementById("df");
+
+  let datos = null;            // copia en memoria que editas
+  let params = null;           // parámetros con los que se cargó (se guarda en ESA ruta)
+  let rutaDoc = "";
+  const dirty = new Set();     // apartados modificados sin guardar
+  const cerrados = new Set();  // nodos que el usuario cerró
+
+  // Parámetros por URL: ?pais=..&departamento=..&provincia=..&localidad=..&negocioId=..
+  const url = new URLSearchParams(location.search);
+  for (const [k, v] of url) if ($f.elements[k]) $f.elements[k].value = v;
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const attr = (path) => esc(JSON.stringify(path));
+  const TIPOS = ["string", "number", "boolean", "null", "timestamp"];
+
+  function tipoDe(v) {
+    if (v === null || v === undefined) return "null";
+    if (Array.isArray(v)) return "array";
+    if (v instanceof Timestamp) return "timestamp";
+    if (typeof v === "object") return "map";
+    return typeof v; // string | number | boolean
+  }
+
+  const getAt = (path) => path.reduce((o, k) => o[k], datos);
+  const parentOf = (path) => path.slice(0, -1).reduce((o, k) => o[k], datos);
+
+  function aLocalInput(d) {
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  // ───────── Render ─────────
+  function control(t, v, p) {
+    if (t === "boolean") return `<input type="checkbox" data-act="val" data-path="${p}" ${v ? "checked" : ""}>`;
+    if (t === "number")  return `<input type="number" step="any" value="${v}" data-act="val" data-path="${p}">`;
+    if (t === "string")  return `<input type="text" value="${esc(v)}" data-act="val" data-path="${p}">`;
+    if (t === "timestamp") return `<input type="datetime-local" value="${aLocalInput(v.toDate())}" data-act="val" data-path="${p}">`;
+    return `<span class="v-null">null</span>`;
+  }
+
+  function renderNodo(clave, valor, path) {
+    const t = tipoDe(valor);
+    const p = attr(path);
+    const raiz = path.length === 1;
+    const del = raiz ? "" : `<button class="mini rojo" data-act="del" data-path="${p}" title="Eliminar">🗑</button>`;
+    const etiqueta = Array.isArray(parentOf(path)) && !raiz ? `[${clave}]` : clave;
+
+    if (t === "map" || t === "array") {
+      const entradas = t === "map" ? Object.entries(valor) : valor.map((x, i) => [i, x]);
+      const hijos = entradas.map(([k, x]) => renderNodo(k, x, [...path, k])).join("");
+      const abierto = cerrados.has(JSON.stringify(path)) ? "" : "open";
+      const guardar = raiz
+        ? `<button class="mini verde" data-act="save" data-path="${p}">Guardar</button><span class="dirty">${dirty.has(clave) ? "● sin guardar" : ""}</span>`
+        : "";
+      return `<details ${abierto} data-pk="${esc(JSON.stringify(path))}" ${raiz ? `data-root="${esc(clave)}"` : ""}>
+        <summary>${esc(etiqueta)}<span class="tipo">${t} · ${entradas.length}</span>
+          <span class="acc"><button class="mini" data-act="add" data-path="${p}">+ campo</button> ${guardar} ${del}</span>
+        </summary>${hijos || '<div class="fila"><span class="v-null">(vacío)</span></div>'}</details>`;
+    }
+
+    const opciones = TIPOS.map((x) => `<option value="${x}" ${x === t ? "selected" : ""}>${x}</option>`).join("");
+    return `<div class="fila"><span class="k">${esc(etiqueta)}</span>${control(t, valor, p)}
+      <select data-act="tipo" data-path="${p}" title="Cambiar tipo">${opciones}</select>${del}</div>`;
+  }
+
+  function render() {
+    $res.innerHTML = Object.keys(datos).map((k) => renderNodo(k, datos[k], [k])).join("");
+    refrescarCrudo();
+  }
+
+  function refrescarCrudo() {
+    $crudo.textContent = JSON.stringify(datos, function (k, v) {
+      const raw = this[k];
+      return raw instanceof Timestamp ? raw.toDate().toISOString() : v;
+    }, 2);
+  }
+
+  function marcarSucio(raiz) {
+    dirty.add(raiz);
+    const el = $res.querySelector(`details[data-root="${CSS.escape(raiz)}"] > summary .dirty`);
+    if (el) el.textContent = "● sin guardar";
+    refrescarCrudo();
+  }
+
+  // ───────── Conversión de tipo ─────────
+  function convertir(v, a) {
+    switch (a) {
+      case "string": return v === null ? "" : v instanceof Timestamp ? v.toDate().toISOString() : String(v);
+      case "number": { const n = v instanceof Timestamp ? v.toMillis() : Number(v); return Number.isFinite(n) ? n : 0; }
+      case "boolean": return v === "false" ? false : Boolean(v);
+      case "timestamp": { const d = typeof v === "string" ? new Date(v) : new Date(); return Timestamp.fromDate(isNaN(d) ? new Date() : d); }
+      default: return null;
+    }
+  }
+
+  // ───────── Eventos del árbol ─────────
+  $res.addEventListener("change", (e) => {
+    const el = e.target;
+    const act = el.dataset.act;
+    if (!act) return;
+    const path = JSON.parse(el.dataset.path);
+
+    if (act === "val") {
+      let nuevo;
+      if (el.type === "checkbox") nuevo = el.checked;
+      else if (el.type === "number") {
+        nuevo = parseFloat(el.value);
+        if (Number.isNaN(nuevo)) { alert("Número inválido"); el.value = getAt(path); return; }
+      } else if (el.type === "datetime-local") {
+        const d = new Date(el.value);
+        if (isNaN(d)) { alert("Fecha inválida"); return; }
+        nuevo = Timestamp.fromDate(d);
+      } else nuevo = el.value;
+      parentOf(path)[path.at(-1)] = nuevo;
+      marcarSucio(path[0]);
+    }
+
+    if (act === "tipo") {
+      const padre = parentOf(path);
+      padre[path.at(-1)] = convertir(padre[path.at(-1)], el.value);
+      marcarSucio(path[0]);
+      render();
+    }
+  });
+
+  $res.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-act]");
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const path = JSON.parse(b.dataset.path);
+
+    if (b.dataset.act === "add") abrirDialogo(path);
+
+    if (b.dataset.act === "del") {
+      if (!confirm(`¿Eliminar "${path.join(" › ")}"?`)) return;
+      const padre = parentOf(path);
+      if (Array.isArray(padre)) padre.splice(path.at(-1), 1);
+      else delete padre[path.at(-1)];
+      marcarSucio(path[0]);
+      render();
+    }
+
+    if (b.dataset.act === "save") guardar([path[0]]);
+  });
+
+  // recordar qué nodos cierra el usuario
+  $res.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (d.tagName !== "DETAILS" || !d.dataset.pk) return;
+    d.open ? cerrados.delete(d.dataset.pk) : cerrados.add(d.dataset.pk);
+  }, true);
+
+  // ───────── Diálogo agregar ─────────
+  let destinoPath = null;
+  const $dtipo = document.getElementById("dtipo");
+  const $dvalorWrap = document.getElementById("dvalorWrap");
+  const $nombreWrap = document.getElementById("nombreWrap");
+  const $dnombre = document.getElementById("dnombre");
+
+  function pintarValor() {
+    const t = $dtipo.value;
+    const h = {
+      string: `<label>Valor <input id="dvalor" type="text"></label>`,
+      number: `<label>Valor <input id="dvalor" type="number" step="any" value="0"></label>`,
+      boolean: `<label>Valor <select id="dvalor"><option value="true">true</option><option value="false">false</option></select></label>`,
+      json: `<label>JSON <textarea id="dvalor" rows="6" placeholder='{"activo": true, "max": 10}'></textarea></label>`,
+      timestamp: `<label>Fecha y hora <input id="dvalor" type="datetime-local" value="${aLocalInput(new Date())}"></label>`,
+    };
+    $dvalorWrap.innerHTML = h[t] || `<small style="color:var(--mut)">Se creará ${t === "null" ? "null" : "vacío"}.</small>`;
+  }
+  $dtipo.addEventListener("change", pintarValor);
+
+  function abrirDialogo(path) {
+    destinoPath = path;
+    const destino = getAt(path);
+    document.getElementById("dlgTitulo").textContent = "Agregar a: " + path.join(" › ");
+    $nombreWrap.style.display = Array.isArray(destino) ? "none" : "";
+    $dnombre.value = "";
+    $dtipo.value = "string";
+    pintarValor();
+    $dlg.showModal();
+  }
+  document.getElementById("dcancel").onclick = () => $dlg.close();
+
+  $df.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const destino = getAt(destinoPath);
+    const esArray = Array.isArray(destino);
+    const t = $dtipo.value;
+    const raw = document.getElementById("dvalor")?.value;
+    let valor;
+
+    try {
+      if (t === "string") valor = raw ?? "";
+      else if (t === "number") { valor = parseFloat(raw); if (Number.isNaN(valor)) throw new Error("Número inválido"); }
+      else if (t === "boolean") valor = raw === "true";
+      else if (t === "map") valor = {};
+      else if (t === "array") valor = [];
+      else if (t === "null") valor = null;
+      else if (t === "json") valor = JSON.parse(raw);
+      else if (t === "timestamp") { const d = new Date(raw); if (isNaN(d)) throw new Error("Fecha inválida"); valor = Timestamp.fromDate(d); }
+    } catch (err) { alert(err.message); return; }
+
+    if (esArray) destino.push(valor);
+    else {
+      const nombre = $dnombre.value.trim();
+      if (!nombre) { alert("Escribe el nombre del campo"); return; }
+      if (nombre in destino) { alert(`Ya existe "${nombre}" aquí`); return; }
+      destino[nombre] = valor;
+    }
+    marcarSucio(destinoPath[0]);
+    $dlg.close();
+    render();
+  });
+
+  // ───────── Cargar / Guardar ─────────
+  async function cargar() {
+    if (dirty.size && !confirm("Hay cambios sin guardar. ¿Recargar y perderlos?")) return;
+    const p = Object.fromEntries(new FormData($f));
+    $estado.className = "";
+    $estado.textContent = "Consultando…";
+    $res.innerHTML = "";
+    $barra.style.display = "none";
+    try {
+      const r = await obtenerServiciosGeinz(p);
+      if (!r.existe) {
+        $estado.className = "error";
+        $estado.textContent = `No existe el documento: ${r.ruta}`;
+        datos = null;
+        return;
+      }
+      datos = r.datos; params = p; rutaDoc = r.ruta;
+      dirty.clear(); cerrados.clear();
+      $estado.innerHTML = `✔ ${esc(r.ruta)}<br>Traídos: ${Object.keys(r.datos).join(", ") || "(ninguno)"}` +
+        (r.faltantes?.length ? `<br>No existen en el doc: ${r.faltantes.join(", ")}` : "") +
+        `<br>Ignorados (a mano): ${r.ignorados.join(", ") || "(ninguno)"}`;
+      $barra.style.display = "flex";
+      render();
+    } catch (e) {
+      console.error(e);
+      $estado.className = "error";
+      $estado.textContent = "Error: " + e.message;
+    }
+  }
+
+  async function guardar(raices) {
+    if (!params || !datos) return;
+    if (!raices.length) { alert("No hay cambios sin guardar"); return; }
+    if (!confirm(`Se reemplazarán en Firestore:\n• ${raices.join("\n• ")}\n\n${rutaDoc}`)) return;
+    try {
+      const cambios = {};
+      raices.forEach((k) => (cambios[k] = datos[k]));
+      const r = await guardarServiciosGeinz({ ...params, cambios });
+      raices.forEach((k) => dirty.delete(k));
+      render();
+      $estado.className = "ok";
+      $estado.textContent = `✔ Guardado: ${r.guardados.join(", ")} (${r.ruta})`;
+    } catch (e) {
+      console.error(e);
+      $estado.className = "error";
+      $estado.textContent = "Error al guardar: " + e.message;
+    }
+  }
+
+  document.getElementById("guardarTodo").onclick = () => guardar([...dirty]);
+  $f.addEventListener("submit", (e) => { e.preventDefault(); cargar(); });
+  window.addEventListener("beforeunload", (e) => { if (dirty.size) { e.preventDefault(); e.returnValue = ""; } });
+  if (url.get("negocioId")) cargar();
+</script>
+</body>
+</html>
