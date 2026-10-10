@@ -138,19 +138,14 @@ function reenviarDatosAlIframe(iframe) {
 //  Las claves son las mismas de los ids: sbb-<clave> / mmb-<clave>
 // ============================================================
 (function () {
-  const SECCIONES = {
-    perfil: null,
-    publicidad: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"],
-    fidelizacion: ["fidelizacion"],
-    mispublicaciones: ["review"],
-    qr: ["qr_general"],
-    historialgasto: null,
-    productos: ["productos"],
-    historial: ["historial_ventas"],
-    pedidos: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"],
-    legal: ["libro_reclamaciones", "politicas_privacidad", "terminos_condiciones"],
-    recargas: null,
-  };
+   // Claves = ids del sidebar (sbb-<clave> / mmb-<clave>).
+  // Si la sección está en el plan lo decide inicio.js (mapa "secciones").
+  const SECCIONES = [
+    "perfil", "comprobante", "trabajadores", "legal",
+    "pedidos", "productos", "historial",
+    "usuarios", "fidelizacion", "publicidad", "mispublicaciones", "qr",
+    "historialgasto", "recargas",
+  ];
 
   function leer(k) {
     try {
@@ -164,17 +159,14 @@ function reenviarDatosAlIframe(iframe) {
   let _sesion = leer("rolActivo");
   let _servicios = leer("serviciosActivos");
 
-  function puedeVer(key) {
-    if (!(key in SECCIONES)) return true; // "inicio" u otras sin control
-    const campos = SECCIONES[key];
-    const ap = _servicios?.apartados_dasboard || {};
-    const okPlan = campos === null || campos.some((c) => ap[c] === true);
+   function puedeVer(key) {
+    if (!SECCIONES.includes(key)) return true; // "inicio" u otras sin control
+    const okPlan = _servicios?.secciones?.[key] === true;
     const okRol = !!_sesion && (!!_sesion.esAdmin || (_sesion.permisos || []).includes(key));
     return okPlan && okRol;
   }
-
   function aplicar() {
-    Object.keys(SECCIONES).forEach((key) => {
+    SECCIONES.forEach((key) => {
       const ver = puedeVer(key);
       [`sbb-${key}`, `mmb-${key}`].forEach((id) => {
         const btn = document.getElementById(id);
@@ -194,7 +186,7 @@ function reenviarDatosAlIframe(iframe) {
     if (_servicios !== null && window.PanelPerfil?.showSection) {
       const activa = document.querySelector(".section.active");
       const key = activa?.id?.replace(/^sec-/, "");
-      if (key && key in SECCIONES && !puedeVer(key)) {
+      if (key && SECCIONES.includes(key) && !puedeVer(key)) {
         window.PanelPerfil.showSection("inicio");
       }
     }
