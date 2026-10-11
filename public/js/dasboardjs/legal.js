@@ -24,6 +24,77 @@ import {
 } from "../rutas/rutas.js";
 
 // ══════════════════════════════════════════
+//  PLAN: qué ítems de Legal están activos en la DB
+// ══════════════════════════════════════════
+const RUTAS_LEGAL = {
+  libro:     "mi_negocio.legal.libro_reclamaciones",
+  politicas: "mi_negocio.legal.politicas",
+  terminos:  "mi_negocio.legal.terminos",
+};
+const PLAN_LEGAL = { libro: false, politicas: false, terminos: false };
+
+const _nodo = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
+const _on   = (v, def) => (v === undefined ? def : v === true);
+const _flag = (s, ruta, def = false) => _on(_nodo(s, ruta), def);
+
+// qué elementos controla cada ítem del plan
+// (Reclamos va junto con Libro de reclamaciones)
+const ELEMENTOS_LEGAL = {
+  libro: () => [
+    document.getElementById("tabBtnLibro"),
+    document.getElementById("tabBtnReclamos"),
+    document.getElementById("panelLibro"),
+    document.getElementById("panelReclamos"),
+    document.getElementById("toggleLibro")?.closest(".sub-toggle-row"),
+  ],
+  politicas: () => [
+    document.getElementById("tabBtnPoliticas"),
+    document.getElementById("panelPoliticas"),
+    document.getElementById("togglePoliticas")?.closest(".sub-toggle-row"),
+  ],
+  terminos: () => [
+    document.getElementById("tabBtnTerminos"),
+    document.getElementById("panelTerminos"),
+    document.getElementById("toggleTerminos")?.closest(".sub-toggle-row"),
+  ],
+};
+
+function activarTab(tab) {
+  document.querySelectorAll(".legal-tab").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+  document.querySelector(`.legal-tab[data-tab="${tab}"]`)?.classList.add("active");
+  document.getElementById("panel" + tab.charAt(0).toUpperCase() + tab.slice(1))?.classList.add("active");
+}
+
+function aplicarPlanLegal(servicios) {
+  if (!servicios) return;
+
+  Object.keys(RUTAS_LEGAL).forEach((k) => {
+    PLAN_LEGAL[k] = _flag(servicios, RUTAS_LEGAL[k], false);
+    ELEMENTOS_LEGAL[k]().forEach((el) => el?.classList.toggle("plan-oculto", !PLAN_LEGAL[k]));
+  });
+
+  // si la pestaña activa quedó oculta, abrir la primera visible
+  const tabs = [...document.querySelectorAll(".legal-tab")];
+  const activa = tabs.find((b) => b.classList.contains("active"));
+  if (!activa || activa.classList.contains("plan-oculto")) {
+    const primera = tabs.find((b) => !b.classList.contains("plan-oculto"));
+    if (primera) activarTab(primera.dataset.tab);
+  }
+
+  // si no queda ningún ítem, ocultar la tarjeta maestra también
+  const alguno = Object.values(PLAN_LEGAL).some(Boolean);
+  document.querySelector(".master-card")?.classList.toggle("plan-oculto", !alguno);
+}
+
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (e.data?.type === "SERVICIOS_UPDATE") aplicarPlanLegal(e.data.servicios);
+});
+
+// pedir el doc al padre
+window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin);
+// ══════════════════════════════════════════
 //  0) RESOLVER NEGOCIO ACTUAL (localidad + id)
 // ══════════════════════════════════════════
 let _localidad = null;
@@ -342,7 +413,6 @@ function actualizarTabsDisponibles(footer) {
   document.getElementById("tabBtnLibro").disabled = !(activo && footer.libro_reclamaciones);
   document.getElementById("tabBtnPoliticas").disabled = !(activo && footer.politicas_privacidad);
   document.getElementById("tabBtnTerminos").disabled = !(activo && footer.terminos_condiciones);
-  // "Reclamos" siempre se puede revisar aunque el libro esté apagado del perfil público
 }
 
 // ══════════════════════════════════════════
@@ -674,12 +744,8 @@ function initEditorLegalTexto({ ref, prefix }) {
 function bindTabs() {
   document.querySelectorAll(".legal-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (btn.disabled) return;
-      document.querySelectorAll(".legal-tab").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-      btn.classList.add("active");
-      const tab = btn.dataset.tab;
-      document.getElementById("panel" + tab.charAt(0).toUpperCase() + tab.slice(1))?.classList.add("active");
+      if (btn.disabled || btn.classList.contains("plan-oculto")) return;
+      activarTab(btn.dataset.tab);
     });
   });
 }

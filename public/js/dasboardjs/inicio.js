@@ -55,7 +55,7 @@ let SERVICIOS = null; // último snapshot de tiendas_servicios_geinz_activos
 //           null = no depende del plan
 // ══════════════════════════════════════════════════════════════
 // Por si algún botón de inicio.html usa otro nombre en data-perm
-const ALIAS = { resenas: "mispublicaciones", review: "mispublicaciones", miweb: "qr", web: "qr" };
+const ALIAS = { comprobante: "comprobantes", resenas: "mispublicaciones", review: "mispublicaciones", miweb: "qr", web: "qr" };
 const resolverClave = (k) => ALIAS[k] || k;
 
 const GRUPOS_ROL = [
@@ -87,7 +87,17 @@ const SECCIONES = [
 const TODOS_LOS_PERMISOS = SECCIONES.map((s) => s.key);
 // ── Reglas ──
 // 1) PLAN: solo existe lo que está en true en la DB
-function planPermite(key) { return seccionDelPlan(SERVICIOS, key); }
+// Legal solo existe si al menos un ítem de mi_negocio.legal está en true
+function legalActivo() {
+  const nodo = SERVICIOS?.mi_negocio?.legal;
+  return !!nodo && typeof nodo === "object" &&
+    Object.values(nodo).some((v) => v === true);
+}
+
+function planPermite(key) {
+  if (key === "legal") return legalActivo();
+  return seccionDelPlan(SERVICIOS, key);
+}
 // 2) ROL: admin ve todo lo del plan; los demás solo lo que el admin les marcó
 function rolPermite(key, sesion = getSession()) {
   if (!sesion) return false;

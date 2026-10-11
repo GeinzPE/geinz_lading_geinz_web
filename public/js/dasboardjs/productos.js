@@ -25,11 +25,111 @@ import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
 import { initImportador } from "../dasboardjs/import_producto.js";
 import { iniciarCamara } from "./scan_camara.js";
 /* ---------------- Adaptación de textos según categoría de negocio ---------------- */
+// ══════════════════════════════════════════
+//  PLAN: límites y apartados de Productos
+// ══════════════════════════════════════════
+const RAIZ_PRODUCTOS = "operacion_ventas.produtos";
+const PLAN_PRODUCTOS = {
+  camara: true,
+  celular: true,
+  modoBasico: true,
+  modoAvanzado: true,
+  maxColecciones: Infinity,
+  maxProductosPorColeccion: Infinity,
+  carta: false,
+  maxVariantes: 5,
+};
+let CARTA_MAX_COLECCIONES = 5;
+let CARTA_MAX_FOTOS = 5;
+
+const _nodo = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
+const _on = (v, def) => (v === undefined ? def : v === true);
+const _flag = (s, ruta, def = false) => _on(_nodo(s, ruta), def);
+const _num = (v, def) => (typeof v === "number" && v >= 0 ? v : def);
+const _ocultar = (el, cond) => el?.classList.toggle("plan-oculto", cond);
+
+const tabInicialProducto = () =>
+  PLAN_PRODUCTOS.modoBasico || !PLAN_PRODUCTOS.modoAvanzado
+    ? "tab-basico"
+    : "tab-avanzado";
+
+function aplicarPlanProductos(s) {
+  if (!s) return;
+  const P = PLAN_PRODUCTOS;
+  const r = (k) => _nodo(s, `${RAIZ_PRODUCTOS}.${k}`);
+
+  P.camara = _flag(s, `${RAIZ_PRODUCTOS}.uso_camara_scaner`, true);
+  P.celular = _flag(s, `${RAIZ_PRODUCTOS}.uso_celular_scaner`, true);
+  P.modoBasico = _flag(s, `${RAIZ_PRODUCTOS}.modo_basico`, true);
+  P.modoAvanzado = _flag(s, `${RAIZ_PRODUCTOS}.modo_avanzado`, true);
+  P.carta = _flag(s, `${RAIZ_PRODUCTOS}.carta.activo`, false);
+  P.maxColecciones = _num(r("max_colecciones"), Infinity);
+  P.maxProductosPorColeccion = _num(
+    r("max_productos_por_colecciones"),
+    Infinity,
+  );
+  P.maxVariantes = _num(r("config_avanzado.variantes_maximas"), 5);
+  CARTA_MAX_COLECCIONES = _num(r("carta.colecciones"), 5);
+  CARTA_MAX_FOTOS = _num(r("carta.cantidad_imagenes_colecciones"), 5);
+
+  // Escáneres
+  _ocultar(document.getElementById("btn-celular-scanner"), !P.celular);
+  _ocultar(document.getElementById("btn-prod-scan-cam"), !P.camara);
+  _ocultar(document.getElementById("scan-btn-cam"), !P.camara);
+
+  // Modo básico / avanzado
+  const verBasico = P.modoBasico || !P.modoAvanzado; // si ambos están en false, queda el básico
+  const verAvanzado = P.modoAvanzado;
+  _ocultar(
+    document.querySelector('[data-tab-target="tab-basico"]'),
+    !verBasico,
+  );
+  _ocultar(
+    document.querySelector('[data-tab-target="tab-avanzado"]'),
+    !verAvanzado,
+  );
+  _ocultar(
+    document.querySelector(".tab-btn-form")?.parentElement,
+    !(verBasico && verAvanzado),
+  );
+  const tabActiva = document.querySelector(".tab-btn-form.active-tab");
+  if (!tabActiva || tabActiva.classList.contains("plan-oculto"))
+    activarTabProducto(tabInicialProducto());
+
+  // Textos dinámicos
+  aplicarTextosPorCategoria();
+  const ayuda = document.getElementById("carta-ayuda");
+  if (ayuda)
+    ayuda.textContent = `Crea colecciones para tu carta digital (ej: Platos fuertes, Bebidas, Combos, Postres). Hasta ${CARTA_MAX_COLECCIONES} colecciones, con hasta ${CARTA_MAX_FOTOS} fotos cada una.`;
+
+  // Carta: solo si es restaurante Y el plan la tiene activa
+  actualizarVisibilidadCarta();
+  if (cartaLoaded) renderCartaColecciones();
+  renderCondiciones();
+}
+
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (e.data?.type === "SERVICIOS_UPDATE")
+    aplicarPlanProductos(e.data.servicios);
+});
+window.parent.postMessage(
+  { type: "PEDIR_DATOS_TIENDA" },
+  window.location.origin,
+);
 // Esto NO cambia la estructura de datos ni los campos: solo adapta los textos de
 // ejemplo/placeholder para que el panel se sienta natural en cualquier rubro
 // (licorerías, supermercados, panaderías, pastelerías, cafeterías, moda, tecnología,
 // jardinería, mascotas, hogar, ferretería, belleza, etc.), no solo restaurantes.
-const DIAS_DESCUENTO = ["domingo","lunes","martes","miercoles","jueves","viernes","sabado"];
+const DIAS_DESCUENTO = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+];
 
 function parseFechaISOaMsLima(fechaISO, horaStr) {
   if (!fechaISO) return null;
@@ -44,11 +144,17 @@ function obtenerDiaSemanaLima(fecha = new Date()) {
   const nombreIngles = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Lima",
     weekday: "long",
-  }).format(fecha).toLowerCase();
+  })
+    .format(fecha)
+    .toLowerCase();
   const map = {
-    sunday: "domingo", monday: "lunes", tuesday: "martes",
-    wednesday: "miercoles", thursday: "jueves",
-    friday: "viernes", saturday: "sabado",
+    sunday: "domingo",
+    monday: "lunes",
+    tuesday: "martes",
+    wednesday: "miercoles",
+    thursday: "jueves",
+    friday: "viernes",
+    saturday: "sabado",
   };
   return map[nombreIngles] || null;
 }
@@ -70,7 +176,10 @@ function descuentoVigente(descuento, ahora = new Date()) {
   }
 
   if (descuento.modo === "fecha") {
-    const finMs = parseFechaISOaMsLima(descuento.fechaFin, descuento.horaFin || "23:59");
+    const finMs = parseFechaISOaMsLima(
+      descuento.fechaFin,
+      descuento.horaFin || "23:59",
+    );
     if (!finMs || ahora.getTime() >= finMs) return null;
     if (descuento.fechaInicio) {
       const inicioMs = parseFechaISOaMsLima(descuento.fechaInicio, "00:00");
@@ -132,7 +241,7 @@ function aplicarTextosPorCategoria() {
   if (prodDescInput) prodDescInput.placeholder = t.prodDescPlaceholder;
   const labelCondiciones = document.getElementById("label-condiciones");
   if (labelCondiciones)
-    labelCondiciones.textContent = `${t.condicionesLabel} (máx. 5)`;
+    labelCondiciones.textContent = `${t.condicionesLabel} (máx. ${PLAN_PRODUCTOS.maxVariantes})`;
 }
 aplicarTextosPorCategoria();
 
@@ -160,7 +269,6 @@ window.addEventListener("message", (e) => {
 const TIENDA_ID_STORAGE = tiendaId;
 const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
 const categoriasRef = collection(tiendaDocRef, "productos");
-
 
 function productosRef(categoriaId) {
   return collection(doc(categoriasRef, categoriaId), categoriaId);
@@ -208,7 +316,11 @@ async function buscarProductoPorCodigo(codigo) {
       if (s.exists()) return { categoriaId: c.id, id: s.id, data: s.data() };
       // 2) por el campo codigo_barras (productos antiguos)
       const q2 = await getDocs(
-        query(productosRef(c.id), where("codigo_barras", "==", codigo), limit(1)),
+        query(
+          productosRef(c.id),
+          where("codigo_barras", "==", codigo),
+          limit(1),
+        ),
       );
       if (!q2.empty) {
         const d = q2.docs[0];
@@ -248,13 +360,17 @@ function llenarSelectCategorias() {
     llenarSelectCategorias();
   });
 });
-document.getElementById("scan-categoria").addEventListener("change", (e) =>
-  sessionStorage.setItem("scanCategoria", e.target.value),
-);
+document
+  .getElementById("scan-categoria")
+  .addEventListener("change", (e) =>
+    sessionStorage.setItem("scanCategoria", e.target.value),
+  );
 
 function abrirScanner(modo) {
   scanModo = modo;
-  document.getElementById("scan-categoria-wrap").classList.toggle("hidden", modo !== "nuevo");
+  document
+    .getElementById("scan-categoria-wrap")
+    .classList.toggle("hidden", modo !== "nuevo");
   document.getElementById("scan-titulo").textContent =
     modo === "nuevo" ? "Escanear producto" : "Escanear código";
   if (modo === "nuevo") llenarSelectCategorias();
@@ -316,9 +432,15 @@ async function manejarCodigoEscaneado(raw) {
   }
 }
 
-document.getElementById("btn-escanear-producto").addEventListener("click", () => abrirScanner("nuevo"));
-document.getElementById("btn-prod-scan-cam").addEventListener("click", () => abrirScanner("campo"));
-document.getElementById("scan-btn-cam").addEventListener("click", encenderCamaraScan);
+document
+  .getElementById("btn-escanear-producto")
+  .addEventListener("click", () => abrirScanner("nuevo"));
+document
+  .getElementById("btn-prod-scan-cam")
+  .addEventListener("click", () => abrirScanner("campo"));
+document
+  .getElementById("scan-btn-cam")
+  .addEventListener("click", encenderCamaraScan);
 
 // Lector USB dentro del overlay
 document.getElementById("scan-input-usb").addEventListener("keydown", (e) => {
@@ -346,28 +468,33 @@ inputCodigo.addEventListener("keydown", async (e) => {
 });
 
 // Lector USB "global": escanear en la pantalla sin tener ningún campo enfocado
-let _wBuf = "", _wLast = 0;
-document.addEventListener("keydown", (e) => {
-  if (e.target.matches?.("input,textarea,select")) return;
-  if (document.querySelector(".overlay.show")) return;
-  const ahora = Date.now();
-  if (e.key === "Enter") {
-    if (_wBuf.length >= 4) {
-      e.preventDefault();
-      const c = _wBuf;
+let _wBuf = "",
+  _wLast = 0;
+document.addEventListener(
+  "keydown",
+  (e) => {
+    if (e.target.matches?.("input,textarea,select")) return;
+    if (document.querySelector(".overlay.show")) return;
+    const ahora = Date.now();
+    if (e.key === "Enter") {
+      if (_wBuf.length >= 4) {
+        e.preventDefault();
+        const c = _wBuf;
+        _wBuf = "";
+        scanModo = "nuevo";
+        llenarSelectCategorias();
+        manejarCodigoEscaneado(c);
+      }
       _wBuf = "";
-      scanModo = "nuevo";
-      llenarSelectCategorias();
-      manejarCodigoEscaneado(c);
+      return;
     }
-    _wBuf = "";
-    return;
-  }
-  if (e.key.length !== 1) return;
-  if (ahora - _wLast > 60) _wBuf = ""; // una persona escribe más lento que 60ms
-  _wBuf += e.key;
-  _wLast = ahora;
-}, true);
+    if (e.key.length !== 1) return;
+    if (ahora - _wLast > 60) _wBuf = ""; // una persona escribe más lento que 60ms
+    _wBuf += e.key;
+    _wLast = ahora;
+  },
+  true,
+);
 function openOverlay(id) {
   document.getElementById(id).classList.add("show");
 }
@@ -477,7 +604,7 @@ const btnCategorias = document.getElementById("btn-filter-categorias");
 const btnDescuento = document.getElementById("btn-filter-descuento");
 function setFiltroEstado(nuevoEstado) {
   filtroEstadoActual = nuevoEstado;
-   [
+  [
     btnTodos,
     btnActivos,
     btnAgotados,
@@ -527,16 +654,20 @@ btnDescuento.addEventListener("click", () => setFiltroEstado("descuento"));
 /* ---------------- Tamaño de vista (Grande / Mediano / Pequeño) ---------------- */
 function setVista(v) {
   document.body.dataset.vista = v;
-  try { localStorage.setItem("vistaProductos", v); } catch {}
-  document.querySelectorAll(".vista-btn").forEach((b) =>
-    b.classList.toggle("active", b.dataset.vista === v),
-  );
+  try {
+    localStorage.setItem("vistaProductos", v);
+  } catch {}
+  document
+    .querySelectorAll(".vista-btn")
+    .forEach((b) => b.classList.toggle("active", b.dataset.vista === v));
 }
-document.querySelectorAll(".vista-btn").forEach((b) =>
-  b.addEventListener("click", () => setVista(b.dataset.vista)),
-);
+document
+  .querySelectorAll(".vista-btn")
+  .forEach((b) => b.addEventListener("click", () => setVista(b.dataset.vista)));
 let vistaGuardada = "grande";
-try { vistaGuardada = localStorage.getItem("vistaProductos") || "grande"; } catch {}
+try {
+  vistaGuardada = localStorage.getItem("vistaProductos") || "grande";
+} catch {}
 setVista(vistaGuardada);
 
 /* ---------------- Menú desplegable "Agregar" ---------------- */
@@ -584,7 +715,10 @@ document
     const input = document.getElementById("input-cat-nombre");
     const nombre = input.value.trim();
     if (!nombre) return;
-
+if (categoriasLista.size >= PLAN_PRODUCTOS.maxColecciones) {
+  toast(`Tu plan permite máximo ${PLAN_PRODUCTOS.maxColecciones} categorías.`, "error");
+  return;
+}
     const btn = document.getElementById("btn-guardar-categoria");
     const label = document.getElementById("btn-guardar-categoria-label");
     const originalText = label.textContent;
@@ -788,15 +922,33 @@ let descuentoModoActivo = null;
 let descuentoDiasSeleccionados = [];
 let descuentoOriginalEditando = null; // el descuento del producto que se está editando
 
-const DIAS_DESCUENTO_LABEL = { domingo:"Dom", lunes:"Lun", martes:"Mar", miercoles:"Mié", jueves:"Jue", viernes:"Vie", sabado:"Sáb" };
+const DIAS_DESCUENTO_LABEL = {
+  domingo: "Dom",
+  lunes: "Lun",
+  martes: "Mar",
+  miercoles: "Mié",
+  jueves: "Jue",
+  viernes: "Vie",
+  sabado: "Sáb",
+};
 
 function renderDiasDescuentoChips() {
   const wrap = document.getElementById("descuento-dias-chips");
   wrap.innerHTML = "";
-  ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"].forEach((dia) => {
+  [
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+    "domingo",
+  ].forEach((dia) => {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "descuento-dia-chip" + (descuentoDiasSeleccionados.includes(dia) ? " active" : "");
+    chip.className =
+      "descuento-dia-chip" +
+      (descuentoDiasSeleccionados.includes(dia) ? " active" : "");
     chip.textContent = DIAS_DESCUENTO_LABEL[dia];
     chip.onclick = () => {
       const idx = descuentoDiasSeleccionados.indexOf(dia);
@@ -810,24 +962,37 @@ function renderDiasDescuentoChips() {
 
 function setDescuentoModo(modo) {
   descuentoModoActivo = modo;
-  document.querySelectorAll(".descuento-modo-btn").forEach((b) =>
-    b.classList.toggle("active", b.dataset.modo === modo),
-  );
-  document.getElementById("descuento-modo-dias").classList.toggle("hidden", modo !== "dias_semana");
-  document.getElementById("descuento-modo-duracion").classList.toggle("hidden", modo !== "duracion");
-  document.getElementById("descuento-modo-fecha").classList.toggle("hidden", modo !== "fecha");
+  document
+    .querySelectorAll(".descuento-modo-btn")
+    .forEach((b) => b.classList.toggle("active", b.dataset.modo === modo));
+  document
+    .getElementById("descuento-modo-dias")
+    .classList.toggle("hidden", modo !== "dias_semana");
+  document
+    .getElementById("descuento-modo-duracion")
+    .classList.toggle("hidden", modo !== "duracion");
+  document
+    .getElementById("descuento-modo-fecha")
+    .classList.toggle("hidden", modo !== "fecha");
 }
 document.querySelectorAll(".descuento-modo-btn").forEach((btn) => {
   btn.addEventListener("click", () => setDescuentoModo(btn.dataset.modo));
 });
-document.getElementById("input-prod-descuento-activo").addEventListener("change", (e) => {
-  document.getElementById("descuento-detalle").classList.toggle("hidden", !e.target.checked);
-});
+document
+  .getElementById("input-prod-descuento-activo")
+  .addEventListener("change", (e) => {
+    document
+      .getElementById("descuento-detalle")
+      .classList.toggle("hidden", !e.target.checked);
+  });
 function renderCondiciones() {
   const cont = document.getElementById("condiciones-container");
   const btnAdd = document.getElementById("btn-add-condicion");
   cont.innerHTML = "";
-  btnAdd.style.display = condicionesSeleccionadas.length >= 5 ? "none" : "";
+  btnAdd.style.display =
+    condicionesSeleccionadas.length >= PLAN_PRODUCTOS.maxVariantes
+      ? "none"
+      : "";
   condicionesSeleccionadas.forEach((cond, ci) => {
     const box = document.createElement("div");
     box.className = "rounded-xl bg-[#05040a] border border-purple-900/30 p-3";
@@ -973,7 +1138,7 @@ function renderCondiciones() {
 }
 
 document.getElementById("btn-add-condicion").addEventListener("click", () => {
-  if (condicionesSeleccionadas.length >= 5) return;
+  if (condicionesSeleccionadas.length >= PLAN_PRODUCTOS.maxVariantes) return;
   condicionesSeleccionadas.push({
     nombre: "",
     opciones: [{ nombre: "", activo: true, costoAdicional: 0, stock: null }],
@@ -995,7 +1160,9 @@ document.getElementById("input-prod-imgs").addEventListener("change", (e) => {
 });
 
 function actualizarVisibilidadCantidadPorOpcion() {
-  const multiplesChecked = document.getElementById("input-prod-variantes-multiples").checked;
+  const multiplesChecked = document.getElementById(
+    "input-prod-variantes-multiples",
+  ).checked;
   const wrap = document.getElementById("variantes-cantidad-wrap");
   wrap.classList.toggle("hidden", !multiplesChecked);
   if (!multiplesChecked) {
@@ -1005,7 +1172,11 @@ function actualizarVisibilidadCantidadPorOpcion() {
 document
   .getElementById("input-prod-variantes-multiples")
   .addEventListener("change", actualizarVisibilidadCantidadPorOpcion);
-function abrirModalNuevoProducto(categoriaId, categoriaNombre, codigoPrefill = "") {
+function abrirModalNuevoProducto(
+  categoriaId,
+  categoriaNombre,
+  codigoPrefill = "",
+) {
   categoriaActivaParaProducto = categoriaId;
   productoEditandoId = null;
   productoEditandoCategoriaId = null;
@@ -1016,7 +1187,7 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre, codigoPrefill = "
   document.getElementById("input-prod-variantes-multiples").checked = false;
   document.getElementById("input-prod-variantes-cantidad").checked = false;
   document.getElementById("form-producto").reset();
-    inputCodigo.value = codigoPrefill;
+  inputCodigo.value = codigoPrefill;
   inputCodigo.readOnly = false;
   document.getElementById("btn-prod-scan-cam").disabled = false;
   document.getElementById("prod-codigo-hint").textContent =
@@ -1032,27 +1203,32 @@ function abrirModalNuevoProducto(categoriaId, categoriaNombre, codigoPrefill = "
     `Se incluirá en "${categoriaNombre}".`;
   document.getElementById("btn-guardar-producto-label").textContent =
     "Crear producto";
-    document.getElementById("input-prod-descuento-activo").checked = false;
-document.getElementById("descuento-detalle").classList.add("hidden");
-document.getElementById("input-prod-descuento-porcentaje").value = "";
-document.getElementById("input-descuento-duracion-cantidad").value = "";
-document.getElementById("input-descuento-duracion-unidad").value = "horas";
-document.getElementById("input-descuento-fecha-inicio").value = "";
-document.getElementById("input-descuento-fecha-fin").value = "";
-document.getElementById("input-descuento-fecha-hora").value = "";
-descuentoDiasSeleccionados = [];
-descuentoOriginalEditando = null;
-renderDiasDescuentoChips();
-setDescuentoModo("dias_semana");
+  document.getElementById("input-prod-descuento-activo").checked = false;
+  document.getElementById("descuento-detalle").classList.add("hidden");
+  document.getElementById("input-prod-descuento-porcentaje").value = "";
+  document.getElementById("input-descuento-duracion-cantidad").value = "";
+  document.getElementById("input-descuento-duracion-unidad").value = "horas";
+  document.getElementById("input-descuento-fecha-inicio").value = "";
+  document.getElementById("input-descuento-fecha-fin").value = "";
+  document.getElementById("input-descuento-fecha-hora").value = "";
+  descuentoDiasSeleccionados = [];
+  descuentoOriginalEditando = null;
+  renderDiasDescuentoChips();
+  setDescuentoModo("dias_semana");
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
-  activarTabProducto("tab-basico"); // ← faltaba esto
+activarTabProducto(tabInicialProducto());
   openOverlay("overlay-producto");
 }
 
 function abrirModalEditarProducto(categoriaId, productoId, data) {
+  const usados = categoriaCardsMap[categoriaId]?.size || 0;
+if (usados >= PLAN_PRODUCTOS.maxProductosPorColeccion) {
+  toast(`Esta categoría ya tiene el máximo de ${PLAN_PRODUCTOS.maxProductosPorColeccion} productos de tu plan.`, "error");
+  return;
+}
   categoriaActivaParaProducto = categoriaId;
   productoEditandoId = productoId;
   productoEditandoCategoriaId = categoriaId;
@@ -1072,8 +1248,8 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
     })),
   }));
   document.getElementById("form-producto").reset();
-    const idEsNumerico = /^\d+$/.test(productoId);
-  inputCodigo.value = idEsNumerico ? productoId : (data.codigo_barras || "");
+  const idEsNumerico = /^\d+$/.test(productoId);
+  inputCodigo.value = idEsNumerico ? productoId : data.codigo_barras || "";
   inputCodigo.readOnly = idEsNumerico;
   document.getElementById("btn-prod-scan-cam").disabled = idEsNumerico;
   document.getElementById("prod-codigo-hint").textContent = idEsNumerico
@@ -1081,11 +1257,11 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
     : "Producto antiguo: puedes asignarle un código de barras para poder escanearlo.";
   document.getElementById("input-prod-variante-obligatoria").checked =
     data.variantesObligatoria !== false; // default true si no existe (productos viejos)
-document.getElementById("input-prod-variantes-multiples").checked =
-  data.variantesMultiples === true; // productos viejos = false
-document.getElementById("input-prod-variantes-cantidad").checked =
-  data.variantesConCantidad === true; // productos viejos = false
-document.getElementById("input-prod-nombre").value = data.nombre || "";
+  document.getElementById("input-prod-variantes-multiples").checked =
+    data.variantesMultiples === true; // productos viejos = false
+  document.getElementById("input-prod-variantes-cantidad").checked =
+    data.variantesConCantidad === true; // productos viejos = false
+  document.getElementById("input-prod-nombre").value = data.nombre || "";
   document.getElementById("input-prod-descripcion").value =
     data.descripcion || "";
   document.getElementById("input-prod-precio").value = data.precio ?? "";
@@ -1105,23 +1281,34 @@ document.getElementById("input-prod-nombre").value = data.nombre || "";
     `Editando producto.`;
   document.getElementById("btn-guardar-producto-label").textContent =
     "Guardar cambios";
-    descuentoOriginalEditando = data.descuento || null;
-document.getElementById("input-prod-descuento-activo").checked = !!data.descuento?.activo;
-document.getElementById("descuento-detalle").classList.toggle("hidden", !data.descuento?.activo);
-document.getElementById("input-prod-descuento-porcentaje").value = data.descuento?.porcentaje ?? "";
-descuentoDiasSeleccionados = data.descuento?.dias ? [...data.descuento.dias] : [];
-renderDiasDescuentoChips();
-document.getElementById("input-descuento-duracion-cantidad").value = data.descuento?.duracionCantidad ?? "";
-document.getElementById("input-descuento-duracion-unidad").value = data.descuento?.duracionUnidad || "horas";
-document.getElementById("input-descuento-fecha-inicio").value = data.descuento?.fechaInicio || "";
-document.getElementById("input-descuento-fecha-fin").value = data.descuento?.fechaFin || "";
-document.getElementById("input-descuento-fecha-hora").value = data.descuento?.horaFin || "";
-setDescuentoModo(data.descuento?.modo || "dias_semana");
+  descuentoOriginalEditando = data.descuento || null;
+  document.getElementById("input-prod-descuento-activo").checked =
+    !!data.descuento?.activo;
+  document
+    .getElementById("descuento-detalle")
+    .classList.toggle("hidden", !data.descuento?.activo);
+  document.getElementById("input-prod-descuento-porcentaje").value =
+    data.descuento?.porcentaje ?? "";
+  descuentoDiasSeleccionados = data.descuento?.dias
+    ? [...data.descuento.dias]
+    : [];
+  renderDiasDescuentoChips();
+  document.getElementById("input-descuento-duracion-cantidad").value =
+    data.descuento?.duracionCantidad ?? "";
+  document.getElementById("input-descuento-duracion-unidad").value =
+    data.descuento?.duracionUnidad || "horas";
+  document.getElementById("input-descuento-fecha-inicio").value =
+    data.descuento?.fechaInicio || "";
+  document.getElementById("input-descuento-fecha-fin").value =
+    data.descuento?.fechaFin || "";
+  document.getElementById("input-descuento-fecha-hora").value =
+    data.descuento?.horaFin || "";
+  setDescuentoModo(data.descuento?.modo || "dias_semana");
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
-  openOverlay("overlay-producto");
+activarTabProducto(tabInicialProducto());
 }
 document
   .getElementById("form-producto")
@@ -1148,21 +1335,21 @@ document
     ).checked;
     const unidadMedida =
       document.getElementById("input-prod-unidad").value || null;
-   
+
     const disponibleDesde =
       document.getElementById("input-prod-horario-desde").value || null;
     const disponibleHasta =
       document.getElementById("input-prod-horario-hasta").value || null;
- const variantesObligatoria = document.getElementById(
-  "input-prod-variante-obligatoria",
-).checked;
-const variantesMultiples = document.getElementById(
-  "input-prod-variantes-multiples",
-).checked;
-// Solo tiene sentido si "múltiples" está activo; si no, se fuerza a false por consistencia
-const variantesConCantidad =
-  variantesMultiples &&
-  document.getElementById("input-prod-variantes-cantidad").checked;
+    const variantesObligatoria = document.getElementById(
+      "input-prod-variante-obligatoria",
+    ).checked;
+    const variantesMultiples = document.getElementById(
+      "input-prod-variantes-multiples",
+    ).checked;
+    // Solo tiene sentido si "múltiples" está activo; si no, se fuerza a false por consistencia
+    const variantesConCantidad =
+      variantesMultiples &&
+      document.getElementById("input-prod-variantes-cantidad").checked;
     // Si el usuario activó "desactivar automáticamente al llegar a 0" y el stock es 0,
     // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
     if (autoDesactivar && stock === 0) disponible = false;
@@ -1171,7 +1358,7 @@ const variantesConCantidad =
 
     const condiciones = condicionesSeleccionadas
       .filter((c) => c.nombre.trim())
-      .slice(0, 5)
+    .slice(0, PLAN_PRODUCTOS.maxVariantes)
       .map((c) => ({
         nombre: c.nombre.trim(),
         opciones: c.opciones
@@ -1183,61 +1370,87 @@ const variantesConCantidad =
             stock: typeof o.stock === "number" ? o.stock : null,
           })),
       }));
-const descuentoActivoChk = document.getElementById("input-prod-descuento-activo").checked;
-const descuentoPorcentaje = Math.min(99, Math.max(0, parseInt(document.getElementById("input-prod-descuento-porcentaje").value, 10) || 0));
+    const descuentoActivoChk = document.getElementById(
+      "input-prod-descuento-activo",
+    ).checked;
+    const descuentoPorcentaje = Math.min(
+      99,
+      Math.max(
+        0,
+        parseInt(
+          document.getElementById("input-prod-descuento-porcentaje").value,
+          10,
+        ) || 0,
+      ),
+    );
 
-let descuento = null;
-if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
-  if (descuentoModoActivo === "dias_semana") {
-    descuento = {
-      activo: descuentoDiasSeleccionados.length > 0,
-      porcentaje: descuentoPorcentaje,
-      modo: "dias_semana",
-      dias: [...descuentoDiasSeleccionados],
-    };
-  } else if (descuentoModoActivo === "duracion") {
-    const cantidad = Math.max(1, parseInt(document.getElementById("input-descuento-duracion-cantidad").value, 10) || 0);
-    const unidad = document.getElementById("input-descuento-duracion-unidad").value || "horas";
-    // Si es la MISMA ventana que ya estaba corriendo, no se reinicia el conteo al re-guardar el producto
-    const seMantiene =
-      descuentoOriginalEditando?.modo === "duracion" &&
-      descuentoOriginalEditando?.activo &&
-      Number(descuentoOriginalEditando?.duracionCantidad) === cantidad &&
-      descuentoOriginalEditando?.duracionUnidad === unidad &&
-      Number(descuentoOriginalEditando?.expiraEn) > Date.now();
+    let descuento = null;
+    if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
+      if (descuentoModoActivo === "dias_semana") {
+        descuento = {
+          activo: descuentoDiasSeleccionados.length > 0,
+          porcentaje: descuentoPorcentaje,
+          modo: "dias_semana",
+          dias: [...descuentoDiasSeleccionados],
+        };
+      } else if (descuentoModoActivo === "duracion") {
+        const cantidad = Math.max(
+          1,
+          parseInt(
+            document.getElementById("input-descuento-duracion-cantidad").value,
+            10,
+          ) || 0,
+        );
+        const unidad =
+          document.getElementById("input-descuento-duracion-unidad").value ||
+          "horas";
+        // Si es la MISMA ventana que ya estaba corriendo, no se reinicia el conteo al re-guardar el producto
+        const seMantiene =
+          descuentoOriginalEditando?.modo === "duracion" &&
+          descuentoOriginalEditando?.activo &&
+          Number(descuentoOriginalEditando?.duracionCantidad) === cantidad &&
+          descuentoOriginalEditando?.duracionUnidad === unidad &&
+          Number(descuentoOriginalEditando?.expiraEn) > Date.now();
 
-    let activadoEn, expiraEn;
-    if (seMantiene) {
-      activadoEn = descuentoOriginalEditando.activadoEn;
-      expiraEn = descuentoOriginalEditando.expiraEn;
-    } else {
-      const ms = unidad === "dias" ? cantidad * 24 * 3600 * 1000 : cantidad * 3600 * 1000;
-      activadoEn = Date.now();
-      expiraEn = activadoEn + ms;
+        let activadoEn, expiraEn;
+        if (seMantiene) {
+          activadoEn = descuentoOriginalEditando.activadoEn;
+          expiraEn = descuentoOriginalEditando.expiraEn;
+        } else {
+          const ms =
+            unidad === "dias"
+              ? cantidad * 24 * 3600 * 1000
+              : cantidad * 3600 * 1000;
+          activadoEn = Date.now();
+          expiraEn = activadoEn + ms;
+        }
+        descuento = {
+          activo: cantidad > 0,
+          porcentaje: descuentoPorcentaje,
+          modo: "duracion",
+          duracionCantidad: cantidad,
+          duracionUnidad: unidad,
+          activadoEn,
+          expiraEn,
+        };
+      } else if (descuentoModoActivo === "fecha") {
+        const fechaInicio =
+          document.getElementById("input-descuento-fecha-inicio").value || null;
+        const fechaFin =
+          document.getElementById("input-descuento-fecha-fin").value || null;
+        const horaFin =
+          document.getElementById("input-descuento-fecha-hora").value ||
+          "23:59";
+        descuento = {
+          activo: !!fechaFin,
+          porcentaje: descuentoPorcentaje,
+          modo: "fecha",
+          fechaInicio,
+          fechaFin,
+          horaFin,
+        };
+      }
     }
-    descuento = {
-      activo: cantidad > 0,
-      porcentaje: descuentoPorcentaje,
-      modo: "duracion",
-      duracionCantidad: cantidad,
-      duracionUnidad: unidad,
-      activadoEn,
-      expiraEn,
-    };
-  } else if (descuentoModoActivo === "fecha") {
-    const fechaInicio = document.getElementById("input-descuento-fecha-inicio").value || null;
-    const fechaFin = document.getElementById("input-descuento-fecha-fin").value || null;
-    const horaFin = document.getElementById("input-descuento-fecha-hora").value || "23:59";
-    descuento = {
-      activo: !!fechaFin,
-      porcentaje: descuentoPorcentaje,
-      modo: "fecha",
-      fechaInicio,
-      fechaFin,
-      horaFin,
-    };
-  }
-}
     const btn = document.getElementById("btn-guardar-producto");
     const label = document.getElementById("btn-guardar-producto-label");
     const originalText = label.textContent;
@@ -1247,14 +1460,16 @@ if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
     try {
       if (productoEditandoId) {
         const idEsNum = /^\d+$/.test(productoEditandoId);
-const codigoEdit = idEsNum ? productoEditandoId : soloDigitos(inputCodigo.value);
-if (!idEsNum && codigoEdit) {
-  const ya = await buscarProductoPorCodigo(codigoEdit);
-  if (ya && ya.id !== productoEditandoId) {
-    toast(`Ese código ya lo tiene "${ya.data.nombre}".`, "error");
-    return;
-  }
-}
+        const codigoEdit = idEsNum
+          ? productoEditandoId
+          : soloDigitos(inputCodigo.value);
+        if (!idEsNum && codigoEdit) {
+          const ya = await buscarProductoPorCodigo(codigoEdit);
+          if (ya && ya.id !== productoEditandoId) {
+            toast(`Ese código ya lo tiene "${ya.data.nombre}".`, "error");
+            return;
+          }
+        }
         const docRef = doc(
           productosRef(productoEditandoCategoriaId),
           productoEditandoId,
@@ -1284,25 +1499,25 @@ if (!idEsNum && codigoEdit) {
           subidas.push({ url, path });
         }
 
-       await updateDoc(docRef, {
-  nombre,
-  descripcion,
-  precio,
-  disponible,
-  condiciones,
-  stock,
-  autoDesactivar,
-  agotadoHoy,
-  unidadMedida,
-  disponibleDesde,
-  disponibleHasta,
-  variantesObligatoria,
-  variantesMultiples,
-  variantesConCantidad,
-  descuento,
-  imagenes: [...conservadas, ...subidas],
-  codigo_barras: codigoEdit,
-});
+        await updateDoc(docRef, {
+          nombre,
+          descripcion,
+          precio,
+          disponible,
+          condiciones,
+          stock,
+          autoDesactivar,
+          agotadoHoy,
+          unidadMedida,
+          disponibleDesde,
+          disponibleHasta,
+          variantesObligatoria,
+          variantesMultiples,
+          variantesConCantidad,
+          descuento,
+          imagenes: [...conservadas, ...subidas],
+          codigo_barras: codigoEdit,
+        });
         await sincronizarProductoEnCarritoPerfil(productoEditandoId, {
           nombre,
           precio,
@@ -1311,42 +1526,48 @@ if (!idEsNum && codigoEdit) {
 
         toast(`"${nombre}" actualizado.`);
       } else {
-   let codigoFinal = soloDigitos(inputCodigo.value);
-if (codigoFinal) {
-  if (codigoFinal.length < 3) {
-    toast("El código debe tener al menos 3 dígitos.", "error");
-    return;
-  }
-  const ya = await buscarProductoPorCodigo(codigoFinal);
-  if (ya) {
-    toast(`Ya existe el código ${codigoFinal}: "${ya.data.nombre}"`, "error");
-    return;
-  }
-} else {
-  codigoFinal = await generarCodigoNumerico();
-}
-const nuevoDocRef = doc(productosRef(categoriaActivaParaProducto), codigoFinal);
-       await setDoc(nuevoDocRef, {
-  nombre,
-  descripcion,
-  precio,
-  disponible,
-  condiciones,
-  stock,
-  autoDesactivar,
-  agotadoHoy,
-  puntos,
-  unidadMedida,
-  disponibleDesde,
-  disponibleHasta,
-  variantesObligatoria,
-  variantesMultiples,
-  variantesConCantidad,
-  descuento,
-  imagenes: [],
-  createdAt: serverTimestamp(),
-    codigo_barras: codigoFinal,
-});
+        let codigoFinal = soloDigitos(inputCodigo.value);
+        if (codigoFinal) {
+          if (codigoFinal.length < 3) {
+            toast("El código debe tener al menos 3 dígitos.", "error");
+            return;
+          }
+          const ya = await buscarProductoPorCodigo(codigoFinal);
+          if (ya) {
+            toast(
+              `Ya existe el código ${codigoFinal}: "${ya.data.nombre}"`,
+              "error",
+            );
+            return;
+          }
+        } else {
+          codigoFinal = await generarCodigoNumerico();
+        }
+        const nuevoDocRef = doc(
+          productosRef(categoriaActivaParaProducto),
+          codigoFinal,
+        );
+        await setDoc(nuevoDocRef, {
+          nombre,
+          descripcion,
+          precio,
+          disponible,
+          condiciones,
+          stock,
+          autoDesactivar,
+          agotadoHoy,
+          puntos,
+          unidadMedida,
+          disponibleDesde,
+          disponibleHasta,
+          variantesObligatoria,
+          variantesMultiples,
+          variantesConCantidad,
+          descuento,
+          imagenes: [],
+          createdAt: serverTimestamp(),
+          codigo_barras: codigoFinal,
+        });
         const archivos = imagenesSeleccionadas.filter(Boolean);
         const imagenes = [];
         for (const file of archivos) {
@@ -1399,15 +1620,30 @@ function renderSkeletons(grid, count = 8) {
 }
 function textoVigenciaDescuento(d, info) {
   if (d.modo === "dias_semana") {
-    const orden = ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"];
-    return "📅 " + orden.filter((x) => (d.dias || []).includes(x))
-      .map((x) => DIAS_DESCUENTO_LABEL[x]).join(", ");
+    const orden = [
+      "lunes",
+      "martes",
+      "miercoles",
+      "jueves",
+      "viernes",
+      "sabado",
+      "domingo",
+    ];
+    return (
+      "📅 " +
+      orden
+        .filter((x) => (d.dias || []).includes(x))
+        .map((x) => DIAS_DESCUENTO_LABEL[x])
+        .join(", ")
+    );
   }
   if (d.modo === "duracion" && info.expiraEn) {
     const ms = Math.max(0, info.expiraEn - Date.now());
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
-    return h >= 24 ? `⏱️ Quedan ${Math.floor(h / 24)}d ${h % 24}h` : `⏱️ Quedan ${h}h ${m}m`;
+    return h >= 24
+      ? `⏱️ Quedan ${Math.floor(h / 24)}d ${h % 24}h`
+      : `⏱️ Quedan ${h}h ${m}m`;
   }
   if (d.modo === "fecha") {
     const f = (d.fechaFin || "").split("-").reverse().join("/");
@@ -1421,8 +1657,13 @@ function renderProductoCard(categoriaId, productoId, data) {
   card.className =
     "producto-card animate-fadeIn group relative flex flex-col rounded-2xl bg-[#0d0a17] border border-purple-900/20 overflow-hidden hover:border-purple-800/40 transition-colors duration-200 cursor-pointer";
   card.dataset.nombre = (
-    data.nombre + " " + (data.descripcion || "") + " " +
-    (data.codigo_barras || "") + " " + productoId
+    data.nombre +
+    " " +
+    (data.descripcion || "") +
+    " " +
+    (data.codigo_barras || "") +
+    " " +
+    productoId
   ).toLowerCase();
   card.dataset.disponible = data.disponible ? "true" : "false";
   card.dataset.agotadoHoy = data.agotadoHoy ? "true" : "false";
@@ -1433,7 +1674,9 @@ function renderProductoCard(categoriaId, productoId, data) {
   });
 
   const imagenes = data.imagenes || [];
-  imagenes.forEach((img) => { if (img.url) loadedImageUrls.add(img.url); });
+  imagenes.forEach((img) => {
+    if (img.url) loadedImageUrls.add(img.url);
+  });
 
   const descuentoInfo = descuentoVigente(data.descuento);
   card.dataset.descuento = descuentoInfo ? "true" : "false";
@@ -1470,11 +1713,13 @@ function renderProductoCard(categoriaId, productoId, data) {
   const infoSection = document.createElement("div");
 
   const nombreEl = document.createElement("h3");
-  nombreEl.className = "pc-nombre font-bold text-[15px] text-white leading-snug line-clamp-1";
+  nombreEl.className =
+    "pc-nombre font-bold text-[15px] text-white leading-snug line-clamp-1";
   nombreEl.textContent = data.nombre;
 
   const descEl = document.createElement("p");
-  descEl.className = "pc-desc text-xs text-purple-300/60 mt-1 line-clamp-2 leading-relaxed";
+  descEl.className =
+    "pc-desc text-xs text-purple-300/60 mt-1 line-clamp-2 leading-relaxed";
   descEl.textContent = data.descripcion || "Sin descripción adicional.";
 
   infoSection.appendChild(nombreEl);
@@ -1497,7 +1742,8 @@ function renderProductoCard(categoriaId, productoId, data) {
 
       activas.slice(0, 3).forEach((op) => {
         const sinStock = typeof op.stock === "number" && op.stock <= 0;
-        const stockBajo = typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
+        const stockBajo =
+          typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
         const chip = document.createElement("span");
         chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
           sinStock
@@ -1507,7 +1753,8 @@ function renderProductoCard(categoriaId, productoId, data) {
               : "bg-purple-950/40 border-purple-800/30 text-purple-300"
         }`;
         let txt = op.nombre;
-        if (op.costoAdicional) txt += ` +${Number(op.costoAdicional).toFixed(2)}`;
+        if (op.costoAdicional)
+          txt += ` +${Number(op.costoAdicional).toFixed(2)}`;
         if (typeof op.stock === "number") txt += ` · ${op.stock}`;
         chip.textContent = txt;
         row.appendChild(chip);
@@ -1525,7 +1772,8 @@ function renderProductoCard(categoriaId, productoId, data) {
 
   /* ---------- PARTE INFERIOR ---------- */
   const bottomSection = document.createElement("div");
-  bottomSection.className = "pt-3 border-t border-purple-900/20 flex flex-col gap-2.5";
+  bottomSection.className =
+    "pt-3 border-t border-purple-900/20 flex flex-col gap-2.5";
 
   // Promo (solo el recuadro, sin chip repetido)
   if (descuentoInfo) {
@@ -1537,7 +1785,8 @@ function renderProductoCard(categoriaId, productoId, data) {
     bottomSection.appendChild(promo);
   } else if (data.descuento?.activo && data.descuento.modo === "dias_semana") {
     const prog = document.createElement("div");
-    prog.className = "pc-promo text-[10px] text-rose-300/50 font-mono leading-snug";
+    prog.className =
+      "pc-promo text-[10px] text-rose-300/50 font-mono leading-snug";
     prog.textContent = `🏷️ -${data.descuento.porcentaje}% programado · ${textoVigenciaDescuento(data.descuento, {})}`;
     bottomSection.appendChild(prog);
   }
@@ -1547,9 +1796,11 @@ function renderProductoCard(categoriaId, productoId, data) {
   priceRow.className = "flex items-end justify-between gap-2";
 
   const precioEl = document.createElement("div");
-  precioEl.className = "pc-precio flex flex-col leading-tight whitespace-nowrap";
+  precioEl.className =
+    "pc-precio flex flex-col leading-tight whitespace-nowrap";
   if (descuentoInfo) {
-    const precioFinal = Number(data.precio) * (1 - descuentoInfo.porcentaje / 100);
+    const precioFinal =
+      Number(data.precio) * (1 - descuentoInfo.porcentaje / 100);
     precioEl.innerHTML = `
       <span class="font-mono text-[11px] text-purple-400/50 line-through">S/ ${Number(data.precio).toFixed(2)}</span>
       <span class="font-mono text-lg font-bold text-rose-300">S/ ${precioFinal.toFixed(2)}</span>`;
@@ -1589,17 +1840,23 @@ function renderProductoCard(categoriaId, productoId, data) {
       ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
       : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
   }`;
-  estadoBtn.title = data.disponible ? "Disponible (clic para marcar agotado)" : "Agotado (clic para activar)";
+  estadoBtn.title = data.disponible
+    ? "Disponible (clic para marcar agotado)"
+    : "Agotado (clic para activar)";
   estadoBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${data.disponible ? "bg-emerald-400" : "bg-rose-400"}"></span><span class="pc-estado-txt">${data.disponible ? "Disponible" : "Agotado"}</span>`;
   estadoBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     estadoBtn.disabled = true;
     try {
-      await updateDoc(doc(productosRef(categoriaId), productoId), { disponible: !data.disponible });
+      await updateDoc(doc(productosRef(categoriaId), productoId), {
+        disponible: !data.disponible,
+      });
     } catch (err) {
       console.error(err);
       toast("Error al cambiar disponibilidad.", "error");
-    } finally { estadoBtn.disabled = false; }
+    } finally {
+      estadoBtn.disabled = false;
+    }
   });
 
   const agotadoHoyBtn = document.createElement("button");
@@ -1615,14 +1872,19 @@ function renderProductoCard(categoriaId, productoId, data) {
     e.stopPropagation();
     agotadoHoyBtn.disabled = true;
     try {
-      await updateDoc(doc(productosRef(categoriaId), productoId), { agotadoHoy: !data.agotadoHoy });
+      await updateDoc(doc(productosRef(categoriaId), productoId), {
+        agotadoHoy: !data.agotadoHoy,
+      });
     } catch (err) {
       console.error(err);
       toast("Error al actualizar 'Agotado hoy'.", "error");
-    } finally { agotadoHoyBtn.disabled = false; }
+    } finally {
+      agotadoHoyBtn.disabled = false;
+    }
   });
 
-  const iconBtnBase = "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/50 transition-colors";
+  const iconBtnBase =
+    "w-7 h-7 flex items-center justify-center rounded-lg text-purple-400/50 transition-colors";
 
   const carritoBtn = document.createElement("button");
   carritoBtn.type = "button";
@@ -1635,7 +1897,8 @@ function renderProductoCard(categoriaId, productoId, data) {
     e.stopPropagation();
     toggleProductoEnCarritoPerfil(categoriaId, productoId, data);
   });
-  if (carritoPerfilActual.some((p) => p.productoId === productoId)) carritoBtn.classList.add("en-carrito");
+  if (carritoPerfilActual.some((p) => p.productoId === productoId))
+    carritoBtn.classList.add("en-carrito");
 
   const editBtn = document.createElement("button");
   editBtn.type = "button";
@@ -1654,8 +1917,11 @@ function renderProductoCard(categoriaId, productoId, data) {
   delBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>`;
   delBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    askConfirm("¿Eliminar producto?", `"${data.nombre}" será removido permanentemente.`,
-      () => eliminarProducto(categoriaId, productoId, data.nombre, imagenes));
+    askConfirm(
+      "¿Eliminar producto?",
+      `"${data.nombre}" será removido permanentemente.`,
+      () => eliminarProducto(categoriaId, productoId, data.nombre, imagenes),
+    );
   });
 
   const iconos = document.createElement("div");
@@ -1827,9 +2093,11 @@ function renderCategoriaShell(categoriaId, data) {
     seccion.querySelector(".btn-add-producto").addEventListener("click", () => {
       abrirModalNuevoProducto(categoriaId, data.nombre);
     });
-    seccion.querySelector(".btn-horario-categoria").addEventListener("click", () => {
-  abrirModalHorarioCategoria(categoriaId, seccion._catData || data);
-});
+    seccion
+      .querySelector(".btn-horario-categoria")
+      .addEventListener("click", () => {
+        abrirModalHorarioCategoria(categoriaId, seccion._catData || data);
+      });
     seccion
       .querySelector(".btn-del-categoria")
       .addEventListener("click", () => {
@@ -1846,11 +2114,11 @@ function renderCategoriaShell(categoriaId, data) {
 
   seccion.dataset.catNombre = (data.nombre || "").toLowerCase();
   seccion._catData = data;
-seccion
-  .querySelector(".categoria-horario-badge")
-  ?.classList.toggle("hidden", !data.horario_categoria?.activo);
+  seccion
+    .querySelector(".categoria-horario-badge")
+    ?.classList.toggle("hidden", !data.horario_categoria?.activo);
   seccion.querySelector(".categoria-titulo").textContent = data.nombre;
-    categoriasLista.set(categoriaId, data.nombre);
+  categoriasLista.set(categoriaId, data.nombre);
 }
 
 /* ---------------- Filtro Combinado Avanzado ---------------- */
@@ -2040,7 +2308,7 @@ onSnapshot(
       if (!idsActuales.has(id)) {
         if (categoriaListeners[id]) categoriaListeners[id]();
         delete categoriaListeners[id];
-         delete categoriaLimite[id];
+        delete categoriaLimite[id];
         categoriasLista.delete(id);
         el.remove();
       }
@@ -2055,8 +2323,7 @@ onSnapshot(
   },
 );
 /* ---------------- Carta digital (solo Comida y Restaurantes) — versión liviana ---------------- */
-const CARTA_MAX_COLECCIONES = 5;
-const CARTA_MAX_FOTOS = 5;
+
 let cartaColecciones = {};
 let cartaLoaded = false;
 
@@ -2070,7 +2337,7 @@ function cartaDocRef(id) {
 function actualizarVisibilidadCarta() {
   const section = document.getElementById("carta-digital-section");
   if (!section) return;
-  if (esRestaurante) {
+  if (esRestaurante && PLAN_PRODUCTOS.carta) {
     section.classList.remove("hidden");
     if (!cartaLoaded) {
       cartaLoaded = true;
@@ -2527,7 +2794,7 @@ function alLlegarCodigoCelular(raw) {
 }
 
 async function abrirEmparejarCelular() {
-   llenarSelectCategorias(); 
+  llenarSelectCategorias();
   openOverlay("overlay-pair");
   const body = document.getElementById("pair-body");
 
@@ -2535,7 +2802,9 @@ async function abrirEmparejarCelular() {
     body.innerHTML = `<p class="text-purple-300/60 text-xs">Generando código…</p>`;
     try {
       scanClave = String(Math.floor(100000 + Math.random() * 900000));
-      const ref = doc(tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones"));
+      const ref = doc(
+        tiendaSubCol(localidad, "tiendas", tiendaId, "scan_sesiones"),
+      );
       await setDoc(ref, {
         clave: scanClave,
         creado: serverTimestamp(),
@@ -2570,7 +2839,8 @@ async function abrirEmparejarCelular() {
     s: scanSesion,
   }).toString();
 
-  const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm")).default;
+  const QR = (await import("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm"))
+    .default;
   const img = await QR.toDataURL(urlScanner.href, { width: 240, margin: 1 });
 
   body.innerHTML = `
@@ -2611,8 +2881,13 @@ window.addEventListener("pagehide", () => {
 });
 /* ---------------- Horario por categoría ---------------- */
 const DIAS_HORARIO = [
-  ["lunes", "Lunes"], ["martes", "Martes"], ["miercoles", "Miércoles"],
-  ["jueves", "Jueves"], ["viernes", "Viernes"], ["sabado", "Sábado"], ["domingo", "Domingo"],
+  ["lunes", "Lunes"],
+  ["martes", "Martes"],
+  ["miercoles", "Miércoles"],
+  ["jueves", "Jueves"],
+  ["viernes", "Viernes"],
+  ["sabado", "Sábado"],
+  ["domingo", "Domingo"],
 ];
 let horarioCatId = null;
 
@@ -2650,13 +2925,18 @@ function actualizarPanelHorario() {
 function abrirModalHorarioCategoria(catId, data) {
   horarioCatId = catId;
   const h = data?.horario_categoria || {};
-  document.getElementById("horario-cat-nombre").textContent = data?.nombre || catId;
+  document.getElementById("horario-cat-nombre").textContent =
+    data?.nombre || catId;
   document.getElementById("horario-activo").checked = h.activo === true;
   document.getElementById("horario-mensaje").value = h.mensaje || "";
 
   const list = document.getElementById("horario-dias-list");
   list.innerHTML = DIAS_HORARIO.map(([k, l]) =>
-    htmlFilaDiaHorario(k, l, h.dias?.[k] || { activo: true, desde: "", hasta: "" }),
+    htmlFilaDiaHorario(
+      k,
+      l,
+      h.dias?.[k] || { activo: true, desde: "", hasta: "" },
+    ),
   ).join("");
   list.querySelectorAll("[data-dia]").forEach(pintarFilaDiaHorario);
 
@@ -2664,66 +2944,84 @@ function abrirModalHorarioCategoria(catId, data) {
   openOverlay("overlay-horario-cat");
 }
 
-document.getElementById("horario-activo").addEventListener("change", actualizarPanelHorario);
+document
+  .getElementById("horario-activo")
+  .addEventListener("change", actualizarPanelHorario);
 
 document.getElementById("horario-dias-list").addEventListener("change", (e) => {
   if (!e.target.classList.contains("hor-activo")) return;
   pintarFilaDiaHorario(e.target.closest("[data-dia]"));
 });
 
-document.getElementById("horario-copiar-lunes").addEventListener("click", () => {
-  const rows = [...document.querySelectorAll("#horario-dias-list [data-dia]")];
-  const base = rows[0];
-  const activo = base.querySelector(".hor-activo").checked;
-  const desde = base.querySelector(".hor-desde").value;
-  const hasta = base.querySelector(".hor-hasta").value;
-  rows.slice(1).forEach((r) => {
-    r.querySelector(".hor-activo").checked = activo;
-    r.querySelector(".hor-desde").value = desde;
-    r.querySelector(".hor-hasta").value = hasta;
-    pintarFilaDiaHorario(r);
-  });
-  toast("Horario del lunes copiado a todos los días.");
-});
-
-document.getElementById("btn-guardar-horario").addEventListener("click", async () => {
-  if (!horarioCatId) return;
-  const activo = document.getElementById("horario-activo").checked;
-  const mensaje = document.getElementById("horario-mensaje").value.trim();
-
-  const dias = {};
-  let hayDiaActivo = false;
-  let error = null;
-  document.querySelectorAll("#horario-dias-list [data-dia]").forEach((row) => {
-    const key = row.dataset.dia;
-    const on = row.querySelector(".hor-activo").checked;
-    const desde = row.querySelector(".hor-desde").value || "";
-    const hasta = row.querySelector(".hor-hasta").value || "";
-    if (on && (!!desde !== !!hasta)) error = `En ${key} completa la hora de inicio y la de fin (o deja ambas vacías).`;
-    if (on) hayDiaActivo = true;
-    dias[key] = { activo: on, desde: on ? desde : "", hasta: on ? hasta : "" };
-  });
-
-  if (activo && error) return toast(error, "error");
-  if (activo && !hayDiaActivo)
-    return toast("Activa al menos un día, o apaga el horario de la categoría.", "error");
-
-  const btn = document.getElementById("btn-guardar-horario");
-  const label = document.getElementById("btn-guardar-horario-label");
-  const original = label.textContent;
-  btn.disabled = true;
-  label.innerHTML = '<span class="spinner"></span>';
-  try {
-    await updateDoc(doc(categoriasRef, horarioCatId), {
-      horario_categoria: { activo, mensaje, dias },
+document
+  .getElementById("horario-copiar-lunes")
+  .addEventListener("click", () => {
+    const rows = [
+      ...document.querySelectorAll("#horario-dias-list [data-dia]"),
+    ];
+    const base = rows[0];
+    const activo = base.querySelector(".hor-activo").checked;
+    const desde = base.querySelector(".hor-desde").value;
+    const hasta = base.querySelector(".hor-hasta").value;
+    rows.slice(1).forEach((r) => {
+      r.querySelector(".hor-activo").checked = activo;
+      r.querySelector(".hor-desde").value = desde;
+      r.querySelector(".hor-hasta").value = hasta;
+      pintarFilaDiaHorario(r);
     });
-    closeOverlay("overlay-horario-cat");
-    toast(activo ? "Horario guardado." : "Horario desactivado.");
-  } catch (err) {
-    console.error(err);
-    toast("No se pudo guardar el horario.", "error");
-  } finally {
-    btn.disabled = false;
-    label.textContent = original;
-  }
-});
+    toast("Horario del lunes copiado a todos los días.");
+  });
+
+document
+  .getElementById("btn-guardar-horario")
+  .addEventListener("click", async () => {
+    if (!horarioCatId) return;
+    const activo = document.getElementById("horario-activo").checked;
+    const mensaje = document.getElementById("horario-mensaje").value.trim();
+
+    const dias = {};
+    let hayDiaActivo = false;
+    let error = null;
+    document
+      .querySelectorAll("#horario-dias-list [data-dia]")
+      .forEach((row) => {
+        const key = row.dataset.dia;
+        const on = row.querySelector(".hor-activo").checked;
+        const desde = row.querySelector(".hor-desde").value || "";
+        const hasta = row.querySelector(".hor-hasta").value || "";
+        if (on && !!desde !== !!hasta)
+          error = `En ${key} completa la hora de inicio y la de fin (o deja ambas vacías).`;
+        if (on) hayDiaActivo = true;
+        dias[key] = {
+          activo: on,
+          desde: on ? desde : "",
+          hasta: on ? hasta : "",
+        };
+      });
+
+    if (activo && error) return toast(error, "error");
+    if (activo && !hayDiaActivo)
+      return toast(
+        "Activa al menos un día, o apaga el horario de la categoría.",
+        "error",
+      );
+
+    const btn = document.getElementById("btn-guardar-horario");
+    const label = document.getElementById("btn-guardar-horario-label");
+    const original = label.textContent;
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>';
+    try {
+      await updateDoc(doc(categoriasRef, horarioCatId), {
+        horario_categoria: { activo, mensaje, dias },
+      });
+      closeOverlay("overlay-horario-cat");
+      toast(activo ? "Horario guardado." : "Horario desactivado.");
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo guardar el horario.", "error");
+    } finally {
+      btn.disabled = false;
+      label.textContent = original;
+    }
+  });

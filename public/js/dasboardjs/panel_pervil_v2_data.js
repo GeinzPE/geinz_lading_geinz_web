@@ -52,7 +52,13 @@ window.cerrarSesionPanel = async () => {
         propietario_id: arrayRemove(uid),
       });
 
-      const userRef = doc(db, "Trabajadores_Usuarios_Drivers", "users", "users", uid);
+      const userRef = doc(
+        db,
+        "Trabajadores_Usuarios_Drivers",
+        "users",
+        "users",
+        uid,
+      );
       await updateDoc(userRef, {
         id_tienda_propietario: deleteField(),
       });
@@ -117,7 +123,8 @@ function reenviarDatosAlIframe(iframe) {
   iframe.addEventListener("load", function () {
     try {
       const iframeHref = iframe.contentWindow.location.href;
-      const esRecargas = iframeHref.includes("recargas") || iframeHref === "about:blank";
+      const esRecargas =
+        iframeHref.includes("recargas") || iframeHref === "about:blank";
       if (!esRecargas) btn.classList.add("visible");
       else btn.classList.remove("visible");
     } catch (e) {
@@ -138,13 +145,23 @@ function reenviarDatosAlIframe(iframe) {
 //  Las claves son las mismas de los ids: sbb-<clave> / mmb-<clave>
 // ============================================================
 (function () {
-   // Claves = ids del sidebar (sbb-<clave> / mmb-<clave>).
+  // Claves = ids del sidebar (sbb-<clave> / mmb-<clave>).
   // Si la sección está en el plan lo decide inicio.js (mapa "secciones").
   const SECCIONES = [
-    "perfil", "comprobante", "trabajadores", "legal",
-    "pedidos", "productos", "historial",
-    "usuarios", "fidelizacion", "publicidad", "mispublicaciones", "qr",
-    "historialgasto", "recargas",
+    "perfil",
+    "comprobantes",
+    "trabajadores",
+    "legal",
+    "pedidos",
+    "productos",
+    "historial",
+    "usuarios",
+    "fidelizacion",
+    "publicidad",
+    "mispublicaciones",
+    "qr",
+    "historialgasto",
+    "recargas",
   ];
 
   function leer(k) {
@@ -159,33 +176,44 @@ function reenviarDatosAlIframe(iframe) {
   let _sesion = leer("rolActivo");
   let _servicios = leer("serviciosActivos");
 
-   function puedeVer(key) {
+  function puedeVer(key) {
     if (!SECCIONES.includes(key)) return true; // "inicio" u otras sin control
     const okPlan = _servicios?.secciones?.[key] === true;
-    const okRol = !!_sesion && (!!_sesion.esAdmin || (_sesion.permisos || []).includes(key));
+    const okRol =
+      !!_sesion &&
+      (!!_sesion.esAdmin || (_sesion.permisos || []).includes(key));
     return okPlan && okRol;
   }
+  const ID_BOTON = { comprobantes: "comprobante" };
   function aplicar() {
     SECCIONES.forEach((key) => {
       const ver = puedeVer(key);
-      [`sbb-${key}`, `mmb-${key}`].forEach((id) => {
+      const sufijo = ID_BOTON[key] || key;
+      [`sbb-${sufijo}`, `mmb-${sufijo}`].forEach((id) => {
         const btn = document.getElementById(id);
         if (btn) btn.style.display = ver ? "" : "none";
       });
     });
 
     // Ocultar grupos que quedaron sin botones visibles (ignora los "Pronto")
-    document.querySelectorAll(".sidebar-group, .mobile-menu-group").forEach((g) => {
-      const hijos = [
-        ...g.querySelectorAll(".sidebar-btn, .mobile-menu-item:not(.mobile-menu-item-disabled)"),
-      ];
-      g.style.display = hijos.some((b) => b.style.display !== "none") ? "" : "none";
-    });
+    document
+      .querySelectorAll(".sidebar-group, .mobile-menu-group")
+      .forEach((g) => {
+        const hijos = [
+          ...g.querySelectorAll(
+            ".sidebar-btn, .mobile-menu-item:not(.mobile-menu-item-disabled)",
+          ),
+        ];
+        g.style.display = hijos.some((b) => b.style.display !== "none")
+          ? ""
+          : "none";
+      });
 
     // Si la sección abierta ya no está permitida, volver a Inicio
     if (_servicios !== null && window.PanelPerfil?.showSection) {
       const activa = document.querySelector(".section.active");
-      const key = activa?.id?.replace(/^sec-/, "");
+let key = activa?.id?.replace(/^sec-/, "");
+if (key === "comprobante") key = "comprobantes";
       if (key && SECCIONES.includes(key) && !puedeVer(key)) {
         window.PanelPerfil.showSection("inicio");
       }
@@ -206,11 +234,11 @@ function reenviarDatosAlIframe(iframe) {
       _sesion = e.data.rol;
       aplicar();
     }
- if (e.data?.type === "SERVICIOS_UPDATE") {
-  _servicios = e.data.servicios;
-  window.setServiciosParaPublicidad?.(e.data.servicios_completo);   // ← NUEVA
-  aplicar();
-}
+    if (e.data?.type === "SERVICIOS_UPDATE") {
+      _servicios = e.data.servicios;
+      window.setServiciosParaPublicidad?.(e.data.servicios_completo); // ← NUEVA
+      aplicar();
+    }
   });
 })();
 
@@ -232,10 +260,12 @@ window.addEventListener("message", function (e) {
   const { tipo, seccion } = e.data || {};
   if (tipo !== "NAVEGAR") return;
 
-  const destino = seccion || "perfil";
+const destino = seccion || "perfil";
+const destinoKey = destino === "comprobante" ? "comprobantes" : destino;
 
-  // Bloqueo final: si plan o rol no lo permiten, no se abre
-  if (window.PanelVisibilidad && !window.PanelVisibilidad.puedeVer(destino)) return;
+// Bloqueo final: si plan o rol no lo permiten, no se abre
+if (window.PanelVisibilidad && !window.PanelVisibilidad.puedeVer(destinoKey)) return;
+    return;
 
   const P = window.PanelPerfil;
   if (P) {
@@ -270,7 +300,8 @@ window.addEventListener("message", function (e) {
 // ===== SINCRONIZAR SALDO / PUBLICIDAD / PLANES ENTRE IFRAMES =====
 window.addEventListener("message", function (e) {
   const tipo = e.data?.type;
-  if (!["SALDO_UPDATE", "PUBLICIDAD_UPDATE", "PLANES_UPDATE"].includes(tipo)) return;
+  if (!["SALDO_UPDATE", "PUBLICIDAD_UPDATE", "PLANES_UPDATE"].includes(tipo))
+    return;
 
   if (tipo === "SALDO_UPDATE") {
     window._saldoActual = e.data.saldo;
@@ -281,4 +312,32 @@ window.addEventListener("message", function (e) {
       iframe.contentWindow.postMessage(e.data, "*");
     } catch (err) {}
   });
+});
+// ===== SERVICIOS → iframes que lo necesitan =====
+window._serviciosCompleto = window._serviciosCompleto || null;
+const IFRAMES_SERVICIOS = ["iframeLegal", "iframeProductos"];
+
+function enviarServicios(iframe) {
+  if (!iframe || !window._serviciosCompleto) return;
+  try {
+    iframe.contentWindow.postMessage(
+      { type: "SERVICIOS_UPDATE", servicios: window._serviciosCompleto },
+      window.location.origin
+    );
+  } catch (e) {}
+}
+
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+
+  if (e.data?.type === "SERVICIOS_UPDATE") {
+    window._serviciosCompleto = e.data.servicios_completo || null;
+    IFRAMES_SERVICIOS.forEach((id) => enviarServicios(document.getElementById(id)));
+  }
+  if (e.data?.type === "PEDIR_DATOS_TIENDA") {
+    const origen = IFRAMES_SERVICIOS
+      .map((id) => document.getElementById(id))
+      .find((f) => f?.contentWindow === e.source);
+    enviarServicios(origen);
+  }
 });
