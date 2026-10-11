@@ -16,7 +16,7 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-
+import { leer } from "../structure/structure_min.js";
 // Importamos app, db y storage ya inicializados desde db.js
 import { app, db, storage } from "../db/db.js";
 import { tiendaSubDoc } from "../rutas/rutas.js";
@@ -1663,7 +1663,7 @@ function formatFechaSlash(str) {
 
       const result = await callFirebaseFunction(CLOUD_FN_CREAR_PROMO, payload);
       // ── Publicar también en Facebook si el switch está activo ──
-      if (fbPublicarActivo && fbConectado) {
+      if (fbPublicarActivo && fbConectado && window.GEINZ_PLAN.fanpage) {
         skSetStep(
           3,
           "Publicando en Facebook...",
@@ -2363,6 +2363,9 @@ window.addEventListener("message", (event) => {
     escucharConexionFacebook(datosTienda.id_tienda, datosTienda.localidad); // ✅ CAMBIO: activa el listener en tiempo real
     actualizarEstadoBotonPublicar();
   }
+  if (event.data?.type === "SERVICIOS_UPDATE") {
+    aplicarServicios(event.data.servicios);
+  }
   if (event.data?.type === "PATCH_TIENDA") {
     if (!datosTienda) return;
     const diff = event.data.payload;
@@ -2391,6 +2394,7 @@ window.addEventListener("message", (event) => {
   }
 
   if (event.data?.type === "SALDO_UPDATE") {
+    if (window.GEINZ_CREDITOS !== undefined) return;
     const nuevoSaldo = event.data?.saldo ?? 0;
 
     // 1. Actualizar state local
@@ -2420,6 +2424,7 @@ function _aplicarDatosTienda(d) {
     d.saldo_tienda = window._saldoPendiente;
     delete window._saldoPendiente;
   }
+if (window.GEINZ_CREDITOS !== undefined) d.saldo_tienda = window.GEINZ_CREDITOS;
 
   // Cercanía solo aplica a negocios con local físico (modelo_negocio !== false)
   const esPresencial = d.modelo_negocio !== false;
@@ -2833,3 +2838,79 @@ function mostrarFbConectado(pageName) {
   if (nameText) nameText.textContent = `Conectado a: ${pageName}`;
 }
 window.mostrarFbConectado = mostrarFbConectado;
+
+// ══════════ PLAN: qué permite el doc de servicios en esta pantalla ══════════
+const RUTA_PUB = "cliente_y_fidelizacion.publicidad_ofertas";
+
+// true si es true, o si es un mapa con algún true adentro
+function _on(v) {
+  if (typeof v === "boolean") return v;
+  if (v && typeof v === "object" && typeof v.toDate !== "function")
+    return Object.values(v).some(_on);
+  return false;
+}
+
+// Valores por defecto hasta que llegue el doc
+window.GEINZ_PLAN = {
+  fanpage: true,
+  banner: true,
+  ofertas: true,
+  misPublicaciones: true,
+  maxOfertas: 5,
+};
+
+function _mostrar(el, visible) {
+  if (el) el.style.display = visible ? "" : "none";
+}
+
+function aplicarServicios(servicios) {
+  const base = leer(servicios, RUTA_PUB);
+  console.log("📦 publicidad_ofertas:", base);
+
+  // Créditos de IA desde la DB
+  const cred = leer(servicios, "panel_admin.creditos_ia500");
+  if (cred !== undefined) setCreditosIA(cred);
+
+  if (!base) return;
+
+  const pub = base.publicidad || {};
+  const of = base.ofertas || {};
+  const maxOfertas = Number(of.cantidad_ofertas ?? base.cantidad_ofertas) || 0;
+
+  const plan = {
+    fanpage: _on(pub.fanpage ?? base.fanpage),
+    banner: _on(of.baner ?? base.baner),
+    ofertas: maxOfertas > 0,
+    misPublicaciones: _on(base.mis_publicaciones),
+    maxOfertas,
+  };
+  window.GEINZ_PLAN = plan;
+
+  // 1) Fanpage
+  _mostrar(document.getElementById("paramBoxFb"), plan.fanpage);
+  if (!plan.fanpage) {
+    fbPublicarActivo = false;
+    const sw = document.getElementById("fbPublicarSwitch");
+    if (sw) sw.checked = false;
+    document.getElementById("fbPublicarPanel")?.classList.remove("open");
+  }
+
+  // 2) Pestañas
+  const tabMis = document.querySelector('.vista-tab[data-vista="mis"]');
+  const tabOfertas = document.querySelector('.vista-tab[data-vista="ofertas"]');
+  _mostrar(tabMis, plan.misPublicaciones);
+  _mostrar(tabOfertas, plan.banner || plan.ofertas);
+
+  // 3) Banner y ofertas
+  _mostrar(document.getElementById("cardBanner"), plan.banner);
+  _mostrar(document.getElementById("cardOfertas"), plan.ofertas);
+
+  // 4) Si la pestaña activa quedó oculta, volver a Publicar
+  const activa = document.querySelector(".vista-tab.active");
+  if (activa && activa.style.display === "none") {
+    document.querySelector('.vista-tab[data-vista="publicar"]')?.click();
+  }
+
+  // Avisa a publicaciones_perfil.js para repintar las celdas
+  window.dispatchEvent(new CustomEvent("geinz:plan", { detail: plan }));
+}

@@ -1513,7 +1513,7 @@
                                 </div>
                             </div>
 
-                            <div class="param-box">
+                            <div class="param-box" id="paramBoxFb">
                                 <div class="param-row">
                                     <div class="param-info">
                                         <img src="../img/facebook_icon.webp" alt="icono"
@@ -1740,7 +1740,7 @@
                         class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Exclusivas
                     </button>
-                                        <button type="button" data-estado="desactivado" data-active="false"
+                    <button type="button" data-estado="desactivado" data-active="false"
                         class="filter-pill rounded-xl px-4 py-2 text-xs flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> Desactivadas
                     </button>
@@ -1784,7 +1784,7 @@
         <div id="vista-ofertas" style="display:none">
 
             <!-- Banner -->
-            <div class="card" style="margin-bottom:20px;">
+            <div class="card" id="cardBanner" style="margin-bottom:20px;">
                 <h3 class="sec-title">Banner de tu negocio</h3>
                 <p class="sec-sub">Esta imagen se muestra como destacado. Actívala si quieres que sea visible.</p>
 
@@ -1888,13 +1888,13 @@
             </div>
 
             <!-- Ofertas -->
-            <div class="card">
-                <h3 class="sec-title">Ofertas</h3>
-                <p class="sec-sub">Hasta 5 productos con imagen, descripción y precio (obligatorios).</p>
-                <div id="ofertasGrid"></div>
-            </div>
-
+            <div class="card" id="cardOfertas"></div>
+            <h3 class="sec-title">Ofertas</h3>
+            <p class="sec-sub">Hasta 5 productos con imagen, descripción y precio (obligatorios).</p>
+            <div id="ofertasGrid"></div>
         </div>
+
+    </div>
 
     </div>
 

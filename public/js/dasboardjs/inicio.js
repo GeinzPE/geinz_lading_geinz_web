@@ -143,7 +143,14 @@ function broadcastServicios() {
   const data = serviciosParaPadre();
   try { sessionStorage.setItem("serviciosActivos", JSON.stringify(data)); } catch (e) { }
   try {
-    window.parent.postMessage({ type: "SERVICIOS_UPDATE", servicios: data }, window.location.origin);
+    window.parent.postMessage(
+      {
+        type: "SERVICIOS_UPDATE",
+        servicios: data,                                       // igual que antes (no rompe nada)
+        servicios_completo: JSON.parse(JSON.stringify(SERVICIOS || {})), // ← NUEVO: doc completo
+      },
+      window.location.origin
+    );
   } catch (e) { }
 }
 function broadcastRolActivo(sesion) {

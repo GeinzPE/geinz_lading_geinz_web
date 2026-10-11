@@ -206,10 +206,11 @@ function reenviarDatosAlIframe(iframe) {
       _sesion = e.data.rol;
       aplicar();
     }
-    if (e.data?.type === "SERVICIOS_UPDATE") {
-      _servicios = e.data.servicios;
-      aplicar();
-    }
+ if (e.data?.type === "SERVICIOS_UPDATE") {
+  _servicios = e.data.servicios;
+  window.setServiciosParaPublicidad?.(e.data.servicios_completo);   // ← NUEVA
+  aplicar();
+}
   });
 })();
 

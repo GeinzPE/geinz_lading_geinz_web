@@ -39,6 +39,22 @@ import {
 
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
+const PLAN_PED = {
+  tiempos: true,
+  estados: true,
+  autoOff: true,
+  autoReserva: true,
+  deliveryCfg: true,
+  repartidores: true,
+  maxRepartidores: 5,
+  carrito: true,
+  mesa: true,
+  nuevoPedido: true,
+  mozos: true,
+  configMesas: true,
+  camara: true,
+  celular: true,
+};
 const URL_NOTIFICAR_CLIENTE =
   " https://enviar-notificacion-con-solo-id-desde-la-web-oixttik5rq-uc.a.run.app";
 if (!tiendaId || !localidad) {
@@ -1486,6 +1502,9 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 function estadoHabilitado(e) {
+  if (!PLAN_PED.estados && ["pendiente_pago", "en_pausa"].includes(e))
+    return false;
+
   if (
     ["pendiente", "en_proceso", "listo", "entregado", "rechazado"].includes(e)
   )
@@ -1725,7 +1744,6 @@ function limpiarDominio(d) {
     .replace(/\/.*$/, ""); // quita cualquier ruta
   return limpio || null;
 }
-
 
 async function imprimirComprobantePedido(pedido) {
   try {
@@ -2247,6 +2265,7 @@ function recargoEnHora(r, f = new Date()) {
   return dentro ? monto : 0;
 }
 function calcularPrecioDelivery(distKm) {
+    if (!PLAN_PED.deliveryCfg) return null;
   if (!deliEnabled || !deliHace) return null;
   const rec = recargoEnHora(deliRecargo);
   if (deliModo === "fija") return deliFija + rec;
@@ -5145,7 +5164,7 @@ function labelEstado(e) {
            IMPORTANTE: pedidos "en_pausa" nunca se auto-rechazan (el filtro estado !== "pendiente"
            ya los excluye, ya que ESTADOS.includes(p.estado) los distingue de "pendiente"). */
 function chequearAutoRechazo() {
-  if (!autoRejectEnabled) return;
+  if (!autoRejectEnabled || !PLAN_PED.autoOff) return;
   const limiteMs = autoRejectMinutes * 60000;
   const rechazadosAhora = [];
 
@@ -5188,7 +5207,7 @@ setInterval(chequearAutoRechazo, 15000);
            reservado_en supera autoResMinutes sin que la mesa/grupo pase a "ocupada", se
            libera automáticamente en Firestore, suena una alarma y se avisa por toast. */
 async function chequearReservasVencidas() {
-  if (!autoResEnabled) return;
+  if (!autoResEnabled || !PLAN_PED.autoReserva) return;
   const limiteMs = autoResMinutes * 60000;
   const gruposVencidos = new Set();
   const mesasSueltasVencidas = [];
@@ -8602,6 +8621,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
         cerrarSesionCelular();
       });
   });
+    aplicarPlanPedidos();
 }
 function iniciarListener() {
   if (!tiendaId) return;
@@ -8657,7 +8677,7 @@ if (tiendaId) {
   }, 900);
 }
 /* ══════════════ MIS DELIVERYS (contactos locales, máx. 5) ══════════════ */
-const DLV_MAX = 5;
+let DLV_MAX = 5;
 const dlvKey = () => `geinz_deliverys_${tiendaId}`;
 
 function dlvLeer() {
@@ -9188,12 +9208,13 @@ function dlvAbrirSelector(id, p) {
 /* ══════════════ TIEMPOS ESTIMADOS ══════════════ */
 function getTiemposCfg() {
   const t = bizDataGlobal?.tiempos_estimados || {};
+
   const rango = (r, dMin, dMax) => ({
     min: Number(r?.min) || dMin,
     max: Number(r?.max) || dMax,
   });
   return {
-    activo: t.activo !== false,
+    activo: PLAN_PED.tiempos && t.activo !== false,
     delivery: rango(t.delivery, 20, 30),
     recojo: rango(t.recojo, 10, 15),
   };
@@ -9322,6 +9343,7 @@ function pedirTiempo(p) {
 
 async function accionEstado(id, p, estado, accion, btn) {
   const pide =
+    PLAN_PED.tiempos &&
     accion === "en_proceso" &&
     (estado === "pendiente" || estado === "pendiente_pago") &&
     getOrigen(p).tipo === "whatsapp";
@@ -9762,6 +9784,7 @@ document.head.appendChild(extraStyle);
   estBtn.type = "button";
   estBtn.className = "oc-btn ghost";
   estBtn.textContent = "📋 Estados del pedido";
+    estBtn.id = "estBtn";
   estBtn.addEventListener("click", () => {
     estOv.querySelectorAll("[data-est]").forEach((i) => {
       if (!i.disabled) i.checked = estadoHabilitado(i.dataset.est);
@@ -9887,3 +9910,85 @@ popsEls.forEach((p) =>
 popBackdrop.addEventListener("click", () =>
   popsEls.forEach((p) => p.classList.remove("show")),
 );
+
+const _on = (v) => {
+  if (typeof v === "boolean") return v;
+  if (v && typeof v === "object" && typeof v.toDate !== "function")
+    return Object.values(v).some(_on);
+  return false;
+};
+const _nodo = (o, k) => {
+  if (!o || typeof o !== "object") return undefined;
+  if (k in o) return o[k];
+  for (const v of Object.values(o)) { const r = _nodo(v, k); if (r !== undefined) return r; }
+  return undefined;
+};
+const _flag = (n, k) => (typeof n?.[k] === "boolean" ? n[k] : _on(n?.[k]));
+
+let PLAN_SERV = null;
+
+function aplicarPlanPedidos(servicios) {
+  if (servicios) PLAN_SERV = servicios;
+  const pv = PLAN_SERV?.operacion_ventas?.pedidos_vivos;
+  console.log("📦 pedidos_vivos:", pv);
+  if (!pv) return;
+
+  const carrito = _nodo(pv, "carrito") || {};
+  const mesa = _nodo(pv, "mesa") || {};
+  const nuevo = _nodo(pv, "nuevo_pedido") || {};
+  const mis = carrito.mis_delivery || {};
+
+  const car = _flag(carrito, "activo");
+  const mes = _flag(mesa, "activo");
+  const nue = _flag(nuevo, "activo");
+  Object.assign(PLAN_PED, {
+    carrito: car, mesa: mes, nuevoPedido: nue,
+    tiempos: car && _flag(carrito, "tiempos"),
+    estados: car && _flag(carrito, "estado_pedidos"),
+    autoOff: car && _flag(carrito, "auto_off"),
+    autoReserva: mes && _flag(carrito, "auto_reserva"),
+    deliveryCfg: car && _flag(carrito, "delivery_config"),
+    repartidores: car && _flag(mis, "activo"),
+    maxRepartidores: Number(mis.maximo_delivery) || 0,
+    mozos: mes && _flag(mesa, "mozos"),
+    configMesas: mes && _flag(mesa, "config_mesas"),
+    camara: nue && _flag(nuevo, "uso_camara_scaner"),
+    celular: nue && _flag(nuevo, "uso_celular_scaner"),
+  });
+
+  const ocultar = (el, v) => el?.classList.toggle("plan-oculto", !v);
+  const wrap = (id) => document.getElementById(id)?.closest(".autorej-wrap");
+
+  ocultar(wrap("autorejBtn"), PLAN_PED.autoOff);
+  ocultar(wrap("autoresBtn"), PLAN_PED.autoReserva);
+  ocultar(wrap("deliBtn"), PLAN_PED.deliveryCfg);
+  ocultar(wrap("deliverysBtn"), PLAN_PED.repartidores);
+  ocultar(tmpBtn, PLAN_PED.tiempos);
+  ocultar(document.getElementById("estBtn"), PLAN_PED.estados);
+  ocultar(mzBtn, PLAN_PED.mozos);
+  ocultar(mcBtn, PLAN_PED.configMesas);
+  ocultar(document.getElementById("npScanCamBtn"), PLAN_PED.camara);
+  ocultar(document.getElementById("npScanPhoneBtn"), PLAN_PED.celular);
+  ocultar(document.querySelector('.origin-chip[data-origin="whatsapp"]'), PLAN_PED.carrito);
+  ocultar(document.querySelector('.origin-chip[data-origin="mesa"]'), PLAN_PED.mesa);
+  ocultar(document.querySelector('.origin-chip[data-origin="directo"]'), PLAN_PED.nuevoPedido);
+
+  DLV_MAX = PLAN_PED.maxRepartidores;
+  dlvPintarContador();
+  dlvPintarLista();
+
+  const activo = document.querySelector(".origin-chip.active");
+  if (activo?.classList.contains("plan-oculto")) {
+    document.querySelector(".origin-chip:not(.plan-oculto)")?.click();
+  }
+}
+
+const planStyle = document.createElement("style");
+planStyle.textContent = `.plan-oculto{display:none !important;}`;
+document.head.appendChild(planStyle);
+
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (e.data?.type === "SERVICIOS_UPDATE") aplicarPlanPedidos(e.data.servicios);
+});
+try { window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin); } catch {}

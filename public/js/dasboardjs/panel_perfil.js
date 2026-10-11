@@ -19,7 +19,36 @@ import {
 // ─────────────────────────────────────────────
 //  GEOFENCING
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  ENVÍO DEL DOC DE SERVICIOS AL IFRAME DE PUBLICIDAD
+// ─────────────────────────────────────────────
+let serviciosActuales = null;
 
+function enviarServiciosAPublicidad() {
+  if (!serviciosActuales) return;
+  ["iframePublicidad", "iframePedidos"].forEach((id) => {
+    document.getElementById(id)?.contentWindow?.postMessage(
+      { type: "SERVICIOS_UPDATE", servicios: serviciosActuales },
+      window.location.origin
+    );
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  ["iframePublicidad", "iframePedidos"].forEach((id) =>
+    document.getElementById(id)?.addEventListener("load", enviarServiciosAPublicidad)
+  );
+});
+window.setServiciosParaPublicidad = (servicios) => {
+  if (!servicios) return;
+  serviciosActuales = servicios;
+  enviarServiciosAPublicidad();
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("iframePublicidad")
+    ?.addEventListener("load", enviarServiciosAPublicidad);
+});
 const GeofencingManager = {
   _zonaSur: [
     [-77.7586301, -10.7478916],
@@ -2877,7 +2906,12 @@ window.addEventListener("message", (e) => {
     const iframe = document.getElementById("iframeRecargas");
     if (iframe) iframe.src = "recargas";
   }
-
+if (e.data?.type === "PEDIR_DATOS_TIENDA") {
+  if (window._datosParaIframe) {
+    e.source?.postMessage(window._datosParaIframe, window.location.origin);
+  }
+  enviarServiciosAPublicidad();
+}
   if (e.data?.type === "NUEVO_CLIENTE_FIDELIZACION") {
     if (window.PanelPerfil.activeSection !== "fidelizacion") {
       window.PanelPerfil.showFidelizacionBadge();

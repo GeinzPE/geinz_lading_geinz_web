@@ -408,7 +408,7 @@ document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
 
 // ══════════════ OFERTAS ══════════════
 let ofertasCache = {};
-const MAX_OFERTAS = 5;
+const maxOfertas = () => window.GEINZ_PLAN?.maxOfertas ?? 5;
 let subiendoOferta = false;
 
 async function cargarOfertas(intento = 0) {
@@ -444,9 +444,8 @@ function mostrarSkeletonOferta(oldKey) {
   }
 
   // Oferta nueva: tarjeta esqueleto
-  const add = grid.querySelector(".of-add");
-  if (add) add.style.display = "none";
-
+const adds = [...grid.querySelectorAll(".of-add")];
+adds.forEach((a) => (a.style.display = "none"));
   const skel = document.createElement("div");
   skel.className = "of-card";
   skel.innerHTML = `
@@ -463,10 +462,10 @@ function mostrarSkeletonOferta(oldKey) {
   `;
   grid.appendChild(skel);
 
-  return () => {
-    skel.remove();
-    if (add) add.style.display = "";
-  };
+return () => {
+  skel.remove();
+  adds.forEach((a) => (a.style.display = ""));
+};
 }
 
 function normalizarOferta(val) {
@@ -628,17 +627,26 @@ function renderOfertas(map) {
     grid.appendChild(card);
   });
 
-  if (entries.length < MAX_OFERTAS) {
-    const addCard = document.createElement("div");
-    addCard.className = "of-add";
-    addCard.innerHTML = "📷<span>Agregar oferta</span>";
-    addCard.onclick = () => cambiarImagenOferta(null);
-    grid.appendChild(addCard);
-  }
+const max = maxOfertas();
+
+const sub = document.querySelector("#cardOfertas .sec-sub");
+if (sub) sub.textContent = `${entries.length} de ${max} ofertas · imagen, descripción y precio obligatorios.`;
+
+for (let i = entries.length; i < max; i++) {
+  const addCard = document.createElement("div");
+  addCard.className = "of-add";
+  addCard.innerHTML = `📷<span>Agregar oferta</span><small style="opacity:.6">${i + 1} de ${max}</small>`;
+  addCard.onclick = () => cambiarImagenOferta(null);
+  grid.appendChild(addCard);
+}
 }
 
 function cambiarImagenOferta(oldKey) {
   if (subiendoOferta) return;
+  if (!oldKey && Object.keys(ofertasCache).length >= maxOfertas()) {
+    alert(`Tu plan permite hasta ${maxOfertas()} ofertas`);
+    return;
+  }
   if (!TIENDA_REF) { alert("Aún cargando datos de la tienda, intenta en un momento"); return; }
 
   const actual = oldKey ? normalizarOferta(ofertasCache[oldKey]) : { imagen: "", descripcion: "" };
@@ -707,3 +715,4 @@ async function eliminarOferta(key) {
     alert("Error al eliminar");
   }
 }
+window.addEventListener("geinz:plan", () => renderOfertas(ofertasCache));
