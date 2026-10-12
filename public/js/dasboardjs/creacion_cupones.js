@@ -165,7 +165,7 @@ function construirUI() {
     <div class="card" style="margin-bottom:20px;">
       <h3 class="sec-title">Cupones de descuento</h3>
       <p class="sec-sub">Crea códigos de porcentaje. Tu cliente lo escribe en el carrito y el descuento se aplica al total, en pedidos normales y en mesa.</p>
-
+      <div id="cpLimite" style="margin-top:12px;"></div>
       <div class="cp-layout">
         <div class="cp-form">
           <div>
@@ -256,14 +256,16 @@ function construirUI() {
     if (!b) return;
     $("cpPct").value = b.dataset.pct;
 
-
     pintarPreview();
+    pintarLimite();
   });
   $("cpAud").addEventListener("click", (e) => {
     const b = e.target.closest(".cp-chip");
     if (!b) return;
     audiencia = b.dataset.aud;
-    document.querySelectorAll("#cpAud .cp-chip").forEach((x) => x.classList.toggle("active", x === b));
+    document
+      .querySelectorAll("#cpAud .cp-chip")
+      .forEach((x) => x.classList.toggle("active", x === b));
     $("cpAudHint").textContent = AUD_TXT[audiencia];
     pintarPreview();
   });
@@ -324,7 +326,9 @@ function pintarPreview() {
 async function crearCupon() {
   if (!tiendaId || !localidad)
     return toast("Aún estamos cargando los datos de tu tienda…", true);
-
+  if (window.MAX_CUPONES != null && contarActivos() >= window.MAX_CUPONES) {
+    return toast(`Llegaste al máximo de cupones activos de tu plan (${window.MAX_CUPONES}).`, true);
+  }
   const pct = Math.round(Number(val("cpPct")));
   const codigo = val("cpCodigo").toUpperCase().replace(/\s+/g, "");
   const minimo = Math.max(0, Number(val("cpMin")) || 0);
@@ -393,6 +397,7 @@ async function crearCupon() {
   } finally {
     btn.disabled = false;
     btn.textContent = "Crear cupón";
+        pintarLimite();
   }
 }
 
@@ -404,9 +409,40 @@ function estadoDe(c) {
     return { k: "full", t: "Agotado" };
   return { k: "on", t: "Activo" };
 }
+function contarActivos() {
+  return cupones.filter((c) => estadoDe(c).k === "on").length;
+}
+
+function pintarLimite() {
+  const box = $("cpLimite");
+  if (!box) return;
+  const max = window.MAX_CUPONES;
+  const act = contarActivos();
+  const inactivos = cupones.length - act;
+  const btn = $("cpCrear");
+
+  if (max == null) {
+    box.innerHTML = `<p class="cp-hint">Cupones activos: <b>${act}</b> · Tu plan no tiene límite de cupones.</p>`;
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const quedan = Math.max(0, max - act);
+  const lleno = quedan <= 0;
+  box.innerHTML = `
+    <div class="cp-hint" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;${lleno ? "border-color:rgba(244,63,94,.4);" : ""}">
+      <span>Máximo del plan: <b>${max}</b></span>
+      <span>Activos: <b>${act}</b></span>
+      <span>Te quedan: <b style="color:${lleno ? "#fda4af" : "#86efac"}">${quedan}</b></span>
+      <span>Vencidos / desactivados (no cuentan): <b>${inactivos}</b></span>
+    </div>`;
+  if (btn) btn.disabled = lleno;
+}
+window.refrescarLimiteCupones = pintarLimite;
 
 function renderLista() {
-      pintarStats();
+  pintarStats();
+pintarLimite();
   const list = $("cpList");
   if (!list) return;
   $("cpCount").textContent = cupones.length

@@ -106,6 +106,8 @@ function aplicarPlanProductos(s) {
   actualizarVisibilidadCarta();
   if (cartaLoaded) renderCartaColecciones();
   renderCondiciones();
+  document.querySelectorAll(".categoria").forEach(pintarContadorCategoria);
+  pintarMaxCategorias();
 }
 
 window.addEventListener("message", (e) => {
@@ -602,17 +604,20 @@ const btnStockBajo = document.getElementById("btn-filter-stockbajo");
 const btnAgotadoHoy = document.getElementById("btn-filter-agotadohoy");
 const btnCategorias = document.getElementById("btn-filter-categorias");
 const btnDescuento = document.getElementById("btn-filter-descuento");
+const btnCarrito = document.getElementById("btn-filter-carrito");
 function setFiltroEstado(nuevoEstado) {
   filtroEstadoActual = nuevoEstado;
-  [
-    btnTodos,
-    btnActivos,
-    btnAgotados,
-    btnStockBajo,
-    btnAgotadoHoy,
-    btnCategorias,
-    btnDescuento,
-  ].forEach((b) =>
+  const mapa = {
+    todos: [btnTodos, "ring-violet-500"],
+    activos: [btnActivos, "ring-emerald-500"],
+    agotados: [btnAgotados, "ring-rose-500"],
+    stockbajo: [btnStockBajo, "ring-amber-500"],
+    agotadohoy: [btnAgotadoHoy, "ring-orange-500"],
+    categorias: [btnCategorias, "ring-purple-500"],
+    descuento: [btnDescuento, "ring-rose-500"],
+    carrito: [btnCarrito, "ring-yellow-500"],
+  };
+  Object.values(mapa).forEach(([b]) =>
     b.classList.remove(
       "active-filter",
       "ring-2",
@@ -622,27 +627,15 @@ function setFiltroEstado(nuevoEstado) {
       "ring-amber-500",
       "ring-orange-500",
       "ring-purple-500",
+      "ring-yellow-500",
     ),
   );
-
-  if (nuevoEstado === "todos")
-    btnTodos.classList.add("active-filter", "ring-2", "ring-violet-500");
-  if (nuevoEstado === "activos")
-    btnActivos.classList.add("active-filter", "ring-2", "ring-emerald-500");
-  if (nuevoEstado === "agotados")
-    btnAgotados.classList.add("active-filter", "ring-2", "ring-rose-500");
-  if (nuevoEstado === "stockbajo")
-    btnStockBajo.classList.add("active-filter", "ring-2", "ring-amber-500");
-  if (nuevoEstado === "agotadohoy")
-    btnAgotadoHoy.classList.add("active-filter", "ring-2", "ring-orange-500");
-  if (nuevoEstado === "categorias")
-    btnCategorias.classList.add("active-filter", "ring-2", "ring-purple-500");
-  if (nuevoEstado === "descuento")
-    btnDescuento.classList.add("active-filter", "ring-2", "ring-rose-500");
-
+  const m = mapa[nuevoEstado];
+  if (m) m[0].classList.add("active-filter", "ring-2", m[1]);
   aplicarFiltroYMetricas();
 }
 
+btnCarrito.addEventListener("click", () => setFiltroEstado("carrito"));
 btnTodos.addEventListener("click", () => setFiltroEstado("todos"));
 btnActivos.addEventListener("click", () => setFiltroEstado("activos"));
 btnAgotados.addEventListener("click", () => setFiltroEstado("agotados"));
@@ -715,10 +708,13 @@ document
     const input = document.getElementById("input-cat-nombre");
     const nombre = input.value.trim();
     if (!nombre) return;
-if (categoriasLista.size >= PLAN_PRODUCTOS.maxColecciones) {
-  toast(`Tu plan permite máximo ${PLAN_PRODUCTOS.maxColecciones} categorías.`, "error");
-  return;
-}
+    if (categoriasLista.size >= PLAN_PRODUCTOS.maxColecciones) {
+      toast(
+        `Tu plan permite máximo ${PLAN_PRODUCTOS.maxColecciones} categorías.`,
+        "error",
+      );
+      return;
+    }
     const btn = document.getElementById("btn-guardar-categoria");
     const label = document.getElementById("btn-guardar-categoria-label");
     const originalText = label.textContent;
@@ -785,7 +781,15 @@ function actualizarBotonesCarritoPerfil() {
     btn.title = enCarrito
       ? "Quitar del carrito de perfil"
       : "Agregar al carrito de perfil";
+    const card = btn.closest(".producto-card");
+    if (card) {
+      card.dataset.carrito = enCarrito ? "true" : "false";
+      card.classList.toggle("en-carrito-card", enCarrito);
+      const badge = card.querySelector(".prod-carrito-badge");
+      if (badge) badge.style.display = enCarrito ? "flex" : "none";
+    }
   });
+  aplicarFiltroYMetricas();
 }
 
 async function toggleProductoEnCarritoPerfil(categoriaId, productoId, data) {
@@ -1177,6 +1181,15 @@ function abrirModalNuevoProducto(
   categoriaNombre,
   codigoPrefill = "",
 ) {
+  const usados = categoriaCardsMap[categoriaId]?.size || 0;
+  if (usados >= PLAN_PRODUCTOS.maxProductosPorColeccion) {
+    toast(
+      `Esta categoría ya tiene el máximo de ${PLAN_PRODUCTOS.maxProductosPorColeccion} productos de tu plan.`,
+      "error",
+    );
+    return;
+  }
+  categoriaActivaParaProducto = categoriaId;
   categoriaActivaParaProducto = categoriaId;
   productoEditandoId = null;
   productoEditandoCategoriaId = null;
@@ -1219,16 +1232,11 @@ function abrirModalNuevoProducto(
   renderImgDropSlots();
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
-activarTabProducto(tabInicialProducto());
+  activarTabProducto(tabInicialProducto());
   openOverlay("overlay-producto");
 }
 
 function abrirModalEditarProducto(categoriaId, productoId, data) {
-  const usados = categoriaCardsMap[categoriaId]?.size || 0;
-if (usados >= PLAN_PRODUCTOS.maxProductosPorColeccion) {
-  toast(`Esta categoría ya tiene el máximo de ${PLAN_PRODUCTOS.maxProductosPorColeccion} productos de tu plan.`, "error");
-  return;
-}
   categoriaActivaParaProducto = categoriaId;
   productoEditandoId = productoId;
   productoEditandoCategoriaId = categoriaId;
@@ -1256,17 +1264,16 @@ if (usados >= PLAN_PRODUCTOS.maxProductosPorColeccion) {
     ? "Este código es el ID del producto y no se puede cambiar."
     : "Producto antiguo: puedes asignarle un código de barras para poder escanearlo.";
   document.getElementById("input-prod-variante-obligatoria").checked =
-    data.variantesObligatoria !== false; // default true si no existe (productos viejos)
+    data.variantesObligatoria !== false;
   document.getElementById("input-prod-variantes-multiples").checked =
-    data.variantesMultiples === true; // productos viejos = false
+    data.variantesMultiples === true;
   document.getElementById("input-prod-variantes-cantidad").checked =
-    data.variantesConCantidad === true; // productos viejos = false
+    data.variantesConCantidad === true;
   document.getElementById("input-prod-nombre").value = data.nombre || "";
   document.getElementById("input-prod-descripcion").value =
     data.descripcion || "";
   document.getElementById("input-prod-precio").value = data.precio ?? "";
   document.getElementById("input-prod-disponible").checked = !!data.disponible;
-  // Si el producto no tiene stock definido (productos viejos), el campo queda vacío = "sin control de stock"
   document.getElementById("input-prod-stock").value =
     typeof data.stock === "number" ? data.stock : "";
   document.getElementById("input-prod-auto-desactivar").checked =
@@ -1308,7 +1315,8 @@ if (usados >= PLAN_PRODUCTOS.maxProductosPorColeccion) {
   renderImgDropSlots();
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
-activarTabProducto(tabInicialProducto());
+  activarTabProducto(tabInicialProducto());
+  openOverlay("overlay-producto");
 }
 document
   .getElementById("form-producto")
@@ -1358,7 +1366,7 @@ document
 
     const condiciones = condicionesSeleccionadas
       .filter((c) => c.nombre.trim())
-    .slice(0, PLAN_PRODUCTOS.maxVariantes)
+      .slice(0, PLAN_PRODUCTOS.maxVariantes)
       .map((c) => ({
         nombre: c.nombre.trim(),
         opciones: c.opciones
@@ -1556,7 +1564,6 @@ document
           stock,
           autoDesactivar,
           agotadoHoy,
-          puntos,
           unidadMedida,
           disponibleDesde,
           disponibleHasta,
@@ -1680,7 +1687,11 @@ function renderProductoCard(categoriaId, productoId, data) {
 
   const descuentoInfo = descuentoVigente(data.descuento);
   card.dataset.descuento = descuentoInfo ? "true" : "false";
-
+  const enCarritoInicial = carritoPerfilActual.some(
+    (p) => p.productoId === productoId,
+  );
+  card.dataset.carrito = enCarritoInicial ? "true" : "false";
+  if (enCarritoInicial) card.classList.add("en-carrito-card");
   /* ---------- IMAGEN ---------- */
   const imgWrap = document.createElement("div");
   imgWrap.className =
@@ -1705,6 +1716,12 @@ function renderProductoCard(categoriaId, productoId, data) {
     badge.textContent = `-${descuentoInfo.porcentaje}%`;
     imgWrap.appendChild(badge);
   }
+  const cartBadge = document.createElement("div");
+  cartBadge.className = "prod-carrito-badge";
+  cartBadge.title = "En el carrito de perfil";
+  cartBadge.style.display = enCarritoInicial ? "flex" : "none";
+  cartBadge.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>`;
+  imgWrap.appendChild(cartBadge);
 
   /* ---------- CUERPO ---------- */
   const body = document.createElement("div");
@@ -2038,8 +2055,9 @@ function suscribirProductos(categoriaId, grid, seccion) {
         grid.appendChild(masBtn);
       }
 
-      seccion.querySelector(".categoria-count").textContent =
-        `${snap.size}${snap.size >= lim ? "+" : ""} ${snap.size === 1 ? "producto" : "productos"}`;
+      seccion.dataset.total = String(snap.size);
+      seccion.dataset.hayMas = snap.size >= lim ? "1" : "0";
+      pintarContadorCategoria(seccion);
       aplicarFiltroYMetricas();
       updateSplashAndCheckDismiss();
     },
@@ -2048,14 +2066,6 @@ function suscribirProductos(categoriaId, grid, seccion) {
       toast("Error al cargar productos.", "error");
     },
   );
-  initImportador({
-    categoriasRef,
-    productosRef,
-    storage,
-    storagePathProducto,
-    toast,
-    getEsRestaurante: () => esRestaurante,
-  });
 }
 
 function renderCategoriaShell(categoriaId, data) {
@@ -2122,6 +2132,32 @@ function renderCategoriaShell(categoriaId, data) {
 }
 
 /* ---------------- Filtro Combinado Avanzado ---------------- */
+// "6 / 20 productos" (o "6 productos" si el plan no tiene límite)
+function pintarContadorCategoria(seccion) {
+  const total = Number(seccion.dataset.total || 0);
+  const mas = seccion.dataset.hayMas === "1" ? "+" : "";
+  const max = PLAN_PRODUCTOS.maxProductosPorColeccion;
+  const el = seccion.querySelector(".categoria-count");
+  if (!el) return;
+  const finito = Number.isFinite(max);
+  el.textContent = finito
+    ? `${total}${mas} / ${max} productos`
+    : `${total}${mas} ${total === 1 ? "producto" : "productos"}`;
+  el.style.color = finito && total >= max ? "#fda4af" : "";
+}
+
+// "Categorías: 3 / 10" y "Nueva categoría (3/10)"
+function pintarMaxCategorias() {
+  const max = PLAN_PRODUCTOS.maxColecciones;
+  const finito = Number.isFinite(max);
+  const suf = document.getElementById("stat-categorias-max");
+  if (suf) suf.textContent = finito ? ` / ${max}` : "";
+  const lbl = document.getElementById("menu-nueva-cat-label");
+  if (lbl)
+    lbl.textContent = finito
+      ? `Nueva categoría (${categoriasLista.size}/${max})`
+      : "Nueva categoría";
+}
 const inputBusqueda = document.getElementById("input-busqueda");
 let debounceTimer = null;
 inputBusqueda.addEventListener("input", () => {
@@ -2181,6 +2217,7 @@ function aplicarFiltroYMetricas() {
   let totalDescuento = 0;
   let algunElementoVisibleTotal = false;
   let totalProductosProcesados = 0;
+  let totalCarrito = 0;
 
   categorias.forEach((cat) => {
     const nombreCategoria = cat.dataset.catNombre || "";
@@ -2201,13 +2238,13 @@ function aplicarFiltroYMetricas() {
 
       const esAgotadoHoy = card.dataset.agotadoHoy === "true";
       const tieneDescuento = card.dataset.descuento === "true";
-
+      const enCarrito = card.dataset.carrito === "true";
       if (disponible) totalActivos++;
       else totalAgotados++;
       if (tieneStockBajo) totalStockBajo++;
       if (esAgotadoHoy) totalAgotadoHoy++;
       if (tieneDescuento) totalDescuento++;
-
+      if (enCarrito) totalCarrito++;
       // Evaluar estado (Activo/Agotado/Stock bajo/Agotado hoy/Con descuento/Todos)
       let cumpleEstado = true;
       if (filtroEstadoActual === "activos") cumpleEstado = disponible;
@@ -2215,6 +2252,7 @@ function aplicarFiltroYMetricas() {
       if (filtroEstadoActual === "stockbajo") cumpleEstado = tieneStockBajo;
       if (filtroEstadoActual === "agotadohoy") cumpleEstado = esAgotadoHoy;
       if (filtroEstadoActual === "descuento") cumpleEstado = tieneDescuento;
+      if (filtroEstadoActual === "carrito") cumpleEstado = enCarrito;
       // Evaluar Búsqueda de texto
       let cumpleTexto =
         queryText === "" ||
@@ -2278,6 +2316,8 @@ function aplicarFiltroYMetricas() {
     totalCategoriasVisibles,
   );
   animarContador(document.getElementById("stat-descuento"), totalDescuento);
+  animarContador(document.getElementById("stat-carrito"), totalCarrito);
+  pintarMaxCategorias();
   const hayCategorias = categorias.length > 0;
   if (hayCategorias && !algunElementoVisibleTotal) {
     emptySearch.style.display = "block";
@@ -2287,6 +2327,14 @@ function aplicarFiltroYMetricas() {
 }
 
 /* ---------------- Suscripción General ---------------- */
+initImportador({
+  categoriasRef,
+  productosRef,
+  storage,
+  storagePathProducto,
+  toast,
+  getEsRestaurante: () => esRestaurante,
+});
 const qCategorias = query(categoriasRef, orderBy("createdAt", "asc"));
 onSnapshot(
   qCategorias,

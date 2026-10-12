@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Probar y editar servicios Geinz</title>
+<title>Administrar servicios Geinz</title>
 <style>
   :root { --bg:#0f172a; --card:#1e293b; --bd:#334155; --tx:#e2e8f0; --mut:#94a3b8; --ac:#38bdf8; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; }
   * { box-sizing: border-box; }
@@ -12,21 +12,29 @@
   form#f { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; background:var(--card); padding:14px; border-radius:10px; border:1px solid var(--bd); }
   label { font-size:12px; color:var(--mut); display:flex; flex-direction:column; gap:4px; }
   input, select, textarea { padding:7px 8px; border-radius:6px; border:1px solid var(--bd); background:var(--bg); color:var(--tx); font:inherit; font-size:13px; }
-  input[type=checkbox] { width:18px; height:18px; padding:0; accent-color:var(--ok); }
   button { font:inherit; cursor:pointer; }
   .btn { padding:10px; border:0; border-radius:6px; background:var(--ac); color:#04202e; font-weight:700; }
   form#f .btn { grid-column:1/-1; }
   #estado { margin:14px 0; font-size:13px; color:var(--mut); word-break:break-all; line-height:1.5; }
   #estado.error { color:var(--bad); } #estado.ok { color:var(--ok); }
-  #barra { display:none; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
-  #barra small { color:var(--mut); }
+
+  /* Barra de herramientas: búsqueda + filtros + guardar */
+  #barra { display:none; position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--bd); margin-bottom:12px; }
+  #buscar { flex:1 1 260px; min-width:200px; font-size:14px; padding:9px 12px; }
+  .chips { display:flex; gap:6px; }
+  .chip { padding:6px 12px; border-radius:999px; border:1px solid var(--bd); background:var(--card); color:var(--mut); font-size:12px; }
+  .chip.on { background:var(--ac); color:#04202e; border-color:var(--ac); font-weight:700; }
+  #cuenta { font-size:12px; color:var(--mut); }
+  #barra small { color:var(--mut); flex-basis:100%; }
+
   details { margin:4px 0 4px 14px; border-left:2px solid var(--bd); padding-left:10px; }
   details > summary { cursor:pointer; padding:4px 0; font-weight:600; }
   .tipo { font-weight:400; font-size:11px; color:var(--mut); margin-left:6px; }
   .raiz > details { margin-left:0; background:var(--card); border:1px solid var(--bd); border-radius:10px; padding:8px 12px; margin-bottom:10px; }
   .raiz > details > summary { color:var(--ac); font-size:16px; }
   .fila { display:flex; align-items:center; gap:8px; padding:3px 0 3px 14px; font-size:13px; flex-wrap:wrap; }
-  .fila .k { color:var(--mut); min-width:190px; }
+  .fila .k { color:var(--tx); min-width:220px; }
+  .fila .k small { color:var(--mut); font-size:11px; margin-left:4px; }
   .fila input[type=text], .fila input[type=number], .fila input[type=datetime-local] { min-width:180px; }
   .v-null { color:var(--mut); font-style:italic; }
   .acc { margin-left:12px; }
@@ -34,6 +42,18 @@
   .mini.verde { background:#14532d; border-color:#166534; }
   .mini.rojo { background:#450a0a; border-color:#7f1d1d; }
   .dirty { color:var(--warn); font-size:11px; font-weight:400; margin-left:8px; }
+  mark { background:#854d0e; color:#fef3c7; border-radius:3px; padding:0 2px; }
+
+  /* Interruptor para booleanos */
+  .sw { position:relative; display:inline-block; width:40px; height:22px; flex:none; }
+  .sw input { opacity:0; width:100%; height:100%; margin:0; position:absolute; inset:0; cursor:pointer; z-index:1; }
+  .sw span { position:absolute; inset:0; background:#475569; border-radius:999px; transition:background .15s; }
+  .sw span::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .15s; }
+  .sw input:checked + span { background:#16a34a; }
+  .sw input:checked + span::after { transform:translateX(18px); }
+  .sw input:focus-visible + span { outline:2px solid var(--ac); outline-offset:2px; }
+  .sino { font-size:12px; min-width:26px; color:var(--mut); }
+
   pre { background:var(--card); padding:12px; border-radius:8px; overflow:auto; font-size:12px; border:1px solid var(--bd); }
   dialog { background:var(--card); color:var(--tx); border:1px solid var(--bd); border-radius:12px; padding:18px; width:min(420px,92vw); }
   dialog::backdrop { background:rgba(0,0,0,.6); }
@@ -44,7 +64,7 @@
 </style>
 </head>
 <body>
-  <h1>Probar y editar tiendas_servicios_geinz_activos</h1>
+  <h1>Administrar tiendas_servicios_geinz_activos</h1>
 
   <form id="f">
     <label>País <input name="pais" value="peru"></label>
@@ -58,6 +78,15 @@
   <div id="estado"></div>
 
   <div id="barra">
+    <input id="buscar" type="search" placeholder="Buscar en los datos: nombre, ruta o valor (ej: mesas, delivery, true, 10)" autocomplete="off">
+    <div class="chips" id="chips">
+      <button type="button" class="chip on" data-f="todos">Todos</button>
+      <button type="button" class="chip" data-f="true">Activados</button>
+      <button type="button" class="chip" data-f="false">Desactivados</button>
+    </div>
+    <button type="button" class="mini" id="expandir">Expandir todo</button>
+    <button type="button" class="mini" id="contraer">Contraer todo</button>
+    <span id="cuenta"></span>
     <button id="guardarTodo" class="btn" type="button">Guardar todo lo modificado</button>
     <small>"Guardar" reemplaza el apartado completo en Firestore con lo que ves aquí.</small>
   </div>
@@ -99,7 +128,32 @@
   </dialog>
 
 <script type="module">
-  import { obtenerServiciosGeinz, guardarServiciosGeinz } from "../js/structure/structure_min.js";
+  // structure_min.js NO se modifica. Las funciones se buscan y validan antes de usarlas.
+  // Si guardarServiciosGeinz vive en otro archivo (ej. servicios_geinz.js), agrega su ruta aquí.
+  const CANDIDATOS = [
+    "./servicio_geinz_admin.js",
+  ];
+  let api = null;
+  async function cargarApi() {
+    if (api) return api;
+    const encontrado = { obtener: null, guardar: null, detalle: [] };
+    for (const ruta of CANDIDATOS) {
+      try {
+        const m = await import(ruta);
+        const exp = Object.keys(m);
+        encontrado.detalle.push(`${ruta} → exports: ${exp.join(", ") || "(ninguno)"}`);
+        if (!encontrado.obtener && typeof m.obtenerServiciosGeinz === "function") encontrado.obtener = m.obtenerServiciosGeinz;
+        if (!encontrado.guardar && typeof m.guardarServiciosGeinz === "function") encontrado.guardar = m.guardarServiciosGeinz;
+      } catch (e) {
+        encontrado.detalle.push(`${ruta} → no se pudo cargar (${e.message})`);
+      }
+    }
+    if (!encontrado.obtener) {
+      throw new Error("No existe obtenerServiciosGeinz en ningún archivo.\n" + encontrado.detalle.join("\n"));
+    }
+    api = encontrado;
+    return api;
+  }
   import { Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const $f = document.getElementById("f");
@@ -107,29 +161,55 @@
   const $res = document.getElementById("resultado");
   const $crudo = document.getElementById("crudo");
   const $barra = document.getElementById("barra");
+  const $buscar = document.getElementById("buscar");
+  const $cuenta = document.getElementById("cuenta");
   const $dlg = document.getElementById("dlg");
   const $df = document.getElementById("df");
 
-  let datos = null;            // copia en memoria que editas
-  let params = null;           // parámetros con los que se cargó (se guarda en ESA ruta)
+  let datos = null;
+  let params = null;
   let rutaDoc = "";
-  const dirty = new Set();     // apartados modificados sin guardar
-  const cerrados = new Set();  // nodos que el usuario cerró
+  let consulta = "";           // texto del buscador
+  let filtroEstado = "todos";  // todos | true | false
+  const dirty = new Set();
+  const cerrados = new Set();
+  let forzarAbrir = null;      // true = todo abierto, false = todo cerrado (una sola vez)
 
-  // Parámetros por URL: ?pais=..&departamento=..&provincia=..&localidad=..&negocioId=..
   const url = new URLSearchParams(location.search);
   for (const [k, v] of url) if ($f.elements[k]) $f.elements[k].value = v;
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
   const attr = (path) => esc(JSON.stringify(path));
+  const norm = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const TIPOS = ["string", "number", "boolean", "null", "timestamp"];
+
+  // Nombres entendibles (solo para mostrar; el campo real sigue siendo la clave de Firestore)
+  const ETQ = {
+    plan:"Tu plan", fecha_fin:"Vence el", creditos_ia500:"Créditos de IA", roles_max:"Trabajadores / roles permitidos",
+    cliente_y_fidelizacion:"Clientes y fidelización", mi_negocio:"Mi negocio", operacion_ventas:"Operación y ventas", panel_admin:"Panel y límites",
+    cupones_puntos:"Cupones y puntos", cupones_metricas:"Estadísticas de cupones", miqr:"Mi QR", carta:"Carta digital",
+    libro_reclamaciones:"Libro de reclamaciones", mesas:"Mesas", cantidad_max:"Máximo de mesas", mis_productos:"Mis productos",
+    perfil:"Perfil del negocio", review:"Reseñas", mis_usuarios:"Mis usuarios", publicidad_ofertas:"Publicidad y ofertas",
+    mis_publicaciones:"Mis publicaciones", ofertas:"Ofertas", baner:"Banner", cantidad_ofertas:"Máximo de ofertas",
+    publicidad:"Publicidad", fanpage:"Fan page", comprobantes:"Comprobantes", legal:"Legal", politicas:"Políticas de privacidad",
+    terminos:"Términos y condiciones", mis_trabajadores:"Mis trabajadores", historial_ventas:"Historial de ventas",
+    pedidos_vivos:"Pedidos en vivo", activo:"Activado", auto_off:"Apagado automático", auto_reserva:"Reserva automática",
+    delivery_config:"Configuración de delivery", estado_pedidos:"Estados de pedidos", mis_delivery:"Mis repartidores",
+    maximo_delivery:"Máximo de repartidores", tiempos:"Tiempos de entrega", mesa:"Pedidos por mesa", config_mesas:"Configurar mesas",
+    mozos:"Mozos", nuevo_pedido:"Nuevo pedido", uso_camara_scaner:"Escanear con la cámara", uso_celular_scaner:"Escanear con el celular",
+    produtos:"Productos", cantidad_imagenes_colecciones:"Imágenes por colección", colecciones:"Colecciones",
+    config_avanzado:"Configuración avanzada", variantes_maximas:"Variantes máximas por producto", max_colecciones:"Máximo de colecciones",
+    max_productos_por_colecciones:"Máximo de productos por colección", modo_avanzado:"Modo avanzado", modo_basico:"Modo básico",
+    carrito:"Carrito de compras",
+  };
+  const etiquetaDe = (k) => (typeof k === "string" && ETQ[k]) || null;
 
   function tipoDe(v) {
     if (v === null || v === undefined) return "null";
     if (Array.isArray(v)) return "array";
     if (v instanceof Timestamp) return "timestamp";
     if (typeof v === "object") return "map";
-    return typeof v; // string | number | boolean
+    return typeof v;
   }
 
   const getAt = (path) => path.reduce((o, k) => o[k], datos);
@@ -140,42 +220,103 @@
     return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
+  // ───────── Búsqueda / filtro ─────────
+  const q = () => norm(consulta.trim());
+
+  function textoValor(v) {
+    const t = tipoDe(v);
+    if (t === "timestamp") return v.toDate().toISOString();
+    if (t === "null") return "null";
+    return String(v);
+  }
+
+  // ¿el nombre (clave o etiqueta bonita) coincide con la búsqueda?
+  function nombreCoincide(clave) {
+    const b = q();
+    if (!b) return true;
+    return norm(clave).includes(b) || norm(etiquetaDe(clave) || "").includes(b);
+  }
+
+  // ¿se muestra este nodo? (recursivo). forzar = un ancestro coincidió, se muestra todo lo de adentro.
+  function visible(clave, valor, forzar) {
+    const t = tipoDe(valor);
+    const coincide = !q() || forzar || nombreCoincide(clave);
+    if (t === "map" || t === "array") {
+      const ent = t === "map" ? Object.entries(valor) : valor.map((x, i) => [i, x]);
+      if (!ent.length) return filtroEstado === "todos" && coincide;
+      return ent.some(([k, x]) => visible(k, x, coincide && (!!q() ? (forzar || nombreCoincide(clave)) : false)));
+    }
+    // hoja
+    if (filtroEstado === "true" && valor !== true) return false;
+    if (filtroEstado === "false" && valor !== false) return false;
+    if (!q()) return true;
+    return forzar || nombreCoincide(clave) || norm(textoValor(valor)).includes(q());
+  }
+
+  function resaltar(texto) {
+    const b = consulta.trim();
+    const s = esc(texto);
+    if (!b) return s;
+    const re = new RegExp(b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[<>&"']/g, ""), "gi");
+    try { return s.replace(re, (m) => `<mark>${m}</mark>`); } catch { return s; }
+  }
+
   // ───────── Render ─────────
+  let visibles = 0;
+
   function control(t, v, p) {
-    if (t === "boolean") return `<input type="checkbox" data-act="val" data-path="${p}" ${v ? "checked" : ""}>`;
+    if (t === "boolean") return `<label class="sw"><input type="checkbox" data-act="val" data-path="${p}" ${v ? "checked" : ""}><span></span></label><span class="sino">${v ? "Sí" : "No"}</span>`;
     if (t === "number")  return `<input type="number" step="any" value="${v}" data-act="val" data-path="${p}">`;
     if (t === "string")  return `<input type="text" value="${esc(v)}" data-act="val" data-path="${p}">`;
     if (t === "timestamp") return `<input type="datetime-local" value="${aLocalInput(v.toDate())}" data-act="val" data-path="${p}">`;
     return `<span class="v-null">null</span>`;
   }
 
-  function renderNodo(clave, valor, path) {
+  function nombreHtml(clave, esItemArray) {
+    if (esItemArray) return `[${esc(clave)}]`;
+    const bonito = etiquetaDe(clave);
+    return bonito
+      ? `${resaltar(bonito)}<small>${resaltar(clave)}</small>`
+      : resaltar(clave);
+  }
+
+  function renderNodo(clave, valor, path, forzar) {
+    if (!visible(clave, valor, forzar)) return "";
     const t = tipoDe(valor);
     const p = attr(path);
     const raiz = path.length === 1;
+    const enArray = Array.isArray(parentOf(path)) && !raiz;
     const del = raiz ? "" : `<button class="mini rojo" data-act="del" data-path="${p}" title="Eliminar">🗑</button>`;
-    const etiqueta = Array.isArray(parentOf(path)) && !raiz ? `[${clave}]` : clave;
+    const coincide = !!q() && (forzar || nombreCoincide(clave));
 
     if (t === "map" || t === "array") {
       const entradas = t === "map" ? Object.entries(valor) : valor.map((x, i) => [i, x]);
-      const hijos = entradas.map(([k, x]) => renderNodo(k, x, [...path, k])).join("");
-      const abierto = cerrados.has(JSON.stringify(path)) ? "" : "open";
+      const hijos = entradas.map(([k, x]) => renderNodo(k, x, [...path, k], coincide)).join("");
+      const pk = JSON.stringify(path);
+      let abierto = !cerrados.has(pk);
+      if (forzarAbrir !== null) abierto = forzarAbrir;
+      if (q() || filtroEstado !== "todos") abierto = true;
       const guardar = raiz
         ? `<button class="mini verde" data-act="save" data-path="${p}">Guardar</button><span class="dirty">${dirty.has(clave) ? "● sin guardar" : ""}</span>`
         : "";
-      return `<details ${abierto} data-pk="${esc(JSON.stringify(path))}" ${raiz ? `data-root="${esc(clave)}"` : ""}>
-        <summary>${esc(etiqueta)}<span class="tipo">${t} · ${entradas.length}</span>
+      return `<details ${abierto ? "open" : ""} data-pk="${esc(pk)}" ${raiz ? `data-root="${esc(clave)}"` : ""}>
+        <summary>${nombreHtml(clave, enArray)}<span class="tipo">${t} · ${entradas.length}</span>
           <span class="acc"><button class="mini" data-act="add" data-path="${p}">+ campo</button> ${guardar} ${del}</span>
         </summary>${hijos || '<div class="fila"><span class="v-null">(vacío)</span></div>'}</details>`;
     }
 
+    visibles++;
     const opciones = TIPOS.map((x) => `<option value="${x}" ${x === t ? "selected" : ""}>${x}</option>`).join("");
-    return `<div class="fila"><span class="k">${esc(etiqueta)}</span>${control(t, valor, p)}
+    return `<div class="fila"><span class="k">${nombreHtml(clave, enArray)}</span>${control(t, valor, p)}
       <select data-act="tipo" data-path="${p}" title="Cambiar tipo">${opciones}</select>${del}</div>`;
   }
 
   function render() {
-    $res.innerHTML = Object.keys(datos).map((k) => renderNodo(k, datos[k], [k])).join("");
+    visibles = 0;
+    const html = Object.keys(datos).map((k) => renderNodo(k, datos[k], [k], false)).join("");
+    forzarAbrir = null;
+    $res.innerHTML = html || '<p class="v-null">Nada coincide con la búsqueda o el filtro.</p>';
+    $cuenta.textContent = (q() || filtroEstado !== "todos") ? `${visibles} campo(s)` : "";
     refrescarCrudo();
   }
 
@@ -193,7 +334,6 @@
     refrescarCrudo();
   }
 
-  // ───────── Conversión de tipo ─────────
   function convertir(v, a) {
     switch (a) {
       case "string": return v === null ? "" : v instanceof Timestamp ? v.toDate().toISOString() : String(v);
@@ -204,6 +344,35 @@
     }
   }
 
+  // ───────── Buscador y filtros ─────────
+  let temporizador;
+  $buscar.addEventListener("input", () => {
+    clearTimeout(temporizador);
+    temporizador = setTimeout(() => { consulta = $buscar.value; if (datos) render(); }, 150);
+  });
+
+  document.getElementById("chips").addEventListener("click", (e) => {
+    const c = e.target.closest(".chip");
+    if (!c) return;
+    filtroEstado = c.dataset.f;
+    document.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === c));
+    if (datos) render();
+  });
+
+  document.getElementById("expandir").onclick = () => { cerrados.clear(); forzarAbrir = true; if (datos) render(); };
+  document.getElementById("contraer").onclick = () => {
+    if (!datos) return;
+    const marcar = (v, path) => {
+      const t = tipoDe(v);
+      if (t !== "map" && t !== "array") return;
+      cerrados.add(JSON.stringify(path));
+      (t === "map" ? Object.entries(v) : v.map((x, i) => [i, x])).forEach(([k, x]) => marcar(x, [...path, k]));
+    };
+    Object.keys(datos).forEach((k) => marcar(datos[k], [k]));
+    forzarAbrir = false;
+    render();
+  };
+
   // ───────── Eventos del árbol ─────────
   $res.addEventListener("change", (e) => {
     const el = e.target;
@@ -213,8 +382,11 @@
 
     if (act === "val") {
       let nuevo;
-      if (el.type === "checkbox") nuevo = el.checked;
-      else if (el.type === "number") {
+      if (el.type === "checkbox") {
+        nuevo = el.checked;
+        const sino = el.closest(".fila")?.querySelector(".sino");
+        if (sino) sino.textContent = nuevo ? "Sí" : "No";
+      } else if (el.type === "number") {
         nuevo = parseFloat(el.value);
         if (Number.isNaN(nuevo)) { alert("Número inválido"); el.value = getAt(path); return; }
       } else if (el.type === "datetime-local") {
@@ -224,6 +396,8 @@
       } else nuevo = el.value;
       parentOf(path)[path.at(-1)] = nuevo;
       marcarSucio(path[0]);
+      // si hay filtro Activados/Desactivados, refrescar para que el campo cambie de lista
+      if (filtroEstado !== "todos" && el.type === "checkbox") render();
     }
 
     if (act === "tipo") {
@@ -255,10 +429,10 @@
     if (b.dataset.act === "save") guardar([path[0]]);
   });
 
-  // recordar qué nodos cierra el usuario
   $res.addEventListener("toggle", (e) => {
     const d = e.target;
     if (d.tagName !== "DETAILS" || !d.dataset.pk) return;
+    if (q() || filtroEstado !== "todos") return; // durante la búsqueda no se recuerda el estado
     d.open ? cerrados.delete(d.dataset.pk) : cerrados.add(d.dataset.pk);
   }, true);
 
@@ -334,7 +508,8 @@
     $res.innerHTML = "";
     $barra.style.display = "none";
     try {
-      const r = await obtenerServiciosGeinz(p);
+      const A = await cargarApi();
+      const r = await A.obtener(p);
       if (!r.existe) {
         $estado.className = "error";
         $estado.textContent = `No existe el documento: ${r.ruta}`;
@@ -343,6 +518,7 @@
       }
       datos = r.datos; params = p; rutaDoc = r.ruta;
       dirty.clear(); cerrados.clear();
+      consulta = ""; $buscar.value = "";
       $estado.innerHTML = `✔ ${esc(r.ruta)}<br>Traídos: ${Object.keys(r.datos).join(", ") || "(ninguno)"}` +
         (r.faltantes?.length ? `<br>No existen en el doc: ${r.faltantes.join(", ")}` : "") +
         `<br>Ignorados (a mano): ${r.ignorados.join(", ") || "(ninguno)"}`;
@@ -358,11 +534,19 @@
   async function guardar(raices) {
     if (!params || !datos) return;
     if (!raices.length) { alert("No hay cambios sin guardar"); return; }
-    if (!confirm(`Se reemplazarán en Firestore:\n• ${raices.join("\n• ")}\n\n${rutaDoc}`)) return;
     try {
+      const A = await cargarApi();
+      if (!A.guardar) {
+        $estado.className = "error";
+        $estado.innerHTML = "No existe <b>guardarServiciosGeinz</b> en ningún archivo, no se guardó nada.<br>" +
+          A.detalle.map(esc).join("<br>") +
+          "<br>Agrega la ruta del archivo que sí la exporta en CANDIDATOS.";
+        return;
+      }
+      if (!confirm(`Se reemplazarán en Firestore:\n• ${raices.join("\n• ")}\n\n${rutaDoc}`)) return;
       const cambios = {};
       raices.forEach((k) => (cambios[k] = datos[k]));
-      const r = await guardarServiciosGeinz({ ...params, cambios });
+      const r = await A.guardar({ ...params, cambios });
       raices.forEach((k) => dirty.delete(k));
       render();
       $estado.className = "ok";

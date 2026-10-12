@@ -212,8 +212,8 @@ function reenviarDatosAlIframe(iframe) {
     // Si la sección abierta ya no está permitida, volver a Inicio
     if (_servicios !== null && window.PanelPerfil?.showSection) {
       const activa = document.querySelector(".section.active");
-let key = activa?.id?.replace(/^sec-/, "");
-if (key === "comprobante") key = "comprobantes";
+      let key = activa?.id?.replace(/^sec-/, "");
+      if (key === "comprobante") key = "comprobantes";
       if (key && SECCIONES.includes(key) && !puedeVer(key)) {
         window.PanelPerfil.showSection("inicio");
       }
@@ -260,12 +260,13 @@ window.addEventListener("message", function (e) {
   const { tipo, seccion } = e.data || {};
   if (tipo !== "NAVEGAR") return;
 
-const destino = seccion || "perfil";
-const destinoKey = destino === "comprobante" ? "comprobantes" : destino;
+  const destino = seccion || "perfil";
+  const destinoKey = destino === "comprobante" ? "comprobantes" : destino;
 
-// Bloqueo final: si plan o rol no lo permiten, no se abre
-if (window.PanelVisibilidad && !window.PanelVisibilidad.puedeVer(destinoKey)) return;
+  // Bloqueo final: si plan o rol no lo permiten, no se abre
+  if (window.PanelVisibilidad && !window.PanelVisibilidad.puedeVer(destinoKey))
     return;
+  return;
 
   const P = window.PanelPerfil;
   if (P) {
@@ -314,15 +315,21 @@ window.addEventListener("message", function (e) {
   });
 });
 // ===== SERVICIOS → iframes que lo necesitan =====
-window._serviciosCompleto = window._serviciosCompleto || null;
-const IFRAMES_SERVICIOS = ["iframeLegal", "iframeProductos"];
 
+// ===== SERVICIOS → iframes que lo necesitan =====
+window._serviciosCompleto = window._serviciosCompleto || null;
+const IFRAMES_SERVICIOS = [
+  "iframeLegal",
+  "iframeProductos",
+  "iframeMiQr",
+  "iframePedidos",
+];
 function enviarServicios(iframe) {
   if (!iframe || !window._serviciosCompleto) return;
   try {
     iframe.contentWindow.postMessage(
       { type: "SERVICIOS_UPDATE", servicios: window._serviciosCompleto },
-      window.location.origin
+      window.location.origin,
     );
   } catch (e) {}
 }
@@ -332,12 +339,47 @@ window.addEventListener("message", (e) => {
 
   if (e.data?.type === "SERVICIOS_UPDATE") {
     window._serviciosCompleto = e.data.servicios_completo || null;
-    IFRAMES_SERVICIOS.forEach((id) => enviarServicios(document.getElementById(id)));
+    IFRAMES_SERVICIOS.forEach((id) =>
+      enviarServicios(document.getElementById(id)),
+    );
   }
   if (e.data?.type === "PEDIR_DATOS_TIENDA") {
-    const origen = IFRAMES_SERVICIOS
-      .map((id) => document.getElementById(id))
-      .find((f) => f?.contentWindow === e.source);
+    const origen = IFRAMES_SERVICIOS.map((id) =>
+      document.getElementById(id),
+    ).find((f) => f?.contentWindow === e.source);
     enviarServicios(origen);
+  }
+});
+
+// ===== PERMISOS → iframe fidelización =====
+function enviarPermisosFidelizacion() {
+  const f = document.getElementById("iffidelizacion");
+  const cp =
+    window._serviciosCompleto?.cliente_y_fidelizacion?.cupones_puntos || {};
+  const max = Number(cp.maximo_cupones);
+  try {
+    f?.contentWindow?.postMessage(
+      {
+        type: "permisos_fidelizacion",
+        programa: cp.activo === true,
+        cupones: cp.creacion_cupones === true,
+        maximo: Number.isFinite(max) ? max : null,
+      },
+      window.location.origin,
+    );
+  } catch (e) {}
+}
+
+document
+  .getElementById("iffidelizacion")
+  ?.addEventListener("load", enviarPermisosFidelizacion);
+
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (
+    e.data?.type === "SERVICIOS_UPDATE" ||
+    e.data?.type === "PEDIR_PERMISOS_FIDELIZACION"
+  ) {
+    enviarPermisosFidelizacion();
   }
 });

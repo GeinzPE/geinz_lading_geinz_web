@@ -25,7 +25,6 @@ const NO_MOSTRAR = new Set([
   "panel_admin.creditos_ia500",
   "panel_admin.roles_max",
 ]);
-
 // "a.b.c" → obj.a.b.c (o undefined)
 export function leer(obj, ruta) {
   return ruta.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
@@ -43,26 +42,48 @@ export function leer(obj, ruta) {
 // Si la ruta es un mapa, basta con que haya un true adentro.
 export const RUTAS_SECCION = {
   // Mi negocio
-  perfil:       { nuevo: ["mi_negocio.perfil"], viejo: null },
+  perfil: { nuevo: ["mi_negocio.perfil"], viejo: null },
   comprobantes: { nuevo: ["mi_negocio.comprobantes"], viejo: [] },
   trabajadores: { nuevo: ["mi_negocio.mis_trabajadores"], viejo: [] },
   legal: {
     nuevo: ["mi_negocio.legal"],
-    viejo: ["libro_reclamaciones", "politicas_privacidad", "terminos_condiciones"],
+    viejo: [
+      "libro_reclamaciones",
+      "politicas_privacidad",
+      "terminos_condiciones",
+    ],
   },
   // Operación y ventas
-  pedidos:   { nuevo: ["operacion_ventas.pedidos_vivos"], viejo: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"] },
+  pedidos: {
+    nuevo: ["operacion_ventas.pedidos_vivos"],
+    viejo: ["pedidios_vivos", "pedidos_mesas", "pedidos_presencial"],
+  },
   productos: { nuevo: ["operacion_ventas.produtos"], viejo: ["productos"] },
-  historial: { nuevo: ["operacion_ventas.historial_ventas"], viejo: ["historial_ventas"] },
+  historial: {
+    nuevo: ["operacion_ventas.historial_ventas"],
+    viejo: ["historial_ventas"],
+  },
   // Clientes y fidelización
-  usuarios:         { nuevo: ["cliente_y_fidelizacion.mis_usuarios"], viejo: [] },
-  fidelizacion:     { nuevo: ["cliente_y_fidelizacion.cupones_puntos"], viejo: ["fidelizacion"] },
-  publicidad:       { nuevo: ["cliente_y_fidelizacion.publicidad_ofertas"], viejo: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"] },
-  mispublicaciones: { nuevo: ["cliente_y_fidelizacion.miqr.review", "cliente_y_fidelizacion.publicidad_ofertas.publicidad.review"], viejo: ["review"] },
-  qr:               { nuevo: ["cliente_y_fidelizacion.miqr"], viejo: ["qr_general"] },
+  usuarios: { nuevo: ["cliente_y_fidelizacion.mis_usuarios"], viejo: [] },
+  fidelizacion: {
+    nuevo: [
+      "cliente_y_fidelizacion.cupones_puntos.activo",
+      "cliente_y_fidelizacion.cupones_puntos.creacion_cupones",
+    ],
+    viejo: ["fidelizacion"],
+  },
+  publicidad: {
+    nuevo: ["cliente_y_fidelizacion.publicidad_ofertas"],
+    viejo: ["publicidad_perfil", "publicidad_dias", "publicidad_estatica"],
+  },
+  mispublicaciones: {
+    nuevo: ["cliente_y_fidelizacion.review"],
+    viejo: ["review"],
+  },
+  qr: { nuevo: ["cliente_y_fidelizacion.miqr"], viejo: ["qr_general"] },
   // Sin dependencia del plan
   historialgasto: { nuevo: [], viejo: null },
-  recargas:       { nuevo: [], viejo: null },
+  recargas: { nuevo: [], viejo: null },
 };
 
 // true si es true, o si es un mapa con algún true adentro
@@ -78,7 +99,9 @@ export function seccionDelPlan(servicios, key) {
   if (!r) return false;
 
   // Manda la estructura nueva si el doc la trae
-  const valores = (r.nuevo || []).map((p) => leer(servicios, p)).filter((v) => v !== undefined);
+  const valores = (r.nuevo || [])
+    .map((p) => leer(servicios, p))
+    .filter((v) => v !== undefined);
   if (valores.length) return valores.some(hayTrue);
 
   // Sin dato en el doc: siempre disponible
@@ -95,7 +118,9 @@ export function resumenPlan(s) {
   const ad = s?.apartados_dasboard || {};
   const fechaFin =
     pa.fecha_fin ??
-    (pa.timestamp_fin?.toDate ? pa.timestamp_fin.toDate().toLocaleDateString("es-PE") : null);
+    (pa.timestamp_fin?.toDate
+      ? pa.timestamp_fin.toDate().toLocaleDateString("es-PE")
+      : null);
   return {
     plan: pa.plan ?? s?.plan ?? null,
     fechaFin,
@@ -113,10 +138,19 @@ export function aplanarApartados(s) {
   const rec = (obj, ruta) => {
     for (const [k, v] of Object.entries(obj || {})) {
       const r = [...ruta, k];
-      const esMapa = v && typeof v === "object" && !Array.isArray(v) && typeof v.toDate !== "function";
+      const esMapa =
+        v &&
+        typeof v === "object" &&
+        !Array.isArray(v) &&
+        typeof v.toDate !== "function";
       if (esMapa) rec(v, r);
       else if (!NO_MOSTRAR.has(r.join("."))) {
-        out.push({ grupo: r[0], ruta: r.join("."), etiqueta: r.slice(1).join(" › "), valor: v });
+        out.push({
+          grupo: r[0],
+          ruta: r.join("."),
+          etiqueta: r.slice(1).join(" › "),
+          valor: v,
+        });
       }
     }
   };
@@ -125,7 +159,13 @@ export function aplanarApartados(s) {
 }
 
 const e = (t) =>
-  String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  String(t ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
 
 // Chip de un apartado (usa tus clases .admin-tag y .perm-tag)
 export function htmlApartado(a) {
@@ -135,14 +175,19 @@ export function htmlApartado(a) {
       ? `<span class="admin-tag">${nombre}</span>`
       : `<span class="perm-tag" style="opacity:.4;text-decoration:line-through;">${nombre}</span>`;
   }
-  const v = a.valor?.toDate ? a.valor.toDate().toLocaleDateString("es-PE") : a.valor;
+  const v = a.valor?.toDate
+    ? a.valor.toDate().toLocaleDateString("es-PE")
+    : a.valor;
   return `<span class="perm-tag">${nombre}: <b>${e(v)}</b></span>`;
 }
 // ══════════════════════════════════════════════════════════════
 //  DETALLE DEL PLAN: datos de la DB con nombres que entiende el dueño
 // ══════════════════════════════════════════════════════════════
 const esMapaDB = (v) =>
-  v && typeof v === "object" && !Array.isArray(v) && typeof v.toDate !== "function";
+  v &&
+  typeof v === "object" &&
+  !Array.isArray(v) &&
+  typeof v.toDate !== "function";
 
 // Campos técnicos que no aportan al dueño (timestamp_fin ya se ve en "Vence")
 const OCULTAR = new Set(["timestamp_fin", "modulos"]);
@@ -213,6 +258,7 @@ const ETQ = {
   modo_avanzado: "Modo avanzado",
   modo_basico: "Modo básico",
   carrito: "Carrito de compras",
+  maximo_cupones: "Máximo de cupones",
 };
 
 const nombreBonito = (k) => {
@@ -226,33 +272,56 @@ function fmtFechaFin(txt) {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(txt));
   if (!m) return String(txt);
   const f = new Date(+m[3], +m[2] - 1, +m[1], 23, 59, 59);
-  const larga = f.toLocaleDateString("es-PE", { day: "numeric", month: "long", year: "numeric" });
+  const larga = f.toLocaleDateString("es-PE", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   const dias = Math.ceil((f - new Date()) / 86400000);
-  const resto = dias > 1 ? ` · faltan ${dias} días` : dias === 1 ? " · vence mañana" : dias === 0 ? " · vence hoy" : " · vencido";
+  const resto =
+    dias > 1
+      ? ` · faltan ${dias} días`
+      : dias === 1
+        ? " · vence mañana"
+        : dias === 0
+          ? " · vence hoy"
+          : " · vencido";
   return `${larga}<span class="pl-resto${dias <= 7 ? " pl-urgente" : ""}">${resto}</span>`;
 }
 
 function htmlValor(k, v) {
   if (typeof v === "boolean")
-    return v ? `<span class="pl-si">✓ Incluido</span>` : `<span class="pl-no">No incluido</span>`;
+    return v
+      ? `<span class="pl-si">✓ Incluido</span>`
+      : `<span class="pl-no">No incluido</span>`;
   if (k === "fecha_fin") return fmtFechaFin(v);
-  if (k === "plan") return `<span class="pl-plan">${e(String(v).toUpperCase())}</span>`;
+  if (k === "plan")
+    return `<span class="pl-plan">${e(String(v).toUpperCase())}</span>`;
   if (typeof v === "number") return `<b>${e(v)}</b>`;
-  if (v && typeof v.toDate === "function") return e(v.toDate().toLocaleDateString("es-PE"));
+  if (v && typeof v.toDate === "function")
+    return e(v.toDate().toLocaleDateString("es-PE"));
   return e(v ?? "—");
 }
 
 function htmlNodo(obj) {
   const entradas = Object.entries(obj || {}).filter(([k]) => !OCULTAR.has(k));
   const filas = entradas.filter(([, v]) => !esMapaDB(v));
-  const mapas = entradas.filter(([, v]) => esMapaDB(v) && Object.keys(v).some((k) => !OCULTAR.has(k)));
+  const mapas = entradas.filter(
+    ([, v]) => esMapaDB(v) && Object.keys(v).some((k) => !OCULTAR.has(k)),
+  );
 
   const htmlFilas = filas
-    .map(([k, v]) => `<div class="pl-row"><span class="pl-k">${e(nombreBonito(k))}</span><span class="pl-v">${htmlValor(k, v)}</span></div>`)
+    .map(
+      ([k, v]) =>
+        `<div class="pl-row"><span class="pl-k">${e(nombreBonito(k))}</span><span class="pl-v">${htmlValor(k, v)}</span></div>`,
+    )
     .join("");
 
   const htmlMapas = mapas
-    .map(([k, v]) => `<div class="pl-sub"><p class="pl-sub-t">${e(nombreBonito(k))}</p>${htmlNodo(v)}</div>`)
+    .map(
+      ([k, v]) =>
+        `<div class="pl-sub"><p class="pl-sub-t">${e(nombreBonito(k))}</p>${htmlNodo(v)}</div>`,
+    )
     .join("");
 
   return htmlFilas + htmlMapas;
@@ -268,4 +337,11 @@ export function htmlDetallePlan(s) {
       </div>`,
     )
     .join("");
+}
+export function permisosFidelizacion(s) {
+  const cp = leer(s, "cliente_y_fidelizacion.cupones_puntos") || {};
+  return {
+    programa: cp.activo === true,
+    cupones: cp.creacion_cupones === true,
+  };
 }

@@ -832,6 +832,7 @@ const MAPA_CSS = `
     overflow:visible;
   }
 }
+  #mesasStripWrap .mesas-panel-body{flex:1;min-height:0;overflow-y:auto;}
 `;
 
 styleTag.textContent =
@@ -2265,7 +2266,7 @@ function recargoEnHora(r, f = new Date()) {
   return dentro ? monto : 0;
 }
 function calcularPrecioDelivery(distKm) {
-    if (!PLAN_PED.deliveryCfg) return null;
+  if (!PLAN_PED.deliveryCfg) return null;
   if (!deliEnabled || !deliHace) return null;
   const rec = recargoEnHora(deliRecargo);
   if (deliModo === "fija") return deliFija + rec;
@@ -2577,7 +2578,12 @@ function pintarTimersReserva() {
     el.classList.toggle("urgent", restanteMin <= 3);
   });
 }
-
+function maxMesasPlan() {
+  const n = Number(
+    PLAN_SERV?.cliente_y_fidelizacion?.miqr?.mesas?.cantidad_max,
+  );
+  return Number.isFinite(n) ? n : null;
+}
 function renderMesaGrid() {
   const grid = document.getElementById("mesaGrid");
   if (!grid) return;
@@ -2589,10 +2595,9 @@ function renderMesaGrid() {
   });
   pintarBarraSeleccion();
 
-  const todas = [...mesasMap.values()].sort(
-    (a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0),
-  );
-
+  const todas = [...mesasMap.values()]
+    .sort((a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0))
+    .slice(0, maxMesasPlan() ?? undefined);
   const conEstado = todas.map((m) => {
     const activos = getPedidosDeMesa(m.numero_mesa);
     const estadoVisual = getMesaEstadoVisual(m, activos);
@@ -5468,7 +5473,7 @@ document.getElementById("statusTabs").addEventListener("click", (e) => {
 });
 /* ══════════════ Tamaño de los recuadros de mesa (ajustable, se recuerda) ══════════════ */
 const MESA_SIZES = {
-  chico: { col: 160, h: 130 },
+  chico: { col: 170, h: 150 },
   mediano: { col: 210, h: 168 },
   grande: { col: 270, h: 208 },
 };
@@ -5476,6 +5481,7 @@ let mesaSize = localStorage.getItem("geinz_mesa_size") || "mediano";
 
 function aplicarMesaSize() {
   const cfg = MESA_SIZES[mesaSize] || MESA_SIZES.mediano;
+  document.documentElement.dataset.mesaSize = mesaSize;
   document.documentElement.style.setProperty("--mesa-size", cfg.col + "px");
   document.documentElement.style.setProperty("--mesa-h", cfg.h + "px");
   document.querySelectorAll("#mesaSizeCtrl .ms-btn").forEach((btn) => {
@@ -8621,7 +8627,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
         cerrarSesionCelular();
       });
   });
-    aplicarPlanPedidos();
+  aplicarPlanPedidos();
 }
 function iniciarListener() {
   if (!tiendaId) return;
@@ -8898,6 +8904,7 @@ function dlvAbrirGestion() {
   dlvTab("contactos");
   dlvResetForm();
   dlvPintarLista();
+  if (originFilter === "mesa") renderMesaGrid();
   dlvManage.classList.add("show");
 }
 
@@ -9671,6 +9678,7 @@ function mcAbrir() {
   document.getElementById("mcList").innerHTML =
     [...mesasMap.entries()]
       .sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0))
+      .slice(0, maxMesasPlan() ?? undefined)
       .map(
         ([id, m]) => `
       <div class="dlv-item">
@@ -9784,7 +9792,7 @@ document.head.appendChild(extraStyle);
   estBtn.type = "button";
   estBtn.className = "oc-btn ghost";
   estBtn.textContent = "📋 Estados del pedido";
-    estBtn.id = "estBtn";
+  estBtn.id = "estBtn";
   estBtn.addEventListener("click", () => {
     estOv.querySelectorAll("[data-est]").forEach((i) => {
       if (!i.disabled) i.checked = estadoHabilitado(i.dataset.est);
@@ -9859,7 +9867,15 @@ if (cfgPanelEl) document.body.appendChild(cfgPanelEl);
 const fixStyle = document.createElement("style");
 fixStyle.textContent = `
 #cfgPanel{position:fixed !important;right:12px !important;left:auto !important;top:70px !important;margin:0 !important;transform:none !important;z-index:200 !important;}
-
+#mesaGrid{
+  align-content:start !important;
+  align-items:start !important;
+  grid-auto-rows:var(--mesa-h,168px) !important;
+}
+#mesaGrid .mesa-box{
+  height:var(--mesa-h,168px) !important;
+  min-height:0 !important;
+}
 #popBackdrop{
   position:fixed;inset:0;z-index:250;
   background:rgba(4,4,8,.72);
@@ -9884,6 +9900,50 @@ fixStyle.textContent = `
   opacity:1 !important;visibility:visible !important;pointer-events:auto !important;
   transform:translate(-50%,-50%) scale(1) !important;
   transition:opacity .25s ease, transform .32s cubic-bezier(.22,1,.36,1), visibility 0s;
+}
+  html[data-mesa-size="chico"] #mesaGrid .mesa-box{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:3px !important;
+  padding:10px 8px !important;
+  text-align:center !important;
+}
+html[data-mesa-size="chico"] #mesaGrid .mb-status{
+  position:static !important;
+  margin:0 !important;
+  font-size:9px !important;
+  order:-1;
+}
+html[data-mesa-size="chico"] #mesaGrid .mb-name{
+  font-size:13px !important;
+  line-height:1.15 !important;
+  margin:0 !important;
+}
+html[data-mesa-size="chico"] #mesaGrid .mb-total{
+  font-size:11px !important;
+  margin:0 !important;
+}
+html[data-mesa-size="chico"] #mesaGrid .mb-count,
+html[data-mesa-size="chico"] #mesaGrid .mesa-reserva-hora,
+html[data-mesa-size="chico"] #mesaGrid .mesa-reserva-timer,
+html[data-mesa-size="chico"] #mesaGrid .mesa-alerta-badge{
+  font-size:9.5px !important;
+  margin:0 !important;
+}
+html[data-mesa-size="chico"] #mesaGrid .mesa-reservar-btn,
+html[data-mesa-size="chico"] #mesaGrid .mesa-desagrupar-btn{
+  margin-top:4px !important;
+  padding:4px 0 !important;
+  font-size:10px !important;
+}
+html[data-mesa-size="chico"] #mesaGrid .mb-check{
+  top:6px !important;
+  left:6px !important;
+  width:18px !important;
+  height:18px !important;
+  font-size:10px !important;
 }
 `;
 document.head.appendChild(fixStyle);
@@ -9920,7 +9980,10 @@ const _on = (v) => {
 const _nodo = (o, k) => {
   if (!o || typeof o !== "object") return undefined;
   if (k in o) return o[k];
-  for (const v of Object.values(o)) { const r = _nodo(v, k); if (r !== undefined) return r; }
+  for (const v of Object.values(o)) {
+    const r = _nodo(v, k);
+    if (r !== undefined) return r;
+  }
   return undefined;
 };
 const _flag = (n, k) => (typeof n?.[k] === "boolean" ? n[k] : _on(n?.[k]));
@@ -9942,7 +10005,9 @@ function aplicarPlanPedidos(servicios) {
   const mes = _flag(mesa, "activo");
   const nue = _flag(nuevo, "activo");
   Object.assign(PLAN_PED, {
-    carrito: car, mesa: mes, nuevoPedido: nue,
+    carrito: car,
+    mesa: mes,
+    nuevoPedido: nue,
     tiempos: car && _flag(carrito, "tiempos"),
     estados: car && _flag(carrito, "estado_pedidos"),
     autoOff: car && _flag(carrito, "auto_off"),
@@ -9969,9 +10034,18 @@ function aplicarPlanPedidos(servicios) {
   ocultar(mcBtn, PLAN_PED.configMesas);
   ocultar(document.getElementById("npScanCamBtn"), PLAN_PED.camara);
   ocultar(document.getElementById("npScanPhoneBtn"), PLAN_PED.celular);
-  ocultar(document.querySelector('.origin-chip[data-origin="whatsapp"]'), PLAN_PED.carrito);
-  ocultar(document.querySelector('.origin-chip[data-origin="mesa"]'), PLAN_PED.mesa);
-  ocultar(document.querySelector('.origin-chip[data-origin="directo"]'), PLAN_PED.nuevoPedido);
+  ocultar(
+    document.querySelector('.origin-chip[data-origin="whatsapp"]'),
+    PLAN_PED.carrito,
+  );
+  ocultar(
+    document.querySelector('.origin-chip[data-origin="mesa"]'),
+    PLAN_PED.mesa,
+  );
+  ocultar(
+    document.querySelector('.origin-chip[data-origin="directo"]'),
+    PLAN_PED.nuevoPedido,
+  );
 
   DLV_MAX = PLAN_PED.maxRepartidores;
   dlvPintarContador();
@@ -9991,4 +10065,9 @@ window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data?.type === "SERVICIOS_UPDATE") aplicarPlanPedidos(e.data.servicios);
 });
-try { window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin); } catch {}
+try {
+  window.parent.postMessage(
+    { type: "PEDIR_DATOS_TIENDA" },
+    window.location.origin,
+  );
+} catch {}

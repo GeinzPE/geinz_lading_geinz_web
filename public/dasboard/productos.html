@@ -928,6 +928,39 @@
     .plan-oculto {
       display: none !important;
     }
+
+    /* Producto que está en el carrito de perfil: se ve en todas las vistas */
+    .prod-carrito-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+      width: 26px;
+      height: 26px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgba(180, 83, 9, 0.95);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(251, 191, 36, 0.45);
+    }
+
+    .producto-card.en-carrito-card {
+      border-color: rgba(251, 191, 36, 0.55) !important;
+    }
+
+    body[data-vista="pequeno"] .prod-carrito-badge {
+      width: 18px;
+      height: 18px;
+      top: 4px;
+      right: 4px;
+    }
+
+    body[data-vista="pequeno"] .prod-carrito-badge svg {
+      width: 10px;
+      height: 10px;
+    }
   </style>
 </head>
 
@@ -1007,7 +1040,7 @@
               stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
-            <span>Nueva categoría</span>
+            <span id="menu-nueva-cat-label">Nueva categoría</span>
           </button>
           <button type="button" id="btn-escanear-producto" class="panel-actions-item">
             <span>📷</span>
@@ -1086,12 +1119,19 @@
 
         <button type="button" id="btn-filter-categorias"
           class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-purple-300 hover:bg-purple-900/40">
-          <span>Categorías: <strong id="stat-categorias">0</strong></span>
+          <span>Categorías: <strong id="stat-categorias">0</strong><span id="stat-categorias-max"
+              class="text-purple-400/60"></span></span>
         </button>
         <button type="button" id="btn-filter-descuento"
           class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-950/30 border border-rose-500/20 text-rose-400 hover:bg-rose-900/40">
           <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
           <span>Con descuento: <strong id="stat-descuento">0</strong></span>
+        </button>
+
+        <button type="button" id="btn-filter-carrito"
+          class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-950/30 border border-yellow-500/20 text-yellow-400 hover:bg-yellow-900/40">
+          <span>🛍️</span>
+          <span>En carrito: <strong id="stat-carrito">0</strong></span>
         </button>
       </div>
 

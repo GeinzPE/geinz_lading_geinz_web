@@ -80,7 +80,62 @@ if (!tiendaId || !localidad) {
 }
 const DEFAULT_LOCALIDAD = localidad;
 const DEFAULT_STORE_ID = tiendaId;
+const PlanQr = {
+  datos: null, // null = sin datos de plan → sin restricciones
+  _res: null,
+  _listo: null,
+  _recibido: false,
 
+  _aplicar(serv) {
+    const m = serv?.cliente_y_fidelizacion?.miqr;
+    this.datos = m && typeof m === "object" ? m : null;
+  },
+
+  // Espera los datos del panel padre (0 lecturas). Solo si no llegan en 4 s, lee Firestore una vez.
+  cargar() {
+    if (this._listo) return this._listo;
+    this._listo = new Promise((res) => {
+      this._res = res;
+      window.parent.postMessage(
+        { type: "PEDIR_DATOS_TIENDA" },
+        location.origin,
+      );
+      setTimeout(async () => {
+        if (this._recibido) return;
+        try {
+          const snap = await getDoc(tiendaServiciosDoc(localidad, tiendaId));
+          this._aplicar(snap.exists() ? snap.data() : null);
+        } catch (e) {}
+        res(this.datos);
+      }, 4000);
+    });
+    return this._listo;
+  },
+
+  permite(k) {
+    return this.datos ? this.datos[k] === true : true;
+  },
+  mesasActivo() {
+    return this.datos ? this.datos.mesas?.activo === true : true;
+  },
+  maxMesas() {
+    const n = Number(this.datos?.mesas?.cantidad_max);
+    return this.datos && Number.isFinite(n) ? n : null;
+  },
+};
+window.PlanQr = PlanQr;
+
+window.addEventListener("message", (ev) => {
+  if (ev.origin !== location.origin || ev.data?.type !== "SERVICIOS_UPDATE")
+    return;
+  const yaHabiaDatos = PlanQr._recibido;
+  PlanQr._recibido = true;
+  PlanQr._aplicar(ev.data.servicios);
+  PlanQr._res?.(PlanQr.datos);
+  // si el plan cambió con la página abierta, reaplica la visibilidad
+  if (yaHabiaDatos) aplicarVisibilidadPorCategoria();
+});
+window.PlanQr = PlanQr;
 const QR_API_ENDPOINT = "https://qrapi-oixttik5rq-uc.a.run.app";
 const COLOR_DEFAULT = ["#7c4dff", "#5a2fe0", "#1a1040"];
 
@@ -585,7 +640,6 @@ async function aplicarVisibilidadPorCategoria() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
   let modeloNegocio = sessionStorage.getItem("modeloNegocio");
 
-  // Si por algún motivo no llegó desde el panel, la buscamos directo
   if (!categoria || modeloNegocio === null) {
     try {
       const negocioSnap = await getDoc(
@@ -605,8 +659,10 @@ async function aplicarVisibilidadPorCategoria() {
       );
     }
   } else {
-    modeloNegocio = modeloNegocio === "true"; // sessionStorage guarda strings
+    modeloNegocio = modeloNegocio === "true";
   }
+
+  await PlanQr.cargar();
 
   const esRestaurante =
     (categoria || "")
@@ -614,31 +670,38 @@ async function aplicarVisibilidadPorCategoria() {
       .replace(/\s+/g, " ")
       .trim()
       .toLowerCase() === "comida y restaurantes";
-  if (!esRestaurante) {
-    const tileCarta = document.getElementById("qrTileCarta");
-    if (tileCarta) tileCarta.style.display = "none";
-  }
 
-  // mesasSection depende de categoría Y de modelo_negocio (local físico)
-  const mesasSection = document.getElementById("mesasSection");
-  if (mesasSection) {
-    const debeMostrarMesas = esRestaurante && modeloNegocio === true;
-    mesasSection.style.display = debeMostrarMesas ? "" : "none";
-  }
+  const ocultar = (id, ocultarYa) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = ocultarYa ? "none" : "";
+  };
 
-  // Libro de reclamaciones: el tile solo aparece si está activo
-  // en /footer.libro_reclamaciones de la tienda
+  // Perfil / Mis productos / Reseñas: solo si el plan los trae en true
+  ocultar("qrTilePerfil", !PlanQr.permite("perfil"));
+  ocultar("qrTileCarrito", !PlanQr.permite("mis_productos"));
+  ocultar("qrTileReviews", !PlanQr.permite("review"));
+
+  // Carta: restaurante Y plan
+  ocultar("qrTileCarta", !esRestaurante || !PlanQr.permite("carta"));
+
+  // Mesas: restaurante + local físico + plan (mesas.activo)
+  ocultar(
+    "mesasSection",
+    !(esRestaurante && modeloNegocio === true && PlanQr.mesasActivo()),
+  );
+
+  // Libro de reclamaciones: activo en el negocio Y en el plan
   try {
     const info = await QrNegocio._obtenerInfoTienda();
-    const tileReclamaciones = document.getElementById("qrTileReclamaciones");
-    if (tileReclamaciones) {
-      tileReclamaciones.style.display = info.libroReclamaciones ? "" : "none";
-    }
+    ocultar(
+      "qrTileReclamaciones",
+      !(info.libroReclamaciones && PlanQr.permite("libro_reclamaciones")),
+    );
   } catch (err) {
     console.warn("No se pudo verificar libro_reclamaciones.", err);
   }
 
-  // Ya se sabe qué tiles/secciones están visibles: recalcula el aviso
+  UI.renderMesas?.(MesasNegocio._mesas); // refresca "X de Y" y botones
   QrNegocio.actualizarAviso();
 }
 // ================================================================
@@ -1103,7 +1166,10 @@ const MesasNegocio = {
     }
     return `https://geinztech.com/perfil/${alias}-mesa-${token}`;
   },
-
+  visibles() {
+    const max = PlanQr.maxMesas();
+    return max != null ? this._mesas.slice(0, max) : this._mesas;
+  },
   _siguienteNumeroMesa() {
     if (!this._mesas.length) return 1;
     const max = this._mesas.reduce(
@@ -1137,6 +1203,7 @@ const MesasNegocio = {
 
   async descargarHoja() {
     if (!this._mesas.length) return;
+    const mesasHoja = this.visibles();
     const btn = document.getElementById("btnDescargarHoja");
     const original = btn.innerHTML;
     btn.disabled = true;
@@ -1308,6 +1375,18 @@ const MesasNegocio = {
 
   async generarMultiples(cantidad) {
     cantidad = Math.max(1, Math.min(200, parseInt(cantidad, 10) || 0));
+    const max = PlanQr.maxMesas();
+    if (max != null) {
+      const quedan = max - this._mesas.length;
+      if (quedan <= 0) {
+        UI.toast(`Llegaste al máximo de mesas de tu plan (${max}).`, true);
+        return;
+      }
+      if (cantidad > quedan) {
+        cantidad = quedan;
+        UI.toast(`Tu plan permite ${max} mesas: se crearán solo ${quedan}.`);
+      }
+    }
     const info = await QrNegocio._obtenerInfoTienda();
     const logo = await QrNegocio._logoBase64();
 
@@ -1358,6 +1437,11 @@ const MesasNegocio = {
   },
 
   async agregarMesa(alias) {
+    const max = PlanQr.maxMesas();
+    if (max != null && this._mesas.length >= max) {
+      UI.toast(`Llegaste al máximo de mesas de tu plan (${max}).`, true);
+      return;
+    }
     const info = await QrNegocio._obtenerInfoTienda();
     const logo = await QrNegocio._logoBase64();
 
@@ -1522,15 +1606,32 @@ const MesasNegocio = {
 };
 
 const UI = {
-  renderMesas(mesas) {
+  renderMesas(todas) {
     const grid = document.getElementById("mesasGrid");
     const empty = document.getElementById("mesasEmptyState");
     const countLabel = document.getElementById("mesasCountLabel");
     const btnDescargarHoja = document.getElementById("btnDescargarHoja");
-    countLabel.textContent = `${mesas.length} mesa${mesas.length === 1 ? "" : "s"}`;
+
+    const max = PlanQr.maxMesas();
+    const mesas = MesasNegocio.visibles();
+    const ocultas = todas.length - mesas.length;
+
+    countLabel.textContent =
+      max != null
+        ? `${mesas.length} de ${max} mesas${ocultas > 0 ? ` · ${ocultas} oculta${ocultas === 1 ? "" : "s"} por tu plan` : ` · te quedan ${Math.max(0, max - mesas.length)}`}`
+        : `${mesas.length} mesa${mesas.length === 1 ? "" : "s"}`;
+
     btnDescargarHoja.disabled = mesas.length === 0;
 
-    // las mesas cambiaron: recalcula el aviso de dominio
+    const lleno = max != null && todas.length >= max;
+    ["btnGenerarMultiples", "btnAgregarMesa"].forEach((id) => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.disabled = lleno;
+      b.classList.toggle("opacity-40", lleno);
+      b.classList.toggle("cursor-not-allowed", lleno);
+    });
+
     QrNegocio.actualizarAviso();
 
     if (!mesas.length) {
