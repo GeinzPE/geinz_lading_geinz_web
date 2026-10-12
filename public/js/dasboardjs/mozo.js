@@ -1,6 +1,13 @@
 import { db } from "../db/db.js";
 import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
 import {
+  abrirModalComprobante,
+  armarSolicitud,
+  htmlEstadoCliente,
+  elegirFoto,
+  esc as escCm,
+} from "../dasboardjs/comprobante_mesa.js";
+import {
   doc,
   setDoc,
   getDoc,
@@ -809,7 +816,83 @@ function pintarDetalleMesa(mesaDocId) {
     confirmado && gestion ? "" : "none";
   document.getElementById("det-btn-entregado").style.display =
     confirmado && gestion ? "" : "none";
+  pintarCobroMozo(info);
   edicionSucia = false;
+}
+
+/* ── Comprobante + voucher (el mozo solo envía; el dashboard decide) ── */
+async function escribirCampoPedido(info, campos) {
+  const pref = {};
+  Object.entries(campos).forEach(([k, v]) => (pref["pedido." + k] = v));
+  const tareas = [
+    updateDoc(info.esGrupo ? info.grupoRef : doc(mesasColRef(), mesaAbiertaId), pref),
+  ];
+  if (info.pedidoDocId)
+    tareas.push(updateDoc(doc(pedidosColRef(), info.pedidoDocId), campos));
+  await Promise.all(tareas);
+}
+function pintarCobroMozo(info) {
+  const box = document.getElementById("det-cobro");
+  if (!box) return;
+  if (!info || mesasCfg.compMozo === false) {
+    box.innerHTML = "";
+    return;
+  }
+  const comp = info.pedido.comprobante;
+  const vou = info.pedido.pago_voucher;
+  box.innerHTML = `
+    <div class="surface-2 rounded-2xl p-3 flex flex-col gap-2.5">
+      <h3 class="text-[11px] uppercase tracking-wider font-bold text-[var(--ink-faint)]">Cobro</h3>
+      ${comp ? htmlEstadoCliente(comp) : ""}
+      <div class="grid grid-cols-2 gap-2">
+        <button id="det-btn-comp" class="btn-ghost text-xs py-2.5">🧾 ${comp ? "Cambiar comprobante" : "Boleta / Factura"}</button>
+        <button id="det-btn-voucher" class="btn-ghost text-xs py-2.5">💸 ${vou ? "Cambiar voucher de pago" : "Subir voucher de pago"}</button>
+      </div>
+      <button id="det-btn-compfoto" class="btn-ghost text-xs py-2.5">📎 ${info.pedido.comprobante_foto ? "Cambiar foto del comprobante" : "Adjuntar foto del comprobante / datos"}</button>
+      ${info.pedido.comprobante_foto ? `<img src="${escCm(info.pedido.comprobante_foto.url)}" alt="adjunto" style="max-width:100%;max-height:200px;border-radius:10px;display:block;">` : ""}
+      ${vou ? `<img src="${escCm(vou.url)}" alt="voucher" style="max-width:100%;max-height:220px;border-radius:10px;display:block;">
+      <p class="text-[11px] text-[var(--ink-faint)]">Enviado al negocio, ellos confirman el pago.</p>` : ""}
+    </div>`;
+  document.getElementById("det-btn-comp").onclick = async () => {
+    await abrirModalComprobante({
+      titulo: "🧾 Comprobante de la mesa",
+      total: info.pedido.total || 0,
+      previo: comp || null,
+      onSubmit: async (r) => {
+        await escribirCampoPedido(
+          info,
+          { comprobante: armarSolicitud(r, "mozo", mozoActivo?.nombre || "Mozo") },
+        );
+        toast("📄 Enviado al negocio");
+      },
+    });
+  };
+  document.getElementById("det-btn-compfoto").onclick = async () => {
+    const url = await elegirFoto();
+    if (!url) return;
+    try {
+      await escribirCampoPedido(info, {
+        comprobante_foto: { url, por: mozoActivo?.nombre || "Mozo", ts: Date.now() },
+      });
+      toast("📎 Foto enviada al negocio");
+    } catch (e) {
+      console.error(e);
+      toast("No se pudo subir la foto", "error");
+    }
+  };
+  document.getElementById("det-btn-voucher").onclick = async () => {
+    const url = await elegirFoto();
+    if (!url) return;
+    try {
+      await escribirCampoPedido(info, {
+        pago_voucher: { url, por: mozoActivo?.nombre || "Mozo", ts: Date.now() },
+      });
+      toast("💸 Voucher enviado al negocio");
+    } catch (e) {
+      console.error(e);
+      toast("No se pudo subir el voucher", "error");
+    }
+  };
 }
 
 function recalcularTotales() {
@@ -1341,6 +1424,10 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
   const mozoSelNombre = mozoSelId ? mozosMap.get(mozoSelId)?.nombre : null;
   recalcularTotales();
   delete pedidoEnEdicion.timestamp; // no pisar la hora original del pedido
+  // comprobante y voucher se escriben aparte: no pisar lo que haya cambiado el dashboard
+  delete pedidoEnEdicion.comprobante;
+  delete pedidoEnEdicion.pago_voucher;
+  delete pedidoEnEdicion.comprobante_foto;
   if (getPedidoDeMesa(mesaAbiertaId)) pedidoEnEdicion.editadoPorMozo = true;
   if (marcarConfirmado) {
     pedidoEnEdicion.productos.forEach((i) => {

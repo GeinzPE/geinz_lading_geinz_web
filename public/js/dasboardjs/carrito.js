@@ -32,6 +32,11 @@ import {
   cargarColoresNegocio,
   aplicarColoresDesdeCache,
 } from "../../js/colores_dinamicos/dinamicos.js";
+import {
+  abrirModalComprobante,
+  armarSolicitud,
+  htmlEstadoCliente,
+} from "../dasboardjs/comprobante_mesa.js";
 
 configurarColoresNegocio({ legible: true });
 const db = getFirestore();
@@ -1083,6 +1088,65 @@ const PASOS_MESA = [
   ["entregado", "🍽️", "Entregado"],
 ];
 
+/* Guarda la solicitud de comprobante en los 3 sitios donde vive el pedido */
+async function guardarComprobanteMesa(sol) {
+  if (!grupoActivo) grupoActivo = await resolveGrupoActivo();
+  if (grupoActivo) {
+    const tareas = [
+      updateDoc(grupoActivo.ref, { "pedido.comprobante": sol }),
+    ];
+    if (grupoActivo.pedidoGrupoDocId)
+      tareas.push(
+        updateDoc(
+          tiendaSubDoc(
+            localidad,
+            "tiendas",
+            tiendaId,
+            "pedidos",
+            grupoActivo.pedidoGrupoDocId,
+          ),
+          { comprobante: sol },
+        ),
+      );
+    await Promise.all(tareas);
+    return;
+  }
+  const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaId);
+  const snap = await getDoc(ref);
+  const docId = snap.exists() ? snap.data().pedidoMesaDocId : null;
+  await updateDoc(ref, { "pedido.comprobante": sol });
+  if (docId)
+    await updateDoc(
+      tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", docId),
+      { comprobante: sol },
+    ).catch(() => {});
+}
+const clientePuedeComprobante = () =>
+  bizData?.mesas_config?.compCliente !== false;
+
+async function pedirCuentaConComprobante() {
+  const comp = pedidoActivoMesa?.comprobante;
+  // Ya pidió uno y se está procesando / emitido: solo avisamos al mozo
+  if (!clientePuedeComprobante() || (comp && comp.estado === "emitido")) {
+    await enviarLlamado("cuenta");
+    return;
+  }
+  let enviado = false;
+  await abrirModalComprobante({
+    titulo: "🧾 ¿Qué comprobante deseas?",
+    total: pedidoActivoMesa?.total || 0,
+    previo: comp || null,
+    onSubmit: async (r) => {
+      const quien = pedidoActivoMesa?.cliente?.nombre || "Cliente";
+      await guardarComprobanteMesa(armarSolicitud(r, "cliente", quien));
+      enviado = true;
+    },
+  });
+  if (enviado)
+    showToast("📄 Solicitud enviada. Puedes ver el estado aquí mismo");
+  await enviarLlamado("cuenta");
+}
+
 async function enviarLlamado(motivo) {
   await addDoc(tiendaSubCol(localidad, "tiendas", tiendaId, "llamados_mesa"), {
     mesaId,
@@ -1140,6 +1204,7 @@ function renderPedidoActivoMesa(pedido) {
       <span class="text-gray-400 font-semibold text-sm">Total</span>
       <span class="display font-extrabold text-xl">S/ ${Number(pedido.total || 0).toFixed(2)}</span>
     </div>
+    ${clientePuedeComprobante() && pedido.comprobante ? htmlEstadoCliente(pedido.comprobante) : ""}
     <div class="grid grid-cols-2 gap-2">
       <button id="paMozo" class="glass rounded-2xl py-3 font-bold text-[13px]">🔔 Llamar al mozo</button>
       <button id="paCuenta" class="glass rounded-2xl py-3 font-bold text-[13px]">🧾 Pedir la cuenta</button>
@@ -1210,11 +1275,26 @@ function renderPedidoActivoMesa(pedido) {
     };
   };
   llamar(wrap.querySelector("#paMozo"), "ayuda", "🔔 Avisamos al mozo");
-  llamar(
-    wrap.querySelector("#paCuenta"),
-    "cuenta",
-    "🧾 El mozo ya viene con la cuenta",
-  );
+  {
+    const bc = wrap.querySelector("#paCuenta");
+    if (clientePuedeComprobante() && pedido.comprobante?.estado === "pendiente")
+      bc.textContent = "🧾 Cambiar comprobante";
+    bc.onclick = async () => {
+      bc.disabled = true;
+      bc.style.opacity = ".5";
+      try {
+        await pedirCuentaConComprobante();
+        showToast("🧾 El mozo ya viene con la cuenta");
+      } catch (e) {
+        console.error(e);
+        showToast("⚠️ No se pudo enviar, intenta de nuevo");
+      }
+      setTimeout(() => {
+        bc.disabled = false;
+        bc.style.opacity = "1";
+      }, 30000);
+    };
+  }
 
   const cancel = wrap.querySelector("#paCancel");
   if (cancel)

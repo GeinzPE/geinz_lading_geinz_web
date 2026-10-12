@@ -21,6 +21,12 @@ import {
   deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { iniciarCamara } from "./scan_camara.js";
+import {
+  htmlRecuadroSunat,
+  enlazarCopiar,
+  elegirFoto,
+  esc as escCm,
+} from "./comprobante_mesa.js";
 import { db } from "../db/db.js";
 import {
   cachearConfigComprobante,
@@ -2507,6 +2513,10 @@ function getPedidosDeMesa(numeroMesa) {
         total: grupo.pedido.total || 0,
         pedidoDocId: grupo.pedidoGrupoDocId || null,
         grupoId: m.grupoId,
+        comprobante: grupo.pedido.comprobante || null,
+        pago_voucher: grupo.pedido.pago_voucher || null,
+        comprobante_foto: grupo.pedido.comprobante_foto || null,
+        descuentoCupon: grupo.pedido.descuentoCupon || 0,
       };
       activos.push([mesaDocId, pseudoPedido]);
       return;
@@ -2543,6 +2553,10 @@ function getPedidosDeMesa(numeroMesa) {
       total_items: m.pedido.total_items || 0,
       total: m.pedido.total || 0,
       pedidoDocId: m.pedidoMesaDocId || null,
+      comprobante: m.pedido.comprobante || null,
+      pago_voucher: m.pedido.pago_voucher || null,
+      comprobante_foto: m.pedido.comprobante_foto || null,
+      descuentoCupon: m.pedido.descuentoCupon || 0,
     };
     activos.push([mesaDocId, pseudoPedido]);
   });
@@ -3722,8 +3736,10 @@ function renderMesaDetail(numeroMesa) {
          <button type="button" class="oc-btn ghost" id="dmAtenderLlamado">Marcar atendido</button>
        </div>`
     : "";
+  const compHtml = htmlComprobanteMesa(activos, numeroMesa);
   document.getElementById("dmBody").innerHTML = `
         ${llamadosHtml}
+        ${compHtml}
         <div>
             <div class="dm-section-title">Detalle completo de la mesa</div>
             ${bloquesDePedidos}
@@ -3747,6 +3763,7 @@ function renderMesaDetail(numeroMesa) {
   document
     .getElementById("dmAtenderLlamado")
     ?.addEventListener("click", () => atenderLlamadosMesa(numsLlamado));
+  enlazarComprobanteMesa(activos, numeroMesa);
   const esPendienteAceptar =
     activos.length > 0 &&
     activos.some(([, p]) => p.estadoMozo !== "confirmado");
@@ -3791,27 +3808,6 @@ function renderMesaDetail(numeroMesa) {
     );
     dmActions.appendChild(btnRechazar);
 
-    const btnCmp = document.createElement("button");
-    btnCmp.className = "oc-btn ghost";
-    btnCmp.style.cssText = "width:100%;margin-top:8px;";
-    btnCmp.textContent = "🖨️ Imprimir comprobante";
-    btnCmp.addEventListener("click", async () => {
-      for (const [, pp] of activos) {
-        const real = pedidosMap.get(pp.pedidoDocId) || {};
-        await imprimirComprobantePedido({
-          ...pp, // base: mesa, bloques
-          ...real, // datos reales: cliente, pago, cupón, descuento, comprobante
-          // lo más actual viene de la mesa
-          productos: pp.productos,
-          total: pp.total,
-          total_items: pp.total_items,
-          bloques: pp.bloques,
-          mesa: pp.mesa,
-          id: pp.pedidoDocId,
-        });
-      }
-    });
-    dmActions.appendChild(btnCmp);
   } else if (ocupada) {
     // Ocupada SIN pedido registrado: no hay nada que cobrar, solo liberar
     const btn = document.createElement("button");
@@ -4151,6 +4147,199 @@ async function desagruparGrupo(grupoId) {
   }
 }
 
+
+/* ═══ Comprobante electrónico + voucher por mesa (dashboard manda) ═══ */
+function _mesaNombreDe(activos, numeroMesa) {
+  const p = activos[0]?.[1];
+  return p?.mesa?.nombre || "Mesa " + numeroMesa;
+}
+// Escribe campos en los 3 sitios donde vive el pedido de la mesa
+async function escribirPedidoMesa(activos, campos) {
+  const tareas = [];
+  const vistos = new Set();
+  activos.forEach(([mesaDocId, pp]) => {
+    const pref = {};
+    Object.entries(campos).forEach(([k, v]) => (pref["pedido." + k] = v));
+    if (pp.grupoId) {
+      if (!vistos.has("g" + pp.grupoId)) {
+        vistos.add("g" + pp.grupoId);
+        tareas.push(
+          updateDoc(
+            tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", pp.grupoId),
+            pref,
+          ),
+        );
+      }
+    } else {
+      tareas.push(
+        updateDoc(
+          tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId),
+          pref,
+        ),
+      );
+    }
+    if (pp.pedidoDocId && !vistos.has("p" + pp.pedidoDocId)) {
+      vistos.add("p" + pp.pedidoDocId);
+      tareas.push(
+        updateDoc(
+          tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pp.pedidoDocId),
+          campos,
+        ),
+      );
+    }
+  });
+  await Promise.all(tareas);
+}
+function htmlComprobanteMesa(activos, numeroMesa) {
+  const conComp = activos.filter(([, p]) => p.comprobante);
+  const nom = _mesaNombreDe(activos, numeroMesa);
+  const tarjetas = conComp
+    .map(([, p], i) =>
+      htmlRecuadroSunat(p.comprobante, p, nom, { acciones: true }).replace(
+        "<div data-cm-card",
+        `<div data-cm-card data-i="${i}"`,
+      ),
+    )
+    .join("");
+  const voucher = activos.find(([, p]) => p.pago_voucher)?.[1]?.pago_voucher;
+  const vHtml = `
+    <div style="border:1px solid rgba(139,92,246,.3);background:rgba(139,92,246,.08);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <b style="font-size:13px;">💸 Voucher de pago ${voucher ? "(recibido)" : "(sin subir)"}</b>
+        <button type="button" id="dmVoucherSubir" class="oc-btn ghost" style="min-height:34px;">${voucher ? "Cambiar" : "📤 Subir"}</button>
+      </div>
+      ${voucher ? `<img src="${escCm(voucher.url)}" alt="voucher" id="dmVoucherImg" style="margin-top:10px;max-width:100%;max-height:260px;border-radius:10px;cursor:zoom-in;display:block;">
+      <div style="font-size:11px;color:#a89cc4;margin-top:6px;">Subido por ${escCm(voucher.por || "—")}. Revísalo y marca la mesa como pagada abajo.</div>` : ""}
+    </div>`;
+  const fotoSuelta = !conComp.length
+    ? activos.find(([, p]) => p.comprobante_foto)?.[1]?.comprobante_foto
+    : null;
+  const fHtml = fotoSuelta
+    ? `<div style="border:1px solid rgba(139,92,246,.3);background:rgba(139,92,246,.08);border-radius:14px;padding:12px 14px;margin-bottom:12px;"><b style="font-size:13px;">📎 Adjunto del comprobante (${escCm(fotoSuelta.por || "mozo")})</b><img src="${escCm(fotoSuelta.url)}" onclick="window.open(this.src,'_blank')" style="margin-top:8px;max-width:100%;max-height:240px;border-radius:10px;cursor:zoom-in;display:block;"></div>`
+    : "";
+  return tarjetas + fHtml + vHtml;
+}
+const _pedidoEmitido = (p, numero) => ({
+  ...p.comprobante,
+  estado: "emitido",
+  numero,
+  emitidoTs: Date.now(),
+});
+function enlazarComprobanteMesa(activos, numeroMesa) {
+  const body = document.getElementById("dmBody");
+  const nom = _mesaNombreDe(activos, numeroMesa);
+  const conComp = activos.filter(([, p]) => p.comprobante);
+  body.querySelectorAll("[data-cm-card]").forEach((card) => {
+    const entry = conComp[Number(card.dataset.i)];
+    if (!entry) return;
+    const p = entry[1];
+    enlazarCopiar(card, p.comprobante, p, nom, showToast);
+    card.querySelector("[data-cm-emitido]")?.addEventListener("click", async () => {
+      const numero = (prompt("N° del comprobante emitido (ej. B001-123). Opcional:") ?? "").trim();
+      try {
+        await escribirPedidoMesa([entry], { comprobante: _pedidoEmitido(p, numero) });
+        showToast("✅ Comprobante marcado como emitido");
+      } catch (e) {
+        console.error(e);
+        showToast("❌ No se pudo actualizar", true);
+      }
+    });
+  });
+  document.getElementById("dmVoucherSubir")?.addEventListener("click", async () => {
+    const url = await elegirFoto();
+    if (!url) return;
+    try {
+      await escribirPedidoMesa(activos, {
+        pago_voucher: { url, por: "Negocio", ts: Date.now() },
+      });
+      showToast("💸 Voucher guardado");
+    } catch (e) {
+      console.error(e);
+      showToast("❌ No se pudo subir el voucher", true);
+    }
+  });
+  document.getElementById("dmVoucherImg")?.addEventListener("click", (e) =>
+    window.open(e.target.src, "_blank"),
+  );
+}
+// Foto fija de lo cobrado (la mesa se libera y su pedido sale de la mesa)
+function snapshotCobro(activos, numeroMesa) {
+  return {
+    numeroMesa,
+    nombre: _mesaNombreDe(activos, numeroMesa),
+    pedidos: activos.map(([, pp]) => {
+      const real = pedidosMap.get(pp.pedidoDocId) || {};
+      return {
+        ...real,
+        ...pp,
+        id: pp.pedidoDocId,
+        comprobante: pp.comprobante || real.comprobante || null,
+      };
+    }),
+  };
+}
+// Recién aquí aparece "Imprimir comprobante" + datos para copiar y pegar
+function mostrarPostCobro(snap) {
+  activeModalId = `cobro:${snap.numeroMesa}`;
+  detailModal.dataset.status = "entregado";
+  document.getElementById("dmId").innerHTML =
+    `🍽️ ${escapeHtml(snap.nombre)} <span class="oc-origin-tag mesa">Cobrada y libre</span>`;
+  document.getElementById("dmName").textContent = "✅ Cobro registrado";
+  document.getElementById("dmTime").innerHTML = "";
+  const total = snap.pedidos.reduce((s, p) => s + Number(p.total || 0), 0);
+  const cards = snap.pedidos
+    .map((p, i) =>
+      p.comprobante
+        ? htmlRecuadroSunat(p.comprobante, p, snap.nombre, { acciones: true }).replace(
+            "<div data-cm-card",
+            `<div data-cm-card data-i="${i}"`,
+          )
+        : "",
+    )
+    .join("");
+  const body = document.getElementById("dmBody");
+  body.innerHTML = `
+    <div class="dm-total-row"><span class="dm-total-lbl">Total cobrado</span><span class="dm-total-val">${fmtMoney(total)}</span></div>
+    ${cards || `<p style="font-size:12.5px;color:var(--ink-faint);">El cliente no pidió boleta/factura. Puedes imprimir el ticket.</p>`}`;
+  body.querySelectorAll("[data-cm-card]").forEach((card) => {
+    const p = snap.pedidos[Number(card.dataset.i)];
+    enlazarCopiar(card, p.comprobante, p, snap.nombre, showToast);
+    card.querySelector("[data-cm-emitido]")?.addEventListener("click", async () => {
+      const numero = (prompt("N° del comprobante emitido (ej. B001-123). Opcional:") ?? "").trim();
+      try {
+        if (p.id)
+          await updateDoc(
+            tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", p.id),
+            { comprobante: _pedidoEmitido(p, numero) },
+          );
+        p.comprobante = _pedidoEmitido(p, numero);
+        mostrarPostCobro(snap);
+        showToast("✅ Marcado como emitido");
+      } catch (e) {
+        console.error(e);
+        showToast("❌ No se pudo actualizar", true);
+      }
+    });
+  });
+  const acts = document.getElementById("dmActions");
+  acts.innerHTML = "";
+  const imp = document.createElement("button");
+  imp.className = "oc-btn primary v-violet";
+  imp.style.cssText = "width:100%;";
+  imp.textContent = "🖨️ Imprimir comprobante";
+  imp.onclick = async () => {
+    for (const p of snap.pedidos) await imprimirComprobantePedido(p);
+  };
+  const cer = document.createElement("button");
+  cer.className = "oc-btn ghost";
+  cer.style.cssText = "width:100%;margin-top:8px;";
+  cer.textContent = "Cerrar";
+  cer.onclick = closeDetail;
+  acts.append(imp, cer);
+  detailOverlay.classList.add("show");
+  requestAnimationFrame(() => detailModal.classList.add("show"));
+  document.body.style.overflow = "hidden";
+}
 async function liberarMesa(numeroMesa, btnEl) {
   const activos = getPedidosDeMesa(numeroMesa);
   const mesaEntry = [...mesasMap.entries()].find(
@@ -4158,6 +4347,9 @@ async function liberarMesa(numeroMesa, btnEl) {
   );
   if (!activos.length && mesaEntry?.[1]?.estado !== "ocupado") return;
   if (btnEl) btnEl.disabled = true;
+  const snapCobro = activos.length ? snapshotCobro(activos, numeroMesa) : null;
+  const cerrarODetalle = () =>
+    snapCobro ? mostrarPostCobro(snapCobro) : closeDetail();
   try {
     const grupoId = activos[0]?.[1]?.grupoId || mesaEntry?.[1]?.grupoId || null;
 
@@ -4219,7 +4411,7 @@ async function liberarMesa(numeroMesa, btnEl) {
         showToast(`📦 Sin stock: ${nombres}`, true);
         notificarStockAgotado(nombres);
       }
-      closeDetail();
+      cerrarODetalle();
       return;
     }
 
@@ -4293,7 +4485,7 @@ async function liberarMesa(numeroMesa, btnEl) {
       showToast(`📦 Sin stock: ${nombres}`, true);
       notificarStockAgotado(nombres);
     }
-    closeDetail();
+    cerrarODetalle();
   } catch (err) {
     console.error("Error liberando mesa:", err);
     showToast("❌ No se pudo liberar la mesa", true);
@@ -9749,6 +9941,10 @@ mcOv.innerHTML = `
     <p class="dlv-cfg-sub">Activado: el pedido del cliente pasa por el mozo antes de llegar al panel. Desactivado: llega directo.</p>
         <div class="dlv-cfg-row"><span class="l">Los mozos pueden liberar, cancelar y cambiar estados</span>
       <label class="switch"><input type="checkbox" id="mcPerm"><span class="switch-track"></span></label></div>
+    <div class="dlv-cfg-row"><span class="l">🧾 Cliente puede pedir boleta/factura al pedir la cuenta</span>
+      <label class="switch"><input type="checkbox" id="mcCompCli"><span class="switch-track"></span></label></div>
+    <div class="dlv-cfg-row"><span class="l">🧾 Mozo puede pedir boleta/factura y subir voucher de pago</span>
+      <label class="switch"><input type="checkbox" id="mcCompMozo"><span class="switch-track"></span></label></div>
     <div class="dlv-prev-title">Sillas por mesa (máx. dispositivos con el QR)</div>
     <div id="mcList"></div>
     <button type="button" class="np-confirmar-btn" id="mcGuardar" style="margin-top:14px;">Guardar</button>
@@ -9763,6 +9959,10 @@ function mcAbrir() {
     bizDataGlobal?.mesas_config?.mozoIntermediario === true;
   document.getElementById("mcPerm").checked =
     bizDataGlobal?.mesas_config?.mozoPermisos === true;
+  document.getElementById("mcCompCli").checked =
+    bizDataGlobal?.mesas_config?.compCliente !== false;
+  document.getElementById("mcCompMozo").checked =
+    bizDataGlobal?.mesas_config?.compMozo !== false;
 
   document.getElementById("mcList").innerHTML =
     [...mesasMap.entries()]
@@ -9783,13 +9983,23 @@ document.getElementById("mcGuardar").addEventListener("click", async () => {
   try {
     const inter = document.getElementById("mcInter").checked;
     const perm = document.getElementById("mcPerm").checked;
+    const compCli = document.getElementById("mcCompCli").checked;
+    const compMozo = document.getElementById("mcCompMozo").checked;
     await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
       "mesas_config.mozoIntermediario": inter,
       "mesas_config.mozoPermisos": perm,
+      "mesas_config.compCliente": compCli,
+      "mesas_config.compMozo": compMozo,
     });
     bizDataGlobal = {
       ...(bizDataGlobal || {}),
-      mesas_config: { mozoIntermediario: inter, mozoPermisos: perm },
+      mesas_config: {
+        ...(bizDataGlobal?.mesas_config || {}),
+        mozoIntermediario: inter,
+        mozoPermisos: perm,
+        compCliente: compCli,
+        compMozo: compMozo,
+      },
     };
     const b = writeBatch(db);
     document.querySelectorAll("[data-sillas]").forEach((i) => {
