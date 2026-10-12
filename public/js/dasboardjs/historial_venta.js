@@ -286,6 +286,75 @@ function totalSinDelivery(p) {
 function tieneDelivery(p) {
   return deliveryDePedido(p) > 0;
 }
+const METODOS_INFO = {
+  efectivo: ["💵", "Efectivo"],
+  yape: ["📱", "Yape"],
+  plin: ["📱", "Plin"],
+  yape_plin: ["📱", "Yape / Plin"],
+  visa_mastercard: ["💳", "Visa / Mastercard"],
+  agora: ["🏦", "Agora"],
+  otros: ["❔", "Sin especificar"],
+};
+function metodoPagoDe(p) {
+  if (p.pago_metodo?.label) return p.pago_metodo.label;
+
+  // Formato antiguo: pago puede ser string u objeto
+  const pago = p.pago;
+  if (typeof pago === "string" && pago !== "pendiente") return pago;
+  if (pago && typeof pago === "object") {
+    const m = pago.metodo || pago.método || pago.tipo || pago.label;
+    if (m) return m;
+  }
+
+  return p.metodo_pago || p.metodoPago || "Sin especificar";
+}
+function claveMetodo(p) {
+  if (p.pago_metodo?.clave) return p.pago_metodo.clave;
+  const t = metodoPagoDe(p).toLowerCase();
+  if (t.includes("yape") && t.includes("plin")) return "yape_plin";
+  if (t.includes("yape")) return "yape";
+  if (t.includes("plin")) return "plin";
+  if (t.includes("efectivo")) return "efectivo";
+  if (/visa|master|tarjeta/.test(t)) return "visa_mastercard";
+  if (t.includes("agora")) return "agora";
+  return "otros";
+}
+function cuadrePorMetodo(list) {
+  const m = {};
+  list.forEach((p) => {
+    const k = claveMetodo(p);
+    m[k] ||= { clave: k, cant: 0, monto: 0 };
+    m[k].cant++;
+    m[k].monto += Number(p.total) || 0; // lo que realmente entró (incluye delivery)
+  });
+  return Object.values(m).sort((a, b) => b.monto - a.monto);
+}
+function renderCuadrePago(entregados) {
+  let el = document.getElementById("cuadrePagoList");
+  if (!el) {
+    const ref = document.getElementById("barPago");
+    if (!ref) return;
+    el = document.createElement("div");
+    el.id = "cuadrePagoList";
+    el.className = "mt-4 pt-4 border-t border-line space-y-2";
+    ref.after(el);
+  }
+  const filas = cuadrePorMetodo(entregados);
+  const total = filas.reduce((s, f) => s + f.monto, 0);
+  el.innerHTML =
+    `<p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold">💰 Cuadre por método de pago</p>` +
+    (filas.length
+      ? filas
+          .map((f) => {
+            const [ico, label] = METODOS_INFO[f.clave] || ["💳", f.clave];
+            return `<div class="flex justify-between items-center bg-panel2 border border-line rounded-xl px-3 py-2">
+            <span class="text-sm text-white">${ico} ${label} <span class="text-[11px] text-inkfaint">· ${f.cant} pedido(s)</span></span>
+            <span class="font-mono text-sm font-bold text-white">${fmtMoney(f.monto)}</span></div>`;
+          })
+          .join("") +
+        `<div class="flex justify-between px-3 pt-1 text-sm font-bold text-white"><span>Total</span><span class="font-mono">${fmtMoney(total)}</span></div>`
+      : `<p class="text-sm text-inkfaint">Sin ventas en el rango</p>`);
+}
 function fmtMoney(n) {
   return (
     "S/ " +
@@ -322,7 +391,7 @@ const ORIGENES_INFO = {
 
 function esPedidoDeMesa(p) {
   const tipoEntrega = (p.cliente && p.cliente.tipo_entrega) || "";
-  const metodo = ((p.pago && p.pago.metodo) || "").toLowerCase();
+  const metodo = metodoPagoDe(p).toLowerCase();
   return (
     p.esMesa === true ||
     tipoEntrega === "En mesa" ||
@@ -359,21 +428,39 @@ function detalleCuponModalHtml(p) {
   const c = p.cupon || {};
   const prodCanjeado = (p.productos || []).find((it) => it.esCanje);
   const descuento = Number(p.descuentoCupon) || 0;
-  const subtotal = Number(p.subtotal) || (Number(p.total) + descuento);
+  const subtotal = Number(p.subtotal) || Number(p.total) + descuento;
   const map = {
-    canje_puntos: { titulo: "🎁 Canje de puntos", col: "#fbbf24", bg: "rgba(251,191,36,.08)", bd: "rgba(251,191,36,.3)" },
-    descuento_fidelizacion: { titulo: "⭐ Descuento por fidelización", col: "#8855FF", bg: "rgba(136,85,255,.08)", bd: "rgba(136,85,255,.3)" },
-    cupon_descuento: { titulo: "🎟️ Cupón de descuento", col: "#4ade80", bg: "rgba(34,197,94,.08)", bd: "rgba(34,197,94,.3)" },
+    canje_puntos: {
+      titulo: "🎁 Canje de puntos",
+      col: "#fbbf24",
+      bg: "rgba(251,191,36,.08)",
+      bd: "rgba(251,191,36,.3)",
+    },
+    descuento_fidelizacion: {
+      titulo: "⭐ Descuento por fidelización",
+      col: "#8855FF",
+      bg: "rgba(136,85,255,.08)",
+      bd: "rgba(136,85,255,.3)",
+    },
+    cupon_descuento: {
+      titulo: "🎟️ Cupón de descuento",
+      col: "#4ade80",
+      bg: "rgba(34,197,94,.08)",
+      bd: "rgba(34,197,94,.3)",
+    },
   };
   const cfg = map[tipo];
   let filas = "";
-  if (c.codigo) filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Código</span><span class="font-mono">${c.codigo}</span></div>`;
+  if (c.codigo)
+    filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Código</span><span class="font-mono">${c.codigo}</span></div>`;
   if (tipo === "canje_puntos" && prodCanjeado) {
     filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Producto canjeado</span><span>${prodCanjeado.nombre}</span></div>`;
     filas += `<div class="flex justify-between text-xs py-1"><span class="text-inkdim">Puntos usados</span><span style="color:#fbbf24;font-weight:800;">-${c.costoPuntos || 0} pts</span></div>`;
   } else {
-    if (subtotal) filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Subtotal sin descuento</span><span>${fmtMoney(subtotal)}</span></div>`;
-    if (descuento) filas += `<div class="flex justify-between text-xs py-1"><span class="text-inkdim">Descuento aplicado</span><span style="color:#4ade80;font-weight:800;">-${fmtMoney(descuento)}</span></div>`;
+    if (subtotal)
+      filas += `<div class="flex justify-between text-xs text-inkdim py-1"><span>Subtotal sin descuento</span><span>${fmtMoney(subtotal)}</span></div>`;
+    if (descuento)
+      filas += `<div class="flex justify-between text-xs py-1"><span class="text-inkdim">Descuento aplicado</span><span style="color:#4ade80;font-weight:800;">-${fmtMoney(descuento)}</span></div>`;
   }
   return `
     <div class="mb-5 rounded-xl px-3.5 py-3" style="background:${cfg.bg};border:1px solid ${cfg.bd};">
@@ -386,7 +473,11 @@ function cuponBadge(p) {
   if (!tipo) return '<span class="text-inkfaint text-xs">—</span>';
   const map = {
     canje_puntos: { ico: "🎁", label: "Canje puntos", col: "text-amber-400" },
-    descuento_fidelizacion: { ico: "⭐", label: "Fidelización", col: "text-primary" },
+    descuento_fidelizacion: {
+      ico: "⭐",
+      label: "Fidelización",
+      col: "text-primary",
+    },
     cupon_descuento: { ico: "🎟️", label: "Cupón", col: "text-green-400" },
   };
   const cfg = map[tipo];
@@ -412,7 +503,7 @@ function renderOrigenMetrics(list) {
     counts[getOrigenInfo(p).key]++;
   });
   entregados.forEach((p) => {
-       montos[getOrigenInfo(p).key] += totalSinDelivery(p);
+    montos[getOrigenInfo(p).key] += totalSinDelivery(p);
   });
 
   const totalCount = list.length;
@@ -546,14 +637,15 @@ function getFilteredOrders() {
         return false;
       const origenF = document.getElementById("filterOrigen").value;
       const deliF = document.getElementById("filterDelivery")?.value || "todos";
-if (deliF === "con" && !tieneDelivery(p)) return false;
-if (deliF === "sin" && tieneDelivery(p)) return false;
+      if (deliF === "con" && !tieneDelivery(p)) return false;
+      if (deliF === "sin" && tieneDelivery(p)) return false;
       if (origenF !== "todos" && getOrigenInfo(p).key !== origenF) return false;
       if (
         document.getElementById("filterComprobante")?.value === "con" &&
         !p.comprobante?.numero
       )
-        return false;      if (q) {
+        return false;
+      if (q) {
         const nombre = ((p.cliente && p.cliente.nombre) || "").toLowerCase();
         const tel = telefonoCliente(p).toLowerCase();
         const cod = codigoPedido(p).toLowerCase();
@@ -593,16 +685,19 @@ function renderMetrics(list) {
   document.getElementById("kpiOtros").textContent = otros;
   document.getElementById("kpiTicket").textContent = fmtMoney(ticket);
   document.getElementById("kpiItems").textContent = items;
-const deliveryTotal = entregados.reduce((s, p) => s + deliveryDePedido(p), 0);
-const conDelivery = entregados.filter(tieneDelivery).length;
-const ventaNeta = total - deliveryTotal;
-const setK = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-setK("kpiVentaNeta", fmtMoney(ventaNeta));
-setK("kpiDeliveryTotal", fmtMoney(deliveryTotal));
-setK("kpiDeliveryCount", conDelivery);
-setK("kpiTicketNeto", fmtMoney(count ? ventaNeta / count : 0));
+  const deliveryTotal = entregados.reduce((s, p) => s + deliveryDePedido(p), 0);
+  const conDelivery = entregados.filter(tieneDelivery).length;
+  const ventaNeta = total - deliveryTotal;
+  const setK = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  setK("kpiVentaNeta", fmtMoney(ventaNeta));
+  setK("kpiDeliveryTotal", fmtMoney(deliveryTotal));
+  setK("kpiDeliveryCount", conDelivery);
+  setK("kpiTicketNeto", fmtMoney(count ? ventaNeta / count : 0));
   const digitalCount = entregados.filter((p) =>
-    esBilleteraDigital(p.pago && p.pago.metodo),
+    esBilleteraDigital(metodoPagoDe(p)),
   ).length;
   const efectivoCount = count - digitalCount;
   renderBarPair(
@@ -620,6 +715,7 @@ setK("kpiTicketNeto", fmtMoney(count ? ventaNeta / count : 0));
   renderInteligente(entregados, from, to);
   renderRentabilidad(entregados);
   renderOrigenMetrics(list);
+  renderCuadrePago(entregados);
 }
 
 function renderBarPair(containerId, a, b, total) {
@@ -792,7 +888,7 @@ function computeFinanzas(entregados) {
   let ingresos = 0,
     costos = 0;
   entregados.forEach((p) => {
-ingresos += totalSinDelivery(p);
+    ingresos += totalSinDelivery(p);
     (p.productos || []).forEach((pr) => {
       const precioUnit =
         pr.precio_unitario ??
@@ -973,7 +1069,7 @@ function renderList(list) {
         ${fmtMoney(p.total)}
         ${tieneDelivery(p) ? `<p class="text-[10px] text-inkfaint font-normal">🛵 incl. ${fmtMoney(deliveryDePedido(p))}</p>` : ""}
       </td>
-         <td class="px-4 py-3 text-inkdim">${(p.pago && p.pago.metodo) || "—"}</td>
+         <td class="px-4 py-3 text-inkdim">${metodoPagoDe(p)}</td>
       <td class="px-4 py-3">${cuponBadge(p)}</td>
       <td class="px-4 py-3">${origenBadge(p)}</td>
       <td class="px-4 py-3">${estadoBadge(p.estado)}</td>
@@ -1050,7 +1146,7 @@ function openModal(id) {
        <div class="flex flex-wrap gap-2 mb-5">
         ${estadoBadge(p.estado)}
         ${origenBadge(p)}
-        <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-white text-xs font-medium">${(p.pago && p.pago.metodo) || "—"}</span>
+        <span class="px-2.5 py-1 rounded-lg bg-panel2 border border-line text-white text-xs font-medium">${metodoPagoDe(p)}</span>
       </div>
 
       ${
@@ -1085,22 +1181,28 @@ function openModal(id) {
       }
 
       ${detalleCuponModalHtml(p)}
-
+${p.pago_voucher?.url ? `<div class="mb-5"><p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Voucher de pago${p.pago_voucher.por ? ` · ${p.pago_voucher.por}` : ""}</p><img src="${p.pago_voucher.url}" class="max-h-60 rounded-xl border border-line"></div>` : ""}
       <div class="mb-5">
         <p class="text-[11px] uppercase tracking-wider text-inkfaint font-semibold mb-1.5">Productos</p>
         <div class="bg-panel2 border border-line rounded-xl px-3">${productosHtml || '<p class="text-sm text-inkfaint py-3">Sin productos</p>'}</div>
       </div>
 
         <div class="bg-panel2 border border-line rounded-xl px-4 py-3 mb-5">
-        ${tieneDelivery(p) ? `
+        ${
+          tieneDelivery(p)
+            ? `
           <div class="flex justify-between text-xs text-inkdim py-0.5"><span>Productos</span><span class="font-mono">${fmtMoney(totalSinDelivery(p))}</span></div>
           <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery${p.delivery.zona ? ` · ${p.delivery.zona}` : ""}</span><span class="font-mono">${fmtMoney(deliveryDePedido(p))}</span></div>
-        ` : p.delivery?.gratis ? `
+        `
+            : p.delivery?.gratis
+              ? `
           <div class="flex justify-between text-xs text-inkdim py-0.5"><span>🛵 Delivery</span><span class="font-mono text-green-400">Gratis (promo)</span></div>
-        ` : ""}
+        `
+              : ""
+        }
         <div class="flex justify-between items-center ${p.delivery ? "pt-2 mt-1 border-t border-line" : ""}">
           <div>
-            <p class="text-xs text-inkfaint">${p.total_items || ""} ítem(s) · ${(p.pago && p.pago.metodo) || ""}</p>
+            <p class="text-xs text-inkfaint">${p.total_items || ""} ítem(s) · ${metodoPagoDe(p)}</p>
             ${p.pago && p.pago.vuelto ? `<p class="text-xs text-inkfaint">Vuelto: S/ ${p.pago.vuelto}</p>` : ""}
           </div>
           <p class="font-display font-extrabold text-xl text-white">${fmtMoney(p.total)}</p>
@@ -1137,7 +1239,7 @@ function ticketTextoPlano(p) {
       return opcionesTxt ? `${base}\n   (${opcionesTxt})` : base;
     })
     .join("\n");
-  return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\n${tieneDelivery(p) ? `Productos: ${fmtMoney(totalSinDelivery(p))}\nDelivery: ${fmtMoney(deliveryDePedido(p))}\n` : ""}TOTAL: ${fmtMoney(p.total)}\nPago: ${(p.pago && p.pago.metodo) || ""}\n${p.nota ? "Nota: " + p.nota : ""}`;
+  return `${codigoPedido(p)}  ·  ${fmtFechaHora(p)}\nCliente: ${(p.cliente && p.cliente.nombre) || ""}\n${p.cliente && p.cliente.direccion ? "Dirección: " + p.cliente.direccion + "\n" : ""}------------------------------\n${lineas}\n------------------------------\n${tieneDelivery(p) ? `Productos: ${fmtMoney(totalSinDelivery(p))}\nDelivery: ${fmtMoney(deliveryDePedido(p))}\n` : ""}TOTAL: ${fmtMoney(p.total)}\nPago: ${metodoPagoDe(p)}\n${p.nota ? "Nota: " + p.nota : ""}`;
 }
 async function reimprimirTicket() {
   if (!currentOrder) return;
@@ -1178,7 +1280,7 @@ function exportarCSV() {
     return;
   }
 
-   const headers = [
+  const headers = [
     "Codigo",
     "Fecha",
     "Hora",
@@ -1215,13 +1317,13 @@ function exportarCSV() {
       telefonoCliente(p),
       getOrigenInfo(p).label,
       productos,
-      (p.pago && p.pago.metodo) || "",
+      metodoPagoDe(p),
       p.estado || "",
       (Number(p.total) || 0).toFixed(2),
       tipoLabel,
       (p.cupon && p.cupon.codigo) || "",
       (Number(p.descuentoCupon) || 0).toFixed(2),
-        (p.cupon && p.cupon.costoPuntos) || "",
+      (p.cupon && p.cupon.costoPuntos) || "",
       totalSinDelivery(p).toFixed(2),
       deliveryDePedido(p).toFixed(2),
     ];
@@ -1241,9 +1343,15 @@ function exportarCSV() {
     ["Ingresos totales (S/)", finanzas.ingresos.toFixed(2)],
     ["Costos estimados (S/)", finanzas.costos.toFixed(2)],
     ["Margen bruto (S/)", finanzas.margenBruto.toFixed(2)],
-    ["Gastos operativos (S/)", (Number(costosConfig.gastosOperativos) || 0).toFixed(2)],
+    [
+      "Gastos operativos (S/)",
+      (Number(costosConfig.gastosOperativos) || 0).toFixed(2),
+    ],
     ["Utilidad neta (S/)", finanzas.utilidadNeta.toFixed(2)],
-    ["Delivery cobrado (S/)", entregados.reduce((s, p) => s + deliveryDePedido(p), 0).toFixed(2)],
+    [
+      "Delivery cobrado (S/)",
+      entregados.reduce((s, p) => s + deliveryDePedido(p), 0).toFixed(2),
+    ],
   ].map((r) => r.map(csvEscape).join(","));
 
   const csv = [...tablaCsv, ...resumenCsv].join("\n");
@@ -1285,13 +1393,13 @@ function exportarExcel() {
       Teléfono: telefonoCliente(p),
       Origen: getOrigenInfo(p).label,
       Productos: productos,
-      "Método de pago": (p.pago && p.pago.metodo) || "",
+      "Método de pago": metodoPagoDe(p),
       Estado: p.estado || "",
       "Total (S/)": Number(p.total) || 0,
       "Tipo descuento": tipoLabel,
       "Código cupón": (p.cupon && p.cupon.codigo) || "",
       "Monto descuento (S/)": Number(p.descuentoCupon) || 0,
-       "Puntos usados": (p.cupon && p.cupon.costoPuntos) || "",
+      "Puntos usados": (p.cupon && p.cupon.costoPuntos) || "",
       "Venta neta (S/)": totalSinDelivery(p),
       "Delivery (S/)": deliveryDePedido(p),
     };
@@ -1311,7 +1419,7 @@ function exportarExcel() {
     { wch: 12 },
     { wch: 20 },
     { wch: 14 },
-     { wch: 18 },
+    { wch: 18 },
     { wch: 14 },
     { wch: 14 },
     { wch: 12 },
@@ -1325,11 +1433,11 @@ function exportarExcel() {
   );
   const finanzas = computeFinanzas(entregados);
   const digitalCount = entregados.filter((p) =>
-    esBilleteraDigital(p.pago && p.pago.metodo),
+    esBilleteraDigital(metodoPagoDe(p)),
   ).length;
   const efectivoCount = entregados.length - digitalCount;
   const digitalMonto = entregados
-    .filter((p) => esBilleteraDigital(p.pago && p.pago.metodo))
+    .filter((p) => esBilleteraDigital(metodoPagoDe(p)))
     .reduce((s, p) => s + (Number(p.total) || 0), 0);
   const efectivoMonto = finanzas.ingresos - digitalMonto;
 
@@ -1353,15 +1461,29 @@ function exportarExcel() {
         ? (finanzas.ingresos / entregados.length).toFixed(2)
         : "0.00",
     },
-    { Métrica: "Ventas en efectivo/tarjeta (S/)", Valor: efectivoMonto.toFixed(2) },
+    {
+      Métrica: "Ventas en efectivo/tarjeta (S/)",
+      Valor: efectivoMonto.toFixed(2),
+    },
     { Métrica: "Cantidad efectivo/tarjeta", Valor: efectivoCount },
     { Métrica: "Ventas por Yape/Plin (S/)", Valor: digitalMonto.toFixed(2) },
     { Métrica: "Cantidad Yape/Plin", Valor: digitalCount },
-    { Métrica: "Venta neta sin delivery (S/)", Valor: finanzas.ingresos.toFixed(2) },
-    { Métrica: "Delivery cobrado (S/)", Valor: entregados.reduce((s, p) => s + deliveryDePedido(p), 0).toFixed(2) },
+    {
+      Métrica: "Venta neta sin delivery (S/)",
+      Valor: finanzas.ingresos.toFixed(2),
+    },
+    {
+      Métrica: "Delivery cobrado (S/)",
+      Valor: entregados.reduce((s, p) => s + deliveryDePedido(p), 0).toFixed(2),
+    },
     {
       Métrica: "Nota",
-      Valor: "Costos estimados según % configurado en el sistema; no reemplaza comprobantes de compra.",
+      ...cuadrePorMetodo(entregados).map((f) => ({
+        Métrica: `Cuadre ${(METODOS_INFO[f.clave] || ["", f.clave])[1]} (S/)`,
+        Valor: `${f.monto.toFixed(2)} (${f.cant} pedidos)`,
+      })),
+      Valor:
+        "Costos estimados según % configurado en el sistema; no reemplaza comprobantes de compra.",
     },
   ];
   const wsResumen = XLSX.utils.json_to_sheet(resumen);
@@ -1409,7 +1531,7 @@ function exportarPDF() {
     40,
     58,
   );
-   const finanzas = computeFinanzas(entregados);
+  const finanzas = computeFinanzas(entregados);
 
   doc.text(
     `Pedidos entregados: ${entregados.length}   ·   Total vendido: ${fmtMoney(totalVendido)}`,
@@ -1421,7 +1543,21 @@ function exportarPDF() {
     40,
     86,
   );
-  const headers = [["Código", "Fecha/Hora", "Cliente", "Teléfono", "Origen", "Productos", "Pago", "Estado", "Total", "Delivery", "Descuento"]];
+  const headers = [
+    [
+      "Código",
+      "Fecha/Hora",
+      "Cliente",
+      "Teléfono",
+      "Origen",
+      "Productos",
+      "Pago",
+      "Estado",
+      "Total",
+      "Delivery",
+      "Descuento",
+    ],
+  ];
   const body = list.map((p) => {
     const tipo = getTipoCuponPedido(p);
     const tipoLabel =
@@ -1439,8 +1575,10 @@ function exportarPDF() {
       (p.cliente && p.cliente.nombre) || "",
       telefonoCliente(p),
       getOrigenInfo(p).label,
-      (p.productos || []).map((pr) => `${pr.cantidad}x ${pr.nombre}`).join(", "),
-      (p.pago && p.pago.metodo) || "",
+      (p.productos || [])
+        .map((pr) => `${pr.cantidad}x ${pr.nombre}`)
+        .join(", "),
+      metodoPagoDe(p),
       p.estado || "",
       fmtMoney(p.total),
       deliveryDePedido(p) ? fmtMoney(deliveryDePedido(p)) : "—",
@@ -1452,8 +1590,18 @@ function exportarPDF() {
     head: headers,
     body: body,
     startY: 104,
-    styles: { font: "helvetica", fontSize: 8, cellPadding: 5, textColor: [30, 30, 30], overflow: "linebreak" },
-    headStyles: { fillColor: [136, 85, 255], textColor: [255, 255, 255], fontStyle: "bold" },
+    styles: {
+      font: "helvetica",
+      fontSize: 8,
+      cellPadding: 5,
+      textColor: [30, 30, 30],
+      overflow: "linebreak",
+    },
+    headStyles: {
+      fillColor: [136, 85, 255],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+    },
     alternateRowStyles: { fillColor: [245, 242, 255] },
     columnStyles: {
       5: { cellWidth: 130 },
@@ -1513,7 +1661,9 @@ if (dateChips) {
     if (currentRange !== "custom") listenPedidos(); // custom espera a que se llenen las 2 fechas
   });
 }
-document.getElementById("filterComprobante")?.addEventListener("change", renderAll);
+document
+  .getElementById("filterComprobante")
+  ?.addEventListener("change", renderAll);
 const customFrom = document.getElementById("customFrom");
 if (customFrom)
   customFrom.addEventListener("change", () => {
@@ -1528,7 +1678,9 @@ const filterEstado = document.getElementById("filterEstado");
 if (filterEstado) filterEstado.addEventListener("change", renderAll);
 const filterOrigen = document.getElementById("filterOrigen");
 if (filterOrigen) filterOrigen.addEventListener("change", renderAll);
-document.getElementById("filterDelivery")?.addEventListener("change", renderAll);
+document
+  .getElementById("filterDelivery")
+  ?.addEventListener("change", renderAll);
 const searchBox = document.getElementById("searchBox");
 if (searchBox) searchBox.addEventListener("input", renderAll);
 const btnResetFilters = document.getElementById("btnResetFilters");
@@ -1538,7 +1690,7 @@ if (btnResetFilters) {
     document.getElementById("filterOrigen").value = "todos";
     const fd = document.getElementById("filterDelivery");
     if (fd) fd.value = "todos";
-        const fc = document.getElementById("filterComprobante");
+    const fc = document.getElementById("filterComprobante");
     if (fc) fc.value = "todos";
     document.getElementById("searchBox").value = "";
     document

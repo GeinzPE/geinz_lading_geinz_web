@@ -14,7 +14,7 @@ import { setFaviconCircular } from "../js/favicon/favicon.js"; // ════�
 import {
   cargarColoresNegocio,
   aplicarColoresDesdeCache,
-} from "../js/colores_dinamicos/dinamicos.js"
+} from "../js/colores_dinamicos/dinamicos.js";
 //  CONFIG DE CAMPOS DINÁMICOS
 //  clave del mapa "campos" en Firestore → cómo se pinta en el form
 //  "group" agrupa visualmente el campo en la sección 1 (Tus datos)
@@ -205,8 +205,6 @@ async function resolverNegocio() {
 
   return { id, localidad: localidad.trim().toLowerCase() };
 }
-
-
 
 // ══════════════════════════════════════════
 //  OPCIONES DINÁMICAS (selects) DESDE LA DB
@@ -419,7 +417,7 @@ function generarCodigoSeguimiento() {
 
   try {
     const { id, localidad } = await resolverNegocio();
-aplicarColoresDesdeCache(id);
+    aplicarColoresDesdeCache(id);
     // 1) Validar que el negocio tenga el libro activo en su footer
     const tiendaRef = tiendaDoc(localidad, "tiendas", id);
     const tiendaSnap = await getDoc(tiendaRef);
@@ -427,7 +425,7 @@ aplicarColoresDesdeCache(id);
 
     const biz = tiendaSnap.data();
     const footer = biz.footer || {};
-    if (footer.activo !== true || footer.libro_reclamaciones !== true) {
+    if (footer.libro_reclamaciones !== true) {
       return showNotAvailable(
         "Este negocio no tiene activo el Libro de Reclamaciones por el momento.",
       );
@@ -454,19 +452,19 @@ aplicarColoresDesdeCache(id);
     const logoLetter = document.getElementById("bizLogoLetter");
 
     // Promesa que se resuelve solo cuando el color ya fue aplicado
-// Colores dinámicos (color_marca → logo → nombre), usando el biz que ya leíste
-const colorReady = cargarColoresNegocio({ id, localidad, biz }).catch((e) =>
-  console.warn("colores:", e.message),
-);
+    // Colores dinámicos (color_marca → logo → nombre), usando el biz que ya leíste
+    const colorReady = cargarColoresNegocio({ id, localidad, biz }).catch((e) =>
+      console.warn("colores:", e.message),
+    );
 
-if (logoUrl) {
-  logoImg.src = logoUrl;
-  logoImg.style.display = "block";
-  logoLetter.style.display = "none";
-  setFaviconCircular(logoUrl);
-} else {
-  logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
-}
+    if (logoUrl) {
+      logoImg.src = logoUrl;
+      logoImg.style.display = "block";
+      logoLetter.style.display = "none";
+      setFaviconCircular(logoUrl);
+    } else {
+      logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
+    }
 
     // 4) Pintar contenido dinámico del libro (título, descripción, RUC, razón social)
     document.getElementById("libroTitulo").textContent =

@@ -1,636 +1,479 @@
 ﻿<!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Modo Mozo</title>
-  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+  <script>
+    /* Tema antes de pintar (evita parpadeo) */
+    (function () {
+      try {
+        var t = localStorage.getItem("mozo_tema");
+        if (!t) t = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="../style/tailwind.css">
   <script type="module" src="../js/dasboardjs/mozo.js"></script>
   <style>
-    :root {
-      --bg: #08060d;
-      --surface: #0d0a17;
-      --surface-2: #151027;
-      --line: rgba(139, 92, 246, .16);
-      --ink: #f4f2fb;
-      --ink-dim: #a89cc4;
-      --ink-faint: #6b6088;
-      --violet: #7c5cff;
-      --violet-soft: rgba(124, 92, 255, .14);
-      --amber: #f59e0b;
-      --amber-soft: rgba(245, 158, 11, .14);
-      --blue: #3b82f6;
-      --blue-soft: rgba(59, 130, 246, .14);
-      --purple: #c026d3;
-      --purple-soft: rgba(192, 38, 211, .16);
-      --red: #ef4444;
-      --red-soft: rgba(239, 68, 68, .14);
-      --green: #22c55e;
-      --green-soft: rgba(34, 197, 94, .14);
-    }
+    /* ════════════════════════════════════════════════════════════════
+   MODO MOZO — rediseño
+   Pegar TODO esto dentro del <style> del HTML (reemplaza el CSS actual).
+   Las clases son las mismas: no hay que tocar el HTML ni el JS.
+   Reglas de rendimiento: solo se animan transform y opacity,
+   sin blur, sin sombras animadas, sin backdrop-filter.
+   ════════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0a0c10; --surface: #12151b; --surface2: #1a1e26; --line: #262c38;
+  --ink: #eef1f6; --dim: #a3adbf; --faint: #6f7a8f;
+  --brand: #7a6cff; --ok: #1fa35a; --danger: #e5484d;
+  --r: 8px; --r-sm: 6px;               /* esquinas finas */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --shadow: 0 8px 24px rgba(0, 0, 0, .45);
+}
+[data-theme="light"] {
+  --bg: #eef1f6; --surface: #ffffff; --surface2: #f3f5f9; --line: #d8dee9;
+  --ink: #0f172a; --dim: #4b5668; --faint: #7b8699;
+  --shadow: 0 8px 24px rgba(15, 23, 42, .14);
+}
 
-    * {
-      -webkit-tap-highlight-color: transparent;
-    }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px; line-height: 1.35; overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; border: 0; cursor: pointer; background: none; touch-action: manipulation; }
+input, select, textarea { font: inherit; color: var(--ink); }
+.hidden { display: none !important; }
+.mono { font-variant-numeric: tabular-nums; }
+.mz-grow { flex: 1; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-    html,
-    body {
-      background: var(--bg);
-      color: var(--ink);
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      overscroll-behavior-y: none;
-    }
+/* Todo lo que se toca responde igual: baja un poco y vuelve (solo transform) */
+.mz-mesa, .mz-btn, .mz-qbtn, .qty-btn, .mz-mini, .mz-add, .mz-fchip, .cat-chip,
+.toggle-opt, .mz-pick, .mz-icon-btn, .mz-text-btn, .mz-x, .mz-fab, .btn-primary, .btn-ghost, .btn-danger {
+  transition: transform .12s var(--ease), opacity .15s linear, background-color .15s linear, border-color .15s linear;
+}
+.mz-mesa:active, .mz-btn:active, .mz-qbtn:active, .qty-btn:active, .mz-mini:active, .mz-add:active,
+.mz-pick:active, .mz-icon-btn:active, .mz-x:active, .mz-fab:active { transform: scale(.97); }
 
-    .mono {
-      font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-    }
+/* ═══ Colores de estado ═══ */
+.st-libre       { --c: #1fa35a; --ct: #fff; }
+.st-pendiente   { --c: #f0a020; --ct: #1c1200; }
+.st-preparacion { --c: #3b82f6; --ct: #fff; }
+.st-listo       { --c: #a855f7; --ct: #fff; }
+.st-cuenta      { --c: #ef4444; --ct: #fff; }
+.st-ayuda       { --c: #ec4899; --ct: #fff; }
+.st-reservada   { --c: #06b6d4; --ct: #fff; }
+.st-ocupada     { --c: #64748b; --ct: #fff; }
 
-    .surface {
-      background: var(--surface);
-      border: 1px solid var(--line);
-    }
+/* ═══ Cabecera ═══ */
+.mz-top { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--line); padding: 8px 14px; }
+.mz-top-in { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 8px; }
+.mz-avatar { width: 40px; height: 40px; border-radius: var(--r); background: var(--surface2); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.mz-who { min-width: 0; flex: 1; }
+.mz-who b { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.mz-who small { color: var(--dim); font-size: 12.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mz-icon-btn { width: 44px; height: 44px; border-radius: var(--r); background: var(--surface2); border: 1px solid var(--line);
+  font-size: 19px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mz-text-btn { height: 44px; padding: 0 14px; border-radius: var(--r); background: var(--surface2); border: 1px solid var(--line); font-weight: 600; font-size: 13px; }
 
-    .surface-2 {
-      background: var(--surface-2);
-      border: 1px solid var(--line);
-    }
+.mz-main { max-width: 1200px; margin: 0 auto; padding: 12px 14px 110px; }
 
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
+/* ═══ Indicadores: número con color de estado, sin bloques saturados ═══ */
+.mz-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+@media (min-width: 700px) { .mz-stats { grid-template-columns: repeat(5, 1fr); } }
+.mz-stat { border-radius: var(--r); padding: 9px 10px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: inset 0 -2px 0 var(--c); color: var(--ink); }
+.mz-stat b { display: block; font-size: 24px; line-height: 1.1; font-weight: 700; color: var(--c); font-variant-numeric: tabular-nums; }
+.st-pendiente.mz-stat b { color: #f0a020; }
+.mz-stat span { font-size: 11.5px; font-weight: 600; color: var(--dim); }
 
-    ::-webkit-scrollbar-thumb {
-      background: rgba(139, 92, 246, .25);
-      border-radius: 8px;
-    }
+/* ═══ Filtros ═══ */
+.mz-filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 6px; scrollbar-width: none; }
+.mz-filters::-webkit-scrollbar { display: none; }
+.mz-fchip { flex-shrink: 0; height: 44px; padding: 0 16px; border-radius: var(--r); background: var(--surface);
+  border: 1px solid var(--line); font-weight: 600; font-size: 14px; color: var(--dim); }
+.mz-fchip.active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 
-    .thin-scroll::-webkit-scrollbar {
-      width: 5px;
-    }
+/* ═══ Leyenda ═══ */
+.mz-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 12px; font-size: 12px; color: var(--faint); font-weight: 500; }
+.mz-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--c); vertical-align: 0; margin-right: 5px; }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(6px);
-      }
+/* ═══ Tablero ═══ */
+.mz-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 560px) { .mz-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 900px) { .mz-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1150px) { .mz-grid { grid-template-columns: repeat(5, 1fr); } }
 
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+/* Tarjeta: superficie neutra + barra fina de color a la izquierda + pastilla de estado */
+.mz-mesa { position: relative; text-align: left; border-radius: var(--r); padding: 12px 12px 12px 15px; min-height: 138px;
+  display: flex; flex-direction: column; gap: 3px; overflow: hidden; contain: content;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--c); color: var(--ink); }
+.mz-mesa-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.mz-mesa-name { font-size: 18px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mz-mesa-ico { font-size: 18px; flex-shrink: 0; opacity: .9; }
+.mz-mesa-state { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: var(--c); color: var(--ct); }
+.mz-mesa-meta { font-size: 12.5px; font-weight: 500; color: var(--dim); }
+.mz-mesa-total { margin-top: auto; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.mz-mesa.sel { border-color: var(--ink); box-shadow: inset 3px 0 0 var(--c), 0 0 0 1px var(--ink); }
 
-    .animate-fadeIn {
-      animation: fadeIn .25s ease both;
-    }
+/* Lo que pide atención: un punto que late (solo opacity, cuesta casi nada) */
+.st-pendiente.mz-mesa::after, .st-cuenta.mz-mesa::after, .st-ayuda.mz-mesa::after, .st-listo.mz-mesa::after {
+  content: ""; position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--c); animation: mzDot 1.4s ease-in-out infinite; }
+.mz-mesa-top { padding-right: 10px; }
+@keyframes mzDot { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
-    @keyframes pulseDot {
+.mz-empty { flex-direction: column; align-items: center; text-align: center; padding: 70px 0; gap: 8px; color: var(--dim); font-weight: 600; }
+.mz-empty .big { font-size: 40px; opacity: .8; }
 
-      0%,
-      100% {
-        opacity: 1;
-      }
+/* ═══ Overlays / hojas: entran y salen suave (opacity + transform) ═══ */
+.overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(3, 5, 10, .66); visibility: hidden; opacity: 0; pointer-events: none;
+  transition: opacity .2s linear, visibility 0s linear .2s; }
+.overlay.show { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity .2s linear; }
+@media (min-width: 700px) { .overlay { align-items: center; padding: 20px; } }
+.mz-sheet { width: 100%; max-width: 600px; max-height: 96vh; max-height: 96dvh; display: flex; flex-direction: column;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 12px 12px 0 0; overflow: hidden; box-shadow: var(--shadow);
+  transform: translate3d(0, 32px, 0); transition: transform .3s var(--ease); }
+.overlay.show .mz-sheet { transform: none; }
+@media (min-width: 700px) { .mz-sheet { border-radius: 12px; max-height: 92vh; } }
+.mz-sheet.sm { max-width: 400px; }
+/* encabezado: neutro, con una línea de color arriba que indica el estado */
+.mz-sheet-head { flex-shrink: 0; padding: 14px 16px 12px; background: var(--surface); color: var(--ink);
+  border-bottom: 1px solid var(--line); box-shadow: inset 0 3px 0 var(--c, var(--line)); }
+.mz-sheet-head h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.mz-sheet-head p { margin: 2px 0 0; font-size: 13px; color: var(--dim); font-weight: 500; }
+.mz-head-row { display: flex; align-items: flex-start; gap: 10px; }
+.mz-x { width: 44px; height: 44px; border-radius: var(--r); background: var(--surface2); border: 1px solid var(--line); color: var(--ink); font-size: 16px; font-weight: 700; flex-shrink: 0; }
+.mz-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip { display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 600; padding: 4px 9px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--line); color: var(--ink); }
+#det-chip-estado { background: var(--c); border-color: var(--c); color: var(--ct); }
+.mz-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px 8px; display: flex; flex-direction: column; gap: 14px; }
+.mz-foot { flex-shrink: 0; padding: 10px 14px 14px; background: var(--surface); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.mz-row { display: flex; gap: 8px; }
+.mz-row > .mz-btn { flex: 1; }
 
-      50% {
-        opacity: .35;
-      }
-    }
+.mz-label { font-size: 12px; font-weight: 600; color: var(--faint); margin: 0 0 6px; display: block; }
+.mz-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; }
+.mz-note { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; font-size: 14px; color: var(--dim); }
 
-    .pulse-dot {
-      animation: pulseDot 1.6s ease-in-out infinite;
-    }
+/* ═══ Botones ═══ */
+.mz-btn, .btn-primary, .btn-ghost, .btn-danger { min-height: 50px; padding: 0 14px; border-radius: var(--r); font-weight: 600; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+.mz-btn:disabled, .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.mz-btn-xl { min-height: 58px; font-size: 17px; font-weight: 700; }
+.mz-btn-ok { background: var(--ok); color: #fff; }
+.mz-btn-brand, .btn-primary { background: var(--brand); color: #fff; }
+.mz-btn-blue { background: #3b82f6; color: #fff; }
+.mz-btn-purple { background: #a855f7; color: #fff; }
+.mz-btn-soft, .btn-ghost { background: var(--surface2); border: 1px solid var(--line); color: var(--ink); }
+.mz-btn-danger, .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
 
-    @keyframes ring {
+/* ═══ Personas ═══ */
+.mz-pers { display: flex; align-items: center; gap: 10px; }
+.mz-pers .mz-qbtn { width: 52px; height: 52px; font-size: 26px; }
+.mz-pers-val { min-width: 52px; text-align: center; font-size: 28px; font-weight: 700; }
+.mz-pers-lbl { font-weight: 600; font-size: 15px; }
+.mz-pers-lbl small { display: block; color: var(--faint); font-weight: 500; font-size: 12px; }
 
-      0%,
-      100% {
-        transform: rotate(0);
-      }
+/* ═══ Llamado del cliente ═══ */
+.mz-alert { display: flex; align-items: center; gap: 10px; border-radius: var(--r); padding: 10px 12px; background: var(--surface);
+  border: 1px solid var(--danger); box-shadow: inset 3px 0 0 var(--danger); }
+.mz-alert small { display: block; font-size: 12px; font-weight: 600; color: var(--danger); }
+.mz-alert b { font-size: 16px; }
+.mz-alert button { min-height: 46px; padding: 0 14px; border-radius: var(--r); background: var(--danger); color: #fff; font-weight: 700; flex-shrink: 0; }
 
-      10%,
-      30% {
-        transform: rotate(-12deg);
-      }
+/* ═══ Productos del pedido ═══ */
+.mz-sec-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mz-add { min-height: 46px; padding: 0 16px; border-radius: var(--r); background: var(--brand); color: #fff; font-weight: 700; font-size: 15px; }
+.mz-grp { border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--c); background: var(--surface); }
+.mz-grp-h { padding: 8px 12px 8px 15px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 14px; color: var(--ink); border-bottom: 1px solid var(--line); }
+.mz-grp-h small { font-weight: 500; font-size: 12px; color: var(--faint); }
+.g-nuevo { --c: #f0a020; } .g-conf { --c: #f97316; } .g-prep { --c: #3b82f6; } .g-ent { --c: #1fa35a; }
+.mz-item { padding: 12px 12px 12px 15px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.mz-grp-h + .mz-item { border-top: 0; }
+.mz-item-top { display: flex; align-items: flex-start; gap: 10px; }
+.mz-item-main { flex: 1; min-width: 0; }
+.mz-item-name { font-weight: 600; font-size: 16px; line-height: 1.25; }
+.mz-item-opts { color: var(--dim); font-size: 13px; margin-top: 2px; }
+.mz-item-price { font-weight: 700; font-size: 16px; white-space: nowrap; }
+.mz-item-ctrl { display: flex; align-items: center; gap: 8px; }
+.mz-qty { display: flex; align-items: center; gap: 2px; background: var(--surface2); border: 1px solid var(--line); border-radius: var(--r); padding: 2px; }
+.mz-qty b { min-width: 34px; text-align: center; font-size: 17px; }
+.mz-qbtn, .qty-btn { width: 44px; height: 44px; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--line);
+  font-size: 22px; font-weight: 600; display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.mz-mini { min-height: 44px; padding: 0 12px; border-radius: var(--r); font-weight: 600; font-size: 13px; background: var(--surface2); border: 1px solid var(--line); }
+.mz-mini.red { background: transparent; color: var(--danger); border-color: var(--danger); }
+.field-input { width: 100%; background: var(--surface2); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; font-size: 15px; outline: none; transition: border-color .15s linear; }
+.field-input:focus { border-color: var(--brand); }
+textarea.field-input { resize: none; }
+.mz-total { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; }
+.mz-total span { font-weight: 600; color: var(--dim); }
+.mz-total b { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
 
-      20%,
-      40% {
-        transform: rotate(12deg);
-      }
-    }
+/* ═══ Selector de producto ═══ */
+.mz-search { padding: 12px 14px 6px; }
+.mz-cats { display: flex; gap: 6px; overflow-x: auto; padding: 0 14px 10px; scrollbar-width: none; }
+.mz-cats::-webkit-scrollbar { display: none; }
+.cat-chip { flex-shrink: 0; height: 44px; padding: 0 16px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: 14px; color: var(--dim); white-space: nowrap; }
+.cat-chip.active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.mz-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.mz-pick { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; min-height: 68px; contain: content; }
+.mz-pick.off { opacity: .4; }
+.mz-pick-img { width: 52px; height: 52px; border-radius: var(--r-sm); background: var(--surface2); flex-shrink: 0; overflow: hidden; }
+.mz-pick-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mz-pick-info { flex: 1; min-width: 0; }
+.mz-pick-info b { display: block; font-size: 15.5px; font-weight: 600; line-height: 1.2; }
+.mz-pick-info span { font-size: 12.5px; color: var(--dim); }
+.mz-pick-price { font-weight: 700; font-size: 15px; }
+.stock-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; margin-top: 3px; }
+.stock-ok { background: #1fa35a; color: #fff; } .stock-bajo { background: #f0a020; color: #1c1200; } .stock-agotado { background: #e5484d; color: #fff; }
 
-    .ring-anim {
-      animation: ring .5s ease-in-out;
-    }
+/* ═══ Variantes ═══ */
+.mz-optbox { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggle-opt { min-height: 46px; padding: 0 16px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: 15px; color: var(--ink); display: flex; align-items: center; }
+.toggle-opt.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.mz-optrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 5px 5px 5px 12px; font-weight: 600; }
 
-    @keyframes toastIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px) scale(.97);
-      }
+/* ═══ Cobro ═══ */
+.mz-cobro { display: flex; flex-direction: column; gap: 8px; }
+.mz-cobro img { max-width: 100%; max-height: 220px; border-radius: var(--r-sm); border: 1px solid var(--line); display: block; }
+.mz-cobro .mz-row { flex-wrap: wrap; }
+.mz-cobro .mz-btn { min-height: 50px; font-size: 14px; }
 
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
+/* ═══ Toast ═══ */
+#toastWrap { position: fixed; left: 12px; right: 12px; bottom: 14px; z-index: 300; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.mz-toast { width: 100%; max-width: 420px; border-radius: var(--r); padding: 12px 14px; font-weight: 600; font-size: 14.5px; background: var(--ink); color: var(--bg); box-shadow: var(--shadow); animation: mzToast .25s var(--ease); }
+.mz-toast.err { background: var(--danger); color: #fff; }
+@keyframes mzToast { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
 
-    .toast-in {
-      animation: toastIn .18s ease both;
-    }
+/* ═══ Unir mesas ═══ */
+.mz-fab { position: fixed; right: 14px; bottom: 14px; z-index: 49; min-height: 52px; padding: 0 18px; border-radius: var(--r); background: var(--brand); color: #fff; font-weight: 700; font-size: 15px; box-shadow: var(--shadow); }
+.mz-unirbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: none; gap: 8px; align-items: center; padding: 10px 12px; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -2px 0 var(--brand); }
+.mz-unirbar span { flex: 1; font-weight: 600; font-size: 14px; }
+.mz-unirbar button { min-height: 48px; padding: 0 16px; border-radius: var(--r); font-weight: 700; }
 
-    .overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      background: rgba(3, 2, 8, .82);
-      backdrop-filter: blur(6px);
-    }
+/* ═══ Login / loader / spinner ═══ */
+#pageLoader { position: fixed; inset: 0; z-index: 400; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.mz-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--brand); animation: spin .8s linear infinite; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, .4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.ring-anim { animation: ring .5s ease-in-out; }
+@keyframes ring { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+.mz-login { padding: 22px; width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin: auto; }
+.mz-login h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.mz-login p { margin: 0 0 16px; color: var(--dim); font-size: 14px; }
+.mz-login .field-input { margin-bottom: 10px; font-size: 17px; }
+.mz-err { color: #ef4444; font-weight: 600; font-size: 14px; margin: 0 0 10px; }
+#mozoSelectOverlay { align-items: center; padding: 16px; }
 
-    .overlay.show {
-      display: flex;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, .3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .mesa-card {
-      background: var(--surface);
-      border: 1.5px solid var(--line);
-      border-radius: 20px;
-      padding: 14px;
-      cursor: pointer;
-      transition: transform .12s ease, border-color .12s ease;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      min-height: 140px;
-    }
-
-    .mesa-card:active {
-      transform: scale(.97);
-    }
-
-    .mesa-card.st-libre {
-      border-color: rgba(34, 197, 94, .25);
-    }
-
-    .mesa-card.st-pendiente {
-      border-color: rgba(245, 158, 11, .55);
-      box-shadow: 0 0 0 1px rgba(245, 158, 11, .2) inset;
-    }
-
-    .mesa-card.st-preparacion {
-      border-color: rgba(59, 130, 246, .5);
-    }
-
-    .mesa-card.st-listo {
-      border-color: rgba(192, 38, 211, .6);
-      box-shadow: 0 0 0 1px rgba(192, 38, 211, .25) inset;
-    }
-
-    .mesa-card.st-cuenta {
-      border-color: rgba(239, 68, 68, .6);
-      box-shadow: 0 0 0 1px rgba(239, 68, 68, .25) inset;
-    }
-
-    .mesa-card.st-reservada {
-      border-color: rgba(124, 92, 255, .5);
-    }
-
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 10.5px;
-      font-weight: 700;
-      padding: 3px 9px;
-      border-radius: 999px;
-      letter-spacing: .02em;
-    }
-
-    .btn-primary {
-      background: var(--violet);
-      color: #fff;
-      font-weight: 700;
-      border-radius: 14px;
-      padding: 12px;
-      transition: filter .12s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .btn-primary:hover {
-      filter: brightness(1.1);
-    }
-
-    .btn-primary:disabled {
-      opacity: .4;
-      cursor: not-allowed;
-    }
-
-    .btn-ghost {
-      background: rgba(255, 255, 255, .05);
-      color: var(--ink);
-      font-weight: 600;
-      border-radius: 14px;
-      padding: 12px;
-      transition: background .12s;
-    }
-
-    .btn-ghost:hover {
-      background: rgba(255, 255, 255, .09);
-    }
-
-    .btn-danger {
-      background: var(--red-soft);
-      color: #fca5a5;
-      font-weight: 700;
-      border-radius: 14px;
-      padding: 12px;
-      transition: filter .12s;
-    }
-
-    .btn-danger:hover {
-      filter: brightness(1.2);
-    }
-
-    .field-input {
-      width: 100%;
-      background: var(--surface-2);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 13.5px;
-      color: var(--ink);
-      outline: none;
-    }
-
-    .field-input:focus {
-      border-color: var(--violet);
-    }
-
-    .qty-btn {
-      width: 30px;
-      height: 30px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, .06);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 16px;
-      color: var(--ink);
-    }
-
-    .qty-btn:active {
-      transform: scale(.9);
-    }
-
-    .cat-chip {
-      flex-shrink: 0;
-      font-size: 11.5px;
-      font-weight: 700;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: var(--surface-2);
-      border: 1px solid var(--line);
-      color: var(--ink-dim);
-      white-space: nowrap;
-      transition: all .12s;
-    }
-
-    .cat-chip.active {
-      background: var(--violet);
-      color: #fff;
-      border-color: var(--violet);
-    }
-
-    .toggle-opt {
-      font-size: 12px;
-      font-weight: 700;
-      padding: 7px 12px;
-      border-radius: 12px;
-      background: var(--surface-2);
-      border: 1px solid var(--line);
-      color: var(--ink-dim);
-      cursor: pointer;
-      transition: all .12s;
-    }
-
-    .toggle-opt.active {
-      background: var(--violet);
-      color: #fff;
-      border-color: var(--violet);
-    }
-
-    .toggle-opt.agotado {
-      opacity: .4;
-      text-decoration: line-through;
-      cursor: not-allowed;
-    }
-
-    .stock-badge {
-      font-size: 9.5px;
-      font-weight: 800;
-      padding: 2px 6px;
-      border-radius: 6px;
-      letter-spacing: .02em;
-    }
-
-    .stock-ok {
-      background: var(--green-soft);
-      color: #6ee7a0;
-    }
-
-    .stock-bajo {
-      background: var(--amber-soft);
-      color: #fbbf6b;
-    }
-
-    .stock-agotado {
-      background: var(--red-soft);
-      color: #fca5a5;
-    }
-
-    #toastWrap {
-      position: fixed;
-      bottom: 16px;
-      right: 16px;
-      left: 16px;
-      z-index: 300;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
-    }
-
-    @media(min-width:640px) {
-      #toastWrap {
-        left: auto;
-      }
-    }
+/* ═══ Cámara / foto del comprobante (lo usa mozo_camara.js) ═══ */
+.ft-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ft-opt { min-height: 118px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 15px; }
+.ft-opt.main { background: var(--brand); border-color: var(--brand); color: #fff; }
+.ft-opt .ico { font-size: 34px; line-height: 1; }
+.ft-prev { width: 100%; max-height: 52vh; object-fit: contain; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface2); display: block; }
+.ft-hint { margin: 0; text-align: center; color: var(--dim); font-size: 13px; }
   </style>
 </head>
 
-<body class="min-h-screen pb-10">
+<body>
 
-  <!-- ══════════════ Loader inicial ══════════════ -->
-  <div id="pageLoader" class="fixed inset-0 z-[400] bg-[#08060d] flex flex-col items-center justify-center gap-3">
-    <div class="w-10 h-10 rounded-full border-2 border-violet-900 border-t-violet-400"
-      style="animation:spin .7s linear infinite;"></div>
-    <p class="text-xs text-[var(--ink-faint)] font-mono">Cargando Modo Mozo…</p>
+  <div id="pageLoader">
+    <div class="mz-spin"></div>
+    <p style="color:var(--faint);font-size:13px;font-weight:700;margin:0;">Cargando…</p>
   </div>
 
-  <!-- ══════════════ Selector de mozo (bloquea hasta elegir) ══════════════ -->
-<div id="mozoSelectOverlay" class="overlay" style="z-index:250;">
-  <div class="surface rounded-3xl p-6 w-full max-w-sm">
-    <h2 class="font-extrabold text-lg mb-1">Ingreso de trabajadores</h2>
-    <p class="text-xs text-[var(--ink-dim)] mb-5">Usa el usuario y PIN que te dio el negocio.</p>
-    <input id="mzUser" type="text" placeholder="Usuario" class="field-input mb-2" autocomplete="username">
-    <input id="mzPin" type="password" inputmode="numeric" placeholder="PIN" class="field-input mb-3" autocomplete="current-password">
-    <p id="mzError" class="hidden text-xs text-red-400 mb-3"></p>
-    <button id="mzLoginBtn" class="btn-primary w-full">Entrar</button>
+  <!-- Login -->
+  <div id="mozoSelectOverlay" class="overlay">
+    <div class="mz-login">
+      <h2>🧑‍🍳 Ingreso de trabajadores</h2>
+      <p>Usa el usuario y PIN que te dio el negocio.</p>
+      <input id="mzUser" type="text" placeholder="Usuario" class="field-input" autocomplete="username" autocapitalize="none">
+      <input id="mzPin" type="password" inputmode="numeric" placeholder="PIN" class="field-input" autocomplete="current-password">
+      <p id="mzError" class="hidden mz-err"></p>
+      <button id="mzLoginBtn" class="btn-primary" style="width:100%;">Entrar</button>
+    </div>
   </div>
-</div>
 
-  <!-- ══════════════ App principal ══════════════ -->
+  <!-- App -->
   <div id="app" class="hidden">
-
-    <header class="sticky top-0 z-30 backdrop-blur-xl bg-black/85 border-b border-[var(--line)] px-4 sm:px-6 py-3">
-      <div class="max-w-[1400px] mx-auto flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div
-            class="w-9 h-9 rounded-xl bg-violet-950/60 border border-violet-800/40 flex items-center justify-center text-base flex-shrink-0">
-            🧑‍🍳</div>
-          <div class="min-w-0">
-            <h1 class="font-extrabold text-[15px] leading-tight">Modo Mozo</h1>
-            <p class="text-[11px] text-[var(--ink-faint)] truncate">Atendiendo como <span id="mozoActivoNombre"
-                class="text-violet-300 font-semibold">—</span></p>
-          </div>
+    <header class="mz-top">
+      <div class="mz-top-in">
+        <div class="mz-avatar">🧑‍🍳</div>
+        <div class="mz-who">
+          <b>Modo Mozo</b>
+          <small>Atendiendo: <span id="mozoActivoNombre">—</span></small>
         </div>
-        <div class="flex items-center gap-2 flex-shrink-0">
-          <button id="btnSonido" title="Sonido"
-            class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-base">🔔</button>
-          <button id="btnCambiarMozo"
-            class="text-[11px] font-semibold text-[var(--ink-dim)] hover:text-white px-3 py-2 rounded-xl bg-white/5">Cambiar</button>
-        </div>
+        <button id="btnTema" class="mz-icon-btn" title="Modo claro / oscuro">🌙</button>
+        <button id="btnSonido" class="mz-icon-btn" title="Sonido">🔔</button>
+        <button id="btnCambiarMozo" class="mz-text-btn">Salir</button>
       </div>
     </header>
 
-    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-5">
-
-      <!-- Panel de indicadores -->
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-6">
-        <div class="surface rounded-2xl p-3.5">
-          <p class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-1">Mesas ocupadas</p>
-          <p class="text-2xl font-extrabold" id="ind-ocupadas">0</p>
-        </div>
-        <div class="surface rounded-2xl p-3.5" style="border-color:rgba(245,158,11,.3);">
-          <p class="text-[10px] uppercase tracking-wider font-bold text-amber-400/80 mb-1">Por confirmar</p>
-          <p class="text-2xl font-extrabold text-amber-400" id="ind-pendientes">0</p>
-        </div>
-        <div class="surface rounded-2xl p-3.5" style="border-color:rgba(239,68,68,.3);">
-          <p class="text-[10px] uppercase tracking-wider font-bold text-red-400/80 mb-1">Llamados</p>
-          <p class="text-2xl font-extrabold text-red-400" id="ind-llamados">0</p>
-        </div>
-        <div class="surface rounded-2xl p-3.5" style="border-color:rgba(192,38,211,.3);">
-          <p class="text-[10px] uppercase tracking-wider font-bold text-fuchsia-400/80 mb-1">Listos</p>
-          <p class="text-2xl font-extrabold text-fuchsia-400" id="ind-listos">0</p>
-        </div>
-        <div class="surface rounded-2xl p-3.5 col-span-2 sm:col-span-1" style="border-color:rgba(239,68,68,.3);">
-          <p class="text-[10px] uppercase tracking-wider font-bold text-red-400/80 mb-1">Piden cuenta</p>
-          <p class="text-2xl font-extrabold text-red-400" id="ind-cuenta">0</p>
-        </div>
+    <main class="mz-main">
+      <div class="mz-stats">
+        <div class="mz-stat st-ocupada"><b id="ind-ocupadas">0</b><span>Ocupadas</span></div>
+        <div class="mz-stat st-pendiente"><b id="ind-pendientes">0</b><span>Por confirmar</span></div>
+        <div class="mz-stat st-ayuda"><b id="ind-llamados">0</b><span>Llamados</span></div>
+        <div class="mz-stat st-listo"><b id="ind-listos">0</b><span>Listos</span></div>
+        <div class="mz-stat st-cuenta"><b id="ind-cuenta">0</b><span>Piden cuenta</span></div>
       </div>
 
-      <!-- Leyenda -->
-      <div class="flex flex-wrap gap-x-4 gap-y-1.5 mb-5 text-[11px] text-[var(--ink-dim)]">
-        <span>🟢 Libre</span>
-        <span>🟠 Por confirmar</span>
-        <span>🔵 En preparación</span>
-        <span>🟣 Listo</span>
-        <span>🔴 Pide la cuenta</span>
-        <span>🟣 Reservada</span>
+      <div class="mz-filters" id="mzFiltros">
+        <button class="mz-fchip active" data-f="todas">Todas</button>
+        <button class="mz-fchip" data-f="atender">🔔 Atender ya</button>
+        <button class="mz-fchip" data-f="ocupadas">🍽️ Ocupadas</button>
+        <button class="mz-fchip" data-f="libres">🟢 Libres</button>
       </div>
 
-      <div id="mesaGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"></div>
+      <div class="mz-legend">
+        <span class="st-libre"><i></i>Libre</span>
+        <span class="st-pendiente"><i></i>Por confirmar</span>
+        <span class="st-preparacion"><i></i>En preparación</span>
+        <span class="st-listo"><i></i>Listo</span>
+        <span class="st-cuenta"><i></i>Pide cuenta</span>
+        <span class="st-ayuda"><i></i>Llama</span>
+        <span class="st-reservada"><i></i>Reservada</span>
+      </div>
 
-      <div id="emptyMesas" class="hidden flex-col items-center text-center py-24 gap-2">
-        <div class="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-2xl">🍽️</div>
-        <p class="font-bold text-[var(--ink-dim)]">Todavía no hay mesas registradas</p>
+      <div id="mesaGrid" class="mz-grid"></div>
+
+      <div id="emptyMesas" class="hidden mz-empty">
+        <div class="big">🍽️</div>
+        <div>No hay mesas para mostrar</div>
       </div>
     </main>
   </div>
 
-  <!-- ══════════════ Modal detalle de mesa ══════════════ -->
+  <!-- Detalle de mesa -->
   <div class="overlay" id="overlay-detalle">
-    <div class="surface rounded-3xl w-full max-w-lg max-h-[92vh] overflow-y-auto thin-scroll">
-      <div class="sticky top-0 surface z-10 px-5 pt-5 pb-4 border-b border-[var(--line)]">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h2 class="font-extrabold text-lg" id="det-titulo">Mesa —</h2>
-            <p class="text-[11.5px] text-[var(--ink-dim)] mt-0.5" id="det-subtitulo">—</p>
+    <div class="mz-sheet">
+      <div class="mz-sheet-head" id="det-head">
+        <div class="mz-head-row">
+          <div class="mz-grow">
+            <h2 id="det-titulo">Mesa —</h2>
+            <p id="det-subtitulo">—</p>
           </div>
-          <button data-close="overlay-detalle"
-            class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
+          <button data-close="overlay-detalle" class="mz-x">✕</button>
         </div>
-        <div class="flex flex-wrap gap-2 mt-3">
-          <span class="chip" id="det-chip-estado" style="background:var(--surface-2); color:var(--ink-dim);">—</span>
-          <span class="chip" id="det-chip-tiempo" style="background:var(--surface-2); color:var(--ink-dim);">⏱ —</span>
+        <div class="mz-chips">
+          <span class="chip" id="det-chip-estado">—</span>
+          <span class="chip" id="det-chip-tiempo">⏱ —</span>
         </div>
       </div>
 
-      <div class="px-5 py-4 flex flex-col gap-4">
-
-        <!-- Mozo asignado + personas -->
-        <div class="grid grid-cols-2 gap-2.5">
-          <div>
-            <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Mozo
-              asignado</label>
-            <select id="det-mozo-select" class="field-input"></select>
+      <div class="mz-body">
+        <div id="det-llamado-banner" class="hidden mz-alert">
+          <div class="mz-grow">
+            <small>Solicitud del cliente</small>
+            <b id="det-llamado-motivo">—</b>
           </div>
-          <div>
-            <label
-              class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Personas</label>
-            <input id="det-personas" type="number" min="0" placeholder="—" class="field-input">
-          </div>
+          <button id="det-llamado-atender">Atendido ✓</button>
         </div>
 
-        <!-- Llamado activo -->
-        <div id="det-llamado-banner" class="hidden rounded-2xl p-3 flex items-center justify-between gap-3"
-          style="background:var(--red-soft); border:1px solid rgba(239,68,68,.3);">
-          <div class="min-w-0">
-            <p class="text-[11px] font-bold text-red-300 uppercase tracking-wide">Solicitud del cliente</p>
-            <p class="text-sm font-semibold text-red-100" id="det-llamado-motivo">—</p>
-          </div>
-          <button id="det-llamado-atender" class="btn-ghost text-xs px-3 py-2 flex-shrink-0">Marcar atendido</button>
-        </div>
-
-        <!-- Productos -->
         <div>
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[11px] uppercase tracking-wider font-bold text-[var(--ink-faint)]">Productos del pedido</h3>
-            <button id="btn-agregar-producto"
-              class="text-[11.5px] font-bold text-violet-300 hover:text-violet-200 flex items-center gap-1">
-              <span>+</span> Agregar
-            </button>
+          <div class="mz-sec-h" style="margin-bottom:8px;">
+            <span class="mz-label" style="margin:0;">Pedido</span>
+            <button id="btn-agregar-producto" class="mz-add">＋ Agregar</button>
           </div>
-          <div id="det-productos" class="flex flex-col gap-2"></div>
-          <p id="det-sin-productos" class="hidden text-xs text-[var(--ink-faint)] py-4 text-center">Sin productos
-            todavía. Usa "+ Agregar" para iniciar el pedido.</p>
+          <div id="det-productos" style="display:flex;flex-direction:column;gap:10px;"></div>
+          <p id="det-sin-productos" class="hidden mz-note" style="text-align:center;">Aún no hay productos. Toca “＋ Agregar”.</p>
         </div>
 
-        <!-- Nota del cliente -->
-        <div>
-          <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Nota del
-            cliente</label>
-          <p class="text-sm text-[var(--ink-dim)] surface-2 rounded-xl px-3 py-2.5" id="det-nota-cliente">—</p>
+        <div class="mz-total"><span>Total</span><b class="mono" id="det-total">S/ 0.00</b></div>
+
+        <div class="mz-card">
+          <div class="mz-pers">
+            <button type="button" id="det-pers-menos" class="mz-qbtn">−</button>
+            <div class="mz-pers-val" id="det-pers-val">—</div>
+            <button type="button" id="det-pers-mas" class="mz-qbtn">+</button>
+            <div class="mz-pers-lbl">👥 Personas<small>en la mesa</small></div>
+          </div>
+          <input id="det-personas" type="hidden">
         </div>
 
-        <!-- Nota interna del mozo -->
         <div>
-          <label class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] block mb-1.5">Nota
-            interna (no la ve el cliente)</label>
-          <textarea id="det-nota-interna" rows="2" placeholder="Ej. Cliente alérgico al maní, mesa VIP…"
-            class="field-input resize-none"></textarea>
+          <span class="mz-label">Nota del cliente</span>
+          <div class="mz-note" id="det-nota-cliente">—</div>
+        </div>
+
+        <div>
+          <span class="mz-label">Nota interna (el cliente no la ve)</span>
+          <textarea id="det-nota-interna" rows="2" placeholder="Ej. alérgico al maní, mesa VIP…" class="field-input"></textarea>
         </div>
 
         <div id="det-cobro"></div>
-
-        <!-- Total -->
-        <div class="flex items-center justify-between pt-2 border-t border-[var(--line)]">
-          <span class="text-sm font-semibold text-[var(--ink-dim)]">Total</span>
-          <span class="font-extrabold text-xl mono" id="det-total">S/ 0.00</span>
-        </div>
       </div>
 
-      <!-- Acciones -->
-      <div class="px-5 pb-5 pt-1 flex flex-col gap-2 sticky bottom-0 surface">
-                <div class="grid grid-cols-2 gap-2">
-          <button id="det-btn-prep" class="btn-ghost text-xs">🔥 En preparación</button>
-          <button id="det-btn-entregado" class="btn-ghost text-xs">🍽️ Entregado</button>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <button id="det-btn-guardar" class="btn-ghost">Guardar cambios</button>
-          <button id="det-btn-confirmar" class="btn-primary">
-            <span id="det-btn-confirmar-label">Confirmar y enviar a cocina</span>
-          </button>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <button id="det-btn-cancelar-pedido" class="btn-danger text-xs">Cancelar pedido completo</button>
-          <button id="det-btn-liberar" class="btn-ghost text-xs">Liberar mesa</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════ Modal agregar producto ══════════════ -->
-  <div class="overlay" id="overlay-picker">
-    <div class="surface rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col">
-      <div class="px-5 pt-5 pb-3 border-b border-[var(--line)] flex items-center justify-between flex-shrink-0">
-        <h3 class="font-extrabold text-base">Agregar producto</h3>
-        <button data-close="overlay-picker"
-          class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center">✕</button>
-      </div>
-      <div class="px-5 pt-3 pb-2 flex-shrink-0">
-        <input id="picker-search" type="text" placeholder="Buscar producto…" class="field-input">
-      </div>
-      <div id="picker-categorias" class="flex gap-1.5 overflow-x-auto thin-scroll px-5 pb-3 flex-shrink-0"></div>
-      <div id="picker-lista" class="flex-1 overflow-y-auto thin-scroll px-5 pb-5 flex flex-col gap-2"></div>
-    </div>
-  </div>
-
-  <!-- ══════════════ Modal de opciones/condiciones del producto (ej. helada / sin helar) ══════════════ -->
-  <div class="overlay" id="overlay-picker-opciones">
-    <div class="surface rounded-3xl w-full max-w-sm max-h-[85vh] overflow-y-auto thin-scroll">
-      <div class="px-5 pt-5 pb-3 border-b border-[var(--line)] flex items-center justify-between">
-        <div>
-          <h3 class="font-extrabold text-base" id="opciones-prod-nombre">Elige las opciones</h3>
-          <p class="text-[11px] text-[var(--ink-faint)] mt-0.5">Selecciona antes de agregar al pedido</p>
-        </div>
-        <button data-close="overlay-picker-opciones"
-          class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center flex-shrink-0">✕</button>
-      </div>
-      <div class="px-5 py-4 flex flex-col gap-4" id="opciones-body"></div>
-      <div class="px-5 pb-5">
-        <button id="opciones-btn-agregar" class="btn-primary w-full">Agregar al pedido</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════ Confirmación genérica ══════════════ -->
-  <div class="overlay" id="overlay-confirm">
-    <div class="surface rounded-3xl w-full max-w-sm p-6 text-center">
-      <h3 class="font-extrabold text-base mb-1" id="confirm-title">¿Confirmar?</h3>
-      <p class="text-xs text-[var(--ink-dim)] mb-5" id="confirm-body">Esta acción no se puede deshacer.</p>
-      <div class="flex gap-2.5">
-        <button data-close="overlay-confirm" class="btn-ghost flex-1">Cancelar</button>
-        <button id="btn-confirm-action" class="btn-danger flex-1 flex items-center justify-center">
-          <span id="btn-confirm-action-label">Sí, continuar</span>
+      <div class="mz-foot">
+        <button id="det-btn-confirmar" class="mz-btn mz-btn-ok mz-btn-xl">
+          <span id="det-btn-confirmar-label">Confirmar y enviar a cocina</span>
         </button>
+        <div class="mz-row">
+          <button id="det-btn-prep" class="mz-btn mz-btn-blue">🔥 En preparación</button>
+          <button id="det-btn-entregado" class="mz-btn mz-btn-purple">✅ Entregado</button>
+        </div>
+        <div class="mz-row">
+          <button id="det-btn-guardar" class="mz-btn mz-btn-soft">💾 Guardar</button>
+          <button id="det-btn-liberar" class="mz-btn mz-btn-soft">🪑 Liberar</button>
+          <button id="det-btn-cancelar-pedido" class="mz-btn mz-btn-danger">✕ Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agregar producto -->
+  <div class="overlay" id="overlay-picker">
+    <div class="mz-sheet" style="height:92vh;height:92dvh;">
+      <div class="mz-sheet-head" style="background:var(--surface);color:var(--ink);">
+        <div class="mz-head-row">
+          <h2 class="mz-grow" style="font-size:20px;">Agregar producto</h2>
+          <button data-close="overlay-picker" class="mz-x" style="background:var(--surface2);">✕</button>
+        </div>
+      </div>
+      <div class="mz-search"><input id="picker-search" type="search" placeholder="🔍 Buscar producto…" class="field-input"></div>
+      <div id="picker-categorias" class="mz-cats"></div>
+      <div id="picker-lista" class="mz-list"></div>
+    </div>
+  </div>
+
+  <!-- Variantes -->
+  <div class="overlay" id="overlay-picker-opciones" style="z-index:110;">
+    <div class="mz-sheet">
+      <div class="mz-sheet-head" style="background:var(--surface);color:var(--ink);">
+        <div class="mz-head-row">
+          <div class="mz-grow">
+            <h2 id="opciones-prod-nombre" style="font-size:20px;">Opciones</h2>
+            <p>Elige antes de agregar</p>
+          </div>
+          <button data-close="overlay-picker-opciones" class="mz-x" style="background:var(--surface2);">✕</button>
+        </div>
+      </div>
+      <div class="mz-body" id="opciones-body"></div>
+      <div class="mz-foot"><button id="opciones-btn-agregar" class="mz-btn mz-btn-brand mz-btn-xl">Agregar</button></div>
+    </div>
+  </div>
+
+  <!-- Confirmación -->
+  <div class="overlay" id="overlay-confirm" style="z-index:120;align-items:center;padding:16px;">
+    <div class="mz-sheet sm" style="border-radius:26px;">
+      <div class="mz-body" style="text-align:center;padding:24px 18px 10px;">
+        <h3 id="confirm-title" style="margin:0;font-size:20px;font-weight:900;">¿Confirmar?</h3>
+        <p id="confirm-body" style="margin:0;color:var(--dim);font-size:14px;">Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="mz-foot" style="border:0;background:var(--bg);">
+        <div class="mz-row">
+          <button data-close="overlay-confirm" class="mz-btn mz-btn-soft">Volver</button>
+          <button id="btn-confirm-action" class="mz-btn mz-btn-ok"><span id="btn-confirm-action-label">Sí, continuar</span></button>
+        </div>
       </div>
     </div>
   </div>

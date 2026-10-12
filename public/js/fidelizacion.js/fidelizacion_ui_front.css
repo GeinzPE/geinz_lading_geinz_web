@@ -221,6 +221,7 @@
 .fx-added:hover { filter: brightness(1.2); }
 
 .fx-once {
+  margin-bottom: 20px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 9.5px;
   color: rgba(255, 255, 255, .35);

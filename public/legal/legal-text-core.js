@@ -135,7 +135,7 @@ export async function initLegalTextPage({
 
     const biz = tiendaSnap.data();
     const footer = biz.footer || {};
-    if (footerFlag && (footer.activo !== true || footer[footerFlag] !== true)) {
+if (footerFlag && footer[footerFlag] !== true) {
       return showNotAvailable(
         "Este negocio no tiene disponible este documento por el momento.",
       );

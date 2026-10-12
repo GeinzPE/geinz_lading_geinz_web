@@ -4,12 +4,10 @@ import {
   abrirModalComprobante,
   armarSolicitud,
   htmlEstadoCliente,
-  elegirFoto,
   esc as escCm,
 } from "../dasboardjs/comprobante_mesa.js";
 import {
   doc,
-  setDoc,
   getDoc,
   getDocs,
   updateDoc,
@@ -20,6 +18,18 @@ import {
   arrayUnion,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { elegirFotoMozo } from "./mozo_camara.js";
+/* ══════════════ Helpers de DOM (nunca revientan si falta un id) ══════════════ */
+const $ = (id) => document.getElementById(id);
+function on(id, ev, fn) {
+  const el = $(id);
+  if (el) el.addEventListener(ev, fn);
+  else console.warn(`[mozo] falta #${id} en el HTML`);
+}
+function setText(id, txt) {
+  const el = $(id);
+  if (el) el.textContent = txt;
+}
 
 /* ══════════════ Identificación del negocio ══════════════ */
 let tiendaId = null;
@@ -80,28 +90,27 @@ function timeAgoCorto(date) {
   return `${h}h ${restMin}m`;
 }
 function toast(msg, type = "") {
-  const wrap = document.getElementById("toastWrap");
+  const wrap = $("toastWrap");
+  if (!wrap) return;
   const el = document.createElement("div");
-  const isError = type === "error";
-  el.className = `toast-in w-full sm:w-auto sm:min-w-[240px] rounded-2xl border px-4 py-3 text-xs font-semibold shadow-2xl backdrop-blur-md ${
-    isError
-      ? "bg-red-950/90 border-red-500/40 text-red-200"
-      : "bg-[#0d0a17]/95 border-violet-500/40 text-violet-100"
-  }`;
+  el.className = "mz-toast" + (type === "error" ? " err" : "");
+  el.style.transition = "opacity .2s, transform .2s";
   el.textContent = msg;
   wrap.appendChild(el);
   setTimeout(() => {
     el.style.opacity = "0";
     el.style.transform = "translateY(6px)";
-    setTimeout(() => el.remove(), 200);
+    setTimeout(() => el.remove(), 220);
   }, 3200);
 }
 function openOverlay(id) {
-  document.getElementById(id).classList.add("show");
+  $(id)?.classList.add("show");
 }
 function closeOverlay(id) {
-  document.getElementById(id).classList.remove("show");
+  $(id)?.classList.remove("show");
 }
+const detalleAbierto = () => $("overlay-detalle")?.classList.contains("show");
+
 document
   .querySelectorAll("[data-close]")
   .forEach((btn) =>
@@ -116,33 +125,46 @@ document.querySelectorAll(".overlay").forEach((ov) =>
 
 let confirmCallback = null;
 function askConfirm(title, body, onConfirm, confirmLabel = "Sí, continuar") {
-  document.getElementById("confirm-title").textContent = title;
-  document.getElementById("confirm-body").textContent = body;
-  document.getElementById("btn-confirm-action-label").textContent =
-    confirmLabel;
+  setText("confirm-title", title);
+  setText("confirm-body", body);
+  setText("btn-confirm-action-label", confirmLabel);
   confirmCallback = onConfirm;
   openOverlay("overlay-confirm");
 }
-document
-  .getElementById("btn-confirm-action")
-  .addEventListener("click", async () => {
-    const btn = document.getElementById("btn-confirm-action");
-    const label = document.getElementById("btn-confirm-action-label");
-    const original = label.textContent;
-    btn.disabled = true;
-    label.innerHTML = '<span class="spinner"></span>';
-    try {
-      if (confirmCallback) await confirmCallback();
-      closeOverlay("overlay-confirm");
-    } catch (err) {
-      console.error(err);
-      toast("Ocurrió un error, intenta de nuevo.", "error");
-    } finally {
-      btn.disabled = false;
-      label.textContent = original;
-      confirmCallback = null;
-    }
-  });
+on("btn-confirm-action", "click", async () => {
+  const btn = $("btn-confirm-action");
+  const label = $("btn-confirm-action-label");
+  const original = label.textContent;
+  btn.disabled = true;
+  label.innerHTML = '<span class="spinner"></span>';
+  try {
+    if (confirmCallback) await confirmCallback();
+    closeOverlay("overlay-confirm");
+  } catch (err) {
+    console.error(err);
+    toast("Ocurrió un error, intenta de nuevo.", "error");
+  } finally {
+    btn.disabled = false;
+    label.textContent = original;
+    confirmCallback = null;
+  }
+});
+
+/* ══════════════ Tema claro / oscuro ══════════════ */
+function paintTema() {
+  const t = document.documentElement.getAttribute("data-theme");
+  setText("btnTema", t === "light" ? "☀️" : "🌙");
+}
+paintTema();
+on("btnTema", "click", () => {
+  const actual = document.documentElement.getAttribute("data-theme");
+  const nuevo = actual === "light" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", nuevo);
+  try {
+    localStorage.setItem("mozo_tema", nuevo);
+  } catch {}
+  paintTema();
+});
 
 /* ══════════════ Sonido ══════════════ */
 let soundEnabled = localStorage.getItem("mozo_sound") !== "0";
@@ -184,12 +206,11 @@ function playTone(freqs, type = "sine") {
 const soundPedidoNuevo = () => playTone([660, 880], "square");
 const soundLlamado = () => playTone([740, 622, 740], "triangle");
 const soundListo = () => playTone([880, 1108, 1318], "sine");
-const btnSonido = document.getElementById("btnSonido");
 function paintSonido() {
-  btnSonido.textContent = soundEnabled ? "🔔" : "🔕";
+  setText("btnSonido", soundEnabled ? "🔔" : "🔕");
 }
 paintSonido();
-btnSonido.addEventListener("click", () => {
+on("btnSonido", "click", () => {
   soundEnabled = !soundEnabled;
   localStorage.setItem("mozo_sound", soundEnabled ? "1" : "0");
   paintSonido();
@@ -200,9 +221,11 @@ btnSonido.addEventListener("click", () => {
   toast(soundEnabled ? "🔔 Sonido activado" : "🔕 Sonido desactivado");
 });
 function bellRing() {
-  btnSonido.classList.remove("ring-anim");
-  void btnSonido.offsetWidth;
-  btnSonido.classList.add("ring-anim");
+  const b = $("btnSonido");
+  if (!b) return;
+  b.classList.remove("ring-anim");
+  void b.offsetWidth;
+  b.classList.add("ring-anim");
 }
 
 /* ══════════════ Estado en memoria ══════════════ */
@@ -211,17 +234,30 @@ const gruposMap = new Map();
 const llamadosMap = new Map();
 const mozosMap = new Map();
 let mesasCfg = {};
+let metodosPago = {};
+const METODOS_LABEL = {
+  efectivo: ["💵", "Efectivo"],
+  yape: ["📱", "Yape"],
+  plin: ["📱", "Plin"],
+  visa_mastercard: ["💳", "Visa / Mastercard"],
+  agora: ["🏦", "Agora"],
+};
+const metodosActivos = () =>
+  Object.entries(metodosPago)
+    .filter(([, v]) => v?.enable === true)
+    .map(([clave]) => {
+      const [ico, label] = METODOS_LABEL[clave] || ["💳", clave];
+      return { clave, ico, label };
+    });
 let edicionSucia = false; // evita que un snapshot borre lo que el mozo está armando
 let hayPendienteCliente = false;
 const puedeGestionar = () => esAdmin || mesasCfg.mozoPermisos === true;
 function iniciarListenerConfig() {
   onSnapshot(tiendaDoc(localidad, "tiendas", tiendaId), (s) => {
-    mesasCfg = s.data()?.mesas_config || {};
-    if (
-      mesaAbiertaId &&
-      !edicionSucia &&
-      document.getElementById("overlay-detalle").classList.contains("show")
-    )
+    const data = s.data() || {};
+    mesasCfg = data.mesas_config || {};
+    metodosPago = data.metodos_pago || {};
+    if (mesaAbiertaId && !edicionSucia && detalleAbierto())
       pintarDetalleMesa(mesaAbiertaId);
   });
 }
@@ -234,6 +270,7 @@ let pedidoEnEdicion = null;
 let firstMesasSnapshot = true;
 let firstLlamadosSnapshot = true;
 const mesaPedidoFirma = new Map();
+let filtroActual = "todas";
 
 /* ══════════════ Login de trabajadores (usuario + PIN) ══════════════ */
 const sesKey = () => `mozo_sess_${tiendaId}`;
@@ -306,18 +343,17 @@ function visibleParaMozo(m) {
 
 function seleccionarMozo(id, nombre) {
   mozoActivo = { id, nombre };
-  document.getElementById("mozoActivoNombre").textContent = nombre;
+  setText("mozoActivoNombre", nombre);
   closeOverlay("mozoSelectOverlay");
-  document.getElementById("app").classList.remove("hidden");
-  poblarSelectMozoEnDetalle();
+  $("app")?.classList.remove("hidden");
   renderMesaGrid();
 }
 
 async function loginMozo() {
-  const err = document.getElementById("mzError");
+  const err = $("mzError");
   err.classList.add("hidden");
-  const usuario = document.getElementById("mzUser").value.trim().toLowerCase();
-  const pin = document.getElementById("mzPin").value.trim();
+  const usuario = $("mzUser").value.trim().toLowerCase();
+  const pin = $("mzPin").value.trim();
   const fallo = (t) => {
     err.textContent = t;
     err.classList.remove("hidden");
@@ -345,10 +381,8 @@ async function loginMozo() {
     fallo("No se pudo iniciar sesión");
   }
 }
-document.getElementById("mzLoginBtn").addEventListener("click", loginMozo);
-document
-  .getElementById("mzPin")
-  .addEventListener("keydown", (e) => e.key === "Enter" && loginMozo());
+on("mzLoginBtn", "click", loginMozo);
+on("mzPin", "keydown", (e) => e.key === "Enter" && loginMozo());
 
 async function restaurarSesion() {
   try {
@@ -369,7 +403,7 @@ async function restaurarSesion() {
   }
 }
 
-document.getElementById("btnCambiarMozo").addEventListener("click", () => {
+on("btnCambiarMozo", "click", () => {
   localStorage.removeItem(sesKey());
   location.reload();
 });
@@ -380,24 +414,9 @@ function iniciarListenerMozos() {
     (snap) => {
       mozosMap.clear();
       snap.forEach((d) => mozosMap.set(d.id, d.data()));
-      poblarSelectMozoEnDetalle();
     },
     (err) => console.error("Error escuchando mozos:", err),
   );
-}
-function poblarSelectMozoEnDetalle() {
-  const sel = document.getElementById("det-mozo-select");
-  const actual = sel.value;
-  sel.innerHTML = `<option value="">Sin asignar</option>`;
-  [...mozosMap.entries()]
-    .filter(([, m]) => m.activo !== false)
-    .forEach(([id, m]) => {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = m.nombre;
-      sel.appendChild(opt);
-    });
-  if (actual) sel.value = actual;
 }
 
 /* ══════════════ Catálogo ══════════════ */
@@ -492,6 +511,7 @@ function getPedidoDeMesa(mesaDocId) {
 }
 
 function numsDeMesa(m) {
+  if (!m) return [];
   if (!m.grupoId) return [m.numero_mesa];
   return [...mesasMap.values()]
     .filter((x) => x.grupoId === m.grupoId)
@@ -508,6 +528,7 @@ function getLlamadoActivo(nums) {
 
 function computeEstadoVisual(mesaDocId) {
   const m = mesasMap.get(mesaDocId);
+  if (!m) return "libre";
   const info = getPedidoDeMesa(mesaDocId);
   const llamado = getLlamadoActivo(numsDeMesa(m));
 
@@ -522,6 +543,7 @@ function computeEstadoVisual(mesaDocId) {
   if (pedido.estado === "listo") return "listo";
   return "preparacion";
 }
+
 /* ══════════════ Estado visual de una mesa ══════════════ */
 const MOTIVO_LABEL = {
   confirmar_pedido: "Confirmar pedido",
@@ -531,42 +553,49 @@ const MOTIVO_LABEL = {
 };
 
 const ESTADO_META = {
-  libre: { label: "Libre", dot: "🟢", cls: "st-libre" },
-  pendiente: { label: "Por confirmar", dot: "🟠", cls: "st-pendiente" },
-  preparacion: { label: "En preparación", dot: "🔵", cls: "st-preparacion" },
-  listo: { label: "Listo", dot: "🟣", cls: "st-listo" },
-  cuenta: { label: "Pide la cuenta", dot: "🔴", cls: "st-cuenta" },
-  reservada: { label: "Reservada", dot: "🟣", cls: "st-reservada" },
-  ayuda: { label: "Llama al mozo", dot: "🟠", cls: "st-ayuda" },
-  ocupada: { label: "Ocupada", dot: "🟡", cls: "st-ocupada" },
+  libre: { label: "Libre", ico: "🪑", cls: "st-libre" },
+  pendiente: { label: "Por confirmar", ico: "⏳", cls: "st-pendiente" },
+  preparacion: { label: "En preparación", ico: "🔥", cls: "st-preparacion" },
+  listo: { label: "Listo", ico: "✅", cls: "st-listo" },
+  cuenta: { label: "Pide la cuenta", ico: "💳", cls: "st-cuenta" },
+  reservada: { label: "Reservada", ico: "📅", cls: "st-reservada" },
+  ayuda: { label: "Llama al mozo", ico: "🙋", cls: "st-ayuda" },
+  ocupada: { label: "Ocupada", ico: "🍽️", cls: "st-ocupada" },
 };
-document.head.insertAdjacentHTML(
-  "beforeend",
-  `<style>
-.mesa-card.st-pendiente{border-color:#fbbf24 !important;background:rgba(251,191,36,.14) !important;--pc:251,191,36;animation:mz-p 1.1s ease-in-out infinite;}
-.mesa-card.st-cuenta{border-color:#f87171 !important;background:rgba(248,113,113,.16) !important;--pc:248,113,113;animation:mz-p 1s ease-in-out infinite;}
-.mesa-card.st-ayuda{border-color:#fb923c !important;background:rgba(251,146,60,.16) !important;--pc:251,146,60;animation:mz-p 1s ease-in-out infinite;}
-.mesa-card.st-listo{border-color:#a78bfa !important;background:rgba(167,139,250,.16) !important;--pc:167,139,250;animation:mz-p 1.6s ease-in-out infinite;}
-@keyframes mz-p{0%,100%{box-shadow:0 0 0 0 rgba(var(--pc),.5);}50%{box-shadow:0 0 0 10px rgba(var(--pc),0);}}
-</style>`,
-);
+
+/* ══════════════ Filtros del tablero ══════════════ */
+function pasaFiltro(estado) {
+  switch (filtroActual) {
+    case "atender":
+      return ["pendiente", "cuenta", "ayuda", "listo"].includes(estado);
+    case "ocupadas":
+      return !["libre", "reservada"].includes(estado);
+    case "libres":
+      return estado === "libre";
+    default:
+      return true;
+  }
+}
+$("mzFiltros")
+  ?.querySelectorAll("[data-f]")
+  .forEach((b) =>
+    b.addEventListener("click", () => {
+      filtroActual = b.dataset.f;
+      $("mzFiltros")
+        .querySelectorAll("[data-f]")
+        .forEach((x) => x.classList.toggle("active", x === b));
+      renderMesaGrid();
+    }),
+  );
+
 /* ══════════════ Tablero de mesas ══════════════ */
 function renderMesaGrid() {
-  const grid = document.getElementById("mesaGrid");
-  const empty = document.getElementById("emptyMesas");
+  const grid = $("mesaGrid");
+  const empty = $("emptyMesas");
+  if (!grid || !empty) return;
   const todas = [...mesasMap.entries()]
     .filter(([, m]) => visibleParaMozo(m))
     .sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0));
-
-  if (!todas.length) {
-    grid.innerHTML = "";
-    empty.classList.remove("hidden");
-    empty.classList.add("flex");
-    actualizarIndicadores();
-    return;
-  }
-  empty.classList.add("hidden");
-  empty.classList.remove("flex");
 
   const yaRenderizadas = new Set();
   const bloques = [];
@@ -586,9 +615,25 @@ function renderMesaGrid() {
     }
   });
 
+  // aplicar filtro por estado visual
+  const visibles = bloques.filter((b) => {
+    const id = b.tipo === "single" ? b.mesaDocId : b.integrantes[0][0];
+    return pasaFiltro(computeEstadoVisual(id));
+  });
+
   grid.innerHTML = "";
-  bloques.forEach((bloque) => {
-    const card = document.createElement("div");
+  if (!visibles.length) {
+    empty.classList.remove("hidden");
+    empty.classList.add("flex");
+    actualizarIndicadores();
+    return;
+  }
+  empty.classList.add("hidden");
+  empty.classList.remove("flex");
+
+  visibles.forEach((bloque) => {
+    const card = document.createElement("button");
+    card.type = "button";
     if (bloque.tipo === "single") {
       const { mesaDocId, m } = bloque;
       const estado = computeEstadoVisual(mesaDocId);
@@ -598,17 +643,16 @@ function renderMesaGrid() {
       const tsMs = info ? toDate(info.pedido.timestamp)?.getTime() : null;
       const mozoNombre = m.mozoAsignado?.nombre || null;
 
-      card.className = `mesa-card animate-fadeIn ${meta.cls}`;
+      card.className = `mz-mesa ${meta.cls}`;
       card.innerHTML = `
-        <div class="flex items-center justify-between">
-          <span class="font-extrabold text-[15px]">${escapeHtml(m.nombre_alias || "Mesa " + m.numero_mesa)}</span>
-          <span class="text-base">${meta.dot}</span>
+        <div class="mz-mesa-top">
+          <span class="mz-mesa-name">${escapeHtml(m.nombre_alias || "Mesa " + m.numero_mesa)}</span>
+          <span class="mz-mesa-ico">${meta.ico}</span>
         </div>
-        <span class="chip w-fit" style="background:var(--surface-2); color:var(--ink-dim);">${meta.label}</span>
-        ${tsMs ? `<span class="text-[11px] text-[var(--ink-faint)]">⏱ ${timeAgoCorto(new Date(tsMs))}</span>` : ""}
-        <div class="flex-1"></div>
-        ${info ? `<span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>` : `<span class="text-[11px] text-[var(--ink-faint)]">Sin pedido</span>`}
-        ${mozoNombre ? `<span class="text-[10.5px] text-[var(--ink-faint)] truncate">👤 ${escapeHtml(mozoNombre)}</span>` : ""}
+        <span class="mz-mesa-state">${meta.label}</span>
+        ${tsMs ? `<span class="mz-mesa-meta">⏱ ${timeAgoCorto(new Date(tsMs))}</span>` : ""}
+        ${mozoNombre ? `<span class="mz-mesa-meta">👤 ${escapeHtml(mozoNombre)}</span>` : ""}
+        ${info ? `<span class="mz-mesa-total mono">${fmtMoney(total)}</span>` : `<span class="mz-mesa-meta" style="margin-top:auto;">Sin pedido</span>`}
       `;
       card.addEventListener("click", () => clickMesa(mesaDocId));
     } else {
@@ -623,17 +667,16 @@ function renderMesaGrid() {
         ? toDate(grupo.pedido.timestamp)?.getTime()
         : null;
 
-      card.className = `mesa-card animate-fadeIn ${meta.cls}`;
+      card.className = `mz-mesa ${meta.cls}`;
       card.style.gridColumn = `span ${Math.min(bloque.integrantes.length, 2)}`;
       card.innerHTML = `
-        <div class="flex items-center justify-between">
-          <span class="font-extrabold text-[14px] truncate">${escapeHtml(nombres)}</span>
-          <span class="text-base flex-shrink-0">${meta.dot}</span>
+        <div class="mz-mesa-top">
+          <span class="mz-mesa-name">${escapeHtml(nombres)}</span>
+          <span class="mz-mesa-ico">${meta.ico}</span>
         </div>
-        <span class="chip w-fit" style="background:var(--surface-2); color:var(--ink-dim);">${meta.label} · Grupo</span>
-        ${tsMs ? `<span class="text-[11px] text-[var(--ink-faint)]">⏱ ${timeAgoCorto(new Date(tsMs))}</span>` : ""}
-        <div class="flex-1"></div>
-        <span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>
+        <span class="mz-mesa-state">${meta.label} · Grupo</span>
+        ${tsMs ? `<span class="mz-mesa-meta">⏱ ${timeAgoCorto(new Date(tsMs))}</span>` : ""}
+        ${grupo?.pedido ? `<span class="mz-mesa-total mono">${fmtMoney(total)}</span>` : `<span class="mz-mesa-meta" style="margin-top:auto;">Sin pedido</span>`}
       `;
       card.addEventListener("click", () => clickMesa(bloque.integrantes[0][0]));
     }
@@ -642,16 +685,12 @@ function renderMesaGrid() {
         ? [bloque.mesaDocId]
         : bloque.integrantes.map((x) => x[0]);
     if (modoUnir && idsCard.every((i) => selUnir.has(i)))
-      card.style.outline = "3px solid #7c5cff";
+      card.classList.add("sel");
     grid.appendChild(card);
   });
 
   actualizarIndicadores();
-  if (
-    mesaAbiertaId &&
-    !edicionSucia &&
-    document.getElementById("overlay-detalle").classList.contains("show")
-  ) {
+  if (mesaAbiertaId && !edicionSucia && detalleAbierto()) {
     pintarDetalleMesa(mesaAbiertaId);
   }
 }
@@ -670,7 +709,11 @@ function actualizarIndicadores() {
     const info = getPedidoDeMesa(mesaDocId);
     if (!info) return;
     ocupadas++;
-    if (info.pedido.estadoMozo !== "confirmado") pendientes++;
+    if (
+      info.pedido.estadoMozo !== "confirmado" ||
+      info.pedido.pendienteMozo?.length
+    )
+      pendientes++;
     if (info.pedido.estado === "listo") listos++;
   });
   const llamadosPendientes = [...llamadosMap.values()].filter(
@@ -679,11 +722,15 @@ function actualizarIndicadores() {
   const cuentaPendientes = llamadosPendientes.filter(
     (l) => l.motivo === "cuenta",
   ).length;
+  const ayudaPendientes = llamadosPendientes.filter(
+    (l) => l.motivo === "ayuda",
+  ).length;
 
-  document.getElementById("ind-ocupadas").textContent = ocupadas;
-  document.getElementById("ind-pendientes").textContent = pendientes;
-
-  document.getElementById("ind-cuenta").textContent = cuentaPendientes;
+  setText("ind-ocupadas", ocupadas);
+  setText("ind-pendientes", pendientes);
+  setText("ind-llamados", ayudaPendientes);
+  setText("ind-listos", listos);
+  setText("ind-cuenta", cuentaPendientes);
 }
 
 /* ══════════════ Detalle de mesa ══════════════ */
@@ -696,6 +743,20 @@ function abrirDetalleMesa(mesaDocId) {
   openOverlay("overlay-detalle");
 }
 
+function pintarPersonas() {
+  const v = $("det-personas").value;
+  setText("det-pers-val", v === "" ? "—" : v);
+}
+function cambiarPersonas(delta) {
+  const inp = $("det-personas");
+  const actual = parseInt(inp.value, 10);
+  inp.value = Math.max(0, (isNaN(actual) ? 0 : actual) + delta);
+  edicionSucia = true;
+  pintarPersonas();
+}
+on("det-pers-menos", "click", () => cambiarPersonas(-1));
+on("det-pers-mas", "click", () => cambiarPersonas(+1));
+
 function pintarDetalleMesa(mesaDocId) {
   const m = mesasMap.get(mesaDocId);
   if (!m) {
@@ -707,29 +768,30 @@ function pintarDetalleMesa(mesaDocId) {
   const meta = ESTADO_META[estado];
   const llamado = getLlamadoActivo(numsDeMesa(m));
 
-  document.getElementById("det-titulo").textContent =
-    m.nombre_alias || `Mesa ${m.numero_mesa}`;
-  document.getElementById("det-subtitulo").textContent = info
-    ? `Pedido a las ${info.pedido.hora || "—"}`
-    : "Mesa sin pedido activo";
-  document.getElementById("det-chip-estado").textContent =
-    `${meta.dot} ${meta.label}`;
+  $("det-head").className = `mz-sheet-head ${meta.cls}`;
+  setText("det-titulo", m.nombre_alias || `Mesa ${m.numero_mesa}`);
+  setText(
+    "det-subtitulo",
+    info ? `Pedido a las ${info.pedido.hora || "—"}` : "Mesa sin pedido activo",
+  );
+  setText("det-chip-estado", `${meta.ico} ${meta.label}`);
   const tsMs = info ? toDate(info.pedido.timestamp)?.getTime() : null;
-  document.getElementById("det-chip-tiempo").textContent = tsMs
-    ? `⏱ ${timeAgoCorto(new Date(tsMs))} ocupada`
-    : "⏱ —";
+  setText(
+    "det-chip-tiempo",
+    tsMs ? `⏱ ${timeAgoCorto(new Date(tsMs))} ocupada` : "⏱ —",
+  );
 
-  poblarSelectMozoEnDetalle();
-  document.getElementById("det-mozo-select").value = m.mozoAsignado?.id || "";
-  document.getElementById("det-personas").value = m.personas ?? "";
+  $("det-personas").value = m.personas ?? "";
+  pintarPersonas();
 
-  const banner = document.getElementById("det-llamado-banner");
+  const banner = $("det-llamado-banner");
   if (llamado) {
     banner.classList.remove("hidden");
-    document.getElementById("det-llamado-motivo").textContent =
-      MOTIVO_LABEL[llamado.motivo] || llamado.motivo;
-    document.getElementById("det-llamado-atender").onclick = () =>
-      marcarLlamadoAtendido(llamado);
+    setText(
+      "det-llamado-motivo",
+      MOTIVO_LABEL[llamado.motivo] || llamado.motivo,
+    );
+    $("det-llamado-atender").onclick = () => marcarLlamadoAtendido(llamado);
   } else {
     banner.classList.add("hidden");
   }
@@ -767,7 +829,7 @@ function pintarDetalleMesa(mesaDocId) {
   hayPendienteCliente = pend.length > 0;
   if (hayPendienteCliente) {
     pend.forEach((b) =>
-      b.items.forEach((it) => {
+      (b.items || []).forEach((it) => {
         const ex = pedidoEnEdicion.productos.find(
           (x) =>
             x.id === it.id &&
@@ -788,34 +850,31 @@ function pintarDetalleMesa(mesaDocId) {
     recalcularTotales();
     pedidoEnEdicion.estadoMozo = "pendiente_revision";
   }
-  document.getElementById("det-nota-cliente").textContent =
+  setText(
+    "det-nota-cliente",
     (hayPendienteCliente
       ? "🆕 El cliente agregó productos: revísalos y confirma. "
-      : "") + (pedidoEnEdicion.nota || "Sin especificaciones");
-  document.getElementById("det-nota-interna").value =
-    pedidoEnEdicion.notaInterna || "";
+      : "") + (pedidoEnEdicion.nota || "Sin especificaciones"),
+  );
+  $("det-nota-interna").value = pedidoEnEdicion.notaInterna || "";
 
   pintarProductosEdicion();
 
   const yaConfirmado = pedidoEnEdicion.estadoMozo === "confirmado";
-  const btnConfirmar = document.getElementById("det-btn-confirmar");
-  document.getElementById("det-btn-confirmar-label").textContent = yaConfirmado
-    ? "Ya enviado a cocina ✓"
-    : "Confirmar y enviar a cocina";
+  const btnConfirmar = $("det-btn-confirmar");
+  setText(
+    "det-btn-confirmar-label",
+    yaConfirmado ? "Ya enviado a cocina ✓" : "Confirmar y enviar a cocina",
+  );
   btnConfirmar.disabled =
     yaConfirmado || pedidoEnEdicion.productos.length === 0;
-  btnConfirmar.style.opacity = btnConfirmar.disabled ? ".5" : "1";
 
   const gestion = puedeGestionar();
-  document.getElementById("det-btn-cancelar-pedido").style.display =
-    info && gestion ? "" : "none";
-  document.getElementById("det-btn-liberar").style.display =
-    info && gestion ? "" : "none";
   const confirmado = !!info && pedidoEnEdicion.estadoMozo === "confirmado";
-  document.getElementById("det-btn-prep").style.display =
-    confirmado && gestion ? "" : "none";
-  document.getElementById("det-btn-entregado").style.display =
-    confirmado && gestion ? "" : "none";
+  $("det-btn-cancelar-pedido").style.display = info && gestion ? "" : "none";
+  $("det-btn-liberar").style.display = info && gestion ? "" : "none";
+  $("det-btn-prep").style.display = confirmado && gestion ? "" : "none";
+  $("det-btn-entregado").style.display = confirmado && gestion ? "" : "none";
   pintarCobroMozo(info);
   edicionSucia = false;
 }
@@ -825,14 +884,27 @@ async function escribirCampoPedido(info, campos) {
   const pref = {};
   Object.entries(campos).forEach(([k, v]) => (pref["pedido." + k] = v));
   const tareas = [
-    updateDoc(info.esGrupo ? info.grupoRef : doc(mesasColRef(), mesaAbiertaId), pref),
+    updateDoc(
+      info.esGrupo ? info.grupoRef : doc(mesasColRef(), mesaAbiertaId),
+      pref,
+    ),
   ];
   if (info.pedidoDocId)
     tareas.push(updateDoc(doc(pedidosColRef(), info.pedidoDocId), campos));
   await Promise.all(tareas);
 }
+// Convierte la foto ya comprimida en texto (data URL) para guardarla en el pedido.
+// Solución temporal: funciona ya, sin servicio de subida.
+function subirImagen(blob) {
+  return new Promise((ok, ko) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => ko(new Error("No se pudo leer la foto"));
+    r.readAsDataURL(blob);
+  });
+}
 function pintarCobroMozo(info) {
-  const box = document.getElementById("det-cobro");
+  const box = $("det-cobro");
   if (!box) return;
   if (!info || mesasCfg.compMozo === false) {
     box.innerHTML = "";
@@ -840,39 +912,77 @@ function pintarCobroMozo(info) {
   }
   const comp = info.pedido.comprobante;
   const vou = info.pedido.pago_voucher;
+  const foto = info.pedido.comprobante_foto;
+  const mp = info.pedido.pago_metodo;
+  const metodos = metodosActivos();
+  const metodosHtml = metodos.length
+    ? `<span class="mz-label" style="margin:8px 0 4px;">¿Cómo pagó? ${mp ? "✔ " + escapeHtml(mp.label) : "(sin elegir)"}</span>
+     <div class="mz-optbox">
+       ${metodos.map((m) => `<button type="button" class="toggle-opt${mp?.clave === m.clave ? " active" : ""}" data-mp="${m.clave}">${m.ico} ${escapeHtml(m.label)}</button>`).join("")}
+     </div>
+     ${mp && mp.clave !== "efectivo" && !vou ? `<p style="margin:0;font-size:12px;color:var(--faint);">📸 Sube la foto del voucher para que el negocio lo valide.</p>` : ""}`
+    : "";
   box.innerHTML = `
-    <div class="surface-2 rounded-2xl p-3 flex flex-col gap-2.5">
-      <h3 class="text-[11px] uppercase tracking-wider font-bold text-[var(--ink-faint)]">Cobro</h3>
+    <div class="mz-card mz-cobro">
+      <span class="mz-label" style="margin:0;">Cobro</span>
       ${comp ? htmlEstadoCliente(comp) : ""}
-      <div class="grid grid-cols-2 gap-2">
-        <button id="det-btn-comp" class="btn-ghost text-xs py-2.5">🧾 ${comp ? "Cambiar comprobante" : "Boleta / Factura"}</button>
-        <button id="det-btn-voucher" class="btn-ghost text-xs py-2.5">💸 ${vou ? "Cambiar voucher de pago" : "Subir voucher de pago"}</button>
+      ${metodosHtml}
+      <div class="mz-row">
+        <button type="button" id="det-btn-comp" class="mz-btn mz-btn-soft">🧾 ${comp ? "Cambiar comprobante" : "Boleta / Factura"}</button>
+        <button type="button" id="det-btn-voucher" class="mz-btn mz-btn-soft">💸 ${vou ? "Cambiar voucher" : "Subir voucher de pago"}</button>
       </div>
-      <button id="det-btn-compfoto" class="btn-ghost text-xs py-2.5">📎 ${info.pedido.comprobante_foto ? "Cambiar foto del comprobante" : "Adjuntar foto del comprobante / datos"}</button>
-      ${info.pedido.comprobante_foto ? `<img src="${escCm(info.pedido.comprobante_foto.url)}" alt="adjunto" style="max-width:100%;max-height:200px;border-radius:10px;display:block;">` : ""}
-      ${vou ? `<img src="${escCm(vou.url)}" alt="voucher" style="max-width:100%;max-height:220px;border-radius:10px;display:block;">
-      <p class="text-[11px] text-[var(--ink-faint)]">Enviado al negocio, ellos confirman el pago.</p>` : ""}
+      <button type="button" id="det-btn-compfoto" class="mz-btn mz-btn-soft">📎 ${foto ? "Cambiar foto del comprobante" : "Adjuntar foto del comprobante / datos"}</button>
+      ${foto ? `<img src="${escCm(foto.url)}" alt="adjunto">` : ""}
+      ${
+        vou
+          ? `<img src="${escCm(vou.url)}" alt="voucher">
+      <p style="margin:0;font-size:12px;color:var(--faint);">Enviado al negocio, ellos confirman el pago.</p>`
+          : ""
+      }
     </div>`;
-  document.getElementById("det-btn-comp").onclick = async () => {
+  $("det-btn-comp").onclick = async () => {
     await abrirModalComprobante({
       titulo: "🧾 Comprobante de la mesa",
       total: info.pedido.total || 0,
       previo: comp || null,
       onSubmit: async (r) => {
-        await escribirCampoPedido(
-          info,
-          { comprobante: armarSolicitud(r, "mozo", mozoActivo?.nombre || "Mozo") },
-        );
+        await escribirCampoPedido(info, {
+          comprobante: armarSolicitud(r, "mozo", mozoActivo?.nombre || "Mozo"),
+        });
         toast("📄 Enviado al negocio");
       },
     });
   };
-  document.getElementById("det-btn-compfoto").onclick = async () => {
-    const url = await elegirFoto();
+  box.querySelectorAll("[data-mp]").forEach((b) => {
+    b.onclick = async () => {
+      const m = metodos.find((x) => x.clave === b.dataset.mp);
+      if (!m) return;
+      try {
+        await escribirCampoPedido(info, {
+          pago_metodo: {
+            clave: m.clave,
+            label: m.label,
+            por: mozoActivo?.nombre || "Mozo",
+            ts: Date.now(),
+          },
+        });
+        toast(`${m.ico} Pago con ${m.label}`);
+      } catch (e) {
+        console.error(e);
+        toast("No se pudo guardar el método", "error");
+      }
+    };
+  });
+  $("det-btn-compfoto").onclick = async () => {
+    const url = await elegirFotoMozo(subirImagen, "Foto del comprobante");
     if (!url) return;
     try {
       await escribirCampoPedido(info, {
-        comprobante_foto: { url, por: mozoActivo?.nombre || "Mozo", ts: Date.now() },
+        comprobante_foto: {
+          url,
+          por: mozoActivo?.nombre || "Mozo",
+          ts: Date.now(),
+        },
       });
       toast("📎 Foto enviada al negocio");
     } catch (e) {
@@ -880,12 +990,16 @@ function pintarCobroMozo(info) {
       toast("No se pudo subir la foto", "error");
     }
   };
-  document.getElementById("det-btn-voucher").onclick = async () => {
-    const url = await elegirFoto();
+  $("det-btn-voucher").onclick = async () => {
+    const url = await elegirFotoMozo(subirImagen, "Voucher de pago");
     if (!url) return;
     try {
       await escribirCampoPedido(info, {
-        pago_voucher: { url, por: mozoActivo?.nombre || "Mozo", ts: Date.now() },
+        pago_voucher: {
+          url,
+          por: mozoActivo?.nombre || "Mozo",
+          ts: Date.now(),
+        },
       });
       toast("💸 Voucher enviado al negocio");
     } catch (e) {
@@ -924,43 +1038,80 @@ function opcionesATexto(opciones) {
     .join(" · ");
 }
 
+/* ── Productos del pedido, agrupados por estado ── */
+function grupoDeItem(it) {
+  const est = it.estadoItem || "aceptado";
+  if (est === "entregado")
+    return { key: "ent", cls: "g-ent", titulo: "✅ Entregado", sub: "" };
+  if (est === "en_preparacion")
+    return { key: "prep", cls: "g-prep", titulo: "🔥 En preparación", sub: "" };
+  if (pedidoEnEdicion.estadoMozo !== "confirmado")
+    return {
+      key: "nuevo",
+      cls: "g-nuevo",
+      titulo: "🆕 Por confirmar",
+      sub: "aún no va a cocina",
+    };
+  return {
+    key: "conf",
+    cls: "g-conf",
+    titulo: "📋 Enviado a cocina",
+    sub: "en cola",
+  };
+}
+
 function pintarProductosEdicion() {
-  const wrap = document.getElementById("det-productos");
-  const sinProductos = document.getElementById("det-sin-productos");
+  const wrap = $("det-productos");
+  const sinProductos = $("det-sin-productos");
   wrap.innerHTML = "";
   const items = pedidoEnEdicion.productos;
   sinProductos.classList.toggle("hidden", items.length > 0);
 
+  const orden = ["nuevo", "conf", "prep", "ent"];
+  const grupos = new Map();
   items.forEach((it, idx) => {
-    const row = document.createElement("div");
-    row.className = "surface-2 rounded-2xl p-3 flex flex-col gap-2";
-    const opcionesTxt = opcionesATexto(it.opciones);
-    const tieneVar = !!catalogo.find((c) => c.id === it.id)?.condiciones
-      ?.length;
-    row.innerHTML = `
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <p class="font-bold text-[13.5px] truncate">${escapeHtml(it.nombre)}</p>
-          ${opcionesTxt ? `<p class="text-[10.5px] text-[var(--ink-faint)] truncate">${escapeHtml(opcionesTxt)}</p>` : ""}
-          <p class="text-[11px] text-[var(--ink-dim)] mono">S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</p>
+    const g = grupoDeItem(it);
+    if (!grupos.has(g.key)) grupos.set(g.key, { ...g, items: [] });
+    grupos.get(g.key).items.push([it, idx]);
+  });
+
+  orden.forEach((key) => {
+    const g = grupos.get(key);
+    if (!g) return;
+    const box = document.createElement("div");
+    box.className = `mz-grp ${g.cls}`;
+    box.innerHTML = `<div class="mz-grp-h"><span>${g.titulo} (${g.items.length})</span><small>${g.sub}</small></div>`;
+
+    g.items.forEach(([it, idx]) => {
+      const row = document.createElement("div");
+      row.className = "mz-item";
+      const opcionesTxt = opcionesATexto(it.opciones);
+      const tieneVar = !!catalogo.find((c) => c.id === it.id)?.condiciones
+        ?.length;
+      row.innerHTML = `
+        <div class="mz-item-top">
+          <div class="mz-item-main">
+            <div class="mz-item-name">${escapeHtml(it.nombre)}</div>
+            ${opcionesTxt ? `<div class="mz-item-opts">${escapeHtml(opcionesTxt)}</div>` : ""}
+            <div class="mz-item-opts mono">${fmtMoney(it.precio_unitario)} c/u</div>
+          </div>
+          <div class="mz-item-price mono">${fmtMoney(it.subtotal)}</div>
         </div>
-        <div class="flex items-center gap-2 flex-shrink-0">
-          ${tieneVar ? `<button data-edit="${idx}" class="text-violet-300 text-xs font-bold">✎ Variantes</button>` : ""}
-          <button data-remove="${idx}" class="text-red-400/70 hover:text-red-400 text-xs font-bold">Quitar</button>
+        <div class="mz-item-ctrl">
+          <div class="mz-qty">
+            <button type="button" data-minus="${idx}" class="mz-qbtn">−</button>
+            <b>${it.cantidad}</b>
+            <button type="button" data-plus="${idx}" class="mz-qbtn">+</button>
+          </div>
+          <span class="mz-grow"></span>
+          ${tieneVar ? `<button type="button" data-edit="${idx}" class="mz-mini">✎ Variantes</button>` : ""}
+          <button type="button" data-remove="${idx}" class="mz-mini red">Quitar</button>
         </div>
-      </div>
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <button data-minus="${idx}" class="qty-btn">−</button>
-          <span class="w-6 text-center font-bold text-sm">${it.cantidad}</span>
-          <button data-plus="${idx}" class="qty-btn">+</button>
-        </div>
-        <span class="font-bold text-sm mono">${fmtMoney(it.subtotal)}</span>
-      </div>
-      <input data-obs="${idx}" type="text" placeholder="Observación (ej. sin cebolla)" value="${escapeHtml(it.observacion || "")}"
-        class="field-input text-[12px] py-1.5">
-    `;
-    wrap.appendChild(row);
+        <input data-obs="${idx}" type="text" placeholder="Observación (ej. sin cebolla)" value="${escapeHtml(it.observacion || "")}" class="field-input">
+      `;
+      box.appendChild(row);
+    });
+    wrap.appendChild(box);
   });
 
   wrap
@@ -992,9 +1143,7 @@ function pintarProductosEdicion() {
     }),
   );
 
-  document.getElementById("det-total").textContent = fmtMoney(
-    pedidoEnEdicion.total,
-  );
+  setText("det-total", fmtMoney(pedidoEnEdicion.total));
 }
 
 function cambiarCantidad(idx, delta) {
@@ -1016,35 +1165,30 @@ function quitarProducto(idx) {
 }
 
 function refrescarBotonConfirmar() {
-  const btn = document.getElementById("det-btn-confirmar");
+  const btn = $("det-btn-confirmar");
   const yaConfirmado = pedidoEnEdicion.estadoMozo === "confirmado";
   btn.disabled = yaConfirmado || pedidoEnEdicion.productos.length === 0;
-  btn.style.opacity = btn.disabled ? ".5" : "1";
 }
 
 /* ══════════════ Agregar producto desde catálogo ══════════════ */
 let pickerFiltroCategoria = "Todos";
 
-document
-  .getElementById("btn-agregar-producto")
-  .addEventListener("click", async () => {
-    if (!catalogoListo) {
-      toast("Cargando catálogo, un momento…");
-      await cargarCatalogo();
-    }
-    document.getElementById("picker-search").value = "";
-    pickerFiltroCategoria = "Todos";
-    pintarCategoriasPicker();
-    pintarPicker(catalogo);
-    openOverlay("overlay-picker");
-  });
-document
-  .getElementById("picker-search")
-  .addEventListener("input", aplicarFiltroPicker);
+on("btn-agregar-producto", "click", async () => {
+  if (!catalogoListo) {
+    toast("Cargando catálogo, un momento…");
+    await cargarCatalogo();
+  }
+  $("picker-search").value = "";
+  pickerFiltroCategoria = "Todos";
+  pintarCategoriasPicker();
+  pintarPicker(catalogo);
+  openOverlay("overlay-picker");
+});
+on("picker-search", "input", aplicarFiltroPicker);
 
 function pintarCategoriasPicker() {
   const categorias = [...new Set(catalogo.map((p) => p.categoria))];
-  const wrap = document.getElementById("picker-categorias");
+  const wrap = $("picker-categorias");
   wrap.innerHTML = "";
   const makeChip = (label) => {
     const b = document.createElement("button");
@@ -1063,7 +1207,7 @@ function pintarCategoriasPicker() {
   categorias.forEach(makeChip);
 }
 function aplicarFiltroPicker() {
-  const q = document.getElementById("picker-search").value.trim().toLowerCase();
+  const q = $("picker-search").value.trim().toLowerCase();
   let resultado = catalogo;
   if (pickerFiltroCategoria !== "Todos")
     resultado = resultado.filter((p) => p.categoria === pickerFiltroCategoria);
@@ -1081,10 +1225,10 @@ function stockBadgeHtml(stock) {
 }
 
 function pintarPicker(lista) {
-  const wrap = document.getElementById("picker-lista");
+  const wrap = $("picker-lista");
   wrap.innerHTML = "";
   if (!lista.length) {
-    wrap.innerHTML = `<p class="text-xs text-[var(--ink-faint)] text-center py-8">Sin resultados</p>`;
+    wrap.innerHTML = `<p class="mz-note" style="text-align:center;">Sin resultados</p>`;
     return;
   }
   lista.forEach((p) => {
@@ -1092,17 +1236,15 @@ function pintarPicker(lista) {
     const condTxt = (p.condiciones || []).map((c) => c.nombre).join(" · ");
     const row = document.createElement("button");
     row.type = "button";
-    row.className =
-      "flex items-center gap-3 surface-2 rounded-2xl p-2.5 text-left hover:border-violet-600 border border-transparent transition-all" +
-      (agotado ? " opacity-50" : "");
+    row.className = "mz-pick" + (agotado ? " off" : "");
     row.innerHTML = `
-      <div class="w-11 h-11 rounded-xl bg-black/30 flex-shrink-0 overflow-hidden">${p.imagen ? `<img src="${p.imagen}" class="w-full h-full object-cover">` : ""}</div>
-      <div class="flex-1 min-w-0">
-        <p class="font-bold text-[13px] truncate">${escapeHtml(p.nombre)}</p>
-        <p class="text-[11px] text-[var(--ink-dim)]">${escapeHtml(p.categoria)} · <span class="mono">S/ ${calcPrecioFinal(p, null).toFixed(2)}</span></p>
-        ${condTxt ? `<p class="text-[10px] text-[var(--ink-faint)] mt-0.5 truncate">Opciones: ${escapeHtml(condTxt)}</p>` : ""}
+      <div class="mz-pick-img">${p.imagen ? `<img src="${escapeHtml(p.imagen)}" alt="">` : ""}</div>
+      <div class="mz-pick-info">
+        <b>${escapeHtml(p.nombre)}</b>
+        <span>${escapeHtml(p.categoria)}${condTxt ? " · Opciones: " + escapeHtml(condTxt) : ""}</span>
+        <div>${stockBadgeHtml(p.stock)}</div>
       </div>
-      <div class="flex-shrink-0">${stockBadgeHtml(p.stock)}</div>
+      <div class="mz-pick-price mono">${fmtMoney(calcPrecioFinal(p, null))}</div>
     `;
     row.addEventListener("click", () => {
       if (agotado) {
@@ -1221,14 +1363,13 @@ let opcionesEditIdx = null;
 
 function refrescarBtnOpciones() {
   const p = productoParaOpciones;
-  const btn = document.getElementById("opciones-btn-agregar");
+  const btn = $("opciones-btn-agregar");
   const falta =
     p.variantesObligatoria !== false &&
     p.condiciones.some(
       (c) => !entradasDe(seleccionOpcionesActual[c.nombre]).length,
     );
   btn.disabled = falta;
-  btn.style.opacity = falta ? ".5" : "1";
   btn.textContent = `${opcionesEditIdx != null ? "Guardar cambios" : "Agregar"} · ${fmtMoney(calcPrecioFinal(p, seleccionOpcionesActual))}`;
 }
 
@@ -1255,16 +1396,16 @@ function abrirOpcionesProducto(p, selEx = null, editIdx = null) {
         seleccionOpcionesActual[c.nombre] = c.opciones[0].nombre;
     });
 
-  document.getElementById("opciones-prod-nombre").textContent = p.nombre;
-  const body = document.getElementById("opciones-body");
+  setText("opciones-prod-nombre", p.nombre);
+  const body = $("opciones-body");
 
   const pintar = () => {
     body.innerHTML = "";
     p.condiciones.forEach((cond) => {
       const wrap = document.createElement("div");
-      wrap.innerHTML = `<p class="text-[10px] uppercase tracking-wider font-bold text-[var(--ink-faint)] mb-2">${escapeHtml(cond.nombre)}${multi ? " (varias)" : ""}</p>`;
+      wrap.innerHTML = `<span class="mz-label">${escapeHtml(cond.nombre)}${multi ? " (varias)" : ""}</span>`;
       const box = document.createElement("div");
-      box.className = "flex flex-wrap gap-2";
+      box.className = "mz-optbox";
 
       cond.opciones.forEach((op) => {
         const extra = op.costoAdicional
@@ -1275,12 +1416,11 @@ function abrirOpcionesProducto(p, selEx = null, editIdx = null) {
           const sel = (seleccionOpcionesActual[cond.nombre] ||= {});
           const c = sel[op.nombre] || 0;
           const row = document.createElement("div");
-          row.className =
-            "flex items-center justify-between w-full surface-2 rounded-xl px-3 py-2";
-          row.innerHTML = `<span class="text-[12.5px]">${escapeHtml(op.nombre)}${extra}</span>
-            <div class="flex items-center gap-2"><button type="button" class="qty-btn" data-m>−</button>
-            <span class="w-5 text-center font-bold text-sm">${c}</span>
-            <button type="button" class="qty-btn" data-p>+</button></div>`;
+          row.className = "mz-optrow";
+          row.innerHTML = `<span>${escapeHtml(op.nombre)}${extra}</span>
+            <div class="mz-qty"><button type="button" class="mz-qbtn" data-m>−</button>
+            <b>${c}</b>
+            <button type="button" class="mz-qbtn" data-p>+</button></div>`;
           row.querySelector("[data-m]").onclick = () => {
             if (c <= 1) delete sel[op.nombre];
             else sel[op.nombre] = c - 1;
@@ -1332,21 +1472,19 @@ function abrirOpcionesProducto(p, selEx = null, editIdx = null) {
   openOverlay("overlay-picker-opciones");
 }
 
-document
-  .getElementById("opciones-btn-agregar")
-  .addEventListener("click", () => {
-    if (!productoParaOpciones) return;
-    const sel = JSON.parse(JSON.stringify(seleccionOpcionesActual));
-    Object.keys(sel).forEach((k) => {
-      if (!entradasDe(sel[k]).length) delete sel[k];
-    });
-    const seleccion = Object.keys(sel).length ? sel : null;
-    if (opcionesEditIdx != null)
-      reemplazarLinea(opcionesEditIdx, productoParaOpciones, seleccion);
-    else agregarProductoAlPedido(productoParaOpciones, seleccion);
-    closeOverlay("overlay-picker-opciones");
-    closeOverlay("overlay-picker");
+on("opciones-btn-agregar", "click", () => {
+  if (!productoParaOpciones) return;
+  const sel = JSON.parse(JSON.stringify(seleccionOpcionesActual));
+  Object.keys(sel).forEach((k) => {
+    if (!entradasDe(sel[k]).length) delete sel[k];
   });
+  const seleccion = Object.keys(sel).length ? sel : null;
+  if (opcionesEditIdx != null)
+    reemplazarLinea(opcionesEditIdx, productoParaOpciones, seleccion);
+  else agregarProductoAlPedido(productoParaOpciones, seleccion);
+  closeOverlay("overlay-picker-opciones");
+  closeOverlay("overlay-picker");
+});
 
 function reemplazarLinea(idx, p, seleccion) {
   const it = pedidoEnEdicion.productos[idx];
@@ -1411,23 +1549,21 @@ function agregarProductoAlPedido(p, seleccion = null) {
   refrescarBotonConfirmar();
   toast(`${p.nombre} agregado`);
 }
+
 /* ══════════════ Guardar cambios ══════════════ */
 async function persistirPedido({ marcarConfirmado = false } = {}) {
   const m = mesasMap.get(mesaAbiertaId);
   if (!m) throw new Error("Mesa no encontrada");
 
-  pedidoEnEdicion.notaInterna = document
-    .getElementById("det-nota-interna")
-    .value.trim();
-  const personasVal = document.getElementById("det-personas").value;
-  const mozoSelId = document.getElementById("det-mozo-select").value;
-  const mozoSelNombre = mozoSelId ? mozosMap.get(mozoSelId)?.nombre : null;
+  pedidoEnEdicion.notaInterna = $("det-nota-interna").value.trim();
+  const personasVal = $("det-personas").value;
   recalcularTotales();
   delete pedidoEnEdicion.timestamp; // no pisar la hora original del pedido
   // comprobante y voucher se escriben aparte: no pisar lo que haya cambiado el dashboard
   delete pedidoEnEdicion.comprobante;
   delete pedidoEnEdicion.pago_voucher;
   delete pedidoEnEdicion.comprobante_foto;
+  delete pedidoEnEdicion.pago_metodo;
   if (getPedidoDeMesa(mesaAbiertaId)) pedidoEnEdicion.editadoPorMozo = true;
   if (marcarConfirmado) {
     pedidoEnEdicion.productos.forEach((i) => {
@@ -1451,9 +1587,12 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
     };
   }
 
-  const mozoAsignadoObj = mozoSelId
-    ? { id: mozoSelId, nombre: mozoSelNombre }
-    : null;
+  // Ya no hay select de mozo en el detalle: se conserva la asignación actual.
+  // Si nadie la tiene y un mozo (no admin) confirma el pedido, la mesa queda a su nombre.
+  let mozoAsignadoObj = m.mozoAsignado || null;
+  if (!mozoAsignadoObj && marcarConfirmado && !esAdmin && mozoActivo)
+    mozoAsignadoObj = { id: mozoActivo.id, nombre: mozoActivo.nombre };
+
   const personas =
     personasVal === "" ? null : Math.max(0, parseInt(personasVal, 10) || 0);
 
@@ -1577,7 +1716,7 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
   edicionSucia = false;
 }
 
-/* ══════════════ Descuento de inventario al confirmar ══════════════ */
+/* ══════════════ Descuento de inventario (disponible, no se llama automáticamente) ══════════════ */
 async function descontarInventario(productos) {
   for (const it of productos) {
     if (!it.id || !it.categoria) continue;
@@ -1604,40 +1743,38 @@ async function descontarInventario(productos) {
     }
   }
 }
+void descontarInventario;
 
 /* ══════════════ Botones del modal ══════════════ */
-document
-  .getElementById("det-btn-guardar")
-  .addEventListener("click", async () => {
-    if (hayPendienteCliente)
-      return toast(
-        "Confirma (o quita) los productos nuevos del cliente primero",
-        "error",
-      );
-    const btn = document.getElementById("det-btn-guardar");
-    btn.disabled = true;
-    const original = btn.textContent;
-    btn.textContent = "Guardando…";
-    try {
-      await persistirPedido({ marcarConfirmado: false });
-      toast("Cambios guardados");
-    } catch (err) {
-      console.error(err);
-      toast("No se pudo guardar.", "error");
-    } finally {
-      btn.disabled = false;
-      btn.textContent = original;
-    }
-  });
+on("det-btn-guardar", "click", async () => {
+  if (hayPendienteCliente)
+    return toast(
+      "Confirma (o quita) los productos nuevos del cliente primero",
+      "error",
+    );
+  const btn = $("det-btn-guardar");
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Guardando…";
+  try {
+    await persistirPedido({ marcarConfirmado: false });
+    toast("Cambios guardados");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo guardar.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+});
 
-document.getElementById("det-btn-confirmar").addEventListener("click", () => {
+on("det-btn-confirmar", "click", () => {
   if (!pedidoEnEdicion.productos.length) return;
   askConfirm(
     "¿Confirmar y enviar a cocina?",
-    "El pedido pasará a cocina, se descontará el inventario y no podrás editarlo desde aquí después.",
+    "El pedido pasará a cocina y no podrás editarlo desde aquí después.",
     async () => {
       await persistirPedido({ marcarConfirmado: true });
-
       toast("✅ Pedido enviado a cocina");
       closeOverlay("overlay-detalle");
     },
@@ -1645,56 +1782,54 @@ document.getElementById("det-btn-confirmar").addEventListener("click", () => {
   );
 });
 
-document
-  .getElementById("det-btn-cancelar-pedido")
-  .addEventListener("click", () => {
-    askConfirm(
-      "¿Cancelar pedido completo?",
-      "Se eliminará el pedido de esta mesa. Esta acción no se puede deshacer.",
-      async () => {
-        const info = getPedidoDeMesa(mesaAbiertaId);
-        const batch = writeBatch(db);
-        if (info?.esGrupo) {
+on("det-btn-cancelar-pedido", "click", () => {
+  askConfirm(
+    "¿Cancelar pedido completo?",
+    "Se eliminará el pedido de esta mesa. Esta acción no se puede deshacer.",
+    async () => {
+      const info = getPedidoDeMesa(mesaAbiertaId);
+      const batch = writeBatch(db);
+      if (info?.esGrupo) {
+        batch.set(
+          info.grupoRef,
+          { pedido: null, estado: "cerrado" },
+          { merge: true },
+        );
+        const grupo = gruposMap.get(grupoAbiertoId);
+        (grupo?.mesas || []).forEach((mm) =>
           batch.set(
-            info.grupoRef,
-            { pedido: null, estado: "cerrado" },
+            doc(mesasColRef(), mm.id),
+            { estado: "cancelado", grupoId: null, pago: "pendiente" },
+            { merge: true },
+          ),
+        );
+        if (info.pedidoDocId)
+          batch.set(
+            doc(pedidosColRef(), info.pedidoDocId),
+            { estado: "cancelado" },
             { merge: true },
           );
-          const grupo = gruposMap.get(grupoAbiertoId);
-          (grupo?.mesas || []).forEach((mm) =>
-            batch.set(
-              doc(mesasColRef(), mm.id),
-              { estado: "cancelado", grupoId: null, pago: "pendiente" },
-              { merge: true },
-            ),
-          );
-          if (info.pedidoDocId)
-            batch.set(
-              doc(pedidosColRef(), info.pedidoDocId),
-              { estado: "cancelado" },
-              { merge: true },
-            );
-        } else {
+      } else {
+        batch.set(
+          doc(mesasColRef(), mesaAbiertaId),
+          { estado: "cancelado", pago: "pendiente", pedido: null },
+          { merge: true },
+        );
+        if (info?.pedidoDocId)
           batch.set(
-            doc(mesasColRef(), mesaAbiertaId),
-            { estado: "cancelado", pago: "pendiente", pedido: null },
+            doc(pedidosColRef(), info.pedidoDocId),
+            { estado: "cancelado" },
             { merge: true },
           );
-          if (info?.pedidoDocId)
-            batch.set(
-              doc(pedidosColRef(), info.pedidoDocId),
-              { estado: "cancelado" },
-              { merge: true },
-            );
-        }
-        await batch.commit();
-        toast("Pedido cancelado");
-        closeOverlay("overlay-detalle");
-      },
-    );
-  });
+      }
+      await batch.commit();
+      toast("Pedido cancelado");
+      closeOverlay("overlay-detalle");
+    },
+  );
+});
 
-document.getElementById("det-btn-liberar").addEventListener("click", () => {
+on("det-btn-liberar", "click", () => {
   askConfirm(
     "¿Liberar mesa?",
     "Se marcará como pagada y quedará libre para el siguiente cliente.",
@@ -1851,7 +1986,7 @@ function iniciarListenerMesas() {
         bellRing();
         nuevosPedidos.forEach((p) =>
           toast(
-            `🍽️ Pedido nuevo en ${p.mesa?.nombre || p.pedido?.mesa?.nombre || "una mesa"}`,
+            `🍽️ Pedido nuevo en ${p.pedido?.mesa?.nombre || p.nombre_alias || "Mesa " + (p.numero_mesa ?? "")}`,
           ),
         );
       }
@@ -1859,7 +1994,9 @@ function iniciarListenerMesas() {
         soundListo();
         bellRing();
         listosNuevos.forEach((p) =>
-          toast(`🟣 Pedido listo en ${p.pedido?.mesa?.nombre || "una mesa"}`),
+          toast(
+            `✅ Pedido listo en ${p.pedido?.mesa?.nombre || p.nombre_alias || "una mesa"}`,
+          ),
         );
       }
     },
@@ -1909,7 +2046,7 @@ function iniciarListenerGrupos() {
   );
 }
 function hideLoader() {
-  const loader = document.getElementById("pageLoader");
+  const loader = $("pageLoader");
   if (loader) loader.remove();
 }
 
@@ -1951,43 +2088,17 @@ async function setEstadoMesa(nuevo) {
     toast("No se pudo actualizar.", "error");
   }
 }
-document
-  .getElementById("det-btn-prep")
-  .addEventListener("click", () => setEstadoMesa("en_preparacion"));
-document
-  .getElementById("det-btn-entregado")
-  .addEventListener("click", () => setEstadoMesa("entregado"));
-/* ══════════════ Arranque ══════════════ */
-/* Si el mozo toca notas/personas/mozo, no se le repinta encima */
-["det-nota-interna", "det-personas", "det-mozo-select"].forEach((id) => {
-  const el = document.getElementById(id);
+on("det-btn-prep", "click", () => setEstadoMesa("en_preparacion"));
+on("det-btn-entregado", "click", () => setEstadoMesa("entregado"));
+
+/* Si el mozo toca notas/personas, no se le repinta encima */
+["det-nota-interna", "det-personas"].forEach((id) => {
+  const el = $(id);
+  if (!el) return;
   el.addEventListener("input", () => (edicionSucia = true));
   el.addEventListener("change", () => (edicionSucia = true));
 });
 
-async function arrancar() {
-  const ok = await resolverTienda();
-  if (!ok) {
-    hideLoader();
-    toast("No se pudo identificar el negocio.", "error");
-    return;
-  }
-  iniciarListenerConfig();
-  iniciarListenerMozos();
-  iniciarListenerMesas();
-  iniciarListenerGrupos();
-  iniciarListenerLlamados();
-  cargarCatalogo();
-
-  if (esAdmin) {
-    mozoActivo = { id: "admin", nombre: "Administrador" };
-    document.getElementById("mozoActivoNombre").textContent = "Administrador";
-    document.getElementById("app").classList.remove("hidden");
-  } else if (!(await restaurarSesion())) {
-    hideLoader();
-    openOverlay("mozoSelectOverlay");
-  }
-}
 /* ══════════════ Unir / separar mesas ══════════════ */
 let modoUnir = false;
 const selUnir = new Set();
@@ -1995,22 +2106,19 @@ const selUnir = new Set();
 document.body.insertAdjacentHTML(
   "beforeend",
   `
-<button id="unirToggle" style="position:fixed;right:14px;bottom:14px;z-index:49;padding:12px 16px;border-radius:999px;border:none;background:#7c5cff;color:#fff;font-weight:800;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.4);">🔗 Unir mesas</button>
-<div id="unirBar" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:none;gap:8px;align-items:center;padding:10px 14px;background:#0d0a17;border-top:1px solid rgba(124,92,255,.4);">
-  <span id="unirTxt" style="flex:1;font-size:12.5px;font-weight:700;"></span>
-  <button id="unirOk" style="padding:10px 14px;border-radius:10px;border:none;background:#22c55e;color:#04240f;font-weight:800;font-size:12.5px;">Unir</button>
-  <button id="unirSep" style="padding:10px 14px;border-radius:10px;border:none;background:#f59e0b;color:#1a1200;font-weight:800;font-size:12.5px;">Separar</button>
-  <button id="unirX" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-weight:700;font-size:12.5px;">✕</button>
+<button id="unirToggle" type="button" class="mz-fab">🔗 Unir mesas</button>
+<div id="unirBar" class="mz-unirbar">
+  <span id="unirTxt"></span>
+  <button id="unirOk" type="button" style="background:var(--ok);color:#fff;">Unir</button>
+  <button id="unirSep" type="button" style="background:#f59e0b;color:#1c1200;">Separar</button>
+  <button id="unirX" type="button" style="background:var(--surface2);border:1px solid var(--line);">✕</button>
 </div>`,
 );
 
 function pintarUnirBar() {
-  document.getElementById("unirBar").style.display = modoUnir ? "flex" : "none";
-  document.getElementById("unirToggle").style.display = modoUnir
-    ? "none"
-    : "block";
-  document.getElementById("unirTxt").textContent =
-    `${selUnir.size} mesa(s) seleccionada(s)`;
+  $("unirBar").style.display = modoUnir ? "flex" : "none";
+  $("unirToggle").style.display = modoUnir ? "none" : "";
+  setText("unirTxt", `${selUnir.size} mesa(s) seleccionada(s)`);
 }
 function salirModoUnir() {
   modoUnir = false;
@@ -2018,12 +2126,12 @@ function salirModoUnir() {
   pintarUnirBar();
   renderMesaGrid();
 }
-document.getElementById("unirToggle").onclick = () => {
+$("unirToggle").onclick = () => {
   modoUnir = true;
   pintarUnirBar();
   renderMesaGrid();
 };
-document.getElementById("unirX").onclick = salirModoUnir;
+$("unirX").onclick = salirModoUnir;
 
 function clickMesa(mesaDocId) {
   if (!modoUnir) return abrirDetalleMesa(mesaDocId);
@@ -2039,7 +2147,7 @@ function clickMesa(mesaDocId) {
   renderMesaGrid();
 }
 
-document.getElementById("unirOk").onclick = async () => {
+$("unirOk").onclick = async () => {
   const mesas = [...selUnir].map((id) => ({ id, ...mesasMap.get(id) }));
   if (mesas.length < 2) return toast("Selecciona al menos 2 mesas", "error");
   const gids = [...new Set(mesas.map((m) => m.grupoId).filter(Boolean))];
@@ -2109,7 +2217,7 @@ document.getElementById("unirOk").onclick = async () => {
   }
 };
 
-document.getElementById("unirSep").onclick = async () => {
+$("unirSep").onclick = async () => {
   const gids = [
     ...new Set(
       [...selUnir].map((id) => mesasMap.get(id)?.grupoId).filter(Boolean),
@@ -2144,4 +2252,31 @@ document.getElementById("unirSep").onclick = async () => {
     toast("No se pudo separar", "error");
   }
 };
+pintarUnirBar();
+
+/* ══════════════ Arranque ══════════════ */
+async function arrancar() {
+  const ok = await resolverTienda();
+  if (!ok) {
+    hideLoader();
+    toast("No se pudo identificar el negocio.", "error");
+    return;
+  }
+  iniciarListenerConfig();
+  iniciarListenerMozos();
+  iniciarListenerMesas();
+  iniciarListenerGrupos();
+  iniciarListenerLlamados();
+  cargarCatalogo();
+
+  if (esAdmin) {
+    mozoActivo = { id: "admin", nombre: "Administrador" };
+    setText("mozoActivoNombre", "Administrador");
+    $("btnCambiarMozo")?.classList.add("hidden");
+    $("app")?.classList.remove("hidden");
+  } else if (!(await restaurarSesion())) {
+    hideLoader();
+    openOverlay("mozoSelectOverlay");
+  }
+}
 arrancar();

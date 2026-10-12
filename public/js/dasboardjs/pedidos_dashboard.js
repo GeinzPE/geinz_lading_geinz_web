@@ -839,6 +839,13 @@ const MAPA_CSS = `
   }
 }
   #mesasStripWrap .mesas-panel-body{flex:1;min-height:0;overflow-y:auto;}
+  #npPagoRow{flex-wrap:wrap;}
+#npPagoRow .np-pago-btn{flex:1 1 calc(50% - 8px);}
+.np-adic-title{font-size:11.5px;font-weight:800;color:var(--ink-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}
+.np-adic-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.np-adic-chip{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+.np-adic-chip:hover{border-color:#7c5cff;}
+.np-adic-chip:active{transform:scale(.96);}
 `;
 
 styleTag.textContent =
@@ -2515,6 +2522,7 @@ function getPedidosDeMesa(numeroMesa) {
         grupoId: m.grupoId,
         comprobante: grupo.pedido.comprobante || null,
         pago_voucher: grupo.pedido.pago_voucher || null,
+        pago_metodo: grupo.pedido.pago_metodo || null,
         comprobante_foto: grupo.pedido.comprobante_foto || null,
         descuentoCupon: grupo.pedido.descuentoCupon || 0,
       };
@@ -2555,6 +2563,7 @@ function getPedidosDeMesa(numeroMesa) {
       pedidoDocId: m.pedidoMesaDocId || null,
       comprobante: m.pedido.comprobante || null,
       pago_voucher: m.pedido.pago_voucher || null,
+      pago_metodo: m.pedido.pago_metodo || null,
       comprobante_foto: m.pedido.comprobante_foto || null,
       descuentoCupon: m.pedido.descuentoCupon || 0,
     };
@@ -3639,10 +3648,87 @@ function closeDetail() {
 
 function openMesaDetail(numeroMesa) {
   activeModalId = `mesa:${numeroMesa}`;
+  mxEstado = { pago: null, mas: null };
   renderMesaDetail(numeroMesa);
   detailOverlay.classList.add("show");
   requestAnimationFrame(() => detailModal.classList.add("show"));
   document.body.style.overflow = "hidden";
+}
+
+/* ══════════════ DETALLE DE MESA — versión fácil de entender ══════════════ */
+let mxEstado = { pago: null, mas: null }; // recuerda si el usuario abrió/cerró las secciones
+
+const mxStyle = document.createElement("style");
+mxStyle.textContent = `
+.mx-hint{display:flex;gap:12px;align-items:center;padding:14px;border-radius:16px;background:rgba(124,92,255,.1);border:1px solid rgba(124,92,255,.3);margin-bottom:12px;}
+.mx-hint .ic{font-size:32px;line-height:1;flex-shrink:0;}
+.mx-hint b{display:block;font-size:15px;margin-bottom:2px;}
+.mx-hint span{font-size:13px;color:var(--ink-dim);line-height:1.4;}
+.mx-call{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:16px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);margin-bottom:12px;}
+.mx-call b{display:block;font-size:14px;}
+.mx-call span{font-size:12px;color:var(--ink-dim);}
+.mx-call button{border:none;border-radius:12px;padding:12px 14px;background:#f87171;color:#2a0606;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0;}
+.mx-steps{display:flex;gap:6px;margin-bottom:12px;}
+.mx-step{flex:1;text-align:center;padding:10px 4px;border-radius:14px;border:1px solid var(--line);opacity:.45;font-size:12px;font-weight:700;}
+.mx-step b{display:flex;margin:0 auto 5px;width:28px;height:28px;border-radius:50%;background:var(--line);align-items:center;justify-content:center;font-size:14px;}
+.mx-step.done{opacity:1;color:#4ade80;}
+.mx-step.done b{background:#22c55e;color:#04240f;}
+.mx-step.now{opacity:1;border-color:#7c5cff;background:rgba(124,92,255,.16);color:#fff;}
+.mx-step.now b{background:#7c5cff;color:#fff;}
+.mx-total{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--line);margin-bottom:14px;}
+.mx-total span{font-size:13px;font-weight:700;color:var(--ink-dim);}
+.mx-total b{font-size:26px;font-weight:800;}
+.mx-nota{padding:10px 12px;border-radius:12px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:13px;font-weight:600;margin-bottom:14px;}
+.mx-group{margin-bottom:14px;}
+.mx-group h4{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--c);margin:0 0 8px;}
+.mx-group h4 span{background:var(--c);color:#0a0a0f;border-radius:999px;padding:1px 8px;font-size:11.5px;}
+.mx-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--line);border-left:4px solid var(--c);background:var(--surface);margin-bottom:6px;}
+.mx-qty{font-size:15px;font-weight:800;min-width:30px;color:var(--c);}
+.mx-info{flex:1;min-width:0;}
+.mx-info b{display:block;font-size:14px;line-height:1.25;}
+.mx-info small{display:block;font-size:12px;color:#a78bfa;margin-top:2px;}
+.mx-info small.org{color:var(--ink-dim);}
+.mx-price{font-weight:800;font-size:13.5px;white-space:nowrap;}
+.mx-more{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;background:rgba(255,255,255,.02);}
+.mx-more>summary{list-style:none;cursor:pointer;padding:14px;font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:center;}
+.mx-more>summary::-webkit-details-marker{display:none;}
+.mx-more>summary::after{content:"▾";color:var(--ink-dim);transition:transform .2s;}
+.mx-more[open]>summary::after{transform:rotate(180deg);}
+.mx-more>summary em{font-style:normal;font-size:11px;color:#4ade80;margin-left:8px;}
+.mx-more-body{padding:0 12px 12px;}
+.mx-actions{display:flex;flex-direction:column;gap:8px;width:100%;}
+.mx-actions .mx-more{margin:0;}
+.mx-btn{width:100%;min-height:56px;border-radius:14px;border:none;font-size:16px;font-weight:800;cursor:pointer;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 12px;touch-action:manipulation;}
+.mx-btn small{font-size:11.5px;font-weight:600;opacity:.85;}
+.mx-btn:active{transform:scale(.98);}
+.mx-btn:disabled{opacity:.5;cursor:not-allowed;}
+.mx-btn.green{background:#22c55e;color:#04240f;}
+.mx-btn.blue{background:#0ea5e9;color:#04202e;}
+.mx-btn.violet{background:#7c5cff;}
+.mx-btn.amber{background:#f59e0b;color:#1a1200;}
+.mx-btn.ghost-green{background:transparent;border:2px solid #22c55e;color:#4ade80;min-height:48px;font-size:14px;}
+.mx-btn.ghost-red{background:transparent;border:1px solid rgba(248,113,113,.4);color:#f87171;min-height:44px;font-size:13.5px;}
+.mx-opt{width:100%;text-align:left;display:flex;flex-direction:column;gap:2px;padding:12px 14px;margin-bottom:8px;border-radius:12px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+.mx-opt small{font-size:11.5px;font-weight:500;color:var(--ink-dim);}
+.mx-opt.danger{border-color:rgba(248,113,113,.4);color:#f87171;}
+.mx-pay{padding:12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.03);margin-bottom:12px;}
+.mx-pay-t{font-size:13px;font-weight:800;margin-bottom:8px;}
+.mx-pay-t em{font-style:normal;font-size:11.5px;color:#4ade80;margin-left:6px;}
+.mx-pay-t em.w{color:#fbbf24;}
+.mx-pay-row{display:flex;flex-wrap:wrap;gap:8px;}
+.mx-pay-btn{flex:1 1 calc(50% - 8px);min-height:48px;border-radius:12px;border:2px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;touch-action:manipulation;}
+.mx-pay-btn.on{border-color:#22c55e;background:rgba(34,197,94,.15);color:#4ade80;}
+`;
+document.head.appendChild(mxStyle);
+
+function mxRecordar(det, key) {
+  det?.addEventListener("toggle", () => {
+    mxEstado[key] = det.open;
+  });
+}
+function mxNombreOrigen(it) {
+  const m = it.mesaOrigenId ? mesasMap.get(it.mesaOrigenId) : null;
+  return m ? m.nombre_alias || "Mesa " + m.numero_mesa : "";
 }
 
 function renderMesaDetail(numeroMesa) {
@@ -3656,219 +3742,358 @@ function renderMesaDetail(numeroMesa) {
   );
   const total = activos.reduce((s, [, p]) => s + Number(p.total || 0), 0);
   const ocupada = activos.length > 0 || mesaInfo?.estado === "ocupado";
-
-  detailModal.dataset.status = ocupada ? "pendiente" : "entregado";
-  document.getElementById("dmId").innerHTML =
-    `🍽️ Mesa <span class="oc-origin-tag mesa">${ocupada ? "Ocupada" : "Libre"}</span>`;
-  document.getElementById("dmName").textContent =
-    mesaInfo?.nombre_alias || "Mesa " + numeroMesa;
-  const mesasDelGrupo = activos[0]?.[1]?.mesasGrupo;
-  const grupoLabel =
-    mesasDelGrupo && mesasDelGrupo.length > 1
-      ? ` · Unida con ${mesasDelGrupo
-          .filter((m) => m.numero !== numeroMesa)
-          .map((m) => m.nombre || "Mesa " + m.numero)
-          .join(", ")}`
-      : "";
-  document.getElementById("dmTime").innerHTML =
-    `<span class="pulse"></span><span class="ts-label">${activos.length} pedido${activos.length === 1 ? "" : "s"} sin pagar${grupoLabel}</span>`;
-  // Todo el detalle directo: cada pedido de la mesa, con sus bloques por hora,
-  // sin necesitar un clic adicional para verlo.
-  const bloquesDePedidos =
-    activos
-      .map(([id, p]) => {
-        const cliente = p.cliente || {};
-        const fecha = toDate(p.timestamp);
-        const productos = Array.isArray(p.productos) ? p.productos : [];
-        const totalItems =
-          p.total_items ?? productos.reduce((s, i) => s + (i.cantidad || 0), 0);
-
-        const contenido =
-          Array.isArray(p.bloques) && p.bloques.length
-            ? bloquesHtml(p.bloques)
-            : `<div class="dm-products">${productos
-                .map((it) => {
-                  const ptsItem = getPuntosItemDesdeCache(it);
-                  return `
-          <div class="dm-prod-row">
-            <div>
-              <div class="dm-prod-name">${escapeHtml(it.nombre)}</div>
-              ${opcionesDetalleHtmlLineas(it)}
-              <div class="dm-prod-qty">${it.cantidad} × S/ ${Number(it.precio_unitario || 0).toFixed(2)} c/u</div>
-              ${ptsItem > 0 ? `<div class="dm-prod-puntos" style="font-size:10.5px;font-weight:700;color:#fbbf24;margin-top:2px;">🎁 +${ptsItem} pts</div>` : ""}
-            </div>
-            <div class="dm-prod-price">S/ ${Number(it.subtotal || 0).toFixed(2)}</div>
-          </div>`;
-                })
-                .join("")}</div>`;
-
-        return `
-      <div style="border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; background:var(--surface);">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
-          <div>
-            <div class="dm-prod-name">#${id.slice(0, 6).toUpperCase()} · ${escapeHtml(cliente.nombre || "Cliente")}</div>
-            <div class="dm-prod-qty">${fecha ? timeAgo(fecha) : "—"} · ${labelEstado(ESTADOS.includes(p.estado) ? p.estado : "pendiente")} · ${totalItems} item${totalItems === 1 ? "" : "s"}</div>
-          </div>
-          <div class="dm-prod-price">${fmtMoney(p.total)}</div>
-        </div>
-        ${detalleCuponHtml(p)}
-        ${contenido}
-      </div>`;
-      })
-      .join("") ||
-    `<p style="font-size:12.5px;color:var(--ink-faint);padding:6px 2px;">Esta mesa no tiene pedidos pendientes de pago.</p>`;
-
-  // Suma los puntos de TODOS los pedidos activos de la mesa (no solo uno)
-  const totalPuntosGanados = activos.reduce(
-    (s, [, pOrder]) => s + (Number(pOrder.puntos_ganados) || 0),
-    0,
-  );
-  const numsLlamado =
-    mesasDelGrupo?.length > 1
-      ? mesasDelGrupo.map((m) => Number(m.numero))
-      : [Number(numeroMesa)];
-  const llamadosAct = [...llamadosMap.values()].filter((l) =>
-    numsLlamado.includes(Number(l.mesaNumero)),
-  );
-  const llamadosHtml = llamadosAct.length
-    ? `<div class="dm-cupon-card" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.35);display:flex;align-items:center;justify-content:space-between;gap:8px;">
-         <b style="font-size:12.5px;">${llamadosAct.map((l) => (l.motivo === "cuenta" ? "🧾 Pide la cuenta" : "🔔 Necesita al mozo")).join(" · ")}</b>
-         <button type="button" class="oc-btn ghost" id="dmAtenderLlamado">Marcar atendido</button>
-       </div>`
-    : "";
-  const compHtml = htmlComprobanteMesa(activos, numeroMesa);
-  document.getElementById("dmBody").innerHTML = `
-        ${llamadosHtml}
-        ${compHtml}
-        <div>
-            <div class="dm-section-title">Detalle completo de la mesa</div>
-            ${bloquesDePedidos}
-        </div>
-        ${
-          totalPuntosGanados > 0
-            ? `
-    <div class="dm-meta-item full" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:10px 12px;">
-      <div class="dm-meta-label">🎁 Puntos a otorgar</div>
-      <div class="dm-meta-value" style="color:#fbbf24;font-weight:800;">+${totalPuntosGanados} puntos en total</div>
-    </div>`
-            : ""
-        }
-
-        
-    <div class="dm-total-row">
-      <span class="dm-total-lbl">Total del pedido</span>
-      <span class="dm-total-val">${fmtMoney(total)}</span>
-    </div>
-  `;
-  document
-    .getElementById("dmAtenderLlamado")
-    ?.addEventListener("click", () => atenderLlamadosMesa(numsLlamado));
-  enlazarComprobanteMesa(activos, numeroMesa);
+  const nombreMesa = mesaInfo?.nombre_alias || "Mesa " + numeroMesa;
   const esPendienteAceptar =
     activos.length > 0 &&
     activos.some(([, p]) => p.estadoMozo !== "confirmado");
 
+  /* ── Cabecera ── */
+  detailModal.dataset.status = ocupada ? "pendiente" : "entregado";
+  document.getElementById("dmId").innerHTML =
+    `🍽️ Mesa <span class="oc-origin-tag mesa">${ocupada ? "Ocupada" : "Libre"}</span>`;
+  document.getElementById("dmName").textContent = nombreMesa;
+  const mesasDelGrupo = activos[0]?.[1]?.mesasGrupo;
+  const esGrupoMulti = mesasDelGrupo && mesasDelGrupo.length > 1;
+  const grupoLabel = esGrupoMulti
+    ? ` · Junta con ${mesasDelGrupo
+        .filter((m) => m.numero !== numeroMesa)
+        .map((m) => m.nombre || "Mesa " + m.numero)
+        .join(", ")}`
+    : "";
+  const dmTime = document.getElementById("dmTime");
+  dmTime.removeAttribute("data-ts");
+  dmTime.innerHTML = `<span class="pulse"></span><span class="ts-label">${ocupada ? "Falta cobrar" : "Disponible"}${escapeHtml(grupoLabel)}</span>`;
+
+  /* ── Platos agrupados por estado ── */
+  const GRUPOS = [
+    ["aceptado", "🆕 Por preparar", "#fbbf24"],
+    ["en_preparacion", "🔥 Preparando", "#38bdf8"],
+    ["entregado", "🍽️ Ya entregado", "#4ade80"],
+  ];
+  const porEstado = { aceptado: [], en_preparacion: [], entregado: [] };
+  activos.forEach(([, p]) =>
+    (p.productos || []).forEach((it) => {
+      const e = estItem(it, p);
+      (porEstado[e] || porEstado.aceptado).push(it);
+    }),
+  );
+  const stage = porEstado.aceptado.length
+    ? 1
+    : porEstado.en_preparacion.length
+      ? 2
+      : 3;
+
+  const gruposHtml =
+    GRUPOS.filter(([k]) => porEstado[k].length)
+      .map(
+        ([k, titulo, color]) => `
+    <section class="mx-group" style="--c:${color}">
+      <h4>${titulo} <span>${porEstado[k].length}</span></h4>
+      ${porEstado[k]
+        .map((it) => {
+          const ops = opcionesDetalleLineas(it);
+          const org = esGrupoMulti ? mxNombreOrigen(it) : "";
+          const sub =
+            it.subtotal ??
+            Number(it.precio_unitario || 0) * Number(it.cantidad || 0);
+          return `
+        <div class="mx-item">
+          <div class="mx-qty">${it.cantidad}×</div>
+          <div class="mx-info">
+            <b>${escapeHtml(it.nombre)}</b>
+            ${ops.map((o) => `<small>${escapeHtml(o)}</small>`).join("")}
+            ${org ? `<small class="org">🪑 ${escapeHtml(org)}</small>` : ""}
+          </div>
+          <div class="mx-price">${fmtMoney(sub)}</div>
+        </div>`;
+        })
+        .join("")}
+    </section>`,
+      )
+      .join("") ||
+    `<p style="font-size:13px;color:var(--ink-faint);padding:6px 2px;">Esta mesa no tiene pedidos todavía.</p>`;
+
+  /* ── Cuadro "¿Qué hago ahora?" ── */
+  let hint;
+  if (esPendienteAceptar)
+    hint = [
+      "🔔",
+      "Pedido nuevo",
+      "Revísalo y toca el botón verde «Aceptar pedido».",
+    ];
+  else if (!ocupada) hint = ["✅", "Mesa libre", "No hay nada que hacer aquí."];
+  else if (!activos.length)
+    hint = [
+      "🪑",
+      "Mesa ocupada sin pedido",
+      "Si el cliente ya se fue, toca «Liberar mesa».",
+    ];
+  else if (stage === 1)
+    hint = [
+      "🆕",
+      "Hay platos nuevos",
+      "Avisa a cocina. Cuando empiecen a prepararlos, toca el botón azul.",
+    ];
+  else if (stage === 2)
+    hint = [
+      "🔥",
+      "Cocina está preparando",
+      "Cuando lleves todo a la mesa, toca el botón de abajo.",
+    ];
+  else
+    hint = [
+      "🍽️",
+      "Todo fue entregado",
+      "Cuando el cliente pague, toca «Cobrar y liberar mesa».",
+    ];
+  const hintHtml = `<div class="mx-hint"><div class="ic">${hint[0]}</div><div><b>${hint[1]}</b><span>${hint[2]}</span></div></div>`;
+
+  /* ── Barra de pasos ── */
+  const stepsHtml =
+    activos.length && !esPendienteAceptar
+      ? `<div class="mx-steps">${["Recibido", "Preparando", "Entregado"]
+          .map((t, i) => {
+            const k = i + 1;
+            const cls = k < stage ? "done" : k === stage ? "now" : "";
+            return `<div class="mx-step ${cls}"><b>${k < stage ? "✓" : k}</b>${t}</div>`;
+          })
+          .join("")}</div>`
+      : "";
+
+  /* ── Llamados del cliente (cuenta / mozo) ── */
+  const numsLlamado = esGrupoMulti
+    ? mesasDelGrupo.map((m) => Number(m.numero))
+    : [Number(numeroMesa)];
+  const llamadosAct = [...llamadosMap.values()].filter((l) =>
+    numsLlamado.includes(Number(l.mesaNumero)),
+  );
+  const llamadosHtml = llamadosAct.length
+    ? `<div class="mx-call">
+         <div><b>${llamadosAct.map((l) => (l.motivo === "cuenta" ? "🧾 Piden la cuenta" : "🔔 Llaman al mozo")).join(" · ")}</b><span>El cliente está esperando</span></div>
+         <button type="button" id="dmAtenderLlamado">✓ Ya lo atendí</button>
+       </div>`
+    : "";
+
+  /* ── Notas y puntos ── */
+  const notas = activos.map(([, p]) => p.nota).filter(Boolean);
+  const notaHtml = notas.length
+    ? `<div class="mx-nota">📝 Nota del cliente: ${escapeHtml(notas.join(" · "))}</div>`
+    : "";
+  const totalPuntos = activos.reduce(
+    (s, [, p]) => s + (Number(p.puntos_ganados) || 0),
+    0,
+  );
+  const puntosHtml =
+    totalPuntos > 0
+      ? `<div class="mx-nota">🎁 El cliente ganará +${totalPuntos} puntos al pagar</div>`
+      : "";
+
+  /* ── Voucher y comprobante (plegable) ── */
+  const hayPago = activos.some(
+    ([, p]) => p.comprobante || p.pago_voucher || p.comprobante_foto,
+  );
+  const pagoAbierto = mxEstado.pago ?? hayPago;
+  const pagoHtml = activos.length
+    ? `<details class="mx-more" id="mxPago" ${pagoAbierto ? "open" : ""}>
+         <summary><span>🧾 Voucher y comprobante${hayPago ? "<em>● hay datos</em>" : ""}</span></summary>
+         <div class="mx-more-body">${htmlComprobanteMesa(activos, numeroMesa)}</div>
+       </details>`
+    : "";
+  const metodosAct = metodosPagoActivos();
+  const mpActual =
+    activos.find(([, p]) => p.pago_metodo)?.[1].pago_metodo || null;
+  const metodoHtml =
+    activos.length && metodosAct.length
+      ? `<div class="mx-pay">
+         <div class="mx-pay-t">💳 ¿Cómo pagó el cliente? ${mpActual ? `<em>✔ ${escapeHtml(mpActual.label)} · ${escapeHtml(mpActual.por || "")}</em>` : "<em class='w'>sin elegir</em>"}</div>
+         <div class="mx-pay-row">
+           ${metodosAct.map((m) => `<button type="button" class="mx-pay-btn${mpActual?.clave === m.clave ? " on" : ""}" data-mp="${m.clave}">${m.ico} ${escapeHtml(m.label)}</button>`).join("")}
+         </div>
+       </div>`
+      : "";
+  document.getElementById("dmBody").innerHTML = `
+    ${llamadosHtml}
+    ${hintHtml}
+    ${stepsHtml}
+    ${activos.length ? `<div class="mx-total"><span>Total a cobrar</span><b>${fmtMoney(total)}</b></div>` : ""}
+    ${metodoHtml}
+    ${notaHtml}
+    ${gruposHtml}
+    ${puntosHtml}
+    ${pagoHtml}
+  `;
+  document.querySelectorAll("#dmBody [data-mp]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const m = metodosAct.find((x) => x.clave === b.dataset.mp);
+      if (!m) return;
+      try {
+        await escribirPedidoMesa(activos, {
+          pago_metodo: {
+            clave: m.clave,
+            label: m.label,
+            por: "Negocio",
+            ts: Date.now(),
+          },
+        });
+        showToast(`${m.ico} Pago con ${m.label}`);
+      } catch (e) {
+        console.error(e);
+        showToast("❌ No se pudo guardar el método", true);
+      }
+    }),
+  );
+  document
+    .getElementById("dmAtenderLlamado")
+    ?.addEventListener("click", () => atenderLlamadosMesa(numsLlamado));
+  mxRecordar(document.getElementById("mxPago"), "pago");
+  if (activos.length) enlazarComprobanteMesa(activos, numeroMesa);
+
+  /* ── Botones de abajo: UN botón principal + "Más opciones" ── */
   const dmActions = document.getElementById("dmActions");
   dmActions.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "mx-actions";
+
+  const btn = (txt, cls, fn, sub) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mx-btn " + cls;
+    b.innerHTML = sub ? `${txt}<small>${sub}</small>` : txt;
+    b.onclick = () => fn(b);
+    return b;
+  };
+  const cobrar = (b) => {
+    const mp = activos.find(([, p]) => p.pago_metodo)?.[1].pago_metodo;
+    if (metodosAct.length && activos.length && !mp)
+      return showToast("Elige primero cómo pagó el cliente 💳", true);
+    if (
+      window.confirm(
+        `¿El cliente ya pagó ${fmtMoney(total)}${mp ? ` con ${mp.label}` : ""}?\n\nSe marcará como pagado y la mesa quedará libre.`,
+      )
+    )
+      liberarMesa(numeroMesa, b);
+  };
+  const cancelar = (b) => {
+    if (
+      window.confirm(
+        "¿Seguro que quieres cancelar este pedido?\n\nNo se cobra nada y la mesa quedará libre.",
+      )
+    )
+      rechazarPedidoMesa(numeroMesa, b);
+  };
+
   if (esPendienteAceptar) {
-    const btnAceptar = document.createElement("button");
-    btnAceptar.className = "oc-btn primary v-violet";
-    btnAceptar.style.width = "100%";
-    btnAceptar.textContent = "✅ Aceptar pedido";
-    btnAceptar.addEventListener("click", () =>
-      aceptarPedidoMesa(numeroMesa, btnAceptar),
+    wrap.append(
+      btn(
+        "✅ Aceptar pedido",
+        "green",
+        (b) => aceptarPedidoMesa(numeroMesa, b),
+        "Confirmas que lo vas a atender",
+      ),
+      btn("No aceptar este pedido", "ghost-red", cancelar),
     );
-    dmActions.appendChild(btnAceptar);
-
-    const btnRechazar = document.createElement("button");
-    btnRechazar.className = "oc-btn ghost danger";
-    btnRechazar.style.width = "100%";
-    btnRechazar.style.marginTop = "8px";
-    btnRechazar.textContent = "✕ Rechazar pedido";
-    btnRechazar.addEventListener("click", () =>
-      rechazarPedidoMesa(numeroMesa, btnRechazar),
-    );
-    dmActions.appendChild(btnRechazar);
-  } else if (activos.length > 0) {
-    // Ocupada CON pedido: hay que cobrar antes de liberar
-    const btn = document.createElement("button");
-    btn.className = "oc-btn primary v-green";
-    btn.style.width = "100%";
-    btn.textContent = "💰 Marcar como pagado y liberar mesa";
-    btn.addEventListener("click", () => liberarMesa(numeroMesa, btn));
-    dmActions.appendChild(btn);
-
-    const btnRechazar = document.createElement("button");
-    btnRechazar.className = "oc-btn ghost danger";
-    btnRechazar.style.width = "100%";
-    btnRechazar.style.marginTop = "8px";
-    btnRechazar.textContent = "✕ Rechazar pedido (sin cobrar)";
-    btnRechazar.addEventListener("click", () =>
-      rechazarPedidoMesa(numeroMesa, btnRechazar),
-    );
-    dmActions.appendChild(btnRechazar);
-
+  } else if (activos.length) {
+    if (stage === 1)
+      wrap.append(
+        btn(
+          "🔥 Ya empezaron a prepararlo",
+          "blue",
+          () => setEstadoMesaAdmin(numeroMesa, "en_preparacion"),
+          "Toca cuando cocina empiece",
+        ),
+        btn("💰 Cobrar y liberar mesa", "ghost-green", cobrar),
+      );
+    else if (stage === 2)
+      wrap.append(
+        btn(
+          "🍽️ Ya lo llevé a la mesa",
+          "violet",
+          () => setEstadoMesaAdmin(numeroMesa, "entregado"),
+          "Toca cuando el cliente ya tenga su pedido",
+        ),
+        btn("💰 Cobrar y liberar mesa", "ghost-green", cobrar),
+      );
+    else
+      wrap.append(
+        btn(
+          "💰 Cobrar y liberar mesa",
+          "green",
+          cobrar,
+          "Hazlo cuando el cliente ya pagó",
+        ),
+      );
   } else if (ocupada) {
-    // Ocupada SIN pedido registrado: no hay nada que cobrar, solo liberar
-    const btn = document.createElement("button");
-    btn.className = "oc-btn primary v-amber";
-    btn.style.width = "100%";
-    btn.textContent = "🔓 Liberar mesa (sin pedido)";
-    btn.addEventListener("click", () => liberarMesa(numeroMesa, btn));
-    dmActions.appendChild(btn);
+    wrap.append(
+      btn(
+        "🔓 Liberar mesa",
+        "amber",
+        (b) => liberarMesa(numeroMesa, b),
+        "Esta mesa no tiene pedido",
+      ),
+    );
   } else {
-    dmActions.innerHTML = `<div class="oc-final-tag" style="width:100%;background:var(--green-soft);color:var(--green);">✅ Mesa libre</div>`;
-  }
-  if (activos.length && !esPendienteAceptar) {
-    const actual = activos[0]?.[1]?.estadoMesa || null;
-    const fila = document.createElement("div");
-    fila.style.cssText = "display:flex;gap:8px;width:100%;margin-bottom:8px;";
-    [
-      ["en_preparacion", "🔥 En preparación"],
-      ["entregado", "🍽️ Entregado"],
-    ].forEach(([est, txt]) => {
-      const b = document.createElement("button");
-      b.className =
-        "oc-btn " +
-        (actual === est
-          ? est === "entregado"
-            ? "primary v-green"
-            : "primary v-violet"
-          : "ghost");
-      b.style.flex = "1";
-      b.textContent = txt;
-      b.onclick = () => setEstadoMesaAdmin(numeroMesa, est);
-      fila.appendChild(b);
-    });
-    dmActions.prepend(fila);
+    wrap.innerHTML = `<div class="oc-final-tag" style="width:100%;background:var(--green-soft);color:var(--green);">✅ Mesa libre</div>`;
   }
 
-  // Herramientas: trasladar / unir / separar
+  /* ── Más opciones (lo menos usado, escondido) ── */
   const mesaEntry = [...mesasMap.entries()].find(
     ([, m]) => m.numero_mesa === numeroMesa,
   );
+  const opts = [];
+  if (activos.length && !esPendienteAceptar && stage < 3)
+    opts.push([
+      "🍽️ Marcar todo como entregado",
+      "Si ya llevaste todo a la mesa",
+      () => setEstadoMesaAdmin(numeroMesa, "entregado"),
+    ]);
   if (mesaEntry && (ocupada || mesaEntry[1].grupoId)) {
     const [mesaDocIdTools, mTools] = mesaEntry;
-    const f2 = document.createElement("div");
-    f2.style.cssText =
-      "display:flex;flex-wrap:wrap;gap:8px;width:100%;margin-top:8px;";
-    const mk = (txt, fn) => {
-      const b = document.createElement("button");
-      b.className = "oc-btn ghost";
-      b.style.flex = "1";
-      b.textContent = txt;
-      b.onclick = fn;
-      f2.appendChild(b);
-    };
-    mk("🔀 Trasladar", () => abrirTrasladoMesas("traspasar", mesaDocIdTools));
-    mk("🔗 Unir mesas", () => abrirTrasladoMesas("unir", mesaDocIdTools));
+    opts.push([
+      "🔀 Cambiar de mesa",
+      "Mover este pedido a otra mesa libre",
+      () => abrirTrasladoMesas("traspasar", mesaDocIdTools),
+    ]);
+    opts.push([
+      "🔗 Juntar con otra mesa",
+      "Una sola cuenta para varias mesas",
+      () => abrirTrasladoMesas("unir", mesaDocIdTools),
+    ]);
     if (mTools.grupoId)
-      mk("⇱ Separar", async () => {
-        await separarGrupoConPedidos(mTools.grupoId);
-        closeDetail();
-      });
-    dmActions.appendChild(f2);
+      opts.push([
+        "⇱ Separar mesas",
+        "Cada mesa vuelve a tener su propia cuenta",
+        async () => {
+          await separarGrupoConPedidos(mTools.grupoId);
+          closeDetail();
+        },
+      ]);
   }
+  if (activos.length && !esPendienteAceptar)
+    opts.push([
+      "🗑️ Cancelar pedido",
+      "No se cobra nada y la mesa queda libre",
+      () => cancelar(null),
+      true,
+    ]);
+
+  if (opts.length) {
+    const det = document.createElement("details");
+    det.className = "mx-more";
+    if (mxEstado.mas) det.open = true;
+    det.innerHTML = `<summary><span>⋯ Más opciones</span></summary><div class="mx-more-body"></div>`;
+    const body = det.querySelector(".mx-more-body");
+    opts.forEach(([t, sub, fn, danger]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mx-opt" + (danger ? " danger" : "");
+      b.innerHTML = `${t}<small>${sub}</small>`;
+      b.onclick = fn;
+      body.appendChild(b);
+    });
+    mxRecordar(det, "mas");
+    wrap.appendChild(det);
+  }
+  dmActions.appendChild(wrap);
 }
 async function toggleReservaMesa(numeroMesa) {
   const mesaEntry = [...mesasMap.entries()].find(
@@ -4147,7 +4372,6 @@ async function desagruparGrupo(grupoId) {
   }
 }
 
-
 /* ═══ Comprobante electrónico + voucher por mesa (dashboard manda) ═══ */
 function _mesaNombreDe(activos, numeroMesa) {
   const p = activos[0]?.[1];
@@ -4165,7 +4389,13 @@ async function escribirPedidoMesa(activos, campos) {
         vistos.add("g" + pp.grupoId);
         tareas.push(
           updateDoc(
-            tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", pp.grupoId),
+            tiendaSubDoc(
+              localidad,
+              "tiendas",
+              tiendaId,
+              "grupos_mesas",
+              pp.grupoId,
+            ),
             pref,
           ),
         );
@@ -4182,7 +4412,13 @@ async function escribirPedidoMesa(activos, campos) {
       vistos.add("p" + pp.pedidoDocId);
       tareas.push(
         updateDoc(
-          tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pp.pedidoDocId),
+          tiendaSubDoc(
+            localidad,
+            "tiendas",
+            tiendaId,
+            "pedidos",
+            pp.pedidoDocId,
+          ),
           campos,
         ),
       );
@@ -4208,8 +4444,12 @@ function htmlComprobanteMesa(activos, numeroMesa) {
         <b style="font-size:13px;">💸 Voucher de pago ${voucher ? "(recibido)" : "(sin subir)"}</b>
         <button type="button" id="dmVoucherSubir" class="oc-btn ghost" style="min-height:34px;">${voucher ? "Cambiar" : "📤 Subir"}</button>
       </div>
-      ${voucher ? `<img src="${escCm(voucher.url)}" alt="voucher" id="dmVoucherImg" style="margin-top:10px;max-width:100%;max-height:260px;border-radius:10px;cursor:zoom-in;display:block;">
-      <div style="font-size:11px;color:#a89cc4;margin-top:6px;">Subido por ${escCm(voucher.por || "—")}. Revísalo y marca la mesa como pagada abajo.</div>` : ""}
+      ${
+        voucher
+          ? `<img src="${escCm(voucher.url)}" alt="voucher" id="dmVoucherImg" style="margin-top:10px;max-width:100%;max-height:260px;border-radius:10px;cursor:zoom-in;display:block;">
+      <div style="font-size:11px;color:#a89cc4;margin-top:6px;">Subido por ${escCm(voucher.por || "—")}. Revísalo y marca la mesa como pagada abajo.</div>`
+          : ""
+      }
     </div>`;
   const fotoSuelta = !conComp.length
     ? activos.find(([, p]) => p.comprobante_foto)?.[1]?.comprobante_foto
@@ -4234,33 +4474,41 @@ function enlazarComprobanteMesa(activos, numeroMesa) {
     if (!entry) return;
     const p = entry[1];
     enlazarCopiar(card, p.comprobante, p, nom, showToast);
-    card.querySelector("[data-cm-emitido]")?.addEventListener("click", async () => {
-      const numero = (prompt("N° del comprobante emitido (ej. B001-123). Opcional:") ?? "").trim();
+    card
+      .querySelector("[data-cm-emitido]")
+      ?.addEventListener("click", async () => {
+        const numero = (
+          prompt("N° del comprobante emitido (ej. B001-123). Opcional:") ?? ""
+        ).trim();
+        try {
+          await escribirPedidoMesa([entry], {
+            comprobante: _pedidoEmitido(p, numero),
+          });
+          showToast("✅ Comprobante marcado como emitido");
+        } catch (e) {
+          console.error(e);
+          showToast("❌ No se pudo actualizar", true);
+        }
+      });
+  });
+  document
+    .getElementById("dmVoucherSubir")
+    ?.addEventListener("click", async () => {
+      const url = await elegirFoto();
+      if (!url) return;
       try {
-        await escribirPedidoMesa([entry], { comprobante: _pedidoEmitido(p, numero) });
-        showToast("✅ Comprobante marcado como emitido");
+        await escribirPedidoMesa(activos, {
+          pago_voucher: { url, por: "Negocio", ts: Date.now() },
+        });
+        showToast("💸 Voucher guardado");
       } catch (e) {
         console.error(e);
-        showToast("❌ No se pudo actualizar", true);
+        showToast("❌ No se pudo subir el voucher", true);
       }
     });
-  });
-  document.getElementById("dmVoucherSubir")?.addEventListener("click", async () => {
-    const url = await elegirFoto();
-    if (!url) return;
-    try {
-      await escribirPedidoMesa(activos, {
-        pago_voucher: { url, por: "Negocio", ts: Date.now() },
-      });
-      showToast("💸 Voucher guardado");
-    } catch (e) {
-      console.error(e);
-      showToast("❌ No se pudo subir el voucher", true);
-    }
-  });
-  document.getElementById("dmVoucherImg")?.addEventListener("click", (e) =>
-    window.open(e.target.src, "_blank"),
-  );
+  document
+    .getElementById("dmVoucherImg")
+    ?.addEventListener("click", (e) => window.open(e.target.src, "_blank"));
 }
 // Foto fija de lo cobrado (la mesa se libera y su pedido sale de la mesa)
 function snapshotCobro(activos, numeroMesa) {
@@ -4290,10 +4538,9 @@ function mostrarPostCobro(snap) {
   const cards = snap.pedidos
     .map((p, i) =>
       p.comprobante
-        ? htmlRecuadroSunat(p.comprobante, p, snap.nombre, { acciones: true }).replace(
-            "<div data-cm-card",
-            `<div data-cm-card data-i="${i}"`,
-          )
+        ? htmlRecuadroSunat(p.comprobante, p, snap.nombre, {
+            acciones: true,
+          }).replace("<div data-cm-card", `<div data-cm-card data-i="${i}"`)
         : "",
     )
     .join("");
@@ -4304,22 +4551,26 @@ function mostrarPostCobro(snap) {
   body.querySelectorAll("[data-cm-card]").forEach((card) => {
     const p = snap.pedidos[Number(card.dataset.i)];
     enlazarCopiar(card, p.comprobante, p, snap.nombre, showToast);
-    card.querySelector("[data-cm-emitido]")?.addEventListener("click", async () => {
-      const numero = (prompt("N° del comprobante emitido (ej. B001-123). Opcional:") ?? "").trim();
-      try {
-        if (p.id)
-          await updateDoc(
-            tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", p.id),
-            { comprobante: _pedidoEmitido(p, numero) },
-          );
-        p.comprobante = _pedidoEmitido(p, numero);
-        mostrarPostCobro(snap);
-        showToast("✅ Marcado como emitido");
-      } catch (e) {
-        console.error(e);
-        showToast("❌ No se pudo actualizar", true);
-      }
-    });
+    card
+      .querySelector("[data-cm-emitido]")
+      ?.addEventListener("click", async () => {
+        const numero = (
+          prompt("N° del comprobante emitido (ej. B001-123). Opcional:") ?? ""
+        ).trim();
+        try {
+          if (p.id)
+            await updateDoc(
+              tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", p.id),
+              { comprobante: _pedidoEmitido(p, numero) },
+            );
+          p.comprobante = _pedidoEmitido(p, numero);
+          mostrarPostCobro(snap);
+          showToast("✅ Marcado como emitido");
+        } catch (e) {
+          console.error(e);
+          showToast("❌ No se pudo actualizar", true);
+        }
+      });
   });
   const acts = document.getElementById("dmActions");
   acts.innerHTML = "";
@@ -6320,6 +6571,76 @@ const NuevoPedido = {
       .toLowerCase()
       .trim();
   },
+    adicionales: [],
+
+  async cargarAdicionales() {
+    try {
+      const snap = await getDocs(tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales"));
+      this.adicionales = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => a.activo !== false && a.nombre);
+    } catch (e) {
+      console.warn("No se pudieron cargar los adicionales:", e);
+      this.adicionales = [];
+    }
+    this.renderAdicionales();
+  },
+
+  renderAdicionales() {
+    let box = document.getElementById("npAdicionales");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "npAdicionales";
+      document.querySelector(".np-cart-total")?.before(box);
+      box.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-adic]");
+        if (b) this.addAdicional(b.dataset.adic);
+      });
+    }
+    box.style.display = this.adicionales.length ? "block" : "none";
+    box.innerHTML = `
+      <div class="np-adic-title">➕ Adicionales</div>
+      <div class="np-adic-row">
+        ${this.adicionales
+          .map((a) => `<button type="button" class="np-adic-chip" data-adic="${a.id}">${escapeHtml(a.nombre)} · ${fmtMoney(a.precio)}</button>`)
+          .join("")}
+      </div>`;
+  },
+
+  addAdicional(id) {
+    const a = this.adicionales.find((x) => x.id === id);
+    if (!a) return;
+    const key = `adic__${id}`;
+    const ex = this.carrito.get(key);
+    if (ex) ex.cantidad += 1;
+    else
+      this.carrito.set(key, {
+        id: key,
+        cartKey: key,
+        esAdicional: true,
+        nombre: a.nombre,
+        categoria: "",
+        precio: Number(a.precio) || 0,
+        imagen: a.imagen?.url || "",
+        condiciones: [],
+        seleccion: null,
+        cantidad: 1,
+      });
+    this.renderCarrito();
+  },
+  renderMetodosPago() {
+    const row = document.getElementById("npPagoRow");
+    if (!row) return;
+    let m = metodosPagoActivos(); // lee bizDataGlobal.metodos_pago (enable === true)
+    if (!m.length) m = [{ clave: "efectivo", ico: "💵", label: "Efectivo" }];
+    row.innerHTML = m
+      .map(
+        (x, i) =>
+          `<button type="button" class="np-pago-btn${i === 0 ? " active" : ""}" data-pago="${escapeHtml(x.label)}" data-clave="${x.clave}">${x.ico} ${escapeHtml(x.label)}</button>`,
+      )
+      .join("");
+    this.metodoPago = m[0].label;
+  },
   async cargarPromos() {
     const out = [];
     const biz = bizDataGlobal;
@@ -7755,7 +8076,7 @@ const NuevoPedido = {
   },
 
   async verificarYDescontarStock(items, factor = 1) {
-    const reales = items.filter((it) => !it.esPromo);
+    const reales = items.filter((it) => !it.esPromo && !it.esAdicional);
     const agotados = [];
     if (!reales.length) return { ok: true, agotados };
 
@@ -7984,12 +8305,7 @@ const NuevoPedido = {
 
       this.carrito.clear();
       document.getElementById("npClienteNombre").value = "";
-      this.metodoPago = "Efectivo";
-      document
-        .querySelectorAll("#npPagoRow .np-pago-btn")
-        .forEach((b) =>
-          b.classList.toggle("active", b.dataset.pago === "Efectivo"),
-        );
+      this.renderMetodosPago();
       this.renderGrid();
       this.renderCarrito();
       showToast("✅ Pedido registrado");
@@ -8013,7 +8329,7 @@ const NuevoPedido = {
 
     if (this.listenersListos) return; // evita re-registrar listeners
     this.listenersListos = true;
-
+    this.cargarAdicionales();
     const inp = document.getElementById("npSearchInput");
 
     const clr = document.getElementById("npClearSearch");
@@ -8061,13 +8377,14 @@ const NuevoPedido = {
       if (c) this.abrirDetalle(c.dataset.id);
     });
 
-    document.querySelectorAll("#npPagoRow .np-pago-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.metodoPago = btn.dataset.pago;
-        document
-          .querySelectorAll("#npPagoRow .np-pago-btn")
-          .forEach((b) => b.classList.toggle("active", b === btn));
-      });
+    this.renderMetodosPago();
+    document.getElementById("npPagoRow")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".np-pago-btn");
+      if (!btn) return;
+      this.metodoPago = btn.dataset.pago;
+      document
+        .querySelectorAll("#npPagoRow .np-pago-btn")
+        .forEach((b) => b.classList.toggle("active", b === btn));
     });
 
     document.getElementById("npCartItems")?.addEventListener("click", (e) => {
@@ -10386,6 +10703,22 @@ function derivarEstadoMesa(productos, fb) {
   if (e.includes("aceptado")) return "aceptado";
   if (e.includes("en_preparacion")) return "en_preparacion";
   return "entregado";
+}
+const METODOS_LABEL = {
+  efectivo: ["💵", "Efectivo"],
+  yape: ["📱", "Yape"],
+  plin: ["📱", "Plin"],
+  visa_mastercard: ["💳", "Visa / Mastercard"],
+  agora: ["🏦", "Agora"],
+};
+function metodosPagoActivos() {
+  const cfg = bizDataGlobal?.metodos_pago || {};
+  return Object.entries(cfg)
+    .filter(([, v]) => v?.enable === true)
+    .map(([clave]) => {
+      const [ico, label] = METODOS_LABEL[clave] || ["💳", clave];
+      return { clave, ico, label };
+    });
 }
 function estadoItemTag(it) {
   const m = {

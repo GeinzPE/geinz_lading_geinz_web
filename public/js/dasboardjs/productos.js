@@ -37,11 +37,12 @@ const PLAN_PRODUCTOS = {
   maxColecciones: Infinity,
   maxProductosPorColeccion: Infinity,
   carta: false,
+  adicionales: false,
   maxVariantes: 5,
 };
 let CARTA_MAX_COLECCIONES = 5;
 let CARTA_MAX_FOTOS = 5;
-
+let ADIC_MAX = 5;
 const _nodo = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
 const _on = (v, def) => (v === undefined ? def : v === true);
 const _flag = (s, ruta, def = false) => _on(_nodo(s, ruta), def);
@@ -71,7 +72,10 @@ function aplicarPlanProductos(s) {
   P.maxVariantes = _num(r("config_avanzado.variantes_maximas"), 5);
   CARTA_MAX_COLECCIONES = _num(r("carta.colecciones"), 5);
   CARTA_MAX_FOTOS = _num(r("carta.cantidad_imagenes_colecciones"), 5);
-
+  P.adicionales = _flag(s, `${RAIZ_PRODUCTOS}.adicionales.activo`, false);
+  ADIC_MAX = _num(r("adicionales.cantidad_adicionales"), 5);
+  actualizarVisibilidadAdicionales();
+  if (typeof renderAdicionales === "function") renderAdicionales();
   // Escáneres
   _ocultar(document.getElementById("btn-celular-scanner"), !P.celular);
   _ocultar(document.getElementById("btn-prod-scan-cam"), !P.camara);
@@ -3068,6 +3072,210 @@ document
     } catch (err) {
       console.error(err);
       toast("No se pudo guardar el horario.", "error");
+    } finally {
+      btn.disabled = false;
+      label.textContent = original;
+    }
+  });
+
+/* ---------------- Adicionales (taper, bolsa, platos…) ---------------- */
+let adicionalesMap = new Map();
+let adicionalesUnsub = null;
+let adEditId = null;
+let adFile = null;
+let adImgActual = null;
+let adQuitarFoto = false;
+
+const adCol = () => tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales");
+const adDoc = (id) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, "adicionales", id);
+const escAd = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+
+function actualizarVisibilidadAdicionales() {
+  const sec = document.getElementById("adicionales-section");
+  if (!sec) return;
+  const ver = esRestaurante && PLAN_PRODUCTOS.adicionales;
+  sec.classList.toggle("hidden", !ver);
+  if (ver && tiendaId && !adicionalesUnsub) {
+    adicionalesUnsub = onSnapshot(
+      query(adCol(), orderBy("createdAt", "asc")),
+      (snap) => {
+        adicionalesMap.clear();
+        snap.forEach((d) => adicionalesMap.set(d.id, d.data()));
+        renderAdicionales();
+      },
+      (err) => console.error(err),
+    );
+  }
+}
+
+function renderAdicionales() {
+  const list = document.getElementById("adic-list");
+  const sub = document.getElementById("adic-sub");
+  if (!list) return;
+  if (sub)
+    sub.textContent = `${adicionalesMap.size} de ${ADIC_MAX} adicionales`;
+  if (!adicionalesMap.size) {
+    list.innerHTML = `<p class="text-purple-300/40 text-xs italic py-2">Aún no tienes adicionales.</p>`;
+    return;
+  }
+  list.innerHTML = [...adicionalesMap.entries()]
+    .map(
+      ([id, a]) => `
+      <div class="flex items-center gap-3 rounded-xl bg-[#05040a] border border-amber-500/15 p-2.5" data-ad-id="${id}">
+        <div class="w-10 h-10 rounded-lg bg-[#0d0a17] overflow-hidden flex items-center justify-center shrink-0 text-lg">
+          ${a.imagen?.url ? `<img src="${escAd(a.imagen.url)}" class="w-full h-full object-cover" loading="lazy">` : "🛍️"}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-white truncate">${escAd(a.nombre)}</p>
+          <p class="text-xs font-mono text-amber-300">S/ ${Number(a.precio || 0).toFixed(2)}</p>
+        </div>
+        <button type="button" data-ad-edit class="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-purple-200">Editar</button>
+        <button type="button" data-ad-del class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-950/30 hover:bg-rose-900/40 text-rose-300">✕</button>
+      </div>`,
+    )
+    .join("");
+}
+
+function pintarFotoAdicional() {
+  const prev = document.getElementById("adic-foto-prev");
+  const btnQ = document.getElementById("btn-adic-quitar-foto");
+  const src = adFile
+    ? URL.createObjectURL(adFile)
+    : !adQuitarFoto && adImgActual?.url
+      ? adImgActual.url
+      : null;
+  prev.innerHTML = src
+    ? `<img src="${src}" class="w-full h-full object-cover">`
+    : "+";
+  btnQ.classList.toggle("hidden", !src);
+}
+
+function abrirModalAdicional(id = null) {
+  if (!id && adicionalesMap.size >= ADIC_MAX) {
+    toast(`Máximo ${ADIC_MAX} adicionales en tu plan.`, "error");
+    return;
+  }
+  const a = id ? adicionalesMap.get(id) : null;
+  adEditId = id;
+  adFile = null;
+  adQuitarFoto = false;
+  adImgActual = a?.imagen || null;
+  document.getElementById("adic-modal-titulo").textContent = id
+    ? "Editar adicional"
+    : "Nuevo adicional";
+  document.getElementById("input-adic-nombre").value = a?.nombre || "";
+  document.getElementById("input-adic-precio").value = a?.precio ?? "";
+  pintarFotoAdicional();
+  openOverlay("overlay-adicional");
+}
+
+document
+  .getElementById("btn-nuevo-adicional")
+  ?.addEventListener("click", () => abrirModalAdicional());
+document
+  .getElementById("adic-foto-prev")
+  ?.addEventListener("click", () =>
+    document.getElementById("input-adic-foto").click(),
+  );
+  document.getElementById("adic-toggle")?.addEventListener("click", () => {
+  document.getElementById("adic-body").classList.toggle("open");
+  document.getElementById("adic-chevron").classList.toggle("open");
+});
+document.getElementById("input-adic-foto")?.addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (f) {
+    adFile = f;
+    adQuitarFoto = false;
+    pintarFotoAdicional();
+  }
+  e.target.value = "";
+});
+document
+  .getElementById("btn-adic-quitar-foto")
+  ?.addEventListener("click", () => {
+    adFile = null;
+    adQuitarFoto = true;
+    pintarFotoAdicional();
+  });
+
+document.getElementById("adic-list")?.addEventListener("click", (e) => {
+  const row = e.target.closest("[data-ad-id]");
+  if (!row) return;
+  const id = row.dataset.adId;
+  if (e.target.closest("[data-ad-edit]")) return abrirModalAdicional(id);
+  if (e.target.closest("[data-ad-del]")) {
+    const a = adicionalesMap.get(id);
+    askConfirm(
+      "¿Eliminar adicional?",
+      `"${a?.nombre}" se eliminará permanentemente.`,
+      async () => {
+        if (a?.imagen?.path)
+          await deleteObject(storageRef(storage, a.imagen.path)).catch(
+            () => {},
+          );
+        await deleteDoc(adDoc(id));
+        toast("Adicional eliminado.");
+      },
+    );
+  }
+});
+
+document
+  .getElementById("form-adicional")
+  ?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nombre = document.getElementById("input-adic-nombre").value.trim();
+    const precio = parseFloat(
+      document.getElementById("input-adic-precio").value,
+    );
+    if (!nombre || isNaN(precio) || precio < 0)
+      return toast("Completa nombre y precio.", "error");
+    if (!adEditId && adicionalesMap.size >= ADIC_MAX)
+      return toast(`Máximo ${ADIC_MAX} adicionales.`, "error");
+
+    const btn = document.getElementById("btn-guardar-adicional");
+    const label = document.getElementById("btn-guardar-adicional-label");
+    const original = label.textContent;
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>';
+    try {
+      const id = adEditId || doc(adCol()).id;
+      let imagen = adQuitarFoto ? null : adImgActual;
+      if ((adFile || adQuitarFoto) && adImgActual?.path) {
+        await deleteObject(storageRef(storage, adImgActual.path)).catch(
+          () => {},
+        );
+      }
+      if (adFile) {
+        const path = `tiendas/${tiendaId}/adicionales/${id}/${Date.now()}_${adFile.name}`;
+        const ref = storageRef(storage, path);
+        await uploadBytes(ref, adFile);
+        imagen = { url: await getDownloadURL(ref), path };
+      }
+      await setDoc(
+        adDoc(id),
+        {
+          nombre,
+          precio: +precio.toFixed(2),
+          imagen: imagen || null,
+          activo: true,
+          ...(adEditId ? {} : { createdAt: serverTimestamp() }),
+        },
+        { merge: true },
+      );
+      closeOverlay("overlay-adicional");
+      toast(`"${nombre}" guardado.`);
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo guardar el adicional.", "error");
     } finally {
       btn.disabled = false;
       label.textContent = original;

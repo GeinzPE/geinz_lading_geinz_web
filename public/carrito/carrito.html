@@ -173,7 +173,78 @@
       background: rgba(255, 255, 255, .06);
       color: #d4d4d8;
       border: 1px solid rgba(255, 255, 255, .1);
-    }
+    }/* ── Logo placeholder: tamaño fijo en filas del carrito ── */
+.item-row .logo-ph-wrap {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px;
+  flex: 0 0 56px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.item-row .logo-ph-badge {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+.item-row .logo-ph-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Fila compacta de adicionales ── */
+.cart-adic-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .07);
+}
+.cart-adic-info { flex: 1; min-width: 0; }
+.cart-adic-nombre {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+.cart-adic-precio {
+  font-size: 11px;
+  color: #8b8b95;
+  margin: 1px 0 0;
+}
+.cart-adic-qty .qty-stepper { transform: scale(.85); transform-origin: right center; }
+.cart-adic-total {
+  font-size: 13px;
+  font-weight: 800;
+  min-width: 52px;
+  text-align: right;
+}
+.cart-adic-del {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: #f87171;
+  background: rgba(248, 113, 113, .12);
+}
+
+/* ── Chips de "¿Algo más?" más limpios ── */
+#adicDrawer, #adicSidebar {
+  border-top: 1px solid rgba(255, 255, 255, .07);
+  margin-top: 4px;
+  padding-top: 12px !important;
+}
   </style>
 </head>
 

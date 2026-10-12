@@ -650,6 +650,58 @@ function urlCompartirPromo(alias, promoId, { activa = false } = {}) {
   return `${base}?oferta=${encodeURIComponent(id)}&v=1`;
 }
 
+// ══════════ NAVEGACIÓN RÁPIDA ══════════
+function mostrarNavOverlay() {
+  injectLogoutOverlayStyles();
+  let ov = document.getElementById("navOverlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "navOverlay";
+    ov.className = "logout-overlay";
+    ov.innerHTML = `<div class="logout-spinner"></div><div class="logout-text">Cargando…</div>`;
+    document.body.appendChild(ov);
+  }
+  requestAnimationFrame(() => ov.classList.add("open"));
+}
+
+function irRapido(url) {
+  mostrarNavOverlay();
+  window.location.href = url;
+}
+
+const _prefetched = new Set();
+function prefetchUrl(url) {
+  if (!url || _prefetched.has(url)) return;
+  _prefetched.add(url);
+  const l = document.createElement("link");
+  l.rel = "prefetch";
+  l.href = url;
+  document.head.appendChild(l);
+}
+
+// Cualquier <a data-nav> navega con overlay inmediato + prefetch al acercarse
+document.addEventListener("click", (e) => {
+  const a = e.target.closest?.("a[data-nav]");
+  if (!a || e.ctrlKey || e.metaKey || e.shiftKey || a.target === "_blank") return;
+  e.preventDefault();
+  irRapido(a.href);
+});
+["pointerover", "touchstart"].forEach((ev) =>
+  document.addEventListener(
+    ev,
+    (e) => {
+      const a = e.target.closest?.("a[data-nav]");
+      if (a) prefetchUrl(a.href);
+    },
+    { capture: true, passive: true },
+  ),
+);
+
+// Si el usuario vuelve con "atrás", quita el overlay
+window.addEventListener("pageshow", () =>
+  document.getElementById("navOverlay")?.classList.remove("open"),
+);
+
 function abrirLoginPopup() {
   const root = document.documentElement.style;
   const r = root.getPropertyValue("--dr").trim();
@@ -1329,19 +1381,44 @@ function normalizarCategoria(cat) {
     .toLowerCase();
 }
 
-function listenMesasRealtime({ localidad, id }, categoria, esPresencial) {
+let _mesasCtx = null;
+let _mesasSnapLast = null;
+
+function listenMesasRealtime(params, categoria, esPresencial) {
+  _mesasCtx = { params, categoria, esPresencial };
+  refrescarMesas();
+}
+
+function refrescarMesas() {
+  if (!_mesasCtx) return;
+  const {
+    params: { localidad, id },
+    categoria,
+    esPresencial,
+  } = _mesasCtx;
   const sec = document.getElementById("secMesas");
   injectMesasStyles();
+
   const esComida = normalizarCategoria(categoria) === "comida y restaurantes";
   const verMesas = esComida && esPresencial && _F.mesas;
   _reservasActivas = verMesas && _F.reserva;
+
   if (!verMesas) {
+    _mesasUnsub?.();
+    _mesasUnsub = null;
     if (sec) sec.style.display = "none";
     return;
   }
-  if (_mesasUnsub) return;
+  if (_mesasUnsub) {
+    // ya escuchando: solo repinta con los flags nuevos
+    if (_mesasSnapLast) renderMesas(_mesasSnapLast);
+    return;
+  }
   const ref = tiendaSubCol(localidad, "tiendas", id, "mesas");
-  _mesasUnsub = onSnapshot(ref, (snap) => renderMesas(snap));
+  _mesasUnsub = onSnapshot(ref, (snap) => {
+    _mesasSnapLast = snap;
+    renderMesas(snap);
+  });
 }
 
 function renderMesas(snap) {
@@ -1353,9 +1430,10 @@ function renderMesas(snap) {
     return;
   }
   injectMesasStyles();
-  const mesas = [];
+  let mesas = [];
   snap.forEach((d) => mesas.push({ id: d.id, ...d.data() }));
   mesas.sort((a, b) => (a.numero_mesa || 0) - (b.numero_mesa || 0));
+  if (_F.mesasMax > 0) mesas = mesas.slice(0, _F.mesasMax);
   _mesasCache = mesas;
   sec.style.display = "";
   grid.innerHTML = "";
@@ -2032,6 +2110,7 @@ function bindMesaReservaEvents() {
       }
 
       const nombre = document.getElementById("mesaReservaNombre").value.trim();
+
       const personas = document
         .getElementById("mesaReservaPersonas")
         .value.trim();
@@ -2655,25 +2734,21 @@ function renderFidelizacion(f) {
 }
 let _tarjetaDestroy = null;
 
-function irAFidelizacion() {
-  if (_esDominioPersonalizado) {
-    window.location.href = `${_baseShareUrl}/fidelizacion`;
-    return;
-  }
+function urlFidelizacion() {
+  if (_esDominioPersonalizado) return `${_baseShareUrl}/fidelizacion`;
   const aliasKey = _params.alias || _bizAliasKey;
   const uid = _currentUid || auth.currentUser?.uid || "invitado";
-  if (aliasKey) {
-    window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(uid)}`;
-    return;
-  }
-  const url = new URL(
-    "../../fidelizacion/fidelizacion_client.html",
-    window.location.href,
-  );
+  if (aliasKey)
+    return `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(uid)}`;
+  const url = new URL("../../fidelizacion/fidelizacion_client.html", window.location.href);
   url.searchParams.set("localidad", _params.localidad);
   url.searchParams.set("id", _params.id);
   if (uid !== "invitado") url.searchParams.set("uid", uid);
-  window.location.href = url.toString();
+  return url.toString();
+}
+
+function irAFidelizacion() {
+  irRapido(urlFidelizacion());
 }
 
 function setupHeroFlip(activa) {
@@ -4387,8 +4462,12 @@ function showPromoBanner(biz) {
       abierto = true;
       const ratio = bannerImg.naturalWidth / bannerImg.naturalHeight;
       const ar = Math.min(1.91, Math.max(0.8, ratio));
-      bannerModal.querySelector(".banner-modal-box").style.setProperty("--banner-ar", ar);
-      bannerModal.querySelector(".banner-modal-media").style.setProperty("--banner-ar", ar);
+      bannerModal
+        .querySelector(".banner-modal-box")
+        .style.setProperty("--banner-ar", ar);
+      bannerModal
+        .querySelector(".banner-modal-media")
+        .style.setProperty("--banner-ar", ar);
       bannerModal.classList.add("open");
       document.body.style.overflow = "hidden";
       _bannerShown = true;
@@ -4405,7 +4484,7 @@ function showPromoBanner(biz) {
 
     bannerImg.onload = () => {
       clearTimeout(timer);
-      abrir();          // el modal se abre justo cuando el skeleton se va
+      abrir(); // el modal se abre justo cuando el skeleton se va
       liberarLoader();
     };
     bannerImg.onerror = () => {
@@ -5326,31 +5405,27 @@ function urlCarritoBase() {
       : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
 }
 
-async function irACarritoConPerfil() {
+function irACarritoConPerfil() {
   if (!_perfilCarritoItems.length) return;
-  const ps = _perfilCarritoItems
+
+  // Estadísticas: se disparan pero NO se espera
+  _perfilCarritoItems
     .filter((i) => String(i.promoId).startsWith("activa_"))
-    .map((i) => trackPromo(i.promoId.slice(7), "clics_carrito"));
-  await Promise.race([
-    Promise.allSettled(ps),
-    new Promise((r) => setTimeout(r, 700)),
-  ]);
-  flushStats(); // ← NUEVO
+    .forEach((i) => trackPromo(i.promoId.slice(7), "clics_carrito"));
+
   try {
     sessionStorage.setItem(
       `geinz_perfil_cart_pending_${_params.id}`,
       JSON.stringify({
-        items: _perfilCarritoItems.map((i) => ({
-          promoId: i.promoId,
-          cantidad: i.cantidad,
-        })),
+        items: _perfilCarritoItems.map((i) => ({ promoId: i.promoId, cantidad: i.cantidad })),
         ts: Date.now(),
       }),
     );
   } catch (e) {
     console.warn(e.message);
   }
-  window.location.href = urlCarritoBase();
+  flushStats(); // alcanza a salir con keepalive de la red; pagehide también lo llama
+  irRapido(urlCarritoBase());
 }
 let _navState = {
   ofertas: false,
@@ -5375,7 +5450,7 @@ let _colorReady = false; // ya existe más arriba, no la dupliques si ya está
 let _marcaSig = null;
 let _followReady = false;
 let _reviewsReady = false;
-let _bannerReady = true; 
+let _bannerReady = true;
 let _currentPuntos = 0; // NUEVO: true cuando ya sabemos si el user sigue o no
 let _F = {
   esBasico: true,
@@ -5404,18 +5479,169 @@ async function loadServicios({ localidad, id }) {
   }
 }
 
+const PV = "operacion_ventas.pedidos_vivos.activo";
+
 function calcFlags(s = {}) {
-  const on = (path) => path.split(".").reduce((a, k) => a?.[k], s) === true;
-  const plan = String(s.plan || "basico").toLowerCase();
-  return {
-    esBasico: plan === "basico",
-    mesas: on("modulos.pedidos_vivos.mesas"),
-    reserva: on("mesa.reserva"),
-    carta: on("modulos.productos.cartas"),
-    carrito: on("modulos.pedidos_vivos.carrito"),
-    fidel: on("apartados_dasboard.fidelizacion"),
-    bannerGeinz: on("footer.geinz"),
+  const get = (p) => p.split(".").reduce((a, k) => a?.[k], s);
+  const on = (...paths) => paths.some((p) => get(p) === true);
+  const num = (...paths) => {
+    for (const p of paths) {
+      const v = Number(get(p));
+      if (v > 0) return v;
+    }
+    return 0;
   };
+  // footer_cabezero: primero dentro de panel_admin, luego en la raíz
+  const fcGet = (k) =>
+    get(`panel_admin.footer_cabezero.${k}`) ?? get(`footer_cabezero.${k}`);
+  const plan = String(
+    get("panel_admin.plan") ?? s.plan ?? "basico",
+  ).toLowerCase();
+
+  return {
+    plan,
+    esBasico: plan === "basico",
+    // mesas / reservas
+    mesas: on(`${PV}.mesa.activo`, "modulos.pedidos_vivos.mesas"),
+    reserva: on(`${PV}.mesa.reservas`, "mesa.reserva"),
+    mesasMax: num(
+      `${PV}.mesa.cantidad_max`,
+      `${PV}.mesa.maximo_mesas`,
+      `${PV}.mesa.max_mesas`,
+    ),
+    // módulos (con respaldo a la estructura vieja)
+    carta: on(
+      "cliente_y_fidelizacion.carta",
+      "operacion_ventas.produtos.carta",
+      "modulos.productos.cartas",
+    ),
+    carrito: on(`${PV}.carrito.activo`, "modulos.pedidos_vivos.carrito"),
+    fidel: on(
+      "cliente_y_fidelizacion.cupones_puntos.activo",
+      "apartados_dasboard.fidelizacion",
+    ),
+    // footer / marca Geinz
+    footer: fcGet("footer_geinz") === true,
+    cabezero: fcGet("cabezero_geinz") === true,
+    derechosGeinz: fcGet("derechos_autor_geinz") === true,
+    bannerGeinz: fcGet("baner_descuble_mas_negocios_geinz") === true,
+    columnaGeinz: fcGet("columnaexplora_soporte_registra_geinz") === true,
+    // legal
+    legalTerminos: get("mi_negocio.legal.terminos") === true,
+    legalPoliticas: get("mi_negocio.legal.politicas") === true,
+    legalLibro: get("mi_negocio.legal.libro_reclamaciones") === true,
+  };
+}
+
+// ── Aplicación de flags a la UI (se llama en render y en cada cambio del doc) ──
+let _bizRef = null;
+let _serviciosUnsub = null;
+
+function setDisp(id, show) {
+  document.getElementById(id)?.style.setProperty("display", show ? "" : "none");
+}
+
+function aplicarBrandingGeinz() {
+  const verHeader = _F.cabezero && !_esDominioPersonalizado;
+  setDisp("geinzHeader", verHeader);
+  setDisp("secCtaExplore", _F.bannerGeinz);
+  document
+    .getElementById("mainContent")
+    ?.style.setProperty("padding-top", verHeader ? "" : "1.55rem");
+}
+
+function setLegalLink(id, activo, sufijo, rutaVieja, biz) {
+  const a = document.getElementById(id);
+  if (!a) return;
+  (a.closest("li") || a).style.display = activo ? "" : "none";
+  if (!activo) return;
+  const ruta = rutaNegocio(sufijo, biz.alias_key);
+  if (ruta) {
+    a.href = ruta;
+  } else {
+    const u = new URL(rutaVieja, window.location.href);
+    u.searchParams.set("id", biz.id || _params.id);
+    u.searchParams.set("localidad", _params.localidad);
+    a.href = u.toString();
+  }
+}
+
+function aplicarFooterYLegal(biz) {
+  const legalActivo = _F.legalTerminos || _F.legalPoliticas || _F.legalLibro;
+  const footerVisible = _F.footer || legalActivo;
+
+  setDisp("geinzFooter", footerVisible);
+  setDisp("legalFooterCol", legalActivo);
+  setDisp("geinzFooterCol", _F.footer && _F.columnaGeinz);
+  setDisp("footerPoweredRow", _F.footer && _F.derechosGeinz);
+  setDisp("footerCopyRow", footerVisible);
+
+  setLegalLink(
+    "linkLibroReclamaciones",
+    _F.legalLibro,
+    "libro_reclamaciones",
+    "../../legal/libro_reclamaciones.html",
+    biz,
+  );
+  setLegalLink(
+    "linkSeguimientoReclamo",
+    _F.legalLibro,
+    "seguimiento_reclamaciones",
+    "../../legal/seguimiento_reclamaciones.html",
+    biz,
+  );
+  setLegalLink(
+    "linkTerminos",
+    _F.legalTerminos,
+    "terminos_condiciones",
+    "../../legal/terminos_condiciones.html",
+    biz,
+  );
+  setLegalLink(
+    "linkPrivacidad",
+    _F.legalPoliticas,
+    "politicas_privacidad",
+    "../../legal/politicas_privacidad.html",
+    biz,
+  );
+
+  // Seguimiento de pedidos (siempre visible)
+  setLegalLink(
+    "linkSeguimientoPedido",
+    true,
+    "seguimiento_pedido",
+    "../../seguimiento/seguimiento_pedido.html",
+    biz,
+  );
+}
+
+function aplicarServicios() {
+  const biz = _bizRef;
+  if (!biz) return;
+  aplicarFooterYLegal(biz);
+  aplicarBrandingGeinz();
+  refrescarMesas();
+  renderProductosCatalogo(
+    biz.carritoPerfil || [],
+    _params.localidad,
+    _params.id,
+    _params.alias || biz.alias_key,
+  );
+}
+
+function listenServiciosRealtime({ localidad, id }, cacheKey) {
+  _serviciosUnsub?.();
+  _serviciosUnsub = onSnapshot(
+    tiendaServiciosDoc(localidad, id),
+    (snap) => {
+      const s = snap.exists() ? snap.data() : {};
+      _F = calcFlags(s);
+      aplicarServicios();
+      const c = _cGet(cacheKey, 24 * 3600e3);
+      if (c) _cSet(cacheKey, { ...c, servicios: s });
+    },
+    (e) => console.warn("servicios realtime:", e.message),
+  );
 }
 
 function actualizarLayoutContactoFidel() {
@@ -5429,6 +5655,7 @@ function actualizarLayoutContactoFidel() {
 }
 async function render(biz, isInitial = true) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
+  _bizRef = biz;
   const categoria = biz.categoria_tienda || "—";
   const subcategorias = Array.isArray(biz.subcategoria) ? biz.subcategoria : [];
   const descripcion = biz.descripcion || "—";
@@ -5491,144 +5718,6 @@ async function render(biz, isInitial = true) {
     });
   }
 
-  // Links legales (por ahora estáticos; luego se activan/desactivan desde biz.legal.*)
-  // Links legales — visibles solo si están activos en biz.footer (dato real de la DB)
-  const footerConfig = biz.footer || {};
-  const linkLibro = document.getElementById("linkLibroReclamaciones");
-  const linkTerminos = document.getElementById("linkTerminos");
-  const linkPrivacidad = document.getElementById("linkPrivacidad");
-  const footerActivo = footerConfig.activo !== false;
-  document
-    .getElementById("geinzFooter")
-    ?.style.setProperty("display", footerActivo ? "" : "none");
-  // ── Columna "Legal" completa: oculta si las 3 opciones legales están apagadas ──
-  const legalColActiva =
-    footerActivo &&
-    (footerConfig.libro_reclamaciones === true ||
-      footerConfig.terminos_condiciones === true ||
-      footerConfig.politicas_privacidad === true);
-  document
-    .getElementById("legalFooterCol")
-    ?.style.setProperty("display", legalColActiva ? "" : "none");
-
-  // ── Columna "Geinz" (Explorar / Soporte / Registra tu negocio) ──
-  const geinzColActiva = footerConfig.geinz === true;
-  document
-    .getElementById("geinzFooterCol")
-    ?.style.setProperty("display", geinzColActiva ? "" : "none");
-
-  // ── Línea de copyright "© 2026 Negocio..." ──
-  const copyrightActivo = footerConfig.footer_derechos_autor === true;
-  document
-    .getElementById("footerCopyRow")
-    ?.style.setProperty("display", copyrightActivo ? "" : "none");
-
-  // ── "Powered by GEINZ" ──
-  // ── "Powered by GEINZ" — depende de footer_derechos_autor_geinz Y de que "geinz" esté activo ──
-  const poweredActivo =
-    footerActivo &&
-    geinzColActiva &&
-    footerConfig.footer_derechos_autor_geinz === true;
-  document
-    .getElementById("footerPoweredRow")
-    ?.style.setProperty("display", poweredActivo ? "" : "none");
-  if (linkLibro) {
-    const libroActivo =
-      footerActivo && footerConfig.libro_reclamaciones === true;
-    linkLibro.style.display = libroActivo ? "" : "none";
-    if (libroActivo) {
-      const ruta = rutaNegocio("libro_reclamaciones", biz.alias_key);
-      if (ruta) {
-        linkLibro.href = ruta;
-      } else {
-        const urlLibro = new URL(
-          "../../legal/libro_reclamaciones.html",
-          window.location.href,
-        );
-        urlLibro.searchParams.set("id", biz.id || _params.id);
-        urlLibro.searchParams.set("localidad", _params.localidad);
-        linkLibro.href = urlLibro.toString();
-      }
-    }
-  }
-  const linkSeguimientoPedido = document.getElementById(
-    "linkSeguimientoPedido",
-  );
-  if (linkSeguimientoPedido) {
-    const ruta = rutaNegocio("seguimiento_pedido", biz.alias_key);
-    5;
-    if (ruta) {
-      linkSeguimientoPedido.href = ruta;
-    } else {
-      const u = new URL(
-        "../../seguimiento/seguimiento_pedido.html",
-        window.location.href,
-      );
-      u.searchParams.set("id", biz.id || _params.id);
-      u.searchParams.set("localidad", _params.localidad);
-      linkSeguimientoPedido.href = u.toString();
-    }
-  }
-  const linkSeguimiento = document.getElementById("linkSeguimientoReclamo");
-  if (linkSeguimiento) {
-    const libroActivo =
-      footerActivo && footerConfig.libro_reclamaciones === true;
-    linkSeguimiento.style.display = libroActivo ? "" : "none";
-    if (libroActivo) {
-      const ruta = rutaNegocio("seguimiento_reclamaciones", biz.alias_key);
-      if (ruta) {
-        linkSeguimiento.href = ruta;
-      } else {
-        const urlSeguimiento = new URL(
-          "../../legal/seguimiento_reclamaciones.html",
-          window.location.href,
-        );
-        urlSeguimiento.searchParams.set("id", biz.id || _params.id);
-        urlSeguimiento.searchParams.set("localidad", _params.localidad);
-        linkSeguimiento.href = urlSeguimiento.toString();
-      }
-    }
-  }
-
-  if (linkTerminos) {
-    const terminosActivo =
-      footerActivo && footerConfig.terminos_condiciones === true;
-    linkTerminos.style.display = terminosActivo ? "" : "none";
-    if (terminosActivo) {
-      const ruta = rutaNegocio("terminos_condiciones", biz.alias_key);
-      if (ruta) {
-        linkTerminos.href = ruta;
-      } else {
-        const urlTerminos = new URL(
-          "../../legal/terminos_condiciones.html",
-          window.location.href,
-        );
-        urlTerminos.searchParams.set("id", biz.id || _params.id);
-        urlTerminos.searchParams.set("localidad", _params.localidad);
-        linkTerminos.href = urlTerminos.toString();
-      }
-    }
-  }
-
-  if (linkPrivacidad) {
-    const privacidadActivo =
-      footerActivo && footerConfig.politicas_privacidad === true;
-    linkPrivacidad.style.display = privacidadActivo ? "" : "none";
-    if (privacidadActivo) {
-      const ruta = rutaNegocio("politicas_privacidad", biz.alias_key);
-      if (ruta) {
-        linkPrivacidad.href = ruta;
-      } else {
-        const urlPrivacidad = new URL(
-          "../../legal/politicas_privacidad.html",
-          window.location.href,
-        );
-        urlPrivacidad.searchParams.set("id", biz.id || _params.id);
-        urlPrivacidad.searchParams.set("localidad", _params.localidad);
-        linkPrivacidad.href = urlPrivacidad.toString();
-      }
-    }
-  }
   // ── COLOR + LOGO: solo la primera vez ──
   const _cm = biz.color_marca;
   const _tieneColor = _cm?.activo === true && _cm.r != null;
@@ -6077,21 +6166,7 @@ async function render(biz, isInitial = true) {
     fidelizacionRaw.mensajeInactivo ||
     "Este negocio no tiene el programa de fidelización activo por el momento."; // NUEVO
   setupHeroFlip(!!fidelizacion);
-  document
-    .getElementById("geinzHeader")
-    ?.style.setProperty(
-      "display",
-      esPremium || _esDominioPersonalizado ? "none" : "",
-    );
-  document
-    .getElementById("secCtaExplore")
-    ?.style.setProperty("display", _F.esBasico || _F.bannerGeinz ? "" : "none");
-  document
-    .getElementById("mainContent")
-    ?.style.setProperty(
-      "padding-top",
-      esPremium || _esDominioPersonalizado ? "1.55rem" : "",
-    );
+  aplicarBrandingGeinz();
   document
     .getElementById("secAmenities")
     ?.style.setProperty("display", esPresencial ? "" : "none");
@@ -6100,25 +6175,16 @@ async function render(biz, isInitial = true) {
     ?.style.setProperty("display", esPresencial ? "" : "none");
   const fidelCard = document.getElementById("fidelizacionCard");
   if (fidelCard) {
-    const irAFidelizacion = () => {
-      if (_esDominioPersonalizado) {
-        window.location.href = `${_baseShareUrl}/fidelizacion`;
-        return;
-      }
-      const aliasKey = _params.alias || biz?.alias_key;
-      if (aliasKey && _currentUid) {
-        window.location.href = `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(_currentUid)}`;
-      } else {
-        const url = new URL(
-          "../../fidelizacion/fidelizacion_client.html",
-          window.location.href,
-        );
-        url.searchParams.set("localidad", _params.localidad);
-        url.searchParams.set("id", _params.id);
-        if (_currentUid) url.searchParams.set("uid", _currentUid);
-        window.location.href = url.toString();
-      }
-    };
+  const fidelCard = document.getElementById("fidelizacionCard");
+if (fidelCard) {
+  fidelCard.onclick = irAFidelizacion;
+  fidelCard.onkeydown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      irAFidelizacion();
+    }
+  };
+}
     fidelCard.onclick = irAFidelizacion;
     fidelCard.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -7665,10 +7731,10 @@ function irAReviews() {
 
     const bannerPromise = showPromoBanner(biz); // ← ya NO va suelto, se guarda
     await render(biz, true);
-
+    listenServiciosRealtime(params, ck);
     _followReady = true;
     _reviewsReady = true;
-    await bannerPromise;   // ← espera a que la imagen del banner esté lista
+    await bannerPromise; // ← espera a que la imagen del banner esté lista
     hideBizLoader();
 
     injectReviewsStyles();

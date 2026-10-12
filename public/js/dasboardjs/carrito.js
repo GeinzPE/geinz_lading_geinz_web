@@ -550,6 +550,40 @@ const PROMO_DETAIL_CSS = `
 }
 `;
 
+const PEDIDO_MESA_CSS = `
+.pa-steps{position:relative;display:flex;padding:4px 0 2px;}
+.pa-track{position:absolute;top:21px;left:16.66%;right:16.66%;height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;}
+.pa-fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,rgba(var(--dr),var(--dg),var(--db),.6),rgb(var(--dr),var(--dg),var(--db)));transition:width .7s cubic-bezier(.22,1,.36,1);}
+.pa-step{flex:1;text-align:center;position:relative;z-index:1;}
+.pa-dot{width:38px;height:38px;margin:0 auto 7px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;
+  background:#14141a;border:2px solid rgba(255,255,255,.1);filter:grayscale(1);opacity:.45;transition:all .4s ease;}
+.pa-step.done .pa-dot{filter:none;opacity:1;background:rgba(var(--dr),var(--dg),var(--db),.18);border-color:rgb(var(--dr),var(--dg),var(--db));}
+.pa-step.now .pa-dot{filter:none;opacity:1;background:rgb(var(--dr),var(--dg),var(--db));border-color:transparent;animation:paPulse 1.8s ease-in-out infinite;}
+@keyframes paPulse{0%,100%{box-shadow:0 0 0 0 rgba(var(--dr),var(--dg),var(--db),.5);}50%{box-shadow:0 0 0 9px rgba(var(--dr),var(--dg),var(--db),0);}}
+.pa-lbl{font-size:10.5px;font-weight:800;letter-spacing:.02em;color:#6b7280;transition:color .3s;}
+.pa-step.done .pa-lbl,.pa-step.now .pa-lbl{color:#fff;}
+.pa-wait{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;font-size:13px;font-weight:700;
+  background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fbbf24;}
+.pa-wait i{width:8px;height:8px;border-radius:50%;background:currentColor;animation:paPulse 1.4s infinite;}
+.pa-pay-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:8px;}
+.pa-pay{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);margin-bottom:8px;}
+.pa-pay-logo{width:42px;height:42px;border-radius:12px;object-fit:contain;background:#fff;padding:4px;flex-shrink:0;}
+.pa-pay-info{flex:1;min-width:0;}
+.pa-pay-name{font-weight:800;font-size:13.5px;}
+.pa-pay-sub{font-size:12px;color:#9ca3af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pa-pay-num{font-family:monospace;font-size:14px;font-weight:700;letter-spacing:.04em;}
+.pa-copy{padding:7px 11px;border-radius:10px;font-size:11.5px;font-weight:800;border:none;cursor:pointer;color:#fff;background:rgba(var(--dr),var(--dg),var(--db),.25);}
+.pa-copy:active{transform:scale(.95);}
+.pa-qr{width:64px;height:64px;border-radius:10px;background:#fff;padding:3px;cursor:zoom-in;flex-shrink:0;}
+`;
+(function () {
+  if (document.getElementById("paStyle")) return;
+  const st = document.createElement("style");
+  st.id = "paStyle";
+  st.textContent = PEDIDO_MESA_CSS;
+  document.head.appendChild(st);
+})();
+
 function injectPromoDetailStyles() {
   if (document.getElementById("promoDetailStyle")) return;
   const st = document.createElement("style");
@@ -1082,19 +1116,12 @@ const estItemC = (it, ped) =>
   (["en_preparacion", "entregado"].includes(ped?.estadoMesa)
     ? ped.estadoMesa
     : "aceptado");
-const PASOS_MESA = [
-  ["aceptado", "✅", "Aceptado"],
-  ["en_preparacion", "🔥", "En preparación"],
-  ["entregado", "🍽️", "Entregado"],
-];
 
 /* Guarda la solicitud de comprobante en los 3 sitios donde vive el pedido */
 async function guardarComprobanteMesa(sol) {
   if (!grupoActivo) grupoActivo = await resolveGrupoActivo();
   if (grupoActivo) {
-    const tareas = [
-      updateDoc(grupoActivo.ref, { "pedido.comprobante": sol }),
-    ];
+    const tareas = [updateDoc(grupoActivo.ref, { "pedido.comprobante": sol })];
     if (grupoActivo.pedidoGrupoDocId)
       tareas.push(
         updateDoc(
@@ -1158,6 +1185,45 @@ async function enviarLlamado(motivo) {
     timestamp: serverTimestamp(),
   });
 }
+const PASOS_MESA = [
+  ["aceptado", "✅", "Aceptado"],
+  ["en_preparacion", "🔥", "En preparación"],
+  ["entregado", "🍽️", "Entregado"],
+];
+
+function metodosPagoMesaHTML() {
+  const m = bizData?.metodos_pago;
+  if (!m || typeof m !== "object") return "";
+  const cards = METODOS_PAGO_ORDEN.filter((k) => m[k]?.enable === true)
+    .map((k) => {
+      const d = m[k];
+      const cfg = METODOS_PAGO_CONFIG[k] || { label: k, icon: "" };
+      const num = String(d.numero || "").trim();
+      const titular = String(d.nombre || "").trim();
+      const qr = String(d.qr || "").trim();
+      const sub =
+        k === "efectivo"
+          ? "Paga en efectivo al mozo"
+          : titular
+            ? escapeHtmlCarrito(titular)
+            : "";
+      return `
+      <div class="pa-pay">
+        <img class="pa-pay-logo" src="${cfg.icon}" alt="${cfg.label}" onerror="this.style.display='none'">
+        <div class="pa-pay-info">
+          <div class="pa-pay-name">${cfg.label}</div>
+          ${num ? `<div class="pa-pay-num">${escapeHtmlCarrito(num)}</div>` : ""}
+          ${sub ? `<div class="pa-pay-sub">${sub}</div>` : ""}
+        </div>
+        ${qr ? `<img class="pa-qr" src="${escapeHtmlCarrito(qr)}" alt="QR ${cfg.label}" data-qr="${escapeHtmlCarrito(qr)}">` : ""}
+        ${num ? `<button type="button" class="pa-copy" data-copy="${escapeHtmlCarrito(num)}">Copiar</button>` : ""}
+      </div>`;
+    })
+    .join("");
+  return cards
+    ? `<div><p class="pa-pay-title">💳 Puedes pagar con</p>${cards}</div>`
+    : "";
+}
 
 function renderPedidoActivoMesa(pedido) {
   const main = document.querySelector("main .min-w-0");
@@ -1169,6 +1235,8 @@ function renderPedidoActivoMesa(pedido) {
     (pedido.estadoMozo === "confirmado" ? "aceptado" : "pendiente");
   const idx = PASOS_MESA.findIndex((p) => p[0] === est);
   const color = "rgb(var(--dr),var(--dg),var(--db))";
+  const puedeCuenta = est === "entregado" && !pedido.pendienteMozo?.length;
+  const fillPct = idx <= 0 ? 0 : (idx / (PASOS_MESA.length - 1)) * 100;
 
   const wrap = document.createElement("div");
   wrap.id = "pedidoActivoWrap";
@@ -1180,16 +1248,17 @@ function renderPedidoActivoMesa(pedido) {
     </div>
     ${
       idx < 0
-        ? `<div class="text-center text-[13px] font-bold py-2.5 rounded-2xl" style="background:rgba(251,191,36,.12);color:#fbbf24;">⏳ Esperando que el mozo confirme tu pedido</div>`
-        : `<div style="display:flex;">${PASOS_MESA.map(
-            (
-              p,
-              i,
-            ) => `<div style="flex:1;text-align:center;opacity:${i <= idx ? 1 : 0.3};">
-              <div style="font-size:22px;">${p[1]}</div>
-              <div style="font-size:10.5px;font-weight:800;${i === idx ? "color:" + color + ";" : ""}">${p[2]}</div>
-            </div>`,
-          ).join("")}</div>`
+        ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
+        : `<div class="pa-steps">
+            <div class="pa-track"><div class="pa-fill" style="width:${fillPct}%"></div></div>
+            ${PASOS_MESA.map(
+              (p, i) => `
+              <div class="pa-step ${i < idx ? "done" : i === idx ? "now" : ""}">
+                <div class="pa-dot">${i < idx ? "✓" : p[1]}</div>
+                <div class="pa-lbl">${p[2]}</div>
+              </div>`,
+            ).join("")}
+          </div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
     ${
@@ -1204,12 +1273,13 @@ function renderPedidoActivoMesa(pedido) {
       <span class="text-gray-400 font-semibold text-sm">Total</span>
       <span class="display font-extrabold text-xl">S/ ${Number(pedido.total || 0).toFixed(2)}</span>
     </div>
+    ${puedeCuenta ? metodosPagoMesaHTML() : ""}
     ${clientePuedeComprobante() && pedido.comprobante ? htmlEstadoCliente(pedido.comprobante) : ""}
-    <div class="grid grid-cols-2 gap-2">
+    <div class="grid ${puedeCuenta ? "grid-cols-2" : "grid-cols-1"} gap-2">
       <button id="paMozo" class="glass rounded-2xl py-3 font-bold text-[13px]">🔔 Llamar al mozo</button>
-      <button id="paCuenta" class="glass rounded-2xl py-3 font-bold text-[13px]">🧾 Pedir la cuenta</button>
+      ${puedeCuenta ? `<button id="paCuenta" class="rounded-2xl py-3 font-bold text-[13px] text-white" style="background:${color};">🧾 Pedir la cuenta</button>` : ""}
     </div>
-  ${est === "pendiente" && !pedido.mozoConfirmo ? `<button id="paCancel" class= "rounded-2xl py-3 font-bold text-[13px]" style="background:rgba(248,113,113,.12);color:#f87171;">✕ Cancelar pedido</button>` : ""}
+    ${est === "pendiente" && !pedido.mozoConfirmo ? `<button id="paCancel" class="rounded-2xl py-3 font-bold text-[13px]" style="background:rgba(248,113,113,.12);color:#f87171;">✕ Cancelar pedido</button>` : ""}
   `;
 
   const filaHTML = (it) => `
@@ -1257,6 +1327,22 @@ function renderPedidoActivoMesa(pedido) {
       .join("");
   }
 
+  // Copiar número / ampliar QR
+  wrap.addEventListener("click", async (e) => {
+    const c = e.target.closest("[data-copy]");
+    if (c) {
+      try {
+        await navigator.clipboard.writeText(c.dataset.copy);
+        showToast("📋 Número copiado");
+      } catch {
+        showToast("No se pudo copiar");
+      }
+      return;
+    }
+    const q = e.target.closest("[data-qr]");
+    if (q) openProductLightbox([q.dataset.qr], 0);
+  });
+
   const llamar = (btn, motivo, msg) => {
     btn.onclick = async () => {
       btn.disabled = true;
@@ -1275,8 +1361,9 @@ function renderPedidoActivoMesa(pedido) {
     };
   };
   llamar(wrap.querySelector("#paMozo"), "ayuda", "🔔 Avisamos al mozo");
-  {
-    const bc = wrap.querySelector("#paCuenta");
+
+  const bc = wrap.querySelector("#paCuenta");
+  if (bc) {
     if (clientePuedeComprobante() && pedido.comprobante?.estado === "pendiente")
       bc.textContent = "🧾 Cambiar comprobante";
     bc.onclick = async () => {
@@ -1314,8 +1401,32 @@ function renderPedidoActivoMesa(pedido) {
 }
 
 /* Seguimiento en vivo: el pedido se actualiza solo (estado, cambios del mozo, cancelación) */
+let _estadoMesaPrev = null;
+
+function limpiarSeleccionesCarrito() {
+  if (!carrito.size && !cuponAplicado) return;
+  const ids = [...new Set([...carrito.values()].map((it) => it.id))];
+  carrito.clear();
+  cuponAplicado = null;
+  seleccionOpciones = {};
+  productoParaOpciones = null;
+  cartKeyEnEdicion = null;
+  cerrarOptionsModal();
+  updateCartUI();
+  ids.forEach((id) => syncMainListCard(id));
+}
+
 function aplicarPedidoEnVivo(p) {
   pedidoActivoMesa = p ? { ...p, estado: "ocupado" } : null;
+  const nuevo = p?.estadoMesa || null;
+
+  // Al entrar a "en_preparacion" se limpia lo que tenía seleccionado,
+  // así puede armar una ronda nueva desde cero
+  if (nuevo === "en_preparacion" && _estadoMesaPrev !== "en_preparacion") {
+    limpiarSeleccionesCarrito();
+  }
+  _estadoMesaPrev = nuevo;
+
   if (p) renderPedidoActivoMesa(pedidoActivoMesa);
   else document.getElementById("pedidoActivoWrap")?.remove();
 }
@@ -3749,7 +3860,7 @@ function updateCartUI() {
   }
 
   renderCuponBar(subtotal);
-
+  pintarAdicionalesCarrito();
   const cartCountEl = document.getElementById("cartCount");
   cartCountEl.textContent = count;
   if (count !== prevCartCount) {
@@ -3848,7 +3959,26 @@ function renderCartList(wrap, items) {
     const precioNum = Number(it.precio) || 0;
     let row = rowsMap.get(key);
 
-    if (!row) {
+    if (!row && it.esAdicional) {
+      row = document.createElement("div");
+      row.className = "item-row cart-adic-row";
+      row.innerHTML = `
+        <div class="cart-adic-info">
+          <p class="cart-adic-nombre cart-row-nombre">${escapeHtmlCarrito(it.nombre)}</p>
+          <p class="cart-adic-precio cart-row-precio">S/ ${precioNum.toFixed(2)} c/u</p>
+        </div>
+        <div class="cart-adic-qty" data-qty-key="${key}"></div>
+        <span class="cart-adic-total">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>
+        <button type="button" class="cart-remove-btn cart-adic-del" title="Quitar" data-key="${key}" data-id="${it.id}">✕</button>
+      `;
+      wrap.appendChild(row);
+      rowsMap.set(key, row);
+    } else if (row && it.esAdicional) {
+      row.querySelector(".cart-adic-precio").textContent =
+        `S/ ${precioNum.toFixed(2)} c/u`;
+      row.querySelector(".cart-adic-total").textContent =
+        `S/ ${(it.cantidad * precioNum).toFixed(2)}`;
+    } else if (!row) {
       // Fila nueva: se crea UNA sola vez (con su <img>). De aquí en adelante solo se actualiza texto.
       row = document.createElement("div");
       row.className = "item-row flex items-center gap-3 glass rounded-2xl p-3";
@@ -5667,6 +5797,86 @@ function refrescarDisponibilidadCategorias() {
   });
   if (cambio) updateCartUI();
 }
+/* ══════════════ Adicionales (solo Comida y Restaurantes) ══════════════ */
+let adicionalesGlobal = [];
+const esRestauranteCarrito = () =>
+  normalizeText(bizData?.categoria_tienda) === "comida y restaurantes";
+
+async function loadAdicionales() {
+  if (!esRestauranteCarrito()) return [];
+  try {
+    const snap = await getDocs(
+      tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales"),
+    );
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((a) => a.activo !== false && a.nombre)
+      .map((a) => ({
+        id: `adic__${a.id}`,
+        esAdicional: true,
+        nombre: a.nombre,
+        categoria: "",
+        precio: Number(a.precio) || 0,
+        imagen: a.imagen?.url || "",
+        imagenes: [],
+        condiciones: [],
+        stock: null,
+        puntos: null,
+        descuento: null,
+      }));
+  } catch (e) {
+    console.warn("No se pudieron cargar los adicionales:", e.message);
+    return [];
+  }
+}
+
+function addAdicional(id) {
+  const a = productosPorId.get(id);
+  if (!a) return;
+  if (!horarioEstado.abierto) {
+    showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
+    return;
+  }
+  const ex = carrito.get(id);
+  if (ex) ex.cantidad += 1;
+  else carrito.set(id, { ...a, cantidad: 1, cartKey: id, seleccion: null });
+  updateCartUI();
+  showToast(`${a.nombre} agregado`);
+}
+
+function pintarAdicionalesCarrito() {
+  if (!adicionalesGlobal.length) return;
+  const hayProductos = [...carrito.values()].some((i) => !i.esAdicional);
+  [
+    ["drawerItems", "adicDrawer"],
+    ["sidebarItems", "adicSidebar"],
+  ].forEach(([wrapId, id]) => {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    let box = document.getElementById(id);
+    if (!box) {
+      box = document.createElement("div");
+      box.id = id;
+      wrap.after(box);
+      box.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-adic]");
+        if (b) addAdicional(b.dataset.adic);
+      });
+    }
+    box.style.display = hayProductos ? "block" : "none";
+    box.style.padding = "4px 0 10px";
+    box.innerHTML = `
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin:0 0 8px;">➕ ¿Algo más?</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${adicionalesGlobal
+          .map((a) => {
+            const n = carrito.get(a.id)?.cantidad || 0;
+            return `<button type="button" data-adic="${a.id}" style="padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:${n ? "rgba(var(--dr),var(--dg),var(--db),.3)" : "rgba(255,255,255,.06)"};text-transform:capitalize;">+ ${escapeHtmlCarrito(a.nombre)} · S/ ${a.precio.toFixed(2)}${n ? ` · ${n}` : ""}</button>`;
+          })
+          .join("")}
+      </div>`;
+  });
+}
 async function init() {
   await resolverParamsCarrito();
   aplicarColoresDesdeCache(tiendaId); // ← nueva: 0 ms si ya visitó este negocio
@@ -5749,6 +5959,8 @@ async function init() {
   bindCuponInputs();
   if (cuponParam) await buscarYAplicarCupon(cuponParam);
   await renderTienda(biz);
+  adicionalesGlobal = await loadAdicionales();
+  adicionalesGlobal.forEach((a) => productosPorId.set(a.id, a));
   if (urlTieneBannerCupon()) await aplicarCuponBanner();
   aplicarComportamientoBotonAtras();
   aplicarModeloNegocio(biz);
