@@ -1479,16 +1479,19 @@ function opcionesDetalleLineas(it) {
 
 // Versión en HTML lista para insertar, con cada línea en su propio <div>
 function opcionesDetalleHtmlLineas(it, color = "#a78bfa") {
+  const tag = estadoItemTag(it);
   const lineas = opcionesDetalleLineas(it);
-  if (!lineas.length) return "";
-  return lineas
-    .map(
-      (l) =>
-        `<div class="dm-prod-cat" style="color:${color};">• ${escapeHtml(l)}</div>`,
-    )
-    .join("");
+  if (!lineas.length) return tag;
+  return (
+    tag +
+    lineas
+      .map(
+        (l) =>
+          `<div class="dm-prod-cat" style="color:${color};">• ${escapeHtml(l)}</div>`,
+      )
+      .join("")
+  );
 }
-
 /* ══════════════ Distancia y mini-mapa de delivery (Google Maps embed gratis) ══════════════ */
 function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -2482,6 +2485,7 @@ function getPedidosDeMesa(numeroMesa) {
       const pseudoPedido = {
         estado: "pendiente",
         estadoMozo: grupo.pedido.estadoMozo || null,
+        estadoMesa: grupo.pedido.estadoMesa || null,
         timestamp: grupo.pedido.timestamp,
         fecha: grupo.pedido.fecha,
         hora: grupo.pedido.hora,
@@ -2683,9 +2687,10 @@ function renderMesaGrid() {
             ? `<div class="mesa-reserva-timer" data-reserva-ts="${toDate(m.reservado_en)?.getTime() || ""}">⏳ calculando…</div>`
             : "";
         return `
-    <div class="mesa-box ${estadoVisual} al-${alerta}${esSeleccionable ? " selectable" : ""}${estaSeleccionada ? " selected" : ""}" data-mesa="${m.numero_mesa}" data-mesa-doc="${mesaDocId}" data-selectable="${esSeleccionable}">
+    <div class="mesa-box ${estadoVisual}${estadoMesaVis(estadoVisual, activos).cls} al-${alerta}${esSeleccionable ? " selectable" : ""}${estaSeleccionada ? " selected" : ""}" data-mesa="${m.numero_mesa}" data-mesa-doc="${mesaDocId}" data-selectable="${esSeleccionable}">
         <span class="mb-check">✓</span>
         <span class="mb-status"><span class="dot"></span>${label}</span>
+        ${estadoMesaVis(estadoVisual, activos).badge}
                 ${alertaBadgeHtml(alerta)}
         <div class="mb-name">${escapeHtml(m.nombre_alias || "Mesa " + m.numero_mesa)}</div>
         <div class="mb-total">${estadoVisual === "ocupada" ? fmtMoney(total) : "—"}</div>
@@ -2750,9 +2755,10 @@ function renderMesaGrid() {
           : "";
 
       return `
-   <div class="mesa-box grupo ${primero.estadoVisual} al-${alerta}${esSeleccionableGrupo ? " selectable" : ""}${grupoSeleccionado ? " selected" : ""}" data-mesa="${primero.m.numero_mesa}" data-grupo-id="${bloque.grupoId}" data-selectable="${esSeleccionableGrupo}" style="--grupo-color:${color}; grid-column: span ${anchoSpan};">
+   <div class="mesa-box grupo ${primero.estadoVisual}${estadoMesaVis(primero.estadoVisual, primero.activos).cls} al-${alerta}${esSeleccionableGrupo ? " selectable" : ""}${grupoSeleccionado ? " selected" : ""}" data-mesa="${primero.m.numero_mesa}" data-grupo-id="${bloque.grupoId}" data-selectable="${esSeleccionableGrupo}" style="--grupo-color:${color}; grid-column: span ${anchoSpan};">
         <span class="mb-check">✓</span>
-        <span class="mb-status"><span class="dot"></span>${labelEstadoGrupo} · Grupo</span>
+           <span class="mb-status"><span class="dot"></span>${labelEstadoGrupo} · Grupo</span>
+        ${estadoMesaVis(primero.estadoVisual, primero.activos).badge}
                 ${alertaBadgeHtml(alerta)}
         <div class="mb-name">${escapeHtml(nombres)}</div>
         <div class="mb-total">${primero.estadoVisual === "ocupada" ? fmtMoney(totalGrupo) : "—"}</div>
@@ -3818,6 +3824,7 @@ function renderMesaDetail(numeroMesa) {
     dmActions.innerHTML = `<div class="oc-final-tag" style="width:100%;background:var(--green-soft);color:var(--green);">✅ Mesa libre</div>`;
   }
   if (activos.length && !esPendienteAceptar) {
+    const actual = activos[0]?.[1]?.estadoMesa || null;
     const fila = document.createElement("div");
     fila.style.cssText = "display:flex;gap:8px;width:100%;margin-bottom:8px;";
     [
@@ -3825,13 +3832,46 @@ function renderMesaDetail(numeroMesa) {
       ["entregado", "🍽️ Entregado"],
     ].forEach(([est, txt]) => {
       const b = document.createElement("button");
-      b.className = "oc-btn ghost";
+      b.className =
+        "oc-btn " +
+        (actual === est
+          ? est === "entregado"
+            ? "primary v-green"
+            : "primary v-violet"
+          : "ghost");
       b.style.flex = "1";
       b.textContent = txt;
       b.onclick = () => setEstadoMesaAdmin(numeroMesa, est);
       fila.appendChild(b);
     });
     dmActions.prepend(fila);
+  }
+
+  // Herramientas: trasladar / unir / separar
+  const mesaEntry = [...mesasMap.entries()].find(
+    ([, m]) => m.numero_mesa === numeroMesa,
+  );
+  if (mesaEntry && (ocupada || mesaEntry[1].grupoId)) {
+    const [mesaDocIdTools, mTools] = mesaEntry;
+    const f2 = document.createElement("div");
+    f2.style.cssText =
+      "display:flex;flex-wrap:wrap;gap:8px;width:100%;margin-top:8px;";
+    const mk = (txt, fn) => {
+      const b = document.createElement("button");
+      b.className = "oc-btn ghost";
+      b.style.flex = "1";
+      b.textContent = txt;
+      b.onclick = fn;
+      f2.appendChild(b);
+    };
+    mk("🔀 Trasladar", () => abrirTrasladoMesas("traspasar", mesaDocIdTools));
+    mk("🔗 Unir mesas", () => abrirTrasladoMesas("unir", mesaDocIdTools));
+    if (mTools.grupoId)
+      mk("⇱ Separar", async () => {
+        await separarGrupoConPedidos(mTools.grupoId);
+        closeDetail();
+      });
+    dmActions.appendChild(f2);
   }
 }
 async function toggleReservaMesa(numeroMesa) {
@@ -4058,6 +4098,7 @@ async function quitarReservaGrupo(grupoId) {
              vinculado visualmente a estas mesas. */
 async function desagruparGrupo(grupoId) {
   const grupo = gruposMap.get(grupoId);
+  if (grupo?.pedido) return separarGrupoConPedidos(grupoId);
   const miembrosMap = [...mesasMap.entries()].filter(
     ([, m]) => m.grupoId === grupoId,
   );
@@ -5714,7 +5755,14 @@ async function aplicarEstadoGrupal(estadoDestino) {
         showToast("Ninguna de las mesas seleccionadas está agrupada", true);
         return;
       }
-
+      const gConPedido = [...gruposAfectados].filter(
+        (g) => gruposMap.get(g)?.pedido,
+      );
+      if (gConPedido.length) {
+        for (const g of gConPedido) await separarGrupoConPedidos(g);
+        limpiarSeleccionMesas();
+        return;
+      }
       const batch = writeBatch(db);
       mesasEncontradas.forEach(([mesaDocId, m]) => {
         if (!m.grupoId) return;
@@ -9379,7 +9427,12 @@ mzOv.className = "dlv-ov";
 mzOv.innerHTML = `
   <div class="dlv-box">
     <div class="dlv-head"><span>🧑‍🍳 Mozos</span><button type="button" data-x>✕</button></div>
-    <p class="dlv-cfg-sub">Elige cuáles de tus trabajadores son mozos. Cada mozo entra con su usuario y PIN en <b id="mzLink"></b></p>
+  <p class="dlv-cfg-sub">Elige cuáles de tus trabajadores son mozos. Comparte este enlace: cada mozo entra con su usuario y PIN.</p>
+<div class="dlv-item" style="gap:8px;">
+  <input type="text" id="mzLinkInput" readonly class="deli-inp" style="flex:1;min-width:0;font-size:12px;">
+  <button type="button" class="oc-btn ghost" id="mzCopiar">📋 Copiar</button>
+</div>
+<button type="button" class="oc-btn ghost" id="mzWsp" style="width:100%;margin-bottom:10px;">💬 Enviar por WhatsApp</button>
     <div id="mzList"></div>
     <div class="dlv-form" id="mzForm" style="display:none;">
       <div class="dlv-prev-title" id="mzFormTitulo"></div>
@@ -9395,7 +9448,27 @@ mzOv.addEventListener("click", (e) => {
   if (e.target === mzOv || e.target.hasAttribute("data-x"))
     mzOv.classList.remove("show");
 });
+document.getElementById("mzCopiar").addEventListener("click", async () => {
+  const link = mzLinkMozo();
+  try {
+    await navigator.clipboard.writeText(link);
+  } catch {
+    // respaldo si el navegador no deja usar el portapapeles
+    const inp = document.getElementById("mzLinkInput");
+    inp.select();
+    document.execCommand("copy");
+  }
+  showToast("📋 Enlace copiado");
+});
 
+document.getElementById("mzWsp").addEventListener("click", () => {
+  const msg = `Hola, entra a este enlace para atender mesas en ${bizNombreGlobal}. Usa tu usuario y PIN:\n${mzLinkMozo()}`;
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(msg)}`,
+    "_blank",
+    "noopener",
+  );
+});
 function mzPintar() {
   const porTrab = new Map(
     mzLista.filter((m) => m.trabajadorId).map((m) => [m.trabajadorId, m]),
@@ -9479,13 +9552,12 @@ function mzCerrarForm() {
   document.getElementById("mzPin").value = "";
 }
 
+function mzLinkMozo() {
+  return `https://geinztech.com/mozo/mozo?id=${encodeURIComponent(tiendaId)}&localidad=${encodeURIComponent(localidad)}`;
+}
+
 async function mzAbrir() {
-  const base = bizDominioGlobal
-    ? `https://${bizDominioGlobal}/trabajadores`
-    : bizAliasGlobal
-      ? `geinztech.com/perfil/${bizAliasGlobal}/trabajadores`
-      : "(configura tu alias)";
-  document.getElementById("mzLink").textContent = base;
+  document.getElementById("mzLinkInput").value = mzLinkMozo();
   mzCerrarForm();
   await mzCargar();
   mzOv.classList.add("show");
@@ -9613,43 +9685,60 @@ mzBtn.textContent = "🧑‍🍳 Mozos";
 mzBtn.addEventListener("click", mzAbrir);
 document.querySelector(".mesas-panel-head")?.appendChild(mzBtn);
 /* ══════════════ ESTADO DE MESA + CONFIG DE MESAS ══════════════ */
-async function setEstadoMesaAdmin(numero, nuevo) {
+function setEstadoMesaAdmin(numero, nuevo) {
   const act = getPedidosDeMesa(numero)[0];
   if (!act) return;
   const [mesaDocId, pp] = act;
+  const esGrupo = !!pp.grupoId;
+  const dueno = esGrupo ? gruposMap.get(pp.grupoId) : mesasMap.get(mesaDocId);
+  if (!dueno?.pedido) return;
+
+  // 1) Cambio LOCAL inmediato: la tarjeta y el modal cambian al toque
+  // 1) Cambio LOCAL inmediato: la tarjeta y el modal cambian al toque
+  const base = dueno.pedido;
+  const productos = (base.productos || []).map((it) => {
+    const cur = estItem(it, base);
+    return cur === "entregado" || cur === nuevo
+      ? { ...it, estadoItem: cur }
+      : { ...it, estadoItem: nuevo };
+  });
+  const despues = {
+    ...base,
+    productos,
+    estadoMesa: derivarEstadoMesa(productos, nuevo),
+  };
+  dueno.pedido = despues;
+  renderMesaGrid();
+  if (activeModalId === `mesa:${numero}`) renderMesaDetail(numero);
+  showToast(
+    nuevo === "entregado" ? "🍽️ Marcado como entregado" : "🔥 En preparación",
+  );
+
+  // 2) Base de datos en segundo plano (sin await)
   const b = writeBatch(db);
-  if (pp.grupoId) {
-    const g = gruposMap.get(pp.grupoId);
+  if (esGrupo)
     b.set(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", pp.grupoId),
-      { pedido: { ...g.pedido, estadoMesa: nuevo } },
+      { pedido: sinUndef(despues) },
       { merge: true },
     );
-  } else {
-    const m = mesasMap.get(mesaDocId);
+  else
     b.set(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", mesaDocId),
-      { pedido: { ...m.pedido, estadoMesa: nuevo } },
+      { pedido: sinUndef(despues) },
       { merge: true },
     );
-  }
   if (pp.pedidoDocId)
     b.set(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", pp.pedidoDocId),
-      { estadoMesa: nuevo },
+      { estadoMesa: despues.estadoMesa, productos: sinUndef(productos) },
       { merge: true },
     );
-  try {
-    await b.commit();
-    showToast(
-      nuevo === "entregado" ? "🍽️ Marcado como entregado" : "🔥 En preparación",
-    );
-  } catch (e) {
+  b.commit().catch((e) => {
     console.error(e);
-    showToast("❌ No se pudo actualizar", true);
-  }
+    showToast("❌ No se pudo guardar, se revirtió el estado", true);
+  });
 }
-
 const mcOv = document.createElement("div");
 mcOv.className = "dlv-ov";
 mcOv.innerHTML = `
@@ -10071,3 +10160,667 @@ try {
     window.location.origin,
   );
 } catch {}
+
+/* ══════════════ Estado visual de mesa (preparación / entregado) ══════════════ */
+function estItem(it, ped) {
+  return (
+    it.estadoItem ||
+    (["en_preparacion", "entregado"].includes(ped?.estadoMesa)
+      ? ped.estadoMesa
+      : "aceptado")
+  );
+}
+function derivarEstadoMesa(productos, fb) {
+  const e = (productos || []).map((i) => i.estadoItem).filter(Boolean);
+  if (!e.length) return fb || null;
+  if (e.includes("aceptado")) return "aceptado";
+  if (e.includes("en_preparacion")) return "en_preparacion";
+  return "entregado";
+}
+function estadoItemTag(it) {
+  const m = {
+    aceptado: ["🆕 Por preparar", "#fbbf24"],
+    en_preparacion: ["🔥 En preparación", "#38bdf8"],
+    entregado: ["🍽️ Entregado", "#4ade80"],
+  }[it?.estadoItem];
+  return m
+    ? `<div class="dm-prod-cat" style="color:${m[1]};font-weight:800;">${m[0]}</div>`
+    : "";
+}
+function estadoMesaVis(estadoVisual, activos) {
+  if (estadoVisual !== "ocupada") return { cls: "", badge: "" };
+  const ped = activos?.[0]?.[1];
+  const est = (ped?.productos || []).map((it) => estItem(it, ped));
+  if (est.includes("aceptado") && est.some((e) => e !== "aceptado"))
+    return {
+      cls: " em-nuevo",
+      badge: `<span class="mesa-alerta-badge em-b-nuevo">🆕 Ronda nueva por atender</span>`,
+    };
+  const e = ped?.estadoMesa;
+  if (e === "en_preparacion")
+    return {
+      cls: " em-prep",
+      badge: `<span class="mesa-alerta-badge em-b-prep">🔥 En preparación</span>`,
+    };
+  if (e === "entregado")
+    return {
+      cls: " em-entregado",
+      badge: `<span class="mesa-alerta-badge em-b-ent">🍽️ Entregado</span>`,
+    };
+  return { cls: "", badge: "" };
+}
+
+const mtStyle = document.createElement("style");
+mtStyle.textContent = `
+.mesa-box.em-prep:not(.al-cuenta):not(.al-ayuda):not(.al-listo){border-color:#38bdf8 !important;background:rgba(56,189,248,.14) !important;}
+.mesa-box.em-entregado:not(.al-cuenta):not(.al-ayuda):not(.al-listo){border-color:#22c55e !important;background:rgba(34,197,94,.14) !important;}
+.mesa-alerta-badge.em-b-prep{color:#38bdf8;}
+.mesa-alerta-badge.em-b-ent{color:#4ade80;}
+.mt-row{cursor:pointer;}
+.mt-row.mt-on{border-color:#7c5cff;background:rgba(124,92,255,.16);}
+.mt-check{font-weight:800;color:#a78bfa;font-size:16px;}
+.mesa-box.em-nuevo:not(.al-cuenta):not(.al-ayuda):not(.al-listo){border-color:#f59e0b !important;background:rgba(245,158,11,.18) !important;}
+.mesa-alerta-badge.em-b-nuevo{color:#fbbf24;}
+`;
+document.head.appendChild(mtStyle);
+
+/* ══════════════ Utilidades ══════════════ */
+// Firestore no acepta undefined; esto los quita sin dañar Timestamps/FieldValues
+function sinUndef(v) {
+  if (Array.isArray(v)) return v.map(sinUndef);
+  if (
+    v &&
+    typeof v === "object" &&
+    Object.getPrototypeOf(v) === Object.prototype
+  ) {
+    const o = {};
+    Object.keys(v).forEach((k) => {
+      if (v[k] !== undefined) o[k] = sinUndef(v[k]);
+    });
+    return o;
+  }
+  return v;
+}
+const _mRef = (id) => tiendaSubDoc(localidad, "tiendas", tiendaId, "mesas", id);
+const _pRef = (id) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
+const _gRef = (id) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, "grupos_mesas", id);
+const _pedidoRaw = (m) =>
+  ["ocupado", "pedido_pendiente"].includes(m?.estado) && m.pedido
+    ? m.pedido
+    : null;
+const _sumaSub = (items) =>
+  +(items || []).reduce((s, i) => s + Number(i.subtotal || 0), 0).toFixed(2);
+const _sumaCant = (items) =>
+  (items || []).reduce((s, i) => s + Number(i.cantidad || 0), 0);
+
+/* ══════════════ TRASPASO: mover una mesa (con su pedido) a otra libre ══════════════ */
+async function traspasarMesa(origenId, destinoId) {
+  const o = mesasMap.get(origenId);
+  const d = mesasMap.get(destinoId);
+  if (!o || !d) return false;
+  if (d.grupoId || !["libre", "reservada"].includes(d.estado)) {
+    showToast("La mesa destino ya no está libre", true);
+    return false;
+  }
+  const nomO = o.nombre_alias || `Mesa ${o.numero_mesa}`;
+  const nomD = d.nombre_alias || `Mesa ${d.numero_mesa}`;
+  const batch = writeBatch(db);
+  const vaciar = {
+    estado: "libre",
+    pago: "pendiente",
+    pedido: null,
+    pedidoMesaDocId: null,
+    mozoAsignado: null,
+    personas: null,
+    grupoId: null,
+    grupo_color: null,
+    reservado_en: null,
+    hora_reservada: null,
+  };
+
+  if (o.grupoId) {
+    // La mesa es parte de un grupo: se cambia por la nueva dentro del grupo
+    const g = gruposMap.get(o.grupoId);
+    if (!g) return false;
+    const mesas = (g.mesas || []).map((m) =>
+      m.id === origenId
+        ? { id: destinoId, nombre: nomD, numero: d.numero_mesa }
+        : m,
+    );
+    const retag = (arr) =>
+      (arr || []).map((it) =>
+        it.mesaOrigenId === origenId ? { ...it, mesaOrigenId: destinoId } : it,
+      );
+    const retagB = (arr) =>
+      (arr || []).map((b) => ({
+        ...b,
+        items: retag(b.items),
+        ...(b.mesaOrigenId === origenId
+          ? { mesaOrigenId: destinoId, mesaOrigenNombre: nomD }
+          : {}),
+      }));
+    const patch = {
+      mesas,
+      origenes: (g.origenes || []).map((x) =>
+        x.mesaId === origenId
+          ? {
+              ...x,
+              mesaId: destinoId,
+              numero: d.numero_mesa,
+              nombre: nomD,
+              pedido: x.pedido
+                ? {
+                    ...x.pedido,
+                    mesa: {
+                      id: destinoId,
+                      nombre: d.nombre_alias || null,
+                      numero: d.numero_mesa,
+                    },
+                  }
+                : x.pedido,
+            }
+          : x,
+      ),
+    };
+    if (g.pedido) {
+      patch.pedido = {
+        ...g.pedido,
+        mesas,
+        productos: retag(g.pedido.productos),
+        ...(g.pedido.bloques ? { bloques: retagB(g.pedido.bloques) } : {}),
+      };
+    }
+    batch.set(_gRef(o.grupoId), sinUndef(patch), { merge: true });
+    batch.set(_mRef(origenId), vaciar, { merge: true });
+    batch.set(
+      _mRef(destinoId),
+      sinUndef({
+        estado: "ocupado",
+        grupoId: o.grupoId,
+        grupo_color: o.grupo_color || colorParaEstadoGrupo("ocupado"),
+        pedidoMesaDocId: g.pedidoGrupoDocId || o.pedidoMesaDocId || null,
+        pago: "pendiente",
+        pedido: null,
+        mozoAsignado: o.mozoAsignado || null,
+        personas: o.personas ?? null,
+        reservado_en: null,
+        hora_reservada: null,
+      }),
+      { merge: true },
+    );
+    if (g.pedidoGrupoDocId && patch.pedido) {
+      batch.set(
+        _pRef(g.pedidoGrupoDocId),
+        sinUndef({
+          mesas,
+          productos: patch.pedido.productos,
+          ...(patch.pedido.bloques ? { bloques: patch.pedido.bloques } : {}),
+        }),
+        { merge: true },
+      );
+    }
+  } else {
+    // Mesa individual: el pedido completo se muda a la mesa destino
+    const mesaRef = {
+      id: destinoId,
+      nombre: d.nombre_alias || null,
+      numero: d.numero_mesa,
+    };
+    const ped = o.pedido ? { ...o.pedido, mesa: mesaRef } : null;
+    batch.set(_mRef(origenId), vaciar, { merge: true });
+    batch.set(
+      _mRef(destinoId),
+      sinUndef({
+        estado: o.estado === "libre" ? "ocupado" : o.estado,
+        pago: "pendiente",
+        pedido: ped,
+        pedidoMesaDocId: o.pedidoMesaDocId || null,
+        mozoAsignado: o.mozoAsignado || null,
+        personas: o.personas ?? null,
+        reservado_en: null,
+        hora_reservada: null,
+        grupoId: null,
+        grupo_color: null,
+      }),
+      { merge: true },
+    );
+    if (o.pedidoMesaDocId)
+      batch.set(
+        _pRef(o.pedidoMesaDocId),
+        { mesa: mesaRef, mesaId: destinoId },
+        { merge: true },
+      );
+  }
+  await batch.commit();
+  showToast(`🔀 ${nomO} → ${nomD}`);
+  return true;
+}
+
+/* ══════════════ UNIR mesas (con o sin pedidos) ══════════════ */
+async function unirMesasConPedidos(ids) {
+  const entradas = [...new Set(ids)]
+    .map((id) => [id, mesasMap.get(id)])
+    .filter(([, m]) => m);
+  if (entradas.length < 2) {
+    showToast("Selecciona al menos 2 mesas", true);
+    return false;
+  }
+  if (entradas.some(([, m]) => m.estado === "reserva_pendiente")) {
+    showToast("Hay una solicitud de reserva pendiente en la selección", true);
+    return false;
+  }
+  const gids = [...new Set(entradas.map(([, m]) => m.grupoId).filter(Boolean))];
+  if (gids.length > 1) {
+    showToast("Hay más de un grupo: sepáralos primero", true);
+    return false;
+  }
+  const base = gids[0] ? gruposMap.get(gids[0]) : null;
+  const gruposRef = tiendaSubCol(
+    localidad,
+    "tiendas",
+    tiendaId,
+    "grupos_mesas",
+  );
+  const grupoId = gids[0] || doc(gruposRef).id;
+
+  const lista = base ? [...(base.mesas || [])] : [];
+  entradas.forEach(([id, m]) => {
+    if (!lista.some((x) => x.id === id))
+      lista.push({
+        id,
+        nombre: m.nombre_alias || `Mesa ${m.numero_mesa}`,
+        numero: m.numero_mesa,
+      });
+  });
+  const nombreDe = (id) => lista.find((x) => x.id === id)?.nombre || "";
+  const tag = (arr, id) =>
+    (arr || []).map((it) =>
+      it.mesaOrigenId ? it : { ...it, mesaOrigenId: id },
+    );
+  const tagBloques = (arr, idDef) =>
+    (arr || []).map((b) => {
+      const bid =
+        b.mesaOrigenId ||
+        lista.find((x) => x.nombre === b.mesaOrigenNombre)?.id ||
+        idDef;
+      return {
+        ...b,
+        mesaOrigenId: bid,
+        mesaOrigenNombre: b.mesaOrigenNombre || nombreDe(bid),
+        items: tag(b.items, bid),
+      };
+    });
+
+  // Pedidos que se van a juntar
+  let origenes = base?.origenes ? [...base.origenes] : [];
+  const partes = []; // { id, pedido }
+  if (base?.pedido) {
+    const idBase = origenes[0]?.mesaId || lista[0].id;
+    if (!origenes.length)
+      origenes.push({
+        mesaId: idBase,
+        numero: lista.find((x) => x.id === idBase)?.numero ?? null,
+        nombre: nombreDe(idBase),
+        pedidoDocId: base.pedidoGrupoDocId || null,
+        estado: "ocupado",
+        pedido: base.pedido,
+      });
+    partes.push({ id: idBase, pedido: base.pedido });
+  }
+  entradas.forEach(([id, m]) => {
+    if (m.grupoId) return; // ya está dentro del grupo base
+    const ped = _pedidoRaw(m);
+    if (!ped) return;
+    origenes.push({
+      mesaId: id,
+      numero: m.numero_mesa,
+      nombre: nombreDe(id),
+      pedidoDocId: m.pedidoMesaDocId || null,
+      estado: m.estado,
+      pedido: ped,
+    });
+    partes.push({ id, pedido: ped });
+  });
+
+  let pedido = null;
+  let pedidoGrupoDocId = base?.pedidoGrupoDocId || null;
+  if (partes.length) {
+    pedidoGrupoDocId = pedidoGrupoDocId || origenes[0]?.pedidoDocId || null;
+    const productos = partes.flatMap((p) =>
+      tag(p.pedido.productos, p.id).map((it) => ({
+        ...it,
+        estadoItem: estItem(it, p.pedido),
+      })),
+    );
+    const bloques = partes.flatMap((p) =>
+      p.pedido.bloques?.length && !p.pedido.editadoPorMozo
+        ? tagBloques(p.pedido.bloques, p.id)
+        : [
+            {
+              hora: p.pedido.hora || "—",
+              mesaOrigenId: p.id,
+              mesaOrigenNombre: nombreDe(p.id),
+              items: tag(p.pedido.productos, p.id),
+            },
+          ],
+    );
+    const estMesas = [
+      ...new Set(partes.map((p) => p.pedido.estadoMesa || null)),
+    ];
+    const { mesa: _quitar, ...resto } = partes[0].pedido;
+    pedido = sinUndef({
+      ...resto,
+      mesas: lista,
+      grupoId,
+      productos,
+      bloques,
+      editadoPorMozo: false,
+      pendienteMozo: partes.flatMap((p) => p.pedido.pendienteMozo || []),
+      total: _sumaSub(productos),
+      total_items: _sumaCant(productos),
+      estadoMozo: partes.every((p) => p.pedido.estadoMozo === "confirmado")
+        ? "confirmado"
+        : "pendiente_revision",
+      estadoMesa: derivarEstadoMesa(productos, "aceptado"),
+    });
+  }
+
+  const batch = writeBatch(db);
+  const g = { estado: "activo", mesas: lista };
+  if (!base) g.creado_en = serverTimestamp();
+  if (pedido) {
+    g.pedido = pedido;
+    g.pedidoGrupoDocId = pedidoGrupoDocId;
+    g.origenes = sinUndef(origenes);
+  } else if (!base) {
+    g.pedido = null;
+    g.pedidoGrupoDocId = null;
+  }
+  batch.set(_gRef(grupoId), g, { merge: true });
+
+  lista.forEach((m) => {
+    const patch = {
+      estado: "ocupado",
+      grupoId,
+      grupo_color: colorParaEstadoGrupo("ocupado"),
+      reservado_en: null,
+      hora_reservada: null,
+    };
+    if (pedido) {
+      patch.pedido = null;
+      patch.pedidoMesaDocId = pedidoGrupoDocId;
+      patch.pago = "pendiente";
+    }
+    batch.set(_mRef(m.id), patch, { merge: true });
+  });
+
+  if (pedido) {
+    // Los pedidos secundarios quedan "fusionados" (no se cobran dos veces)
+    origenes.forEach((o) => {
+      if (o.pedidoDocId && o.pedidoDocId !== pedidoGrupoDocId)
+        batch.set(
+          _pRef(o.pedidoDocId),
+          {
+            estado: "rechazado",
+            fusionado_en: pedidoGrupoDocId,
+            actualizado: serverTimestamp(),
+          },
+          { merge: true },
+        );
+    });
+    if (pedidoGrupoDocId)
+      batch.set(
+        _pRef(pedidoGrupoDocId),
+        sinUndef({ ...pedido, mesa: null, mesaId: null }),
+        { merge: true },
+      );
+  }
+  await batch.commit();
+  showToast(pedido ? "🔗 Mesas y pedidos unidos" : "🔗 Mesas unidas");
+  return true;
+}
+
+/* ══════════════ SEPARAR: cada mesa recupera su pedido ══════════════ */
+async function separarGrupoConPedidos(grupoId) {
+  const g = gruposMap.get(grupoId);
+  if (!g) return;
+  if (!g.pedido) return desagruparGrupo(grupoId);
+  if (
+    !window.confirm(
+      "¿Separar las mesas? Cada mesa recuperará su propio pedido.",
+    )
+  )
+    return;
+
+  const lista = g.mesas || [];
+  if (!lista.length) return;
+  let origenes = (g.origenes || []).filter((o) =>
+    lista.some((m) => m.id === o.mesaId),
+  );
+  if (!origenes.length)
+    origenes = [
+      {
+        mesaId: lista[0].id,
+        numero: lista[0].numero,
+        nombre: lista[0].nombre,
+        pedidoDocId: g.pedidoGrupoDocId || null,
+        estado: "ocupado",
+        pedido: g.pedido,
+      },
+    ];
+  const primero = origenes[0].mesaId;
+  const p = g.pedido;
+  const esOrigen = (id) => origenes.some((o) => o.mesaId === id);
+  const duenoDe = (id) => (esOrigen(id) ? id : primero);
+
+  const vaciar = {
+    estado: "libre",
+    grupoId: null,
+    grupo_color: null,
+    pedido: null,
+    pedidoMesaDocId: null,
+    pago: "pendiente",
+  };
+  const batch = writeBatch(db);
+  const pendientes = new Set(lista.map((m) => m.id));
+
+  origenes.forEach((o) => {
+    pendientes.delete(o.mesaId);
+    const prods = (p.productos || [])
+      .filter((it) => duenoDe(it.mesaOrigenId) === o.mesaId)
+      .map(({ mesaOrigenId, ...r }) => r);
+    const blq = (p.bloques || [])
+      .filter((b) => duenoDe(b.mesaOrigenId) === o.mesaId)
+      .map(({ mesaOrigenId, mesaOrigenNombre, ...r }) => ({
+        ...r,
+        items: (r.items || []).map(({ mesaOrigenId: _t, ...i }) => i),
+      }));
+
+    if (!prods.length) {
+      // Esa mesa se quedó sin productos: queda libre
+      batch.set(_mRef(o.mesaId), vaciar, { merge: true });
+      if (o.pedidoDocId)
+        batch.set(
+          _pRef(o.pedidoDocId),
+          { estado: "rechazado", fusionado_en: null },
+          { merge: true },
+        );
+      return;
+    }
+    const info = lista.find((m) => m.id === o.mesaId);
+    const { mesas: _a, grupoId: _b, ...baseP } = o.pedido || p;
+    const ped = sinUndef({
+      ...baseP,
+      productos: prods,
+      bloques: blq,
+      total: _sumaSub(prods),
+      total_items: _sumaCant(prods),
+      estadoMesa: derivarEstadoMesa(prods, p.estadoMesa || null),
+      estadoMozo: p.estadoMozo || baseP.estadoMozo || null,
+      pendienteMozo: o.mesaId === primero ? p.pendienteMozo || [] : [],
+      editadoPorMozo: !!p.editadoPorMozo,
+      mesa: {
+        id: o.mesaId,
+        nombre: info?.nombre || null,
+        numero: info?.numero ?? o.numero ?? null,
+      },
+    });
+    batch.set(
+      _mRef(o.mesaId),
+      {
+        estado: "ocupado",
+        grupoId: null,
+        grupo_color: null,
+        pedido: ped,
+        pedidoMesaDocId: o.pedidoDocId || null,
+        pago: "pendiente",
+      },
+      { merge: true },
+    );
+    if (o.pedidoDocId)
+      batch.set(
+        _pRef(o.pedidoDocId),
+        sinUndef({
+          ...ped,
+          estado: "pendiente",
+          mesaId: o.mesaId,
+          mesas: null,
+          grupoId: null,
+          fusionado_en: null,
+        }),
+        { merge: true },
+      );
+  });
+
+  // Mesas que se habían unido sin pedido propio: quedan libres
+  pendientes.forEach((id) => batch.set(_mRef(id), vaciar, { merge: true }));
+
+  batch.set(
+    _gRef(grupoId),
+    { estado: "cerrado", pedido: null, origenes: null, pedidoGrupoDocId: null },
+    { merge: true },
+  );
+  await batch.commit();
+  showToast("⇱ Mesas separadas, cada una recuperó su pedido");
+}
+
+/* ══════════════ Selector de mesas (trasladar / unir) ══════════════ */
+const mtOv = document.createElement("div");
+mtOv.className = "dlv-ov";
+mtOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span id="mtTitulo"></span><button type="button" data-x>✕</button></div>
+    <p class="dlv-cfg-sub" id="mtSub"></p>
+    <div id="mtList"></div>
+    <button type="button" class="np-confirmar-btn" id="mtOk" style="margin-top:14px;" disabled></button>
+  </div>`;
+document.body.appendChild(mtOv);
+mtOv.addEventListener("click", (e) => {
+  if (e.target === mtOv || e.target.hasAttribute("data-x"))
+    mtOv.classList.remove("show");
+});
+
+let mtModo = null;
+let mtOrigen = null;
+const mtSel = new Set();
+
+function mtPintarSel() {
+  mtOv.querySelectorAll(".mt-row").forEach((r) => {
+    const on = mtSel.has(r.dataset.mt);
+    r.classList.toggle("mt-on", on);
+    r.querySelector(".mt-check").textContent = on ? "●" : "○";
+  });
+  const ok = document.getElementById("mtOk");
+  ok.disabled = !mtSel.size;
+  ok.textContent =
+    mtModo === "traspasar"
+      ? "Trasladar aquí"
+      : `Unir ${mtSel.size ? mtSel.size + 1 : ""} mesas`.replace("  ", " ");
+}
+
+function abrirTrasladoMesas(modo, origenId) {
+  const o = mesasMap.get(origenId);
+  if (!o) return;
+  mtModo = modo;
+  mtOrigen = origenId;
+  mtSel.clear();
+  document.getElementById("mtTitulo").textContent =
+    modo === "traspasar"
+      ? "🔀 Trasladar a otra mesa"
+      : "🔗 Unir con otras mesas";
+  document.getElementById("mtSub").textContent =
+    modo === "traspasar"
+      ? "Elige una mesa libre. El pedido se mueve completo a esa mesa."
+      : "Elige las mesas a juntar. Los pedidos se unen en una sola cuenta y al separar vuelven a su mesa.";
+
+  const permitidos =
+    modo === "traspasar"
+      ? ["libre", "reservada"]
+      : ["libre", "reservada", "ocupado", "pedido_pendiente"];
+  const cand = [...mesasMap.entries()]
+    .sort((a, b) => (a[1].numero_mesa || 0) - (b[1].numero_mesa || 0))
+    .slice(0, maxMesasPlan() ?? undefined)
+    .filter(
+      ([id, m]) =>
+        id !== origenId &&
+        !m.grupoId &&
+        permitidos.includes(m.estado) &&
+        !(modo === "traspasar" && m.pedido),
+    );
+
+  document.getElementById("mtList").innerHTML =
+    cand
+      .map(([id, m]) => {
+        const ped = _pedidoRaw(m);
+        const txt = ped
+          ? `Ocupada · ${fmtMoney(ped.total)}`
+          : m.estado === "reservada"
+            ? "Reservada"
+            : m.estado === "ocupado"
+              ? "Ocupada (sin pedido)"
+              : "Libre";
+        return `<div class="dlv-item pick mt-row" data-mt="${id}">
+          <div class="dlv-info"><b>${escapeHtml(m.nombre_alias || "Mesa " + m.numero_mesa)}</b><small>${txt}</small></div>
+          <span class="mt-check">○</span></div>`;
+      })
+      .join("") ||
+    `<div class="dlv-empty">No hay mesas disponibles para esta acción.</div>`;
+
+  mtPintarSel();
+  mtOv.classList.add("show");
+}
+
+document.getElementById("mtList").addEventListener("click", (e) => {
+  const row = e.target.closest("[data-mt]");
+  if (!row) return;
+  const id = row.dataset.mt;
+  if (mtModo === "traspasar") {
+    mtSel.clear();
+    mtSel.add(id);
+  } else if (mtSel.has(id)) mtSel.delete(id);
+  else mtSel.add(id);
+  mtPintarSel();
+});
+
+document.getElementById("mtOk").addEventListener("click", async () => {
+  if (!mtSel.size) return;
+  const btn = document.getElementById("mtOk");
+  btn.disabled = true;
+  try {
+    const ok =
+      mtModo === "traspasar"
+        ? await traspasarMesa(mtOrigen, [...mtSel][0])
+        : await unirMesasConPedidos([mtOrigen, ...mtSel]);
+    if (ok) {
+      mtOv.classList.remove("show");
+      closeDetail();
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("❌ No se pudo completar la acción", true);
+  } finally {
+    btn.disabled = !mtSel.size;
+  }
+});

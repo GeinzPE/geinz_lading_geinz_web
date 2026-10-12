@@ -762,14 +762,27 @@ async function llamarMozo({ nombre, nota, items, total }) {
   });
 
   // Combina productos previos (del grupo o de la mesa sola) con los nuevos
-  const productosPrevios = pedidoActivoMesa?.productos || [];
+  const productosPrevios = (pedidoActivoMesa?.productos || []).map((it) => ({
+    ...it,
+    estadoItem: estItemC(it, pedidoActivoMesa),
+  }));
   const mapaProductos = new Map();
   productosPrevios.forEach((it) =>
     mapaProductos.set(it.cartKey || it.id, { ...it }),
   );
   items.forEach((it) => {
-    const key = it.cartKey || it.id;
-    const existente = mapaProductos.get(key);
+    const base = it.cartKey || it.id;
+    // solo se suma a una línea que todavía está "por preparar"
+    const existente = [...mapaProductos.values()].find(
+      (x) =>
+        String(x.cartKey || x.id).split("__r")[0] === base &&
+        x.estadoItem === "aceptado",
+    );
+    const key = existente
+      ? existente.cartKey || existente.id
+      : mapaProductos.has(base)
+        ? `${base}__r${Date.now()}`
+        : base;
     if (existente) {
       existente.cantidad += it.cantidad;
       existente.subtotal = +(
@@ -779,6 +792,7 @@ async function llamarMozo({ nombre, nota, items, total }) {
       mapaProductos.set(key, {
         id: it.id,
         cartKey: key,
+        estadoItem: "aceptado",
         nombre: it.nombre,
         categoria: it.categoria,
         precio_unitario: it.precio,
@@ -1058,6 +1072,11 @@ async function cancelarPedidoMesa() {
   }).catch(() => {});
 }
 
+const estItemC = (it, ped) =>
+  it.estadoItem ||
+  (["en_preparacion", "entregado"].includes(ped?.estadoMesa)
+    ? ped.estadoMesa
+    : "aceptado");
 const PASOS_MESA = [
   ["aceptado", "✅", "Aceptado"],
   ["en_preparacion", "🔥", "En preparación"],
@@ -1138,7 +1157,21 @@ function renderPedidoActivoMesa(pedido) {
       <span class="font-bold text-[14px]">S/ ${Number(it.subtotal || 0).toFixed(2)}</span>
     </div>`;
   const itemsWrap = wrap.querySelector("#pedidoActivoItems");
-  if (pedido.bloques?.length && !pedido.editadoPorMozo) {
+  if ((pedido.productos || []).some((i) => i.estadoItem)) {
+    itemsWrap.innerHTML = ["aceptado", "en_preparacion", "entregado"]
+      .map((e) => {
+        const lista = pedido.productos.filter(
+          (i) => (i.estadoItem || "aceptado") === e,
+        );
+        if (!lista.length) return "";
+        const paso = PASOS_MESA.find((x) => x[0] === e);
+        return (
+          `<p class="text-[11px] font-bold uppercase tracking-wide mt-1" style="color:${color};">${paso[1]} ${paso[2]}</p>` +
+          lista.map(filaHTML).join("")
+        );
+      })
+      .join("");
+  } else if (pedido.bloques?.length && !pedido.editadoPorMozo) {
     itemsWrap.innerHTML = pedido.bloques
       .map(
         (b, i) =>

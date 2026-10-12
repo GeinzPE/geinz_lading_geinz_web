@@ -45,6 +45,21 @@ function escapeHtml(str) {
 function fmtMoney(n) {
   return "S/ " + Number(n || 0).toFixed(2);
 }
+function estItem(it, ped) {
+  return (
+    it.estadoItem ||
+    (["en_preparacion", "entregado"].includes(ped?.estadoMesa)
+      ? ped.estadoMesa
+      : "aceptado")
+  );
+}
+function derivarEstadoMesa(productos, fb) {
+  const e = (productos || []).map((i) => i.estadoItem).filter(Boolean);
+  if (!e.length) return fb || null;
+  if (e.includes("aceptado")) return "aceptado";
+  if (e.includes("en_preparacion")) return "en_preparacion";
+  return "entregado";
+}
 function toDate(ts) {
   return ts && typeof ts.toDate === "function" ? ts.toDate() : null;
 }
@@ -386,7 +401,14 @@ async function cargarCatalogo() {
       catSnap.docs.map(async (catDoc) => {
         const categoria = catDoc.id;
         const subSnap = await getDocs(
-          tiendaSubCol(localidad, "tiendas", tiendaId, "productos", categoria, categoria),
+          tiendaSubCol(
+            localidad,
+            "tiendas",
+            tiendaId,
+            "productos",
+            categoria,
+            categoria,
+          ),
         );
         const arr = [];
         subSnap.forEach((pDoc) => {
@@ -396,7 +418,10 @@ async function cargarCatalogo() {
             .map((c) => ({
               nombre: c.nombre,
               opciones: (c.opciones || [])
-                .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
+                .filter(
+                  (o) =>
+                    o.activo && (typeof o.stock !== "number" || o.stock > 0),
+                )
                 .map((o) => ({
                   nombre: o.nombre,
                   costoAdicional: Number(o.costoAdicional) || 0,
@@ -415,7 +440,8 @@ async function cargarCatalogo() {
             condiciones,
             variantesObligatoria: d.variantesObligatoria !== false,
             variantesMultiples: d.variantesMultiples === true,
-            variantesConCantidad: d.variantesMultiples === true && d.variantesConCantidad === true,
+            variantesConCantidad:
+              d.variantesMultiples === true && d.variantesConCantidad === true,
             descuento: d.descuento || null,
           });
         });
@@ -577,7 +603,7 @@ function renderMesaGrid() {
         ${info ? `<span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>` : `<span class="text-[11px] text-[var(--ink-faint)]">Sin pedido</span>`}
         ${mozoNombre ? `<span class="text-[10.5px] text-[var(--ink-faint)] truncate">👤 ${escapeHtml(mozoNombre)}</span>` : ""}
       `;
-       card.addEventListener("click", () => clickMesa(mesaDocId));
+      card.addEventListener("click", () => clickMesa(mesaDocId));
     } else {
       const grupo = gruposMap.get(bloque.grupoId);
       const nombres = bloque.integrantes
@@ -602,12 +628,14 @@ function renderMesaGrid() {
         <div class="flex-1"></div>
         <span class="font-bold text-[15px] mono">${fmtMoney(total)}</span>
       `;
-      card.addEventListener("click", () =>
-         clickMesa(bloque.integrantes[0][0]),
-      );
+      card.addEventListener("click", () => clickMesa(bloque.integrantes[0][0]));
     }
-          const idsCard = bloque.tipo === "single" ? [bloque.mesaDocId] : bloque.integrantes.map((x) => x[0]);
-      if (modoUnir && idsCard.every((i) => selUnir.has(i))) card.style.outline = "3px solid #7c5cff";
+    const idsCard =
+      bloque.tipo === "single"
+        ? [bloque.mesaDocId]
+        : bloque.integrantes.map((x) => x[0]);
+    if (modoUnir && idsCard.every((i) => selUnir.has(i)))
+      card.style.outline = "3px solid #7c5cff";
     grid.appendChild(card);
   });
 
@@ -718,6 +746,16 @@ function pintarDetalleMesa(mesaDocId) {
         }),
       };
   if (!pedidoEnEdicion.productos) pedidoEnEdicion.productos = [];
+  {
+    const baseEst = ["en_preparacion", "entregado"].includes(
+      pedidoEnEdicion.estadoMesa,
+    )
+      ? pedidoEnEdicion.estadoMesa
+      : "aceptado";
+    pedidoEnEdicion.productos.forEach((i) => {
+      if (!i.estadoItem) i.estadoItem = baseEst;
+    });
+  }
   const pend = pedidoEnEdicion.pendienteMozo || [];
   hayPendienteCliente = pend.length > 0;
   if (hayPendienteCliente) {
@@ -725,7 +763,9 @@ function pintarDetalleMesa(mesaDocId) {
       b.items.forEach((it) => {
         const ex = pedidoEnEdicion.productos.find(
           (x) =>
-            x.id === it.id && claveSel(x.opciones) === claveSel(it.opciones),
+            x.id === it.id &&
+            claveSel(x.opciones) === claveSel(it.opciones) &&
+            x.estadoItem === "aceptado",
         );
         if (ex) {
           ex.cantidad += it.cantidad;
@@ -733,6 +773,7 @@ function pintarDetalleMesa(mesaDocId) {
         } else
           pedidoEnEdicion.productos.push({
             ...it,
+            estadoItem: "aceptado",
             observacion: it.observacion || "",
           });
       }),
@@ -758,12 +799,16 @@ function pintarDetalleMesa(mesaDocId) {
     yaConfirmado || pedidoEnEdicion.productos.length === 0;
   btnConfirmar.style.opacity = btnConfirmar.disabled ? ".5" : "1";
 
-   const gestion = puedeGestionar();
-  document.getElementById("det-btn-cancelar-pedido").style.display = info && gestion ? "" : "none";
-  document.getElementById("det-btn-liberar").style.display = info && gestion ? "" : "none";
+  const gestion = puedeGestionar();
+  document.getElementById("det-btn-cancelar-pedido").style.display =
+    info && gestion ? "" : "none";
+  document.getElementById("det-btn-liberar").style.display =
+    info && gestion ? "" : "none";
   const confirmado = !!info && pedidoEnEdicion.estadoMozo === "confirmado";
-  document.getElementById("det-btn-prep").style.display = confirmado && gestion ? "" : "none";
-  document.getElementById("det-btn-entregado").style.display = confirmado && gestion ? "" : "none";
+  document.getElementById("det-btn-prep").style.display =
+    confirmado && gestion ? "" : "none";
+  document.getElementById("det-btn-entregado").style.display =
+    confirmado && gestion ? "" : "none";
   edicionSucia = false;
 }
 
@@ -807,7 +852,8 @@ function pintarProductosEdicion() {
     const row = document.createElement("div");
     row.className = "surface-2 rounded-2xl p-3 flex flex-col gap-2";
     const opcionesTxt = opcionesATexto(it.opciones);
-    const tieneVar = !!catalogo.find((c) => c.id === it.id)?.condiciones?.length;
+    const tieneVar = !!catalogo.find((c) => c.id === it.id)?.condiciones
+      ?.length;
     row.innerHTML = `
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
@@ -834,15 +880,21 @@ function pintarProductosEdicion() {
     wrap.appendChild(row);
   });
 
-  wrap.querySelectorAll("[data-plus]").forEach((b) =>
-    b.addEventListener("click", () => cambiarCantidad(+b.dataset.plus, +1)),
-  );
-  wrap.querySelectorAll("[data-minus]").forEach((b) =>
-    b.addEventListener("click", () => cambiarCantidad(+b.dataset.minus, -1)),
-  );
-  wrap.querySelectorAll("[data-remove]").forEach((b) =>
-    b.addEventListener("click", () => quitarProducto(+b.dataset.remove)),
-  );
+  wrap
+    .querySelectorAll("[data-plus]")
+    .forEach((b) =>
+      b.addEventListener("click", () => cambiarCantidad(+b.dataset.plus, +1)),
+    );
+  wrap
+    .querySelectorAll("[data-minus]")
+    .forEach((b) =>
+      b.addEventListener("click", () => cambiarCantidad(+b.dataset.minus, -1)),
+    );
+  wrap
+    .querySelectorAll("[data-remove]")
+    .forEach((b) =>
+      b.addEventListener("click", () => quitarProducto(+b.dataset.remove)),
+    );
   wrap.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", () => {
       const it = pedidoEnEdicion.productos[+b.dataset.edit];
@@ -857,7 +909,9 @@ function pintarProductosEdicion() {
     }),
   );
 
-  document.getElementById("det-total").textContent = fmtMoney(pedidoEnEdicion.total);
+  document.getElementById("det-total").textContent = fmtMoney(
+    pedidoEnEdicion.total,
+  );
 }
 
 function cambiarCantidad(idx, delta) {
@@ -995,7 +1049,13 @@ function claveSel(sel) {
   return Object.keys(sel || {})
     .filter((k) => entradasDe(sel[k]).length)
     .sort()
-    .map((k) => `${k}:${entradasDe(sel[k]).map(([n, c]) => `${n}*${c}`).sort().join("+")}`)
+    .map(
+      (k) =>
+        `${k}:${entradasDe(sel[k])
+          .map(([n, c]) => `${n}*${c}`)
+          .sort()
+          .join("+")}`,
+    )
     .join("|");
 }
 
@@ -1003,10 +1063,28 @@ function descuentoVigente(d, ahora = new Date()) {
   if (!d || !d.activo) return null;
   const pct = Number(d.porcentaje) || 0;
   if (pct <= 0) return null;
-  const dias = { sunday: "domingo", monday: "lunes", tuesday: "martes", wednesday: "miercoles", thursday: "jueves", friday: "viernes", saturday: "sabado" };
-  const hoy = dias[new Intl.DateTimeFormat("en-US", { timeZone: "America/Lima", weekday: "long" }).format(ahora).toLowerCase()];
-  if (d.modo === "dias_semana") return (d.dias || []).includes(hoy) ? { porcentaje: pct } : null;
-  if (d.modo === "duracion") return Number(d.expiraEn) > ahora.getTime() ? { porcentaje: pct } : null;
+  const dias = {
+    sunday: "domingo",
+    monday: "lunes",
+    tuesday: "martes",
+    wednesday: "miercoles",
+    thursday: "jueves",
+    friday: "viernes",
+    saturday: "sabado",
+  };
+  const hoy =
+    dias[
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Lima",
+        weekday: "long",
+      })
+        .format(ahora)
+        .toLowerCase()
+    ];
+  if (d.modo === "dias_semana")
+    return (d.dias || []).includes(hoy) ? { porcentaje: pct } : null;
+  if (d.modo === "duracion")
+    return Number(d.expiraEn) > ahora.getTime() ? { porcentaje: pct } : null;
   if (d.modo === "fecha") {
     const ms = (f, h) => {
       const [y, mo, dd] = (f || "").split("-").map(Number);
@@ -1016,7 +1094,8 @@ function descuentoVigente(d, ahora = new Date()) {
     };
     const fin = ms(d.fechaFin, d.horaFin);
     const ini = d.fechaInicio ? ms(d.fechaInicio, "00:00") : null;
-    if (!fin || ahora.getTime() >= fin || (ini && ahora.getTime() < ini)) return null;
+    if (!fin || ahora.getTime() >= fin || (ini && ahora.getTime() < ini))
+      return null;
     return { porcentaje: pct };
   }
   return null;
@@ -1062,7 +1141,9 @@ function refrescarBtnOpciones() {
   const btn = document.getElementById("opciones-btn-agregar");
   const falta =
     p.variantesObligatoria !== false &&
-    p.condiciones.some((c) => !entradasDe(seleccionOpcionesActual[c.nombre]).length);
+    p.condiciones.some(
+      (c) => !entradasDe(seleccionOpcionesActual[c.nombre]).length,
+    );
   btn.disabled = falta;
   btn.style.opacity = falta ? ".5" : "1";
   btn.textContent = `${opcionesEditIdx != null ? "Guardar cambios" : "Agregar"} · ${fmtMoney(calcPrecioFinal(p, seleccionOpcionesActual))}`;
@@ -1077,8 +1158,12 @@ function abrirOpcionesProducto(p, selEx = null, editIdx = null) {
 
   seleccionOpcionesActual = {};
   Object.entries(selEx || {}).forEach(([k, v]) => {
-    if (conCant) { const o = {}; entradasDe(v).forEach(([n, c]) => (o[n] = c)); seleccionOpcionesActual[k] = o; }
-    else if (multi) seleccionOpcionesActual[k] = entradasDe(v).map(([n]) => n);
+    if (conCant) {
+      const o = {};
+      entradasDe(v).forEach(([n, c]) => (o[n] = c));
+      seleccionOpcionesActual[k] = o;
+    } else if (multi)
+      seleccionOpcionesActual[k] = entradasDe(v).map(([n]) => n);
     else seleccionOpcionesActual[k] = entradasDe(v)[0]?.[0];
   });
   if (!multi && oblig)
@@ -1099,40 +1184,57 @@ function abrirOpcionesProducto(p, selEx = null, editIdx = null) {
       box.className = "flex flex-wrap gap-2";
 
       cond.opciones.forEach((op) => {
-        const extra = op.costoAdicional ? ` (+S/ ${op.costoAdicional.toFixed(2)})` : "";
+        const extra = op.costoAdicional
+          ? ` (+S/ ${op.costoAdicional.toFixed(2)})`
+          : "";
 
         if (conCant) {
           const sel = (seleccionOpcionesActual[cond.nombre] ||= {});
           const c = sel[op.nombre] || 0;
           const row = document.createElement("div");
-          row.className = "flex items-center justify-between w-full surface-2 rounded-xl px-3 py-2";
+          row.className =
+            "flex items-center justify-between w-full surface-2 rounded-xl px-3 py-2";
           row.innerHTML = `<span class="text-[12.5px]">${escapeHtml(op.nombre)}${extra}</span>
             <div class="flex items-center gap-2"><button type="button" class="qty-btn" data-m>−</button>
             <span class="w-5 text-center font-bold text-sm">${c}</span>
             <button type="button" class="qty-btn" data-p>+</button></div>`;
-          row.querySelector("[data-m]").onclick = () => { if (c <= 1) delete sel[op.nombre]; else sel[op.nombre] = c - 1; pintar(); };
+          row.querySelector("[data-m]").onclick = () => {
+            if (c <= 1) delete sel[op.nombre];
+            else sel[op.nombre] = c - 1;
+            pintar();
+          };
           row.querySelector("[data-p]").onclick = () => {
             if (typeof op.stock === "number" && c + 1 > op.stock)
-              return toast(`Solo quedan ${op.stock} de "${op.nombre}"`, "error");
-            sel[op.nombre] = c + 1; pintar();
+              return toast(
+                `Solo quedan ${op.stock} de "${op.nombre}"`,
+                "error",
+              );
+            sel[op.nombre] = c + 1;
+            pintar();
           };
           box.appendChild(row);
           return;
         }
 
-        const activa = entradasDe(seleccionOpcionesActual[cond.nombre]).some(([n]) => n === op.nombre);
+        const activa = entradasDe(seleccionOpcionesActual[cond.nombre]).some(
+          ([n]) => n === op.nombre,
+        );
         const b = document.createElement("button");
         b.type = "button";
         b.className = "toggle-opt" + (activa ? " active" : "");
         b.textContent = op.nombre + extra;
         b.onclick = () => {
           if (multi) {
-            const arr = entradasDe(seleccionOpcionesActual[cond.nombre]).map(([n]) => n);
+            const arr = entradasDe(seleccionOpcionesActual[cond.nombre]).map(
+              ([n]) => n,
+            );
             const i = arr.indexOf(op.nombre);
-            if (i >= 0) arr.splice(i, 1); else arr.push(op.nombre);
+            if (i >= 0) arr.splice(i, 1);
+            else arr.push(op.nombre);
             if (arr.length) seleccionOpcionesActual[cond.nombre] = arr;
             else delete seleccionOpcionesActual[cond.nombre];
-          } else if (activa && !oblig) delete seleccionOpcionesActual[cond.nombre];
+          } else if (activa && !oblig)
+            delete seleccionOpcionesActual[cond.nombre];
           else seleccionOpcionesActual[cond.nombre] = op.nombre;
           pintar();
         };
@@ -1147,16 +1249,21 @@ function abrirOpcionesProducto(p, selEx = null, editIdx = null) {
   openOverlay("overlay-picker-opciones");
 }
 
-document.getElementById("opciones-btn-agregar").addEventListener("click", () => {
-  if (!productoParaOpciones) return;
-  const sel = JSON.parse(JSON.stringify(seleccionOpcionesActual));
-  Object.keys(sel).forEach((k) => { if (!entradasDe(sel[k]).length) delete sel[k]; });
-  const seleccion = Object.keys(sel).length ? sel : null;
-  if (opcionesEditIdx != null) reemplazarLinea(opcionesEditIdx, productoParaOpciones, seleccion);
-  else agregarProductoAlPedido(productoParaOpciones, seleccion);
-  closeOverlay("overlay-picker-opciones");
-  closeOverlay("overlay-picker");
-});
+document
+  .getElementById("opciones-btn-agregar")
+  .addEventListener("click", () => {
+    if (!productoParaOpciones) return;
+    const sel = JSON.parse(JSON.stringify(seleccionOpcionesActual));
+    Object.keys(sel).forEach((k) => {
+      if (!entradasDe(sel[k]).length) delete sel[k];
+    });
+    const seleccion = Object.keys(sel).length ? sel : null;
+    if (opcionesEditIdx != null)
+      reemplazarLinea(opcionesEditIdx, productoParaOpciones, seleccion);
+    else agregarProductoAlPedido(productoParaOpciones, seleccion);
+    closeOverlay("overlay-picker-opciones");
+    closeOverlay("overlay-picker");
+  });
 
 function reemplazarLinea(idx, p, seleccion) {
   const it = pedidoEnEdicion.productos[idx];
@@ -1176,18 +1283,30 @@ function agregarProductoAlPedido(p, seleccion = null) {
   edicionSucia = true;
   const key = claveSel(seleccion);
   const items = pedidoEnEdicion.productos;
-  const existente = items.find((it) => it.id === p.id && claveSel(it.opciones) === key);
+  const existente = items.find(
+    (it) =>
+      it.id === p.id &&
+      claveSel(it.opciones) === key &&
+      (it.estadoItem || "aceptado") === "aceptado",
+  );
   const max = stockMax(p, seleccion);
   const enPedido =
     seleccion && p.condiciones?.length
       ? existente?.cantidad || 0
-      : items.filter((it) => it.id === p.id).reduce((s, i) => s + i.cantidad, 0);
+      : items
+          .filter((it) => it.id === p.id)
+          .reduce((s, i) => s + i.cantidad, 0);
   if (max !== null && enPedido + 1 > max)
-    return toast(max <= 0 ? "Sin stock" : `Solo quedan ${max} disponible(s)`, "error");
+    return toast(
+      max <= 0 ? "Sin stock" : `Solo quedan ${max} disponible(s)`,
+      "error",
+    );
 
   if (existente) {
     existente.cantidad += 1;
-    existente.subtotal = +(existente.cantidad * existente.precio_unitario).toFixed(2);
+    existente.subtotal = +(
+      existente.cantidad * existente.precio_unitario
+    ).toFixed(2);
   } else {
     const precio = calcPrecioFinal(p, seleccion);
     items.push({
@@ -1200,6 +1319,7 @@ function agregarProductoAlPedido(p, seleccion = null) {
       subtotal: precio,
       imagen: p.imagen || "",
       opciones: seleccion,
+      estadoItem: "aceptado",
       observacion: "",
     });
   }
@@ -1213,7 +1333,9 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
   const m = mesasMap.get(mesaAbiertaId);
   if (!m) throw new Error("Mesa no encontrada");
 
-  pedidoEnEdicion.notaInterna = document.getElementById("det-nota-interna").value.trim();
+  pedidoEnEdicion.notaInterna = document
+    .getElementById("det-nota-interna")
+    .value.trim();
   const personasVal = document.getElementById("det-personas").value;
   const mozoSelId = document.getElementById("det-mozo-select").value;
   const mozoSelNombre = mozoSelId ? mozosMap.get(mozoSelId)?.nombre : null;
@@ -1221,7 +1343,13 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
   delete pedidoEnEdicion.timestamp; // no pisar la hora original del pedido
   if (getPedidoDeMesa(mesaAbiertaId)) pedidoEnEdicion.editadoPorMozo = true;
   if (marcarConfirmado) {
-    pedidoEnEdicion.estadoMesa = "aceptado";
+    pedidoEnEdicion.productos.forEach((i) => {
+      if (!i.estadoItem) i.estadoItem = "aceptado";
+    });
+    pedidoEnEdicion.estadoMesa = derivarEstadoMesa(
+      pedidoEnEdicion.productos,
+      "aceptado",
+    );
     pedidoEnEdicion.estadoMozo = "confirmado";
     pedidoEnEdicion.mozoConfirmo = mozoActivo;
     pedidoEnEdicion.pendienteMozo = [];
@@ -1230,11 +1358,17 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
       quien: mozoActivo?.nombre || "Mozo",
       cuando: new Date().toISOString(),
     });
-    pedidoEnEdicion.caja = { notificado: true, notificadoEn: new Date().toISOString() };
+    pedidoEnEdicion.caja = {
+      notificado: true,
+      notificadoEn: new Date().toISOString(),
+    };
   }
 
-  const mozoAsignadoObj = mozoSelId ? { id: mozoSelId, nombre: mozoSelNombre } : null;
-  const personas = personasVal === "" ? null : Math.max(0, parseInt(personasVal, 10) || 0);
+  const mozoAsignadoObj = mozoSelId
+    ? { id: mozoSelId, nombre: mozoSelNombre }
+    : null;
+  const personas =
+    personasVal === "" ? null : Math.max(0, parseInt(personasVal, 10) || 0);
 
   const batch = writeBatch(db);
   const info = getPedidoDeMesa(mesaAbiertaId);
@@ -1246,7 +1380,10 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
   if (info && info.esGrupo) {
     batch.set(
       info.grupoRef,
-      { pedido: pedidoEnEdicion, ...(marcarConfirmado ? { estado: "activo" } : {}) },
+      {
+        pedido: pedidoEnEdicion,
+        ...(marcarConfirmado ? { estado: "activo" } : {}),
+      },
       { merge: true },
     );
     if (info.pedidoDocId) {
@@ -1260,7 +1397,11 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
     (grupo?.mesas || []).forEach((mm) => {
       batch.set(
         doc(mesasColRef(), mm.id),
-        { mozoAsignado: mozoAsignadoObj, personas, ...(marcarConfirmado ? { estado: "ocupado" } : {}) },
+        {
+          mozoAsignado: mozoAsignadoObj,
+          personas,
+          ...(marcarConfirmado ? { estado: "ocupado" } : {}),
+        },
         { merge: true },
       );
     });
@@ -1283,7 +1424,11 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
       );
     }
   } else if (!pedidoEnEdicion.productos.length) {
-    batch.set(doc(mesasColRef(), mesaAbiertaId), { mozoAsignado: mozoAsignadoObj, personas }, { merge: true });
+    batch.set(
+      doc(mesasColRef(), mesaAbiertaId),
+      { mozoAsignado: mozoAsignadoObj, personas },
+      { merge: true },
+    );
   } else if (grupoSinPedido) {
     // mesas unidas que todavía no tenían pedido
     const nuevoRef = doc(pedidosColRef());
@@ -1302,7 +1447,13 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
     (grupoSinPedido.mesas || []).forEach((mm) =>
       batch.set(
         doc(mesasColRef(), mm.id),
-        { estado: "ocupado", pago: "pendiente", pedidoMesaDocId: nuevoRef.id, mozoAsignado: mozoAsignadoObj, personas },
+        {
+          estado: "ocupado",
+          pago: "pendiente",
+          pedidoMesaDocId: nuevoRef.id,
+          mozoAsignado: mozoAsignadoObj,
+          personas,
+        },
         { merge: true },
       ),
     );
@@ -1311,7 +1462,11 @@ async function persistirPedido({ marcarConfirmado = false } = {}) {
     const nuevoPedidoRef = doc(pedidosColRef());
     const pedidoFinal = {
       ...pedidoEnEdicion,
-      mesa: { id: mesaAbiertaId, nombre: m.nombre_alias || null, numero: m.numero_mesa },
+      mesa: {
+        id: mesaAbiertaId,
+        nombre: m.nombre_alias || null,
+        numero: m.numero_mesa,
+      },
       negocio: { id: tiendaId, nombre: "", localidad },
       mozoAsignado: mozoAsignadoObj,
       timestamp: serverTimestamp(),
@@ -1367,7 +1522,11 @@ async function descontarInventario(productos) {
 document
   .getElementById("det-btn-guardar")
   .addEventListener("click", async () => {
-        if (hayPendienteCliente) return toast("Confirma (o quita) los productos nuevos del cliente primero", "error");
+    if (hayPendienteCliente)
+      return toast(
+        "Confirma (o quita) los productos nuevos del cliente primero",
+        "error",
+      );
     const btn = document.getElementById("det-btn-guardar");
     btn.disabled = true;
     const original = btn.textContent;
@@ -1567,12 +1726,13 @@ function iniciarListenerMesas() {
           ["ocupado", "pedido_pendiente"].includes(data.estado) &&
           data.pedido
         ) {
-                const firma = `${data.pedido.hora || ""}|${data.pedido.total_items || 0}|${data.pedido.pendienteMozo?.length || 0}`;
+          const firma = `${data.pedido.hora || ""}|${data.pedido.total_items || 0}|${data.pedido.pendienteMozo?.length || 0}`;
           const firmaAnterior = mesaPedidoFirma.get(d.id);
           if (
             !firstMesasSnapshot &&
             firma !== firmaAnterior &&
-                (data.pedido.estadoMozo !== "confirmado" || data.pedido.pendienteMozo?.length) &&
+            (data.pedido.estadoMozo !== "confirmado" ||
+              data.pedido.pendienteMozo?.length) &&
             visibleParaMozo(data)
           )
             nuevosPedidos.push(data);
@@ -1669,7 +1829,17 @@ function hideLoader() {
 async function setEstadoMesa(nuevo) {
   const info = getPedidoDeMesa(mesaAbiertaId);
   if (!info) return;
-  const p = { ...info.pedido, estadoMesa: nuevo };
+  const productos = (info.pedido.productos || []).map((it) => {
+    const cur = estItem(it, info.pedido);
+    return cur === "entregado" || cur === nuevo
+      ? { ...it, estadoItem: cur }
+      : { ...it, estadoItem: nuevo };
+  });
+  const p = {
+    ...info.pedido,
+    productos,
+    estadoMesa: derivarEstadoMesa(productos, nuevo),
+  };
   const batch = writeBatch(db);
   if (info.esGrupo) batch.set(info.grupoRef, { pedido: p }, { merge: true });
   else
@@ -1681,7 +1851,7 @@ async function setEstadoMesa(nuevo) {
   if (info.pedidoDocId)
     batch.set(
       doc(pedidosColRef(), info.pedidoDocId),
-      { estadoMesa: nuevo },
+      { estadoMesa: p.estadoMesa, productos },
       { merge: true },
     );
   try {
@@ -1735,29 +1905,46 @@ async function arrancar() {
 let modoUnir = false;
 const selUnir = new Set();
 
-document.body.insertAdjacentHTML("beforeend", `
+document.body.insertAdjacentHTML(
+  "beforeend",
+  `
 <button id="unirToggle" style="position:fixed;right:14px;bottom:14px;z-index:49;padding:12px 16px;border-radius:999px;border:none;background:#7c5cff;color:#fff;font-weight:800;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.4);">🔗 Unir mesas</button>
 <div id="unirBar" style="position:fixed;left:0;right:0;bottom:0;z-index:50;display:none;gap:8px;align-items:center;padding:10px 14px;background:#0d0a17;border-top:1px solid rgba(124,92,255,.4);">
   <span id="unirTxt" style="flex:1;font-size:12.5px;font-weight:700;"></span>
   <button id="unirOk" style="padding:10px 14px;border-radius:10px;border:none;background:#22c55e;color:#04240f;font-weight:800;font-size:12.5px;">Unir</button>
   <button id="unirSep" style="padding:10px 14px;border-radius:10px;border:none;background:#f59e0b;color:#1a1200;font-weight:800;font-size:12.5px;">Separar</button>
   <button id="unirX" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-weight:700;font-size:12.5px;">✕</button>
-</div>`);
+</div>`,
+);
 
 function pintarUnirBar() {
   document.getElementById("unirBar").style.display = modoUnir ? "flex" : "none";
-  document.getElementById("unirToggle").style.display = modoUnir ? "none" : "block";
-  document.getElementById("unirTxt").textContent = `${selUnir.size} mesa(s) seleccionada(s)`;
+  document.getElementById("unirToggle").style.display = modoUnir
+    ? "none"
+    : "block";
+  document.getElementById("unirTxt").textContent =
+    `${selUnir.size} mesa(s) seleccionada(s)`;
 }
-function salirModoUnir() { modoUnir = false; selUnir.clear(); pintarUnirBar(); renderMesaGrid(); }
-document.getElementById("unirToggle").onclick = () => { modoUnir = true; pintarUnirBar(); renderMesaGrid(); };
+function salirModoUnir() {
+  modoUnir = false;
+  selUnir.clear();
+  pintarUnirBar();
+  renderMesaGrid();
+}
+document.getElementById("unirToggle").onclick = () => {
+  modoUnir = true;
+  pintarUnirBar();
+  renderMesaGrid();
+};
 document.getElementById("unirX").onclick = salirModoUnir;
 
 function clickMesa(mesaDocId) {
   if (!modoUnir) return abrirDetalleMesa(mesaDocId);
   const m = mesasMap.get(mesaDocId);
   const ids = m?.grupoId
-    ? [...mesasMap.entries()].filter(([, x]) => x.grupoId === m.grupoId).map(([id]) => id)
+    ? [...mesasMap.entries()]
+        .filter(([, x]) => x.grupoId === m.grupoId)
+        .map(([id]) => id)
     : [mesaDocId];
   const todas = ids.every((i) => selUnir.has(i));
   ids.forEach((i) => (todas ? selUnir.delete(i) : selUnir.add(i)));
@@ -1769,8 +1956,11 @@ document.getElementById("unirOk").onclick = async () => {
   const mesas = [...selUnir].map((id) => ({ id, ...mesasMap.get(id) }));
   if (mesas.length < 2) return toast("Selecciona al menos 2 mesas", "error");
   const gids = [...new Set(mesas.map((m) => m.grupoId).filter(Boolean))];
-  if (gids.length > 1) return toast("Hay más de un grupo en la selección", "error");
-  const sueltasConPedido = mesas.filter((m) => !m.grupoId && getPedidoDeMesa(m.id));
+  if (gids.length > 1)
+    return toast("Hay más de un grupo en la selección", "error");
+  const sueltasConPedido = mesas.filter(
+    (m) => !m.grupoId && getPedidoDeMesa(m.id),
+  );
   if (sueltasConPedido.length > 1 || (gids.length && sueltasConPedido.length))
     return toast("Solo una de las mesas puede tener pedido", "error");
 
@@ -1779,44 +1969,92 @@ document.getElementById("unirOk").onclick = async () => {
   const lista = base ? [...(base.mesas || [])] : [];
   mesas.forEach((m) => {
     if (!lista.some((x) => x.id === m.id))
-      lista.push({ id: m.id, nombre: m.nombre_alias || `Mesa ${m.numero_mesa}`, numero: m.numero_mesa });
+      lista.push({
+        id: m.id,
+        nombre: m.nombre_alias || `Mesa ${m.numero_mesa}`,
+        numero: m.numero_mesa,
+      });
   });
-  const suelto = sueltasConPedido[0] ? getPedidoDeMesa(sueltasConPedido[0].id) : null;
+  const suelto = sueltasConPedido[0]
+    ? getPedidoDeMesa(sueltasConPedido[0].id)
+    : null;
   const pedDocId = suelto?.pedidoDocId || base?.pedidoGrupoDocId || null;
 
   const batch = writeBatch(db);
   const g = { estado: "activo", mesas: lista };
-  if (!base) { g.creado_en = serverTimestamp(); g.pedido = null; g.pedidoGrupoDocId = null; }
-  if (suelto) { g.pedido = { ...suelto.pedido, mesas: lista }; g.pedidoGrupoDocId = suelto.pedidoDocId; }
+  if (!base) {
+    g.creado_en = serverTimestamp();
+    g.pedido = null;
+    g.pedidoGrupoDocId = null;
+  }
+  if (suelto) {
+    g.pedido = { ...suelto.pedido, mesas: lista };
+    g.pedidoGrupoDocId = suelto.pedidoDocId;
+  }
   batch.set(doc(gruposColRef(), grupoId), g, { merge: true });
 
   mesas.forEach((m) => {
-    const patch = { estado: "ocupado", grupoId, grupo_color: "#f59e0b", reservado_en: null, hora_reservada: null };
+    const patch = {
+      estado: "ocupado",
+      grupoId,
+      grupo_color: "#f59e0b",
+      reservado_en: null,
+      hora_reservada: null,
+    };
     if (pedDocId) patch.pedidoMesaDocId = pedDocId;
     if (suelto && m.id === sueltasConPedido[0].id) patch.pedido = null;
     batch.set(doc(mesasColRef(), m.id), patch, { merge: true });
   });
   if (suelto?.pedidoDocId)
-    batch.set(doc(pedidosColRef(), suelto.pedidoDocId), { mesas: lista, grupoId }, { merge: true });
+    batch.set(
+      doc(pedidosColRef(), suelto.pedidoDocId),
+      { mesas: lista, grupoId },
+      { merge: true },
+    );
 
-  try { await batch.commit(); toast("🔗 Mesas unidas"); salirModoUnir(); }
-  catch (e) { console.error(e); toast("No se pudo unir", "error"); }
+  try {
+    await batch.commit();
+    toast("🔗 Mesas unidas");
+    salirModoUnir();
+  } catch (e) {
+    console.error(e);
+    toast("No se pudo unir", "error");
+  }
 };
 
 document.getElementById("unirSep").onclick = async () => {
-  const gids = [...new Set([...selUnir].map((id) => mesasMap.get(id)?.grupoId).filter(Boolean))];
-  if (!gids.length) return toast("No hay mesas unidas en la selección", "error");
+  const gids = [
+    ...new Set(
+      [...selUnir].map((id) => mesasMap.get(id)?.grupoId).filter(Boolean),
+    ),
+  ];
+  if (!gids.length)
+    return toast("No hay mesas unidas en la selección", "error");
   if (gids.some((g) => gruposMap.get(g)?.pedido))
     return toast("Ese grupo tiene pedido: libéralo o cóbralo primero", "error");
   const batch = writeBatch(db);
   gids.forEach((gid) => {
     (gruposMap.get(gid)?.mesas || []).forEach((mm) =>
-      batch.set(doc(mesasColRef(), mm.id),
-        { estado: "libre", grupoId: null, grupo_color: null, pedidoMesaDocId: null }, { merge: true }),
+      batch.set(
+        doc(mesasColRef(), mm.id),
+        {
+          estado: "libre",
+          grupoId: null,
+          grupo_color: null,
+          pedidoMesaDocId: null,
+        },
+        { merge: true },
+      ),
     );
     batch.set(doc(gruposColRef(), gid), { estado: "cerrado" }, { merge: true });
   });
-  try { await batch.commit(); toast("⇱ Mesas separadas"); salirModoUnir(); }
-  catch (e) { console.error(e); toast("No se pudo separar", "error"); }
+  try {
+    await batch.commit();
+    toast("⇱ Mesas separadas");
+    salirModoUnir();
+  } catch (e) {
+    console.error(e);
+    toast("No se pudo separar", "error");
+  }
 };
 arrancar();
