@@ -1114,7 +1114,10 @@ async function canjearVarios(itemsIn, uid) {
     for (let i = 0; i < cantidad; i++) unidades.push(premio);
   });
   if (!unidades.length) throw new Error("No elegiste ningún premio");
-
+  // Solo UN premio de origen manual (descuento %, monto o compra mínima) por canje
+  const manuales = items.filter((it) => it.premio?.origen !== "catalogo");
+  if (manuales.length > 1)
+    throw new Error("Solo puedes canjear un cupón de descuento a la vez");
   const total = unidades.reduce((s, p) => s + Number(p.costoPuntos || 0), 0);
   const clienteRef = clienteDoc(LOCALIDAD, NEGOCIO_ID, uid);
 
@@ -1224,15 +1227,16 @@ async function canjearVarios(itemsIn, uid) {
   return { codigos: lista, puntosRestantes };
 }
 
-function irAlCarritoConCupon(codigo) {
+function irAlCarritoConCupon(codigos) {
+  const lista = Array.isArray(codigos) ? codigos : [codigos];
+  const c = lista.map(encodeURIComponent).join(","); // comas reales, no %2C
   const destino = ES_DOMINIO_PROPIO
-    ? `/carrito?cupon=${encodeURIComponent(codigo)}`
+    ? `/carrito?cupon=${c}`
     : ALIAS_NEGOCIO
-      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito?cupon=${encodeURIComponent(codigo)}`
-      : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${encodeURIComponent(codigo)}`;
+      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito?cupon=${c}`
+      : `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}&cupon=${c}`;
   window.location.href = destino;
 }
-
 async function onCanjearUI(items) {
   if (!horarioEstado.abierto)
     throw new Error(horarioEstado.mensaje || "El negocio está cerrado ahora");
@@ -1244,8 +1248,7 @@ async function onCanjearUI(items) {
   cargarCuponesActivos(UID_ACTUAL);
 
   // Un solo premio: te lleva al carrito con el cupón aplicado.
-  if (codigos.length === 1)
-    setTimeout(() => irAlCarritoConCupon(codigos[0]), 700);
+  if (codigos.length) setTimeout(() => irAlCarritoConCupon(codigos), 700);
 }
 
 /* ══════════════ Carga principal ══════════════ */

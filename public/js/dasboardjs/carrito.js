@@ -78,44 +78,55 @@ function statsCuponUpdate(pedido) {
   }
   return u;
 }
-async function confirmarPedidoAtomico(items, construirPedido, cuponInfo) {
+async function confirmarPedidoAtomico(items, construirPedido, cupones) {
   const pedidosRef = tiendaSubCol(localidad, "tiendas", tiendaId, "pedidos");
   const nuevoPedidoRef = doc(pedidosRef);
-  const cuponRef = cuponInfo?._ref || null;
+  const lista = (cupones || []).filter((c) => c?._ref);
 
   try {
     await runTransaction(db, async (tx) => {
-      let multi = false;
-      if (cuponRef) {
-        const cuponSnap = await tx.get(cuponRef);
-        if (!cuponSnap.exists()) throw { motivo: "cupon_invalido" };
-        const c = cuponSnap.data();
-        multi = c.multiuso === true;
+      // ---- lecturas (todas antes de escribir) ----
+      const estados = [];
+      for (const c of lista) {
+        const snap = await tx.get(c._ref);
+        if (!snap.exists()) throw { motivo: "cupon_invalido" };
+        const d = snap.data();
+        const multi = d.multiuso === true;
         if (multi) {
           if (
-            c.activo === false ||
-            (c.expiraEn && Date.now() >= c.expiraEn) ||
-            (c.usosMaximos && (c.usos || 0) >= c.usosMaximos)
+            d.activo === false ||
+            (d.expiraEn && Date.now() >= d.expiraEn) ||
+            (d.usosMaximos && (d.usos || 0) >= d.usosMaximos)
           )
             throw { motivo: "cupon_invalido" };
-        } else if (c.usado) throw { motivo: "cupon_invalido" };
+        } else if (d.usado || d.estado === "cancelado") {
+          throw { motivo: "cupon_invalido" };
+        }
+        // cupón de fidelización: tiene que ser del usuario logeado
+        if (
+          d.origen === "fidelizacion" &&
+          (!usuarioLogeado || d.clienteId !== usuarioLogeado.id)
+        )
+          throw { motivo: "cupon_invalido" };
+        estados.push(multi);
       }
 
+      // ---- escrituras ----
       const pedido = construirPedido();
       tx.set(nuevoPedidoRef, pedido);
 
-      if (cuponRef) {
-        if (multi) {
-          tx.update(cuponRef, statsCuponUpdate(pedido));
+      lista.forEach((c, i) => {
+        if (estados[i]) {
+          tx.update(c._ref, statsCuponUpdate(pedido));
         } else {
-          tx.update(cuponRef, {
+          tx.update(c._ref, {
             usado: true,
             estado: "usado",
             pedidoId: nuevoPedidoRef.id,
             usadoEn: serverTimestamp(),
           });
         }
-      }
+      });
     });
 
     return { ok: true, id: nuevoPedidoRef.id };
@@ -1590,124 +1601,296 @@ function calcularDescuentoCupon(subtotal) {
   return descuentoDeCupon(cuponAplicado, subtotal);
 }
 
-async function agregarProductoDeCupon(cupon) {
-  let producto = productosPorId.get(cupon.productoId);
-  if (!producto) {
-    showToast("⚠️ El producto de este cupón ya no está disponible");
-    cuponAplicado = null;
-    return;
-  }
+/* ══════════════ Cupones: estado y helpers ══════════════
+   cuponAplicado   = UN cupón de descuento (manual / global / banner)
+   cuponesProducto = cupones de PRODUCTO (catálogo), pueden ser varios.
+   Los "activos" se derivan del carrito: si la línea se va, el cupón se va. */
+const cuponesProducto = new Map(); // codigo -> data (con _ref)
 
-  const key = `cupon__${cupon.codigo}`;
-  const seleccionFinal = cupon.varianteElegida || null;
-  const tipoBeneficio = cupon.tipoBeneficio || "gratis";
-  const precioBase = Number(producto.precio) || 0;
+function cuponesProductoActivos() {
+  const out = [];
+  carrito.forEach((it) => {
+    if (!it.esCanje) return;
+    (it.cuponCodigos || [it.cuponCodigo]).forEach((c) => {
+      const d = cuponesProducto.get(c);
+      if (d) out.push(d);
+    });
+  });
+  return out;
+}
 
-  let cantidadCanje = 1;
-  let precioTotalCanje = Number(cupon.precioFinalEstimado ?? precioBase);
-
-  // 👉 CLAVE: en "cantidad" (2x1, 3x2...) hay que agregar VARIAS unidades,
-  // cobrando solo las que corresponden a "pagaUnidades"
-  if (tipoBeneficio === "cantidad") {
+/* cantidad y total que aporta UN cupón de producto */
+function calcCanje(cupon, producto) {
+  const tipo = cupon.tipoBeneficio || "gratis";
+  const base = Number(producto.precio) || 0;
+  if (tipo === "cantidad") {
     const compra = Number(cupon.descuento?.compraUnidades) || 1;
     const paga = Number(cupon.descuento?.pagaUnidades) || compra;
-    cantidadCanje = compra;
-    precioTotalCanje = paga * precioBase;
+    return { cantidad: compra, total: paga * base, tipo };
   }
-
-  const precioUnitarioCanje =
-    cantidadCanje > 0
-      ? +(precioTotalCanje / cantidadCanje).toFixed(2)
-      : precioTotalCanje;
-
-  carrito.set(key, {
-    ...producto,
-    precio: precioUnitarioCanje,
-    cantidad: cantidadCanje,
-    cartKey: key,
-    seleccion: seleccionFinal,
-    cuponCodigo: cupon.codigo,
-    esCanje: true,
-    canjeTipoBeneficio: tipoBeneficio,
-    canjeDetalle: cupon.descuento || null, // {compraUnidades, pagaUnidades} o {monto}/{porcentaje}
-  });
+  return { cantidad: 1, total: Number(cupon.precioFinalEstimado ?? base), tipo };
 }
-async function aplicarCuponDesdeDoc(data) {
-  console.log("[CUPON] 2) aplicarCuponDesdeDoc() con data:", data);
-  console.log(
-    "[CUPON] tipo:",
-    data.tipo,
-    "| productoId:",
-    data.productoId,
-    "| varianteElegida:",
-    data.varianteElegida,
-  );
 
-  const esMulti = data.multiuso === true;
-  if (!esMulti && (data.estado === "usado" || data.usado)) {
-    showToast("⚠️ Este cupón ya fue utilizado");
+/* Un cupón de PRODUCTO → suma a una línea agrupada (mismo producto + variante + beneficio) */
+async function agregarProductoDeCupon(cupon) {
+  const producto = productosPorId.get(cupon.productoId);
+  if (!producto) {
+    showToast("⚠️ El producto de este cupón ya no está disponible");
+    return false;
+  }
+  const { cantidad, total, tipo } = calcCanje(cupon, producto);
+  const varSig = JSON.stringify(cupon.varianteElegida || null);
+  const key = `cupon__${cupon.productoId}__${tipo}__${varSig}`;
+  const ex = carrito.get(key);
+
+  if (ex) {
+    if (ex.cuponCodigos.includes(cupon.codigo)) return true;
+    ex.cantidad += cantidad;
+    ex.totalCanje += total;
+    ex.precio = ex.totalCanje / ex.cantidad;
+    ex.cuponCodigos.push(cupon.codigo);
+  } else {
+    carrito.set(key, {
+      ...producto,
+      precio: total / cantidad,
+      totalCanje: total,
+      cantidad,
+      cartKey: key,
+      seleccion: cupon.varianteElegida || null,
+      cuponCodigo: cupon.codigo,
+      cuponCodigos: [cupon.codigo],
+      esCanje: true,
+      canjeTipoBeneficio: tipo,
+      canjeDetalle: cupon.descuento || null,
+    });
+  }
+  cuponesProducto.set(cupon.codigo, cupon);
+  return true;
+}
+
+/* quita códigos de una línea agrupada y recalcula (o la borra si queda vacía) */
+function quitarCodigosDeLinea(key, codigos) {
+  const it = carrito.get(key);
+  if (!it) return;
+  const resto = (it.cuponCodigos || []).filter((c) => !codigos.includes(c));
+  codigos.forEach((c) => cuponesProducto.delete(c));
+  if (!resto.length) {
+    carrito.delete(key);
     return;
   }
+  let cant = 0, tot = 0;
+  resto.forEach((c) => {
+    const r = calcCanje(cuponesProducto.get(c) || {}, it);
+    cant += r.cantidad;
+    tot += r.total;
+  });
+  it.cuponCodigos = resto;
+  it.cuponCodigo = resto[0];
+  it.cantidad = cant;
+  it.totalCanje = tot;
+  it.precio = tot / cant;
+}
+
+function quitarGrupoCanje(key) {
+  const it = carrito.get(key);
+  if (!it) return;
+  quitarCodigosDeLinea(key, [...(it.cuponCodigos || [])]);
+  syncMainListCard(it.id);
+  updateCartUI();
+  showToast("Canje removido");
+}
+
+function quitarTodosLosCanjes() {
+  [...carrito.entries()].forEach(([k, it]) => {
+    if (it.esCanje) {
+      quitarCodigosDeLinea(k, [...(it.cuponCodigos || [])]);
+      syncMainListCard(it.id);
+    }
+  });
+  updateCartUI();
+  showToast("Canjes removidos");
+}
+
+function quitarCupon(codigo) {
+  if (codigo && cuponesProducto.has(codigo)) {
+    for (const [k, it] of carrito) {
+      if (it.esCanje && (it.cuponCodigos || []).includes(codigo)) {
+        quitarCodigosDeLinea(k, [codigo]);
+        syncMainListCard(it.id);
+        break;
+      }
+    }
+  } else if (cuponAplicado && (!codigo || cuponAplicado.codigo === codigo)) {
+    cuponAplicado = null;
+  } else {
+    return;
+  }
+  updateCartUI();
+  pintarDeliveryInfo();
+  showToast("Cupón removido");
+}
+function todosLosCupones() {
+  return [
+    ...(cuponAplicado ? [cuponAplicado] : []),
+    ...cuponesProductoActivos(),
+  ];
+}
+function resumenCupon(c) {
+  return {
+    codigo: c.codigo,
+    tipo: c.tipo,
+    origen: c.origen || null,
+    costoPuntos: c.costoPuntos ?? null,
+    productoId: c.productoId || null,
+    productoNombre: c.productoNombre || c.nombre || null,
+    tipoBeneficio: c.tipoBeneficio || null,
+    descuento: c.descuento || null,
+    precioOriginal: c.precioOriginal ?? null,
+    precioFinalEstimado: c.precioFinalEstimado ?? null,
+    tipoDescuentoManual: c.tipoDescuentoManual || null,
+    porcentajeManual: c.porcentajeManual ?? null,
+    montoManual: c.montoManual ?? null,
+    compraMinima: c.compraMinima ?? null,
+    envioGratis: c.envioGratis === true,
+  };
+}
+
+/* ══════════════ Diálogo: cupón de otra cuenta / sin sesión ══════════════
+   Reutiliza las clases .login-prompt-* que ya existen en carrito.html */
+function abrirModalCuponAjeno({ sinSesion, codigo }) {
+  let m = document.getElementById("cuponAjenoModal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "cuponAjenoModal";
+    m.className = "login-prompt-modal";
+    m.innerHTML = `
+      <div class="login-prompt-box">
+        <button class="login-prompt-close" id="cuponAjenoClose" aria-label="Cerrar">✕</button>
+        <div class="login-prompt-glow"></div>
+        <div id="cuponAjenoLogo"></div>
+        <h3 class="login-prompt-title">Este cupón no está disponible</h3>
+        <p class="login-prompt-desc" id="cuponAjenoDesc"></p>
+        <div class="login-prompt-actions">
+          <a id="cuponAjenoLogin" href="/registro" class="login-prompt-btn-primary">Iniciar sesión</a>
+          <button id="cuponAjenoCancel" class="login-prompt-btn-secondary">Entendido</button>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+
+    const cerrar = () => {
+      m.classList.remove("show");
+      if (
+        !document
+          .getElementById("checkoutOverlay")
+          ?.classList.contains("show") &&
+        !document.getElementById("drawer")?.classList.contains("show")
+      )
+        document.body.style.overflow = "";
+    };
+    m.querySelector("#cuponAjenoClose").onclick = cerrar;
+    m.querySelector("#cuponAjenoCancel").onclick = cerrar;
+    m.addEventListener("click", (e) => {
+      if (e.target === m) cerrar();
+    });
+    m.querySelector("#cuponAjenoLogin").addEventListener("click", (e) => {
+      guardarCarritoParaLogin();
+      if (!window.__NEGOCIO_HOSTNAME_DETECTADO__) return; // geinztech.com: link normal
+      e.preventDefault();
+      abrirLoginPopup(); // conserva ?cupon= al volver
+    });
+  }
+
+  // logo / letra del negocio
+  const logoWrap = m.querySelector("#cuponAjenoLogo");
+  logoWrap.innerHTML = "";
+  if (_bizLogoUrl) {
+    const img = document.createElement("img");
+    img.src = _bizLogoUrl;
+    img.alt = bizNombre || "Logo";
+    img.className = "login-prompt-logo";
+    logoWrap.appendChild(img);
+  } else {
+    const l = document.createElement("div");
+    l.className = "login-prompt-letter";
+    l.textContent = letraNegocio();
+    logoWrap.appendChild(l);
+  }
+
+  const cod = codigo ? ` <b>${escapeHtmlCarrito(codigo)}</b>` : "";
+  m.querySelector("#cuponAjenoDesc").innerHTML = sinSesion
+    ? `El cupón${cod} pertenece a una cuenta de <b>${escapeHtmlCarrito(bizNombre || "este negocio")}</b>. Inicia sesión con la cuenta con la que se registró el cupón para usarlo.`
+    : `El cupón${cod} no pertenece a la cuenta con la que iniciaste sesión. Usa la cuenta con la que lo canjeaste en <b>${escapeHtmlCarrito(bizNombre || "este negocio")}</b>.`;
+
+  m.querySelector("#cuponAjenoLogin").style.display = sinSesion
+    ? "block"
+    : "none";
+  m.querySelector("#cuponAjenoCancel").textContent = sinSesion
+    ? "Ahora no"
+    : "Entendido";
+
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => m.classList.add("show"));
+}
+
+/* true = el cupón puede usarlo el usuario actual */
+function validarPropietarioCupon(data) {
+  if (data.origen !== "fidelizacion") return true;
+  if (usuarioLogeado && data.clienteId === usuarioLogeado.id) return true;
+  abrirModalCuponAjeno({ sinSesion: !usuarioLogeado, codigo: data.codigo });
+  return false;
+}
+
+
+async function aplicarCuponDesdeDoc(data) {
+  // ya aplicado (por link + restaurar carrito, etc.): no hacer nada
+  if (todosLosCupones().some((c) => c.codigo === data.codigo)) return;
+
+  const esMulti = data.multiuso === true;
+  if (!esMulti && (data.estado === "usado" || data.usado))
+    return showToast("⚠️ Este cupón ya fue utilizado");
+  if (data.estado === "cancelado")
+    return showToast("⚠️ Este cupón fue cancelado");
   if (data.activo === false) return showToast("⚠️ Este cupón está desactivado");
   if (data.expiraEn && Date.now() >= data.expiraEn)
     return showToast("⚠️ Este cupón ya venció");
   if (data.usosMaximos && (data.usos || 0) >= data.usosMaximos)
     return showToast("⚠️ Este cupón ya se agotó");
-  if (data.negocioId && data.negocioId !== tiendaId) {
-    console.log("[CUPON] rechazado: negocioId no coincide", {
-      cuponNegocioId: data.negocioId,
-      tiendaIdActual: tiendaId,
-    });
-    showToast("⚠️ Este cupón no es válido para este negocio");
-    return;
-  }
+  if (data.negocioId && data.negocioId !== tiendaId)
+    return showToast("⚠️ Este cupón no es válido para este negocio");
 
-  cuponAplicado = data;
+  // 🔒 cupones de fidelización: solo su dueño
+  if (!validarPropietarioCupon(data)) return;
+
   const aud = data.audiencia || "todos";
   if (aud !== "todos" && !usuarioLogeado) {
     showToast("🔒 Inicia sesión para usar este cupón");
     openLoginPromptModal();
     return;
   }
-  if (aud === "seguidores" && !siguiendoTienda) {
-    showToast(`⭐ Este cupón es solo para seguidores de ${bizNombre}`);
-    return;
+  if (aud === "seguidores" && !siguiendoTienda)
+    return showToast(`⭐ Este cupón es solo para seguidores de ${bizNombre}`);
+
+  if (data.tipo === "producto" && data.productoId) {
+    // los de producto se acumulan sin límite
+    if (!(await agregarProductoDeCupon(data))) return;
+  } else {
+    // solo UN cupón de descuento a la vez
+    if (cuponAplicado) {
+      showToast("⚠️ Ya tienes un cupón de descuento. Quítalo para usar otro");
+      return;
+    }
+    cuponAplicado = data;
   }
-  console.log("[CUPON] cuponAplicado seteado en memoria:", cuponAplicado);
 
   if (data.origen === "fidelizacion") activarGuardaCupon();
-  if (data.tipo === "producto" && data.productoId) {
-    console.log(
-      "[CUPON] es cupón de PRODUCTO, llamando agregarProductoDeCupon()",
-    );
-    await agregarProductoDeCupon(data);
-  } else {
-    console.log(
-      "[CUPON] es cupón MANUAL (descuento %, monto o mínimo de compra), no se agrega producto",
-    );
-  }
   pintarDeliveryInfo();
   updateCartUI();
-  console.log("[CUPON] updateCartUI() ejecutado, estado actual del carrito:", [
-    ...carrito.entries(),
-  ]);
   showToast(`🎟️ Cupón ${data.codigo} aplicado`);
 }
 
-async function buscarYAplicarCupon(codigoCrudo) {
-  const codigo = (codigoCrudo || "").trim().toUpperCase();
-  console.log("[CUPON] 1) buscarYAplicarCupon() llamado con código:", codigo);
-  if (!codigo) {
-    console.log("[CUPON] código vacío, se aborta");
-    return;
-  }
-
-  // 1) Cupón personal de fidelización (requiere sesión)
+/* Lee un cupón: primero el personal (si hay sesión), luego el global */
+async function leerCupon(codigo) {
   if (usuarioLogeado) {
-    console.log(
-      "[CUPON] usuario logeado, buscando cupón personal en clienteCuponDoc:",
-      { localidad, tiendaId, uid: usuarioLogeado.id, codigo },
-    );
     try {
       const ref = clienteCuponDoc(
         localidad,
@@ -1715,37 +1898,183 @@ async function buscarYAplicarCupon(codigoCrudo) {
         usuarioLogeado.id,
         codigo,
       );
-      const snap = await getDoc(ref);
-      console.log("[CUPON] resultado cupón personal, existe:", snap.exists());
-      if (snap.exists()) {
-        console.log("[CUPON] data cruda del cupón personal:", snap.data());
-        await aplicarCuponDesdeDoc({ ...snap.data(), _ref: ref });
-        return;
-      }
+      const s = await getDoc(ref);
+      if (s.exists()) return { ...s.data(), _ref: ref };
     } catch (e) {
-      console.warn("[CUPON] No se pudo leer cupón personal:", e);
+      console.warn("[CUPON] personal:", e.message);
+    }
+  }
+  try {
+    const ref = tiendaCuponDoc(localidad, tiendaId, codigo);
+    const s = await getDoc(ref);
+    if (s.exists()) return { ...s.data(), _ref: ref };
+  } catch (e) {
+    console.warn("[CUPON] global:", e.message);
+  }
+  return null;
+}
+
+/* Acepta uno o varios códigos separados por coma: ?cupon=AAA,BBB,CCC */
+async function buscarYAplicarCupon(crudo, { desdeLink = false } = {}) {
+  const codigos = [
+    ...new Set(
+      String(crudo || "")
+        .split(/[\s,]+/)
+        .map((c) => c.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ].slice(0, 40);
+  console.log(
+    "[CUPON] códigos recibidos:",
+    codigos,
+    "| usuario:",
+    usuarioLogeado?.id || null,
+  );
+  if (!codigos.length) return;
+
+  const datos = await Promise.all(codigos.map(leerCupon));
+  console.log(
+    "[CUPON] lectura:",
+    codigos.map((c, i) => `${c}=${datos[i] ? "OK" : "NO ENCONTRADO"}`),
+  );
+
+  let noEncontrado = null;
+  for (let i = 0; i < codigos.length; i++) {
+    if (!datos[i]) {
+      noEncontrado = noEncontrado || codigos[i];
+      continue;
+    }
+    console.log(
+      "[CUPON] aplicando",
+      datos[i].codigo,
+      "| tipo:",
+      datos[i].tipo,
+      "| productoId:",
+      datos[i].productoId,
+      "| existe en catálogo:",
+      productosPorId.has(datos[i].productoId),
+    );
+    await aplicarCuponDesdeDoc(datos[i]);
+  }
+  console.log(
+    "[CUPON] resultado → manual:",
+    cuponAplicado?.codigo || null,
+    "| productos:",
+    [...cuponesProducto.keys()],
+  );
+
+  if (noEncontrado) {
+    if (!usuarioLogeado || desdeLink)
+      abrirModalCuponAjeno({
+        sinSesion: !usuarioLogeado,
+        codigo: noEncontrado,
+      });
+    else showToast("⚠️ El cupón no existe o ya expiró");
+  }
+}
+
+
+function cuponBarItemHTML(c, subtotal) {
+  let descTxt = "";
+  let footer = "";
+  const nombre = escapeHtmlCarrito(c.productoNombre || c.nombre || "");
+
+  if (c.tipo === "producto") {
+    if (c.tipoBeneficio === "cantidad" && c.descuento) {
+      descTxt = `🎁 ${nombre || "Producto"} · lleva ${c.descuento.compraUnidades || "?"}, paga ${c.descuento.pagaUnidades || "?"}`;
+    } else {
+      descTxt = `🎁 Producto canjeado: ${nombre}`;
     }
   } else {
-    console.log("[CUPON] no hay usuario logeado, se salta cupón personal");
-  }
+    descTxt =
+      c.tipoDescuentoManual === "porcentaje"
+        ? `${c.porcentajeManual}% de descuento`
+        : c.tipoDescuentoManual === "monto"
+          ? `S/ ${Number(c.montoManual || 0).toFixed(2)} de descuento`
+          : nombre || "Cupón de descuento";
 
-  // 2) Cupón global lanzado por el negocio
-  console.log("[CUPON] buscando cupón global en tiendaCuponDoc");
-  try {
-    const refGlobal = tiendaCuponDoc(localidad, tiendaId, codigo);
-    const snapGlobal = await getDoc(refGlobal);
-    console.log("[CUPON] resultado cupón global, existe:", snapGlobal.exists());
-    if (snapGlobal.exists()) {
-      console.log("[CUPON] data cruda del cupón global:", snapGlobal.data());
-      await aplicarCuponDesdeDoc({ ...snapGlobal.data(), _ref: refGlobal });
-      return;
+    const minimo = Number(c.compraMinima || 0);
+    if (minimo > 0 && subtotal < minimo) {
+      footer = `<p class="text-[10px] text-amber-300 mt-0.5">Agrega S/ ${(minimo - subtotal).toFixed(2)} más para activarlo</p>`;
+    } else {
+      const desc = descuentoDeCupon(c, subtotal);
+      if (desc > 0)
+        footer = `<p class="text-[10px] text-green-400 mt-0.5">-S/ ${desc.toFixed(2)} aplicado</p>`;
     }
-  } catch (e) {
-    console.warn("[CUPON] No se pudo leer cupón global:", e);
   }
 
-  console.log("[CUPON] no se encontró el cupón en ningún lado");
-  showToast("⚠️ El cupón no existe o ya expiró");
+  return `
+    <div class="cupon-bar flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 mb-3"
+         style="background: rgba(var(--dr),var(--dg),var(--db),.12); border: 1px dashed rgb(var(--dr),var(--dg),var(--db));">
+      <div class="min-w-0">
+        <p class="text-[11px] font-black tracking-widest uppercase" style="color: rgb(var(--dr),var(--dg),var(--db));">🎟️ ${escapeHtmlCarrito(c.codigo)}</p>
+        <p class="text-[11px] text-gray-300 truncate">${descTxt}</p>
+        ${footer}
+      </div>
+      <button type="button" data-codigo="${escapeHtmlCarrito(c.codigo)}" class="cupon-remove-btn text-[11px] text-gray-400 hover:text-red-400 flex-shrink-0 px-2 py-1">Quitar</button>
+    </div>`;
+}
+
+function cuponBarHTML(subtotal) {
+  const rgb = "rgb(var(--dr),var(--dg),var(--db))";
+  const manual = cuponAplicado ? cuponBarItemHTML(cuponAplicado, subtotal) : "";
+
+  const lineas = [...carrito.values()].filter((i) => i.esCanje);
+  if (!lineas.length) return manual;
+
+  const totalCanjes = lineas.reduce((s, i) => s + (i.cuponCodigos || [1]).length, 0);
+  const filas = lineas
+    .map((it) => {
+      const codigos = it.cuponCodigos || [it.cuponCodigo];
+      const n = it.cantidad;
+      return `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,.06);">
+        <div style="flex:1;min-width:0;">
+          <p style="margin:0;font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            🎁 ${escapeHtmlCarrito(it.nombre)} <span style="color:${rgb};">×${n}</span>
+          </p>
+          <p style="margin:2px 0 0;font-size:10px;color:#8b8b95;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${codigos.map(escapeHtmlCarrito).join(" · ")}
+          </p>
+        </div>
+        <button type="button" data-grupo="${escapeHtmlCarrito(it.cartKey)}" class="cupon-grupo-btn"
+          style="flex-shrink:0;font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;padding:4px 6px;">Quitar</button>
+      </div>`;
+    })
+    .join("");
+
+  const panel = `
+    <div class="cupon-bar" style="margin:0 0 12px;border-radius:18px;padding:10px 14px 4px;background:rgba(var(--dr),var(--dg),var(--db),.12);border:1px dashed ${rgb};">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:8px;">
+        <p style="margin:0;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${rgb};">
+          🎟️ Canjes con puntos · ${totalCanjes}
+        </p>
+        ${
+          lineas.length > 1
+            ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
+            : ""
+        }
+      </div>
+      ${filas}
+    </div>`;
+
+  return manual + panel;
+}
+
+function renderCuponBar(subtotal) {
+  ["cuponBarMobile", "cuponBarDesktop", "cuponBarCheckout"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = cuponBarHTML(subtotal);
+    el.querySelectorAll(".cupon-remove-btn").forEach((b) => {
+      b.onclick = () => quitarCupon(b.dataset.codigo);
+    });
+    el.querySelectorAll(".cupon-grupo-btn").forEach((b) => {
+      b.onclick = () => quitarGrupoCanje(b.dataset.grupo);
+    });
+    const all = el.querySelector(".cupon-all-btn");
+    if (all) all.onclick = quitarTodosLosCanjes;
+  });
 }
 
 function urlTieneBannerCupon() {
@@ -1804,72 +2133,6 @@ async function aplicarCuponBanner() {
       : "🏷️ Descuento aplicado",
   );
 }
-function quitarCupon() {
-  if (!cuponAplicado) return;
-  if (cuponAplicado.tipo === "producto") {
-    carrito.delete(`cupon__${cuponAplicado.codigo}`);
-  }
-  cuponAplicado = null;
-  updateCartUI();
-  pintarDeliveryInfo(); // ← reemplaza el bloque "delivery: ..." por esto
-  showToast("Cupón removido");
-}
-
-function cuponBarHTML(subtotal) {
-  if (!cuponAplicado) return "";
-  const c = cuponAplicado;
-  let descTxt = "";
-  let footer = "";
-
-  if (c.tipo === "producto") {
-    if (c.tipoBeneficio === "cantidad" && c.descuento) {
-      const compra = c.descuento.compraUnidades || "?";
-      const paga = c.descuento.pagaUnidades || "?";
-      descTxt = `🎁 ${c.productoNombre || c.nombre || "Producto"} · lleva ${compra}, paga ${paga}`;
-    } else {
-      descTxt = `🎁 Producto canjeado: ${c.productoNombre || c.nombre || ""}`;
-    }
-  } else {
-    descTxt =
-      c.tipoDescuentoManual === "porcentaje"
-        ? `${c.porcentajeManual}% de descuento`
-        : c.tipoDescuentoManual === "monto"
-          ? `S/ ${Number(c.montoManual || 0).toFixed(2)} de descuento`
-          : c.nombre || "Cupón de descuento";
-
-    const minimo = Number(c.compraMinima || 0);
-    if (minimo > 0 && subtotal < minimo) {
-      footer = `<p class="text-[10px] text-amber-300 mt-0.5">Agrega S/ ${(minimo - subtotal).toFixed(2)} más para activarlo</p>`;
-    } else {
-      const desc = calcularDescuentoCupon(subtotal);
-      if (desc > 0)
-        footer = `<p class="text-[10px] text-green-400 mt-0.5">-S/ ${desc.toFixed(2)} aplicado</p>`;
-    }
-  }
-
-  return `
-    <div class="cupon-bar flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 mb-3"
-         style="background: rgba(var(--dr),var(--dg),var(--db),.12); border: 1px dashed rgb(var(--dr),var(--dg),var(--db));">
-      <div class="min-w-0">
-        <p class="text-[11px] font-black tracking-widest uppercase" style="color: rgb(var(--dr),var(--dg),var(--db));">🎟️ ${c.codigo}</p>
-        <p class="text-[11px] text-gray-300 truncate">${descTxt}</p>
-        ${footer}
-      </div>
-      <button type="button" class="cupon-remove-btn text-[11px] text-gray-400 hover:text-red-400 flex-shrink-0 px-2 py-1">Quitar</button>
-    </div>
-  `;
-}
-
-function renderCuponBar(subtotal) {
-  ["cuponBarMobile", "cuponBarDesktop", "cuponBarCheckout"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = cuponBarHTML(subtotal);
-    const btn = el.querySelector(".cupon-remove-btn");
-    if (btn) btn.onclick = quitarCupon;
-  });
-}
-
 function bindCuponInputs() {
   const pares = [
     ["aplicarCuponBtnMobile", "cuponInputMobile"],
@@ -4461,7 +4724,8 @@ document
         opciones: it.seleccion || null,
         esCanje: it.esCanje || false,
         esPromo: it.esPromo || false,
-        cuponCodigo: it.cuponCodigo || null,
+             cuponCodigo: it.cuponCodigo || null,
+        cuponCodigos: it.cuponCodigos || null,
       })),
       total_items: items.reduce((s, i) => s + i.cantidad, 0),
       total: +total.toFixed(2),
@@ -4469,26 +4733,11 @@ document
       descuentoCupon,
       delivery: deliv,
       tiempo_estimado: tiempoEstimadoPedido(),
-      cupon: cuponAplicado
-        ? {
-            codigo: cuponAplicado.codigo,
-            tipo: cuponAplicado.tipo,
-            origen: cuponAplicado.origen || null,
-            costoPuntos: cuponAplicado.costoPuntos ?? null,
-            productoId: cuponAplicado.productoId || null,
-            productoNombre:
-              cuponAplicado.productoNombre || cuponAplicado.nombre || null,
-            tipoBeneficio: cuponAplicado.tipoBeneficio || null,
-            descuento: cuponAplicado.descuento || null,
-            precioOriginal: cuponAplicado.precioOriginal ?? null,
-            precioFinalEstimado: cuponAplicado.precioFinalEstimado ?? null,
-            tipoDescuentoManual: cuponAplicado.tipoDescuentoManual || null,
-            porcentajeManual: cuponAplicado.porcentajeManual ?? null,
-            montoManual: cuponAplicado.montoManual ?? null,
-            compraMinima: cuponAplicado.compraMinima ?? null,
-            envioGratis: cuponAplicado.envioGratis === true,
-          }
-        : null,
+      cupon:
+        cuponAplicado || cuponesProductoActivos()[0]
+          ? resumenCupon(cuponAplicado || cuponesProductoActivos()[0])
+          : null,
+      cupones: todosLosCupones().map(resumenCupon),
       negocio: { id: tiendaId, nombre: bizNombre, localidad },
     });
 
@@ -4507,7 +4756,7 @@ document
     const resultado = await confirmarPedidoAtomico(
       items,
       construirPedido,
-      cuponAplicado,
+      todosLosCupones(),
     );
 
     if (!resultado.ok) {
@@ -5228,10 +5477,11 @@ let guardEntryPushed = false; // ya se agregó la entrada extra al historial
 let salidaCuponConfirmada = false; // el cliente confirmó que quiere salir
 
 // Solo aplica a cupones que salen de un canje con puntos (origen "fidelizacion")
+function cuponesCanjeActivos() {
+  return todosLosCupones().filter((c) => c.origen === "fidelizacion");
+}
 function cuponDeCanjeActivo() {
-  return (
-    !!cuponAplicado && cuponAplicado.origen === "fidelizacion" && !pedidoEnviado
-  );
+  return !pedidoEnviado && cuponesCanjeActivos().length > 0;
 }
 
 // Se llama cuando un cupón de canje queda aplicado (ver aplicarCuponDesdeDoc)
@@ -5362,10 +5612,10 @@ function abrirModalSalirCupon() {
   }
 
   const codigoEl = ov.querySelector("#cuponLeaveCode");
-  const c = cuponAplicado;
-  const pts = Number(c?.costoPuntos ?? 0);
-  codigoEl.textContent = c?.codigo
-    ? `🎟️ ${c.codigo}${pts > 0 ? " · " + pts + " pts" : ""}`
+  const lista = cuponesCanjeActivos();
+  const pts = lista.reduce((s, c) => s + Number(c.costoPuntos || 0), 0);
+  codigoEl.textContent = lista.length
+    ? `🎟️ ${lista.map((c) => c.codigo).join(" · ")}${pts > 0 ? " · " + pts + " pts" : ""}`
     : "";
 
   document.body.style.overflow = "hidden";
@@ -5430,7 +5680,11 @@ function guardarCarritoParaLogin() {
       CART_LOGIN_KEY(),
       JSON.stringify({
         items,
-        cupon: cuponAplicado?.codigo || null,
+           cupon:
+          todosLosCupones()
+            .filter((c) => c._ref)
+            .map((c) => c.codigo)
+            .join(",") || null,
         ts: Date.now(),
       }),
     );
@@ -5509,13 +5763,16 @@ function persistirCarrito() {
   if (!tiendaId) return;
   try {
     const items = [...carrito.values()]
-      .filter((it) => !it.esCanje) // los canjes se reaplican con el cupón
+      .filter((it) => !it.esCanje)
       .map((it) => ({
         id: it.id,
         cantidad: it.cantidad,
         seleccion: it.seleccion || null,
       }));
-    if (!items.length) {
+    const codigos = todosLosCupones()
+      .filter((c) => c._ref)
+      .map((c) => c.codigo);
+    if (!items.length && !codigos.length) {
       sessionStorage.removeItem(CART_PERSIST_KEY());
       return;
     }
@@ -5523,7 +5780,7 @@ function persistirCarrito() {
       CART_PERSIST_KEY(),
       JSON.stringify({
         items,
-        cupon: cuponAplicado?.codigo || null,
+        cupon: codigos.join(",") || null,
         ts: Date.now(),
       }),
     );
@@ -5955,10 +6212,14 @@ async function init() {
   promosGlobal.forEach((p) => productosPorId.set(p.id, p));
   actualizarCatalogoGlobal();
   document.getElementById("totalCount").textContent = catalogoGlobal.length;
-
   bindCuponInputs();
-  if (cuponParam) await buscarYAplicarCupon(cuponParam);
   await renderTienda(biz);
+  if (cuponParam) await buscarYAplicarCupon(cuponParam, { desdeLink: true });
+    if (cuponParam) {
+    const u = new URL(location.href);
+    u.searchParams.delete("cupon");
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+  }
   adicionalesGlobal = await loadAdicionales();
   adicionalesGlobal.forEach((a) => productosPorId.set(a.id, a));
   if (urlTieneBannerCupon()) await aplicarCuponBanner();
