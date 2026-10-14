@@ -1,10 +1,14 @@
-import { getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getDoc,
+  doc,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { aliasTiendaDoc, tiendaDoc } from "../js/rutas/rutas.js"; // ruta real de tu módulo de rutas Firestore
 import { setFaviconCircular } from "../js/favicon/favicon.js"; // ⚠️ ajusta esta ruta si tu favicon.js está en otro lugar
 import {
   cargarColoresNegocio,
   aplicarColoresDesdeCache,
-} from "../js/colores_dinamicos/dinamicos.js"
+} from "../js/colores_dinamicos/dinamicos.js";
+import { db } from "../js/db/db.js";
 // ══════════════════════════════════════════
 //  RESOLVER ALIAS → { id, localidad }
 //  (mismo patrón que legal.js / seguimiento.js)
@@ -22,7 +26,17 @@ async function resolverNegocio(pathPrefix, seccion) {
     };
   }
   const path = window.location.pathname;
-
+  // Dominio propio (geinz.es): se resuelve por dominio_web_tiendas
+  const host = window.location.hostname.replace(/^www\./, "");
+  if (host !== "geinztech.com") {
+    const domSnap = await getDoc(doc(db, "dominio_web_tiendas", host));
+    if (domSnap.exists()) {
+      const d = domSnap.data();
+      if (d.id && d.localidad) {
+        return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
+      }
+    }
+  }
   let alias = null;
 
   // Ruta nueva: /perfil/{alias}/{seccion}
@@ -135,7 +149,7 @@ export async function initLegalTextPage({
 
     const biz = tiendaSnap.data();
     const footer = biz.footer || {};
-if (footerFlag && footer[footerFlag] !== true) {
+    if (footerFlag && footer[footerFlag] !== true) {
       return showNotAvailable(
         "Este negocio no tiene disponible este documento por el momento.",
       );
@@ -159,19 +173,19 @@ if (footerFlag && footer[footerFlag] !== true) {
     const logoImg = document.getElementById("bizLogo");
     const logoLetter = document.getElementById("bizLogoLetter");
 
-  // Colores dinámicos (color_marca → logo → nombre), usando el biz que ya leíste
-const colorReady = cargarColoresNegocio({ id, localidad, biz }).catch((e) =>
-  console.warn("colores:", e.message),
-);
+    // Colores dinámicos (color_marca → logo → nombre), usando el biz que ya leíste
+    const colorReady = cargarColoresNegocio({ id, localidad, biz }).catch((e) =>
+      console.warn("colores:", e.message),
+    );
 
-if (logoUrl) {
-  logoImg.src = logoUrl;
-  logoImg.style.display = "block";
-  logoLetter.style.display = "none";
-  setFaviconCircular(logoUrl);
-} else {
-  logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
-}
+    if (logoUrl) {
+      logoImg.src = logoUrl;
+      logoImg.style.display = "block";
+      logoLetter.style.display = "none";
+      setFaviconCircular(logoUrl);
+    } else {
+      logoLetter.textContent = nombre.trim().charAt(0).toUpperCase();
+    }
     // 4) Pintar contenido legal
     document.getElementById("labelSuperior").textContent = labelSuperior;
     document.getElementById("legalTitulo").textContent = titulo;

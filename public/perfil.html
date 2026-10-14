@@ -14,7 +14,7 @@
     <meta charset="UTF-8" />
     <script>document.documentElement.classList.add('geinz-loading');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
+
     <title>Geinz Business</title>
     <!-- SEO base (el JS las sobreescribe con datos reales) -->
     <meta name="description" content="Encuentra negocios locales en Geinz">
@@ -32,9 +32,9 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
-    <link rel="stylesheet" href="./tailwind-perfil.css" />
-    <link rel="stylesheet" href="./style/shareStyle/perfil_negocio_v2.css" />
-    <script type="module" src="./js/share/perfil_negocio_v2.js"></script>
+    <link rel="stylesheet" href="/tailwind-perfil.css" />
+    <link rel="stylesheet" href="/style/shareStyle/perfil_negocio_v2.css" />
+    <script type="module" src="/js/share/perfil_negocio_v2.js"></script>
     <link rel="icon" href="./img/icons/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="./img/icons/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="./img/icons/favicon-16x16.png">
@@ -45,13 +45,13 @@
         rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
-        <!-- Panzoom bloquea el render: ponle defer -->
-<script defer src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+    <!-- Panzoom bloquea el render: ponle defer -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 
-<!-- Conexiones tempranas -->
-<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+    <!-- Conexiones tempranas -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
 </head>
 
 <body>
@@ -95,7 +95,7 @@
     <main id="mainContent" class="max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 py-6 pt-24 md:pt-24">
 
         <!-- HERO -->
-      <section class="grid lg:grid-cols-[1fr_.8fr] gap-10 xl:gap-14 items-center mb-24">
+        <section class="grid lg:grid-cols-[1fr_.8fr] gap-10 xl:gap-14 items-center mb-24">
             <div>
                 <h1 id="bizName" class="text-[90px] xl:text-[120px] font-black leading-[.88] tracking-[-5px] mb-8"></h1>
                 <div id="puntosBadge" class="puntos-badge" style="display:none;"></div>
@@ -124,42 +124,44 @@
                 <div id="quickNavRow" class="flex flex-wrap gap-3 mt-5"></div>
             </div>
 
-          <div class="relative">
-    <div id="heroBlobBg"
-        class="absolute -top-20 right-0 w-[400px] h-[400px] blur-[120px] rounded-full transition-colors duration-700"
-        style="background: rgba(var(--dr), var(--dg), var(--db), 0.2)"></div>
+            <div class="relative">
+                <div id="heroBlobBg"
+                    class="absolute -top-20 right-0 w-[400px] h-[400px] blur-[120px] rounded-full transition-colors duration-700"
+                    style="background: rgba(var(--dr), var(--dg), var(--db), 0.2)"></div>
 
-    <div id="heroFlip" class="hero-flip">
-        <div class="hero-flip-inner">
-            <!-- FRENTE: logo -->
-            <div id="heroFlipFront" class="hero-flip-face hero-flip-front">
-                <div id="heroLogoContainer" class="hero-logo-container">
-                    <img id="bizLogoHero" style="display:none;" crossorigin="anonymous" />
-                    <div id="bizLogoPlaceholderHero"
-                        class="w-full h-full flex items-center justify-center bg-zinc-900 text-gray-500">Logo del negocio</div>
+                <div id="heroFlip" class="hero-flip">
+                    <div class="hero-flip-inner">
+                        <!-- FRENTE: logo -->
+                        <div id="heroFlipFront" class="hero-flip-face hero-flip-front">
+                            <div id="heroLogoContainer" class="hero-logo-container">
+                                <img id="bizLogoHero" style="display:none;" crossorigin="anonymous" />
+                                <div id="bizLogoPlaceholderHero"
+                                    class="w-full h-full flex items-center justify-center bg-zinc-900 text-gray-500">
+                                    Logo del negocio</div>
+                            </div>
+                            <span class="hero-flip-hint"><span>🎁</span> Ver mi tarjeta</span>
+                        </div>
+
+                        <!-- REVERSO: tarjeta de fidelización -->
+                        <div class="hero-flip-face hero-flip-back">
+                            <div id="heroCardSlot" class="hero-card-slot">
+                                <div class="hero-card-skel" id="heroCardSkel" aria-hidden="true">
+                                    <div class="hcs-avatar"></div>
+                                    <div class="hcs-line hcs-w60"></div>
+                                    <div class="hcs-line hcs-w40 hcs-sm"></div>
+                                    <div class="hcs-divider"></div>
+                                    <div class="hcs-line hcs-w50 hcs-sm"></div>
+                                    <div class="hcs-line hcs-w70"></div>
+                                    <div class="hcs-points"></div>
+                                    <div class="hcs-divider"></div>
+                                </div>
+                            </div>
+                            <button id="heroFlipBack" type="button" class="hero-flip-back-btn"
+                                aria-label="Volver al logo">↺</button>
+                        </div>
+                    </div>
                 </div>
-                <span class="hero-flip-hint"><span>🎁</span> Ver mi tarjeta</span>
             </div>
-
-            <!-- REVERSO: tarjeta de fidelización -->
-            <div class="hero-flip-face hero-flip-back">
-              <div id="heroCardSlot" class="hero-card-slot">
-    <div class="hero-card-skel" id="heroCardSkel" aria-hidden="true">
-        <div class="hcs-avatar"></div>
-        <div class="hcs-line hcs-w60"></div>
-        <div class="hcs-line hcs-w40 hcs-sm"></div>
-        <div class="hcs-divider"></div>
-        <div class="hcs-line hcs-w50 hcs-sm"></div>
-        <div class="hcs-line hcs-w70"></div>
-        <div class="hcs-points"></div>
-        <div class="hcs-divider"></div>
-    </div>
-</div>
-                <button id="heroFlipBack" type="button" class="hero-flip-back-btn" aria-label="Volver al logo">↺</button>
-            </div>
-        </div>
-    </div>
-</div>
         </section>
 
 
@@ -494,11 +496,11 @@
     <div id="bannerModal" class="banner-modal">
         <div class="banner-modal-box">
             <button id="bannerModalClose" class="banner-modal-close" aria-label="Cerrar">✕</button>
-          <div class="banner-modal-media">
-    <img id="bannerBg" class="banner-modal-bg" src="" alt="" aria-hidden="true" />
-    <img id="bannerImg" src="" alt="Promoción" />
-    <div class="banner-modal-overlay"></div>
-</div>
+            <div class="banner-modal-media">
+                <img id="bannerBg" class="banner-modal-bg" src="" alt="" aria-hidden="true" />
+                <img id="bannerImg" src="" alt="Promoción" />
+                <div class="banner-modal-overlay"></div>
+            </div>
         </div>
     </div>
     <div id="loginPromptModal" class="login-prompt-modal">

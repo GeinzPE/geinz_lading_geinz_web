@@ -4,6 +4,7 @@ import {
   query,
   where,
   limit,
+  doc,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   aliasTiendaDoc,
@@ -15,6 +16,7 @@ import {
   cargarColoresNegocio,
   aplicarColoresDesdeCache,
 } from "../js/colores_dinamicos/dinamicos.js";
+import { db } from "../js/db/db.js";
 // ══════════════════════════════════════════
 //  CAMPOS A MOSTRAR EN EL RESULTADO
 //  clave del doc del reclamo → cómo se pinta
@@ -62,6 +64,17 @@ async function resolverNegocio() {
       id: window.__NEGOCIO_ID__,
       localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
     };
+  }
+  // Dominio propio (geinz.es): se resuelve por dominio_web_tiendas
+  const host = window.location.hostname.replace(/^www\./, "");
+  if (host !== "geinztech.com") {
+    const domSnap = await getDoc(doc(db, "dominio_web_tiendas", host));
+    if (domSnap.exists()) {
+      const d = domSnap.data();
+      if (d.id && d.localidad) {
+        return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
+      }
+    }
   }
   const path = window.location.pathname;
 
@@ -230,7 +243,7 @@ function renderEstado(estadoRaw) {
 
     const biz = tiendaSnap.data();
     const footer = biz.footer || {};
-    if (footer.activo !== true || footer.libro_reclamaciones !== true) {
+    if (footer.libro_reclamaciones !== true) {
       return showNotAvailable(
         "Este negocio no tiene activo el Libro de Reclamaciones por el momento.",
       );

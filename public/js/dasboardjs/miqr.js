@@ -687,7 +687,7 @@ async function aplicarVisibilidadPorCategoria() {
   // Mesas: restaurante + local físico + plan (mesas.activo)
   ocultar(
     "mesasSection",
-    !(esRestaurante && modeloNegocio === true && PlanQr.mesasActivo()),
+    !(esRestaurante &&  PlanQr.mesasActivo()),
   );
 
   // Libro de reclamaciones: activo en el negocio Y en el plan

@@ -34,8 +34,6 @@ const AUTH_ORIGIN = "https://geinztech.com";
 const ES_DOMINIO_PROPIO =
   location.hostname !== "geinztech.com" &&
   location.hostname !== "www.geinztech.com";
-const LOGO_FALLBACK_URL =
-  "https://firebasestorage.googleapis.com/v0/b/geinzworkapp.appspot.com/o/tiendas%2FfW7W8RsgkkQ3IYfxKHGR%2Flogo%2Flogo.webp?alt=media&token=bb6e8d14-131a-449b-92bf-e4675bdab41b";
 
 const NIVELES = [
   { min: 0, label: "Nivel Bronce" },
@@ -192,6 +190,23 @@ async function resolverNegocioDesdeAlias(alias) {
   return null;
 }
 
+async function resolverNegocioDesdeDominio() {
+  try {
+    const host = location.hostname.replace(/^www\./, "");
+    const snap = await getDoc(doc(db, "dominio_web_tiendas", host));
+    if (snap.exists()) {
+      const d = snap.data();
+      if (d.id && d.localidad) {
+        ALIAS_NEGOCIO = d.alias || null;
+        return { negocioId: d.id, localidad: d.localidad.trim().toLowerCase() };
+      }
+    }
+  } catch (e) {
+    console.error("[fidelizacion] No se pudo resolver el dominio:", e);
+  }
+  return null;
+}
+
 function parseRutaCruda() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("id")) {
@@ -221,6 +236,12 @@ async function resolverRuta() {
       negocioId: window.__NEGOCIO_ID__,
       localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
     };
+  }
+
+  // Dominio propio: se resuelve por dominio_web_tiendas
+  if (ES_DOMINIO_PROPIO) {
+    const porDominio = await resolverNegocioDesdeDominio();
+    if (porDominio) return porDominio;
   }
 
   const cruda = parseRutaCruda();
@@ -337,10 +358,10 @@ function cargarLogoYColor(logoURL, nombreTienda) {
   return new Promise((resolve) => {
     const img = document.getElementById("logoImg");
     if (!img || !logoURL) {
+      document.getElementById("logoSkeleton")?.remove();
       resolve(colorFromName(nombreTienda));
       return;
     }
-
     setFaviconCircular(logoURL);
 
     img.src = logoURL;
@@ -878,7 +899,7 @@ function premiosParaUI(productos) {
         .filter(Boolean)
         .join(" · "),
       categoria: rfCategoriaDe(p),
-         unico: p.origen !== "catalogo",
+      unico: p.origen !== "catalogo",
       // campos que necesita el canje real (se conservan tal cual)
       origen: p.origen,
       productoId: p.productoId,
@@ -1244,8 +1265,12 @@ async function cargarDatos(uid) {
     horarioEstado = evaluarHorarioNegocio(tienda, new Date());
     const nombreTienda = tienda.nombre_tienda || "Mi Negocio";
     const logoURL =
-      tienda.logoURL || tienda.logo || tienda.urlLogo || LOGO_FALLBACK_URL;
-
+      tienda.img_tienda?.logo_tienda ||
+      tienda.logo_tienda ||
+      tienda.logoURL ||
+      tienda.logo ||
+      tienda.urlLogo ||
+      "";
     if (!clienteSnap.exists()) {
       showFollowGate(nombreTienda, logoURL, async () => {
         await seguirNegocio(uid);
@@ -1347,6 +1372,7 @@ async function cargarDatos(uid) {
 (async () => {
   const ruta = await resolverRuta();
   if (!ruta) {
+    document.getElementById("fullSkeleton")?.remove();
     showError("Enlace inválido: falta el negocio.");
     return;
   }

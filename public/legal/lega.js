@@ -15,6 +15,7 @@ import {
   cargarColoresNegocio,
   aplicarColoresDesdeCache,
 } from "../js/colores_dinamicos/dinamicos.js";
+import { db } from "../js/db/db.js";
 //  CONFIG DE CAMPOS DINÁMICOS
 //  clave del mapa "campos" en Firestore → cómo se pinta en el form
 //  "group" agrupa visualmente el campo en la sección 1 (Tus datos)
@@ -159,17 +160,26 @@ async function resolverNegocio() {
       localidad: window.__NEGOCIO_LOCALIDAD__.trim().toLowerCase(),
     };
   }
-  const path = window.location.pathname;
 
-  let alias = null;
-
-  // Ruta nueva: /perfil/{alias}/libro_reclamaciones
-  const matchPerfil = path.match(/^\/perfil\/([^/]+)\/libro_reclamaciones\/?$/);
-  if (matchPerfil) {
-    alias = decodeURIComponent(matchPerfil[1]);
+  // Dominio propio (geinz.es): se resuelve por dominio_web_tiendas
+  const host = window.location.hostname.replace(/^www\./, "");
+  const esDominioPropio = host !== "geinztech.com";
+  if (esDominioPropio) {
+    const domSnap = await getDoc(doc(db, "dominio_web_tiendas", host));
+    if (domSnap.exists()) {
+      const d = domSnap.data();
+      if (d.id && d.localidad) {
+        return { id: d.id, localidad: d.localidad.trim().toLowerCase() };
+      }
+    }
   }
 
-  // Compatibilidad con la ruta vieja: /legal/libro_reclamaciones/{alias}
+  const path = window.location.pathname;
+  let alias = null;
+
+  const matchPerfil = path.match(/^\/perfil\/([^/]+)\/libro_reclamaciones\/?$/);
+  if (matchPerfil) alias = decodeURIComponent(matchPerfil[1]);
+
   if (!alias && path.startsWith("/legal/libro_reclamaciones/")) {
     alias = decodeURIComponent(
       path.split("/legal/libro_reclamaciones/")[1] || "",
@@ -178,29 +188,21 @@ async function resolverNegocio() {
   }
 
   const params = new URLSearchParams(window.location.search);
-  if (!alias) alias = params.get("alias"); // fallback a links viejos con ?alias=
-
-  console.log("🔍 DEBUG lega.js — URL completa:", window.location.href);
-  console.log("🔍 DEBUG alias recibido:", alias);
+  if (!alias) alias = params.get("alias");
 
   if (!alias) {
     const id = params.get("id");
     const localidad = (params.get("localidad") || params.get("l") || "barranca")
       .trim()
       .toLowerCase();
-    console.log("🔍 DEBUG fallback id:", id, "localidad:", localidad);
     if (!id) throw new Error("No se especificó el negocio.");
     return { id, localidad };
   }
 
   const aliasSnap = await getDoc(aliasTiendaDoc(alias));
-  console.log("🔍 DEBUG alias existe en Firestore:", aliasSnap.exists());
   if (!aliasSnap.exists()) throw new Error("Perfil no encontrado.");
 
-  const data = aliasSnap.data();
-  console.log("🔍 DEBUG data del alias:", data);
-
-  const { id, localidad } = data;
+  const { id, localidad } = aliasSnap.data();
   if (!id || !localidad) throw new Error("Alias mal configurado.");
 
   return { id, localidad: localidad.trim().toLowerCase() };
