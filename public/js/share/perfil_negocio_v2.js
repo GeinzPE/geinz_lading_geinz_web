@@ -4,6 +4,136 @@ import { montarTarjetaFidelizacion } from "../../tarjeta_fidelizacion_desing/tar
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
+// ═══════════ EMOJI → IMAGEN (automático) ═══════════
+const ICON_BASE = "/img/iconos_perfil/";
+const EMOJI_MAP = {
+  "🎁": "caja_regalo.webp",
+  "➕": "flowwe_icon.png",
+  "✅": "sigueindo_icon.webp",
+  "🔥": "fuego_icon.png",
+  "⭐": "estrella_icon.webp",
+  "🌿": "ambiente_icon.webp",
+  "📖": "libro.webp",
+  "💳": "metodo_pago.webp",
+  "🚚": "camion.webp",
+  "⚠️": "alerta_icon.png",
+  "🛒": "carrito_3d.png",
+  "📤": "compartir_icon.png",
+  "🏷️": "categorias_icon.png",
+  "🔹": "punto_verde_icon.webp",
+  "🛋️": "sofa.webp",
+  "🎨": "paleta.webp",
+  "❌": "cruz.webp",
+  "⏳": "reloj_arena.webp",
+  "⏱️": "cronometro.webp",
+  "👋": "saludo_icon.png",
+  "📋": "copiar_icon.png",
+  "🔔": "campana_icon.png",
+  "♾️": "punto_verde_icon.png",
+  "💬": "mensaje.webp",
+  "🗓️": "calendario.webp",
+  "🛍️": "bolsa.webp",
+  "🔒": "candado.webp",
+  "👀": "ojos.webp",
+  "📷": "camara.webp",
+  "🚻": "banos.webp",
+  "📶": "wifi.webp",
+  "🅿️": "parking.webp",
+  "🔌": "enchufe.webp",
+  "❄️": "aire.webp",
+  "🐾": "mascota.webp",
+  "🏢": "edificio.webp",
+  "👶": "bebe.webp",
+  "🎮": "juegos.webp",
+};
+
+// Normaliza quitando el selector de variación (FE0F) para que "⚠" y "⚠️" coincidan
+const _norm = (e) => e.replace(/\uFE0F/g, "");
+const _MAP = Object.fromEntries(
+  Object.entries(EMOJI_MAP).map(([k, v]) => [_norm(k), v]),
+);
+const _EMOJI_RE = new RegExp(
+  "(" +
+    Object.keys(_MAP)
+      .sort((a, b) => b.length - a.length)
+      .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|") +
+    ")\\uFE0F?",
+  "g",
+);
+
+const _SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "NOSCRIPT"]);
+const _BAD_ICONS = new Set();
+
+function _swapTextNode(node) {
+  const txt = node.nodeValue;
+  if (!txt || !_EMOJI_RE.test(txt)) return;
+  _EMOJI_RE.lastIndex = 0;
+
+  const frag = document.createDocumentFragment();
+  let last = 0, m, changed = false;
+  while ((m = _EMOJI_RE.exec(txt))) {
+    const emoji = m[1];
+    const key = _norm(emoji);
+    if (_BAD_ICONS.has(key)) continue;
+
+    if (m.index > last) frag.append(txt.slice(last, m.index));
+    const img = document.createElement("img");
+    img.alt = emoji;
+    img.className = "geinz-ico";
+    img.draggable = false;
+    img.onerror = () => {
+      _BAD_ICONS.add(key);
+      img.replaceWith(document.createTextNode(emoji));
+    };
+    img.src = ICON_BASE + _MAP[key];
+    frag.append(img);
+    last = m.index + m[0].length;
+    changed = true;
+  }
+  if (!changed) return;
+  if (last < txt.length) frag.append(txt.slice(last));
+  node.replaceWith(frag);
+}
+
+function reemplazarEmojis(root) {
+  if (!root) return;
+  if (root.nodeType === 3) {
+    if (!_SKIP.has(root.parentNode?.nodeName)) _swapTextNode(root);
+    return;
+  }
+  if (root.nodeType !== 1 || _SKIP.has(root.nodeName)) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) =>
+      _SKIP.has(n.parentNode?.nodeName)
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(_swapTextNode);
+}
+
+// CSS: se comporta como un emoji (toma el tamaño de la letra)
+if (!document.getElementById("geinzIcoStyle")) {
+  const s = document.createElement("style");
+  s.id = "geinzIcoStyle";
+  s.textContent = `
+    .geinz-ico{display:inline-block;width:1.15em;height:1.15em;object-fit:contain;
+      vertical-align:-0.2em;flex-shrink:0;pointer-events:none;user-select:none;}
+  `;
+  document.head.appendChild(s);
+}
+
+// Primera pasada + vigilar todo lo que se cree/cambie después
+reemplazarEmojis(document.body);
+new MutationObserver((muts) => {
+  for (const m of muts) {
+    if (m.type === "characterData") reemplazarEmojis(m.target);
+    else m.addedNodes.forEach((n) => reemplazarEmojis(n));
+  }
+}).observe(document.body, { childList: true, subtree: true, characterData: true });
+
 let _heroFlipBound = false;
 let _heroFlipToggle = null;
 let _currentUid = null; // NUEVO
@@ -3221,93 +3351,41 @@ const CONTACT_META = {
   tiktok: { icon: "../img/tik_tok_icon.webp", getHref: (c) => c.valor },
   web: { icon: "../img/sitio-web.webp", getHref: (c) => c.valor },
 };
-function renderContactDetail(contactos) {
-  const cd = document.getElementById("contactDetail");
-  cd.innerHTML = "";
-  contactos.forEach((c) => {
-    const meta = CONTACT_META[c.tipo] || {
-      icon: "🔗",
-      getHref: (x) => x.valor,
-    };
+function pintarContactoModal() {
+  const list = document.getElementById("contactoList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  _contactosCache.forEach((c) => {
+    const meta = CONTACT_META[c.tipo] || { icon: "", getHref: (x) => x.valor };
     const displayVal =
       c.tipo === "whatsapp" || c.tipo === "telefono"
         ? ocultarNumero(c.valor)
         : c.nombre || c.valor;
-    const wrap = document.createElement("div");
-    wrap.style.cssText =
-      "display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;";
-    wrap.innerHTML = `
-  <img 
-    src="${meta.icon}" 
-    alt="${c.tipo}" 
-    style="
-      width:30px;
-      height:30px;
-      object-fit:cover;
-      border-radius:50%;
-      flex-shrink:0;
-      overflow:hidden;
-    "
-  >
 
-  <div style="flex:1;overflow:hidden">
-    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">
-      ${c.label}
-    </div>
-
-    <div style="font-size:14px;font-weight:500;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-      ${displayVal}
-    </div>
-  </div>
-
-  <button 
-    class="copy-btn" 
-    data-copy="${c.valor}" 
-    style="
-      width:34px;
-      height:34px;
-      border:none;
-      border-radius:10px;
-      cursor:pointer;
-      background:#1d1633;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      flex-shrink:0;
-    "
-  >
-    📋
-  </button>
-
-  <a 
-    href="${meta.getHref(c)}" 
-    target="_blank" 
-    rel="noopener" 
-    style="
-      padding:6px 14px;
-      border-radius:99px;
-      background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));
-      color:white;
-      font-size:12.5px;
-      font-weight:700;
-      text-decoration:none;
-      white-space:nowrap;
-      border:1px solid rgba(255,255,255,.06);
-      box-shadow:0 0 20px rgba(var(--dr),var(--dg),var(--db),.28);
-    "
-  >
-    ir
-  </a>
-`;
-    cd.appendChild(wrap);
+    const row = document.createElement("div");
+    row.style.cssText =
+      "display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--border,rgba(255,255,255,.08));background:var(--surface,rgba(255,255,255,.03));margin-bottom:8px;";
+    row.innerHTML = `
+      <img src="${meta.icon}" alt="${escapeHtml(c.tipo)}"
+        style="width:30px;height:30px;object-fit:cover;border-radius:50%;flex-shrink:0;">
+      <div style="flex:1;min-width:0;overflow:hidden">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">${escapeHtml(c.label)}</div>
+        <div style="font-size:14px;font-weight:500;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(displayVal)}</div>
+      </div>
+      <button type="button" class="copy-btn" data-copy="${escapeHtml(c.valor)}"
+        style="width:34px;height:34px;border:none;border-radius:10px;cursor:pointer;background:#1d1633;display:flex;align-items:center;justify-content:center;flex-shrink:0;">📋</button>
+      <a href="${escapeHtml(meta.getHref(c))}" target="_blank" rel="noopener"
+        style="padding:6px 14px;border-radius:99px;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));color:#fff;font-size:12.5px;font-weight:700;text-decoration:none;white-space:nowrap;border:1px solid rgba(255,255,255,.06);box-shadow:0 0 20px rgba(var(--dr),var(--dg),var(--db),.28);">ir</a>
+    `;
+    list.appendChild(row);
   });
-  cd.querySelectorAll(".copy-btn").forEach((btn) => {
+
+  list.querySelectorAll(".copy-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const value = btn.dataset.copy;
       try {
         await navigator.clipboard.writeText(value);
-        btn.textContent = "✅";
-        setTimeout(() => (btn.textContent = "📋"), 1400);
       } catch {
         const t = document.createElement("textarea");
         t.value = value;
@@ -3316,11 +3394,55 @@ function renderContactDetail(contactos) {
         t.select();
         document.execCommand("copy");
         document.body.removeChild(t);
-        btn.textContent = "✅";
-        setTimeout(() => (btn.textContent = "📋"), 1400);
       }
+      btn.textContent = "✅";
+      setTimeout(() => (btn.textContent = "📋"), 1400);
     });
   });
+}
+
+function abrirContactoModal() {
+  injectMetodosModalStyles();
+  let modal = document.getElementById("contactoModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "contactoModal";
+    modal.className = "metodos-modal";
+    modal.innerHTML = `
+      <div class="metodos-modal-box">
+        <div class="metodos-modal-header">
+          <h3 class="metodos-modal-title">Contacto</h3>
+          <button class="metodos-modal-close" id="contactoModalClose" aria-label="Cerrar">✕</button>
+        </div>
+        <div id="contactoList"></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    modal.addEventListener("click", (e) => {
+      if (e.target.id === "contactoModal") cerrarContactoModal();
+    });
+    document
+      .getElementById("contactoModalClose")
+      .addEventListener("click", cerrarContactoModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open"))
+        cerrarContactoModal();
+    });
+  }
+
+  pintarContactoModal();
+
+  modal.classList.remove("open");
+  void modal.offsetHeight;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => modal.classList.add("open")),
+  );
+  document.body.style.overflow = "hidden";
+}
+
+function cerrarContactoModal() {
+  document.getElementById("contactoModal")?.classList.remove("open");
+  document.body.style.overflow = "";
 }
 
 function updateQuickNav() {
@@ -3328,31 +3450,12 @@ function updateQuickNav() {
   if (!row) return;
   row.innerHTML = "";
   const items = [
-    _navState.ofertas && {
-      emoji: "🔥",
-      label: "Ofertas",
-      target: "secPromosActivas",
-    },
-    _navState.productos && {
-      emoji: "⭐",
-      label: "Lo mejor",
-      target: "secProductos",
-    },
-    _navState.ambientes && {
-      emoji: "🌿",
-      label: "Ambientes",
-      target: "secAmbientes",
-    },
-    _navState.carta && {
-      emoji: "📖",
-      label: "Carta digital",
-      target: "secCarta",
-    },
-    _navState.metodos && {
-      emoji: "💳",
-      label: "Métodos y más",
-      target: "__metodos",
-    },
+    _navState.ofertas && { emoji: "🔥", label: "Ofertas", target: "secPromosActivas" },
+    _navState.productos && { emoji: "⭐", label: "Lo mejor", target: "secProductos" },
+    _navState.ambientes && { emoji: "🌿", label: "Ambientes", target: "secAmbientes" },
+    _navState.carta && { emoji: "📖", label: "Carta digital", target: "secCarta" },
+    _navState.metodos && { emoji: "💳", label: "Métodos y más", target: "__metodos" },
+    _navState.contacto && { emoji: "💬", label: "Contacto", target: "__contacto" },
   ].filter(Boolean);
 
   items.forEach(({ emoji, label, target }) => {
@@ -3360,10 +3463,8 @@ function updateQuickNav() {
     btn.className = "nav-chip";
     btn.innerHTML = `<span class="emoji">${emoji}</span> ${label}`;
     btn.addEventListener("click", () => {
-      if (target === "__metodos") {
-        abrirMetodosModal();
-        return;
-      }
+      if (target === "__metodos") return abrirMetodosModal();
+      if (target === "__contacto") return abrirContactoModal();
       document
         .getElementById(target)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3371,7 +3472,6 @@ function updateQuickNav() {
     row.appendChild(btn);
   });
 }
-
 // ══════════════════════════════════════════
 //  STATUS BADGE
 // ══════════════════════════════════════════
@@ -4802,8 +4902,8 @@ function injectLightboxStyles() {
   style.id = "lightboxStyle";
   style.textContent = LIGHTBOX_CSS;
   document.head.appendChild(style);
+  injectCartaTextStyles(); // ← AÑADE: aquí vive el CSS del loader
 }
-
 function bindLightboxEvents() {
   if (_lightboxBound) return;
   _lightboxBound = true;
@@ -5433,7 +5533,9 @@ let _navState = {
   ambientes: false,
   carta: false,
   metodos: false,
+  contacto: false,
 };
+let _contactosCache = [];
 
 let _schedInterval = null; // evitar setInterval duplicados
 let _mesasUnsub = null;
@@ -5868,7 +5970,10 @@ async function render(biz, isInitial = true) {
   }
 
   // Contactos (NO tiempo real)
-  if (isInitial && contactos.length) renderContactDetail(contactos);
+  if (isInitial) {
+    _contactosCache = contactos;
+    _navState.contacto = contactos.length > 0;
+  }
 
   // Métodos de pago + servicios/comodidades → viven en el chip "Métodos y más"
   _pagosCache = pagos;
@@ -6148,7 +6253,7 @@ async function render(biz, isInitial = true) {
       document
         .getElementById("secContact")
         ?.style.setProperty("display", "none");
-    actualizarLayoutContactoFidel(); // ← agrégala aquí también
+
   }
 
   const exploreBtn = document.getElementById("exploreBtn");
@@ -6614,7 +6719,7 @@ let _rvLoadToken = 0;
 function bindReviewsLightboxEvents() {
   if (document.getElementById("reviewsLightboxModal")) return;
   injectReviewsStyles();
-
+  injectLightboxStyles();
   const modal = document.createElement("div");
   modal.id = "reviewsLightboxModal";
   modal.className = "rv-lightbox";
@@ -7797,6 +7902,10 @@ bindLoginPromptEvents();
 bindBannerModalEvents();
 bindUnfollowConfirmEvents();
 bindReviewEvents();
+document.getElementById("linkContactoFooter")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  if (_contactosCache.length) abrirContactoModal();
+});
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(

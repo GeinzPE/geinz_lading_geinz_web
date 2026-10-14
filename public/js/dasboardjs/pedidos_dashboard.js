@@ -9151,7 +9151,7 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
       .toLowerCase() === "comida y restaurantes";
 
   // Mesas solo se muestran si es restaurante Y tiene local físico
-  const debeMostrarMesas = esRestaurante && modeloNegocio === true;
+  const debeMostrarMesas = esRestaurante ;
   // Si NO debe mostrar mesas, quita el chip "Mesas"
   if (!debeMostrarMesas) {
     document.querySelector('.origin-chip[data-origin="mesa"]')?.remove();
