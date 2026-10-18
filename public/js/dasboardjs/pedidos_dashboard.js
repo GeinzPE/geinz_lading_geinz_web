@@ -9124,9 +9124,9 @@ function iniciarListenerGrupos() {
 
 async function aplicarVisibilidadPorCategoriaPedidos() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
-  let modeloNegocio = sessionStorage.getItem("modeloNegocio");
 
-  if (!categoria || modeloNegocio === null) {
+
+  if (!categoria ) {
     try {
       const snap = await getDoc(tiendaDoc(localidad, "tiendas", tiendaId));
       if (snap.exists()) {

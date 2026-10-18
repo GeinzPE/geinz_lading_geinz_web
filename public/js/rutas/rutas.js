@@ -279,3 +279,9 @@ export function dniDoc(localidad, dni) {
 export function dnisCol(localidad) {
   return tiendaSubCol(localidad, "dnis");
 }
+
+// ── Planes GEINZ (SaaS) ──
+// /costos_geinz_saas/config_planes  → { planes: {...}, actualizado }
+export function planesConfigDoc() {
+  return doc(db, "costos_geinz_saas", "config_planes");
+}
