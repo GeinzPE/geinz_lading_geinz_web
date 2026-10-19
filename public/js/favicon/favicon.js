@@ -3,8 +3,7 @@
 // ══════════════════════════════════════════
 import { getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../db/db.js";
-import { tiendaDoc } from "../rutas/rutas.js";
-
+import { tiendaDoc, setUbicacion } from "../rutas/rutas.js";
 /**
  * Recorta una imagen en círculo y la aplica como favicon.
  * Úsala cuando YA tienes la URL del logo en memoria (evita otra lectura a Firestore).
@@ -60,8 +59,9 @@ function applyFaviconLink(href) {
  * Úsala en archivos donde NO tienes el logo cargado todavía.
  * @param {{ localidad: string, id: string }} params
  */
-export async function setBusinessFaviconById({ localidad, id }) {
+export async function setBusinessFaviconById({ localidad, id, departamento, provincia }) {
   try {
+    if (departamento || provincia) setUbicacion({ departamento, provincia });
     const ref = tiendaDoc(localidad, "tiendas", id);
     const snap = await getDoc(ref);
     if (!snap.exists()) return;

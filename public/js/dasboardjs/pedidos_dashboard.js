@@ -9125,30 +9125,21 @@ function iniciarListenerGrupos() {
 async function aplicarVisibilidadPorCategoriaPedidos() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
 
-
-  if (!categoria ) {
+  if (!categoria) {
     try {
       const snap = await getDoc(tiendaDoc(localidad, "tiendas", tiendaId));
       if (snap.exists()) {
-        const data = snap.data();
-        categoria = categoria || data.categoria_tienda || null;
-        modeloNegocio = data.modelo_negocio;
+        categoria = snap.data().categoria_tienda || null;
         sessionStorage.setItem("categoriaTienda", categoria || "");
-        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio));
       }
     } catch (err) {
       console.error("No se pudo obtener la categoría de la tienda.", err);
     }
-  } else {
-    modeloNegocio = modeloNegocio === "true"; // sessionStorage guarda strings
   }
 
   const esRestaurante =
-    (categoria || "")
-      .normalize("NFKC")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase() === "comida y restaurantes";
+    (categoria || "").normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase()
+    === "comida y restaurantes";
 
   // Mesas solo se muestran si es restaurante Y tiene local físico
   const debeMostrarMesas = esRestaurante ;

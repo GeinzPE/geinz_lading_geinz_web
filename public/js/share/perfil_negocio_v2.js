@@ -732,6 +732,7 @@ import {
   data_user_logeado,
   tiendaServiciosDoc,
   clienteHistorialCol,
+  setUbicacion
 } from "../rutas/rutas.js";
 import {
   onAuthStateChanged,
@@ -1120,8 +1121,8 @@ async function getParams() {
       _cSet(key, data);
     }
     _dominioRegistrado = true;
-    const { id, localidad, categoria, alias } = data;
-
+    const { id, localidad, categoria, alias, departamento, provincia } = data;
+    setUbicacion({ departamento, provincia });
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
 
@@ -1177,7 +1178,8 @@ async function getParams() {
       adata = aliasSnap.data();
       _cSet(akey, adata);
     }
-    const { id, localidad, categoria } = adata;
+    const { id, localidad, categoria, departamento, provincia } = adata;
+    setUbicacion({ departamento, provincia }); // ← ubicación real del negocio
 
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
@@ -5779,7 +5781,8 @@ async function render(biz, isInitial = true) {
   _bizLogoUrl = logoUrl;
   _bizNombre = nombre;
   _bizAliasKey = biz.alias_key || null;
-  // Footer dinámico
+
+  // ── Footer dinámico ──
   const footerBizName = document.getElementById("footerBizName");
   const footerCopyName = document.getElementById("footerCopyName");
   const footerYear = document.getElementById("footerYear");
@@ -5839,6 +5842,19 @@ async function render(biz, isInitial = true) {
     const heroImg = document.getElementById("bizLogoHero");
     const heroPlaceholder = document.getElementById("bizLogoPlaceholderHero");
     if (logoUrl) {
+      // ▼▼▼ NUEVO: el marco del logo toma el aspecto real de la imagen ▼▼▼
+      heroImg.onload = () => {
+        if (heroImg.naturalWidth && heroImg.naturalHeight) {
+          document
+            .getElementById("heroFlip")
+            ?.style.setProperty(
+              "--logo-ar",
+              (heroImg.naturalWidth / heroImg.naturalHeight).toFixed(4),
+            );
+        }
+      };
+      // ▲▲▲ fin de lo nuevo (debe ir ANTES de heroImg.src) ▲▲▲
+
       heroImg.src = logoUrl;
       heroImg.style.display = "block";
       heroPlaceholder.style.display = "none";
@@ -5876,6 +5892,7 @@ async function render(biz, isInitial = true) {
     aplicarDegradado(null, null); // el dueño apagó el color: quita el degradado
     _tarjetaDestroy?.setBrand?.(null);
   }
+
   // ── CONTENIDO: siempre se actualiza ──
   document.getElementById("bizName").textContent = nombre;
   document.title = nombre;
@@ -5941,6 +5958,7 @@ async function render(biz, isInitial = true) {
       if (addrVirtual) addrVirtual.style.display = "flex";
     }
   }
+
   // Horario (SÍ tiempo real)
   const gridSched = document.getElementById("schedGrid");
   if (gridSched) {
@@ -5989,27 +6007,18 @@ async function render(biz, isInitial = true) {
   }
 
   // Carrito de perfil (hasta 20 productos elegidos en el dashboard)
-  // Ya viene incluido en 'biz' porque loadBusiness/listenBusinessRealtime leen ese mismo doc
-  console.log(
-    "🟣 render() isInitial=",
-    isInitial,
-    "| carritoPerfil:",
-    biz.carritoPerfil,
-    "| keys del doc:",
-    Object.keys(biz),
-  );
   renderProductosCatalogo(
     biz.carritoPerfil || [],
     _params.localidad,
     _params.id,
     _params.alias || biz.alias_key,
   );
+
   // Productos Grid (imágenes → NO tiempo real)
   const prodGrid = document.getElementById("productosGrid");
   if (isInitial && prodGrid && productos.length) {
     prodGrid.innerHTML = "";
 
-    // Grid dinámico según cantidad real visible
     const isMobile = window.matchMedia("(max-width: 767px)").matches;
     const maxVisible = isMobile ? 4 : productos.length;
     const realCount = Math.min(productos.length, maxVisible);
@@ -6075,7 +6084,7 @@ async function render(biz, isInitial = true) {
       } else {
         const imgWrap = createImageWithPlaceholder({
           src,
-          alt: "Producto",
+          alt: "Ambiente",
           onError: () => {
             card.style.display = "none";
           },
@@ -6253,7 +6262,6 @@ async function render(biz, isInitial = true) {
       document
         .getElementById("secContact")
         ?.style.setProperty("display", "none");
-
   }
 
   const exploreBtn = document.getElementById("exploreBtn");
@@ -6263,13 +6271,12 @@ async function render(biz, isInitial = true) {
   }
 
   // ── Reglas por plan y modelo de negocio ──
-
   const fidelizacionRaw = biz.fidelizacion || {};
   const fidelizacion = _F.fidel ? normalizeFidelizacion(fidelizacionRaw) : null;
-  _fidelizacionActiva = !!fidelizacion; // NUEVO
+  _fidelizacionActiva = !!fidelizacion;
   _fidelizacionMensajeInactivo =
     fidelizacionRaw.mensajeInactivo ||
-    "Este negocio no tiene el programa de fidelización activo por el momento."; // NUEVO
+    "Este negocio no tiene el programa de fidelización activo por el momento.";
   setupHeroFlip(!!fidelizacion);
   aplicarBrandingGeinz();
   document
@@ -6278,18 +6285,10 @@ async function render(biz, isInitial = true) {
   document
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
+
+  // (antes este bloque estaba duplicado y anidado; ahora queda uno solo)
   const fidelCard = document.getElementById("fidelizacionCard");
   if (fidelCard) {
-  const fidelCard = document.getElementById("fidelizacionCard");
-if (fidelCard) {
-  fidelCard.onclick = irAFidelizacion;
-  fidelCard.onkeydown = (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      irAFidelizacion();
-    }
-  };
-}
     fidelCard.onclick = irAFidelizacion;
     fidelCard.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") {

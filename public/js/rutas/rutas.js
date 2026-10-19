@@ -4,24 +4,47 @@ import {
   collection,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../db/db.js";
-
 let PAIS = "peru";
 let DEPARTAMENTO = "lima";
 let PROVINCIA = "barranca";
+
+const SLUG = /^[a-z0-9-]{2,60}$/;
+
+// Lee la ubicación del negocio activo: URL > sessionStorage > valor por defecto
+function ubicacionActual() {
+  let dep = DEPARTAMENTO, prov = PROVINCIA;
+  try {
+    const p = new URLSearchParams(location.search);
+    const d = p.get("departamento") || sessionStorage.getItem("departamento");
+    const v = p.get("provincia") || sessionStorage.getItem("provincia");
+    if (SLUG.test(d || "")) dep = d;
+    if (SLUG.test(v || "")) prov = v;
+  } catch {}
+  return { dep, prov };
+}
+
 export function setUbicacion({ pais, departamento, provincia } = {}) {
   if (pais) PAIS = pais;
-  if (departamento) DEPARTAMENTO = departamento;
-  if (provincia) PROVINCIA = provincia;
+  if (departamento) {
+    DEPARTAMENTO = departamento;
+    try { sessionStorage.setItem("departamento", departamento); } catch {}
+  }
+  if (provincia) {
+    PROVINCIA = provincia;
+    try { sessionStorage.setItem("provincia", provincia); } catch {}
+  }
 }
+
 function buildPath(localidad, ...resto) {
-  // localidad aquí = distrito (barranca, supe, paramonga, pativilca, puerto-supe)
+  const { dep, prov } = ubicacionActual();
+  console.log("[rutas] buildPath ->", { dep, prov, localidad, resto });
   return [
     "Tiendas",
     PAIS,
     "departamento",
-    DEPARTAMENTO,
+    dep,
     "provincia",
-    PROVINCIA,
+    prov,
     "distrito",
     localidad,
     ...resto,

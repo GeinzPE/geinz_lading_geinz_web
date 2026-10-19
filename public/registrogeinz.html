@@ -1,488 +1,1300 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Registra tu negocio — GEINZ TECH</title>
-<meta name="description" content="Registra tu negocio gratis en GEINZ. Registro 100% digital, sin comisiones.">
-<meta name="robots" content="index, follow">
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="icon" href="/img/icons/favicon.ico" sizes="any">
-<link rel="apple-touch-icon" href="/img/icons/apple-touch-icon.png">
-<style>
-:root{--g:linear-gradient(135deg,#7c3aed,#a855f7);--line:rgba(255,255,255,.08);--soft:rgba(255,255,255,.02);--ease:cubic-bezier(.16,1,.3,1)}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{scroll-behavior:smooth}
-body{margin:0;overflow-x:hidden;background:#030307;color:#f3f4f6;min-height:100vh;font-family:'Plus Jakarta Sans',sans-serif}
-button,input{font-family:inherit}
-::selection{background:rgba(124,58,237,.4)}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Registra tu negocio — GEINZ TECH</title>
+  <meta name="description" content="Registra tu negocio gratis en GEINZ. Registro 100% digital, sin comisiones.">
+  <meta name="robots" content="index, follow">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="icon" href="/img/icons/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/img/icons/apple-touch-icon.png">
+  <style>
+    :root {
+      --g: linear-gradient(135deg, #7c3aed, #a855f7);
+      --line: rgba(255, 255, 255, .08);
+      --soft: rgba(255, 255, 255, .02);
+      --ease: cubic-bezier(.16, 1, .3, 1)
+    }
 
-/* fondo */
-.bg,.glow{position:fixed;pointer-events:none;z-index:0}
-.bg{inset:0;background-image:linear-gradient(rgba(124,58,237,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,.03) 1px,transparent 1px);background-size:40px 40px;background-position:center;-webkit-mask-image:radial-gradient(circle at 50% 20%,#000 40%,transparent 90%);mask-image:radial-gradient(circle at 50% 20%,#000 40%,transparent 90%)}
-.glow{width:min(700px,90vw);height:min(700px,90vw);background:radial-gradient(circle,rgba(124,58,237,.1),transparent 70%)}
-.glow.a{top:-260px;left:-120px}
-.glow.b{bottom:-260px;right:-140px;opacity:.7}
-.gradient-text{background:linear-gradient(135deg,#fff 30%,#c084fc 70%,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent
+    }
 
-/* base reutilizable */
-.glass{background:rgba(15,15,25,.55);border:1px solid rgba(124,58,237,.1);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:28px}
-.glass.inner{background:rgba(255,255,255,.015);border-color:rgba(255,255,255,.06);border-radius:22px}
-.box{background:var(--soft);border:1px solid var(--line);border-radius:16px;transition:all .25s var(--ease)}
-.box:focus-within{border-color:rgba(167,139,250,.55);background:rgba(124,58,237,.05);box-shadow:0 0 0 4px rgba(124,58,237,.08)}
-.field-input{background:transparent;border:0;outline:0;color:#fff;width:100%;font-size:.875rem}
-.field-input::placeholder{color:rgba(255,255,255,.28)}
-.field-label{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(167,139,250,.75)}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.pais{display:flex;align-items:center;gap:10px;padding:14px 16px;font-size:.875rem;font-weight:700}
-.pais small{margin-left:auto;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:rgba(167,139,250,.5)}
+    html {
+      scroll-behavior: smooth
+    }
 
-/* dropdown custom */
-.cool-select{position:relative}
-.cool-select-trigger{width:100%;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;color:#fff;font-size:.875rem;font-weight:500;text-align:left}
-.cool-select-trigger:hover:not(:disabled){border-color:rgba(167,139,250,.4);background:rgba(124,58,237,.05)}
-.cool-select-trigger:disabled{cursor:not-allowed;opacity:.5}
-.cool-select.open .cool-select-trigger{border-color:rgba(167,139,250,.6);background:rgba(124,58,237,.06);box-shadow:0 0 0 4px rgba(124,58,237,.1)}
-.cs-val{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cs-val.ph{color:rgba(255,255,255,.3);font-weight:400}
-.chev{flex-shrink:0;color:rgba(167,139,250,.7);transition:transform .25s var(--ease)}
-.open .chev{transform:rotate(180deg)}
-.cs-panel{position:absolute;top:calc(100% + 8px);left:0;min-width:100%;width:max-content;max-width:280px;background:rgba(12,10,20,.97);border:1px solid rgba(124,58,237,.22);border-radius:18px;box-shadow:0 20px 50px rgba(0,0,0,.5);z-index:60;padding:8px;opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;transition:all .2s var(--ease)}
-.open .cs-panel{opacity:1;transform:none;pointer-events:auto}
-.cs-search{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);margin-bottom:6px;color:rgba(167,139,250,.6)}
-.cs-search input{background:transparent;border:0;outline:0;color:#fff;font-size:12.5px;width:100%}
-.cs-opts{max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(167,139,250,.4) transparent}
-.cs-opt{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:10px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.75);cursor:pointer}
-.cs-opt:hover{background:rgba(124,58,237,.15);color:#fff}
-.cs-opt.on{background:rgba(124,58,237,.2);color:#fff;font-weight:700}
-.cs-opt svg{color:#a78bfa;opacity:0}
-.cs-opt.on svg{opacity:1}
-.cs-empty{padding:16px 10px;text-align:center;font-size:11px;color:rgba(255,255,255,.3)}
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      background: #030307;
+      color: #f3f4f6;
+      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif
+    }
 
-/* botones */
-.btn{border-radius:14px;font-weight:700;font-size:12px;padding:14px 28px;border:0;cursor:pointer;transition:all .3s var(--ease);display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.btn-primary{background:var(--g);color:#fff;box-shadow:0 10px 30px rgba(124,58,237,.32)}
-.btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 16px 40px rgba(124,58,237,.48)}
-.btn-primary:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
-.btn-ghost{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.75);font-weight:600;padding-inline:24px}
-.btn-ghost:hover{background:rgba(255,255,255,.07)}
+    button,
+    input {
+      font-family: inherit
+    }
 
-/* pasos */
-.steps{display:flex;align-items:center;gap:6px}
-.step{display:flex;align-items:center;gap:10px;flex:1}
-.step:last-child{flex:0}
-.dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:1.5px solid rgba(255,255,255,.12);color:rgba(255,255,255,.35);background:var(--soft);transition:all .4s var(--ease);flex-shrink:0}
-.step.active .dot{border-color:transparent;background:linear-gradient(135deg,#7c3aed,#c084fc);color:#fff;box-shadow:0 0 0 4px rgba(124,58,237,.16)}
-.step.done .dot{border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.12);color:#4ade80}
-.step span{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.3)}
-.step.active span{color:#c084fc}
-.bar{flex:1;height:1.5px;background:var(--line);position:relative;overflow:hidden;border-radius:2px}
-.bar::after{content:'';position:absolute;inset:0;width:0;background:linear-gradient(90deg,#7c3aed,#c084fc);transition:width .5s var(--ease)}
-.bar.filled::after{width:100%}
+    ::selection {
+      background: rgba(124, 58, 237, .4)
+    }
 
-/* paneles */
-.panel{display:none;animation:in .5s var(--ease)}
-.panel.active{display:block}
-@keyframes in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+    /* fondo */
+    .bg,
+    .glow {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0
+    }
 
-/* logo */
-.logo-drop{width:100%;aspect-ratio:1;max-width:180px;margin:0 auto;border-radius:22px;border:1.5px dashed rgba(167,139,250,.35);background:rgba(124,58,237,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .3s;position:relative;overflow:hidden;font-size:10px;font-weight:700;color:rgba(167,139,250,.65);text-transform:uppercase;letter-spacing:.06em;text-align:center}
-.logo-drop:hover{border-color:rgba(167,139,250,.7);background:rgba(124,58,237,.08)}
-.logo-drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .bg {
+      inset: 0;
+      background-image: linear-gradient(rgba(124, 58, 237, .03) 1px, transparent 1px), linear-gradient(90deg, rgba(124, 58, 237, .03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      background-position: center;
+      -webkit-mask-image: radial-gradient(circle at 50% 20%, #000 40%, transparent 90%);
+      mask-image: radial-gradient(circle at 50% 20%, #000 40%, transparent 90%)
+    }
 
-/* opciones seleccionables (tipo de tienda + planes) */
-.opt{position:relative;cursor:pointer;user-select:none;background:var(--soft);border:1.5px solid var(--line);transition:all .25s var(--ease)}
-.opt:hover{border-color:rgba(167,139,250,.4);background:rgba(124,58,237,.04)}
-.opt.selected{border-color:rgba(167,139,250,.75);background:linear-gradient(160deg,rgba(124,58,237,.16),rgba(168,85,247,.04));box-shadow:0 10px 30px rgba(124,58,237,.22)}
-.radio{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto;transition:all .2s}
-.radio::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff;opacity:0;transform:scale(.4);transition:all .2s}
-.selected>.radio,.selected .radio{border-color:transparent;background:var(--g)}
-.selected>.radio::after,.selected .radio::after{opacity:1;transform:none}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.tipo{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px}
-.tipo b{font-size:13px;font-weight:800;display:block}
-.tipo small{font-size:10.5px;color:rgba(255,255,255,.45);font-weight:300}
-.plan-card{border-radius:22px;padding:20px 18px 18px}
-.plan-card .radio{position:absolute;top:18px;right:18px}
-.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:rgba(255,255,255,.06);color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.12)}
-.badge.hot{background:rgba(168,85,247,.15);color:#d8b4fe;border-color:rgba(168,85,247,.3)}
-.plan-card h4{font-size:15px;font-weight:800;margin:12px 0 0}
-.plan-card p.d{font-size:11px;color:rgba(255,255,255,.45);font-weight:300;line-height:1.5;margin:4px 0 0;min-height:44px}
-.price{font-size:26px;font-weight:800;margin:10px 0 0}
-.price small{font-size:11px;font-weight:400;color:rgba(255,255,255,.45)}
-.feats{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:8px}
-.feats div{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:500;color:rgba(255,255,255,.8)}
-.feats svg{flex-shrink:0}
+    .glow {
+      width: min(700px, 90vw);
+      height: min(700px, 90vw);
+      background: radial-gradient(circle, rgba(124, 58, 237, .1), transparent 70%)
+    }
 
-/* resumen */
-.row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05)}
-.row:last-child{border:0}
-.row i{font-style:normal;font-size:11px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.05em}
-.row b{font-size:13px;font-weight:600;text-align:right}
-.info{background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);border-radius:18px;padding:18px 20px;display:flex;gap:14px}
-.chk{width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);flex-shrink:0;margin-top:1px;transition:all .2s}
-.chk.on{background:var(--g);border-color:transparent}
+    .glow.a {
+      top: -260px;
+      left: -120px
+    }
 
-/* éxito */
-.ok-ring{width:84px;height:84px;border-radius:50%;margin:0 auto 22px;background:radial-gradient(circle,rgba(74,222,128,.18),transparent 70%);display:flex;align-items:center;justify-content:center;position:relative}
-.ok-ring::before{content:'';position:absolute;inset:0;border-radius:50%;border:1.5px solid rgba(74,222,128,.35);animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{50%{transform:scale(1.15);opacity:1}0%,100%{transform:scale(1);opacity:.5}}
-.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
+    .glow.b {
+      bottom: -260px;
+      right: -140px;
+      opacity: .7
+    }
 
-@media(max-width:600px){.grid2,.grid3{grid-template-columns:1fr}}
-@media(max-width:480px){.glass{border-radius:20px}}
-</style>
+    .gradient-text {
+      background: linear-gradient(135deg, #fff 30%, #c084fc 70%, #a78bfa);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent
+    }
+
+    /* base reutilizable */
+    .glass {
+      background: rgba(15, 15, 25, .55);
+      border: 1px solid rgba(124, 58, 237, .1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 28px
+    }
+
+    .glass.inner {
+      background: rgba(255, 255, 255, .015);
+      border-color: rgba(255, 255, 255, .06);
+      border-radius: 22px
+    }
+
+    .box {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      transition: all .25s var(--ease)
+    }
+
+    .box:focus-within {
+      border-color: rgba(167, 139, 250, .55);
+      background: rgba(124, 58, 237, .05);
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, .08)
+    }
+
+    .field-input {
+      background: transparent;
+      border: 0;
+      outline: 0;
+      color: #fff;
+      width: 100%;
+      font-size: .875rem
+    }
+
+    .field-input::placeholder {
+      color: rgba(255, 255, 255, .28)
+    }
+
+    .field-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: rgba(167, 139, 250, .75)
+    }
+
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px
+    }
+
+    .pais {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      font-size: .875rem;
+      font-weight: 700
+    }
+
+    .pais small {
+      margin-left: auto;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: rgba(167, 139, 250, .5)
+    }
+
+    /* dropdown custom */
+    .cool-select {
+      position: relative
+    }
+
+    .cool-select-trigger {
+      width: 100%;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      color: #fff;
+      font-size: .875rem;
+      font-weight: 500;
+      text-align: left
+    }
+
+    .cool-select-trigger:hover:not(:disabled) {
+      border-color: rgba(167, 139, 250, .4);
+      background: rgba(124, 58, 237, .05)
+    }
+
+    .cool-select-trigger:disabled {
+      cursor: not-allowed;
+      opacity: .5
+    }
+
+    .cool-select.open .cool-select-trigger {
+      border-color: rgba(167, 139, 250, .6);
+      background: rgba(124, 58, 237, .06);
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, .1)
+    }
+
+    .cs-val {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .cs-val.ph {
+      color: rgba(255, 255, 255, .3);
+      font-weight: 400
+    }
+
+    .chev {
+      flex-shrink: 0;
+      color: rgba(167, 139, 250, .7);
+      transition: transform .25s var(--ease)
+    }
+
+    .open .chev {
+      transform: rotate(180deg)
+    }
+
+    .cs-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      min-width: 100%;
+      width: max-content;
+      max-width: 280px;
+      background: rgba(12, 10, 20, .97);
+      border: 1px solid rgba(124, 58, 237, .22);
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, .5);
+      z-index: 60;
+      padding: 8px;
+      opacity: 0;
+      transform: translateY(-8px) scale(.98);
+      pointer-events: none;
+      transition: all .2s var(--ease)
+    }
+
+    .open .cs-panel {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto
+    }
+
+    .cs-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid rgba(255, 255, 255, .07);
+      margin-bottom: 6px;
+      color: rgba(167, 139, 250, .6)
+    }
+
+    .cs-search input {
+      background: transparent;
+      border: 0;
+      outline: 0;
+      color: #fff;
+      font-size: 12.5px;
+      width: 100%
+    }
+
+    .cs-opts {
+      max-height: 220px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(167, 139, 250, .4) transparent
+    }
+
+    .cs-opt {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, .75);
+      cursor: pointer
+    }
+
+    .cs-opt:hover {
+      background: rgba(124, 58, 237, .15);
+      color: #fff
+    }
+
+    .cs-opt.on {
+      background: rgba(124, 58, 237, .2);
+      color: #fff;
+      font-weight: 700
+    }
+
+    .cs-opt svg {
+      color: #a78bfa;
+      opacity: 0
+    }
+
+    .cs-opt.on svg {
+      opacity: 1
+    }
+
+    .cs-empty {
+      padding: 16px 10px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255, 255, 255, .3)
+    }
+
+    /* botones */
+    .btn {
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 14px 28px;
+      border: 0;
+      cursor: pointer;
+      transition: all .3s var(--ease);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px
+    }
+
+    .btn-primary {
+      background: var(--g);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(124, 58, 237, .32)
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(124, 58, 237, .48)
+    }
+
+    .btn-primary:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+      box-shadow: none
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid rgba(255, 255, 255, .09);
+      color: rgba(255, 255, 255, .75);
+      font-weight: 600;
+      padding-inline: 24px
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, .07)
+    }
+
+    /* pasos */
+    .steps {
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1
+    }
+
+    .step:last-child {
+      flex: 0
+    }
+
+    .dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      border: 1.5px solid rgba(255, 255, 255, .12);
+      color: rgba(255, 255, 255, .35);
+      background: var(--soft);
+      transition: all .4s var(--ease);
+      flex-shrink: 0
+    }
+
+    .step.active .dot {
+      border-color: transparent;
+      background: linear-gradient(135deg, #7c3aed, #c084fc);
+      color: #fff;
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, .16)
+    }
+
+    .step.done .dot {
+      border-color: rgba(74, 222, 128, .4);
+      background: rgba(74, 222, 128, .12);
+      color: #4ade80
+    }
+
+    .step span {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, .3)
+    }
+
+    .step.active span {
+      color: #c084fc
+    }
+
+    .bar {
+      flex: 1;
+      height: 1.5px;
+      background: var(--line);
+      position: relative;
+      overflow: hidden;
+      border-radius: 2px
+    }
+
+    .bar::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: 0;
+      background: linear-gradient(90deg, #7c3aed, #c084fc);
+      transition: width .5s var(--ease)
+    }
+
+    .bar.filled::after {
+      width: 100%
+    }
+
+    /* paneles */
+    .panel {
+      display: none;
+      animation: in .5s var(--ease)
+    }
+
+    .panel.active {
+      display: block
+    }
+
+    @keyframes in {
+      from {
+        opacity: 0;
+        transform: translateY(14px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    /* logo */
+    .logo-drop {
+      width: 100%;
+      aspect-ratio: 1;
+      max-width: 180px;
+      margin: 0 auto;
+      border-radius: 22px;
+      border: 1.5px dashed rgba(167, 139, 250, .35);
+      background: rgba(124, 58, 237, .04);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all .3s;
+      position: relative;
+      overflow: hidden;
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(167, 139, 250, .65);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      text-align: center
+    }
+
+    .logo-drop:hover {
+      border-color: rgba(167, 139, 250, .7);
+      background: rgba(124, 58, 237, .08)
+    }
+
+    .logo-drop img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover
+    }
+
+    /* opciones seleccionables (tipo de tienda + planes) */
+    .opt {
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+      background: var(--soft);
+      border: 1.5px solid var(--line);
+      transition: all .25s var(--ease)
+    }
+
+    .opt:hover {
+      border-color: rgba(167, 139, 250, .4);
+      background: rgba(124, 58, 237, .04)
+    }
+
+    .opt.selected {
+      border-color: rgba(167, 139, 250, .75);
+      background: linear-gradient(160deg, rgba(124, 58, 237, .16), rgba(168, 85, 247, .04));
+      box-shadow: 0 10px 30px rgba(124, 58, 237, .22)
+    }
+
+    .radio {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, .22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-left: auto;
+      transition: all .2s
+    }
+
+    .radio::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      opacity: 0;
+      transform: scale(.4);
+      transition: all .2s
+    }
+
+    .selected>.radio,
+    .selected .radio {
+      border-color: transparent;
+      background: var(--g)
+    }
+
+    .selected>.radio::after,
+    .selected .radio::after {
+      opacity: 1;
+      transform: none
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px
+    }
+
+    .tipo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 16px
+    }
+
+    .tipo b {
+      font-size: 13px;
+      font-weight: 800;
+      display: block
+    }
+
+    .tipo small {
+      font-size: 10.5px;
+      color: rgba(255, 255, 255, .45);
+      font-weight: 300
+    }
+
+    .plan-card {
+      border-radius: 22px;
+      padding: 20px 18px 18px
+    }
+
+    .plan-card .radio {
+      position: absolute;
+      top: 18px;
+      right: 18px
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      background: rgba(255, 255, 255, .06);
+      color: rgba(255, 255, 255, .55);
+      border: 1px solid rgba(255, 255, 255, .12)
+    }
+
+    .badge.hot {
+      background: rgba(168, 85, 247, .15);
+      color: #d8b4fe;
+      border-color: rgba(168, 85, 247, .3)
+    }
+
+    .plan-card h4 {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 12px 0 0
+    }
+
+    .plan-card p.d {
+      font-size: 11px;
+      color: rgba(255, 255, 255, .45);
+      font-weight: 300;
+      line-height: 1.5;
+      margin: 4px 0 0;
+      min-height: 44px
+    }
+
+    .price {
+      font-size: 26px;
+      font-weight: 800;
+      margin: 10px 0 0
+    }
+
+    .price small {
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, .45)
+    }
+
+    .feats {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, .06);
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .feats div {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, .8)
+    }
+
+    .feats svg {
+      flex-shrink: 0
+    }
+
+    /* resumen */
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .05)
+    }
+
+    .row:last-child {
+      border: 0
+    }
+
+    .row i {
+      font-style: normal;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, .4);
+      text-transform: uppercase;
+      letter-spacing: .05em
+    }
+
+    .row b {
+      font-size: 13px;
+      font-weight: 600;
+      text-align: right
+    }
+
+    .info {
+      background: rgba(124, 58, 237, .06);
+      border: 1px solid rgba(124, 58, 237, .18);
+      border-radius: 18px;
+      padding: 18px 20px;
+      display: flex;
+      gap: 14px
+    }
+
+    .chk {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(255, 255, 255, .2);
+      flex-shrink: 0;
+      margin-top: 1px;
+      transition: all .2s
+    }
+
+    .chk.on {
+      background: var(--g);
+      border-color: transparent
+    }
+
+    /* éxito */
+    .ok-ring {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      margin: 0 auto 22px;
+      background: radial-gradient(circle, rgba(74, 222, 128, .18), transparent 70%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative
+    }
+
+    .ok-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid rgba(74, 222, 128, .35);
+      animation: pulse 2s ease-in-out infinite
+    }
+
+    @keyframes pulse {
+      50% {
+        transform: scale(1.15);
+        opacity: 1
+      }
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: .5
+      }
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, .3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .subgrid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      max-height: 210px;
+      overflow-y: auto;
+      scrollbar-width: thin
+    }
+
+    .sub-chip {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, .7);
+      background: var(--soft);
+      border: 1px solid var(--line);
+      cursor: pointer;
+      transition: all .2s var(--ease)
+    }
+
+    .sub-chip:hover {
+      border-color: rgba(167, 139, 250, .4)
+    }
+
+    .sub-chip.on {
+      color: #fff;
+      border-color: rgba(167, 139, 250, .75);
+      background: linear-gradient(160deg, rgba(124, 58, 237, .3), rgba(168, 85, 247, .1))
+    }
+
+    @media(max-width:600px) {
+
+      .grid2,
+      .grid3 {
+        grid-template-columns: 1fr
+      }
+    }
+
+    @media(max-width:480px) {
+      .glass {
+        border-radius: 20px
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="bg"></div><div class="glow a"></div><div class="glow b"></div>
+  <div class="bg"></div>
+  <div class="glow a"></div>
+  <div class="glow b"></div>
 
-<div class="relative z-10 min-h-screen flex flex-col">
-  <div style="width:100%;max-width:900px;margin:0 auto;padding:20px 20px 0">
-    <nav class="flex items-center justify-between py-3 px-5 glass">
-      <a href="/" class="flex items-center gap-3">
-        <img src="/img/logo geinz.png" class="w-8 h-8 object-contain rounded-lg" alt="Geinz">
-        <span class="font-extrabold text-xs tracking-wide text-white">GEINZ TECH</span>
-      </a>
-      <a href="/" class="text-[11px] font-semibold text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-        Volver al inicio
-      </a>
-    </nav>
-  </div>
-
-  <main class="flex-1 flex items-start justify-center px-4 sm:px-6 py-10 md:py-14">
-    <div style="width:100%;max-width:640px">
-
-      <div class="text-center mb-8 space-y-2">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/20 bg-purple-500/5 text-[10px] font-bold text-purple-300 uppercase tracking-widest">
-          <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> Registro gratuito y 100% digital
-        </div>
-        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight gradient-text leading-tight">Registra tu negocio</h1>
-        <p class="text-gray-400 text-sm font-light max-w-md mx-auto leading-relaxed">Un solo paso y quedas visible en todo el Perú. Sin comisiones, sin visitas, sin letra chica.</p>
-      </div>
-
-      <div class="steps mb-8 px-1" id="steps">
-        <div class="step"><div class="dot">1</div><span>Negocio</span></div><div class="bar"></div>
-        <div class="step"><div class="dot">2</div><span>Plan</span></div><div class="bar"></div>
-        <div class="step"><div class="dot">3</div><span>Confirmar</span></div>
-      </div>
-
-      <form id="form" class="glass p-6 md:p-10" onsubmit="return false">
-
-        <!-- PASO 1 -->
-        <div class="panel active">
-          <div class="mb-7">
-            <div class="logo-drop" id="logoDrop">
-              <img id="logoImg" style="display:none" alt="Logo del negocio">
-              <svg id="logoIcon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8"><path d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L16 16M14 14l1.5-1.5a2 2 0 0 1 2.8 0L20 14M4 8h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM8 8V6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/></svg>
-              <span id="logoHint">Foto o logo<br>del negocio</span>
-              <input type="file" id="logoInput" accept="image/*" hidden>
-            </div>
-            <p class="text-center text-[10px] text-gray-600 mt-2 font-light">JPG o PNG · usada como referencia para el asistente y la app</p>
-          </div>
-
-          <div class="space-y-5">
-            <div>
-              <label class="field-label">Nombre del negocio</label>
-              <div class="box px-4 py-3.5 mt-1.5 flex items-center gap-3">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1"/></svg>
-                <input id="nombre" class="field-input" placeholder="Ej: Panadería San José" maxlength="60">
-              </div>
-            </div>
-
-            <div>
-              <label class="field-label">País</label>
-              <div class="box pais mt-1.5"><span>🇵🇪</span>Perú<small>+ países próximamente</small></div>
-            </div>
-
-            <div class="grid3">
-              <div><label class="field-label">Departamento</label><div id="csDep"></div></div>
-              <div><label class="field-label">Provincia</label><div id="csProv"></div></div>
-              <div><label class="field-label">Distrito</label><div id="csDist"></div></div>
-            </div>
-            <span id="ubiError" class="text-[10px] text-red-400 font-semibold" style="display:none">No se pudo cargar la lista de ubicaciones. Recarga la página.</span>
-
-            <div>
-              <label class="field-label">Dirección exacta</label>
-              <div class="box px-4 py-3.5 mt-1.5 flex items-center gap-3">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M12 22s7-7.4 7-12a7 7 0 1 0-14 0c0 4.6 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>
-                <input id="direccion" class="field-input" placeholder="Ej: Jr. Lima 245, cerca al mercado central" maxlength="120">
-              </div>
-              <button type="button" id="btnGeo" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wide">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-                Adjuntar mi ubicación GPS (opcional)
-              </button>
-              <span id="geoOk" class="ml-2 text-[10px] text-emerald-400 font-semibold" style="display:none">✓ Ubicación detectada</span>
-            </div>
-
-            <div>
-              <label class="field-label">Teléfono / WhatsApp</label>
-              <div class="box px-4 py-3.5 mt-1.5 flex items-center gap-3">
-                <span class="text-xs font-bold text-gray-400">🇵🇪 +51</span>
-                <div style="width:1px;height:16px;background:rgba(255,255,255,.1)"></div>
-                <input type="tel" id="telefono" class="field-input" placeholder="987 654 321" maxlength="9" inputmode="numeric">
-              </div>
-            </div>
-          </div>
-
-          <div class="flex justify-end mt-8"><button type="button" class="btn btn-primary" id="next1">Continuar →</button></div>
-        </div>
-
-        <!-- PASO 2 -->
-        <div class="panel">
-          <div class="mb-6">
-            <label class="field-label">¿Qué tipo de tienda es?</label>
-            <div class="grid2 mt-2" id="tipoGrid">
-              <div class="opt tipo" data-tipo="fisica">
-                <span style="font-size:22px">🏪</span>
-                <div><b>Tienda física</b><small>Tengo local donde atiendo</small></div>
-                <span class="radio"></span>
-              </div>
-              <div class="opt tipo" data-tipo="virtual">
-                <span style="font-size:22px">🌐</span>
-                <div><b>Tienda virtual</b><small>Vendo online / con delivery</small></div>
-                <span class="radio"></span>
-              </div>
-            </div>
-          </div>
-
-          <h3 class="text-base font-bold mb-1">Elige el plan de tu negocio</h3>
-          <p class="text-xs text-gray-500 font-light leading-relaxed mb-5">
-            ¿No tienes productos que vender (barbero, técnico, consultorio)? Elige <b class="text-gray-300">Presencia y Vitrina Digital</b>.
-            ¿Manejas stock o catálogo (tienda, restaurante, licorería)? Elige <b class="text-gray-300">Tienda Virtual + Gestión de Pedidos</b>.
-            Puedes cambiarlo después desde tu panel.
-          </p>
-
-          <div class="grid2" id="planGrid"><div class="opt plan-card" style="min-height:220px;opacity:.4">Cargando planes...</div></div>
-          <p id="planHint" class="text-[10px] text-gray-600 font-light mt-4">Elige el tipo de tienda y toca una tarjeta para elegir tu plan.</p>
-
-          <div class="flex justify-between mt-8">
-            <button type="button" class="btn btn-ghost" id="back2">Atrás</button>
-            <button type="button" class="btn btn-primary" id="next2" disabled>Continuar →</button>
-          </div>
-        </div>
-
-        <!-- PASO 3 -->
-        <div class="panel">
-          <div class="info mb-7">
-            <span style="font-size:20px">⚡</span>
-            <div>
-              <h4 class="text-xs font-bold text-white">Activación automática</h4>
-              <p class="text-[11px] text-gray-400 mt-1 leading-relaxed font-light">Tu negocio se valida de forma <b class="text-purple-300">100% digital</b>, sin visitas ni citas. En cuanto confirmes, queda publicado en el ecosistema GEINZ.</p>
-            </div>
-          </div>
-          <h3 class="text-base font-bold mb-1">Revisa tu registro</h3>
-          <p class="text-xs text-gray-500 font-light mb-4">Verifica que todo esté correcto antes de enviarlo.</p>
-          <div class="glass inner p-5" id="resumen"></div>
-
-          <div class="mt-6 flex items-start gap-3 cursor-pointer" id="termsRow">
-            <div class="chk" id="chk"></div>
-            <p class="text-[11px] text-gray-400 leading-relaxed font-light select-none">
-              Acepto los <a href="/seguridad_geinz/terminos_y_condiciones" target="_blank" onclick="event.stopPropagation()" class="text-purple-400 hover:text-purple-300 font-semibold underline underline-offset-2">Términos y Condiciones</a>
-              de GEINZ y confirmo que la información brindada es real. Entiendo que mi negocio quedará registrado de forma permanente en el ecosistema GEINZ, salvo que yo solicite su eliminación.
-            </p>
-          </div>
-          <div id="formError" class="text-[11px] text-red-400 font-semibold mt-3" style="display:none"></div>
-
-          <div class="flex justify-between mt-8">
-            <button type="button" class="btn btn-ghost" id="back3">Atrás</button>
-            <button type="button" class="btn btn-primary" id="submit" disabled>🚀 Enviar registro</button>
-          </div>
-        </div>
-
-        <!-- ÉXITO -->
-        <div class="panel">
-          <div class="text-center py-4">
-            <div class="ok-ring"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg></div>
-            <h3 class="text-xl font-extrabold text-white">¡Tu negocio ya está registrado!</h3>
-            <p class="text-gray-400 text-xs font-light mt-2 max-w-sm mx-auto leading-relaxed">El registro fue validado automáticamente. Ya puedes empezar a aparecer en el ecosistema GEINZ.</p>
-            <div class="glass inner p-5 mt-6 text-left" id="hecho"></div>
-            <p class="text-gray-600 text-[10px] font-light mt-5 leading-relaxed">Tu negocio quedará registrado de forma permanente en GEINZ, salvo que solicites su eliminación desde el panel de tu negocio.</p>
-            <a href="/" class="btn btn-primary mt-7">Volver al inicio</a>
-          </div>
-        </div>
-
-      </form>
+  <div class="relative z-10 min-h-screen flex flex-col">
+    <div style="width:100%;max-width:900px;margin:0 auto;padding:20px 20px 0">
+      <nav class="flex items-center justify-between py-3 px-5 glass">
+        <a href="/" class="flex items-center gap-3">
+          <img src="/img/logo geinz.png" class="w-8 h-8 object-contain rounded-lg" alt="Geinz">
+          <span class="font-extrabold text-xs tracking-wide text-white">GEINZ TECH</span>
+        </a>
+        <a href="/"
+          class="text-[11px] font-semibold text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M19 12H5M11 18l-6-6 6-6" />
+          </svg>
+          Volver al inicio
+        </a>
+      </nav>
     </div>
-  </main>
-</div>
 
-<script type="module">
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const q = new URLSearchParams(location.search);
-const periodo = q.get("periodo") === "anual" ? "anual" : "mensual";
+    <main class="flex-1 flex items-start justify-center px-4 sm:px-6 py-10 md:py-14">
+      <div style="width:100%;max-width:640px">
 
-const st = {
-  step: 0, tipo: "", plan: "", planLabel: "", terms: false,
-  lat: null, lng: null, logo: null,
-  dep: null, prov: null, dist: null, // { value, label }
-};
+        <div class="text-center mb-8 space-y-2">
+          <div
+            class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/20 bg-purple-500/5 text-[10px] font-bold text-purple-300 uppercase tracking-widest">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> Registro gratuito y 100% digital
+          </div>
+          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight gradient-text leading-tight">Registra tu negocio
+          </h1>
+          <p class="text-gray-400 text-sm font-light max-w-md mx-auto leading-relaxed">Un solo paso y quedas visible en
+            todo el Perú. Sin comisiones, sin visitas, sin letra chica.</p>
+        </div>
 
-/* ============ NAVEGACIÓN ============ */
-const panels = [...document.querySelectorAll(".panel")];
-const steps = [...document.querySelectorAll(".step")];
-const bars = [...document.querySelectorAll(".bar")];
+        <div class="steps mb-8 px-1" id="steps">
+          <div class="step">
+            <div class="dot">1</div><span>Negocio</span>
+          </div>
+          <div class="bar"></div>
+          <div class="step">
+            <div class="dot">2</div><span>Plan</span>
+          </div>
+          <div class="bar"></div>
+          <div class="step">
+            <div class="dot">3</div><span>Confirmar</span>
+          </div>
+        </div>
 
-function go(n) {
-  st.step = n;
-  panels.forEach((p, i) => p.classList.toggle("active", i === n));
-  steps.forEach((s, i) => { s.classList.toggle("active", i === n); s.classList.toggle("done", i < n); });
-  bars.forEach((b, i) => b.classList.toggle("filled", i < n));
-  $("steps").style.display = n === 3 ? "none" : "flex";
-  scrollTo({ top: 0, behavior: "smooth" });
-}
+        <form id="form" class="glass p-6 md:p-10" onsubmit="return false">
 
-/* ============ DROPDOWN CUSTOM (se genera por JS) ============ */
-const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>';
-const LUPA = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>';
-const TICK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>';
+          <!-- PASO 1 -->
+          <div class="panel active">
+            <div class="mb-7">
+              <div class="logo-drop" id="logoDrop">
+                <img id="logoImg" style="display:none" alt="Logo del negocio">
+                <svg id="logoIcon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#a78bfa"
+                  stroke-width="1.8">
+                  <path
+                    d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L16 16M14 14l1.5-1.5a2 2 0 0 1 2.8 0L20 14M4 8h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM8 8V6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                </svg>
+                <span id="logoHint">Foto o logo<br>del negocio</span>
+                <input type="file" id="logoInput" accept="image/*" hidden>
+              </div>
+              <p class="text-center text-[10px] text-gray-600 mt-2 font-light">JPG o PNG · usada como referencia para el
+                asistente y la app</p>
+            </div>
 
-function CoolSelect(el, searchPh, onChange) {
-  el.className = "cool-select mt-1.5";
-  el.innerHTML = `<button type="button" class="cool-select-trigger box" disabled><span class="cs-val ph"></span>${CHEV}</button>
+            <div class="space-y-5">
+              <div>
+                <label class="field-label">Nombre del negocio</label>
+                <div class="box px-4 py-3.5 mt-1.5 flex items-center gap-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2">
+                    <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1" />
+                  </svg>
+                  <input id="nombre" class="field-input" placeholder="Ej: Panadería San José" maxlength="60">
+                </div>
+              </div>
+              <div>
+                <label class="field-label">Categoría de tu negocio</label>
+                <div id="csCat"></div>
+              </div>
+              <div id="subWrap" style="display:none">
+                <label class="field-label">¿Qué vendes? (elige hasta 10)</label>
+                <div id="subGrid" class="subgrid"></div>
+              </div>
+              <div>
+                <label class="field-label">País</label>
+                <div class="box pais mt-1.5"><span>🇵🇪</span>Perú<small>+ países próximamente</small></div>
+              </div>
+
+              <div class="grid3">
+                <div><label class="field-label">Departamento</label>
+                  <div id="csDep"></div>
+                </div>
+                <div><label class="field-label">Provincia</label>
+                  <div id="csProv"></div>
+                </div>
+                <div><label class="field-label">Distrito</label>
+                  <div id="csDist"></div>
+                </div>
+              </div>
+              <span id="ubiError" class="text-[10px] text-red-400 font-semibold" style="display:none">No se pudo cargar
+                la lista de ubicaciones. Recarga la página.</span>
+
+              <div>
+                <label class="field-label">Teléfono / WhatsApp</label>
+                <div class="box px-4 py-3.5 mt-1.5 flex items-center gap-3">
+                  <span class="text-xs font-bold text-gray-400">🇵🇪 +51</span>
+                  <div style="width:1px;height:16px;background:rgba(255,255,255,.1)"></div>
+                  <input type="tel" id="telefono" class="field-input" placeholder="987 654 321" maxlength="9"
+                    inputmode="numeric">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end mt-8"><button type="button" class="btn btn-primary" id="next1">Continuar
+                →</button></div>
+          </div>
+
+          <!-- PASO 2 -->
+          <div class="panel">
+            <div class="mb-6">
+              <label class="field-label">¿Qué tipo de tienda es?</label>
+              <div class="grid2 mt-2" id="tipoGrid">
+                <div class="opt tipo" data-tipo="fisica">
+                  <span style="font-size:22px">🏪</span>
+                  <div><b>Tienda física</b><small>Tengo local donde atiendo</small></div>
+                  <span class="radio"></span>
+                </div>
+                <div class="opt tipo" data-tipo="virtual">
+                  <span style="font-size:22px">🌐</span>
+                        <div><b>Tienda virtual</b><small>Vendo online / con delivery</small></div>
+                  <span class="radio"></span>
+                </div>
+              </div>
+
+              <div id="dirWrap" style="display:none" class="mt-5">
+                <label class="field-label">Dirección exacta de tu local</label>
+                <div class="box px-4 py-3.5 mt-1.5 flex items-center gap-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2">
+                    <path d="M12 22s7-7.4 7-12a7 7 0 1 0-14 0c0 4.6 7 12 7 12z" />
+                    <circle cx="12" cy="10" r="2.6" />
+                  </svg>
+                  <input id="direccion" class="field-input" placeholder="Ej: Jr. Lima 245, cerca al mercado central"
+                    maxlength="120">
+                </div>
+                <button type="button" id="btnGeo"
+                  class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wide">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                  </svg>
+                  Adjuntar mi ubicación GPS (opcional)
+                </button>
+                <span id="geoOk" class="ml-2 text-[10px] text-emerald-400 font-semibold" style="display:none">✓ Ubicación detectada</span>
+              </div>
+            </div>
+
+            <h3 class="text-base font-bold mb-1">Elige el plan de tu negocio</h3>
+            <p class="text-xs text-gray-500 font-light leading-relaxed mb-5">
+              ¿No tienes productos que vender (barbero, técnico, consultorio)? Elige <b class="text-gray-300">Presencia
+                y Vitrina Digital</b>.
+              ¿Manejas stock o catálogo (tienda, restaurante, licorería)? Elige <b class="text-gray-300">Tienda Virtual
+                + Gestión de Pedidos</b>.
+              Puedes cambiarlo después desde tu panel.
+            </p>
+
+            <div class="grid2" id="planGrid">
+              <div class="opt plan-card" style="min-height:220px;opacity:.4">Cargando planes...</div>
+            </div>
+            <p id="planHint" class="text-[10px] text-gray-600 font-light mt-4">Elige el tipo de tienda y toca una
+              tarjeta para elegir tu plan.</p>
+
+            <div class="flex justify-between mt-8">
+              <button type="button" class="btn btn-ghost" id="back2">Atrás</button>
+              <button type="button" class="btn btn-primary" id="next2" disabled>Continuar →</button>
+            </div>
+          </div>
+
+          <!-- PASO 3 -->
+          <div class="panel">
+            <div class="info mb-7">
+              <span style="font-size:20px">⚡</span>
+              <div>
+                <h4 class="text-xs font-bold text-white">Activación automática</h4>
+                <p class="text-[11px] text-gray-400 mt-1 leading-relaxed font-light">Tu negocio se valida de forma <b
+                    class="text-purple-300">100% digital</b>, sin visitas ni citas. En cuanto confirmes, queda publicado
+                  en el ecosistema GEINZ.</p>
+              </div>
+            </div>
+            <h3 class="text-base font-bold mb-1">Revisa tu registro</h3>
+            <p class="text-xs text-gray-500 font-light mb-4">Verifica que todo esté correcto antes de enviarlo.</p>
+            <div class="glass inner p-5" id="resumen"></div>
+
+            <div class="mt-6 flex items-start gap-3 cursor-pointer" id="termsRow">
+              <div class="chk" id="chk"></div>
+              <p class="text-[11px] text-gray-400 leading-relaxed font-light select-none">
+                Acepto los <a href="/seguridad_geinz/terminos_y_condiciones" target="_blank"
+                  onclick="event.stopPropagation()"
+                  class="text-purple-400 hover:text-purple-300 font-semibold underline underline-offset-2">Términos y
+                  Condiciones</a>
+                de GEINZ y confirmo que la información brindada es real. Entiendo que mi negocio quedará registrado de
+                forma permanente en el ecosistema GEINZ, salvo que yo solicite su eliminación.
+              </p>
+            </div>
+            <div id="formError" class="text-[11px] text-red-400 font-semibold mt-3" style="display:none"></div>
+
+            <div class="flex justify-between mt-8">
+              <button type="button" class="btn btn-ghost" id="back3">Atrás</button>
+              <button type="button" class="btn btn-primary" id="submit" disabled>🚀 Enviar registro</button>
+            </div>
+          </div>
+
+          <!-- ÉXITO -->
+          <div class="panel">
+            <div class="text-center py-4">
+              <div class="ok-ring"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#4ade80"
+                  stroke-width="2.4">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg></div>
+              <h3 class="text-xl font-extrabold text-white">¡Tu negocio ya está registrado!</h3>
+              <p class="text-gray-400 text-xs font-light mt-2 max-w-sm mx-auto leading-relaxed">El registro fue validado
+                automáticamente. Ya puedes empezar a aparecer en el ecosistema GEINZ.</p>
+              <div class="glass inner p-5 mt-6 text-left" id="hecho"></div>
+              <p class="text-gray-600 text-[10px] font-light mt-5 leading-relaxed">Tu negocio quedará registrado de
+                forma permanente en GEINZ, salvo que solicites su eliminación desde el panel de tu negocio.</p>
+              <a href="./logindata/login.html" class="btn btn-primary mt-7">Ir a iniciar sesión</a>
+            </div>
+          </div>
+
+        </form>
+      </div>
+    </main>
+  </div>
+  <script type="module">
+    import { app } from "./js/db/db.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
+    const auth = getAuth(app);
+    const fn = httpsCallable(getFunctions(app, "southamerica-east1"), "registrarNegocio");
+
+    window.__enviarRegistroNegocio = async (p) => {
+      try { await auth.authStateReady(); } catch { } // espera a saber si hay sesión (para vincular el negocio)
+      return (await fn(p)).data;
+    };
+  </script>
+
+  <script type="module">
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const q = new URLSearchParams(location.search);
+    const periodo = q.get("periodo") === "anual" ? "anual" : "mensual";
+    const REQ_ID = crypto.randomUUID(); // evita duplicados si el usuario toca dos veces o reintenta
+
+    const st = {
+      step: 0, tipo: "", plan: "", planLabel: "", terms: false, cat: "", subs: [],
+      lat: null, lng: null, logo: null,
+      dep: null, prov: null, dist: null, // { value, label }
+    };
+
+    /* ============ NAVEGACIÓN ============ */
+    const panels = [...document.querySelectorAll(".panel")];
+    const steps = [...document.querySelectorAll(".step")];
+    const bars = [...document.querySelectorAll(".bar")];
+
+    function go(n) {
+      st.step = n;
+      panels.forEach((p, i) => p.classList.toggle("active", i === n));
+      steps.forEach((s, i) => { s.classList.toggle("active", i === n); s.classList.toggle("done", i < n); });
+      bars.forEach((b, i) => b.classList.toggle("filled", i < n));
+      $("steps").style.display = n === 3 ? "none" : "flex";
+      scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    /* ============ DROPDOWN CUSTOM ============ */
+    const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>';
+    const LUPA = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>';
+    const TICK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>';
+
+    function CoolSelect(el, searchPh, onChange) {
+      el.className = "cool-select mt-1.5";
+      el.innerHTML = `<button type="button" class="cool-select-trigger box" disabled><span class="cs-val ph"></span>${CHEV}</button>
     <div class="cs-panel"><div class="cs-search">${LUPA}<input placeholder="${searchPh}"></div><div class="cs-opts"></div></div>`;
-  const btn = el.querySelector("button"), val = el.querySelector(".cs-val");
-  const search = el.querySelector("input"), wrap = el.querySelector(".cs-opts");
-  let items = [], cur = null;
+      const btn = el.querySelector("button"), val = el.querySelector(".cs-val");
+      const search = el.querySelector("input"), wrap = el.querySelector(".cs-opts");
+      let items = [], cur = null;
 
-  const draw = (f = "") => {
-    const list = items.map((it, i) => ({ it, i })).filter(({ it }) => it.label.toLowerCase().includes(f.trim().toLowerCase()));
-    wrap.innerHTML = list.length
-      ? list.map(({ it, i }) => `<div class="cs-opt${cur === it.value ? " on" : ""}" data-i="${i}"><span>${esc(it.label)}</span>${TICK}</div>`).join("")
-      : '<div class="cs-empty">Sin resultados</div>';
-  };
-  const close = () => el.classList.remove("open");
-  const setText = (t, ph) => { val.textContent = t; val.classList.toggle("ph", ph); };
+      const draw = (f = "") => {
+        const list = items.map((it, i) => ({ it, i })).filter(({ it }) => it.label.toLowerCase().includes(f.trim().toLowerCase()));
+        wrap.innerHTML = list.length
+          ? list.map(({ it, i }) => `<div class="cs-opt${cur === it.value ? " on" : ""}" data-i="${i}"><span>${esc(it.label)}</span>${TICK}</div>`).join("")
+          : '<div class="cs-empty">Sin resultados</div>';
+      };
+      const close = () => el.classList.remove("open");
+      const setText = (t, ph) => { val.textContent = t; val.classList.toggle("ph", ph); };
 
-  btn.onclick = (e) => {
-    e.stopPropagation();
-    if (el.classList.contains("open")) return close();
-    document.querySelectorAll(".cool-select.open").forEach((x) => x.classList.remove("open"));
-    el.classList.add("open"); search.value = ""; draw(); setTimeout(() => search.focus(), 60);
-  };
-  search.oninput = () => draw(search.value);
-  wrap.onclick = (e) => {
-    const o = e.target.closest(".cs-opt"); if (!o) return;
-    const it = items[+o.dataset.i];
-    cur = it.value; setText(it.label, false); close(); onChange(it);
-  };
-  document.addEventListener("click", (e) => { if (!el.contains(e.target)) close(); });
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        if (el.classList.contains("open")) return close();
+        document.querySelectorAll(".cool-select.open").forEach((x) => x.classList.remove("open"));
+        el.classList.add("open"); search.value = ""; draw(); setTimeout(() => search.focus(), 60);
+      };
+      search.oninput = () => draw(search.value);
+      wrap.onclick = (e) => {
+        const o = e.target.closest(".cs-opt"); if (!o) return;
+        const it = items[+o.dataset.i];
+        cur = it.value; setText(it.label, false); close(); onChange(it);
+      };
+      document.addEventListener("click", (e) => { if (!el.contains(e.target)) close(); });
 
-  return {
-    set(list, ph = "Selecciona...") { items = list; cur = null; btn.disabled = !list.length; setText(ph, true); close(); },
-    off(ph) { this.set([], ph); },
-  };
-}
+      return {
+        set(list, ph = "Selecciona...") { items = list; cur = null; btn.disabled = !list.length; setText(ph, true); close(); },
+        off(ph) { this.set([], ph); },
+      };
+    }
 
-/* ============ UBIGEO PERÚ ============ */
-// Para producción: sube estos 3 JSON a tu propio hosting y cambia la URL base.
-const UBI = "https://cdn.jsdelivr.net/gh/joseluisq/ubigeos-peru/json";
-let hijosProv = () => [], hijosDist = () => [];
+    /* ============ UBIGEO PERÚ ============ */
+    const UBI = "https://cdn.jsdelivr.net/gh/joseluisq/ubigeos-peru/json";
+    let hijosProv = () => [], hijosDist = () => [];
 
-// Soporta datos agrupados por id del padre o planos con id_padre_ubigeo
-const lookup = (d) => {
-  if (Array.isArray(d)) return (id) => d.filter((x) => String(x.id_padre_ubigeo) === String(id));
-  const v = Object.values(d || {});
-  if (v.length && Array.isArray(v[0])) return (id) => d[id] || [];
-  return (id) => v.filter((x) => String(x.id_padre_ubigeo) === String(id));
-};
-const toItems = (arr) => arr.slice().sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo)).map((x) => ({ value: x.id_ubigeo, label: x.nombre_ubigeo }));
+    const lookup = (d) => {
+      if (Array.isArray(d)) return (id) => d.filter((x) => String(x.id_padre_ubigeo) === String(id));
+      const v = Object.values(d || {});
+      if (v.length && Array.isArray(v[0])) return (id) => d[id] || [];
+      return (id) => v.filter((x) => String(x.id_padre_ubigeo) === String(id));
+    };
+    const toItems = (arr) => arr.slice().sort((a, b) => a.nombre_ubigeo.localeCompare(b.nombre_ubigeo)).map((x) => ({ value: x.id_ubigeo, label: x.nombre_ubigeo }));
 
-const csDist = CoolSelect($("csDist"), "Buscar distrito...", (it) => (st.dist = it));
-const csProv = CoolSelect($("csProv"), "Buscar provincia...", (it) => {
-  st.prov = it; st.dist = null; csDist.set(toItems(hijosDist(it.value)));
-});
-const csDep = CoolSelect($("csDep"), "Buscar departamento...", (it) => {
-  st.dep = it; st.prov = st.dist = null; csDist.off("Elige provincia"); csProv.set(toItems(hijosProv(it.value)));
-});
-csDep.off("Cargando..."); csProv.off("Elige depto."); csDist.off("Elige provincia");
+    const csDist = CoolSelect($("csDist"), "Buscar distrito...", (it) => (st.dist = it));
+    const csProv = CoolSelect($("csProv"), "Buscar provincia...", (it) => {
+      st.prov = it; st.dist = null; csDist.set(toItems(hijosDist(it.value)));
+    });
+    const csDep = CoolSelect($("csDep"), "Buscar departamento...", (it) => {
+      st.dep = it; st.prov = st.dist = null; csDist.off("Elige provincia"); csProv.set(toItems(hijosProv(it.value)));
+    });
+    csDep.off("Cargando..."); csProv.off("Elige depto."); csDist.off("Elige provincia");
 
-(async () => {
-  try {
-    const [d, p, t] = await Promise.all(["departamentos", "provincias", "distritos"].map((n) => fetch(`${UBI}/${n}.json`).then((r) => r.json())));
-    hijosProv = lookup(p); hijosDist = lookup(t);
-    csDep.set(toItems(Array.isArray(d) ? d : Object.values(d)));
-  } catch (e) {
-    console.error("Ubigeo:", e);
-    $("ubiError").style.display = "block"; csDep.off("No disponible");
-  }
-})();
+    (async () => {
+      try {
+        const [d, p, t] = await Promise.all(["departamentos", "provincias", "distritos"].map((n) => fetch(`${UBI}/${n}.json`).then((r) => r.json())));
+        hijosProv = lookup(p); hijosDist = lookup(t);
+        csDep.set(toItems(Array.isArray(d) ? d : Object.values(d)));
+      } catch (e) {
+        console.error("Ubigeo:", e);
+        $("ubiError").style.display = "block"; csDep.off("No disponible");
+      }
+    })();
+    /* ============ CATEGORÍAS Y SUBCATEGORÍAS ============ */
+    // Se excluye lo que no vende productos (bancos, grifos, transporte). Si hay otra, agrégala al regex.
+    const CAT_EXCLUIDAS = /banc|financ|grifo|transport/;
+    const MAX_SUBS = 10;
+    const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    let CATS = []; // [{ id, subs: [] }]
 
-/* ============ PASO 1 ============ */
-$("logoDrop").onclick = () => $("logoInput").click();
-$("logoInput").onchange = (e) => {
-  const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = (ev) => {
-    st.logo = ev.target.result;
-    $("logoImg").src = st.logo; $("logoImg").style.display = "block";
-    $("logoIcon").style.display = $("logoHint").style.display = "none";
-  };
-  r.readAsDataURL(f);
-};
+    const csCat = CoolSelect($("csCat"), "Buscar categoría...", (it) => {
+      st.cat = it.value; st.subs = []; pintarSubs();
+    });
+    csCat.off("Cargando...");
 
-$("btnGeo").onclick = () => {
-  if (!navigator.geolocation) return alert("Tu navegador no soporta geolocalización.");
-  navigator.geolocation.getCurrentPosition(
-    (p) => { st.lat = p.coords.latitude; st.lng = p.coords.longitude; $("geoOk").style.display = "inline"; },
-    () => alert("No se pudo obtener tu ubicación. Puedes continuar sin ella.")
-  );
-};
+    function pintarSubs() {
+      const c = CATS.find((x) => x.id === st.cat), w = $("subWrap");
+      if (!c) { w.style.display = "none"; return; }
+      w.style.display = "";
+      $("subGrid").innerHTML = c.subs.map((s, i) =>
+        `<button type="button" class="sub-chip${st.subs.includes(s) ? " on" : ""}" data-s="${i}">${esc(s)}</button>`).join("");
+    }
 
-$("telefono").oninput = (e) => (e.target.value = e.target.value.replace(/\D/g, "").slice(0, 9));
+    $("subGrid").onclick = (e) => {
+      const b = e.target.closest("[data-s]"); if (!b) return;
+      const c = CATS.find((x) => x.id === st.cat); if (!c) return;
+      const s = c.subs[+b.dataset.s], i = st.subs.indexOf(s);
+      if (i >= 0) st.subs.splice(i, 1);
+      else {
+        if (st.subs.length >= MAX_SUBS) return alert(`Puedes elegir hasta ${MAX_SUBS} subcategorías.`);
+        st.subs.push(s);
+      }
+      b.classList.toggle("on", i < 0);
+    };
 
-$("next1").onclick = () => {
-  const nombre = $("nombre").value.trim(), dir = $("direccion").value.trim(), tel = $("telefono").value.trim();
-  if (!nombre) return alert("Ingresa el nombre de tu negocio.");
-  if (!st.dep || !st.prov || !st.dist) return alert("Selecciona departamento, provincia y distrito.");
-  if (!dir) return alert("Ingresa la dirección exacta de tu negocio.");
-  if (!/^9\d{8}$/.test(tel)) return alert("Ingresa un celular válido de 9 dígitos (empieza con 9).");
-  Object.assign(st, { nombre, direccion: dir, telefono: tel });
-  go(1);
-};
+    (async () => {
+      try {
+        let raw = null;
+        try { const c = JSON.parse(localStorage.getItem("geinz_cats_v1") || "null"); if (c && Date.now() - c.t < 36e5) raw = c.d; } catch { }
+        if (!raw) {
+          const [{ getDocs, collection }, { db }] = await Promise.all([
+            import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"),
+            import("./js/db/db.js"),
+          ]);
+          const s = await getDocs(collection(db, "Tiendas", "categorias", "categorias"));
+          raw = s.docs.map((d) => ({
+            id: d.id,
+            subs: (Array.isArray(d.data().subcategorias) ? d.data().subcategorias : []).filter((x) => typeof x === "string"),
+          }));
+          try { localStorage.setItem("geinz_cats_v1", JSON.stringify({ t: Date.now(), d: raw })); } catch { }
+        }
+        CATS = raw.filter((c) => c.subs.length && !CAT_EXCLUIDAS.test(norm(c.id))).sort((a, b) => a.id.localeCompare(b.id));
+        csCat.set(CATS.map((c) => ({ value: c.id, label: c.id.charAt(0).toUpperCase() + c.id.slice(1) })));
+      } catch (e) {
+        console.error("Categorías:", e);
+        csCat.off("No disponible");
+      }
+    })();
+    /* ============ PASO 1 ============ */
+    $("logoDrop").onclick = () => $("logoInput").click();
+    $("logoInput").onchange = (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const url = URL.createObjectURL(f), img = new Image();
+      img.onload = () => {
+        const s = Math.min(img.width, img.height), o = Math.min(512, s);
+        const c = document.createElement("canvas"); c.width = c.height = o;
+        c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, o, o);
+        st.logo = c.toDataURL("image/webp", 0.85); URL.revokeObjectURL(url);
+        $("logoImg").src = st.logo; $("logoImg").style.display = "block";
+        $("logoIcon").style.display = $("logoHint").style.display = "none";
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); alert("Imagen inválida."); };
+      img.src = url;
+    };
+    function aplicarGeo() {
+      const fisica = st.tipo === "fisica";
+      $("dirWrap").style.display = fisica ? "" : "none";
+      if (!fisica) { st.lat = null; st.lng = null; $("direccion").value = ""; }
+      $("geoOk").style.display = fisica && st.lat !== null ? "inline" : "none";
+    }
+    $("btnGeo").onclick = () => {
+      if (st.tipo === "virtual") return;
+      if (!navigator.geolocation) return alert("Tu navegador no soporta geolocalización.");
+      navigator.geolocation.getCurrentPosition(
+        (p) => { st.lat = p.coords.latitude; st.lng = p.coords.longitude; $("geoOk").style.display = "inline"; },
+        () => alert("No se pudo obtener tu ubicación. Puedes continuar sin ella.")
+      );
+    };
 
-/* ============ PASO 2: TIPO DE TIENDA + PLANES ============ */
-const MOD = {
-  perfil_negocio: "Perfil de tu negocio", comprobantes: "Comprobantes", mis_trabajadores: "Gestión de trabajadores",
-  legal: "Libro de reclamaciones, términos y privacidad", pedidos_en_vivo: "Pedidos en vivo", carrito_compras: "Carrito de compras",
-  historial_ventas: "Historial de ventas", clientes: "Clientes y fidelización", cupones_puntos: "Cupones y puntos",
-  publicidad_ofertas: "Publicidad y ofertas", "reseñas": "Reseñas", qr_tech: "QR Tech", modo_avanzado_productos: "Productos con variantes",
-  multi_sucursal: "Múltiples sucursales", whatsapp_cloud_api: "WhatsApp Cloud API oficial", facturacion_sunat: "Facturación SUNAT",
-  white_label: "Marca blanca", soporte_prioritario_24_7: "Soporte prioritario 24/7",
-};
-const LIM = { // [texto con número, texto ilimitado]
-  colecciones: [(n) => `${n} colecciones`, "Colecciones ilimitadas"],
-  productos_por_coleccion: [(n) => `${n} productos por colección`, "Productos ilimitados por colección"],
-  trabajadores: [(n) => `${n} trabajadores`, "Trabajadores ilimitados"],
-  mesas: [(n) => `${n} mesas`, "Mesas ilimitadas"],
-  repartidores: [(n) => `${n} repartidores`, "Repartidores ilimitados"],
-  cupones: [(n) => `${n} cupones activos`, "Cupones ilimitados"],
-  creditos_ia: [(n) => `${n} créditos de IA al mes`, "Créditos de IA ilimitados"],
-};
-// Lo que se OCULTA cuando el negocio es TIENDA FÍSICA (edítalo a tu gusto)
-const OCULTAR_FISICA = ["mesas", "repartidores", "pedidos_en_vivo", "carrito_compras"];
+    $("telefono").oninput = (e) => (e.target.value = e.target.value.replace(/\D/g, "").slice(0, 9));
 
-let rubro = "restaurante";
-try { const r = q.get("rubro") || localStorage.getItem("geinz_rubro"); if (r === "restaurante" || r === "otro") rubro = r; } catch {}
+    $("next1").onclick = () => {
+      const nombre = $("nombre").value.trim(), tel = $("telefono").value.trim();
+      if (!nombre) return alert("Ingresa el nombre de tu negocio.");
+      if (!st.cat) return alert("Elige la categoría de tu negocio.");
+      if (!st.subs.length) return alert("Elige al menos una subcategoría.");
+      if (!st.dep || !st.prov || !st.dist) return alert("Selecciona departamento, provincia y distrito.");
+      if (!/^9\d{8}$/.test(tel)) return alert("Ingresa un celular válido de 9 dígitos (empieza con 9).");
+      Object.assign(st, { nombre, telefono: tel });
+      if (st.tipo) renderPlanes(); // si volvió atrás y cambió la categoría, refresca las tarjetas
+      go(1);
+    };
 
-const r2 = (n) => Math.round(n * 100) / 100;
-const fmt = (n) => { n = r2(+n || 0); return Number.isInteger(n) ? String(n) : n.toFixed(2); };
-const CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>';
-const precio = (p) => (periodo === "anual" ? p.precio_anual ?? r2((+p.precio_mensual || 0) * 12) : +p.precio_mensual || 0);
+    /* ============ PASO 2: TIPO DE TIENDA + PLANES ============ */
+    const MOD = {
+      perfil_negocio: "Perfil de tu negocio", comprobantes: "Comprobantes", mis_trabajadores: "Gestión de trabajadores",
+      legal: "Libro de reclamaciones, términos y privacidad", pedidos_en_vivo: "Pedidos en vivo", carrito_compras: "Carrito de compras",
+      historial_ventas: "Historial de ventas", clientes: "Clientes y fidelización", cupones_puntos: "Cupones y puntos",
+      publicidad_ofertas: "Publicidad y ofertas", "reseñas": "Reseñas", qr_tech: "QR Tech", modo_avanzado_productos: "Productos con variantes",
+      multi_sucursal: "Múltiples sucursales", whatsapp_cloud_api: "WhatsApp Cloud API oficial", facturacion_sunat: "Facturación SUNAT",
+      white_label: "Marca blanca", soporte_prioritario_24_7: "Soporte prioritario 24/7",
+    };
+    const LIM = {
+      colecciones: [(n) => `${n} colecciones`, "Colecciones ilimitadas"],
+      productos_por_coleccion: [(n) => `${n} productos por colección`, "Productos ilimitados por colección"],
+      trabajadores: [(n) => `${n} trabajadores`, "Trabajadores ilimitados"],
+      mesas: [(n) => `${n} mesas`, "Mesas ilimitadas"],
+      repartidores: [(n) => `${n} repartidores`, "Repartidores ilimitados"],
+      cupones: [(n) => `${n} cupones activos`, "Cupones ilimitados"],
+      creditos_ia: [(n) => `${n} créditos de IA al mes`, "Créditos de IA ilimitados"],
+    };
+    const OCULTAR_FISICA = ["repartidores", "pedidos_en_vivo", "carrito_compras"];
 
-let LISTA = [];
+    let rubro = "restaurante";
+    try { const r = q.get("rubro") || localStorage.getItem("geinz_rubro"); if (r === "restaurante" || r === "otro") rubro = r; } catch { }
 
-function cardHTML(id, p) {
-  const oculto = (k) => st.tipo === "fisica" && OCULTAR_FISICA.includes(k);
-  const lim = p.limites || {};
-  const feats = Object.keys(LIM)
-    .filter((k) => k in lim && !oculto(k) && !(k === "mesas" && rubro !== "restaurante"))
-    .map((k) => (String(lim[k]).toLowerCase() === "ilimitado" ? LIM[k][1] : LIM[k][0](lim[k])))
-    .concat(Object.keys(p.modulos || {}).filter((k) => p.modulos[k] && MOD[k] && !oculto(k)).map((k) => MOD[k]));
-  return `<div class="opt plan-card" data-plan="${esc(id)}" data-nombre="${esc(p.nombre)}">
+    const r2 = (n) => Math.round(n * 100) / 100;
+    const fmt = (n) => { n = r2(+n || 0); return Number.isInteger(n) ? String(n) : n.toFixed(2); };
+    const CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>';
+    const precio = (p) => (periodo === "anual" ? p.precio_anual ?? r2((+p.precio_mensual || 0) * 12) : +p.precio_mensual || 0);
+
+    let LISTA = [];
+
+    function cardHTML(id, p) {
+      const oculto = (k) => st.tipo === "fisica" && OCULTAR_FISICA.includes(k);
+      const lim = p.limites || {};
+      const feats = Object.keys(LIM)
+        .filter((k) => k in lim && !oculto(k) && !(k === "mesas" && (st.tipo !== "fisica" || st.cat !== "comida y restaurantes")))
+        .map((k) => (String(lim[k]).toLowerCase() === "ilimitado" ? LIM[k][1] : LIM[k][0](lim[k])))
+        .concat(Object.keys(p.modulos || {}).filter((k) => p.modulos[k] && MOD[k] && !oculto(k)).map((k) => MOD[k]));
+      return `<div class="opt plan-card" data-plan="${esc(id)}" data-nombre="${esc(p.nombre)}">
     <span class="radio"></span>
     ${p.mostrar_badge && p.etiqueta_badge ? `<span class="badge${p.es_mas_popular ? " hot" : ""}">${esc(p.etiqueta_badge)}</span>` : ""}
     <h4>${esc(p.nombre)}</h4>
@@ -491,114 +1303,130 @@ function cardHTML(id, p) {
     ${+p.prueba_dias ? `<p class="text-[10px] text-emerald-400 font-semibold mt-1">${esc(p.prueba_dias)} días gratis</p>` : ""}
     <div class="feats">${feats.map((f) => `<div>${CHECK}${esc(f)}</div>`).join("")}</div>
   </div>`;
-}
-
-function renderPlanes() {
-  if (!LISTA.length) return;
-  $("planGrid").innerHTML = LISTA.map(([id, p]) => cardHTML(id, p)).join("");
-  if (st.plan) $("planGrid").querySelector(`[data-plan="${CSS.escape(st.plan)}"]`)?.classList.add("selected");
-}
-
-const refresh2 = () => ($("next2").disabled = !(st.plan && st.tipo));
-
-$("tipoGrid").onclick = (e) => {
-  const c = e.target.closest("[data-tipo]"); if (!c) return;
-  st.tipo = c.dataset.tipo;
-  document.querySelectorAll("#tipoGrid .opt").forEach((x) => x.classList.toggle("selected", x === c));
-  renderPlanes(); refresh2();
-};
-
-$("planGrid").onclick = (e) => {
-  const c = e.target.closest("[data-plan]"); if (!c) return;
-  document.querySelectorAll("#planGrid .opt").forEach((x) => x.classList.remove("selected"));
-  c.classList.add("selected");
-  st.plan = c.dataset.plan; st.planLabel = c.dataset.nombre || c.dataset.plan;
-  $("planHint").style.display = "none"; refresh2();
-};
-
-$("back2").onclick = () => go(0);
-$("next2").onclick = () => {
-  if (!st.tipo) return alert("Elige si tu tienda es física o virtual.");
-  if (!st.plan) return;
-  const tipo = st.tipo === "fisica" ? "Tienda física" : "Tienda virtual";
-  const ubic = `${st.dist.label}, ${st.prov.label}, ${st.dep.label}`;
-  const filas = [["Negocio", st.nombre], ["Plan", st.planLabel], ["Tipo de tienda", tipo], ["Ubicación", ubic], ["Dirección", st.direccion], ["Teléfono", "+51 " + st.telefono]];
-  const html = (a) => a.map(([k, v]) => `<div class="row"><i>${k}</i><b>${esc(v)}</b></div>`).join("");
-  $("resumen").innerHTML = html(filas);
-  $("hecho").innerHTML = html([filas[0], filas[1], filas[2], filas[3]]);
-  go(2);
-};
-
-// Carga de planes (Firestore, misma fuente que precios.js)
-(async () => {
-  try {
-    const [{ getDoc }, { planesConfigDoc }] = await Promise.all([
-      import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"),
-      import("./js/rutas/rutas.js"),
-    ]);
-    let raw = null;
-    try { const c = JSON.parse(sessionStorage.getItem("geinz_planes_v1") || "null"); if (c && Date.now() - c.t < 6e5) raw = c.p; } catch {}
-    if (!raw) {
-      const s = await getDoc(planesConfigDoc());
-      raw = s.exists() ? s.data().planes : null;
-      if (raw && Object.keys(raw).length) try { sessionStorage.setItem("geinz_planes_v1", JSON.stringify({ t: Date.now(), p: raw })); } catch {}
     }
-    if (!raw || !Object.keys(raw).length) throw new Error("Sin planes en Firestore");
 
-    const pp = q.get("plan");
-    if (pp && raw[pp]?.es_cotizacion) return location.replace("https://wa.me/51958120920?text=" + encodeURIComponent("Hola GEINZ, necesito el " + raw[pp].nombre));
+    function renderPlanes() {
+      if (!LISTA.length) return;
+      $("planGrid").innerHTML = LISTA.map(([id, p]) => cardHTML(id, p)).join("");
+      if (st.plan) $("planGrid").querySelector(`[data-plan="${CSS.escape(st.plan)}"]`)?.classList.add("selected");
+    }
 
-    LISTA = Object.entries(raw)
-      .filter(([, p]) => p && p.visible !== false && p.activo !== false && !p.es_cotizacion)
-      .sort((a, b) => (a[1].orden ?? (+a[1].precio_mensual || 0)) - (b[1].orden ?? (+b[1].precio_mensual || 0)));
-    renderPlanes();
-    if (pp) $("planGrid").querySelector(`[data-plan="${CSS.escape(pp)}"]`)?.click();
-  } catch (e) {
-    console.warn("Planes:", e.message);
-    $("planGrid").innerHTML = '<p class="text-xs text-red-400 font-semibold">No se pudieron cargar los planes. Recarga la página.</p>';
-  }
-})();
+    const refresh2 = () => ($("next2").disabled = !(st.plan && st.tipo));
 
-/* ============ PASO 3: CONFIRMAR Y ENVIAR ============ */
-$("back3").onclick = () => go(1);
-$("termsRow").onclick = () => {
-  st.terms = !st.terms;
-  $("chk").classList.toggle("on", st.terms);
-  $("submit").disabled = !st.terms;
-};
+    $("tipoGrid").onclick = (e) => {
+      const c = e.target.closest("[data-tipo]"); if (!c) return;
+      st.tipo = c.dataset.tipo;
+      document.querySelectorAll("#tipoGrid .opt").forEach((x) => x.classList.toggle("selected", x === c));
+      aplicarGeo();            // 👈 nuevo
+      renderPlanes(); refresh2();
+    };
 
-$("submit").onclick = async () => {
-  if (!st.terms) return;
-  const btn = $("submit"), err = $("formError");
-  err.style.display = "none"; btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Enviando...';
-  try {
-    if (typeof window.__enviarRegistroNegocio !== "function") throw new Error("Cloud Function no configurada todavía.");
-    await window.__enviarRegistroNegocio({
-      nombre_negocio: st.nombre,
-      plan: st.plan,
-      periodo,
-      tipo_tienda: st.tipo, // "fisica" | "virtual"
-      pais: "PE",
-      departamento: st.dep.label,
-      provincia: st.prov.label,
-      distrito: st.dist.label,
-      direccion: st.direccion,
-      lat: st.lat,
-      lng: st.lng,
-      telefono: "+51" + st.telefono,
-      logo_base64: st.logo,
-      terminos_aceptados: true,
-      origen: "landing_geinztech",
-    });
-    go(3);
-  } catch (e) {
-    console.error(e);
-    err.textContent = "❌ No se pudo enviar tu registro. Intenta nuevamente en unos segundos.";
-    err.style.display = "block";
-    btn.disabled = false; btn.textContent = "🚀 Enviar registro";
-  }
-};
-</script>
+    $("planGrid").onclick = (e) => {
+      const c = e.target.closest("[data-plan]"); if (!c) return;
+      document.querySelectorAll("#planGrid .opt").forEach((x) => x.classList.remove("selected"));
+      c.classList.add("selected");
+      st.plan = c.dataset.plan; st.planLabel = c.dataset.nombre || c.dataset.plan;
+      $("planHint").style.display = "none"; refresh2();
+    };
+
+    $("back2").onclick = () => go(0);
+    $("next2").onclick = () => {
+      if (!st.tipo) return alert("Elige si tu tienda es física o virtual.");
+      if (!st.plan) return;
+      const fisica = st.tipo === "fisica";
+      const dir = $("direccion").value.trim();
+      if (fisica && dir.length < 5) return alert("Ingresa la dirección exacta de tu local.");
+      st.direccion = fisica ? dir : "";
+
+      const ubic = `${st.dist.label}, ${st.prov.label}, ${st.dep.label}`;
+      const filas = [
+        ["Negocio", st.nombre], ["Plan", st.planLabel],
+        ["Tipo de tienda", fisica ? "Tienda física" : "Tienda virtual"],
+        ["Ubicación", ubic],
+        ...(fisica ? [["Dirección", st.direccion]] : []),
+        ["Teléfono", "+51 " + st.telefono],
+        ["Rubro", `${st.cat} · ${st.subs.join(", ")}`],
+      ];
+      const html = (a) => a.map(([k, v]) => `<div class="row"><i>${k}</i><b>${esc(v)}</b></div>`).join("");
+      $("resumen").innerHTML = html(filas);
+      $("hecho").innerHTML = html(filas.slice(0, 4));
+      go(2);
+    };
+    // Carga de planes (Firestore)
+    (async () => {
+      try {
+        const [{ getDoc }, { planesConfigDoc }] = await Promise.all([
+          import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"),
+          import("./js/rutas/rutas.js"),
+        ]);
+        let raw = null;
+        try { const c = JSON.parse(sessionStorage.getItem("geinz_planes_v1") || "null"); if (c && Date.now() - c.t < 6e5) raw = c.p; } catch { }
+        if (!raw) {
+          const s = await getDoc(planesConfigDoc());
+          raw = s.exists() ? s.data().planes : null;
+          if (raw && Object.keys(raw).length) try { sessionStorage.setItem("geinz_planes_v1", JSON.stringify({ t: Date.now(), p: raw })); } catch { }
+        }
+        if (!raw || !Object.keys(raw).length) throw new Error("Sin planes en Firestore");
+
+        const pp = q.get("plan");
+        if (pp && raw[pp]?.es_cotizacion) return location.replace("https://wa.me/51958120920?text=" + encodeURIComponent("Hola GEINZ, necesito el " + raw[pp].nombre));
+
+        LISTA = Object.entries(raw)
+          .filter(([, p]) => p && p.visible !== false && p.activo !== false && !p.es_cotizacion)
+          .sort((a, b) => (a[1].orden ?? (+a[1].precio_mensual || 0)) - (b[1].orden ?? (+b[1].precio_mensual || 0)));
+        renderPlanes();
+        if (pp) $("planGrid").querySelector(`[data-plan="${CSS.escape(pp)}"]`)?.click();
+      } catch (e) {
+        console.warn("Planes:", e.message);
+        $("planGrid").innerHTML = '<p class="text-xs text-red-400 font-semibold">No se pudieron cargar los planes. Recarga la página.</p>';
+      }
+    })();
+
+    /* ============ PASO 3: CONFIRMAR Y ENVIAR ============ */
+    $("back3").onclick = () => go(1);
+    $("termsRow").onclick = () => {
+      st.terms = !st.terms;
+      $("chk").classList.toggle("on", st.terms);
+      $("submit").disabled = !st.terms;
+    };
+
+    let enviando = false;
+    $("submit").onclick = async () => {
+      if (!st.terms || enviando) return;
+      enviando = true;
+      const btn = $("submit"), err = $("formError");
+      err.style.display = "none"; btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Enviando...';
+      try {
+        if (typeof window.__enviarRegistroNegocio !== "function") throw new Error("Cloud Function no configurada todavía.");
+
+        const r = await window.__enviarRegistroNegocio({
+          nombre_negocio: st.nombre, plan: st.plan, periodo, tipo_tienda: st.tipo, categoria: st.cat, subcategorias: st.subs, pais: "PE",
+          departamento: st.dep.label, provincia: st.prov.label, distrito: st.dist.label,
+            direccion: st.tipo === "fisica" ? st.direccion : "",
+          lat: st.tipo === "fisica" ? st.lat : null,
+          lng: st.tipo === "fisica" ? st.lng : null,
+          telefono: "+51" + st.telefono, logo_base64: st.logo, terminos_aceptados: true, origen: "landing_geinztech", request_id: REQ_ID,
+        });
+
+        try { localStorage.setItem("geinz_registro_pendiente", JSON.stringify(r)); } catch { }
+
+        $("hecho").innerHTML += `
+      <div class="row"><i>ID del negocio</i><b id="idNeg" style="user-select:all">${esc(r.id)}</b></div>
+      <button type="button" class="btn btn-ghost" style="width:100%;margin-top:12px"
+        onclick="navigator.clipboard.writeText('${esc(r.id)}');this.textContent='✓ ID copiado'">📋 Copiar ID</button>`;
+        go(3);
+        // enviando queda en true a propósito: el registro ya se creó, no se debe enviar otra vez
+      } catch (e) {
+        console.error(e);
+        enviando = false;
+        const claro = e?.code && e.code !== "functions/internal" && e.code !== "functions/unknown" && e.message;
+        err.textContent = "❌ " + (claro ? e.message : "No se pudo enviar tu registro. Intenta nuevamente en unos segundos.");
+        err.style.display = "block";
+        btn.disabled = false; btn.textContent = "🚀 Enviar registro";
+      }
+    };
+  </script>
 </body>
+
 </html>

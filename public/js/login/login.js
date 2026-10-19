@@ -46,7 +46,7 @@ import {
 
 // Importamos app y db ya inicializados desde db.js (fuente única de verdad)
 import { app, db } from "../db/db.js";
-import { tiendaDoc, tokenFcmDoc } from "../rutas/rutas.js";
+import { tiendaDoc, tokenFcmDoc, setUbicacion } from "../rutas/rutas.js";
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const storage = getStorage(app);
@@ -221,7 +221,46 @@ async function obtenerDistritos(depId, provId) {
  * Inicializa los 3 selects en cascada (Departamento -> Provincia -> Distrito)
  * prefix = "socio"    -> ids: socioDepartamento / socioProvincia / socioDistrito
  * prefix = "selector" -> ids: selectorDepartamento / selectorProvincia / selectorDistrito
+ *
  */
+const slugify = (t) =>
+  String(t || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+async function prefillVincular(prefix, p) {
+  const wait = (fn) =>
+    new Promise((r) => {
+      const i = setInterval(() => {
+        if (fn()) {
+          clearInterval(i);
+          r();
+        }
+      }, 80);
+      setTimeout(() => {
+        clearInterval(i);
+        r();
+      }, 4000);
+    });
+  const pick = async (id, name, next) => {
+    const sel = document.getElementById(id);
+    const o = [...sel.options].find(
+      (x) => x.value && slugify(x.textContent) === name,
+    );
+    if (!o) return;
+    sel.value = o.value;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    if (next) {
+      const n = document.getElementById(next);
+      await wait(() => !n.disabled && n.options.length > 1);
+    }
+  };
+  await pick(`${prefix}Departamento`, p.departamento, `${prefix}Provincia`);
+  await pick(`${prefix}Provincia`, p.provincia, `${prefix}Distrito`);
+  await pick(`${prefix}Distrito`, p.distrito);
+}
 async function inicializarSelectoresUbicacion(prefix) {
   const selDep = document.getElementById(`${prefix}Departamento`);
   const selProv = document.getElementById(`${prefix}Provincia`);
@@ -252,17 +291,21 @@ async function inicializarSelectoresUbicacion(prefix) {
   }
 
   selDep.onchange = async () => {
-    seleccionUbicacion[prefix].dep = selDep.value;
-    seleccionUbicacion[prefix].prov = "";
-    seleccionUbicacion[prefix].dist = "";
+    const o = selDep.options[selDep.selectedIndex];
+    Object.assign(seleccionUbicacion[prefix], {
+      depId: selDep.value,
+      dep: slugify(o.textContent),
+      provId: "",
+      prov: "",
+      dist: "",
+    });
     selProv.disabled = true;
     selDist.disabled = true;
     setCoolSelectLoading(selProv, true);
-
     selDist.innerHTML = `<option value="" disabled selected hidden>Elige provincia</option>`;
     selProv.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
     try {
-      const provincias = await obtenerProvincias(selDep.value);
+   const provincias = await obtenerProvincias(selDep.value);
       selProv.innerHTML =
         `<option value="" disabled selected hidden>Selecciona</option>` +
         provincias
@@ -278,13 +321,48 @@ async function inicializarSelectoresUbicacion(prefix) {
   };
 
   selProv.onchange = async () => {
-    seleccionUbicacion[prefix].prov = selProv.value;
-    seleccionUbicacion[prefix].dist = "";
+    const o = selProv.options[selProv.selectedIndex];
+    Object.assign(seleccionUbicacion[prefix], {
+      provId: selProv.value,
+      prov: slugify(o.textContent),
+      dist: "",
+    });
     selDist.disabled = true;
     selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
     setCoolSelectLoading(selDist, true);
     try {
       const distritos = await obtenerDistritos(
+        seleccionUbicacion[prefix].depId,
+        seleccionUbicacion[prefix].provId,
+      );
+      selDist.innerHTML =
+        `<option value="" disabled selected hidden>Selecciona</option>` +
+        distritos
+          .map((d) => `<option value="${d.id}">${d.nombre}</option>`)
+          .join("");
+      selDist.disabled = false;
+    } catch (err) {
+      console.error("Error cargando distritos:", err);
+      selDist.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
+    } finally {
+      setCoolSelectLoading(selDist, false);
+    }
+  };
+
+  selDist.onchange = () => {
+    const o = selDist.options[selDist.selectedIndex];
+    seleccionUbicacion[prefix].dist = slugify(o.textContent);
+  };
+  selProv.onchange = async () => {
+    const oProv = selProv.options[selProv.selectedIndex];
+    seleccionUbicacion[prefix].provId = selProv.value;
+    seleccionUbicacion[prefix].prov = slugify(oProv.textContent);
+    seleccionUbicacion[prefix].dist = "";
+    selDist.disabled = true;
+    selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
+    setCoolSelectLoading(selDist, true);
+    try {
+        const distritos = await obtenerDistritos(
         seleccionUbicacion[prefix].dep,
         selProv.value,
       );
@@ -1458,7 +1536,18 @@ async function showSplash(user) {
     // Cargamos los selects dep/prov/dist con prefix "welcome"
     await inicializarSelectoresUbicacion("welcome");
     upgradeAllCoolSelects(document.getElementById("wVincularForm"));
-
+    try {
+      const p = JSON.parse(
+        localStorage.getItem("geinz_registro_pendiente") || "null",
+      );
+      if (p?.id) {
+        document.getElementById("welcomeIdNegocio").value = p.id;
+        await prefillVincular("welcome", p);
+        document.getElementById("wHint").textContent =
+          `Tu negocio "${p.nombre}" fue creado. Pulsa "Acceder al panel".`;
+        localStorage.removeItem("geinz_registro_pendiente");
+      }
+    } catch {}
     const btnVincularInline = document.getElementById("btnVincularInline");
     if (btnVincularInline) {
       btnVincularInline.onclick = async () => {
@@ -1466,7 +1555,16 @@ async function showSplash(user) {
           .getElementById("welcomeIdNegocio")
           .value.trim();
         const { dep, prov, dist } = seleccionUbicacion.welcome;
-
+        console.log("[login] seleccion welcome ->", {
+          dep,
+          prov,
+          dist,
+          idNegocio,
+        });
+        console.log(
+          "[login] ruta que se consulta ->",
+          tiendaDoc(dist, "tiendas", idNegocio).path,
+        );
         if (!idNegocio || idNegocio.length < 4) {
           showSnackbar("⚠️ Ingresa un ID válido", "warning");
           return;
@@ -1484,6 +1582,11 @@ async function showSplash(user) {
         btnVincularInline.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
         try {
+          setUbicacion({ departamento: dep, provincia: prov });
+          console.log(
+            "[login] ruta que se consulta ->",
+            tiendaDoc(dist, "tiendas", idNegocio).path,
+          );
           const snapTienda = await getDoc(
             tiendaDoc(dist, "tiendas", idNegocio),
           );
@@ -1547,6 +1650,10 @@ window.continuarPanel = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
+    setUbicacion({
+      departamento: seleccionUbicacion.selector.dep,
+      provincia: seleccionUbicacion.selector.prov,
+    });
     const tiendaRef = tiendaDoc(
       seleccionUbicacion.selector.dist,
       "tiendas",
@@ -1585,9 +1692,7 @@ window.continuarPanel = async () => {
 ========================================================= */
 window.accederSocio = async () => {
   const idTienda = document.getElementById("socioId").value.trim();
-  const dep = document.getElementById("socioDepartamento").value;
-  const prov = document.getElementById("socioProvincia").value;
-  const dist = document.getElementById("socioDistrito").value;
+  const { dep, prov, dist } = seleccionUbicacion.socio;
 
   if (!idTienda || !dep || !prov || !dist) {
     showSnackbar("⚠️ Completa todos los campos", "warning");
@@ -1604,6 +1709,7 @@ window.accederSocio = async () => {
   btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
 
   try {
+    setUbicacion({ departamento: dep, provincia: prov });
     const snap = await getDoc(tiendaDoc(dist, "tiendas", idTienda));
     if (!snap.exists()) {
       showSnackbar(

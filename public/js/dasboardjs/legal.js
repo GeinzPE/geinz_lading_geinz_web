@@ -110,7 +110,6 @@ window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data?.type === "SERVICIOS_UPDATE") aplicarPlanLegal(e.data.servicios);
 });
-
 // pedir el doc al padre
 window.parent.postMessage(
   { type: "PEDIR_DATOS_TIENDA" },
@@ -634,54 +633,64 @@ function mostrarErrorNegocio(motivo, dataDebug) {
   `;
   wrap?.prepend(box);
 }
+function pedirNegocioAlPadre(timeoutMs = 10000) {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => {
+      window.removeEventListener("message", onMsg);
+      resolve(null);
+    }, timeoutMs);
+
+    function onMsg(e) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type !== "DATOS_TIENDA") return;
+      const { localidad, id } = e.data;
+      if (!localidad || !id) return;
+      clearTimeout(t);
+      window.removeEventListener("message", onMsg);
+      resolve({ localidad, id });
+    }
+
+    window.addEventListener("message", onMsg);
+    window.parent.postMessage(
+      { type: "PEDIR_DATOS_TIENDA" },
+      window.location.origin,
+    );
+  });
+}
 
 async function resolverNegocioActual() {
+  // 1) lo que ya haya definido el dashboard
   if (window.NEGOCIO_ACTUAL?.localidad && window.NEGOCIO_ACTUAL?.id) {
-    return {
-      localidad: window.NEGOCIO_ACTUAL.localidad,
-      id: window.NEGOCIO_ACTUAL.id,
-    };
+    return { localidad: window.NEGOCIO_ACTUAL.localidad, id: window.NEGOCIO_ACTUAL.id };
   }
-  const sLoc =
-    sessionStorage.getItem("negocioLocalidad") ||
-    sessionStorage.getItem("localidad");
-  const sId =
-    sessionStorage.getItem("negocioId") || sessionStorage.getItem("id");
+  const sLoc = sessionStorage.getItem("negocioLocalidad") || sessionStorage.getItem("localidad");
+  const sId = sessionStorage.getItem("negocioId") || sessionStorage.getItem("id");
   if (sLoc && sId) return { localidad: sLoc, id: sId };
 
+  // 2) preguntarle al dashboard (padre)
+  const delPadre = await pedirNegocioAlPadre();
+  if (delPadre) return delPadre;
+
+  // 3) último recurso: doc del usuario (solo si tiene tienda_propietario)
   return new Promise((resolve) => {
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        mostrarErrorNegocio(
-          "no hay sesión activa (auth.currentUser es null)",
-          {},
-        );
+        mostrarErrorNegocio("no hay sesión activa", {});
         return resolve(null);
       }
       try {
         const snap = await getDoc(data_user_logeado(user.uid));
-        if (!snap.exists()) {
-          mostrarErrorNegocio("el doc del usuario logueado no existe", {
-            uid: user.uid,
-          });
-          return resolve(null);
+        const p = snap.data()?.tienda_propietario;
+        if (p?.id_negocio && p?.distrito) {
+          return resolve({ localidad: p.distrito, id: p.id_negocio });
         }
-        const d = snap.data();
-        const propietario = d.tienda_propietario || {};
-        const id = propietario.id_negocio;
-        const localidad = propietario.distrito;
-        if (id && localidad) return resolve({ localidad, id });
-
         mostrarErrorNegocio(
-          "encontré tu doc de usuario pero tienda_propietario.id_negocio o tienda_propietario.distrito no tienen valor",
-          d,
+          "el dashboard no envió el negocio y el usuario no tiene tienda_propietario",
+          {},
         );
         resolve(null);
       } catch (e) {
-        mostrarErrorNegocio(
-          "error leyendo el doc del usuario: " + e.message,
-          {},
-        );
+        mostrarErrorNegocio("error leyendo el usuario: " + e.message, {});
         resolve(null);
       }
     });

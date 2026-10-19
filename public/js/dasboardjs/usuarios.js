@@ -6,11 +6,57 @@ import { registroCamposDoc, registradosCol } from "../rutas/rutas.js";
 
 const $ = (id) => document.getElementById(id);
 
-// ⚠️ Saca estos 2 valores EXACTAMENTE igual que lo hacen resena.html / productos.html
-//    negocioId = id de la tienda (ej. fW7W8RsgkkQ3IYfxKHGR)
-//    localidad = distrito (ej. "barranca")
-const negocioId = "fW7W8RsgkkQ3IYfxKHGR";
-const localidad = "barranca";
+/* ═══════════════════════════════════════════════════════════════
+   CONTEXTO DEL NEGOCIO (dinámico, nada hardcodeado)
+   Orden de búsqueda:
+     1) ?id=...&localidad=... en la URL del iframe
+     2) sessionStorage (tiendaId / localidad)
+     3) postMessage del panel padre (panel_perfil.js):
+        - responde a PEDIR_DATOS_TIENDA
+        - o lo envía solo con DATOS_TIENDA cuando termina de cargar
+   ═══════════════════════════════════════════════════════════════ */
+let negocioId = null;
+let localidad = null;
+
+function leerContextoLocal() {
+  const p = new URLSearchParams(window.location.search);
+  const id = (p.get("id") || sessionStorage.getItem("tiendaId") || "").trim();
+  const loc = (p.get("localidad") || sessionStorage.getItem("localidad") || "").trim();
+  return id && loc ? { id, loc } : null;
+}
+
+function esperarContextoDelPadre(timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", onMsg);
+      reject(new Error("timeout"));
+    }, timeoutMs);
+
+    function onMsg(e) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type !== "DATOS_TIENDA") return;
+      const id = String(e.data.id || e.data.payload?.id_tienda || "").trim();
+      const loc = String(e.data.localidad || e.data.payload?.localidad || "").trim();
+      if (!id || !loc) return;
+      clearTimeout(timer);
+      window.removeEventListener("message", onMsg);
+      resolve({ id, loc });
+    }
+
+    window.addEventListener("message", onMsg);
+    // Por si el padre ya cargó antes que este iframe: se lo pedimos
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin);
+    }
+  });
+}
+
+async function resolverContexto() {
+  const ctx = leerContextoLocal() || (await esperarContextoDelPadre());
+  negocioId = ctx.id;
+  localidad = ctx.loc;
+}
+
 const CAMPOS = [
   { k: "dni",          t: "DNI",                 d: "Autocompleta nombre, apellido, fecha y género (peruapi.com)" },
   { k: "nombres",      t: "Nombre y apellido",   d: "" },
@@ -44,11 +90,19 @@ function toast(msg) {
 }
 
 function contextoValido() {
-  if (negocioId && localidad) return true;
+  return !!(negocioId && localidad);
+}
+
+function mostrarCargandoContexto() {
   $("lista").innerHTML =
-    `<p style="padding:16px;color:#ff9a9a">Falta <b>negocioId</b> o <b>localidad</b> en usuarios.js. Revisa los dos TODO de arriba.</p>`;
-  $("registrados").innerHTML = "";
-  return false;
+    `<p style="padding:16px;color:#8b8b96">Cargando datos del negocio…</p>`;
+}
+
+function mostrarErrorContexto() {
+  $("lista").innerHTML =
+    `<p style="padding:16px;color:#ff9a9a">No se pudo identificar el negocio. Abre esta sección desde el panel de tu negocio.</p>`;
+  $("registrados").innerHTML =
+    `<tr><td colspan="9">No se pudo identificar el negocio.</td></tr>`;
 }
 
 function pintar() {
@@ -120,6 +174,7 @@ function telefonoDe(u) {
 }
 
 async function cargarRegistrados() {
+  if (!contextoValido()) return;
   const tb = $("registrados");
   try {
     const snap = await getDocs(registradosCol(localidad, negocioId));
@@ -163,7 +218,16 @@ window.UsuariosUI.setBloqueo = async (uid, bloquear) => {
   });
 };
 
-if (contextoValido()) {
+// ── ARRANQUE: primero se averigua de qué negocio es, luego se carga todo ──
+(async () => {
+  mostrarCargandoContexto();
+  try {
+    await resolverContexto();
+  } catch (e) {
+    console.error("[usuarios] sin contexto de negocio:", e);
+    mostrarErrorContexto();
+    return;
+  }
   cargar();
   cargarRegistrados();
-}
+})();

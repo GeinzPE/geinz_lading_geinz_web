@@ -26,7 +26,7 @@ let serviciosActuales = null;
 
 function enviarServiciosAPublicidad() {
   if (!serviciosActuales) return;
-  ["iframePublicidad", "iframePedidos"].forEach((id) => {
+  ["iframePublicidad", "iframePedidos", "iframeLegal"].forEach((id) => {
     document.getElementById(id)?.contentWindow?.postMessage(
       { type: "SERVICIOS_UPDATE", servicios: serviciosActuales },
       window.location.origin
@@ -35,7 +35,7 @@ function enviarServiciosAPublicidad() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  ["iframePublicidad", "iframePedidos"].forEach((id) =>
+  ["iframePublicidad", "iframePedidos", "iframeLegal"].forEach((id) =>
     document.getElementById(id)?.addEventListener("load", enviarServiciosAPublicidad)
   );
 });

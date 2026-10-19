@@ -3,12 +3,15 @@
    Ubicación: js/dasboardjs/comprobantes.js
 
    Dónde se guarda:
-   - Config  → doc de la tienda, campo "config_comprobante" (+ caché localStorage 12 h)
+   - Config  → documento propio: tiendas/{id}/config_comprobante/principal
+               (+ caché localStorage 12 h). Si no existe, se usa como respaldo
+               el campo viejo "config_comprobante" del doc de la tienda.
    - Boleta  → campo "comprobante" DENTRO del pedido (sin colecciones nuevas)
    ===================================================================== */
 import {
   getDoc,
   getDocs,
+  setDoc,
   collection,
   query,
   where,
@@ -19,9 +22,14 @@ import {
 import { db } from "../db/db.js";
 import { tiendaDoc, tiendaSubDoc } from "../rutas/rutas.js";
 
-const LS_KEY = "apr_comprobante_cfg_v2_";
-const CAMPO = "config_comprobante";
+const LS_KEY = "apr_comprobante_cfg_v3_"; // v3: ya no comparte caché con la versión anterior
+const CAMPO_VIEJO = "config_comprobante"; // solo para respaldo/migración
+const SUBCOL = "config_comprobante";
+const DOC_ID = "principal";
 const TTL = 12 * 3600 * 1000; // 12 horas
+
+const cfgDocRef = (localidad, tiendaId) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, SUBCOL, DOC_ID);
 
 /* ---------------------------- CONFIG ---------------------------- */
 export const CONFIG_DEFAULT = {
@@ -75,7 +83,7 @@ function leerCache(id) {
   }
 }
 
-/** Guarda en caché la config. Úsalo cuando YA tienes el doc de la tienda (0 lecturas). */
+/** Guarda en caché la config (localStorage). */
 export function cachearConfigComprobante(id, raw) {
   if (!id) return;
   try {
@@ -86,7 +94,7 @@ export function cachearConfigComprobante(id, raw) {
   } catch {}
 }
 
-/** Lee la config: caché primero; solo si no hay caché (o venció) hace 1 getDoc. */
+/** Lee la config: caché primero; si no hay (o venció) lee el documento propio (1 lectura). */
 export async function obtenerConfigComprobante(
   tiendaId,
   localidad,
@@ -96,8 +104,14 @@ export async function obtenerConfigComprobante(
   if (!c) {
     let raw = null;
     try {
-      const snap = await getDoc(tiendaDoc(localidad, "tiendas", tiendaId));
-      raw = snap.exists() ? snap.data()[CAMPO] || null : null;
+      const snap = await getDoc(cfgDocRef(localidad, tiendaId));
+      if (snap.exists()) {
+        raw = snap.data();
+      } else {
+        // Respaldo: negocios que aún tienen la config en el doc de la tienda
+        const viejo = await getDoc(tiendaDoc(localidad, "tiendas", tiendaId));
+        raw = viejo.exists() ? viejo.data()[CAMPO_VIEJO] || null : null;
+      }
       cachearConfigComprobante(tiendaId, raw);
     } catch (e) {
       console.warn("No se pudo leer la config del comprobante:", e);
@@ -112,11 +126,12 @@ export async function obtenerConfigComprobante(
   return cfg;
 }
 
-/** Guarda la config en el doc de la tienda y actualiza la caché al instante. */
+/** Guarda la config en su documento propio y actualiza la caché al instante. */
 export async function guardarConfigComprobante(tiendaId, localidad, cfg) {
   try {
-    await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
-      [CAMPO]: cfg,
+    await setDoc(cfgDocRef(localidad, tiendaId), {
+      ...cfg,
+      actualizado: serverTimestamp(),
     });
     cachearConfigComprobante(tiendaId, cfg);
     return true;
