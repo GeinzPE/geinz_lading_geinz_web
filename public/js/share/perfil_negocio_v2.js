@@ -71,7 +71,9 @@ function _swapTextNode(node) {
   _EMOJI_RE.lastIndex = 0;
 
   const frag = document.createDocumentFragment();
-  let last = 0, m, changed = false;
+  let last = 0,
+    m,
+    changed = false;
   while ((m = _EMOJI_RE.exec(txt))) {
     const emoji = m[1];
     const key = _norm(emoji);
@@ -132,7 +134,11 @@ new MutationObserver((muts) => {
     if (m.type === "characterData") reemplazarEmojis(m.target);
     else m.addedNodes.forEach((n) => reemplazarEmojis(n));
   }
-}).observe(document.body, { childList: true, subtree: true, characterData: true });
+}).observe(document.body, {
+  childList: true,
+  subtree: true,
+  characterData: true,
+});
 
 let _heroFlipBound = false;
 let _heroFlipToggle = null;
@@ -732,7 +738,7 @@ import {
   data_user_logeado,
   tiendaServiciosDoc,
   clienteHistorialCol,
-  setUbicacion
+  setUbicacion,
 } from "../rutas/rutas.js";
 import {
   onAuthStateChanged,
@@ -813,7 +819,8 @@ function prefetchUrl(url) {
 // Cualquier <a data-nav> navega con overlay inmediato + prefetch al acercarse
 document.addEventListener("click", (e) => {
   const a = e.target.closest?.("a[data-nav]");
-  if (!a || e.ctrlKey || e.metaKey || e.shiftKey || a.target === "_blank") return;
+  if (!a || e.ctrlKey || e.metaKey || e.shiftKey || a.target === "_blank")
+    return;
   e.preventDefault();
   irRapido(a.href);
 });
@@ -2060,12 +2067,12 @@ function renderPuntosBadge(puntos) {
   _currentPuntos = Number(puntos) || 0;
   const badge = document.getElementById("puntosBadge");
   if (!badge) return;
-  if (!puntos || puntos <= 0) {
+  if (!_fidelizacionActiva || !_siguiendoNegocio || _currentPuntos <= 0) {
     badge.style.display = "none";
     return;
   }
   badge.style.display = "inline-flex";
-  badge.innerHTML = `<span class="puntos-badge-icon">🎁</span> Tienes ${puntos} puntos en ${_bizNombre || "este negocio"} · mostrar tarjeta `;
+  badge.innerHTML = `<span class="puntos-badge-icon">🎁</span> Tienes ${_currentPuntos} puntos en ${_bizNombre || "este negocio"} · mostrar tarjeta `;
 }
 
 document.getElementById("puntosBadge")?.addEventListener("click", () => {
@@ -2095,6 +2102,7 @@ function bindFollowButton({ localidad, id }, biz) {
       _upState = null; // el caché del panel ya no sirve
       refrescarUserPanelSiAbierto(); // si está abierto, se repinta solo
     }
+    renderPuntosBadge(_currentPuntos);
   }
   onAuthStateChanged(auth, async (user) => {
     const uid = user?.uid || null;
@@ -2872,7 +2880,10 @@ function urlFidelizacion() {
   const uid = _currentUid || auth.currentUser?.uid || "invitado";
   if (aliasKey)
     return `${_baseShareUrl}/perfil/${encodeURIComponent(aliasKey)}/fidelizacion/${encodeURIComponent(uid)}`;
-  const url = new URL("../../fidelizacion/fidelizacion_client.html", window.location.href);
+  const url = new URL(
+    "../../fidelizacion/fidelizacion_client.html",
+    window.location.href,
+  );
   url.searchParams.set("localidad", _params.localidad);
   url.searchParams.set("id", _params.id);
   if (uid !== "invitado") url.searchParams.set("uid", uid);
@@ -2914,6 +2925,7 @@ function setupHeroFlip(activa) {
         favicon: false,
         soloFrente: true,
         llenar: true,
+        onVerTarjeta: irAFidelizacion,
       });
     }
     flip.classList.toggle("is-flipped", abrir);
@@ -3452,12 +3464,36 @@ function updateQuickNav() {
   if (!row) return;
   row.innerHTML = "";
   const items = [
-    _navState.ofertas && { emoji: "🔥", label: "Ofertas", target: "secPromosActivas" },
-    _navState.productos && { emoji: "⭐", label: "Lo mejor", target: "secProductos" },
-    _navState.ambientes && { emoji: "🌿", label: "Ambientes", target: "secAmbientes" },
-    _navState.carta && { emoji: "📖", label: "Carta digital", target: "secCarta" },
-    _navState.metodos && { emoji: "💳", label: "Métodos y más", target: "__metodos" },
-    _navState.contacto && { emoji: "💬", label: "Contacto", target: "__contacto" },
+    _navState.ofertas && {
+      emoji: "🔥",
+      label: "Ofertas",
+      target: "secPromosActivas",
+    },
+    _navState.productos && {
+      emoji: "⭐",
+      label: "Lo mejor",
+      target: "secProductos",
+    },
+    _navState.ambientes && {
+      emoji: "🌿",
+      label: "Ambientes",
+      target: "secAmbientes",
+    },
+    _navState.carta && {
+      emoji: "📖",
+      label: "Carta digital",
+      target: "secCarta",
+    },
+    _navState.metodos && {
+      emoji: "💳",
+      label: "Métodos y más",
+      target: "__metodos",
+    },
+    _navState.contacto && {
+      emoji: "💬",
+      label: "Contacto",
+      target: "__contacto",
+    },
   ].filter(Boolean);
 
   items.forEach(({ emoji, label, target }) => {
@@ -5519,7 +5555,10 @@ function irACarritoConPerfil() {
     sessionStorage.setItem(
       `geinz_perfil_cart_pending_${_params.id}`,
       JSON.stringify({
-        items: _perfilCarritoItems.map((i) => ({ promoId: i.promoId, cantidad: i.cantidad })),
+        items: _perfilCarritoItems.map((i) => ({
+          promoId: i.promoId,
+          cantidad: i.cantidad,
+        })),
         ts: Date.now(),
       }),
     );
@@ -6278,6 +6317,7 @@ async function render(biz, isInitial = true) {
     fidelizacionRaw.mensajeInactivo ||
     "Este negocio no tiene el programa de fidelización activo por el momento.";
   setupHeroFlip(!!fidelizacion);
+  renderPuntosBadge(_currentPuntos);
   aplicarBrandingGeinz();
   document
     .getElementById("secAmenities")
@@ -7901,10 +7941,12 @@ bindLoginPromptEvents();
 bindBannerModalEvents();
 bindUnfollowConfirmEvents();
 bindReviewEvents();
-document.getElementById("linkContactoFooter")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  if (_contactosCache.length) abrirContactoModal();
-});
+document
+  .getElementById("linkContactoFooter")
+  ?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (_contactosCache.length) abrirContactoModal();
+  });
 // REVEAL ANIMATION
 const reveal = document.querySelectorAll(".reveal");
 const observer = new IntersectionObserver(

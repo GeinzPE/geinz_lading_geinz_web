@@ -3588,7 +3588,180 @@ function pintarDeliveryInfo() {
 setInterval(() => {
   if (tipoEntrega === "Delivery" && !mesaId && bizData) pintarDeliveryInfo();
 }, 60000);
+/* ══════════════ Vuelo al carrito (estilo Clash Royale) ══════════════ */
+let _clk = { x: 0, y: 0, t: 0, enCarrito: false };
+document.addEventListener(
+  "click",
+  (e) => {
+    _clk = {
+      x: e.clientX,
+      y: e.clientY,
+      t: Date.now(),
+      enCarrito: !!e.target.closest("#cartSidebar, #drawer"),
+    };
+  },
+  true,
+);
 
+(function injectFlyStyles() {
+  if (document.getElementById("flyStyle")) return;
+  const st = document.createElement("style");
+  st.id = "flyStyle";
+  st.textContent = `
+  .fly-item{position:fixed;left:0;top:0;z-index:10080;pointer-events:none;border-radius:18px;overflow:hidden;
+   background:rgba(var(--dr),var(--dg),var(--db),.25);border:2px solid rgb(var(--dr),var(--dg),var(--db));
+    box-shadow:0 10px 30px -6px rgba(var(--dr),var(--dg),var(--db),.7);will-change:transform,opacity;}
+  .fly-item img{width:100%;height:100%;object-fit:cover;display:block;}
+  .fly-item .fly-emoji{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;}
+  .fly-ping{position:fixed;left:0;top:0;z-index:10079;pointer-events:none;width:44px;height:44px;border-radius:50%;
+    border:2px solid rgb(var(--dr),var(--dg),var(--db));will-change:transform,opacity;}
+  @keyframes cartHit{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .cart-hit{animation:cartHit .45s cubic-bezier(.34,1.56,.64,1);}
+  `;
+  document.head.appendChild(st);
+})();
+
+// A dónde vuela: el sidebar en PC, el icono de la barra flotante en móvil
+function destinoVuelo() {
+  const side = document.getElementById("cartSidebar");
+  if (side && getComputedStyle(side).display !== "none") {
+    const h = side.querySelector("h2");
+    if (!h) return null;
+    const r = h.getBoundingClientRect();
+    return { x: r.left + 16, y: r.top + r.height / 2, hit: h };
+  }
+  const bar = document.getElementById("cartBar");
+  const icon = bar?.querySelector(".accent-grad");
+  if (!icon) return null;
+
+  // La barra puede estar todavía subiendo: se calcula dónde va a QUEDAR
+  const tr = getComputedStyle(bar).transform;
+  let ty = 0;
+  if (tr && tr !== "none") {
+    const v = tr.slice(tr.indexOf("(") + 1, -1).split(",").map(parseFloat);
+    ty = (tr.startsWith("matrix3d") ? v[13] : v[5]) || 0;
+  }
+  const r = icon.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 - ty, hit: icon };
+}
+
+function pingCarrito(dest) {
+  const ping = document.createElement("div");
+  ping.className = "fly-ping";
+  document.body.appendChild(ping);
+  const pos = `translate(${dest.x - 22}px,${dest.y - 22}px)`;
+  const a = ping.animate(
+    [
+      { transform: `${pos} scale(.4)`, opacity: 0.9 },
+      { transform: `${pos} scale(1.9)`, opacity: 0 },
+    ],
+    { duration: 480, easing: "ease-out" },
+  );
+  a.onfinish = () => ping.remove();
+
+  dest.hit.classList.remove("cart-hit");
+  void dest.hit.offsetWidth;
+  dest.hit.classList.add("cart-hit");
+}
+
+function volarAlCarrito(p) {
+  try {
+    if (!document.body.animate) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (_clk.enCarrito || Date.now() - _clk.t > 1200) return;
+
+    const dest = destinoVuelo();
+    if (!dest) return;
+
+    const modal = document.querySelector(
+      "#optionsOverlay.show, #promoDetailModal.show",
+    );
+    const cardEl = document.getElementById(`card-${p.id}`);
+    const wrap = cardEl?.querySelector(".prod-img-wrap");
+    const r = !modal && wrap ? wrap.getBoundingClientRect() : null;
+
+    let cx, cy, size = 88;
+    if (r && r.width > 0 && r.bottom > 0 && r.top < innerHeight) {
+      cx = r.left + r.width / 2;
+      cy = r.top + r.height / 2;
+      size = Math.min(Math.max(r.width, 64), 120);
+    } else {
+      cx = _clk.x;
+      cy = _clk.y;
+    }
+
+    // 1) Imagen ya cargada en la tarjeta (la más confiable)
+    const imgCard = wrap?.querySelector("img.loaded");
+    const src =
+      imgCard?.currentSrc ||
+      imgCard?.src ||
+      p.imagen ||
+      p.imagenes?.[0] ||
+      _bizLogoUrl ||
+      "";
+
+    const lanzar = (srcFinal) => {
+      const el = document.createElement("div");
+      el.className = "fly-item";
+      el.style.width = el.style.height = size + "px";
+      el.innerHTML = srcFinal
+        ? `<img src="${escapeHtmlCarrito(srcFinal)}" alt="">`
+        : `<div class="fly-emoji">🛒</div>`;
+      document.body.appendChild(el);
+
+      const endS = 30 / size;
+      const lift = Math.max(70, Math.min(170, Math.abs(dest.y - cy) * 0.35 + 80));
+      const px = (cx + dest.x) / 2;
+      const py = Math.min(cy, dest.y) - lift;
+      const N = 18;
+      const frames = [];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N;
+        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const x = (1 - e) * (1 - e) * cx + 2 * (1 - e) * e * px + e * e * dest.x;
+        const y = (1 - e) * (1 - e) * cy + 2 * (1 - e) * e * py + e * e * dest.y;
+        const bump = 0.16 * Math.sin(Math.min(t * 3, 1) * Math.PI);
+        const s = (1 + (endS - 1) * e) * (1 + bump);
+        const rot = -14 * Math.sin(e * Math.PI);
+        frames.push({
+          transform: `translate(${x - size / 2}px,${y - size / 2}px) rotate(${rot}deg) scale(${s})`,
+          opacity: t < 0.88 ? 1 : 1 - ((t - 0.88) / 0.12) * 0.9,
+        });
+      }
+      const anim = el.animate(frames, {
+        duration: 720,
+        easing: "linear",
+        fill: "forwards",
+      });
+      anim.onfinish = () => {
+        el.remove();
+        pingCarrito(dest);
+      };
+    };
+
+    // 2) Si la imagen ya está en la tarjeta cargada, se lanza al instante.
+    //    Si no, se precarga y decodifica ANTES de animar (adiós cuadro negro).
+    if (imgCard && imgCard.complete && imgCard.naturalWidth > 0) {
+      lanzar(src);
+      return;
+    }
+    if (!src) {
+      lanzar("");
+      return;
+    }
+    const pre = new Image();
+    pre.src = src;
+    const ok = () => lanzar(src);
+    const fallo = () => lanzar(_bizLogoUrl || "");
+    if (pre.decode) pre.decode().then(ok).catch(fallo);
+    else {
+      pre.onload = ok;
+      pre.onerror = fallo;
+    }
+  } catch (err) {
+    console.warn("vuelo al carrito:", err.message);
+  }
+}
 function addToCart(p, seleccion = null) {
   // ══ Bloqueo por horario: no se puede agregar nada nuevo si el negocio está cerrado ══
   if (p.esOfertaTiempo && p.expiraEn && Date.now() >= p.expiraEn) {
@@ -3641,6 +3814,7 @@ function addToCart(p, seleccion = null) {
   }
   syncCartChange(p.id);
   pulseCard(p.id);
+    volarAlCarrito(p);    
   showToast(`${p.nombre} agregado`);
 }
 
@@ -5558,6 +5732,32 @@ const GUARD_CUPON_CSS = `
   background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
 }
 .cupon-leave-btn-secondary:hover{background:rgba(255,255,255,.1);}
+.cupon-leave-summary{
+  position:relative;z-index:1;margin:6px 0 18px;
+}
+.cupon-leave-count{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:999px;
+  font-size:12px;font-weight:800;letter-spacing:.08em;
+  color:rgb(var(--dr),var(--dg),var(--db));
+  background:rgba(var(--dr),var(--dg),var(--db),.12);
+  border:1px dashed rgba(var(--dr),var(--dg),var(--db),.55);
+}
+.cupon-leave-toggle{
+  display:block;margin:8px auto 0;background:none;border:none;cursor:pointer;
+  font-size:12px;color:#9ca3af;text-decoration:underline;
+}
+.cupon-leave-list{
+  display:none;margin-top:10px;max-height:140px;overflow-y:auto;
+  border-radius:14px;padding:6px 10px;text-align:left;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+}
+.cupon-leave-list.open{display:block;}
+.cupon-leave-list div{
+  padding:6px 0;font-size:11.5px;font-weight:700;letter-spacing:.1em;
+  color:#d4d4d8;border-top:1px solid rgba(255,255,255,.06);
+}
+.cupon-leave-list div:first-child{border-top:none;}
 `;
 
 function inyectarEstilosGuardaCupon() {
@@ -5586,7 +5786,7 @@ function abrirModalSalirCupon() {
           <b>Cupones activos</b> de tu tarjeta. Podrás usarlo después, o
           <b>cancelarlo para que te devolvamos los puntos</b> a tu cuenta.
         </p>
-        <span class="cupon-leave-code" id="cuponLeaveCode"></span>
+    <div class="cupon-leave-summary" id="cuponLeaveSummary"></div>
         <div class="cupon-leave-actions">
           <button type="button" class="cupon-leave-btn-primary" id="cuponLeaveStay">Seguir con mi pedido</button>
           <button type="button" class="cupon-leave-btn-secondary" id="cuponLeaveGo">Ir a mi tarjeta</button>
@@ -5611,12 +5811,32 @@ function abrirModalSalirCupon() {
     });
   }
 
-  const codigoEl = ov.querySelector("#cuponLeaveCode");
-  const lista = cuponesCanjeActivos();
-  const pts = lista.reduce((s, c) => s + Number(c.costoPuntos || 0), 0);
-  codigoEl.textContent = lista.length
-    ? `🎟️ ${lista.map((c) => c.codigo).join(" · ")}${pts > 0 ? " · " + pts + " pts" : ""}`
+const resumenEl = ov.querySelector("#cuponLeaveSummary");
+const lista = cuponesCanjeActivos();
+const pts = lista.reduce((s, c) => s + Number(c.costoPuntos || 0), 0);
+const ptsTxt = pts > 0 ? ` · ${pts} pts` : "";
+
+if (lista.length <= 1) {
+  // Un solo cupón: se muestra directo como antes
+  resumenEl.innerHTML = lista.length
+    ? `<span class="cupon-leave-code" style="margin:0;">🎟️ ${escapeHtmlCarrito(lista[0].codigo)}${ptsTxt}</span>`
     : "";
+} else {
+  // Varios: solo un contador + lista plegable con scroll
+  resumenEl.innerHTML = `
+    <span class="cupon-leave-count">🎟️ ${lista.length} cupones${ptsTxt}</span>
+    <button type="button" class="cupon-leave-toggle">Ver cupones</button>
+    <div class="cupon-leave-list">
+      ${lista.map((c) => `<div>${escapeHtmlCarrito(c.codigo)}</div>`).join("")}
+    </div>`;
+
+  const toggle = resumenEl.querySelector(".cupon-leave-toggle");
+  const listEl = resumenEl.querySelector(".cupon-leave-list");
+  toggle.onclick = () => {
+    const abierto = listEl.classList.toggle("open");
+    toggle.textContent = abierto ? "Ocultar cupones" : "Ver cupones";
+  };
+}
 
   document.body.style.overflow = "hidden";
   requestAnimationFrame(() => ov.classList.add("show"));
@@ -6104,34 +6324,57 @@ function addAdicional(id) {
 function pintarAdicionalesCarrito() {
   if (!adicionalesGlobal.length) return;
   const hayProductos = [...carrito.values()].some((i) => !i.esAdicional);
+  const totalAdic = [...carrito.values()]
+    .filter((i) => i.esAdicional)
+    .reduce((s, i) => s + i.cantidad, 0);
+
   [
     ["drawerItems", "adicDrawer"],
     ["sidebarItems", "adicSidebar"],
   ].forEach(([wrapId, id]) => {
     const wrap = document.getElementById(wrapId);
     if (!wrap) return;
+
     let box = document.getElementById(id);
+
+    // Se construye UNA sola vez: así la animación nunca se corta
     if (!box) {
       box = document.createElement("div");
       box.id = id;
+      box.className = "adic-box";
+      box.innerHTML = `
+        <button type="button" class="adic-toggle" aria-expanded="false">
+          <span class="adic-title">➕ ¿Algo más? <span class="adic-count"></span></span>
+          <svg class="adic-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+        <div class="adic-panel"><div class="adic-chips"></div></div>`;
       wrap.after(box);
+
       box.addEventListener("click", (e) => {
+        const t = e.target.closest(".adic-toggle");
+        if (t) {
+          const abierto = box.classList.toggle("open");
+          t.setAttribute("aria-expanded", abierto);
+          return;
+        }
         const b = e.target.closest("[data-adic]");
         if (b) addAdicional(b.dataset.adic);
       });
     }
+
     box.style.display = hayProductos ? "block" : "none";
-    box.style.padding = "4px 0 10px";
-    box.innerHTML = `
-      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin:0 0 8px;">➕ ¿Algo más?</p>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${adicionalesGlobal
-          .map((a) => {
-            const n = carrito.get(a.id)?.cantidad || 0;
-            return `<button type="button" data-adic="${a.id}" style="padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:${n ? "rgba(var(--dr),var(--dg),var(--db),.3)" : "rgba(255,255,255,.06)"};text-transform:capitalize;">+ ${escapeHtmlCarrito(a.nombre)} · S/ ${a.precio.toFixed(2)}${n ? ` · ${n}` : ""}</button>`;
-          })
-          .join("")}
-      </div>`;
+
+    // Solo se actualiza el contador y los chips; el panel NO se vuelve a crear
+    box.querySelector(".adic-count").textContent = totalAdic || "";
+    box.querySelector(".adic-chips").innerHTML = adicionalesGlobal
+      .map((a) => {
+        const n = carrito.get(a.id)?.cantidad || 0;
+        return `<button type="button" data-adic="${a.id}" class="adic-chip${n ? " on" : ""}">+ ${escapeHtmlCarrito(a.nombre)} · S/ ${a.precio.toFixed(2)}${n ? ` · ${n}` : ""}</button>`;
+      })
+      .join("");
   });
 }
 async function init() {

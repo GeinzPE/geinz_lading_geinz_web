@@ -647,8 +647,9 @@ setTimeout(() => container.querySelector("#heroCardSkel")?.classList.add("hide")
                   <p class="font-mono client-name" data-ref="name" style="margin-top:4px"></p>
                   <p class="eyebrow font-mono gap">Puntos Acumulados</p>
                   <p class="points font-mono" data-ref="points"></p>
-                  <p class="eyebrow font-mono since fid-hidden" data-ref="since"></p>
+                                <p class="eyebrow font-mono since fid-hidden" data-ref="since"></p>
                 </div>
+                ${opts.onVerTarjeta ? `<button type="button" class="btn promo-btn" data-ref="verbtn" style="margin:14px auto 0;max-width:220px">Ver mi tarjeta →</button>` : ""}
                 <div class="perforation" style="margin-top:16px"></div>
               </div>
 
@@ -955,8 +956,13 @@ setTimeout(() => container.querySelector("#heroCardSkel")?.classList.add("hide")
         el.textContent = `Cliente desde ${desde}`;
         el.classList.remove("fid-hidden");
       }
+      q("[data-ref=verbtn]")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        opts.onVerTarjeta?.();
+      });
 
       qr.code = codigo;
+
       qr.rendered = false;
       initTilt();
       initFlip();

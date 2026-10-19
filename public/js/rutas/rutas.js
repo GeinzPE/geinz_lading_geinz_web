@@ -8,32 +8,47 @@ let PAIS = "peru";
 let DEPARTAMENTO = "lima";
 let PROVINCIA = "barranca";
 
-const SLUG = /^[a-z0-9-]{2,60}$/;
+// Rechaza valores que son solo dígitos (ej. "3926")
+const SLUG = /^(?!\d+$)[a-z0-9-]{2,60}$/;
 
-// Lee la ubicación del negocio activo: URL > sessionStorage > valor por defecto
+// "Lima" -> "lima", "Huaura " -> "huaura", "3926" -> null
+function aSlug(t) {
+  const s = String(t || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  return SLUG.test(s) ? s : null;
+}
+
 function ubicacionActual() {
   let dep = DEPARTAMENTO, prov = PROVINCIA;
   try {
     const p = new URLSearchParams(location.search);
-    const d = p.get("departamento") || sessionStorage.getItem("departamento");
-    const v = p.get("provincia") || sessionStorage.getItem("provincia");
-    if (SLUG.test(d || "")) dep = d;
-    if (SLUG.test(v || "")) prov = v;
+    const d = aSlug(p.get("departamento")) || aSlug(sessionStorage.getItem("departamento"));
+    const v = aSlug(p.get("provincia")) || aSlug(sessionStorage.getItem("provincia"));
+    if (d) dep = d;
+    if (v) prov = v;
+    if (!d || !v) {
+      console.error("[rutas] departamento/provincia inválidos (¿llegó un ID numérico?)", {
+        url: [p.get("departamento"), p.get("provincia")],
+        session: [sessionStorage.getItem("departamento"), sessionStorage.getItem("provincia")],
+      });
+    }
   } catch {}
   return { dep, prov };
 }
 
 export function setUbicacion({ pais, departamento, provincia } = {}) {
   if (pais) PAIS = pais;
-  if (departamento) {
-    DEPARTAMENTO = departamento;
-    try { sessionStorage.setItem("departamento", departamento); } catch {}
-  }
-  if (provincia) {
-    PROVINCIA = provincia;
-    try { sessionStorage.setItem("provincia", provincia); } catch {}
-  }
+  const d = aSlug(departamento);
+  const v = aSlug(provincia);
+  if (d) { DEPARTAMENTO = d; try { sessionStorage.setItem("departamento", d); } catch {} }
+  if (v) { PROVINCIA = v;    try { sessionStorage.setItem("provincia", v); } catch {} }
 }
+
+
 
 function buildPath(localidad, ...resto) {
   const { dep, prov } = ubicacionActual();

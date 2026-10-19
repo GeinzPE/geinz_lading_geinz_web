@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Soporte | GEINZ Tecnología</title>
+  <meta name="description" content="¿Necesitas ayuda con tu tienda GEINZ? Escríbenos por WhatsApp al 958 120 920 y te respondemos lo más rápido posible.">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="Soporte | GEINZ">
+  <meta property="og:description" content="Escríbenos por WhatsApp y resolvemos tu consulta.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://geinztech.com/soporte.html">
+  <link rel="canonical" href="https://geinztech.com/soporte.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="img/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-96x96.png">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="./style/soporte.css">
+  <script src="./js/soporte.js" defer></script>
+</head>
+<body>
+  <div class="glow" id="glow" aria-hidden="true"></div>
+
+  <header class="top">
+    <a href="index.html" class="brand" aria-label="Volver al inicio de GEINZ">
+      <img src="img/logo geinz.png" alt="" width="34" height="34">
+      <span>GEINZ</span>
+    </a>
+    <a href="index.html" class="back">Volver al inicio</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>¿En qué te podemos ayudar?</h1>
+      <p class="lead">Cuéntanos tu duda por WhatsApp. Una persona del equipo te responde, sin bots ni formularios eternos.</p>
+      <a id="waMain" class="wa-btn" href="https://wa.me/51958120920?text=Hola%20GEINZ%2C%20necesito%20ayuda" target="_blank" rel="noopener noreferrer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2a9.9 9.9 0 0 0-8.5 14.9L2 22l5.27-1.4A9.9 9.9 0 1 0 12.04 2Zm5.8 14.07c-.25.7-1.45 1.33-2 1.4-.52.07-1.17.1-1.88-.12-.43-.14-.98-.32-1.69-.62-2.97-1.28-4.9-4.27-5.05-4.47-.15-.2-1.2-1.6-1.2-3.05s.76-2.16 1.03-2.45c.27-.3.58-.37.78-.37h.56c.18 0 .42-.07.65.5.25.58.84 2.03.91 2.18.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.17-.31.38-.44.51-.15.15-.3.3-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.06 1.3 2.36 1.45.3.15.47.12.65-.07.17-.2.75-.87.95-1.17.2-.3.4-.25.67-.15.27.1 1.72.82 2.02.97.3.15.5.22.57.35.08.12.08.72-.17 1.42Z"/></svg>
+        Escribir por WhatsApp
+      </a>
+      <p class="phone">958 120 920 · Lunes a sábado</p>
+    </section>
+
+    <section class="topics" aria-labelledby="t-title">
+      <h2 id="t-title">Elige tu tema y te llevamos directo al chat</h2>
+      <div class="grid">
+        <button class="topic" data-msg="Hola GEINZ, necesito ayuda con mi tienda: ">
+          <strong>Mi tienda</strong><span>Productos, precios, horarios o stock</span>
+        </button>
+        <button class="topic" data-msg="Hola GEINZ, tengo una consulta sobre pedidos: ">
+          <strong>Pedidos</strong><span>Estados, mesas o delivery</span>
+        </button>
+        <button class="topic" data-msg="Hola GEINZ, quiero información sobre placas NFC: ">
+          <strong>Placas NFC</strong><span>Cotizar, diseño o cambiar el destino</span>
+        </button>
+        <button class="topic" data-msg="Hola GEINZ, tengo una consulta sobre mi plan o pago: ">
+          <strong>Planes y pagos</strong><span>Facturación, cambio de plan</span>
+        </button>
+        <button class="topic" data-msg="Hola GEINZ, quiero configurar mi dominio personalizado: ">
+          <strong>Dominio propio</strong><span>Conectar www.tunegocio.com</span>
+        </button>
+        <button class="topic" data-msg="Hola GEINZ, tengo otra consulta: ">
+          <strong>Otra consulta</strong><span>Cuéntanos y vemos cómo ayudarte</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="compose" aria-labelledby="c-title">
+      <h2 id="c-title">O escribe tu mensaje aquí</h2>
+      <form id="supportForm" novalidate>
+        <label for="nombre">Tu nombre</label>
+        <input id="nombre" type="text" autocomplete="name" placeholder="Ej: María">
+        <label for="negocio">Nombre de tu negocio <span>(opcional)</span></label>
+        <input id="negocio" type="text" placeholder="Ej: Café Lima">
+        <label for="mensaje">¿Qué necesitas?</label>
+        <textarea id="mensaje" rows="4" placeholder="Cuéntanos con el mayor detalle posible"></textarea>
+        <p class="error" id="formError" role="alert"></p>
+        <button type="submit" class="wa-btn">Enviar por WhatsApp</button>
+      </form>
+    </section>
+
+    <section class="faq" aria-labelledby="f-title">
+      <h2 id="f-title">Respuestas rápidas</h2>
+      <details>
+        <summary>¿Cuánto demoran en responder?</summary>
+        <p>Normalmente en pocas horas dentro del horario de atención. Si es urgente, indícalo al inicio de tu mensaje.</p>
+      </details>
+      <details>
+        <summary>¿Qué datos debo enviar?</summary>
+        <p>Tu nombre, el nombre de tu negocio y una descripción de lo que pasa. Si puedes, adjunta una captura de pantalla.</p>
+      </details>
+      <details>
+        <summary>¿Ayudan a configurar mi tienda?</summary>
+        <p>Sí. Te guiamos con productos, horarios, delivery, dominio y tu tarjeta de fidelización.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <p>© <span id="year"></span> GEINZ TECNOLOGÍA E.I.R.L.</p>
+  </footer>
+</body>
+</html>

@@ -35,7 +35,9 @@ let bizLogoActual = "";
 // ---- Config: fallback de localidad para links viejos (/pedidos/{negocioId}/{pedidoId}) ----
 const LOCALIDAD_FIJA = "barranca";
 let aliasNegocioActual = null;
-const ES_DOMINIO_PROPIO = !!window.__NEGOCIO_HOSTNAME__;
+const HOST = window.location.hostname.replace(/^www\./, "");
+const ES_DOMINIO_PROPIO =
+  !!window.__NEGOCIO_HOSTNAME__ || HOST !== "geinztech.com";
 // ---- Estados del pedido (única fuente de verdad, sin duplicados) ----
 const ESTADOS = ["pendiente", "en_proceso", "entregado"];
 
@@ -86,7 +88,24 @@ function esc(s) {
    Formato viejo (compatibilidad con links ya enviados por WhatsApp):
      /pedidos/{negocioId}/{pedidoId}  o  ?negocioId=&pedidoId=
      -> usa el id tal cual viene y LOCALIDAD_FIJA como localidad. */
-
+async function resolverNegocioDesdeDominio(host) {
+  try {
+    const snap = await getDoc(doc(db, "dominio_web_tiendas", host));
+    if (snap.exists()) {
+      const d = snap.data();
+      if (d.id && d.localidad) {
+        return {
+          id: d.id,
+          localidad: d.localidad.trim().toLowerCase(),
+          alias: d.alias || null,
+        };
+      }
+    }
+  } catch (e) {
+    console.error("[pedidos] No se pudo resolver el dominio:", e);
+  }
+  return null;
+}
 async function resolverNegocioDesdeAlias(alias) {
   try {
     const aliasSnap = await getDoc(doc(db, "alias_tiendas", alias));
@@ -124,6 +143,12 @@ function parseRutaCruda() {
     };
   }
 
+  // Dominio propio: /pedido/{pedidoId}
+  const idxPedido = partes.indexOf("pedido");
+  if (idxPedido !== -1 && partes[idxPedido + 1]) {
+    return { tipo: "dominio", pedidoId: partes[idxPedido + 1] };
+  }
+
   // Formato viejo: /pedidos/{negocioId}/{pedidoId}  (o /dashboard/...)
   const idxPedidos = partes.findIndex(
     (p) => p === "pedidos" || p === "dashboard",
@@ -140,7 +165,7 @@ function parseRutaCruda() {
   return null;
 }
 async function resolverRuta() {
-  // Dominio propio (viene inyectado por pedidoSSR): /pedido/{pedidoId}
+  // Dominio propio inyectado por pedidoSSR: /pedido/{pedidoId}
   if (window.__NEGOCIO_ID__ && window.__NEGOCIO_LOCALIDAD__) {
     const partes = window.location.pathname.split("/").filter(Boolean);
     const idx = partes.indexOf("pedido");
@@ -155,8 +180,19 @@ async function resolverRuta() {
   }
 
   const cruda = parseRutaCruda();
-  // ...el resto queda igual
   if (!cruda) return null;
+
+  // Dominio propio sin inyección: se resuelve por dominio_web_tiendas
+  if (cruda.tipo === "dominio") {
+    const r = await resolverNegocioDesdeDominio(HOST);
+    if (!r) return null;
+    aliasNegocioActual = r.alias;
+    return {
+      negocioId: r.id,
+      pedidoId: cruda.pedidoId,
+      localidad: r.localidad,
+    };
+  }
 
   if (cruda.tipo === "id") {
     return {
@@ -166,7 +202,7 @@ async function resolverRuta() {
     };
   }
 
-  aliasNegocioActual = cruda.alias; // 👈 guardamos el alias tal cual viene en la URL
+  aliasNegocioActual = cruda.alias;
 
   const resuelto = await resolverNegocioDesdeAlias(cruda.alias);
   if (!resuelto) return null;

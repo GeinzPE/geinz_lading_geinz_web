@@ -26,6 +26,7 @@ import {
   tiendaSubDoc,
   tiendaSubCol,
   tiendaServiciosDoc,
+  setUbicacion 
 } from "../rutas/rutas.js";
 import { cargarColoresNegocio } from "../../js/colores_dinamicos/dinamicos.js";
 // ------------------------------------------------------------
@@ -71,11 +72,17 @@ const params = new URLSearchParams(window.location.search);
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
+import { setUbicacion } from "../rutas/rutas.js";
+
 if (!tiendaId || !localidad) {
   window.addEventListener("message", (e) => {
     if (e.data?.tipo !== "DATOS_TIENDA") return;
     tiendaId = e.data.tiendaId;
     localidad = e.data.localidad;
+    setUbicacion({
+      departamento: e.data.departamento,
+      provincia: e.data.provincia,
+    });
   });
 }
 const DEFAULT_LOCALIDAD = localidad;

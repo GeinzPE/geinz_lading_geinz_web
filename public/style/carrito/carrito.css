@@ -573,12 +573,28 @@ body {
 /* ── sidebar carrito (solo desktop) ── */
 #cartSidebar {
     position: sticky;
-    top: 96px;
-    max-height: calc(100vh - 120px);
+    top: 16px;
+    height: auto;                              /* vacío = chico */
+    max-height: calc(100vh - 32px);            /* lleno = nunca pasa la pantalla */
+    max-height: calc(100dvh - 32px);
     display: flex;
     flex-direction: column;
 }
+#cartSidebar > * {
+    flex-shrink: 0;
+}
 
+/* ...y la lista de productos se lleva todo el espacio que sobra */
+#cartSidebar #sidebarItems {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+#cartSidebar h2 {
+    transform-origin: left center;
+}
 #sidebarItems {
     overflow-y: auto;
 }
@@ -1099,4 +1115,102 @@ body {
 .chip.active,
 .promo-detail-btn {
   background: var(--brand-grad, rgb(var(--dr), var(--dg), var(--db)));
+}
+/* ── "¿Algo más?" desplegable ── */
+.adic-box {
+    flex-shrink: 0;
+    padding: 4px 0 10px;
+    border-top: 1px solid rgba(255, 255, 255, .07);
+    margin-top: 4px;
+}
+
+.adic-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+}
+
+.adic-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.adic-count {
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(var(--dr), var(--dg), var(--db), .3);
+    color: #fff;
+}
+
+.adic-count:empty {
+    display: none;
+}
+
+.adic-arrow {
+    transition: transform .3s ease;
+}
+
+.adic-box.open .adic-arrow {
+    transform: rotate(180deg);
+}
+
+/* el panel anima solo max-height + opacity */
+.adic-panel {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height .3s ease, opacity .22s ease;
+}
+
+.adic-box.open .adic-panel {
+    max-height: 190px;
+    opacity: 1;
+}
+
+.adic-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.adic-chip {
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    text-transform: capitalize;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .06);
+    transition: background-color .15s ease, transform .15s ease;
+}
+
+.adic-chip:active {
+    transform: scale(.94);
+}
+
+.adic-chip.on {
+    background: rgba(var(--dr), var(--dg), var(--db), .3);
+}
+
+/* si el dispositivo pide menos animación, se abre directo */
+@media (prefers-reduced-motion: reduce) {
+    .adic-panel,
+    .adic-arrow {
+        transition: none;
+    }
 }

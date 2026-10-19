@@ -1048,11 +1048,22 @@
     import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
-    const auth = getAuth(app);
+      const auth = getAuth(app);
     const fn = httpsCallable(getFunctions(app, "southamerica-east1"), "registrarNegocio");
 
+    // Sin sesión → al login, avisando que viene a registrar su tienda
+    (async () => {
+      try { await auth.authStateReady(); } catch { }
+      if (!auth.currentUser) {
+        const p = new URLSearchParams(location.search);
+        p.set("destino", "registro");
+        location.replace("./logindata/login.html?" + p.toString());
+      }
+    })();
+
     window.__enviarRegistroNegocio = async (p) => {
-      try { await auth.authStateReady(); } catch { } // espera a saber si hay sesión (para vincular el negocio)
+      await auth.authStateReady();
+      if (!auth.currentUser) throw { code: "functions/unauthenticated", message: "Inicia sesión para registrar tu negocio." };
       return (await fn(p)).data;
     };
   </script>

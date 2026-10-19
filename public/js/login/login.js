@@ -67,6 +67,36 @@ const seleccionUbicacion = {
   reg: { dep: "", prov: "", dist: "" },
   welcome: { dep: "", prov: "", dist: "" },
 };
+/* ---- Flujo "vengo a registrar mi tienda" ---- */
+if (new URLSearchParams(location.search).get("destino") === "registro") {
+  sessionStorage.setItem("geinz_destino", "registro");
+}
+function urlRegistro() {
+  const p = new URLSearchParams(location.search);
+  p.delete("destino");
+  const s = p.toString();
+  return "../registrogeinz.html" + (s ? "?" + s : "");
+}
+async function entrar(user) {
+  if (sessionStorage.getItem("geinz_destino") !== "registro") return showSplash(user);
+
+  let yaTiene = false;
+  try {
+    const s = await getDoc(
+      doc(db, "Trabajadores_Usuarios_Drivers", "logeados_tienda", "logeados_tienda", user.uid),
+    );
+    yaTiene = s.exists();
+  } catch (e) {
+    console.warn("No se pudo leer logeados_tienda:", e); // el servidor valida igual
+  }
+  sessionStorage.removeItem("geinz_destino");
+
+  if (yaTiene) {
+    showSnackbar("⚠️ Ya tienes un negocio registrado. Para crear otro contáctanos por WhatsApp.", "warning");
+    return showSplash(user);
+  }
+  location.replace(urlRegistro());
+}
 
 /* =========================================================
    PAÍSES
@@ -677,7 +707,8 @@ async function procesarLoginGoogle(user) {
 
   if (snap.exists()) {
     // Ya tiene perfil guardado → directo al splash, sin pedir nada.
-    showSplash(user);
+    // Ya tiene perfil guardado → directo, sin pedir nada.
+    entrar(user);
     return;
   }
 
@@ -1080,8 +1111,8 @@ window.submitRegister = async (event) => {
 
     closeModal("registerModal");
     showSnackbar("🎉 ¡Cuenta creada! Bienvenido a Geinz", "success");
-    await delay(900);
-    showSplash(newUser);
+      await delay(900);
+    entrar(newUser);
   } catch (err) {
     console.error("Error al registrar:", err);
     showSnackbar("❌ Error al crear la cuenta. Intenta de nuevo.", "error");
@@ -1189,8 +1220,8 @@ window.doEmailLogin = async () => {
     const result = await signInWithEmailAndPassword(auth, correo, pass);
     GOOGLE_USER = result.user;
 
-    closeModal("loginModal");
-    showSplash(result.user);
+      closeModal("loginModal");
+    entrar(result.user);
   } catch (err) {
     console.error("Error login email:", err);
     const code = err?.code || "";
