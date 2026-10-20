@@ -580,7 +580,7 @@ function aplicarTipoPublicacionUI() {
   const boxHorario = document.getElementById("paramBoxHorario");
   const boxPagos = document.getElementById("paramBoxPagos");
   const boxGeo = document.getElementById("paramBoxGeo");
-  const esPresencial = datosTienda?.modelo_negocio !== false;
+const esPresencial = window.ES_PRESENCIAL !== false;
 
   setColapsado(boxHorario, esPerfil);
   setColapsado(boxPagos, esPerfil);
@@ -2357,7 +2357,7 @@ window.addEventListener("message", (event) => {
       ubicacion: d.ubicacion,
       saldo_tienda: d.saldo_tienda,
       facebook_page: d.facebook_page,
-      modelo_negocio: d.modelo_negocio,
+
     };
     _aplicarDatosTienda(datosTienda);
     escucharConexionFacebook(datosTienda.id_tienda, datosTienda.localidad); // ✅ CAMBIO: activa el listener en tiempo real
@@ -2427,7 +2427,7 @@ function _aplicarDatosTienda(d) {
 if (window.GEINZ_CREDITOS !== undefined) d.saldo_tienda = window.GEINZ_CREDITOS;
 
   // Cercanía solo aplica a negocios con local físico (modelo_negocio !== false)
-  const esPresencial = d.modelo_negocio !== false;
+const esPresencial = window.ES_PRESENCIAL !== false;
   const boxGeo = document.getElementById("paramBoxGeo");
   if (boxGeo) {
     boxGeo.style.display = esPresencial ? "" : "none";
@@ -2864,6 +2864,9 @@ function _mostrar(el, visible) {
 }
 
 function aplicarServicios(servicios) {
+    window.ES_PRESENCIAL = servicios?.tipo_tienda === "fisica";
+  if (datosTienda) _aplicarDatosTienda(datosTienda);
+  aplicarTipoPublicacionUI();
   const base = leer(servicios, RUTA_PUB);
   console.log("📦 publicidad_ofertas:", base);
 

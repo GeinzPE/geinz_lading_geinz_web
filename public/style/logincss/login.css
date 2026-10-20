@@ -3025,3 +3025,14 @@ svg.input-icon {
 .wb-phone .material-symbols-outlined {
   font-size: 13px;
 }
+
+.btn-otro-negocio{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;max-width:340px;margin-top:10px;padding:12px 16px;
+  background:transparent;color:inherit;
+  border:1px solid rgba(255,255,255,.25);border-radius:14px;
+  font:inherit;font-weight:500;font-size:14px;cursor:pointer;
+  transition:background .2s,border-color .2s;
+}
+.btn-otro-negocio:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.45);}
+.btn-otro-negocio .material-symbols-outlined{font-size:20px;}

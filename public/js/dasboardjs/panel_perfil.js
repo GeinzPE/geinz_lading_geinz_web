@@ -1,5 +1,5 @@
 import { app, db, storage } from "../db/db.js";
-import { tiendaDoc, tiendaSubDoc, tiendaSubCol } from "../rutas/rutas.js";
+import { tiendaDoc, tiendaSubDoc, tiendaSubCol, tiendaServiciosDoc } from "../rutas/rutas.js";
 import {
   doc,
   onSnapshot,
@@ -642,7 +642,10 @@ const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._co
     document.getElementById("dot-resena")?.classList.remove("show");
     document.getElementById("dot-resena-mobile")?.classList.remove("show");
   },
-
+  aplicarVisibilidadUbicacion(esFisica) {
+    const seccion = document.getElementById("expUbicacionSection");
+    if (seccion) seccion.style.display = esFisica ? "" : "none";
+  },
   _ensureNotifAudio() {
     if (!this._notifAudio) {
       this._notifAudio = new Audio("../../sounds/nuevo_seguidor_negocio.mp3");
@@ -796,6 +799,13 @@ const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._co
   },
 
   _initRealtime() {
+        this._onSnapshot(
+      tiendaServiciosDoc(this.LOCALIDAD_TIENDA, this.TIENDA_ID),
+      (snap) => {
+        const esFisica = snap.exists() && snap.data().tipo_tienda === "fisica";
+        this.aplicarVisibilidadUbicacion(esFisica);
+      },
+    );
     document.querySelector(".app")?.classList.add("loading-data");
 
     this._onSnapshot(

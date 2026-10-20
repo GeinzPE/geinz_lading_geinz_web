@@ -78,12 +78,19 @@ function urlRegistro() {
   return "../registrogeinz.html" + (s ? "?" + s : "");
 }
 async function entrar(user) {
-  if (sessionStorage.getItem("geinz_destino") !== "registro") return showSplash(user);
+  if (sessionStorage.getItem("geinz_destino") !== "registro")
+    return showSplash(user);
 
   let yaTiene = false;
   try {
     const s = await getDoc(
-      doc(db, "Trabajadores_Usuarios_Drivers", "logeados_tienda", "logeados_tienda", user.uid),
+      doc(
+        db,
+        "Trabajadores_Usuarios_Drivers",
+        "logeados_tienda",
+        "logeados_tienda",
+        user.uid,
+      ),
     );
     yaTiene = s.exists();
   } catch (e) {
@@ -92,7 +99,10 @@ async function entrar(user) {
   sessionStorage.removeItem("geinz_destino");
 
   if (yaTiene) {
-    showSnackbar("⚠️ Ya tienes un negocio registrado. Para crear otro contáctanos por WhatsApp.", "warning");
+    showSnackbar(
+      "⚠️ Ya tienes un negocio registrado. Para crear otro contáctanos por WhatsApp.",
+      "warning",
+    );
     return showSplash(user);
   }
   location.replace(urlRegistro());
@@ -335,7 +345,7 @@ async function inicializarSelectoresUbicacion(prefix) {
     selDist.innerHTML = `<option value="" disabled selected hidden>Elige provincia</option>`;
     selProv.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
     try {
-   const provincias = await obtenerProvincias(selDep.value);
+      const provincias = await obtenerProvincias(selDep.value);
       selProv.innerHTML =
         `<option value="" disabled selected hidden>Selecciona</option>` +
         provincias
@@ -392,7 +402,7 @@ async function inicializarSelectoresUbicacion(prefix) {
     selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
     setCoolSelectLoading(selDist, true);
     try {
-        const distritos = await obtenerDistritos(
+      const distritos = await obtenerDistritos(
         seleccionUbicacion[prefix].dep,
         selProv.value,
       );
@@ -1111,7 +1121,7 @@ window.submitRegister = async (event) => {
 
     closeModal("registerModal");
     showSnackbar("🎉 ¡Cuenta creada! Bienvenido a Geinz", "success");
-      await delay(900);
+    await delay(900);
     entrar(newUser);
   } catch (err) {
     console.error("Error al registrar:", err);
@@ -1220,7 +1230,7 @@ window.doEmailLogin = async () => {
     const result = await signInWithEmailAndPassword(auth, correo, pass);
     GOOGLE_USER = result.user;
 
-      closeModal("loginModal");
+    closeModal("loginModal");
     entrar(result.user);
   } catch (err) {
     console.error("Error login email:", err);
@@ -1440,6 +1450,63 @@ async function guardarTokenFcm(uid) {
 /* =========================================================
    SPLASH SCREEN
 ========================================================= */
+let vincularListo = false;
+async function prepararFormularioVincular() {
+  if (vincularListo) return;
+  vincularListo = true;
+
+  await inicializarSelectoresUbicacion("welcome");
+  upgradeAllCoolSelects(document.getElementById("wVincularForm"));
+
+  const btn = document.getElementById("btnVincularInline");
+  if (!btn) return;
+
+  btn.onclick = async () => {
+    const idNegocio = document.getElementById("welcomeIdNegocio").value.trim();
+    const { dep, prov, dist } = seleccionUbicacion.welcome;
+
+    if (!idNegocio || idNegocio.length < 4) {
+      showSnackbar("⚠️ Ingresa un ID válido", "warning");
+      return;
+    }
+    if (!dep || !prov || !dist) {
+      showSnackbar(
+        "⚠️ Selecciona departamento, provincia y distrito",
+        "warning",
+      );
+      return;
+    }
+
+    const btnOrig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
+
+    try {
+      setUbicacion({ departamento: dep, provincia: prov });
+      const snapTienda = await getDoc(tiendaDoc(dist, "tiendas", idNegocio));
+      if (!snapTienda.exists()) {
+        showSnackbar(
+          "❌ Ese ID no existe. Verifica e intenta de nuevo.",
+          "error",
+        );
+        return;
+      }
+
+      sessionStorage.setItem("tiendaId", idNegocio);
+      sessionStorage.setItem("departamento", dep);
+      sessionStorage.setItem("provincia", prov);
+      sessionStorage.setItem("localidad", dist);
+
+      window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(dep)}&provincia=${encodeURIComponent(prov)}&localidad=${encodeURIComponent(dist)}`;
+    } catch (err) {
+      console.error(err);
+      showSnackbar("Error al validar. Intenta de nuevo.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = btnOrig;
+    }
+  };
+}
 async function showSplash(user) {
   if (splashShown) return;
   splashShown = true;
@@ -1530,6 +1597,33 @@ async function showSplash(user) {
     if (hintEl)
       hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
 
+    const btnOtro = document.getElementById("btnOtroNegocio");
+    const btnCancelarOtro = document.getElementById("btnCancelarOtro");
+
+    if (btnOtro) {
+      btnOtro.style.display = "flex";
+      btnOtro.onclick = async () => {
+        if (storeCard) storeCard.style.display = "none";
+        if (btnEnter) btnEnter.style.display = "none";
+        btnOtro.style.display = "none";
+        if (vincularForm) vincularForm.style.display = "block";
+        if (btnCancelarOtro) btnCancelarOtro.style.display = "flex";
+        if (hintEl) hintEl.textContent = "Ingresa los datos del otro negocio.";
+        await prepararFormularioVincular();
+      };
+    }
+
+    if (btnCancelarOtro) {
+      btnCancelarOtro.onclick = () => {
+        if (vincularForm) vincularForm.style.display = "none";
+        btnCancelarOtro.style.display = "none";
+        if (storeCard) storeCard.style.display = "flex";
+        if (btnEnter) btnEnter.style.display = "flex";
+        btnOtro.style.display = "flex";
+        if (hintEl)
+          hintEl.textContent = "Tu negocio ya está vinculado a tu cuenta.";
+      };
+    }
     document.getElementById("sValidating").classList.add("fade-out");
     await delay(450);
     document.getElementById("sValidating").style.display = "none";
@@ -1564,13 +1658,10 @@ async function showSplash(user) {
     document.getElementById("sValidating").style.display = "none";
     document.getElementById("sWelcome").classList.add("visible");
 
-    // Cargamos los selects dep/prov/dist con prefix "welcome"
-    await inicializarSelectoresUbicacion("welcome");
-    upgradeAllCoolSelects(document.getElementById("wVincularForm"));
+    await prepararFormularioVincular();
+
     try {
-      const p = JSON.parse(
-        localStorage.getItem("geinz_registro_pendiente") || "null",
-      );
+      const p = JSON.parse(localStorage.getItem("geinz_registro_pendiente") || "null");
       if (p?.id) {
         document.getElementById("welcomeIdNegocio").value = p.id;
         await prefillVincular("welcome", p);
@@ -1579,71 +1670,6 @@ async function showSplash(user) {
         localStorage.removeItem("geinz_registro_pendiente");
       }
     } catch {}
-    const btnVincularInline = document.getElementById("btnVincularInline");
-    if (btnVincularInline) {
-      btnVincularInline.onclick = async () => {
-        const idNegocio = document
-          .getElementById("welcomeIdNegocio")
-          .value.trim();
-        const { dep, prov, dist } = seleccionUbicacion.welcome;
-        console.log("[login] seleccion welcome ->", {
-          dep,
-          prov,
-          dist,
-          idNegocio,
-        });
-        console.log(
-          "[login] ruta que se consulta ->",
-          tiendaDoc(dist, "tiendas", idNegocio).path,
-        );
-        if (!idNegocio || idNegocio.length < 4) {
-          showSnackbar("⚠️ Ingresa un ID válido", "warning");
-          return;
-        }
-        if (!dep || !prov || !dist) {
-          showSnackbar(
-            "⚠️ Selecciona departamento, provincia y distrito",
-            "warning",
-          );
-          return;
-        }
-
-        const btnOrig = btnVincularInline.innerHTML;
-        btnVincularInline.disabled = true;
-        btnVincularInline.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Validando...`;
-
-        try {
-          setUbicacion({ departamento: dep, provincia: prov });
-          console.log(
-            "[login] ruta que se consulta ->",
-            tiendaDoc(dist, "tiendas", idNegocio).path,
-          );
-          const snapTienda = await getDoc(
-            tiendaDoc(dist, "tiendas", idNegocio),
-          );
-          if (!snapTienda.exists()) {
-            showSnackbar(
-              "❌ Ese ID no existe. Verifica e intenta de nuevo.",
-              "error",
-            );
-            return;
-          }
-
-          sessionStorage.setItem("tiendaId", idNegocio);
-          sessionStorage.setItem("departamento", dep);
-          sessionStorage.setItem("provincia", prov);
-          sessionStorage.setItem("localidad", dist);
-
-          window.location.href = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idNegocio)}&departamento=${encodeURIComponent(dep)}&provincia=${encodeURIComponent(prov)}&localidad=${encodeURIComponent(dist)}`;
-        } catch (err) {
-          console.error(err);
-          showSnackbar("Error al validar. Intenta de nuevo.", "error");
-        } finally {
-          btnVincularInline.disabled = false;
-          btnVincularInline.innerHTML = btnOrig;
-        }
-      };
-    }
   }
 }
 

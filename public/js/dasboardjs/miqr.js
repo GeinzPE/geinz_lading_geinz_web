@@ -72,7 +72,6 @@ const params = new URLSearchParams(window.location.search);
 let tiendaId = sessionStorage.getItem("tiendaId");
 let localidad = sessionStorage.getItem("localidad");
 
-import { setUbicacion } from "../rutas/rutas.js";
 
 if (!tiendaId || !localidad) {
   window.addEventListener("message", (e) => {
@@ -96,8 +95,8 @@ const PlanQr = {
   _aplicar(serv) {
     const m = serv?.cliente_y_fidelizacion?.miqr;
     this.datos = m && typeof m === "object" ? m : null;
+    this.presencial = serv ? serv.tipo_tienda === "fisica" : true;
   },
-
   // Espera los datos del panel padre (0 lecturas). Solo si no llegan en 4 s, lee Firestore una vez.
   cargar() {
     if (this._listo) return this._listo;
@@ -644,29 +643,20 @@ const QrNegocio = {
 };
 
 async function aplicarVisibilidadPorCategoria() {
-  let categoria = sessionStorage.getItem("categoriaTienda") || null;
-  let modeloNegocio = sessionStorage.getItem("modeloNegocio");
+   let categoria = sessionStorage.getItem("categoriaTienda") || null;
 
-  if (!categoria || modeloNegocio === null) {
+  if (!categoria) {
     try {
       const negocioSnap = await getDoc(
         tiendaDoc(localidad, "tiendas", tiendaId),
       );
       if (negocioSnap.exists()) {
-        const data = negocioSnap.data();
-        categoria = categoria || data.categoria_tienda || null;
-        modeloNegocio = data.modelo_negocio === true;
+        categoria = negocioSnap.data().categoria_tienda || null;
         sessionStorage.setItem("categoriaTienda", categoria || "");
-        sessionStorage.setItem("modeloNegocio", String(!!modeloNegocio));
       }
     } catch (err) {
-      console.error(
-        "❌ No se pudo obtener la categoría/modelo de la tienda.",
-        err,
-      );
+      console.error("❌ No se pudo obtener la categoría de la tienda.", err);
     }
-  } else {
-    modeloNegocio = modeloNegocio === "true";
   }
 
   await PlanQr.cargar();
@@ -694,7 +684,7 @@ async function aplicarVisibilidadPorCategoria() {
   // Mesas: restaurante + local físico + plan (mesas.activo)
   ocultar(
     "mesasSection",
-    !(esRestaurante &&  PlanQr.mesasActivo()),
+    !(esRestaurante && PlanQr.presencial && PlanQr.mesasActivo()),
   );
 
   // Libro de reclamaciones: activo en el negocio Y en el plan

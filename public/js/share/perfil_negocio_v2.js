@@ -1539,7 +1539,7 @@ function refrescarMesas() {
   injectMesasStyles();
 
   const esComida = normalizarCategoria(categoria) === "comida y restaurantes";
-  const verMesas = esComida && esPresencial && _F.mesas;
+const verMesas = esComida && _F.presencial && _F.mesas;
   _reservasActivas = verMesas && _F.reserva;
 
   if (!verMesas) {
@@ -5644,6 +5644,7 @@ function calcFlags(s = {}) {
   return {
     plan,
     esBasico: plan === "basico",
+    presencial: get("tipo_tienda") === "fisica",
     // mesas / reservas
     mesas: on(`${PV}.mesa.activo`, "modulos.pedidos_vivos.mesas"),
     reserva: on(`${PV}.mesa.reservas`, "mesa.reserva"),
@@ -5806,7 +5807,7 @@ async function render(biz, isInitial = true) {
   const horario = normalizeSchedule(biz.horario_atencion);
   const mapDiaHoy = [6, 0, 1, 2, 3, 4, 5];
   _horarioHoy = horario[mapDiaHoy[new Date().getDay()]];
-  const esPresencial = biz.modelo_negocio !== false; // true/undefined = presencial, false = delivery
+  const esPresencial = _F.presencial;
   const plan = (biz.plan_seleccionado || "basico").toLowerCase();
   const esPremium = plan === "emprendedor" || plan === "empresa";
   const contactos = normalizeContactos(biz.metodo_contacto);
@@ -7865,11 +7866,7 @@ function irAReviews() {
     _F = calcFlags(servicios);
 
     listenBusinessRealtime(params);
-    listenMesasRealtime(
-      params,
-      biz.categoria_tienda,
-      biz.modelo_negocio !== false,
-    );
+      listenMesasRealtime(params, biz.categoria_tienda, _F.presencial);
     bindFollowButton(params, biz);
     listenActivePromosRealtime(params);
 

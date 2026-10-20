@@ -9122,6 +9122,26 @@ function iniciarListenerGrupos() {
   );
 }
 
+function aplicarVisibilidadMesas() {
+  const esFisica = PLAN_SERV?.tipo_tienda === "fisica";
+  const debeMostrarMesas = ES_RESTAURANTE && esFisica && PLAN_PED.mesa;
+
+  document
+    .querySelector('.origin-chip[data-origin="mesa"]')
+    ?.classList.toggle("plan-oculto", !debeMostrarMesas);
+
+  if (autoresBtn)
+    autoresBtn.style.display =
+      debeMostrarMesas && originFilter === "mesa" ? "inline-flex" : "none";
+
+  // Si estaba viendo Mesas y ya no corresponde, vuelve a WhatsApp
+  if (!debeMostrarMesas && originFilter === "mesa") {
+    document
+      .querySelector('.origin-chip[data-origin="whatsapp"]')
+      ?.click();
+  }
+}
+
 async function aplicarVisibilidadPorCategoriaPedidos() {
   let categoria = sessionStorage.getItem("categoriaTienda") || null;
 
@@ -9137,19 +9157,14 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
     }
   }
 
-  const esRestaurante =
-    (categoria || "").normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase()
-    === "comida y restaurantes";
+  ES_RESTAURANTE =
+    (categoria || "")
+      .normalize("NFKC")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase() === "comida y restaurantes";
 
-  // Mesas solo se muestran si es restaurante Y tiene local físico
-  const debeMostrarMesas = esRestaurante ;
-  // Si NO debe mostrar mesas, quita el chip "Mesas"
-  if (!debeMostrarMesas) {
-    document.querySelector('.origin-chip[data-origin="mesa"]')?.remove();
-    if (autoresBtn) autoresBtn.style.display = "none";
-  }
-
-  // El chip "Nuevo pedido" ahora aparece SIEMPRE
+  // El chip "Nuevo pedido" aparece siempre
   const chipDirecto = document.createElement("div");
   chipDirecto.className = "origin-chip";
   chipDirecto.dataset.origin = "directo";
@@ -9166,7 +9181,6 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
     await NuevoPedido.init();
   });
 
-  // Al volver a WhatsApp o a Mesas, se oculta el panel de Nuevo pedido
   ["whatsapp", "mesa"].forEach((origen) => {
     document
       .querySelector(`.origin-chip[data-origin="${origen}"]`)
@@ -9175,7 +9189,9 @@ async function aplicarVisibilidadPorCategoriaPedidos() {
         cerrarSesionCelular();
       });
   });
+
   aplicarPlanPedidos();
+  aplicarVisibilidadMesas();
 }
 function iniciarListener() {
   if (!tiendaId) return;
@@ -10596,7 +10612,7 @@ const _nodo = (o, k) => {
 const _flag = (n, k) => (typeof n?.[k] === "boolean" ? n[k] : _on(n?.[k]));
 
 let PLAN_SERV = null;
-
+let ES_RESTAURANTE = false;
 function aplicarPlanPedidos(servicios) {
   if (servicios) PLAN_SERV = servicios;
   const pv = PLAN_SERV?.operacion_ventas?.pedidos_vivos;
@@ -10645,10 +10661,7 @@ function aplicarPlanPedidos(servicios) {
     document.querySelector('.origin-chip[data-origin="whatsapp"]'),
     PLAN_PED.carrito,
   );
-  ocultar(
-    document.querySelector('.origin-chip[data-origin="mesa"]'),
-    PLAN_PED.mesa,
-  );
+   aplicarVisibilidadMesas();
   ocultar(
     document.querySelector('.origin-chip[data-origin="directo"]'),
     PLAN_PED.nuevoPedido,
