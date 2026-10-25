@@ -802,7 +802,11 @@ const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._co
         this._onSnapshot(
       tiendaServiciosDoc(this.LOCALIDAD_TIENDA, this.TIENDA_ID),
       (snap) => {
-        const esFisica = snap.exists() && snap.data().tipo_tienda === "fisica";
+        const d = snap.exists() ? snap.data() : {};
+const esFisica =
+  String(d.panel_admin?.tipo_tienda ?? d.tipo_tienda ?? "")
+    .toLowerCase()
+    .trim() === "fisica";
         this.aplicarVisibilidadUbicacion(esFisica);
       },
     );

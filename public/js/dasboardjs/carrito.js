@@ -21,6 +21,7 @@ import {
   clienteDoc,
   clienteCuponDoc,
   tiendaCuponDoc,
+  tiendaServiciosDoc,
 } from "../rutas/rutas.js";
 import {
   getAuth,
@@ -359,6 +360,7 @@ let filtroCategoria = "Todos";
 let filtroTexto = "";
 let searchDebounce;
 let bizData = null;
+let tipoTiendaFisica = null;
 let bizNombre = "Catálogo";
 let _bizLogoUrl = null;
 let pedidoActivoMesa = null;
@@ -903,20 +905,20 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const totalConDesc = +(totalGuardar - descCupon).toFixed(2);
   const cuponGuardar = cuponMesa
     ? {
-        codigo: cuponMesa.codigo,
-        tipo: cuponMesa.tipo,
-        origen: cuponMesa.origen || null,
-        tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
-        porcentajeManual: cuponMesa.porcentajeManual ?? null,
-        montoManual: cuponMesa.montoManual ?? null,
-        compraMinima: cuponMesa.compraMinima ?? 0,
-      }
+      codigo: cuponMesa.codigo,
+      tipo: cuponMesa.tipo,
+      origen: cuponMesa.origen || null,
+      tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
+      porcentajeManual: cuponMesa.porcentajeManual ?? null,
+      montoManual: cuponMesa.montoManual ?? null,
+      compraMinima: cuponMesa.compraMinima ?? 0,
+    }
     : null;
   const estadosIni = esRonda
     ? {
-        estadoMozo: "confirmado",
-        estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
-      }
+      estadoMozo: "confirmado",
+      estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
+    }
     : inter
       ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
       : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
@@ -1119,7 +1121,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 const estItemC = (it, ped) =>
@@ -1157,7 +1159,7 @@ async function guardarComprobanteMesa(sol) {
     await updateDoc(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", docId),
       { comprobante: sol },
-    ).catch(() => {});
+    ).catch(() => { });
 }
 const clientePuedeComprobante = () =>
   bizData?.mesas_config?.compCliente !== false;
@@ -1257,28 +1259,26 @@ function renderPedidoActivoMesa(pedido) {
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
       <span class="text-[11px] text-gray-500">${pedido.hora || ""}</span>
     </div>
-    ${
-      idx < 0
-        ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
-        : `<div class="pa-steps">
+    ${idx < 0
+      ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
+      : `<div class="pa-steps">
             <div class="pa-track"><div class="pa-fill" style="width:${fillPct}%"></div></div>
             ${PASOS_MESA.map(
-              (p, i) => `
+        (p, i) => `
               <div class="pa-step ${i < idx ? "done" : i === idx ? "now" : ""}">
                 <div class="pa-dot">${i < idx ? "✓" : p[1]}</div>
                 <div class="pa-lbl">${p[2]}</div>
               </div>`,
-            ).join("")}
+      ).join("")}
           </div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
-    ${
-      Number(pedido.descuentoCupon || 0) > 0
-        ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
+    ${Number(pedido.descuentoCupon || 0) > 0
+      ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
              <span>🎟️ Cupón ${pedido.cupon?.codigo || ""}</span>
              <span>-S/ ${Number(pedido.descuentoCupon).toFixed(2)}</span>
            </div>`
-        : ""
+      : ""
     }
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
@@ -1552,7 +1552,7 @@ async function confirmarPedidoMesaDirecto() {
     });
     pedidoActivoMesa = pedido;
     if (contarUso) {
-      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
+      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => { });
     }
     cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
@@ -2049,11 +2049,10 @@ function cuponBarHTML(subtotal) {
         <p style="margin:0;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${rgb};">
           🎟️ Canjes con puntos · ${totalCanjes}
         </p>
-        ${
-          lineas.length > 1
-            ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
-            : ""
-        }
+        ${lineas.length > 1
+      ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
+      : ""
+    }
       </div>
       ${filas}
     </div>`;
@@ -2243,6 +2242,19 @@ async function seguirNegocioDesdeCarrito() {
     _siguiendoBusy = false;
   }
 }
+async function loadTipoTienda() {
+  try {
+    const s = await getDoc(tiendaServiciosDoc(localidad, tiendaId));
+    const d = s.exists() ? s.data() : {};
+    const tipo = String(
+      d?.panel_admin?.tipo_tienda ?? d?.tipo_tienda ?? "",
+    ).toLowerCase().trim();
+    return tipo ? tipo === "fisica" : null;
+  } catch (e) {
+    console.warn("No se pudo leer tipo_tienda:", e.message);
+    return null;
+  }
+}
 /* ══════════════ Datos (una sola carga) ══════════════ */
 async function loadTienda() {
   try {
@@ -2343,12 +2355,12 @@ async function loadProductosCatalogo(bizOrPromise) {
             d.variantesMultiples === true && d.variantesConCantidad === true,
           puntos:
             biz?.fidelizacion?.activo &&
-            d.puntos?.activo &&
-            d.puntos?.cantidad > 0
+              d.puntos?.activo &&
+              d.puntos?.cantidad > 0
               ? {
-                  cantidad: d.puntos.cantidad,
-                  descripcion: d.puntos.descripcion || "",
-                }
+                cantidad: d.puntos.cantidad,
+                descripcion: d.puntos.descripcion || "",
+              }
               : null,
           descuento: d.descuento || null,
           horarioCat,
@@ -2437,32 +2449,21 @@ function renderMetodosPago(biz) {
   setCollapseOpen(efectivoCollapse, metodoPagoKey === "efectivo");
 }
 function aplicarModeloNegocio(biz) {
-  console.log(
-    "[DEBUG modelo_negocio] valor:",
-    biz?.modelo_negocio,
-    "| mesaId:",
-    mesaId,
-  );
-
-  // En modo mesa (QR / dine-in) no aplica: ahí no se usa dirección ni este toggle.
+  // En modo mesa (QR / dine-in) no aplica
   if (mesaId) return;
   if (biz?.delivery?.hace === false) return;
-  const esSoloDelivery = biz?.modelo_negocio === false;
+
+  const esSoloDelivery = tipoTiendaFisica === false;
   const pickupBtn = document.querySelector(
     '#entregaToggle .toggle-opt[data-val="Recojo en local"]',
   );
+  const entregaToggle = document.getElementById("entregaToggle");
   const bannerEl = document.getElementById("soloDeliveryBanner");
   const direccionEl = document.getElementById("direccionCollapse");
 
-  console.log(
-    "[DEBUG modelo_negocio] esSoloDelivery:",
-    esSoloDelivery,
-    "| direccionEl:",
-    direccionEl,
-  );
-
   if (esSoloDelivery) {
-    if (pickupBtn) pickupBtn.classList.add("hidden");
+    if (pickupBtn) pickupBtn.style.setProperty("display", "none", "important");
+    entregaToggle?.style.setProperty("grid-template-columns", "1fr");
     tipoEntrega = "Delivery";
     document.querySelectorAll("#entregaToggle .toggle-opt").forEach((o) => {
       const active = o.dataset.val === "Delivery";
@@ -2470,8 +2471,6 @@ function aplicarModeloNegocio(biz) {
       o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
     });
     if (direccionEl) {
-      // Se saca del sistema "collapse" por completo, así no depende de
-      // ninguna clase/transición CSS que pueda estar fallando.
       direccionEl.classList.remove("hidden", "acc-collapse", "open");
       direccionEl.style.setProperty("display", "block", "important");
       direccionEl.style.setProperty("max-height", "none", "important");
@@ -2487,17 +2486,11 @@ function aplicarModeloNegocio(biz) {
     }
     if (bannerEl) bannerEl.classList.remove("hidden");
   } else {
-    if (pickupBtn) pickupBtn.classList.remove("hidden");
+    if (pickupBtn) pickupBtn.style.removeProperty("display");
+    entregaToggle?.style.removeProperty("grid-template-columns");
     if (bannerEl) bannerEl.classList.add("hidden");
 
-    // 👇 FIX: antes este bloque no tocaba direccionEl para nada, así que
-    // el campo dependía 100% de que la clase .open ya estuviera bien
-    // puesta de antes. Ahora se sincroniza explícitamente con el toggle
-    // actual (Delivery/Recojo) cada vez que se cargan los datos del negocio.
     if (direccionEl) {
-      // Por si el caso "solo delivery" alguna vez dejó estilos inline
-      // !important puestos (ej. si biz cambió de solo-delivery a ambas
-      // opciones sin recargar la página), los limpiamos primero.
       direccionEl.style.removeProperty("display");
       direccionEl.style.removeProperty("max-height");
       direccionEl.style.removeProperty("opacity");
@@ -2710,7 +2703,7 @@ function prepararCheckoutInvitado() {
       if (nom && !nom.value.trim()) nom.value = g.nombre || "";
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
-  } catch {}
+  } catch { }
   // Si está logeado, intenta prellenar con el teléfono de su perfil
   if (!esInvitado && wa && !wa.value.trim()) {
     wa.value =
@@ -2902,11 +2895,10 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${
-    _bizLogoUrl
-      ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
-      : `<span class="ph-letter">${letraNegocio()}</span>`
-  }</div>`;
+  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
+    ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+    : `<span class="ph-letter">${letraNegocio()}</span>`
+    }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -3029,13 +3021,12 @@ function productoCard(p, index = 0) {
   
   ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-   ${
-     p.puntos
-       ? siguiendoTienda
-         ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-         : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
-       : ""
-   } `;
+   ${p.puntos
+      ? siguiendoTienda
+        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+        : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
+      : ""
+    } `;
 
   const dispEl = document.createElement("p");
   dispEl.id = `disp-${p.id}`;
@@ -3385,19 +3376,19 @@ function getDeliveryCfg() {
     texto: d.texto || "",
     zonas: Array.isArray(d.zonas)
       ? d.zonas
-          .filter((z) => z && z.nombre)
-          .map((z) => ({
-            nombre: String(z.nombre),
-            precio: Number(z.precio) || 0,
-          }))
+        .filter((z) => z && z.nombre)
+        .map((z) => ({
+          nombre: String(z.nombre),
+          precio: Number(z.precio) || 0,
+        }))
       : [],
     recargo: d.recargo
       ? {
-          activo: d.recargo.activo === true,
-          desde: d.recargo.desde || "",
-          hasta: d.recargo.hasta || "",
-          monto: Number(d.recargo.monto) || 0,
-        }
+        activo: d.recargo.activo === true,
+        desde: d.recargo.desde || "",
+        hasta: d.recargo.hasta || "",
+        monto: Number(d.recargo.monto) || 0,
+      }
       : null,
   };
 }
@@ -3814,7 +3805,7 @@ function addToCart(p, seleccion = null) {
   }
   syncCartChange(p.id);
   pulseCard(p.id);
-    volarAlCarrito(p);    
+  volarAlCarrito(p);
   showToast(`${p.nombre} agregado`);
 }
 
@@ -4430,21 +4421,19 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${
-          !it.esCanje &&
+        ${!it.esCanje &&
           (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
-            ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-            : ""
+          : ""
         }
-          ${
-            it.esCanje
-              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${it.esCanje
+          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-          }
+        }
         </div>
       `;
       wrap.appendChild(row);
@@ -4877,10 +4866,10 @@ document
       token_seguimiento: tokenSeguimiento,
       mesa: mesaId
         ? {
-            id: mesaId,
-            nombre: mesaNombre || null,
-            numero: mesaNumero ? Number(mesaNumero) : null,
-          }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
         : null,
       pago: {
         metodo: metodoPago,
@@ -4898,7 +4887,7 @@ document
         opciones: it.seleccion || null,
         esCanje: it.esCanje || false,
         esPromo: it.esPromo || false,
-             cuponCodigo: it.cuponCodigo || null,
+        cuponCodigo: it.cuponCodigo || null,
         cuponCodigos: it.cuponCodigos || null,
       })),
       total_items: items.reduce((s, i) => s + i.cantidad, 0),
@@ -4971,7 +4960,7 @@ document
               +(i.cantidad * i.precio).toFixed(2),
             ),
             [`estadisticas.por_dia.${hoy}.pedidos`]: increment(1),
-          }).catch(() => {});
+          }).catch(() => { });
         });
     }
     const pedidoId = resultado.id;
@@ -4985,7 +4974,7 @@ document
           "geinz_guest",
           JSON.stringify({ nombre, whatsapp }),
         );
-      } catch {}
+      } catch { }
     }
     if (
       cuponAplicado?.origen === "banner" &&
@@ -4996,7 +4985,7 @@ document
           `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`,
           "1",
         );
-      } catch {}
+      } catch { }
     }
 
     const sufijo = tokenSeguimiento ? `?t=${tokenSeguimiento}` : "";
@@ -5811,32 +5800,32 @@ function abrirModalSalirCupon() {
     });
   }
 
-const resumenEl = ov.querySelector("#cuponLeaveSummary");
-const lista = cuponesCanjeActivos();
-const pts = lista.reduce((s, c) => s + Number(c.costoPuntos || 0), 0);
-const ptsTxt = pts > 0 ? ` · ${pts} pts` : "";
+  const resumenEl = ov.querySelector("#cuponLeaveSummary");
+  const lista = cuponesCanjeActivos();
+  const pts = lista.reduce((s, c) => s + Number(c.costoPuntos || 0), 0);
+  const ptsTxt = pts > 0 ? ` · ${pts} pts` : "";
 
-if (lista.length <= 1) {
-  // Un solo cupón: se muestra directo como antes
-  resumenEl.innerHTML = lista.length
-    ? `<span class="cupon-leave-code" style="margin:0;">🎟️ ${escapeHtmlCarrito(lista[0].codigo)}${ptsTxt}</span>`
-    : "";
-} else {
-  // Varios: solo un contador + lista plegable con scroll
-  resumenEl.innerHTML = `
+  if (lista.length <= 1) {
+    // Un solo cupón: se muestra directo como antes
+    resumenEl.innerHTML = lista.length
+      ? `<span class="cupon-leave-code" style="margin:0;">🎟️ ${escapeHtmlCarrito(lista[0].codigo)}${ptsTxt}</span>`
+      : "";
+  } else {
+    // Varios: solo un contador + lista plegable con scroll
+    resumenEl.innerHTML = `
     <span class="cupon-leave-count">🎟️ ${lista.length} cupones${ptsTxt}</span>
     <button type="button" class="cupon-leave-toggle">Ver cupones</button>
     <div class="cupon-leave-list">
       ${lista.map((c) => `<div>${escapeHtmlCarrito(c.codigo)}</div>`).join("")}
     </div>`;
 
-  const toggle = resumenEl.querySelector(".cupon-leave-toggle");
-  const listEl = resumenEl.querySelector(".cupon-leave-list");
-  toggle.onclick = () => {
-    const abierto = listEl.classList.toggle("open");
-    toggle.textContent = abierto ? "Ocultar cupones" : "Ver cupones";
-  };
-}
+    const toggle = resumenEl.querySelector(".cupon-leave-toggle");
+    const listEl = resumenEl.querySelector(".cupon-leave-list");
+    toggle.onclick = () => {
+      const abierto = listEl.classList.toggle("open");
+      toggle.textContent = abierto ? "Ocultar cupones" : "Ver cupones";
+    };
+  }
 
   document.body.style.overflow = "hidden";
   requestAnimationFrame(() => ov.classList.add("show"));
@@ -5900,7 +5889,7 @@ function guardarCarritoParaLogin() {
       CART_LOGIN_KEY(),
       JSON.stringify({
         items,
-           cupon:
+        cupon:
           todosLosCupones()
             .filter((c) => c._ref)
             .map((c) => c.codigo)
@@ -6059,7 +6048,7 @@ async function restaurarCarritoPersistido() {
 function limpiarCarritoPersistido() {
   try {
     sessionStorage.removeItem(CART_PERSIST_KEY());
-  } catch {}
+  } catch { }
 }
 
 function abrirLoginPopup() {
@@ -6436,6 +6425,7 @@ async function init() {
 
   // ── Todas las lecturas salen a la vez ──
   const bizP = loadTienda();
+  const tipoP = loadTipoTienda();
   const ofertasP = loadOfertasActivas();
   const productosP = loadProductosCatalogo(bizP);
   const pedidoP = loadPedidoMesa();
@@ -6456,9 +6446,10 @@ async function init() {
   actualizarCatalogoGlobal();
   document.getElementById("totalCount").textContent = catalogoGlobal.length;
   bindCuponInputs();
+  tipoTiendaFisica = await tipoP;
   await renderTienda(biz);
   if (cuponParam) await buscarYAplicarCupon(cuponParam, { desdeLink: true });
-    if (cuponParam) {
+  if (cuponParam) {
     const u = new URL(location.href);
     u.searchParams.delete("cupon");
     history.replaceState(null, "", u.pathname + u.search + u.hash);

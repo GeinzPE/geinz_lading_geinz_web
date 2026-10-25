@@ -3457,3 +3457,18 @@ main>section:has(#secAddr) {
     aspect-ratio: 1;
     border-radius: 1.25rem;
 }
+
+.addr-virtual-buy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 12px 26px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 14px;
+    color: #fff;
+    text-decoration: none;
+    cursor: pointer;
+}

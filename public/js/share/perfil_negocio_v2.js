@@ -54,11 +54,11 @@ const _MAP = Object.fromEntries(
 );
 const _EMOJI_RE = new RegExp(
   "(" +
-    Object.keys(_MAP)
-      .sort((a, b) => b.length - a.length)
-      .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|") +
-    ")\\uFE0F?",
+  Object.keys(_MAP)
+    .sort((a, b) => b.length - a.length)
+    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|") +
+  ")\\uFE0F?",
   "g",
 );
 
@@ -1110,7 +1110,7 @@ const _cGet = (k, ttl = 6 * 3600e3) => {
 const _cSet = (k, d) => {
   try {
     localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
-  } catch {}
+  } catch { }
 };
 async function getParams() {
   // ═══ NUEVO: detectar dominio conectado ═══
@@ -1539,7 +1539,7 @@ function refrescarMesas() {
   injectMesasStyles();
 
   const esComida = normalizarCategoria(categoria) === "comida y restaurantes";
-const verMesas = esComida && _F.presencial && _F.mesas;
+  const verMesas = esComida && _F.presencial && _F.mesas;
   _reservasActivas = verMesas && _F.reserva;
 
   if (!verMesas) {
@@ -2520,7 +2520,7 @@ async function _getSegmento() {
   try {
     const s = await getDoc(data_user_logeado(uid));
     if (s.exists()) d = s.data();
-  } catch {}
+  } catch { }
   _segCache = {
     uid,
     logeado: true,
@@ -2551,7 +2551,7 @@ async function trackPromo(promoId, evento) {
     try {
       if (localStorage.getItem(k)) return;
       localStorage.setItem(k, "1");
-    } catch {}
+    } catch { }
   }
 
   const seg = await _getSegmento();
@@ -2662,8 +2662,8 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-          `${waMsg}: ${shareUrl}`,
-        )}`
+        `${waMsg}: ${shareUrl}`,
+      )}`
       : null;
 
     const puedeComprarPromo = precio > 0 && _F.carrito;
@@ -2675,33 +2675,30 @@ function renderActivePromos(promos, localidad) {
         ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
 
         <div class="promo-active-top-actions">
-          ${
-            puedeComprarPromo
-              ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+          ${puedeComprarPromo
+        ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
               <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
             </svg>
           </button>`
-              : ""
-          }
-          ${
-            waLink
-              ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
+        : ""
+      }
+          ${waLink
+        ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
             <i class="fa-brands fa-whatsapp"></i>
           </a>`
-              : ""
-          }
-          ${
-            shareAllowed
-              ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+        : ""
+      }
+          ${shareAllowed
+        ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
             </svg>
           </button>`
-              : ""
-          }
+        : ""
+      }
         </div>
 
         <div class="promo-active-bottom-overlay">
@@ -2722,14 +2719,14 @@ function renderActivePromos(promos, localidad) {
 
     const onComprarEstaPromo = puedeComprarPromo
       ? () => {
-          trackPromo(p.id, "clics_comprar");
-          agregarAlCarritoPerfil({
-            promoId: `activa_${p.id}`,
-            nombre: info.titulo,
-            precio,
-            imagen: img,
-          });
-        }
+        trackPromo(p.id, "clics_comprar");
+        agregarAlCarritoPerfil({
+          promoId: `activa_${p.id}`,
+          nombre: info.titulo,
+          precio,
+          imagen: img,
+        });
+      }
       : null;
     // Vista: cuando la card entra en pantalla (1 vez/día/navegador)
     const io = new IntersectionObserver(
@@ -5644,7 +5641,10 @@ function calcFlags(s = {}) {
   return {
     plan,
     esBasico: plan === "basico",
-    presencial: get("tipo_tienda") === "fisica",
+    presencial:
+      String(get("panel_admin.tipo_tienda") ?? get("tipo_tienda") ?? "")
+        .toLowerCase()
+        .trim() === "fisica",
     // mesas / reservas
     mesas: on(`${PV}.mesa.activo`, "modulos.pedidos_vivos.mesas"),
     reserva: on(`${PV}.mesa.reservas`, "mesa.reserva"),
@@ -5836,7 +5836,20 @@ async function render(biz, isInitial = true) {
       footerLogoImg.src = logoUrl;
       footerLogoImg.style.display = "block";
     } else {
-      footerLogoImg.style.display = "none";
+      if (addrReal) addrReal.style.display = "none";
+      if (addrVirtual) addrVirtual.style.display = "flex";
+
+      // Botón "Ir a comprar": solo en negocios delivery, directo al carrito
+      const buyBtn = document.getElementById("addrVirtualBuyBtn");
+      if (buyBtn) {
+        buyBtn.style.display = _F.carrito ? "" : "none";
+        buyBtn.href = urlCarritoBase();
+        buyBtn.onclick = (e) => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+          e.preventDefault();
+          irRapido(urlCarritoBase());
+        };
+      }
     }
   }
 
@@ -5996,6 +6009,18 @@ async function render(biz, isInitial = true) {
     } else {
       if (addrReal) addrReal.style.display = "none";
       if (addrVirtual) addrVirtual.style.display = "flex";
+
+      const buyBtn = document.getElementById("addrVirtualBuyBtn");
+      if (buyBtn) {
+        buyBtn.style.display = _F.carrito ? "" : "none";
+        buyBtn.href = urlCarritoBase();
+        buyBtn.onclick = (e) => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+          e.preventDefault();
+          if (_perfilCarritoItems.length) irACarritoConPerfil();
+          else irRapido(urlCarritoBase());
+        };
+      }
     }
   }
 
@@ -6170,16 +6195,15 @@ async function render(biz, isInitial = true) {
       card.innerHTML = `
         <div class="promo-card-img-wrap">
           <div class="promo-card-top-actions">
-            ${
-              puedeComprarPromo
-                ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+            ${puedeComprarPromo
+          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
             </button>`
-                : ""
-            }
+          : ""
+        }
             <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -6187,15 +6211,14 @@ async function render(biz, isInitial = true) {
               </svg>
             </button>
           </div>
-          ${
-            promo.precio > 0 || promo.descripcion
-              ? `
+          ${promo.precio > 0 || promo.descripcion
+          ? `
           <div class="promo-card-bottom-overlay">
             ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
             ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
           </div>`
-              : ""
-          }
+          : ""
+        }
         </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -6206,12 +6229,12 @@ async function render(biz, isInitial = true) {
 
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
-            agregarAlCarritoPerfil({
-              promoId: promo.id,
-              nombre: promo.titulo,
-              precio: promo.precio,
-              imagen: promo.url,
-            })
+          agregarAlCarritoPerfil({
+            promoId: promo.id,
+            nombre: promo.titulo,
+            precio: promo.precio,
+            imagen: promo.url,
+          })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -6251,7 +6274,7 @@ async function render(biz, isInitial = true) {
         if (navigator.share)
           try {
             await navigator.share({ text: fullText });
-          } catch (e) {}
+          } catch (e) { }
         else copyToClipboard(fullText);
       });
     });
@@ -6913,8 +6936,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-        .toDate()
-        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+      .toDate()
+      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -7470,10 +7493,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -7855,7 +7878,7 @@ function irAReviews() {
       ({ biz, servicios } = cached);
       Promise.all([loadBusiness(params), loadServicios(params)])
         .then(([b, s]) => _cSet(ck, { biz: b, servicios: s }))
-        .catch(() => {});
+        .catch(() => { });
     } else {
       [biz, servicios] = await Promise.all([
         loadBusiness(params),
@@ -7866,7 +7889,7 @@ function irAReviews() {
     _F = calcFlags(servicios);
 
     listenBusinessRealtime(params);
-      listenMesasRealtime(params, biz.categoria_tienda, _F.presencial);
+    listenMesasRealtime(params, biz.categoria_tienda, _F.presencial);
     bindFollowButton(params, biz);
     listenActivePromosRealtime(params);
 
@@ -8573,7 +8596,7 @@ async function cargarUserPanel(uid) {
     _upState.sig === sig &&
     Date.now() - _upState.ts < UP_TTL
   ) {
-    await traerPedidosVivosUserPanel(_upState).catch(() => {});
+    await traerPedidosVivosUserPanel(_upState).catch(() => { });
     return;
   }
 
@@ -8746,9 +8769,9 @@ function _upVivosInnerHTML(st) {
 
   const filas = mostrar.length
     ? mostrar
-        .map((p) => {
-          const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
-          return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
+      .map((p) => {
+        const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
             <span class="pa-dot"></span>
            <div class="pa-main">
   <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
@@ -8758,8 +8781,8 @@ function _upVivosInnerHTML(st) {
             <div class="pa-total">${_fmtSoles(p.total)}</div>
             <span class="pa-go">Ver →</span>
           </a>`;
-        })
-        .join("")
+      })
+      .join("")
     : `<div class="up-empty">No tienes pedidos en este estado.</div>`;
 
   const mas =
@@ -8975,7 +8998,7 @@ function volarAlCarrito(imagen) {
   x.style.transitionDuration =
     y.style.transitionDuration =
     ball.style.transitionDuration =
-      `${dur}s`;
+    `${dur}s`;
   if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
 
   y.appendChild(ball);

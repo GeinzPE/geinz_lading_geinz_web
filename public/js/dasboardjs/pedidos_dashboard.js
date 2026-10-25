@@ -9123,8 +9123,11 @@ function iniciarListenerGrupos() {
 }
 
 function aplicarVisibilidadMesas() {
-  const esFisica = PLAN_SERV?.tipo_tienda === "fisica";
-  const debeMostrarMesas = ES_RESTAURANTE && esFisica && PLAN_PED.mesa;
+  const esFisica =
+    String(PLAN_SERV?.panel_admin?.tipo_tienda ?? PLAN_SERV?.tipo_tienda ?? "")
+      .toLowerCase()
+      .trim() === "fisica";
+        const debeMostrarMesas = ES_RESTAURANTE && esFisica && PLAN_PED.mesa;
 
   document
     .querySelector('.origin-chip[data-origin="mesa"]')

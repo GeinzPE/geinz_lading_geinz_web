@@ -2864,7 +2864,10 @@ function _mostrar(el, visible) {
 }
 
 function aplicarServicios(servicios) {
-    window.ES_PRESENCIAL = servicios?.tipo_tienda === "fisica";
+  window.ES_PRESENCIAL =
+    String(servicios?.panel_admin?.tipo_tienda ?? servicios?.tipo_tienda ?? "")
+      .toLowerCase()
+      .trim() === "fisica";
   if (datosTienda) _aplicarDatosTienda(datosTienda);
   aplicarTipoPublicacionUI();
   const base = leer(servicios, RUTA_PUB);

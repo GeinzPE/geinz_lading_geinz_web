@@ -95,7 +95,11 @@ const PlanQr = {
   _aplicar(serv) {
     const m = serv?.cliente_y_fidelizacion?.miqr;
     this.datos = m && typeof m === "object" ? m : null;
-    this.presencial = serv ? serv.tipo_tienda === "fisica" : true;
+    this.presencial = serv
+  ? String(serv.panel_admin?.tipo_tienda ?? serv.tipo_tienda ?? "")
+      .toLowerCase()
+      .trim() === "fisica"
+  : true;
   },
   // Espera los datos del panel padre (0 lecturas). Solo si no llegan en 4 s, lee Firestore una vez.
   cargar() {
