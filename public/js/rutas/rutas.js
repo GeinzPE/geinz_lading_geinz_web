@@ -323,3 +323,14 @@ export function dnisCol(localidad) {
 export function planesConfigDoc() {
   return doc(db, "costos_geinz_saas", "config_planes");
 }
+
+// ── Formularios y encuestas ──
+export function formulariosCol(localidad, negocioId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "formulario");
+}
+export function formularioDoc(localidad, negocioId, formId) {
+  return tiendaSubDoc(localidad, "tiendas", negocioId, "formulario", formId);
+}
+export function formularioRespuestasCol(localidad, negocioId, formId) {
+  return tiendaSubCol(localidad, "tiendas", negocioId, "formulario", formId, "respuestas");
+}

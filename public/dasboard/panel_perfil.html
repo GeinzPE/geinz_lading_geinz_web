@@ -54,7 +54,7 @@
     <script src="../js/storage/storage.js"></script>
     <script type="module" src="../js/dasboardjs/panel_pervil_v2_data.js"></script>
     <script type="module" src="../js/dasboardjs/panel_perfil.js"></script>
-     <script type="module" src="../js/structure/structure_min.js"></script>
+    <script type="module" src="../js/structure/structure_min.js"></script>
 </head>
 
 <body>
@@ -87,33 +87,33 @@
                         <span class="sidebar-group-arrow">▼</span>
                     </button>
                     <div class="sidebar-group-body">
-<div class="sgb-inner">
+                        <div class="sgb-inner">
 
-                        <button class="sidebar-btn" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
-                            <span class="sbb-icon">🏪</span>
-                            <span class="sbb-label">Perfil</span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-perfil" onclick="PanelPerfil.showSection('perfil')">
+                                <span class="sbb-icon">🏪</span>
+                                <span class="sbb-label">Perfil</span>
+                            </button>
 
-                        <button class="sidebar-btn" id="sbb-comprobante"
-                            onclick="PanelPerfil.showSection('comprobante')">
-                            <span class="sbb-icon">🧾</span>
-                            <span class="sbb-label">Comprobante</span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-comprobante"
+                                onclick="PanelPerfil.showSection('comprobante')">
+                                <span class="sbb-icon">🧾</span>
+                                <span class="sbb-label">Comprobante</span>
+                            </button>
 
-                        <button class="sidebar-btn" id="sbb-trabajadores"
-                            onclick="PanelPerfil.showSection('trabajadores')">
-                            <span class="sbb-icon">👥</span>
-                            <span class="sbb-label">Mis trabajadores</span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-trabajadores"
+                                onclick="PanelPerfil.showSection('trabajadores')">
+                                <span class="sbb-icon">👥</span>
+                                <span class="sbb-label">Mis trabajadores</span>
+                            </button>
 
-                        <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
-                            <span class="sbb-icon">⚖️</span>
-                            <span class="sbb-label">Legal</span>
-                            <span class="notif-dot" id="dot-legal"></span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-legal" onclick="PanelPerfil.loadLegal()">
+                                <span class="sbb-icon">⚖️</span>
+                                <span class="sbb-label">Legal</span>
+                                <span class="notif-dot" id="dot-legal"></span>
+                            </button>
 
+                        </div>
                     </div>
-</div>
                 </div>
 
                 <!-- ═════════ 2. OPERACIÓN Y VENTAS ═════════ -->
@@ -124,26 +124,26 @@
                         <span class="sidebar-group-arrow">▼</span>
                     </button>
                     <div class="sidebar-group-body">
-<div class="sgb-inner">
+                        <div class="sgb-inner">
 
-                        <button class="sidebar-btn" id="sbb-pedidos" onclick="PanelPerfil.load_pedidos_vivos()">
-                            <span class="sbb-icon">🟢</span>
-                            <span class="sbb-label">Pedidos en vivo</span>
-                            <span class="notif-dot" id="dot-pedidos"></span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-pedidos" onclick="PanelPerfil.load_pedidos_vivos()">
+                                <span class="sbb-icon">🟢</span>
+                                <span class="sbb-label">Pedidos en vivo</span>
+                                <span class="notif-dot" id="dot-pedidos"></span>
+                            </button>
 
-                        <button class="sidebar-btn" id="sbb-productos" onclick="PanelPerfil.loadProductos()">
-                            <span class="sbb-icon">🛍️</span>
-                            <span class="sbb-label">Productos</span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-productos" onclick="PanelPerfil.loadProductos()">
+                                <span class="sbb-icon">🛍️</span>
+                                <span class="sbb-label">Productos</span>
+                            </button>
 
-                        <button class="sidebar-btn" id="sbb-historial" onclick="PanelPerfil.loadHistorial()">
-                            <span class="sbb-icon">📊</span>
-                            <span class="sbb-label">Historial de ventas</span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-historial" onclick="PanelPerfil.loadHistorial()">
+                                <span class="sbb-icon">📊</span>
+                                <span class="sbb-label">Historial de ventas</span>
+                            </button>
 
+                        </div>
                     </div>
-</div>
                 </div>
 
                 <!-- ═════════ 3. CLIENTES Y FIDELIZACIÓN ═════════ -->
@@ -154,40 +154,46 @@
                         <span class="sidebar-group-arrow">▼</span>
                     </button>
                     <div class="sidebar-group-body">
-<div class="sgb-inner">
+                        <div class="sgb-inner">
 
-                        <button class="sidebar-btn" id="sbb-usuarios" onclick="PanelPerfil.showSection('usuarios')">
-                            <span class="sbb-icon">🪪</span>
-                            <span class="sbb-label">Mis usuarios</span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-usuarios" onclick="PanelPerfil.showSection('usuarios')">
+                                <span class="sbb-icon">🪪</span>
+                                <span class="sbb-label">Mis usuarios</span>
+                            </button>
 
-                        <button class="sidebar-btn" id="sbb-fidelizacion" onclick="PanelPerfil.loadFidelizacion()">
-                            <span class="sbb-icon">💳</span>
-                            <span class="sbb-label">Cupones y Puntos</span>
-                            <span class="notif-dot" id="dot-fidelizacion"></span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-fidelizacion" onclick="PanelPerfil.loadFidelizacion()">
+                                <span class="sbb-icon">💳</span>
+                                <span class="sbb-label">Cupones y Puntos</span>
+                                <span class="notif-dot" id="dot-fidelizacion"></span>
+                            </button>
 
-                  
 
-                        <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
-                            <span class="sbb-icon">📢</span>
-                            <span class="sbb-label">Publicidad/Ofertas</span>
-                        </button>
 
-                        <button class="sidebar-btn" id="sbb-mispublicaciones"
-                            onclick="PanelPerfil.loadMisPublicaciones()">
-                            <span class="sbb-icon">⭐</span>
-                            <span class="sbb-label">Reseñas</span>
-                            <span class="notif-dot" id="dot-resena"></span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-publicidad" onclick="PanelPerfil.loadPublicidad()">
+                                <span class="sbb-icon">📢</span>
+                                <span class="sbb-label">Publicidad/Ofertas</span>
+                            </button>
 
-                        <button class="sidebar-btn" id="sbb-qr" onclick="PanelPerfil.loadQr()">
-                            <span class="sbb-icon">🔲</span>
-                            <span class="sbb-label">MI QR</span>
-                        </button>
+                            <button class="sidebar-btn" id="sbb-mispublicaciones"
+                                onclick="PanelPerfil.loadMisPublicaciones()">
+                                <span class="sbb-icon">⭐</span>
+                                <span class="sbb-label">Reseñas</span>
+                                <span class="notif-dot" id="dot-resena"></span>
+                            </button>
 
+                            <button class="sidebar-btn" id="sbb-qr" onclick="PanelPerfil.loadQr()">
+                                <span class="sbb-icon">🔲</span>
+                                <span class="sbb-label">MI QR</span>
+                            </button>
+
+
+                            <button class="sidebar-btn" id="sbb-formularios" onclick="PanelPerfil.loadFormularios()">
+                                <span class="sbb-icon">📁</span>
+                                <span class="sbb-label">Formularios</span>
+                            </button>
+
+                        </div>
                     </div>
-</div>
                 </div>
 
                 <div class="sidebar-vincular-wrap">
@@ -293,8 +299,8 @@
                 </div>
 
                 <!-- ===== PUBLICIDAD ===== -->
-      <div class="section" id="sec-publicidad">
-    <iframe id="iframePublicidad" src="publicaicones" style="
+                <div class="section" id="sec-publicidad">
+                    <iframe id="iframePublicidad" src="publicaicones" style="
                         width:100%;
                         height:100vh;
                         border:none;
@@ -328,6 +334,12 @@
         background:#0a0a0a;
     ">
                     </iframe>
+                </div>
+
+                <div class="section" id="sec-formularios">
+                    <iframe id="iframeFormularios" src="formulario.html" style="
+        width:100%; height:100vh; border:none; display:block;
+        overflow:hidden; background:#000;"></iframe>
                 </div>
 
                 <!-- ===== reseña ===== -->
@@ -462,35 +474,35 @@
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
                         <div class="mobile-menu-group-body">
-<div class="sgb-inner">
+                            <div class="sgb-inner">
 
-                            <button class="mobile-menu-item" id="mmb-perfil"
-                                onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
-                                <span>🏪</span>
-                                <span>Perfil</span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-perfil"
+                                    onclick="PanelPerfil.showSection('perfil'); PanelPerfil.toggleMobileMenu()">
+                                    <span>🏪</span>
+                                    <span>Perfil</span>
+                                </button>
 
-                            <button class="mobile-menu-item" id="mmb-comprobante"
-                                onclick="PanelPerfil.showSection('comprobante'); PanelPerfil.toggleMobileMenu()">
-                                <span>🧾</span>
-                                <span>Comprobante</span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-comprobante"
+                                    onclick="PanelPerfil.showSection('comprobante'); PanelPerfil.toggleMobileMenu()">
+                                    <span>🧾</span>
+                                    <span>Comprobante</span>
+                                </button>
 
-                            <button class="mobile-menu-item" id="mmb-trabajadores"
-                                onclick="PanelPerfil.showSection('trabajadores'); PanelPerfil.toggleMobileMenu()">
-                                <span>👥</span>
-                                <span>Mis trabajadores</span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-trabajadores"
+                                    onclick="PanelPerfil.showSection('trabajadores'); PanelPerfil.toggleMobileMenu()">
+                                    <span>👥</span>
+                                    <span>Mis trabajadores</span>
+                                </button>
 
-                            <button class="mobile-menu-item" id="mmb-legal"
-                                onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
-                                <span>⚖️</span>
-                                <span>Legal</span>
-                                <span class="notif-dot" id="dot-legal-mobile"></span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-legal"
+                                    onclick="PanelPerfil.loadLegal(); PanelPerfil.toggleMobileMenu()">
+                                    <span>⚖️</span>
+                                    <span>Legal</span>
+                                    <span class="notif-dot" id="dot-legal-mobile"></span>
+                                </button>
 
+                            </div>
                         </div>
-</div>
                     </div>
 
                     <!-- ═════════ 2. OPERACIÓN Y VENTAS ═════════ -->
@@ -501,29 +513,29 @@
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
                         <div class="mobile-menu-group-body">
-<div class="sgb-inner">
+                            <div class="sgb-inner">
 
-                            <button class="mobile-menu-item" id="mmb-pedidos"
-                                onclick="PanelPerfil.load_pedidos_vivos(); PanelPerfil.toggleMobileMenu()">
-                                <span>🟢</span>
-                                <span>Pedidos en vivo</span>
-                                <span class="notif-dot" id="dot-pedidos-mobile"></span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-pedidos"
+                                    onclick="PanelPerfil.load_pedidos_vivos(); PanelPerfil.toggleMobileMenu()">
+                                    <span>🟢</span>
+                                    <span>Pedidos en vivo</span>
+                                    <span class="notif-dot" id="dot-pedidos-mobile"></span>
+                                </button>
 
-                            <button class="mobile-menu-item" id="mmb-productos"
-                                onclick="PanelPerfil.loadProductos(); PanelPerfil.toggleMobileMenu()">
-                                <span>🛍️</span>
-                                <span>Productos</span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-productos"
+                                    onclick="PanelPerfil.loadProductos(); PanelPerfil.toggleMobileMenu()">
+                                    <span>🛍️</span>
+                                    <span>Productos</span>
+                                </button>
 
-                            <button class="mobile-menu-item" id="mmb-historial"
-                                onclick="PanelPerfil.loadHistorial(); PanelPerfil.toggleMobileMenu()">
-                                <span>📊</span>
-                                <span>Historial de ventas</span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-historial"
+                                    onclick="PanelPerfil.loadHistorial(); PanelPerfil.toggleMobileMenu()">
+                                    <span>📊</span>
+                                    <span>Historial de ventas</span>
+                                </button>
 
+                            </div>
                         </div>
-</div>
                     </div>
 
                     <!-- ═════════ 3. CLIENTES Y FIDELIZACIÓN ═════════ -->
@@ -534,43 +546,48 @@
                             <span class="mobile-menu-group-arrow">▼</span>
                         </button>
                         <div class="mobile-menu-group-body">
-<div class="sgb-inner">
+                            <div class="sgb-inner">
 
-                            <button class="mobile-menu-item" id="mmb-usuarios"
-                                onclick="PanelPerfil.showSection('usuarios'); PanelPerfil.toggleMobileMenu()">
-                                <span>🪪</span>
-                                <span>Mis usuarios</span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-usuarios"
+                                    onclick="PanelPerfil.showSection('usuarios'); PanelPerfil.toggleMobileMenu()">
+                                    <span>🪪</span>
+                                    <span>Mis usuarios</span>
+                                </button>
 
-                            <button class="mobile-menu-item" id="mmb-fidelizacion"
-                                onclick="PanelPerfil.loadFidelizacion(); PanelPerfil.toggleMobileMenu()">
-                                <span>💳</span>
-                                <span>Cupones y Puntos</span>
-                                <span class="notif-dot" id="dot-fidelizacion-mobile"></span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-fidelizacion"
+                                    onclick="PanelPerfil.loadFidelizacion(); PanelPerfil.toggleMobileMenu()">
+                                    <span>💳</span>
+                                    <span>Cupones y Puntos</span>
+                                    <span class="notif-dot" id="dot-fidelizacion-mobile"></span>
+                                </button>
 
-            
-                            <button class="mobile-menu-item" id="mmb-publicidad"
-                                onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
-                                <span>📢</span>
-                                <span>Publicidad/Ofertas</span>
-                            </button>
 
-                            <button class="mobile-menu-item" id="mmb-mispublicaciones"
-                                onclick="PanelPerfil.loadMisPublicaciones(); PanelPerfil.toggleMobileMenu()">
-                                <span>⭐</span>
-                                <span>Reseñas</span>
-                                <span class="notif-dot" id="dot-resena-mobile"></span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-publicidad"
+                                    onclick="PanelPerfil.loadPublicidad(); PanelPerfil.toggleMobileMenu()">
+                                    <span>📢</span>
+                                    <span>Publicidad/Ofertas</span>
+                                </button>
 
-                            <button class="mobile-menu-item" id="mmb-qr"
-                                onclick="PanelPerfil.loadQr(); PanelPerfil.toggleMobileMenu()">
-                                <span>🔲</span>
-                                <span>MI QR</span>
-                            </button>
+                                <button class="mobile-menu-item" id="mmb-mispublicaciones"
+                                    onclick="PanelPerfil.loadMisPublicaciones(); PanelPerfil.toggleMobileMenu()">
+                                    <span>⭐</span>
+                                    <span>Reseñas</span>
+                                    <span class="notif-dot" id="dot-resena-mobile"></span>
+                                </button>
 
+                                <button class="mobile-menu-item" id="mmb-qr"
+                                    onclick="PanelPerfil.loadQr(); PanelPerfil.toggleMobileMenu()">
+                                    <span>🔲</span>
+                                    <span>MI QR</span>
+                                </button>
+
+                                <button class="mobile-menu-item" id="mmb-formularios"
+                                    onclick="PanelPerfil.loadFormularios(); PanelPerfil.toggleMobileMenu()">
+                                    <span>📁</span>
+                                    <span>Formularios</span>
+                                </button>
+                            </div>
                         </div>
-</div>
                     </div>
 
                     <button class="sidebar-vincular-btn" style="margin-top:8px;width:100%"

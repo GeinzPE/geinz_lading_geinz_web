@@ -5797,6 +5797,11 @@ function actualizarLayoutContactoFidel() {
   const visible = (el) => el.style.display !== "none";
   wrap.classList.toggle("two-cols", visible(contact) && visible(fidel));
 }
+const setText = (id, value) => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+};
+
 async function render(biz, isInitial = true) {
   const nombre = biz.nombre_tienda || biz.nombre || "—";
   _bizRef = biz;
@@ -5836,20 +5841,7 @@ async function render(biz, isInitial = true) {
       footerLogoImg.src = logoUrl;
       footerLogoImg.style.display = "block";
     } else {
-      if (addrReal) addrReal.style.display = "none";
-      if (addrVirtual) addrVirtual.style.display = "flex";
-
-      // Botón "Ir a comprar": solo en negocios delivery, directo al carrito
-      const buyBtn = document.getElementById("addrVirtualBuyBtn");
-      if (buyBtn) {
-        buyBtn.style.display = _F.carrito ? "" : "none";
-        buyBtn.href = urlCarritoBase();
-        buyBtn.onclick = (e) => {
-          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-          e.preventDefault();
-          irRapido(urlCarritoBase());
-        };
-      }
+      footerLogoImg.style.display = "none";
     }
   }
 
@@ -5894,8 +5886,7 @@ async function render(biz, isInitial = true) {
 
     const heroImg = document.getElementById("bizLogoHero");
     const heroPlaceholder = document.getElementById("bizLogoPlaceholderHero");
-    if (logoUrl) {
-      // ▼▼▼ NUEVO: el marco del logo toma el aspecto real de la imagen ▼▼▼
+    if (logoUrl && heroImg) {
       heroImg.onload = () => {
         if (heroImg.naturalWidth && heroImg.naturalHeight) {
           document
@@ -5906,11 +5897,10 @@ async function render(biz, isInitial = true) {
             );
         }
       };
-      // ▲▲▲ fin de lo nuevo (debe ir ANTES de heroImg.src) ▲▲▲
 
       heroImg.src = logoUrl;
       heroImg.style.display = "block";
-      heroPlaceholder.style.display = "none";
+      if (heroPlaceholder) heroPlaceholder.style.display = "none";
       setFaviconCircular(logoUrl);
       if (_tieneColor || colCached) {
         _colorReady = true;
@@ -5942,25 +5932,20 @@ async function render(biz, isInitial = true) {
     if (_marcaSig && _marcaSig !== _sig) showToast("🎨 Colores actualizados");
     _marcaSig = _sig;
   } else {
-    aplicarDegradado(null, null); // el dueño apagó el color: quita el degradado
+    aplicarDegradado(null, null);
     _tarjetaDestroy?.setBrand?.(null);
   }
 
   // ── CONTENIDO: siempre se actualiza ──
-  document.getElementById("bizName").textContent = nombre;
+  setText("bizName", nombre);
   document.title = nombre;
-  const prodTitleEl = document.getElementById("productosTitle");
-  if (prodTitleEl) prodTitleEl.textContent = `Lo mejor de ${nombre}`;
-  const ambientesEyebrowEl = document.getElementById("ambientesEyebrow");
-  const ambientesTitleEl = document.getElementById("ambientesTitle");
-  if (ambientesEyebrowEl && ambientesTitleEl) {
-    if (esPresencial) {
-      ambientesEyebrowEl.textContent = "AMBIENTES";
-      ambientesTitleEl.textContent = "Espacios y experiencia";
-    } else {
-      ambientesEyebrowEl.textContent = "GALERÍA";
-      ambientesTitleEl.textContent = "Nuestros productos";
-    }
+  setText("productosTitle", `Lo mejor de ${nombre}`);
+  if (esPresencial) {
+    setText("ambientesEyebrow", "AMBIENTES");
+    setText("ambientesTitle", "Espacios y experiencia");
+  } else {
+    setText("ambientesEyebrow", "GALERÍA");
+    setText("ambientesTitle", "Nuestros productos");
   }
 
   // Categorías para el modal "Métodos y más"
@@ -5968,13 +5953,15 @@ async function render(biz, isInitial = true) {
   _subcategoriasCache = subcategorias;
 
   // Status badge
-  calcStatus(horario);
-  if (_schedInterval) clearInterval(_schedInterval);
-  _schedInterval = setInterval(() => calcStatus(horario), 30000);
+  if (document.getElementById("statusBadge") && document.getElementById("statusText")) {
+    calcStatus(horario);
+    if (_schedInterval) clearInterval(_schedInterval);
+    _schedInterval = setInterval(() => calcStatus(horario), 30000);
+  }
 
-  document.getElementById("descText").textContent = descripcion;
+  setText("descText", descripcion);
 
-  // ── UBICACIÓN: solo se pinta en la carga inicial / recarga normal (NO tiempo real) ──
+  // ── UBICACIÓN: solo en la carga inicial ──
   if (isInitial) {
     const addrReal = document.getElementById("addrRealContent");
     const addrVirtual = document.getElementById("addrVirtualContent");
@@ -5983,10 +5970,8 @@ async function render(biz, isInitial = true) {
       if (addrReal) addrReal.style.display = "";
       if (addrVirtual) addrVirtual.style.display = "none";
 
-      document.getElementById("addrText").textContent =
-        ubicacion.dirección || "—";
-      document.getElementById("refText").textContent =
-        ubicacion.referencia || "—";
+      setText("addrText", ubicacion.dirección || "—");
+      setText("refText", ubicacion.referencia || "—");
 
       const zonaSection = document.getElementById("zonaSection");
       if (zonaSection) {
@@ -6000,7 +5985,7 @@ async function render(biz, isInitial = true) {
             : null;
 
         if (zonaTexto) {
-          document.getElementById("zonaText").textContent = zonaTexto;
+          setText("zonaText", zonaTexto);
           zonaSection.style.display = "";
         } else {
           zonaSection.style.display = "none";
@@ -6058,7 +6043,7 @@ async function render(biz, isInitial = true) {
     _navState.contacto = contactos.length > 0;
   }
 
-  // Métodos de pago + servicios/comodidades → viven en el chip "Métodos y más"
+  // Métodos de pago + servicios/comodidades
   _pagosCache = pagos;
   if (isInitial) _amenitiesCache = esPresencial ? amenities : [];
   _navState.metodos =
@@ -6071,7 +6056,7 @@ async function render(biz, isInitial = true) {
     pintarMetodosModal();
   }
 
-  // Carrito de perfil (hasta 20 productos elegidos en el dashboard)
+  // Carrito de perfil
   renderProductosCatalogo(
     biz.carritoPerfil || [],
     _params.localidad,
@@ -6079,7 +6064,7 @@ async function render(biz, isInitial = true) {
     _params.alias || biz.alias_key,
   );
 
-  // Productos Grid (imágenes → NO tiempo real)
+  // Productos Grid
   const prodGrid = document.getElementById("productosGrid");
   if (isInitial && prodGrid && productos.length) {
     prodGrid.innerHTML = "";
@@ -6120,7 +6105,7 @@ async function render(biz, isInitial = true) {
     });
   }
 
-  // Ambientes Grid (imágenes → NO tiempo real)
+  // Ambientes Grid
   const ambGrid = document.getElementById("ambientesGrid");
   if (isInitial && ambGrid && ambientales.length) {
     ambGrid.innerHTML = "";
@@ -6161,7 +6146,7 @@ async function render(biz, isInitial = true) {
     });
   }
 
-  // Carrusel completo (imágenes → NO tiempo real)
+  // Carrusel completo
   if (isInitial && todas.length) buildFullGallery(todas);
 
   // Promociones (SÍ tiempo real)
@@ -6170,7 +6155,7 @@ async function render(biz, isInitial = true) {
   if (promoImages.length && promosSec && promoCarousel) {
     promosSec.style.display = "";
     promoCarousel.innerHTML = "";
-    document.getElementById("promoTitle").textContent = `Promos de ${nombre}`;
+    setText("promoTitle", `Promos de ${nombre}`);
     const wa = contactos.find((c) => c.tipo === "whatsapp");
     const waNum = wa ? wa.valor.replace(/\D/g, "") : "";
     const catFormatted = (_params.subcol || "")
@@ -6195,15 +6180,16 @@ async function render(biz, isInitial = true) {
       card.innerHTML = `
         <div class="promo-card-img-wrap">
           <div class="promo-card-top-actions">
-            ${puedeComprarPromo
-          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+            ${
+              puedeComprarPromo
+                ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
             </button>`
-          : ""
-        }
+                : ""
+            }
             <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -6211,14 +6197,15 @@ async function render(biz, isInitial = true) {
               </svg>
             </button>
           </div>
-          ${promo.precio > 0 || promo.descripcion
-          ? `
+          ${
+            promo.precio > 0 || promo.descripcion
+              ? `
           <div class="promo-card-bottom-overlay">
             ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
             ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
           </div>`
-          : ""
-        }
+              : ""
+          }
         </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -6229,12 +6216,12 @@ async function render(biz, isInitial = true) {
 
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
-          agregarAlCarritoPerfil({
-            promoId: promo.id,
-            nombre: promo.titulo,
-            precio: promo.precio,
-            imagen: promo.url,
-          })
+            agregarAlCarritoPerfil({
+              promoId: promo.id,
+              nombre: promo.titulo,
+              precio: promo.precio,
+              imagen: promo.url,
+            })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -6267,17 +6254,6 @@ async function render(biz, isInitial = true) {
         });
       });
     });
-    promoCarousel.querySelectorAll(".promo-btn-share").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const url = btn.dataset.shareUrl;
-        const fullText = `Mira lo que encontre en ${nombre} 👀🔥\n${url}`;
-        if (navigator.share)
-          try {
-            await navigator.share({ text: fullText });
-          } catch (e) { }
-        else copyToClipboard(fullText);
-      });
-    });
   }
 
   // Botones
@@ -6308,7 +6284,7 @@ async function render(biz, isInitial = true) {
       });
     };
 
-  // Ocultar secciones vacías (solo en la carga inicial, ya que dependen de datos NO tiempo real)
+  // Ocultar secciones vacías (solo carga inicial)
   if (isInitial) {
     if (!productos.length)
       document
@@ -6350,7 +6326,6 @@ async function render(biz, isInitial = true) {
     .getElementById("routeBtn")
     ?.style.setProperty("display", esPresencial ? "" : "none");
 
-  // (antes este bloque estaba duplicado y anidado; ahora queda uno solo)
   const fidelCard = document.getElementById("fidelizacionCard");
   if (fidelCard) {
     fidelCard.onclick = irAFidelizacion;

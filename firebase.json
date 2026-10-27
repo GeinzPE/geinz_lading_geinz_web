@@ -7,16 +7,23 @@
       {
         "source": "**",
         "headers": [
-          { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          }
         ]
       },
       {
         "source": "/auth-popup",
-        "headers": [{ "key": "Cross-Origin-Opener-Policy", "value": "unsafe-none" }]
+        "headers": [
+          { "key": "Cross-Origin-Opener-Policy", "value": "unsafe-none" }
+        ]
       },
       {
         "source": "/auth-popup.html",
-        "headers": [{ "key": "Cross-Origin-Opener-Policy", "value": "unsafe-none" }]
+        "headers": [
+          { "key": "Cross-Origin-Opener-Policy", "value": "unsafe-none" }
+        ]
       },
       {
         "source": "**/*.@(js|mjs)",
@@ -32,28 +39,72 @@
       { "source": "/carrito", "destination": "/carrito/carrito.html" },
       { "source": "/-mesa-*", "destination": "/carrito/carrito.html" },
 
-      { "source": "/perfil/*/libro_reclamaciones", "destination": "/legal/libro_reclamaciones.html" },
-      { "source": "/libro_reclamaciones", "destination": "/legal/libro_reclamaciones.html" },
-      { "source": "/perfil/*/terminos_condiciones", "destination": "/legal/terminos_condiciones.html" },
-      { "source": "/terminos_condiciones", "destination": "/legal/terminos_condiciones.html" },
-      { "source": "/perfil/*/politicas_privacidad", "destination": "/legal/politicas_privacidad.html" },
-      { "source": "/politicas_privacidad", "destination": "/legal/politicas_privacidad.html" },
-      { "source": "/perfil/*/seguimiento_reclamaciones", "destination": "/legal/seguimiento_reclamaciones.html" },
-      { "source": "/seguimiento_reclamaciones", "destination": "/legal/seguimiento_reclamaciones.html" },
+      {
+        "source": "/perfil/*/libro_reclamaciones",
+        "destination": "/legal/libro_reclamaciones.html"
+      },
+      {
+        "source": "/libro_reclamaciones",
+        "destination": "/legal/libro_reclamaciones.html"
+      },
+      {
+        "source": "/perfil/*/terminos_condiciones",
+        "destination": "/legal/terminos_condiciones.html"
+      },
+      {
+        "source": "/terminos_condiciones",
+        "destination": "/legal/terminos_condiciones.html"
+      },
+      {
+        "source": "/perfil/*/politicas_privacidad",
+        "destination": "/legal/politicas_privacidad.html"
+      },
+      {
+        "source": "/politicas_privacidad",
+        "destination": "/legal/politicas_privacidad.html"
+      },
+      {
+        "source": "/perfil/*/seguimiento_reclamaciones",
+        "destination": "/legal/seguimiento_reclamaciones.html"
+      },
+      {
+        "source": "/seguimiento_reclamaciones",
+        "destination": "/legal/seguimiento_reclamaciones.html"
+      },
 
-      { "source": "/perfil/*/fidelizacion/*", "destination": "/fidelizacion/fidelizacion_client.html" },
-      { "source": "/fidelizacion", "destination": "/fidelizacion/fidelizacion_client.html" },
-      { "source": "/fidelizacion/**", "destination": "/fidelizacion/fidelizacion_client.html" },
-
+      {
+        "source": "/perfil/*/fidelizacion/*",
+        "destination": "/fidelizacion/fidelizacion_client.html"
+      },
+      {
+        "source": "/fidelizacion",
+        "destination": "/fidelizacion/fidelizacion_client.html"
+      },
+      {
+        "source": "/fidelizacion/**",
+        "destination": "/fidelizacion/fidelizacion_client.html"
+      },
+   { "source": "/perfil/*/form/*", "function": "formularioShare" },
+{ "source": "/form/*", "function": "formularioShare" },
       { "source": "/pedido/**", "destination": "/pedidos/pedidos.html" },
-      { "source": "/perfil/*/trabajadores", "destination": "/pedidos/mozo.html" },
+      {
+        "source": "/perfil/*/trabajadores",
+        "destination": "/pedidos/mozo.html"
+      },
       { "source": "/trabajadores", "destination": "/mozo/mozo.html" },
-      { "source": "/perfil/*/seguimiento_pedido", "destination": "/seguimiento/seguimiento_pedido.html" },
-      { "source": "/seguimiento_pedido", "destination": "/seguimiento/seguimiento_pedido.html" },
+      {
+        "source": "/perfil/*/seguimiento_pedido",
+        "destination": "/seguimiento/seguimiento_pedido.html"
+      },
+      {
+        "source": "/seguimiento_pedido",
+        "destination": "/seguimiento/seguimiento_pedido.html"
+      },
       { "source": "/perfil/*/*", "destination": "/pedidos/pedidos.html" },
       { "source": "/pedidos/**", "destination": "/pedidos/pedidos.html" },
 
-      { "source": "/perfil/**", "destination": "/perfil.html" },
+      { "source": "/perfil", "destination": "/perfil.html" },
+      { "source": "/perfil/**", "function": "perfilShare" },
       { "source": "/turismo/**", "function": "turismoSSR" },
       { "source": "/sitemap.xml", "function": "sitemap" },
       { "source": "/redirect/**", "destination": "/redirect/index.html" },
@@ -63,10 +114,22 @@
       { "source": "/scree/nostros", "function": "staticSSR" },
       { "source": "/generatorqr", "function": "staticSSR" },
 
-      { "source": "/legal/libro_reclamaciones/**", "destination": "/legal/libro_reclamaciones.html" },
-      { "source": "/legal/terminos_condiciones/**", "destination": "/legal/terminos_condiciones.html" },
-      { "source": "/legal/politicas_privacidad/**", "destination": "/legal/politicas_privacidad.html" },
-      { "source": "/legal/seguimiento_reclamaciones/**", "destination": "/legal/seguimiento_reclamaciones.html" },
+      {
+        "source": "/legal/libro_reclamaciones/**",
+        "destination": "/legal/libro_reclamaciones.html"
+      },
+      {
+        "source": "/legal/terminos_condiciones/**",
+        "destination": "/legal/terminos_condiciones.html"
+      },
+      {
+        "source": "/legal/politicas_privacidad/**",
+        "destination": "/legal/politicas_privacidad.html"
+      },
+      {
+        "source": "/legal/seguimiento_reclamaciones/**",
+        "destination": "/legal/seguimiento_reclamaciones.html"
+      },
 
       { "source": "/", "destination": "/app-shell.html" },
       { "source": "/-carta", "destination": "/perfil.html" },

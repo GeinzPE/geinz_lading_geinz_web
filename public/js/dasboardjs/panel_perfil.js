@@ -2496,6 +2496,9 @@ const esFisica =
     this.showSection("qr");
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
   },
+    loadFormularios() {
+    this.showSection("formularios");
+  },
 
   loadProductos() {
     this.showSection("productos");
