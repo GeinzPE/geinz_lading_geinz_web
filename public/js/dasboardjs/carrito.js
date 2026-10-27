@@ -100,12 +100,19 @@ async function confirmarPedidoAtomico(items, construirPedido, cupones) {
             (d.usosMaximos && (d.usos || 0) >= d.usosMaximos)
           )
             throw { motivo: "cupon_invalido" };
-        } else if (d.usado || d.estado === "cancelado") {
+        } else if (
+          d.usado ||
+          d.estado === "cancelado" ||
+          d.activo === false ||
+          (d.expiraEn && Date.now() >= d.expiraEn)
+        ) {
           throw { motivo: "cupon_invalido" };
         }
-        // cupón de fidelización: tiene que ser del usuario logeado
+        // la plantilla del formulario no se puede usar suelta
+        if (d.soloFormulario) throw { motivo: "cupon_invalido" };
+        // fidelización y formulario: solo su dueño
         if (
-          d.origen === "fidelizacion" &&
+          (d.origen === "fidelizacion" || d.origen === "formulario") &&
           (!usuarioLogeado || d.clienteId !== usuarioLogeado.id)
         )
           throw { motivo: "cupon_invalido" };
@@ -905,20 +912,20 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const totalConDesc = +(totalGuardar - descCupon).toFixed(2);
   const cuponGuardar = cuponMesa
     ? {
-      codigo: cuponMesa.codigo,
-      tipo: cuponMesa.tipo,
-      origen: cuponMesa.origen || null,
-      tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
-      porcentajeManual: cuponMesa.porcentajeManual ?? null,
-      montoManual: cuponMesa.montoManual ?? null,
-      compraMinima: cuponMesa.compraMinima ?? 0,
-    }
+        codigo: cuponMesa.codigo,
+        tipo: cuponMesa.tipo,
+        origen: cuponMesa.origen || null,
+        tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
+        porcentajeManual: cuponMesa.porcentajeManual ?? null,
+        montoManual: cuponMesa.montoManual ?? null,
+        compraMinima: cuponMesa.compraMinima ?? 0,
+      }
     : null;
   const estadosIni = esRonda
     ? {
-      estadoMozo: "confirmado",
-      estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
-    }
+        estadoMozo: "confirmado",
+        estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
+      }
     : inter
       ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
       : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
@@ -1121,7 +1128,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 const estItemC = (it, ped) =>
@@ -1159,7 +1166,7 @@ async function guardarComprobanteMesa(sol) {
     await updateDoc(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", docId),
       { comprobante: sol },
-    ).catch(() => { });
+    ).catch(() => {});
 }
 const clientePuedeComprobante = () =>
   bizData?.mesas_config?.compCliente !== false;
@@ -1259,26 +1266,28 @@ function renderPedidoActivoMesa(pedido) {
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
       <span class="text-[11px] text-gray-500">${pedido.hora || ""}</span>
     </div>
-    ${idx < 0
-      ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
-      : `<div class="pa-steps">
+    ${
+      idx < 0
+        ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
+        : `<div class="pa-steps">
             <div class="pa-track"><div class="pa-fill" style="width:${fillPct}%"></div></div>
             ${PASOS_MESA.map(
-        (p, i) => `
+              (p, i) => `
               <div class="pa-step ${i < idx ? "done" : i === idx ? "now" : ""}">
                 <div class="pa-dot">${i < idx ? "✓" : p[1]}</div>
                 <div class="pa-lbl">${p[2]}</div>
               </div>`,
-      ).join("")}
+            ).join("")}
           </div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
-    ${Number(pedido.descuentoCupon || 0) > 0
-      ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
+    ${
+      Number(pedido.descuentoCupon || 0) > 0
+        ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
              <span>🎟️ Cupón ${pedido.cupon?.codigo || ""}</span>
              <span>-S/ ${Number(pedido.descuentoCupon).toFixed(2)}</span>
            </div>`
-      : ""
+        : ""
     }
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
@@ -1543,6 +1552,10 @@ async function confirmarPedidoMesaDirecto() {
     !!refCupon &&
     cuponAplicado.multiuso === true &&
     pedidoActivoMesa?.cupon?.codigo !== cuponAplicado.codigo;
+  const marcarUsado =
+    !!refCupon &&
+    cuponAplicado.origen === "formulario" &&
+    pedidoActivoMesa?.cupon?.codigo !== cuponAplicado.codigo;
   try {
     const pedido = await llamarMozo({
       nombre: nombreUsuarioLogeado || "Cliente en mesa",
@@ -1551,8 +1564,11 @@ async function confirmarPedidoMesaDirecto() {
       total,
     });
     pedidoActivoMesa = pedido;
+        if (marcarUsado) {
+      updateDoc(refCupon, { usado: true, estado: "usado", usadoEn: serverTimestamp() }).catch(() => { });
+    }
     if (contarUso) {
-      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => { });
+      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
     }
     cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
@@ -1628,7 +1644,11 @@ function calcCanje(cupon, producto) {
     const paga = Number(cupon.descuento?.pagaUnidades) || compra;
     return { cantidad: compra, total: paga * base, tipo };
   }
-  return { cantidad: 1, total: Number(cupon.precioFinalEstimado ?? base), tipo };
+  return {
+    cantidad: 1,
+    total: Number(cupon.precioFinalEstimado ?? base),
+    tipo,
+  };
 }
 
 /* Un cupón de PRODUCTO → suma a una línea agrupada (mismo producto + variante + beneficio) */
@@ -1678,7 +1698,8 @@ function quitarCodigosDeLinea(key, codigos) {
     carrito.delete(key);
     return;
   }
-  let cant = 0, tot = 0;
+  let cant = 0,
+    tot = 0;
   resto.forEach((c) => {
     const r = calcCanje(cuponesProducto.get(c) || {}, it);
     cant += r.cantidad;
@@ -1834,18 +1855,20 @@ function abrirModalCuponAjeno({ sinSesion, codigo }) {
 
 /* true = el cupón puede usarlo el usuario actual */
 function validarPropietarioCupon(data) {
-  if (data.origen !== "fidelizacion") return true;
+  if (data.origen !== "fidelizacion" && data.origen !== "formulario")
+    return true;
   if (usuarioLogeado && data.clienteId === usuarioLogeado.id) return true;
   abrirModalCuponAjeno({ sinSesion: !usuarioLogeado, codigo: data.codigo });
   return false;
 }
-
 
 async function aplicarCuponDesdeDoc(data) {
   // ya aplicado (por link + restaurar carrito, etc.): no hacer nada
   if (todosLosCupones().some((c) => c.codigo === data.codigo)) return;
 
   const esMulti = data.multiuso === true;
+  if (data.soloFormulario)
+    return showToast("⚠️ Este cupón solo se obtiene completando el formulario");
   if (!esMulti && (data.estado === "usado" || data.usado))
     return showToast("⚠️ Este cupón ya fue utilizado");
   if (data.estado === "cancelado")
@@ -1973,7 +1996,6 @@ async function buscarYAplicarCupon(crudo, { desdeLink = false } = {}) {
   }
 }
 
-
 function cuponBarItemHTML(c, subtotal) {
   let descTxt = "";
   let footer = "";
@@ -2022,7 +2044,10 @@ function cuponBarHTML(subtotal) {
   const lineas = [...carrito.values()].filter((i) => i.esCanje);
   if (!lineas.length) return manual;
 
-  const totalCanjes = lineas.reduce((s, i) => s + (i.cuponCodigos || [1]).length, 0);
+  const totalCanjes = lineas.reduce(
+    (s, i) => s + (i.cuponCodigos || [1]).length,
+    0,
+  );
   const filas = lineas
     .map((it) => {
       const codigos = it.cuponCodigos || [it.cuponCodigo];
@@ -2049,10 +2074,11 @@ function cuponBarHTML(subtotal) {
         <p style="margin:0;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${rgb};">
           🎟️ Canjes con puntos · ${totalCanjes}
         </p>
-        ${lineas.length > 1
-      ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
-      : ""
-    }
+        ${
+          lineas.length > 1
+            ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
+            : ""
+        }
       </div>
       ${filas}
     </div>`;
@@ -2246,9 +2272,9 @@ async function loadTipoTienda() {
   try {
     const s = await getDoc(tiendaServiciosDoc(localidad, tiendaId));
     const d = s.exists() ? s.data() : {};
-    const tipo = String(
-      d?.panel_admin?.tipo_tienda ?? d?.tipo_tienda ?? "",
-    ).toLowerCase().trim();
+    const tipo = String(d?.panel_admin?.tipo_tienda ?? d?.tipo_tienda ?? "")
+      .toLowerCase()
+      .trim();
     return tipo ? tipo === "fisica" : null;
   } catch (e) {
     console.warn("No se pudo leer tipo_tienda:", e.message);
@@ -2355,12 +2381,12 @@ async function loadProductosCatalogo(bizOrPromise) {
             d.variantesMultiples === true && d.variantesConCantidad === true,
           puntos:
             biz?.fidelizacion?.activo &&
-              d.puntos?.activo &&
-              d.puntos?.cantidad > 0
+            d.puntos?.activo &&
+            d.puntos?.cantidad > 0
               ? {
-                cantidad: d.puntos.cantidad,
-                descripcion: d.puntos.descripcion || "",
-              }
+                  cantidad: d.puntos.cantidad,
+                  descripcion: d.puntos.descripcion || "",
+                }
               : null,
           descuento: d.descuento || null,
           horarioCat,
@@ -2703,7 +2729,7 @@ function prepararCheckoutInvitado() {
       if (nom && !nom.value.trim()) nom.value = g.nombre || "";
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
-  } catch { }
+  } catch {}
   // Si está logeado, intenta prellenar con el teléfono de su perfil
   if (!esInvitado && wa && !wa.value.trim()) {
     wa.value =
@@ -2895,10 +2921,11 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
-    ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
-    : `<span class="ph-letter">${letraNegocio()}</span>`
-    }</div>`;
+  wrap.innerHTML = `<div class="logo-ph-badge">${
+    _bizLogoUrl
+      ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+      : `<span class="ph-letter">${letraNegocio()}</span>`
+  }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -3021,12 +3048,13 @@ function productoCard(p, index = 0) {
   
   ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-   ${p.puntos
-      ? siguiendoTienda
-        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-        : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
-      : ""
-    } `;
+   ${
+     p.puntos
+       ? siguiendoTienda
+         ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+         : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
+       : ""
+   } `;
 
   const dispEl = document.createElement("p");
   dispEl.id = `disp-${p.id}`;
@@ -3376,19 +3404,19 @@ function getDeliveryCfg() {
     texto: d.texto || "",
     zonas: Array.isArray(d.zonas)
       ? d.zonas
-        .filter((z) => z && z.nombre)
-        .map((z) => ({
-          nombre: String(z.nombre),
-          precio: Number(z.precio) || 0,
-        }))
+          .filter((z) => z && z.nombre)
+          .map((z) => ({
+            nombre: String(z.nombre),
+            precio: Number(z.precio) || 0,
+          }))
       : [],
     recargo: d.recargo
       ? {
-        activo: d.recargo.activo === true,
-        desde: d.recargo.desde || "",
-        hasta: d.recargo.hasta || "",
-        monto: Number(d.recargo.monto) || 0,
-      }
+          activo: d.recargo.activo === true,
+          desde: d.recargo.desde || "",
+          hasta: d.recargo.hasta || "",
+          monto: Number(d.recargo.monto) || 0,
+        }
       : null,
   };
 }
@@ -3629,7 +3657,10 @@ function destinoVuelo() {
   const tr = getComputedStyle(bar).transform;
   let ty = 0;
   if (tr && tr !== "none") {
-    const v = tr.slice(tr.indexOf("(") + 1, -1).split(",").map(parseFloat);
+    const v = tr
+      .slice(tr.indexOf("(") + 1, -1)
+      .split(",")
+      .map(parseFloat);
     ty = (tr.startsWith("matrix3d") ? v[13] : v[5]) || 0;
   }
   const r = icon.getBoundingClientRect();
@@ -3671,7 +3702,9 @@ function volarAlCarrito(p) {
     const wrap = cardEl?.querySelector(".prod-img-wrap");
     const r = !modal && wrap ? wrap.getBoundingClientRect() : null;
 
-    let cx, cy, size = 88;
+    let cx,
+      cy,
+      size = 88;
     if (r && r.width > 0 && r.bottom > 0 && r.top < innerHeight) {
       cx = r.left + r.width / 2;
       cy = r.top + r.height / 2;
@@ -3701,7 +3734,10 @@ function volarAlCarrito(p) {
       document.body.appendChild(el);
 
       const endS = 30 / size;
-      const lift = Math.max(70, Math.min(170, Math.abs(dest.y - cy) * 0.35 + 80));
+      const lift = Math.max(
+        70,
+        Math.min(170, Math.abs(dest.y - cy) * 0.35 + 80),
+      );
       const px = (cx + dest.x) / 2;
       const py = Math.min(cy, dest.y) - lift;
       const N = 18;
@@ -3709,8 +3745,10 @@ function volarAlCarrito(p) {
       for (let i = 0; i <= N; i++) {
         const t = i / N;
         const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        const x = (1 - e) * (1 - e) * cx + 2 * (1 - e) * e * px + e * e * dest.x;
-        const y = (1 - e) * (1 - e) * cy + 2 * (1 - e) * e * py + e * e * dest.y;
+        const x =
+          (1 - e) * (1 - e) * cx + 2 * (1 - e) * e * px + e * e * dest.x;
+        const y =
+          (1 - e) * (1 - e) * cy + 2 * (1 - e) * e * py + e * e * dest.y;
         const bump = 0.16 * Math.sin(Math.min(t * 3, 1) * Math.PI);
         const s = (1 + (endS - 1) * e) * (1 + bump);
         const rot = -14 * Math.sin(e * Math.PI);
@@ -4421,19 +4459,21 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${!it.esCanje &&
+        ${
+          !it.esCanje &&
           (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
-          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+            ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-          : ""
+            : ""
         }
-          ${it.esCanje
-          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${
+            it.esCanje
+              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-        }
+          }
         </div>
       `;
       wrap.appendChild(row);
@@ -4866,10 +4906,10 @@ document
       token_seguimiento: tokenSeguimiento,
       mesa: mesaId
         ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+            id: mesaId,
+            nombre: mesaNombre || null,
+            numero: mesaNumero ? Number(mesaNumero) : null,
+          }
         : null,
       pago: {
         metodo: metodoPago,
@@ -4960,7 +5000,7 @@ document
               +(i.cantidad * i.precio).toFixed(2),
             ),
             [`estadisticas.por_dia.${hoy}.pedidos`]: increment(1),
-          }).catch(() => { });
+          }).catch(() => {});
         });
     }
     const pedidoId = resultado.id;
@@ -4974,7 +5014,7 @@ document
           "geinz_guest",
           JSON.stringify({ nombre, whatsapp }),
         );
-      } catch { }
+      } catch {}
     }
     if (
       cuponAplicado?.origen === "banner" &&
@@ -4985,7 +5025,7 @@ document
           `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`,
           "1",
         );
-      } catch { }
+      } catch {}
     }
 
     const sufijo = tokenSeguimiento ? `?t=${tokenSeguimiento}` : "";
@@ -6048,7 +6088,7 @@ async function restaurarCarritoPersistido() {
 function limpiarCarritoPersistido() {
   try {
     sessionStorage.removeItem(CART_PERSIST_KEY());
-  } catch { }
+  } catch {}
 }
 
 function abrirLoginPopup() {

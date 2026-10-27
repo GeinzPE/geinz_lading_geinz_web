@@ -7,9 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#000;--panel:#0c0a12;--panel2:#13101c;--line:#241d36;--text:#efeaf9;--muted:#8d84a6;--p:#8b5cf6;--p2:#a78bfa;--pdim:rgba(139,92,246,.14);--ok:#34d399;--brand:#8b5cf6;--brand2:#22d3ee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
 *,*::before,*::after{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:14px 'Sora',system-ui,sans-serif}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px 'Sora',system-ui,sans-serif;overflow-x:hidden}
 button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
 :focus-visible{outline:2px solid var(--p2);outline-offset:2px}
 .wrap{max-width:1180px;margin:0 auto;padding:26px 24px 60px}
@@ -17,6 +17,7 @@ button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
 h1{font-size:22px;margin:0;font-weight:600}.sub{color:var(--muted);margin:4px 0 0}
 .btn{border:1px solid var(--line);background:var(--panel2);padding:9px 16px;border-radius:10px}.btn:hover{border-color:var(--p)}
 .btn.pri{background:var(--p);border-color:var(--p);color:#fff;font-weight:600}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 .link{background:none;border:0;color:var(--p2);padding:0;margin-bottom:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
 .fc{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;transition:.15s}
@@ -30,7 +31,7 @@ h1{font-size:22px;margin:0;font-weight:600}.sub{color:var(--muted);margin:4px 0 
 .tabs button.on{color:var(--p2);border-color:var(--p)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
 .card h2{font-size:15px;margin:0 0 14px;font-weight:600}
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:16px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
 .kpi span{color:var(--muted);font-size:12.5px}.kpi b{display:block;font-size:26px;font-weight:600;margin-top:4px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -40,15 +41,17 @@ h1{font-size:22px;margin:0;font-weight:600}.sub{color:var(--muted);margin:4px 0 
 .bar div i{display:block;height:100%;background:linear-gradient(90deg,var(--p),var(--p2));border-radius:99px}
 .bar u{width:38px;text-align:right;text-decoration:none;font-size:13px}
 .cols{display:flex;align-items:flex-end;gap:6px;height:120px}
-.cols i{flex:1;background:linear-gradient(var(--p2),var(--p));border-radius:6px 6px 0 0}
+.cols i{flex:1;background:linear-gradient(var(--p2),var(--p));border-radius:6px 6px 0 0;min-width:2px}
 details.r{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
 details.r summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;cursor:pointer}
 details.r summary::-webkit-details-marker{display:none}
 details.r[open]{border-color:var(--p)}
-.rb{padding:0 16px 14px}.rb p{margin:0;padding:10px 0;border-top:1px solid var(--line)}.rb p small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
+.rb{padding:0 16px 14px}.rb p{margin:0;padding:10px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.rb p small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
 .split{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start}
 label.f{display:block;color:var(--muted);font-size:12.5px;margin:0 0 6px}
-.in{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}.in:focus{border-color:var(--p);outline:none}
+.in{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;min-height:40px}.in:focus{border-color:var(--p);outline:none}
+select.in option{background:#13101c;color:#efeaf9}
+input[type=date].in{color-scheme:dark}
 .row{display:flex;gap:12px}.row>*{flex:1;min-width:0}
 .sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.sw small{display:block;color:var(--muted);margin-top:2px}
 .tg{width:42px;height:24px;border-radius:99px;background:var(--line);border:0;position:relative;flex:none;transition:.2s}
@@ -75,8 +78,20 @@ label.f{display:block;color:var(--muted);font-size:12.5px;margin:0 0 6px}
 .coupon{border:1px dashed var(--brand);border-radius:14px;padding:16px;text-align:center;background:color-mix(in srgb,var(--brand) 10%,transparent)}.coupon b{display:block;font-size:30px}.coupon code{display:inline-block;margin-top:8px;padding:6px 12px;border-radius:8px;background:#000;letter-spacing:.12em}
 .hint{color:var(--muted);font-size:12px;text-align:center;margin-top:10px}
 .og{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel2);margin-bottom:14px;max-width:260px}.ogi{aspect-ratio:1080/1350;background:#1b1628 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}.ogt{padding:10px 12px}.ogt small{display:block;color:var(--muted);font-size:11.5px}.ogt b{display:block;margin:2px 0;font-weight:600}.ogt span{color:var(--muted);font-size:12.5px;display:block}
-@media(max-width:1000px){.split,.two{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.wrap{padding:18px 14px 50px}.row{flex-direction:column;gap:0}.qh{flex-wrap:wrap}}
+@media(max-width:1000px){.split,.two{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .wrap{padding:18px 14px 50px}
+  .row{flex-direction:column;gap:0}
+  .qh{flex-wrap:wrap}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:10px}
+  .kpi{padding:12px}.kpi b{font-size:22px}
+  .card{padding:14px}
+  .tabs button{padding:10px 12px}
+  .bar span{width:38%}
+  .fbar .btn{flex:1 1 auto}
+  details.r summary{padding:12px}
+  h1{font-size:19px}
+}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>

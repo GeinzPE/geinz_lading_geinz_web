@@ -327,7 +327,10 @@ async function crearCupon() {
   if (!tiendaId || !localidad)
     return toast("Aún estamos cargando los datos de tu tienda…", true);
   if (window.MAX_CUPONES != null && contarActivos() >= window.MAX_CUPONES) {
-    return toast(`Llegaste al máximo de cupones activos de tu plan (${window.MAX_CUPONES}).`, true);
+    return toast(
+      `Llegaste al máximo de cupones activos de tu plan (${window.MAX_CUPONES}).`,
+      true,
+    );
   }
   const pct = Math.round(Number(val("cpPct")));
   const codigo = val("cpCodigo").toUpperCase().replace(/\s+/g, "");
@@ -397,7 +400,7 @@ async function crearCupon() {
   } finally {
     btn.disabled = false;
     btn.textContent = "Crear cupón";
-        pintarLimite();
+    pintarLimite();
   }
 }
 
@@ -442,7 +445,7 @@ window.refrescarLimiteCupones = pintarLimite;
 
 function renderLista() {
   pintarStats();
-pintarLimite();
+  pintarLimite();
   const list = $("cpList");
   if (!list) return;
   $("cpCount").textContent = cupones.length
@@ -467,6 +470,7 @@ pintarLimite();
       );
       if (c.audiencia && c.audiencia !== "todos")
         meta.push(AUD_LBL[c.audiencia]);
+      if (c.soloFormulario) meta.push("Solo formulario");
       const usos = c.usosMaximos
         ? `${c.usos || 0}/${c.usosMaximos} usos`
         : `${c.usos || 0} usos`;
@@ -482,7 +486,7 @@ pintarLimite();
           <p class="cp-stats"><b>${usos}</b> · Descontado ${money(c.descuento_total)} · Ventas ${money(c.ventas_total)}</p>
           <div class="cp-actions">
             <button type="button" class="cp-mini" data-act="copy">Copiar código</button>
-            ${alias ? `<button type="button" class="cp-mini" data-act="link">Copiar link</button>` : ""}
+            ${alias && !c.soloFormulario ? `<button type="button" class="cp-mini" data-act="link">Copiar link</button>` : ""}
             <button type="button" class="cp-mini danger" data-act="del">Eliminar</button>
             <label class="switch" title="Activar / desactivar">
               <input type="checkbox" data-act="toggle" ${c.activo !== false ? "checked" : ""}>
