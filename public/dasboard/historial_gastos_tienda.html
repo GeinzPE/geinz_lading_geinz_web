@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Insumos y costos</title>
+    <link rel="stylesheet" href="../style/dasboardcss/insumos.css">
+    <script type="module" src="../js/dasboardjs/insumos.js"></script>
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="top-row">
+            <h1>🧮 Insumos y costos</h1>
+            <label class="mes-wrap">Precios de
+                <input type="month" id="mesSel">
+            </label>
+        </div>
+
+        <div class="chips">
+            <div class="chip"><small>Ventas entregadas</small><b id="chipVentas">…</b></div>
+            <div class="chip"><small>Gastado por el negocio</small><b id="chipGastos">…</b></div>
+            <div class="chip big"><small>Disponible en caja</small><b id="chipCaja">…</b></div>
+            <div class="chip"><small>Inversión del dueño</small><b id="chipInv">…</b></div>
+        </div>
+        <button class="link" id="btnRefCaja">↻ Actualizar ventas</button>
+
+        <nav class="tabs">
+            <button class="tab on" data-tab="ins">1 · Insumos</button>
+            <button class="tab" data-tab="prod">2 · Productos</button>
+            <button class="tab" data-tab="sum">3 · Resumen</button>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- ============ INSUMOS ============ -->
+        <section class="pane" id="pane-ins">
+            <p class="help">Anota lo que compras y cuánto pagaste. Cada compra guarda el precio de <b>ese mes</b>, así
+                ves cómo varía y los costos de tus productos se calculan con el mes que elijas arriba.</p>
+            <div class="bar">
+                <input type="search" id="qIns" placeholder="Buscar insumo…">
+                <button class="btn go" id="btnNuevoIns">+ Nueva compra</button>
+            </div>
+            <div id="listIns"></div>
+        </section>
+
+        <!-- ============ PRODUCTOS ============ -->
+        <section class="pane" id="pane-prod" hidden>
+            <p class="help">Arma tus productos con los insumos que ya guardaste (o con otros productos, como un jugo
+                dentro de un smoothie). Te digo cuánto te cuesta, a cuánto venderlo y cuánto ganas.</p>
+            <div class="bar">
+                <button class="btn go" id="btnNuevaRec">+ Nuevo producto / combo</button>
+            </div>
+            <div id="listRec"></div>
+        </section>
+
+        <!-- ============ RESUMEN ============ -->
+        <section class="pane" id="pane-sum" hidden>
+            <p class="help">Cuánto vas a invertir, cuánto vas a ganar y qué debes comprar. Las unidades a vender las
+                pones en cada producto.</p>
+            <div class="tiles" id="tot"></div>
+
+            <h2>Por producto</h2>
+            <div class="card wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Unid.</th>
+                            <th>Costo c/u</th>
+                            <th>Precio</th>
+                            <th>Invierto</th>
+                            <th>Gano</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ptab"></tbody>
+                </table>
+            </div>
+
+            <h2>Qué debes comprar</h2>
+            <div class="card wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Insumo</th>
+                            <th>Necesitas</th>
+                            <th>Compra</th>
+                            <th>Costo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="buy"></tbody>
+                </table>
+            </div>
+
+            <h2>Compras del mes <span id="gastoMesTitulo" class="mut"></span></h2>
+            <div class="tiles" id="gastoTiles"></div>
+            <div id="listGastos"></div>
+        </section>
+
+    </main>
+
+    <!-- ============ MODAL COMPRA ============ -->
+    <div class="overlay" id="mdCompra">
+        <div class="sheet">
+            <div class="sheet-head">
+                <h3 id="cTitulo">Nueva compra</h3><button class="x" data-close="mdCompra">✕</button>
+            </div>
+            <div class="sheet-body">
+                <label>Insumo
+                    <input id="cNombre" list="dlIns" placeholder="Ej: Pollo, Platos, Vasos" autocomplete="off">
+                    <datalist id="dlIns"></datalist>
+                </label>
+                <p class="hint" id="cHint"></p>
+
+                <div class="grid2">
+                    <label>Cantidad que compraste
+                        <input id="cCant" type="number" min="0" step="any" inputmode="decimal" placeholder="12">
+                    </label>
+                    <label>Unidad
+                        <select id="cUnidad"></select>
+                    </label>
+                </div>
+
+                <label>¿Cuánto pagaste en total? (S/)
+                    <input id="cPrecio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="50.00">
+                </label>
+
+                <div class="preview" id="cPreview">Cada unidad costará: —</div>
+
+                <label>Mes del precio
+                    <input id="cMes" type="month">
+                </label>
+
+                <fieldset>
+                    <legend>¿De dónde salió el dinero?</legend>
+                    <label class="radio"><input type="radio" name="origen" value="negocio" checked>
+                        <span><b>Del negocio</b><small>Se descuenta de la caja (ventas).</small></span></label>
+                    <label class="radio"><input type="radio" name="origen" value="bolsillo">
+                        <span><b>De mi bolsillo</b><small>Se guarda como inversión del dueño; no baja la
+                                caja.</small></span></label>
+                </fieldset>
+
+                <label class="chk"><input type="checkbox" id="cGasto" checked> Registrar también como gasto</label>
+                <p class="warn" id="cAviso" hidden></p>
+            </div>
+            <div class="sheet-foot">
+                <button class="btn" data-close="mdCompra">Cancelar</button>
+                <button class="btn go" id="btnGuardarCompra">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ MODAL HISTORIAL ============ -->
+    <div class="overlay" id="mdHist">
+        <div class="sheet">
+            <div class="sheet-head">
+                <h3 id="hTitulo">Historial de precios</h3><button class="x" data-close="mdHist">✕</button>
+            </div>
+            <div class="sheet-body" id="hBody"></div>
+        </div>
+    </div>
+
+    <!-- ============ MODAL RECETA ============ -->
+    <div class="overlay" id="mdRec">
+        <div class="sheet tall">
+            <div class="sheet-head">
+                <h3 id="rTitulo">Nuevo producto</h3><button class="x" data-close="mdRec">✕</button>
+            </div>
+            <div class="sheet-body">
+                <label>Nombre
+                    <input id="rNombre" placeholder="Ej: Smoothie de frutas">
+                </label>
+
+                <div class="grid3">
+                    <label>Quiero ganar (%)
+                        <input id="rMargen" type="number" min="0" step="any" inputmode="decimal">
+                    </label>
+                    <label>Voy a vender (unid.)
+                        <input id="rUnidades" type="number" min="0" step="1" inputmode="numeric">
+                    </label>
+                    <label>Esta receta rinde
+                        <input id="rRinde" type="number" min="1" step="any" inputmode="decimal">
+                    </label>
+                </div>
+
+                <div class="grid2">
+                    <label>Calcular ganancia
+                        <select id="rModo">
+                            <option value="markup">sobre el costo (50% → costo × 1.5)</option>
+                            <option value="margin">sobre la venta (50% → costo ÷ 0.5)</option>
+                        </select>
+                    </label>
+                    <label class="chk push"><input type="checkbox" id="rRedondear"> Redondear a S/ 0.10 hacia
+                        arriba</label>
+                </div>
+
+                <h4>Qué lleva</h4>
+                <div id="rItems"></div>
+                <button class="btn" id="btnAddItem">+ Agregar insumo o producto</button>
+
+                <div class="tiles" id="rTiles"></div>
+
+                <details class="opt">
+                    <summary>Comparar con un producto de mi carta (opcional)</summary>
+                    <div class="grid2">
+                        <button class="btn" id="btnCargarCatalogo">Cargar mis productos</button>
+                        <select id="rLink">
+                            <option value="">— Sin vincular —</option>
+                        </select>
+                    </div>
+                    <div class="preview" id="rLinkInfo"></div>
+                </details>
+            </div>
+            <div class="sheet-foot">
+                <button class="btn" data-close="mdRec">Cancelar</button>
+                <button class="btn go" id="btnGuardarRec">Guardar producto</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+</body>
+
+</html>

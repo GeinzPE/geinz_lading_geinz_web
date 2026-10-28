@@ -49,6 +49,8 @@ const _flag = (s, ruta, def = false) => _on(_nodo(s, ruta), def);
 const _num = (v, def) => (typeof v === "number" && v >= 0 ? v : def);
 const _ocultar = (el, cond) => el?.classList.toggle("plan-oculto", cond);
 
+import { comprimirAWebp, subirWebp } from "../compresor_imagen/compresor_imagen.js";
+
 const tabInicialProducto = () =>
   PLAN_PRODUCTOS.modoBasico || !PLAN_PRODUCTOS.modoAvanzado
     ? "tab-basico"
@@ -281,6 +283,18 @@ function productosRef(categoriaId) {
 }
 function storagePathProducto(productoId) {
   return `tiendas/${TIENDA_ID_STORAGE}/productos/${productoId}`;
+}
+/* ---------------- Compresión de imágenes (WebP ligero) ---------------- */
+// Cuadrada para productos: 600x600, ~40 KB máx. Se ve nítida en tarjetas.
+const OPC_PRODUCTO = { w: 600, h: 600, quality: 0.8, minQuality: 0.45, maxBytes: 40 * 1024, modo: "cover" };
+// Carta: imagen completa sin recortar (menús/fotos de carta), ~90 KB máx.
+const OPC_CARTA = { w: 800, h: 800, quality: 0.8, minQuality: 0.45, maxBytes: 90 * 1024, modo: "contain" };
+// Adicionales: miniatura pequeña, ~20 KB máx.
+const OPC_ADICIONAL = { w: 300, h: 300, quality: 0.8, minQuality: 0.45, maxBytes: 20 * 1024, modo: "cover" };
+
+async function subirImagenComprimida(path, file, opciones) {
+  const { blob } = await comprimirAWebp(file, opciones);
+  return await subirWebp(storage, path, blob);
 }
 
 /* ---------------- Notifications ---------------- */
@@ -1501,16 +1515,12 @@ document
             deleteObject(storageRef(storage, img.path)).catch(() => {}),
           ),
         );
-
         const subidas = [];
         for (const file of nuevas) {
-          const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${file.name}`;
-          const ref = storageRef(storage, path);
-          await uploadBytes(ref, file);
-          const url = await getDownloadURL(ref);
+          const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${subidas.length}.webp`;
+          const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
           subidas.push({ url, path });
         }
-
         await updateDoc(docRef, {
           nombre,
           descripcion,
@@ -1581,14 +1591,11 @@ document
         });
         const archivos = imagenesSeleccionadas.filter(Boolean);
         const imagenes = [];
-        for (const file of archivos) {
-          const path = `${storagePathProducto(nuevoDocRef.id)}/${Date.now()}_${file.name}`;
-          const ref = storageRef(storage, path);
-          await uploadBytes(ref, file);
-          const url = await getDownloadURL(ref);
+             for (const file of archivos) {
+          const path = `${storagePathProducto(nuevoDocRef.id)}/${Date.now()}_${imagenes.length}.webp`;
+          const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
           imagenes.push({ url, path });
         }
-
         if (imagenes.length) {
           await updateDoc(nuevoDocRef, { imagenes });
         }
@@ -2338,6 +2345,8 @@ initImportador({
   storagePathProducto,
   toast,
   getEsRestaurante: () => esRestaurante,
+  subirImagenComprimida,
+  OPC_PRODUCTO,
 });
 const qCategorias = query(categoriasRef, orderBy("createdAt", "asc"));
 onSnapshot(
@@ -2573,42 +2582,29 @@ function dataURLtoBlobCarta(dataURL) {
 async function subirFotoCarta(collId, slotIndex, file) {
   const coleccion = cartaColecciones[collId];
   if (!coleccion) return;
-  const reader = new FileReader();
-  reader.onload = async (ev) => {
-    try {
-      toast("Subiendo foto…");
-      // maxPx bajado de 1024 a 800 y calidad a 0.75: menos datos que subir/bajar,
-      // clave si la conexión o el equipo del usuario son limitados
-      const comprimida = await comprimirImagenCarta(
-        ev.target.result,
-        800,
-        0.75,
-      );
-      const blob = dataURLtoBlobCarta(comprimida);
-      const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
-      const ref = storageRef(storage, path);
-      await uploadBytes(ref, blob, { contentType: "image/webp" });
-      const finalURL = await getDownloadURL(ref);
+  try {
+    toast("Subiendo foto…");
+    const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
+const urlBase = await subirImagenComprimida(path, file, OPC_CARTA);
+const finalURL = `${urlBase}${urlBase.includes("?") ? "&" : "?"}v=${Date.now()}`;
 
-      const nuevasImagenes = [...coleccion.imagenes];
-      while (nuevasImagenes.length <= slotIndex) nuevasImagenes.push(null);
-      nuevasImagenes[slotIndex] = finalURL;
+    const nuevasImagenes = [...coleccion.imagenes];
+    while (nuevasImagenes.length <= slotIndex) nuevasImagenes.push(null);
+    nuevasImagenes[slotIndex] = finalURL;
 
-      await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
-      coleccion.imagenes = nuevasImagenes;
+    await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
+    coleccion.imagenes = nuevasImagenes;
 
-      const grid = document.querySelector(
-        `[data-carta-id="${collId}"] [data-carta-grid]`,
-      );
-      if (grid) grid.innerHTML = renderCartaGridHTML(collId);
-      actualizarContadorColeccion(collId);
-      toast("Foto guardada.");
-    } catch (err) {
-      console.error(err);
-      toast("No se pudo subir la foto.", "error");
-    }
-  };
-  reader.readAsDataURL(file);
+    const grid = document.querySelector(
+      `[data-carta-id="${collId}"] [data-carta-grid]`,
+    );
+    if (grid) grid.innerHTML = renderCartaGridHTML(collId);
+    actualizarContadorColeccion(collId);
+    toast("Foto guardada.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo subir la foto.", "error");
+  }
 }
 
 async function eliminarFotoCarta(collId, slotIndex) {
@@ -3254,11 +3250,12 @@ document
           () => {},
         );
       }
-      if (adFile) {
-        const path = `tiendas/${tiendaId}/adicionales/${id}/${Date.now()}_${adFile.name}`;
-        const ref = storageRef(storage, path);
-        await uploadBytes(ref, adFile);
-        imagen = { url: await getDownloadURL(ref), path };
+         if (adFile) {
+        const path = `tiendas/${tiendaId}/adicionales/${id}/${Date.now()}.webp`;
+        imagen = {
+          url: await subirImagenComprimida(path, adFile, OPC_ADICIONAL),
+          path,
+        };
       }
       await setDoc(
         adDoc(id),

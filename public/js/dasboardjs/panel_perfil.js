@@ -2509,6 +2509,10 @@ const esFisica =
     this.showSection("historial");
   },
 
+
+  loadHistorial_gastos() {
+  this.showSection("historialgasto_tienda");
+},
   load_pedidos_vivos() {
     this.showSection("pedidos");
     this.hidePedidosBadge();
@@ -2525,11 +2529,6 @@ const esFisica =
     document.getElementById("dot-legal")?.classList.remove("show");
     document.getElementById("dot-legal-mobile")?.classList.remove("show");
   },
-  loadHistorialGasto() {
-    this.showSection("historialgasto");
-    // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
-  },
-
   loadHistorialGasto() {
     this.showSection("historialgasto");
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
