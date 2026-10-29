@@ -22,7 +22,7 @@ import {
   comprimirAWebp,
   subirWebp,
 } from "../compresor_imagen/compresor_imagen.js";
-
+import { pieCards } from "../graficos/graficos_form.js";
 /* ===== Estilos extra (no hace falta tocar tu CSS) ===== */
 document.head.insertAdjacentHTML(
   "beforeend",
@@ -450,7 +450,12 @@ function rank(R, lvl) {
   R.forEach((r) => {
     const z = r.z;
     if (!z[lvl]) return void sin++;
-    const key = z.dep + "|" + (lvl !== "dep" ? z.prov : "") + "|" + (lvl === "dist" ? z.dist : "");
+    const key =
+      z.dep +
+      "|" +
+      (lvl !== "dep" ? z.prov : "") +
+      "|" +
+      (lvl === "dist" ? z.dist : "");
     const e = m.get(key) || {
       n: 0,
       label: tc(z[lvl]),
@@ -491,7 +496,9 @@ function dayHours(R) {
     d.setDate(d.getDate() - 13 + i);
     return d.getTime();
   });
-  const dn = days.map((t) => R.filter((r) => r.ms >= t && r.ms < t + 864e5).length);
+  const dn = days.map(
+    (t) => R.filter((r) => r.ms >= t && r.ms < t + 864e5).length,
+  );
   const hn = [...Array(24)].map(
     (_, h) => R.filter((r) => r.ms && new Date(r.ms).getHours() === h).length,
   );
@@ -684,7 +691,7 @@ function list() {
   ogBlob = null;
   RC = { id: null, rows: [] };
   $("#app").innerHTML =
-    `<div class="top"><div><h1>Formularios y encuestas</h1><p class="sub">Entra a uno para ver todo lo que ha pasado.</p></div><button class="btn pri" id="nw">Nuevo formulario</button></div>
+    `<div class="top"><div><h1>Formularios y encuestas</h1><p class="sub">Entra a uno para ver todo lo que ha pasado.</p></div><div style="display:flex;gap:8px"><button class="btn" id="rfl">↻ Actualizar</button><button class="btn pri" id="nw">Nuevo formulario</button></div></div>
   ${forms.length ? "" : '<div class="card"><h2>Aún no tienes formularios</h2><p class="sub" style="margin:0">Crea el primero con “Nuevo formulario” y aparecerá aquí.</p></div>'}<div class="grid">${forms
     .map(
       (
@@ -719,12 +726,16 @@ function list() {
     tab = "editar";
     detail();
   };
+  $("#rfl").onclick = async () => {
+    forms = await DB.forms();
+    list();
+  };
 }
 function detail() {
   $("#app").innerHTML =
     `<button class="link" id="bk">← Todos los formularios</button>
   <div class="top"><div><h1>${esc(F.title)}</h1><p class="sub">${esc(F.kind)} · ${F.status === "activo" ? "Activo" : "Borrador"}</p></div>
-  <div style="display:flex;gap:8px"><button class="btn" id="vf"${F.id === "nuevo" ? " disabled" : ""}>Ver formulario</button></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rf"${tab === "editar" || F.id === "nuevo" ? " hidden" : ""}>↻ Actualizar</button><button class="btn" id="vf"${F.id === "nuevo" ? " disabled" : ""}>Ver formulario</button></div></div>
   <div class="tabs" id="tb">${[
     ["resumen", "Resumen"],
     ["respuestas", "Respuestas"],
@@ -737,16 +748,38 @@ function detail() {
     .join("")}</div><div id="body"></div>`;
   $("#bk").onclick = list;
   $("#vf").onclick = () => window.open(DB.link(F), "_blank");
+  $("#rf").onclick = refrescar;
   $("#tb").onclick = (e) => {
     const b = e.target.closest("button");
-    if (b) {
-      tab = b.dataset.t;
-      detail();
-    }
+    if (!b || b.dataset.t === tab) return;
+    tab = b.dataset.t;
+    $("#rf").hidden = tab === "editar" || F.id === "nuevo";
+    $("#tb")
+      .querySelectorAll("button")
+      .forEach((x) => x.classList.toggle("on", x === b));
+    ({ resumen, respuestas, editar })[tab]();
   };
   ({ resumen, respuestas, editar })[tab]();
 }
-
+async function refrescar() {
+  const b = $("#rf");
+  b.disabled = true;
+  b.textContent = "Actualizando…";
+  try {
+    forms = await DB.forms();
+    const fresh = forms.find((x) => x.id === F.id);
+    if (fresh) F.stats = fresh.stats;
+    await getR(true);
+    await ({ resumen, respuestas }[tab] || (() => {}))();
+  } catch (e) {
+    console.error(e);
+  }
+  const nb = $("#rf");
+  if (nb) {
+    nb.disabled = false;
+    nb.textContent = "↻ Actualizar";
+  }
+}
 async function resumen() {
   $("#body").innerHTML = '<p class="sub">Cargando…</p>';
   let R = [];
@@ -783,6 +816,7 @@ async function resumen() {
       return `<div class="bar"><span>${esc(String(t).slice(0, 26))}</span><div><i style="width:${p}%"></i></div><u>${p}%</u></div>`;
     })
     .join("")}</div></div>
+  ${pieCards(F, R)}
   <div class="card"><h2>Resultados por pregunta</h2>${qBlock(R)}</div>
   ${R.length >= 1000 ? '<p class="sub">Se analizan las últimas 1000 respuestas.</p>' : ""}`;
 }
@@ -846,9 +880,21 @@ async function respuestas() {
     const d = all,
       p = FL.dep ? d.filter((r) => r.z.dep === FL.dep) : d,
       t = FL.prov ? p.filter((r) => r.z.prov === FL.prov) : p;
-    fl.querySelector('[data-f="dep"]').innerHTML = opt(cnt(d, "dep"), FL.dep, "Todos");
-    fl.querySelector('[data-f="prov"]').innerHTML = opt(cnt(p, "prov"), FL.prov, "Todas");
-    fl.querySelector('[data-f="dist"]').innerHTML = opt(cnt(t, "dist"), FL.dist, "Todos");
+    fl.querySelector('[data-f="dep"]').innerHTML = opt(
+      cnt(d, "dep"),
+      FL.dep,
+      "Todos",
+    );
+    fl.querySelector('[data-f="prov"]').innerHTML = opt(
+      cnt(p, "prov"),
+      FL.prov,
+      "Todas",
+    );
+    fl.querySelector('[data-f="dist"]').innerHTML = opt(
+      cnt(t, "dist"),
+      FL.dist,
+      "Todos",
+    );
   }
   function fillQopt() {
     const sel = fl.querySelector('[data-f="qopt"]'),
@@ -881,15 +927,21 @@ async function respuestas() {
       fuera = rows.filter((r) => r.zona_ok === false).length,
       con = rows.filter((r) => r.coupon).length,
       sinU = rows.filter((r) => !r.z.dep).length;
-    $("#rsum").innerHTML = `<div class="kpis"><div class="kpi"><span>Respuestas</span><b>${n}</b></div><div class="kpi"><span>Registrados</span><b>${reg}</b></div><div class="kpi"><span>Anónimos</span><b>${n - reg}</b></div><div class="kpi"><span>Con cupón</span><b>${con}</b></div><div class="kpi"><span>Fuera de zona</span><b>${fuera}</b></div><div class="kpi"><span>Sin ubicación</span><b>${sinU}</b></div></div>
+    $("#rsum").innerHTML =
+      `<div class="kpis"><div class="kpi"><span>Respuestas</span><b>${n}</b></div><div class="kpi"><span>Registrados</span><b>${reg}</b></div><div class="kpi"><span>Anónimos</span><b>${n - reg}</b></div><div class="kpi"><span>Con cupón</span><b>${con}</b></div><div class="kpi"><span>Fuera de zona</span><b>${fuera}</b></div><div class="kpi"><span>Sin ubicación</span><b>${sinU}</b></div></div>
     ${geoCards(rows, true)}
     ${dayHours(rows)}
+        ${pieCards(F, rows, false)}
+  
     <details class="fold card"><summary>Resultados por pregunta (solo con estos filtros)</summary><div style="margin-top:12px">${qBlock(rows)}</div></details>`;
     const shown = rows.slice(0, SHOWN);
     $("#rlist").innerHTML =
       shown
         .map((r) => {
-          const ub = [r.z.dist, r.z.prov, r.z.dep].filter(Boolean).map(tc).join(", ");
+          const ub = [r.z.dist, r.z.prov, r.z.dep]
+            .filter(Boolean)
+            .map(tc)
+            .join(", ");
           return `<details class="r"><summary><span><b>${esc(r.who)}</b> <span class="sub">${esc(r.mail || "Sin registro")}${r.tel ? " · " + esc(r.tel) : ""}</span></span>
   <span><span class="chip ${r.user ? "ok" : "off"}">${r.user ? "Registrado" : "Anónimo"}</span> ${ub ? `<span class="chip">${esc(ub)}</span> ` : ""}${r.zona_ok === false ? '<span class="chip off" title="Enviarle el cupón por WhatsApp">Fuera de zona</span> ' : ""}<span class="chip">${esc(r.coupon || "Sin descuento")}</span> <span class="sub">${esc(r.date)}</span></span></summary>
   <div class="rb">${ub ? `<p class="loc">📍 ${esc(ub)}</p>` : ""}${F.questions
@@ -900,8 +952,7 @@ async function respuestas() {
     })
     .join("")}</div></details>`;
         })
-        .join("") ||
-      '<p class="sub">No hay respuestas con esos filtros.</p>';
+        .join("") || '<p class="sub">No hay respuestas con esos filtros.</p>';
     if (rows.length > SHOWN)
       $("#rlist").insertAdjacentHTML(
         "beforeend",
@@ -910,11 +961,13 @@ async function respuestas() {
     paintR.rows = rows;
   }
 
+  let tq;
   fl.addEventListener("input", (e) => {
     if (e.target.dataset.f === "q") {
       FL.q = e.target.value;
       SHOWN = 50;
-      paintR();
+      clearTimeout(tq);
+      tq = setTimeout(paintR, 250);
     }
   });
   fl.addEventListener("change", (e) => {
@@ -1017,9 +1070,12 @@ function descargarCsv(rows) {
       .map(c)
       .join(","),
   );
-  const blob = new Blob(["\ufeff" + [head.map(c).join(","), ...lines].join("\n")], {
-    type: "text/csv;charset=utf-8",
-  });
+  const blob = new Blob(
+    ["\ufeff" + [head.map(c).join(","), ...lines].join("\n")],
+    {
+      type: "text/csv;charset=utf-8",
+    },
+  );
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `respuestas-${slug(F.title) || "formulario"}.csv`;

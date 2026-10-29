@@ -34,6 +34,7 @@ const PLAN_PRODUCTOS = {
   celular: true,
   modoBasico: true,
   modoAvanzado: true,
+  superAvanzado: true,
   maxColecciones: Infinity,
   maxProductosPorColeccion: Infinity,
   carta: false,
@@ -49,13 +50,19 @@ const _flag = (s, ruta, def = false) => _on(_nodo(s, ruta), def);
 const _num = (v, def) => (typeof v === "number" && v >= 0 ? v : def);
 const _ocultar = (el, cond) => el?.classList.toggle("plan-oculto", cond);
 
-import { comprimirAWebp, subirWebp } from "../compresor_imagen/compresor_imagen.js";
+import {
+  comprimirAWebp,
+  subirWebp,
+} from "../compresor_imagen/compresor_imagen.js";
 
 const tabInicialProducto = () =>
-  PLAN_PRODUCTOS.modoBasico || !PLAN_PRODUCTOS.modoAvanzado
+  PLAN_PRODUCTOS.modoBasico
     ? "tab-basico"
-    : "tab-avanzado";
-
+    : PLAN_PRODUCTOS.modoAvanzado
+      ? "tab-avanzado"
+      : PLAN_PRODUCTOS.superAvanzado
+        ? "tab-super"
+        : "tab-basico";
 function aplicarPlanProductos(s) {
   if (!s) return;
   const P = PLAN_PRODUCTOS;
@@ -65,6 +72,7 @@ function aplicarPlanProductos(s) {
   P.celular = _flag(s, `${RAIZ_PRODUCTOS}.uso_celular_scaner`, true);
   P.modoBasico = _flag(s, `${RAIZ_PRODUCTOS}.modo_basico`, true);
   P.modoAvanzado = _flag(s, `${RAIZ_PRODUCTOS}.modo_avanzado`, true);
+  P.superAvanzado = _flag(s, `${RAIZ_PRODUCTOS}.modo_super_avanzado`, true);
   P.carta = _flag(s, `${RAIZ_PRODUCTOS}.carta.activo`, false);
   P.maxColecciones = _num(r("max_colecciones"), Infinity);
   P.maxProductosPorColeccion = _num(
@@ -83,9 +91,10 @@ function aplicarPlanProductos(s) {
   _ocultar(document.getElementById("btn-prod-scan-cam"), !P.camara);
   _ocultar(document.getElementById("scan-btn-cam"), !P.camara);
 
-  // Modo básico / avanzado
-  const verBasico = P.modoBasico || !P.modoAvanzado; // si ambos están en false, queda el básico
+  // Modo básico / avanzado / súper avanzado
+  const verBasico = P.modoBasico || (!P.modoAvanzado && !P.superAvanzado);
   const verAvanzado = P.modoAvanzado;
+  const verSuper = P.superAvanzado;
   _ocultar(
     document.querySelector('[data-tab-target="tab-basico"]'),
     !verBasico,
@@ -94,9 +103,10 @@ function aplicarPlanProductos(s) {
     document.querySelector('[data-tab-target="tab-avanzado"]'),
     !verAvanzado,
   );
+  _ocultar(document.querySelector('[data-tab-target="tab-super"]'), !verSuper);
   _ocultar(
     document.querySelector(".tab-btn-form")?.parentElement,
-    !(verBasico && verAvanzado),
+    [verBasico, verAvanzado, verSuper].filter(Boolean).length < 2,
   );
   const tabActiva = document.querySelector(".tab-btn-form.active-tab");
   if (!tabActiva || tabActiva.classList.contains("plan-oculto"))
@@ -273,6 +283,7 @@ window.addEventListener("message", (e) => {
   }
 
   actualizarVisibilidadCarta();
+  iniciarInsumos();
 });
 const TIENDA_ID_STORAGE = tiendaId;
 const tiendaDocRef = tiendaDoc(localidad, "tiendas", tiendaId);
@@ -286,17 +297,684 @@ function storagePathProducto(productoId) {
 }
 /* ---------------- Compresión de imágenes (WebP ligero) ---------------- */
 // Cuadrada para productos: 600x600, ~40 KB máx. Se ve nítida en tarjetas.
-const OPC_PRODUCTO = { w: 600, h: 600, quality: 0.8, minQuality: 0.45, maxBytes: 40 * 1024, modo: "cover" };
+const OPC_PRODUCTO = {
+  w: 600,
+  h: 600,
+  quality: 0.8,
+  minQuality: 0.45,
+  maxBytes: 40 * 1024,
+  modo: "cover",
+};
 // Carta: imagen completa sin recortar (menús/fotos de carta), ~90 KB máx.
-const OPC_CARTA = { w: 800, h: 800, quality: 0.8, minQuality: 0.45, maxBytes: 90 * 1024, modo: "contain" };
+const OPC_CARTA = {
+  w: 800,
+  h: 800,
+  quality: 0.8,
+  minQuality: 0.45,
+  maxBytes: 90 * 1024,
+  modo: "contain",
+};
 // Adicionales: miniatura pequeña, ~20 KB máx.
-const OPC_ADICIONAL = { w: 300, h: 300, quality: 0.8, minQuality: 0.45, maxBytes: 20 * 1024, modo: "cover" };
+const OPC_ADICIONAL = {
+  w: 300,
+  h: 300,
+  quality: 0.8,
+  minQuality: 0.45,
+  maxBytes: 20 * 1024,
+  modo: "cover",
+};
 
 async function subirImagenComprimida(path, file, opciones) {
   const { blob } = await comprimirAWebp(file, opciones);
   return await subirWebp(storage, path, blob);
 }
 
+/* ---------------- Súper avanzado: receta con insumos ---------------- */
+const U_REC = {
+  unid: { f: 1, b: "unid" },
+  docena: { f: 12, b: "unid" },
+  g: { f: 1, b: "g" },
+  kg: { f: 1000, b: "g" },
+  ozp: { f: 28.3495, b: "g" },
+  lb: { f: 453.592, b: "g" },
+  ml: { f: 1, b: "ml" },
+  l: { f: 1000, b: "ml" },
+  oz: { f: 29.5735, b: "ml" },
+};
+const UL_REC = {
+  unid: "unidad",
+  docena: "docena",
+  g: "g",
+  kg: "kg",
+  ozp: "oz (peso)",
+  lb: "lb",
+  ml: "ml",
+  l: "litro",
+  oz: "oz líquida",
+};
+const insumosMap = new Map();
+let insumosUnsub = null;
+let insumosCargados = false;
+let recetaItems = [];
+let recetaOriginal = null;
+
+const escR = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+const numR = (v) => Math.max(0, parseFloat(v) || 0);
+const unidadesDeBase = (b) =>
+  Object.keys(U_REC).filter((u) => U_REC[u].b === b);
+
+function entradaVigenteInsumo(i) {
+  const keys = Object.keys(i.precios || {}).sort();
+  if (!keys.length) return null;
+  const hoy = new Date()
+    .toLocaleDateString("en-CA", { timeZone: "America/Lima" })
+    .slice(0, 7);
+  const obj = "m_" + hoy.replace("-", "_");
+  let pick = null;
+  for (const k of keys) if (k <= obj) pick = k;
+  if (!pick) pick = keys[0];
+  return i.precios[pick];
+}
+const baseInsumo = (i) =>
+  i.base || U_REC[entradaVigenteInsumo(i)?.unidad]?.b || "unid";
+
+function costoLinea(it) {
+  const ing = insumosMap.get(it.id);
+  if (!ing) return 0;
+  const e = entradaVigenteInsumo(ing);
+  return (e?.costo_base || 0) * numR(it.qty) * (U_REC[it.unit]?.f || 1);
+}
+function calcReceta(r) {
+  const total = (r.items || []).reduce((s, it) => s + costoLinea(it), 0);
+  const cost = total / Math.max(0.0001, numR(r.rinde) || 1);
+  const m = numR(r.margen) / 100;
+  let price =
+    r.modo === "margin" ? (m < 1 ? cost / (1 - m) : 0) : cost * (1 + m);
+  if (r.redondear) price = Math.ceil(price * 10 - 1e-9) / 10;
+  return { cost, price };
+}
+
+function htmlMargen(data, desc, open = false) {
+  if (!insumosCargados)
+    return `<span class="text-purple-400/50">Margen: …</span>`;
+  const r = calcCombos({
+    precio: data.precio,
+    desc,
+    receta: data.receta,
+    condiciones: data.condiciones,
+    multiples: data.variantesMultiples === true,
+    obligatoria: data.variantesObligatoria !== false,
+  });
+  const col = (g) => (g >= 0 ? "text-emerald-400" : "text-rose-400");
+  const filas = [...r.filas].sort((a, b) => a.g - b.g);
+  const gs = filas.map((x) => x.g);
+  const cs = filas.map((x) => x.costo);
+  const ps = filas.map((x) => x.pct);
+  const gMin = Math.min(...gs), gMax = Math.max(...gs);
+  const cMin = Math.min(...cs), cMax = Math.max(...cs);
+  const pMin = Math.min(...ps), pMax = Math.max(...ps);
+  const rango = (a, b, d = 2) =>
+    Math.abs(a - b) < 0.005 ? a.toFixed(d) : `${a.toFixed(d)}–${b.toFixed(d)}`;
+  const hayDetalle = filas.length > 1 || r.extras.length > 0;
+
+  let h = `<button type="button" ${hayDetalle ? "data-margen-toggle" : ""} class="w-full flex items-center justify-between gap-2 text-left">
+    <span class="text-purple-400/60 truncate">Costo ${rango(cMin, cMax)}</span>
+    <b class="${col(gMin)} whitespace-nowrap">+${rango(gMin, gMax)} · ${rango(pMin, pMax, 0)}%</b>
+    ${hayDetalle ? `<span class="text-purple-400/60">${open ? "▴" : "▾"}</span>` : ""}
+  </button>`;
+
+  if (hayDetalle && open) {
+    h += `<div data-margen-detalle class="mt-1.5 pt-1.5 border-t border-purple-900/30 max-h-36 overflow-y-auto thin-scroll flex flex-col gap-1">`;
+    h += filas
+      .map(
+        (f) => `<div class="flex items-baseline justify-between gap-2">
+          <span class="text-purple-100 truncate" title="${escR(f.label)}">${escR(f.label)}</span>
+          <span class="whitespace-nowrap"><span class="text-purple-400/60">${f.costo.toFixed(2)} →</span> <b class="${col(f.g)}">+${f.g.toFixed(2)} (${f.pct.toFixed(0)}%)</b></span>
+        </div>`,
+      )
+      .join("");
+    if (r.extras.length) {
+      h += `<div class="text-[9px] uppercase text-purple-400/50 mt-1">Extras</div>`;
+      h += r.extras
+        .map(
+          (x) => `<div class="flex items-baseline justify-between gap-2">
+            <span class="text-purple-100 truncate">${escR(x.label)}</span>
+            <b class="${col(x.g)} whitespace-nowrap">+${x.g.toFixed(2)}</b>
+          </div>`,
+        )
+        .join("");
+    }
+    h += `</div>`;
+  }
+  return h;
+}
+function refrescarMargenes() {
+  document.querySelectorAll(".producto-card").forEach((card) => {
+    const el = card.querySelector(".pc-margen");
+    if (el && card._data)
+      el.innerHTML = htmlMargen(card._data, card._desc || 0, !!card._open);
+  });
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-margen-toggle]");
+  if (!b) return;
+  const card = b.closest(".producto-card");
+  if (!card || !card._data) return;
+  card._open = !card._open;
+  card.querySelector(".pc-margen").innerHTML = htmlMargen(
+    card._data,
+    card._desc || 0,
+    card._open,
+  );
+});
+function iniciarInsumos() {
+  if (insumosUnsub || !tiendaId || !localidad) return;
+  insumosUnsub = onSnapshot(
+    tiendaSubCol(localidad, "tiendas", tiendaId, "insumos"),
+    (snap) => {
+      insumosMap.clear();
+      snap.forEach((d) => insumosMap.set(d.id, { id: d.id, ...d.data() }));
+      insumosCargados = true;
+      refrescarMargenes();
+      calcRecetaUI();
+    },
+    (err) => {
+      console.error(err);
+      insumosCargados = true;
+      refrescarMargenes();
+    },
+  );
+}
+
+function nuevoItemReceta() {
+  const ing = [...insumosMap.values()].sort((a, b) =>
+    (a.nombre || "").localeCompare(b.nombre || ""),
+  )[0];
+  if (!ing) return null;
+  return { id: ing.id, qty: "", unit: baseInsumo(ing) };
+}
+const catDe = (i) => (i?.categoria || "").trim();
+function opcionesCategorias(sel) {
+  const cats = [...new Set([...insumosMap.values()].map(catDe))].sort((a, b) =>
+    a === "" ? -1 : b === "" ? 1 : a.localeCompare(b),
+  );
+  return cats
+    .map(
+      (c) =>
+        `<option value="${escR(c)}" ${c === sel ? "selected" : ""}>${escR(c || "Sin categoría")}</option>`,
+    )
+    .join("");
+}
+function opcionesInsumos(sel) {
+  const ing = insumosMap.get(sel);
+  const cat = ing ? catDe(ing) : null;
+  let html = [...insumosMap.values()]
+    .filter((i) => cat === null || catDe(i) === cat)
+    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""))
+    .map(
+      (i) =>
+        `<option value="${escR(i.id)}" ${i.id === sel ? "selected" : ""}>${escR(i.nombre)}</option>`,
+    )
+    .join("");
+  if (sel && !insumosMap.has(sel))
+    html =
+      `<option value="${escR(sel)}" selected>(insumo eliminado)</option>` +
+      html;
+  return html;
+}
+function primerInsumoDeCategoria(c) {
+  return [...insumosMap.values()]
+    .filter((i) => catDe(i) === c)
+    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""))[0];
+}
+const CLS_REC_INPUT =
+  "rounded-lg bg-[#05040a] border border-purple-900/30 px-2.5 py-1.5 text-xs text-purple-100 outline-none focus:border-violet-600";
+
+function renderRecetaItems() {
+  const box = document.getElementById("rec-items");
+  document
+    .getElementById("rec-sin-insumos")
+    .classList.toggle("hidden", insumosMap.size > 0);
+  box.innerHTML = recetaItems
+    .map((it, idx) => {
+      const ing = insumosMap.get(it.id);
+      const units = unidadesDeBase(ing ? baseInsumo(ing) : "unid")
+        .map(
+          (u) =>
+            `<option value="${u}" ${u === it.unit ? "selected" : ""}>${UL_REC[u]}</option>`,
+        )
+        .join("");
+      return `<div data-ridx="${idx}" class="rounded-xl bg-[#0d0a17] border border-purple-900/30 p-2.5 flex flex-col gap-2">
+        <select data-rk="cat" class="w-full ${CLS_REC_INPUT}">${opcionesCategorias(catDe(insumosMap.get(it.id)))}</select>
+        <select data-rk="id" class="w-full ${CLS_REC_INPUT}">${opcionesInsumos(it.id)}</select>
+        <div class="flex items-center gap-2">
+          <input data-rk="qty" type="number" min="0" step="any" inputmode="decimal" placeholder="Cantidad" value="${escR(it.qty)}" class="w-24 ${CLS_REC_INPUT} font-mono">
+          <select data-rk="unit" class="${CLS_REC_INPUT}">${units}</select>
+          <b data-rcost class="ml-auto font-mono text-xs text-violet-300">S/ 0.00</b>
+          <button type="button" data-rk="del" class="w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 text-xs">✕</button>
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+function leerReceta() {
+  return {
+    items: recetaItems,
+    rinde: document.getElementById("input-rec-rinde").value,
+    margen: document.getElementById("input-rec-margen").value,
+    modo: document.getElementById("input-rec-modo").value,
+    redondear: document.getElementById("input-rec-redondear").checked,
+  };
+}
+function recetaParaGuardar() {
+  const items = recetaItems
+    .filter((it) => insumosMap.has(it.id) && numR(it.qty) > 0)
+    .map((it) => ({ id: it.id, qty: numR(it.qty), unit: it.unit }));
+  if (!items.length) {
+    const hayEnVariantes = condicionesSeleccionadas.some((c) =>
+      c.opciones.some((o) => o.receta?.items?.length),
+    );
+    if (!hayEnVariantes) return null;
+    const r0 = leerReceta();
+    return {
+      items: [],
+      rinde: Math.max(0.0001, numR(r0.rinde) || 1),
+      margen: numR(r0.margen),
+      modo: r0.modo,
+      redondear: !!r0.redondear,
+    };
+  }
+  const r = leerReceta();
+  return {
+    items,
+    rinde: Math.max(0.0001, numR(r.rinde) || 1),
+    margen: numR(r.margen),
+    modo: r.modo,
+    redondear: !!r.redondear,
+  };
+}
+
+function calcRecetaUI() {
+  const rinde = document.getElementById("input-rec-rinde");
+  if (!rinde) return;
+  const r = leerReceta();
+  const c = calcReceta(r);
+  const div = Math.max(0.0001, numR(r.rinde) || 1);
+  document.querySelectorAll("#rec-items [data-ridx]").forEach((row) => {
+    const it = recetaItems[+row.dataset.ridx];
+    if (it)
+      row.querySelector("[data-rcost]").textContent =
+        `S/ ${(costoLinea(it) / div).toFixed(2)}`;
+  });
+
+  const main = document.getElementById("input-prod-precio");
+  const mirror = document.getElementById("input-rec-precio");
+  if (document.activeElement !== mirror) mirror.value = main.value;
+
+  const precio = parseFloat(main.value) || 0;
+  calcVariantesUI(c, precio);
+  const tile = (t, v) =>
+    `<div class="rounded-xl bg-[#05040a] border border-purple-900/20 p-2.5 text-center"><p class="text-[9px] font-mono uppercase text-purple-400/50">${t}</p><p class="font-mono text-sm font-bold text-white">${v}</p></div>`;
+  document.getElementById("rec-tiles").innerHTML =
+    tile("Costo c/u", `S/ ${c.cost.toFixed(2)}`) +
+    tile("Precio sugerido", c.price ? `S/ ${c.price.toFixed(2)}` : "—") +
+    tile(
+      "Ganas sugerido",
+      c.price ? `S/ ${(c.price - c.cost).toFixed(2)}` : "—",
+    );
+
+  const box = document.getElementById("rec-margen-actual");
+  if (!c.cost || !precio) {
+    box.innerHTML = "";
+    return;
+  }
+  const g = precio - c.cost;
+  const pct = (g / precio) * 100;
+  box.innerHTML = `<span class="${g >= 0 ? "text-emerald-400" : "text-rose-400"}">Con tu precio S/ ${precio.toFixed(2)} ganas S/ ${g.toFixed(2)} por unidad (${pct.toFixed(0)}% de margen)</span>`;
+}
+
+function cargarRecetaEnModal(r) {
+  recetaOriginal = r || null;
+  recetaItems = (r?.items || []).map((i) => ({
+    id: i.id,
+    qty: i.qty,
+    unit: i.unit,
+  }));
+  document.getElementById("input-rec-rinde").value = r?.rinde ?? 1;
+  document.getElementById("input-rec-margen").value = r?.margen ?? 50;
+  document.getElementById("input-rec-modo").value = r?.modo || "markup";
+  document.getElementById("input-rec-redondear").checked = r
+    ? r.redondear !== false
+    : true;
+  renderRecetaItems();
+  calcRecetaUI();
+}
+
+document.getElementById("btn-rec-add").addEventListener("click", () => {
+  const it = nuevoItemReceta();
+  if (!it) return toast("Primero registra insumos.", "error");
+  recetaItems.push(it);
+  renderRecetaItems();
+  calcRecetaUI();
+});
+document.getElementById("rec-items").addEventListener("input", (e) => {
+  const row = e.target.closest("[data-ridx]");
+  if (!row) return;
+  const it = recetaItems[+row.dataset.ridx];
+  const k = e.target.dataset.rk;
+  if (k === "qty") it.qty = e.target.value;
+  if (k === "unit") it.unit = e.target.value;
+  if (k === "cat") {
+    const p = primerInsumoDeCategoria(e.target.value);
+    if (p) {
+      it.id = p.id;
+      it.unit = baseInsumo(p);
+    }
+    renderRecetaItems();
+  }
+  if (k === "id") {
+    it.id = e.target.value;
+    const ing = insumosMap.get(it.id);
+    const b = ing ? baseInsumo(ing) : "unid";
+    if (U_REC[it.unit]?.b !== b) it.unit = b;
+    renderRecetaItems();
+  }
+  calcRecetaUI();
+});
+document.getElementById("rec-items").addEventListener("click", (e) => {
+  const b = e.target.closest('[data-rk="del"]');
+  if (!b) return;
+  recetaItems.splice(+b.closest("[data-ridx]").dataset.ridx, 1);
+  renderRecetaItems();
+  calcRecetaUI();
+});
+[
+  "input-rec-rinde",
+  "input-rec-margen",
+  "input-rec-modo",
+  "input-rec-redondear",
+].forEach((id) => {
+  const el = document.getElementById(id);
+  el.addEventListener("input", calcRecetaUI);
+  el.addEventListener("change", calcRecetaUI);
+});
+document
+  .getElementById("input-prod-precio")
+  .addEventListener("input", calcRecetaUI);
+document.getElementById("input-rec-precio").addEventListener("input", (e) => {
+  document.getElementById("input-prod-precio").value = e.target.value;
+  calcRecetaUI();
+});
+document.getElementById("btn-rec-usar-precio").addEventListener("click", () => {
+  const c = calcReceta(leerReceta());
+  if (!c.price) return toast("Agrega insumos con cantidad primero.", "error");
+  document.getElementById("input-prod-precio").value = c.price.toFixed(2);
+  calcRecetaUI();
+  toast("Precio sugerido aplicado.");
+});
+
+iniciarInsumos();
+/* ---------------- Súper avanzado: costo por variante ---------------- */
+const CLS_VAR_INPUT =
+  "rounded-lg bg-[#05040a] border border-purple-900/30 px-2 py-1.5 text-xs text-purple-100 outline-none focus:border-violet-600";
+
+const esMultiples = () =>
+  document.getElementById("input-prod-variantes-multiples").checked;
+
+function renderRecVariantes() {
+  const box = document.getElementById("rec-variantes");
+  if (!box) return;
+  let html = "";
+  condicionesSeleccionadas.forEach((cond, ci) => {
+    if (!cond.nombre.trim()) return;
+    const ops = cond.opciones
+      .map((op, oi) => {
+        if (!op.nombre.trim()) return "";
+        const r = op.receta || { items: [] };
+        const items = (r.items || [])
+          .map((it, ii) => {
+            const ing = insumosMap.get(it.id);
+            const units = unidadesDeBase(ing ? baseInsumo(ing) : "unid")
+              .map(
+                (u) =>
+                  `<option value="${u}" ${u === it.unit ? "selected" : ""}>${UL_REC[u]}</option>`,
+              )
+              .join("");
+            return `<div data-vi="${ii}" class="flex flex-col gap-1.5 mt-2">
+              <select data-vk="cat" class="w-full ${CLS_VAR_INPUT}">${opcionesCategorias(catDe(insumosMap.get(it.id)))}</select>
+              <select data-vk="id" class="w-full ${CLS_VAR_INPUT}">${opcionesInsumos(it.id)}</select>
+              <div class="flex items-center gap-2">
+                <input data-vk="qty" type="number" min="0" step="any" inputmode="decimal" placeholder="Cantidad" value="${escR(it.qty)}" class="w-24 ${CLS_VAR_INPUT} font-mono">
+                <select data-vk="unit" class="${CLS_VAR_INPUT}">${units}</select>
+                <b data-vcost class="ml-auto font-mono text-xs text-violet-300">S/ 0.00</b>
+                <button type="button" data-vk="del" class="w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 text-xs">✕</button>
+              </div>
+            </div>`;
+          })
+          .join("");
+        return `<div data-vc="${ci}" data-vo="${oi}" class="rounded-xl bg-[#0d0a17] border border-purple-900/30 p-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-xs font-semibold text-white">${escR(op.nombre)}
+              <span class="font-mono text-amber-300">${op.costoAdicional ? "+S/ " + Number(op.costoAdicional).toFixed(2) : ""}</span></p>
+            <button type="button" data-vk="add" class="text-[11px] font-medium text-violet-300 hover:text-violet-200">+ insumo</button>
+          </div>
+          ${items}
+          <div data-vres class="font-mono text-[10.5px] mt-2 text-purple-400/60"></div>
+        </div>`;
+      })
+      .join("");
+    if (ops)
+      html += `<div><p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1.5">${escR(cond.nombre)}</p><div class="flex flex-col gap-2">${ops}</div></div>`;
+  });
+  box.innerHTML =
+    html ||
+    `<p class="text-[11px] text-purple-300/40 italic">Aún no hay variantes. Créalas en la pestaña Avanzado.</p>`;
+}
+const opcionesActivas = (cond) =>
+  (cond.opciones || []).filter(
+    (o) => o.activo !== false && (o.nombre || "").trim(),
+  );
+
+const tieneReceta = (d) =>
+  !!(
+    d.receta?.items?.length ||
+    (d.condiciones || []).some((c) =>
+      (c.opciones || []).some((o) => o.receta?.items?.length),
+    )
+  );
+
+// Calcula TODAS las combinaciones posibles (una opción por cada condición)
+function calcCombos({
+  precio,
+  desc = 0,
+  receta,
+  condiciones,
+  multiples,
+  obligatoria,
+}) {
+  const base = receta?.items?.length ? calcReceta(receta).cost : 0;
+  const f = 1 - (Number(desc) || 0) / 100;
+  const p = Number(precio) || 0;
+  const costoOp = (o) =>
+    (o.receta?.items || []).reduce((s, it) => s + costoLinea(it), 0);
+  const fila = (label, adic, extra) => {
+    const venta = (p + adic) * f;
+    const costo = base + extra;
+    const g = venta - costo;
+    return { label, venta, costo, g, pct: venta > 0 ? (g / venta) * 100 : 0 };
+  };
+  const conds = (condiciones || []).filter(
+    (c) => (c.nombre || "").trim() && opcionesActivas(c).length,
+  );
+
+  if (multiples) {
+    const extras = [];
+    conds.forEach((c) =>
+      opcionesActivas(c).forEach((o) => {
+        const adic = (Number(o.costoAdicional) || 0) * f;
+        const cuesta = costoOp(o);
+        extras.push({ label: o.nombre, adic, cuesta, g: adic - cuesta });
+      }),
+    );
+    return { filas: [fila("Producto base", 0, 0)], extras };
+  }
+
+  let combos = [{ label: [], adic: 0, extra: 0 }];
+  conds.forEach((c) => {
+    const choices = opcionesActivas(c).map((o) => ({
+      n: o.nombre,
+      adic: Number(o.costoAdicional) || 0,
+      extra: costoOp(o),
+    }));
+    if (!obligatoria) choices.push({ n: null, adic: 0, extra: 0 });
+    const next = [];
+    combos.forEach((cb) =>
+      choices.forEach((ch) => {
+        if (next.length >= 200) return;
+        next.push({
+          label: ch.n ? [...cb.label, ch.n] : cb.label,
+          adic: cb.adic + ch.adic,
+          extra: cb.extra + ch.extra,
+        });
+      }),
+    );
+    combos = next;
+  });
+  return {
+    filas: combos.map((cb) =>
+      fila(cb.label.join(" + ") || "Normal", cb.adic, cb.extra),
+    ),
+    extras: [],
+  };
+}
+
+function htmlCombos(res, precio) {
+  if (!precio)
+    return `<p class="text-[11px] text-purple-300/40 italic">Pon el precio de venta para ver cuánto ganas.</p>`;
+  const col = (g) => (g >= 0 ? "text-emerald-400" : "text-rose-400");
+  let h = res.filas
+    .map(
+      (f) => `<div class="py-1.5 border-b border-purple-900/20">
+        <div class="flex justify-between gap-2 text-[11px] font-mono">
+          <span class="text-purple-100">${escR(f.label)}</span>
+          <span class="font-bold ${col(f.g)}">Ganas S/ ${f.g.toFixed(2)} (${f.pct.toFixed(0)}%)</span>
+        </div>
+        <div class="text-[10px] font-mono text-purple-400/50">Vendes a S/ ${f.venta.toFixed(2)} · te cuesta S/ ${f.costo.toFixed(2)}</div>
+      </div>`,
+    )
+    .join("");
+  if (res.extras.length)
+    h +=
+      `<p class="text-[10px] font-mono uppercase text-purple-400/60 mt-3 mb-1">Extras (se suman al base)</p>` +
+      res.extras
+        .map(
+          (
+            x,
+          ) => `<div class="flex justify-between gap-2 text-[11px] font-mono py-1">
+            <span class="text-purple-100">${escR(x.label)}</span>
+            <span class="${col(x.g)} font-bold">Cobras S/ ${x.adic.toFixed(2)} · cuesta S/ ${x.cuesta.toFixed(2)} · ganas S/ ${x.g.toFixed(2)}</span>
+          </div>`,
+        )
+        .join("");
+  return h;
+}
+
+function calcVariantesUI(c, precio) {
+  document.querySelectorAll("#rec-variantes [data-vc]").forEach((card) => {
+    const op =
+      condicionesSeleccionadas[+card.dataset.vc]?.opciones[+card.dataset.vo];
+    if (!op) return;
+    const items = op.receta?.items || [];
+    let extra = 0;
+    card.querySelectorAll("[data-vi]").forEach((row) => {
+      const it = items[+row.dataset.vi];
+      const cl = it ? costoLinea(it) : 0;
+      extra += cl;
+      row.querySelector("[data-vcost]").textContent = `S/ ${cl.toFixed(2)}`;
+    });
+    card.querySelector("[data-vres]").textContent = items.length
+      ? `Esta opción suma S/ ${extra.toFixed(2)} al costo`
+      : "";
+  });
+  const box = document.getElementById("rec-combos");
+  if (!box) return;
+  const res = calcCombos({
+    precio,
+    desc: 0,
+    receta: leerReceta(),
+    condiciones: condicionesSeleccionadas,
+    multiples: esMultiples(),
+    obligatoria: document.getElementById("input-prod-variante-obligatoria")
+      .checked,
+  });
+  box.innerHTML = htmlCombos(res, precio);
+}
+
+(() => {
+  const box = document.getElementById("rec-variantes");
+  const ref = (el) => {
+    const card = el.closest("[data-vc]");
+    if (!card) return null;
+    const op =
+      condicionesSeleccionadas[+card.dataset.vc]?.opciones[+card.dataset.vo];
+    if (!op) return null;
+    if (!op.receta) op.receta = { reemplaza: false, items: [] };
+    return { op, row: el.closest("[data-vi]") };
+  };
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-vk]");
+    if (!b) return;
+    const x = ref(b);
+    if (!x) return;
+    if (b.dataset.vk === "add") {
+      const it = nuevoItemReceta();
+      if (!it) return toast("Primero registra insumos.", "error");
+      x.op.receta.items.push(it);
+      renderRecVariantes();
+      calcRecetaUI();
+    }
+    if (b.dataset.vk === "del" && x.row) {
+      x.op.receta.items.splice(+x.row.dataset.vi, 1);
+      renderRecVariantes();
+      calcRecetaUI();
+    }
+  });
+  box.addEventListener("input", (e) => {
+    const k = e.target.dataset.vk;
+    if (!k || k === "add" || k === "del") return;
+    const x = ref(e.target);
+    if (!x) return;
+    if (x.row) {
+      const it = x.op.receta.items[+x.row.dataset.vi];
+      if (k === "qty") it.qty = e.target.value;
+      if (k === "unit") it.unit = e.target.value;
+      if (k === "cat") {
+        const p = primerInsumoDeCategoria(e.target.value);
+        if (p) {
+          it.id = p.id;
+          it.unit = baseInsumo(p);
+        }
+        renderRecVariantes();
+      }
+      if (k === "id") {
+        it.id = e.target.value;
+        const ing = insumosMap.get(it.id);
+        const b = ing ? baseInsumo(ing) : "unid";
+        if (U_REC[it.unit]?.b !== b) it.unit = b;
+        renderRecVariantes();
+      }
+    }
+    calcRecetaUI();
+  });
+})();
 /* ---------------- Notifications ---------------- */
 const toastWrap = document.getElementById("toast-wrap");
 function toast(msg, type = "") {
@@ -542,6 +1220,10 @@ function activarTabProducto(targetId) {
   document
     .querySelectorAll(".tab-panel-form")
     .forEach((p) => p.classList.toggle("active-tab-panel", p.id === targetId));
+  if (targetId === "tab-super") {
+    renderRecVariantes();
+    calcRecetaUI();
+  }
 }
 document.querySelectorAll(".tab-btn-form").forEach((btn) => {
   btn.addEventListener("click", () =>
@@ -1187,6 +1869,12 @@ function actualizarVisibilidadCantidadPorOpcion() {
   ).checked;
   const wrap = document.getElementById("variantes-cantidad-wrap");
   wrap.classList.toggle("hidden", !multiplesChecked);
+  if (
+    document.getElementById("tab-super")?.classList.contains("active-tab-panel")
+  ) {
+    renderRecVariantes();
+    calcRecetaUI();
+  }
   if (!multiplesChecked) {
     document.getElementById("input-prod-variantes-cantidad").checked = false;
   }
@@ -1246,6 +1934,7 @@ function abrirModalNuevoProducto(
   descuentoOriginalEditando = null;
   renderDiasDescuentoChips();
   setDescuentoModo("dias_semana");
+  cargarRecetaEnModal(null);
   aplicarTextosPorCategoria();
   renderImgDropSlots();
   renderCondiciones();
@@ -1271,6 +1960,12 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
       activo: !!o.activo,
       costoAdicional: Number(o.costoAdicional) || 0,
       stock: typeof o.stock === "number" ? o.stock : null,
+      receta: o.receta
+        ? {
+            reemplaza: !!o.receta.reemplaza,
+            items: (o.receta.items || []).map((i) => ({ ...i })),
+          }
+        : null,
     })),
   }));
   document.getElementById("form-producto").reset();
@@ -1307,6 +2002,7 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   document.getElementById("btn-guardar-producto-label").textContent =
     "Guardar cambios";
   descuentoOriginalEditando = data.descuento || null;
+  cargarRecetaEnModal(data.receta || null);
   document.getElementById("input-prod-descuento-activo").checked =
     !!data.descuento?.activo;
   document
@@ -1394,6 +2090,18 @@ document
             activo: !!o.activo,
             costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
             stock: typeof o.stock === "number" ? o.stock : null,
+            receta:
+              PLAN_PRODUCTOS.superAvanzado && o.receta?.items?.length
+                ? {
+                    items: o.receta.items
+                      .filter((it) => numR(it.qty) > 0)
+                      .map((it) => ({
+                        id: it.id,
+                        qty: numR(it.qty),
+                        unit: it.unit,
+                      })),
+                  }
+                : null,
           })),
       }));
     const descuentoActivoChk = document.getElementById(
@@ -1477,6 +2185,12 @@ document
         };
       }
     }
+    const recetaGuardar = PLAN_PRODUCTOS.superAvanzado
+      ? recetaParaGuardar()
+      : recetaOriginal;
+    const costoUnitarioGuardar = recetaGuardar
+      ? +calcReceta(recetaGuardar).cost.toFixed(4)
+      : null;
     const btn = document.getElementById("btn-guardar-producto");
     const label = document.getElementById("btn-guardar-producto-label");
     const originalText = label.textContent;
@@ -1539,6 +2253,8 @@ document
           descuento,
           imagenes: [...conservadas, ...subidas],
           codigo_barras: codigoEdit,
+          receta: recetaGuardar,
+          costo_unitario: costoUnitarioGuardar,
         });
         await sincronizarProductoEnCarritoPerfil(productoEditandoId, {
           nombre,
@@ -1588,10 +2304,12 @@ document
           imagenes: [],
           createdAt: serverTimestamp(),
           codigo_barras: codigoFinal,
+          receta: recetaGuardar,
+          costo_unitario: costoUnitarioGuardar,
         });
         const archivos = imagenesSeleccionadas.filter(Boolean);
         const imagenes = [];
-             for (const file of archivos) {
+        for (const file of archivos) {
           const path = `${storagePathProducto(nuevoDocRef.id)}/${Date.now()}_${imagenes.length}.webp`;
           const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
           imagenes.push({ url, path });
@@ -1850,6 +2568,18 @@ function renderProductoCard(categoriaId, productoId, data) {
     priceRow.appendChild(stockEl);
   }
 
+  // MARGEN (solo si el producto tiene receta)
+  // MARGEN (si el producto tiene receta base o recetas en sus variantes)
+  let margenEl = null;
+  if (tieneReceta(data)) {
+    card._data = data;
+    card._desc = descuentoInfo ? descuentoInfo.porcentaje : 0;
+    margenEl = document.createElement("div");
+    margenEl.className =
+      "pc-margen font-mono text-[10.5px] rounded-lg bg-[#05040a] border border-purple-900/20 px-2 py-1.5";
+    margenEl.innerHTML = htmlMargen(data, card._desc);
+  }
+
   // FILA 2: código (propia fila, ya no pelea con el precio)
   const codeEl = document.createElement("div");
   codeEl.className =
@@ -1958,7 +2688,9 @@ function renderProductoCard(categoriaId, productoId, data) {
 
   actionRow.append(estadoBtn, agotadoHoyBtn, iconos);
 
-  bottomSection.append(priceRow, codeEl, actionRow);
+  bottomSection.append(priceRow);
+  if (margenEl) bottomSection.append(margenEl);
+  bottomSection.append(codeEl, actionRow);
   body.append(infoSection, bottomSection);
   card.append(imgWrap, body);
   return card;
@@ -2585,8 +3317,8 @@ async function subirFotoCarta(collId, slotIndex, file) {
   try {
     toast("Subiendo foto…");
     const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
-const urlBase = await subirImagenComprimida(path, file, OPC_CARTA);
-const finalURL = `${urlBase}${urlBase.includes("?") ? "&" : "?"}v=${Date.now()}`;
+    const urlBase = await subirImagenComprimida(path, file, OPC_CARTA);
+    const finalURL = `${urlBase}${urlBase.includes("?") ? "&" : "?"}v=${Date.now()}`;
 
     const nuevasImagenes = [...coleccion.imagenes];
     while (nuevasImagenes.length <= slotIndex) nuevasImagenes.push(null);
@@ -3181,7 +3913,7 @@ document
   ?.addEventListener("click", () =>
     document.getElementById("input-adic-foto").click(),
   );
-  document.getElementById("adic-toggle")?.addEventListener("click", () => {
+document.getElementById("adic-toggle")?.addEventListener("click", () => {
   document.getElementById("adic-body").classList.toggle("open");
   document.getElementById("adic-chevron").classList.toggle("open");
 });
@@ -3250,7 +3982,7 @@ document
           () => {},
         );
       }
-         if (adFile) {
+      if (adFile) {
         const path = `tiendas/${tiendaId}/adicionales/${id}/${Date.now()}.webp`;
         imagen = {
           url: await subirImagenComprimida(path, adFile, OPC_ADICIONAL),

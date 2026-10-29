@@ -1,6 +1,5 @@
 import {
   doc,
-  getDoc,
   getDocs,
   setDoc,
   addDoc,
@@ -12,42 +11,41 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  increment,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { tiendaSubCol, tiendaSubDoc } from "../rutas/rutas.js";
 
-/* ══════════════════════════════════════════════════════
-   RUTAS EN FIRESTORE  (todas dentro de la tienda)
-   .../tiendas/<id>/insumos/<insumoId>      ← precios por mes
-   .../tiendas/<id>/recetas/<recetaId>      ← productos armados con insumos
-   .../tiendas/<id>/gastos_insumos/<id>     ← cada compra (negocio / bolsillo)
-   .../tiendas/<id>/pedidos                 ← solo se LEE para calcular la caja
-   Si quieres que las compras caigan en otra colección de gastos,
-   cambia solo GASTOS_COL.
-   ══════════════════════════════════════════════════════ */
+/* .../tiendas/<id>/insumos/<insumoId>   ← precios por mes + stock_base
+   .../tiendas/<id>/gastos_insumos/<id>  ← historial de gastos
+   .../tiendas/<id>/pedidos              ← solo lectura (caja) */
 const INSUMOS_COL = "insumos";
-const RECETAS_COL = "recetas";
 const GASTOS_COL = "gastos_insumos";
 
-/* ---------------- Unidades ---------------- */
+/* ---------------- Unidades (b = unidad base: g, ml o unid) ---------------- */
 const U = {
-  unid: { t: "c", f: 1 },
-  docena: { t: "c", f: 12 },
-  g: { t: "m", f: 1 },
-  kg: { t: "m", f: 1000 },
-  ml: { t: "m", f: 1 },
-  l: { t: "m", f: 1000 },
-  oz: { t: "m", f: 29.5735 },
+  unid: { t: "c", f: 1, b: "unid" },
+  docena: { t: "c", f: 12, b: "unid" },
+  g: { t: "m", f: 1, b: "g" },
+  kg: { t: "m", f: 1000, b: "g" },
+  ozp: { t: "m", f: 28.3495, b: "g" },
+  lb: { t: "m", f: 453.592, b: "g" },
+  ml: { t: "m", f: 1, b: "ml" },
+  l: { t: "m", f: 1000, b: "ml" },
+  oz: { t: "m", f: 29.5735, b: "ml" },
 };
 const UL = {
   unid: "unidad",
   docena: "docena",
   g: "g",
   kg: "kg",
+  ozp: "oz (peso)",
+  lb: "lb",
   ml: "ml",
   l: "litro",
   oz: "oz líquida",
 };
-const unidadesDeTipo = (t) => Object.keys(U).filter((u) => U[u].t === t);
+const unidadesDeBase = (b) => Object.keys(U).filter((u) => U[u].b === b);
+const baseDe = (u) => U[u]?.b || "unid";
 
 /* ---------------- Utilidades ---------------- */
 const $ = (id) => document.getElementById(id);
@@ -62,11 +60,17 @@ const num = (v) => Math.max(0, parseFloat(v) || 0);
 const baseQty = (q, u) => num(q) * (U[u]?.f || 1);
 const limaMes = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7);
-const mk = (ym) => "m_" + String(ym).replace("-", "_"); // "2026-10" → "m_2026_10"
+const mk = (ym) => "m_" + String(ym).replace("-", "_");
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const mkLabel = (k) => {
   const [, y, m] = k.split("_");
   return `${MESES[+m - 1]} ${y}`;
+};
+const fmtStock = (n, b) => {
+  n = Number(n) || 0;
+  if (b === "unid") return `${+n.toFixed(2)} unid`;
+  if (Math.abs(n) >= 1000) return `${+(n / 1000).toFixed(2)} ${b === "g" ? "kg" : "l"}`;
+  return `${+n.toFixed(1)} ${b}`;
 };
 
 let toastT;
@@ -115,20 +119,13 @@ const col = (n) => tiendaSubCol(localidad, "tiendas", tiendaId, n);
 const docRef = (n, id) => tiendaSubDoc(localidad, "tiendas", tiendaId, n, id);
 
 /* ---------------- Estado ---------------- */
-const ingMap = new Map(); // id -> {id, nombre, tipo, precios:{m_YYYY_MM:{...}}}
-const recMap = new Map(); // id -> receta
-let gastosAll = []; // todas las compras registradas
+const ingMap = new Map();
+let gastosAll = [];
 let ventasTotal = null;
 let mesSel = limaMes();
-const linkCache = new Map(); // "cat/prod" -> precio actual del catálogo
-let catalogo = []; // [{categoriaId, productoId, nombre, precio}]
 
-/* ══════════════════════════════════════════════════════
-   PRECIO DE UN INSUMO SEGÚN EL MES
-   ══════════════════════════════════════════════════════ */
+/* ══════════ PRECIO DE UN INSUMO SEGÚN EL MES ══════════ */
 const keysDe = (i) => Object.keys(i.precios || {}).sort();
-
-// Entrada vigente para el mes: la del mes, o la última anterior, o la primera que exista.
 function entradaMes(i, ym = mesSel) {
   const keys = keysDe(i);
   if (!keys.length) return null;
@@ -143,66 +140,9 @@ function entradaPrevia(i, key) {
   const idx = keys.indexOf(key);
   return idx > 0 ? { key: keys[idx - 1], ...i.precios[keys[idx - 1]] } : null;
 }
-const costoBase = (i) => entradaMes(i)?.costo_base || 0;
+const baseIns = (i) => i.base || baseDe(entradaMes(i)?.unidad);
 
-/* ══════════════════════════════════════════════════════
-   COSTOS DE PRODUCTOS (recetas)
-   ══════════════════════════════════════════════════════ */
-function itemCost(it, d) {
-  if (it.tipo === "i") {
-    const ing = ingMap.get(it.id);
-    return ing ? costoBase(ing) * baseQty(it.qty, it.unit) : 0;
-  }
-  const r = recMap.get(it.id);
-  return r ? num(it.qty) * recCost(r, d + 1) : 0;
-}
-function recCost(r, d = 0) {
-  if (d > 10) return 0;
-  const total = (r.items || []).reduce((s, it) => s + itemCost(it, d), 0);
-  return total / Math.max(0.0001, num(r.rinde) || 1);
-}
-function dependeDe(r, id, d = 0) {
-  if (d > 10) return true;
-  return (r.items || []).some((it) => {
-    if (it.tipo !== "p") return false;
-    if (it.id === id) return true;
-    const sub = recMap.get(it.id);
-    return sub ? dependeDe(sub, id, d + 1) : false;
-  });
-}
-function calcR(r) {
-  const cost = recCost(r);
-  const m = num(r.margen) / 100;
-  let price = r.modo === "margin" ? (m < 1 ? cost / (1 - m) : 0) : cost * (1 + m);
-  if (r.redondear) price = Math.ceil(price * 10 - 1e-9) / 10;
-  const u = num(r.unidades);
-  return {
-    cost,
-    price,
-    profit: price - cost,
-    u,
-    inv: cost * u,
-    sales: price * u,
-    gain: (price - cost) * u,
-    marginInvalid: r.modo === "margin" && m >= 1,
-  };
-}
-function addNeed(r, mult, need, d = 0) {
-  if (d > 10) return;
-  const m = mult / Math.max(0.0001, num(r.rinde) || 1);
-  (r.items || []).forEach((it) => {
-    if (it.tipo === "i") {
-      if (ingMap.has(it.id)) need[it.id] = (need[it.id] || 0) + baseQty(it.qty, it.unit) * m;
-    } else {
-      const sub = recMap.get(it.id);
-      if (sub) addNeed(sub, m * num(it.qty), need, d + 1);
-    }
-  });
-}
-
-/* ══════════════════════════════════════════════════════
-   CAJA: ventas entregadas − gastos pagados por el negocio
-   ══════════════════════════════════════════════════════ */
+/* ══════════ CAJA ══════════ */
 async function cargarVentas() {
   $("chipVentas").textContent = "…";
   try {
@@ -212,7 +152,7 @@ async function cargarVentas() {
     let t = 0;
     snap.forEach((d) => {
       const raw = d.data();
-      const p = raw.pedido ? raw.pedido : raw; // pedidos de mesa vienen anidados
+      const p = raw.pedido ? raw.pedido : raw;
       if ((p.estado || "").toLowerCase() === "entregado") t += Number(p.total) || 0;
     });
     ventasTotal = t;
@@ -239,13 +179,11 @@ function renderCaja() {
   $("chipInv").textContent = money(inversionDueno());
 }
 
-/* ══════════════════════════════════════════════════════
-   PESTAÑAS / MES
-   ══════════════════════════════════════════════════════ */
+/* ══════════ PESTAÑAS / MES ══════════ */
 function goTab(t) {
   document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
   document.querySelectorAll(".pane").forEach((p) => (p.hidden = p.id !== "pane-" + t));
-  if (t === "sum") renderResumen();
+  if (t === "gas") renderGastos();
 }
 document.querySelectorAll(".tab").forEach((b) =>
   b.addEventListener("click", () => goTab(b.dataset.tab)),
@@ -258,18 +196,69 @@ $("mesSel").addEventListener("change", (e) => {
 });
 $("btnRefCaja").addEventListener("click", cargarVentas);
 
-/* ══════════════════════════════════════════════════════
-   LISTA DE INSUMOS
-   ══════════════════════════════════════════════════════ */
+/* ══════════ LISTA DE INSUMOS ══════════ */
+let catSel = "todas";
+const catDe = (i) => (i?.categoria || "").trim();
+const categoriasIns = () =>
+  [...new Set([...ingMap.values()].map(catDe).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+function cardIns(i) {
+  const e = entradaMes(i);
+  if (!e) return "";
+  const prev = entradaPrevia(i, e.key);
+  let varHtml = "";
+  if (prev && prev.costo_base > 0) {
+    const pct = ((e.costo_base - prev.costo_base) / prev.costo_base) * 100;
+    if (Math.abs(pct) >= 0.1)
+      varHtml = `<span class="var ${pct > 0 ? "up" : "down"}">${pct > 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%</span>`;
+  }
+  const porUnidad = e.costo_base * (U[e.unidad]?.f || 1);
+  const etiqueta = e.unidad === "unid" ? "c/u" : `por ${UL[e.unidad]}`;
+  const st = Number(i.stock_base) || 0;
+  const b = baseIns(i);
+  return `
+  <div class="card" data-id="${i.id}">
+    <div class="card-top">
+      <div>
+        <div class="card-name">${esc(i.nombre)}</div>
+        <div class="card-sub">Pagaste ${money(e.precio)} por ${e.cantidad} ${UL[e.unidad]} · ${mkLabel(e.key)}
+          <span class="badge ${e.origen === "bolsillo" ? "dueno" : "neg"}">${e.origen === "bolsillo" ? "Mi bolsillo" : "Negocio"}</span></div>
+        <div class="card-sub">Stock: <b class="${st > 0 ? "pos" : "neg"}">${fmtStock(st, b)}</b></div>
+      </div>
+      <div class="card-price"><b>${money(porUnidad)}${varHtml}</b><small>${etiqueta}</small></div>
+    </div>
+    <div class="card-actions">
+      <button class="btn sm go" data-a="comprar">+ Nueva compra / precio</button>
+      <button class="btn sm" data-a="stock">Stock</button>
+      <button class="btn sm" data-a="rename">✎ Nombre</button>
+      <button class="btn sm" data-a="cat">Categoría</button>
+      <button class="btn sm" data-a="hist">Historial</button>
+      <button class="btn sm del" data-a="del">Eliminar</button>
+    </div>
+  </div>`;
+}
+
 function renderIns() {
   const q = $("qIns").value.trim().toLowerCase();
-  const arr = [...ingMap.values()]
-    .filter((i) => !q || (i.nombre || "").toLowerCase().includes(q))
-    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+  const todos = [...ingMap.values()];
+  const cats = categoriasIns();
+  if (catSel !== "todas" && catSel !== "__sin" && !cats.includes(catSel)) catSel = "todas";
 
-  $("dlIns").innerHTML = [...ingMap.values()]
-    .map((i) => `<option value="${esc(i.nombre)}"></option>`)
-    .join("");
+  const nSin = todos.filter((i) => !catDe(i)).length;
+  const chip = (v, l, n) =>
+    `<button class="btn sm ${catSel === v ? "go" : ""}" data-cat="${esc(v)}">${esc(l)} (${n})</button>`;
+  $("catChips").innerHTML =
+    chip("todas", "Todas", todos.length) +
+    cats.map((c) => chip(c, c, todos.filter((i) => catDe(i) === c).length)).join("") +
+    (nSin ? chip("__sin", "Sin categoría", nSin) : "") +
+    (catSel !== "todas" && catSel !== "__sin" ? `<button class="btn sm" data-catren>✎ Renombrar</button>` : "");
+
+  $("dlIns").innerHTML = todos.map((i) => `<option value="${esc(i.nombre)}"></option>`).join("");
+
+  const arr = todos
+    .filter((i) => !q || (i.nombre || "").toLowerCase().includes(q))
+    .filter((i) => catSel === "todas" || (catSel === "__sin" ? !catDe(i) : catDe(i) === catSel))
+    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
 
   if (!arr.length) {
     $("listIns").innerHTML = `<div class="empty">${
@@ -278,37 +267,62 @@ function renderIns() {
     return;
   }
 
-  $("listIns").innerHTML = arr
-    .map((i) => {
-      const e = entradaMes(i);
-      if (!e) return "";
-      const prev = entradaPrevia(i, e.key);
-      let varHtml = "";
-      if (prev && prev.costo_base > 0) {
-        const pct = ((e.costo_base - prev.costo_base) / prev.costo_base) * 100;
-        if (Math.abs(pct) >= 0.1)
-          varHtml = `<span class="var ${pct > 0 ? "up" : "down"}">${pct > 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%</span>`;
-      }
-      const porUnidad = e.costo_base * (U[e.unidad]?.f || 1);
-      const etiqueta = U[e.unidad]?.t === "c" && e.unidad === "unid" ? "c/u" : `por ${UL[e.unidad]}`;
-      return `
-      <div class="card" data-id="${i.id}">
-        <div class="card-top">
-          <div>
-            <div class="card-name">${esc(i.nombre)}</div>
-            <div class="card-sub">Pagaste ${money(e.precio)} por ${e.cantidad} ${UL[e.unidad]} · ${mkLabel(e.key)}
-              <span class="badge ${e.origen === "bolsillo" ? "dueno" : "neg"}">${e.origen === "bolsillo" ? "Mi bolsillo" : "Negocio"}</span></div>
-          </div>
-          <div class="card-price"><b>${money(porUnidad)}${varHtml}</b><small>${etiqueta}</small></div>
-        </div>
-        <div class="card-actions">
-          <button class="btn sm go" data-a="comprar">+ Nueva compra / precio</button>
-          <button class="btn sm" data-a="hist">Historial</button>
-          <button class="btn sm del" data-a="del">Eliminar</button>
-        </div>
-      </div>`;
-    })
+  if (catSel !== "todas") {
+    $("listIns").innerHTML = arr.map(cardIns).join("");
+    return;
+  }
+  const grupos = {};
+  arr.forEach((i) => (grupos[catDe(i) || ""] ||= []).push(i));
+  const orden = Object.keys(grupos).sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
+  $("listIns").innerHTML = orden
+    .map(
+      (c) =>
+        `<h2>${esc(c || "Sin categoría")} <span class="mut">(${grupos[c].length})</span></h2>` +
+        grupos[c].map(cardIns).join(""),
+    )
     .join("");
+}
+
+$("catChips").addEventListener("click", async (e) => {
+  const c = e.target.closest("[data-cat]");
+  if (c) {
+    catSel = c.dataset.cat;
+    return renderIns();
+  }
+  if (e.target.closest("[data-catren]")) {
+    const nuevo = (prompt("Nuevo nombre de la categoría:", catSel) || "").trim();
+    if (!nuevo || nuevo === catSel) return;
+    try {
+      await Promise.all(
+        [...ingMap.values()]
+          .filter((i) => catDe(i) === catSel)
+          .map((i) => updateDoc(docRef(INSUMOS_COL, i.id), { categoria: nuevo })),
+      );
+      catSel = nuevo;
+      toast("✓ Categoría renombrada");
+    } catch (err) {
+      console.error(err);
+      toast("❌ No se pudo renombrar.");
+    }
+  }
+});
+
+async function moverCategoria(id) {
+  const ing = ingMap.get(id);
+  if (!ing) return;
+  const ex = categoriasIns();
+  const r = prompt(
+    `Categoría de "${ing.nombre}"\nEscribe una existente o una nueva (vacío = sin categoría).\n\nExistentes: ${ex.join(", ") || "ninguna"}`,
+    catDe(ing),
+  );
+  if (r === null) return;
+  try {
+    await updateDoc(docRef(INSUMOS_COL, id), { categoria: r.trim(), actualizado: serverTimestamp() });
+    toast("✓ Categoría guardada");
+  } catch (e) {
+    console.error(e);
+    toast("❌ No se pudo guardar.");
+  }
 }
 $("qIns").addEventListener("input", renderIns);
 $("listIns").addEventListener("click", (e) => {
@@ -316,42 +330,62 @@ $("listIns").addEventListener("click", (e) => {
   if (!b) return;
   const id = b.closest("[data-id]").dataset.id;
   if (b.dataset.a === "comprar") openCompra(id);
+  if (b.dataset.a === "stock") openStock(id);
+  if (b.dataset.a === "rename") renombrarInsumo(id);
+  if (b.dataset.a === "cat") moverCategoria(id);
   if (b.dataset.a === "hist") openHist(id);
   if (b.dataset.a === "del") borrarInsumo(id);
 });
 
-async function borrarInsumo(id) {
+async function renombrarInsumo(id) {
   const ing = ingMap.get(id);
-  const usado = [...recMap.values()].filter((r) =>
-    (r.items || []).some((it) => it.tipo === "i" && it.id === id),
+  if (!ing) return;
+  const nuevo = (prompt("Nuevo nombre del insumo:", ing.nombre || "") || "").trim();
+  if (!nuevo || nuevo === ing.nombre) return;
+  const dup = [...ingMap.values()].some(
+    (i) => i.id !== id && (i.nombre || "").toLowerCase() === nuevo.toLowerCase(),
   );
-  if (usado.length) {
-    toast(`No se puede: lo usan ${usado.map((r) => r.nombre).join(", ")}.`);
-    return;
-  }
-  if (!confirm(`¿Eliminar "${ing?.nombre}" y todo su historial de precios?\n(Las compras registradas como gasto se conservan.)`))
-    return;
+  if (dup) return toast("Ya existe un insumo con ese nombre.");
   try {
-    await deleteDoc(docRef(INSUMOS_COL, id));
-    toast("Insumo eliminado.");
+    await updateDoc(docRef(INSUMOS_COL, id), {
+      nombre: nuevo,
+      nombre_lower: nuevo.toLowerCase(),
+      actualizado: serverTimestamp(),
+    });
+    await Promise.all(
+      gastosAll
+        .filter((g) => g.insumoId === id)
+        .map((g) => updateDoc(docRef(GASTOS_COL, g.id), { nombre: nuevo })),
+    );
+    toast("✓ Nombre actualizado");
   } catch (e) {
     console.error(e);
-    toast("No se pudo eliminar.");
+    toast("❌ No se pudo renombrar.");
   }
 }
+/* ══════════ MODAL COMPRA ══════════ */
+let compraId = null;
 
-/* ══════════════════════════════════════════════════════
-   MODAL COMPRA
-   ══════════════════════════════════════════════════════ */
-let compraId = null; // id del insumo existente (o null si es nuevo)
-
-function llenarUnidades(tipo, sel) {
-  const lista = tipo ? unidadesDeTipo(tipo) : Object.keys(U);
+function llenarUnidades(base, sel) {
+  const lista = base ? unidadesDeBase(base) : Object.keys(U);
   $("cUnidad").innerHTML = lista
     .map((u) => `<option value="${u}" ${u === sel ? "selected" : ""}>${UL[u]}</option>`)
     .join("");
 }
 
+function llenarCats(sel = "") {
+  const cats = categoriasIns();
+  if (sel && !cats.includes(sel)) cats.push(sel);
+  $("cCat").innerHTML =
+    `<option value="">— Sin categoría —</option>` +
+    cats.map((c) => `<option value="${esc(c)}" ${c === sel ? "selected" : ""}>${esc(c)}</option>`).join("") +
+    `<option value="__nueva">＋ Nueva categoría…</option>`;
+}
+$("cCat").addEventListener("change", () => {
+  if ($("cCat").value !== "__nueva") return;
+  const n = (prompt("Nombre de la nueva categoría:") || "").trim();
+  llenarCats(n);
+});
 function openCompra(id = null) {
   compraId = id;
   const ing = id ? ingMap.get(id) : null;
@@ -364,7 +398,8 @@ function openCompra(id = null) {
   $("cMes").value = mesSel;
   $("cGasto").checked = true;
   document.querySelector('input[name="origen"][value="negocio"]').checked = true;
-  llenarUnidades(ing?.tipo || null, e?.unidad || "unid");
+  llenarUnidades(ing ? baseIns(ing) : null, e?.unidad || "unid");
+    llenarCats(ing ? catDe(ing) : catSel !== "todas" && catSel !== "__sin" ? catSel : "");
   $("cHint").textContent = ing ? "Escribe el nuevo precio para registrar el cambio." : "";
   $("cAviso").hidden = true;
   actualizarPreviewCompra();
@@ -373,15 +408,15 @@ function openCompra(id = null) {
 }
 $("btnNuevoIns").addEventListener("click", () => openCompra(null));
 
-// Si escribe un nombre que ya existe, lo trata como el mismo insumo
 $("cNombre").addEventListener("input", () => {
   if (compraId) return;
   const n = $("cNombre").value.trim().toLowerCase();
   const ex = [...ingMap.values()].find((i) => (i.nombre || "").toLowerCase() === n);
   if (ex) {
     const e = entradaMes(ex, limaMes());
-    llenarUnidades(ex.tipo, e?.unidad);
-    $("cHint").textContent = "Ese insumo ya existe: se agregará un nuevo precio a su historial.";
+    llenarUnidades(baseIns(ex), e?.unidad);
+        llenarCats(catDe(ex));
+    $("cHint").textContent = "Ese insumo ya existe: se agregará un nuevo precio y se sumará a su stock.";
   } else {
     if ($("cUnidad").options.length < Object.keys(U).length) llenarUnidades(null, "unid");
     $("cHint").textContent = "";
@@ -406,14 +441,11 @@ function actualizarPreviewCompra() {
     return;
   }
   const cb = precio / base;
-  const f = U[u].f;
+  const b = U[u].b;
   p.textContent =
-    u === "unid"
-      ? `Cada unidad te cuesta ${money(cb)}`
-      : U[u].t === "c"
-        ? `Cada ${UL[u]} te cuesta ${money(precio / cant)} · cada unidad ${money(cb)}`
-        : `Cada ${UL[u]} te cuesta ${money(cb * f)}` +
-          (f === 1 ? "" : ` · cada ${U[u].t === "m" && /g|kg|oz/.test(u) ? "g" : "ml"} ${money(cb)}`);
+    u === b
+      ? `Cada ${UL[u]} te cuesta ${money(cb)}`
+      : `Cada ${UL[u]} te cuesta ${money(precio / cant)} · cada ${UL[b] || b} ${money(cb)}`;
 
   const origen = document.querySelector('input[name="origen"]:checked').value;
   const av = $("cAviso");
@@ -437,16 +469,16 @@ $("btnGuardarCompra").addEventListener("click", async () => {
   const mes = $("cMes").value;
   const origen = document.querySelector('input[name="origen"]:checked').value;
   const registrar = $("cGasto").checked;
-
+  const categoria = $("cCat").value === "__nueva" ? "" : $("cCat").value;
   if (!nombre) return toast("Escribe el nombre del insumo.");
   if (!cantidad) return toast("Escribe la cantidad que compraste.");
   if (!precio) return toast("Escribe cuánto pagaste.");
   if (!mes) return toast("Elige el mes.");
 
   const existente = insumoDeModal();
-  const tipo = U[unidad].t;
-  if (existente && existente.tipo !== tipo)
-    return toast(`"${existente.nombre}" se mide en ${existente.tipo === "c" ? "unidades" : "peso/volumen"}; usa una unidad del mismo tipo.`);
+  const base = baseDe(unidad);
+  if (existente && baseIns(existente) !== base)
+    return toast(`"${existente.nombre}" se mide en ${baseIns(existente)}; usa una unidad del mismo tipo.`);
 
   if (registrar && origen === "negocio" && precio > cajaDisponible())
     if (!confirm(`La caja solo tiene ${money(cajaDisponible())}.\n¿Registrar igual como gasto del negocio?`)) return;
@@ -455,11 +487,12 @@ $("btnGuardarCompra").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Guardando…";
   try {
+    const cantBase = baseQty(cantidad, unidad);
     const entrada = {
       precio,
       cantidad,
       unidad,
-      costo_base: precio / baseQty(cantidad, unidad),
+      costo_base: precio / cantBase,
       origen,
       fecha: Date.now(),
     };
@@ -467,17 +500,20 @@ $("btnGuardarCompra").addEventListener("click", async () => {
     let insumoId;
     if (existente) {
       insumoId = existente.id;
-      await updateDoc(docRef(INSUMOS_COL, insumoId), {
-        [`precios.${key}`]: entrada,
-        actualizado: serverTimestamp(),
-      });
+       const upd = { [`precios.${key}`]: entrada, categoria, actualizado: serverTimestamp() };
+      if (registrar) upd.stock_base = increment(cantBase);
+      if (!existente.base) upd.base = base;
+      await updateDoc(docRef(INSUMOS_COL, insumoId), upd);
     } else {
       const ref = doc(col(INSUMOS_COL));
       insumoId = ref.id;
       await setDoc(ref, {
         nombre,
         nombre_lower: nombre.toLowerCase(),
-        tipo,
+        categoria,
+        tipo: U[unidad].t,
+        base,
+        stock_base: registrar ? cantBase : 0,
         precios: { [key]: entrada },
         createdAt: serverTimestamp(),
         actualizado: serverTimestamp(),
@@ -492,10 +528,11 @@ $("btnGuardarCompra").addEventListener("click", async () => {
         monto: precio,
         cantidad,
         unidad,
+        cantidad_base: cantBase,
         mes,
-        origen, // "negocio" | "bolsillo"
+        origen,
         descuenta_caja: origen === "negocio",
-        es_inversion: origen === "bolsillo", // inversión puesta por el dueño
+        es_inversion: origen === "bolsillo",
         fecha: serverTimestamp(),
         fechaMs: Date.now(),
       });
@@ -504,8 +541,8 @@ $("btnGuardarCompra").addEventListener("click", async () => {
     toast(
       registrar
         ? origen === "bolsillo"
-          ? "✓ Guardado como inversión del dueño"
-          : "✓ Guardado y descontado de la caja"
+          ? "✓ Guardado como inversión del dueño + stock"
+          : "✓ Guardado, descontado de la caja + stock"
         : "✓ Precio actualizado",
     );
   } catch (e) {
@@ -517,9 +554,48 @@ $("btnGuardarCompra").addEventListener("click", async () => {
   }
 });
 
-/* ══════════════════════════════════════════════════════
-   HISTORIAL DE PRECIOS
-   ══════════════════════════════════════════════════════ */
+/* ══════════ AJUSTE DE STOCK ══════════ */
+let stockId = null;
+function openStock(id) {
+  const ing = ingMap.get(id);
+  if (!ing) return;
+  stockId = id;
+  const b = baseIns(ing);
+  $("sTitulo").textContent = `Stock · ${ing.nombre}`;
+  $("sActual").textContent = `Ahora tienes: ${fmtStock(Number(ing.stock_base) || 0, b)}`;
+  $("sCant").value = "";
+  $("sModo").value = "restar";
+  $("sUnidad").innerHTML = unidadesDeBase(b)
+    .map((u) => `<option value="${u}" ${u === b ? "selected" : ""}>${UL[u]}</option>`)
+    .join("");
+  openMd("mdStock");
+  setTimeout(() => $("sCant").focus(), 200);
+}
+$("btnGuardarStock").addEventListener("click", async () => {
+  const ing = ingMap.get(stockId);
+  if (!ing) return;
+  const modo = $("sModo").value;
+  if ($("sCant").value === "") return toast("Escribe la cantidad.");
+  const cant = baseQty($("sCant").value, $("sUnidad").value);
+  if (modo !== "fijar" && !cant) return toast("La cantidad debe ser mayor a 0.");
+  const btn = $("btnGuardarStock");
+  btn.disabled = true;
+  try {
+    const upd = { actualizado: serverTimestamp() };
+    upd.stock_base = modo === "fijar" ? cant : increment(modo === "sumar" ? cant : -cant);
+    if (!ing.base) upd.base = baseIns(ing);
+    await updateDoc(docRef(INSUMOS_COL, stockId), upd);
+    closeMd("mdStock");
+    toast("✓ Stock actualizado");
+  } catch (e) {
+    console.error(e);
+    toast("❌ No se pudo actualizar.");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ══════════ HISTORIAL DE PRECIOS ══════════ */
 function openHist(id) {
   const ing = ingMap.get(id);
   if (!ing) return;
@@ -546,7 +622,7 @@ function openHist(id) {
         </tr>`;
       })
       .join("")}</tbody></table></div>
-    <p class="help" style="margin-top:10px">Quitar un precio del historial no borra el gasto ya registrado; eso se borra en Resumen → Compras del mes.</p>`;
+    <p class="help" style="margin-top:10px">Quitar un precio no borra el gasto ni cambia el stock; eso se maneja en Historial de gastos.</p>`;
   openMd("mdHist");
 }
 $("hBody").addEventListener("click", async (e) => {
@@ -566,396 +642,55 @@ $("hBody").addEventListener("click", async (e) => {
   }
 });
 
-/* ══════════════════════════════════════════════════════
-   LISTA DE PRODUCTOS (recetas)
-   ══════════════════════════════════════════════════════ */
-function renderRec() {
-  const arr = [...recMap.values()].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
-  if (!arr.length) {
-    $("listRec").innerHTML = `<div class="empty">Aún no tienes productos. ${
-      ingMap.size ? "Toca “Nuevo producto”." : "Primero agrega tus insumos."
-    }</div>`;
-    return;
-  }
-  $("listRec").innerHTML = arr
-    .map((r) => {
-      const c = calcR(r);
-      let real = "";
-      if (r.link) {
-        const pa = linkCache.get(`${r.link.categoriaId}/${r.link.productoId}`);
-        if (typeof pa === "number") {
-          const g = pa - c.cost;
-          const pct = pa ? (g / pa) * 100 : 0;
-          real = `<div class="card-sub">En tu carta: <b>${money(pa)}</b> → ganas <b class="${g >= 0 ? "pos" : "neg"}">${money(g)}</b> (${pct.toFixed(0)}%)</div>`;
-        }
-      }
-      return `
-      <div class="card" data-id="${r.id}">
-        <div class="card-top">
-          <div>
-            <div class="card-name">${esc(r.nombre)}</div>
-            <div class="card-sub">Costo ${money(c.cost)} · ganas ${money(c.profit)} c/u · ${c.u} unid.</div>
-            ${real}
-          </div>
-          <div class="card-price"><b>${c.marginInvalid ? "—" : money(c.price)}</b><small>vender a</small></div>
-        </div>
-        <div class="card-actions">
-          <button class="btn sm go" data-a="edit">Abrir</button>
-          <button class="btn sm del" data-a="del">Eliminar</button>
-        </div>
-      </div>`;
-    })
-    .join("");
-}
-$("listRec").addEventListener("click", async (e) => {
-  const b = e.target.closest("[data-a]");
-  if (!b) return;
-  const id = b.closest("[data-id]").dataset.id;
-  if (b.dataset.a === "edit") return openReceta(id);
-  if (b.dataset.a === "del") {
-    const r = recMap.get(id);
-    const padres = [...recMap.values()].filter((x) => x.id !== id && (x.items || []).some((it) => it.tipo === "p" && it.id === id));
-    if (padres.length) return toast(`No se puede: lo usan ${padres.map((x) => x.nombre).join(", ")}.`);
-    if (!confirm(`¿Eliminar "${r?.nombre}"?`)) return;
-    try {
-      await deleteDoc(docRef(RECETAS_COL, id));
-      toast("Producto eliminado.");
-    } catch (err) {
-      console.error(err);
-      toast("No se pudo eliminar.");
-    }
-  }
+/* ══════════ GASTO GENERAL (papel, servilletas, agua…) ══════════ */
+$("btnNuevoGasto").addEventListener("click", () => {
+  $("gNombre").value = "";
+  $("gMonto").value = "";
+  $("gMes").value = mesSel;
+  $("gCat").selectedIndex = 0;
+  document.querySelector('input[name="origenG"][value="negocio"]').checked = true;
+  openMd("mdGasto");
+  setTimeout(() => $("gNombre").focus(), 200);
 });
-$("btnNuevaRec").addEventListener("click", () => {
-  if (!ingMap.size) return toast("Primero agrega al menos un insumo.");
-  openReceta(null);
-});
-
-/* ══════════════════════════════════════════════════════
-   EDITOR DE PRODUCTO
-   ══════════════════════════════════════════════════════ */
-let ed = null;
-
-function nuevoItem() {
-  const ing = [...ingMap.values()].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""))[0];
-  if (!ing) return null;
-  return { tipo: "i", id: ing.id, qty: 1, unit: entradaMes(ing)?.unidad || "unid" };
-}
-
-function openReceta(id) {
-  const r = id ? recMap.get(id) : null;
-  ed = {
-    id,
-    nombre: r?.nombre || "",
-    margen: r?.margen ?? 50,
-    modo: r?.modo || "markup",
-    redondear: r ? r.redondear !== false : true,
-    unidades: r?.unidades ?? 10,
-    rinde: r?.rinde ?? 1,
-    items: (r?.items || []).map((i) => ({ ...i })),
-    link: r?.link || null,
-  };
-  if (!ed.items.length) {
-    const it = nuevoItem();
-    if (it) ed.items.push(it);
-  }
-  $("rTitulo").textContent = id ? "Editar producto" : "Nuevo producto";
-  $("rNombre").value = ed.nombre;
-  $("rMargen").value = ed.margen;
-  $("rUnidades").value = ed.unidades;
-  $("rRinde").value = ed.rinde;
-  $("rModo").value = ed.modo;
-  $("rRedondear").checked = ed.redondear;
-  fillLinkSelect();
-  renderItems();
-  calcEd();
-  openMd("mdRec");
-}
-
-function refOptions(sel) {
-  const ins = [...ingMap.values()]
-    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""))
-    .map((i) => {
-      const v = "i:" + i.id;
-      return `<option value="${v}" ${v === sel ? "selected" : ""}>${esc(i.nombre)}</option>`;
-    })
-    .join("");
-  const prods = [...recMap.values()]
-    .filter((q) => q.id !== ed.id && !(ed.id && dependeDe(q, ed.id)))
-    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""))
-    .map((q) => {
-      const v = "p:" + q.id;
-      return `<option value="${v}" ${v === sel ? "selected" : ""}>${esc(q.nombre)}</option>`;
-    })
-    .join("");
-  return `<optgroup label="Insumos">${ins}</optgroup>` + (prods ? `<optgroup label="Productos / preparaciones">${prods}</optgroup>` : "");
-}
-
-function normalizarItem(it) {
-  if (it.tipo === "p") {
-    it.unit = "unid";
-    return;
-  }
-  const ing = ingMap.get(it.id);
-  if (!ing) return;
-  if (!U[it.unit] || U[it.unit].t !== ing.tipo) it.unit = unidadesDeTipo(ing.tipo)[0];
-}
-
-function renderItems() {
-  ed.items.forEach(normalizarItem);
-  $("rItems").innerHTML = ed.items
-    .map((it, idx) => {
-      const sel = it.tipo + ":" + it.id;
-      let unitHtml;
-      if (it.tipo === "p") unitHtml = `<option value="unid">porción</option>`;
-      else {
-        const ing = ingMap.get(it.id);
-        unitHtml = unidadesDeTipo(ing?.tipo || "c")
-          .map((u) => `<option value="${u}" ${u === it.unit ? "selected" : ""}>${UL[u]}</option>`)
-          .join("");
-      }
-      return `<div class="item-row" data-idx="${idx}">
-        <select class="full" data-k="ref">${refOptions(sel)}</select>
-        <div class="item-line">
-          <span class="mut">Uso</span>
-          <input type="number" min="0" step="any" inputmode="decimal" data-k="qty" value="${it.qty}">
-          <select data-k="unit">${unitHtml}</select>
-          <b class="item-cost" data-cost>${money(itemCost(it, 0) / Math.max(0.0001, num(ed.rinde) || 1))}</b>
-          <button class="x" data-k="del" title="Quitar">✕</button>
-        </div>
-      </div>`;
-    })
-    .join("");
-}
-
-$("btnAddItem").addEventListener("click", () => {
-  const it = nuevoItem();
-  if (!it) return;
-  ed.items.push(it);
-  renderItems();
-  calcEd();
-});
-
-$("rItems").addEventListener("input", (e) => {
-  const row = e.target.closest("[data-idx]");
-  if (!row) return;
-  const it = ed.items[+row.dataset.idx];
-  const k = e.target.dataset.k;
-  if (k === "qty") it.qty = e.target.value;
-  if (k === "unit") it.unit = e.target.value;
-  if (k === "ref") {
-    const [tipo, id] = e.target.value.split(":");
-    it.tipo = tipo;
-    it.id = id;
-    normalizarItem(it);
-    renderItems();
-  }
-  calcEd();
-});
-$("rItems").addEventListener("click", (e) => {
-  const b = e.target.closest('[data-k="del"]');
-  if (!b) return;
-  ed.items.splice(+b.closest("[data-idx]").dataset.idx, 1);
-  renderItems();
-  calcEd();
-});
-
-function leerEd() {
-  ed.nombre = $("rNombre").value;
-  ed.margen = $("rMargen").value;
-  ed.unidades = $("rUnidades").value;
-  ed.rinde = $("rRinde").value;
-  ed.modo = $("rModo").value;
-  ed.redondear = $("rRedondear").checked;
-}
-["rNombre", "rMargen", "rUnidades", "rRinde", "rModo", "rRedondear"].forEach((id) =>
-  $(id).addEventListener("input", () => {
-    calcEd();
-    if (id === "rRinde") {
-      leerEd();
-      document.querySelectorAll("#rItems [data-idx]").forEach((row) => {
-        row.querySelector("[data-cost]").textContent = money(
-          itemCost(ed.items[+row.dataset.idx], 0) / Math.max(0.0001, num(ed.rinde) || 1),
-        );
-      });
-    }
-  }),
-);
-
-function calcEd() {
-  leerEd();
-  const c = calcR(ed);
-  document.querySelectorAll("#rItems [data-idx]").forEach((row) => {
-    row.querySelector("[data-cost]").textContent = money(
-      itemCost(ed.items[+row.dataset.idx], 0) / Math.max(0.0001, num(ed.rinde) || 1),
-    );
-  });
-  $("rTiles").innerHTML = `
-    <div class="k"><small>Costo c/u</small><b>${money(c.cost)}</b></div>
-    <div class="k big"><small>Vender a</small><b>${c.marginInvalid ? "Margen &lt; 100%" : money(c.price)}</b></div>
-    <div class="k"><small>Ganas c/u</small><b class="pos">${money(c.profit)}</b></div>
-    <div class="k"><small>Invierto (${c.u} unid.)</small><b>${money(c.inv)}</b></div>
-    <div class="k"><small>Vendo</small><b>${money(c.sales)}</b></div>
-    <div class="k"><small>Gano</small><b class="pos">${money(c.gain)}</b></div>`;
-  actualizarLinkInfo(c);
-}
-
-/* ---- Vincular con producto del catálogo (solo para comparar) ---- */
-function fillLinkSelect() {
-  const sel = $("rLink");
-  const actual = ed.link ? `${ed.link.categoriaId}/${ed.link.productoId}` : "";
-  let opts = `<option value="">— Sin vincular —</option>`;
-  const lista = [...catalogo];
-  if (ed.link && !lista.some((p) => `${p.categoriaId}/${p.productoId}` === actual))
-    lista.unshift({ ...ed.link, precio: linkCache.get(actual) });
-  opts += lista
-    .map((p) => {
-      const v = `${p.categoriaId}/${p.productoId}`;
-      return `<option value="${esc(v)}" ${v === actual ? "selected" : ""}>${esc(p.nombre)} (${esc(p.categoriaId)})</option>`;
-    })
-    .join("");
-  sel.innerHTML = opts;
-}
-function actualizarLinkInfo(c = calcR(ed)) {
-  const el = $("rLinkInfo");
-  if (!ed.link) return (el.textContent = "");
-  const pa = linkCache.get(`${ed.link.categoriaId}/${ed.link.productoId}`);
-  if (typeof pa !== "number") return (el.textContent = "Cargando precio de tu carta…");
-  const g = pa - c.cost;
-  el.innerHTML = `En tu carta cuesta <b>${money(pa)}</b> · hoy ganas <b class="${g >= 0 ? "pos" : "neg"}">${money(g)}</b> por unidad. Precio sugerido: <b>${money(c.price)}</b>.`;
-}
-$("btnCargarCatalogo").addEventListener("click", async () => {
-  const b = $("btnCargarCatalogo");
-  b.disabled = true;
-  b.textContent = "Cargando…";
-  try {
-    const cats = await getDocs(col("productos"));
-    const out = [];
-    await Promise.all(
-      cats.docs.map(async (c) => {
-        const ps = await getDocs(tiendaSubCol(localidad, "tiendas", tiendaId, "productos", c.id, c.id));
-        ps.forEach((p) => {
-          const d = p.data();
-          out.push({ categoriaId: c.id, productoId: p.id, nombre: d.nombre || p.id, precio: Number(d.precio) || 0 });
-          linkCache.set(`${c.id}/${p.id}`, Number(d.precio) || 0);
-        });
-      }),
-    );
-    catalogo = out.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    fillLinkSelect();
-    toast(`${catalogo.length} productos cargados.`);
-  } catch (e) {
-    console.error(e);
-    toast("No se pudo leer tu catálogo.");
-  } finally {
-    b.disabled = false;
-    b.textContent = "Cargar mis productos";
-  }
-});
-$("rLink").addEventListener("change", (e) => {
-  if (!e.target.value) ed.link = null;
-  else {
-    const [categoriaId, productoId] = e.target.value.split("/");
-    const p = catalogo.find((x) => x.categoriaId === categoriaId && x.productoId === productoId);
-    ed.link = { categoriaId, productoId, nombre: p?.nombre || productoId };
-    if (p) linkCache.set(e.target.value, p.precio);
-    if (!$("rNombre").value.trim() && p) {
-      $("rNombre").value = p.nombre;
-    }
-  }
-  calcEd();
-});
-
-$("btnGuardarRec").addEventListener("click", async () => {
-  leerEd();
-  const nombre = ed.nombre.trim();
-  if (!nombre) return toast("Ponle un nombre al producto.");
-  const items = ed.items
-    .filter((it) => (it.tipo === "i" ? ingMap.has(it.id) : recMap.has(it.id)) && num(it.qty) > 0)
-    .map((it) => ({ tipo: it.tipo, id: it.id, qty: num(it.qty), unit: it.unit }));
-  if (!items.length) return toast("Agrega al menos un insumo con cantidad.");
-
-  const data = {
-    nombre,
-    nombre_lower: nombre.toLowerCase(),
-    margen: num(ed.margen),
-    modo: ed.modo,
-    redondear: !!ed.redondear,
-    unidades: Math.round(num(ed.unidades)),
-    rinde: Math.max(0.0001, num(ed.rinde) || 1),
-    items,
-    link: ed.link || null,
-    actualizado: serverTimestamp(),
-  };
-  const btn = $("btnGuardarRec");
+$("btnGuardarGasto").addEventListener("click", async () => {
+  const nombre = $("gNombre").value.trim();
+  const monto = num($("gMonto").value);
+  const mes = $("gMes").value;
+  const categoria = $("gCat").value;
+  const origen = document.querySelector('input[name="origenG"]:checked').value;
+  if (!nombre) return toast("Escribe qué compraste.");
+  if (!monto) return toast("Escribe el monto.");
+  if (!mes) return toast("Elige el mes.");
+  if (origen === "negocio" && monto > cajaDisponible())
+    if (!confirm(`La caja solo tiene ${money(cajaDisponible())}.\n¿Registrar igual como gasto del negocio?`)) return;
+  const btn = $("btnGuardarGasto");
   btn.disabled = true;
-  btn.textContent = "Guardando…";
   try {
-    if (ed.id) await updateDoc(docRef(RECETAS_COL, ed.id), data);
-    else await addDoc(col(RECETAS_COL), { ...data, createdAt: serverTimestamp() });
-    closeMd("mdRec");
-    toast("✓ Producto guardado");
+    await addDoc(col(GASTOS_COL), {
+      tipo: "gasto_general",
+      nombre,
+      categoria,
+      monto,
+      mes,
+      origen,
+      descuenta_caja: origen === "negocio",
+      es_inversion: origen === "bolsillo",
+      fecha: serverTimestamp(),
+      fechaMs: Date.now(),
+    });
+    closeMd("mdGasto");
+    toast("✓ Gasto guardado");
   } catch (e) {
     console.error(e);
     toast("❌ No se pudo guardar.");
   } finally {
     btn.disabled = false;
-    btn.textContent = "Guardar producto";
   }
 });
 
-/* ══════════════════════════════════════════════════════
-   RESUMEN
-   ══════════════════════════════════════════════════════ */
-function fmtNeed(n, t) {
-  return t === "c" ? Math.ceil(n - 1e-9) + " unid" : n >= 1000 ? (n / 1000).toFixed(2) + " kg/l" : Math.round(n) + " g/ml";
-}
-function renderResumen() {
-  const T = { inv: 0, sales: 0, gain: 0 };
-  const need = {};
-  let rows = "";
-  [...recMap.values()]
-    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""))
-    .forEach((r) => {
-      const c = calcR(r);
-      addNeed(r, c.u, need);
-      T.inv += c.inv;
-      T.sales += c.sales;
-      T.gain += c.gain;
-      if (c.u > 0)
-        rows += `<tr><td>${esc(r.nombre)}</td><td>${c.u}</td><td>${money(c.cost)}</td><td>${money(c.price)}</td><td>${money(c.inv)}</td><td class="pos">${money(c.gain)}</td></tr>`;
-    });
-
-  const caja = cajaDisponible();
-  $("tot").innerHTML = `
-    <div class="k"><small>Inversión total</small><b>${money(T.inv)}</b></div>
-    <div class="k"><small>Ventas esperadas</small><b>${money(T.sales)}</b></div>
-    <div class="k big"><small>Ganancia esperada</small><b>${money(T.gain)}</b></div>
-    <div class="k"><small>Caja disponible</small><b class="${caja < T.inv ? "neg" : "pos"}">${money(caja)}</b></div>
-    <div class="k" style="grid-column:span 2"><small>${caja >= T.inv ? "Alcanza para esta inversión ✓" : "Te faltan para cubrir la inversión"}</small><b>${caja >= T.inv ? money(caja - T.inv) + " sobran" : money(T.inv - caja)}</b></div>`;
-  $("ptab").innerHTML = rows || `<tr><td colspan="6">Pon unidades a vender en tus productos.</td></tr>`;
-
-  let bt = 0;
-  const br = [...ingMap.values()]
-    .filter((i) => need[i.id] > 0)
-    .map((i) => {
-      const e = entradaMes(i);
-      const pack = baseQty(e.cantidad, e.unidad);
-      const n = pack > 0 ? Math.ceil(need[i.id] / pack - 1e-9) : 0;
-      const c = n * e.precio;
-      bt += c;
-      return `<tr><td>${esc(i.nombre)}</td><td>${fmtNeed(need[i.id], i.tipo)}</td><td>${n} × (${e.cantidad} ${UL[e.unidad]})</td><td>${money(c)}</td></tr>`;
-    })
-    .join("");
-  $("buy").innerHTML = br
-    ? br + `<tr><td><b>Total a comprar</b></td><td></td><td></td><td><b>${money(bt)}</b></td></tr>`
-    : `<tr><td colspan="4">Aún no hay nada que comprar.</td></tr>`;
-
-  renderGastos();
-}
-
+/* ══════════ HISTORIAL DE GASTOS ══════════ */
 function renderGastos() {
-  $("gastoMesTitulo").textContent = `· ${mkLabel(mk(mesSel))}`;
+  $("gastoMesTitulo").textContent = mkLabel(mk(mesSel));
   const lista = gastosAll
     .filter((g) => g.mes === mesSel)
     .sort((a, b) => (b.fechaMs || 0) - (a.fechaMs || 0));
@@ -973,22 +708,46 @@ function renderGastos() {
         <div class="card-top">
           <div>
             <div class="card-name">${esc(g.nombre)}</div>
-            <div class="card-sub">${g.cantidad} ${UL[g.unidad] || ""}
+            <div class="card-sub">${g.cantidad ? `${g.cantidad} ${UL[g.unidad] || ""}` : esc(g.categoria || "Gasto")}
               <span class="badge ${g.es_inversion ? "dueno" : "neg"}">${g.es_inversion ? "Inversión del dueño" : "Del negocio"}</span></div>
           </div>
-          <div class="card-price"><b>${money(g.monto)}</b><button class="x" data-del-gasto title="Eliminar gasto">✕</button></div>
+                 <div class="card-price"><b>${money(g.monto)}</b><span><button class="x" data-edit-gasto title="Editar nombre">✎</button><button class="x" data-del-gasto title="Eliminar gasto">✕</button></span></div>
         </div>
       </div>`,
         )
         .join("")
-    : `<div class="empty">No hay compras registradas este mes.</div>`;
+    : `<div class="empty">No hay gastos registrados este mes.</div>`;
 }
 $("listGastos").addEventListener("click", async (e) => {
+  const ed = e.target.closest("[data-edit-gasto]");
+  if (ed) {
+    const gid = ed.closest("[data-gid]").dataset.gid;
+    const g0 = gastosAll.find((x) => x.id === gid);
+    if (!g0) return;
+    if (g0.tipo === "compra_insumo" && g0.insumoId && ingMap.has(g0.insumoId))
+      return renombrarInsumo(g0.insumoId);
+    const nuevo = (prompt("Nuevo nombre del gasto:", g0.nombre || "") || "").trim();
+    if (!nuevo || nuevo === g0.nombre) return;
+    try {
+      await updateDoc(docRef(GASTOS_COL, gid), { nombre: nuevo });
+      toast("✓ Nombre actualizado");
+    } catch (err) {
+      console.error(err);
+      toast("❌ No se pudo editar.");
+    }
+    return;
+  }
   const b = e.target.closest("[data-del-gasto]");
   if (!b) return;
   const id = b.closest("[data-gid]").dataset.gid;
-  if (!confirm("¿Eliminar este gasto? La caja se recalcula (el precio del insumo no cambia).")) return;
+  const g = gastosAll.find((x) => x.id === id);
+  const revierte = g?.tipo === "compra_insumo" && g.insumoId && ingMap.has(g.insumoId);
+  if (!confirm(`¿Eliminar este gasto? La caja se recalcula${revierte ? " y se descuenta del stock lo que sumó esta compra" : ""}.`)) return;
   try {
+    if (revierte) {
+      const q = g.cantidad_base ?? baseQty(g.cantidad, g.unidad);
+      await updateDoc(docRef(INSUMOS_COL, g.insumoId), { stock_base: increment(-q) });
+    }
     await deleteDoc(docRef(GASTOS_COL, id));
     toast("Gasto eliminado.");
   } catch (err) {
@@ -997,31 +756,11 @@ $("listGastos").addEventListener("click", async (e) => {
   }
 });
 
-/* ══════════════════════════════════════════════════════
-   ARRANQUE
-   ══════════════════════════════════════════════════════ */
+/* ══════════ ARRANQUE ══════════ */
 function renderAll() {
   renderIns();
-  renderRec();
   renderCaja();
-  if (!$("pane-sum").hidden) renderResumen();
-}
-
-async function refrescarLinks() {
-  const pend = [...recMap.values()].filter(
-    (r) => r.link && !linkCache.has(`${r.link.categoriaId}/${r.link.productoId}`),
-  );
-  await Promise.all(
-    pend.map(async (r) => {
-      try {
-        const s = await getDoc(
-          tiendaSubDoc(localidad, "tiendas", tiendaId, "productos", r.link.categoriaId, r.link.categoriaId, r.link.productoId),
-        );
-        linkCache.set(`${r.link.categoriaId}/${r.link.productoId}`, s.exists() ? Number(s.data().precio) || 0 : 0);
-      } catch {}
-    }),
-  );
-  if (pend.length) renderRec();
+  if (!$("pane-gas").hidden) renderGastos();
 }
 
 function start() {
@@ -1042,25 +781,11 @@ function start() {
   );
 
   onSnapshot(
-    col(RECETAS_COL),
-    (snap) => {
-      recMap.clear();
-      snap.forEach((d) => recMap.set(d.id, { id: d.id, ...d.data() }));
-      renderAll();
-      refrescarLinks();
-    },
-    (e) => {
-      console.error(e);
-      toast("Error leyendo productos.");
-    },
-  );
-
-  onSnapshot(
     col(GASTOS_COL),
     (snap) => {
       gastosAll = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       renderCaja();
-      if (!$("pane-sum").hidden) renderResumen();
+      if (!$("pane-gas").hidden) renderGastos();
     },
     (e) => console.error(e),
   );
