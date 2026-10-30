@@ -363,6 +363,30 @@ async function renombrarInsumo(id) {
     toast("❌ No se pudo renombrar.");
   }
 }
+
+/* ══════════ ELIMINAR INSUMO ══════════ */
+async function borrarInsumo(id) {
+  const ing = ingMap.get(id);
+  if (!ing) return;
+
+  const nGastos = gastosAll.filter((g) => g.insumoId === id).length;
+  const msg =
+    `¿Eliminar "${ing.nombre}"?\n\n` +
+    `Se borrarán sus precios y su stock.` +
+    (nGastos
+      ? `\nSus ${nGastos} gasto(s) registrados se mantienen en el historial de gastos (y en la caja).`
+      : "");
+  if (!confirm(msg)) return;
+
+  try {
+    await deleteDoc(docRef(INSUMOS_COL, id));
+    toast("Insumo eliminado.");
+  } catch (e) {
+    console.error(e);
+    toast("❌ No se pudo eliminar.");
+  }
+}
+
 /* ══════════ MODAL COMPRA ══════════ */
 let compraId = null;
 
@@ -399,7 +423,7 @@ function openCompra(id = null) {
   $("cGasto").checked = true;
   document.querySelector('input[name="origen"][value="negocio"]').checked = true;
   llenarUnidades(ing ? baseIns(ing) : null, e?.unidad || "unid");
-    llenarCats(ing ? catDe(ing) : catSel !== "todas" && catSel !== "__sin" ? catSel : "");
+  llenarCats(ing ? catDe(ing) : catSel !== "todas" && catSel !== "__sin" ? catSel : "");
   $("cHint").textContent = ing ? "Escribe el nuevo precio para registrar el cambio." : "";
   $("cAviso").hidden = true;
   actualizarPreviewCompra();
@@ -415,7 +439,7 @@ $("cNombre").addEventListener("input", () => {
   if (ex) {
     const e = entradaMes(ex, limaMes());
     llenarUnidades(baseIns(ex), e?.unidad);
-        llenarCats(catDe(ex));
+    llenarCats(catDe(ex));
     $("cHint").textContent = "Ese insumo ya existe: se agregará un nuevo precio y se sumará a su stock.";
   } else {
     if ($("cUnidad").options.length < Object.keys(U).length) llenarUnidades(null, "unid");
@@ -500,7 +524,7 @@ $("btnGuardarCompra").addEventListener("click", async () => {
     let insumoId;
     if (existente) {
       insumoId = existente.id;
-       const upd = { [`precios.${key}`]: entrada, categoria, actualizado: serverTimestamp() };
+      const upd = { [`precios.${key}`]: entrada, categoria, actualizado: serverTimestamp() };
       if (registrar) upd.stock_base = increment(cantBase);
       if (!existente.base) upd.base = base;
       await updateDoc(docRef(INSUMOS_COL, insumoId), upd);
@@ -711,7 +735,7 @@ function renderGastos() {
             <div class="card-sub">${g.cantidad ? `${g.cantidad} ${UL[g.unidad] || ""}` : esc(g.categoria || "Gasto")}
               <span class="badge ${g.es_inversion ? "dueno" : "neg"}">${g.es_inversion ? "Inversión del dueño" : "Del negocio"}</span></div>
           </div>
-                 <div class="card-price"><b>${money(g.monto)}</b><span><button class="x" data-edit-gasto title="Editar nombre">✎</button><button class="x" data-del-gasto title="Eliminar gasto">✕</button></span></div>
+          <div class="card-price"><b>${money(g.monto)}</b><span><button class="x" data-edit-gasto title="Editar nombre">✎</button><button class="x" data-del-gasto title="Eliminar gasto">✕</button></span></div>
         </div>
       </div>`,
         )
