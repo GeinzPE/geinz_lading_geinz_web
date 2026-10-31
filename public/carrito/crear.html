@@ -1,0 +1,3207 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Blend Studio — Arma tu bebida</title>
+    <style>
+        :root {
+            --bg: #06060a;
+            --panel: rgba(16, 16, 22, .68);
+            --card: rgba(255, 255, 255, .035);
+            --line: rgba(255, 255, 255, .08);
+            --text: #f3f0ea;
+            --muted: #8e8b97;
+            --accent: #d9b97f;
+            --accent-soft: rgba(217, 185, 127, .16);
+            --radius: 20px;
+            --vh: 1vh;
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sar: env(safe-area-inset-right, 0px);
+            --li: 0px;
+            --ri: 0px;
+            --cx: 50vw;
+            --panel-w: 472px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-style: normal;
+            -webkit-tap-highlight-color: transparent
+        }
+
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif
+        }
+
+        button,
+        input,
+        output {
+            font-family: Arial, Helvetica, sans-serif
+        }
+
+        body {
+            background:
+                radial-gradient(900px 600px at var(--cx) 46%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+                radial-gradient(700px 500px at 85% 0%, rgba(90, 70, 160, .14), transparent 70%),
+                radial-gradient(600px 500px at 0% 100%, rgba(30, 60, 90, .18), transparent 70%),
+                var(--bg);
+        }
+
+        canvas#stage {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+            cursor: grab
+        }
+
+        canvas#stage:active {
+            cursor: grabbing
+        }
+
+        /* ---------- Marca ---------- */
+        .brand {
+            position: fixed;
+            top: 28px;
+            left: 32px;
+            z-index: 5;
+            pointer-events: none
+        }
+
+        .brand small {
+            display: block;
+            font-size: 10px;
+            letter-spacing: .42em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px
+        }
+
+        .brand h1 {
+            font-weight: 700;
+            font-size: 34px;
+            letter-spacing: -.01em;
+            line-height: 1
+        }
+
+        .pw {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 12px;
+            font-size: 9px;
+            letter-spacing: .3em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-decoration: none;
+            pointer-events: auto;
+            padding: 5px 10px 5px 8px;
+            border: 1px solid var(--line);
+            border-radius: 99px;
+            background: var(--panel);
+            transition: border-color .3s, color .3s
+        }
+
+        .pw i {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+            transition: background .8s, box-shadow .8s
+        }
+
+        .pw b {
+            color: var(--text);
+            letter-spacing: .22em
+        }
+
+        .pw:hover {
+            border-color: var(--accent);
+            color: var(--text)
+        }
+
+        .pw-t {
+            display: block;
+            text-align: center;
+            margin-top: 14px;
+            font-size: 9.5px;
+            letter-spacing: .28em;
+            text-transform: uppercase;
+            color: var(--muted)
+        }
+
+        .pw-t b {
+            color: var(--accent)
+        }
+
+        .brand h1 em {
+            color: var(--accent);
+            transition: color .8s
+        }
+
+        .hint {
+            position: fixed;
+            left: var(--cx);
+            transform: translateX(-50%);
+            bottom: 26px;
+            z-index: 5;
+            font-size: 11px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--muted);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            pointer-events: none;
+            white-space: nowrap
+        }
+
+        .hint i {
+            width: 28px;
+            height: 1px;
+            background: var(--muted);
+            opacity: .6
+        }
+
+        .empty {
+            position: fixed;
+            left: var(--li);
+            right: var(--ri);
+            top: 0;
+            bottom: 0;
+            display: grid;
+            place-items: center;
+            z-index: 4;
+            pointer-events: none;
+            transition: opacity .5s, left .5s, right .5s
+        }
+
+        .empty p {
+            margin-top: 300px;
+            font-size: 20px;
+            color: rgba(255, 255, 255, .5);
+            text-align: center;
+            padding: 0 24px
+        }
+
+        .empty.hide {
+            opacity: 0
+        }
+
+        /* ---------- Selector de vista ---------- */
+        .toggles {
+            position: fixed;
+            z-index: 5;
+            left: var(--cx);
+            bottom: 58px;
+            transform: translateX(-50%);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            width: max-content;
+            max-width: calc(100vw - 24px);
+            transition: left .5s
+        }
+
+        .seg {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 999px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px)
+        }
+
+        .seg button {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            font: 700 11px Arial, Helvetica, sans-serif;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            padding: 9px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: .25s;
+            white-space: nowrap
+        }
+
+        .seg button.on {
+            background: rgba(255, 255, 255, .12);
+            color: var(--text)
+        }
+
+        /* ---------- Botón historial ---------- */
+        .hist-btn {
+            position: fixed;
+            z-index: 7;
+            top: 24px;
+            right: calc(var(--ri) + 20px);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px 10px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            border: 1px solid var(--line);
+            background: var(--panel);
+            color: var(--text);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            font: 700 12px Arial, Helvetica, sans-serif;
+            letter-spacing: .06em;
+            transition: border-color .3s, transform .2s, right .5s;
+        }
+
+        .hist-btn:hover {
+            border-color: var(--accent)
+        }
+
+        .hist-btn:active {
+            transform: scale(.97)
+        }
+
+        .hist-btn svg {
+            opacity: .85
+        }
+
+        .badge {
+            min-width: 22px;
+            height: 22px;
+            border-radius: 99px;
+            display: grid;
+            place-items: center;
+            background: var(--accent);
+            color: #14110b;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 0 7px;
+            transition: background .6s
+        }
+
+        /* ---------- Historial ---------- */
+        .scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 7;
+            background: rgba(0, 0, 0, .55);
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .4s
+        }
+
+        body.hist-open.hist-overlay .scrim {
+            opacity: 1;
+            pointer-events: auto
+        }
+
+        .history {
+            position: fixed;
+            z-index: 8;
+            left: 16px;
+            top: 112px;
+            bottom: 16px;
+            width: 336px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--panel);
+            backdrop-filter: blur(26px) saturate(140%);
+            -webkit-backdrop-filter: blur(26px) saturate(140%);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .06);
+            transform: translateX(calc(-100% - 28px));
+            opacity: 0;
+            pointer-events: none;
+            transition: transform .6s cubic-bezier(.2, .85, .2, 1), opacity .4s;
+        }
+
+        body.hist-open .history {
+            transform: none;
+            opacity: 1;
+            pointer-events: auto
+        }
+
+        .h-head {
+            padding: 22px 20px 12px
+        }
+
+        .h-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px
+        }
+
+        .h-title h2 {
+            font-weight: 700;
+            font-size: 23px;
+            letter-spacing: -.01em
+        }
+
+        .h-title p {
+            font-size: 11.5px;
+            color: var(--muted);
+            margin-top: 4px
+        }
+
+        .icon-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, .03);
+            color: var(--text);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: .25s;
+            flex: none
+        }
+
+        .icon-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent)
+        }
+
+        .tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin-top: 16px;
+            padding: 4px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid var(--line)
+        }
+
+        .tab {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            padding: 8px;
+            border-radius: 10px;
+            font: 700 11.5px Arial, Helvetica, sans-serif;
+            letter-spacing: .05em;
+            cursor: pointer;
+            transition: .25s
+        }
+
+        .tab.on {
+            background: rgba(255, 255, 255, .09);
+            color: var(--text)
+        }
+
+        .h-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, .15) transparent
+        }
+
+        .h-list::-webkit-scrollbar {
+            width: 6px
+        }
+
+        .h-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .14);
+            border-radius: 9px
+        }
+
+        .h-empty {
+            margin: 40px 10px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12.5px;
+            line-height: 1.7
+        }
+
+        .h-empty b {
+            display: block;
+            font-weight: 400;
+            font-size: 18px;
+            color: rgba(255, 255, 255, .6);
+            margin-bottom: 6px
+        }
+
+        .h-card {
+            position: relative;
+            display: flex;
+            gap: 14px;
+            padding: 13px 13px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 1px solid var(--line);
+            background: var(--card);
+            transition: transform .3s, border-color .3s, background .3s, box-shadow .3s;
+            animation: cardIn .55s cubic-bezier(.2, .9, .2, 1) both;
+        }
+
+        .h-card:hover {
+            transform: translateY(-2px);
+            border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+            background: rgba(255, 255, 255, .055)
+        }
+
+        .h-card.active {
+            border-color: var(--accent);
+            box-shadow: inset 0 0 0 1px var(--accent), 0 12px 34px color-mix(in srgb, var(--accent) 16%, transparent)
+        }
+
+        .h-card.fresh {
+            animation: cardIn .55s cubic-bezier(.2, .9, .2, 1) both, flash 1.8s ease .3s
+        }
+
+        @keyframes cardIn {
+            from {
+                opacity: 0;
+                transform: translateY(14px) scale(.97)
+            }
+
+            to {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        @keyframes flash {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 transparent
+            }
+
+            30% {
+                box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent)
+            }
+        }
+
+        .mini {
+            position: relative;
+            flex: none;
+            width: 54px;
+            height: 82px
+        }
+
+        .mini::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -3px;
+            right: -3px;
+            height: 11px;
+            border-radius: 6px 6px 3px 3px;
+            background: linear-gradient(#24242d, #15151b);
+            border: 1px solid rgba(255, 255, 255, .14);
+            z-index: 2
+        }
+
+        .mini .shape {
+            position: absolute;
+            inset: 9px 0 0 0;
+            clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
+            background: rgba(169, 221, 240, .42);
+            overflow: hidden;
+            border-radius: 0 0 8px 8px
+        }
+
+        .mini .fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            transition: height .6s
+        }
+
+        .mini .shape::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(100deg, rgba(255, 255, 255, .28), transparent 28%, transparent 70%, rgba(0, 0, 0, .25))
+        }
+
+        .mini .play {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            display: grid;
+            place-items: center;
+            opacity: 0;
+            transform: scale(.7);
+            transition: .3s
+        }
+
+        .mini .play span {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #14110b;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, .5)
+        }
+
+        .h-card:hover .play,
+        .h-card.active .play {
+            opacity: 1;
+            transform: none
+        }
+
+        .h-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 5px
+        }
+
+        .h-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-right: 22px
+        }
+
+        .h-top h4 {
+            min-width: 0;
+            font-size: 13.5px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .tag {
+            font-size: 9px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            padding: 3px 7px;
+            border-radius: 99px;
+            border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+            color: var(--accent);
+            flex: none
+        }
+
+        .h-meta {
+            font-size: 11.5px;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums
+        }
+
+        .h-meta b {
+            color: var(--text);
+            font-weight: 700
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px
+        }
+
+        .chips span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            color: #cfcbd6;
+            padding: 3px 8px 3px 6px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid var(--line)
+        }
+
+        .chips i {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%
+        }
+
+        .h-time {
+            font-size: 10.5px;
+            color: #6f6c78
+        }
+
+        .h-del {
+            position: absolute;
+            top: 9px;
+            right: 9px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            opacity: 0;
+            transition: .25s
+        }
+
+        .h-card:hover .h-del {
+            opacity: 1
+        }
+
+        .h-del:hover {
+            background: rgba(255, 80, 80, .16);
+            color: #ff8a8a
+        }
+
+        /* ---------- Banner de preparación ---------- */
+        .banner {
+            position: fixed;
+            z-index: 9;
+            left: var(--cx);
+            top: 26px;
+            transform: translate(-50%, -26px);
+            opacity: 0;
+            pointer-events: none;
+            width: min(380px, calc(100vw - 32px));
+            padding: 14px 18px 15px;
+            border-radius: 20px;
+            background: var(--panel);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+            transition: transform .55s cubic-bezier(.2, .9, .2, 1), opacity .4s;
+        }
+
+        .banner.show {
+            transform: translate(-50%, 0);
+            opacity: 1
+        }
+
+        .banner .row {
+            display: flex;
+            align-items: center;
+            gap: 13px
+        }
+
+        .spin {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, .14);
+            border-top-color: var(--accent);
+            animation: spin .8s linear infinite;
+            flex: none
+        }
+
+        .okic {
+            display: none;
+            width: 20px;
+            height: 20px;
+            color: var(--accent);
+            flex: none
+        }
+
+        .banner.done .spin {
+            display: none
+        }
+
+        .banner.done .okic {
+            display: block
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .banner h5 {
+            font-size: 10px;
+            letter-spacing: .28em;
+            text-transform: uppercase;
+            color: var(--muted);
+            font-weight: 700
+        }
+
+        .banner p {
+            font-size: 13.5px;
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .banner .cur {
+            margin-left: auto;
+            font-size: 11.5px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap
+        }
+
+        .banner .cur i {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px currentColor
+        }
+
+        .pbar {
+            height: 3px;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, .08);
+            margin-top: 13px;
+            overflow: hidden
+        }
+
+        .pbar span {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, #fff), var(--accent));
+            border-radius: inherit;
+            transition: width .15s linear
+        }
+
+        /* ---------- Panel ---------- */
+        .panel {
+            position: fixed;
+            z-index: 6;
+            top: 16px;
+            right: 16px;
+            bottom: 16px;
+            width: min(440px, 40vw);
+            min-width: 380px;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel);
+            backdrop-filter: blur(26px) saturate(140%);
+            -webkit-backdrop-filter: blur(26px) saturate(140%);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .06);
+            overflow: hidden;
+        }
+
+        .panel-body {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column
+        }
+
+        .grab {
+            display: none
+        }
+
+        .panel {
+            contain: layout style
+        }
+
+        body.lowend * {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important
+        }
+
+        body.lowend {
+            --panel: rgba(16, 16, 22, .95)
+        }
+
+        .panel.dragging {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: rgba(16, 16, 22, .94)
+        }
+
+        .panel-head {
+            padding: 26px 26px 14px
+        }
+
+        .panel-head .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 12px;
+            flex-wrap: wrap
+        }
+
+        .panel-head .row>div:first-child {
+            min-width: 0
+        }
+
+        .panel-head h2 {
+            font-weight: 700;
+            font-size: 24px;
+            letter-spacing: -.01em
+        }
+
+        .panel-head p {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px
+        }
+
+        .ghost {
+            border: 1px solid var(--line);
+            background: transparent;
+            color: var(--text);
+            font: 700 11px Arial, Helvetica, sans-serif;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            padding: 9px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: .25s;
+            white-space: nowrap
+        }
+
+        .ghost:hover {
+            border-color: var(--accent);
+            color: var(--accent)
+        }
+
+        .sizes {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 18px;
+            padding: 5px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid var(--line)
+        }
+
+        .size {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            border-radius: 14px;
+            padding: 11px 8px 10px;
+            cursor: pointer;
+            transition: .3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px
+        }
+
+        .size b {
+            font-weight: 700;
+            font-size: 19px;
+            letter-spacing: -.01em;
+            color: var(--text)
+        }
+
+        .size small {
+            font-size: 10.5px;
+            letter-spacing: .04em
+        }
+
+        .size:hover {
+            background: rgba(255, 255, 255, .05)
+        }
+
+        .size.on {
+            background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 10%, transparent));
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 8px 24px color-mix(in srgb, var(--accent) 16%, transparent);
+            color: var(--text)
+        }
+
+        .capacity {
+            margin-top: 16px
+        }
+
+        .capacity .labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            letter-spacing: .04em
+        }
+
+        .capacity .labels b {
+            color: var(--text);
+            font-weight: 700
+        }
+
+        .bar {
+            height: 5px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, .07);
+            overflow: hidden
+        }
+
+        .bar span {
+            display: block;
+            height: 100%;
+            width: 0;
+            border-radius: inherit;
+            background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 60%, #fff 0%), var(--accent));
+            transition: width .45s cubic-bezier(.2, .8, .2, 1), background .6s;
+            box-shadow: 0 0 14px var(--accent)
+        }
+
+        .list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px 18px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, .15) transparent
+        }
+
+        .list::-webkit-scrollbar {
+            width: 6px
+        }
+
+        .list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .14);
+            border-radius: 9px
+        }
+
+        .item {
+            --c: #fff;
+            --p: 0%;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 14px 16px 12px;
+            transition: border-color .3s, background .3s, transform .3s;
+        }
+
+        .item.on {
+            border-color: color-mix(in srgb, var(--c) 55%, transparent);
+            background: linear-gradient(135deg, color-mix(in srgb, var(--c) 11%, transparent), rgba(255, 255, 255, .02))
+        }
+
+        .item-top {
+            display: flex;
+            align-items: center;
+            gap: 13px
+        }
+
+        .dot {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            flex: none;
+            background: radial-gradient(circle at 32% 28%, #fff9, transparent 42%), var(--c);
+            box-shadow: 0 6px 18px color-mix(in srgb, var(--c) 45%, transparent), inset 0 -6px 10px rgba(0, 0, 0, .28)
+        }
+
+        .meta {
+            flex: 1;
+            min-width: 0
+        }
+
+        .meta h3 {
+            font-size: 14.5px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .meta p {
+            font-size: 11.5px;
+            color: var(--muted);
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .stepper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: none
+        }
+
+        .stepper button {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, .04);
+            color: var(--text);
+            font: 400 18px/1 Arial, Helvetica, sans-serif;
+            cursor: pointer;
+            transition: .2s;
+            display: grid;
+            place-items: center;
+            user-select: none;
+            touch-action: manipulation
+        }
+
+        .stepper button:hover {
+            background: var(--c);
+            color: #0b0b0f;
+            border-color: var(--c)
+        }
+
+        .stepper button:active {
+            transform: scale(.9)
+        }
+
+        .stepper output {
+            min-width: 52px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums
+        }
+
+        .item-bottom {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 12px
+        }
+
+        .item-bottom input {
+            flex: 1;
+            min-width: 0
+        }
+
+        .sub {
+            flex: none;
+            font-size: 12px;
+            color: var(--muted);
+            min-width: 62px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            transition: color .3s
+        }
+
+        .item.on .sub {
+            color: var(--text)
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            border-radius: 99px;
+            outline: none;
+            cursor: pointer;
+            background: linear-gradient(90deg, var(--c) var(--p), rgba(255, 255, 255, .1) var(--p));
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid var(--c);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+            transition: transform .15s
+        }
+
+        input[type=range]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid var(--c)
+        }
+
+        input[type=range]:active::-webkit-slider-thumb {
+            transform: scale(1.2)
+        }
+
+        /* ---------- Resumen ---------- */
+        .summary {
+            padding: 18px 26px 22px;
+            border-top: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(255, 255, 255, .02), rgba(0, 0, 0, .25))
+        }
+
+        .lines {
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 96px;
+            overflow: auto;
+            margin-bottom: 14px;
+            scrollbar-width: none
+        }
+
+        .lines::-webkit-scrollbar {
+            display: none
+        }
+
+        .lines div {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px
+        }
+
+        .lines span:last-child {
+            color: var(--text);
+            font-variant-numeric: tabular-nums
+        }
+
+        .lines i {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px
+        }
+
+        .total {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 16px
+        }
+
+        .total small {
+            font-size: 10px;
+            letter-spacing: .3em;
+            text-transform: uppercase;
+            color: var(--muted)
+        }
+
+        .total strong {
+            font-weight: 700;
+            font-size: 40px;
+            letter-spacing: -.02em;
+            line-height: 1;
+            font-variant-numeric: tabular-nums
+        }
+
+        .cta {
+            width: 100%;
+            border: 0;
+            border-radius: 16px;
+            padding: 17px;
+            cursor: pointer;
+            font: 700 13px Arial, Helvetica, sans-serif;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: #14110b;
+            background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, #fff), var(--accent));
+            box-shadow: 0 12px 34px color-mix(in srgb, var(--accent) 35%, transparent);
+            transition: transform .2s, box-shadow .3s, filter .3s;
+        }
+
+        .cta:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.06)
+        }
+
+        .cta:active {
+            transform: translateY(0) scale(.99)
+        }
+
+        .cta.alt {
+            background: transparent;
+            color: var(--text);
+            box-shadow: none;
+            border: 1px solid var(--line);
+            margin-top: 10px
+        }
+
+        .cta.alt:hover {
+            border-color: var(--accent);
+            color: var(--accent)
+        }
+
+        /* ---------- Modal ---------- */
+        .modal {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: grid;
+            place-items: center;
+            background: rgba(0, 0, 0, .6);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .35s;
+            padding: 20px
+        }
+
+        .modal.open {
+            opacity: 1;
+            pointer-events: auto
+        }
+
+        .ticket {
+            width: min(380px, 100%);
+            max-height: 92vh;
+            overflow: auto;
+            background: #101015;
+            border: 1px solid var(--line);
+            border-radius: 26px;
+            padding: 30px 28px 26px;
+            transform: translateY(20px) scale(.96);
+            transition: transform .45s cubic-bezier(.2, .9, .2, 1);
+            box-shadow: 0 40px 90px rgba(0, 0, 0, .7)
+        }
+
+        .modal.open .ticket {
+            transform: none
+        }
+
+        .ticket .ok {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: var(--accent-soft);
+            color: var(--accent);
+            margin-bottom: 18px
+        }
+
+        .ticket h3 {
+            font-weight: 700;
+            font-size: 26px
+        }
+
+        .ticket p.s {
+            color: var(--muted);
+            font-size: 12.5px;
+            margin: 6px 0 20px
+        }
+
+        .ticket .lines {
+            max-height: none;
+            border-top: 1px dashed var(--line);
+            border-bottom: 1px dashed var(--line);
+            padding: 16px 0;
+            margin: 0 0 16px
+        }
+
+        .ticket .t {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 22px;
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: .1em;
+            text-transform: uppercase
+        }
+
+        .ticket .t b {
+            font-size: 30px;
+            color: var(--text);
+            letter-spacing: 0;
+            font-weight: 700
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            top: 26px;
+            transform: translate(-50%, -90px);
+            z-index: 30;
+            max-width: calc(100vw - 32px);
+            background: #16161d;
+            border: 1px solid var(--line);
+            padding: 12px 20px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            transition: transform .45s cubic-bezier(.2, .9, .2, 1);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+            text-align: center
+        }
+
+        .toast.show {
+            transform: translate(-50%, 0)
+        }
+
+        /* ---------- Tablet / overlay ---------- */
+        @media (max-width:1179px) {
+            .history {
+                top: 16px;
+                width: min(360px, 88vw)
+            }
+        }
+
+        /* ---------- Móvil ---------- */
+        @media (max-width:900px) and (min-height:561px) {
+            .brand {
+                top: calc(20px + var(--sat));
+                left: 20px
+            }
+
+            .brand small {
+                font-size: 9px;
+                margin-bottom: 6px
+            }
+
+            .brand h1 {
+                font-size: 26px
+            }
+
+            .hint {
+                display: none
+            }
+
+            .toggles {
+                bottom: calc(var(--sheet, calc(var(--vh)*46)) + 18px + var(--sab));
+                gap: 6px;
+                flex-wrap: nowrap;
+                justify-content: flex-start;
+                overflow-x: auto;
+                max-width: calc(100vw - 16px);
+                padding: 2px;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+                transition: bottom .38s cubic-bezier(.2, .85, .2, 1), left .5s
+            }
+
+            .toggles::-webkit-scrollbar {
+                display: none
+            }
+
+            .seg {
+                flex: none
+            }
+
+            .seg button {
+                padding: 8px 11px;
+                font-size: 10px;
+                letter-spacing: .05em
+            }
+
+            .hist-btn {
+                top: calc(18px + var(--sat));
+                right: 16px;
+                padding: 8px 10px 8px 14px
+            }
+
+            .empty {
+                bottom: calc(var(--bi, 0px));
+                top: 60px
+            }
+
+            .empty p {
+                margin-top: 0;
+                font-size: 16px;
+                position: absolute;
+                bottom: 6px
+            }
+
+            .history {
+                left: 8px;
+                right: 8px;
+                top: auto;
+                bottom: calc(8px + var(--sab));
+                width: auto;
+                height: calc(var(--vh)*82);
+                max-height: calc(100% - 24px);
+                border-radius: 26px;
+                transform: translateY(calc(100% + 30px))
+            }
+
+            .history::before {
+                content: "";
+                position: absolute;
+                top: 8px;
+                left: 50%;
+                width: 40px;
+                height: 4px;
+                margin-left: -20px;
+                border-radius: 9px;
+                background: rgba(255, 255, 255, .18)
+            }
+
+            .h-head {
+                padding-top: 26px
+            }
+
+            .h-del {
+                opacity: 1
+            }
+
+            .panel {
+                top: auto;
+                left: 8px;
+                right: 8px;
+                bottom: calc(8px + var(--sab));
+                width: auto;
+                min-width: 0;
+                height: var(--sheet, calc(var(--vh)*46));
+                border-radius: 26px;
+                transition: height .38s cubic-bezier(.2, .85, .2, 1);
+                will-change: height
+            }
+
+            .panel.dragging,
+            body.sheet-drag .toggles {
+                transition: none !important
+            }
+
+            .panel.min .panel-body {
+                opacity: 0;
+                pointer-events: none
+            }
+
+            .panel-body {
+                transition: opacity .25s
+            }
+
+            .grab {
+                display: block;
+                flex: none;
+                height: 30px;
+                position: relative;
+                cursor: grab;
+                touch-action: none
+            }
+
+            .grab::before {
+                content: "";
+                position: absolute;
+                top: 11px;
+                left: 50%;
+                width: 44px;
+                height: 5px;
+                margin-left: -22px;
+                border-radius: 9px;
+                background: rgba(255, 255, 255, .28)
+            }
+
+            .panel-body {
+                overflow-y: auto;
+                scrollbar-width: none
+            }
+
+            .panel-body::-webkit-scrollbar {
+                display: none
+            }
+
+            .panel-head {
+                padding: 18px 18px 8px
+            }
+
+            .panel-head h2 {
+                font-size: 20px
+            }
+
+            .panel-head p {
+                display: none
+            }
+
+            .sizes {
+                margin-top: 12px;
+                padding: 4px;
+                gap: 4px
+            }
+
+            .size {
+                padding: 8px 6px 7px;
+                flex-direction: row;
+                justify-content: center;
+                gap: 8px;
+                align-items: baseline
+            }
+
+            .size b {
+                font-size: 16px
+            }
+
+            .size small {
+                font-size: 10px
+            }
+
+            .capacity {
+                margin-top: 12px
+            }
+
+            .list {
+                overflow: visible;
+                flex: none;
+                padding: 6px 12px 14px
+            }
+
+            .item {
+                padding: 12px 14px 10px
+            }
+
+            .dot {
+                width: 34px;
+                height: 34px
+            }
+
+            .summary {
+                padding: 12px 16px 14px;
+                display: flex;
+                align-items: center;
+                gap: 14px
+            }
+
+            .lines {
+                display: none
+            }
+
+            .total {
+                margin: 0;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px
+            }
+
+            .total strong {
+                font-size: 28px
+            }
+
+            .cta {
+                padding: 15px;
+                flex: 1;
+                width: auto;
+                font-size: 12px;
+                letter-spacing: .1em
+            }
+
+            .banner {
+                top: calc(72px + var(--sat))
+            }
+
+            .ticket {
+                padding: 26px 22px 22px
+            }
+        }
+
+        @media (max-width:380px) {
+            .panel-head .row {
+                flex-wrap: wrap
+            }
+
+            .stepper output {
+                min-width: 44px
+            }
+        }
+
+        /* ---------- Horizontal bajo (celular girado) ---------- */
+        @media (max-height:560px) {
+            .brand {
+                top: 14px;
+                left: 18px
+            }
+
+            .brand small {
+                display: none
+            }
+
+            .brand h1 {
+                font-size: 22px
+            }
+
+            .hint {
+                display: none
+            }
+
+            .toggles {
+                bottom: 12px
+            }
+
+            .seg button {
+                padding: 8px 12px
+            }
+
+            .hist-btn {
+                top: 12px;
+                padding: 7px 9px 7px 12px
+            }
+
+            .empty p {
+                margin-top: 210px;
+                font-size: 15px
+            }
+
+            .history {
+                top: 60px;
+                bottom: 10px;
+                width: min(330px, 60vw)
+            }
+
+            .panel {
+                top: 10px;
+                bottom: 10px;
+                right: 10px;
+                min-width: 300px;
+                width: min(400px, 46vw);
+                border-radius: 22px
+            }
+
+            .panel-head {
+                padding: 14px 16px 6px
+            }
+
+            .panel-head h2 {
+                font-size: 18px
+            }
+
+            .panel-head p {
+                display: none
+            }
+
+            .ghost {
+                padding: 7px 10px;
+                font-size: 10px
+            }
+
+            .sizes {
+                margin-top: 10px;
+                padding: 3px;
+                gap: 3px
+            }
+
+            .size {
+                padding: 6px 4px;
+                flex-direction: row;
+                justify-content: center;
+                gap: 6px;
+                align-items: baseline
+            }
+
+            .size b {
+                font-size: 15px
+            }
+
+            .size small {
+                font-size: 9.5px
+            }
+
+            .capacity {
+                margin-top: 8px
+            }
+
+            .capacity .labels {
+                margin-bottom: 5px
+            }
+
+            .list {
+                padding: 4px 12px 10px;
+                gap: 8px
+            }
+
+            .item {
+                padding: 10px 12px 8px
+            }
+
+            .dot {
+                width: 30px;
+                height: 30px
+            }
+
+            .item-bottom {
+                margin-top: 8px
+            }
+
+            .summary {
+                padding: 10px 14px;
+                display: flex;
+                align-items: center;
+                gap: 12px
+            }
+
+            .lines {
+                display: none
+            }
+
+            .total {
+                margin: 0;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 3px
+            }
+
+            .total strong {
+                font-size: 24px
+            }
+
+            .cta {
+                padding: 13px;
+                flex: 1;
+                width: auto;
+                font-size: 11px;
+                letter-spacing: .1em
+            }
+
+            .banner {
+                top: 10px
+            }
+
+            .ticket {
+                padding: 20px 20px 18px
+            }
+        }
+
+        #lite {
+            position: fixed;
+            left: var(--cx);
+            top: 0;
+            bottom: 0;
+            width: min(320px, 100vw);
+            transform: translateX(-50%);
+            display: none;
+            z-index: 2;
+            pointer-events: none
+        }
+
+        #lite svg {
+            width: 100%;
+            height: 100%
+        }
+
+        #lite .g {
+            transition: transform .9s cubic-bezier(.4, 0, .2, 1);
+            -webkit-transition: -webkit-transform .9s
+        }
+
+        body.lite #lite {
+            display: block
+        }
+
+        body.lite canvas#stage {
+            display: none
+        }
+
+        .lbl {
+            position: fixed;
+            z-index: 5;
+            left: 0;
+            top: 0;
+            font-size: 10px;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .5s;
+            white-space: nowrap
+        }
+
+        body.exploded .lbl {
+            opacity: 1
+        }
+
+        @media (prefers-reduced-motion:reduce) {
+            * {
+                animation-duration: .01ms !important;
+                transition-duration: .01ms !important
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="stage"></canvas>
+    <div id="lite" aria-hidden="true"><svg viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg">
+            <g class="g" id="liteLid">
+                <g transform="translate(0 94)">
+                    <path d="M52 84h96l-4 14H56z" fill="#d9d9d6" />
+                    <rect x="48" y="76" width="104" height="10" rx="5" fill="#e8e8e5" />
+                </g>
+            </g>
+            <g class="g" id="liteBody">
+                <path id="liteLiq" d="M62 250l76 0-8 70H70z" fill="#d9b97f" />
+            </g>
+            <g class="g" id="liteCup">
+                <path d="M56 190h88l-14 128q-1 8-9 8H79q-8 0-9-8z" fill="rgba(255,255,255,.14)"
+                    stroke="rgba(255,255,255,.45)" stroke-width="2" />
+                <image id="liteLogo" x="78" y="215" width="44" height="64" style="display:none" />
+            </g>
+            <g class="g" id="liteBag" style="transform:translate3d(240px,0,0)">
+                <path d="M34 176h132v176H34z" fill="#c49a6a" />
+                <path d="M34 176h132v10H34z" fill="#b08657" />
+                <path d="M34 164h132l-6 12H40z" fill="#e0c9a8" />
+                <path d="M34 176h132" stroke="#8f6a40" stroke-width="2" />
+                <image id="liteBagLogo" x="70" y="205" width="60" height="70" style="display:none" />
+            </g>
+        </svg></div>
+    <span class="lbl" id="lbLid">Tapa</span><span class="lbl" id="lbBody">Tu mezcla</span><span class="lbl"
+        id="lbCup">Vaso</span>
+
+    <header class="brand">
+        <small>Atelier de bebidas</small>
+        <h1>Blend <em>Studio</em></h1>
+        <a class="pw" href="https://geinztech.com" target="_blank" rel="noopener"><i></i>Powered by <b>Geinz</b></a>
+    </header>
+    <div class="hint"><i></i> Arrastra para girar 360° · Rueda para zoom <i></i></div>
+    <div class="empty" id="empty">
+        <p>Tu vaso solo tiene agua.<br>Elige tus insumos para comenzar.</p>
+    </div>
+
+    <button class="hist-btn" id="histBtn" aria-label="Abrir historial">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 4v5h5" />
+            <path d="M12 7.5V12l3 2" />
+        </svg>
+        <span>Historial</span>
+        <span class="badge" id="histCount">0</span>
+    </button>
+
+    <div class="toggles">
+        <div class="seg" id="viewToggle" role="radiogroup" aria-label="Vista de la bebida">
+            <button class="on" data-view="batido" role="radio" aria-checked="true">Batido</button>
+            <button data-view="capas" role="radio" aria-checked="false">Capas</button>
+        </div>
+        <div class="seg" id="cupToggle" role="radiogroup" aria-label="Estilo del vaso">
+            <button class="on" data-cup="blanco" role="radio" aria-checked="true">Blanco</button>
+            <button data-cup="transparente" role="radio" aria-checked="false">Transparente</button>
+        </div>
+        <div class="seg" id="logoSeg"><button id="btnLogo">Subir logo</button><button
+                id="btnLogoUrl">URL</button><button id="btnLogoX" style="display:none">Quitar</button></div>
+        <input type="file" id="logoFile" accept="image/*" style="display:none">
+        <div class="seg"><button id="btnPack">¿Cómo se ve tu pedido?</button></div>
+        <div class="seg"><button id="btnExplode" aria-pressed="false">Desarmar</button></div>
+    </div>
+
+    <div class="scrim" id="scrim"></div>
+
+    <!-- Historial -->
+    <aside class="history" id="history" aria-label="Historial de mezclas">
+        <div class="h-head">
+            <div class="h-title">
+                <div>
+                    <h2>Historial</h2>
+                    <p>Toca una mezcla para verla prepararse</p>
+                </div>
+                <button class="icon-btn" id="histClose" aria-label="Cerrar historial">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="tabs" id="tabs">
+                <button class="tab on" data-tab="all">Todas</button>
+                <button class="tab" data-tab="mine">Mis pedidos</button>
+            </div>
+        </div>
+        <div class="h-list" id="hList"></div>
+    </aside>
+
+    <!-- Banner de preparación -->
+    <div class="banner" id="banner" role="status" aria-live="polite">
+        <div class="row">
+            <div class="spin"></div>
+            <svg class="okic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9.5" />
+                <path d="M8 12.5l3 3 5-6" />
+            </svg>
+            <div style="min-width:0">
+                <h5 id="bnState">Preparando</h5>
+                <p id="bnName">—</p>
+            </div>
+            <div class="cur" id="bnCur"></div>
+        </div>
+        <div class="pbar"><span id="bnBar"></span></div>
+    </div>
+
+    <!-- Panel de armado -->
+    <aside class="panel" id="panel">
+        <div class="grab" id="grab" role="button" aria-label="Subir o bajar el panel"></div>
+        <div class="panel-body">
+            <div class="panel-head">
+                <div class="row">
+                    <div>
+                        <h2>Arma tu bebida</h2>
+                        <p>Cada insumo se cobra por gramo.</p>
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <button class="ghost" id="btnRandom" title="Mezcla sorpresa">Sorpréndeme</button>
+                        <button class="ghost" id="btnClear">Vaciar</button>
+                    </div>
+                </div>
+                <div class="sizes" id="sizes" role="radiogroup" aria-label="Tamaño del vaso"></div>
+                <div class="capacity">
+                    <div class="labels"><span>Insumos · el resto es agua</span><span><b id="gramsTotal">0</b> / <span
+                                id="gramsMax">400</span> g</span></div>
+                    <div class="bar"><span id="barFill"></span></div>
+                </div>
+            </div>
+            <div class="list" id="list"></div>
+        </div>
+
+        <div class="summary">
+            <div class="lines" id="lines"></div>
+            <div class="total"><small>Total</small><strong id="total">S/ 0.00</strong></div>
+            <button class="cta" id="btnOrder">Confirmar pedido</button>
+        </div>
+    </aside>
+
+    <div class="modal" id="modal">
+        <div class="ticket">
+            <div class="ok"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg></div>
+            <h3>Tu bebida está lista</h3>
+            <p class="s">Guardada en tu historial</p>
+            <div class="lines" id="ticketLines"></div>
+            <div class="t"><span>Total</span><b id="ticketTotal">S/ 0.00</b></div>
+            <button class="cta" id="btnClose">Listo</button>
+            <button class="cta alt" id="btnSeeHist">Ver historial</button>
+            <span class="pw-t">Tecnología de <b>Geinz</b></span>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        (() => {
+            'use strict';
+
+            /* =========================================================
+               CONFIGURACIÓN — cambia precios, colores y límites aquí
+               ========================================================= */
+            const SIZES = {
+                12: { oz: 12, ml: 355, price: 5.00, max: 340, scale: 0.92 },
+                14: { oz: 14, ml: 414, price: 6.00, max: 400, scale: 1.00 },
+            };
+            const STEP = 10;                       // incremento en gramos
+            const STORAGE_KEY = 'blendstudio.history.v1';
+            const MAX_HISTORY = 40;
+
+            const INGREDIENTS = [
+                { id: 'arandano', name: 'Arándano', price100: 4.50, color: '#4a3aa8' },
+                { id: 'fresa', name: 'Fresa', price100: 3.50, color: '#e2304e' },
+                { id: 'platano', name: 'Plátano', price100: 2.00, color: '#f4d765' },
+                { id: 'mango', name: 'Mango', price100: 3.00, color: '#ffa726' },
+                { id: 'kiwi', name: 'Kiwi', price100: 3.50, color: '#86c232' },
+                { id: 'maracuya', name: 'Maracuyá', price100: 3.80, color: '#f2b705' },
+                { id: 'palta', name: 'Palta', price100: 4.00, color: '#a9c46a' },
+            ];
+            const ING = Object.fromEntries(INGREDIENTS.map(i => [i.id, i]));
+
+            /* =========================================================
+               ESTADO
+               ========================================================= */
+            let size = 14;
+            let CUP_PRICE = SIZES[size].price;
+            let MAX_GRAMS = SIZES[size].max;
+            let cupScale = SIZES[size].scale, cupScaleTarget = cupScale;
+
+            const grams = {}, shown = {};
+            INGREDIENTS.forEach(i => { grams[i.id] = 0; shown[i.id] = 0; });
+            let stack = [];
+            let wobble = 0;
+            let lastAdd = -99;
+            let activeId = null;
+
+            const $ = (s, r = document) => r.querySelector(s);
+            const money = n => 'S/ ' + n.toFixed(2);
+            const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const now = () => performance.now() / 1000;
+            const totalGrams = () => INGREDIENTS.reduce((a, i) => a + grams[i.id], 0);
+            const totalPrice = () => CUP_PRICE + INGREDIENTS.reduce((a, i) => a + grams[i.id] / 100 * i.price100, 0);
+
+            // Colores suavizados para que la mezcla se vea cremosa y armónica
+            const CREAM = new THREE.Color('#f6ece2');
+            const soften = (hex, k = .14) => new THREE.Color(hex).lerp(CREAM, k);
+            const softHex = (hex, k) => '#' + soften(hex, k).getHexString();
+            const WATER_HEX = '#a9ddf0';   // el resto del vaso siempre es agua (incluida, sin costo)
+
+            // Color real de cada fruta ya licuada (c) y qué tanto tiñe la mezcla (w)
+            const BLEND = {
+                arandano: { c: '#7a5aa3', w: 1.5 },
+                fresa: { c: '#ea7a8e', w: 1.1 },
+                platano: { c: '#f1e2ae', w: .7 },
+                mango: { c: '#f8b04a', w: 1.1 },
+                kiwi: { c: '#a3bf57', w: 1.0 },
+                maracuya: { c: '#f3c84e', w: 1.0 },
+                palta: { c: '#b9cb7c', w: .9 },
+            };
+            const MILKY = '#efe8df';
+            // Mezcla en espacio lineal (como la luz real), ponderada por gramos y diluida con el agua restante
+            function mixColor(g, max) {
+                let tw = 0, r = 0, gg = 0, b = 0, tot = 0;
+                Object.keys(g).forEach(id => {
+                    const gr = g[id] || 0; if (!gr || !BLEND[id]) return;
+                    const c = new THREE.Color(BLEND[id].c).convertSRGBToLinear(), w = gr * BLEND[id].w;
+                    tot += gr; tw += w; r += c.r * w; gg += c.g * w; b += c.b * w;
+                });
+                const water = new THREE.Color(WATER_HEX).convertSRGBToLinear();
+                if (!tot) return '#' + water.convertLinearToSRGB().getHexString();
+                const fruit = new THREE.Color(r / tw, gg / tw, b / tw);
+                const f = Math.min(1, tot / max);
+                const dil = water.clone().lerp(new THREE.Color(MILKY).convertSRGBToLinear(), Math.min(1, f * 6));
+                const out = dil.lerp(fruit, Math.min(1, Math.pow(f, .4))).convertLinearToSRGB();
+                const hsl = {}; out.getHSL(hsl); out.setHSL(hsl.h, Math.min(1, hsl.s * 1.3), hsl.l);   // un poco más vivo, como fruta fresca
+                return '#' + out.getHexString();
+            }
+
+            /* =========================================================
+               HISTORIAL (se guarda en el navegador)
+               ========================================================= */
+            const store = {
+                get() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { return null; } },
+                set(v) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); } catch (e) { } },
+            };
+            const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            const min = 60000;
+
+            function seedHistory() {
+                const t = Date.now();
+                return [
+                    { id: rid(), name: 'Sunset Tropical', oz: 14, grams: { mango: 120, maracuya: 70, platano: 60 }, order: ['platano', 'mango', 'maracuya'], ts: t - 14 * min, seed: true },
+                    { id: rid(), name: 'Bosque Violeta', oz: 14, grams: { platano: 80, fresa: 60, arandano: 90 }, order: ['platano', 'fresa', 'arandano'], ts: t - 52 * min, seed: true },
+                    { id: rid(), name: 'Verde Cremoso', oz: 12, grams: { platano: 70, kiwi: 80, palta: 90 }, order: ['palta', 'kiwi', 'platano'], ts: t - 3 * 60 * min, seed: true },
+                    { id: rid(), name: 'Fresa & Plátano', oz: 12, grams: { platano: 100, fresa: 120 }, order: ['platano', 'fresa'], ts: t - 26 * 60 * min, seed: true },
+                    { id: rid(), name: 'Puro Mango', oz: 14, grams: { mango: 240 }, order: ['mango'], ts: t - 2 * 24 * 60 * min, seed: true },
+                ];
+            }
+            let history = (Array.isArray(store.get()) && store.get().length) ? store.get() : seedHistory();
+            store.set(history);
+            let tab = 'all';
+            let freshId = null;
+
+            const entryGrams = e => Object.values(e.grams).reduce((a, b) => a + b, 0);
+            const entryPrice = e => SIZES[e.oz].price + Object.entries(e.grams).reduce((a, [id, g]) => a + g / 100 * (ING[id] ? ING[id].price100 : 0), 0);
+
+            function ago(ts) {
+                const m = Math.round((Date.now() - ts) / min);
+                if (m < 1) return 'justo ahora';
+                if (m < 60) return `hace ${m} min`;
+                const h = Math.round(m / 60);
+                if (h < 24) return `hace ${h} h`;
+                const d = Math.round(h / 24);
+                return d === 1 ? 'ayer' : `hace ${d} días`;
+            }
+            function autoName(g) {
+                const ids = Object.keys(g).filter(id => g[id] > 0).sort((a, b) => g[b] - g[a]);
+                const nm = id => ING[id].name;
+                if (ids.length === 1) return 'Puro ' + nm(ids[0]);
+                if (ids.length === 2) return nm(ids[0]) + ' & ' + nm(ids[1]);
+                return nm(ids[0]) + ' · ' + nm(ids[1]) + ' +' + (ids.length - 2);
+            }
+            function miniGradient(e) { return mixColor(e.grams, SIZES[e.oz].max); }
+            function miniGradientLayers(e) {
+                const ids = e.order.filter(id => e.grams[id] > 0 && ING[id]);
+                const tot = ids.reduce((a, id) => a + e.grams[id], 0);
+                if (ids.length === 1) return softHex(ING[ids[0]].color);
+                let acc = 0; const stops = [];
+                ids.forEach(id => {
+                    const g = e.grams[id], mid = (acc + g / 2) / tot * 100; acc += g;
+                    stops.push(`${softHex(ING[id].color)} ${Math.max(0, mid - 14).toFixed(1)}%`, `${softHex(ING[id].color)} ${Math.min(100, mid + 14).toFixed(1)}%`);
+                });
+                return `linear-gradient(to top, ${stops.join(',')})`;
+            }
+
+            const hList = $('#hList');
+            function renderHistory() {
+                $('#histCount').textContent = history.length;
+                const items = history.filter(e => tab === 'all' || !e.seed);
+                if (!items.length) {
+                    hList.innerHTML = `<div class="h-empty"><b>Aún no hay pedidos tuyos</b>Arma una bebida y confírmala<br>para verla aquí.</div>`;
+                    return;
+                }
+                hList.innerHTML = items.map((e, i) => {
+                    const ids = e.order.filter(id => e.grams[id] > 0 && ING[id]);
+                    const fill = 100;
+                    const chips = ids.slice(0, 3).map(id => `<span><i style="background:${ING[id].color}"></i>${ING[id].name} ${e.grams[id]}g</span>`).join('')
+                        + (ids.length > 3 ? `<span>+${ids.length - 3}</span>` : '');
+                    return `
+      <article class="h-card${e.id === activeId ? ' active' : ''}${e.id === freshId ? ' fresh' : ''}" data-id="${esc(e.id)}" tabindex="0" role="button" aria-label="Preparar ${esc(e.name)}" style="animation-delay:${Math.min(i, 8) * 45}ms">
+        <div class="mini">
+          <div class="shape"><div class="fill" style="height:${fill}%;background:${miniGradient(e)}"></div></div>
+          <div class="play"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></span></div>
+        </div>
+        <div class="h-info">
+          <div class="h-top"><h4>${esc(e.name)}</h4>${e.seed ? '<span class="tag">Popular</span>' : ''}</div>
+          <div class="h-meta">${e.oz} oz · <b>${money(entryPrice(e))}</b> · ${entryGrams(e)} g</div>
+          <div class="chips">${chips}</div>
+          <div class="h-time">${ago(e.ts)}</div>
+        </div>
+        <button class="h-del" data-del="${esc(e.id)}" aria-label="Eliminar">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </article>`;
+                }).join('');
+            }
+
+            hList.addEventListener('click', ev => {
+                const del = ev.target.closest('[data-del]');
+                if (del) {
+                    ev.stopPropagation();
+                    const id = del.dataset.del;
+                    history = history.filter(e => e.id !== id);
+                    if (activeId === id) activeId = null;
+                    store.set(history); renderHistory();
+                    return;
+                }
+                const card = ev.target.closest('.h-card');
+                if (card) { const e = history.find(x => x.id === card.dataset.id); if (e) loadEntry(e); }
+            });
+            hList.addEventListener('keydown', ev => {
+                if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList.contains('h-card')) {
+                    ev.preventDefault(); const e = history.find(x => x.id === ev.target.dataset.id); if (e) loadEntry(e);
+                }
+            });
+            $('#tabs').addEventListener('click', ev => {
+                const b = ev.target.closest('.tab'); if (!b) return;
+                tab = b.dataset.tab;
+                document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t === b));
+                renderHistory();
+            });
+            setInterval(renderHistory, 60000);
+
+            function addHistory() {
+                const g = {}; INGREDIENTS.forEach(i => { if (grams[i.id] > 0) g[i.id] = grams[i.id]; });
+                const entry = { id: rid(), name: autoName(g), oz: size, grams: g, order: stack.filter(id => grams[id] > 0), ts: Date.now() };
+                history.unshift(entry);
+                history = history.slice(0, MAX_HISTORY);
+                store.set(history);
+                freshId = entry.id; activeId = null; tab = 'all';
+                document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === 'all'));
+                renderHistory();
+                hList.scrollTop = 0;
+                setTimeout(() => { freshId = null; }, 2500);
+            }
+
+            /* ---------- Banner de preparación ---------- */
+            const banner = $('#banner');
+            let bannerTimer;
+            function showBanner(name, oz) {
+                clearTimeout(bannerTimer);
+                banner.classList.remove('done'); banner.classList.add('show');
+                $('#bnState').textContent = 'Preparando · ' + oz + ' oz';
+                $('#bnName').textContent = name; $('#bnCur').innerHTML = ''; $('#bnBar').style.width = '0%';
+            }
+            function updateBanner(pct, id, g) {
+                $('#bnBar').style.width = pct + '%';
+                $('#bnCur').innerHTML = `<i style="background:${ING[id].color};color:${ING[id].color}"></i>${ING[id].name} · ${g} g`;
+            }
+            function doneBanner() {
+                banner.classList.add('done');
+                $('#bnState').textContent = '¡Lista! Puedes editarla o pedirla';
+                $('#bnBar').style.width = '100%'; $('#bnCur').innerHTML = '';
+                bannerTimer = setTimeout(hideBanner, 2800);
+            }
+            function hideBanner() { clearTimeout(bannerTimer); banner.classList.remove('show'); }
+
+            /* ---------- Reproducir una mezcla del historial ---------- */
+            let prepToken = 0;
+            function cancelPrep() {
+                prepToken++;
+                if (banner.classList.contains('show') && !banner.classList.contains('done')) hideBanner();
+                if (activeId) { activeId = null; renderHistory(); }
+            }
+            function loadEntry(e) {
+                const token = ++prepToken;
+                activeId = e.id; renderHistory();
+                if (window.innerWidth < 1180) setHistory(false);
+
+                INGREDIENTS.forEach(i => grams[i.id] = 0);
+                setSize(e.oz, true);
+                refreshUI();
+                showBanner(e.name, e.oz);
+
+                const steps = [];
+                e.order.forEach(id => { if (!ING[id]) return; for (let g = STEP; g <= (e.grams[id] || 0); g += STEP) steps.push([id, g]); });
+                const delay = Math.max(34, Math.min(110, 3200 / Math.max(1, steps.length)));
+
+                setTimeout(() => {
+                    if (token !== prepToken) return;
+                    hardReset();
+                    let k = 0;
+                    (function run() {
+                        if (token !== prepToken) return;
+                        if (k >= steps.length) { doneBanner(); return; }
+                        const [id, g] = steps[k++];
+                        if (!stack.includes(id)) stack.push(id);
+                        grams[id] = g;
+                        lastAdd = now(); wobble = 1;
+                        if (g % 30 === STEP % 30 || g === STEP) spawnDrops(id, 3);
+                        updateBanner(k / steps.length * 100, id, g);
+                        refreshUI();
+                        setTimeout(run, delay);
+                    })();
+                }, 650);
+            }
+
+            /* =========================================================
+               UI DEL PANEL
+               ========================================================= */
+            const listEl = $('#list');
+            const cards = {};
+            $('#gramsMax').textContent = MAX_GRAMS;
+
+            const sizesEl = $('#sizes');
+            Object.values(SIZES).forEach(s => {
+                const b = document.createElement('button');
+                b.className = 'size' + (s.oz === size ? ' on' : '');
+                b.dataset.size = s.oz; b.setAttribute('role', 'radio');
+                b.innerHTML = `<b>${s.oz} oz</b><small>${s.ml} ml · ${money(s.price)}</small>`;
+                b.onclick = () => { cancelPrep(); setSize(s.oz); };
+                sizesEl.appendChild(b);
+            });
+
+            function setSize(oz, silent) {
+                if (oz === size) return;
+                size = oz;
+                const s = SIZES[oz];
+                CUP_PRICE = s.price; MAX_GRAMS = s.max; cupScaleTarget = s.scale;
+                let excess = totalGrams() - MAX_GRAMS, trimmed = false;
+                for (let k = stack.length - 1; k >= 0 && excess > 0; k--) {
+                    const id = stack[k], cut = Math.min(grams[id], Math.ceil(excess / STEP) * STEP);
+                    grams[id] -= cut; excess -= cut; trimmed = true;
+                }
+                sizesEl.querySelectorAll('.size').forEach(b => b.classList.toggle('on', +b.dataset.size === oz));
+                $('#gramsMax').textContent = MAX_GRAMS;
+                Object.values(cards).forEach(c => { c.range.max = MAX_GRAMS; });
+                refreshUI();
+                wobble = 1;
+                if (!silent) toast(trimmed ? `Vaso de ${oz} oz: ajusté las cantidades para que quepan` : `Vaso de ${oz} oz seleccionado`);
+            }
+
+            INGREDIENTS.forEach(ing => {
+                const el = document.createElement('article');
+                el.className = 'item';
+                el.style.setProperty('--c', ing.color);
+                el.innerHTML = `
+      <div class="item-top">
+        <span class="dot"></span>
+        <div class="meta"><h3>${ing.name}</h3><p>${money(ing.price100)} / 100 g</p></div>
+        <div class="stepper">
+          <button class="minus" aria-label="Menos ${ing.name}">−</button>
+          <output>0 g</output>
+          <button class="plus" aria-label="Más ${ing.name}">+</button>
+        </div>
+      </div>
+      <div class="item-bottom">
+        <input type="range" min="0" max="${MAX_GRAMS}" step="${STEP}" value="0" aria-label="Gramos de ${ing.name}">
+        <span class="sub">${money(0)}</span>
+      </div>`;
+                listEl.appendChild(el);
+                cards[ing.id] = { el, out: $('output', el), range: $('input', el), sub: $('.sub', el) };
+
+                holdButton($('.minus', el), () => { cancelPrep(); setGrams(ing.id, grams[ing.id] - STEP); });
+                holdButton($('.plus', el), () => { cancelPrep(); setGrams(ing.id, grams[ing.id] + STEP); });
+                cards[ing.id].range.addEventListener('input', e => {
+                    cancelPrep();
+                    setGrams(ing.id, +e.target.value);
+                    e.target.value = grams[ing.id];
+                });
+            });
+
+            function holdButton(btn, fn) {
+                let t1, t2;
+                const stop = () => { clearTimeout(t1); clearInterval(t2); };
+                btn.addEventListener('pointerdown', e => {
+                    e.preventDefault(); fn();
+                    t1 = setTimeout(() => { t2 = setInterval(fn, 90); }, 380);
+                });
+                ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+            }
+
+            function setGrams(id, v) {
+                const others = totalGrams() - grams[id];
+                v = Math.max(0, Math.min(Math.round(v / STEP) * STEP, MAX_GRAMS - others));
+                const old = grams[id];
+                if (v === old) return;
+                grams[id] = v;
+                if (old === 0 && v > 0 && !stack.includes(id)) stack.push(id);
+                if (v > old) { spawnDrops(id, 8); wobble = 1; lastAdd = now(); }
+                refreshUI();
+            }
+
+            const totalEl = $('#total');
+            let shownTotal = 0, targetTotal = 0;
+
+            function refreshUI() {
+                const tg = totalGrams();
+                INGREDIENTS.forEach(ing => {
+                    const c = cards[ing.id], g = grams[ing.id];
+                    c.out.textContent = g + ' g';
+                    c.range.value = g;
+                    c.range.style.setProperty('--p', (g / MAX_GRAMS * 100) + '%');
+                    c.range.style.setProperty('--c', ing.color);
+                    c.sub.textContent = money(g / 100 * ing.price100);
+                    c.el.classList.toggle('on', g > 0);
+                });
+                $('#gramsTotal').textContent = tg;
+                $('#barFill').style.width = (tg / MAX_GRAMS * 100) + '%';
+                $('#empty').classList.toggle('hide', tg > 0);
+                $('#lines').innerHTML = linesHTML();
+                targetTotal = tg === 0 ? 0 : totalPrice();
+                updateAccent();
+            }
+
+            function linesHTML() {
+                const rows = [`<div><span>Vaso ${size} oz</span><span>${money(CUP_PRICE)}</span></div>`];
+                INGREDIENTS.forEach(i => {
+                    if (grams[i.id] > 0) rows.push(
+                        `<div><span><i style="background:${i.color}"></i>${i.name} · ${grams[i.id]} g</span><span>${money(grams[i.id] / 100 * i.price100)}</span></div>`);
+                });
+                const water = Math.max(0, MAX_GRAMS - totalGrams());
+                if (water > 0) rows.push(`<div><span><i style="background:${WATER_HEX}"></i>Agua · ${water} g</span><span>Incluida</span></div>`);
+                return rows.join('');
+            }
+
+            (function tickTotal() {
+                shownTotal += (targetTotal - shownTotal) * 0.16;
+                if (Math.abs(targetTotal - shownTotal) < 0.005) shownTotal = targetTotal;
+                totalEl.textContent = money(shownTotal);
+                requestAnimationFrame(tickTotal);
+            })();
+
+            const accentColor = new THREE.Color('#d9b97f');
+            const accentTarget = new THREE.Color('#d9b97f');
+            function updateAccent() {
+                const tg = totalGrams();
+                if (tg === 0) { accentTarget.set('#d9b97f'); return; }
+                let r = 0, g = 0, b = 0;
+                INGREDIENTS.forEach(i => {
+                    const w = grams[i.id] / tg, c = new THREE.Color(i.color);
+                    r += c.r * w; g += c.g * w; b += c.b * w;
+                });
+                const col = new THREE.Color(r, g, b);
+                const hsl = {}; col.getHSL(hsl);
+                col.setHSL(hsl.h, Math.min(1, hsl.s * 1.15 + .05), Math.max(.58, Math.min(.72, hsl.l + .18)));
+                accentTarget.copy(col);
+            }
+
+            $('#btnClear').onclick = () => { cancelPrep(); INGREDIENTS.forEach(i => grams[i.id] = 0); refreshUI(); };
+            $('#btnRandom').onclick = () => {
+                cancelPrep();
+                const tk = prepToken;
+                INGREDIENTS.forEach(i => grams[i.id] = 0);
+                const pick = [...INGREDIENTS].sort(() => Math.random() - .5).slice(0, 3 + Math.floor(Math.random() * 2));
+                pick.forEach((ing, k) => setTimeout(() => { if (tk === prepToken) setGrams(ing.id, 50 + Math.floor(Math.random() * 7) * STEP); }, k * 260));
+                refreshUI();
+            };
+
+            function toast(msg) {
+                const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+                clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2400);
+            }
+
+            $('#btnOrder').onclick = () => {
+                if (totalGrams() === 0) return toast('Agrega al menos un insumo a tu vaso');
+                $('#ticketLines').innerHTML = linesHTML();
+                $('#ticketTotal').textContent = money(totalPrice());
+                addHistory();
+                $('#modal').classList.add('open');
+            };
+            $('#btnClose').onclick = () => $('#modal').classList.remove('open');
+            $('#btnSeeHist').onclick = () => { $('#modal').classList.remove('open'); setHistory(true); };
+            $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') $('#modal').classList.remove('open'); });
+
+            /* ---------- Abrir / cerrar historial ---------- */
+            let histOpen = false;
+            function setHistory(open) { histOpen = open; layout(); }
+            $('#histBtn').onclick = () => setHistory(!histOpen);
+            $('#histClose').onclick = () => setHistory(false);
+            $('#scrim').onclick = () => setHistory(false);
+            addEventListener('keydown', e => { if (e.key === 'Escape') { $('#modal').classList.remove('open'); if (innerWidth < 1180) setHistory(false); } });
+
+            /* =========================================================
+               ESCENA 3D
+               ========================================================= */
+            const canvas = $('#stage');
+            // Modo ligero: sin WebGL, poca RAM/CPU o ?lite=1 -> vaso en SVG/CSS (sin 3D)
+            let GL = !/[?&]lite=1/.test(location.search) && !(navigator.deviceMemory && navigator.deviceMemory < 1) && !(navigator.hardwareConcurrency && navigator.hardwareConcurrency < 2);
+            let renderer;
+            try { if (GL) renderer = new THREE.WebGLRenderer({ canvas, antialias: devicePixelRatio < 2, alpha: true, powerPreference: 'high-performance' }); else throw 0; }
+            catch (_) { GL = false; renderer = { setPixelRatio() { }, setSize() { }, render() { }, set outputEncoding(v) { }, set toneMapping(v) { }, set toneMappingExposure(v) { } }; document.body.classList.add('lite'); }
+            const lowEnd = !GL || (navigator.deviceMemory && navigator.deviceMemory <= 2);
+            if (lowEnd) document.body.classList.add('lowend');
+            let prCur = Math.min(devicePixelRatio, lowEnd ? 1 : 2);
+            renderer.setPixelRatio(prCur);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.05;
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
+            const LOOK = new THREE.Vector3(0, 1.75, 0);
+            let dist = 10.5, distTarget = 10.5;
+
+            // Entorno procedural (softboxes) para reflejos en cristal y tapa
+            if (GL) (function makeEnv() {
+                const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+                const x = c.getContext('2d');
+                const g = x.createLinearGradient(0, 0, 0, 512);
+                g.addColorStop(0, '#1b1b26'); g.addColorStop(.5, '#0a0a10'); g.addColorStop(1, '#030305');
+                x.fillStyle = g; x.fillRect(0, 0, 1024, 512);
+                const box = (px, py, w, h, a, col = '255,255,255') => {
+                    const gg = x.createLinearGradient(px, py, px, py + h);
+                    gg.addColorStop(0, `rgba(${col},${a})`); gg.addColorStop(1, `rgba(${col},${a * .35})`);
+                    x.fillStyle = gg;
+                    x.beginPath(); x.roundRect ? x.roundRect(px, py, w, h, 14) : x.rect(px, py, w, h); x.fill();
+                };
+                box(120, 90, 90, 300, .95);
+                box(420, 60, 150, 90, .85, '255,236,210');
+                box(760, 110, 70, 280, .9);
+                box(930, 150, 40, 200, .6, '190,200,255');
+                box(300, 330, 280, 28, .35, '255,255,255');
+                const tex = new THREE.CanvasTexture(c);
+                tex.encoding = THREE.sRGBEncoding;
+                const pm = new THREE.PMREMGenerator(renderer);
+                scene.environment = pm.fromEquirectangular(tex).texture;
+                tex.dispose(); pm.dispose();
+            })();
+
+            scene.add(new THREE.AmbientLight(0xffffff, .24));
+            const key = new THREE.DirectionalLight(0xfff1dc, 1.6); key.position.set(4, 7, 5); scene.add(key);
+            const rim = new THREE.DirectionalLight(0x8f9bff, 1.4); rim.position.set(-6, 4, -5); scene.add(rim);
+            const under = new THREE.PointLight(0xffffff, 1.2, 9, 2); under.position.set(0, 0.5, 0); scene.add(under);
+
+            const world = new THREE.Group(); scene.add(world);
+
+            // --- Plataforma ---
+            const platform = new THREE.Mesh(
+                new THREE.CylinderGeometry(2.05, 2.15, 0.22, 96),
+                new THREE.MeshStandardMaterial({ color: 0x0b0b10, metalness: .85, roughness: .28, envMapIntensity: .9 })
+            );
+            platform.position.y = -0.11; world.add(platform);
+
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: accentColor.clone(), emissiveIntensity: 1.6, roughness: .4 });
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(1.72, 0.012, 12, 160), ringMat);
+            ring.rotation.x = Math.PI / 2; ring.position.y = 0.002; world.add(ring);
+            const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.95, 0.006, 12, 160), ringMat);
+            ring2.rotation.x = Math.PI / 2; ring2.position.y = 0.002; world.add(ring2);
+
+            function radialTex(inner, outer) {
+                const c = document.createElement('canvas'); c.width = c.height = 256;
+                const x = c.getContext('2d'); const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+                g.addColorStop(0, inner); g.addColorStop(1, outer); x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+                return new THREE.CanvasTexture(c);
+            }
+            const glowMat = new THREE.MeshBasicMaterial({ map: radialTex('rgba(255,255,255,.55)', 'rgba(255,255,255,0)'), color: accentColor.clone(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .55 });
+            const glow = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 4.4), glowMat);
+            glow.rotation.x = -Math.PI / 2; glow.position.y = 0.004; world.add(glow);
+
+            const shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 2.8),
+                new THREE.MeshBasicMaterial({ map: radialTex('rgba(0,0,0,.75)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }));
+            shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.006; world.add(shadow);
+
+            // --- Vaso ---
+            const cup = new THREE.Group(); world.add(cup);
+
+            const H = 3.25, BOT = 0.2, TOP = 3.25;
+            const R_BOT = 0.72, R_TOP = 1.07;
+            const rIn = y => R_BOT + (y - BOT) / (TOP - BOT) * (R_TOP - R_BOT);
+
+            const prof = [
+                [0.0, 0.0], [0.66, 0.0], [0.74, 0.025], [0.77, 0.09],
+                [1.13, H], [R_TOP + 0.005, H + 0.012], [R_TOP - 0.01, H + 0.012],
+                [R_BOT + 0.005, BOT + 0.01], [0.55, BOT - 0.005], [0.0, BOT - 0.005],
+            ].map(p => new THREE.Vector2(p[0], p[1]));
+
+            const glassMat = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.2,
+                clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2.2, side: THREE.DoubleSide, depthWrite: false
+            });
+            const glass = new THREE.Mesh(new THREE.LatheGeometry(prof, lowEnd ? 56 : 120), glassMat);
+            glass.renderOrder = 10; cup.add(glass);
+
+            // --- Tapa blanca de vaso con pestaña de apertura ---
+            const lid = new THREE.Group(); cup.add(lid);
+            const LY = H + 0.012;
+            const lidBody = new THREE.Group(); lidBody.position.y = LY; lid.add(lidBody);
+
+            const lidWhite = new THREE.MeshPhysicalMaterial({ color: 0xd9d9d6, roughness: .62, metalness: 0, clearcoat: 0, envMapIntensity: .3, side: THREE.DoubleSide });
+            const lidGrey = new THREE.MeshPhysicalMaterial({ color: 0xb4b5b8, roughness: .7, metalness: 0, envMapIntensity: .25, side: THREE.DoubleSide });
+
+            // Relieve de las letras (solo en la parte alta de la tapa)
+            const embossTex = (() => {
+                const c = document.createElement('canvas'); c.width = c.height = 1024;
+                const x = c.getContext('2d');
+                x.fillStyle = '#7f7f7f'; x.fillRect(0, 0, 1024, 1024);
+                x.fillStyle = '#ffffff'; x.strokeStyle = '#ffffff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+                x.font = 'bold 54px Arial, Helvetica, sans-serif';
+                const txt = 'CAUTION CONTENTS HOT', R = .8 * 512, gap = 5;
+                const ws = [...txt].map(ch => x.measureText(ch).width + gap), total = ws.reduce((p, q) => p + q, 0);
+                let acc = 0;
+                [...txt].forEach((ch, i) => {
+                    const a = -Math.PI / 2 + ((acc + ws[i] / 2) - total / 2) / R; acc += ws[i];
+                    x.save(); x.translate(512 + Math.cos(a) * R, 512 + Math.sin(a) * R); x.rotate(a + Math.PI / 2); x.fillText(ch, 0, 0); x.restore();
+                });
+                x.lineWidth = 5; x.lineJoin = 'round';
+                x.beginPath(); x.moveTo(512 - 330, 512 - 56); x.lineTo(512 - 300, 512 - 6); x.lineTo(512 - 360, 512 - 6); x.closePath(); x.stroke();   // triángulo
+                x.strokeRect(512 + 290, 512 - 56, 50, 50);                                                                                          // cuadrito
+                x.beginPath(); x.moveTo(512 + 290, 512 - 31); x.lineTo(512 + 340, 512 - 31); x.moveTo(512 + 315, 512 - 56); x.lineTo(512 + 315, 512 - 6); x.stroke();
+                x.font = 'bold 34px Arial, Helvetica, sans-serif'; x.fillText('10', 512, 512 - 40);
+                const t = new THREE.CanvasTexture(c);
+                t.repeat.set(.5, .5); t.offset.set(.5, .5); t.anisotropy = 8;
+                return t;
+            })();
+            const lidTop = lidWhite.clone(); lidTop.bumpMap = embossTex; lidTop.bumpScale = 2.4;
+
+            // Cuerpo de la tapa (torneado): falda, borde enrollado, canal y aro elevado
+            const lidProf = [
+                [1.16, -.20], [1.235, -.20], [1.252, -.18], [1.255, -.06], [1.247, .01], [1.228, .05], [1.195, .066],
+                [1.155, .056], [1.125, .03], [1.095, .036], [1.075, .078], [1.05, .112], [1.02, .1], [.995, .062], [.98, .05], [0, .05],
+            ].map(q => new THREE.Vector2(q[0], q[1]));
+            lidBody.add(new THREE.Mesh(new THREE.LatheGeometry(lidProf, lowEnd ? 72 : 160), lidWhite));
+
+            const ext = (shape, depth, y, mat, bev = .012) => {
+                const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: 3, curveSegments: 48 });
+                g.rotateX(-Math.PI / 2);
+                const m = new THREE.Mesh(g, mat); m.position.y = y; lidBody.add(m); return m;
+            };
+            const rr = (x0, y0, x1, y1, r, P = THREE.Shape) => {
+                const sh = new P();
+                sh.moveTo(x0 + r, y0); sh.lineTo(x1 - r, y0); sh.quadraticCurveTo(x1, y0, x1, y0 + r);
+                sh.lineTo(x1, y1 - r); sh.quadraticCurveTo(x1, y1, x1 - r, y1); sh.lineTo(x0 + r, y1);
+                sh.quadraticCurveTo(x0, y1, x0, y1 - r); sh.lineTo(x0, y0 + r); sh.quadraticCurveTo(x0, y0, x0 + r, y0);
+                return sh;
+            };
+
+            // Zona alta (atrás): disco recortado por un arco; adelante queda hundida la zona de la pestaña
+            const RD = .985, YC = -.2, XC = Math.sqrt(RD * RD - YC * YC);
+            const upper = new THREE.Shape();
+            upper.absarc(0, 0, RD, Math.atan2(YC, XC), Math.PI - Math.atan2(YC, XC) + 0, false);
+            upper.quadraticCurveTo(0, -.06, XC, YC);
+            ext(upper, .042, .05, lidTop, .012);
+
+            // Zona hundida (adelante): piso grisáceo, como en la tapa real
+            const floorSeg = new THREE.Shape();
+            floorSeg.absarc(0, 0, RD, Math.atan2(YC, XC), -Math.PI - Math.atan2(YC, XC), true);
+            floorSeg.quadraticCurveTo(0, -.06, XC, YC);
+            ext(floorSeg, .004, .05, lidGrey, .003);
+
+            // Pestaña de apertura: marco con hueco, vástago y ranura
+            const tabShape = rr(-.21, -.66, .21, -.42, .05);
+            tabShape.holes.push(rr(-.125, -.6, .125, -.48, .025, THREE.Path));
+            ext(tabShape, .05, .05, lidWhite, .01);
+            ext(rr(-.075, -.84, .075, -.62, .02), .02, .05, lidWhite, .008);
+            ext(rr(-.17, -.9, .17, -.8, .028), .004, .05, lidGrey, .004);
+            ext(rr(-.3, -.965, .3, -.915, .02), .03, .05, lidWhite, .008);   // reborde para el dedo
+
+            // --- Líquido: un solo cuerpo con degradado suave ---
+            const LH = TOP - 0.35 - BOT;
+            const bodyG = new THREE.Group(); cup.add(bodyG);
+            const liquid = new THREE.Group(); bodyG.add(liquid);
+
+            const gradCanvas = document.createElement('canvas'); gradCanvas.width = 128; gradCanvas.height = 256;
+            const gctx = gradCanvas.getContext('2d');
+            const gradTex = new THREE.CanvasTexture(gradCanvas);
+            gradTex.encoding = THREE.sRGBEncoding; gradTex.minFilter = THREE.LinearFilter; gradTex.generateMipmaps = false;
+
+            const sideFront = new THREE.MeshPhysicalMaterial({
+                map: gradTex, emissive: 0xffffff, emissiveMap: gradTex, emissiveIntensity: .16,
+                roughness: .3, metalness: 0, clearcoat: .7, clearcoatRoughness: .2, envMapIntensity: .7,
+                transparent: true, opacity: .93, depthWrite: false
+            });
+            const sideBack = new THREE.MeshStandardMaterial({
+                map: gradTex, emissive: 0xffffff, emissiveMap: gradTex, emissiveIntensity: .1,
+                roughness: .6, transparent: true, opacity: .62, side: THREE.BackSide, depthWrite: false
+            });
+            const edgeU = { value: 0 };
+            sideFront.onBeforeCompile = sh => {
+                sh.uniforms.uEdge = edgeU;
+                sh.fragmentShader = sh.fragmentShader
+                    .replace('void main() {', 'uniform float uEdge;\nvoid main() {')
+                    .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      float fres = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0), 2.2);
+      totalEmissiveRadiance += diffuseColor.rgb * fres * uEdge;`);
+            };
+            sideFront.customProgramCacheKey = () => 'blend-edge';
+            const capMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .22, clearcoat: .9, clearcoatRoughness: .12, transparent: true, opacity: .96, depthWrite: false });
+            const hidden = new THREE.MeshBasicMaterial({ visible: false });
+            const liqGeo0 = new THREE.CylinderGeometry(1, 1, 1, lowEnd ? 44 : 80, 1, false);
+            const liqFront = new THREE.Mesh(liqGeo0, [sideFront, capMat, hidden]);
+            const liqBack = new THREE.Mesh(liqGeo0, [sideBack, hidden, hidden]);
+            liqFront.renderOrder = 6; liqBack.renderOrder = 4;
+            liqFront.visible = liqBack.visible = false;
+            liquid.add(liqBack, liqFront);
+            let liqKey = '', gradKey = '';
+
+            const rgba = (hex, a) => { const c = new THREE.Color(hex); return `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${a})`; };
+            function paintGradient(items, total, k) {
+                const w = gradCanvas.width, h = gradCanvas.height;
+                const g = gctx.createLinearGradient(0, 0, 0, h);
+                items.forEach(it => {
+                    const lh = it.y1 - it.y0, mid = ((it.y0 + it.y1) / 2 - BOT) / total, half = Math.min(.2 * lh / total, .18);
+                    const clamp = t => Math.max(0, Math.min(1, 1 - t));
+                    g.addColorStop(clamp(mid - half), it.hex);
+                    g.addColorStop(clamp(mid + half), it.hex);
+                });
+                gctx.fillStyle = g; gctx.fillRect(0, 0, w, h);
+
+                // Veteado natural: restos de cada fruta sin mezclar del todo, pulpa y reflejos cremosos
+                if (k > .01) {
+                    let sd = 11;
+                    const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+                    const blob = (cx, cy, rx, ry, col, a) => {
+                        [-w, 0, w].forEach(ox => {
+                            gctx.save(); gctx.translate(cx + ox, cy); gctx.scale(rx, ry);
+                            const rg = gctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+                            rg.addColorStop(0, rgba(col, a)); rg.addColorStop(1, rgba(col, 0));
+                            gctx.fillStyle = rg; gctx.beginPath(); gctx.arc(0, 0, 1, 0, 6.2832); gctx.fill(); gctx.restore();
+                        });
+                    };
+                    const at = yy => (1 - (yy - BOT) / total) * h;
+                    items.forEach(it => {
+                        if (!it.raw) return;
+                        const n = Math.max(3, Math.round(16 * (it.y1 - it.y0) / total));
+                        for (let i = 0; i < n; i++) blob(rnd() * w, at(it.y0 + rnd() * (it.y1 - it.y0)), 10 + rnd() * 22, 3 + rnd() * 7, it.raw, .26 * k);
+                    });
+                    for (let i = 0; i < 20; i++) blob(rnd() * w, rnd() * h, 8 + rnd() * 20, 3 + rnd() * 8, '#fff4e6', .12 * k);
+                    for (let i = 0; i < 14; i++) blob(rnd() * w, rnd() * h, 8 + rnd() * 18, 3 + rnd() * 7, '#2a1420', .07 * k);
+                }
+
+                // Sombra natural: más denso abajo, más aireado arriba
+                const d = gctx.createLinearGradient(0, 0, 0, h);
+                d.addColorStop(0, `rgba(255,255,255,${.10 + .08 * k})`); d.addColorStop(.35, 'rgba(255,255,255,0)'); d.addColorStop(1, `rgba(0,0,0,${.20 + .10 * k})`);
+                gctx.fillStyle = d; gctx.fillRect(0, 0, w, h);
+                gradTex.needsUpdate = true;
+            }
+
+            // Semillitas visibles solo en la vista Batido (las frutas sin semillas se licúan por completo)
+            const SEED = { arandano: '#2a1a45', fresa: '#e9cf7a', kiwi: '#16120f', maracuya: '#1b130d' };
+            // trocitos de fruta suspendidos en cada franja
+            const PARTS = 14;
+            const partGeo = new THREE.IcosahedronGeometry(1, 1);
+            const layers = {};
+            INGREDIENTS.forEach(ing => {
+                const pc = soften(ing.color, .3).convertSRGBToLinear();
+                const partMat = new THREE.MeshStandardMaterial({ color: pc, roughness: .55, emissive: pc, emissiveIntensity: .18 });
+                const seedC = new THREE.Color(SEED[ing.id] || '#000').convertSRGBToLinear();
+                const parts = [];
+                for (let i = 0; i < PARTS; i++) {
+                    const m = new THREE.Mesh(partGeo, partMat); m.renderOrder = 2; m.scale.setScalar(0); bodyG.add(m);
+                    parts.push({
+                        m, u: Math.random(), a: Math.random() * 6.283, f: Math.sqrt(Math.random()), s: .03 + Math.random() * .045,
+                        ph: Math.random() * 6.283, dir: Math.random() > .5 ? 1 : -1, cur: 0
+                    });
+                }
+                layers[ing.id] = { parts, mat: partMat, chunk: pc.clone(), seed: seedC, seedy: !!SEED[ing.id] };
+            });
+
+            // burbujitas diminutas
+            const bubbles = [];
+            const bubGeo = new THREE.SphereGeometry(1, 10, 10);
+            const bubMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .32, depthWrite: false });
+            for (let i = 0; i < 16; i++) {
+                const m = new THREE.Mesh(bubGeo, bubMat); m.renderOrder = 5; m.scale.setScalar(.012 + Math.random() * .022); bodyG.add(m);
+                bubbles.push({ m, y: Math.random(), a: Math.random() * 6.283, f: Math.sqrt(Math.random()), sp: .05 + Math.random() * .12 });
+            }
+
+            // Espuma cremosa en la superficie (solo cuando hay insumos y en vista Batido)
+            const foamMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .85, transparent: true, opacity: 0, depthWrite: false });
+            const foam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 64), foamMat); foam.renderOrder = 7; foam.visible = false; bodyG.add(foam);
+            const foamBubMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .45, transparent: true, opacity: 0, depthWrite: false });
+            const foamBubs = [];
+            for (let i = 0; i < 34; i++) {
+                const m = new THREE.Mesh(bubGeo, foamBubMat); m.renderOrder = 8; m.visible = false; bodyG.add(m);
+                foamBubs.push({ m, a: Math.random() * 6.283, f: .1 + Math.sqrt(Math.random()) * .85, r: .022 + Math.random() * .045, ph: Math.random() * 6.283 });
+            }
+            let foamA = 0; const tmpC = new THREE.Color();
+
+            function hardReset() {
+                INGREDIENTS.forEach(i => {
+                    shown[i.id] = 0;
+                    layers[i.id].parts.forEach(p => { p.cur = 0; p.m.scale.setScalar(0); });
+                });
+                stack = [];
+            }
+
+            // Gotas al agregar
+            const drops = [];
+            const dropGeo = new THREE.SphereGeometry(0.06, 14, 14);
+            function spawnDrops(id, n = 8) {
+                const col = soften(ING[id].color, .1).convertSRGBToLinear();
+                for (let i = 0; i < n; i++) {
+                    const m = new THREE.Mesh(dropGeo, new THREE.MeshStandardMaterial({ color: col, roughness: .25, emissive: col, emissiveIntensity: .25 }));
+                    const a = Math.random() * 6.283, r = Math.random() * .35;
+                    m.position.set(Math.cos(a) * r, 3.9 + Math.random() * .7, Math.sin(a) * r);
+                    m.scale.setScalar(.6 + Math.random() * .9);
+                    bodyG.add(m); drops.push({ m, vy: -1 - Math.random() * 2 });
+                }
+            }
+
+            // Polvo flotante
+            const dustN = lowEnd ? 40 : 140, dustPos = new Float32Array(dustN * 3), dustSpd = [];
+            for (let i = 0; i < dustN; i++) {
+                dustPos[i * 3] = (Math.random() - .5) * 11; dustPos[i * 3 + 1] = Math.random() * 7; dustPos[i * 3 + 2] = (Math.random() - .5) * 8 - 1;
+                dustSpd.push(.04 + Math.random() * .12);
+            }
+            const dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+            const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: .035, color: 0xffffff, transparent: true, opacity: .35, depthWrite: false, sizeAttenuation: true }));
+            scene.add(dust);
+
+            /* =========================================================
+               INTERACCIÓN (rotar / zoom)
+               ========================================================= */
+            let rotY = -0.5, velY = 0, dragging = false, lastX = 0, lastY = 0, idle = 0;
+            let pitch = .07, velP = 0;
+            const PITCH_MIN = -.3, PITCH_MAX = 1.5;
+            const ptrs = new Map(); let pinch0 = 0, pinchD0 = 0;
+            const pdist = () => { const [p, q] = [...ptrs.values()]; return Math.hypot(p.x - q.x, p.y - q.y); };
+            canvas.addEventListener('pointerdown', e => {
+                ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                try { canvas.setPointerCapture(e.pointerId); } catch (_) { }
+                if (ptrs.size === 1) { dragging = true; lastX = e.clientX; lastY = e.clientY; }
+                else if (ptrs.size === 2) { dragging = false; pinch0 = pdist(); pinchD0 = distTarget; }
+            });
+            canvas.addEventListener('pointermove', e => {
+                if (!ptrs.has(e.pointerId)) return;
+                ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                if (ptrs.size >= 2) {
+                    if (pinch0 > 10) distTarget = Math.max(6.5, Math.min(24, pinchD0 * pinch0 / Math.max(10, pdist())));
+                    return;
+                }
+                if (!dragging) return;
+                const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
+                rotY += dx * 0.009; velY = dx * 0.009; idle = 0;
+                pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch + dy * 0.006)); velP = dy * 0.006;
+            });
+            const endPtr = e => {
+                ptrs.delete(e.pointerId);
+                if (ptrs.size === 1) { const p = [...ptrs.values()][0]; lastX = p.x; lastY = p.y; dragging = true; }
+                else if (ptrs.size === 0) dragging = false;
+            };
+            ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => canvas.addEventListener(ev, endPtr));
+            canvas.addEventListener('wheel', e => {
+                e.preventDefault();
+                distTarget = Math.max(6.5, Math.min(24, distTarget + e.deltaY * 0.005));
+            }, { passive: false });
+            canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+
+            /* =========================================================
+               LAYOUT RESPONSIVE
+               ========================================================= */
+            const root = document.documentElement;
+            let viewX = 0, viewY = 0, vxT = 0, vyT = 0, lastPinned = null, lastSig = '', lastW = 0, lastH = 0;
+
+            // --- Bottom sheet móvil: mínimo / medio / completo, arrastrable ---
+            const panelEl = $('#panel'), grab = $('#grab');
+            let sheetState = 'mid', sheetLive = null, sDrag = null;
+            const snapPx = () => ({ min: 132, mid: Math.round(innerHeight * .46), full: Math.round(innerHeight * .86) });
+            const sheetPx = () => sheetLive != null ? sheetLive : snapPx()[sheetState];
+            const togEl = document.querySelector('.toggles');
+            function placeSheet() {
+                if (!(innerWidth <= 900 && innerHeight > 560)) { panelEl.style.height = ''; togEl.style.bottom = ''; return; }
+                const sp = sheetPx(); panelEl.style.height = sp + 'px'; togEl.style.bottom = 'calc(' + sp + 'px + 18px + var(--sab))';
+            }
+            function applySheet() { panelEl.classList.toggle('min', sheetState === 'min' && sheetLive == null); placeSheet(); layout(false, true); }
+            grab.addEventListener('pointerdown', e => {
+                sDrag = { y: e.clientY, p: sheetPx(), t: Date.now(), moved: false, ly: e.clientY, lt: Date.now(), v: 0 };
+                panelEl.classList.add('dragging'); document.body.classList.add('sheet-drag');
+                try { grab.setPointerCapture(e.pointerId); } catch (_) { }
+            });
+            grab.addEventListener('pointermove', e => {
+                if (!sDrag) return;
+                const dy = sDrag.y - e.clientY; if (Math.abs(dy) > 5) sDrag.moved = true;
+                const n = Date.now(); if (n - sDrag.lt > 20) { sDrag.v = (sDrag.ly - e.clientY) / (n - sDrag.lt); sDrag.ly = e.clientY; sDrag.lt = n; }
+                sheetLive = Math.max(110, Math.min(innerHeight * .9, sDrag.p + dy)); applySheet();
+            });
+            const sEnd = () => {
+                if (!sDrag) return; const d = sDrag; sDrag = null;
+                panelEl.classList.remove('dragging'); document.body.classList.remove('sheet-drag');
+                if (!d.moved) sheetState = sheetState === 'min' ? 'mid' : sheetState === 'mid' ? 'full' : 'mid';
+                else { const sp = snapPx(), tgt = sheetLive + d.v * 220; sheetState = Object.keys(sp).sort((a, b) => Math.abs(sp[a] - tgt) - Math.abs(sp[b] - tgt))[0]; }
+                sheetLive = null; applySheet();
+            };
+            ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => grab.addEventListener(ev, sEnd));
+
+            function layout(initial, fast) {
+                const w = innerWidth, h = innerHeight;
+                const mobile = w <= 900 && h > 560, compact = h <= 560, pinned = w >= 1180 && !compact;
+                if (!fast) {
+                    root.style.setProperty('--vh', (h * 0.01) + 'px');
+                    if (lastPinned !== pinned) { histOpen = pinned; lastPinned = pinned; }
+                    document.body.classList.toggle('hist-open', histOpen);
+                    document.body.classList.toggle('hist-overlay', !pinned);
+                    $('#histBtn').setAttribute('aria-expanded', histOpen);
+                }
+
+                let li = 0, ri = 0, bi = 0, ti = 0;
+                if (!mobile) {
+                    const pw = compact ? Math.min(400, Math.max(300, w * .46)) + 20 : Math.min(440, Math.max(380, w * .4)) + 32;
+                    ri = pw;
+                    if (pinned && histOpen) li = 352;
+                } else {
+                    const sp = sheetPx();
+                    bi = Math.min(sp, Math.round(h * .5)) + 8 + 52; ti = 96;
+                }
+                const freeW = w - li - ri, freeH = h - bi - ti;
+                const cx = li + freeW / 2, cyc = ti + freeH / 2;
+                vxT = w / 2 - cx; vyT = h / 2 - cyc;
+
+                if (!fast) {
+                    root.style.setProperty('--li', li + 'px');
+                    root.style.setProperty('--ri', ri + 'px');
+                    root.style.setProperty('--bi', bi + 'px');
+                    root.style.setProperty('--cx', cx + 'px');
+                    root.style.setProperty('--panel-w', ri + 'px');
+                    placeSheet();
+                }
+
+                const need = Math.min(24, Math.max(10.5, 6.7 / (Math.max(freeW, 200) / h), 7.65 * h / Math.max(freeH, 160)));
+                const sig = [w, h, li, ri, bi].join();
+                if (sig !== lastSig) { lastSig = sig; distTarget = need; if (initial) { dist = need; viewX = vxT; viewY = vyT; } }
+
+                if (w !== lastW || h !== lastH) { lastW = w; lastH = h; renderer.setPixelRatio(prCur); renderer.setSize(w, h, false); }
+                camera.aspect = w / h;
+            }
+            let rzT = 0;
+            const onResize = () => { layout(); clearTimeout(rzT); rzT = setTimeout(layout, 220); };
+            addEventListener('resize', onResize);
+            addEventListener('orientationchange', onResize);
+            if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
+            layout(true);
+
+            /* =========================================================
+               BUCLE DE ANIMACIÓN
+               ========================================================= */
+            const clock = new THREE.Clock();
+            let fN = 0, emaDt = .016, lastHex = '';
+
+            function frame() {
+                if (GL && lowEnd && (fN & 1)) { fN++; requestAnimationFrame(frame); return; }
+                const raw = clock.getDelta(), dt = Math.min(raw, .05), t = clock.elapsedTime;
+                fN++; emaDt += (Math.min(raw, .2) - emaDt) * .06;
+                if (GL && fN % 90 === 0 && emaDt > (lowEnd ? .05 : .034) && prCur > .6) { prCur = Math.max(.6, prCur - .2); renderer.setPixelRatio(prCur); renderer.setSize(innerWidth, innerHeight, false); }
+
+                // Cámara
+                dist += (distTarget - dist) * .08;
+                viewX += (vxT - viewX) * Math.min(1, dt * 5);
+                viewY += (vyT - viewY) * Math.min(1, dt * 5);
+                camera.setViewOffset(innerWidth, innerHeight, viewX, viewY, innerWidth, innerHeight);
+                camera.updateProjectionMatrix();
+                xk += (xTarget - xk) * Math.min(1, dt * 3.2);
+                const ex = xk * xk * (3 - 2 * xk);
+                LOOK.y = 1.75 + ex * 1.45 + pz * 2.6;
+                const dEff = dist * (1 + ex * .62 + pz * 1.0);
+                camera.position.set(0, LOOK.y + dEff * Math.sin(pitch), dEff * Math.cos(pitch));
+                camera.lookAt(LOOK);
+
+                // Rotación
+                if (!dragging) { idle += dt; velY *= .93; rotY += velY; velP *= .9; pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch + velP)); if (idle > 2.5) rotY += dt * .22; }
+                cup.rotation.y = rotY; ring.rotation.z = rotY * .4;
+                cupScale += (cupScaleTarget - cupScale) * Math.min(1, dt * 6);
+                cup.scale.setScalar(cupScale);
+
+                // Tapa: se abre a un costado mientras se agregan insumos
+                const wantOpen = (now() - lastAdd) < 1.7 ? 1 : 0;
+                lidOpen += (wantOpen - lidOpen) * Math.min(1, dt * 4.2);
+                const e = lidOpen * lidOpen * (3 - 2 * lidOpen);
+                lid.position.set(e * 1.75, e * 1.0, 0);
+                lid.rotation.z = e * .5;
+                lid.position.y += ex * 3.1;
+                bodyG.position.y = ex * 1.55;
+
+                // Acento
+                accentColor.lerp(accentTarget, .06);
+                ringMat.emissive.copy(accentColor); glowMat.color.copy(accentColor);
+                under.color.copy(accentColor); under.intensity = totalGrams() ? 1.6 : .8;
+                const hex = '#' + accentColor.getHexString();
+                if (hex !== lastHex && fN % 3 === 0) { lastHex = hex; root.style.setProperty('--accent', hex); root.style.setProperty('--accent-soft', hex + '29'); }
+
+                // Líquido
+                wobble *= Math.exp(-2.6 * dt);
+                const sq = 1 + Math.sin(t * 16) * .012 * wobble;
+                liquid.scale.set(sq, 1, sq);
+
+                blendK += (blendTarget - blendK) * Math.min(1, dt * 3);
+                if (Math.abs(blendTarget - blendK) < .003) blendK = blendTarget;
+                const mk = INGREDIENTS.map(i => grams[i.id]).join() + '|' + MAX_GRAMS;
+                if (mk !== mixKey) { mixKey = mk; mixTarget.set(mixColor(grams, MAX_GRAMS)); }
+                curMix.lerp(mixTarget, Math.min(1, dt * 4));
+                sideFront.opacity = .93 - .05 * blendK; sideBack.opacity = .62 + .2 * blendK;
+                sideFront.emissiveIntensity = .16 - .07 * blendK; sideBack.emissiveIntensity = .1 - .04 * blendK;
+                edgeU.value = .45 * blendK;
+                cupK += (cupTarget - cupK) * Math.min(1, dt * 4);
+                if (Math.abs(cupTarget - cupK) < .003) cupK = cupTarget;
+                glassMat.opacity = .2 + .13 * cupK;
+                glassMat.roughness = .04 + .36 * cupK;
+                glassMat.envMapIntensity = 2.2 - 1.2 * cupK;
+                glassMat.emissiveIntensity = .12 * cupK;
+                const pk = 1 - blendK;
+
+                let y = BOT;
+                const items = [];
+                for (let k = 0; k < stack.length; k++) {
+                    const id = stack[k], L = layers[id];
+                    shown[id] += (grams[id] - shown[id]) * Math.min(1, dt * 7);
+                    if (Math.abs(grams[id] - shown[id]) < .05) shown[id] = grams[id];
+
+                    if (shown[id] < .3 && grams[id] === 0) {
+                        L.parts.forEach(p => { p.cur = 0; p.m.scale.setScalar(0); });
+                        stack.splice(k, 1); k--; continue;
+                    }
+                    const h = shown[id] / MAX_GRAMS * LH, y0 = y, y1 = y + h;
+                    items.push({ id, y0, y1, hex: softHex(ING[id].color), raw: ING[id].color });
+
+                    const sf = L.seedy ? pk + blendK * .3 : pk;
+                    L.mat.color.copy(L.chunk).lerp(L.seed, blendK); L.mat.emissive.copy(L.mat.color);
+                    const want = Math.round(Math.min(PARTS, shown[id] / 8));
+                    L.parts.forEach((p, i) => {
+                        const target = i < want ? p.s : 0;
+                        p.cur += (target - p.cur) * Math.min(1, dt * 6);
+                        if (p.cur * sf < .002) { p.m.scale.setScalar(0); return; }
+                        const yy = y0 + (.12 + .76 * p.u) * h + Math.sin(t * 1.1 + p.ph) * .018;
+                        const rr = Math.max(0, rIn(yy) - .12) * p.f * .95;
+                        const a = p.a + t * .12 * p.dir;
+                        p.m.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr);
+                        p.m.scale.set(p.cur * sf, p.cur * sf * .85, p.cur * sf);
+                        p.m.rotation.set(t * .3 + p.ph, t * .2, 0);
+                    });
+                    y = y1;
+                }
+                // El agua rellena todo lo que no ocupan los insumos
+                if (BOT + LH - y > .004) items.push({ id: 'agua', y0: y, y1: BOT + LH, hex: WATER_HEX });
+                const total = LH;
+                const surface = BOT + LH;
+                if (blendK > .001) items.forEach(it => { it.hex = '#' + new THREE.Color(it.hex).lerp(curMix, blendK).getHexString(); });
+
+                if (total > .02) {
+                    liqFront.visible = liqBack.visible = true;
+                    const rb = rIn(BOT) - .012, rt = rIn(BOT + LH) - .012;
+                    const lk = rt.toFixed(4) + '|' + total.toFixed(4);
+                    if (lk !== liqKey) {
+                        liqKey = lk;
+                        const g = new THREE.CylinderGeometry(rt, rb, total, 80, 1, false);
+                        liqFront.geometry.dispose();
+                        liqFront.geometry = g; liqBack.geometry = g;
+                    }
+                    liqFront.position.y = liqBack.position.y = BOT + total / 2;
+                    const gk = total.toFixed(3) + '|' + blendK.toFixed(2) + items.map(i => i.id + i.y1.toFixed(3) + i.hex).join('|');
+                    if (gk !== gradKey) {
+                        gradKey = gk; paintGradient(items, total, blendK);
+                        const last = items[items.length - 1];
+                        capMat.color.copy(soften(last.hex, last.id === 'agua' ? 0 : .3 - .1 * blendK).convertSRGBToLinear());
+                    }
+                } else {
+                    liqFront.visible = liqBack.visible = false;
+                }
+
+                // Burbujitas
+                bubbles.forEach(b => {
+                    if (total < .35) { b.m.visible = false; return; }
+                    b.m.visible = true;
+                    b.y += b.sp * dt * .6; if (b.y > 1) b.y = 0;
+                    const yy = BOT + .08 + b.y * Math.max(.1, total - .16);
+                    const rr = Math.max(0, rIn(yy) - .1) * b.f * .92;
+                    const a = b.a + t * .1;
+                    b.m.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr);
+                });
+
+                // Espuma
+                const fT = blendK * Math.min(1, totalGrams() / (MAX_GRAMS * .06));
+                foamA += (fT - foamA) * Math.min(1, dt * 3);
+                if (foamA > .01) {
+                    const topY = BOT + LH, rr = Math.max(.1, rIn(topY) - .025);
+                    tmpC.copy(curMix).lerp(CREAM, .55); foamMat.color.copy(tmpC).convertSRGBToLinear();
+                    tmpC.copy(curMix).lerp(CREAM, .7); foamBubMat.color.copy(tmpC).convertSRGBToLinear();
+                    foamMat.opacity = .8 * foamA; foamBubMat.opacity = .85 * foamA;
+                    foam.visible = true; foam.position.y = topY - .004; foam.scale.set(rr, .075, rr);
+                    foamBubs.forEach(b => {
+                        b.m.visible = true;
+                        const q = Math.max(0, rr - .05) * b.f, a = b.a + t * .03;
+                        b.m.position.set(Math.cos(a) * q, topY + .03 + Math.sin(t * 1.3 + b.ph) * .004, Math.sin(a) * q);
+                        b.m.scale.set(b.r, b.r * .6, b.r);
+                    });
+                } else { foam.visible = false; foamBubs.forEach(b => b.m.visible = false); }
+
+                // Gotas
+                for (let i = drops.length - 1; i >= 0; i--) {
+                    const d = drops[i];
+                    d.vy -= 11 * dt; d.m.position.y += d.vy * dt;
+                    if (d.m.position.y < surface + .05) {
+                        bodyG.remove(d.m); d.m.material.dispose(); drops.splice(i, 1);
+                    }
+                }
+
+                // Polvo
+                const dp = dustGeo.attributes.position.array;
+                for (let i = 0; i < dustN; i++) {
+                    dp[i * 3 + 1] += dustSpd[i] * dt;
+                    dp[i * 3] += Math.sin(t * .3 + i) * .0015;
+                    if (dp[i * 3 + 1] > 7.5) dp[i * 3 + 1] = -.2;
+                }
+                dustGeo.attributes.position.needsUpdate = true;
+
+                cup.position.y = Math.sin(t * .9) * .03;
+
+                updatePack(dt);
+                updateAux();
+                renderer.render(scene, camera);
+                if (GL) requestAnimationFrame(frame); else setTimeout(frame, 100);
+            }
+            // --- Logo en el centro del vaso, de frente ---
+            const logoMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 });
+            let logoMesh = null, logoTex = null;
+            const rOut = y => .77 + (y - .09) / (H - .09) * (1.13 - .77) + .012;
+            function setLogo(src, keep) {
+                const img = new Image(); img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    const a = img.naturalWidth / img.naturalHeight, cy = 1.75;
+                    let hd = 1.25, wd = hd * a; if (wd > 1.6) { wd = 1.6; hd = wd / a; }
+                    const y0 = cy - hd / 2, y1 = cy + hd / 2, len = wd / rOut(cy);
+                    if (logoMesh) { cup.remove(logoMesh); logoMesh.geometry.dispose(); }
+                    if (logoTex) logoTex.dispose();
+                    logoTex = new THREE.Texture(img); logoTex.encoding = THREE.sRGBEncoding; logoTex.needsUpdate = true;
+                    logoMat.map = logoTex; logoMat.needsUpdate = true;
+                    logoMesh = new THREE.Mesh(new THREE.CylinderGeometry(rOut(y1), rOut(y0), hd, 48, 1, true, -len / 2, len), logoMat);
+                    logoMesh.position.y = cy; logoMesh.renderOrder = 11; cup.add(logoMesh);
+                    const li = $('#liteLogo'); li.setAttribute('href', src); li.setAttributeNS('http://www.w3.org/1999/xlink', 'href', src); li.style.display = 'block';
+                    const lb = $('#liteBagLogo'); lb.setAttribute('href', src); lb.setAttributeNS('http://www.w3.org/1999/xlink', 'href', src); lb.style.display = 'block';
+                    $('#btnLogoX').style.display = ''; refreshBagLogo(a);
+                    if (!keep) { rotY = 0; velY = 0; idle = 0; try { localStorage.setItem('blendLogo', src); } catch (_) { } }
+                };
+                img.onerror = () => toast('No pude cargar esa imagen. Si es URL, puede estar bloqueada: sube el archivo');
+                img.src = src;
+            }
+            $('#btnLogo').addEventListener('click', () => $('#logoFile').click());
+            $('#logoFile').addEventListener('change', e => {
+                const f = e.target.files[0]; if (!f) return;
+                const r = new FileReader(); r.onload = () => setLogo(r.result); r.readAsDataURL(f); e.target.value = '';
+            });
+            $('#btnLogoUrl').addEventListener('click', () => { const u = prompt('Pega la URL de tu logo (PNG con fondo transparente es lo mejor)'); if (u) setLogo(u.trim()); });
+            $('#btnLogoX').addEventListener('click', () => {
+                if (logoMesh) { cup.remove(logoMesh); logoMesh = null; }
+                if (bagLogo) bagLogo.visible = false;
+                $('#liteLogo').style.display = 'none'; $('#liteBagLogo').style.display = 'none'; $('#btnLogoX').style.display = 'none';
+                try { localStorage.removeItem('blendLogo'); } catch (_) { }
+            });
+            try { const sv = localStorage.getItem('blendLogo'); if (sv) setLogo(sv, true); } catch (_) { }
+
+            // --- Bolsa de papel kraft (tipo SOS): se abre, entra el vaso y se cierra doblando la boca ---
+            const BW = 3.2, BD = 2.8, BH = 4.9;
+            const bag = new THREE.Group(); bag.visible = false; world.add(bag);
+            const grain = (() => {
+                const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+                x.fillStyle = '#c49a6a'; x.fillRect(0, 0, 128, 128);
+                for (let i = 0; i < 900; i++) { x.fillStyle = 'rgba(' + (Math.random() < .5 ? '90,60,30' : '235,205,160') + ',' + (Math.random() * .12) + ')'; x.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 2, 1); }
+                const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+            })();
+            const kraft = new THREE.MeshStandardMaterial({ map: grain, color: 0x9a7a50, roughness: .96, metalness: 0, envMapIntensity: .3 });
+            const kraftIn = new THREE.MeshStandardMaterial({ color: 0x8a6a45, roughness: 1, side: THREE.BackSide });
+            const bagOut = new THREE.Mesh(new THREE.BoxGeometry(BW, BH, BD, 8, 14, 4), [kraft, kraft, hidden, kraft, kraft, kraft]);
+            const bagIn = new THREE.Mesh(new THREE.BoxGeometry(BW - .06, BH - .02, BD - .06, 8, 14, 4), [kraftIn, kraftIn, hidden, kraftIn, kraftIn, kraftIn]);
+            bagOut.position.y = bagIn.position.y = BH / 2; bag.add(bagOut, bagIn);
+            // doblez de la boca (aparece al cerrar)
+            const foldMat = new THREE.MeshStandardMaterial({ map: grain, color: 0xa88556, roughness: .96, envMapIntensity: .3 });
+            const fold = new THREE.Mesh(new THREE.BoxGeometry(BW * .99, .55, .12), foldMat); bag.add(fold);
+            const crease = new THREE.Mesh(new THREE.BoxGeometry(BW * .99, .035, .135), new THREE.MeshStandardMaterial({ color: 0x6f5030, roughness: 1 })); bag.add(crease);
+            let bagLogo = null;
+            function refreshBagLogo(a) {
+                if (bagLogo) { bag.remove(bagLogo); bagLogo.geometry.dispose(); }
+                let w = 1.7, h = w / a; if (h > 1.6) { h = 1.6; w = h * a; }
+                bagLogo = new THREE.Mesh(new THREE.PlaneGeometry(w, h), logoMat); bagLogo.position.set(0, 1.9, BD / 2 + .115); bagLogo.renderOrder = 12; bag.add(bagLogo);
+            }
+            let pk = 0, pT = 0, pz = 0, lastC = -1;
+            const sm = (a, b, x) => { x = Math.max(0, Math.min(1, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
+            function pinch(geo, hh, w, d, c) {
+                const pos = geo.attributes.position; if (!geo.userData.o) geo.userData.o = pos.array.slice();
+                const o = geo.userData.o, sg = v => v < 0 ? -1 : 1;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = o[i * 3], y = o[i * 3 + 1], z = o[i * 3 + 2], t = Math.max(0, Math.min(1, .5 + y / hh));
+                    let nx = x, nz = z * (1 - c * .9 * sm(.8, .87, t));
+                    if (Math.abs(z) > d / 2 - .01) nz += sg(z) * .1 * (1 - Math.pow(x / (w / 2), 2)) * Math.sin(Math.PI * t) * (1 - c * .8);
+                    if (Math.abs(x) > w / 2 - .01) nx = x - sg(x) * .2 * (1 - Math.abs(z) / (d / 2)) * (.6 + .4 * t);
+                    pos.setXYZ(i, nx, y, nz);
+                }
+                pos.needsUpdate = true; geo.computeVertexNormals();
+            }
+            function updatePack(dt) {
+                pk += Math.sign(pT - pk) * Math.min(Math.abs(pT - pk), dt / 4);
+                const s1 = sm(0, .2, pk), op = sm(.2, .35, pk), sa = sm(.35, .5, pk), sb = sm(.47, .62, pk), s4 = sm(.62, .8, pk), cl = sm(.8, .92, pk), s5 = sm(.92, 1, pk);
+                bag.visible = GL && pk > .001;
+                const c = (1 - op) + cl;
+                if (bag.visible && Math.abs(c - lastC) > .002) { lastC = c; pinch(bagOut.geometry, BH, BW, BD, c); pinch(bagIn.geometry, BH - .02, BW - .06, BD - .06, c); }
+                fold.visible = crease.visible = c > .02; fold.scale.y = Math.max(.001, c); fold.position.set(0, BH - .02 - .275 * c, BD * .05 + .07); fold.rotation.x = .06; crease.position.set(0, BH - .02 - .55 * c, BD * .05 + .07);
+                bag.position.set((7.5 - 5.1 * s1) * (1 - s5), .02, 0); bag.rotation.y = (1 - s1) * 1.2;
+                cup.position.x = (-1.5 * s1 + 3.9 * sb) * (1 - s5);
+                cup.position.y += 5.1 * sa - 5.02 * s4;
+                pz = sa * (1 - s4);
+            }
+            let lidOpen = 0, xk = 0, xTarget = 0;
+            const btnP = $('#btnPack'), PACK_TXT = '¿Cómo se ve tu pedido?';
+            btnP.addEventListener('click', () => {
+                if (!pT && xTarget) btnX.click();
+                pT = pT ? 0 : 1; btnP.textContent = pT ? 'Sacar de la bolsa' : PACK_TXT; idle = 0;
+            });
+            const btnX = $('#btnExplode');
+            btnX.addEventListener('click', () => {
+                if (pT) { pT = 0; btnP.textContent = PACK_TXT; }
+                xTarget = xTarget ? 0 : 1;
+                btnX.textContent = xTarget ? 'Armar' : 'Desarmar';
+                btnX.setAttribute('aria-pressed', !!xTarget);
+                document.body.classList.toggle('exploded', !!xTarget);
+                idle = 0;
+            });
+            // Etiquetas siguiendo cada pieza (3D) y capa SVG ligera
+            const _v = new THREE.Vector3(), L3 = [['#lbLid', () => lid.position.y + LY + .2], ['#lbBody', () => bodyG.position.y + 1.7], ['#lbCup', () => 1.2]].map(a => [$(a[0]), a[1]]);
+            let liteKey = '';
+            function updateAux() {
+                const ex = xk * xk * (3 - 2 * xk);
+                if (GL) { if (ex > .02) L3.forEach(([el, fy]) => { _v.set(1.5, fy(), 0).applyMatrix4(cup.matrixWorld).project(camera); el.style.transform = 'translate(' + ((_v.x * .5 + .5) * innerWidth + 8) + 'px,' + ((-_v.y * .5 + .5) * innerHeight) + 'px)'; }); return; }
+                const lk = ex.toFixed(3) + pk.toFixed(3) + totalGrams() + curMix.getHexString(); if (lk === liteKey) return; liteKey = lk;
+                const t = (id, y) => { $(id).style.transform = 'translate3d(0,' + y + 'px,0)'; $(id).style.webkitTransform = 'translate3d(0,' + y + 'px,0)'; };
+                const dr = sm(.5, .9, pk) * 24; t('#liteLid', -ex * 78 + dr); t('#liteBody', -ex * 38 + dr); t('#liteCup', ex * 30 + dr);
+                const bx = 'translate3d(' + (240 * (1 - sm(0, .4, pk))) + 'px,0,0)'; $('#liteBag').style.transform = bx; $('#liteBag').style.webkitTransform = bx;
+                const f = Math.max(.04, Math.min(1, totalGrams() / MAX_GRAMS)), top = 320 - f * 130;
+                $('#liteLiq').setAttribute('d', 'M' + (62 + (top - 190) * .1) + ' ' + top + 'L' + (138 - (top - 190) * .1) + ' ' + top + 'L130 318H70z');
+                $('#liteLiq').setAttribute('fill', '#' + curMix.getHexString());
+            }
+            let blendK = 1, blendTarget = 1, mixKey = '';
+            let cupK = 1, cupTarget = 1;   // 1 = vaso blanco, 0 = transparente suave
+            $('#cupToggle').addEventListener('click', ev => {
+                const b = ev.target.closest('button'); if (!b) return;
+                cupTarget = b.dataset.cup === 'blanco' ? 1 : 0;
+                document.querySelectorAll('#cupToggle button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+            });
+            const curMix = new THREE.Color(WATER_HEX), mixTarget = new THREE.Color(WATER_HEX);
+            $('#viewToggle').addEventListener('click', ev => {
+                const b = ev.target.closest('button'); if (!b) return;
+                blendTarget = b.dataset.view === 'batido' ? 1 : 0;
+                document.querySelectorAll('#viewToggle button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+            });
+
+            renderHistory();
+            refreshUI();
+            frame();
+
+            // Demo inicial para que se vea vivo
+            setTimeout(() => {
+                if (totalGrams() === 0 && !banner.classList.contains('show')) {
+                    setGrams('platano', 80); setTimeout(() => setGrams('fresa', 70), 450); setTimeout(() => setGrams('arandano', 60), 900);
+                }
+            }, 800);
+        })();
+    </script>
+</body>
+
+</html>

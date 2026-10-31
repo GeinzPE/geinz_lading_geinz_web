@@ -37,6 +37,9 @@
     "rewrites": [
       { "source": "/perfil/*/carrito", "destination": "/carrito/carrito.html" },
       { "source": "/carrito", "destination": "/carrito/carrito.html" },
+         { "source": "/perfil/*/carrito-crear", "destination": "/carrito/crear.html" },
+                  { "source": "/perfil/*/carrito-juegos", "destination": "/carrito/juegos.html" },
+
       { "source": "/-mesa-*", "destination": "/carrito/carrito.html" },
 
       {
@@ -84,8 +87,8 @@
         "source": "/fidelizacion/**",
         "destination": "/fidelizacion/fidelizacion_client.html"
       },
-   { "source": "/perfil/*/form/*", "function": "formularioShare" },
-{ "source": "/form/*", "function": "formularioShare" },
+      { "source": "/perfil/*/form/*", "function": "formularioShare" },
+      { "source": "/form/*", "function": "formularioShare" },
       { "source": "/pedido/**", "destination": "/pedidos/pedidos.html" },
       {
         "source": "/perfil/*/trabajadores",
