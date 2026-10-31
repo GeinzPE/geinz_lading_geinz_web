@@ -367,6 +367,21 @@ function applyDominantColor({ r, g, b }) {
     ctaGlow.style.background = `rgba(${r},${g},${b},.3)`;
   }
 }
+let _brandAng = 135;
+/** Marca actual del perfil, leída de las variables CSS ya aplicadas (0 consultas) */
+function marcaActual() {
+  const cs = getComputedStyle(document.documentElement);
+  const n = (v) => parseInt(cs.getPropertyValue(v), 10);
+  const r = n("--dr"),
+    g = n("--dg"),
+    b = n("--db");
+  if ([r, g, b].some(Number.isNaN)) return null;
+  const r2 = n("--d2r"),
+    g2 = n("--d2g"),
+    b2 = n("--d2b");
+  const c2 = [r2, g2, b2].some(Number.isNaN) ? null : { r: r2, g: g2, b: b2 };
+  return { c1: { r, g, b }, c2, ang: _brandAng };
+}
 /** Aplica color 1 + (opcional) color 2 como degradado en todo el perfil */
 function aplicarMarca(cm) {
   const c1 = { r: cm.r, g: cm.g, b: cm.b };
@@ -376,13 +391,13 @@ function aplicarMarca(cm) {
   applyDominantColor(c1);
   aplicarDegradado(c1, c2, Number(g?.angulo) || 135);
 }
-
 function aplicarDegradado(c1, c2, ang = 135) {
+  _brandAng = c2 ? ang : 135;
   const root = document.documentElement;
   let st = document.getElementById("brandGradStyle");
 
   if (!c2) {
-    ["--d2r", "--d2g", "--db2", "--d2b", "--brand-grad"].forEach((v) =>
+    ["--d2r", "--d2g", "--d2b", "--brand-grad"].forEach((v) =>
       root.style.removeProperty(v),
     );
     st?.remove();
@@ -2921,7 +2936,8 @@ function setupHeroFlip(activa) {
       _tarjetaDestroy = montarTarjetaFidelizacion(slot, {
         negocioId: _params.id,
         localidad: _params.localidad,
-        logoUrl: logoSrc(), // ← logo ya cargado
+        logoUrl: logoSrc(),
+        marca: marcaActual(), // ← logo ya cargado
         fondo: "#0b0b0d",
         favicon: false,
         soloFrente: true,
@@ -5971,12 +5987,12 @@ async function render(biz, isInitial = true) {
     }
   } else if (_tieneColor) {
     aplicarMarca(_cm);
-    _tarjetaDestroy?.setBrand?.(_cm);
+    _tarjetaDestroy?.setBrand?.(marcaActual());   // ← antes: (_cm)
     if (_marcaSig && _marcaSig !== _sig) showToast("🎨 Colores actualizados");
     _marcaSig = _sig;
   } else {
     aplicarDegradado(null, null);
-    _tarjetaDestroy?.setBrand?.(null);
+    _tarjetaDestroy?.setBrand?.(marcaActual());   // ← antes: (null)
   }
   // ── CONTENIDO: siempre se actualiza ──
   setText("bizName", nombre);

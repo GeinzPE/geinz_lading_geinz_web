@@ -463,23 +463,15 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
   /* ── Color de marca (scopeado al componente) ── */
   function aplicarColorMarca({ r, g, b }, c2 = null, ang = 135) {
     const { h, s } = rgbToHsl(r, g, b);
-    // gris/blanco/negro se quedan grises (antes se volvían rojos)
-    const sat = s < 0.12 ? s : Math.max(s, 0.6);
-    const vivid = hslToRgb(h, sat, 0.5);
     const glow = hslToRgb(h, s < 0.12 ? s : Math.max(s, 0.65), 0.35);
     const dark = hslToRgb(h, s < 0.12 ? s : Math.max(s, 0.5), 0.12);
-    root.style.setProperty(
-      "--brand-vivid",
-      rgbToHex(vivid.r, vivid.g, vivid.b),
-    );
+    root.style.setProperty("--brand-vivid", rgbToHex(r, g, b)); // exacto, igual que el perfil
     root.style.setProperty("--brand-glow", rgbToHex(glow.r, glow.g, glow.b));
     brandDarkHex = rgbToHex(dark.r, dark.g, dark.b);
     root.style.setProperty("--brand-dark", brandDarkHex);
 
     if (c2) {
-      const h2 = rgbToHsl(c2.r, c2.g, c2.b);
-      const v2 = hslToRgb(h2.h, h2.s < 0.12 ? h2.s : Math.max(h2.s, 0.6), 0.5);
-      root.style.setProperty("--brand-vivid-2", rgbToHex(v2.r, v2.g, v2.b));
+      root.style.setProperty("--brand-vivid-2", rgbToHex(c2.r, c2.g, c2.b));
       root.style.setProperty("--brand-ang", `${ang}deg`);
     } else {
       root.style.removeProperty("--brand-vivid-2");
@@ -488,8 +480,8 @@ export function montarTarjetaFidelizacion(container, opts = {}) {
     colorReady = true;
   }
 
-    function aplicarMarcaPagina() {
-    const m = marcaDePagina();
+  function aplicarMarcaPagina() {
+    const m = opts.marca || marcaDePagina();
     if (!m) return false;
     aplicarColorMarca(m.c1, m.c2, m.ang);
     return true;
@@ -932,9 +924,9 @@ setTimeout(() => container.querySelector("#heroCardSkel")?.classList.add("hide")
         cargarUsuario(cliente.id_usuario),
       ]);
       if (destruido) return;
-      const marca = leerMarca(tienda);
+      const marca = opts.marca || leerMarca(t);   // ← antes: leerMarca(t)
       if (marca) aplicarColorMarca(marca.c1, marca.c2, marca.ang);
-      else aplicarColorMarca(colorLogo);
+      else aplicarColorMarca(color);
 
       const nombreCliente =
         [capitalizar(usuario.nombre), capitalizar(usuario.apellido)]
@@ -1026,9 +1018,10 @@ setTimeout(() => container.querySelector("#heroCardSkel")?.classList.add("hide")
     if (unsubAuth) unsubAuth();
     root.remove();
   };
-  api.setBrand = (cm) => {
-    const m = leerMarca({ color_marca: cm });
-    if (m) aplicarColorMarca(m.c1, m.c2, m.ang);
+  api.setBrand = (m) => {
+    if (!m) return;
+    const marca = m.c1 ? m : leerMarca({ color_marca: m });
+    if (marca) aplicarColorMarca(marca.c1, marca.c2, marca.ang);
   };
   return api;
 }
