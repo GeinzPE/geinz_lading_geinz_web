@@ -77,7 +77,46 @@ function urlRegistro() {
   const s = p.toString();
   return "../registrogeinz.html" + (s ? "?" + s : "");
 }
+/* ---- Flujo "vengo del perfil de un negocio" ---- */
+(function guardarVolver() {
+  const v = new URLSearchParams(location.search).get("volver");
+  if (!v) return;
+  try {
+    const u = new URL(v, location.origin);
+    // seguridad: solo mismo origen y solo rutas de perfil
+    if (u.origin === location.origin && u.pathname.startsWith("/perfil/")) {
+      sessionStorage.setItem("geinz_volver", u.toString());
+    }
+  } catch {}
+})();
+
+function irAlPerfilOrigen() {
+  const destino = sessionStorage.getItem("geinz_volver");
+  if (!destino) return false;
+  sessionStorage.removeItem("geinz_volver");
+
+  // Reutiliza la pantalla de carga (esqueleto/anillo) que ya tienes
+  const ac = document.getElementById("authChecking");
+  const acText = document.getElementById("acText");
+  if (acText) acText.textContent = "Volviendo a tu negocio...";
+  ac?.classList.remove("hidden");
+  document.getElementById("mainUI").style.display = "none";
+  document.querySelectorAll(".modal-overlay.active").forEach((m) => m.classList.remove("active"));
+  document.body.classList.remove("blur-active");
+
+  // replace: el login NO queda en el historial, no se puede volver atrás a él
+  setTimeout(() => location.replace(destino), 500);
+  return true;
+}
 async function entrar(user) {
+  // NUEVO: si viene de un perfil, vuelve directo ahí
+  if (
+    sessionStorage.getItem("geinz_destino") !== "registro" &&
+    irAlPerfilOrigen()
+  ) {
+    return;
+  }
+
   if (sessionStorage.getItem("geinz_destino") !== "registro")
     return showSplash(user);
 
@@ -107,7 +146,6 @@ async function entrar(user) {
   }
   location.replace(urlRegistro());
 }
-
 /* =========================================================
    PAÍSES
 ========================================================= */
