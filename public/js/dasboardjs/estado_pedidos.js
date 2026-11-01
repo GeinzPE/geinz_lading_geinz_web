@@ -263,15 +263,10 @@ let pedidoActualParaPago = null;
 function nombreOfuscado(nombreCompleto) {
   const partes = (nombreCompleto || "").trim().split(/\s+/).filter(Boolean);
   if (!partes.length) return "";
-  if (partes.length === 1) {
-    const p = partes[0];
-    return p.length <= 2 ? p : p.slice(0, 2) + "***";
-  }
-  const primero = partes[0];
-  const resto = partes.slice(1).join("");
-  return `${primero} ${resto.slice(0, 2)}***`;
+  const [primero, ...resto] = partes;
+  const tapar = (w) => (w.length <= 3 ? w.slice(0, 1) : w.slice(0, 3)) + "**";
+  return [primero, ...resto.map(tapar)].join(" ");
 }
-
 const LABELS_METODO_PAGO_DATOS = {
   yape: "Yape",
   plin: "Plin",
@@ -326,11 +321,12 @@ function actualizarBloquePagoQR() {
     LABELS_METODO_PAGO_DATOS[metodoKey] || metodoKey;
 
   const qrImg = el("pago-qr-img");
+  const qrBtn = el("pago-qr-zoom");
   if (info.qr) {
-    qrImg.src = info.qr;
-    qrImg.classList.remove("hidden");
+    if (qrImg.src !== info.qr) qrImg.src = info.qr;
+    qrBtn.classList.remove("hidden");
   } else {
-    qrImg.classList.add("hidden");
+    qrBtn.classList.add("hidden");
   }
 
   el("pago-qr-numero-label").textContent =
@@ -455,16 +451,43 @@ function calcularAhorroCupon(data) {
 function renderResumenCupon(data) {
   const wrap = el("cupon-resumen");
   if (!wrap) return;
-  const ahorro = calcularAhorroCupon(data);
-  if (!data.cupon || ahorro <= 0) {
+
+  const total = Number(data.total || 0);
+  const ahorro = data.cupon ? calcularAhorroCupon(data) : 0;
+  const sumaLineas = (data.productos || []).reduce(
+    (s, p) => s + Number(p.subtotal || 0),
+    0,
+  );
+  const descManual = Number(data.descuentoCupon) > 0 ? Number(data.descuentoCupon) : 0;
+
+  // Delivery = lo que sobra del total una vez descontados los productos
+  const delivery =
+    sumaLineas > 0
+      ? Math.max(0, +(total - sumaLineas + descManual).toFixed(2))
+      : 0;
+  const esDelivery = /delivery|domicilio|env[ií]o/i.test(
+    data.cliente?.tipo_entrega || "",
+  );
+  const verDelivery = delivery > 0 || esDelivery;
+
+  if (!verDelivery && ahorro <= 0) {
     wrap.classList.add("hidden");
     return;
   }
-  const total = Number(data.total || 0);
-  el("resumen-subtotal").textContent = `S/ ${(total + ahorro).toFixed(2)}`;
-  el("resumen-cupon-label").textContent =
-    `🎟️ Cupón ${data.cupon.codigo || ""}`.trim();
-  el("resumen-descuento").textContent = `− S/ ${ahorro.toFixed(2)}`;
+
+  el("resumen-subtotal").textContent = `S/ ${(total - delivery + ahorro).toFixed(2)}`;
+
+  el("resumen-delivery-row").classList.toggle("hidden", !verDelivery);
+  el("resumen-delivery").textContent =
+    delivery > 0 ? `+ S/ ${delivery.toFixed(2)}` : "Gratis";
+
+  el("resumen-cupon-row").classList.toggle("hidden", ahorro <= 0);
+  if (ahorro > 0) {
+    el("resumen-cupon-label").textContent =
+      `🎟️ Cupón ${data.cupon?.codigo || ""}`.trim();
+    el("resumen-descuento").textContent = `− S/ ${ahorro.toFixed(2)}`;
+  }
+
   wrap.classList.remove("hidden");
 }
 function codigoPedidoCorto(id) {
@@ -1777,5 +1800,50 @@ el("btn-en-local")?.addEventListener("click", async () => {
     console.error(e);
     b.disabled = false;
     b.textContent = "📍 Ya estoy en el local";
+  }
+});
+/* ══════════════ Zoom del QR (PhotoSwipe 5, carga bajo demanda) ══════════════ */
+const PSWP_VER = "5.4.4";
+let pswpModulo = null;
+function cargarPhotoSwipe() {
+  if (!pswpModulo) {
+    if (!document.getElementById("pswp-css")) {
+      const l = document.createElement("link");
+      l.id = "pswp-css";
+      l.rel = "stylesheet";
+      l.href = `https://cdn.jsdelivr.net/npm/photoswipe@${PSWP_VER}/dist/photoswipe.css`;
+      document.head.appendChild(l);
+    }
+    pswpModulo = import(
+      `https://cdn.jsdelivr.net/npm/photoswipe@${PSWP_VER}/dist/photoswipe.esm.min.js`
+    );
+  }
+  return pswpModulo;
+}
+
+el("pago-qr-zoom")?.addEventListener("click", async () => {
+  const img = el("pago-qr-img");
+  if (!img?.src) return;
+  try {
+    const { default: PhotoSwipe } = await cargarPhotoSwipe();
+    // Tamaño "virtual" grande: así el QR se ve a pantalla completa aunque el archivo sea chico
+    const nw = img.naturalWidth || 1;
+    const nh = img.naturalHeight || 1;
+    const W = 1400;
+    const H = Math.round((W * nh) / nw);
+    const pswp = new PhotoSwipe({
+      dataSource: [{ src: img.src, width: W, height: H, alt: "QR de pago" }],
+      bgOpacity: 0.96,
+      maxZoomLevel: 3,
+      wheelToZoom: true,
+      showHideAnimationType: "fade",
+      padding: { top: 20, bottom: 20, left: 12, right: 12 },
+      closeTitle: "Cerrar",
+      zoomTitle: "Zoom",
+    });
+    pswp.init();
+  } catch (e) {
+    console.warn("[pedidos] No se pudo abrir el visor del QR:", e);
+    window.open(img.src, "_blank", "noopener");
   }
 });

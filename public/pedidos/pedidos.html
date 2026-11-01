@@ -1117,16 +1117,22 @@
       <section id="pago-qr-card" class="card fade-in hidden" aria-label="Pago por QR">
         <span class="eyebrow">Pago por <span id="pago-qr-metodo-label">Yape</span></span>
 
-        <div style="display:flex;gap:1rem;align-items:center;margin-top:0.95rem;">
-          <img id="pago-qr-img" alt="QR de pago"
-            style="width:6.5rem;height:6.5rem;border-radius:1rem;object-fit:cover;border:1px solid var(--card-border);flex-shrink:0;background:#0e0e11;">
-          <div style="min-width:0;">
-            <p class="field-label" style="margin:0;">A nombre de</p>
-            <p id="pago-qr-nombre" class="field-value text-primary" style="margin:0 0 0.5rem;"></p>
-            <p id="pago-qr-numero-label" class="field-label" style="margin:0;">Número</p>
-            <p id="pago-qr-numero" class="field-value text-primary font-mono" style="margin:0;"></p>
-          </div>
-        </div>
+       <div style="display:flex;gap:1rem;align-items:center;margin-top:0.95rem;">
+  <button id="pago-qr-zoom" type="button" aria-label="Ampliar código QR"
+    style="position:relative;padding:0;border:0;background:none;cursor:zoom-in;flex-shrink:0;border-radius:1rem;-webkit-tap-highlight-color:transparent;">
+    <img id="pago-qr-img" alt="QR de pago"
+      style="display:block;width:6.5rem;height:6.5rem;border-radius:1rem;object-fit:cover;border:1px solid var(--card-border);background:#0e0e11;">
+    <span aria-hidden="true"
+      style="position:absolute;right:.3rem;bottom:.3rem;width:1.5rem;height:1.5rem;border-radius:50%;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-size:.75rem;">🔍</span>
+  </button>
+  <div style="min-width:0;">
+    <p class="field-label" style="margin:0;">A nombre de</p>
+    <p id="pago-qr-nombre" class="field-value text-primary" style="margin:0 0 0.5rem;"></p>
+    <p id="pago-qr-numero-label" class="field-label" style="margin:0;">Número</p>
+    <p id="pago-qr-numero" class="field-value text-primary font-mono" style="margin:0;"></p>
+  </div>
+</div>
+<p class="text-muted" style="font-size:0.74rem;margin:0.6rem 0 0;">Toca el QR para ampliarlo</p>
 
         <p id="pago-qr-mensaje" class="text-secondary" style="font-size:0.85rem;margin:0.9rem 0 0;line-height:1.5;"></p>
 
@@ -1150,16 +1156,20 @@
       <section class="card fade-in" aria-label="Productos del pedido">
         <span class="eyebrow">Productos</span>
         <div id="productos-list" style="margin-top:0.95rem;"></div>
-        <div id="cupon-resumen" class="hidden" style="margin-top:0.9rem;font-size:0.88rem;">
-          <div class="row-between">
-            <span class="text-secondary">Subtotal</span>
-            <span id="resumen-subtotal" class="font-mono text-secondary"></span>
-          </div>
-          <div class="row-between" style="margin-top:0.45rem;color:var(--state-entregado);">
-            <span id="resumen-cupon-label">🎟️ Cupón</span>
-            <span id="resumen-descuento" class="font-mono"></span>
-          </div>
-        </div>
+   <div id="cupon-resumen" class="hidden" style="margin-top:0.9rem;font-size:0.88rem;">
+  <div class="row-between">
+    <span class="text-secondary">Productos</span>
+    <span id="resumen-subtotal" class="font-mono text-secondary"></span>
+  </div>
+  <div id="resumen-delivery-row" class="row-between hidden" style="margin-top:0.45rem;">
+    <span class="text-secondary">🛵 Delivery</span>
+    <span id="resumen-delivery" class="font-mono text-secondary"></span>
+  </div>
+  <div id="resumen-cupon-row" class="row-between hidden" style="margin-top:0.45rem;color:var(--state-entregado);">
+    <span id="resumen-cupon-label">🎟️ Cupón</span>
+    <span id="resumen-descuento" class="font-mono"></span>
+  </div>
+</div>
         <div class="row-between divider-top">
           <span class="text-secondary" style="font-size:0.9rem;">Método de pago: <span id="pago-metodo"
               class="field-value text-primary" style="display:inline;"></span></span>

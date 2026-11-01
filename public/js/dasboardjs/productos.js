@@ -593,47 +593,7 @@ function htmlPresetsVaso(it, attr) {
   </div>`;
 }
 
-function calcRecetaUI() {
-  const rinde = document.getElementById("input-rec-rinde");
-  if (!rinde) return;
-  const r = leerReceta();
-  const c = calcReceta(r);
-  const div = Math.max(0.0001, numR(r.rinde) || 1);
 
-  document.querySelectorAll("#rec-items [data-ridx]").forEach((row) => {
-    const it = recetaItems[+row.dataset.ridx];
-    if (!it) return;
-    row.querySelector("[data-rcost]").textContent =
-      `S/ ${(costoLinea(it) / div).toFixed(2)}`;
-    const det = row.querySelector("[data-rdet]");
-    if (det) det.innerHTML = htmlDetalleItem(it);
-  });
-
-  const main = document.getElementById("input-prod-precio");
-  const mirror = document.getElementById("input-rec-precio");
-  if (document.activeElement !== mirror) mirror.value = main.value;
-
-  const precio = parseFloat(main.value) || 0;
-  calcVariantesUI(c, precio);
-  const tile = (t, v) =>
-    `<div class="rounded-xl bg-[#05040a] border border-purple-900/20 p-2.5 text-center"><p class="text-[9px] font-mono uppercase text-purple-400/50">${t}</p><p class="font-mono text-sm font-bold text-white">${v}</p></div>`;
-  document.getElementById("rec-tiles").innerHTML =
-    tile("Costo c/u", `S/ ${c.cost.toFixed(2)}`) +
-    tile("Precio sugerido", c.price ? `S/ ${c.price.toFixed(2)}` : "—") +
-    tile(
-      "Ganas sugerido",
-      c.price ? `S/ ${(c.price - c.cost).toFixed(2)}` : "—",
-    );
-
-  const box = document.getElementById("rec-margen-actual");
-  if (!c.cost || !precio) {
-    box.innerHTML = "";
-    return;
-  }
-  const g = precio - c.cost;
-  const pct = (g / precio) * 100;
-  box.innerHTML = `<span class="${g >= 0 ? "text-emerald-400" : "text-rose-400"}">Con tu precio S/ ${precio.toFixed(2)} ganas S/ ${g.toFixed(2)} por unidad (${pct.toFixed(0)}% de margen)</span>`;
-}
 function leerReceta() {
   return {
     items: recetaItems,
@@ -677,26 +637,7 @@ function calcRecetaUI() {
   const r = leerReceta();
   const c = calcReceta(r);
   const div = Math.max(0.0001, numR(r.rinde) || 1);
-  document.getElementById("rec-items").addEventListener("click", (e) => {
-    const row = e.target.closest("[data-ridx]");
-    if (!row) return;
-    const idx = +row.dataset.ridx;
-    const it = recetaItems[idx];
-
-    const p = e.target.closest('[data-rk="preset"]');
-    if (p && it) {
-      it.qty = p.dataset.oz;
-      it.unit = "oz";
-      renderRecetaItems();
-      calcRecetaUI();
-      return;
-    }
-    const b = e.target.closest('[data-rk="del"]');
-    if (!b) return;
-    recetaItems.splice(idx, 1);
-    renderRecetaItems();
-    calcRecetaUI();
-  });
+ 
   const main = document.getElementById("input-prod-precio");
   const mirror = document.getElementById("input-rec-precio");
   if (document.activeElement !== mirror) mirror.value = main.value;
@@ -722,7 +663,33 @@ function calcRecetaUI() {
   const pct = (g / precio) * 100;
   box.innerHTML = `<span class="${g >= 0 ? "text-emerald-400" : "text-rose-400"}">Con tu precio S/ ${precio.toFixed(2)} ganas S/ ${g.toFixed(2)} por unidad (${pct.toFixed(0)}% de margen)</span>`;
 }
-
+function renderRecetaItems() {
+  const box = document.getElementById("rec-items");
+  if (!box) return;
+  box.innerHTML = recetaItems
+    .map((it, i) => {
+      const ing = insumosMap.get(it.id);
+      const units = unidadesDeBase(ing ? baseInsumo(ing) : "unid")
+        .map(
+          (u) =>
+            `<option value="${u}" ${u === it.unit ? "selected" : ""}>${UL_REC[u]}</option>`,
+        )
+        .join("");
+      return `<div data-ridx="${i}" class="flex flex-col gap-1.5 rounded-xl bg-[#0d0a17] border border-purple-900/30 p-2.5">
+        <select data-rk="cat" class="w-full ${CLS_REC_INPUT}">${opcionesCategorias(catDe(ing))}</select>
+        <select data-rk="id" class="w-full ${CLS_REC_INPUT}">${opcionesInsumos(it.id)}</select>
+        ${htmlPresetsVaso(it, "data-rk")}
+        <div class="flex items-center gap-2">
+          <input data-rk="qty" type="number" min="0" step="any" inputmode="decimal" placeholder="Cantidad" value="${escR(it.qty)}" class="w-24 ${CLS_REC_INPUT} font-mono">
+          <select data-rk="unit" class="${CLS_REC_INPUT}">${units}</select>
+          <b data-rcost class="ml-auto font-mono text-xs text-violet-300">S/ 0.00</b>
+          <button type="button" data-rk="del" class="w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 text-xs">✕</button>
+        </div>
+        <div data-rdet class="font-mono text-[10px] leading-relaxed">${htmlDetalleItem(it)}</div>
+      </div>`;
+    })
+    .join("");
+}
 function cargarRecetaEnModal(r) {
   recetaOriginal = r || null;
   recetaItems = (r?.items || []).map((i) => ({
@@ -772,11 +739,24 @@ document.getElementById("rec-items").addEventListener("input", (e) => {
   calcRecetaUI();
 });
 document.getElementById("rec-items").addEventListener("click", (e) => {
-  const b = e.target.closest('[data-rk="del"]');
-  if (!b) return;
-  recetaItems.splice(+b.closest("[data-ridx]").dataset.ridx, 1);
-  renderRecetaItems();
-  calcRecetaUI();
+  const row = e.target.closest("[data-ridx]");
+  if (!row) return;
+  const idx = +row.dataset.ridx;
+  const it = recetaItems[idx];
+
+  const p = e.target.closest('[data-rk="preset"]');
+  if (p && it) {
+    it.qty = p.dataset.oz;
+    it.unit = "oz";
+    renderRecetaItems();
+    calcRecetaUI();
+    return;
+  }
+  if (e.target.closest('[data-rk="del"]')) {
+    recetaItems.splice(idx, 1);
+    renderRecetaItems();
+    calcRecetaUI();
+  }
 });
 [
   "input-rec-rinde",
@@ -895,30 +875,34 @@ function calcCombos({
     const g = venta - costo;
     return { label, venta, costo, g, pct: venta > 0 ? (g / venta) * 100 : 0 };
   };
+  // Config por grupo, con respaldo a los flags viejos
+  const esMulti = (c) => (c.tipo ? c.tipo === "multiple" : multiples === true);
+  const esObl = (c) =>
+    c.obligatoria !== undefined ? c.obligatoria !== false : obligatoria !== false;
+
   const conds = (condiciones || []).filter(
     (c) => (c.nombre || "").trim() && opcionesActivas(c).length,
   );
-
-  if (multiples) {
-    const extras = [];
-    conds.forEach((c) =>
+  const extras = [];
+  const unicas = [];
+  conds.forEach((c) => {
+    if (esMulti(c)) {
       opcionesActivas(c).forEach((o) => {
         const adic = (Number(o.costoAdicional) || 0) * f;
         const cuesta = costoOp(o);
         extras.push({ label: o.nombre, adic, cuesta, g: adic - cuesta });
-      }),
-    );
-    return { filas: [fila("Producto base", 0, 0)], extras };
-  }
+      });
+    } else unicas.push(c);
+  });
 
   let combos = [{ label: [], adic: 0, extra: 0 }];
-  conds.forEach((c) => {
+  unicas.forEach((c) => {
     const choices = opcionesActivas(c).map((o) => ({
       n: o.nombre,
       adic: Number(o.costoAdicional) || 0,
       extra: costoOp(o),
     }));
-    if (!obligatoria) choices.push({ n: null, adic: 0, extra: 0 });
+    if (!esObl(c)) choices.push({ n: null, adic: 0, extra: 0 });
     const next = [];
     combos.forEach((cb) =>
       choices.forEach((ch) => {
@@ -934,12 +918,15 @@ function calcCombos({
   });
   return {
     filas: combos.map((cb) =>
-      fila(cb.label.join(" + ") || "Normal", cb.adic, cb.extra),
+      fila(
+        cb.label.join(" + ") || (unicas.length ? "Normal" : "Producto base"),
+        cb.adic,
+        cb.extra,
+      ),
     ),
-    extras: [],
+    extras,
   };
 }
-
 function htmlCombos(res, precio) {
   if (!precio)
     return `<p class="text-[11px] text-purple-300/40 italic">Pon el precio de venta para ver cuánto ganas.</p>`;
@@ -1772,6 +1759,29 @@ document
       .getElementById("descuento-detalle")
       .classList.toggle("hidden", !e.target.checked);
   });
+function chipCheck(texto, checked, onChange, title = "") {
+  const l = document.createElement("label");
+  l.className =
+    "inline-flex items-center gap-1.5 cursor-pointer rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2.5 py-1.5 text-[11px] text-purple-100 select-none";
+  l.title = title;
+  const i = document.createElement("input");
+  i.type = "checkbox";
+  i.checked = !!checked;
+  i.className = "accent-violet-500";
+  i.addEventListener("change", () => onChange(i.checked));
+  l.append(i, document.createTextNode(texto));
+  return l;
+}
+function textoReglaAdmin(c) {
+  if (c.tipo !== "multiple")
+    return c.obligatoria
+      ? "El cliente verá: «Elige 1» · Obligatorio"
+      : "El cliente verá: «Opcional · elige 1»";
+  const m = Number(c.max) > 0 ? Number(c.max) : null;
+  return c.obligatoria
+    ? `El cliente verá: «${m ? `Elige de 1 a ${m}` : "Elige al menos 1"}» · Obligatorio`
+    : `El cliente verá: «${m ? `Opcional · hasta ${m}` : "Opcional · las que quieras"}»`;
+}
 function renderCondiciones() {
   const cont = document.getElementById("condiciones-container");
   const btnAdd = document.getElementById("btn-add-condicion");
@@ -1781,9 +1791,14 @@ function renderCondiciones() {
       ? "none"
       : "";
   condicionesSeleccionadas.forEach((cond, ci) => {
+    if (!cond.tipo) cond.tipo = "unica";
+    if (cond.obligatoria === undefined) cond.obligatoria = true;
+    const multiple = cond.tipo === "multiple";
+
     const box = document.createElement("div");
     box.className = "rounded-xl bg-[#05040a] border border-purple-900/30 p-3";
 
+    /* ---- Cabecera: nombre del grupo + borrar ---- */
     const head = document.createElement("div");
     head.className = "flex items-center gap-2 mb-2";
 
@@ -1807,30 +1822,98 @@ function renderCondiciones() {
       condicionesSeleccionadas.splice(ci, 1);
       renderCondiciones();
     });
-
     head.appendChild(nombreInput);
     head.appendChild(delCondBtn);
     box.appendChild(head);
 
-    // Encabezados de columna: sin esto, los campos de costo y stock son
-    // dos inputs numéricos idénticos y es fácil confundir uno con el otro.
+    /* ---- Configuración del grupo ---- */
+    const cfg = document.createElement("div");
+    cfg.className = "flex flex-wrap items-center gap-2 mb-1.5";
+
+    const selTipo = document.createElement("select");
+    selTipo.className =
+      "rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2 py-1.5 text-[11px] text-purple-100 outline-none focus:border-violet-600";
+    selTipo.innerHTML = `
+      <option value="unica">Elegir 1 sola (ej. tamaño)</option>
+      <option value="multiple">Elegir varias (ej. extras)</option>`;
+    selTipo.value = cond.tipo;
+    selTipo.addEventListener("change", () => {
+      cond.tipo = selTipo.value;
+      if (cond.tipo !== "multiple") {
+        cond.conCantidad = false;
+        cond.max = null;
+      }
+      renderCondiciones();
+    });
+    cfg.appendChild(selTipo);
+
+    cfg.appendChild(
+      chipCheck(
+        "Obligatorio",
+        cond.obligatoria,
+        (v) => {
+          cond.obligatoria = v;
+          renderCondiciones();
+        },
+        "Si está activo, el cliente no puede agregar al carrito sin elegir aquí",
+      ),
+    );
+
+    if (multiple) {
+      cfg.appendChild(
+        chipCheck(
+          "Con cantidad (+/−)",
+          cond.conCantidad,
+          (v) => {
+            cond.conCantidad = v;
+          },
+          "Permite repetir una opción (ej. Papas extras x2)",
+        ),
+      );
+      const maxInput = document.createElement("input");
+      maxInput.type = "number";
+      maxInput.min = "1";
+      maxInput.step = "1";
+      maxInput.placeholder = "Máx.";
+      maxInput.title = "Máximo que puede elegir en este grupo (vacío = sin límite)";
+      maxInput.value = cond.max ? cond.max : "";
+      maxInput.className =
+        "w-16 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2 py-1.5 text-[11px] text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
+      maxInput.addEventListener("input", () => {
+        cond.max = parseInt(maxInput.value, 10) > 0 ? parseInt(maxInput.value, 10) : null;
+        regla.textContent = textoReglaAdmin(cond);
+      });
+      cfg.appendChild(maxInput);
+    }
+    box.appendChild(cfg);
+
+    const regla = document.createElement("p");
+    regla.className = "text-[10px] text-purple-400/50 mb-2.5";
+    regla.textContent = textoReglaAdmin(cond);
+    box.appendChild(regla);
+
+    /* ---- Encabezados de columna ---- */
     const colHeaders = document.createElement("div");
     colHeaders.className = "flex items-center gap-2 mb-1 px-0.5";
     colHeaders.innerHTML = `
-  <span class="flex-1 text-[9px] font-mono uppercase tracking-wider text-purple-400/40">Opción</span>
-  <span class="w-16 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Costo extra</span>
-  <span class="w-14 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Stock</span>
-  <span class="w-9 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Activo</span>
-  <span class="w-6"></span>
-`;
+      <span class="flex-1 text-[9px] font-mono uppercase tracking-wider text-purple-400/40">Opción</span>
+      <span class="w-16 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Costo extra</span>
+      <span class="w-14 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Stock</span>
+      <span class="w-9 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Activo</span>
+      <span class="w-6"></span>`;
     box.appendChild(colHeaders);
 
+    /* ---- Opciones ---- */
     const opcionesWrap = document.createElement("div");
-    opcionesWrap.className = "flex flex-col gap-1.5";
+    opcionesWrap.className = "flex flex-col gap-2";
 
     cond.opciones.forEach((op, oi) => {
+      const wrapOp = document.createElement("div");
+      wrapOp.className = "flex flex-col gap-1";
+
       const row = document.createElement("div");
       row.className = "flex items-center gap-2";
+
       const opInput = document.createElement("input");
       opInput.type = "text";
       opInput.placeholder = textosActuales().opcionPlaceholder;
@@ -1847,8 +1930,7 @@ function renderCondiciones() {
       costInput.step = "0.10";
       costInput.min = "0";
       costInput.placeholder = "+S/ 0";
-      costInput.title =
-        "Costo adicional que se suma al precio base si el cliente elige esta opción";
+      costInput.title = "Costo adicional que se suma al precio base si el cliente elige esta opción";
       costInput.value = op.costoAdicional ? op.costoAdicional : "";
       costInput.className =
         "w-16 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
@@ -1870,15 +1952,15 @@ function renderCondiciones() {
           stockOpInput.value === ""
             ? null
             : Math.max(0, parseInt(stockOpInput.value, 10) || 0);
-        validarConsistenciaStock(); // ← esto faltaba
+        validarConsistenciaStock();
       });
 
       const toggleLabel = document.createElement("label");
       toggleLabel.className = "relative inline-block w-9 h-5 shrink-0";
       toggleLabel.innerHTML = `
-            <input type="checkbox" ${op.activo ? "checked" : ""} class="peer opacity-0 w-0 h-0">
-            <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
-              before:content-[''] before:absolute before:w-3.5 before:h-3.5 before:left-0.5 before:top-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-4"></span>`;
+        <input type="checkbox" ${op.activo ? "checked" : ""} class="peer opacity-0 w-0 h-0">
+        <span class="absolute inset-0 rounded-full bg-purple-950/60 border border-purple-800/40 peer-checked:bg-emerald-600 peer-checked:border-emerald-500 cursor-pointer transition-colors duration-200
+          before:content-[''] before:absolute before:w-3.5 before:h-3.5 before:left-0.5 before:top-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 peer-checked:before:translate-x-4"></span>`;
       toggleLabel.querySelector("input").addEventListener("change", (ev) => {
         op.activo = ev.target.checked;
       });
@@ -1892,24 +1974,34 @@ function renderCondiciones() {
         cond.opciones.splice(oi, 1);
         renderCondiciones();
       });
-      row.appendChild(opInput);
-      row.appendChild(costInput);
-      row.appendChild(stockOpInput);
-      row.appendChild(toggleLabel);
-      row.appendChild(delOpBtn);
-      opcionesWrap.appendChild(row);
-    });
 
+      row.append(opInput, costInput, stockOpInput, toggleLabel, delOpBtn);
+
+      // Qué incluye esta opción (se le muestra al cliente debajo del nombre)
+      const descInput = document.createElement("input");
+      descInput.type = "text";
+      descInput.maxLength = 120;
+      descInput.placeholder = "Qué incluye (opcional). Ej. 2 presas + papas + gaseosa";
+      descInput.value = op.descripcion || "";
+      descInput.className =
+        "w-full rounded-lg bg-[#0d0a17] border border-purple-900/10 px-2.5 py-1 text-[11px] text-purple-300/80 placeholder-purple-400/25 outline-none focus:border-violet-600";
+      descInput.addEventListener("input", () => {
+        op.descripcion = descInput.value;
+      });
+
+      wrapOp.append(row, descInput);
+      opcionesWrap.appendChild(wrapOp);
+    });
     box.appendChild(opcionesWrap);
 
     const addOpBtn = document.createElement("button");
     addOpBtn.type = "button";
-    addOpBtn.className =
-      "mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200";
+    addOpBtn.className = "mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200";
     addOpBtn.textContent = "+ Agregar opción";
     addOpBtn.addEventListener("click", () => {
       cond.opciones.push({
         nombre: "",
+        descripcion: "",
         activo: true,
         costoAdicional: 0,
         stock: null,
@@ -1921,14 +2013,20 @@ function renderCondiciones() {
     cont.appendChild(box);
   });
 
-  validarConsistenciaStock(); // ← esto faltaba, al final de la función
+  validarConsistenciaStock();
 }
 
 document.getElementById("btn-add-condicion").addEventListener("click", () => {
   if (condicionesSeleccionadas.length >= PLAN_PRODUCTOS.maxVariantes) return;
   condicionesSeleccionadas.push({
     nombre: "",
-    opciones: [{ nombre: "", activo: true, costoAdicional: 0, stock: null }],
+    tipo: "unica",
+    obligatoria: true,
+    conCantidad: false,
+    max: null,
+    opciones: [
+      { nombre: "", descripcion: "", activo: true, costoAdicional: 0, stock: null },
+    ],
   });
   renderCondiciones();
 });
@@ -2036,21 +2134,38 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   imgsExistentes.slice(0, 3).forEach((img, i) => {
     imagenesSeleccionadas[i] = img;
   });
-  condicionesSeleccionadas = (data.condiciones || []).map((c) => ({
-    nombre: c.nombre,
-    opciones: (c.opciones || []).map((o) => ({
-      nombre: o.nombre,
-      activo: !!o.activo,
-      costoAdicional: Number(o.costoAdicional) || 0,
-      stock: typeof o.stock === "number" ? o.stock : null,
-      receta: o.receta
-        ? {
-          reemplaza: !!o.receta.reemplaza,
-          items: (o.receta.items || []).map((i) => ({ ...i })),
-        }
-        : null,
-    })),
-  }));
+  condicionesSeleccionadas = (data.condiciones || []).map((c) => {
+    const multiple = c.tipo
+      ? c.tipo === "multiple"
+      : data.variantesMultiples === true;
+    return {
+      nombre: c.nombre,
+      tipo: multiple ? "multiple" : "unica",
+      obligatoria:
+        c.obligatoria !== undefined
+          ? c.obligatoria !== false
+          : data.variantesObligatoria !== false,
+      conCantidad:
+        multiple &&
+        (c.conCantidad !== undefined
+          ? c.conCantidad === true
+          : data.variantesConCantidad === true),
+      max: Number(c.max) > 0 ? Number(c.max) : null,
+      opciones: (c.opciones || []).map((o) => ({
+        nombre: o.nombre,
+        descripcion: o.descripcion || "",
+        activo: !!o.activo,
+        costoAdicional: Number(o.costoAdicional) || 0,
+        stock: typeof o.stock === "number" ? o.stock : null,
+        receta: o.receta
+          ? {
+              reemplaza: !!o.receta.reemplaza,
+              items: (o.receta.items || []).map((i) => ({ ...i })),
+            }
+          : null,
+      })),
+    };
+  });
   document.getElementById("form-producto").reset();
   const idEsNumerico = /^\d+$/.test(productoId);
   inputCodigo.value = idEsNumerico ? productoId : data.codigo_barras || "";
@@ -2145,17 +2260,9 @@ document
       document.getElementById("input-prod-horario-desde").value || null;
     const disponibleHasta =
       document.getElementById("input-prod-horario-hasta").value || null;
-    const variantesObligatoria = document.getElementById(
-      "input-prod-variante-obligatoria",
-    ).checked;
-    const variantesMultiples = document.getElementById(
-      "input-prod-variantes-multiples",
-    ).checked;
+
+   
     // Solo tiene sentido si "múltiples" está activo; si no, se fuerza a false por consistencia
-    const variantesConCantidad =
-      variantesMultiples &&
-      document.getElementById("input-prod-variantes-cantidad").checked;
-    // Si el usuario activó "desactivar automáticamente al llegar a 0" y el stock es 0,
     // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
     if (autoDesactivar && stock === 0) disponible = false;
 
@@ -2164,29 +2271,45 @@ document
     const condiciones = condicionesSeleccionadas
       .filter((c) => c.nombre.trim())
       .slice(0, PLAN_PRODUCTOS.maxVariantes)
-      .map((c) => ({
-        nombre: c.nombre.trim(),
-        opciones: c.opciones
-          .filter((o) => o.nombre.trim())
-          .map((o) => ({
-            nombre: o.nombre.trim(),
-            activo: !!o.activo,
-            costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
-            stock: typeof o.stock === "number" ? o.stock : null,
-            receta:
-              PLAN_PRODUCTOS.superAvanzado && o.receta?.items?.length
-                ? {
-                  items: o.receta.items
-                    .filter((it) => numR(it.qty) > 0)
-                    .map((it) => ({
-                      id: it.id,
-                      qty: numR(it.qty),
-                      unit: it.unit,
-                    })),
-                }
-                : null,
-          })),
-      }));
+      .map((c) => {
+        const multiple = c.tipo === "multiple";
+        return {
+          nombre: c.nombre.trim(),
+          tipo: multiple ? "multiple" : "unica",
+          obligatoria: c.obligatoria !== false,
+          conCantidad: multiple && c.conCantidad === true,
+          max: multiple && Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+          opciones: c.opciones
+            .filter((o) => o.nombre.trim())
+            .map((o) => ({
+              nombre: o.nombre.trim(),
+              descripcion: String(o.descripcion || "").trim().slice(0, 120),
+              activo: !!o.activo,
+              costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
+              stock: typeof o.stock === "number" ? o.stock : null,
+              receta:
+                PLAN_PRODUCTOS.superAvanzado && o.receta?.items?.length
+                  ? {
+                      items: o.receta.items
+                        .filter((it) => numR(it.qty) > 0)
+                        .map((it) => ({
+                          id: it.id,
+                          qty: numR(it.qty),
+                          unit: it.unit,
+                        })),
+                    }
+                  : null,
+            })),
+        };
+      })
+      .filter((c) => c.opciones.length > 0);
+
+    // Compatibilidad con páginas antiguas que aún leen los flags globales
+    const variantesMultiples = condiciones.some((c) => c.tipo === "multiple");
+    const variantesObligatoria = condiciones.length
+      ? condiciones.every((c) => c.obligatoria)
+      : true;
+    const variantesConCantidad = condiciones.some((c) => c.conCantidad);
     const descuentoActivoChk = document.getElementById(
       "input-prod-descuento-activo",
     ).checked;
@@ -2575,10 +2698,10 @@ function renderProductoCard(categoriaId, productoId, data) {
           typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
         const chip = document.createElement("span");
         chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${sinStock
-            ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
-            : stockBajo
-              ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
-              : "bg-purple-950/40 border-purple-800/30 text-purple-300"
+          ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
+          : stockBajo
+            ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
+            : "bg-purple-950/40 border-purple-800/30 text-purple-300"
           }`;
         let txt = op.nombre;
         if (op.costoAdicional)
@@ -2676,8 +2799,8 @@ function renderProductoCard(categoriaId, productoId, data) {
   const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
   estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.disponible
-      ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
-      : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
+    ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
+    : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
     }`;
   estadoBtn.title = data.disponible
     ? "Disponible (clic para marcar agotado)"
@@ -2702,8 +2825,8 @@ function renderProductoCard(categoriaId, productoId, data) {
   agotadoHoyBtn.type = "button";
   agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (mañana vuelve solo)";
   agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.agotadoHoy
-      ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
-      : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
+    ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
+    : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
     }`;
   agotadoHoyBtn.innerHTML = `<span>🔸</span><span class="pc-agotadohoy-txt">${data.agotadoHoy ? "Agotado hoy" : "Agotar hoy"}</span>`;
   agotadoHoyBtn.addEventListener("click", async (e) => {

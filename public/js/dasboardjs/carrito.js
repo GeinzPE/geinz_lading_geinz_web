@@ -912,20 +912,20 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const totalConDesc = +(totalGuardar - descCupon).toFixed(2);
   const cuponGuardar = cuponMesa
     ? {
-        codigo: cuponMesa.codigo,
-        tipo: cuponMesa.tipo,
-        origen: cuponMesa.origen || null,
-        tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
-        porcentajeManual: cuponMesa.porcentajeManual ?? null,
-        montoManual: cuponMesa.montoManual ?? null,
-        compraMinima: cuponMesa.compraMinima ?? 0,
-      }
+      codigo: cuponMesa.codigo,
+      tipo: cuponMesa.tipo,
+      origen: cuponMesa.origen || null,
+      tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
+      porcentajeManual: cuponMesa.porcentajeManual ?? null,
+      montoManual: cuponMesa.montoManual ?? null,
+      compraMinima: cuponMesa.compraMinima ?? 0,
+    }
     : null;
   const estadosIni = esRonda
     ? {
-        estadoMozo: "confirmado",
-        estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
-      }
+      estadoMozo: "confirmado",
+      estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
+    }
     : inter
       ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
       : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
@@ -1128,7 +1128,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 const estItemC = (it, ped) =>
@@ -1166,7 +1166,7 @@ async function guardarComprobanteMesa(sol) {
     await updateDoc(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", docId),
       { comprobante: sol },
-    ).catch(() => {});
+    ).catch(() => { });
 }
 const clientePuedeComprobante = () =>
   bizData?.mesas_config?.compCliente !== false;
@@ -1266,28 +1266,26 @@ function renderPedidoActivoMesa(pedido) {
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
       <span class="text-[11px] text-gray-500">${pedido.hora || ""}</span>
     </div>
-    ${
-      idx < 0
-        ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
-        : `<div class="pa-steps">
+    ${idx < 0
+      ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
+      : `<div class="pa-steps">
             <div class="pa-track"><div class="pa-fill" style="width:${fillPct}%"></div></div>
             ${PASOS_MESA.map(
-              (p, i) => `
+        (p, i) => `
               <div class="pa-step ${i < idx ? "done" : i === idx ? "now" : ""}">
                 <div class="pa-dot">${i < idx ? "✓" : p[1]}</div>
                 <div class="pa-lbl">${p[2]}</div>
               </div>`,
-            ).join("")}
+      ).join("")}
           </div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
-    ${
-      Number(pedido.descuentoCupon || 0) > 0
-        ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
+    ${Number(pedido.descuentoCupon || 0) > 0
+      ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
              <span>🎟️ Cupón ${pedido.cupon?.codigo || ""}</span>
              <span>-S/ ${Number(pedido.descuentoCupon).toFixed(2)}</span>
            </div>`
-        : ""
+      : ""
     }
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
@@ -1564,11 +1562,11 @@ async function confirmarPedidoMesaDirecto() {
       total,
     });
     pedidoActivoMesa = pedido;
-        if (marcarUsado) {
+    if (marcarUsado) {
       updateDoc(refCupon, { usado: true, estado: "usado", usadoEn: serverTimestamp() }).catch(() => { });
     }
     if (contarUso) {
-      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
+      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => { });
     }
     cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
@@ -2074,11 +2072,10 @@ function cuponBarHTML(subtotal) {
         <p style="margin:0;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${rgb};">
           🎟️ Canjes con puntos · ${totalCanjes}
         </p>
-        ${
-          lineas.length > 1
-            ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
-            : ""
-        }
+        ${lineas.length > 1
+      ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
+      : ""
+    }
       </div>
       ${filas}
     </div>`;
@@ -2347,20 +2344,43 @@ async function loadProductosCatalogo(bizOrPromise) {
 
         // Solo se traen las condiciones/opciones marcadas como activas (true)
         // Solo se traen las condiciones/opciones marcadas como activas (true)
-        const condiciones = (d.condiciones || [])
-          .map((c) => ({
+        // Config POR GRUPO (con respaldo a los interruptores viejos del producto)
+        const gruposRaw = (d.condiciones || []).map((c) => {
+          const multiple = c.tipo
+            ? c.tipo === "multiple"
+            : d.variantesMultiples === true;
+          return {
             nombre: c.nombre,
+            multiple,
+            obligatoria:
+              c.obligatoria !== undefined
+                ? c.obligatoria !== false
+                : d.variantesObligatoria !== false,
+            conCantidad:
+              multiple &&
+              (c.conCantidad !== undefined
+                ? c.conCantidad === true
+                : d.variantesConCantidad === true),
+            max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
             opciones: (c.opciones || [])
               .filter(
                 (o) => o.activo && (typeof o.stock !== "number" || o.stock > 0),
               )
               .map((o) => ({
                 nombre: o.nombre,
+                descripcion: String(o.descripcion || "").trim(),
                 costoAdicional: Number(o.costoAdicional) || 0,
-                stock: typeof o.stock === "number" ? o.stock : null, // ← faltaba: sin esto no hay control de stock por variante
+                stock: typeof o.stock === "number" ? o.stock : null,
               })),
-          }))
-          .filter((c) => c.nombre && c.opciones.length > 0);
+          };
+        });
+        // Un grupo obligatorio sin opciones disponibles = producto sin stock
+        const grupoObligatorioAgotado = gruposRaw.some(
+          (g) => g.nombre && g.obligatoria && !g.opciones.length,
+        );
+        const condiciones = gruposRaw.filter(
+          (g) => g.nombre && g.opciones.length > 0,
+        );
 
         arr.push({
           id: pDoc.id,
@@ -2368,12 +2388,13 @@ async function loadProductosCatalogo(bizOrPromise) {
           categoriaNorm: normalizeText(categoria),
           nombre,
           nombreNorm: normalizeText(nombre),
+          descripcion: String(d.descripcion || "").trim(),   // ← AGREGAR
           precio: Number(d.precio) || 0,
           imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
           imagen: d.imagenes?.[0]?.url || "",
           condiciones,
           tuvoCondiciones: (d.condiciones || []).length > 0, // ← NUEVO
-
+          grupoObligatorioAgotado,
           stock: typeof d.stock === "number" ? d.stock : null,
           variantesObligatoria: d.variantesObligatoria !== false,
           variantesMultiples: d.variantesMultiples === true,
@@ -2381,12 +2402,12 @@ async function loadProductosCatalogo(bizOrPromise) {
             d.variantesMultiples === true && d.variantesConCantidad === true,
           puntos:
             biz?.fidelizacion?.activo &&
-            d.puntos?.activo &&
-            d.puntos?.cantidad > 0
+              d.puntos?.activo &&
+              d.puntos?.cantidad > 0
               ? {
-                  cantidad: d.puntos.cantidad,
-                  descripcion: d.puntos.descripcion || "",
-                }
+                cantidad: d.puntos.cantidad,
+                descripcion: d.puntos.descripcion || "",
+              }
               : null,
           descuento: d.descuento || null,
           horarioCat,
@@ -2729,7 +2750,7 @@ function prepararCheckoutInvitado() {
       if (nom && !nom.value.trim()) nom.value = g.nombre || "";
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
-  } catch {}
+  } catch { }
   // Si está logeado, intenta prellenar con el teléfono de su perfil
   if (!esInvitado && wa && !wa.value.trim()) {
     wa.value =
@@ -2921,11 +2942,10 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${
-    _bizLogoUrl
+  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
       ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
       : `<span class="ph-letter">${letraNegocio()}</span>`
-  }</div>`;
+    }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -3048,13 +3068,12 @@ function productoCard(p, index = 0) {
   
   ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-   ${
-     p.puntos
-       ? siguiendoTienda
-         ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-         : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
-       : ""
-   } `;
+   ${p.puntos
+      ? siguiendoTienda
+        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+        : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
+      : ""
+    } `;
 
   const dispEl = document.createElement("p");
   dispEl.id = `disp-${p.id}`;
@@ -3081,14 +3100,7 @@ function productoCard(p, index = 0) {
 function productoSinStock(p) {
   if (p.esPromo || p.esOfertaTiempo) return false;
   if (typeof p.stock === "number" && p.stock <= 0) return true;
-  // Tenía variantes obligatorias pero todas se agotaron (el catálogo las filtró)
-  if (
-    p.tuvoCondiciones &&
-    (!p.condiciones || !p.condiciones.length) &&
-    p.variantesObligatoria !== false
-  ) {
-    return true;
-  }
+  if (p.grupoObligatorioAgotado) return true;
   return false;
 }
 
@@ -3307,15 +3319,17 @@ function opcionesDetalleHTML(it) {
       const extra = extraUnit
         ? ` <span class="text-gray-300">+S/ ${(extraUnit * cant).toFixed(2)}</span>`
         : "";
+      const desc = op?.descripcion
+        ? ` <span class="text-gray-600">— ${escapeHtmlCarrito(op.descripcion)}</span>`
+        : "";
       const cantTxt = cant > 1 ? ` x${cant}` : "";
       filas.push(
-        `<span class="block">• ${condNombre}: ${nombreOp}${cantTxt}${extra}</span>`,
+        `<span class="block">• ${condNombre}: ${nombreOp}${cantTxt}${extra}${desc}</span>`,
       );
     });
   });
   return filas.join("");
 }
-
 function cartKeyFor(id, seleccion) {
   const claves = Object.keys(seleccion || {}).filter(
     (k) => entradasDe(seleccion[k]).length,
@@ -3404,19 +3418,19 @@ function getDeliveryCfg() {
     texto: d.texto || "",
     zonas: Array.isArray(d.zonas)
       ? d.zonas
-          .filter((z) => z && z.nombre)
-          .map((z) => ({
-            nombre: String(z.nombre),
-            precio: Number(z.precio) || 0,
-          }))
+        .filter((z) => z && z.nombre)
+        .map((z) => ({
+          nombre: String(z.nombre),
+          precio: Number(z.precio) || 0,
+        }))
       : [],
     recargo: d.recargo
       ? {
-          activo: d.recargo.activo === true,
-          desde: d.recargo.desde || "",
-          hasta: d.recargo.hasta || "",
-          monto: Number(d.recargo.monto) || 0,
-        }
+        activo: d.recargo.activo === true,
+        desde: d.recargo.desde || "",
+        hasta: d.recargo.hasta || "",
+        monto: Number(d.recargo.monto) || 0,
+      }
       : null,
   };
 }
@@ -3895,242 +3909,258 @@ function removeFromCart(key, productId) {
   syncCartChange(productId || key);
 }
 
-/* ══════════════ Popup de opciones (condiciones del producto) ══════════════ */
-/* ══════════════ Popup de opciones (condiciones del producto) ══════════════ */
 let productoParaOpciones = null;
 let seleccionOpciones = {};
-let cartKeyEnEdicion = null; // si no es null, el popup está EDITANDO esa línea del carrito
+let cartKeyEnEdicion = null;
+let gruposModal = [];
+
+const OPT_CSS = `
+.opt-grp{margin-bottom:18px;scroll-margin-top:12px;}
+.opt-grp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.opt-grp-title{margin:0;font-size:15.5px;font-weight:800;color:#fff;text-transform:capitalize;}
+.opt-grp-rule{margin:2px 0 0;font-size:11.5px;color:#9c9ca3;}
+.opt-badge{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px;white-space:nowrap;background:rgba(255,255,255,.08);color:#c9c9d1;}
+.opt-grp.req .opt-badge{background:rgba(251,191,36,.14);color:#fcd34d;}
+.opt-grp.ok .opt-badge{background:rgba(var(--dr),var(--dg),var(--db),.2);color:rgb(var(--dr),var(--dg),var(--db));}
+.opt-list{display:flex;flex-direction:column;gap:8px;}
+.opt-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;cursor:pointer;
+  background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);transition:border-color .15s, background .15s;}
+.opt-row.sel{border-color:rgb(var(--dr),var(--dg),var(--db));background:rgba(var(--dr),var(--dg),var(--db),.1);}
+.opt-row.off{opacity:.4;cursor:not-allowed;}
+.opt-row.qty{cursor:default;}
+.opt-mark{width:20px;height:20px;flex-shrink:0;border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;}
+.opt-mark.radio{border-radius:50%;}
+.opt-mark.check{border-radius:6px;}
+.opt-row.sel .opt-mark{background:rgb(var(--dr),var(--dg),var(--db));border-color:rgb(var(--dr),var(--dg),var(--db));}
+.opt-info{flex:1;min-width:0;}
+.opt-name{margin:0;font-size:14px;font-weight:700;color:#fff;}
+.opt-desc{margin:3px 0 0;font-size:12px;line-height:1.4;color:#9c9ca3;}
+.opt-price{font-size:12.5px;font-weight:800;color:#d4d4d8;white-space:nowrap;}
+.opt-step{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.opt-step button{width:30px;height:30px;border-radius:10px;border:none;cursor:pointer;font-weight:900;font-size:15px;color:#fff;background:rgba(255,255,255,.1);}
+.opt-step button.add{width:auto;padding:0 14px;font-size:12px;background:rgb(var(--dr),var(--dg),var(--db));}
+.opt-step button:disabled{opacity:.35;cursor:not-allowed;}
+.opt-step b{min-width:18px;text-align:center;font-size:14px;color:#fff;}
+.opt-grp.shake{animation:optShake .45s;}
+@keyframes optShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+#confirmOptionsBtn.opt-btn-pending{opacity:.55;}
+.opt-prod-desc{margin:0 0 16px;font-size:13px;line-height:1.55;color:#a1a1aa;white-space:pre-wrap;}
+`;
+function injectOptionsStyles() {
+  if (document.getElementById("optStyle")) return;
+  const st = document.createElement("style");
+  st.id = "optStyle";
+  st.textContent = OPT_CSS;
+  document.head.appendChild(st);
+}
+
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt != null) e.textContent = txt;
+  return e;
+}
+function textoReglaGrupo(c) {
+  if (!c.multiple) return c.obligatoria ? "Elige 1" : "Opcional · elige 1";
+  if (c.obligatoria)
+    return c.max ? `Elige de 1 a ${c.max}` : "Elige al menos 1";
+  return c.max ? `Opcional · hasta ${c.max}` : "Opcional · las que quieras";
+}
+function cantidadElegida(cond, nombre) {
+  const e = entradasDe(seleccionOpciones[cond.nombre]).find(
+    ([n]) => n === nombre,
+  );
+  return e ? e[1] : 0;
+}
+function totalUnidadesGrupo(cond) {
+  return entradasDe(seleccionOpciones[cond.nombre]).reduce(
+    (s, [, c]) => s + c,
+    0,
+  );
+}
+function grupoEstaCompleto(cond) {
+  return (
+    !cond.obligatoria || entradasDe(seleccionOpciones[cond.nombre]).length > 0
+  );
+}
+function primerGrupoIncompleto() {
+  return gruposModal.find((c) => !grupoEstaCompleto(c));
+}
+
+function alternarOpcion(cond, nombre) {
+  const k = cond.nombre;
+  if (!cond.multiple) {
+    if (seleccionOpciones[k] === nombre && !cond.obligatoria)
+      delete seleccionOpciones[k];
+    else seleccionOpciones[k] = nombre;
+    return true;
+  }
+  const actuales = [...valoresDe(seleccionOpciones[k])];
+  const i = actuales.indexOf(nombre);
+  if (i >= 0) actuales.splice(i, 1);
+  else {
+    if (cond.max && actuales.length >= cond.max) {
+      showToast(`Máximo ${cond.max} en "${cond.nombre}"`);
+      return false;
+    }
+    actuales.push(nombre);
+  }
+  if (actuales.length) seleccionOpciones[k] = actuales;
+  else delete seleccionOpciones[k];
+  return true;
+}
+function setCantidadOpcion(cond, nombre, cant) {
+  const k = cond.nombre;
+  let obj = seleccionOpciones[k];
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) obj = {};
+  if (cant <= 0) delete obj[nombre];
+  else obj[nombre] = cant;
+  if (Object.keys(obj).length) seleccionOpciones[k] = obj;
+  else delete seleccionOpciones[k];
+}
+
+function pintarGrupo(p, cond, sec) {
+  const total = totalUnidadesGrupo(cond);
+  const tope = !!cond.max && total >= cond.max;
+  const eligio = entradasDe(seleccionOpciones[cond.nombre]).length > 0;
+  sec.classList.toggle("ok", eligio);
+  sec.classList.toggle("req", cond.obligatoria && !eligio);
+  sec.querySelector(".opt-badge").textContent = eligio
+    ? cond.multiple
+      ? `✓ ${total} elegido${total === 1 ? "" : "s"}`
+      : "✓ Listo"
+    : cond.obligatoria
+      ? "Obligatorio"
+      : "Opcional";
+
+  const refrescar = () => {
+    pintarGrupo(p, cond, sec);
+    actualizarResumenOpciones(p);
+    actualizarEstadoBotonConfirmar(p);
+  };
+  const list = sec.querySelector(".opt-list");
+  list.innerHTML = "";
+
+  cond.opciones.forEach((op) => {
+    const c = cantidadElegida(cond, op.nombre);
+    const cap = typeof op.stock === "number" ? op.stock : Infinity;
+    const row = el("div", "opt-row" + (c > 0 ? " sel" : ""));
+    const info = el("div", "opt-info");
+    info.appendChild(el("p", "opt-name", op.nombre));
+    if (op.descripcion) info.appendChild(el("p", "opt-desc", op.descripcion));
+    const precio = op.costoAdicional
+      ? el(
+        "span",
+        "opt-price",
+        `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
+      )
+      : null;
+
+    if (cond.conCantidad) {
+      row.classList.add("qty");
+      row.appendChild(info);
+      if (precio) row.appendChild(precio);
+      const step = el("div", "opt-step");
+      if (c === 0) {
+        const b = el("button", "add", "Agregar");
+        b.type = "button";
+        b.disabled = tope || cap < 1;
+        b.onclick = () => {
+          setCantidadOpcion(cond, op.nombre, 1);
+          refrescar();
+        };
+        step.appendChild(b);
+      } else {
+        const menos = el("button", "", "−");
+        menos.type = "button";
+        menos.onclick = () => {
+          setCantidadOpcion(cond, op.nombre, c - 1);
+          refrescar();
+        };
+        const mas = el("button", "", "+");
+        mas.type = "button";
+        mas.disabled = tope || c >= cap;
+        mas.onclick = () => {
+          setCantidadOpcion(cond, op.nombre, c + 1);
+          refrescar();
+        };
+        step.append(menos, el("b", "", String(c)), mas);
+      }
+      row.appendChild(step);
+    } else {
+      const lleno = cond.multiple && tope && c === 0;
+      if (lleno) row.classList.add("off");
+      row.appendChild(
+        el(
+          "span",
+          "opt-mark " + (cond.multiple ? "check" : "radio"),
+          c > 0 ? "✓" : "",
+        ),
+      );
+      row.appendChild(info);
+      if (precio) row.appendChild(precio);
+      row.onclick = () => {
+        if (!alternarOpcion(cond, op.nombre)) return;
+        refrescar();
+      };
+    }
+    list.appendChild(row);
+  });
+}
+
 function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
   if (!editKey && !horarioEstado.abierto) {
     showToast(`🔒 ${horarioEstado.mensaje || "El negocio está cerrado ahora"}`);
     return;
   }
-  const esObligatoria = p.variantesObligatoria !== false;
-  const esMultiple = p.variantesMultiples === true;
-  const esConCantidad = esMultiple && p.variantesConCantidad === true;
-
+  injectOptionsStyles();
   productoParaOpciones = p;
   cartKeyEnEdicion = editKey;
   seleccionOpciones = {};
+  // Obligatorios primero (como KFC / McDonald's)
+  gruposModal = [...(p.condiciones || [])].sort(
+    (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
+  );
+
+  // Si se está editando una línea del carrito, se recupera su selección
   Object.entries(seleccionExistente || {}).forEach(([k, v]) => {
-    if (esConCantidad) {
-      const obj = {};
-      entradasDe(v).forEach(([n, c]) => {
-        obj[n] = c;
-      });
-      seleccionOpciones[k] = obj;
-    } else if (esMultiple) {
-      seleccionOpciones[k] = [...valoresDe(v)];
-    } else {
-      seleccionOpciones[k] = Array.isArray(v) ? v[0] : v;
-    }
+    const cond = gruposModal.find((c) => c.nombre === k);
+    if (!cond) return;
+    const entradas = entradasDe(v);
+    if (!entradas.length) return;
+    if (cond.conCantidad) seleccionOpciones[k] = Object.fromEntries(entradas);
+    else if (cond.multiple) seleccionOpciones[k] = entradas.map(([n]) => n);
+    else seleccionOpciones[k] = entradas[0][0];
   });
 
-  document.getElementById("optionsProdNombre").textContent = p.nombre;
-  const body = document.getElementById("optionsBody");
-  body.innerHTML = "";
+document.getElementById("optionsProdNombre").textContent = p.nombre;
+const body = document.getElementById("optionsBody");
+body.innerHTML = "";
 
-  const estiloAviso =
-    "font-size:12.5px; color:var(--ink-dim,#9c9ca3); background:rgba(var(--dr),var(--dg),var(--db),.08); border:1px dashed rgba(var(--dr),var(--dg),var(--db),.35); border-radius:12px; padding:9px 12px; margin:-4px 0 4px; line-height:1.4;";
-
-  if (esMultiple) {
-    const aviso = document.createElement("p");
-    aviso.style.cssText = estiloAviso;
-    if (esConCantidad) {
-      aviso.innerHTML = esObligatoria
-        ? "✨ Elige tus opciones y usa + / − para sumar cantidad de cada una. Marca al menos una en cada grupo."
-        : "✨ Elige lo que quieras y usa + / − para sumar cantidad de cada opción.";
-    } else {
-      aviso.innerHTML = esObligatoria
-        ? "✨ Puedes elegir <b>varias opciones</b>. Marca al menos una en cada grupo; abajo verás el detalle y el precio final."
-        : "✨ Puedes elegir <b>todas las que quieras</b> (o ninguna). Toca una opción para agregarla o quitarla; abajo verás el detalle y el precio final.";
-    }
-    body.appendChild(aviso);
-  } else if (!esObligatoria) {
-    const aviso = document.createElement("p");
-    aviso.style.cssText = estiloAviso;
-    aviso.innerHTML =
-      "✨ Estas opciones son opcionales — elige lo que quieras o continúa con el precio base.";
-    body.appendChild(aviso);
-  }
-
-  (p.condiciones || []).forEach((cond) => {
-    const wrap = document.createElement("div");
-    const label = document.createElement("p");
-    label.className = "field-label";
-    label.textContent = esMultiple
-      ? `${cond.nombre} (elige varias)`
-      : cond.nombre;
-    wrap.appendChild(label);
-
-    // ── Modo CON CANTIDAD: filas con stepper +/- por opción ──
-    if (esConCantidad) {
-      if (
-        !seleccionOpciones[cond.nombre] ||
-        typeof seleccionOpciones[cond.nombre] !== "object" ||
-        Array.isArray(seleccionOpciones[cond.nombre])
-      ) {
-        seleccionOpciones[cond.nombre] = {};
-      }
-      const listWrap = document.createElement("div");
-      listWrap.className = "flex flex-col gap-2";
-
-      cond.opciones.forEach((op) => {
-        const row = document.createElement("div");
-        row.style.cssText =
-          "display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);";
-
-        const info = document.createElement("span");
-        info.style.cssText = "font-size:13px;";
-        info.textContent = op.costoAdicional
-          ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)} c/u)`
-          : op.nombre;
-
-        const stepperWrap = document.createElement("div");
-
-        const renderStepper = () => {
-          const c = seleccionOpciones[cond.nombre][op.nombre] || 0;
-          stepperWrap.innerHTML = "";
-          if (c === 0) {
-            const addBtn = document.createElement("button");
-            addBtn.type = "button";
-            addBtn.textContent = "Agregar";
-            addBtn.style.cssText =
-              "font-size:11px;font-weight:600;padding:5px 10px;border-radius:8px;background:rgb(var(--dr),var(--dg),var(--db));color:#fff;border:none;cursor:pointer;";
-            addBtn.onclick = () => {
-              seleccionOpciones[cond.nombre][op.nombre] = 1;
-              renderStepper();
-              actualizarResumenOpciones(p);
-              actualizarEstadoBotonConfirmar(p);
-            };
-            stepperWrap.appendChild(addBtn);
-          } else {
-            const btnStyle =
-              "width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.08);color:#fff;border:none;cursor:pointer;font-weight:700;";
-            const minus = document.createElement("button");
-            minus.type = "button";
-            minus.textContent = "−";
-            minus.style.cssText = btnStyle;
-            minus.onclick = () => {
-              const nuevo = c - 1;
-              if (nuevo <= 0) delete seleccionOpciones[cond.nombre][op.nombre];
-              else seleccionOpciones[cond.nombre][op.nombre] = nuevo;
-              renderStepper();
-              actualizarResumenOpciones(p);
-              actualizarEstadoBotonConfirmar(p);
-            };
-            const count = document.createElement("span");
-            count.style.cssText =
-              "min-width:16px;text-align:center;font-weight:700;font-size:13px;display:inline-block;";
-            count.textContent = c;
-            const plus = document.createElement("button");
-            plus.type = "button";
-            plus.textContent = "+";
-            plus.style.cssText = btnStyle;
-            plus.onclick = () => {
-              seleccionOpciones[cond.nombre][op.nombre] = c + 1;
-              renderStepper();
-              actualizarResumenOpciones(p);
-              actualizarEstadoBotonConfirmar(p);
-            };
-            stepperWrap.style.cssText =
-              "display:flex;align-items:center;gap:8px;";
-            stepperWrap.append(minus, count, plus);
-          }
-        };
-        renderStepper();
-
-        row.append(info, stepperWrap);
-        listWrap.appendChild(row);
-      });
-
-      wrap.appendChild(listWrap);
-      body.appendChild(wrap);
-      return; // sigue con la siguiente condición
-    }
-
-    // ── Modo MÚLTIPLE (sin cantidad) o modo NORMAL (single-select) ──
-    const optsWrap = document.createElement("div");
-    optsWrap.className = "toggle-row flex-wrap";
-
-    if (
-      !esMultiple &&
-      !seleccionOpciones[cond.nombre] &&
-      (esObligatoria || editKey) &&
-      cond.opciones.length
-    ) {
-      seleccionOpciones[cond.nombre] = cond.opciones[0].nombre;
-    }
-
-    cond.opciones.forEach((op) => {
-      const esActiva = esMultiple
-        ? valoresDe(seleccionOpciones[cond.nombre]).includes(op.nombre)
-        : seleccionOpciones[cond.nombre] === op.nombre;
-
-      const optBtn = document.createElement("div");
-      optBtn.className = "toggle-opt" + (esActiva ? " active" : "");
-      optBtn.textContent = op.costoAdicional
-        ? `${op.nombre} (+S/ ${Number(op.costoAdicional).toFixed(2)})`
-        : op.nombre;
-      if (esActiva)
-        optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
-
-      if (esMultiple) {
-        optBtn.onclick = () => {
-          const actuales = [...valoresDe(seleccionOpciones[cond.nombre])];
-          const idx = actuales.indexOf(op.nombre);
-          if (idx >= 0) actuales.splice(idx, 1);
-          else actuales.push(op.nombre);
-          if (actuales.length) seleccionOpciones[cond.nombre] = actuales;
-          else delete seleccionOpciones[cond.nombre];
-
-          const activa = idx < 0;
-          optBtn.classList.toggle("active", activa);
-          optBtn.style.background = activa
-            ? "rgb(var(--dr),var(--dg),var(--db))"
-            : "";
-          actualizarResumenOpciones(p);
-          actualizarEstadoBotonConfirmar(p);
-        };
-      } else {
-        optBtn.onclick = () => {
-          const yaEstabaActiva = seleccionOpciones[cond.nombre] === op.nombre;
-          if (!esObligatoria && yaEstabaActiva) {
-            delete seleccionOpciones[cond.nombre];
-            optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
-              o.classList.remove("active");
-              o.style.background = "";
-            });
-            actualizarEstadoBotonConfirmar(p);
-            return;
-          }
-          optsWrap.querySelectorAll(".toggle-opt").forEach((o) => {
-            o.classList.remove("active");
-            o.style.background = "";
-          });
-          optBtn.classList.add("active");
-          optBtn.style.background = "rgb(var(--dr),var(--dg),var(--db))";
-          seleccionOpciones[cond.nombre] = op.nombre;
-          actualizarEstadoBotonConfirmar(p);
-        };
-      }
-      optsWrap.appendChild(optBtn);
-    });
-
-    wrap.appendChild(optsWrap);
-    body.appendChild(wrap);
+if (p.descripcion) {                                   // ← AGREGAR
+  body.appendChild(el("p", "opt-prod-desc", p.descripcion));
+}
+  gruposModal.forEach((cond) => {
+    const sec = el("div", "opt-grp");
+    sec.dataset.grp = cond.nombre;
+    const head = el("div", "opt-grp-head");
+    const t = el("div");
+    t.appendChild(el("p", "opt-grp-title", cond.nombre));
+    t.appendChild(el("p", "opt-grp-rule", textoReglaGrupo(cond)));
+    head.append(t, el("span", "opt-badge"));
+    sec.append(head, el("div", "opt-list"));
+    body.appendChild(sec);
+    pintarGrupo(p, cond, sec);
   });
 
-  if (esMultiple) {
-    const resumen = document.createElement("div");
-    resumen.id = "optionsResumen";
-    resumen.style.cssText =
-      "border-radius:14px; padding:12px 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:13px; line-height:1.6;";
-    body.appendChild(resumen);
-    actualizarResumenOpciones(p);
-  }
-
+  const resumen = document.createElement("div");
+  resumen.id = "optionsResumen";
+  resumen.style.cssText =
+    "border-radius:14px; padding:12px 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:13px; line-height:1.6;";
+  body.appendChild(resumen);
+  actualizarResumenOpciones(p);
   actualizarEstadoBotonConfirmar(p);
+
   document.getElementById("optionsOverlay").classList.add("show");
   document.body.style.overflow = "hidden";
 }
@@ -4139,7 +4169,7 @@ function actualizarResumenOpciones(p) {
   const el = document.getElementById("optionsResumen");
   if (!el) return;
   const filas = [];
-  (p.condiciones || []).forEach((cond) => {
+  gruposModal.forEach((cond) => {
     entradasDe(seleccionOpciones[cond.nombre]).forEach(([nombreOp, cant]) => {
       const op = cond.opciones.find((o) => o.nombre === nombreOp);
       const extraUnit = op?.costoAdicional ? Number(op.costoAdicional) : 0;
@@ -4148,7 +4178,7 @@ function actualizarResumenOpciones(p) {
         : "Incluido";
       const cantTxt = cant > 1 ? ` x${cant}` : "";
       filas.push(
-        `<div style="display:flex;justify-content:space-between;gap:8px;"><span>• ${cond.nombre}: ${nombreOp}${cantTxt}</span><span style="color:#9c9ca3;">${extraTxt}</span></div>`,
+        `<div style="display:flex;justify-content:space-between;gap:8px;"><span>• ${escapeHtmlCarrito(cond.nombre)}: ${escapeHtmlCarrito(nombreOp)}${cantTxt}</span><span style="color:#9c9ca3;">${extraTxt}</span></div>`,
       );
     });
   });
@@ -4157,7 +4187,7 @@ function actualizarResumenOpciones(p) {
     : `<div style="color:#9c9ca3;">Aún no has marcado ninguna opción.</div>`;
   el.innerHTML = `
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9c9ca3;margin-bottom:6px;">Tu selección</div>
-    <div style="display:flex;justify-content:space-between;"><span>Precio base</span><span>S/ ${Number(p.precio).toFixed(2)}</span></div>
+    <div style="display:flex;justify-content:space-between;"><span>Precio base</span><span>S/ ${calcPrecioFinal(p, null).toFixed(2)}</span></div>
     ${detalle}
     <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);">
       <span>Precio final (c/u)</span><span>S/ ${calcPrecioFinal(p, seleccionOpciones).toFixed(2)}</span>
@@ -4166,20 +4196,16 @@ function actualizarResumenOpciones(p) {
 
 function actualizarEstadoBotonConfirmar(p) {
   const btn = document.getElementById("confirmOptionsBtn");
-
-  // Precio dinámico según lo que esté marcado en seleccionOpciones
   const precio = calcPrecioFinal(p, seleccionOpciones);
+  const falta = primerGrupoIncompleto();
   const textoBase = cartKeyEnEdicion ? "Guardar cambios" : "Agregar al carrito";
-  btn.textContent = `${textoBase} · S/ ${precio.toFixed(2)}`;
-
-  if (p.variantesObligatoria === false) {
-    btn.disabled = false;
-    return;
-  }
-  btn.disabled = (p.condiciones || []).some(
-    (cond) => entradasDe(seleccionOpciones[cond.nombre]).length === 0,
-  );
+  btn.disabled = false; // nunca se bloquea: al tocarlo te lleva a lo que falta
+  btn.classList.toggle("opt-btn-pending", !!falta);
+  btn.textContent = falta
+    ? `Elige ${falta.nombre} para continuar`
+    : `${textoBase} · S/ ${precio.toFixed(2)}`;
 }
+
 function cerrarOptionsModal() {
   document.getElementById("optionsOverlay").classList.remove("show");
   if (
@@ -4199,15 +4225,19 @@ document.getElementById("optionsOverlay").addEventListener("click", (e) => {
 document.getElementById("confirmOptionsBtn").onclick = () => {
   if (!productoParaOpciones) return;
 
-  const esObligatoria = productoParaOpciones.variantesObligatoria !== false;
-  if (esObligatoria) {
-    const faltaAlguna = (productoParaOpciones.condiciones || []).some(
-      (cond) => entradasDe(seleccionOpciones[cond.nombre]).length === 0,
+  const falta = primerGrupoIncompleto();
+  if (falta) {
+    const sec = [...document.querySelectorAll("#optionsBody .opt-grp")].find(
+      (s) => s.dataset.grp === falta.nombre,
     );
-    if (faltaAlguna) {
-      showToast("Elige una opción en cada campo antes de continuar");
-      return;
+    if (sec) {
+      sec.scrollIntoView({ behavior: "smooth", block: "center" });
+      sec.classList.remove("shake");
+      void sec.offsetWidth;
+      sec.classList.add("shake");
     }
+    showToast(`Elige una opción en "${falta.nombre}"`);
+    return;
   }
 
   if (cartKeyEnEdicion) {
@@ -4459,21 +4489,19 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${
-          !it.esCanje &&
+        ${!it.esCanje &&
           (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
-            ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-            : ""
+          : ""
         }
-          ${
-            it.esCanje
-              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${it.esCanje
+          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-          }
+        }
         </div>
       `;
       wrap.appendChild(row);
@@ -4906,10 +4934,10 @@ document
       token_seguimiento: tokenSeguimiento,
       mesa: mesaId
         ? {
-            id: mesaId,
-            nombre: mesaNombre || null,
-            numero: mesaNumero ? Number(mesaNumero) : null,
-          }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
         : null,
       pago: {
         metodo: metodoPago,
@@ -5000,7 +5028,7 @@ document
               +(i.cantidad * i.precio).toFixed(2),
             ),
             [`estadisticas.por_dia.${hoy}.pedidos`]: increment(1),
-          }).catch(() => {});
+          }).catch(() => { });
         });
     }
     const pedidoId = resultado.id;
@@ -5014,7 +5042,7 @@ document
           "geinz_guest",
           JSON.stringify({ nombre, whatsapp }),
         );
-      } catch {}
+      } catch { }
     }
     if (
       cuponAplicado?.origen === "banner" &&
@@ -5025,7 +5053,7 @@ document
           `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`,
           "1",
         );
-      } catch {}
+      } catch { }
     }
 
     const sufijo = tokenSeguimiento ? `?t=${tokenSeguimiento}` : "";
@@ -6088,7 +6116,7 @@ async function restaurarCarritoPersistido() {
 function limpiarCarritoPersistido() {
   try {
     sessionStorage.removeItem(CART_PERSIST_KEY());
-  } catch {}
+  } catch { }
 }
 
 function abrirLoginPopup() {
