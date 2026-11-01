@@ -414,7 +414,12 @@ function htmlMargen(data, desc, open = false) {
   });
   const col = (g) => (g >= 0 ? "text-emerald-400" : "text-rose-400");
   const filas = [...r.filas].sort((a, b) => a.g - b.g);
-  const { cMin, cMax, gMin, gMax, pMin, pMax } = r.resumen;
+  const gs = filas.map((x) => x.g);
+  const cs = filas.map((x) => x.costo);
+  const ps = filas.map((x) => x.pct);
+  const gMin = Math.min(...gs), gMax = Math.max(...gs);
+  const cMin = Math.min(...cs), cMax = Math.max(...cs);
+  const pMin = Math.min(...ps), pMax = Math.max(...ps);
   const rango = (a, b, d = 2) =>
     Math.abs(a - b) < 0.005 ? a.toFixed(d) : `${a.toFixed(d)}–${b.toFixed(d)}`;
   const hayDetalle = filas.length > 1 || r.extras.length > 0;
@@ -435,8 +440,6 @@ function htmlMargen(data, desc, open = false) {
         </div>`,
       )
       .join("");
-    if (r.truncado)
-      h += `<div class="text-[9px] text-amber-300/80">Hay más combinaciones; el rango de arriba sí las incluye todas.</div>`;
     if (r.extras.length) {
       h += `<div class="text-[9px] uppercase text-purple-400/50 mt-1">Extras</div>`;
       h += r.extras
@@ -589,35 +592,7 @@ function htmlPresetsVaso(it, attr) {
   }).join("")}
   </div>`;
 }
-function renderRecetaItems() {
-  const box = document.getElementById("rec-items");
-  document
-    .getElementById("rec-sin-insumos")
-    .classList.toggle("hidden", insumosMap.size > 0);
-  box.innerHTML = recetaItems
-    .map((it, idx) => {
-      const ing = insumosMap.get(it.id);
-      const units = unidadesDeBase(ing ? baseInsumo(ing) : "unid")
-        .map(
-          (u) =>
-            `<option value="${u}" ${u === it.unit ? "selected" : ""}>${UL_REC[u]}</option>`,
-        )
-        .join("");
-      return `<div data-ridx="${idx}" class="rounded-xl bg-[#0d0a17] border border-purple-900/30 p-2.5 flex flex-col gap-2">
-        <select data-rk="cat" class="w-full ${CLS_REC_INPUT}">${opcionesCategorias(catDe(insumosMap.get(it.id)))}</select>
-        <select data-rk="id" class="w-full ${CLS_REC_INPUT}">${opcionesInsumos(it.id)}</select>
-        ${htmlPresetsVaso(it, "data-rk")}
-        <div class="flex items-center gap-2">
-          <input data-rk="qty" type="number" min="0" step="any" inputmode="decimal" placeholder="Cantidad" value="${escR(it.qty)}" class="w-24 ${CLS_REC_INPUT} font-mono">
-          <select data-rk="unit" class="${CLS_REC_INPUT}">${units}</select>
-          <b data-rcost class="ml-auto font-mono text-xs text-violet-300">S/ 0.00</b>
-          <button type="button" data-rk="del" class="w-6 h-6 shrink-0 flex items-center justify-center rounded-lg text-purple-400/40 hover:text-rose-400 text-xs">✕</button>
-        </div>
-        <div data-rdet class="font-mono text-[10px] leading-relaxed">${htmlDetalleItem(it)}</div>
-      </div>`;
-    })
-    .join("");
-}
+
 function calcRecetaUI() {
   const rinde = document.getElementById("input-rec-rinde");
   if (!rinde) return;
@@ -696,7 +671,57 @@ function recetaParaGuardar() {
   };
 }
 
+function calcRecetaUI() {
+  const rinde = document.getElementById("input-rec-rinde");
+  if (!rinde) return;
+  const r = leerReceta();
+  const c = calcReceta(r);
+  const div = Math.max(0.0001, numR(r.rinde) || 1);
+  document.getElementById("rec-items").addEventListener("click", (e) => {
+    const row = e.target.closest("[data-ridx]");
+    if (!row) return;
+    const idx = +row.dataset.ridx;
+    const it = recetaItems[idx];
 
+    const p = e.target.closest('[data-rk="preset"]');
+    if (p && it) {
+      it.qty = p.dataset.oz;
+      it.unit = "oz";
+      renderRecetaItems();
+      calcRecetaUI();
+      return;
+    }
+    const b = e.target.closest('[data-rk="del"]');
+    if (!b) return;
+    recetaItems.splice(idx, 1);
+    renderRecetaItems();
+    calcRecetaUI();
+  });
+  const main = document.getElementById("input-prod-precio");
+  const mirror = document.getElementById("input-rec-precio");
+  if (document.activeElement !== mirror) mirror.value = main.value;
+
+  const precio = parseFloat(main.value) || 0;
+  calcVariantesUI(c, precio);
+  const tile = (t, v) =>
+    `<div class="rounded-xl bg-[#05040a] border border-purple-900/20 p-2.5 text-center"><p class="text-[9px] font-mono uppercase text-purple-400/50">${t}</p><p class="font-mono text-sm font-bold text-white">${v}</p></div>`;
+  document.getElementById("rec-tiles").innerHTML =
+    tile("Costo c/u", `S/ ${c.cost.toFixed(2)}`) +
+    tile("Precio sugerido", c.price ? `S/ ${c.price.toFixed(2)}` : "—") +
+    tile(
+      "Ganas sugerido",
+      c.price ? `S/ ${(c.price - c.cost).toFixed(2)}` : "—",
+    );
+
+  const box = document.getElementById("rec-margen-actual");
+  if (!c.cost || !precio) {
+    box.innerHTML = "";
+    return;
+  }
+  const g = precio - c.cost;
+  const pct = (g / precio) * 100;
+  box.innerHTML = `<span class="${g >= 0 ? "text-emerald-400" : "text-rose-400"}">Con tu precio S/ ${precio.toFixed(2)} ganas S/ ${g.toFixed(2)} por unidad (${pct.toFixed(0)}% de margen)</span>`;
+}
 
 function cargarRecetaEnModal(r) {
   recetaOriginal = r || null;
@@ -747,22 +772,9 @@ document.getElementById("rec-items").addEventListener("input", (e) => {
   calcRecetaUI();
 });
 document.getElementById("rec-items").addEventListener("click", (e) => {
-  const row = e.target.closest("[data-ridx]");
-  if (!row) return;
-  const idx = +row.dataset.ridx;
-  const it = recetaItems[idx];
-
-  const p = e.target.closest('[data-rk="preset"]');
-  if (p && it) {
-    it.qty = p.dataset.oz;
-    it.unit = "oz";
-    renderRecetaItems();
-    calcRecetaUI();
-    return;
-  }
   const b = e.target.closest('[data-rk="del"]');
   if (!b) return;
-  recetaItems.splice(idx, 1);
+  recetaItems.splice(+b.closest("[data-ridx]").dataset.ridx, 1);
   renderRecetaItems();
   calcRecetaUI();
 });
@@ -864,8 +876,6 @@ const tieneReceta = (d) =>
   );
 
 // Calcula TODAS las combinaciones posibles (una opción por cada condición)
-// Suma cruzada: precio base + extra de CADA opción elegida en CADA grupo.
-// Costo = receta base + insumos de CADA opción elegida en CADA grupo.
 function calcCombos({
   precio,
   desc = 0,
@@ -877,94 +887,20 @@ function calcCombos({
   const base = receta?.items?.length ? calcReceta(receta).cost : 0;
   const f = 1 - (Number(desc) || 0) / 100;
   const p = Number(precio) || 0;
-  const MAX_FILAS = 400;
-
   const costoOp = (o) =>
     (o.receta?.items || []).reduce((s, it) => s + costoLinea(it), 0);
-
   const fila = (label, adic, extra) => {
     const venta = (p + adic) * f;
     const costo = base + extra;
     const g = venta - costo;
     return { label, venta, costo, g, pct: venta > 0 ? (g / venta) * 100 : 0 };
   };
-
   const conds = (condiciones || []).filter(
     (c) => (c.nombre || "").trim() && opcionesActivas(c).length,
   );
 
-  // Por grupo: elecciones posibles + extremos exactos (todo es aditivo)
-  const ext = { vMin: 0, vMax: 0, cMin: 0, cMax: 0, gMin: 0, gMax: 0 };
-  const grupos = conds.map((c) => {
-    const ops = opcionesActivas(c).map((o) => ({
-      n: o.nombre,
-      adic: Number(o.costoAdicional) || 0,
-      extra: costoOp(o),
-    }));
-    const vacio = { n: [], adic: 0, extra: 0 };
-    let elecciones;
-
-    if (multiples) {
-      // ninguna, cada una sola, y todas juntas
-      elecciones = [vacio, ...ops.map((o) => ({ n: [o.n], adic: o.adic, extra: o.extra }))];
-      if (ops.length > 1)
-        elecciones.push({
-          n: ops.map((o) => o.n),
-          adic: ops.reduce((s, o) => s + o.adic, 0),
-          extra: ops.reduce((s, o) => s + o.extra, 0),
-        });
-      const sumA = ops.reduce((s, o) => s + o.adic, 0);
-      const sumE = ops.reduce((s, o) => s + o.extra, 0);
-      const gs = ops.map((o) => o.adic * f - o.extra);
-      ext.vMax += sumA;
-      ext.cMax += sumE;
-      ext.gMax += gs.filter((x) => x > 0).reduce((s, x) => s + x, 0);
-      ext.gMin += gs.filter((x) => x < 0).reduce((s, x) => s + x, 0);
-    } else {
-      elecciones = ops.map((o) => ({ n: [o.n], adic: o.adic, extra: o.extra }));
-      if (!obligatoria) elecciones.push(vacio);
-      const as = elecciones.map((e) => e.adic);
-      const es = elecciones.map((e) => e.extra);
-      const gs = elecciones.map((e) => e.adic * f - e.extra);
-      ext.vMin += Math.min(...as);
-      ext.vMax += Math.max(...as);
-      ext.cMin += Math.min(...es);
-      ext.cMax += Math.max(...es);
-      ext.gMin += Math.min(...gs);
-      ext.gMax += Math.max(...gs);
-    }
-    return { nombre: c.nombre.trim(), elecciones };
-  });
-
-  // Producto cartesiano: Tamaño × Temperatura × ... (con tope visible)
-  let combos = [{ label: [], adic: 0, extra: 0 }];
-  let truncado = false;
-  grupos.forEach((g) => {
-    const next = [];
-    for (const cb of combos) {
-      for (const e of g.elecciones) {
-        if (next.length >= MAX_FILAS) {
-          truncado = true;
-          break;
-        }
-        next.push({
-          label: [...cb.label, ...e.n],
-          adic: cb.adic + e.adic,
-          extra: cb.extra + e.extra,
-        });
-      }
-      if (truncado) break;
-    }
-    combos = next;
-  });
-
-  const filas = combos.map((cb) =>
-    fila(cb.label.join(" + ") || "Solo base", cb.adic, cb.extra),
-  );
-
-  // Extras individuales (solo informativo en modo "varias opciones")
-  const extras = [];
   if (multiples) {
+    const extras = [];
     conds.forEach((c) =>
       opcionesActivas(c).forEach((o) => {
         const adic = (Number(o.costoAdicional) || 0) * f;
@@ -972,36 +908,43 @@ function calcCombos({
         extras.push({ label: o.nombre, adic, cuesta, g: adic - cuesta });
       }),
     );
+    return { filas: [fila("Producto base", 0, 0)], extras };
   }
 
-  // Resumen EXACTO (no depende del tope de filas)
-  const venta0 = p * f;
-  const resumen = {
-    vMin: venta0 + ext.vMin * f,
-    vMax: venta0 + ext.vMax * f,
-    cMin: base + ext.cMin,
-    cMax: base + ext.cMax,
-    gMin: venta0 - base + ext.gMin,
-    gMax: venta0 - base + ext.gMax,
-    pMin: Math.min(...filas.map((x) => x.pct)),
-    pMax: Math.max(...filas.map((x) => x.pct)),
+  let combos = [{ label: [], adic: 0, extra: 0 }];
+  conds.forEach((c) => {
+    const choices = opcionesActivas(c).map((o) => ({
+      n: o.nombre,
+      adic: Number(o.costoAdicional) || 0,
+      extra: costoOp(o),
+    }));
+    if (!obligatoria) choices.push({ n: null, adic: 0, extra: 0 });
+    const next = [];
+    combos.forEach((cb) =>
+      choices.forEach((ch) => {
+        if (next.length >= 200) return;
+        next.push({
+          label: ch.n ? [...cb.label, ch.n] : cb.label,
+          adic: cb.adic + ch.adic,
+          extra: cb.extra + ch.extra,
+        });
+      }),
+    );
+    combos = next;
+  });
+  return {
+    filas: combos.map((cb) =>
+      fila(cb.label.join(" + ") || "Normal", cb.adic, cb.extra),
+    ),
+    extras: [],
   };
-
-  return { filas, extras, resumen, truncado };
 }
 
 function htmlCombos(res, precio) {
   if (!precio)
     return `<p class="text-[11px] text-purple-300/40 italic">Pon el precio de venta para ver cuánto ganas.</p>`;
   const col = (g) => (g >= 0 ? "text-emerald-400" : "text-rose-400");
-  const R = res.resumen;
-  let h = `<div class="rounded-lg bg-[#05040a] border border-purple-900/20 px-2.5 py-2 mb-2 font-mono text-[10.5px] leading-relaxed">
-    <div class="text-purple-400/60">Rango total de todas las combinaciones</div>
-    <div class="text-purple-100">Vendes: S/ ${R.vMin.toFixed(2)}${Math.abs(R.vMax - R.vMin) > 0.004 ? " – " + R.vMax.toFixed(2) : ""}</div>
-    <div class="text-purple-100">Te cuesta: S/ ${R.cMin.toFixed(2)}${Math.abs(R.cMax - R.cMin) > 0.004 ? " – " + R.cMax.toFixed(2) : ""}</div>
-    <div class="${col(R.gMin)} font-bold">Ganas: S/ ${R.gMin.toFixed(2)}${Math.abs(R.gMax - R.gMin) > 0.004 ? " – " + R.gMax.toFixed(2) : ""}</div>
-  </div>`;
-  h += res.filas
+  let h = res.filas
     .map(
       (f) => `<div class="py-1.5 border-b border-purple-900/20">
         <div class="flex justify-between gap-2 text-[11px] font-mono">
@@ -1012,14 +955,14 @@ function htmlCombos(res, precio) {
       </div>`,
     )
     .join("");
-  if (res.truncado)
-    h += `<p class="text-[10px] text-amber-300/80 mt-1">Se muestran las primeras combinaciones. El rango de arriba incluye todas.</p>`;
   if (res.extras.length)
     h +=
-      `<p class="text-[10px] font-mono uppercase text-purple-400/60 mt-3 mb-1">Cada extra por separado</p>` +
+      `<p class="text-[10px] font-mono uppercase text-purple-400/60 mt-3 mb-1">Extras (se suman al base)</p>` +
       res.extras
         .map(
-          (x) => `<div class="flex justify-between gap-2 text-[11px] font-mono py-1">
+          (
+            x,
+          ) => `<div class="flex justify-between gap-2 text-[11px] font-mono py-1">
             <span class="text-purple-100">${escR(x.label)}</span>
             <span class="${col(x.g)} font-bold">Cobras S/ ${x.adic.toFixed(2)} · cuesta S/ ${x.cuesta.toFixed(2)} · ganas S/ ${x.g.toFixed(2)}</span>
           </div>`,
@@ -1040,8 +983,6 @@ function calcVariantesUI(c, precio) {
       const cl = it ? costoLinea(it) : 0;
       extra += cl;
       row.querySelector("[data-vcost]").textContent = `S/ ${cl.toFixed(2)}`;
-      const det = row.querySelector("[data-vdet]");
-      if (det && it) det.innerHTML = htmlDetalleItem(it);
     });
     card.querySelector("[data-vres]").textContent = items.length
       ? `Esta opción suma S/ ${extra.toFixed(2)} al costo`
@@ -1089,19 +1030,10 @@ function calcVariantesUI(c, precio) {
       renderRecVariantes();
       calcRecetaUI();
     }
-    if (b.dataset.vk === "preset" && x.row) {
-      const it = x.op.receta.items[+x.row.dataset.vi];
-      if (it) {
-        it.qty = b.dataset.oz;
-        it.unit = "oz";
-        renderRecVariantes();
-        calcRecetaUI();
-      }
-    }
   });
   box.addEventListener("input", (e) => {
     const k = e.target.dataset.vk;
-    if (!k || k === "add" || k === "del" || k === "preset") return;
+    if (!k || k === "add" || k === "del") return;
     const x = ref(e.target);
     if (!x) return;
     if (x.row) {
@@ -2643,10 +2575,10 @@ function renderProductoCard(categoriaId, productoId, data) {
           typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
         const chip = document.createElement("span");
         chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${sinStock
-          ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
-          : stockBajo
-            ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
-            : "bg-purple-950/40 border-purple-800/30 text-purple-300"
+            ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
+            : stockBajo
+              ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
+              : "bg-purple-950/40 border-purple-800/30 text-purple-300"
           }`;
         let txt = op.nombre;
         if (op.costoAdicional)
@@ -2744,8 +2676,8 @@ function renderProductoCard(categoriaId, productoId, data) {
   const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
   estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.disponible
-    ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
-    : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
+      ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
+      : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
     }`;
   estadoBtn.title = data.disponible
     ? "Disponible (clic para marcar agotado)"
@@ -2770,8 +2702,8 @@ function renderProductoCard(categoriaId, productoId, data) {
   agotadoHoyBtn.type = "button";
   agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (mañana vuelve solo)";
   agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.agotadoHoy
-    ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
-    : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
+      ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
+      : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
     }`;
   agotadoHoyBtn.innerHTML = `<span>🔸</span><span class="pc-agotadohoy-txt">${data.agotadoHoy ? "Agotado hoy" : "Agotar hoy"}</span>`;
   agotadoHoyBtn.addEventListener("click", async (e) => {
