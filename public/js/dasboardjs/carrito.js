@@ -2378,6 +2378,7 @@ async function loadProductosCatalogo(bizOrPromise) {
               .map((o) => ({
                 nombre: o.nombre,
                 descripcion: String(o.descripcion || "").trim(),
+                imagen: o.imagen?.url || "",
                 costoAdicional: Number(o.costoAdicional) || 0,
                 stock: typeof o.stock === "number" ? o.stock : null,
               })),
@@ -3010,7 +3011,10 @@ function paintLightbox() {
 
 function closeProductLightbox() {
   document.getElementById("prodLightboxModal")?.classList.remove("show");
-  document.body.style.overflow = "";
+  const hayModalAbierto = document
+    .getElementById("optionsOverlay")
+    ?.classList.contains("show");
+  if (!hayModalAbierto) document.body.style.overflow = "";
 }
 function productoCard(p, index = 0) {
   const card = document.createElement("div");
@@ -3068,29 +3072,57 @@ function productoCard(p, index = 0) {
   const descuentoVenceTxt = descInfoCard
     ? formatVenceDescuento(p.descuento, descInfoCard)
     : "";
+   const dd = precioDesdeInfo(p);
+  const preDesde = dd.varia
+    ? `<span class="text-gray-400 text-[10.5px] font-semibold mr-1">Desde</span>`
+    : "";
+  const precioTachado = dd.varia ? p.precio + dd.extra : p.precio;
+  const precioFinalCard = dd.varia
+    ? dd.precio
+    : descInfoCard
+      ? p.precio * (1 - descInfoCard.porcentaje / 100)
+      : p.precio;
   const precioHTML = descInfoCard
-    ? `<span class="text-gray-500 line-through text-[11px] mr-1.5">S/ ${p.precio.toFixed(2)}</span><span class="display font-extrabold text-[14px] sm:text-[15px]" style="color:#fb7185;">S/ ${(p.precio * (1 - descInfoCard.porcentaje / 100)).toFixed(2)}</span>`
-    : `<span class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${p.precio.toFixed(2)}</span>`;
-  info.innerHTML = `
-    <p class="font-bold text-[13px] sm:text-[15px] leading-snug line-clamp-2">${p.nombre}</p>
-    <p class="text-[10.5px] sm:text-[11.5px] text-gray-500 mb-1 sm:mb-1.5 uppercase tracking-wide font-semibold truncate">${p.categoria}</p>
-    <p class="mb-0">${precioHTML}</p>
-  
-  ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
-    ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-   ${
-     p.puntos
-       ? siguiendoTienda
-         ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-         : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
-       : ""
-   } `;
+    ? `<span class="text-gray-500 line-through text-[11px] mr-1.5">S/ ${precioTachado.toFixed(2)}</span>${preDesde}<span class="display font-extrabold text-[14px] sm:text-[15px]" style="color:#fb7185;">S/ ${precioFinalCard.toFixed(2)}</span>`
+    : `${preDesde}<span class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${precioFinalCard.toFixed(2)}</span>`;
 
-  const dispEl = document.createElement("p");
-  dispEl.id = `disp-${p.id}`;
-  dispEl.className = "prod-disp-msg";
-  dispEl.style.display = "none";
-  info.appendChild(dispEl);
+const nombreEl = document.createElement("p");
+nombreEl.className = "font-bold text-[13px] sm:text-[14px] leading-tight line-clamp-2";
+nombreEl.textContent = p.nombre;
+
+const precioEl = document.createElement("div");
+precioEl.className = "mt-1";
+precioEl.innerHTML = precioHTML;
+
+info.append(nombreEl, precioEl);
+
+if (condLine) {
+  const condEl = document.createElement("p");
+  condEl.className = "text-[10.5px] text-gray-500 mt-0.5 line-clamp-2";
+  condEl.textContent = condLine;
+  info.appendChild(condEl);
+}
+
+if (descuentoVenceTxt) {
+  const venceEl = document.createElement("p");
+  venceEl.className = "text-[10px] font-bold mt-0.5";
+  venceEl.style.color = "#fca5a5";
+  venceEl.textContent = descuentoVenceTxt;
+  info.appendChild(venceEl);
+}
+
+if (p.puntos) {
+  const ptsEl = document.createElement("p");
+  ptsEl.className = "text-[10.5px] font-semibold mt-0.5 accent";
+  ptsEl.textContent = `🎁 +${p.puntos.cantidad} pts`;
+  info.appendChild(ptsEl);
+}
+
+const dispEl = document.createElement("p");
+dispEl.id = `disp-${p.id}`;
+dispEl.className = "prod-disp-msg";
+dispEl.style.display = "none";
+info.appendChild(dispEl);
   const qtyWrap = document.createElement("div");
   qtyWrap.className = "flex-shrink-0 prod-qty-row";
   qtyWrap.id = `qty-${p.id}`;
@@ -3108,6 +3140,35 @@ function productoCard(p, index = 0) {
   return card;
 }
 
+// "Desde": precio mínimo posible según los grupos OBLIGATORIOS.
+// varia = true solo si las opciones de algún grupo obligatorio tienen precios distintos.
+function precioDesdeInfo(p) {
+  const sel = {};
+  let varia = false;
+  let extra = 0;
+  (p.condiciones || []).forEach((c) => {
+    if (!c.obligatoria || !c.opciones.length) return;
+    const costos = c.opciones.map((o) => Number(o.costoAdicional) || 0);
+    const min = Math.min(...costos);
+    if (min !== Math.max(...costos)) varia = true;
+    const menor = c.opciones.find((o) => (Number(o.costoAdicional) || 0) === min);
+    sel[c.nombre] = { [menor.nombre]: 1 };
+    extra += min;
+  });
+  return { varia, extra, precio: calcPrecioFinal(p, sel) };
+}
+
+// Foto de la última opción elegida que tenga imagen ("" si ninguna)
+function imagenOpcionElegida(p, seleccion) {
+  let src = "";
+  (p.condiciones || []).forEach((c) =>
+    entradasDe(seleccion?.[c.nombre]).forEach(([n]) => {
+      const op = c.opciones.find((o) => o.nombre === n);
+      if (op?.imagen) src = op.imagen;
+    }),
+  );
+  return src;
+}
 function productoSinStock(p) {
   if (p.esPromo || p.esOfertaTiempo) return false;
   if (typeof p.stock === "number" && p.stock <= 0) return true;
@@ -3861,9 +3922,10 @@ function addToCart(p, seleccion = null) {
       precio: precioFinal,
       precioOriginal: descInfo ? Number(p.precio) || 0 : null,
       descuentoPorcentaje: descInfo ? descInfo.porcentaje : null,
-      cantidad: 1,
+         cantidad: 1,
       cartKey: key,
       seleccion: seleccion || null,
+      imagen: imagenOpcionElegida(p, seleccion) || p.imagen, // ← NUEVO
     });
   }
   syncCartChange(p.id);
@@ -3907,6 +3969,8 @@ function editCartSelection(oldKey, p, nuevaSeleccion) {
       cantidad: cantidadFinal,
       cartKey: newKey,
       seleccion: nuevaSeleccion,
+            imagen: imagenOpcionElegida(p, nuevaSeleccion) || p.imagen, // ← NUEVO
+
     });
   }
   syncCartChange(p.id);
@@ -3956,6 +4020,13 @@ const OPT_CSS = `
 @keyframes optShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
 #confirmOptionsBtn.opt-btn-pending{opacity:.55;}
 .opt-prod-desc{margin:0 0 16px;font-size:13px;line-height:1.55;color:#a1a1aa;white-space:pre-wrap;}
+.opt-hero{position:relative;width:100%;max-width:320px;aspect-ratio:1/1;margin:0 auto 16px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.04);}
+.opt-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
+.opt-thumb{width:56px;height:56px;aspect-ratio:1/1;flex-shrink:0;border-radius:12px;object-fit:cover;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);}
+.opt-row.sel .opt-thumb{border-color:rgb(var(--dr),var(--dg),var(--db));}
+.opt-hero img.show{opacity:1;}
+.opt-thumb{cursor:zoom-in;}
+.prod-lightbox{z-index:10100 !important;}
 `;
 function injectOptionsStyles() {
   if (document.getElementById("optStyle")) return;
@@ -4029,7 +4100,29 @@ function setCantidadOpcion(cond, nombre, cant) {
   if (Object.keys(obj).length) seleccionOpciones[k] = obj;
   else delete seleccionOpciones[k];
 }
-
+// Miniatura cuadrada de la opción (null si la opción no tiene foto)
+// Miniatura cuadrada de la opción; al tocarla se agranda en el visor
+function thumbOpcion(op, cond) {
+  if (!op.imagen) return null;
+  const img = document.createElement("img");
+  img.className = "opt-thumb";
+  img.src = op.imagen;
+  img.alt = op.nombre;
+  img.width = 56;
+  img.height = 56;
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.onerror = () => img.remove();
+  img.addEventListener("click", (e) => {
+    e.stopPropagation(); // no cambia la selección, solo agranda
+    const fotos = cond.opciones.filter((o) => o.imagen);
+    openProductLightbox(
+      fotos.map((o) => o.imagen),
+      Math.max(0, fotos.findIndex((o) => o.nombre === op.nombre)),
+    );
+  });
+  return img;
+}
 function pintarGrupo(p, cond, sec) {
   const total = totalUnidadesGrupo(cond);
   const tope = !!cond.max && total >= cond.max;
@@ -4056,6 +4149,7 @@ function pintarGrupo(p, cond, sec) {
     const c = cantidadElegida(cond, op.nombre);
     const cap = typeof op.stock === "number" ? op.stock : Infinity;
     const row = el("div", "opt-row" + (c > 0 ? " sel" : ""));
+    const thumb = thumbOpcion(op, cond);
     const info = el("div", "opt-info");
     info.appendChild(el("p", "opt-name", op.nombre));
     if (op.descripcion) info.appendChild(el("p", "opt-desc", op.descripcion));
@@ -4069,6 +4163,7 @@ function pintarGrupo(p, cond, sec) {
 
     if (cond.conCantidad) {
       row.classList.add("qty");
+      if (thumb) row.appendChild(thumb);
       row.appendChild(info);
       if (precio) row.appendChild(precio);
       const step = el("div", "opt-step");
@@ -4108,6 +4203,7 @@ function pintarGrupo(p, cond, sec) {
           c > 0 ? "✓" : "",
         ),
       );
+      if (thumb) row.appendChild(thumb);
       row.appendChild(info);
       if (precio) row.appendChild(precio);
       row.onclick = () => {
@@ -4148,8 +4244,9 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
   const body = document.getElementById("optionsBody");
   body.innerHTML = "";
 
+
+
   if (p.descripcion) {
-    // ← AGREGAR
     body.appendChild(el("p", "opt-prod-desc", p.descripcion));
   }
   gruposModal.forEach((cond) => {
@@ -4176,8 +4273,34 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
   document.getElementById("optionsOverlay").classList.add("show");
   document.body.style.overflow = "hidden";
 }
-
+// Foto grande arriba del diálogo: cambia con fundido suave según la variante elegida
+function actualizarHeroOpciones(p) {
+  const hero = document.getElementById("optionsHero");
+  if (!hero) return;
+  const src = imagenOpcionElegida(p, seleccionOpciones) || p.imagen || "";
+  if (!src) {
+    hero.style.display = "none";
+    return;
+  }
+  hero.style.display = "";
+  if (hero.dataset.src === src) return;
+  hero.dataset.src = src;
+  const front = Number(hero.dataset.front || 0);
+  const next = 1 - front;
+  const imgs = hero.querySelectorAll("img");
+  const imgNext = imgs[next];
+  const imgFront = imgs[front];
+  const mostrar = () => {
+    imgNext.classList.add("show");
+    imgFront.classList.remove("show");
+    hero.dataset.front = next;
+  };
+  imgNext.onload = mostrar;
+  imgNext.src = src;
+  if (imgNext.complete && imgNext.naturalWidth) mostrar();
+}
 function actualizarResumenOpciones(p) {
+  actualizarHeroOpciones(p);
   const el = document.getElementById("optionsResumen");
   if (!el) return;
   const filas = [];

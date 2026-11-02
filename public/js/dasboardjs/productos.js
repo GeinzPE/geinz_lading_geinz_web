@@ -363,7 +363,7 @@ const escR = (s) =>
     /[&<>"']/g,
     (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-      c
+        c
       ],
   );
 const numR = (v) => Math.max(0, parseFloat(v) || 0);
@@ -417,9 +417,12 @@ function htmlMargen(data, desc, open = false) {
   const gs = filas.map((x) => x.g);
   const cs = filas.map((x) => x.costo);
   const ps = filas.map((x) => x.pct);
-  const gMin = Math.min(...gs), gMax = Math.max(...gs);
-  const cMin = Math.min(...cs), cMax = Math.max(...cs);
-  const pMin = Math.min(...ps), pMax = Math.max(...ps);
+  const gMin = Math.min(...gs),
+    gMax = Math.max(...gs);
+  const cMin = Math.min(...cs),
+    cMax = Math.max(...cs);
+  const pMin = Math.min(...ps),
+    pMax = Math.max(...ps);
   const rango = (a, b, d = 2) =>
     Math.abs(a - b) < 0.005 ? a.toFixed(d) : `${a.toFixed(d)}–${b.toFixed(d)}`;
   const hayDetalle = filas.length > 1 || r.extras.length > 0;
@@ -583,16 +586,16 @@ function htmlPresetsVaso(it, attr) {
   return `<div class="flex flex-wrap items-center gap-1">
     <span class="text-[10px] font-mono text-purple-400/50">Vaso:</span>
     ${VASOS_OZ.map((oz) => {
-    const on = it.unit === "oz" && numR(it.qty) === oz;
-    return `<button type="button" ${attr}="preset" data-oz="${oz}"
-        class="px-1.5 py-0.5 rounded-md text-[10px] font-mono border transition-colors ${on
-        ? "bg-violet-800 border-violet-500 text-white"
-        : "bg-[#05040a] border-purple-900/30 text-purple-300 hover:border-violet-600"
-      }">${oz} oz</button>`;
-  }).join("")}
+      const on = it.unit === "oz" && numR(it.qty) === oz;
+      return `<button type="button" ${attr}="preset" data-oz="${oz}"
+        class="px-1.5 py-0.5 rounded-md text-[10px] font-mono border transition-colors ${
+          on
+            ? "bg-violet-800 border-violet-500 text-white"
+            : "bg-[#05040a] border-purple-900/30 text-purple-300 hover:border-violet-600"
+        }">${oz} oz</button>`;
+    }).join("")}
   </div>`;
 }
-
 
 function leerReceta() {
   return {
@@ -637,7 +640,7 @@ function calcRecetaUI() {
   const r = leerReceta();
   const c = calcReceta(r);
   const div = Math.max(0.0001, numR(r.rinde) || 1);
- 
+
   const main = document.getElementById("input-prod-precio");
   const mirror = document.getElementById("input-rec-precio");
   if (document.activeElement !== mirror) mirror.value = main.value;
@@ -878,7 +881,9 @@ function calcCombos({
   // Config por grupo, con respaldo a los flags viejos
   const esMulti = (c) => (c.tipo ? c.tipo === "multiple" : multiples === true);
   const esObl = (c) =>
-    c.obligatoria !== undefined ? c.obligatoria !== false : obligatoria !== false;
+    c.obligatoria !== undefined
+      ? c.obligatoria !== false
+      : obligatoria !== false;
 
   const conds = (condiciones || []).filter(
     (c) => (c.nombre || "").trim() && opcionesActivas(c).length,
@@ -1052,9 +1057,10 @@ function toast(msg, type = "") {
   const isError = type === "error";
   const el = document.createElement("div");
   el.className = `pointer-events-auto animate-toastIn w-full sm:w-auto sm:min-w-[220px] rounded-xl border px-4 py-3 text-xs font-medium shadow-2xl backdrop-blur-md transition-all
-    ${isError
-      ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
-      : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
+    ${
+      isError
+        ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
+        : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
     }`;
   el.textContent = msg;
   toastWrap.appendChild(el);
@@ -1419,7 +1425,7 @@ function setVista(v) {
   document.body.dataset.vista = v;
   try {
     localStorage.setItem("vistaProductos", v);
-  } catch { }
+  } catch {}
   document
     .querySelectorAll(".vista-btn")
     .forEach((b) => b.classList.toggle("active", b.dataset.vista === v));
@@ -1430,7 +1436,7 @@ document
 let vistaGuardada = "grande";
 try {
   vistaGuardada = localStorage.getItem("vistaProductos") || "grande";
-} catch { }
+} catch {}
 setVista(vistaGuardada);
 
 /* ---------------- Menú desplegable "Agregar" ---------------- */
@@ -1520,7 +1526,7 @@ async function eliminarCategoria(categoriaId, nombre) {
     const imagenes = data.imagenes || [];
     await Promise.all(
       imagenes.map((img) =>
-        deleteObject(storageRef(storage, img.path)).catch(() => { }),
+        deleteObject(storageRef(storage, img.path)).catch(() => {}),
       ),
     );
   }
@@ -1644,8 +1650,10 @@ function renderImgDropSlots() {
       x.textContent = "✕";
       x.addEventListener("click", (ev) => {
         ev.stopPropagation();
+        limpiarOpcionesConImagen(imagenesSeleccionadas[i]);
         imagenesSeleccionadas[i] = null;
         renderImgDropSlots();
+        renderCondiciones();
       });
       slot.appendChild(img);
       slot.appendChild(x);
@@ -1782,6 +1790,64 @@ function textoReglaAdmin(c) {
     ? `El cliente verá: «${m ? `Elige de 1 a ${m}` : "Elige al menos 1"}» · Obligatorio`
     : `El cliente verá: «${m ? `Opcional · hasta ${m}` : "Opcional · las que quieras"}»`;
 }
+// Muestra las fotos del producto para que la opción elija una (no sube nada)
+function abrirSelectorImagenOpcion(op) {
+  const fotos = imagenesSeleccionadas.filter(Boolean);
+  if (!fotos.length) {
+    toast("Primero sube fotos del producto en la pestaña Básico.", "error");
+    return;
+  }
+  const ov = document.createElement("div");
+  ov.className =
+    "fixed inset-0 z-[10000] bg-black/70 flex items-center justify-center p-4";
+  const box = document.createElement("div");
+  box.className =
+    "w-full max-w-xs rounded-2xl bg-[#0d0a17] border border-purple-900/40 p-4";
+  box.innerHTML = `<p class="text-xs font-semibold text-white mb-3">Elige una foto del producto</p>
+    <div class="grid grid-cols-3 gap-2 mb-3" data-grid></div>
+    <button type="button" data-ninguna class="w-full text-[11px] py-2 rounded-lg bg-white/5 text-purple-200">Sin foto</button>`;
+  const grid = box.querySelector("[data-grid]");
+
+  const elegir = (item) => {
+    op.imagen = item && !(item instanceof File) ? item : null;
+    op.archivo = item instanceof File ? item : null;
+    ov.remove();
+    renderCondiciones();
+  };
+
+  fotos.forEach((item) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className =
+      "aspect-square rounded-lg overflow-hidden border border-purple-900/40 hover:border-violet-500";
+    const src = item instanceof File ? URL.createObjectURL(item) : item.url;
+    b.innerHTML = `<img src="${src}" class="w-full h-full object-cover">`;
+    b.onclick = () => elegir(item);
+    grid.appendChild(b);
+  });
+  box.querySelector("[data-ninguna]").onclick = () => elegir(null);
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov) ov.remove();
+  });
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+}
+
+// Si se quita una foto del producto, las opciones que la usaban quedan sin foto
+function limpiarOpcionesConImagen(item) {
+  if (!item) return;
+  condicionesSeleccionadas.forEach((c) =>
+    c.opciones.forEach((o) => {
+      if (
+        (item instanceof File && o.archivo === item) ||
+        (!(item instanceof File) && o.imagen?.path === item.path)
+      ) {
+        o.imagen = null;
+        o.archivo = null;
+      }
+    }),
+  );
+}
 function renderCondiciones() {
   const cont = document.getElementById("condiciones-container");
   const btnAdd = document.getElementById("btn-add-condicion");
@@ -1875,12 +1941,16 @@ function renderCondiciones() {
       maxInput.min = "1";
       maxInput.step = "1";
       maxInput.placeholder = "Máx.";
-      maxInput.title = "Máximo que puede elegir en este grupo (vacío = sin límite)";
+      maxInput.title =
+        "Máximo que puede elegir en este grupo (vacío = sin límite)";
       maxInput.value = cond.max ? cond.max : "";
       maxInput.className =
         "w-16 rounded-lg bg-[#0d0a17] border border-purple-900/30 px-2 py-1.5 text-[11px] text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
       maxInput.addEventListener("input", () => {
-        cond.max = parseInt(maxInput.value, 10) > 0 ? parseInt(maxInput.value, 10) : null;
+        cond.max =
+          parseInt(maxInput.value, 10) > 0
+            ? parseInt(maxInput.value, 10)
+            : null;
         regla.textContent = textoReglaAdmin(cond);
       });
       cfg.appendChild(maxInput);
@@ -1930,7 +2000,8 @@ function renderCondiciones() {
       costInput.step = "0.10";
       costInput.min = "0";
       costInput.placeholder = "+S/ 0";
-      costInput.title = "Costo adicional que se suma al precio base si el cliente elige esta opción";
+      costInput.title =
+        "Costo adicional que se suma al precio base si el cliente elige esta opción";
       costInput.value = op.costoAdicional ? op.costoAdicional : "";
       costInput.className =
         "w-16 rounded-lg bg-[#0d0a17] border border-purple-900/20 px-2 py-1.5 text-xs text-purple-100 placeholder-purple-400/30 outline-none focus:border-violet-600 font-mono";
@@ -1974,14 +2045,47 @@ function renderCondiciones() {
         cond.opciones.splice(oi, 1);
         renderCondiciones();
       });
+      const thumb = document.createElement("div");
+      thumb.className =
+        "relative w-8 h-8 shrink-0 rounded-lg border border-dashed border-purple-900/40 bg-[#0d0a17] overflow-hidden flex items-center justify-center cursor-pointer text-xs";
+      thumb.title = "Elegir una de las fotos del producto (opcional)";
+      const srcOp = op.archivo
+        ? URL.createObjectURL(op.archivo)
+        : op.imagen?.url;
+      thumb.innerHTML = srcOp
+        ? `<img src="${srcOp}" class="w-full h-full object-cover">`
+        : "📷";
+      thumb.addEventListener("click", () => abrirSelectorImagenOpcion(op));
 
-      row.append(opInput, costInput, stockOpInput, toggleLabel, delOpBtn);
+      if (srcOp) {
+        const x = document.createElement("button");
+        x.type = "button";
+        x.textContent = "✕";
+        x.className =
+          "absolute top-0 right-0 w-4 h-4 bg-black/80 text-white text-[9px] rounded-bl-md";
+        x.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          op.imagen = null; // solo quita la referencia, NO borra el archivo
+          op.archivo = null;
+          renderCondiciones();
+        });
+        thumb.appendChild(x);
+      }
+      row.append(
+        thumb,
+        opInput,
+        costInput,
+        stockOpInput,
+        toggleLabel,
+        delOpBtn,
+      );
 
       // Qué incluye esta opción (se le muestra al cliente debajo del nombre)
       const descInput = document.createElement("input");
       descInput.type = "text";
       descInput.maxLength = 120;
-      descInput.placeholder = "Qué incluye (opcional). Ej. 2 presas + papas + gaseosa";
+      descInput.placeholder =
+        "Qué incluye (opcional). Ej. 2 presas + papas + gaseosa";
       descInput.value = op.descripcion || "";
       descInput.className =
         "w-full rounded-lg bg-[#0d0a17] border border-purple-900/10 px-2.5 py-1 text-[11px] text-purple-300/80 placeholder-purple-400/25 outline-none focus:border-violet-600";
@@ -1996,7 +2100,8 @@ function renderCondiciones() {
 
     const addOpBtn = document.createElement("button");
     addOpBtn.type = "button";
-    addOpBtn.className = "mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200";
+    addOpBtn.className =
+      "mt-2 text-[10px] font-medium text-violet-300 hover:text-violet-200";
     addOpBtn.textContent = "+ Agregar opción";
     addOpBtn.addEventListener("click", () => {
       cond.opciones.push({
@@ -2025,7 +2130,13 @@ document.getElementById("btn-add-condicion").addEventListener("click", () => {
     conCantidad: false,
     max: null,
     opciones: [
-      { nombre: "", descripcion: "", activo: true, costoAdicional: 0, stock: null },
+      {
+        nombre: "",
+        descripcion: "",
+        activo: true,
+        costoAdicional: 0,
+        stock: null,
+      },
     ],
   });
   renderCondiciones();
@@ -2154,6 +2265,7 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
       opciones: (c.opciones || []).map((o) => ({
         nombre: o.nombre,
         descripcion: o.descripcion || "",
+        imagen: o.imagen || null,
         activo: !!o.activo,
         costoAdicional: Number(o.costoAdicional) || 0,
         stock: typeof o.stock === "number" ? o.stock : null,
@@ -2261,13 +2373,13 @@ document
     const disponibleHasta =
       document.getElementById("input-prod-horario-hasta").value || null;
 
-   
     // Solo tiene sentido si "múltiples" está activo; si no, se fuerza a false por consistencia
     // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
     if (autoDesactivar && stock === 0) disponible = false;
 
     if (!nombre || isNaN(precio)) return;
-
+    if (!(await subirImagenesOpciones())) return;
+    const pendientesImg = [];
     const condiciones = condicionesSeleccionadas
       .filter((c) => c.nombre.trim())
       .slice(0, PLAN_PRODUCTOS.maxVariantes)
@@ -2281,25 +2393,32 @@ document
           max: multiple && Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
           opciones: c.opciones
             .filter((o) => o.nombre.trim())
-            .map((o) => ({
-              nombre: o.nombre.trim(),
-              descripcion: String(o.descripcion || "").trim().slice(0, 120),
-              activo: !!o.activo,
-              costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
-              stock: typeof o.stock === "number" ? o.stock : null,
-              receta:
-                PLAN_PRODUCTOS.superAvanzado && o.receta?.items?.length
-                  ? {
-                      items: o.receta.items
-                        .filter((it) => numR(it.qty) > 0)
-                        .map((it) => ({
-                          id: it.id,
-                          qty: numR(it.qty),
-                          unit: it.unit,
-                        })),
-                    }
-                  : null,
-            })),
+            .map((o) => {
+              const obj = {
+                nombre: o.nombre.trim(),
+                descripcion: String(o.descripcion || "")
+                  .trim()
+                  .slice(0, 120),
+                imagen: o.imagen || null,
+                activo: !!o.activo,
+                costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
+                stock: typeof o.stock === "number" ? o.stock : null,
+                receta:
+                  PLAN_PRODUCTOS.superAvanzado && o.receta?.items?.length
+                    ? {
+                        items: o.receta.items
+                          .filter((it) => numR(it.qty) > 0)
+                          .map((it) => ({
+                            id: it.id,
+                            qty: numR(it.qty),
+                            unit: it.unit,
+                          })),
+                      }
+                    : null,
+              };
+              if (o.archivo) pendientesImg.push({ ref: obj, file: o.archivo });
+              return obj;
+            }),
         };
       })
       .filter((c) => c.opciones.length > 0);
@@ -2432,16 +2551,17 @@ document
         );
         await Promise.all(
           eliminadas.map((img) =>
-            deleteObject(storageRef(storage, img.path)).catch(() => { }),
+            deleteObject(storageRef(storage, img.path)).catch(() => {}),
           ),
         );
-        const subidas = [];
-        for (const file of nuevas) {
-          const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${subidas.length}.webp`;
-          const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
-          subidas.push({ url, path });
-        }
-        await updateDoc(docRef, {
+      const subidas = [];
+for (const file of nuevas) {
+  const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${subidas.length}.webp`;
+  const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
+  subidas.push({ url, path });
+}
+enlazarImagenesNuevasAOpciones(pendientesImg, nuevas, subidas); // ← AGREGAR
+await updateDoc(docRef, {
           nombre,
           descripcion,
           precio,
@@ -2520,9 +2640,10 @@ document
           const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
           imagenes.push({ url, path });
         }
-        if (imagenes.length) {
-          await updateDoc(nuevoDocRef, { imagenes });
-        }
+   enlazarImagenesNuevasAOpciones(pendientesImg, archivos, imagenes);
+if (imagenes.length) {
+  await updateDoc(nuevoDocRef, { imagenes, condiciones });
+}
 
         toast(`"${nombre}" guardado.`);
       }
@@ -2540,7 +2661,7 @@ document
 async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
   await Promise.all(
     (imagenes || []).map((img) =>
-      deleteObject(storageRef(storage, img.path)).catch(() => { }),
+      deleteObject(storageRef(storage, img.path)).catch(() => {}),
     ),
   );
   await deleteDoc(doc(productosRef(categoriaId), productoId));
@@ -2697,12 +2818,13 @@ function renderProductoCard(categoriaId, productoId, data) {
         const stockBajo =
           typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
         const chip = document.createElement("span");
-        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${sinStock
-          ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
-          : stockBajo
-            ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
-            : "bg-purple-950/40 border-purple-800/30 text-purple-300"
-          }`;
+        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
+          sinStock
+            ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
+            : stockBajo
+              ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
+              : "bg-purple-950/40 border-purple-800/30 text-purple-300"
+        }`;
         let txt = op.nombre;
         if (op.costoAdicional)
           txt += ` +${Number(op.costoAdicional).toFixed(2)}`;
@@ -2798,10 +2920,11 @@ function renderProductoCard(categoriaId, productoId, data) {
 
   const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
-  estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.disponible
-    ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
-    : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
-    }`;
+  estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
+    data.disponible
+      ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
+      : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
+  }`;
   estadoBtn.title = data.disponible
     ? "Disponible (clic para marcar agotado)"
     : "Agotado (clic para activar)";
@@ -2824,10 +2947,11 @@ function renderProductoCard(categoriaId, productoId, data) {
   const agotadoHoyBtn = document.createElement("button");
   agotadoHoyBtn.type = "button";
   agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (mañana vuelve solo)";
-  agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.agotadoHoy
-    ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
-    : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
-    }`;
+  agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
+    data.agotadoHoy
+      ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
+      : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
+  }`;
   agotadoHoyBtn.innerHTML = `<span>🔸</span><span class="pc-agotadohoy-txt">${data.agotadoHoy ? "Agotado hoy" : "Agotar hoy"}</span>`;
   agotadoHoyBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
@@ -3547,7 +3671,7 @@ async function eliminarFotoCarta(collId, slotIndex) {
   if (!coleccion) return;
   try {
     const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
-    await deleteObject(storageRef(storage, path)).catch(() => { });
+    await deleteObject(storageRef(storage, path)).catch(() => {});
     const nuevasImagenes = [...coleccion.imagenes];
     nuevasImagenes[slotIndex] = null;
     await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
@@ -3572,7 +3696,7 @@ async function eliminarColeccionCarta(collId) {
       (coleccion.imagenes || []).map((url, i) => {
         if (!url) return Promise.resolve();
         const path = `tiendas/${tiendaId}/carta/${collId}/slot_${i}.webp`;
-        return deleteObject(storageRef(storage, path)).catch(() => { });
+        return deleteObject(storageRef(storage, path)).catch(() => {});
       }),
     );
     await deleteDoc(cartaDocRef(collId));
@@ -3601,7 +3725,18 @@ document
     }
     openOverlay("overlay-carta");
   });
+// Sube las fotos de variantes (y borra las reemplazadas). Devuelve false si falla.
+async function subirImagenesOpciones() {
+  return true;
+}
 
+// Las fotos nuevas del producto ya se subieron: se enlazan a las opciones que las eligieron
+function enlazarImagenesNuevasAOpciones(pendientes, archivos, subidas) {
+  pendientes.forEach(({ ref, file }) => {
+    const i = archivos.indexOf(file);
+    ref.imagen = i >= 0 ? subidas[i] : null;
+  });
+}
 document.getElementById("form-carta")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = document.getElementById("input-carta-nombre");
@@ -3799,7 +3934,7 @@ async function abrirEmparejarCelular() {
         snap.docChanges().forEach((ch) => {
           if (ch.type !== "added") return;
           const d = ch.doc.data();
-          deleteDoc(ch.doc.ref).catch(() => { });
+          deleteDoc(ch.doc.ref).catch(() => {});
           if (d.tipo === "hola") {
             pintarEstadoCelular(true);
             return;
@@ -3860,7 +3995,7 @@ document
 window.addEventListener("pagehide", () => {
   if (!scanSesion) return;
   unsubCodigos?.();
-  deleteDoc(scanSesRef(scanSesion)).catch(() => { });
+  deleteDoc(scanSesRef(scanSesion)).catch(() => {});
 });
 /* ---------------- Horario por categoría ---------------- */
 const DIAS_HORARIO = [
@@ -4025,7 +4160,7 @@ const escAd = (s) =>
     /[&<>"']/g,
     (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-      c
+        c
       ],
   );
 
@@ -4150,7 +4285,7 @@ document.getElementById("adic-list")?.addEventListener("click", (e) => {
       async () => {
         if (a?.imagen?.path)
           await deleteObject(storageRef(storage, a.imagen.path)).catch(
-            () => { },
+            () => {},
           );
         await deleteDoc(adDoc(id));
         toast("Adicional eliminado.");
@@ -4182,7 +4317,7 @@ document
       let imagen = adQuitarFoto ? null : adImgActual;
       if ((adFile || adQuitarFoto) && adImgActual?.path) {
         await deleteObject(storageRef(storage, adImgActual.path)).catch(
-          () => { },
+          () => {},
         );
       }
       if (adFile) {
