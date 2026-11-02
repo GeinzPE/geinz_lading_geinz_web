@@ -39,6 +39,8 @@ import {
   htmlEstadoCliente,
 } from "../dasboardjs/comprobante_mesa.js";
 
+import { abrirJuegoDialogo } from "../../carrito/js/juego_dialogo.js"; // ← ajusta la ruta real
+
 configurarColoresNegocio({ legible: true });
 const db = getFirestore();
 /* ══════════════ Config de enlaces ══════════════
@@ -912,20 +914,20 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const totalConDesc = +(totalGuardar - descCupon).toFixed(2);
   const cuponGuardar = cuponMesa
     ? {
-      codigo: cuponMesa.codigo,
-      tipo: cuponMesa.tipo,
-      origen: cuponMesa.origen || null,
-      tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
-      porcentajeManual: cuponMesa.porcentajeManual ?? null,
-      montoManual: cuponMesa.montoManual ?? null,
-      compraMinima: cuponMesa.compraMinima ?? 0,
-    }
+        codigo: cuponMesa.codigo,
+        tipo: cuponMesa.tipo,
+        origen: cuponMesa.origen || null,
+        tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
+        porcentajeManual: cuponMesa.porcentajeManual ?? null,
+        montoManual: cuponMesa.montoManual ?? null,
+        compraMinima: cuponMesa.compraMinima ?? 0,
+      }
     : null;
   const estadosIni = esRonda
     ? {
-      estadoMozo: "confirmado",
-      estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
-    }
+        estadoMozo: "confirmado",
+        estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
+      }
     : inter
       ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
       : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
@@ -1128,7 +1130,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 const estItemC = (it, ped) =>
@@ -1166,7 +1168,7 @@ async function guardarComprobanteMesa(sol) {
     await updateDoc(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", docId),
       { comprobante: sol },
-    ).catch(() => { });
+    ).catch(() => {});
 }
 const clientePuedeComprobante = () =>
   bizData?.mesas_config?.compCliente !== false;
@@ -1266,26 +1268,28 @@ function renderPedidoActivoMesa(pedido) {
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
       <span class="text-[11px] text-gray-500">${pedido.hora || ""}</span>
     </div>
-    ${idx < 0
-      ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
-      : `<div class="pa-steps">
+    ${
+      idx < 0
+        ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
+        : `<div class="pa-steps">
             <div class="pa-track"><div class="pa-fill" style="width:${fillPct}%"></div></div>
             ${PASOS_MESA.map(
-        (p, i) => `
+              (p, i) => `
               <div class="pa-step ${i < idx ? "done" : i === idx ? "now" : ""}">
                 <div class="pa-dot">${i < idx ? "✓" : p[1]}</div>
                 <div class="pa-lbl">${p[2]}</div>
               </div>`,
-      ).join("")}
+            ).join("")}
           </div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
-    ${Number(pedido.descuentoCupon || 0) > 0
-      ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
+    ${
+      Number(pedido.descuentoCupon || 0) > 0
+        ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
              <span>🎟️ Cupón ${pedido.cupon?.codigo || ""}</span>
              <span>-S/ ${Number(pedido.descuentoCupon).toFixed(2)}</span>
            </div>`
-      : ""
+        : ""
     }
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
@@ -1563,10 +1567,14 @@ async function confirmarPedidoMesaDirecto() {
     });
     pedidoActivoMesa = pedido;
     if (marcarUsado) {
-      updateDoc(refCupon, { usado: true, estado: "usado", usadoEn: serverTimestamp() }).catch(() => { });
+      updateDoc(refCupon, {
+        usado: true,
+        estado: "usado",
+        usadoEn: serverTimestamp(),
+      }).catch(() => {});
     }
     if (contarUso) {
-      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => { });
+      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
     }
     cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
@@ -2072,10 +2080,11 @@ function cuponBarHTML(subtotal) {
         <p style="margin:0;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${rgb};">
           🎟️ Canjes con puntos · ${totalCanjes}
         </p>
-        ${lineas.length > 1
-      ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
-      : ""
-    }
+        ${
+          lineas.length > 1
+            ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
+            : ""
+        }
       </div>
       ${filas}
     </div>`;
@@ -2388,7 +2397,7 @@ async function loadProductosCatalogo(bizOrPromise) {
           categoriaNorm: normalizeText(categoria),
           nombre,
           nombreNorm: normalizeText(nombre),
-          descripcion: String(d.descripcion || "").trim(),   // ← AGREGAR
+          descripcion: String(d.descripcion || "").trim(), // ← AGREGAR
           precio: Number(d.precio) || 0,
           imagenes: (d.imagenes || []).map((im) => im?.url).filter(Boolean),
           imagen: d.imagenes?.[0]?.url || "",
@@ -2402,12 +2411,12 @@ async function loadProductosCatalogo(bizOrPromise) {
             d.variantesMultiples === true && d.variantesConCantidad === true,
           puntos:
             biz?.fidelizacion?.activo &&
-              d.puntos?.activo &&
-              d.puntos?.cantidad > 0
+            d.puntos?.activo &&
+            d.puntos?.cantidad > 0
               ? {
-                cantidad: d.puntos.cantidad,
-                descripcion: d.puntos.descripcion || "",
-              }
+                  cantidad: d.puntos.cantidad,
+                  descripcion: d.puntos.descripcion || "",
+                }
               : null,
           descuento: d.descuento || null,
           horarioCat,
@@ -2750,7 +2759,7 @@ function prepararCheckoutInvitado() {
       if (nom && !nom.value.trim()) nom.value = g.nombre || "";
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
-  } catch { }
+  } catch {}
   // Si está logeado, intenta prellenar con el teléfono de su perfil
   if (!esInvitado && wa && !wa.value.trim()) {
     wa.value =
@@ -2942,10 +2951,11 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
+  wrap.innerHTML = `<div class="logo-ph-badge">${
+    _bizLogoUrl
       ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
       : `<span class="ph-letter">${letraNegocio()}</span>`
-    }</div>`;
+  }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -3068,12 +3078,13 @@ function productoCard(p, index = 0) {
   
   ${descuentoVenceTxt ? `<p class="text-[10px] font-bold mt-1" style="color:#fca5a5;">${descuentoVenceTxt}</p>` : ""}
     ${condLine ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-1">${condLine}</p>` : ""}
-   ${p.puntos
-      ? siguiendoTienda
-        ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
-        : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
-      : ""
-    } `;
+   ${
+     p.puntos
+       ? siguiendoTienda
+         ? `<p class="text-[10px] text-amber-300 mt-1">🎁 +${p.puntos.cantidad} pts${p.puntos.descripcion ? " · " + p.puntos.descripcion : ""}</p>`
+         : `<p class="text-[10px] text-gray-500 mt-1"><button type="button" data-puntos-accion="${usuarioLogeado ? "seguir" : "login"}" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;">⭐ ${usuarioLogeado ? "Sigue la tienda para ganar puntos" : "Inicia sesión para ganar puntos"}</button></p>`
+       : ""
+   } `;
 
   const dispEl = document.createElement("p");
   dispEl.id = `disp-${p.id}`;
@@ -3418,19 +3429,19 @@ function getDeliveryCfg() {
     texto: d.texto || "",
     zonas: Array.isArray(d.zonas)
       ? d.zonas
-        .filter((z) => z && z.nombre)
-        .map((z) => ({
-          nombre: String(z.nombre),
-          precio: Number(z.precio) || 0,
-        }))
+          .filter((z) => z && z.nombre)
+          .map((z) => ({
+            nombre: String(z.nombre),
+            precio: Number(z.precio) || 0,
+          }))
       : [],
     recargo: d.recargo
       ? {
-        activo: d.recargo.activo === true,
-        desde: d.recargo.desde || "",
-        hasta: d.recargo.hasta || "",
-        monto: Number(d.recargo.monto) || 0,
-      }
+          activo: d.recargo.activo === true,
+          desde: d.recargo.desde || "",
+          hasta: d.recargo.hasta || "",
+          monto: Number(d.recargo.monto) || 0,
+        }
       : null,
   };
 }
@@ -4050,10 +4061,10 @@ function pintarGrupo(p, cond, sec) {
     if (op.descripcion) info.appendChild(el("p", "opt-desc", op.descripcion));
     const precio = op.costoAdicional
       ? el(
-        "span",
-        "opt-price",
-        `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
-      )
+          "span",
+          "opt-price",
+          `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
+        )
       : null;
 
     if (cond.conCantidad) {
@@ -4133,13 +4144,14 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     else seleccionOpciones[k] = entradas[0][0];
   });
 
-document.getElementById("optionsProdNombre").textContent = p.nombre;
-const body = document.getElementById("optionsBody");
-body.innerHTML = "";
+  document.getElementById("optionsProdNombre").textContent = p.nombre;
+  const body = document.getElementById("optionsBody");
+  body.innerHTML = "";
 
-if (p.descripcion) {                                   // ← AGREGAR
-  body.appendChild(el("p", "opt-prod-desc", p.descripcion));
-}
+  if (p.descripcion) {
+    // ← AGREGAR
+    body.appendChild(el("p", "opt-prod-desc", p.descripcion));
+  }
   gruposModal.forEach((cond) => {
     const sec = el("div", "opt-grp");
     sec.dataset.grp = cond.nombre;
@@ -4489,19 +4501,21 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${!it.esCanje &&
+        ${
+          !it.esCanje &&
           (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
-          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+            ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-          : ""
+            : ""
         }
-          ${it.esCanje
-          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${
+            it.esCanje
+              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-        }
+          }
         </div>
       `;
       wrap.appendChild(row);
@@ -4934,10 +4948,10 @@ document
       token_seguimiento: tokenSeguimiento,
       mesa: mesaId
         ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+            id: mesaId,
+            nombre: mesaNombre || null,
+            numero: mesaNumero ? Number(mesaNumero) : null,
+          }
         : null,
       pago: {
         metodo: metodoPago,
@@ -5028,7 +5042,7 @@ document
               +(i.cantidad * i.precio).toFixed(2),
             ),
             [`estadisticas.por_dia.${hoy}.pedidos`]: increment(1),
-          }).catch(() => { });
+          }).catch(() => {});
         });
     }
     const pedidoId = resultado.id;
@@ -5042,7 +5056,7 @@ document
           "geinz_guest",
           JSON.stringify({ nombre, whatsapp }),
         );
-      } catch { }
+      } catch {}
     }
     if (
       cuponAplicado?.origen === "banner" &&
@@ -5053,7 +5067,7 @@ document
           `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`,
           "1",
         );
-      } catch { }
+      } catch {}
     }
 
     const sufijo = tokenSeguimiento ? `?t=${tokenSeguimiento}` : "";
@@ -5613,6 +5627,7 @@ function normalizarPromociones(biz) {
     Object.entries(raw).forEach(([promoId, p]) => {
       // formato viejo (solo URL) o sin precio: no se puede vender
       if (!p || typeof p !== "object") return;
+      if (p.dias?.length && !p.dias.includes(obtenerDiaSemanaLima())) return; // ← NUEVA
       const precio = Number(p.precio) || 0;
       if (precio <= 0) return;
       const descripcion = String(p.descripcion || "").trim();
@@ -5694,6 +5709,82 @@ function aplicarPromoDesdeLink(promoId) {
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
     pulseCard(p.id);
   }, 350);
+}
+/* ══════════════ Juego para ganar descuentos ══════════════ */
+const JUEGO_CSS = `
+.juego-strip{
+  display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:9px 10px 9px 14px;
+  border-radius:16px;font-size:12.5px;font-weight:700;color:#e4e4e7;
+  background:rgba(var(--dr),var(--dg),var(--db),.10);
+  border:1px dashed rgba(var(--dr),var(--dg),var(--db),.45);
+}
+.juego-strip-txt{flex:1;min-width:0;line-height:1.3;}
+.juego-strip-btn{
+  flex-shrink:0;padding:7px 14px;border:none;border-radius:999px;cursor:pointer;
+  font-size:12px;font-weight:800;color:#fff;
+  background:rgb(var(--dr),var(--dg),var(--db));
+  transition:transform .15s ease;
+}
+.juego-strip-btn:active{transform:scale(.95);}
+.juego-strip-x{
+  flex-shrink:0;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;
+  background:rgba(255,255,255,.06);color:#9ca3af;font-size:11px;
+}
+`;
+
+function abrirJuegoModal() {
+  abrirJuegoDialogo({
+    nombre: bizNombre,
+    logo: _bizLogoUrl,
+    tiendaId,
+    localidad,
+    uid: usuarioLogeado?.id || null,
+    carrito: {
+      items: [...carrito.values()]
+        .filter((it) => !it.esCanje)
+        .map((it) => ({
+          id: it.id,
+          cantidad: it.cantidad,
+          precio: it.precio,
+        })),
+      total: [...carrito.values()].reduce(
+        (s, i) => s + i.cantidad * (i.precio || 0),
+        0,
+      ),
+    },
+    // Si el premio trae código, se aplica como cupón en el carrito
+    onAplicarCupon: (codigo) => buscarYAplicarCupon(codigo),
+  });
+}
+
+function montarBotonJuego() {
+  if (document.getElementById("juegoStrip")) return;
+  if (sessionStorage.getItem("geinz_juego_oculto")) return;
+  const lista = document.getElementById("lista");
+  if (!lista) return;
+
+  if (!document.getElementById("juegoStyle")) {
+    const st = document.createElement("style");
+    st.id = "juegoStyle";
+    st.textContent = JUEGO_CSS;
+    document.head.appendChild(st);
+  }
+
+  const strip = document.createElement("div");
+  strip.id = "juegoStrip";
+  strip.className = "juego-strip";
+  strip.innerHTML = `
+    <span class="juego-strip-txt">🎮 ¿Quieres jugar para ganar descuentos?</span>
+    <button type="button" class="juego-strip-btn">Jugar</button>
+    <button type="button" class="juego-strip-x" aria-label="Ocultar">✕</button>`;
+  strip.querySelector(".juego-strip-btn").onclick = abrirJuegoModal;
+  strip.querySelector(".juego-strip-x").onclick = () => {
+    strip.remove();
+    try {
+      sessionStorage.setItem("geinz_juego_oculto", "1");
+    } catch {}
+  };
+  lista.before(strip);
 }
 /* ══════════════ Init ══════════════ */
 /* ══════════════════════════════════════════════════════════════════════
@@ -6116,7 +6207,7 @@ async function restaurarCarritoPersistido() {
 function limpiarCarritoPersistido() {
   try {
     sessionStorage.removeItem(CART_PERSIST_KEY());
-  } catch { }
+  } catch {}
 }
 
 function abrirLoginPopup() {
@@ -6551,6 +6642,7 @@ async function init() {
     renderFiltros(catalogoGlobal);
     buildAllCards(catalogoGlobal);
     applyFilters();
+    montarBotonJuego();
   } else {
     document.getElementById("lista").innerHTML = "";
   }

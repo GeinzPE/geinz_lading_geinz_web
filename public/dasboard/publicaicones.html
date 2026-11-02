@@ -1071,6 +1071,184 @@
             background: rgba(255, 255, 255, .1);
             color: #d4d4d8;
         }
+
+        /* ── Generador de promociones ── */
+        .gen-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 14px
+        }
+
+        @media(max-width:760px) {
+            .gen-grid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .gen-box {
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 16px;
+            padding: 12px
+        }
+
+        .gen-list {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px
+        }
+
+        .gen-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .06);
+            font-size: 12.5px;
+            color: #fff
+        }
+
+        .gen-row .gen-n {
+            flex: 1;
+            min-width: 0
+        }
+
+        .gen-row .gen-n b {
+            display: block;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .gen-row .gen-n small {
+            color: #a1a1aa;
+            font-size: 11px
+        }
+
+        .gen-row .gen-p {
+            font-weight: 800;
+            font-size: 12px;
+            white-space: nowrap;
+            color: #d8b4fe
+        }
+
+        .gen-btn {
+            width: 26px;
+            height: 26px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .1);
+            color: #fff;
+            font-weight: 800;
+            cursor: pointer
+        }
+
+        .gen-btn:hover {
+            background: rgba(124, 58, 237, .8)
+        }
+
+        .gen-qty {
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .gen-qty span {
+            min-width: 18px;
+            text-align: center;
+            font-weight: 700
+        }
+
+        .gen-res {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px
+        }
+
+        .gen-res div {
+            background: #05040a;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center
+        }
+
+        .gen-res small {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #71717a
+        }
+
+        .gen-res b {
+            font-size: 16px;
+            color: #fff
+        }
+
+        .gen-res .gen-hi b {
+            color: #86efac
+        }
+
+        .gen-chips {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap
+        }
+
+        .gen-img {
+            width: 90px;
+            height: 90px;
+            border-radius: 14px;
+            border: 2px dashed rgba(255, 255, 255, .2);
+            background: #050508 center/cover no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+            flex-shrink: 0
+        }
+
+        .of-dias {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center
+        }
+
+        .of-dias-lbl {
+            width: 100%;
+            font-size: 10px;
+            color: #a1a1aa;
+            font-weight: 600
+        }
+
+        .of-dia {
+            padding: 3px 7px;
+            border-radius: 8px;
+            font-size: 10.5px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .03);
+            color: #a1a1aa
+        }
+
+        .of-dia.on {
+            background: #a855f7;
+            border-color: #a855f7;
+            color: #fff
+        }
     </style>
 </head>
 
@@ -1892,6 +2070,85 @@
             <h3 class="sec-title">Ofertas</h3>
             <p class="sec-sub">Hasta 5 productos con imagen, descripción y precio (obligatorios).</p>
             <div id="ofertasGrid"></div>
+
+            <!-- ── Generador de promociones ── -->
+            <div class="card" id="cardGenerador" style="margin-top:24px;">
+                <h3 class="sec-title">Generador de promociones ✨</h3>
+                <p class="sec-sub">Elige productos, calcula el total y a cuánto venderlos. Luego sube tu imagen y crea
+                    la oferta.</p>
+
+                <div class="gen-grid">
+                    <!-- Izquierda: productos -->
+                    <div class="gen-box">
+                        <label class="bn-lbl">Tus productos</label>
+                        <input type="text" id="genBuscar" class="of-desc" style="height:38px"
+                            placeholder="Buscar producto...">
+                        <div class="gen-list" id="genLista">
+                            <p class="of-msg">Cargando productos...</p>
+                        </div>
+                    </div>
+
+                    <!-- Derecha: combo -->
+                    <div class="gen-box">
+                        <label class="bn-lbl">Tu combo</label>
+                        <div class="gen-list" id="genSel" style="max-height:170px"></div>
+
+                        <div class="gen-res">
+                            <div><small>Total normal</small><b id="genTotal">S/ 0.00</b></div>
+                            <div class="gen-hi"><small>Precio promo</small><b id="genPromo">S/ 0.00</b></div>
+                            <div><small>Cliente ahorra</small><b id="genAhorro">S/ 0.00</b></div>
+                            <div><small>Descuento</small><b id="genPct">0%</b></div>
+                        </div>
+
+                        <label class="bn-lbl" style="margin-top:12px">¿Cómo quieres poner el precio?</label>
+                        <div class="bn-mini-toggle" id="genModoRow">
+                            <div class="bn-tipo-chip active" data-modo="porcentaje">% Descuento</div>
+                            <div class="bn-tipo-chip" data-modo="precio">S/ Precio final</div>
+                        </div>
+                        <div class="of-price" style="margin-top:8px">
+                            <span id="genUnidad">%</span>
+                            <input id="genValor" type="number" min="0" step="0.01" inputmode="decimal"
+                                placeholder="Ej: 15">
+                        </div>
+                        <div class="gen-chips" id="genRapidos" style="margin-top:8px">
+                            <div class="bn-tipo-chip" data-r="10">-10%</div>
+                            <div class="bn-tipo-chip" data-r="15">-15%</div>
+                            <div class="bn-tipo-chip" data-r="20">-20%</div>
+                            <div class="bn-tipo-chip" data-r="25">-25%</div>
+                            <div class="bn-tipo-chip" data-r="30">-30%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bn-details">
+                    <div>
+                        <label class="bn-lbl">Días que se muestra <span class="bn-tag">sin marcar = todos los
+                                días</span></label>
+                        <div class="gen-chips" id="genDias"></div>
+                    </div>
+
+                    <div>
+                        <label class="bn-lbl">Descripción <span class="bn-tag">se arma sola, puedes
+                                editarla</span></label>
+                        <textarea id="genDesc" class="of-desc" rows="2" maxlength="80"
+                            placeholder="Ej: 2x Jalea + Chicha"></textarea>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <div class="gen-img" id="genImgPrev">📷 Tu imagen</div>
+                        <div style="flex:1">
+                            <button type="button" class="btn" id="genImgBtn">Elegir imagen</button>
+                            <p class="of-msg" style="margin-top:6px">La imagen la haces tú; aquí solo se sube.</p>
+                        </div>
+                        <input type="file" id="genImgInput" accept="image/png,image/jpeg,image/webp"
+                            style="display:none">
+                    </div>
+
+                    <p class="of-msg" id="genMsg"></p>
+                    <button type="button" class="of-save bn-save" id="genCrear">Crear oferta</button>
+                    <button type="button" class="btn" id="genLimpiar" style="width:100%">Limpiar</button>
+                </div>
+            </div>
         </div>
 
     </div>

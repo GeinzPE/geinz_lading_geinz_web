@@ -3079,9 +3079,21 @@ function revisarSeccionVacia(secId, gridId, navKey) {
     updateQuickNav();
   }
 }
+function diaHoyLima() {
+  const en = new Intl.DateTimeFormat("en-US", { timeZone: "America/Lima", weekday: "long" })
+    .format(new Date()).toLowerCase();
+  return { sunday:"domingo", monday:"lunes", tuesday:"martes", wednesday:"miercoles",
+           thursday:"jueves", friday:"viernes", saturday:"sabado" }[en];
+}
+
 function normalizePromos(it) {
   const p = it?.lista_img?.promociones || {};
+  const hoy = diaHoyLima();
   return Object.entries(p)
+    .filter(([, val]) => {
+      const dias = val && typeof val === "object" ? val.dias : null;
+      return !dias?.length || dias.includes(hoy);   // sin días = todos los días
+    })
     .map(([id, val], idx) => {
       const o = typeof val === "string" ? { imagen: val } : val || {};
       if (!o.imagen) return null;
