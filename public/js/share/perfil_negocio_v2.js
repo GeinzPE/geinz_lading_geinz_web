@@ -54,11 +54,11 @@ const _MAP = Object.fromEntries(
 );
 const _EMOJI_RE = new RegExp(
   "(" +
-  Object.keys(_MAP)
-    .sort((a, b) => b.length - a.length)
-    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|") +
-  ")\\uFE0F?",
+    Object.keys(_MAP)
+      .sort((a, b) => b.length - a.length)
+      .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|") +
+    ")\\uFE0F?",
   "g",
 );
 
@@ -1125,7 +1125,7 @@ const _cGet = (k, ttl = 6 * 3600e3) => {
 const _cSet = (k, d) => {
   try {
     localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
-  } catch { }
+  } catch {}
 };
 async function getParams() {
   // ═══ NUEVO: detectar dominio conectado ═══
@@ -2535,7 +2535,7 @@ async function _getSegmento() {
   try {
     const s = await getDoc(data_user_logeado(uid));
     if (s.exists()) d = s.data();
-  } catch { }
+  } catch {}
   _segCache = {
     uid,
     logeado: true,
@@ -2566,7 +2566,7 @@ async function trackPromo(promoId, evento) {
     try {
       if (localStorage.getItem(k)) return;
       localStorage.setItem(k, "1");
-    } catch { }
+    } catch {}
   }
 
   const seg = await _getSegmento();
@@ -2677,8 +2677,8 @@ function renderActivePromos(promos, localidad) {
 
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-        `${waMsg}: ${shareUrl}`,
-      )}`
+          `${waMsg}: ${shareUrl}`,
+        )}`
       : null;
 
     const puedeComprarPromo = precio > 0 && _F.carrito;
@@ -2690,30 +2690,33 @@ function renderActivePromos(promos, localidad) {
           ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
 
           <div class="promo-active-top-actions">
-            ${puedeComprarPromo
-        ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+            ${
+              puedeComprarPromo
+                ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
               </svg>
             </button>`
-        : ""
-      }
-            ${waLink
-        ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
+                : ""
+            }
+            ${
+              waLink
+                ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
               <i class="fa-brands fa-whatsapp"></i>
             </a>`
-        : ""
-      }
-            ${shareAllowed
-        ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+                : ""
+            }
+            ${
+              shareAllowed
+                ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                 <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
               </svg>
             </button>`
-        : ""
-      }
+                : ""
+            }
           </div>
 
           <div class="promo-active-bottom-overlay">
@@ -2734,14 +2737,14 @@ function renderActivePromos(promos, localidad) {
 
     const onComprarEstaPromo = puedeComprarPromo
       ? () => {
-        trackPromo(p.id, "clics_comprar");
-        agregarAlCarritoPerfil({
-          promoId: `activa_${p.id}`,
-          nombre: info.titulo,
-          precio,
-          imagen: img,
-        });
-      }
+          trackPromo(p.id, "clics_comprar");
+          agregarAlCarritoPerfil({
+            promoId: `activa_${p.id}`,
+            nombre: info.titulo,
+            precio,
+            imagen: img,
+          });
+        }
       : null;
     // Vista: cuando la card entra en pantalla (1 vez/día/navegador)
     const io = new IntersectionObserver(
@@ -3072,7 +3075,9 @@ function revisarSeccionVacia(secId, gridId, navKey) {
   const sec = document.getElementById(secId);
   const grid = document.getElementById(gridId);
   if (!sec || !grid) return;
-  const hayVisibles = [...grid.children].some((c) => c.style.display !== "none");
+  const hayVisibles = [...grid.children].some(
+    (c) => c.style.display !== "none",
+  );
   sec.style.display = hayVisibles ? "" : "none";
   if (navKey) {
     _navState[navKey] = hayVisibles;
@@ -3080,10 +3085,21 @@ function revisarSeccionVacia(secId, gridId, navKey) {
   }
 }
 function diaHoyLima() {
-  const en = new Intl.DateTimeFormat("en-US", { timeZone: "America/Lima", weekday: "long" })
-    .format(new Date()).toLowerCase();
-  return { sunday:"domingo", monday:"lunes", tuesday:"martes", wednesday:"miercoles",
-           thursday:"jueves", friday:"viernes", saturday:"sabado" }[en];
+  const en = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Lima",
+    weekday: "long",
+  })
+    .format(new Date())
+    .toLowerCase();
+  return {
+    sunday: "domingo",
+    monday: "lunes",
+    tuesday: "martes",
+    wednesday: "miercoles",
+    thursday: "jueves",
+    friday: "viernes",
+    saturday: "sabado",
+  }[en];
 }
 
 function normalizePromos(it) {
@@ -3092,7 +3108,7 @@ function normalizePromos(it) {
   return Object.entries(p)
     .filter(([, val]) => {
       const dias = val && typeof val === "object" ? val.dias : null;
-      return !dias?.length || dias.includes(hoy);   // sin días = todos los días
+      return !dias?.length || dias.includes(hoy); // sin días = todos los días
     })
     .map(([id, val], idx) => {
       const o = typeof val === "string" ? { imagen: val } : val || {};
@@ -5746,10 +5762,11 @@ function calcFlags(s = {}) {
     ),
     carrito:
       on(`${PV}.carrito.activo`, "modulos.pedidos_vivos.carrito") ||
-      _carritoActivoEn(s.operacion_ventas), fidel: on(
-        "cliente_y_fidelizacion.cupones_puntos.activo",
-        "apartados_dasboard.fidelizacion",
-      ),
+      _carritoActivoEn(s.operacion_ventas),
+    fidel: on(
+      "cliente_y_fidelizacion.cupones_puntos.activo",
+      "apartados_dasboard.fidelizacion",
+    ),
     // footer / marca Geinz
     footer: fcGet("footer_geinz") === true,
     cabezero: fcGet("cabezero_geinz") === true,
@@ -6016,15 +6033,16 @@ async function render(biz, isInitial = true) {
     }
   } else if (_tieneColor) {
     aplicarMarca(_cm);
-    _tarjetaDestroy?.setBrand?.(marcaActual());   // ← antes: (_cm)
+    _tarjetaDestroy?.setBrand?.(marcaActual()); // ← antes: (_cm)
     if (_marcaSig && _marcaSig !== _sig) showToast("🎨 Colores actualizados");
     _marcaSig = _sig;
   } else {
     aplicarDegradado(null, null);
-    _tarjetaDestroy?.setBrand?.(marcaActual());   // ← antes: (null)
+    _tarjetaDestroy?.setBrand?.(marcaActual()); // ← antes: (null)
   }
   // ── CONTENIDO: siempre se actualiza ──
   setText("bizName", nombre);
+  renderBlackFriday(biz);
   document.title = nombre;
   setText("productosTitle", `Lo mejor de ${nombre}`);
   if (esPresencial) {
@@ -6272,15 +6290,16 @@ async function render(biz, isInitial = true) {
       card.innerHTML = `
           <div class="promo-card-img-wrap">
             <div class="promo-card-top-actions">
-              ${puedeComprarPromo
-          ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+              ${
+                puedeComprarPromo
+                  ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
                   <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
                 </svg>
               </button>`
-          : ""
-        }
+                  : ""
+              }
               <button class="promo-icon-btn promo-icon-share" data-share-url="${shareBase}" aria-label="Compartir">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -6288,14 +6307,15 @@ async function render(biz, isInitial = true) {
                 </svg>
               </button>
             </div>
-            ${promo.precio > 0 || promo.descripcion
-          ? `
+            ${
+              promo.precio > 0 || promo.descripcion
+                ? `
             <div class="promo-card-bottom-overlay">
               ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
               ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
             </div>`
-          : ""
-        }
+                : ""
+            }
           </div>`;
       const imgWrapContainer = card.querySelector(".promo-card-img-wrap");
       const imgWrap = createImageWithPlaceholder({
@@ -6306,12 +6326,12 @@ async function render(biz, isInitial = true) {
 
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
-          agregarAlCarritoPerfil({
-            promoId: promo.id,
-            nombre: promo.titulo,
-            precio: promo.precio,
-            imagen: promo.url,
-          })
+            agregarAlCarritoPerfil({
+              promoId: promo.id,
+              nombre: promo.titulo,
+              precio: promo.precio,
+              imagen: promo.url,
+            })
         : null;
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
@@ -6404,6 +6424,7 @@ async function render(biz, isInitial = true) {
   setupHeroFlip(!!fidelizacion);
   renderPuntosBadge(_currentPuntos);
   aplicarBrandingGeinz();
+  renderBlackFriday(biz);
   document
     .getElementById("secAmenities")
     ?.style.setProperty("display", esPresencial ? "" : "none");
@@ -6996,8 +7017,8 @@ function rvRender() {
 
   const fecha = photo.timestamp?.toDate
     ? photo.timestamp
-      .toDate()
-      .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
+        .toDate()
+        .toLocaleDateString("es-PE", { year: "numeric", month: "long" })
     : "";
   document.getElementById("rvLightboxDate").textContent = fecha;
 }
@@ -7553,10 +7574,10 @@ async function pintarReviewsNuevas(nuevas) {
       : "";
     const respuestaFecha = respuesta?.fecha?.toDate
       ? respuesta.fecha.toDate().toLocaleDateString("es-PE", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
       : "";
     const respuestaHTML = respuestaTexto
       ? `
@@ -7938,7 +7959,7 @@ function irAReviews() {
       ({ biz, servicios } = cached);
       Promise.all([loadBusiness(params), loadServicios(params)])
         .then(([b, s]) => _cSet(ck, { biz: b, servicios: s }))
-        .catch(() => { });
+        .catch(() => {});
     } else {
       [biz, servicios] = await Promise.all([
         loadBusiness(params),
@@ -8300,28 +8321,43 @@ function injectCatalogoStyles() {
   st.id = "catalogoFixStyle";
   st.textContent = `
     #secCatalogo.reveal{opacity:1 !important;transform:none !important;visibility:visible !important;}
+
+    /* quita la sombra vieja que oscurecía la 1ra card */
+    #catalogoCarouselWrap{-webkit-mask-image:none !important;mask-image:none !important;box-shadow:none !important;}
+    #catalogoCarouselWrap::before,#catalogoCarouselWrap::after{display:none !important;content:none !important;}
+
+    /* difuminado nuevo: solo aparece en el lado donde hay más contenido */
+    @property --fl{syntax:'<length>';inherits:false;initial-value:0px;}
+    @property --fr{syntax:'<length>';inherits:false;initial-value:0px;}
     #catalogoList{
-      display:flex !important; flex-direction:row !important; gap:16px !important;
-      overflow-x:auto !important; padding:4px 2px 12px !important;
-      scrollbar-width:none; min-height:200px;
+      box-shadow:none !important;
+      transition:--fl .3s ease,--fr .3s ease;
+      -webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fl),#000 calc(100% - var(--fr)),transparent 100%);
+      mask-image:linear-gradient(to right,transparent 0,#000 var(--fl),#000 calc(100% - var(--fr)),transparent 100%);
+    }
+
+    #catalogoList{
+      display:flex !important;flex-direction:row !important;align-items:flex-start !important;gap:16px !important;
+      overflow-x:auto !important;padding:4px 2px 12px !important;
+      scrollbar-width:none;min-height:200px;
     }
     #catalogoList::-webkit-scrollbar{display:none;}
     #catalogoList .catalogo-row{
-      position:relative !important; flex:0 0 220px !important; width:220px !important;
-      height:280px !important; border-radius:24px !important; overflow:hidden !important;
-      background:#0b0b0d !important; border:1px solid rgba(255,255,255,.08) !important;
-      display:block !important;
+      position:relative !important;flex:0 0 220px !important;width:220px !important;
+      height:280px !important;border-radius:24px !important;overflow:hidden !important;
+      background:#0b0b0d !important;border:1px solid rgba(255,255,255,.08) !important;
+      display:block !important;box-shadow:none !important;filter:none !important;
     }
     #catalogoList .catalogo-row-overlay{
-      position:absolute !important; left:0; right:0; bottom:0; z-index:2;
-      padding:40px 14px 14px; display:flex !important; flex-direction:column; gap:4px;
-      background:linear-gradient(to top,rgba(0,0,0,.92),rgba(0,0,0,0)) !important;
+      position:absolute !important;left:0;right:0;bottom:0;z-index:2;
+      padding:26px 14px 14px;display:flex !important;flex-direction:column;gap:4px;
+      background:linear-gradient(to top,rgba(0,0,0,.8) 0%,rgba(0,0,0,.4) 55%,rgba(0,0,0,0) 100%) !important;
     }
     #catalogoList .catalogo-row-nombre{color:#fff;font-weight:700;font-size:14px;line-height:1.3;}
     #catalogoList .catalogo-row-precio{color:#fff;font-weight:800;font-size:13px;}
     #catalogoList .promo-card-top-actions{
-      position:absolute !important; top:12px !important; right:12px !important;
-      z-index:3 !important; display:flex; gap:8px;
+      position:absolute !important;top:12px !important;right:12px !important;
+      z-index:3 !important;display:flex;gap:8px;
     }
     #catalogoList .promo-icon-btn{
       width:38px;height:38px;border-radius:50%;
@@ -8335,7 +8371,20 @@ function injectCatalogoStyles() {
   `;
   document.head.appendChild(st);
 }
-
+function setupEdgeFade(el) {
+  if (!el) return;
+  const update = () => {
+    const max = el.scrollWidth - el.clientWidth;
+    el.style.setProperty("--fl", el.scrollLeft > 4 ? "56px" : "0px");
+    el.style.setProperty("--fr", el.scrollLeft < max - 4 ? "56px" : "0px");
+  };
+  if (!el.dataset.fade) {
+    el.dataset.fade = "1";
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+  }
+  requestAnimationFrame(update);
+}
 function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   const sec = document.getElementById("secCatalogo");
   const btnWrap = document.getElementById("catalogoBtnWrap");
@@ -8343,7 +8392,12 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   if (!sec || !list) return;
 
   const lista = Array.isArray(productos) ? productos : [];
-  console.log("🛒 catálogo → _F.carrito:", _F.carrito, "| productos:", lista.length);
+  console.log(
+    "🛒 catálogo → _F.carrito:",
+    _F.carrito,
+    "| productos:",
+    lista.length,
+  );
 
   // Solo se oculta si no hay productos
   if (lista.length === 0) {
@@ -8425,8 +8479,128 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
       row.appendChild(acciones);
     }
 
-    list.appendChild(row);
+     list.appendChild(row);
   });
+  setupEdgeFade(list);
+}
+// ═══════════ BLACK FRIDAY ═══════════
+const BF_ICON_BASE = "/img/iconos_perfil/";
+const BF_CSS = `
+  body.bf-on #secCatalogo .accent{color:#f5c451 !important;}
+  body.bf-on #catalogoList .catalogo-row{border-color:rgba(245,196,81,.35) !important;}
+  body.bf-on #catalogoList .catalogo-row-precio{background:linear-gradient(135deg,#f5c451,#d4a017) !important;color:#1a1200 !important;padding:4px 12px;border-radius:999px;align-self:flex-start;}
+  body.bf-on #catalogoList .promo-icon-buy{background:linear-gradient(135deg,#f5c451,#d4a017) !important;color:#1a1200 !important;}
+
+  .bf-banner{position:relative;margin-bottom:56px;border-radius:30px;padding:1.5px;
+    background:linear-gradient(135deg,#fff1b8,#d4a017 35%,#5a4410 60%,#f5c451);
+    animation:bfIn .6s cubic-bezier(.22,.85,.32,1) both;}
+  @keyframes bfIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+
+  .bf-inner{position:relative;overflow:hidden;border-radius:29px;min-height:150px;padding:26px 24px;
+    background:radial-gradient(120% 160% at 15% 0%,#241a05 0%,#0a0a0a 55%,#000 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;}
+  .bf-glow{position:absolute;top:-110px;left:50%;width:380px;height:260px;margin-left:-190px;border-radius:50%;
+    background:radial-gradient(circle,rgba(245,196,81,.32),transparent 70%);filter:blur(12px);pointer-events:none;}
+  .bf-inner::after{content:"";position:absolute;top:0;left:-60%;width:30%;height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,225,140,.10),transparent);
+    transform:skewX(-20deg);animation:bfShine 6s ease-in-out 1s infinite;pointer-events:none;}
+  @keyframes bfShine{0%{left:-60%;}55%,100%{left:140%;}}
+
+  .bf-copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:560px;}
+  .bf-tag{display:inline-flex;align-items:center;gap:8px;padding:5px 13px;border-radius:999px;
+    font-size:10.5px;font-weight:800;letter-spacing:.28em;text-transform:uppercase;color:#f5c451;
+    background:rgba(245,196,81,.08);border:1px solid rgba(245,196,81,.4);}
+  .bf-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#f5c451;box-shadow:0 0 10px #f5c451;}
+  .bf-title{margin:0;font-size:clamp(26px,5.2vw,46px);font-weight:900;line-height:1.02;letter-spacing:-.03em;
+    background:linear-gradient(180deg,#fff7d6 0%,#f5c451 55%,#b8860b 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .bf-text{margin:0;font-size:14px;line-height:1.5;color:#d6d0bd;}
+  .bf-cta{margin-top:4px;display:inline-flex;align-items:center;gap:10px;padding:12px 24px;border-radius:14px;
+    font-weight:800;font-size:13.5px;text-decoration:none;color:#1a1200;cursor:pointer;
+    background:linear-gradient(135deg,#fff1b8,#f5c451 45%,#d4a017);
+    box-shadow:0 12px 30px -10px rgba(245,196,81,.6),inset 0 1px 0 rgba(255,255,255,.5);
+    transition:transform .18s ease,filter .18s ease;}
+  .bf-cta:hover{transform:translateY(-2px);filter:brightness(1.06);}
+
+  /* ── iconos 3D flotando ── */
+  .bf-ico{position:absolute;z-index:1;pointer-events:none;user-select:none;object-fit:contain;
+    filter:drop-shadow(0 14px 18px rgba(0,0,0,.55));will-change:transform;
+    animation:bfFloat var(--d,6s) ease-in-out var(--dl,0s) infinite;}
+  @keyframes bfFloat{
+    0%,100%{transform:translate3d(0,0,0) rotate(var(--r0,-8deg));}
+    50%{transform:translate3d(var(--dx,0),var(--dy,-14px),0) rotate(var(--r1,8deg));}
+  }
+  .bf-ico.i-regalo{width:84px;left:-10px;top:-14px;--r0:-14deg;--r1:-4deg;--dy:-12px;--d:6.2s;}
+  .bf-ico.i-pct{width:78px;right:-8px;top:8px;--r0:12deg;--r1:22deg;--dy:-16px;--dx:-6px;--d:7s;--dl:-1.5s;}
+  .bf-ico.i-heart{width:62px;right:14%;bottom:-16px;--r0:-6deg;--r1:8deg;--dy:-12px;--d:5.6s;--dl:-2.5s;}
+  .bf-ico.i-pct2{width:50px;left:13%;bottom:-12px;--r0:-20deg;--r1:-8deg;--dy:-10px;--d:6.6s;--dl:-3.5s;opacity:.9;}
+  .bf-ico.i-star{width:56px;left:30%;top:-18px;--r0:-10deg;--r1:14deg;--dy:-12px;--dx:6px;--d:5.8s;--dl:-1s;}
+  @media (min-width:900px){
+    .bf-inner{min-height:170px;padding:30px 160px;}
+    .bf-ico.i-regalo{width:140px;left:34px;top:50%;margin-top:-80px;}
+    .bf-ico.i-pct{width:130px;right:40px;top:-14px;}
+    .bf-ico.i-heart{width:92px;right:22%;bottom:-18px;}
+    .bf-ico.i-pct2{width:70px;left:22%;bottom:-14px;}    .bf-ico.i-star{width:84px;left:31%;top:-22px;}
+  }
+  @media (prefers-reduced-motion:reduce){.bf-ico,.bf-inner::after{animation:none;}}
+`;
+
+function urlCarritoBlackFriday() {
+  const b = urlCarritoBase();
+  return `${b}${b.includes("?") ? "&" : "?"}blackfriday=1`;
+}
+
+function renderBlackFriday(biz) {
+  const bf = biz?.black_friday;
+  const activo = bf?.activo === true && String(bf.titulo || "").trim();
+  let sec = document.getElementById("secBlackFriday");
+
+  document.body.classList.toggle("bf-on", !!activo);
+  if (!activo) {
+    sec?.remove();
+    return;
+  }
+
+  if (!document.getElementById("bfStyle")) {
+    const st = document.createElement("style");
+    st.id = "bfStyle";
+    st.textContent = BF_CSS;
+    document.head.appendChild(st);
+  }
+
+  const titulo = escapeHtml(bf.titulo);
+  const texto = escapeHtml(bf.texto || "");
+  const cta = _F.carrito
+    ? `<a class="bf-cta" data-nav href="${urlCarritoBlackFriday()}">Ver ofertas <span aria-hidden="true">→</span></a>`
+    : "";
+  const ic = (cls, f) =>
+    `<img class="bf-ico ${cls}" src="${BF_ICON_BASE}${f}" alt="" draggable="false" onerror="this.remove()">`;
+  const html = `
+    <div class="bf-inner">
+      <div class="bf-glow"></div>
+      ${ic("i-regalo", "caja_regalo_icon.webp")}
+      ${ic("i-pct", "porcentaje_icon.webp")}
+      ${ic("i-heart", "corazon_emoji_icon.webp")}
+            ${ic("i-star", "estrella_icon.webp")}
+      ${ic("i-pct2", "porcentaje_icon.webp")}
+      <div class="bf-copy">
+        <span class="bf-tag">Black Friday</span>
+        <h2 class="bf-title">${titulo}</h2>
+        ${texto ? `<p class="bf-text">${texto}</p>` : ""}
+        ${cta}
+      </div>
+    </div>`;
+
+  if (!sec) {
+    sec = document.createElement("section");
+    sec.id = "secBlackFriday";
+    sec.className = "bf-banner";
+    document.getElementById("secCatalogo")?.before(sec);
+  }
+  if (sec.dataset.sig !== html) {
+    sec.innerHTML = html;
+    sec.dataset.sig = html;
+  }
 }
 setupHoverCarousel("productosCarouselWrap", "productosGrid");
 setupHoverCarousel("ambientesCarouselWrap", "ambientesGrid");
@@ -8747,7 +8921,7 @@ async function cargarUserPanel(uid) {
     _upState.sig === sig &&
     Date.now() - _upState.ts < UP_TTL
   ) {
-    await traerPedidosVivosUserPanel(_upState).catch(() => { });
+    await traerPedidosVivosUserPanel(_upState).catch(() => {});
     return;
   }
 
@@ -8920,9 +9094,9 @@ function _upVivosInnerHTML(st) {
 
   const filas = mostrar.length
     ? mostrar
-      .map((p) => {
-        const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
-        return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
+        .map((p) => {
+          const e = PA_ESTADOS_TODOS[p.est] || PA_ESTADOS_TODOS.pendiente;
+          return `<a class="pa-row" href="${_paUrl(p.id)}" style="--c:${e.color};margin-bottom:8px">
               <span class="pa-dot"></span>
             <div class="pa-main">
     <div class="pa-code">Pedido #${escapeHtml(p.id.slice(0, 6).toUpperCase())}</div>
@@ -8932,8 +9106,8 @@ function _upVivosInnerHTML(st) {
               <div class="pa-total">${_fmtSoles(p.total)}</div>
               <span class="pa-go">Ver →</span>
             </a>`;
-      })
-      .join("")
+        })
+        .join("")
     : `<div class="up-empty">No tienes pedidos en este estado.</div>`;
 
   const mas =
@@ -9149,7 +9323,7 @@ function volarAlCarrito(imagen) {
   x.style.transitionDuration =
     y.style.transitionDuration =
     ball.style.transitionDuration =
-    `${dur}s`;
+      `${dur}s`;
   if (dy < 0) y.style.transitionTimingFunction = "cubic-bezier(.3,.7,.5,1)";
 
   y.appendChild(ball);
