@@ -136,6 +136,7 @@
 
       { "source": "/", "destination": "/app-shell.html" },
       { "source": "/-carta", "destination": "/perfil.html" },
+        { "source": "/-registro", "destination": "/perfil.html" },
       { "source": "/-reviews", "destination": "/perfil.html" },
       { "source": "!/ffmpeg/**", "destination": "/app-shell.html" }
     ]

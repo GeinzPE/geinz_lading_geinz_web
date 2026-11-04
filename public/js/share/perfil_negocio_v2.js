@@ -1,6 +1,7 @@
 import { setFaviconCircular } from "../favicon/favicon.js";
 import { registrarTokenWeb } from "../../notificaciones.js";
 import { montarTarjetaFidelizacion } from "../../tarjeta_fidelizacion_desing/tarjeta.js";
+import { mostrarBienvenidaRegistro } from "../share/registra_bievenida.js";
 // ══════════════════════════════════════════
 //  PANTALLA: PERFIL NO ENCONTRADO
 // ══════════════════════════════════════════
@@ -754,6 +755,7 @@ import {
   tiendaServiciosDoc,
   clienteHistorialCol,
   setUbicacion,
+  registradoDoc,
 } from "../rutas/rutas.js";
 import {
   onAuthStateChanged,
@@ -762,6 +764,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 const AUTH_ORIGIN = "https://geinztech.com";
 let _dominioRegistrado = false;
+let _loginVolver = null;
 
 // ═══ WHITE LABEL: detecta si el dominio es propio de Geinz o personalizado ═══
 const _hostname = window.location.hostname;
@@ -776,20 +779,21 @@ function rutaNegocio(sufijo, alias) {
     return `https://geinztech.com/perfil/${encodeURIComponent(alias)}/${sufijo}`;
   return null;
 }
-
 // URL base del perfil: dominio propio → "/" ; geinz → "/perfil/alias"
 function urlPerfilCompartir(alias) {
   if (_esDominioPersonalizado) return `${_baseShareUrl}`;
   if (alias) return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}`;
   return null;
 }
-function urlCompartirCarta(alias) {
-  if (_esDominioPersonalizado) return `${_baseShareUrl}/-carta`;
-  if (alias)
-    return `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}-carta`;
-  return null;
-}
 
+// URL a la que vuelve el usuario después del login (reabre el diálogo de registro)
+function urlVolverRegistro() {
+  if (_esDominioPersonalizado) return `${window.location.origin}/-registro`;
+  const a = _params.alias || _bizAliasKey;
+  return a
+    ? `${window.location.origin}/perfil/${encodeURIComponent(a)}-registro`
+    : window.location.href.split("#")[0];
+}
 // URL para compartir una promo (activa o normal) → lleva al carrito con la oferta
 function urlCompartirPromo(alias, promoId, { activa = false } = {}) {
   const base = _esDominioPersonalizado
@@ -864,7 +868,7 @@ function abrirLoginPopup() {
 
   const u = new URL(`${AUTH_ORIGIN}/auth-popup.html`);
   u.searchParams.set("o", window.location.origin);
-  u.searchParams.set("r", window.location.href.split("#")[0]);
+  u.searchParams.set("r", _loginVolver || window.location.href.split("#")[0]);
   u.searchParams.set("n", _bizNombre || "");
   if (_bizLogoUrl) u.searchParams.set("l", _bizLogoUrl);
   u.searchParams.set("c", rgb);
@@ -1128,7 +1132,7 @@ const _cSet = (k, d) => {
   } catch {}
 };
 async function getParams() {
-  // ═══ NUEVO: detectar dominio conectado ═══
+  // ═══ Detectar dominio conectado ═══
   const hostname = window.location.hostname;
   const esDominioPropio =
     hostname !== "geinztech.com" && hostname !== "www.geinztech.com";
@@ -1148,12 +1152,17 @@ async function getParams() {
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
 
+    const pathLimpio = window.location.pathname.replace(/\/+$/, "");
     const wantsCarta =
       new URLSearchParams(window.location.search).get("carta") === "1" ||
-      window.location.pathname.replace(/\/+$/, "") === "/-carta";
+      pathLimpio === "/-carta";
     const wantsReviews =
       new URLSearchParams(window.location.search).get("reviews") === "1" ||
-      window.location.pathname.replace(/\/+$/, "") === "/-reviews";
+      pathLimpio === "/-reviews";
+    const wantsRegistro =
+      new URLSearchParams(window.location.search).get("registro") === "1" ||
+      pathLimpio === "/-registro";
+
     return {
       localidad: (localidad || "").trim().toLowerCase(),
       subcol: (categoria || "").replace(/\+/g, " "),
@@ -1161,8 +1170,9 @@ async function getParams() {
       alias: alias || null,
       promoIndex: null,
       promoId,
-      wantsCarta, // ← antes era false
+      wantsCarta,
       wantsReviews,
+      wantsRegistro,
       mesaToken: null,
     };
   }
@@ -1176,12 +1186,16 @@ async function getParams() {
 
     let wantsCarta = false;
     let wantsReviews = false;
+    let wantsRegistro = false;
     if (alias.endsWith("-carta")) {
       wantsCarta = true;
       alias = alias.replace(/-carta$/, "");
     } else if (alias.endsWith("-reviews")) {
       wantsReviews = true;
       alias = alias.replace(/-reviews$/, "");
+    } else if (alias.endsWith("-registro")) {
+      wantsRegistro = true;
+      alias = alias.replace(/-registro$/, "");
     }
 
     // Detecta sufijo de mesa: alias-mesa-{token}
@@ -1201,7 +1215,7 @@ async function getParams() {
       _cSet(akey, adata);
     }
     const { id, localidad, categoria, departamento, provincia } = adata;
-    setUbicacion({ departamento, provincia }); // ← ubicación real del negocio
+    setUbicacion({ departamento, provincia });
 
     const promoId =
       new URLSearchParams(window.location.search).get("p") || null;
@@ -1215,6 +1229,7 @@ async function getParams() {
       promoId,
       wantsCarta,
       wantsReviews,
+      wantsRegistro,
       mesaToken,
     };
   }
@@ -1238,6 +1253,7 @@ async function getParams() {
     promoIndex,
     wantsCarta: false,
     wantsReviews: false,
+    wantsRegistro: false,
     mesaToken: null,
   };
 }
@@ -4597,14 +4613,15 @@ function bindUnfollowConfirmEvents() {
       if (e.target.id === "unfollowConfirmModal") closeUnfollowConfirmModal();
     });
 }
-function openLoginPromptModal() {
+function openLoginPromptModal(volverA = null) {
   injectLoginPromptStyles();
+  _loginVolver = volverA;
   const modal = document.getElementById("loginPromptModal");
   if (!modal) return;
 
   const loginBtn = document.getElementById("loginPromptLoginBtn");
   if (loginBtn) {
-    const volver = window.location.href.split("#")[0];
+    const volver = volverA || window.location.href.split("#")[0];
     loginBtn.href = `/logindata/login.html?volver=${encodeURIComponent(volver)}`;
   }
 
@@ -4616,7 +4633,7 @@ function openLoginPromptModal() {
     logoWrap.innerHTML = "";
     if (_bizLogoUrl) {
       const img = document.createElement("img");
-      img.src = logoSrc(); // ← copia en memoria, sin crossOrigin
+      img.src = logoSrc();
       img.decoding = "async";
       img.alt = _bizNombre || "Logo";
       img.className = "login-prompt-logo";
@@ -5473,11 +5490,18 @@ function injectPerfilCartStyles() {
   document.head.appendChild(st);
 }
 
-function agregarAlCarritoPerfil({ promoId, nombre, precio, imagen }) {
+function agregarAlCarritoPerfil({ promoId, nombre, precio, imagen, ...extra }) {
   const existente = _perfilCarritoItems.find((i) => i.promoId === promoId);
   if (existente) existente.cantidad += 1;
   else
-    _perfilCarritoItems.push({ promoId, nombre, precio, imagen, cantidad: 1 });
+    _perfilCarritoItems.push({
+      promoId,
+      nombre,
+      precio,
+      imagen,
+      cantidad: 1,
+      ...extra,
+    });
   renderPerfilCartFloat();
   volarAlCarrito(imagen);
   showToast(`${nombre || "Producto"} agregado 🛒`);
@@ -5563,6 +5587,7 @@ function pintarPerfilCartPopup() {
         <img src="${it.imagen || ""}" alt="">
         <div class="pcp-item-info">
           <div class="nombre">${escapeHtml(it.nombre)}</div>
+                    ${it.detalle ? `<div class="precio">${escapeHtml(it.detalle)}</div>` : ""}
           <div class="precio">S/ ${it.precio.toFixed(2)} c/u</div>
         </div>
         <div class="pcp-qty">
@@ -5616,6 +5641,8 @@ function irACarritoConPerfil() {
       JSON.stringify({
         items: _perfilCarritoItems.map((i) => ({
           promoId: i.promoId,
+          productoId: i.productoId || null,
+          seleccion: i.seleccion || null,
           cantidad: i.cantidad,
         })),
         ts: Date.now(),
@@ -6122,24 +6149,33 @@ async function render(biz, isInitial = true) {
   if (gridSched) {
     gridSched.innerHTML = "";
     const todayIdx = [6, 0, 1, 2, 3, 4, 5][new Date().getDay()];
+    const deDias =
+      biz.dias_especiales?.activo === true
+        ? biz.dias_especiales.dias || {}
+        : {};
     horario.forEach((h, i) => {
       const div = document.createElement("div");
       div.className = "sched-row" + (i === todayIdx ? " today" : "");
+      const esp = deDias[DE_KEYS[i]];
+      const diaHTML =
+        esp?.activo === true && String(esp.titulo || "").trim()
+          ? `<span class="day-name de-day"><span class="de-underline">${h.dia}</span><span class="de-day-tag">${escapeHtml(esp.titulo)}</span></span>`
+          : `<span class="day-name">${h.dia}</span>`;
       if (h.cerrado) {
         const motivoText = h.motivo ? ` · ${h.motivo}` : "";
-        div.innerHTML = `<span class="day-name">${h.dia}</span><span class="closed-day">Cerrado${motivoText}</span>`;
+        div.innerHTML = `${diaHTML}<span class="closed-day">Cerrado${motivoText}</span>`;
       } else if (h.bloques.length === 2) {
         div.innerHTML = `
-            <span class="day-name">${h.dia}</span>
+            ${diaHTML}
             <span class="hours">
               ${h.bloques[0].h_apertura} – ${h.bloques[0].h_cierre}
               <span style="color:var(--muted);margin:0 4px">·</span>
               ${h.bloques[1].h_apertura} – ${h.bloques[1].h_cierre}
             </span>`;
       } else if (h.bloques.length === 1) {
-        div.innerHTML = `<span class="day-name">${h.dia}</span><span class="hours">${h.bloques[0].h_apertura} – ${h.bloques[0].h_cierre}</span>`;
+        div.innerHTML = `${diaHTML}<span class="hours">${h.bloques[0].h_apertura} – ${h.bloques[0].h_cierre}</span>`;
       } else {
-        div.innerHTML = `<span class="day-name">${h.dia}</span><span class="closed-day">Sin horario</span>`;
+        div.innerHTML = `${diaHTML}<span class="closed-day">Sin horario</span>`;
       }
       gridSched.appendChild(div);
     });
@@ -6424,6 +6460,7 @@ async function render(biz, isInitial = true) {
   setupHeroFlip(!!fidelizacion);
   renderPuntosBadge(_currentPuntos);
   aplicarBrandingGeinz();
+  renderDiasEspeciales(biz);
   renderBlackFriday(biz);
   document
     .getElementById("secAmenities")
@@ -7973,7 +8010,7 @@ function irAReviews() {
     listenMesasRealtime(params, biz.categoria_tienda, _F.presencial);
     bindFollowButton(params, biz);
     listenActivePromosRealtime(params);
-
+    listenCatalogoPerfil(params);
     const bannerPromise = showPromoBanner(biz);
 
     // Logo: se descarga una vez (máx. 2.5 s de espera, el skeleton sigue visible)
@@ -7992,7 +8029,143 @@ function irAReviews() {
     injectReviewsStyles();
     bindReputacionBadgeClick();
     bindReviewsFilterEvents(params);
+    // ═══ Diálogo de bienvenida al entrar por "-registro" ═══
+    // ═══ Registro pendiente (al volver del login) ═══
+    // ═══ Registro antiguo pendiente (compatibilidad) ═══
+    (async () => {
+      await esperarFollowReady(6000);
+      if (!auth.currentUser) return;
+      const ok = await completarRegistroPendiente({
+        auth,
+        registradoDoc,
+        getUserData: async (uid) => {
+          const s = await getDoc(data_user_logeado(uid));
+          return s.exists() ? s.data() : {};
+        },
+        negocio: {
+          id: params.id,
+          localidad: params.localidad,
+          nombre: _bizNombre,
+          alias: params.alias || _bizAliasKey,
+        },
+      });
+      if (ok) showToast("¡Tus preferencias quedaron guardadas! ✅");
+    })();
 
+    // ═══ Diálogo de bienvenida al entrar por "-registro" ═══
+    if (params.wantsRegistro) {
+      (async () => {
+        await esperarFollowReady(6000);
+        const t0 = Date.now();
+        while (
+          document.getElementById("bannerModal")?.classList.contains("open") &&
+          Date.now() - t0 < 8000
+        ) {
+          await new Promise((r) => setTimeout(r, 300));
+        }
+
+        let diaEspecial = null;
+        const cfgDE = _bizRef?.dias_especiales;
+        if (cfgDE?.activo === true) {
+          const hoyIdx = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
+          for (let i = 0; i < 7; i++) {
+            const key = DE_KEYS[(hoyIdx + i) % 7];
+            const x = cfgDE.dias?.[key];
+            if (x?.activo === true && String(x.titulo || "").trim()) {
+              diaEspecial = {
+                etiqueta:
+                  i === 0 ? "Hoy" : i === 1 ? "Mañana" : `El ${DE_LABELS[key]}`,
+                titulo: x.titulo,
+              };
+              break;
+            }
+          }
+        }
+
+        mostrarBienvenidaRegistro({
+          auth,
+          registradoDoc,
+          showToast,
+          getUserData: async (uid) => {
+            const s = await getDoc(data_user_logeado(uid));
+            return s.exists() ? s.data() : {};
+          },
+          negocio: {
+            id: params.id,
+            localidad: params.localidad,
+            nombre: _bizNombre,
+            alias: params.alias || _bizAliasKey,
+            logoSrc: _bizLogoUrl ? logoSrc() : null,
+            diaEspecial,
+          },
+          onDejarResena: () => {
+            irAReviews();
+            setTimeout(openReviewModal, 900);
+          },
+          // sin sesión: abre el login y vuelve a /perfil/alias-registro (paso 2)
+          onNecesitaLogin: () => openLoginPromptModal(urlVolverRegistro()),
+        });
+      })();
+    }
+
+    // ═══ Diálogo de bienvenida al entrar por "-registro" ═══
+    if (params.wantsRegistro) {
+      (async () => {
+        await esperarFollowReady(6000);
+        const t0 = Date.now();
+        while (
+          document.getElementById("bannerModal")?.classList.contains("open") &&
+          Date.now() - t0 < 8000
+        ) {
+          await new Promise((r) => setTimeout(r, 300));
+        }
+
+        let diaEspecial = null;
+        const cfgDE = _bizRef?.dias_especiales;
+        if (cfgDE?.activo === true) {
+          const hoyIdx = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
+          for (let i = 0; i < 7; i++) {
+            const key = DE_KEYS[(hoyIdx + i) % 7];
+            const x = cfgDE.dias?.[key];
+            if (x?.activo === true && String(x.titulo || "").trim()) {
+              diaEspecial = {
+                etiqueta:
+                  i === 0 ? "Hoy" : i === 1 ? "Mañana" : `El ${DE_LABELS[key]}`,
+                titulo: x.titulo,
+              };
+              break;
+            }
+          }
+        }
+
+        mostrarBienvenidaRegistro({
+          auth,
+          registradoDoc,
+          showToast,
+          getUserData: async (uid) => {
+            const s = await getDoc(data_user_logeado(uid));
+            return s.exists() ? s.data() : {};
+          },
+          negocio: {
+            id: params.id,
+            localidad: params.localidad,
+            nombre: _bizNombre,
+            alias: params.alias || _bizAliasKey,
+            logoSrc: _bizLogoUrl ? logoSrc() : null,
+            diaEspecial,
+          },
+          onDejarResena: () => {
+            // salto instantáneo a reseñas (sin animación) y abre el formulario al momento
+            document
+              .getElementById("secReviews")
+              ?.scrollIntoView({ block: "start" });
+            openReviewModal();
+          },
+          // sin sesión: abre el login y vuelve a /perfil/alias-reviews?resena=1
+          onNecesitaLogin: () => openLoginPromptModal(urlVolverResena()),
+        });
+      })();
+    }
     setTimeout(() => {
       Promise.all([
         cargarResumenReviews(params),
@@ -8001,6 +8174,17 @@ function irAReviews() {
         .catch((e) => console.warn("reseñas:", e.message))
         .finally(() => {
           if (params.wantsReviews) irAReviews();
+
+          // Volvió del login con ?resena=1 → abre el formulario de reseña
+          if (
+            new URLSearchParams(window.location.search).get("resena") === "1"
+          ) {
+            (async () => {
+              await _authReady;
+              history.replaceState(null, "", window.location.pathname);
+              if (auth.currentUser) setTimeout(openReviewModal, 1100);
+            })();
+          }
         });
     }, 250);
 
@@ -8385,22 +8569,530 @@ function setupEdgeFade(el) {
   }
   requestAnimationFrame(update);
 }
-function renderProductosCatalogo(productos, localidad, id, aliasKey) {
+// ═══════════════════════════════════════════════════════════════
+//  CATÁLOGO DEL PERFIL  (colección productos_perfil_carrito)
+// ═══════════════════════════════════════════════════════════════
+let _catalogoPerfil = [];
+let _catalogoPerfilUnsub = null;
+
+function listenCatalogoPerfil({ localidad, id }) {
+  _catalogoPerfilUnsub?.();
+  _catalogoPerfilUnsub = onSnapshot(
+    tiendaSubCol(localidad, "tiendas", id, "productos_perfil_carrito"),
+    (snap) => {
+      _catalogoPerfil = snap.docs.map((d) =>
+        cpNormalizar({ id: d.id, ...d.data() }),
+      );
+      renderProductosCatalogo(
+        null,
+        localidad,
+        id,
+        _params.alias || _bizAliasKey,
+      );
+      // si el diálogo está abierto y el producto cambió en el dashboard, se cierra
+      if (
+        _cpProd &&
+        document.getElementById("cpdModal")?.classList.contains("open")
+      ) {
+        cpCerrar();
+        showToast("Este producto se actualizó, ábrelo de nuevo");
+      }
+    },
+    (e) => console.warn("catálogo perfil:", e.message),
+  );
+}
+
+function cpNormalizar(d) {
+  const grupos = (d.condiciones || []).map((c) => ({
+    nombre: c.nombre,
+    multiple: c.tipo === "multiple",
+    obligatoria: c.obligatoria !== false,
+    conCantidad: c.tipo === "multiple" && c.conCantidad === true,
+    max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+    opciones: (c.opciones || [])
+      .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
+      .map((o) => ({
+        nombre: o.nombre,
+        descripcion: String(o.descripcion || "").trim(),
+        imagen: o.imagen?.url || "",
+        costoAdicional: Number(o.costoAdicional) || 0,
+        stock: typeof o.stock === "number" ? o.stock : null,
+      })),
+  }));
+  const grupoAgotado = grupos.some(
+    (g) => g.nombre && g.obligatoria && !g.opciones.length,
+  );
+  return {
+    id: d.productoId || d.id,
+    nombre: d.nombre || "Producto",
+    descripcion: d.descripcion || "",
+    precio: Number(d.precio) || 0,
+    imagen: d.imagenUrl || d.imagenes?.[0]?.url || "",
+    descuento: d.descuento || null,
+    agotado:
+      d.disponible === false ||
+      grupoAgotado ||
+      (typeof d.stock === "number" && d.stock <= 0),
+    condiciones: grupos.filter((g) => g.nombre && g.opciones.length),
+  };
+}
+
+/* ---------- precios ---------- */
+function cpDescuentoVigente(d, ahora = new Date()) {
+  if (!d || !d.activo) return null;
+  const pct = Number(d.porcentaje) || 0;
+  if (pct <= 0) return null;
+  const lima = -5 * 3600e3;
+  const ms = (f, h) => {
+    if (!f) return null;
+    const [y, m, dd] = f.split("-").map(Number);
+    const [hh, mm] = (h || "23:59").split(":").map(Number);
+    return Date.UTC(y, m - 1, dd, hh || 0, mm || 0) - lima;
+  };
+  if (d.modo === "dias_semana")
+    return (d.dias || []).includes(diaHoyLima()) ? { pct } : null;
+  if (d.modo === "duracion") {
+    const e = Number(d.expiraEn) || 0;
+    return e && ahora.getTime() < e ? { pct } : null;
+  }
+  if (d.modo === "fecha") {
+    const fin = ms(d.fechaFin, d.horaFin);
+    if (!fin || ahora.getTime() >= fin) return null;
+    if (d.fechaInicio) {
+      const i = ms(d.fechaInicio, "00:00");
+      if (i && ahora.getTime() < i) return null;
+    }
+    return { pct };
+  }
+  return null;
+}
+const cpEntradas = (v) =>
+  v && typeof v === "object" && !Array.isArray(v)
+    ? Object.entries(v).filter(([, c]) => (c || 0) > 0)
+    : (Array.isArray(v) ? v : v ? [v] : []).map((n) => [n, 1]);
+
+function cpPrecio(p, sel, sinDesc = false) {
+  const d = sinDesc ? null : cpDescuentoVigente(p.descuento);
+  let t = p.precio;
+  if (d) t = +(t * (1 - d.pct / 100)).toFixed(2);
+  p.condiciones.forEach((c) =>
+    cpEntradas(sel?.[c.nombre]).forEach(([n, q]) => {
+      const o = c.opciones.find((x) => x.nombre === n);
+      if (o) t += o.costoAdicional * q;
+    }),
+  );
+  return +t.toFixed(2);
+}
+function cpDesde(p, sinDesc = false) {
+  const sel = {};
+  let varia = false;
+  p.condiciones.forEach((c) => {
+    if (!c.obligatoria) return;
+    const costos = c.opciones.map((o) => o.costoAdicional);
+    const min = Math.min(...costos);
+    if (min !== Math.max(...costos)) varia = true;
+    const o = c.opciones.find((x) => x.costoAdicional === min);
+    sel[c.nombre] = c.conCantidad
+      ? { [o.nombre]: 1 }
+      : c.multiple
+        ? [o.nombre]
+        : o.nombre;
+  });
+  return { varia, precio: cpPrecio(p, sel, sinDesc) };
+}
+function cpKeySel(sel) {
+  const o = {};
+  Object.keys(sel || {})
+    .sort()
+    .forEach((k) => {
+      const e = cpEntradas(sel[k]).sort((a, b) => a[0].localeCompare(b[0]));
+      if (e.length) o[k] = e;
+    });
+  return Object.keys(o).length ? JSON.stringify(o) : "";
+}
+function cpDetalle(sel) {
+  return Object.entries(sel || {})
+    .map(([k, v]) => {
+      const e = cpEntradas(v);
+      return e.length
+        ? `${k}: ${e.map(([n, q]) => (q > 1 ? `${n} x${q}` : n)).join(", ")}`
+        : null;
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/* ---------- diálogo de variantes ---------- */
+const CPD_CSS = `
+.cpd-overlay{position:fixed;inset:0;z-index:10012;background:rgba(3,3,3,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:opacity .3s ease,visibility .3s ease;}
+.cpd-overlay.open{opacity:1;visibility:visible;}
+.cpd-box{width:100%;max-width:520px;max-height:90dvh;display:flex;flex-direction:column;background:#0b0b0d;border:1px solid rgba(var(--dr),var(--dg),var(--db),.3);border-bottom:none;border-radius:26px 26px 0 0;transform:translateY(40px);transition:transform .42s cubic-bezier(.22,.85,.32,1);box-shadow:0 -25px 60px -14px rgba(0,0,0,.7),0 0 40px -10px rgba(var(--dr),var(--dg),var(--db),.3);}
+.cpd-overlay.open .cpd-box{transform:none;}
+.cpd-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:18px 20px 10px;}
+.cpd-head h3{margin:0;font-size:17px;font-weight:800;color:#fff;}
+.cpd-head button{width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;flex-shrink:0;}
+.cpd-body{overflow-y:auto;padding:6px 20px 12px;flex:1;overscroll-behavior:contain;}
+.cpd-foot{padding:12px 20px calc(16px + env(safe-area-inset-bottom,0px));}
+.cpd-confirm{width:100%;padding:14px;border:none;border-radius:14px;font-weight:800;font-size:14px;color:#fff;cursor:pointer;background:linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7));box-shadow:0 8px 20px -6px rgba(var(--dr),var(--dg),var(--db),.5);}
+.cpd-confirm.pend{opacity:.55;}
+@media(min-width:768px){.cpd-overlay{align-items:center;padding:24px;}.cpd-box{border-radius:28px;border-bottom:1px solid rgba(var(--dr),var(--dg),var(--db),.3);}}
+.opt-grp{margin-bottom:18px;}
+.opt-grp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.opt-grp-title{margin:0;font-size:15px;font-weight:800;color:#fff;text-transform:capitalize;}
+.opt-grp-rule{margin:2px 0 0;font-size:11.5px;color:#9c9ca3;}
+.opt-badge{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px;white-space:nowrap;background:rgba(255,255,255,.08);color:#c9c9d1;}
+.opt-grp.req .opt-badge{background:rgba(251,191,36,.14);color:#fcd34d;}
+.opt-grp.ok .opt-badge{background:rgba(var(--dr),var(--dg),var(--db),.2);color:rgb(var(--dr),var(--dg),var(--db));}
+.opt-list{display:flex;flex-direction:column;gap:8px;}
+.opt-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;cursor:pointer;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);transition:border-color .15s,background .15s;}
+.opt-row.sel{border-color:rgb(var(--dr),var(--dg),var(--db));background:rgba(var(--dr),var(--dg),var(--db),.1);}
+.opt-row.off{opacity:.4;cursor:not-allowed;}
+.opt-row.qty{cursor:default;}
+.opt-mark{width:20px;height:20px;flex-shrink:0;border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;}
+.opt-mark.radio{border-radius:50%;}.opt-mark.check{border-radius:6px;}
+.opt-row.sel .opt-mark{background:rgb(var(--dr),var(--dg),var(--db));border-color:rgb(var(--dr),var(--dg),var(--db));}
+.opt-info{flex:1;min-width:0;}
+.opt-name{margin:0;font-size:14px;font-weight:700;color:#fff;}
+.opt-desc{margin:3px 0 0;font-size:12px;line-height:1.4;color:#9c9ca3;}
+.opt-price{font-size:12.5px;font-weight:800;color:#d4d4d8;white-space:nowrap;}
+.opt-step{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.opt-step button{width:30px;height:30px;border-radius:10px;border:none;cursor:pointer;font-weight:900;font-size:15px;color:#fff;background:rgba(255,255,255,.1);}
+.opt-step button.add{width:auto;padding:0 14px;font-size:12px;background:rgb(var(--dr),var(--dg),var(--db));}
+.opt-step button:disabled{opacity:.35;cursor:not-allowed;}
+.opt-step b{min-width:18px;text-align:center;font-size:14px;color:#fff;}
+.opt-thumb{width:52px;height:52px;flex-shrink:0;border-radius:12px;object-fit:cover;background:rgba(255,255,255,.05);}
+.opt-hero{position:relative;width:100%;max-width:300px;aspect-ratio:1/1;margin:0 auto 14px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.04);}
+.opt-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s ease;}
+.opt-hero img.show{opacity:1;}
+.opt-prod-desc{margin:0 0 16px;font-size:13px;line-height:1.55;color:#a1a1aa;white-space:pre-wrap;}
+.opt-grp.shake{animation:optShake .45s;}
+@keyframes optShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.cpd-resumen{border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:13px;line-height:1.6;color:#e4e4e7;}
+.cpd-resumen div{display:flex;justify-content:space-between;gap:8px;}
+`;
+
+let _cpProd = null,
+  _cpSel = {},
+  _cpGrupos = [],
+  _cpImg = "";
+
+const cpMk = (tag, cls, txt) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt != null) e.textContent = txt;
+  return e;
+};
+const cpCant = (c, n) => {
+  const e = cpEntradas(_cpSel[c.nombre]).find(([x]) => x === n);
+  return e ? e[1] : 0;
+};
+const cpTotal = (c) =>
+  cpEntradas(_cpSel[c.nombre]).reduce((s, [, q]) => s + q, 0);
+const cpFalta = () =>
+  _cpGrupos.find((c) => c.obligatoria && !cpEntradas(_cpSel[c.nombre]).length);
+const cpRegla = (c) =>
+  !c.multiple
+    ? c.obligatoria
+      ? "Elige 1"
+      : "Opcional · elige 1"
+    : c.obligatoria
+      ? c.max
+        ? `Elige de 1 a ${c.max}`
+        : "Elige al menos 1"
+      : c.max
+        ? `Opcional · hasta ${c.max}`
+        : "Opcional · las que quieras";
+
+function cpAlternar(c, n) {
+  const k = c.nombre;
+  if (!c.multiple) {
+    if (_cpSel[k] === n && !c.obligatoria) delete _cpSel[k];
+    else _cpSel[k] = n;
+    return true;
+  }
+  const act = Array.isArray(_cpSel[k]) ? [..._cpSel[k]] : [];
+  const i = act.indexOf(n);
+  if (i >= 0) act.splice(i, 1);
+  else {
+    if (c.max && act.length >= c.max) {
+      showToast(`Máximo ${c.max} en "${c.nombre}"`);
+      return false;
+    }
+    act.push(n);
+  }
+  if (act.length) _cpSel[k] = act;
+  else delete _cpSel[k];
+  return true;
+}
+function cpSetCant(c, n, q) {
+  const k = c.nombre;
+  let o = _cpSel[k];
+  if (!o || typeof o !== "object" || Array.isArray(o)) o = {};
+  if (q <= 0) delete o[n];
+  else o[n] = q;
+  if (Object.keys(o).length) _cpSel[k] = o;
+  else delete _cpSel[k];
+}
+
+function cpPintarGrupo(c, sec) {
+  const total = cpTotal(c);
+  const tope = !!c.max && total >= c.max;
+  const eligio = cpEntradas(_cpSel[c.nombre]).length > 0;
+  sec.classList.toggle("ok", eligio);
+  sec.classList.toggle("req", c.obligatoria && !eligio);
+  sec.querySelector(".opt-badge").textContent = eligio
+    ? c.multiple
+      ? `✓ ${total} elegido${total === 1 ? "" : "s"}`
+      : "✓ Listo"
+    : c.obligatoria
+      ? "Obligatorio"
+      : "Opcional";
+
+  const refrescar = () => {
+    cpPintarGrupo(c, sec);
+    cpResumen();
+  };
+  const list = sec.querySelector(".opt-list");
+  list.innerHTML = "";
+
+  c.opciones.forEach((op) => {
+    const q = cpCant(c, op.nombre);
+    const cap = typeof op.stock === "number" ? op.stock : Infinity;
+    const row = cpMk("div", "opt-row" + (q > 0 ? " sel" : ""));
+    let thumb = null;
+    if (op.imagen) {
+      thumb = cpMk("img", "opt-thumb");
+      thumb.src = op.imagen;
+      thumb.alt = op.nombre;
+      thumb.loading = "lazy";
+      thumb.onerror = () => thumb.remove();
+    }
+    const info = cpMk("div", "opt-info");
+    info.appendChild(cpMk("p", "opt-name", op.nombre));
+    if (op.descripcion) info.appendChild(cpMk("p", "opt-desc", op.descripcion));
+    const precio = op.costoAdicional
+      ? cpMk(
+          "span",
+          "opt-price",
+          `+S/ ${op.costoAdicional.toFixed(2)}${c.conCantidad ? " c/u" : ""}`,
+        )
+      : null;
+
+    if (c.conCantidad) {
+      row.classList.add("qty");
+      if (thumb) row.appendChild(thumb);
+      row.appendChild(info);
+      if (precio) row.appendChild(precio);
+      const step = cpMk("div", "opt-step");
+      if (q === 0) {
+        const b = cpMk("button", "add", "Agregar");
+        b.type = "button";
+        b.disabled = tope || cap < 1;
+        b.onclick = () => {
+          cpSetCant(c, op.nombre, 1);
+          refrescar();
+        };
+        step.appendChild(b);
+      } else {
+        const menos = cpMk("button", "", "−");
+        menos.type = "button";
+        menos.onclick = () => {
+          cpSetCant(c, op.nombre, q - 1);
+          refrescar();
+        };
+        const mas = cpMk("button", "", "+");
+        mas.type = "button";
+        mas.disabled = tope || q >= cap;
+        mas.onclick = () => {
+          cpSetCant(c, op.nombre, q + 1);
+          refrescar();
+        };
+        step.append(menos, cpMk("b", "", String(q)), mas);
+      }
+      row.appendChild(step);
+    } else {
+      if (c.multiple && tope && q === 0) row.classList.add("off");
+      row.appendChild(
+        cpMk(
+          "span",
+          "opt-mark " + (c.multiple ? "check" : "radio"),
+          q > 0 ? "✓" : "",
+        ),
+      );
+      if (thumb) row.appendChild(thumb);
+      row.appendChild(info);
+      if (precio) row.appendChild(precio);
+      row.onclick = () => {
+        if (cpAlternar(c, op.nombre)) refrescar();
+      };
+    }
+    list.appendChild(row);
+  });
+}
+
+function cpHero() {
+  const h = document.getElementById("cpdHero");
+  if (!h) return;
+  let src = _cpProd.imagen;
+  _cpGrupos.forEach((c) =>
+    cpEntradas(_cpSel[c.nombre]).forEach(([n]) => {
+      const o = c.opciones.find((x) => x.nombre === n);
+      if (o?.imagen) src = o.imagen;
+    }),
+  );
+  _cpImg = src;
+  if (!src) {
+    h.style.display = "none";
+    return;
+  }
+  h.style.display = "";
+  const im = h.querySelector("img");
+  if (im.dataset.src === src) return;
+  im.dataset.src = src;
+  im.classList.remove("show");
+  im.onload = () => im.classList.add("show");
+  im.src = src;
+}
+
+function cpResumen() {
+  cpHero();
+  const p = _cpProd;
+  const box = document.getElementById("cpdResumen");
+  if (box) {
+    const filas = [];
+    _cpGrupos.forEach((c) =>
+      cpEntradas(_cpSel[c.nombre]).forEach(([n, q]) => {
+        const o = c.opciones.find((x) => x.nombre === n);
+        const ex = o?.costoAdicional
+          ? `+S/ ${(o.costoAdicional * q).toFixed(2)}`
+          : "Incluido";
+        filas.push(
+          `<div><span>• ${escapeHtml(c.nombre)}: ${escapeHtml(n)}${q > 1 ? " x" + q : ""}</span><span style="color:#9c9ca3">${ex}</span></div>`,
+        );
+      }),
+    );
+    box.innerHTML =
+      `<div><span>Precio base</span><span>S/ ${cpPrecio(p, null).toFixed(2)}</span></div>` +
+      filas.join("") +
+      `<div style="font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><span>Precio final (c/u)</span><span>S/ ${cpPrecio(p, _cpSel).toFixed(2)}</span></div>`;
+  }
+  const btn = document.getElementById("cpdConfirm");
+  const falta = cpFalta();
+  btn.classList.toggle("pend", !!falta);
+  btn.textContent = falta
+    ? `Elige ${falta.nombre} para continuar`
+    : `Agregar · S/ ${cpPrecio(p, _cpSel).toFixed(2)}`;
+}
+
+function cpEnsureModal() {
+  let m = document.getElementById("cpdModal");
+  if (m) return m;
+  if (!document.getElementById("cpdStyle")) {
+    const st = document.createElement("style");
+    st.id = "cpdStyle";
+    st.textContent = CPD_CSS;
+    document.head.appendChild(st);
+  }
+  m = cpMk("div", "cpd-overlay");
+  m.id = "cpdModal";
+  m.innerHTML = `<div class="cpd-box">
+    <div class="cpd-head"><h3 id="cpdTitle"></h3><button type="button" id="cpdClose" aria-label="Cerrar">✕</button></div>
+    <div class="cpd-body" id="cpdBody"></div>
+    <div class="cpd-foot"><button type="button" id="cpdConfirm" class="cpd-confirm" data-buy-promo></button></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => {
+    if (e.target === m) cpCerrar();
+  });
+  m.querySelector("#cpdClose").onclick = cpCerrar;
+  m.querySelector("#cpdConfirm").onclick = cpConfirmar;
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && m.classList.contains("open")) cpCerrar();
+  });
+  return m;
+}
+
+function cpAbrirDialog(p) {
+  const m = cpEnsureModal();
+  _cpProd = p;
+  _cpSel = {};
+  _cpGrupos = [...p.condiciones].sort(
+    (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
+  );
+  document.getElementById("cpdTitle").textContent = p.nombre;
+  const body = document.getElementById("cpdBody");
+  body.innerHTML = `<div class="opt-hero" id="cpdHero"><img alt=""></div>`;
+  if (p.descripcion)
+    body.appendChild(cpMk("p", "opt-prod-desc", p.descripcion));
+  _cpGrupos.forEach((c) => {
+    const sec = cpMk("div", "opt-grp");
+    sec.dataset.grp = c.nombre;
+    const head = cpMk("div", "opt-grp-head");
+    const t = cpMk("div");
+    t.appendChild(cpMk("p", "opt-grp-title", c.nombre));
+    t.appendChild(cpMk("p", "opt-grp-rule", cpRegla(c)));
+    head.append(t, cpMk("span", "opt-badge"));
+    sec.append(head, cpMk("div", "opt-list"));
+    body.appendChild(sec);
+    cpPintarGrupo(c, sec);
+  });
+  const res = cpMk("div", "cpd-resumen");
+  res.id = "cpdResumen";
+  body.appendChild(res);
+  cpResumen();
+  m.classList.remove("open");
+  void m.offsetHeight;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => m.classList.add("open")),
+  );
+  document.body.style.overflow = "hidden";
+}
+
+function cpCerrar() {
+  document.getElementById("cpdModal")?.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function cpConfirmar() {
+  if (!_cpProd) return;
+  const falta = cpFalta();
+  if (falta) {
+    const sec = [...document.querySelectorAll("#cpdBody .opt-grp")].find(
+      (s) => s.dataset.grp === falta.nombre,
+    );
+    if (sec) {
+      sec.scrollIntoView({ behavior: "smooth", block: "center" });
+      sec.classList.remove("shake");
+      void sec.offsetWidth;
+      sec.classList.add("shake");
+    }
+    showToast(`Elige una opción en "${falta.nombre}"`);
+    return;
+  }
+  const p = _cpProd;
+  const sel = JSON.parse(JSON.stringify(_cpSel));
+  const k = cpKeySel(sel);
+  agregarAlCarritoPerfil({
+    promoId: `prod_${p.id}${k ? "__" + k : ""}`,
+    productoId: p.id,
+    seleccion: Object.keys(sel).length ? sel : null,
+    detalle: cpDetalle(sel),
+    nombre: capitalizarPrimeraLetra(p.nombre),
+    precio: cpPrecio(p, sel),
+    imagen: _cpImg || p.imagen,
+  });
+  cpCerrar();
+}
+
+/* ---------- tarjetas del catálogo ---------- */
+function renderProductosCatalogo(_ignorado, localidad, id, aliasKey) {
   const sec = document.getElementById("secCatalogo");
   const btnWrap = document.getElementById("catalogoBtnWrap");
   const list = document.getElementById("catalogoList");
   if (!sec || !list) return;
 
-  const lista = Array.isArray(productos) ? productos : [];
-  console.log(
-    "🛒 catálogo → _F.carrito:",
-    _F.carrito,
-    "| productos:",
-    lista.length,
-  );
-
-  // Solo se oculta si no hay productos
-  if (lista.length === 0) {
+  const lista = _catalogoPerfil;
+  if (!lista.length) {
     sec.style.display = "none";
     return;
   }
@@ -8423,41 +9115,57 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
   }
 
   list.innerHTML = "";
-  lista.slice(0, 20).forEach((p, idx) => {
-    if (!p) return;
-    const nombre = p.nombre || "Producto";
-    const imagen = p.imagenUrl || "";
-    const precio = Number(p.precio) || 0;
-
+  lista.slice(0, 20).forEach((p) => {
     const row = document.createElement("div");
     row.className = "catalogo-row";
 
-    // Imagen como fondo
     const foto = document.createElement("div");
     foto.style.cssText =
       "position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#111;";
-    if (imagen) {
-      foto.style.backgroundImage = `url("${imagen.replace(/"/g, "%22")}")`;
+    if (p.agotado) foto.style.filter = "grayscale(.8) brightness(.7)";
+    if (p.imagen) {
+      foto.style.backgroundImage = `url("${p.imagen.replace(/"/g, "%22")}")`;
       const test = new Image();
       test.onerror = () => {
         foto.style.backgroundImage = "none";
-        foto.appendChild(createLogoPlaceholder(nombre));
+        foto.appendChild(createLogoPlaceholder(p.nombre));
       };
-      test.src = imagen;
+      test.src = p.imagen;
     } else {
-      foto.appendChild(createLogoPlaceholder(nombre));
+      foto.appendChild(createLogoPlaceholder(p.nombre));
     }
     row.appendChild(foto);
+
+    const dd = cpDescuentoVigente(p.descuento);
+    const des = cpDesde(p);
+    let precioHTML;
+    if (p.agotado) precioHTML = "Agotado";
+    else {
+      const tachado = dd
+        ? `<s style="opacity:.6;font-weight:600;margin-right:6px;font-size:11px">S/ ${cpDesde(p, true).precio.toFixed(2)}</s>`
+        : "";
+      precioHTML = `${tachado}${des.varia ? "Desde " : ""}S/ ${des.precio.toFixed(2)}`;
+    }
 
     const overlay = document.createElement("div");
     overlay.className = "catalogo-row-overlay";
     overlay.innerHTML = `
-      <span class="catalogo-row-nombre">${escapeHtml(capitalizarPrimeraLetra(nombre))}</span>
-      <span class="catalogo-row-precio">S/ ${precio.toFixed(2)}</span>`;
+      <span class="catalogo-row-nombre">${escapeHtml(capitalizarPrimeraLetra(p.nombre))}</span>
+      <span class="catalogo-row-precio">${precioHTML}</span>`;
     row.appendChild(overlay);
 
-    // Botón agregar al carrito (igual que las promos)
-    if (_F.carrito && precio > 0) {
+    if (dd && !p.agotado) {
+      const b = document.createElement("span");
+      b.textContent = `-${dd.pct}%`;
+      b.style.cssText =
+        "position:absolute;top:12px;left:12px;z-index:3;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;color:#fff;background:#e11d48;";
+      row.appendChild(b);
+    }
+
+    if (_F.carrito && !p.agotado) {
+      row.style.cursor = "pointer";
+      row.addEventListener("click", () => cpAbrirDialog(p));
+
       const acciones = document.createElement("div");
       acciones.className = "promo-card-top-actions";
       acciones.innerHTML = `
@@ -8469,17 +9177,20 @@ function renderProductosCatalogo(productos, localidad, id, aliasKey) {
         </button>`;
       acciones.querySelector("button").addEventListener("click", (e) => {
         e.stopPropagation();
+        if (p.condiciones.length) return cpAbrirDialog(p);
         agregarAlCarritoPerfil({
-          promoId: `prod_${p.id || idx}`,
-          nombre: capitalizarPrimeraLetra(nombre),
-          precio,
-          imagen,
+          promoId: `prod_${p.id}`,
+          productoId: p.id,
+          seleccion: null,
+          detalle: "",
+          nombre: capitalizarPrimeraLetra(p.nombre),
+          precio: cpPrecio(p, null),
+          imagen: p.imagen,
         });
       });
       row.appendChild(acciones);
     }
-
-     list.appendChild(row);
+    list.appendChild(row);
   });
   setupEdgeFade(list);
 }
@@ -8569,6 +9280,9 @@ function renderBlackFriday(biz) {
   }
 
   const titulo = escapeHtml(bf.titulo);
+  const hipertitulo = escapeHtml(
+    String(bf.hipertitulo || "").trim() || "Black Friday",
+  );
   const texto = escapeHtml(bf.texto || "");
   const cta = _F.carrito
     ? `<a class="bf-cta" data-nav href="${urlCarritoBlackFriday()}">Ver ofertas <span aria-hidden="true">→</span></a>`
@@ -8584,7 +9298,7 @@ function renderBlackFriday(biz) {
             ${ic("i-star", "estrella_icon.webp")}
       ${ic("i-pct2", "porcentaje_icon.webp")}
       <div class="bf-copy">
-        <span class="bf-tag">Black Friday</span>
+<span class="bf-tag">${hipertitulo}</span>
         <h2 class="bf-title">${titulo}</h2>
         ${texto ? `<p class="bf-text">${texto}</p>` : ""}
         ${cta}
@@ -8596,6 +9310,140 @@ function renderBlackFriday(biz) {
     sec.id = "secBlackFriday";
     sec.className = "bf-banner";
     document.getElementById("secCatalogo")?.before(sec);
+  }
+  if (sec.dataset.sig !== html) {
+    sec.innerHTML = html;
+    sec.dataset.sig = html;
+  }
+}
+// ═══════════ DÍAS ESPECIALES ═══════════
+const DE_KEYS = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+];
+const DE_LABELS = {
+  lunes: "Lunes",
+  martes: "Martes",
+  miercoles: "Miércoles",
+  jueves: "Jueves",
+  viernes: "Viernes",
+  sabado: "Sábado",
+  domingo: "Domingo",
+};
+const DE_CSS = `
+  .de-banner{position:relative;margin-bottom:56px;border-radius:30px;animation:deIn .6s cubic-bezier(.22,.85,.32,1) both;}
+  @keyframes deIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  .de-inner{position:relative;overflow:hidden;border-radius:30px;min-height:170px;padding:28px 24px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;
+    border:1px solid rgba(255,255,255,.18);box-shadow:0 24px 50px -20px rgba(0,0,0,.7);}
+  .de-inner::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 140% at 50% 0%,rgba(255,255,255,.18),rgba(0,0,0,.28));pointer-events:none;}
+  .de-inner::after{content:"";position:absolute;top:0;left:-60%;width:30%;height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);
+    transform:skewX(-20deg);animation:deShine 6s ease-in-out 1s infinite;pointer-events:none;}
+  @keyframes deShine{0%{left:-60%;}55%,100%{left:140%;}}
+  .de-copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:560px;}
+  .de-tag{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;font-size:10.5px;font-weight:800;
+    letter-spacing:.24em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.35);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+  .de-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff;}
+  .de-title{margin:0;font-size:clamp(26px,5.2vw,44px);font-weight:900;line-height:1.05;letter-spacing:-.03em;color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.45);}
+  .de-text{margin:0;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.92);text-shadow:0 1px 8px rgba(0,0,0,.4);}
+  .de-ico{position:absolute;z-index:1;pointer-events:none;user-select:none;object-fit:contain;
+    filter:drop-shadow(0 14px 18px rgba(0,0,0,.5));will-change:transform;
+    animation:deFloat var(--d,6s) ease-in-out var(--dl,0s) infinite;}
+  @keyframes deFloat{0%,100%{transform:translate3d(0,0,0) rotate(var(--r0,-8deg));}50%{transform:translate3d(var(--dx,0),var(--dy,-14px),0) rotate(var(--r1,8deg));}}
+  .de-ico.i1{width:84px;height:84px;left:-6px;top:-10px;--r0:-14deg;--r1:-4deg;--d:6.2s;}
+  .de-ico.i2{width:78px;height:78px;right:-6px;top:6px;--r0:12deg;--r1:22deg;--dx:-6px;--d:7s;--dl:-1.5s;}
+  .de-ico.i3{width:64px;height:64px;right:16%;bottom:-14px;--r0:-6deg;--r1:8deg;--d:5.6s;--dl:-2.5s;}
+  @media (min-width:900px){
+    .de-inner{min-height:190px;padding:32px 170px;}
+    .de-ico.i1{width:140px;height:140px;left:34px;top:50%;margin-top:-80px;}
+    .de-ico.i2{width:130px;height:130px;right:40px;top:-10px;}
+    .de-ico.i3{width:100px;height:100px;right:22%;bottom:-16px;}
+  }
+  /* Horario: día subrayado + nombre del día especial */
+  .de-day{display:flex;flex-direction:column;gap:2px;}
+  .de-underline{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;
+    text-decoration-color:rgb(var(--dr),var(--dg),var(--db));}
+  .de-day-tag{font-size:11px;font-weight:700;color:rgb(var(--dr),var(--dg),var(--db));}
+  @media (prefers-reduced-motion:reduce){.de-ico,.de-inner::after{animation:none;}}
+`;
+
+function renderDiasEspeciales(biz) {
+  let sec = document.getElementById("secDiasEspeciales");
+  const cfg = biz?.dias_especiales;
+  const dias = cfg?.activo === true ? cfg.dias || {} : {};
+
+  // Busca hoy o el próximo día especial activo
+  const hoy = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
+  let k = null,
+    d = null,
+    offset = 0;
+  for (let i = 0; i < 7; i++) {
+    const key = DE_KEYS[(hoy + i) % 7];
+    const x = dias[key];
+    if (x?.activo === true && String(x.titulo || "").trim()) {
+      k = key;
+      d = x;
+      offset = i;
+      break;
+    }
+  }
+  if (!d) {
+    sec?.remove();
+    return;
+  }
+
+  if (!document.getElementById("deStyle")) {
+    const st = document.createElement("style");
+    st.id = "deStyle";
+    st.textContent = DE_CSS;
+    document.head.appendChild(st);
+  }
+
+  const hex = (v, def) => (/^#[0-9a-f]{6}$/i.test(v || "") ? v : def);
+  let cols = (Array.isArray(d.colores) ? d.colores : [])
+    .filter((c) => /^#[0-9a-f]{6}$/i.test(c))
+    .slice(0, 5);
+  if (cols.length < 2)
+    cols = [hex(d.color1, "#f97316"), hex(d.color2, "#e11d48")];
+  const ang = Number(d.angulo) || 135;
+  const fondo = `linear-gradient(${ang}deg,${cols.join(",")})`;
+  const etiqueta =
+    offset === 0 ? "Hoy" : offset === 1 ? "Mañana" : `El ${DE_LABELS[k]}`;
+  const imgs = (Array.isArray(d.imagenes) ? d.imagenes : [])
+    .filter(_imgValida)
+    .slice(0, 3);
+  const icos = imgs
+    .map(
+      (u, i) =>
+        `<img class="de-ico i${i + 1}" src="${escapeHtml(u)}" alt="" draggable="false" onerror="this.remove()">`,
+    )
+    .join("");
+  const texto = String(d.texto || "").trim();
+
+  const html = `
+<div class="de-inner" style="background:${fondo}">
+      ${icos}
+      <div class="de-copy">
+        <span class="de-tag">${escapeHtml(etiqueta)} · ${DE_LABELS[k]}</span>
+        <h2 class="de-title">${escapeHtml(d.titulo)}</h2>
+        ${texto ? `<p class="de-text">${escapeHtml(texto)}</p>` : ""}
+      </div>
+    </div>`;
+
+  if (!sec) {
+    sec = document.createElement("section");
+    sec.id = "secDiasEspeciales";
+    sec.className = "de-banner";
+    const reviews = document.getElementById("secReviews");
+    if (!reviews) return;
+    reviews.before(sec);
   }
   if (sec.dataset.sig !== html) {
     sec.innerHTML = html;

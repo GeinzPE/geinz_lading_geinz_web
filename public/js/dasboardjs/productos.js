@@ -1477,6 +1477,13 @@ document
 // Ahora usamos setDoc(doc(categoriasRef, nombre), ...) para que el ID del documento sea
 // exactamente el nombre que escribes (igual que tus categorías "Entradas" o "Postres" creadas a mano).
 // También se valida que no exista ya una categoría con ese nombre, y se muestra spinner mientras guarda.
+const formProducto = document.getElementById("form-producto");
+formProducto.noValidate = true; // sin esto, un campo oculto con required/min/step cancela el guardado sin error
+formProducto.addEventListener(
+  "invalid",
+  (e) => console.warn("Campo inválido:", e.target.id || e.target.name, e.target.validationMessage),
+  true,
+);
 document
   .getElementById("form-categoria")
   .addEventListener("submit", async (e) => {
@@ -1539,12 +1546,53 @@ async function eliminarCategoria(categoriaId, nombre) {
   toast(`Categoría "${nombre}" eliminada.`);
 }
 
-/* ---------------- Carrito de Perfil (productos destacados) ---------------- */
+/* ---------------- Carrito de Perfil → colección productos_perfil_carrito ---------------- */
 const CARRITO_PERFIL_MAX = 20;
 let carritoPerfilActual = [];
 
-onSnapshot(tiendaDocRef, (snap) => {
-  carritoPerfilActual = snap.data()?.carritoPerfil || [];
+const perfilCol = () =>
+  tiendaSubCol(localidad, "tiendas", tiendaId, "productos_perfil_carrito");
+const perfilDoc = (id) =>
+  tiendaSubDoc(localidad, "tiendas", tiendaId, "productos_perfil_carrito", id);
+
+// Copia pública del producto: lleva variantes, fotos y precio. NO lleva recetas ni costos.
+function datosParaPerfil(categoriaId, productoId, d) {
+  const limpiarOp = (o) => ({
+    nombre: o.nombre,
+    descripcion: o.descripcion || "",
+    imagen: o.imagen ? { url: o.imagen.url } : null,
+    activo: !!o.activo,
+    costoAdicional: Number(o.costoAdicional) || 0,
+    stock: typeof o.stock === "number" ? o.stock : null,
+  });
+  return {
+    productoId,
+    categoriaId,
+    nombre: d.nombre || "",
+    descripcion: d.descripcion || "",
+    precio: Number(d.precio) || 0,
+    imagenes: (d.imagenes || []).map((i) => ({ url: i.url })),
+    imagenUrl: d.imagenes?.[0]?.url || null,
+    condiciones: (d.condiciones || []).map((c) => ({
+      nombre: c.nombre,
+      tipo: c.tipo === "multiple" ? "multiple" : "unica",
+      obligatoria: c.obligatoria !== false,
+      conCantidad: c.conCantidad === true,
+      max: Number(c.max) > 0 ? Number(c.max) : null,
+      opciones: (c.opciones || []).map(limpiarOp),
+    })),
+    descuento: d.descuento || null,
+    stock: typeof d.stock === "number" ? d.stock : null,
+    disponible: d.disponible !== false,
+    actualizadoEn: serverTimestamp(),
+  };
+}
+
+onSnapshot(perfilCol(), (snap) => {
+  carritoPerfilActual = snap.docs.map((d) => ({
+    productoId: d.id,
+    ...d.data(),
+  }));
   actualizarBotonesCarritoPerfil();
 });
 
@@ -1570,59 +1618,49 @@ function actualizarBotonesCarritoPerfil() {
 
 async function toggleProductoEnCarritoPerfil(categoriaId, productoId, data) {
   const yaExiste = carritoPerfilActual.some((p) => p.productoId === productoId);
-  let nuevoCarrito;
-
-  if (yaExiste) {
-    nuevoCarrito = carritoPerfilActual.filter(
-      (p) => p.productoId !== productoId,
-    );
-  } else {
-    if (carritoPerfilActual.length >= CARRITO_PERFIL_MAX) {
-      toast(
-        `Máximo ${CARRITO_PERFIL_MAX} productos en el carrito de perfil.`,
-        "error",
-      );
-      return;
-    }
-    nuevoCarrito = [
-      ...carritoPerfilActual,
-      {
-        productoId,
-        categoriaId,
-        nombre: data.nombre,
-        precio: data.precio,
-        imagenUrl: (data.imagenes && data.imagenes[0]?.url) || null,
-      },
-    ];
-  }
-
   try {
-    await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
-    toast(
-      yaExiste
-        ? "Quitado del carrito de perfil."
-        : "Agregado al carrito de perfil.",
-    );
+    if (yaExiste) {
+      await deleteDoc(perfilDoc(productoId));
+      toast("Quitado del carrito de perfil.");
+    } else {
+      if (carritoPerfilActual.length >= CARRITO_PERFIL_MAX) {
+        toast(
+          `Máximo ${CARRITO_PERFIL_MAX} productos en el carrito de perfil.`,
+          "error",
+        );
+        return;
+      }
+      await setDoc(
+        perfilDoc(productoId),
+        datosParaPerfil(categoriaId, productoId, data),
+      );
+      toast("Agregado al carrito de perfil.");
+    }
   } catch (err) {
     console.error(err);
     toast("No se pudo actualizar el carrito de perfil.", "error");
   }
 }
 
-async function sincronizarProductoEnCarritoPerfil(productoId, cambios) {
-  const idx = carritoPerfilActual.findIndex((p) => p.productoId === productoId);
-  if (idx === -1) return;
-  const nuevoCarrito = [...carritoPerfilActual];
-  nuevoCarrito[idx] = { ...nuevoCarrito[idx], ...cambios };
-  await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
+// Edición completa del producto → se refleja en el perfil
+async function sincronizarProductoEnCarritoPerfil(productoId, categoriaId, d) {
+  if (!carritoPerfilActual.some((p) => p.productoId === productoId)) return;
+  await setDoc(
+    perfilDoc(productoId),
+    datosParaPerfil(categoriaId, productoId, d),
+    { merge: true },
+  );
+}
+
+// Cambios rápidos (ej. Disponible / Agotado)
+function parchePerfil(productoId, campos) {
+  if (!carritoPerfilActual.some((p) => p.productoId === productoId)) return;
+  updateDoc(perfilDoc(productoId), campos).catch(() => {});
 }
 
 async function quitarProductoDeCarritoPerfilSiExiste(productoId) {
   if (!carritoPerfilActual.some((p) => p.productoId === productoId)) return;
-  const nuevoCarrito = carritoPerfilActual.filter(
-    (p) => p.productoId !== productoId,
-  );
-  await updateDoc(tiendaDocRef, { carritoPerfil: nuevoCarrito });
+  await deleteDoc(perfilDoc(productoId));
 }
 /* ---------------- Productos ---------------- */
 let categoriaActivaParaProducto = null;
@@ -2118,16 +2156,19 @@ function renderCondiciones() {
     cont.appendChild(box);
   });
 
+  sincronizarSwitchesDesdeGrupos();
   validarConsistenciaStock();
 }
-
 document.getElementById("btn-add-condicion").addEventListener("click", () => {
   if (condicionesSeleccionadas.length >= PLAN_PRODUCTOS.maxVariantes) return;
+  const m = document.getElementById("input-prod-variantes-multiples").checked;
   condicionesSeleccionadas.push({
     nombre: "",
-    tipo: "unica",
-    obligatoria: true,
-    conCantidad: false,
+    tipo: m ? "multiple" : "unica",
+    obligatoria: document.getElementById("input-prod-variante-obligatoria")
+      .checked,
+    conCantidad:
+      m && document.getElementById("input-prod-variantes-cantidad").checked,
     max: null,
     opciones: [
       {
@@ -2174,6 +2215,46 @@ function actualizarVisibilidadCantidadPorOpcion() {
 document
   .getElementById("input-prod-variantes-multiples")
   .addEventListener("change", actualizarVisibilidadCantidadPorOpcion);
+const IDS_SW_VARIANTES = [
+  "input-prod-variantes-multiples",
+  "input-prod-variante-obligatoria",
+  "input-prod-variantes-cantidad",
+];
+
+// Switch global -> todos los grupos
+function aplicarSwitchesAGrupos() {
+  const multiple = document.getElementById(
+    "input-prod-variantes-multiples",
+  ).checked;
+  const oblig = document.getElementById(
+    "input-prod-variante-obligatoria",
+  ).checked;
+  const cant = document.getElementById("input-prod-variantes-cantidad").checked;
+  condicionesSeleccionadas.forEach((c) => {
+    c.tipo = multiple ? "multiple" : "unica";
+    c.obligatoria = oblig;
+    c.conCantidad = multiple && cant;
+    if (!multiple) c.max = null;
+  });
+  renderCondiciones();
+}
+IDS_SW_VARIANTES.forEach((id) =>
+  document
+    .getElementById(id)
+    .addEventListener("change", aplicarSwitchesAGrupos),
+);
+
+// Grupos -> switch global
+function sincronizarSwitchesDesdeGrupos() {
+  if (!condicionesSeleccionadas.length) return;
+  document.getElementById("input-prod-variantes-multiples").checked =
+    condicionesSeleccionadas.some((c) => c.tipo === "multiple");
+  document.getElementById("input-prod-variante-obligatoria").checked =
+    condicionesSeleccionadas.every((c) => c.obligatoria !== false);
+  document.getElementById("input-prod-variantes-cantidad").checked =
+    condicionesSeleccionadas.some((c) => c.conCantidad);
+  actualizarVisibilidadCantidadPorOpcion();
+}
 function abrirModalNuevoProducto(
   categoriaId,
   categoriaNombre,
@@ -2188,16 +2269,15 @@ function abrirModalNuevoProducto(
     return;
   }
   categoriaActivaParaProducto = categoriaId;
-  categoriaActivaParaProducto = categoriaId;
   productoEditandoId = null;
   productoEditandoCategoriaId = null;
   imagenesSeleccionadas = [null, null, null];
   imagenesEnEdicionOriginal = [];
   condicionesSeleccionadas = [];
+  document.getElementById("form-producto").reset();
   document.getElementById("input-prod-variante-obligatoria").checked = true;
   document.getElementById("input-prod-variantes-multiples").checked = false;
   document.getElementById("input-prod-variantes-cantidad").checked = false;
-  document.getElementById("form-producto").reset();
   inputCodigo.value = codigoPrefill;
   inputCodigo.readOnly = false;
   document.getElementById("btn-prod-scan-cam").disabled = false;
@@ -2376,8 +2456,8 @@ document
     // Solo tiene sentido si "múltiples" está activo; si no, se fuerza a false por consistencia
     // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
     if (autoDesactivar && stock === 0) disponible = false;
-
-    if (!nombre || isNaN(precio)) return;
+    if (!nombre || isNaN(precio))
+      return toast("Completa el nombre y el precio.", "error");
     if (!(await subirImagenesOpciones())) return;
     const pendientesImg = [];
     const condiciones = condicionesSeleccionadas
@@ -2403,8 +2483,8 @@ document
                 activo: !!o.activo,
                 costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
                 stock: typeof o.stock === "number" ? o.stock : null,
-                receta:
-                  PLAN_PRODUCTOS.superAvanzado && o.receta?.items?.length
+                receta: o.receta?.items?.length
+                  ? PLAN_PRODUCTOS.superAvanzado
                     ? {
                         items: o.receta.items
                           .filter((it) => numR(it.qty) > 0)
@@ -2414,7 +2494,8 @@ document
                             unit: it.unit,
                           })),
                       }
-                    : null,
+                    : o.receta // sin plan súper avanzado: se conserva la original
+                  : null,
               };
               if (o.archivo) pendientesImg.push({ ref: obj, file: o.archivo });
               return obj;
@@ -2424,11 +2505,20 @@ document
       .filter((c) => c.opciones.length > 0);
 
     // Compatibilidad con páginas antiguas que aún leen los flags globales
-    const variantesMultiples = condiciones.some((c) => c.tipo === "multiple");
+    // Con grupos: manda lo configurado en cada grupo (ya está sincronizado con los switches).
+    // Sin grupos: manda el switch global.
+    const swMulti = document.getElementById("input-prod-variantes-multiples").checked;
+    const swOblig = document.getElementById("input-prod-variante-obligatoria").checked;
+    const swCant = document.getElementById("input-prod-variantes-cantidad").checked;
+    const variantesMultiples = condiciones.length
+      ? condiciones.some((c) => c.tipo === "multiple")
+      : swMulti;
     const variantesObligatoria = condiciones.length
       ? condiciones.every((c) => c.obligatoria)
-      : true;
-    const variantesConCantidad = condiciones.some((c) => c.conCantidad);
+      : swOblig;
+    const variantesConCantidad = condiciones.length
+      ? condiciones.some((c) => c.conCantidad)
+      : swMulti && swCant;
     const descuentoActivoChk = document.getElementById(
       "input-prod-descuento-activo",
     ).checked;
@@ -2442,6 +2532,9 @@ document
         ) || 0,
       ),
     );
+
+    if (descuentoActivoChk && descuentoPorcentaje <= 0)
+      return toast("Pon un porcentaje de descuento mayor a 0.", "error");
 
     let descuento = null;
     if (descuentoActivoChk && descuentoPorcentaje > 0 && descuentoModoActivo) {
@@ -2554,14 +2647,14 @@ document
             deleteObject(storageRef(storage, img.path)).catch(() => {}),
           ),
         );
-      const subidas = [];
-for (const file of nuevas) {
-  const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${subidas.length}.webp`;
-  const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
-  subidas.push({ url, path });
-}
-enlazarImagenesNuevasAOpciones(pendientesImg, nuevas, subidas); // ← AGREGAR
-await updateDoc(docRef, {
+        const subidas = [];
+        for (const file of nuevas) {
+          const path = `${storagePathProducto(productoEditandoId)}/${Date.now()}_${subidas.length}.webp`;
+          const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
+          subidas.push({ url, path });
+        }
+        enlazarImagenesNuevasAOpciones(pendientesImg, nuevas, subidas); // ← AGREGAR
+        await updateDoc(docRef, {
           nombre,
           descripcion,
           precio,
@@ -2582,12 +2675,20 @@ await updateDoc(docRef, {
           receta: recetaGuardar,
           costo_unitario: costoUnitarioGuardar,
         });
-        await sincronizarProductoEnCarritoPerfil(productoEditandoId, {
-          nombre,
-          precio,
-          imagenUrl: [...conservadas, ...subidas][0]?.url || null,
-        });
-
+        await sincronizarProductoEnCarritoPerfil(
+          productoEditandoId,
+          productoEditandoCategoriaId,
+          {
+            nombre,
+            descripcion,
+            precio,
+            disponible,
+            condiciones,
+            stock,
+            descuento,
+            imagenes: [...conservadas, ...subidas],
+          },
+        );
         toast(`"${nombre}" actualizado.`);
       } else {
         let codigoFinal = soloDigitos(inputCodigo.value);
@@ -2640,10 +2741,10 @@ await updateDoc(docRef, {
           const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
           imagenes.push({ url, path });
         }
-   enlazarImagenesNuevasAOpciones(pendientesImg, archivos, imagenes);
-if (imagenes.length) {
-  await updateDoc(nuevoDocRef, { imagenes, condiciones });
-}
+        enlazarImagenesNuevasAOpciones(pendientesImg, archivos, imagenes);
+        if (imagenes.length) {
+          await updateDoc(nuevoDocRef, { imagenes, condiciones });
+        }
 
         toast(`"${nombre}" guardado.`);
       }
@@ -2936,6 +3037,7 @@ function renderProductoCard(categoriaId, productoId, data) {
       await updateDoc(doc(productosRef(categoriaId), productoId), {
         disponible: !data.disponible,
       });
+      parchePerfil(productoId, { disponible: !data.disponible });
     } catch (err) {
       console.error(err);
       toast("Error al cambiar disponibilidad.", "error");

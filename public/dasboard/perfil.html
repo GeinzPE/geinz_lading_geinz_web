@@ -283,7 +283,7 @@
                 </div>
             </div>
 
-    
+
             <div class="contact-item" style="margin:6px 0 14px">
                 <div class="contact-text">
                     <div class="contact-name">Usar degradado</div>
@@ -319,10 +319,150 @@
                 </div>
             </div>
             <button id="fieldSaveBtn-color" class="field-save-btn visible"
-    style="display:flex;width:100%;justify-content:center;padding:13px;margin-top:6px;opacity:.55"
-    disabled onclick="PanelPerfil.saveColorMarca()">Elige un color</button>
+                style="display:flex;width:100%;justify-content:center;padding:13px;margin-top:6px;opacity:.55" disabled
+                onclick="PanelPerfil.saveColorMarca()">Elige un color</button>
         </div>
     </div>
+    <!-- Días especiales -->
+    <div class="expand-section" id="expDiasEspeciales">
+        <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">
+            <div class="expand-header-icon icon-orange">🎉</div>
+            <div class="expand-header-text">
+                <div class="expand-header-title">Días especiales</div>
+                <div class="expand-header-sub">Ej: Sábados de comida mexicana</div>
+            </div>
+            <div class="expand-arrow">▼</div>
+        </div>
+        <div class="expand-body">
+            <div class="contact-item" style="margin-bottom:14px">
+                <div class="contact-text">
+                    <div class="contact-name">Mostrar días especiales en mi perfil</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px">
+                        Aparece un banner sobre las reseñas y el día queda marcado en tu horario.
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="diasEspecialesSwitch"
+                        onchange="PanelPerfil.toggleDiasEspeciales(this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div id="diasEspecialesList" style="display:none"></div>
+        </div>
+    </div>
+
+    <style>
+        .de-card {
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 16px;
+            padding: 4px 14px 6px;
+            margin-bottom: 12px;
+            background: rgba(255, 255, 255, .02);
+        }
+
+        .de-body {
+            padding: 6px 0 12px;
+        }
+
+        .de-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin: 8px 0 14px;
+            flex-wrap: wrap;
+        }
+
+        .de-row input[type=color] {
+            width: 52px;
+            height: 40px;
+            border: none;
+            background: none;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .de-prev {
+            height: 70px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #fff;
+            font-size: 15px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            text-shadow: 0 1px 6px rgba(0, 0, 0, .4);
+        }
+
+        .de-slots {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .de-slots .photo-item {
+            aspect-ratio: 1;
+        }
+
+        .de-hint {
+            font-size: 12px;
+            color: #888;
+            margin: 0 0 8px;
+        }
+
+        .de-colors {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 4px 0 14px;
+        }
+
+        .de-color {
+            position: relative;
+            width: 48px;
+            height: 48px;
+        }
+
+        .de-color input[type=color] {
+            width: 48px;
+            height: 48px;
+            border: 2px solid rgba(255, 255, 255, .2);
+            border-radius: 50%;
+            background: none;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .de-color button {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: none;
+            background: #e11d48;
+            color: #fff;
+            font-size: 10px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .de-add {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px dashed rgba(255, 255, 255, .3);
+            background: transparent;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+        }
+    </style>
+
     <!-- Ubicación -->
     <div class="expand-section" id="expUbicacionSection">
         <div class="expand-header" onclick="PanelPerfil.toggleExpand(this)">

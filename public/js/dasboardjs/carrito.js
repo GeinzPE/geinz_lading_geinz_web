@@ -6196,19 +6196,53 @@ async function aplicarCarritoDesdePerfil() {
     return false;
   }
   if (!data || !Array.isArray(data.items) || !data.items.length) return false;
-  if (Date.now() - (data.ts || 0) > 30 * 60 * 1000) return false; // caduca a los 30 min
+  if (Date.now() - (data.ts || 0) > 30 * 60 * 1000) return false;
 
-  // Limpia lo que hubiera antes de traer la nueva selección
   carrito.clear();
   cuponAplicado = null;
 
   let agregoAlgo = false;
-  data.items.forEach(({ promoId, cantidad }) => {
+  data.items.forEach(({ promoId, productoId, seleccion, cantidad }) => {
+    // ── Producto del catálogo del perfil (con variantes) ──
+    if (productoId) {
+      const p = productosPorId.get(productoId);
+      if (!p) return;
+      const sel = seleccion && Object.keys(seleccion).length ? seleccion : null;
+      const key = cartKeyFor(p.id, sel);
+      let cant = cantidad || 1;
+      const { stock } = getStockInfo(p, sel);
+      const yaHay = carrito.get(key)?.cantidad || 0;
+      if (stock !== null) cant = Math.min(cant, stock - yaHay);
+      if (cant <= 0) return;
+      const ex = carrito.get(key);
+      if (ex) ex.cantidad += cant;
+      else {
+        const descInfo = descuentoVigente(p.descuento);
+        carrito.set(key, {
+          ...p,
+          precio: calcPrecioFinal(p, sel),
+          precioOriginal: descInfo ? Number(p.precio) || 0 : null,
+          descuentoPorcentaje: descInfo ? descInfo.porcentaje : null,
+          cantidad: cant,
+          cartKey: key,
+          seleccion: sel,
+          imagen: imagenOpcionElegida(p, sel) || p.imagen,
+        });
+      }
+      agregoAlgo = true;
+      return;
+    }
+    // ── Promociones (como antes) ──
     const p = promosGlobal.find((x) => x.promoId === String(promoId));
     if (!p) return;
     for (let i = 0; i < (cantidad || 1); i++) addToCart(p);
     agregoAlgo = true;
   });
+
+  if (agregoAlgo) {
+    updateCartUI();
+    productosGlobal.forEach((p) => syncMainListCard(p.id));
+  }
   return agregoAlgo;
 }
 // Reconstruye el carrito desde el catálogo ACTUAL (precio y stock frescos)

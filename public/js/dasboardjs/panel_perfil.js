@@ -1,5 +1,10 @@
 import { app, db, storage } from "../db/db.js";
-import { tiendaDoc, tiendaSubDoc, tiendaSubCol, tiendaServiciosDoc } from "../rutas/rutas.js";
+import {
+  tiendaDoc,
+  tiendaSubDoc,
+  tiendaSubCol,
+  tiendaServiciosDoc,
+} from "../rutas/rutas.js";
 import {
   doc,
   onSnapshot,
@@ -27,16 +32,20 @@ let serviciosActuales = null;
 function enviarServiciosAPublicidad() {
   if (!serviciosActuales) return;
   ["iframePublicidad", "iframePedidos", "iframeLegal"].forEach((id) => {
-    document.getElementById(id)?.contentWindow?.postMessage(
-      { type: "SERVICIOS_UPDATE", servicios: serviciosActuales },
-      window.location.origin
-    );
+    document
+      .getElementById(id)
+      ?.contentWindow?.postMessage(
+        { type: "SERVICIOS_UPDATE", servicios: serviciosActuales },
+        window.location.origin,
+      );
   });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   ["iframePublicidad", "iframePedidos", "iframeLegal"].forEach((id) =>
-    document.getElementById(id)?.addEventListener("load", enviarServiciosAPublicidad)
+    document
+      .getElementById(id)
+      ?.addEventListener("load", enviarServiciosAPublicidad),
   );
 });
 window.setServiciosParaPublicidad = (servicios) => {
@@ -46,7 +55,8 @@ window.setServiciosParaPublicidad = (servicios) => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("iframePublicidad")
+  document
+    .getElementById("iframePublicidad")
     ?.addEventListener("load", enviarServiciosAPublicidad);
 });
 const GeofencingManager = {
@@ -457,7 +467,10 @@ window.PanelPerfil = {
 
     const btn = document.getElementById("fieldSaveBtn-color");
     if (btn && !btn.classList.contains("saving")) {
-const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._colorGuardadoSig.startsWith("#"));
+      const cambio =
+        !!h1 &&
+        (this._colorSig() !== this._colorGuardadoSig ||
+          !this._colorGuardadoSig.startsWith("#"));
       btn.style.display = "flex";
       btn.disabled = !cambio;
       btn.style.opacity = cambio ? "1" : ".55";
@@ -503,11 +516,13 @@ const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._co
     this._renderColorPanel();
   },
 
-    async toggleColorMarca(enabled) {
+  async toggleColorMarca(enabled) {
     try {
       await this._updateDoc(this.TIENDA_REF, { "color_marca.activo": enabled });
       this.showToast(
-        enabled ? "Colores personalizados activados" : "Color automático activado",
+        enabled
+          ? "Colores personalizados activados"
+          : "Color automático activado",
       );
       if (enabled && !this._colorGuardadoSig) {
         this.showToast("Elige un color y pulsa Guardar");
@@ -560,6 +575,366 @@ const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._co
       if (btn) btn.classList.remove("saving");
       this._renderColorPanel();
       this.showToast("❌ Error al guardar color");
+    }
+  },
+  // ═══════════════════════════════════════════
+  //  DÍAS ESPECIALES
+  // ═══════════════════════════════════════════
+  _DE_DIAS: [
+    { k: "lunes", l: "Lunes" },
+    { k: "martes", l: "Martes" },
+    { k: "miercoles", l: "Miércoles" },
+    { k: "jueves", l: "Jueves" },
+    { k: "viernes", l: "Viernes" },
+    { k: "sabado", l: "Sábado" },
+    { k: "domingo", l: "Domingo" },
+  ],
+  _deDias: {},
+  _deSaved: {},
+
+  _deEsc(s) {
+    return String(s ?? "").replace(
+      /[&<>"']/g,
+      (m) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[m],
+    );
+  },
+  _deSig(d) {
+    return JSON.stringify([d.titulo, d.texto, d.colores, d.angulo]);
+  },
+  _deSig(d) {
+    return JSON.stringify([d.titulo, d.texto, d.color1, d.color2, d.angulo]);
+  },
+
+  _initDiasEspeciales(data) {
+    const cfg = data.dias_especiales || {};
+    const sw = document.getElementById("diasEspecialesSwitch");
+    if (sw) sw.checked = cfg.activo === true;
+    const list = document.getElementById("diasEspecialesList");
+    if (list) list.style.display = cfg.activo === true ? "" : "none";
+
+    this._deDias = {};
+    this._deSaved = {};
+    this._DE_DIAS.forEach(({ k }) => {
+      const d = cfg.dias?.[k] || {};
+      const imgs = Array.isArray(d.imagenes) ? d.imagenes.slice(0, 3) : [];
+      while (imgs.length < 3) imgs.push(null);
+      this._deDias[k] = {
+        activo: d.activo === true,
+        titulo: d.titulo || "",
+        texto: d.texto || "",
+        colores:
+          Array.isArray(d.colores) && d.colores.length >= 2
+            ? d.colores.slice(0, 5)
+            : [d.color1 || "#f97316", d.color2 || "#e11d48"],
+        angulo: Number(d.angulo) || 135,
+        imagenes: imgs,
+      };
+      this._deSaved[k] = this._deSig(this._deDias[k]);
+    });
+    this._renderDiasEspeciales();
+  },
+
+  _renderDiasEspeciales() {
+    const wrap = document.getElementById("diasEspecialesList");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    this._DE_DIAS.forEach(({ k, l }) => {
+      const d = this._deDias[k];
+      const e = this._deEsc;
+      const card = document.createElement("div");
+      card.className = "de-card";
+      card.innerHTML = `
+        <div class="contact-item">
+          <div class="contact-text">
+            <div class="contact-name">${l}</div>
+            <div id="deSub-${k}" style="font-size:12px;color:#888;margin-top:2px">${d.activo && d.titulo ? e.call(this, d.titulo) : "Sin día especial"}</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" ${d.activo ? "checked" : ""} onchange="PanelPerfil.deToggleDia('${k}', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="de-body" id="deBody-${k}" style="display:${d.activo ? "block" : "none"}">
+          <div class="form-field">
+            <label class="form-label">Nombre del día especial</label>
+            <input class="form-input" id="deTitulo-${k}" type="text" maxlength="40"
+              placeholder="Ej: Sábado de comida mexicana" value="${e.call(this, d.titulo)}"
+              oninput="PanelPerfil.deInput('${k}','titulo',this.value)">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Descripción corta (opcional)</label>
+            <textarea class="form-input" id="deTexto-${k}" rows="2" maxlength="120"
+              placeholder="Ej: Tacos al pastor 2x1 todo el día"
+              oninput="PanelPerfil.deInput('${k}','texto',this.value)">${e.call(this, d.texto)}</textarea>
+          </div>
+                  <div class="form-label" style="margin:0 0 6px">Colores del degradado (de 2 a 5)</div>
+          <div class="de-colors" id="deColors-${k}"></div>
+          <div class="de-row">
+            <select class="form-input" style="max-width:190px" onchange="PanelPerfil.deInput('${k}','angulo',this.value)">
+              <option value="135" ${d.angulo === 135 ? "selected" : ""}>Diagonal ↘</option>
+              <option value="45" ${d.angulo === 45 ? "selected" : ""}>Diagonal ↗</option>
+              <option value="90" ${d.angulo === 90 ? "selected" : ""}>Horizontal →</option>
+              <option value="180" ${d.angulo === 180 ? "selected" : ""}>Vertical ↓</option>
+            </select>
+          </div>
+          <div class="de-prev" id="dePrev-${k}"></div>
+          <p class="de-hint">Hasta 3 imágenes o íconos flotantes (mejor PNG/WebP sin fondo). Se guardan al subirlas.</p>
+          <div class="de-slots" id="deSlots-${k}"></div>
+          <button id="deSave-${k}" class="field-save-btn" style="width:100%;justify-content:center;padding:12px"
+            onclick="PanelPerfil.deGuardar('${k}')">✓ Guardar ${l}</button>
+        </div>`;
+      wrap.appendChild(card);
+      this._dePrev(k);
+      this._deRenderColors(k);
+      this._deRenderSlots(k);
+    });
+  },
+
+  _dePrev(k) {
+    const d = this._deDias[k];
+    const el = document.getElementById(`dePrev-${k}`);
+    if (!el) return;
+    el.style.background = `linear-gradient(${d.angulo}deg, ${d.colores.join(",")})`;
+    el.textContent = d.titulo || "Así se verá tu banner";
+  },
+  _deRenderColors(k) {
+    const box = document.getElementById(`deColors-${k}`);
+    if (!box) return;
+    const cols = this._deDias[k].colores;
+    box.innerHTML = "";
+    cols.forEach((c, i) => {
+      const chip = document.createElement("div");
+      chip.className = "de-color";
+      const inp = document.createElement("input");
+      inp.type = "color";
+      inp.value = c;
+      inp.oninput = () => this.deColorChange(k, i, inp.value);
+      chip.appendChild(inp);
+      if (cols.length > 2) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = "✕";
+        b.onclick = () => this.deRemoveColor(k, i);
+        chip.appendChild(b);
+      }
+      box.appendChild(chip);
+    });
+    if (cols.length < 5) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "de-add";
+      add.textContent = "+";
+      add.onclick = () => this.deAddColor(k);
+      box.appendChild(add);
+    }
+  },
+
+  deColorChange(k, i, val) {
+    this._deDias[k].colores[i] = val;
+    this._dePrev(k);
+    this._deCheck(k);
+  },
+
+  deAddColor(k) {
+    const cols = this._deDias[k].colores;
+    if (cols.length >= 5) return;
+    cols.push(cols[cols.length - 1]);
+    this._deRenderColors(k);
+    this._dePrev(k);
+    this._deCheck(k);
+  },
+
+  deRemoveColor(k, i) {
+    const cols = this._deDias[k].colores;
+    if (cols.length <= 2) return;
+    cols.splice(i, 1);
+    this._deRenderColors(k);
+    this._dePrev(k);
+    this._deCheck(k);
+  },
+
+  _deRenderSlots(k) {
+    const grid = document.getElementById(`deSlots-${k}`);
+    if (!grid) return;
+    grid.innerHTML = "";
+    this._deDias[k].imagenes.forEach((url, i) => {
+      const div = document.createElement("div");
+      if (url) {
+        div.className = "photo-item";
+        div.style.cssText = "position:relative;background:#111;";
+        div.innerHTML = `<img src="${url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:16px;">
+          <button style="position:absolute;top:6px;right:6px;z-index:5;background:rgba(0,0,0,.6);border:none;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:13px;">🗑️</button>`;
+        div.querySelector("button").onclick = (ev) => {
+          ev.stopPropagation();
+          this.deBorrarImg(k, i);
+        };
+        div.onclick = () => this.deSubirImg(k, i);
+      } else {
+        div.className = "photo-item photo-item-add";
+        div.innerHTML = "<span>📷</span><span>Agregar</span>";
+        div.onclick = () => this.deSubirImg(k, i);
+      }
+      grid.appendChild(div);
+    });
+  },
+
+  _deCheck(k) {
+    const btn = document.getElementById(`deSave-${k}`);
+    if (!btn) return;
+    const cambio = this._deSig(this._deDias[k]) !== this._deSaved[k];
+    cambio ? this._showFieldBtn(btn) : this._hideFieldBtn(btn);
+  },
+
+  deInput(k, campo, val) {
+    this._deDias[k][campo] = campo === "angulo" ? Number(val) || 135 : val;
+    this._dePrev(k);
+    this._deCheck(k);
+  },
+
+  async toggleDiasEspeciales(on) {
+    try {
+      await this._updateDoc(this.TIENDA_REF, { "dias_especiales.activo": on });
+      const list = document.getElementById("diasEspecialesList");
+      if (list) list.style.display = on ? "" : "none";
+      this.showToast(
+        on ? "Días especiales activados" : "Días especiales desactivados",
+      );
+    } catch (e) {
+      console.error(e);
+      this.showToast("Error al actualizar");
+    }
+  },
+
+  async deToggleDia(k, on) {
+    try {
+      await this._updateDoc(this.TIENDA_REF, {
+        [`dias_especiales.dias.${k}.activo`]: on,
+      });
+      this._deDias[k].activo = on;
+      const body = document.getElementById(`deBody-${k}`);
+      if (body) body.style.display = on ? "block" : "none";
+      const sub = document.getElementById(`deSub-${k}`);
+      if (sub)
+        sub.textContent =
+          on && this._deDias[k].titulo
+            ? this._deDias[k].titulo
+            : "Sin día especial";
+      if (on && !this._deDias[k].titulo.trim())
+        this.showToast("Escribe el nombre y pulsa Guardar");
+    } catch (e) {
+      console.error(e);
+      this.showToast("Error al actualizar");
+    }
+  },
+
+  async deGuardar(k) {
+    const d = this._deDias[k];
+    if (!d.titulo.trim()) {
+      this.showToast("Escribe el nombre del día especial");
+      return;
+    }
+    const btn = document.getElementById(`deSave-${k}`);
+    const orig = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.classList.add("saving");
+      btn.innerHTML = "Guardando...";
+    }
+    try {
+      const p = `dias_especiales.dias.${k}`;
+      await this._updateDoc(this.TIENDA_REF, {
+        [`${p}.titulo`]: d.titulo.trim(),
+        [`${p}.texto`]: d.texto.trim(),
+        [`${p}.colores`]: d.colores,
+        [`${p}.color1`]: d.colores[0],
+        [`${p}.color2`]: d.colores[d.colores.length - 1],
+        [`${p}.angulo`]: d.angulo,
+      });
+      this._deSaved[k] = this._deSig(d);
+      const sub = document.getElementById(`deSub-${k}`);
+      if (sub) sub.textContent = d.titulo.trim();
+      if (btn) {
+        this._hideFieldBtn(btn);
+        btn.innerHTML = orig;
+      }
+      this.showToast("✓ Día especial guardado");
+    } catch (e) {
+      console.error(e);
+      if (btn) {
+        btn.classList.remove("saving");
+        btn.innerHTML = orig;
+      }
+      this.showToast("❌ Error al guardar");
+    }
+  },
+
+  deSubirImg(k, slot) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        this._showUploadLoading(
+          "Subiendo imagen...",
+          "Comprimiendo y guardando",
+        );
+        try {
+          const blob = this._dataURLtoBlob(
+            await this._comprimirImagen(ev.target.result, 600, 0.9),
+          );
+          const ref = this._storageRef(
+            this._storage,
+            `tiendas/${this.TIENDA_ID}/dias_especiales/${k}/slot_${slot}.webp`,
+          );
+          await this._uploadBytes(ref, blob, { contentType: "image/webp" });
+          const url = await this._getDownloadURL(ref);
+          this._deDias[k].imagenes[slot] = url;
+          await this._updateDoc(this.TIENDA_REF, {
+            [`dias_especiales.dias.${k}.imagenes`]: this._deDias[k].imagenes,
+          });
+          this._deRenderSlots(k);
+          this.showToast("✓ Imagen guardada");
+        } catch (err) {
+          console.error(err);
+          this.showToast("❌ Error al subir imagen");
+        } finally {
+          this._hideUploadLoading();
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  },
+
+  async deBorrarImg(k, slot) {
+    if (!confirm("¿Eliminar esta imagen?")) return;
+    try {
+      try {
+        await this._deleteObject(
+          this._storageRef(
+            this._storage,
+            `tiendas/${this.TIENDA_ID}/dias_especiales/${k}/slot_${slot}.webp`,
+          ),
+        );
+      } catch {}
+      this._deDias[k].imagenes[slot] = null;
+      await this._updateDoc(this.TIENDA_REF, {
+        [`dias_especiales.dias.${k}.imagenes`]: this._deDias[k].imagenes,
+      });
+      this._deRenderSlots(k);
+      this.showToast("✓ Imagen eliminada");
+    } catch (e) {
+      console.error(e);
+      this.showToast("❌ Error al eliminar");
     }
   },
   _bindBuscadorDireccion() {
@@ -799,14 +1174,14 @@ const cambio = !!h1 && (this._colorSig() !== this._colorGuardadoSig || !this._co
   },
 
   _initRealtime() {
-        this._onSnapshot(
+    this._onSnapshot(
       tiendaServiciosDoc(this.LOCALIDAD_TIENDA, this.TIENDA_ID),
       (snap) => {
         const d = snap.exists() ? snap.data() : {};
-const esFisica =
-  String(d.panel_admin?.tipo_tienda ?? d.tipo_tienda ?? "")
-    .toLowerCase()
-    .trim() === "fisica";
+        const esFisica =
+          String(d.panel_admin?.tipo_tienda ?? d.tipo_tienda ?? "")
+            .toLowerCase()
+            .trim() === "fisica";
         this.aplicarVisibilidadUbicacion(esFisica);
       },
     );
@@ -991,7 +1366,7 @@ const esFisica =
 
     this.updateCatDisplay();
     this._initColorPanel(data);
-
+    this._initDiasEspeciales(data);
     if (data.ubicacion) {
       this.setField("fieldDireccion", data.ubicacion["dirección"] || "");
       this.setField("fieldReferencia", data.ubicacion.referencia || "");
@@ -2496,7 +2871,7 @@ const esFisica =
     this.showSection("qr");
     // el iframe ya trae su src desde el HTML, no hace falta setearlo aquí
   },
-    loadFormularios() {
+  loadFormularios() {
     this.showSection("formularios");
   },
 
@@ -2509,10 +2884,9 @@ const esFisica =
     this.showSection("historial");
   },
 
-
   loadHistorial_gastos() {
-  this.showSection("historialgasto_tienda");
-},
+    this.showSection("historialgasto_tienda");
+  },
   load_pedidos_vivos() {
     this.showSection("pedidos");
     this.hidePedidosBadge();
@@ -2922,12 +3296,12 @@ window.addEventListener("message", (e) => {
     const iframe = document.getElementById("iframeRecargas");
     if (iframe) iframe.src = "recargas";
   }
-if (e.data?.type === "PEDIR_DATOS_TIENDA") {
-  if (window._datosParaIframe) {
-    e.source?.postMessage(window._datosParaIframe, window.location.origin);
+  if (e.data?.type === "PEDIR_DATOS_TIENDA") {
+    if (window._datosParaIframe) {
+      e.source?.postMessage(window._datosParaIframe, window.location.origin);
+    }
+    enviarServiciosAPublicidad();
   }
-  enviarServiciosAPublicidad();
-}
   if (e.data?.type === "NUEVO_CLIENTE_FIDELIZACION") {
     if (window.PanelPerfil.activeSection !== "fidelizacion") {
       window.PanelPerfil.showFidelizacionBadge();
