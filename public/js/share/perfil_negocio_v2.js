@@ -9141,9 +9141,9 @@ function renderProductosCatalogo(_ignorado, localidad, id, aliasKey) {
     let precioHTML;
     if (p.agotado) precioHTML = "Agotado";
     else {
-      const tachado = dd
-        ? `<s style="opacity:.6;font-weight:600;margin-right:6px;font-size:11px">S/ ${cpDesde(p, true).precio.toFixed(2)}</s>`
-        : "";
+    const tachado = dd
+  ? `<s style="color:#d1d5db;font-weight:600;margin-right:6px;font-size:11.5px;text-decoration-color:#fb7185;text-decoration-thickness:2px">S/ ${cpDesde(p, true).precio.toFixed(2)}</s>`
+  : "";
       precioHTML = `${tachado}${des.varia ? "Desde " : ""}S/ ${des.precio.toFixed(2)}`;
     }
 
@@ -9156,7 +9156,7 @@ function renderProductosCatalogo(_ignorado, localidad, id, aliasKey) {
 
     if (dd && !p.agotado) {
       const b = document.createElement("span");
-      b.textContent = `-${dd.pct}%`;
+b.textContent = `-${Math.round(dd.pct)}%`;
       b.style.cssText =
         "position:absolute;top:12px;left:12px;z-index:3;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;color:#fff;background:#e11d48;";
       row.appendChild(b);

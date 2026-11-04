@@ -3048,7 +3048,7 @@ function productoCard(p, index = 0) {
   if (descInfoCard) {
     const badge = document.createElement("span");
     badge.className = "prod-descuento-badge";
-    badge.textContent = `-${descInfoCard.porcentaje}%`;
+badge.textContent = `-${Math.round(descInfoCard.porcentaje)}%`;
     imgWrap.appendChild(badge);
   }
   const galeria =
@@ -3083,7 +3083,7 @@ function productoCard(p, index = 0) {
       ? p.precio * (1 - descInfoCard.porcentaje / 100)
       : p.precio;
   const precioHTML = descInfoCard
-    ? `<span class="text-gray-500 line-through text-[11px] mr-1.5">S/ ${precioTachado.toFixed(2)}</span>${preDesde}<span class="display font-extrabold text-[14px] sm:text-[15px]" style="color:#fb7185;">S/ ${precioFinalCard.toFixed(2)}</span>`
+    ? `<span style="color:#d1d5db;text-decoration:line-through;text-decoration-color:#fb7185;text-decoration-thickness:2px;font-size:11.5px;margin-right:6px;">S/ ${precioTachado.toFixed(2)}</span>${preDesde}<span class="display font-extrabold text-[14px] sm:text-[15px]" style="color:#fb7185;">S/ ${precioFinalCard.toFixed(2)}</span>`
     : `${preDesde}<span class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${precioFinalCard.toFixed(2)}</span>`;
 
 const nombreEl = document.createElement("p");
@@ -3437,6 +3437,18 @@ function calcPrecioFinal(p, seleccion) {
       const op = cond.opciones.find((o) => o.nombre === nombreOp);
       if (op && op.costoAdicional)
         precio += (Number(op.costoAdicional) || 0) * cant;
+    });
+  });
+  return +precio.toFixed(2);
+}
+// Precio SIN descuento (base + extras), para mostrarlo tachado
+function calcPrecioOriginal(p, seleccion) {
+  let precio = Number(p.precio) || 0;
+  if (!seleccion) return precio;
+  (p.condiciones || []).forEach((cond) => {
+    entradasDe(seleccion[cond.nombre]).forEach(([n, c]) => {
+      const op = cond.opciones.find((o) => o.nombre === n);
+      if (op?.costoAdicional) precio += (Number(op.costoAdicional) || 0) * c;
     });
   });
   return +precio.toFixed(2);
@@ -4549,10 +4561,10 @@ function descuentoVenceHTMLParaItem(it) {
     : "";
 }
 function lineaPrecioCarritoHTML(it, precioNum) {
-  if (it.precioOriginal) {
-    return `<span class="line-through text-gray-600">S/ ${it.precioOriginal.toFixed(2)}</span>
-      <span style="color:#fb7185;font-weight:700;"> -${it.descuentoPorcentaje}%</span>
-      → S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
+  if (it.precioOriginal && it.precioOriginal > precioNum) {
+    return `<span style="color:#d1d5db;font-weight:600;text-decoration:line-through;text-decoration-color:#fb7185;text-decoration-thickness:2px;">S/ ${it.precioOriginal.toFixed(2)}</span>
+      <span style="color:#fb7185;font-weight:800;"> -${Math.round(it.descuentoPorcentaje)}%</span>
+      → <span style="color:#fff;font-weight:800;">S/ ${precioNum.toFixed(2)}</span> c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
   }
   return `S/ ${precioNum.toFixed(2)} c/u = <span class="font-bold text-gray-300">S/ ${(it.cantidad * precioNum).toFixed(2)}</span>`;
 }
@@ -4877,7 +4889,7 @@ function renderCheckoutSummary() {
       <span>${it.cantidad}× ${it.nombre}${etiquetasTxt ? ` <span class="text-gray-500 text-[11px]">(${etiquetasTxt})</span>` : ""}
         ${detalle ? `<span class="block text-gray-500 text-[11px] mt-0.5">${detalle}</span>` : ""}
       </span>
-      <span>S/ ${(it.cantidad * it.precio).toFixed(2)}</span>
+<span>${it.precioOriginal && it.precioOriginal > it.precio ? `<s style="color:#d1d5db;font-size:11px;margin-right:6px;text-decoration-color:#fb7185;">S/ ${(it.cantidad * it.precioOriginal).toFixed(2)}</s>` : ""}S/ ${(it.cantidad * it.precio).toFixed(2)}</span>
     </div>`;
       })
       .join("") +

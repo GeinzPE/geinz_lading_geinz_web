@@ -1805,6 +1805,38 @@ document
       .getElementById("descuento-detalle")
       .classList.toggle("hidden", !e.target.checked);
   });
+
+  const inDescPrecio = document.getElementById("input-prod-precio");
+const inDescPct = document.getElementById("input-prod-descuento-porcentaje");
+const inDescFinal = document.getElementById("input-prod-descuento-precio");
+const lblDescCalculo = document.getElementById("descuento-calculo");
+
+function pintarCalculoDescuento() {
+  const base = parseFloat(inDescPrecio.value) || 0;
+  const pct = parseFloat(inDescPct.value) || 0;
+  if (!base || !pct) {
+    lblDescCalculo.textContent = "";
+    return;
+  }
+  const final = +(base * (1 - pct / 100)).toFixed(2);
+  lblDescCalculo.textContent = `Normal S/ ${base.toFixed(2)} → Ahora S/ ${final.toFixed(2)} · ahorras S/ ${(base - final).toFixed(2)} (-${Math.round(pct)}%)`;
+}
+function sincronizarDescuentoDesdePct() {
+  const base = parseFloat(inDescPrecio.value) || 0;
+  const pct = parseFloat(inDescPct.value) || 0;
+  inDescFinal.value = base && pct ? (base * (1 - pct / 100)).toFixed(2) : "";
+  pintarCalculoDescuento();
+}
+inDescFinal.addEventListener("input", () => {
+  const base = parseFloat(inDescPrecio.value) || 0;
+  const f = parseFloat(inDescFinal.value);
+  if (base > 0 && f >= 0 && f < base)
+    inDescPct.value = (((base - f) / base) * 100).toFixed(4);
+  else inDescPct.value = "";
+  pintarCalculoDescuento();
+});
+inDescPct.addEventListener("input", sincronizarDescuentoDesdePct);
+inDescPrecio.addEventListener("input", sincronizarDescuentoDesdePct);
 function chipCheck(texto, checked, onChange, title = "") {
   const l = document.createElement("label");
   l.className =
@@ -2297,6 +2329,9 @@ function abrirModalNuevoProducto(
   document.getElementById("input-prod-descuento-activo").checked = false;
   document.getElementById("descuento-detalle").classList.add("hidden");
   document.getElementById("input-prod-descuento-porcentaje").value = "";
+  inDescFinal.value = "";
+  sincronizarDescuentoDesdePct();
+lblDescCalculo.textContent = "";
   document.getElementById("input-descuento-duracion-cantidad").value = "";
   document.getElementById("input-descuento-duracion-unidad").value = "horas";
   document.getElementById("input-descuento-fecha-inicio").value = "";
@@ -2395,11 +2430,13 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   cargarRecetaEnModal(data.receta || null);
   document.getElementById("input-prod-descuento-activo").checked =
     !!data.descuento?.activo;
+
   document
     .getElementById("descuento-detalle")
     .classList.toggle("hidden", !data.descuento?.activo);
   document.getElementById("input-prod-descuento-porcentaje").value =
     data.descuento?.porcentaje ?? "";
+    sincronizarDescuentoDesdePct();
   descuentoDiasSeleccionados = data.descuento?.dias
     ? [...data.descuento.dias]
     : [];
@@ -2522,16 +2559,13 @@ document
     const descuentoActivoChk = document.getElementById(
       "input-prod-descuento-activo",
     ).checked;
-    const descuentoPorcentaje = Math.min(
-      99,
-      Math.max(
-        0,
-        parseInt(
-          document.getElementById("input-prod-descuento-porcentaje").value,
-          10,
-        ) || 0,
-      ),
-    );
+  const descuentoPorcentaje = Math.min(
+  99,
+  Math.max(
+    0,
+    +(parseFloat(document.getElementById("input-prod-descuento-porcentaje").value) || 0).toFixed(4),
+  ),
+);
 
     if (descuentoActivoChk && descuentoPorcentaje <= 0)
       return toast("Pon un porcentaje de descuento mayor a 0.", "error");
@@ -2870,7 +2904,7 @@ function renderProductoCard(categoriaId, productoId, data) {
   if (descuentoInfo) {
     const badge = document.createElement("div");
     badge.className = "prod-descuento-badge-admin";
-    badge.textContent = `-${descuentoInfo.porcentaje}%`;
+badge.textContent = `-${Math.round(descuentoInfo.porcentaje)}%`;
     imgWrap.appendChild(badge);
   }
   const cartBadge = document.createElement("div");
@@ -2954,14 +2988,14 @@ function renderProductoCard(categoriaId, productoId, data) {
     const promo = document.createElement("div");
     promo.className =
       "pc-promo rounded-lg bg-rose-950/40 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-200 leading-snug";
-    promo.innerHTML = `<strong class="font-bold">🏷️ -${descuentoInfo.porcentaje}% OFF</strong>
+promo.innerHTML = `<strong class="font-bold">🏷️ -${Math.round(descuentoInfo.porcentaje)}% OFF</strong>
       <span class="pc-promo-vig block text-[10px] text-rose-300/70 font-mono">${textoVigenciaDescuento(data.descuento, descuentoInfo)}</span>`;
     bottomSection.appendChild(promo);
   } else if (data.descuento?.activo && data.descuento.modo === "dias_semana") {
     const prog = document.createElement("div");
     prog.className =
       "pc-promo text-[10px] text-rose-300/50 font-mono leading-snug";
-    prog.textContent = `🏷️ -${data.descuento.porcentaje}% programado · ${textoVigenciaDescuento(data.descuento, {})}`;
+prog.textContent = `🏷️ -${Math.round(data.descuento.porcentaje)}% programado · ${textoVigenciaDescuento(data.descuento, {})}`;
     bottomSection.appendChild(prog);
   }
 
@@ -2976,7 +3010,7 @@ function renderProductoCard(categoriaId, productoId, data) {
     const precioFinal =
       Number(data.precio) * (1 - descuentoInfo.porcentaje / 100);
     precioEl.innerHTML = `
-      <span class="font-mono text-[11px] text-purple-400/50 line-through">S/ ${Number(data.precio).toFixed(2)}</span>
+<span class="font-mono text-[12px] text-purple-200/80 line-through decoration-rose-400 decoration-2">S/ ${Number(data.precio).toFixed(2)}</span>
       <span class="font-mono text-lg font-bold text-rose-300">S/ ${precioFinal.toFixed(2)}</span>`;
   } else {
     precioEl.innerHTML = `<span class="font-mono text-lg font-bold text-violet-300">S/ ${Number(data.precio).toFixed(2)}</span>`;
