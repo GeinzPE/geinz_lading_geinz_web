@@ -1,8 +1,7 @@
 import {
   getDoc, setDoc, getDocs, updateDoc, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-// Ajusta la ruta según dónde esté paths.js en tu proyecto
-import { registroCamposDoc, registradosCol } from "../rutas/rutas.js";
+import { registroCamposDoc, registradosCol, tiendaDoc, tiendaSubCol } from "../rutas/rutas.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -11,9 +10,7 @@ const $ = (id) => document.getElementById(id);
    Orden de búsqueda:
      1) ?id=...&localidad=... en la URL del iframe
      2) sessionStorage (tiendaId / localidad)
-     3) postMessage del panel padre (panel_perfil.js):
-        - responde a PEDIR_DATOS_TIENDA
-        - o lo envía solo con DATOS_TIENDA cuando termina de cargar
+     3) postMessage del panel padre (panel_perfil.js)
    ═══════════════════════════════════════════════════════════════ */
 let negocioId = null;
 let localidad = null;
@@ -44,7 +41,6 @@ function esperarContextoDelPadre(timeoutMs = 8000) {
     }
 
     window.addEventListener("message", onMsg);
-    // Por si el padre ya cargó antes que este iframe: se lo pedimos
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: "PEDIR_DATOS_TIENDA" }, window.location.origin);
     }
@@ -127,14 +123,12 @@ async function cargar() {
     const snap = await getDoc(ref);
 
     if (!snap.exists()) {
-      // Primera vez: se crea el doc con TODOS los campos (activos y apagados)
       await setDoc(ref, { ...DEFAULT, creado: serverTimestamp(), actualizado: serverTimestamp() });
     } else {
       const d = snap.data();
       Object.keys(DEFAULT).forEach((k) => {
         if (typeof d[k] === "boolean") estado[k] = d[k];
       });
-      // Si le falta alguna clave (por ejemplo "dni"), se completa
       const faltan = Object.keys(DEFAULT).some((k) => typeof d[k] !== "boolean");
       if (faltan) await setDoc(ref, { ...estado, actualizado: serverTimestamp() }, { merge: true });
     }
@@ -207,7 +201,6 @@ async function cargarRegistrados() {
 }
 
 // La página (usuarios.html) llama a esta función al confirmar Bloquear / Desbloquear.
-// Si lanza error, la página deja la fila como estaba y muestra el aviso.
 window.UsuariosUI = window.UsuariosUI || {};
 window.UsuariosUI.setBloqueo = async (uid, bloquear) => {
   const ref = refsUsuarios.get(uid);
@@ -228,6 +221,21 @@ window.UsuariosUI.setBloqueo = async (uid, bloquear) => {
     mostrarErrorContexto();
     return;
   }
+
+  // Datos del negocio para las campañas (alias, nombre)
+  window.UsuariosUI.rutas = { tiendaDoc, tiendaSubCol };
+  window.UsuariosUI.negocio = { localidad, id: negocioId, alias: "", nombre: "", carrito: true };
+  try {
+    const s = await getDoc(tiendaDoc(localidad, "tiendas", negocioId));
+    if (s.exists()) {
+      const b = s.data();
+      window.UsuariosUI.negocio.alias = b.alias_key || "";
+      window.UsuariosUI.negocio.nombre = b.nombre_tienda || b.nombre || "";
+    }
+  } catch (e) {
+    console.warn("[usuarios] no se pudo leer el negocio:", e.message);
+  }
+
   cargar();
   cargarRegistrados();
 })();
