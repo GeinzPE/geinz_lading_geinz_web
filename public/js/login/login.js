@@ -13,6 +13,7 @@ console.log(
 import {
   getAuth,
   GoogleAuthProvider,
+  FacebookAuthProvider, // 👈 NUEVO
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -49,6 +50,8 @@ import { app, db } from "../db/db.js";
 import { tiendaDoc, tokenFcmDoc, setUbicacion } from "../rutas/rutas.js";
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const fbProvider = new FacebookAuthProvider(); // 👈 NUEVO
+fbProvider.addScope("email"); // 👈 NUEVO
 const storage = getStorage(app);
 const messaging = getMessaging(app);
 
@@ -61,6 +64,7 @@ let GOOGLE_USER = null;
 let splashShown = false;
 let authProcesado = false;
 let modoRegistroGoogle = false;
+let tipoProveedor = "google"; // 👈 NUEVO: "google" | "facebook"
 const seleccionUbicacion = {
   socio: { dep: "", prov: "", dist: "" },
   selector: { dep: "", prov: "", dist: "" },
@@ -228,10 +232,8 @@ window.onRegPaisChange = (sel) => {
 };
 
 /* =========================================================
-   UBICACIÓN (departamento / provincia / distrito) — Firestore
-   Ruta: Tiendas/peru/departamento/{dep}/provincia/{prov}/distrito/{dist}
+   UBICACIÓN (departamento / provincia / distrito)
 ========================================================= */
-// ✅ PON esto en su lugar (mismo origen que ya funciona en el registro):
 const UBIGEO_BASE = "https://cdn.jsdelivr.net/gh/joseluisq/ubigeos-peru/json";
 let UBIGEO_DEPARTAMENTOS = [];
 let ubigeoProvinciasDe = () => [];
@@ -299,7 +301,6 @@ async function obtenerDistritos(depId, provId) {
  * Inicializa los 3 selects en cascada (Departamento -> Provincia -> Distrito)
  * prefix = "socio"    -> ids: socioDepartamento / socioProvincia / socioDistrito
  * prefix = "selector" -> ids: selectorDepartamento / selectorProvincia / selectorDistrito
- *
  */
 const slugify = (t) =>
   String(t || "")
@@ -399,39 +400,6 @@ async function inicializarSelectoresUbicacion(prefix) {
   };
 
   selProv.onchange = async () => {
-    const o = selProv.options[selProv.selectedIndex];
-    Object.assign(seleccionUbicacion[prefix], {
-      provId: selProv.value,
-      prov: slugify(o.textContent),
-      dist: "",
-    });
-    selDist.disabled = true;
-    selDist.innerHTML = `<option value="" disabled selected hidden>Cargando...</option>`;
-    setCoolSelectLoading(selDist, true);
-    try {
-      const distritos = await obtenerDistritos(
-        seleccionUbicacion[prefix].depId,
-        seleccionUbicacion[prefix].provId,
-      );
-      selDist.innerHTML =
-        `<option value="" disabled selected hidden>Selecciona</option>` +
-        distritos
-          .map((d) => `<option value="${d.id}">${d.nombre}</option>`)
-          .join("");
-      selDist.disabled = false;
-    } catch (err) {
-      console.error("Error cargando distritos:", err);
-      selDist.innerHTML = `<option value="" disabled selected hidden>Error al cargar</option>`;
-    } finally {
-      setCoolSelectLoading(selDist, false);
-    }
-  };
-
-  selDist.onchange = () => {
-    const o = selDist.options[selDist.selectedIndex];
-    seleccionUbicacion[prefix].dist = slugify(o.textContent);
-  };
-  selProv.onchange = async () => {
     const oProv = selProv.options[selProv.selectedIndex];
     seleccionUbicacion[prefix].provId = selProv.value;
     seleccionUbicacion[prefix].prov = slugify(oProv.textContent);
@@ -441,7 +409,7 @@ async function inicializarSelectoresUbicacion(prefix) {
     setCoolSelectLoading(selDist, true);
     try {
       const distritos = await obtenerDistritos(
-        seleccionUbicacion[prefix].dep,
+        seleccionUbicacion[prefix].depId,
         selProv.value,
       );
       selDist.innerHTML =
@@ -457,15 +425,6 @@ async function inicializarSelectoresUbicacion(prefix) {
       setCoolSelectLoading(selDist, false);
     }
   };
-
-  function slugify(texto) {
-    return texto
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // quita tildes
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "-"); // espacios -> guiones
-  }
 
   selDist.onchange = () => {
     const opt = selDist.options[selDist.selectedIndex];
@@ -692,7 +651,7 @@ window.openRegisterModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("registerModal").classList.add("active");
   cargarPaises();
-  cargarPaisesEdit("regPaisTel"); // 👈 llena el select de país del teléfono
+  cargarPaisesEdit("regPaisTel"); // llena el select de país del teléfono
   inicializarSelectoresUbicacion("reg");
   upgradeAllCoolSelects(document.getElementById("registerModal"));
   const fechaInput = document.getElementById("regFechaNac");
@@ -702,7 +661,7 @@ window.openSocioModal = () => {
   document.body.classList.add("blur-active");
   document.getElementById("socioModal").classList.add("active");
   inicializarSelectoresUbicacion("socio");
-  upgradeAllCoolSelects(document.getElementById("socioModal")); // 👈
+  upgradeAllCoolSelects(document.getElementById("socioModal"));
 };
 
 window.closeModal = (id) => {
@@ -744,6 +703,13 @@ async function procesarLoginGoogle(user) {
   authProcesado = true;
   GOOGLE_USER = user;
 
+  // 👇 NUEVO: detectar con qué proveedor social entró (google / facebook)
+  const pid =
+    user.providerData?.find(
+      (p) => p.providerId === "facebook.com" || p.providerId === "google.com",
+    )?.providerId || user.providerData?.[0]?.providerId;
+  tipoProveedor = pid === "facebook.com" ? "facebook" : "google";
+
   const userRef = doc(
     db,
     "Trabajadores_Usuarios_Drivers",
@@ -754,13 +720,12 @@ async function procesarLoginGoogle(user) {
   const snap = await getDoc(userRef);
 
   if (snap.exists()) {
-    // Ya tiene perfil guardado → directo al splash, sin pedir nada.
     // Ya tiene perfil guardado → directo, sin pedir nada.
     entrar(user);
     return;
   }
 
-  // Ya está autenticado con Google, pero le falta completar su perfil.
+  // Ya está autenticado, pero le falta completar su perfil.
   document.getElementById("authChecking")?.classList.add("hidden");
   document.getElementById("mainUI").style.display = "flex";
   abrirCompletarPerfilGoogle(user);
@@ -770,7 +735,7 @@ function abrirCompletarPerfilGoogle(user) {
   modoRegistroGoogle = true;
   openRegisterModal();
 
-  // Prellenar con los datos que ya trae Google
+  // Prellenar con los datos que ya trae Google / Facebook
   const partes = (user.displayName || "").trim().split(" ");
   const nombre = partes[0] || "";
   const apellido = partes.slice(1).join(" ") || "";
@@ -783,7 +748,8 @@ function abrirCompletarPerfilGoogle(user) {
   if (elApellido) elApellido.value = apellido;
   if (elCorreo) {
     elCorreo.value = user.email || "";
-    elCorreo.readOnly = true; // ya viene validado por Google, no se edita
+    // Facebook a veces NO devuelve correo: solo se bloquea si ya viene
+    elCorreo.readOnly = !!user.email;
   }
 
   // Ocultar el bloque de contraseñas: no aplica, ya está autenticado
@@ -820,7 +786,7 @@ window.loginGoogle = async () => {
     }
     if (err.code === "auth/account-exists-with-different-credential") {
       showSnackbar(
-        "⚠️ Ese correo ya tiene una cuenta creada con contraseña. Inicia sesión con correo y contraseña.",
+        "⚠️ Ese correo ya tiene una cuenta creada con otro método. Inicia sesión con ese método.",
         "warning",
       );
       return;
@@ -828,6 +794,45 @@ window.loginGoogle = async () => {
     showSnackbar("❌ Error al iniciar sesión con Google", "error");
   }
 };
+
+/* =========================================================
+   LOGIN FACEBOOK  👈 NUEVO
+========================================================= */
+window.loginFacebook = async () => {
+  try {
+    if (esMobile()) {
+      await signInWithRedirect(auth, fbProvider);
+      return; // el resultado se procesa en getRedirectResult() al volver
+    }
+
+    const result = await signInWithPopup(auth, fbProvider);
+    await procesarLoginGoogle(result.user);
+  } catch (err) {
+    console.error(err);
+    if (
+      err.code === "auth/popup-closed-by-user" ||
+      err.code === "auth/cancelled-popup-request"
+    ) {
+      return; // el usuario canceló, no muestres error
+    }
+    if (err.code === "auth/account-exists-with-different-credential") {
+      showSnackbar(
+        "⚠️ Ese correo ya tiene una cuenta con otro método (Google o contraseña). Inicia sesión con ese método.",
+        "warning",
+      );
+      return;
+    }
+    if (err.code === "auth/popup-blocked") {
+      showSnackbar(
+        "⚠️ Tu navegador bloqueó la ventana. Permite los popups e intenta de nuevo.",
+        "warning",
+      );
+      return;
+    }
+    showSnackbar("❌ Error al iniciar sesión con Facebook", "error");
+  }
+};
+
 window.openForgotPassword = async () => {
   const correo = document
     .getElementById("loginEmail")
@@ -998,13 +1003,22 @@ window.submitRegister = async (event) => {
     setError("errPais", "Selecciona tu nacionalidad.");
     ok = false;
   }
+
+  // 👇 CAMBIADO: en modo Google/Facebook se acepta cualquier correo válido;
+  //    en registro normal se exige @gmail.com
   if (!correo) {
     setError("errCorreo", "Ingresa tu correo electrónico.");
     ok = false;
+  } else if (modoRegistroGoogle) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+      setError("errCorreo", "Ingresa un correo válido.");
+      ok = false;
+    }
   } else if (!/^[^\s@]+@gmail\.com$/.test(correo)) {
     setError("errCorreo", "Solo se permiten correos @gmail.com.");
     ok = false;
   }
+
   if (!modoRegistroGoogle) {
     if (!pass1 || pass1.length < 8) {
       setError("errPass", "La contraseña debe tener al menos 8 caracteres.");
@@ -1047,16 +1061,16 @@ window.submitRegister = async (event) => {
     let tipoLogin;
 
     if (modoRegistroGoogle) {
-      // Ya está autenticado con Google — no crear otra cuenta, solo usar la que ya existe.
+      // Ya está autenticado con Google/Facebook — no crear otra cuenta, solo usar la que ya existe.
       if (!GOOGLE_USER) {
         showSnackbar(
-          "❌ No se encontró tu sesión de Google. Vuelve a intentar el login.",
+          "❌ No se encontró tu sesión. Vuelve a intentar el login.",
           "error",
         );
         return;
       }
       newUser = GOOGLE_USER;
-      tipoLogin = "google";
+      tipoLogin = tipoProveedor; // 👈 CAMBIADO: antes era "google" fijo
     } else {
       // Registro tradicional por correo/contraseña
       const correosRef = collection(
@@ -1216,12 +1230,15 @@ window.checkEmailExists = async () => {
       return;
     }
     const tipoLogin = snap.docs[0].data().tipo;
-    if (tipoLogin === "google") {
+
+    // 👇 CAMBIADO: ahora maneja google Y facebook
+    if (tipoLogin === "google" || tipoLogin === "facebook") {
+      const esFb = tipoLogin === "facebook";
       errorEl.innerHTML = `
-      <span>🔒 Esta cuenta fue creada con Google.</span><br>
-      <button class="link-btn-inline" onclick="loginGoogle()">
-        Continuar con Google
-      </button>`;
+        <span>🔒 Esta cuenta fue creada con ${esFb ? "Facebook" : "Google"}.</span><br>
+        <button class="link-btn-inline" onclick="${esFb ? "loginFacebook()" : "loginGoogle()"}">
+          Continuar con ${esFb ? "Facebook" : "Google"}
+        </button>`;
       return;
     }
 
@@ -1548,9 +1565,9 @@ async function prepararFormularioVincular() {
 async function showSplash(user) {
   if (splashShown) return;
   splashShown = true;
-  gestionarPermisoNotificaciones(user.uid); // decide si pide permiso o pasa directo // se dispara en paralelo, no bloquea el splash
+  gestionarPermisoNotificaciones(user.uid); // decide si pide permiso o pasa directo
 
-  // 👇 Ocultamos authChecking JUSTO AQUÍ, cuando splashScreen toma el relevo.
+  // Ocultamos authChecking JUSTO AQUÍ, cuando splashScreen toma el relevo.
   document.getElementById("authChecking")?.classList.add("hidden");
 
   document.getElementById("mainUI").style.display = "none";
@@ -1570,10 +1587,12 @@ async function showSplash(user) {
   await delay(700);
 
   const data = snap.exists() ? snap.data() : {};
-  window._perfilActual = data; // 👈 nuevo: usado para precargar el modal de edición
+  window._perfilActual = data; // usado para precargar el modal de edición
   const nombre = data.nombre || user.displayName || "Usuario";
   const apellido = data.apellido || "";
-  const username = data.nombre_user || "@" + user.email.split("@")[0];
+  // 👇 CAMBIADO: Facebook puede no traer correo, evitamos el error
+  const username =
+    data.nombre_user || "@" + (user.email?.split("@")[0] || "usuario");
 
   document.getElementById("wName").textContent = apellido
     ? `${nombre} ${apellido}`
@@ -1581,7 +1600,7 @@ async function showSplash(user) {
   document.getElementById("wUser").textContent = username;
   document.getElementById("wPoints").textContent = data.puntos ?? 500;
 
-  // 👇 nuevo: mostrar el teléfono actual
+  // mostrar el teléfono actual
   const wPhoneEl = document.getElementById("wPhone");
   if (wPhoneEl) {
     const codTel = data.contacto?.cod_telefonico || "+51";
@@ -1605,7 +1624,7 @@ async function showSplash(user) {
       fotoUrl = await subirYGuardarAvatar(user.uid, blob);
       if (avatarImg) avatarImg.src = fotoUrl;
     } catch (err) {
-      console.warn("No se pudo optimizar/guardar la foto de Google:", err);
+      console.warn("No se pudo optimizar/guardar la foto de Google/Facebook:", err);
     } finally {
       avatarWrap?.classList.remove("is-uploading");
     }
@@ -1718,7 +1737,7 @@ async function abrirPantallaSocio() {
   document.getElementById("splashScreen").style.display = "none";
   document.getElementById("selectorSocioScreen").classList.add("active");
   await inicializarSelectoresUbicacion("selector");
-  upgradeAllCoolSelects(document.getElementById("selectorSocioScreen")); // 👈
+  upgradeAllCoolSelects(document.getElementById("selectorSocioScreen"));
 }
 /* =========================================================
    CONTINUAR PANEL (desde selectorSocioScreen)
@@ -1756,9 +1775,6 @@ window.continuarPanel = async () => {
     );
 
     const snap = await getDoc(tiendaRef);
-
-    if (snap.exists()) {
-    }
 
     if (!snap.exists()) {
       showSnackbar(
@@ -1819,7 +1835,7 @@ window.accederSocio = async () => {
     sessionStorage.setItem("localidad", dist);
 
     const rutaFinal = `./../../dasboard/panel_perfil.html?id=${encodeURIComponent(idTienda)}&departamento=${dep}&provincia=${prov}&localidad=${dist}`;
-    console.log("[accederSocio] Redirigiendo a:", rutaFinal); // 👈 log agregado
+    console.log("[accederSocio] Redirigiendo a:", rutaFinal);
 
     window.location.href = rutaFinal;
   } catch (err) {
@@ -1870,7 +1886,7 @@ window.openEditProfileModal = () => {
   document.getElementById("editTelefono").value =
     window._perfilActual?.contacto?.numero_user || "";
 
-  // 👇 nuevo: precargar el país actual guardado en Firestore
+  // precargar el país actual guardado en Firestore
   const codPaisActual = window._perfilActual?.cod_pais || "pe";
   const paisSelect = document.getElementById("editPais");
   if (paisSelect) {
@@ -1981,7 +1997,7 @@ window.submitEditProfile = async (event) => {
       };
     }
 
-    // 👇 reflejar el teléfono y país actualizados en pantalla al instante
+    // reflejar el teléfono y país actualizados en pantalla al instante
     const wPhoneEl = document.getElementById("wPhone");
     if (wPhoneEl) {
       wPhoneEl.textContent = `${codTelefonico} ${telefono}`;
@@ -2011,6 +2027,9 @@ window.validarCorreoGmail = (input) => {
   errorEl.style.display = "none";
   hintEl.style.display = "none";
 
+  // 👇 NUEVO: con Google/Facebook se acepta cualquier correo, no mostrar error de @gmail.com
+  if (modoRegistroGoogle) return;
+
   if (!val) return;
 
   if (val.includes("@") && !val.endsWith("@gmail.com")) {
@@ -2038,12 +2057,11 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   if (acText) acText.textContent = "Sesión encontrada, cargando perfil...";
-  // 👇 YA NO se oculta authChecking aquí. Se oculta solo cuando sabemos
-  // exactamente a dónde va el usuario (splash o registro).
+  // authChecking se oculta solo cuando sabemos exactamente a dónde va el usuario (splash o registro).
   await procesarLoginGoogle(user);
 });
 /* =========================================================
-   RESULTADO DE REDIRECT (login Google en móvil)
+   RESULTADO DE REDIRECT (login Google / Facebook en móvil)
 ========================================================= */
 getRedirectResult(auth)
   .then(async (result) => {
@@ -2052,8 +2070,15 @@ getRedirectResult(auth)
     }
   })
   .catch((err) => {
-    console.error("Error en redirect de Google:", err);
-    showSnackbar("❌ Error al iniciar sesión con Google", "error");
+    console.error("Error en redirect:", err);
+    if (err?.code === "auth/account-exists-with-different-credential") {
+      showSnackbar(
+        "⚠️ Ese correo ya tiene una cuenta con otro método (Google o contraseña). Inicia sesión con ese método.",
+        "warning",
+      );
+      return;
+    }
+    showSnackbar("❌ Error al iniciar sesión", "error");
   });
 
 /* =========================================================
