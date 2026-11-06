@@ -16,8 +16,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
   deleteObject,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 import { db, storage } from "../db/db.js";
@@ -44,6 +42,7 @@ const PLAN_PRODUCTOS = {
 let CARTA_MAX_COLECCIONES = 5;
 let CARTA_MAX_FOTOS = 5;
 let ADIC_MAX = 5;
+let sugerenciasSeleccionadas = [];
 const _nodo = (obj, ruta) => ruta.split(".").reduce((o, k) => o?.[k], obj);
 const _on = (v, def) => (v === undefined ? def : v === true);
 const _flag = (s, ruta, def = false) => _on(_nodo(s, ruta), def);
@@ -1134,11 +1133,6 @@ function llenarSelectCategorias() {
     llenarSelectCategorias();
   });
 });
-document
-  .getElementById("scan-categoria")
-  .addEventListener("change", (e) =>
-    sessionStorage.setItem("scanCategoria", e.target.value),
-  );
 
 function abrirScanner(modo) {
   scanModo = modo;
@@ -1314,8 +1308,7 @@ function askConfirm(title, body, onConfirm) {
   openOverlay("overlay-confirm");
 }
 
-// FIX: el botón de confirmar ahora muestra spinner mientras elimina,
-// y se re-habilita siempre (antes se quedaba "colgado" si el callback tardaba o el modal se cerraba a medias).
+// El botón de confirmar muestra spinner mientras elimina y se re-habilita siempre.
 document
   .getElementById("btn-confirm-action")
   .addEventListener("click", async () => {
@@ -1473,15 +1466,18 @@ document
   .getElementById("btn-nueva-categoria-empty")
   ?.addEventListener("click", () => openOverlay("overlay-categoria"));
 
-// FIX PRINCIPAL #1: antes se usaba addDoc(), que SIEMPRE genera un ID aleatorio (ej. "sLQckf102FhuO4MUIXP5").
-// Ahora usamos setDoc(doc(categoriasRef, nombre), ...) para que el ID del documento sea
-// exactamente el nombre que escribes (igual que tus categorías "Entradas" o "Postres" creadas a mano).
-// También se valida que no exista ya una categoría con ese nombre, y se muestra spinner mientras guarda.
+// El ID del documento de la categoría es exactamente el nombre que escribes.
+// Se valida que no exista ya una categoría con ese nombre y se muestra spinner mientras guarda.
 const formProducto = document.getElementById("form-producto");
 formProducto.noValidate = true; // sin esto, un campo oculto con required/min/step cancela el guardado sin error
 formProducto.addEventListener(
   "invalid",
-  (e) => console.warn("Campo inválido:", e.target.id || e.target.name, e.target.validationMessage),
+  (e) =>
+    console.warn(
+      "Campo inválido:",
+      e.target.id || e.target.name,
+      e.target.validationMessage,
+    ),
   true,
 );
 document
@@ -1581,6 +1577,7 @@ function datosParaPerfil(categoriaId, productoId, d) {
       max: Number(c.max) > 0 ? Number(c.max) : null,
       opciones: (c.opciones || []).map(limpiarOp),
     })),
+    sugerencias: Array.isArray(d.sugerencias) ? d.sugerencias : [],
     descuento: d.descuento || null,
     stock: typeof d.stock === "number" ? d.stock : null,
     disponible: d.disponible !== false,
@@ -1806,7 +1803,7 @@ document
       .classList.toggle("hidden", !e.target.checked);
   });
 
-  const inDescPrecio = document.getElementById("input-prod-precio");
+const inDescPrecio = document.getElementById("input-prod-precio");
 const inDescPct = document.getElementById("input-prod-descuento-porcentaje");
 const inDescFinal = document.getElementById("input-prod-descuento-precio");
 const lblDescCalculo = document.getElementById("descuento-calculo");
@@ -2039,7 +2036,7 @@ function renderCondiciones() {
       <span class="flex-1 text-[9px] font-mono uppercase tracking-wider text-purple-400/40">Opción</span>
       <span class="w-16 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Costo extra</span>
       <span class="w-14 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Stock</span>
-      <span class="w-9 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Activo</span>
+      <span class="w-9 text-[9px] font-mono uppercase tracking-wider text-purple-400/40 text-center">Hay</span>
       <span class="w-6"></span>`;
     box.appendChild(colHeaders);
 
@@ -2191,6 +2188,35 @@ function renderCondiciones() {
   sincronizarSwitchesDesdeGrupos();
   validarConsistenciaStock();
 }
+function renderSugerencias() {
+  let wrap = document.getElementById("sugerencias-wrap");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "sugerencias-wrap";
+    wrap.className =
+      "mt-4 rounded-xl bg-[#05040a] border border-purple-900/30 p-3";
+       document.getElementById("condiciones-container").after(wrap);
+  }
+  wrap.innerHTML = `
+    <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1">También puedes agregar</p>
+    <p class="text-[11px] text-purple-300/50 mb-2">Al agregar este producto, el cliente verá productos de estas secciones.</p>
+    <div data-sug-chips class="flex flex-wrap gap-2"></div>`;
+  const chips = wrap.querySelector("[data-sug-chips]");
+  let hay = false;
+  categoriasLista.forEach((nombre, id) => {
+    if (id === categoriaActivaParaProducto) return;
+    hay = true;
+    chips.appendChild(
+      chipCheck(nombre, sugerenciasSeleccionadas.includes(id), (v) => {
+        sugerenciasSeleccionadas = v
+          ? [...new Set([...sugerenciasSeleccionadas, id])]
+          : sugerenciasSeleccionadas.filter((x) => x !== id);
+      }),
+    );
+  });
+  if (!hay)
+    chips.innerHTML = `<span class="text-[11px] italic text-purple-300/40">Crea otras secciones para poder sugerirlas.</span>`;
+}
 document.getElementById("btn-add-condicion").addEventListener("click", () => {
   if (condicionesSeleccionadas.length >= PLAN_PRODUCTOS.maxVariantes) return;
   const m = document.getElementById("input-prod-variantes-multiples").checked;
@@ -2331,7 +2357,7 @@ function abrirModalNuevoProducto(
   document.getElementById("input-prod-descuento-porcentaje").value = "";
   inDescFinal.value = "";
   sincronizarDescuentoDesdePct();
-lblDescCalculo.textContent = "";
+  lblDescCalculo.textContent = "";
   document.getElementById("input-descuento-duracion-cantidad").value = "";
   document.getElementById("input-descuento-duracion-unidad").value = "horas";
   document.getElementById("input-descuento-fecha-inicio").value = "";
@@ -2344,6 +2370,8 @@ lblDescCalculo.textContent = "";
   cargarRecetaEnModal(null);
   aplicarTextosPorCategoria();
   renderImgDropSlots();
+  sugerenciasSeleccionadas = [];
+  renderSugerencias();
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
   activarTabProducto(tabInicialProducto());
@@ -2436,7 +2464,7 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
     .classList.toggle("hidden", !data.descuento?.activo);
   document.getElementById("input-prod-descuento-porcentaje").value =
     data.descuento?.porcentaje ?? "";
-    sincronizarDescuentoDesdePct();
+  sincronizarDescuentoDesdePct();
   descuentoDiasSeleccionados = data.descuento?.dias
     ? [...data.descuento.dias]
     : [];
@@ -2454,6 +2482,10 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   setDescuentoModo(data.descuento?.modo || "dias_semana");
   aplicarTextosPorCategoria();
   renderImgDropSlots();
+  sugerenciasSeleccionadas = Array.isArray(data.sugerencias)
+    ? [...data.sugerencias]
+    : [];
+  renderSugerencias();
   renderCondiciones();
   actualizarVisibilidadCantidadPorOpcion();
   activarTabProducto(tabInicialProducto());
@@ -2490,8 +2522,7 @@ document
     const disponibleHasta =
       document.getElementById("input-prod-horario-hasta").value || null;
 
-    // Solo tiene sentido si "múltiples" está activo; si no, se fuerza a false por consistencia
-    // se fuerza el producto a Agotado sin importar el switch manual de "Disponible".
+    // Con auto-desactivar y stock 0, el producto pasa a Agotado sin importar el switch manual de "Disponible".
     if (autoDesactivar && stock === 0) disponible = false;
     if (!nombre || isNaN(precio))
       return toast("Completa el nombre y el precio.", "error");
@@ -2544,9 +2575,15 @@ document
     // Compatibilidad con páginas antiguas que aún leen los flags globales
     // Con grupos: manda lo configurado en cada grupo (ya está sincronizado con los switches).
     // Sin grupos: manda el switch global.
-    const swMulti = document.getElementById("input-prod-variantes-multiples").checked;
-    const swOblig = document.getElementById("input-prod-variante-obligatoria").checked;
-    const swCant = document.getElementById("input-prod-variantes-cantidad").checked;
+    const swMulti = document.getElementById(
+      "input-prod-variantes-multiples",
+    ).checked;
+    const swOblig = document.getElementById(
+      "input-prod-variante-obligatoria",
+    ).checked;
+    const swCant = document.getElementById(
+      "input-prod-variantes-cantidad",
+    ).checked;
     const variantesMultiples = condiciones.length
       ? condiciones.some((c) => c.tipo === "multiple")
       : swMulti;
@@ -2559,13 +2596,17 @@ document
     const descuentoActivoChk = document.getElementById(
       "input-prod-descuento-activo",
     ).checked;
-  const descuentoPorcentaje = Math.min(
-  99,
-  Math.max(
-    0,
-    +(parseFloat(document.getElementById("input-prod-descuento-porcentaje").value) || 0).toFixed(4),
-  ),
-);
+    const descuentoPorcentaje = Math.min(
+      99,
+      Math.max(
+        0,
+        +(
+          parseFloat(
+            document.getElementById("input-prod-descuento-porcentaje").value,
+          ) || 0
+        ).toFixed(4),
+      ),
+    );
 
     if (descuentoActivoChk && descuentoPorcentaje <= 0)
       return toast("Pon un porcentaje de descuento mayor a 0.", "error");
@@ -2643,6 +2684,10 @@ document
     const costoUnitarioGuardar = recetaGuardar
       ? +calcReceta(recetaGuardar).cost.toFixed(4)
       : null;
+    // Solo se guardan sugerencias que sigan siendo secciones existentes
+    const sugerencias = sugerenciasSeleccionadas.filter((id) =>
+      categoriasLista.has(id),
+    );
     const btn = document.getElementById("btn-guardar-producto");
     const label = document.getElementById("btn-guardar-producto-label");
     const originalText = label.textContent;
@@ -2687,7 +2732,7 @@ document
           const url = await subirImagenComprimida(path, file, OPC_PRODUCTO);
           subidas.push({ url, path });
         }
-        enlazarImagenesNuevasAOpciones(pendientesImg, nuevas, subidas); // ← AGREGAR
+        enlazarImagenesNuevasAOpciones(pendientesImg, nuevas, subidas);
         await updateDoc(docRef, {
           nombre,
           descripcion,
@@ -2704,6 +2749,7 @@ document
           variantesMultiples,
           variantesConCantidad,
           descuento,
+          sugerencias,
           imagenes: [...conservadas, ...subidas],
           codigo_barras: codigoEdit,
           receta: recetaGuardar,
@@ -2720,6 +2766,7 @@ document
             condiciones,
             stock,
             descuento,
+            sugerencias,
             imagenes: [...conservadas, ...subidas],
           },
         );
@@ -2762,6 +2809,7 @@ document
           variantesMultiples,
           variantesConCantidad,
           descuento,
+          sugerencias,
           imagenes: [],
           createdAt: serverTimestamp(),
           codigo_barras: codigoFinal,
@@ -2900,11 +2948,11 @@ function renderProductoCard(categoriaId, productoId, data) {
     imgEl.onerror = () => imgEl.classList.add("is-broken");
     imgWrap.appendChild(imgEl);
   }
-  // FIX: el badge se agrega DESPUÉS del innerHTML (antes se borraba)
+  // El badge se agrega DESPUÉS del innerHTML (antes se borraba)
   if (descuentoInfo) {
     const badge = document.createElement("div");
     badge.className = "prod-descuento-badge-admin";
-badge.textContent = `-${Math.round(descuentoInfo.porcentaje)}%`;
+    badge.textContent = `-${Math.round(descuentoInfo.porcentaje)}%`;
     imgWrap.appendChild(badge);
   }
   const cartBadge = document.createElement("div");
@@ -2988,14 +3036,14 @@ badge.textContent = `-${Math.round(descuentoInfo.porcentaje)}%`;
     const promo = document.createElement("div");
     promo.className =
       "pc-promo rounded-lg bg-rose-950/40 border border-rose-500/30 px-2.5 py-1.5 text-[11px] text-rose-200 leading-snug";
-promo.innerHTML = `<strong class="font-bold">🏷️ -${Math.round(descuentoInfo.porcentaje)}% OFF</strong>
+    promo.innerHTML = `<strong class="font-bold">🏷️ -${Math.round(descuentoInfo.porcentaje)}% OFF</strong>
       <span class="pc-promo-vig block text-[10px] text-rose-300/70 font-mono">${textoVigenciaDescuento(data.descuento, descuentoInfo)}</span>`;
     bottomSection.appendChild(promo);
   } else if (data.descuento?.activo && data.descuento.modo === "dias_semana") {
     const prog = document.createElement("div");
     prog.className =
       "pc-promo text-[10px] text-rose-300/50 font-mono leading-snug";
-prog.textContent = `🏷️ -${Math.round(data.descuento.porcentaje)}% programado · ${textoVigenciaDescuento(data.descuento, {})}`;
+    prog.textContent = `🏷️ -${Math.round(data.descuento.porcentaje)}% programado · ${textoVigenciaDescuento(data.descuento, {})}`;
     bottomSection.appendChild(prog);
   }
 
@@ -3030,7 +3078,6 @@ prog.textContent = `🏷️ -${Math.round(data.descuento.porcentaje)}% programad
     priceRow.appendChild(stockEl);
   }
 
-  // MARGEN (solo si el producto tiene receta)
   // MARGEN (si el producto tiene receta base o recetas en sus variantes)
   let margenEl = null;
   if (tieneReceta(data)) {
@@ -3165,7 +3212,7 @@ const emptyGlobal = document.getElementById("empty-global");
 const emptySearch = document.getElementById("empty-search");
 const categoriaListeners = {};
 
-// FIX #4 (escalabilidad): en vez de traer TODOS los productos de una categoría de golpe
+// Escalabilidad: en vez de traer TODOS los productos de una categoría de golpe
 // (lo cual se vuelve lento con miles de productos), se pide un límite inicial y se agrega
 // un botón "Cargar más" que amplía el límite bajo demanda.
 const PRODUCTOS_POR_PAGINA = 60;

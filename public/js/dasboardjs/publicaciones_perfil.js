@@ -59,6 +59,8 @@ function pedirDatos(intento = 0) {
 pedirDatos();
 
 // ══════════════ UTILIDADES ══════════════
+// Comprime y exporta a JPG (compatible con plantillas de WhatsApp).
+// JPG no tiene transparencia: se rellena de blanco para evitar fondos negros.
 function comprimirImagen(dataURL, maxPx, calidad) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -76,8 +78,11 @@ function comprimirImagen(dataURL, maxPx, calidad) {
       const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/webp", calidad));
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", calidad));
     };
     img.onerror = () => reject(new Error("No se pudo leer imagen"));
     img.src = dataURL;
@@ -473,16 +478,19 @@ document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
     try {
       const comprimida = await comprimirImagen(ev.target.result, 1280, 0.85);
       const blob = dataURLtoBlob(comprimida);
-      const ref = storageRef(
-        storage,
-        `tiendas/${TIENDA_ID}/banner/banner.webp`,
-      );
-      await uploadBytes(ref, blob, { contentType: "image/webp" });
+      const ref = storageRef(storage, `tiendas/${TIENDA_ID}/banner/banner.jpg`);
+      await uploadBytes(ref, blob, { contentType: "image/jpeg" });
       const url = await getDownloadURL(ref);
       await updateDoc(TIENDA_REF, {
         "banner.imagen": url,
         "banner.activo": true,
       });
+      // Si había un banner viejo en WebP, se limpia (no importa si no existe)
+      try {
+        await deleteObject(
+          storageRef(storage, `tiendas/${TIENDA_ID}/banner/banner.webp`),
+        );
+      } catch {}
       mostrarToast("La imagen se subió correctamente");
       await cargarBanner();
     } catch (err) {
@@ -501,7 +509,7 @@ document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
 
 // ══════════════ OFERTAS ══════════════
 let ofertasCache = {};
-const maxOfertas = () => window.GEINZ_PLAN?.maxOfertas ?? 5;
+const maxOfertas = () => window.GEINZ_PLAN?.maxOfertas ?? 50;
 let subiendoOferta = false;
 
 async function cargarOfertas(intento = 0) {
@@ -585,6 +593,8 @@ async function guardarOferta(key, cambios) {
   if (!String(nuevo.descripcion || "").trim())
     throw new Error("DESCRIPCION_REQUERIDA");
   if (!(Number(nuevo.precio) > 0)) throw new Error("PRECIO_REQUERIDO");
+  if (nuevo.combo?.total && Number(nuevo.precio) >= Number(nuevo.combo.total))
+    throw new Error("PRECIO_COMBO_INVALIDO");
 
   await updateDoc(TIENDA_REF, {
     [`img_tienda.lista_img.promociones.${key}`]: nuevo,
@@ -614,7 +624,7 @@ function renderOfertas(map) {
         <span class="of-price-tag vacio" data-role="tag">Sin precio</span>
       </div>
       <div class="of-body">
-        <textarea class="of-desc" data-role="desc" rows="2" maxlength="80" placeholder="Descripción corta (obligatoria)"></textarea>
+        <textarea class="of-desc" data-role="desc" rows="3" maxlength="500" placeholder="Descripción (obligatoria)"></textarea>
                 <div class="of-dias" data-role="dias"></div>
         <div class="of-price" data-role="price-box">
           <span>S/</span>
@@ -639,7 +649,10 @@ function renderOfertas(map) {
       const sel = normalizarOferta(ofertasCache[key]).dias || [];
       diasBox.innerHTML =
         `<span class="of-dias-lbl">${sel.length ? "Se muestra estos días:" : "Se muestra todos los días"}</span>` +
-        GEN_DIAS.map(([d, l]) => `<span class="of-dia ${sel.includes(d) ? "on" : ""}" data-dia="${d}">${l}</span>`).join("");
+        GEN_DIAS.map(
+          ([d, l]) =>
+            `<span class="of-dia ${sel.includes(d) ? "on" : ""}" data-dia="${d}">${l}</span>`,
+        ).join("");
     };
     pintarDias();
     diasBox.addEventListener("click", async (e) => {
@@ -647,14 +660,19 @@ function renderOfertas(map) {
       if (!b) return;
       const actual = normalizarOferta(ofertasCache[key]);
       const set = new Set(actual.dias || []);
-      set.has(b.dataset.dia) ? set.delete(b.dataset.dia) : set.add(b.dataset.dia);
+      set.has(b.dataset.dia)
+        ? set.delete(b.dataset.dia)
+        : set.add(b.dataset.dia);
       const arr = GEN_DIAS.map((x) => x[0]).filter((x) => set.has(x));
       try {
         await updateDoc(TIENDA_REF, {
-          [`img_tienda.lista_img.promociones.${key}.dias`]: arr.length ? arr : deleteField(),
+          [`img_tienda.lista_img.promociones.${key}.dias`]: arr.length
+            ? arr
+            : deleteField(),
         });
         const nuevo = { ...actual };
-        if (arr.length) nuevo.dias = arr; else delete nuevo.dias;
+        if (arr.length) nuevo.dias = arr;
+        else delete nuevo.dias;
         ofertasCache[key] = nuevo;
         pintarDias();
       } catch (err) {
@@ -740,6 +758,11 @@ function renderOfertas(map) {
           err.message === "PRECIO_REQUERIDO"
         ) {
           pintarEstado();
+        } else if (err.message === "PRECIO_COMBO_INVALIDO") {
+          setMsg(
+            "El combo no puede costar igual o más que por separado",
+            "error",
+          );
         } else {
           setMsg("Error al guardar, intenta otra vez", "error");
         }
@@ -777,10 +800,11 @@ function renderOfertas(map) {
   if (sub)
     sub.textContent = `${entries.length} de ${max} ofertas · imagen, descripción y precio obligatorios.`;
 
-  for (let i = entries.length; i < max; i++) {
+  // Una sola tarjeta "Agregar oferta" (no una por cada espacio libre)
+  if (entries.length < max) {
     const addCard = document.createElement("div");
     addCard.className = "of-add";
-    addCard.innerHTML = `📷<span>Agregar oferta</span><small style="opacity:.6">${i + 1} de ${max}</small>`;
+    addCard.innerHTML = `📷<span>Agregar oferta</span><small style="opacity:.6">${entries.length + 1} de ${max}</small>`;
     addCard.onclick = () => cambiarImagenOferta(null);
     grid.appendChild(addCard);
   }
@@ -819,9 +843,9 @@ function cambiarImagenOferta(oldKey) {
           oldKey || String(Math.floor(Math.random() * 9000000) + 1000000);
         const comprimida = await comprimirImagen(ev.target.result, 1024, 0.85);
         const blob = dataURLtoBlob(comprimida);
-        const path = `tiendas/${TIENDA_ID}/imagenes/promociones/${newKey}.webp`;
+        const path = `tiendas/${TIENDA_ID}/imagenes/promociones/${newKey}.jpg`;
         const ref = storageRef(storage, path);
-        await uploadBytes(ref, blob, { contentType: "image/webp" });
+        await uploadBytes(ref, blob, { contentType: "image/jpeg" });
         const url = await getDownloadURL(ref);
 
         const nuevo = {
@@ -833,6 +857,18 @@ function cambiarImagenOferta(oldKey) {
         await updateDoc(TIENDA_REF, {
           [`img_tienda.lista_img.promociones.${newKey}`]: nuevo,
         });
+
+        // Si se reemplazó una oferta vieja en WebP, se borra el archivo huérfano
+        if (oldKey) {
+          try {
+            await deleteObject(
+              storageRef(
+                storage,
+                `tiendas/${TIENDA_ID}/imagenes/promociones/${oldKey}.webp`,
+              ),
+            );
+          } catch {}
+        }
 
         mostrarToast("La imagen se subió correctamente");
         await cargarOfertas();
@@ -858,10 +894,17 @@ async function eliminarOferta(key) {
   if (!TIENDA_REF) return;
   if (!confirm("¿Eliminar esta oferta por completo?")) return;
   try {
-    const path = `tiendas/${TIENDA_ID}/imagenes/promociones/${key}.webp`;
-    try {
-      await deleteObject(storageRef(storage, path));
-    } catch {}
+    // Borra ambas extensiones: las ofertas antiguas siguen en .webp
+    for (const ext of ["jpg", "webp"]) {
+      try {
+        await deleteObject(
+          storageRef(
+            storage,
+            `tiendas/${TIENDA_ID}/imagenes/promociones/${key}.${ext}`,
+          ),
+        );
+      } catch {}
+    }
     await updateDoc(TIENDA_REF, {
       [`img_tienda.lista_img.promociones.${key}`]: deleteField(),
     });
@@ -873,47 +916,62 @@ async function eliminarOferta(key) {
   }
 }
 window.addEventListener("geinz:plan", () => renderOfertas(ofertasCache));
-// ═══════════════════════════════════════════════════════════════════
-//  REEMPLAZA TODO desde "// ══════════════ GENERADOR DE PROMOCIONES" hasta el final
-//  de ofertas.js por este bloque.
-//
-//  Cambios previos en ofertas.js:
-//   1) Import:  import { tiendaSubDoc, tiendaDoc, tiendaSubCol } from "../rutas/rutas.js";
-//   2) En guardarOferta(), después del check de PRECIO_REQUERIDO, agregar:
-//        if (nuevo.combo?.total && Number(nuevo.precio) >= Number(nuevo.combo.total))
-//          throw new Error("PRECIO_COMBO_INVALIDO");
-//   3) En el catch del btn.addEventListener("click") de renderOfertas, antes del
-//      "else", agregar:
-//        else if (err.message === "PRECIO_COMBO_INVALIDO")
-//          setMsg("El combo no puede costar igual o más que por separado", "error");
-// ═══════════════════════════════════════════════════════════════════
 
 // ══════════════ GENERADOR DE PROMOCIONES / COMBOS ══════════════
-const GEN_DIAS = [["lunes","Lun"],["martes","Mar"],["miercoles","Mié"],["jueves","Jue"],["viernes","Vie"],["sabado","Sáb"],["domingo","Dom"]];
+const GEN_DIAS = [
+  ["lunes", "Lun"],
+  ["martes", "Mar"],
+  ["miercoles", "Mié"],
+  ["jueves", "Jue"],
+  ["viernes", "Vie"],
+  ["sabado", "Sáb"],
+  ["domingo", "Dom"],
+];
 const $g = (id) => document.getElementById(id);
 const gFmt = (n) => "S/ " + Number(n || 0).toFixed(2);
-const gEsc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const gEsc = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
 const gR2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const gCeil2 = (n) => Math.ceil((Number(n) || 0) * 100 - 1e-9) / 100;
 
 // ── Reglas de pricing ──
 const GEN_MARKUP_MIN = 1.5; // Precio_Combo >= Costo * 1.50  (margen neto mínimo ≈ 33 %)
 // Descuento por volumen sugerido: más unidades → más ahorro (tope 15 %)
-const GEN_TIERS = [[2, 8], [3, 10], [4, 12], [5, 15]]; // [unidades mínimas, % descuento]
+const GEN_TIERS = [
+  [2, 8],
+  [3, 10],
+  [4, 12],
+  [5, 15],
+]; // [unidades mínimas, % descuento]
 const descuentoPorVolumen = (unidades) =>
   GEN_TIERS.reduce((pct, [u, p]) => (unidades >= u ? p : pct), 0);
 
 // ── Costos de insumos (misma lógica que producto.js) ──
 const U_REC = {
-  unid: { f: 1 }, docena: { f: 12 }, g: { f: 1 }, kg: { f: 1000 }, ozp: { f: 28.3495 },
-  lb: { f: 453.592 }, ml: { f: 1 }, l: { f: 1000 }, oz: { f: 29.5735 },
+  unid: { f: 1 },
+  docena: { f: 12 },
+  g: { f: 1 },
+  kg: { f: 1000 },
+  ozp: { f: 28.3495 },
+  lb: { f: 453.592 },
+  ml: { f: 1 },
+  l: { f: 1000 },
+  oz: { f: 29.5735 },
 };
 let genInsumos = new Map();
 
 function entradaVigenteInsumo(i) {
   const keys = Object.keys(i.precios || {}).sort();
   if (!keys.length) return null;
-  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" }).slice(0, 7);
+  const hoy = new Date()
+    .toLocaleDateString("en-CA", { timeZone: "America/Lima" })
+    .slice(0, 7);
   const obj = "m_" + hoy.replace("-", "_");
   let pick = null;
   for (const k of keys) if (k <= obj) pick = k;
@@ -922,11 +980,15 @@ function entradaVigenteInsumo(i) {
 }
 // Suma el costo de una lista de insumos. ok=false si algún insumo ya no existe / no tiene precio.
 function costoItems(items) {
-  let c = 0, ok = true;
+  let c = 0,
+    ok = true;
   (items || []).forEach((it) => {
     const ing = genInsumos.get(it.id);
     const e = ing && entradaVigenteInsumo(ing);
-    if (!e) { ok = false; return; }
+    if (!e) {
+      ok = false;
+      return;
+    }
     c += (e.costo_base || 0) * (Number(it.qty) || 0) * (U_REC[it.unit]?.f || 1);
   });
   return { c, ok };
@@ -938,7 +1000,10 @@ function costoRecetaBase(r) {
 }
 
 // ── Variantes (helada / sin helar, tamaños, etc.) ──
-const opsActivas = (c) => (c.opciones || []).filter((o) => o.activo !== false && (o.nombre || "").trim());
+const opsActivas = (c) =>
+  (c.opciones || []).filter(
+    (o) => o.activo !== false && (o.nombre || "").trim(),
+  );
 // Solo grupos de "elegir 1": definen QUÉ producto es. Los extras (grupos múltiples) no entran al combo.
 const gruposUnicos = (p) =>
   (p.condiciones || []).filter(
@@ -952,7 +1017,11 @@ const selPorDefecto = (p) => {
   gruposUnicos(p).forEach((c) => (sel[c.nombre] = opsActivas(c)[0].nombre));
   return sel;
 };
-const firmaSel = (sel) => Object.keys(sel).sort().map((k) => k + "=" + sel[k]).join("|");
+const firmaSel = (sel) =>
+  Object.keys(sel)
+    .sort()
+    .map((k) => k + "=" + sel[k])
+    .join("|");
 
 // Precio y costo unitario de UNA línea (producto + variante elegida)
 function genLinea(l) {
@@ -960,7 +1029,9 @@ function genLinea(l) {
   const base = costoRecetaBase(p.receta);
   let unit = Number(p.precio) || 0;
   let costo = p.receta?.items?.length ? base.c : Number(p.costo_unitario) || 0;
-  let conocido = (p.receta?.items?.length ? base.ok : false) || (!p.receta?.items?.length && costo > 0);
+  let conocido =
+    (p.receta?.items?.length ? base.ok : false) ||
+    (!p.receta?.items?.length && costo > 0);
   const etiquetas = [];
   gruposUnicos(p).forEach((c) => {
     const ops = opsActivas(c);
@@ -979,7 +1050,7 @@ function genLinea(l) {
 
 // ── Estado ──
 let genProductos = [];
-let genSel = new Map();      // uid -> { p, qty, sel }
+let genSel = new Map(); // uid -> { p, qty, sel }
 let genUid = 0;
 let genDias = new Set();
 let genModo = "porcentaje";
@@ -992,12 +1063,17 @@ async function cargarProductosGen() {
   const lista = $g("genLista");
   try {
     const [insSnap] = await Promise.all([
-      getDocs(tiendaSubCol(LOCALIDAD, "tiendas", TIENDA_ID, "insumos")).catch(() => null),
+      getDocs(tiendaSubCol(LOCALIDAD, "tiendas", TIENDA_ID, "insumos")).catch(
+        () => null,
+      ),
     ]);
     genInsumos = new Map();
     insSnap?.forEach((d) => genInsumos.set(d.id, { id: d.id, ...d.data() }));
 
-    const catsRef = collection(tiendaDoc(LOCALIDAD, "tiendas", TIENDA_ID), "productos");
+    const catsRef = collection(
+      tiendaDoc(LOCALIDAD, "tiendas", TIENDA_ID),
+      "productos",
+    );
     const cats = await getDocs(catsRef);
     const lotes = await Promise.all(
       cats.docs.map(async (c) => {
@@ -1005,7 +1081,9 @@ async function cargarProductosGen() {
         return s.docs.map((d) => {
           const x = d.data();
           return {
-            id: d.id, catId: c.id, cat: c.data().nombre || c.id,
+            id: d.id,
+            catId: c.id,
+            cat: c.data().nombre || c.id,
             nombre: x.nombre || "Sin nombre",
             precio: Number(x.precio) || 0,
             disponible: x.disponible !== false,
@@ -1017,11 +1095,14 @@ async function cargarProductosGen() {
         });
       }),
     );
-    genProductos = lotes.flat().sort((a, b) => a.nombre.localeCompare(b.nombre));
+    genProductos = lotes
+      .flat()
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
     genRenderLista();
   } catch (err) {
     console.error("[generador] productos:", err);
-    if (lista) lista.innerHTML = `<p class="of-msg error">No se pudieron cargar tus productos.</p>`;
+    if (lista)
+      lista.innerHTML = `<p class="of-msg error">No se pudieron cargar tus productos.</p>`;
   }
 }
 
@@ -1029,17 +1110,24 @@ function genRenderLista() {
   const lista = $g("genLista");
   if (!lista) return;
   const q = ($g("genBuscar").value || "").trim().toLowerCase();
-  const items = genProductos.filter((p) => !q || (p.nombre + " " + p.cat).toLowerCase().includes(q)).slice(0, 80);
-  if (!items.length) { lista.innerHTML = `<p class="of-msg">Sin productos.</p>`; return; }
-  lista.innerHTML = items.map((p) => {
-    const nGrupos = gruposUnicos(p).length;
-    return `
+  const items = genProductos
+    .filter((p) => !q || (p.nombre + " " + p.cat).toLowerCase().includes(q))
+    .slice(0, 80);
+  if (!items.length) {
+    lista.innerHTML = `<p class="of-msg">Sin productos.</p>`;
+    return;
+  }
+  lista.innerHTML = items
+    .map((p) => {
+      const nGrupos = gruposUnicos(p).length;
+      return `
     <div class="gen-row" style="${p.disponible ? "" : "opacity:.5"}">
       <div class="gen-n"><b>${gEsc(p.nombre)}</b><small>${gEsc(p.cat)}${nGrupos ? " · con variantes" : ""}${p.disponible ? "" : " · agotado"}</small></div>
       <span class="gen-p">${gFmt(p.precio)}</span>
       <button type="button" class="gen-btn" data-add="${gEsc(p.catId)}|${gEsc(p.id)}">+</button>
     </div>`;
-  }).join("");
+    })
+    .join("");
 }
 
 // ══ CÁLCULO CENTRAL ══
@@ -1048,7 +1136,9 @@ function genRenderLista() {
 //  Precio_Combo    = Separado × (1 − desc)  → se SUBE al piso si queda por debajo
 //  Siempre debe cumplirse: Piso ≤ Precio_Combo < Precio_Separado
 function genTotales() {
-  let total = 0, costo = 0, unidades = 0;
+  let total = 0,
+    costo = 0,
+    unidades = 0;
   const sinCosto = [];
   genSel.forEach((l) => {
     const x = genLinea(l);
@@ -1061,16 +1151,24 @@ function genTotales() {
   costo = gR2(costo);
 
   const piso = costo > 0 ? gCeil2(costo * GEN_MARKUP_MIN) : 0;
-  const sinMargen = piso > 0 && piso >= total;                 // ni con 0 % de descuento hay margen
-  const maxPct = total > 0 && piso > 0 ? Math.max(0, (1 - piso / total) * 100) : GEN_TIERS[GEN_TIERS.length - 1][1];
+  const sinMargen = piso > 0 && piso >= total; // ni con 0 % de descuento hay margen
+  const maxPct =
+    total > 0 && piso > 0
+      ? Math.max(0, (1 - piso / total) * 100)
+      : GEN_TIERS[GEN_TIERS.length - 1][1];
 
   const v = parseFloat(String($g("genValor")?.value).replace(",", ".")) || 0;
-  let promo = total, ajustado = false, motivo = "";
+  let promo = total,
+    ajustado = false,
+    motivo = "";
 
   if (v > 0 && total > 0) {
     promo = genModo === "porcentaje" ? total * (1 - Math.min(v, 99) / 100) : v;
     promo = gCeil2(promo);
-    if (piso > 0 && promo < piso && !sinMargen) { promo = piso; ajustado = true; }
+    if (piso > 0 && promo < piso && !sinMargen) {
+      promo = piso;
+      ajustado = true;
+    }
   }
 
   const pct = total > 0 ? Math.max(0, (1 - promo / total) * 100) : 0;
@@ -1079,29 +1177,49 @@ function genTotales() {
 
   if (!genSel.size) motivo = "Agrega al menos un producto";
   else if (!(v > 0)) motivo = "Pon el descuento o el precio final";
-  else if (sinMargen) motivo = "Con estos costos no queda margen para descontar. Sube precios o revisa costos.";
-  else if (promo >= total) motivo = "El combo no puede costar igual o más que comprarlo por separado";
+  else if (sinMargen)
+    motivo =
+      "Con estos costos no queda margen para descontar. Sube precios o revisa costos.";
+  else if (promo >= total)
+    motivo = "El combo no puede costar igual o más que comprarlo por separado";
   else if (!(promo > 0)) motivo = "El precio del combo no es válido";
 
   // Sugerencia: descuento por volumen, acotado por lo que el margen permite
-  const sugPct = Math.floor(Math.min(descuentoPorVolumen(unidades), maxPct) * 10) / 10;
+  const sugPct =
+    Math.floor(Math.min(descuentoPorVolumen(unidades), maxPct) * 10) / 10;
   const sugPrecio = gCeil2(total * (1 - sugPct / 100));
 
   return {
-    total, costo, piso, maxPct, unidades, sinCosto, sinMargen, ajustado,
-    promo: gR2(promo), pct, ahorro: Math.max(0, gR2(total - promo)),
-    ganancia: gR2(ganancia), margen, valor: v,
-    sugPct, sugPrecio, motivo, valido: motivo === "",
+    total,
+    costo,
+    piso,
+    maxPct,
+    unidades,
+    sinCosto,
+    sinMargen,
+    ajustado,
+    promo: gR2(promo),
+    pct,
+    ahorro: Math.max(0, gR2(total - promo)),
+    ganancia: gR2(ganancia),
+    margen,
+    valor: v,
+    sugPct,
+    sugPrecio,
+    motivo,
+    valido: motivo === "",
   };
 }
 
 function genAutoDescripcion() {
   if (genDescEditada) return;
-  const txt = [...genSel.values()].map((l) => {
-    const e = genLinea(l).etiqueta;
-    return (l.qty > 1 ? l.qty + "x " : "") + l.p.nombre + (e ? " " + e : "");
-  }).join(" + ");
-  $g("genDesc").value = txt.slice(0, 80);
+  const txt = [...genSel.values()]
+    .map((l) => {
+      const e = genLinea(l).etiqueta;
+      return (l.qty > 1 ? l.qty + "x " : "") + l.p.nombre + (e ? " " + e : "");
+    })
+    .join(" + ");
+  $g("genDesc").value = txt.slice(0, 500);
 }
 
 // Panel de análisis (se inyecta solo, no hace falta tocar el HTML)
@@ -1110,31 +1228,57 @@ function genPanel() {
   if (!el) {
     el = document.createElement("div");
     el.id = "genAnalisis";
-    el.style.cssText = "margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.25);font-size:12px;line-height:1.6;";
+    el.style.cssText =
+      "margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(139,92,246,.25);font-size:12px;line-height:1.6;";
     $g("genSel").insertAdjacentElement("afterend", el);
   }
   return el;
 }
 function genPintarAnalisis(t) {
   const el = genPanel();
-  if (!genSel.size) { el.style.display = "none"; return; }
+  if (!genSel.size) {
+    el.style.display = "none";
+    return;
+  }
   el.style.display = "";
-  const fila = (a, b, c = "") => `<div style="display:flex;justify-content:space-between;gap:8px;"><span style="opacity:.65">${a}</span><b${c ? ` style="color:${c}"` : ""}>${b}</b></div>`;
-  const verde = "#34d399", rojo = "#fb7185", ambar = "#fbbf24";
+  const fila = (a, b, c = "") =>
+    `<div style="display:flex;justify-content:space-between;gap:8px;"><span style="opacity:.65">${a}</span><b${c ? ` style="color:${c}"` : ""}>${b}</b></div>`;
+  const verde = "#34d399",
+    rojo = "#fb7185",
+    ambar = "#fbbf24";
   const hayCosto = t.costo > 0;
   let h = "";
   h += fila("Precio por separado", gFmt(t.total));
-  h += fila("Costo de producción", hayCosto ? gFmt(t.costo) : "sin costo registrado", hayCosto ? "" : ambar);
+  h += fila(
+    "Costo de producción",
+    hayCosto ? gFmt(t.costo) : "sin costo registrado",
+    hayCosto ? "" : ambar,
+  );
   if (hayCosto) {
     h += fila("Precio mínimo permitido (costo × 1.5)", gFmt(t.piso));
-    h += fila("Descuento máximo permitido", t.sinMargen ? "0%" : t.maxPct.toFixed(1) + "%");
+    h += fila(
+      "Descuento máximo permitido",
+      t.sinMargen ? "0%" : t.maxPct.toFixed(1) + "%",
+    );
   }
   if (t.valor > 0 && t.total > 0) {
     h += `<hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:6px 0">`;
-    h += fila("Cliente ahorra", `${gFmt(t.ahorro)} (${t.pct.toFixed(t.pct % 1 ? 1 : 0)}%)`, verde);
+    h += fila(
+      "Cliente ahorra",
+      `${gFmt(t.ahorro)} (${t.pct.toFixed(t.pct % 1 ? 1 : 0)}%)`,
+      verde,
+    );
     if (hayCosto) {
-      h += fila("Ganancia neta", gFmt(t.ganancia), t.ganancia >= 0 ? verde : rojo);
-      h += fila("Margen", t.margen.toFixed(1) + "%", t.margen >= 33 ? verde : rojo);
+      h += fila(
+        "Ganancia neta",
+        gFmt(t.ganancia),
+        t.ganancia >= 0 ? verde : rojo,
+      );
+      h += fila(
+        "Margen",
+        t.margen.toFixed(1) + "%",
+        t.margen >= 33 ? verde : rojo,
+      );
     }
   }
   if (t.ajustado)
@@ -1148,16 +1292,28 @@ function genPintarAnalisis(t) {
 
 function genRefrescar() {
   const box = $g("genSel");
-  if (!genSel.size) box.innerHTML = `<p class="of-msg">Agrega productos con el botón +</p>`;
-  else box.innerHTML = [...genSel.entries()].map(([k, l]) => {
-    const x = genLinea(l);
-    const selects = gruposUnicos(l.p).map((c) => {
-      const ops = opsActivas(c);
-      return `<select class="gen-var" data-g="${gEsc(c.nombre)}" style="margin-top:4px;margin-right:4px;max-width:100%;border-radius:8px;padding:3px 6px;font-size:11px;background:#05040a;color:inherit;border:1px solid rgba(139,92,246,.3)">` +
-        ops.map((o) => `<option value="${gEsc(o.nombre)}" ${o.nombre === l.sel[c.nombre] ? "selected" : ""}>${gEsc(c.nombre)}: ${gEsc(o.nombre)}${Number(o.costoAdicional) ? " (+" + gFmt(o.costoAdicional) + ")" : ""}</option>`).join("") +
-        `</select>`;
-    }).join("");
-    return `
+  if (!genSel.size)
+    box.innerHTML = `<p class="of-msg">Agrega productos con el botón +</p>`;
+  else
+    box.innerHTML = [...genSel.entries()]
+      .map(([k, l]) => {
+        const x = genLinea(l);
+        const selects = gruposUnicos(l.p)
+          .map((c) => {
+            const ops = opsActivas(c);
+            return (
+              `<select class="gen-var" data-g="${gEsc(c.nombre)}" style="margin-top:4px;margin-right:4px;max-width:100%;border-radius:8px;padding:3px 6px;font-size:11px;background:#05040a;color:inherit;border:1px solid rgba(139,92,246,.3)">` +
+              ops
+                .map(
+                  (o) =>
+                    `<option value="${gEsc(o.nombre)}" ${o.nombre === l.sel[c.nombre] ? "selected" : ""}>${gEsc(c.nombre)}: ${gEsc(o.nombre)}${Number(o.costoAdicional) ? " (+" + gFmt(o.costoAdicional) + ")" : ""}</option>`,
+                )
+                .join("") +
+              `</select>`
+            );
+          })
+          .join("");
+        return `
     <div class="gen-row" data-k="${gEsc(k)}">
       <div class="gen-n"><b>${gEsc(l.p.nombre)}</b><small>${gFmt(x.unit)} c/u</small>${selects ? `<div>${selects}</div>` : ""}</div>
       <div class="gen-qty">
@@ -1166,7 +1322,8 @@ function genRefrescar() {
       <span class="gen-p">${gFmt(x.unit * l.qty)}</span>
       <button type="button" class="gen-btn" data-q="x" style="background:rgba(225,29,72,.4)">✕</button>
     </div>`;
-  }).join("");
+      })
+      .join("");
 
   const t = genTotales();
   $g("genTotal").textContent = gFmt(t.total);
@@ -1184,16 +1341,25 @@ function genMsg(txt, tipo = "") {
 }
 
 function genLimpiar() {
-  genSel.clear(); genDias.clear(); genFile = null; genDescEditada = false;
-  $g("genValor").value = ""; $g("genDesc").value = "";
+  genSel.clear();
+  genDias.clear();
+  genFile = null;
+  genDescEditada = false;
+  $g("genValor").value = "";
+  $g("genDesc").value = "";
   const prev = $g("genImgPrev");
-  prev.style.backgroundImage = ""; prev.textContent = "📷 Tu imagen";
-  genPintarDias(); genRefrescar(); genMsg("");
+  prev.style.backgroundImage = "";
+  prev.textContent = "📷 Tu imagen";
+  genPintarDias();
+  genRefrescar();
+  genMsg("");
 }
 
 function genPintarDias() {
-  $g("genDias").innerHTML = GEN_DIAS.map(([d, l]) =>
-    `<div class="bn-tipo-chip ${genDias.has(d) ? "active" : ""}" data-d="${d}">${l}</div>`).join("");
+  $g("genDias").innerHTML = GEN_DIAS.map(
+    ([d, l]) =>
+      `<div class="bn-tipo-chip ${genDias.has(d) ? "active" : ""}" data-d="${d}">${l}</div>`,
+  ).join("");
 }
 
 function genLeerArchivo(file) {
@@ -1217,7 +1383,9 @@ $g("genLista")?.addEventListener("click", (e) => {
   const sel = selPorDefecto(p);
   const firma = firmaSel(sel);
   // Mismo producto + misma variante → sube la cantidad; otra variante → línea nueva
-  const existente = [...genSel.values()].find((l) => l.p === p && firmaSel(l.sel) === firma);
+  const existente = [...genSel.values()].find(
+    (l) => l.p === p && firmaSel(l.sel) === firma,
+  );
   if (existente) existente.qty++;
   else genSel.set("l" + ++genUid, { p, qty: 1, sel });
   genRefrescar();
@@ -1262,9 +1430,12 @@ $g("genModoRow")?.addEventListener("click", (e) => {
   const c = e.target.closest("[data-modo]");
   if (!c) return;
   genModo = c.dataset.modo;
-  $g("genModoRow").querySelectorAll("[data-modo]").forEach((x) => x.classList.toggle("active", x === c));
+  $g("genModoRow")
+    .querySelectorAll("[data-modo]")
+    .forEach((x) => x.classList.toggle("active", x === c));
   $g("genUnidad").textContent = genModo === "porcentaje" ? "%" : "S/";
-  $g("genValor").placeholder = genModo === "porcentaje" ? "Ej: 10" : "Ej: 25.00";
+  $g("genValor").placeholder =
+    genModo === "porcentaje" ? "Ej: 10" : "Ej: 25.00";
   $g("genRapidos").style.display = genModo === "porcentaje" ? "" : "none";
   genRefrescar();
 });
@@ -1277,12 +1448,16 @@ $g("genRapidos")?.addEventListener("click", (e) => {
 });
 
 $g("genValor")?.addEventListener("input", genRefrescar);
-$g("genDesc")?.addEventListener("input", () => { genDescEditada = $g("genDesc").value.trim() !== ""; });
+$g("genDesc")?.addEventListener("input", () => {
+  genDescEditada = $g("genDesc").value.trim() !== "";
+});
 
 $g("genDias")?.addEventListener("click", (e) => {
   const c = e.target.closest("[data-d]");
   if (!c) return;
-  genDias.has(c.dataset.d) ? genDias.delete(c.dataset.d) : genDias.add(c.dataset.d);
+  genDias.has(c.dataset.d)
+    ? genDias.delete(c.dataset.d)
+    : genDias.add(c.dataset.d);
   genPintarDias();
 });
 
@@ -1309,24 +1484,42 @@ $g("genCrear")?.addEventListener("click", async () => {
 
   // Validaciones duras: el combo nunca puede salir peor que comprar suelto
   if (!t.valido) return genMsg(t.motivo, "error");
-  if (t.piso > 0 && t.promo < t.piso) return genMsg("El precio queda por debajo de costo × 1.5", "error");
+  if (t.piso > 0 && t.promo < t.piso)
+    return genMsg("El precio queda por debajo de costo × 1.5", "error");
   if (!desc) return genMsg("Falta la descripción", "error");
   if (!genFile) return genMsg("Falta la imagen de la oferta", "error");
   if (Object.keys(ofertasCache).length >= maxOfertas())
-    return genMsg(`Tu plan permite hasta ${maxOfertas()} ofertas. Elimina una para crear otra.`, "error");
-  if (t.sinCosto.length && !confirm(
-    `No hay costo registrado para: ${t.sinCosto.join(", ")}.\nNo puedo garantizar tu margen mínimo. ¿Crear igual?`))
+    return genMsg(
+      `Tu plan permite hasta ${maxOfertas()} ofertas. Elimina una para crear otra.`,
+      "error",
+    );
+  if (
+    t.sinCosto.length &&
+    !confirm(
+      `No hay costo registrado para: ${t.sinCosto.join(", ")}.\nNo puedo garantizar tu margen mínimo. ¿Crear igual?`,
+    )
+  )
     return;
 
   genCreando = true;
   const btn = $g("genCrear");
-  btn.disabled = true; btn.textContent = "Creando...";
+  btn.disabled = true;
+  btn.textContent = "Creando...";
   genMsg("Subiendo imagen...");
   try {
     const key = String(Math.floor(Math.random() * 9000000) + 1000000);
-    const comprimida = await comprimirImagen(await genLeerArchivo(genFile), 1024, 0.85);
-    const ref = storageRef(storage, `tiendas/${TIENDA_ID}/imagenes/promociones/${key}.webp`);
-    await uploadBytes(ref, dataURLtoBlob(comprimida), { contentType: "image/webp" });
+    const comprimida = await comprimirImagen(
+      await genLeerArchivo(genFile),
+      1024,
+      0.85,
+    );
+    const ref = storageRef(
+      storage,
+      `tiendas/${TIENDA_ID}/imagenes/promociones/${key}.jpg`,
+    );
+    await uploadBytes(ref, dataURLtoBlob(comprimida), {
+      contentType: "image/jpeg",
+    });
     const url = await getDownloadURL(ref);
 
     // OJO: aquí NO se guarda costo, ganancia ni margen. Este documento lo lee la
@@ -1339,21 +1532,26 @@ $g("genCrear")?.addEventListener("click", async () => {
         items: [...genSel.values()].map((l) => {
           const x = genLinea(l);
           return {
-            id: l.p.id, catId: l.p.catId, nombre: l.p.nombre,
+            id: l.p.id,
+            catId: l.p.catId,
+            nombre: l.p.nombre,
             variante: x.etiqueta || null,
             seleccion: l.sel,
-            precio: x.unit, qty: l.qty,
+            precio: x.unit,
+            qty: l.qty,
           };
         }),
-        total: t.total,                       // precio por separado
-        ahorro: t.ahorro,                     // lo que se ahorra el cliente
+        total: t.total, // precio por separado
+        ahorro: t.ahorro, // lo que se ahorra el cliente
         descuento: Math.round(t.pct * 10) / 10,
       },
     };
     const dias = GEN_DIAS.map((x) => x[0]).filter((d) => genDias.has(d));
     if (dias.length) oferta.dias = dias;
 
-    await updateDoc(TIENDA_REF, { [`img_tienda.lista_img.promociones.${key}`]: oferta });
+    await updateDoc(TIENDA_REF, {
+      [`img_tienda.lista_img.promociones.${key}`]: oferta,
+    });
     mostrarToast("Oferta creada correctamente");
     genLimpiar();
     await cargarOfertas();
@@ -1362,7 +1560,8 @@ $g("genCrear")?.addEventListener("click", async () => {
     genMsg("Error al crear la oferta, intenta otra vez", "error");
   } finally {
     genCreando = false;
-    btn.disabled = false; btn.textContent = "Crear oferta";
+    btn.disabled = false;
+    btn.textContent = "Crear oferta";
   }
 });
 

@@ -98,39 +98,47 @@
         </div>
 
         <!-- 3) CORREO Y CONTRASEÑA -->
-        <form class="login-inline" onsubmit="doInlineLogin(event)" novalidate>
-          <div class="field-group">
-            <label class="field-label" for="loginEmail">Correo electrónico</label>
-            <div class="input-box">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">mail</span>
-              <input id="loginEmail" type="email" class="input-field" placeholder="tucorreo@ejemplo.com"
-                autocomplete="email" />
-            </div>
-            <p class="field-error" id="loginEmailError"></p>
-          </div>
+    <form class="login-inline" id="loginForm" onsubmit="doInlineLogin(event)" novalidate>
 
-          <div class="field-group">
-            <div class="field-label-row">
-              <label class="field-label" for="loginPassword">Contraseña</label>
-              <a class="forgot-link" tabindex="0" onclick="openForgotPassword()">¿Olvidaste tu contraseña?</a>
-            </div>
-            <div class="input-box">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">lock</span>
-              <input id="loginPassword" type="password" class="input-field" placeholder="••••••••"
-                autocomplete="current-password" />
-              <button type="button" class="toggle-pass-btn" onclick="togglePassword('loginPassword',this)"
-                aria-label="Mostrar contraseña">
-                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
-              </button>
-            </div>
-            <p class="field-error" id="loginPassError"></p>
-          </div>
+  <!-- Campos ocultos hasta el primer clic -->
+  <div class="login-fields" id="loginFields" inert>
+    <div class="login-fields-inner">
 
-          <button type="submit" class="btn btn-primary full-width" id="btnDoLogin">
-            <span class="material-symbols-outlined" aria-hidden="true">login</span>
-            Iniciar sesión
+      <div class="field-group">
+        <label class="field-label" for="loginEmail">Correo electrónico</label>
+        <div class="input-box">
+          <span class="material-symbols-outlined input-icon" aria-hidden="true">mail</span>
+          <input id="loginEmail" type="email" class="input-field" placeholder="tucorreo@ejemplo.com"
+            autocomplete="email" />
+        </div>
+        <p class="field-error" id="loginEmailError"></p>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label-row">
+          <label class="field-label" for="loginPassword">Contraseña</label>
+          <a class="forgot-link" tabindex="0" onclick="openForgotPassword()">¿Olvidaste tu contraseña?</a>
+        </div>
+        <div class="input-box">
+          <span class="material-symbols-outlined input-icon" aria-hidden="true">lock</span>
+          <input id="loginPassword" type="password" class="input-field" placeholder="••••••••"
+            autocomplete="current-password" />
+          <button type="button" class="toggle-pass-btn" onclick="togglePassword('loginPassword',this)"
+            aria-label="Mostrar contraseña">
+            <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
           </button>
-        </form>
+        </div>
+        <p class="field-error" id="loginPassError"></p>
+      </div>
+
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary full-width" id="btnDoLogin">
+    <span class="material-symbols-outlined" aria-hidden="true">login</span>
+    Iniciar sesión
+  </button>
+</form>
 
         <div class="card-footer">
           <span>¿Aún no tienes cuenta?</span>

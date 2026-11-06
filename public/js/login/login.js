@@ -946,8 +946,23 @@ window.loginGithub = async () => {
   }
 };
 
+function abrirCamposLogin() {
+  const f = document.getElementById("loginFields");
+  if (!f || f.classList.contains("open")) return false; // ya estaban abiertos
+  f.classList.add("open");
+  f.removeAttribute("inert"); // ahora sí se pueden enfocar con teclado
+  setTimeout(() => {
+    document.getElementById("loginEmail")?.focus({ preventScroll: true });
+    document
+      .getElementById("btnDoLogin")
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" }); // en móvil, que el botón no quede tapado
+  }, 460);
+  return true;
+}
+
 window.doInlineLogin = async (event) => {
   event?.preventDefault();
+  if (abrirCamposLogin()) return;
 
   const emailErr = document.getElementById("loginEmailError");
   const passErr = document.getElementById("loginPassError");
@@ -1033,6 +1048,7 @@ window.doInlineLogin = async (event) => {
     btn.innerHTML = btnOrig;
   }
 };
+
 window.openForgotPassword = async () => {
   const correo = document
     .getElementById("loginEmail")

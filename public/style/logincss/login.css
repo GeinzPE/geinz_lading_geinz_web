@@ -2062,6 +2062,7 @@ svg.input-icon {
 
 .login-inline .btn {
   margin-top: 4px;
+  margin-bottom: 10px;
 }
 
 .title-wrap {
@@ -2203,4 +2204,33 @@ svg.input-icon {
   background: rgba(139, 92, 246, .22);
   border-color: #8b5cf6;
   color: #fff;
+}
+/* ===== Campos de login desplegables ===== */
+.login-inline { gap: 0; } /* el espacio lo maneja el contenedor, así no queda hueco al estar cerrado */
+
+.login-fields {
+  display: grid;
+  grid-template-rows: 0fr;          /* cerrado: altura 0, sin alturas fijas -> funciona en cualquier pantalla */
+  opacity: 0;
+  transition:
+    grid-template-rows .45s cubic-bezier(.4, 0, .2, 1),
+    opacity .35s ease;
+}
+.login-fields.open {
+  grid-template-rows: 1fr;          /* abierto: crece a su altura real y empuja el botón hacia abajo */
+  opacity: 1;
+}
+.login-fields-inner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* padding/margin negativo para que no se recorten los focus rings de los inputs */
+  padding: 4px 4px 14px;
+  margin: -4px -4px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-fields { transition: none; }
 }

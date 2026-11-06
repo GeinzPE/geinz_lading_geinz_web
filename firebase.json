@@ -37,8 +37,14 @@
     "rewrites": [
       { "source": "/perfil/*/carrito", "destination": "/carrito/carrito.html" },
       { "source": "/carrito", "destination": "/carrito/carrito.html" },
-         { "source": "/perfil/*/carrito-crear", "destination": "/carrito/crear.html" },
-                  { "source": "/perfil/*/carrito-juegos", "destination": "/carrito/juegos.html" },
+      {
+        "source": "/perfil/*/carrito-crear",
+        "destination": "/carrito/crear.html"
+      },
+      {
+        "source": "/perfil/*/carrito-juegos",
+        "destination": "/carrito/juegos.html"
+      },
 
       { "source": "/-mesa-*", "destination": "/carrito/carrito.html" },
 
@@ -107,6 +113,8 @@
       { "source": "/pedidos/**", "destination": "/pedidos/pedidos.html" },
 
       { "source": "/perfil", "destination": "/perfil.html" },
+      { "source": "/api/manifest", "function": "manifest" },
+      { "source": "/api/icon", "function": "appIcon" },
       { "source": "/perfil/**", "function": "perfilShare" },
       { "source": "/turismo/**", "function": "turismoSSR" },
       { "source": "/sitemap.xml", "function": "sitemap" },
@@ -116,7 +124,7 @@
       { "source": "/logindata/login", "function": "staticSSR" },
       { "source": "/scree/nostros", "function": "staticSSR" },
       { "source": "/generatorqr", "function": "staticSSR" },
-
+{ "source": "/sw.js", "destination": "/sw.js" },
       {
         "source": "/legal/libro_reclamaciones/**",
         "destination": "/legal/libro_reclamaciones.html"
@@ -136,7 +144,7 @@
 
       { "source": "/", "destination": "/app-shell.html" },
       { "source": "/-carta", "destination": "/perfil.html" },
-        { "source": "/-registro", "destination": "/perfil.html" },
+      { "source": "/-registro", "destination": "/perfil.html" },
       { "source": "/-reviews", "destination": "/perfil.html" },
       { "source": "!/ffmpeg/**", "destination": "/app-shell.html" }
     ]

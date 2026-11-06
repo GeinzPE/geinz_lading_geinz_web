@@ -1131,6 +1131,33 @@ const _cSet = (k, d) => {
     localStorage.setItem(k, JSON.stringify({ t: Date.now(), d }));
   } catch {}
 };
+function aplicarManifest({ alias, id, localidad }) {
+  const q = _esDominioPersonalizado
+    ? ""
+    : alias
+      ? `a=${encodeURIComponent(alias)}`
+      : `id=${encodeURIComponent(id)}&l=${encodeURIComponent(localidad)}`;
+  const url = (path, extra = "") =>
+    `${path}?${[q, extra].filter(Boolean).join("&")}`.replace(/\?$/, "");
+
+  // 1) manifest (Android / Chrome)
+  let m = document.querySelector('link[rel="manifest"]');
+  if (!m) {
+    m = document.createElement("link");
+    m.rel = "manifest";
+    document.head.appendChild(m);
+  }
+  m.href = url("/api/manifest");
+
+  // 2) icono de iPhone (iOS ignora el manifest y usa apple-touch-icon)
+  let a = document.querySelector('link[rel="apple-touch-icon"]');
+  if (!a) {
+    a = document.createElement("link");
+    a.rel = "apple-touch-icon";
+    document.head.appendChild(a);
+  }
+  a.href = url("/api/icon", "s=192");
+}
 async function getParams() {
   // ═══ Detectar dominio conectado ═══
   const hostname = window.location.hostname;
@@ -2139,7 +2166,7 @@ function bindFollowButton({ localidad, id }, biz) {
     const uid = user?.uid || null;
     _currentUid = uid;
     actualizarHeaderUsuario(user);
-
+    renderBannerCumple(_bizRef);
     if (!uid) {
       btn.onclick = () => {
         openLoginPromptModal();
@@ -6461,6 +6488,7 @@ async function render(biz, isInitial = true) {
   renderPuntosBadge(_currentPuntos);
   aplicarBrandingGeinz();
   renderDiasEspeciales(biz);
+  renderBannerCumple(biz);
   renderBlackFriday(biz);
   document
     .getElementById("secAmenities")
@@ -7984,6 +8012,10 @@ function irAReviews() {
   try {
     const params = await getParams();
     _params = params;
+    aplicarManifest(params); 
+    if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("SW:", e));
+}
     if (params.mesaToken) {
       await resolveMesaYRedirigir(params, params.mesaToken);
       return;
@@ -9141,9 +9173,9 @@ function renderProductosCatalogo(_ignorado, localidad, id, aliasKey) {
     let precioHTML;
     if (p.agotado) precioHTML = "Agotado";
     else {
-    const tachado = dd
-  ? `<s style="color:#d1d5db;font-weight:600;margin-right:6px;font-size:11.5px;text-decoration-color:#fb7185;text-decoration-thickness:2px">S/ ${cpDesde(p, true).precio.toFixed(2)}</s>`
-  : "";
+      const tachado = dd
+        ? `<s style="color:#d1d5db;font-weight:600;margin-right:6px;font-size:11.5px;text-decoration-color:#fb7185;text-decoration-thickness:2px">S/ ${cpDesde(p, true).precio.toFixed(2)}</s>`
+        : "";
       precioHTML = `${tachado}${des.varia ? "Desde " : ""}S/ ${des.precio.toFixed(2)}`;
     }
 
@@ -9156,7 +9188,7 @@ function renderProductosCatalogo(_ignorado, localidad, id, aliasKey) {
 
     if (dd && !p.agotado) {
       const b = document.createElement("span");
-b.textContent = `-${Math.round(dd.pct)}%`;
+      b.textContent = `-${Math.round(dd.pct)}%`;
       b.style.cssText =
         "position:absolute;top:12px;left:12px;z-index:3;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;color:#fff;background:#e11d48;";
       row.appendChild(b);
@@ -9253,6 +9285,17 @@ const BF_CSS = `
     .bf-ico.i-heart{width:92px;right:22%;bottom:-18px;}
     .bf-ico.i-pct2{width:70px;left:22%;bottom:-14px;}    .bf-ico.i-star{width:84px;left:31%;top:-22px;}
   }
+    .de-clock{position:relative;z-index:2;margin-top:6px;display:inline-flex;align-items:center;gap:10px;
+  padding:8px 16px;border-radius:14px;color:#fff;
+  background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.3);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+.de-clock-label{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.9;}
+.de-clock-time{display:flex;gap:6px;font-variant-numeric:tabular-nums;}
+.de-clock-unit{display:flex;flex-direction:column;align-items:center;min-width:34px;}
+.de-clock-unit b{font-size:20px;font-weight:900;line-height:1;}
+.de-clock-unit span{font-size:9px;font-weight:700;text-transform:uppercase;opacity:.8;margin-top:2px;}
+.de-clock.live{border-color:#4ade80;}
+.de-clock.live .de-clock-label{color:#4ade80;}
   @media (prefers-reduced-motion:reduce){.bf-ico,.bf-inner::after{animation:none;}}
 `;
 
@@ -9374,6 +9417,73 @@ const DE_CSS = `
   @media (prefers-reduced-motion:reduce){.de-ico,.de-inner::after{animation:none;}}
 `;
 
+let _deTimer = null;
+
+// Calcula el instante (ms UTC) de una hora "HH:mm" en `offsetDias` desde hoy, hora de Lima
+function _deMsLima(offsetDias, hhmm) {
+  const [h, m] = String(hhmm || "00:00")
+    .split(":")
+    .map(Number);
+  const hoyLima = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+  }).format(new Date()); // yyyy-mm-dd
+  const [y, mo, d] = hoyLima.split("-").map(Number);
+  return Date.UTC(y, mo - 1, d + offsetDias, (h || 0) + 5, m || 0, 0); // Lima = UTC-5
+}
+
+// Devuelve { modo: "abre" | "abierto", target } según el horario real de ese día
+function _deEstado(horarioDia, offset) {
+  if (!horarioDia || horarioDia.cerrado || !horarioDia.bloques?.length)
+    return null;
+  const now = Date.now();
+  for (const b of horarioDia.bloques) {
+    const ini = _deMsLima(offset, b.h_apertura);
+    const fin = _deMsLima(offset, b.h_cierre);
+    if (now < ini) return { modo: "abre", target: ini };
+    if (now >= ini && now < fin) return { modo: "abierto", target: fin };
+  }
+  return null; // ya cerró ese día
+}
+
+function _deFmt(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const u = (v, l) =>
+    `<div class="de-clock-unit"><b>${String(v).padStart(2, "0")}</b><span>${l}</span></div>`;
+  return (
+    (d > 0 ? u(d, "días") : "") +
+    u(h, "hrs") +
+    u(m, "min") +
+    (d === 0 ? u(sec, "seg") : "")
+  );
+}
+
+function iniciarRelojDiaEspecial(horarioDia, offset) {
+  clearInterval(_deTimer);
+  const box = document.getElementById("deClock");
+  if (!box) return;
+  const label = box.querySelector(".de-clock-label");
+  const time = box.querySelector(".de-clock-time");
+
+  const tick = () => {
+    const est = _deEstado(horarioDia, offset);
+    if (!est) {
+      box.style.display = "none";
+      clearInterval(_deTimer);
+      return;
+    }
+    box.style.display = "";
+    box.classList.toggle("live", est.modo === "abierto");
+    label.textContent =
+      est.modo === "abierto" ? "Abierto · cierra en" : "Abre en";
+    time.innerHTML = _deFmt(est.target - Date.now());
+  };
+  tick();
+  _deTimer = setInterval(tick, 1000);
+}
 function renderDiasEspeciales(biz) {
   let sec = document.getElementById("secDiasEspeciales");
   const cfg = biz?.dias_especiales;
@@ -9434,6 +9544,10 @@ function renderDiasEspeciales(biz) {
         <span class="de-tag">${escapeHtml(etiqueta)} · ${DE_LABELS[k]}</span>
         <h2 class="de-title">${escapeHtml(d.titulo)}</h2>
         ${texto ? `<p class="de-text">${escapeHtml(texto)}</p>` : ""}
+        <div class="de-clock" id="deClock">
+          <span class="de-clock-label"></span>
+          <div class="de-clock-time"></div>
+        </div>
       </div>
     </div>`;
 
@@ -9445,6 +9559,288 @@ function renderDiasEspeciales(biz) {
     if (!reviews) return;
     reviews.before(sec);
   }
+  if (sec.dataset.sig !== html) {
+    sec.innerHTML = html;
+    sec.dataset.sig = html;
+  }
+  // Horario real de ese día (misma fuente que la sección de horarios)
+  const horarioNorm = normalizeSchedule(biz.horario_atencion);
+  const idxDia = DE_KEYS.indexOf(k); // DE_KEYS y DAY_KEYS tienen el mismo orden (lunes..domingo)
+  iniciarRelojDiaEspecial(horarioNorm[idxDia], offset);
+}
+// ═══════════ BANNER CUMPLEAÑOS ═══════════
+const BC_MESES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+const BC_CSS = `
+  .bc-banner{position:relative;margin-bottom:56px;border-radius:30px;animation:bcIn .6s cubic-bezier(.22,.85,.32,1) both;}
+  @keyframes bcIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  .bc-inner{position:relative;overflow:hidden;border-radius:30px;padding:28px 24px;display:flex;flex-direction:column;gap:22px;
+    background:radial-gradient(120% 140% at 0% 0%,rgba(var(--dr),var(--dg),var(--db),.28),#0b0b0d 60%);
+    border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.8),0 0 50px -20px rgba(var(--dr),var(--dg),var(--db),.45);}
+  .bc-glow{position:absolute;top:-90px;right:-60px;width:300px;height:300px;border-radius:50%;
+    background:radial-gradient(circle,rgba(var(--dr),var(--dg),var(--db),.35),transparent 70%);filter:blur(14px);pointer-events:none;}
+  .bc-cake{position:absolute;right:18px;bottom:-14px;font-size:92px;opacity:.07;pointer-events:none;transform:rotate(-12deg);user-select:none;}
+  .bc-copy,.bc-form{position:relative;z-index:2;}
+  .bc-copy{display:flex;flex-direction:column;align-items:flex-start;gap:10px;max-width:520px;}
+  .bc-tag{display:inline-flex;align-items:center;gap:8px;padding:5px 13px;border-radius:999px;font-size:10.5px;font-weight:800;
+    letter-spacing:.2em;text-transform:uppercase;color:#fff;background:rgba(var(--dr),var(--dg),var(--db),.18);border:1px solid rgba(var(--dr),var(--dg),var(--db),.5);}
+  .bc-title{margin:0;font-size:clamp(22px,4.4vw,34px);font-weight:900;line-height:1.1;letter-spacing:-.02em;color:#fff;}
+  .bc-text{margin:0;font-size:14px;line-height:1.6;color:#c4c4cc;}
+  .bc-perk{font-size:12px;font-weight:700;color:rgb(var(--dr),var(--dg),var(--db));letter-spacing:.04em;}
+  .bc-box{padding:18px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+  .bc-label{display:block;font-size:11px;color:#9c9ca3;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;}
+  .bc-input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);
+    color:#fff;font-size:14px;box-sizing:border-box;font-family:inherit;color-scheme:dark;margin-bottom:12px;}
+  .bc-input:focus{outline:none;border-color:rgba(var(--dr),var(--dg),var(--db),.7);}
+  .bc-btn{width:100%;padding:13px;border:none;border-radius:14px;font-weight:800;font-size:13.5px;color:#fff;cursor:pointer;
+    background:var(--brand-grad,linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7)));
+    box-shadow:0 10px 24px -8px rgba(var(--dr),var(--dg),var(--db),.55);transition:transform .18s ease,filter .18s ease;}
+  .bc-btn:hover{transform:translateY(-2px);filter:brightness(1.07);}
+  .bc-btn:disabled{opacity:.6;cursor:default;transform:none;}
+  .bc-link{background:none;border:none;padding:0;margin-top:10px;font-size:12.5px;font-weight:700;color:#d4d4d8;cursor:pointer;text-decoration:underline;}
+  .bc-err{display:none;font-size:12px;color:#ff6b6b;margin:-4px 0 10px;}
+  .bc-date-big{font-size:26px;font-weight:900;color:#fff;line-height:1.1;}
+  .bc-days{margin-top:6px;font-size:12.5px;font-weight:700;color:rgb(var(--dr),var(--dg),var(--db));}
+  .bc-ok{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#4ade80;margin-bottom:8px;}
+  .bc-note{margin:0 0 12px;font-size:13px;line-height:1.5;color:#c4c4cc;}
+  @media (min-width:900px){
+    .bc-inner{flex-direction:row;align-items:center;justify-content:space-between;padding:34px 40px;gap:40px;}
+    .bc-form{width:340px;flex-shrink:0;}
+  }
+`;
+
+let _cumple = {
+  uid: null,
+  loaded: false,
+  fnac: "",
+  guardado: false,
+  editando: false,
+};
+
+function _bcFmt(fnac) {
+  const [d, m] = String(fnac || "")
+    .split("/")
+    .map(Number);
+  return d && m ? `${d} de ${BC_MESES[m - 1]}` : "";
+}
+function _bcDias(fnac) {
+  const [d, m] = String(fnac || "")
+    .split("/")
+    .map(Number);
+  if (!d || !m) return null;
+  const [y, mo, da] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+  })
+    .format(new Date())
+    .split("-")
+    .map(Number);
+  const hoy = Date.UTC(y, mo - 1, da);
+  let prox = Date.UTC(y, m - 1, d);
+  if (prox < hoy) prox = Date.UTC(y + 1, m - 1, d);
+  return Math.round((prox - hoy) / 864e5);
+}
+
+async function cargarCumpleUsuario(uid) {
+  _cumple = { uid, loaded: false, fnac: "", guardado: false, editando: false };
+  try {
+    const [u, c] = await Promise.all([
+      getDoc(data_user_logeado(uid)),
+      getDoc(
+        tiendaSubDoc(
+          _params.localidad,
+          "tiendas",
+          _params.id,
+          "cumpleanos",
+          uid,
+        ),
+      ),
+    ]);
+    const fu = u.exists() ? u.data().fecha_nac || "" : "";
+    if (c.exists()) {
+      _cumple.fnac = c.data().fecha_nac || fu;
+      _cumple.guardado = true;
+    } else _cumple.fnac = fu; // ya tiene fecha en su perfil: solo confirma
+  } catch (e) {
+    console.warn("Cumpleaños:", e.message);
+  }
+  _cumple.loaded = true;
+}
+
+async function guardarCumple(btn) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return openLoginPromptModal();
+  const errEl = document.getElementById("bcErr");
+  const setErr = (m) => {
+    if (errEl) {
+      errEl.textContent = m;
+      errEl.style.display = m ? "block" : "none";
+    }
+  };
+
+  const fnac = _inputToFnac(document.getElementById("bcFecha")?.value);
+  const [d, m, y] = fnac.split("/").map(Number);
+  if (!d || !m || !y || y < 1900 || new Date(y, m - 1, d) > new Date())
+    return setErr("Elige una fecha de nacimiento válida");
+
+  setErr("");
+  btn.disabled = true;
+  btn.textContent = "Guardando…";
+  try {
+    const nombre = await getUserDisplayName(uid);
+    await Promise.all([
+      updateDoc(data_user_logeado(uid), { fecha_nac: fnac }),
+      setDoc(
+        tiendaSubDoc(
+          _params.localidad,
+          "tiendas",
+          _params.id,
+          "cumpleanos",
+          uid,
+        ),
+        {
+          id_usuario: uid,
+          nombre,
+          fecha_nac: fnac,
+          dia: d,
+          mes: m,
+          registrado_en: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    ]);
+    _segCache = null;
+    _cumple = { uid, loaded: true, fnac, guardado: true, editando: false };
+    showToast("¡Cumpleaños registrado! 🎂");
+    renderBannerCumple(_bizRef);
+  } catch (e) {
+    console.error("Guardar cumpleaños:", e);
+    btn.disabled = false;
+    btn.textContent = "Guardar mi cumpleaños";
+    setErr("No se pudo guardar, intenta de nuevo");
+  }
+}
+
+function renderBannerCumple(biz) {
+  if (!biz) return;
+  let sec = document.getElementById("secBannerCumple");
+  const cfg = biz.banner_cumpleanos;
+  if (cfg?.activo !== true) {
+    sec?.remove();
+    return;
+  }
+
+  const reviews = document.getElementById("secReviews");
+  if (!reviews) return;
+
+  if (!document.getElementById("bcStyle")) {
+    const st = document.createElement("style");
+    st.id = "bcStyle";
+    st.textContent = BC_CSS;
+    document.head.appendChild(st);
+  }
+
+  const user = auth.currentUser;
+  if (!user && _cumple.uid)
+    _cumple = {
+      uid: null,
+      loaded: false,
+      fnac: "",
+      guardado: false,
+      editando: false,
+    };
+  if (user && _cumple.uid !== user.uid) {
+    cargarCumpleUsuario(user.uid).then(() => renderBannerCumple(_bizRef));
+  }
+
+  const hiper = escapeHtml(
+    String(cfg.hipertitulo || "").trim() || "Tu día especial",
+  );
+  const titulo = escapeHtml(
+    String(cfg.titulo || "").trim() || "Celebra tu cumpleaños con nosotros",
+  );
+  const texto = escapeHtml(
+    String(cfg.texto || "").trim() ||
+      "Registra tu fecha de nacimiento y recibe descuentos, promociones o canjes en tu día.",
+  );
+  const perk = escapeHtml(String(cfg.beneficio || "").trim());
+
+  let caja;
+  if (!user) {
+    caja = `<p class="bc-note">Inicia sesión para registrar tu fecha de nacimiento y recibir tus sorpresas de cumpleaños.</p>
+      <button type="button" class="bc-btn" data-bc="login">Iniciar sesión</button>`;
+  } else if (!_cumple.loaded) {
+    caja = `<p class="bc-note">Cargando…</p>`;
+  } else if (_cumple.guardado && !_cumple.editando) {
+    const dias = _bcDias(_cumple.fnac);
+    const aviso =
+      dias === 0
+        ? "🎉 ¡Hoy es tu cumpleaños!"
+        : dias === 1
+          ? "Falta 1 día"
+          : `Faltan ${dias} días`;
+    caja = `<div class="bc-ok">✓ Registrado</div>
+      <div class="bc-date-big">${escapeHtml(_bcFmt(_cumple.fnac))}</div>
+      <div class="bc-days">${aviso}</div>
+      <button type="button" class="bc-link" data-bc="editar">Cambiar fecha</button>`;
+  } else {
+    const hoy = new Date().toISOString().slice(0, 10);
+    caja = `<label class="bc-label" for="bcFecha">Fecha de nacimiento</label>
+      <input class="bc-input" id="bcFecha" type="date" max="${hoy}" value="${_fnacToInput(_cumple.fnac)}">
+      <p class="bc-err" id="bcErr"></p>
+      <button type="button" class="bc-btn" data-bc="guardar">${_cumple.editando ? "Actualizar fecha" : "Guardar mi cumpleaños"}</button>
+      ${_cumple.editando ? `<button type="button" class="bc-link" data-bc="cancelar">Cancelar</button>` : ""}`;
+  }
+
+  const html = `
+    <div class="bc-inner">
+      <div class="bc-glow"></div><div class="bc-cake">🎂</div>
+      <div class="bc-copy">
+        <span class="bc-tag">🎂 ${hiper}</span>
+        <h2 class="bc-title">${titulo}</h2>
+        <p class="bc-text">${texto}</p>
+        ${perk ? `<span class="bc-perk">${perk}</span>` : ""}
+      </div>
+      <div class="bc-form"><div class="bc-box">${caja}</div></div>
+    </div>`;
+
+  if (!sec) {
+    sec = document.createElement("section");
+    sec.id = "secBannerCumple";
+    sec.className = "bc-banner";
+    sec.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-bc]");
+      if (!b) return;
+      const a = b.dataset.bc;
+      if (a === "login") openLoginPromptModal();
+      else if (a === "guardar") guardarCumple(b);
+      else if (a === "editar") {
+        _cumple.editando = true;
+        renderBannerCumple(_bizRef);
+      } else if (a === "cancelar") {
+        _cumple.editando = false;
+        renderBannerCumple(_bizRef);
+      }
+    });
+  }
+  if (
+    sec.parentElement !== reviews.parentElement ||
+    sec.previousElementSibling !== reviews
+  )
+    reviews.after(sec);
   if (sec.dataset.sig !== html) {
     sec.innerHTML = html;
     sec.dataset.sig = html;
@@ -10286,3 +10682,4 @@ function _paUrl(pedidoId) {
     return `/perfil/${encodeURIComponent(alias)}/${encodeURIComponent(pedidoId)}`;
   return `/pedidos/${encodeURIComponent(_params.id)}/${encodeURIComponent(pedidoId)}`;
 }
+

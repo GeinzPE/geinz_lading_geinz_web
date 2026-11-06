@@ -10,10 +10,11 @@
   "use strict";
 
   /* ───────── Plantillas permitidas ───────── */
-  const PERMITIDAS = {
-    aviso_importante: "📣 Aviso / Promoción",
-    estado_pedidos_geinz_food: "📦 Estado del pedido",
-  };
+const PERMITIDAS = {
+  aviso_importante: "📣 Aviso / Promoción",
+  estado_pedidos_geinz_food: "📦 Estado del pedido",
+  reactivar_cena: "🍽️ Reactivar cena",
+};
   const BASE_BTN = "https://geinztech.com/";
 
   /* ───────── CSS ───────── */
@@ -158,8 +159,10 @@ body.sin-chat #vistaCampanas{display:none!important}
 
   /* ════════════ 1) Solo 2 plantillas ════════════ */
   const _rp = window.renderPlantillas;
+  
   window.renderPlantillas = function () {
     PLANTILLAS = PLANTILLAS.filter((p) => PERMITIDAS[p.name]);
+    
     PLANTILLAS.forEach((p) => {
       p.title = PERMITIDAS[p.name];
     });
