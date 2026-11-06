@@ -195,7 +195,6 @@ body.sin-chat #vistaCampanas{display:none!important}
     side.id = "chSide";
     box.append(main, side);
   })();
-
   function pintarLateral() {
     const el = $$("chSide");
     if (!el) return;
@@ -886,7 +885,6 @@ body.sin-chat #vistaCampanas{display:none!important}
     );
   }
 
-  /* si cambian filas de la tabla mientras estás en campañas */
   new MutationObserver(() => {
     if (
       C.montado &&
@@ -895,4 +893,6 @@ body.sin-chat #vistaCampanas{display:none!important}
     )
       refrescarDest();
   }).observe(tbody, { childList: true });
+
+  window.CRMPromos = { C, cargarPromos, sufijoLink, limpio };
 })();

@@ -3048,7 +3048,7 @@ function productoCard(p, index = 0) {
   if (descInfoCard) {
     const badge = document.createElement("span");
     badge.className = "prod-descuento-badge";
-badge.textContent = `-${Math.round(descInfoCard.porcentaje)}%`;
+    badge.textContent = `-${Math.round(descInfoCard.porcentaje)}%`;
     imgWrap.appendChild(badge);
   }
   const galeria =
@@ -3072,7 +3072,7 @@ badge.textContent = `-${Math.round(descInfoCard.porcentaje)}%`;
   const descuentoVenceTxt = descInfoCard
     ? formatVenceDescuento(p.descuento, descInfoCard)
     : "";
-   const dd = precioDesdeInfo(p);
+  const dd = precioDesdeInfo(p);
   const preDesde = dd.varia
     ? `<span class="text-gray-400 text-[10.5px] font-semibold mr-1">Desde</span>`
     : "";
@@ -3086,43 +3086,44 @@ badge.textContent = `-${Math.round(descInfoCard.porcentaje)}%`;
     ? `<span style="color:#d1d5db;text-decoration:line-through;text-decoration-color:#fb7185;text-decoration-thickness:2px;font-size:11.5px;margin-right:6px;">S/ ${precioTachado.toFixed(2)}</span>${preDesde}<span class="display font-extrabold text-[14px] sm:text-[15px]" style="color:#fb7185;">S/ ${precioFinalCard.toFixed(2)}</span>`
     : `${preDesde}<span class="display font-extrabold text-[14px] sm:text-[15px] accent">S/ ${precioFinalCard.toFixed(2)}</span>`;
 
-const nombreEl = document.createElement("p");
-nombreEl.className = "font-bold text-[13px] sm:text-[14px] leading-tight line-clamp-2";
-nombreEl.textContent = p.nombre;
+  const nombreEl = document.createElement("p");
+  nombreEl.className =
+    "font-bold text-[13px] sm:text-[14px] leading-tight line-clamp-2";
+  nombreEl.textContent = p.nombre;
 
-const precioEl = document.createElement("div");
-precioEl.className = "mt-1";
-precioEl.innerHTML = precioHTML;
+  const precioEl = document.createElement("div");
+  precioEl.className = "mt-1";
+  precioEl.innerHTML = precioHTML;
 
-info.append(nombreEl, precioEl);
+  info.append(nombreEl, precioEl);
 
-if (condLine) {
-  const condEl = document.createElement("p");
-  condEl.className = "text-[10.5px] text-gray-500 mt-0.5 line-clamp-2";
-  condEl.textContent = condLine;
-  info.appendChild(condEl);
-}
+  if (condLine) {
+    const condEl = document.createElement("p");
+    condEl.className = "text-[10.5px] text-gray-500 mt-0.5 line-clamp-2";
+    condEl.textContent = condLine;
+    info.appendChild(condEl);
+  }
 
-if (descuentoVenceTxt) {
-  const venceEl = document.createElement("p");
-  venceEl.className = "text-[10px] font-bold mt-0.5";
-  venceEl.style.color = "#fca5a5";
-  venceEl.textContent = descuentoVenceTxt;
-  info.appendChild(venceEl);
-}
+  if (descuentoVenceTxt) {
+    const venceEl = document.createElement("p");
+    venceEl.className = "text-[10px] font-bold mt-0.5";
+    venceEl.style.color = "#fca5a5";
+    venceEl.textContent = descuentoVenceTxt;
+    info.appendChild(venceEl);
+  }
 
-if (p.puntos) {
-  const ptsEl = document.createElement("p");
-  ptsEl.className = "text-[10.5px] font-semibold mt-0.5 accent";
-  ptsEl.textContent = `🎁 +${p.puntos.cantidad} pts`;
-  info.appendChild(ptsEl);
-}
+  if (p.puntos) {
+    const ptsEl = document.createElement("p");
+    ptsEl.className = "text-[10.5px] font-semibold mt-0.5 accent";
+    ptsEl.textContent = `🎁 +${p.puntos.cantidad} pts`;
+    info.appendChild(ptsEl);
+  }
 
-const dispEl = document.createElement("p");
-dispEl.id = `disp-${p.id}`;
-dispEl.className = "prod-disp-msg";
-dispEl.style.display = "none";
-info.appendChild(dispEl);
+  const dispEl = document.createElement("p");
+  dispEl.id = `disp-${p.id}`;
+  dispEl.className = "prod-disp-msg";
+  dispEl.style.display = "none";
+  info.appendChild(dispEl);
   const qtyWrap = document.createElement("div");
   qtyWrap.className = "flex-shrink-0 prod-qty-row";
   qtyWrap.id = `qty-${p.id}`;
@@ -3151,7 +3152,9 @@ function precioDesdeInfo(p) {
     const costos = c.opciones.map((o) => Number(o.costoAdicional) || 0);
     const min = Math.min(...costos);
     if (min !== Math.max(...costos)) varia = true;
-    const menor = c.opciones.find((o) => (Number(o.costoAdicional) || 0) === min);
+    const menor = c.opciones.find(
+      (o) => (Number(o.costoAdicional) || 0) === min,
+    );
     sel[c.nombre] = { [menor.nombre]: 1 };
     extra += min;
   });
@@ -3934,7 +3937,7 @@ function addToCart(p, seleccion = null) {
       precio: precioFinal,
       precioOriginal: descInfo ? Number(p.precio) || 0 : null,
       descuentoPorcentaje: descInfo ? descInfo.porcentaje : null,
-         cantidad: 1,
+      cantidad: 1,
       cartKey: key,
       seleccion: seleccion || null,
       imagen: imagenOpcionElegida(p, seleccion) || p.imagen, // ← NUEVO
@@ -3981,8 +3984,7 @@ function editCartSelection(oldKey, p, nuevaSeleccion) {
       cantidad: cantidadFinal,
       cartKey: newKey,
       seleccion: nuevaSeleccion,
-            imagen: imagenOpcionElegida(p, nuevaSeleccion) || p.imagen, // ← NUEVO
-
+      imagen: imagenOpcionElegida(p, nuevaSeleccion) || p.imagen, // ← NUEVO
     });
   }
   syncCartChange(p.id);
@@ -4130,7 +4132,10 @@ function thumbOpcion(op, cond) {
     const fotos = cond.opciones.filter((o) => o.imagen);
     openProductLightbox(
       fotos.map((o) => o.imagen),
-      Math.max(0, fotos.findIndex((o) => o.nombre === op.nombre)),
+      Math.max(
+        0,
+        fotos.findIndex((o) => o.nombre === op.nombre),
+      ),
     );
   });
   return img;
@@ -4255,8 +4260,6 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
   document.getElementById("optionsProdNombre").textContent = p.nombre;
   const body = document.getElementById("optionsBody");
   body.innerHTML = "";
-
-
 
   if (p.descripcion) {
     body.appendChild(el("p", "opt-prod-desc", p.descripcion));

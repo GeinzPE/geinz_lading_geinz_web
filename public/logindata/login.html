@@ -66,98 +66,50 @@
 
         <p class="welcome-sub">Accede a negocios locales, promociones exclusivas y mucho más en tu ciudad.</p>
 
+        <!-- 1) BOTONES SOCIALES PRIMERO -->
         <div class="actions-stack">
-          <button class="btn btn-email" onclick="openLoginModal()">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <path d="m22 7-10 7L2 7" />
-            </svg>
-            Iniciar sesión
-          </button>
-
-          <div class="divider-row">
-            <div class="divider-line"></div>
-            <span class="divider-text">o continúa con</span>
-            <div class="divider-line"></div>
-          </div>
-
-          <button class="btn btn-google" onclick="loginGoogle()">
+          <button type="button" class="btn btn-google" onclick="loginGoogle()">
             <img src="../img/logo_google.webp" alt="" aria-hidden="true" width="18" height="18" />
-            Continuar con Google
+            <span>Continuar con Google</span>
           </button>
 
-          <button class="btn btn-facebook" onclick="loginFacebook()">
+          <button type="button" class="btn btn-facebook" onclick="loginFacebook()">
             <svg class="icon-svg" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-              <path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.69.24 2.69.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z" />
+              <path
+                d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.69.24 2.69.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z" />
             </svg>
-            Continuar con Facebook
+            <span>Continuar con Facebook</span>
+          </button>
+
+          <button type="button" class="btn btn-github" onclick="loginGithub()">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+              <path
+                d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3" />
+            </svg>
+            <span>Continuar con GitHub</span>
           </button>
         </div>
 
-        <div class="card-footer">
-          <span>¿Aún no tienes cuenta?</span>
-          <button class="link-btn" onclick="openRegisterModal()">Crear cuenta gratis</button>
+        <!-- 2) RAYITA CON "O" -->
+        <div class="divider-row">
+          <div class="divider-line"></div>
+          <span class="divider-text">o</span>
+          <div class="divider-line"></div>
         </div>
 
-        <div class="locality-row" aria-hidden="true">
-          <span class="locality-dot"></span>
-          <span class="locality-text" id="localityText">Barranca · Supe · Paramonga · Pativilca · Puerto Supe</span>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <!-- ===== MODAL: LOGIN EMAIL ===== -->
-  <div class="modal-overlay" id="loginModal" onclick="closeIfOutside(event,'loginModal')" role="dialog"
-    aria-modal="true" aria-label="Iniciar sesión">
-    <div class="modal-scroll">
-      <div class="dialog">
-
-        <button class="btn-back-modal" onclick="closeModal('loginModal')" aria-label="Regresar">
-          <span class="material-symbols-outlined" aria-hidden="true">arrow_back_ios</span>
-          Regresar
-        </button>
-
-        <div class="dialog-header">
-          <div class="dialog-icon-wrap">
-            <span class="material-symbols-outlined" aria-hidden="true">lock_open</span>
-          </div>
-          <h2 class="dialog-title">Bienvenido de vuelta</h2>
-          <p class="dialog-sub">Ingresa con tu cuenta Geinz para continuar.</p>
-        </div>
-
-        <div id="loginStepEmail">
+        <!-- 3) CORREO Y CONTRASEÑA -->
+        <form class="login-inline" onsubmit="doInlineLogin(event)" novalidate>
           <div class="field-group">
             <label class="field-label" for="loginEmail">Correo electrónico</label>
             <div class="input-box">
-              <svg class="input-icon icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="2" y="4" width="20" height="16" rx="2" />
-                <path d="m22 7-10 7L2 7" />
-              </svg>
+              <span class="material-symbols-outlined input-icon" aria-hidden="true">mail</span>
               <input id="loginEmail" type="email" class="input-field" placeholder="tucorreo@ejemplo.com"
                 autocomplete="email" />
             </div>
             <p class="field-error" id="loginEmailError"></p>
           </div>
 
-          <button class="btn btn-primary full-width" onclick="checkEmailExists()">
-            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-            Continuar
-          </button>
-        </div>
-
-        <div id="loginStepPassword" style="display:none;">
-          <div class="login-email-chip" id="loginEmailChip">
-            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
-            <span id="loginEmailChipText"></span>
-            <button class="chip-change-btn" onclick="backToEmail()" aria-label="Cambiar correo">
-              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-            </button>
-          </div>
-
-          <div class="field-group" style="margin-top:16px;">
+          <div class="field-group">
             <div class="field-label-row">
               <label class="field-label" for="loginPassword">Contraseña</label>
               <a class="forgot-link" tabindex="0" onclick="openForgotPassword()">¿Olvidaste tu contraseña?</a>
@@ -174,15 +126,26 @@
             <p class="field-error" id="loginPassError"></p>
           </div>
 
-          <button class="btn btn-primary full-width" id="btnDoLogin" onclick="doEmailLogin()">
+          <button type="submit" class="btn btn-primary full-width" id="btnDoLogin">
             <span class="material-symbols-outlined" aria-hidden="true">login</span>
             Iniciar sesión
           </button>
+        </form>
+
+        <div class="card-footer">
+          <span>¿Aún no tienes cuenta?</span>
+          <button class="link-btn" onclick="openRegisterModal()">Crear cuenta gratis</button>
         </div>
 
+        <div class="locality-row" aria-hidden="true">
+          <span class="locality-dot"></span>
+          <span class="locality-text" id="localityText">Barranca · Supe · Paramonga · Pativilca · Puerto Supe</span>
+        </div>
       </div>
-    </div>
+    </main>
   </div>
+
+
 
   <!-- ===== MODAL: REGISTRO ===== -->
   <div class="modal-overlay" id="registerModal" onclick="closeIfOutside(event,'registerModal')" role="dialog"
@@ -205,70 +168,36 @@
 
         <form onsubmit="submitRegister(event)" novalidate>
 
-          <div class="input-row-2">
-            <div class="field-group">
-              <label class="field-label" for="regNombre">Nombre</label>
-              <div class="input-box">
-                <input id="regNombre" type="text" class="input-field input-no-icon" placeholder="Nombre"
-                  autocomplete="given-name" />
-              </div>
-              <p class="field-error" id="errNombre"></p>
-            </div>
-            <div class="field-group">
-              <label class="field-label" for="regApellido">Apellido</label>
-              <div class="input-box">
-                <input id="regApellido" type="text" class="input-field input-no-icon" placeholder="Apellido"
-                  autocomplete="family-name" />
-              </div>
-              <p class="field-error" id="errApellido"></p>
-            </div>
-          </div>
-
           <div class="field-group">
-            <label class="field-label" for="regUsername">Nombre de usuario</label>
+            <label class="field-label" for="regNombre">Nombre y apellido</label>
             <div class="input-box">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">alternate_email</span>
-              <input id="regUsername" type="text" class="input-field" placeholder="mi_usuario" autocomplete="username"
-                oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.]/g,'')" />
+              <span class="material-symbols-outlined input-icon" aria-hidden="true">person</span>
+              <input id="regNombre" type="text" class="input-field" placeholder="Ej: Juan Pérez" autocomplete="name" />
             </div>
-            <p class="field-error" id="errUsername"></p>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label">País del teléfono</label>
-            <div class="input-box select-wrap">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">public</span>
-              <select id="regPaisTel" class="custom-select" onchange="onRegPaisChange(this)">
-                <option value="" disabled selected hidden>Seleccionar país</option>
-              </select>
-              <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
-            </div>
+            <p class="field-error" id="errNombre"></p>
           </div>
 
           <div class="field-group">
             <label class="field-label">Número de teléfono</label>
             <div class="phone-row">
-              <div class="country-prefix" id="regPrefixBox" aria-label="Código de país">
-                <span class="flag" id="regPrefixFlag" aria-hidden="true">🇵🇪</span>
-                <span class="prefix-code" id="regPrefixCode">+51</span>
+              <div class="country-prefix" aria-label="Código de país">
+                <span class="flag" aria-hidden="true">🇵🇪</span>
+                <span class="prefix-code">+51</span>
               </div>
               <input id="regTelefono" type="tel" class="input-field phone-input" placeholder="987 654 321"
-                autocomplete="tel-national" oninput="this.value=this.value.replace(/\D/g,'')" maxlength="12" />
+                autocomplete="tel-national" oninput="this.value=this.value.replace(/\D/g,'')" maxlength="9" />
             </div>
             <p class="field-error" id="errTelefono"></p>
           </div>
 
           <div class="field-group">
-            <label class="field-label" for="regGenero">Género</label>
-            <div class="input-box select-wrap">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">wc</span>
-              <select id="regGenero" class="custom-select">
-                <option value="" disabled selected hidden>Seleccionar</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Femenino">Femenino</option>
-                <option value="Otro">Otro</option>
-              </select>
-              <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
+            <label class="field-label">Género</label>
+            <div class="radio-row">
+              <label class="radio-opt"><input type="radio" name="regGenero"
+                  value="Masculino" /><span>Hombre</span></label>
+              <label class="radio-opt"><input type="radio" name="regGenero"
+                  value="Femenino" /><span>Mujer</span></label>
+              <label class="radio-opt"><input type="radio" name="regGenero" value="Otro" /><span>Otro</span></label>
             </div>
             <p class="field-error" id="errGenero"></p>
           </div>
@@ -302,29 +231,6 @@
           </div>
 
           <div class="field-group">
-            <label class="field-label" for="regFechaNac">Fecha de nacimiento</label>
-            <div class="input-box">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">calendar_month</span>
-              <input id="regFechaNac" type="date" class="input-field" max="" autocomplete="bday" />
-            </div>
-            <p class="field-error" id="errFecha"></p>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label">Nacionalidad</label>
-            <div class="input-box select-wrap">
-              <span class="material-symbols-outlined input-icon" aria-hidden="true">public</span>
-              <select id="regNacionalidad" class="custom-select" onchange="onNacionalidadChange(this)">
-                <option value="" disabled selected hidden>Seleccionar país</option>
-              </select>
-              <span class="material-symbols-outlined select-chevron" aria-hidden="true">expand_more</span>
-            </div>
-            <input type="hidden" id="regCodPais" />
-            <input type="hidden" id="regNombrePais" />
-            <p class="field-error" id="errPais"></p>
-          </div>
-
-          <div class="field-group">
             <label class="field-label" for="regCorreo">Correo electrónico</label>
             <div class="input-box">
               <span class="material-symbols-outlined input-icon" aria-hidden="true">mail</span>
@@ -338,33 +244,19 @@
             </p>
           </div>
 
-          <div class="input-row-2" id="passRow">
-            <div class="field-group">
-              <label class="field-label" for="registerPass1">Contraseña</label>
-              <div class="input-box">
-                <span class="material-symbols-outlined input-icon" aria-hidden="true">lock</span>
-                <input id="registerPass1" type="password" class="input-field" placeholder="Mín. 8 caracteres"
-                  autocomplete="new-password" />
-                <button type="button" class="toggle-pass-btn" onclick="togglePassword('registerPass1',this)"
-                  aria-label="Mostrar">
-                  <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
-                </button>
-              </div>
+          <div class="field-group" id="passRow">
+            <label class="field-label" for="registerPass1">Contraseña</label>
+            <div class="input-box">
+              <span class="material-symbols-outlined input-icon" aria-hidden="true">lock</span>
+              <input id="registerPass1" type="password" class="input-field" placeholder="Mín. 8 caracteres"
+                autocomplete="new-password" />
+              <button type="button" class="toggle-pass-btn" onclick="togglePassword('registerPass1',this)"
+                aria-label="Mostrar">
+                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+              </button>
             </div>
-            <div class="field-group">
-              <label class="field-label" for="registerPass2">Confirmar</label>
-              <div class="input-box">
-                <span class="material-symbols-outlined input-icon" aria-hidden="true">lock_reset</span>
-                <input id="registerPass2" type="password" class="input-field" placeholder="Repite tu contraseña"
-                  autocomplete="new-password" />
-                <button type="button" class="toggle-pass-btn" onclick="togglePassword('registerPass2',this)"
-                  aria-label="Mostrar">
-                  <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
-                </button>
-              </div>
-            </div>
+            <p class="field-error" id="errPass"></p>
           </div>
-          <p class="field-error" id="errPass"></p>
 
           <div class="terms-row">
             <input type="checkbox" id="termsCheck" class="terms-check" />
@@ -385,7 +277,6 @@
             <button type="button" class="btn btn-ghost full-width"
               onclick="closeModal('registerModal')">Cancelar</button>
           </div>
-
         </form>
       </div>
     </div>
@@ -478,7 +369,8 @@
             <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
           </div>
           <h2 class="dialog-title">Activa las notificaciones</h2>
-          <p class="dialog-sub">Entérate al instante cuando tu pedido sea aceptado, esté en camino o listo para recoger.</p>
+          <p class="dialog-sub">Entérate al instante cuando tu pedido sea aceptado, esté en camino o listo para recoger.
+          </p>
         </div>
         <div class="dialog-actions">
           <button type="button" class="btn btn-primary full-width" id="btnActivarNotis">
