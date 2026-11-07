@@ -3145,10 +3145,32 @@ function diaHoyLima() {
   }[en];
 }
 
-function normalizePromos(it) {
+// Día especial de HOY (si está activo en el perfil) o null
+function diaEspecialHoyPerfil(biz) {
+  const cfg = biz?.dias_especiales;
+  if (!cfg || cfg.activo !== true) return null;
+  const d = cfg.dias?.[diaHoyLima()];
+  if (!d || d.activo !== true) return null;
+  return d;
+}
+function gradienteDiaEspecialPerfil(d) {
+  const cols =
+    Array.isArray(d?.colores) && d.colores.length >= 2
+      ? d.colores
+      : [d?.color1 || "#f97316", d?.color2 || "#e11d48"];
+  const ang = Number(d?.angulo) || 135;
+  return {
+    css: `linear-gradient(${ang}deg, ${cols.join(",")})`,
+    c1: cols[0],
+    c2: cols[cols.length - 1],
+  };
+}
+function normalizePromos(it, biz) {
   const p = it?.lista_img?.promociones || {};
   const hoy = diaHoyLima();
-  return Object.entries(p)
+  const esp = diaEspecialHoyPerfil(biz);
+  const g = esp ? gradienteDiaEspecialPerfil(esp) : null;
+  const lista = Object.entries(p)
     .filter(([, val]) => {
       const dias = val && typeof val === "object" ? val.dias : null;
       return !dias?.length || dias.includes(hoy); // sin días = todos los días
@@ -3162,9 +3184,16 @@ function normalizePromos(it) {
         titulo: `Promoción ${idx + 1}`,
         descripcion: String(o.descripcion || "").trim(),
         precio: Number(o.precio) || 0,
+        destacado: !!esp && o.destacarEspecial === true,
+        destacadoTexto: esp ? String(esp.titulo || "").trim() : "",
+        destacadoGrad: g?.css || "",
+        destacadoC1: g?.c1 || "",
+        destacadoC2: g?.c2 || "",
       };
     })
     .filter(Boolean);
+  // las destacadas van primero
+  return lista.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
 }
 const AMENITY_ICONS = {
   "zona expandida": "🏢",
@@ -5977,7 +6006,7 @@ async function render(biz, isInitial = true) {
   _waNumeroNegocio = waContacto ? waContacto.valor.replace(/\D/g, "") : "";
   const pagos = normalizePagos(biz.metodos_pago);
   const { ambientales, productos, todas } = normalizeImages(biz.img_tienda);
-  const promoImages = normalizePromos(biz.img_tienda);
+  const promoImages = normalizePromos(biz.img_tienda, biz);
   const amenities = normalizeAmenities(biz.servicios_comodidades);
   const logoUrl = biz.img_tienda?.logo_tienda || null;
 
@@ -6350,8 +6379,15 @@ async function render(biz, isInitial = true) {
 
       const card = document.createElement("div");
       card.className = "promo-card";
+      if (promo.destacado) {
+        card.classList.add("promo-destacado");
+        card.style.setProperty("--de-grad", promo.destacadoGrad);
+        card.style.setProperty("--de-c1", promo.destacadoC1);
+        card.style.setProperty("--de-c2", promo.destacadoC2);
+      }
       card.innerHTML = `
           <div class="promo-card-img-wrap">
+                                ${promo.destacado ? `<span class="promo-destacado-badge">Destacado por hoy</span>` : ""}
             <div class="promo-card-top-actions">
               ${
                 puedeComprarPromo
@@ -6376,6 +6412,7 @@ async function render(biz, isInitial = true) {
             <div class="promo-card-bottom-overlay">
               ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
               ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
+                                         ${promo.destacado && promo.destacadoTexto ? `<p class="promo-destacado-txt">${escapeHtml(promo.destacadoTexto)}</p>` : ""}
             </div>`
                 : ""
             }
@@ -8012,10 +8049,12 @@ function irAReviews() {
   try {
     const params = await getParams();
     _params = params;
-    aplicarManifest(params); 
+    aplicarManifest(params);
     if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("SW:", e));
-}
+      navigator.serviceWorker
+        .register("/sw.js")
+        .catch((e) => console.warn("SW:", e));
+    }
     if (params.mesaToken) {
       await resolveMesaYRedirigir(params, params.mesaToken);
       return;
@@ -8584,6 +8623,51 @@ function injectCatalogoStyles() {
     @media (min-width:768px){
       #catalogoList .catalogo-row{flex-basis:260px !important;width:260px !important;height:340px !important;}
     }
+            /* ══ Promo destacada por día especial ══ */
+      .promo-card.promo-destacado{
+        position:relative;
+        border-color:transparent !important;
+        box-shadow:0 14px 34px -12px var(--de-c1), 0 0 26px -10px var(--de-c2);
+      }
+      .promo-card.promo-destacado::before{
+        content:"";position:absolute;inset:0;padding:2px;border-radius:inherit;pointer-events:none;z-index:5;
+        background:var(--de-grad);
+        -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite:xor;mask-composite:exclude;
+      }
+    .promo-destacado-badge{
+        position:absolute;top:14px;left:14px;z-index:3;
+        padding:5px 12px;border-radius:999px;font-size:10.5px;font-weight:900;
+        letter-spacing:.03em;color:#fff;
+        text-shadow:0 0 3px #000, 0 1px 3px #000, 0 0 8px rgba(0,0,0,.9);
+        background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.42)), var(--de-grad);
+        box-shadow:0 6px 16px -4px var(--de-c1);
+        border:1px solid rgba(0,0,0,.35);
+      }
+     .promo-destacado-txt{
+        margin:0;font-size:11.5px;font-weight:700;color:#fff;
+        text-shadow:0 0 3px #000, 0 1px 3px #000, 0 0 8px rgba(0,0,0,.9);
+      }
+   .promo-card.promo-destacado .promo-card-price,
+      .promo-card.promo-destacado .promo-icon-buy,
+      .promo-card.promo-destacado .promo-icon-share{
+        background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.42)), var(--de-grad) !important;
+        color:#fff !important;
+        text-shadow:0 0 3px #000, 0 1px 3px #000;
+        box-shadow:0 6px 16px -4px var(--de-c1) !important;
+      }
+          .promo-card.promo-destacado .promo-icon-buy svg,
+      .promo-card.promo-destacado .promo-icon-share svg{
+        filter:drop-shadow(0 0 2px #000) drop-shadow(0 1px 2px #000);
+      }
+              .promo-destacado-badge .geinz-ico,
+      .promo-destacado-txt .geinz-ico{
+        width:1.1em;height:1.1em;
+        background:none !important;
+        border-radius:0;
+        display:inline-block;
+        vertical-align:-0.2em;
+      }
   `;
   document.head.appendChild(st);
 }
@@ -10682,4 +10766,3 @@ function _paUrl(pedidoId) {
     return `/perfil/${encodeURIComponent(alias)}/${encodeURIComponent(pedidoId)}`;
   return `/pedidos/${encodeURIComponent(_params.id)}/${encodeURIComponent(pedidoId)}`;
 }
-

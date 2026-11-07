@@ -626,6 +626,8 @@ function renderOfertas(map) {
       <div class="of-body">
         <textarea class="of-desc" data-role="desc" rows="3" maxlength="500" placeholder="Descripción (obligatoria)"></textarea>
                 <div class="of-dias" data-role="dias"></div>
+                     
+        <div class="of-dias" data-role="esp"></div>
         <div class="of-price" data-role="price-box">
           <span>S/</span>
           <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio (obligatorio)">
@@ -678,6 +680,33 @@ function renderOfertas(map) {
       } catch (err) {
         console.error(err);
         mostrarToast("No se pudo cambiar los días");
+      }
+    });
+        // ── Destacar en día especial ──
+    const espBox = card.querySelector('[data-role="esp"]');
+    const pintarEsp = () => {
+      const on = normalizarOferta(ofertasCache[key]).destacarEspecial === true;
+      espBox.innerHTML = `<span class="of-dia ${on ? "on" : ""}" data-esp="1" style="padding:5px 10px">⭐ Destacar en día especial</span>`;
+    };
+    pintarEsp();
+    espBox.addEventListener("click", async (e) => {
+      if (!e.target.closest("[data-esp]")) return;
+      const actual = normalizarOferta(ofertasCache[key]);
+      const nuevoValor = !(actual.destacarEspecial === true);
+      try {
+        await updateDoc(TIENDA_REF, {
+          [`img_tienda.lista_img.promociones.${key}.destacarEspecial`]:
+            nuevoValor ? true : deleteField(),
+        });
+        const nuevo = { ...actual };
+        if (nuevoValor) nuevo.destacarEspecial = true;
+        else delete nuevo.destacarEspecial;
+        ofertasCache[key] = nuevo;
+        pintarEsp();
+        mostrarToast(nuevoValor ? "Se destacará en tu día especial" : "Ya no se destacará");
+      } catch (err) {
+        console.error(err);
+        mostrarToast("No se pudo cambiar");
       }
     });
     desc.value = item.descripcion || "";

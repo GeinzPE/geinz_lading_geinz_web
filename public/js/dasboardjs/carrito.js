@@ -914,20 +914,20 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const totalConDesc = +(totalGuardar - descCupon).toFixed(2);
   const cuponGuardar = cuponMesa
     ? {
-      codigo: cuponMesa.codigo,
-      tipo: cuponMesa.tipo,
-      origen: cuponMesa.origen || null,
-      tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
-      porcentajeManual: cuponMesa.porcentajeManual ?? null,
-      montoManual: cuponMesa.montoManual ?? null,
-      compraMinima: cuponMesa.compraMinima ?? 0,
-    }
+        codigo: cuponMesa.codigo,
+        tipo: cuponMesa.tipo,
+        origen: cuponMesa.origen || null,
+        tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
+        porcentajeManual: cuponMesa.porcentajeManual ?? null,
+        montoManual: cuponMesa.montoManual ?? null,
+        compraMinima: cuponMesa.compraMinima ?? 0,
+      }
     : null;
   const estadosIni = esRonda
     ? {
-      estadoMozo: "confirmado",
-      estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
-    }
+        estadoMozo: "confirmado",
+        estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
+      }
     : inter
       ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
       : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
@@ -1130,7 +1130,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 const estItemC = (it, ped) =>
@@ -1168,7 +1168,7 @@ async function guardarComprobanteMesa(sol) {
     await updateDoc(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", docId),
       { comprobante: sol },
-    ).catch(() => { });
+    ).catch(() => {});
 }
 const clientePuedeComprobante = () =>
   bizData?.mesas_config?.compCliente !== false;
@@ -1268,26 +1268,28 @@ function renderPedidoActivoMesa(pedido) {
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
       <span class="text-[11px] text-gray-500">${pedido.hora || ""}</span>
     </div>
-    ${idx < 0
-      ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
-      : `<div class="pa-steps">
+    ${
+      idx < 0
+        ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
+        : `<div class="pa-steps">
             <div class="pa-track"><div class="pa-fill" style="width:${fillPct}%"></div></div>
             ${PASOS_MESA.map(
-        (p, i) => `
+              (p, i) => `
               <div class="pa-step ${i < idx ? "done" : i === idx ? "now" : ""}">
                 <div class="pa-dot">${i < idx ? "✓" : p[1]}</div>
                 <div class="pa-lbl">${p[2]}</div>
               </div>`,
-      ).join("")}
+            ).join("")}
           </div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
-    ${Number(pedido.descuentoCupon || 0) > 0
-      ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
+    ${
+      Number(pedido.descuentoCupon || 0) > 0
+        ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
              <span>🎟️ Cupón ${pedido.cupon?.codigo || ""}</span>
              <span>-S/ ${Number(pedido.descuentoCupon).toFixed(2)}</span>
            </div>`
-      : ""
+        : ""
     }
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
@@ -1569,10 +1571,10 @@ async function confirmarPedidoMesaDirecto() {
         usado: true,
         estado: "usado",
         usadoEn: serverTimestamp(),
-      }).catch(() => { });
+      }).catch(() => {});
     }
     if (contarUso) {
-      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => { });
+      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
     }
     cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
@@ -2078,10 +2080,11 @@ function cuponBarHTML(subtotal) {
         <p style="margin:0;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${rgb};">
           🎟️ Canjes con puntos · ${totalCanjes}
         </p>
-        ${lineas.length > 1
-      ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
-      : ""
-    }
+        ${
+          lineas.length > 1
+            ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
+            : ""
+        }
       </div>
       ${filas}
     </div>`;
@@ -2414,12 +2417,12 @@ async function loadProductosCatalogo(bizOrPromise) {
             d.variantesMultiples === true && d.variantesConCantidad === true,
           puntos:
             biz?.fidelizacion?.activo &&
-              d.puntos?.activo &&
-              d.puntos?.cantidad > 0
+            d.puntos?.activo &&
+            d.puntos?.cantidad > 0
               ? {
-                cantidad: d.puntos.cantidad,
-                descripcion: d.puntos.descripcion || "",
-              }
+                  cantidad: d.puntos.cantidad,
+                  descripcion: d.puntos.descripcion || "",
+                }
               : null,
           descuento: d.descuento || null,
           horarioCat,
@@ -2762,7 +2765,7 @@ function prepararCheckoutInvitado() {
       if (nom && !nom.value.trim()) nom.value = g.nombre || "";
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
-  } catch { }
+  } catch {}
   // Si está logeado, intenta prellenar con el teléfono de su perfil
   if (!esInvitado && wa && !wa.value.trim()) {
     wa.value =
@@ -2954,10 +2957,11 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
-    ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
-    : `<span class="ph-letter">${letraNegocio()}</span>`
-    }</div>`;
+  wrap.innerHTML = `<div class="logo-ph-badge">${
+    _bizLogoUrl
+      ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+      : `<span class="ph-letter">${letraNegocio()}</span>`
+  }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -3022,9 +3026,14 @@ function productoCard(p, index = 0) {
   card.id = `card-${p.id}`;
   card.className =
     "prod-card glass rise accent-border-hover" +
-    (productoEnCarrito(p.id) ? " in-cart" : "");
+    (productoEnCarrito(p.id) ? " in-cart" : "") +
+    (p.destacado ? " prod-destacado" : "");
   card.style.animationDelay = `${Math.min(index, 12) * 30}ms`;
-
+  if (p.destacado) {
+    card.style.setProperty("--de-grad", p.destacadoGrad);
+    card.style.setProperty("--de-c1", p.destacadoC1);
+    card.style.setProperty("--de-c2", p.destacadoC2);
+  }
   const descInfoCard = descuentoVigente(p.descuento);
 
   const imgWrap = document.createElement("div");
@@ -3051,6 +3060,12 @@ function productoCard(p, index = 0) {
     badge.className = "prod-descuento-badge";
     badge.textContent = `-${Math.round(descInfoCard.porcentaje)}%`;
     imgWrap.appendChild(badge);
+  }
+  if (p.destacado) {
+    const b = document.createElement("span");
+    b.className = "prod-destacado-badge";
+    b.textContent = "⭐ Destacado por hoy";
+    imgWrap.appendChild(b);
   }
   const galeria =
     p.imagenes && p.imagenes.length ? p.imagenes : p.imagen ? [p.imagen] : [];
@@ -3095,7 +3110,12 @@ function productoCard(p, index = 0) {
   precioEl.innerHTML = precioHTML;
 
   info.append(nombreEl, precioEl);
-
+  if (p.destacado && p.destacadoTexto) {
+    const t = document.createElement("p");
+    t.className = "text-[11px] font-bold mt-0.5 prod-destacado-txt";
+    t.textContent = `🎉 ${p.destacadoTexto}`;
+    info.appendChild(t);
+  }
   if (condLine) {
     const condEl = document.createElement("p");
     condEl.className = "text-[10.5px] text-gray-500 mt-0.5 line-clamp-2";
@@ -3498,19 +3518,19 @@ function getDeliveryCfg() {
     texto: d.texto || "",
     zonas: Array.isArray(d.zonas)
       ? d.zonas
-        .filter((z) => z && z.nombre)
-        .map((z) => ({
-          nombre: String(z.nombre),
-          precio: Number(z.precio) || 0,
-        }))
+          .filter((z) => z && z.nombre)
+          .map((z) => ({
+            nombre: String(z.nombre),
+            precio: Number(z.precio) || 0,
+          }))
       : [],
     recargo: d.recargo
       ? {
-        activo: d.recargo.activo === true,
-        desde: d.recargo.desde || "",
-        hasta: d.recargo.hasta || "",
-        monto: Number(d.recargo.monto) || 0,
-      }
+          activo: d.recargo.activo === true,
+          desde: d.recargo.desde || "",
+          hasta: d.recargo.hasta || "",
+          monto: Number(d.recargo.monto) || 0,
+        }
       : null,
   };
 }
@@ -4122,7 +4142,9 @@ function primerGrupoIncompleto() {
 }
 function exclusivaElegida(cond, sel) {
   const nombres = entradasDe(sel?.[cond.nombre]).map(([n]) => n);
-  return cond.opciones.find((o) => o.exclusiva && nombres.includes(o.nombre)) || null;
+  return (
+    cond.opciones.find((o) => o.exclusiva && nombres.includes(o.nombre)) || null
+  );
 }
 
 function alternarOpcion(cond, nombre) {
@@ -4233,10 +4255,10 @@ function pintarGrupo(p, cond, sec) {
       ? el("span", "opt-agotado", "Agotado")
       : op.costoAdicional
         ? el(
-          "span",
-          "opt-price",
-          `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
-        )
+            "span",
+            "opt-price",
+            `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
+          )
         : null;
 
     if (cond.conCantidad) {
@@ -4507,10 +4529,10 @@ function pintarPanelSug(p, s, panel) {
         ? el("span", "opt-agotado", "Agotado")
         : op.costoAdicional
           ? el(
-            "span",
-            "opt-price",
-            `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
-          )
+              "span",
+              "opt-price",
+              `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
+            )
           : null;
 
       if (cond.conCantidad) {
@@ -4677,7 +4699,8 @@ function pintarSugeridos(p) {
     card.appendChild(imgWrap);
     card.appendChild(el("p", "opt-sug-name", s.nombre));
 
-    const precioBox = el("div", "opt-sug-pricebox"); if (descInfo)
+    const precioBox = el("div", "opt-sug-pricebox");
+    if (descInfo)
       precioBox.appendChild(
         el("span", "opt-sug-old", `S/ ${precioOrig.toFixed(2)}`),
       );
@@ -4881,10 +4904,11 @@ function actualizarResumenOpciones(p) {
     <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);">
       <span>Precio final (c/u)</span><span>S/ ${unit.toFixed(2)}</span>
     </div>
-    ${sugFilas
-      ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1);">${sugFilas}</div>
+    ${
+      sugFilas
+        ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1);">${sugFilas}</div>
     <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:6px;"><span>Total</span><span>S/ ${(unit + totalSugeridos()).toFixed(2)}</span></div>`
-      : ""
+        : ""
     }`;
 }
 
@@ -4948,7 +4972,9 @@ document.getElementById("confirmOptionsBtn").onclick = () => {
   }
   if (sugAbierto) {
     const s = productosPorId.get(sugAbierto);
-    showToast(`Termina de elegir las opciones de "${s?.nombre || "el producto"}" o ciérralas con ✕`);
+    showToast(
+      `Termina de elegir las opciones de "${s?.nombre || "el producto"}" o ciérralas con ✕`,
+    );
     document
       .querySelector("#optionsSugeridos .opt-sugp")
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -5210,19 +5236,21 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${!it.esCanje &&
+        ${
+          !it.esCanje &&
           (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
-          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+            ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-          : ""
+            : ""
         }
-          ${it.esCanje
-          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${
+            it.esCanje
+              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-        }
+          }
         </div>
       `;
       wrap.appendChild(row);
@@ -5655,10 +5683,10 @@ document
       token_seguimiento: tokenSeguimiento,
       mesa: mesaId
         ? {
-          id: mesaId,
-          nombre: mesaNombre || null,
-          numero: mesaNumero ? Number(mesaNumero) : null,
-        }
+            id: mesaId,
+            nombre: mesaNombre || null,
+            numero: mesaNumero ? Number(mesaNumero) : null,
+          }
         : null,
       pago: {
         metodo: metodoPago,
@@ -5749,7 +5777,7 @@ document
               +(i.cantidad * i.precio).toFixed(2),
             ),
             [`estadisticas.por_dia.${hoy}.pedidos`]: increment(1),
-          }).catch(() => { });
+          }).catch(() => {});
         });
     }
     const pedidoId = resultado.id;
@@ -5763,7 +5791,7 @@ document
           "geinz_guest",
           JSON.stringify({ nombre, whatsapp }),
         );
-      } catch { }
+      } catch {}
     }
     if (
       cuponAplicado?.origen === "banner" &&
@@ -5774,7 +5802,7 @@ document
           `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`,
           "1",
         );
-      } catch { }
+      } catch {}
     }
 
     const sufijo = tokenSeguimiento ? `?t=${tokenSeguimiento}` : "";
@@ -6297,8 +6325,30 @@ async function loadOfertasActivas() {
     return [];
   }
 }
+// Devuelve el día especial de HOY (si está activo en el perfil) o null
+function diaEspecialHoy(biz = bizData) {
+  const cfg = biz?.dias_especiales;
+  if (!cfg || cfg.activo !== true) return null;
+  const d = cfg.dias?.[obtenerDiaSemanaLima()];
+  if (!d || d.activo !== true) return null;
+  return d;
+}
+// Colores del degradado del día especial (mismos que usa el banner del perfil)
+function gradienteDiaEspecial(d) {
+  const cols =
+    Array.isArray(d?.colores) && d.colores.length >= 2
+      ? d.colores
+      : [d?.color1 || "#f97316", d?.color2 || "#e11d48"];
+  const ang = Number(d?.angulo) || 135;
+  return {
+    css: `linear-gradient(${ang}deg, ${cols.join(",")})`,
+    c1: cols[0],
+    c2: cols[cols.length - 1],
+  };
+}
 /* ══════════════ Promociones del negocio ══════════════ */
 function normalizarPromociones(biz) {
+  const esp = diaEspecialHoy(biz);
   const lista = [];
 
   // ── Banner clickeable → se comporta como una promoción más ──
@@ -6345,6 +6395,11 @@ function normalizarPromociones(biz) {
         nombre: (descripcion || "Promoción").slice(0, 80),
         descripcion,
         categoria: "ofertas 🔥",
+        destacado: !!esp && p.destacarEspecial === true,
+        destacadoTexto: esp ? String(esp.titulo || "").trim() : "",
+        destacadoGrad: esp ? gradienteDiaEspecial(esp).css : "",
+        destacadoC1: esp ? gradienteDiaEspecial(esp).c1 : "",
+        destacadoC2: esp ? gradienteDiaEspecial(esp).c2 : "",
         precio,
         imagen: p.imagen || "",
         imagenes: p.imagen ? [p.imagen] : [],
@@ -6489,7 +6544,7 @@ function montarBotonJuego() {
     strip.remove();
     try {
       sessionStorage.setItem("geinz_juego_oculto", "1");
-    } catch { }
+    } catch {}
   };
   lista.before(strip);
 }
@@ -6948,7 +7003,7 @@ async function restaurarCarritoPersistido() {
 function limpiarCarritoPersistido() {
   try {
     sessionStorage.removeItem(CART_PERSIST_KEY());
-  } catch { }
+  } catch {}
 }
 
 function abrirLoginPopup() {
@@ -7266,6 +7321,59 @@ function pintarAdicionalesCarrito() {
       .join("");
   });
 }
+(function () {
+  const old = document.getElementById("destacadoStyle");
+  if (old) old.remove();
+  const st = document.createElement("style");
+  st.id = "destacadoStyle";
+  st.textContent = `
+  .prod-img-wrap{position:relative;}
+
+  .prod-card.prod-destacado{
+    position:relative;
+    border-color:transparent !important;
+    box-shadow:0 14px 34px -12px var(--de-c1), 0 0 26px -10px var(--de-c2);
+  }
+  /* borde con degradado del día especial */
+  .prod-card.prod-destacado::before{
+    content:"";position:absolute;inset:0;padding:2px;border-radius:inherit;pointer-events:none;z-index:4;
+    background:var(--de-grad);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+  }
+  .prod-destacado-badge{
+    position:absolute;top:8px;left:8px;z-index:3;
+    padding:4px 10px;border-radius:999px;font-size:10px;font-weight:900;
+    letter-spacing:.03em;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.45);
+    background:var(--de-grad, linear-gradient(135deg,#f97316,#e11d48));
+    box-shadow:0 6px 16px -4px var(--de-c1, rgba(0,0,0,.4));
+  }
+
+  /* texto del día especial: sólido y legible (sin degradado) */
+  .prod-destacado-txt{
+    color:#e4e4e7 !important;
+    -webkit-text-fill-color:#e4e4e7 !important;
+    background:none !important;
+  }
+
+  /* botón Agregar con el degradado del día especial */
+  .prod-card.prod-destacado .btn-add{
+    background:var(--de-grad) !important;
+    color:#fff !important;
+    text-shadow:0 1px 4px rgba(0,0,0,.45);
+    box-shadow:0 8px 20px -8px var(--de-c1) !important;
+  }
+  .prod-card.prod-destacado .qty-btn{
+    background:var(--de-c1) !important;
+    color:#fff !important;
+  }
+
+  /* precio con el primer color del día especial */
+  .prod-card.prod-destacado .accent{
+    color:var(--de-c1) !important;
+  }`;
+  document.head.appendChild(st);
+})();
 async function init() {
   await resolverParamsCarrito();
   aplicarColoresDesdeCache(tiendaId); // ← nueva: 0 ms si ya visitó este negocio
@@ -7334,6 +7442,7 @@ async function init() {
   const biz = await bizP;
   const ofertasActivas = await ofertasP;
   promosGlobal = [...normalizarPromociones(biz), ...ofertasActivas];
+  promosGlobal.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
   const [productos, pedidoMesa] = await Promise.all([
     productosP,
     pedidoP,
@@ -7383,7 +7492,7 @@ async function init() {
     renderFiltros(catalogoGlobal);
     buildAllCards(catalogoGlobal);
     applyFilters();
-    montarBotonJuego();
+   // montarBotonJuego();
   } else {
     document.getElementById("lista").innerHTML = "";
   }
