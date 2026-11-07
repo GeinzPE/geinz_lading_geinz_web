@@ -914,20 +914,20 @@ async function llamarMozo({ nombre, nota, items, total }) {
   const totalConDesc = +(totalGuardar - descCupon).toFixed(2);
   const cuponGuardar = cuponMesa
     ? {
-        codigo: cuponMesa.codigo,
-        tipo: cuponMesa.tipo,
-        origen: cuponMesa.origen || null,
-        tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
-        porcentajeManual: cuponMesa.porcentajeManual ?? null,
-        montoManual: cuponMesa.montoManual ?? null,
-        compraMinima: cuponMesa.compraMinima ?? 0,
-      }
+      codigo: cuponMesa.codigo,
+      tipo: cuponMesa.tipo,
+      origen: cuponMesa.origen || null,
+      tipoDescuentoManual: cuponMesa.tipoDescuentoManual || null,
+      porcentajeManual: cuponMesa.porcentajeManual ?? null,
+      montoManual: cuponMesa.montoManual ?? null,
+      compraMinima: cuponMesa.compraMinima ?? 0,
+    }
     : null;
   const estadosIni = esRonda
     ? {
-        estadoMozo: "confirmado",
-        estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
-      }
+      estadoMozo: "confirmado",
+      estadoMesa: pedidoActivoMesa.estadoMesa || "aceptado",
+    }
     : inter
       ? { estadoMozo: "pendiente_revision", estadoMesa: "pendiente" }
       : { estadoMozo: "confirmado", estadoMesa: "aceptado" };
@@ -1130,7 +1130,7 @@ async function cancelarPedidoMesa() {
   await updateDoc(pedidoMesaRef, {
     estado: "cancelado",
     pago: "pendiente",
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 const estItemC = (it, ped) =>
@@ -1168,7 +1168,7 @@ async function guardarComprobanteMesa(sol) {
     await updateDoc(
       tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", docId),
       { comprobante: sol },
-    ).catch(() => {});
+    ).catch(() => { });
 }
 const clientePuedeComprobante = () =>
   bizData?.mesas_config?.compCliente !== false;
@@ -1268,28 +1268,26 @@ function renderPedidoActivoMesa(pedido) {
       <h2 class="display font-extrabold text-lg">🍽️ Pedido en curso</h2>
       <span class="text-[11px] text-gray-500">${pedido.hora || ""}</span>
     </div>
-    ${
-      idx < 0
-        ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
-        : `<div class="pa-steps">
+    ${idx < 0
+      ? `<div class="pa-wait"><i></i>Esperando que el mozo confirme tu pedido</div>`
+      : `<div class="pa-steps">
             <div class="pa-track"><div class="pa-fill" style="width:${fillPct}%"></div></div>
             ${PASOS_MESA.map(
-              (p, i) => `
+        (p, i) => `
               <div class="pa-step ${i < idx ? "done" : i === idx ? "now" : ""}">
                 <div class="pa-dot">${i < idx ? "✓" : p[1]}</div>
                 <div class="pa-lbl">${p[2]}</div>
               </div>`,
-            ).join("")}
+      ).join("")}
           </div>`
     }
     <div id="pedidoActivoItems" class="flex flex-col gap-2"></div>
-    ${
-      Number(pedido.descuentoCupon || 0) > 0
-        ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
+    ${Number(pedido.descuentoCupon || 0) > 0
+      ? `<div class="flex items-center justify-between text-green-400 text-[13px] font-semibold">
              <span>🎟️ Cupón ${pedido.cupon?.codigo || ""}</span>
              <span>-S/ ${Number(pedido.descuentoCupon).toFixed(2)}</span>
            </div>`
-        : ""
+      : ""
     }
     <div class="flex items-center justify-between pt-3 border-t border-white/[.07]">
       <span class="text-gray-400 font-semibold text-sm">Total</span>
@@ -1571,10 +1569,10 @@ async function confirmarPedidoMesaDirecto() {
         usado: true,
         estado: "usado",
         usadoEn: serverTimestamp(),
-      }).catch(() => {});
+      }).catch(() => { });
     }
     if (contarUso) {
-      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => {});
+      updateDoc(refCupon, statsCuponUpdate(pedido)).catch(() => { });
     }
     cuponAplicado = null; // las siguientes rondas lo toman de pedidoActivoMesa.cupon
     carrito.clear();
@@ -2080,11 +2078,10 @@ function cuponBarHTML(subtotal) {
         <p style="margin:0;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${rgb};">
           🎟️ Canjes con puntos · ${totalCanjes}
         </p>
-        ${
-          lineas.length > 1
-            ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
-            : ""
-        }
+        ${lineas.length > 1
+      ? `<button type="button" class="cupon-all-btn" style="font-size:11px;color:#9ca3af;background:none;border:none;cursor:pointer;">Quitar todos</button>`
+      : ""
+    }
       </div>
       ${filas}
     </div>`;
@@ -2375,6 +2372,7 @@ async function loadProductosCatalogo(bizOrPromise) {
                 (o) => o.activo && (typeof o.stock !== "number" || o.stock > 0),
               )
               .map((o) => ({
+                exclusiva: o.exclusiva === true,
                 nombre: o.nombre,
                 descripcion: String(o.descripcion || "").trim(),
                 imagen: o.imagen?.url || "",
@@ -2416,12 +2414,12 @@ async function loadProductosCatalogo(bizOrPromise) {
             d.variantesMultiples === true && d.variantesConCantidad === true,
           puntos:
             biz?.fidelizacion?.activo &&
-            d.puntos?.activo &&
-            d.puntos?.cantidad > 0
+              d.puntos?.activo &&
+              d.puntos?.cantidad > 0
               ? {
-                  cantidad: d.puntos.cantidad,
-                  descripcion: d.puntos.descripcion || "",
-                }
+                cantidad: d.puntos.cantidad,
+                descripcion: d.puntos.descripcion || "",
+              }
               : null,
           descuento: d.descuento || null,
           horarioCat,
@@ -2764,7 +2762,7 @@ function prepararCheckoutInvitado() {
       if (nom && !nom.value.trim()) nom.value = g.nombre || "";
       if (wa && !wa.value.trim()) wa.value = g.whatsapp || "";
     }
-  } catch {}
+  } catch { }
   // Si está logeado, intenta prellenar con el teléfono de su perfil
   if (!esInvitado && wa && !wa.value.trim()) {
     wa.value =
@@ -2956,11 +2954,10 @@ window.__geinzImgFallback = function (imgEl) {
   const cls = imgEl.className;
   const wrap = document.createElement("div");
   wrap.className = cls + " logo-ph-wrap";
-  wrap.innerHTML = `<div class="logo-ph-badge">${
-    _bizLogoUrl
-      ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
-      : `<span class="ph-letter">${letraNegocio()}</span>`
-  }</div>`;
+  wrap.innerHTML = `<div class="logo-ph-badge">${_bizLogoUrl
+    ? `<img src="${_bizLogoUrl}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;ph-letter&quot;>${letraNegocio()}</span>'">`
+    : `<span class="ph-letter">${letraNegocio()}</span>`
+    }</div>`;
   imgEl.replaceWith(wrap);
 };
 
@@ -3501,19 +3498,19 @@ function getDeliveryCfg() {
     texto: d.texto || "",
     zonas: Array.isArray(d.zonas)
       ? d.zonas
-          .filter((z) => z && z.nombre)
-          .map((z) => ({
-            nombre: String(z.nombre),
-            precio: Number(z.precio) || 0,
-          }))
+        .filter((z) => z && z.nombre)
+        .map((z) => ({
+          nombre: String(z.nombre),
+          precio: Number(z.precio) || 0,
+        }))
       : [],
     recargo: d.recargo
       ? {
-          activo: d.recargo.activo === true,
-          desde: d.recargo.desde || "",
-          hasta: d.recargo.hasta || "",
-          monto: Number(d.recargo.monto) || 0,
-        }
+        activo: d.recargo.activo === true,
+        desde: d.recargo.desde || "",
+        hasta: d.recargo.hasta || "",
+        monto: Number(d.recargo.monto) || 0,
+      }
       : null,
   };
 }
@@ -4016,6 +4013,7 @@ const OPT_CSS = `
   background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);transition:border-color .15s, background .15s;}
 .opt-row.sel{border-color:rgb(var(--dr),var(--dg),var(--db));background:rgba(var(--dr),var(--dg),var(--db),.1);}
 .opt-row.off{opacity:.4;cursor:not-allowed;}
+.opt-row.blk{opacity:.4;cursor:not-allowed;}
 .opt-row.qty{cursor:default;}
 .opt-mark{width:20px;height:20px;flex-shrink:0;border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;}
 .opt-mark.radio{border-radius:50%;}
@@ -4080,6 +4078,7 @@ const OPT_CSS = `
 .opt-sug-del{margin-left:8px;width:22px;height:22px;border:none;border-radius:50%;cursor:pointer;background:rgba(248,113,113,.15);color:#f87171;font-size:11px;}
 .opt-sug-pricebox{min-height:34px;display:flex;flex-direction:column;justify-content:flex-end;}
 .opt-sug-card > .opt-sug-ctrl:last-child{margin-top:auto;}
+#confirmOptionsBtn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4);}
 `;
 function injectOptionsStyles() {
   if (document.getElementById("optStyle")) return;
@@ -4121,6 +4120,10 @@ function grupoEstaCompleto(cond) {
 function primerGrupoIncompleto() {
   return gruposModal.find((c) => !grupoEstaCompleto(c));
 }
+function exclusivaElegida(cond, sel) {
+  const nombres = entradasDe(sel?.[cond.nombre]).map(([n]) => n);
+  return cond.opciones.find((o) => o.exclusiva && nombres.includes(o.nombre)) || null;
+}
 
 function alternarOpcion(cond, nombre) {
   const k = cond.nombre;
@@ -4130,6 +4133,15 @@ function alternarOpcion(cond, nombre) {
     else seleccionOpciones[k] = nombre;
     return true;
   }
+  const op = cond.opciones.find((o) => o.nombre === nombre);
+  const excl = exclusivaElegida(cond, seleccionOpciones);
+  if (op?.exclusiva) {
+    if (excl?.nombre === nombre) delete seleccionOpciones[k];
+    else seleccionOpciones[k] = [nombre]; // limpia las demás
+    return true;
+  }
+  if (excl) return false; // hay una excluyente elegida: las demás bloqueadas
+
   const actuales = [...valoresDe(seleccionOpciones[k])];
   const i = actuales.indexOf(nombre);
   if (i >= 0) actuales.splice(i, 1);
@@ -4146,6 +4158,11 @@ function alternarOpcion(cond, nombre) {
 }
 function setCantidadOpcion(cond, nombre, cant) {
   const k = cond.nombre;
+  const opx = cond.opciones.find((o) => o.nombre === nombre);
+  if (opx?.exclusiva && cant > 0) {
+    seleccionOpciones[k] = { [nombre]: 1 };
+    return;
+  }
   let obj = seleccionOpciones[k];
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) obj = {};
   if (cant <= 0) delete obj[nombre];
@@ -4182,6 +4199,7 @@ function thumbOpcion(op, cond) {
 function pintarGrupo(p, cond, sec) {
   const total = totalUnidadesGrupo(cond);
   const tope = !!cond.max && total >= cond.max;
+  const excl = cond.multiple ? exclusivaElegida(cond, seleccionOpciones) : null;
   const eligio = entradasDe(seleccionOpciones[cond.nombre]).length > 0;
   sec.classList.toggle("ok", eligio);
   sec.classList.toggle("req", cond.obligatoria && !eligio);
@@ -4204,7 +4222,9 @@ function pintarGrupo(p, cond, sec) {
   cond.opciones.forEach((op) => {
     const c = cantidadElegida(cond, op.nombre);
     const cap = typeof op.stock === "number" ? op.stock : Infinity;
+    const bloq = !!excl && !op.exclusiva;
     const row = el("div", "opt-row" + (c > 0 ? " sel" : ""));
+    if (bloq) row.classList.add("blk");
     const thumb = thumbOpcion(op, cond);
     const info = el("div", "opt-info");
     info.appendChild(el("p", "opt-name", op.nombre));
@@ -4213,10 +4233,10 @@ function pintarGrupo(p, cond, sec) {
       ? el("span", "opt-agotado", "Agotado")
       : op.costoAdicional
         ? el(
-            "span",
-            "opt-price",
-            `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
-          )
+          "span",
+          "opt-price",
+          `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
+        )
         : null;
 
     if (cond.conCantidad) {
@@ -4229,7 +4249,7 @@ function pintarGrupo(p, cond, sec) {
       if (c === 0) {
         const b = el("button", "add", "Agregar");
         b.type = "button";
-        b.disabled = tope || cap < 1;
+        b.disabled = tope || cap < 1 || bloq;
         b.onclick = () => {
           setCantidadOpcion(cond, op.nombre, 1);
           refrescar();
@@ -4244,7 +4264,7 @@ function pintarGrupo(p, cond, sec) {
         };
         const mas = el("button", "", "+");
         mas.type = "button";
-        mas.disabled = tope || c >= cap;
+        mas.disabled = tope || c >= cap || bloq || !!op.exclusiva;
         mas.onclick = () => {
           setCantidadOpcion(cond, op.nombre, c + 1);
           refrescar();
@@ -4253,7 +4273,8 @@ function pintarGrupo(p, cond, sec) {
       }
       if (!op.agotado) row.appendChild(step);
     } else {
-      const lleno = (cond.multiple && tope && c === 0) || op.agotado;
+      const lleno =
+        (cond.multiple && tope && c === 0 && !op.exclusiva) || op.agotado;
       if (lleno) row.classList.add("off");
       row.appendChild(
         el(
@@ -4266,7 +4287,7 @@ function pintarGrupo(p, cond, sec) {
       row.appendChild(info);
       if (precio) row.appendChild(precio);
       row.onclick = () => {
-        if (op.agotado) return;
+        if (op.agotado || bloq) return;
         if (!alternarOpcion(cond, op.nombre)) return;
         refrescar();
       };
@@ -4384,7 +4405,18 @@ function pintarPanelSug(p, s, panel) {
   };
   const totalGrupo = (cond) =>
     entradasDe(sugSel[cond.nombre]).reduce((t, [, c]) => t + c, 0);
+  const exclSug = (cond) => {
+    const n = entradasDe(sugSel[cond.nombre]).map(([x]) => x);
+    return (
+      cond.opciones.find((o) => o.exclusiva && n.includes(o.nombre)) || null
+    );
+  };
   const setCant = (cond, n, c) => {
+    const opx = cond.opciones.find((o) => o.nombre === n);
+    if (opx?.exclusiva && c > 0) {
+      sugSel[cond.nombre] = { [n]: 1 };
+      return;
+    }
     let obj = sugSel[cond.nombre];
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) obj = {};
     if (c <= 0) delete obj[n];
@@ -4399,6 +4431,14 @@ function pintarPanelSug(p, s, panel) {
       else sugSel[k] = n;
       return true;
     }
+    const op = cond.opciones.find((o) => o.nombre === n);
+    const ex = exclSug(cond);
+    if (op?.exclusiva) {
+      if (ex?.nombre === n) delete sugSel[k];
+      else sugSel[k] = [n];
+      return true;
+    }
+    if (ex) return false;
     const arr = [...valoresDe(sugSel[k])];
     const i = arr.indexOf(n);
     if (i >= 0) arr.splice(i, 1);
@@ -4431,6 +4471,7 @@ function pintarPanelSug(p, s, panel) {
   grupos.forEach((cond) => {
     const total = totalGrupo(cond);
     const tope = !!cond.max && total >= cond.max;
+    const excl = cond.multiple ? exclSug(cond) : null;
     const eligio = entradasDe(sugSel[cond.nombre]).length > 0;
     const sec = el(
       "div",
@@ -4456,7 +4497,9 @@ function pintarPanelSug(p, s, panel) {
     cond.opciones.forEach((op) => {
       const c = cant(cond, op.nombre);
       const cap = typeof op.stock === "number" ? op.stock : Infinity;
+      const bloq = !!excl && !op.exclusiva;
       const row = el("div", "opt-row" + (c > 0 ? " sel" : ""));
+      if (bloq) row.classList.add("blk");
       const info = el("div", "opt-info");
       info.appendChild(el("p", "opt-name", op.nombre));
       if (op.descripcion) info.appendChild(el("p", "opt-desc", op.descripcion));
@@ -4464,10 +4507,10 @@ function pintarPanelSug(p, s, panel) {
         ? el("span", "opt-agotado", "Agotado")
         : op.costoAdicional
           ? el(
-              "span",
-              "opt-price",
-              `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
-            )
+            "span",
+            "opt-price",
+            `+S/ ${Number(op.costoAdicional).toFixed(2)}${cond.conCantidad ? " c/u" : ""}`,
+          )
           : null;
 
       if (cond.conCantidad) {
@@ -4479,7 +4522,7 @@ function pintarPanelSug(p, s, panel) {
         if (c === 0) {
           const b = el("button", "add", "Agregar");
           b.type = "button";
-          b.disabled = tope || cap < 1;
+          b.disabled = tope || cap < 1 || bloq;
           b.onclick = () => {
             setCant(cond, op.nombre, 1);
             refrescar();
@@ -4494,7 +4537,7 @@ function pintarPanelSug(p, s, panel) {
           };
           const a = el("button", "", "+");
           a.type = "button";
-          a.disabled = tope || c >= cap;
+          a.disabled = tope || c >= cap || bloq || !!op.exclusiva;
           a.onclick = () => {
             setCant(cond, op.nombre, c + 1);
             refrescar();
@@ -4503,7 +4546,8 @@ function pintarPanelSug(p, s, panel) {
         }
         if (!op.agotado) row.appendChild(step);
       } else {
-        const lleno = (cond.multiple && tope && c === 0) || op.agotado;
+        const lleno =
+          (cond.multiple && tope && c === 0 && !op.exclusiva) || op.agotado;
         if (lleno) row.classList.add("off");
         row.appendChild(
           el(
@@ -4515,7 +4559,7 @@ function pintarPanelSug(p, s, panel) {
         row.appendChild(info);
         if (precio) row.appendChild(precio);
         row.onclick = () => {
-          if (op.agotado) return;
+          if (op.agotado || bloq) return;
           if (!alternar(cond, op.nombre)) return;
           refrescar();
         };
@@ -4568,8 +4612,8 @@ function pintarPanelSug(p, s, panel) {
     showToast(`${s.nombre} agregado a tu pedido`);
   };
   panel.appendChild(btn);
+  actualizarEstadoBotonConfirmar(p);
 }
-
 function pintarSugeridos(p) {
   const sec = document.getElementById("optionsSugeridos");
   if (!sec) return;
@@ -4633,7 +4677,7 @@ function pintarSugeridos(p) {
     card.appendChild(imgWrap);
     card.appendChild(el("p", "opt-sug-name", s.nombre));
 
-const precioBox = el("div", "opt-sug-pricebox");    if (descInfo)
+    const precioBox = el("div", "opt-sug-pricebox"); if (descInfo)
       precioBox.appendChild(
         el("span", "opt-sug-old", `S/ ${precioOrig.toFixed(2)}`),
       );
@@ -4690,6 +4734,7 @@ const precioBox = el("div", "opt-sug-pricebox");    if (descInfo)
   }
   sec.style.display = "";
   requestAnimationFrame(() => actualizarNavSug(sec));
+  actualizarEstadoBotonConfirmar(p);
 }
 function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
   if (!editKey && !horarioEstado.abierto) {
@@ -4760,11 +4805,11 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     "border-radius:14px; padding:12px 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:13px; line-height:1.6;";
   body.appendChild(resumen);
   resumen.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-sug-del]");
-  if (!b) return;
-  delete sugeridosModal[b.dataset.sugDel];
-  refrescarModalOpciones(p);
-});
+    const b = e.target.closest("[data-sug-del]");
+    if (!b) return;
+    delete sugeridosModal[b.dataset.sugDel];
+    refrescarModalOpciones(p);
+  });
   actualizarResumenOpciones(p);
   actualizarEstadoBotonConfirmar(p);
 
@@ -4817,17 +4862,17 @@ function actualizarResumenOpciones(p) {
   const detalle = filas.length
     ? filas.join("")
     : `<div style="color:#9c9ca3;">Aún no has marcado ninguna opción.</div>`;
-const sugFilas = Object.entries(sugeridosModal)
-  .map(([key, l]) => {
-    const s = productosPorId.get(l.id);
-    if (!s) return "";
-    const det = textoSeleccionCompleto(l.sel);
-    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-top:4px;">
+  const sugFilas = Object.entries(sugeridosModal)
+    .map(([key, l]) => {
+      const s = productosPorId.get(l.id);
+      if (!s) return "";
+      const det = textoSeleccionCompleto(l.sel);
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-top:4px;">
       <span>＋ ${escapeHtmlCarrito(s.nombre)} x${l.cant}${det ? `<span style="display:block;color:#9c9ca3;font-size:11.5px;">${escapeHtmlCarrito(det)}</span>` : ""}</span>
       <span style="color:#9c9ca3;white-space:nowrap;">S/ ${(precioSugLinea(l) * l.cant).toFixed(2)}<button type="button" class="opt-sug-del" data-sug-del="${escapeHtmlCarrito(key)}" aria-label="Quitar">✕</button></span>
     </div>`;
-  })
-  .join("");
+    })
+    .join("");
   const unit = calcPrecioFinal(p, seleccionOpciones);
   box.innerHTML = `
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9c9ca3;margin-bottom:6px;">Tu selección</div>
@@ -4836,11 +4881,10 @@ const sugFilas = Object.entries(sugeridosModal)
     <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);">
       <span>Precio final (c/u)</span><span>S/ ${unit.toFixed(2)}</span>
     </div>
-    ${
-      sugFilas
-        ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1);">${sugFilas}</div>
+    ${sugFilas
+      ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1);">${sugFilas}</div>
     <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:6px;"><span>Total</span><span>S/ ${(unit + totalSugeridos()).toFixed(2)}</span></div>`
-        : ""
+      : ""
     }`;
 }
 
@@ -4849,11 +4893,21 @@ function actualizarEstadoBotonConfirmar(p) {
   const precio = calcPrecioFinal(p, seleccionOpciones) + totalSugeridos();
   const falta = primerGrupoIncompleto();
   const textoBase = cartKeyEnEdicion ? "Guardar cambios" : "Agregar al carrito";
-  btn.disabled = false; // nunca se bloquea: al tocarlo te lleva a lo que falta
-  btn.classList.toggle("opt-btn-pending", !!falta);
-  btn.textContent = falta
-    ? `Elige ${falta.nombre} para continuar`
-    : `${textoBase} · S/ ${precio.toFixed(2)}`;
+
+  // ¿Hay un sugerido abierto eligiendo sus opciones?
+  const sugS = sugAbierto ? productosPorId.get(sugAbierto) : null;
+  const bloqueado = !!sugS;
+
+  btn.disabled = bloqueado; // solo se bloquea si hay un sugerido abierto
+  btn.classList.toggle("opt-btn-pending", !!falta && !bloqueado);
+
+  if (sugS) {
+    btn.textContent = `Termina de elegir "${sugS.nombre}" para continuar`;
+  } else if (falta) {
+    btn.textContent = `Elige ${falta.nombre} para continuar`;
+  } else {
+    btn.textContent = `${textoBase} · S/ ${precio.toFixed(2)}`;
+  }
 }
 
 function cerrarOptionsModal() {
@@ -4868,7 +4922,7 @@ function cerrarOptionsModal() {
   cartKeyEnEdicion = null;
   sugeridosModal = {};
   sugAbierto = null;
-sugSel = {};
+  sugSel = {};
 }
 
 document.getElementById("closeOptionsBtn").onclick = cerrarOptionsModal;
@@ -4893,13 +4947,13 @@ document.getElementById("confirmOptionsBtn").onclick = () => {
     return;
   }
   if (sugAbierto) {
-  const s = productosPorId.get(sugAbierto);
-  showToast(`Termina de elegir las opciones de "${s?.nombre || "el producto"}" o ciérralas con ✕`);
-  document
-    .querySelector("#optionsSugeridos .opt-sugp")
-    ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  return;
-}
+    const s = productosPorId.get(sugAbierto);
+    showToast(`Termina de elegir las opciones de "${s?.nombre || "el producto"}" o ciérralas con ✕`);
+    document
+      .querySelector("#optionsSugeridos .opt-sugp")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
 
   const prod = productoParaOpciones;
   const sugs = Object.entries(sugeridosModal);
@@ -4911,10 +4965,10 @@ document.getElementById("confirmOptionsBtn").onclick = () => {
     );
   } else {
     addToCart(prod, clonarSeleccion(seleccionOpciones));
-sugs.forEach(([, l]) => {
-  const s = productosPorId.get(l.id);
-  if (s) for (let i = 0; i < l.cant; i++) addToCart(s, l.sel);
-});
+    sugs.forEach(([, l]) => {
+      const s = productosPorId.get(l.id);
+      if (s) for (let i = 0; i < l.cant; i++) addToCart(s, l.sel);
+    });
   }
   cerrarOptionsModal();
 };
@@ -5156,21 +5210,19 @@ function renderCartList(wrap, items) {
           <div class="flex items-center gap-1.5" data-qty-key="${key}"></div>
         </div>
           <div class="flex flex-col items-center gap-1.5 flex-shrink-0 self-start">
-        ${
-          !it.esCanje &&
+        ${!it.esCanje &&
           (it.seleccion || productosPorId.get(it.id)?.condiciones?.length)
-            ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
+          ? `<button type="button" class="cart-edit-btn w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-300" title="Agregar extras" data-key="${key}" data-id="${it.id}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>`
-            : ""
+          : ""
         }
-          ${
-            it.esCanje
-              ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
-              : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
+          ${it.esCanje
+          ? "" /* se remueve solo desde el botón "Quitar" de la barra del cupón, así se libera el cupón correctamente */
+          : `<button type="button" class="cart-remove-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400" title="Quitar del carrito" data-key="${key}" data-id="${it.id}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"/></svg>
           </button>`
-          }
+        }
         </div>
       `;
       wrap.appendChild(row);
@@ -5603,10 +5655,10 @@ document
       token_seguimiento: tokenSeguimiento,
       mesa: mesaId
         ? {
-            id: mesaId,
-            nombre: mesaNombre || null,
-            numero: mesaNumero ? Number(mesaNumero) : null,
-          }
+          id: mesaId,
+          nombre: mesaNombre || null,
+          numero: mesaNumero ? Number(mesaNumero) : null,
+        }
         : null,
       pago: {
         metodo: metodoPago,
@@ -5697,7 +5749,7 @@ document
               +(i.cantidad * i.precio).toFixed(2),
             ),
             [`estadisticas.por_dia.${hoy}.pedidos`]: increment(1),
-          }).catch(() => {});
+          }).catch(() => { });
         });
     }
     const pedidoId = resultado.id;
@@ -5711,7 +5763,7 @@ document
           "geinz_guest",
           JSON.stringify({ nombre, whatsapp }),
         );
-      } catch {}
+      } catch { }
     }
     if (
       cuponAplicado?.origen === "banner" &&
@@ -5722,7 +5774,7 @@ document
           `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`,
           "1",
         );
-      } catch {}
+      } catch { }
     }
 
     const sufijo = tokenSeguimiento ? `?t=${tokenSeguimiento}` : "";
@@ -6437,7 +6489,7 @@ function montarBotonJuego() {
     strip.remove();
     try {
       sessionStorage.setItem("geinz_juego_oculto", "1");
-    } catch {}
+    } catch { }
   };
   lista.before(strip);
 }
@@ -6896,7 +6948,7 @@ async function restaurarCarritoPersistido() {
 function limpiarCarritoPersistido() {
   try {
     sessionStorage.removeItem(CART_PERSIST_KEY());
-  } catch {}
+  } catch { }
 }
 
 function abrirLoginPopup() {

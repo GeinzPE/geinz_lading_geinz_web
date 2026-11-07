@@ -362,7 +362,7 @@ const escR = (s) =>
     /[&<>"']/g,
     (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
+      c
       ],
   );
 const numR = (v) => Math.max(0, parseFloat(v) || 0);
@@ -585,14 +585,13 @@ function htmlPresetsVaso(it, attr) {
   return `<div class="flex flex-wrap items-center gap-1">
     <span class="text-[10px] font-mono text-purple-400/50">Vaso:</span>
     ${VASOS_OZ.map((oz) => {
-      const on = it.unit === "oz" && numR(it.qty) === oz;
-      return `<button type="button" ${attr}="preset" data-oz="${oz}"
-        class="px-1.5 py-0.5 rounded-md text-[10px] font-mono border transition-colors ${
-          on
-            ? "bg-violet-800 border-violet-500 text-white"
-            : "bg-[#05040a] border-purple-900/30 text-purple-300 hover:border-violet-600"
-        }">${oz} oz</button>`;
-    }).join("")}
+    const on = it.unit === "oz" && numR(it.qty) === oz;
+    return `<button type="button" ${attr}="preset" data-oz="${oz}"
+        class="px-1.5 py-0.5 rounded-md text-[10px] font-mono border transition-colors ${on
+        ? "bg-violet-800 border-violet-500 text-white"
+        : "bg-[#05040a] border-purple-900/30 text-purple-300 hover:border-violet-600"
+      }">${oz} oz</button>`;
+  }).join("")}
   </div>`;
 }
 
@@ -1056,10 +1055,9 @@ function toast(msg, type = "") {
   const isError = type === "error";
   const el = document.createElement("div");
   el.className = `pointer-events-auto animate-toastIn w-full sm:w-auto sm:min-w-[220px] rounded-xl border px-4 py-3 text-xs font-medium shadow-2xl backdrop-blur-md transition-all
-    ${
-      isError
-        ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
-        : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
+    ${isError
+      ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
+      : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
     }`;
   el.textContent = msg;
   toastWrap.appendChild(el);
@@ -1418,7 +1416,7 @@ function setVista(v) {
   document.body.dataset.vista = v;
   try {
     localStorage.setItem("vistaProductos", v);
-  } catch {}
+  } catch { }
   document
     .querySelectorAll(".vista-btn")
     .forEach((b) => b.classList.toggle("active", b.dataset.vista === v));
@@ -1429,7 +1427,7 @@ document
 let vistaGuardada = "grande";
 try {
   vistaGuardada = localStorage.getItem("vistaProductos") || "grande";
-} catch {}
+} catch { }
 setVista(vistaGuardada);
 
 /* ---------------- Menú desplegable "Agregar" ---------------- */
@@ -1529,7 +1527,7 @@ async function eliminarCategoria(categoriaId, nombre) {
     const imagenes = data.imagenes || [];
     await Promise.all(
       imagenes.map((img) =>
-        deleteObject(storageRef(storage, img.path)).catch(() => {}),
+        deleteObject(storageRef(storage, img.path)).catch(() => { }),
       ),
     );
   }
@@ -1554,6 +1552,7 @@ const perfilDoc = (id) =>
 // Copia pública del producto: lleva variantes, fotos y precio. NO lleva recetas ni costos.
 function datosParaPerfil(categoriaId, productoId, d) {
   const limpiarOp = (o) => ({
+    exclusiva: o.exclusiva === true,
     nombre: o.nombre,
     descripcion: o.descripcion || "",
     imagen: o.imagen ? { url: o.imagen.url } : null,
@@ -1652,7 +1651,7 @@ async function sincronizarProductoEnCarritoPerfil(productoId, categoriaId, d) {
 // Cambios rápidos (ej. Disponible / Agotado)
 function parchePerfil(productoId, campos) {
   if (!carritoPerfilActual.some((p) => p.productoId === productoId)) return;
-  updateDoc(perfilDoc(productoId), campos).catch(() => {});
+  updateDoc(perfilDoc(productoId), campos).catch(() => { });
 }
 
 async function quitarProductoDeCarritoPerfilSiExiste(productoId) {
@@ -1975,6 +1974,7 @@ function renderCondiciones() {
       if (cond.tipo !== "multiple") {
         cond.conCantidad = false;
         cond.max = null;
+        cond.opciones.forEach((o) => (o.exclusiva = false));
       }
       renderCondiciones();
     });
@@ -2160,8 +2160,20 @@ function renderCondiciones() {
         op.descripcion = descInput.value;
       });
 
+
       wrapOp.append(row, descInput);
-      opcionesWrap.appendChild(wrapOp);
+      if (multiple) {
+        const exclChip = chipCheck(
+          "Excluyente (al elegirla se desactivan las demás)",
+          op.exclusiva,
+          (v) => {
+            op.exclusiva = v;
+          },
+          "Ej. «Sin cremas»: si el cliente la elige, no puede elegir las otras",
+        );
+        exclChip.classList.add("mt-1");
+        wrapOp.appendChild(exclChip);
+      } opcionesWrap.appendChild(wrapOp);
     });
     box.appendChild(opcionesWrap);
 
@@ -2195,7 +2207,7 @@ function renderSugerencias() {
     wrap.id = "sugerencias-wrap";
     wrap.className =
       "mt-4 rounded-xl bg-[#05040a] border border-purple-900/30 p-3";
-       document.getElementById("condiciones-container").after(wrap);
+    document.getElementById("condiciones-container").after(wrap);
   }
   wrap.innerHTML = `
     <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-1">También puedes agregar</p>
@@ -2292,7 +2304,11 @@ function aplicarSwitchesAGrupos() {
     c.tipo = multiple ? "multiple" : "unica";
     c.obligatoria = oblig;
     c.conCantidad = multiple && cant;
-    if (!multiple) c.max = null;
+    if (!multiple) {
+      c.max = null;
+      c.opciones.forEach((o) => (o.exclusiva = false));
+    }
+
   });
   renderCondiciones();
 }
@@ -2410,13 +2426,14 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
         descripcion: o.descripcion || "",
         imagen: o.imagen || null,
         activo: !!o.activo,
+        exclusiva: o.exclusiva === true,
         costoAdicional: Number(o.costoAdicional) || 0,
         stock: typeof o.stock === "number" ? o.stock : null,
         receta: o.receta
           ? {
-              reemplaza: !!o.receta.reemplaza,
-              items: (o.receta.items || []).map((i) => ({ ...i })),
-            }
+            reemplaza: !!o.receta.reemplaza,
+            items: (o.receta.items || []).map((i) => ({ ...i })),
+          }
           : null,
       })),
     };
@@ -2547,6 +2564,7 @@ document
                 descripcion: String(o.descripcion || "")
                   .trim()
                   .slice(0, 120),
+                exclusiva: multiple && o.exclusiva === true,
                 imagen: o.imagen || null,
                 activo: !!o.activo,
                 costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
@@ -2554,14 +2572,14 @@ document
                 receta: o.receta?.items?.length
                   ? PLAN_PRODUCTOS.superAvanzado
                     ? {
-                        items: o.receta.items
-                          .filter((it) => numR(it.qty) > 0)
-                          .map((it) => ({
-                            id: it.id,
-                            qty: numR(it.qty),
-                            unit: it.unit,
-                          })),
-                      }
+                      items: o.receta.items
+                        .filter((it) => numR(it.qty) > 0)
+                        .map((it) => ({
+                          id: it.id,
+                          qty: numR(it.qty),
+                          unit: it.unit,
+                        })),
+                    }
                     : o.receta // sin plan súper avanzado: se conserva la original
                   : null,
               };
@@ -2723,7 +2741,7 @@ document
         );
         await Promise.all(
           eliminadas.map((img) =>
-            deleteObject(storageRef(storage, img.path)).catch(() => {}),
+            deleteObject(storageRef(storage, img.path)).catch(() => { }),
           ),
         );
         const subidas = [];
@@ -2844,7 +2862,7 @@ document
 async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
   await Promise.all(
     (imagenes || []).map((img) =>
-      deleteObject(storageRef(storage, img.path)).catch(() => {}),
+      deleteObject(storageRef(storage, img.path)).catch(() => { }),
     ),
   );
   await deleteDoc(doc(productosRef(categoriaId), productoId));
@@ -3001,13 +3019,12 @@ function renderProductoCard(categoriaId, productoId, data) {
         const stockBajo =
           typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
         const chip = document.createElement("span");
-        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
-          sinStock
-            ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
-            : stockBajo
-              ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
-              : "bg-purple-950/40 border-purple-800/30 text-purple-300"
-        }`;
+        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${sinStock
+          ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
+          : stockBajo
+            ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
+            : "bg-purple-950/40 border-purple-800/30 text-purple-300"
+          }`;
         let txt = op.nombre;
         if (op.costoAdicional)
           txt += ` +${Number(op.costoAdicional).toFixed(2)}`;
@@ -3102,11 +3119,10 @@ function renderProductoCard(categoriaId, productoId, data) {
 
   const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
-  estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
-    data.disponible
-      ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
-      : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
-  }`;
+  estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.disponible
+    ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
+    : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
+    }`;
   estadoBtn.title = data.disponible
     ? "Disponible (clic para marcar agotado)"
     : "Agotado (clic para activar)";
@@ -3130,11 +3146,10 @@ function renderProductoCard(categoriaId, productoId, data) {
   const agotadoHoyBtn = document.createElement("button");
   agotadoHoyBtn.type = "button";
   agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (mañana vuelve solo)";
-  agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
-    data.agotadoHoy
-      ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
-      : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
-  }`;
+  agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.agotadoHoy
+    ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
+    : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
+    }`;
   agotadoHoyBtn.innerHTML = `<span>🔸</span><span class="pc-agotadohoy-txt">${data.agotadoHoy ? "Agotado hoy" : "Agotar hoy"}</span>`;
   agotadoHoyBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
@@ -3854,7 +3869,7 @@ async function eliminarFotoCarta(collId, slotIndex) {
   if (!coleccion) return;
   try {
     const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
-    await deleteObject(storageRef(storage, path)).catch(() => {});
+    await deleteObject(storageRef(storage, path)).catch(() => { });
     const nuevasImagenes = [...coleccion.imagenes];
     nuevasImagenes[slotIndex] = null;
     await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
@@ -3879,7 +3894,7 @@ async function eliminarColeccionCarta(collId) {
       (coleccion.imagenes || []).map((url, i) => {
         if (!url) return Promise.resolve();
         const path = `tiendas/${tiendaId}/carta/${collId}/slot_${i}.webp`;
-        return deleteObject(storageRef(storage, path)).catch(() => {});
+        return deleteObject(storageRef(storage, path)).catch(() => { });
       }),
     );
     await deleteDoc(cartaDocRef(collId));
@@ -4117,7 +4132,7 @@ async function abrirEmparejarCelular() {
         snap.docChanges().forEach((ch) => {
           if (ch.type !== "added") return;
           const d = ch.doc.data();
-          deleteDoc(ch.doc.ref).catch(() => {});
+          deleteDoc(ch.doc.ref).catch(() => { });
           if (d.tipo === "hola") {
             pintarEstadoCelular(true);
             return;
@@ -4178,7 +4193,7 @@ document
 window.addEventListener("pagehide", () => {
   if (!scanSesion) return;
   unsubCodigos?.();
-  deleteDoc(scanSesRef(scanSesion)).catch(() => {});
+  deleteDoc(scanSesRef(scanSesion)).catch(() => { });
 });
 /* ---------------- Horario por categoría ---------------- */
 const DIAS_HORARIO = [
@@ -4343,7 +4358,7 @@ const escAd = (s) =>
     /[&<>"']/g,
     (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
+      c
       ],
   );
 
@@ -4468,7 +4483,7 @@ document.getElementById("adic-list")?.addEventListener("click", (e) => {
       async () => {
         if (a?.imagen?.path)
           await deleteObject(storageRef(storage, a.imagen.path)).catch(
-            () => {},
+            () => { },
           );
         await deleteDoc(adDoc(id));
         toast("Adicional eliminado.");
@@ -4500,7 +4515,7 @@ document
       let imagen = adQuitarFoto ? null : adImgActual;
       if ((adFile || adQuitarFoto) && adImgActual?.path) {
         await deleteObject(storageRef(storage, adImgActual.path)).catch(
-          () => {},
+          () => { },
         );
       }
       if (adFile) {
