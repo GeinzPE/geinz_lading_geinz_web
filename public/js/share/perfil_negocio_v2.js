@@ -3165,6 +3165,30 @@ function gradienteDiaEspecialPerfil(d) {
     c2: cols[cols.length - 1],
   };
 }
+function promoCondiciones(raw) {
+  const grupos = (Array.isArray(raw) ? raw : []).map((c) => {
+    const multiple = c.tipo === "multiple";
+    return {
+      nombre: c.nombre,
+      multiple,
+      obligatoria: c.obligatoria !== false,
+      conCantidad: multiple && c.conCantidad === true,
+      max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+      opciones: (c.opciones || [])
+        .filter((o) => o.activo !== false && (typeof o.stock !== "number" || o.stock > 0))
+        .map((o) => ({
+          nombre: o.nombre,
+          descripcion: String(o.descripcion || "").trim(),
+          imagen: "",
+          costoAdicional: Number(o.costoAdicional) || 0,
+          stock: typeof o.stock === "number" ? o.stock : null,
+        })),
+    };
+  });
+  const agotado = grupos.some((g) => g.nombre && g.obligatoria && !g.opciones.length);
+  return { condiciones: grupos.filter((g) => g.nombre && g.opciones.length), agotado };
+}
+
 function normalizePromos(it, biz) {
   const p = it?.lista_img?.promociones || {};
   const hoy = diaHoyLima();
@@ -3173,17 +3197,21 @@ function normalizePromos(it, biz) {
   const lista = Object.entries(p)
     .filter(([, val]) => {
       const dias = val && typeof val === "object" ? val.dias : null;
-      return !dias?.length || dias.includes(hoy); // sin días = todos los días
+      return !dias?.length || dias.includes(hoy);
     })
     .map(([id, val], idx) => {
       const o = typeof val === "string" ? { imagen: val } : val || {};
       if (!o.imagen) return null;
+      const cp = promoCondiciones(o.condiciones);
       return {
         id,
         url: o.imagen,
-        titulo: `Promoción ${idx + 1}`,
+        titulo: String(o.nombre || "").trim() || `Promoción ${idx + 1}`,
         descripcion: String(o.descripcion || "").trim(),
         precio: Number(o.precio) || 0,
+        condiciones: cp.condiciones,
+        sugerencias: Array.isArray(o.sugerencias) ? o.sugerencias : [],
+        agotado: cp.agotado || (typeof o.stock === "number" && o.stock <= 0),
         destacado: !!esp && o.destacarEspecial === true,
         destacadoTexto: esp ? String(esp.titulo || "").trim() : "",
         destacadoGrad: g?.css || "",
@@ -3192,7 +3220,6 @@ function normalizePromos(it, biz) {
       };
     })
     .filter(Boolean);
-  // las destacadas van primero
   return lista.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
 }
 const AMENITY_ICONS = {
@@ -4438,6 +4465,7 @@ function bindPromoDetailModal() {
           <h3 class="promo-detail-title" id="promoDetailTitle"></h3>
           <p class="promo-detail-desc" id="promoDetailDesc"></p>
           <div class="promo-detail-tags" id="promoDetailTags"></div>
+                    <div id="pdOpts"></div>
           <div class="promo-detail-actions" id="promoDetailActions"></div>
         </div>
       </div>
@@ -4459,10 +4487,87 @@ function bindPromoDetailModal() {
 function closePromoDetailModal() {
   document.getElementById("promoDetailModal")?.classList.remove("open");
   document.body.style.overflow = "";
+  _cpModoPromo = false;
+  _cpPrev = null;
 }
-
 let _promoDetailLoadToken = 0;
 
+let _cpModoPromo = false; // true = las opciones se dibujan dentro del diálogo de la promo
+let _cpPrev = null;
+
+const PD_EXTRA_CSS = `
+.pd-sug{margin:6px 0 18px;}
+.pd-sug-title{margin:0 0 10px;font-size:15px;font-weight:800;color:#fff;}
+.pd-sug-track{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none;}
+.pd-sug-track::-webkit-scrollbar{display:none;}
+.pd-sug-card{flex:0 0 130px;border-radius:18px;padding:8px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:6px;}
+.pd-sug-img{width:100%;aspect-ratio:1/1;border-radius:12px;background:#111 center/cover no-repeat;}
+.pd-sug-name{margin:0;font-size:12.5px;font-weight:700;color:#fff;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:31px;}
+.pd-sug-price{margin:0;font-size:12px;font-weight:800;color:#d4d4d8;}
+.pd-sug-btn{margin-top:auto;height:30px;border:none;border-radius:10px;cursor:pointer;font-weight:800;font-size:12px;color:#fff;background:rgb(var(--dr),var(--dg),var(--db));}
+#promoDetailBuyBtn.pend{opacity:.55;}
+`;
+
+function cpInjectStyles() {
+  if (!document.getElementById("cpdStyle")) {
+    const st = document.createElement("style");
+    st.id = "cpdStyle";
+    st.textContent = CPD_CSS;
+    document.head.appendChild(st);
+  }
+  if (!document.getElementById("pdExtraStyle")) {
+    const st = document.createElement("style");
+    st.id = "pdExtraStyle";
+    st.textContent = PD_EXTRA_CSS;
+    document.head.appendChild(st);
+  }
+}
+
+function promoSugeridos(promo) {
+  const cats = new Set(promo?.sugerencias || []);
+  if (!cats.size) return [];
+  return _catalogoPerfil.filter((p) => cats.has(p.categoriaId) && !p.agotado);
+}
+
+function pdPintarSugeridos(cont, lista) {
+  const sec = document.createElement("div");
+  sec.className = "pd-sug";
+  sec.innerHTML = `<p class="pd-sug-title">También puedes agregar</p><div class="pd-sug-track"></div>`;
+  const track = sec.querySelector(".pd-sug-track");
+  lista.forEach((p) => {
+    const des = cpDesde(p);
+    const card = document.createElement("div");
+    card.className = "pd-sug-card";
+    const img = document.createElement("div");
+    img.className = "pd-sug-img";
+    if (p.imagen) img.style.backgroundImage = `url("${p.imagen.replace(/"/g, "%22")}")`;
+    const nom = document.createElement("p");
+    nom.className = "pd-sug-name";
+    nom.textContent = capitalizarPrimeraLetra(p.nombre);
+    const pr = document.createElement("p");
+    pr.className = "pd-sug-price";
+    pr.textContent = `${des.varia ? "Desde " : ""}S/ ${des.precio.toFixed(2)}`;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pd-sug-btn";
+    btn.textContent = p.condiciones.length ? "Elegir opciones" : "Agregar";
+    btn.onclick = () => {
+      if (p.condiciones.length) return cpAbrirDialog(p);
+      agregarAlCarritoPerfil({
+        promoId: `prod_${p.id}`,
+        productoId: p.id,
+        seleccion: null,
+        detalle: "",
+        nombre: capitalizarPrimeraLetra(p.nombre),
+        precio: cpPrecio(p, null),
+        imagen: p.imagen,
+      });
+    };
+    card.append(img, nom, pr, btn);
+    track.appendChild(card);
+  });
+  cont.appendChild(sec);
+}
 function openPromoDetailModal(data) {
   bindPromoDetailModal();
   const modal = document.getElementById("promoDetailModal");
@@ -4470,13 +4575,11 @@ function openPromoDetailModal(data) {
   const loader = document.getElementById("promoDetailLoader");
   const token = ++_promoDetailLoadToken;
 
-  // ── Reset total ANTES de mostrar nada: nunca se ve la imagen de la promo anterior ──
   img.classList.remove("show");
   img.src = "";
   loader.classList.remove("hide");
-
   img.onload = () => {
-    if (token !== _promoDetailLoadToken) return; // llegó tarde, ya se abrió otra promo
+    if (token !== _promoDetailLoadToken) return;
     loader.classList.add("hide");
     img.classList.add("show");
   };
@@ -4488,12 +4591,21 @@ function openPromoDetailModal(data) {
   img.src = data.img || "";
 
   document.getElementById("promoDetailTitle").textContent = data.titulo || "";
-  document.getElementById("promoDetailDesc").textContent =
-    data.descripcion || "";
+  document.getElementById("promoDetailDesc").textContent = data.descripcion || "";
+
+  const promo = data.promo || null;
+  const tieneOpc = !!(promo && promo.condiciones?.length);
 
   const priceEl = document.getElementById("promoDetailPrice");
-  if (data.precio > 0) {
-    priceEl.textContent = `S/ ${data.precio.toFixed(2)}`;
+  let precioTxt = data.precio;
+  let desdeTxt = "";
+  if (tieneOpc) {
+    const d = cpDesde(promo);
+    precioTxt = d.precio;
+    desdeTxt = d.varia ? "Desde " : "";
+  }
+  if (precioTxt > 0) {
+    priceEl.textContent = `${desdeTxt}S/ ${precioTxt.toFixed(2)}`;
     priceEl.style.display = "inline-flex";
   } else {
     priceEl.style.display = "none";
@@ -4508,7 +4620,6 @@ function openPromoDetailModal(data) {
     expiryEl.style.display = "none";
   }
 
-  // ── WhatsApp: bolita flotando en la esquina, ya no dentro de las acciones ──
   const waFloat = document.getElementById("promoDetailWaFloat");
   if (data.waLink) {
     waFloat.href = data.waLink;
@@ -4517,33 +4628,101 @@ function openPromoDetailModal(data) {
     waFloat.style.display = "none";
   }
 
-  const tagsEl = document.getElementById("promoDetailTags");
-  tagsEl.innerHTML = (data.tags || [])
+  document.getElementById("promoDetailTags").innerHTML = (data.tags || [])
     .map((t) => `<span class="promo-detail-tag">${t}</span>`)
     .join("");
 
+  /* ── Opciones + "También puedes agregar" ── */
+  _cpModoPromo = false;
+  _cpPrev = null;
+  const optsEl = document.getElementById("pdOpts");
+  optsEl.innerHTML = "";
+  const sugs = promo ? promoSugeridos(promo) : [];
+
+  if (tieneOpc || sugs.length) cpInjectStyles();
+
+  if (tieneOpc) {
+    _cpModoPromo = true;
+    _cpProd = promo;
+    _cpSel = {};
+    _cpGrupos = [...promo.condiciones].sort(
+      (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
+    );
+    _cpGrupos.forEach((c) => {
+      if (!c.multiple && c.obligatoria && c.opciones.length === 1)
+        _cpSel[c.nombre] = c.opciones[0].nombre;
+    });
+    _cpGrupos.forEach((c) => {
+      const sec = cpMk("div", "opt-grp");
+      sec.dataset.grp = c.nombre;
+      const head = cpMk("div", "opt-grp-head");
+      const t = cpMk("div");
+      t.appendChild(cpMk("p", "opt-grp-title", c.nombre));
+      t.appendChild(cpMk("p", "opt-grp-rule", cpRegla(c)));
+      head.append(t, cpMk("span", "opt-badge"));
+      sec.append(head, cpMk("div", "opt-list"));
+      optsEl.appendChild(sec);
+      cpPintarGrupo(c, sec);
+    });
+  }
+  if (sugs.length) pdPintarSugeridos(optsEl, sugs);
+  if (tieneOpc) {
+    const res = cpMk("div", "cpd-resumen");
+    res.id = "pdResumen";
+    res.style.marginBottom = "18px";
+    optsEl.appendChild(res);
+  }
+
+  /* ── Botones ── */
   const actionsEl = document.getElementById("promoDetailActions");
   actionsEl.innerHTML = `
       ${data.onComprar ? `<button type="button" class="promo-detail-btn promo-detail-btn-buy" id="promoDetailBuyBtn">🛒 Comprar</button>` : ""}
       ${data.shareUrl ? `<button class="promo-detail-btn promo-detail-btn-share" id="promoDetailShareBtn">📤 Compartir</button>` : ""}
     `;
-  document
-    .getElementById("promoDetailBuyBtn")
-    ?.addEventListener("click", () => {
+
+  document.getElementById("promoDetailBuyBtn")?.addEventListener("click", () => {
+    if (!tieneOpc) {
       data.onComprar();
       closePromoDetailModal();
+      return;
+    }
+    const falta = cpFalta();
+    if (falta) {
+      const sec = [...document.querySelectorAll("#pdOpts .opt-grp")].find(
+        (s) => s.dataset.grp === falta.nombre,
+      );
+      if (sec) {
+        sec.scrollIntoView({ behavior: "smooth", block: "center" });
+        sec.classList.remove("shake");
+        void sec.offsetWidth;
+        sec.classList.add("shake");
+      }
+      showToast(`Elige una opción en "${falta.nombre}"`);
+      return;
+    }
+    const sel = JSON.parse(JSON.stringify(_cpSel));
+    const k = cpKeySel(sel);
+    agregarAlCarritoPerfil({
+      promoId: `${promo.id}${k ? "__" + k : ""}`,
+      promoRealId: promo.id,
+      seleccion: Object.keys(sel).length ? sel : null,
+      detalle: cpDetalle(sel),
+      nombre: data.titulo,
+      precio: cpPrecio(promo, sel),
+      imagen: data.img,
     });
-  const shareBtn = document.getElementById("promoDetailShareBtn");
-  if (shareBtn) {
-    shareBtn.addEventListener("click", () => {
-      compartirNativo({
-        title: data.titulo || "Promoción en Geinz",
-        text: data.shareMsg || "Mira esta promo en Geinz 🎁",
-        url: data.shareUrl,
-      });
-    });
-  }
+    closePromoDetailModal();
+  });
 
+  document.getElementById("promoDetailShareBtn")?.addEventListener("click", () => {
+    compartirNativo({
+      title: data.titulo || "Promoción en Geinz",
+      text: data.shareMsg || "Mira esta promo en Geinz 🎁",
+      url: data.shareUrl,
+    });
+  });
+
+  if (tieneOpc) cpResumen();
   modal.classList.add("open");
   document.body.style.overflow = "hidden";
 }
@@ -5696,7 +5875,7 @@ function irACarritoConPerfil() {
       `geinz_perfil_cart_pending_${_params.id}`,
       JSON.stringify({
         items: _perfilCarritoItems.map((i) => ({
-          promoId: i.promoId,
+                 promoId: i.promoRealId || i.promoId,
           productoId: i.productoId || null,
           seleccion: i.seleccion || null,
           cantidad: i.cantidad,
@@ -6375,7 +6554,7 @@ async function render(biz, isInitial = true) {
       const shareBase =
         urlCompartirPromo(biz.alias_key || _params.alias, promo.id) ||
         `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
-      const puedeComprarPromo = promo.precio > 0 && _F.carrito;
+      const puedeComprarPromo = promo.precio > 0 && _F.carrito && !promo.agotado;
 
       const card = document.createElement("div");
       card.className = "promo-card";
@@ -6410,7 +6589,7 @@ async function render(biz, isInitial = true) {
               promo.precio > 0 || promo.descripcion
                 ? `
             <div class="promo-card-bottom-overlay">
-              ${promo.precio > 0 ? `<span class="promo-card-price">S/ ${promo.precio.toFixed(2)}</span>` : ""}
+                       ${promo.precio > 0 ? `<span class="promo-card-price">${promo.condiciones?.length && cpDesde(promo).varia ? "Desde " : ""}S/ ${(promo.condiciones?.length ? cpDesde(promo).precio : promo.precio).toFixed(2)}</span>` : ""}
               ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
                                          ${promo.destacado && promo.destacadoTexto ? `<p class="promo-destacado-txt">${escapeHtml(promo.destacadoTexto)}</p>` : ""}
             </div>`
@@ -6424,6 +6603,16 @@ async function render(biz, isInitial = true) {
       });
       imgWrapContainer.prepend(imgWrap);
 
+      const datosDetalle = {
+        img: promo.url,
+        titulo: promo.titulo,
+        descripcion: promo.descripcion,
+        precio: promo.precio,
+        shareUrl: shareBase,
+        shareMsg: `Mira lo que encontre en ${nombre} 👀🔥`,
+        promo,
+      };
+
       const onComprarEstaPromo = puedeComprarPromo
         ? () =>
             agregarAlCarritoPerfil({
@@ -6436,21 +6625,18 @@ async function render(biz, isInitial = true) {
 
       card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
         e.stopPropagation();
-        onComprarEstaPromo();
+        // si la promo tiene opciones, primero se eligen en el diálogo
+        if (promo.condiciones?.length) {
+          openPromoDetailModal({ ...datosDetalle, onComprar: onComprarEstaPromo });
+        } else {
+          onComprarEstaPromo();
+        }
       });
 
       card.style.cursor = "pointer";
       card.addEventListener("click", (e) => {
         if (e.target.closest("a, button")) return;
-        openPromoDetailModal({
-          img: promo.url,
-          titulo: promo.titulo,
-          descripcion: promo.descripcion,
-          precio: promo.precio,
-          onComprar: onComprarEstaPromo,
-          shareUrl: shareBase,
-          shareMsg: `Mira lo que encontre en ${nombre} 👀🔥`,
-        });
+        openPromoDetailModal({ ...datosDetalle, onComprar: onComprarEstaPromo });
       });
       promoCarousel.appendChild(card);
     });
@@ -8740,6 +8926,7 @@ function cpNormalizar(d) {
   );
   return {
     id: d.productoId || d.id,
+        categoriaId: d.categoriaId || null,
     nombre: d.nombre || "Producto",
     descripcion: d.descripcion || "",
     precio: Number(d.precio) || 0,
@@ -9073,7 +9260,7 @@ function cpHero() {
 function cpResumen() {
   cpHero();
   const p = _cpProd;
-  const box = document.getElementById("cpdResumen");
+  const box = document.getElementById(_cpModoPromo ? "pdResumen" : "cpdResumen");
   if (box) {
     const filas = [];
     _cpGrupos.forEach((c) =>
@@ -9092,14 +9279,68 @@ function cpResumen() {
       filas.join("") +
       `<div style="font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><span>Precio final (c/u)</span><span>S/ ${cpPrecio(p, _cpSel).toFixed(2)}</span></div>`;
   }
-  const btn = document.getElementById("cpdConfirm");
+  const btn = document.getElementById(_cpModoPromo ? "promoDetailBuyBtn" : "cpdConfirm");
+  if (!btn) return;
   const falta = cpFalta();
   btn.classList.toggle("pend", !!falta);
   btn.textContent = falta
     ? `Elige ${falta.nombre} para continuar`
-    : `Agregar · S/ ${cpPrecio(p, _cpSel).toFixed(2)}`;
+    : `${_cpModoPromo ? "🛒 " : ""}Agregar · S/ ${cpPrecio(p, _cpSel).toFixed(2)}`;
 }
 
+function cpAbrirDialog(p) {
+  // si venimos del diálogo de una promo, guardamos su estado para restaurarlo al cerrar
+  if (_cpModoPromo) _cpPrev = { prod: _cpProd, sel: _cpSel, grupos: _cpGrupos };
+  _cpModoPromo = false;
+  const m = cpEnsureModal();
+  _cpProd = p;
+  _cpSel = {};
+  _cpGrupos = [...p.condiciones].sort(
+    (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
+  );
+  document.getElementById("cpdTitle").textContent = p.nombre;
+  const body = document.getElementById("cpdBody");
+  body.innerHTML = `<div class="opt-hero" id="cpdHero"><img alt=""></div>`;
+  if (p.descripcion) body.appendChild(cpMk("p", "opt-prod-desc", p.descripcion));
+  _cpGrupos.forEach((c) => {
+    const sec = cpMk("div", "opt-grp");
+    sec.dataset.grp = c.nombre;
+    const head = cpMk("div", "opt-grp-head");
+    const t = cpMk("div");
+    t.appendChild(cpMk("p", "opt-grp-title", c.nombre));
+    t.appendChild(cpMk("p", "opt-grp-rule", cpRegla(c)));
+    head.append(t, cpMk("span", "opt-badge"));
+    sec.append(head, cpMk("div", "opt-list"));
+    body.appendChild(sec);
+    cpPintarGrupo(c, sec);
+  });
+  const res = cpMk("div", "cpd-resumen");
+  res.id = "cpdResumen";
+  body.appendChild(res);
+  cpResumen();
+  m.classList.remove("open");
+  void m.offsetHeight;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => m.classList.add("open")),
+  );
+  document.body.style.overflow = "hidden";
+}
+
+function cpCerrar() {
+  document.getElementById("cpdModal")?.classList.remove("open");
+  if (_cpPrev) {
+    // volvemos al diálogo de la promo con su selección intacta
+    _cpProd = _cpPrev.prod;
+    _cpSel = _cpPrev.sel;
+    _cpGrupos = _cpPrev.grupos;
+    _cpPrev = null;
+    _cpModoPromo = true;
+    cpResumen();
+    document.body.style.overflow = "hidden";
+  } else {
+    document.body.style.overflow = "";
+  }
+}
 function cpEnsureModal() {
   let m = document.getElementById("cpdModal");
   if (m) return m;
@@ -9128,46 +9369,6 @@ function cpEnsureModal() {
   return m;
 }
 
-function cpAbrirDialog(p) {
-  const m = cpEnsureModal();
-  _cpProd = p;
-  _cpSel = {};
-  _cpGrupos = [...p.condiciones].sort(
-    (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
-  );
-  document.getElementById("cpdTitle").textContent = p.nombre;
-  const body = document.getElementById("cpdBody");
-  body.innerHTML = `<div class="opt-hero" id="cpdHero"><img alt=""></div>`;
-  if (p.descripcion)
-    body.appendChild(cpMk("p", "opt-prod-desc", p.descripcion));
-  _cpGrupos.forEach((c) => {
-    const sec = cpMk("div", "opt-grp");
-    sec.dataset.grp = c.nombre;
-    const head = cpMk("div", "opt-grp-head");
-    const t = cpMk("div");
-    t.appendChild(cpMk("p", "opt-grp-title", c.nombre));
-    t.appendChild(cpMk("p", "opt-grp-rule", cpRegla(c)));
-    head.append(t, cpMk("span", "opt-badge"));
-    sec.append(head, cpMk("div", "opt-list"));
-    body.appendChild(sec);
-    cpPintarGrupo(c, sec);
-  });
-  const res = cpMk("div", "cpd-resumen");
-  res.id = "cpdResumen";
-  body.appendChild(res);
-  cpResumen();
-  m.classList.remove("open");
-  void m.offsetHeight;
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => m.classList.add("open")),
-  );
-  document.body.style.overflow = "hidden";
-}
-
-function cpCerrar() {
-  document.getElementById("cpdModal")?.classList.remove("open");
-  document.body.style.overflow = "";
-}
 
 function cpConfirmar() {
   if (!_cpProd) return;

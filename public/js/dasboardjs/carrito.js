@@ -638,6 +638,7 @@ function bindPromoDetailModal() {
       <div class="promo-detail-body">
         <h3 class="promo-detail-title" id="promoDetailTitle"></h3>
         <p class="promo-detail-desc" id="promoDetailDesc"></p>
+                <div id="pd_body"></div>
        <div class="promo-detail-actions" id="promoDetailActions">
   <button class="promo-detail-btn" id="promoDetailAddBtn">🛒 Agregar al carrito</button>
   <button class="promo-detail-btn promo-detail-btn-share" id="promoDetailShareBtn">📤 Compartir</button>
@@ -661,6 +662,10 @@ function bindPromoDetailModal() {
 
 function cerrarPromoDetailModal() {
   document.getElementById("promoDetailModal")?.classList.remove("show");
+  modoPromo = false;
+  sugeridosModal = {};
+  sugAbierto = null;
+  sugSel = {};
   if (
     !document.getElementById("checkoutOverlay")?.classList.contains("show") &&
     !document.getElementById("drawer")?.classList.contains("show") &&
@@ -694,7 +699,6 @@ function abrirPromoDetailModal(p) {
   img.classList.remove("show");
   img.src = "";
   loader.classList.remove("hide");
-
   img.onload = () => {
     if (token !== _promoDetailToken) return;
     loader.classList.add("hide");
@@ -711,7 +715,8 @@ function abrirPromoDetailModal(p) {
   document.getElementById("promoDetailDesc").textContent = p.descripcion || "";
 
   const priceEl = document.getElementById("promoDetailPrice");
-  priceEl.textContent = `S/ ${Number(p.precio || 0).toFixed(2)}`;
+  const ddPromo = precioDesdeInfo(p);
+  priceEl.textContent = `${ddPromo.varia ? "Desde " : ""}S/ ${ddPromo.precio.toFixed(2)}`;
   priceEl.style.display = "inline-flex";
 
   const expiryEl = document.getElementById("promoDetailExpiry");
@@ -722,12 +727,103 @@ function abrirPromoDetailModal(p) {
     expiryEl.style.display = "none";
   }
 
+  /* ── Opciones + "También puedes agregar" dentro del mismo diálogo ── */
+  modoPromo = false;
+  sugeridosModal = {};
+  sugAbierto = null;
+  sugSel = {};
+  seleccionOpciones = {};
+  productoParaOpciones = null;
+  cartKeyEnEdicion = null;
+  const body = document.getElementById("pd_body");
+  body.innerHTML = "";
+  const tieneOpc =
+    (p.condiciones && p.condiciones.length) || sugeridosDisponibles(p).length > 0;
+
+  if (tieneOpc) {
+    injectOptionsStyles();
+    modoPromo = true;
+    gruposModal = [...(p.condiciones || [])].sort(
+      (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
+    );
+    gruposModal.forEach((c) => {
+      if (c.multiple || !c.obligatoria) return;
+      const libres = c.opciones.filter((o) => !o.agotado);
+      if (libres.length === 1) seleccionOpciones[c.nombre] = libres[0].nombre;
+    });
+    gruposModal.forEach((cond) => {
+      const sec = el("div", "opt-grp");
+      sec.dataset.grp = cond.nombre;
+      const head = el("div", "opt-grp-head");
+      const t = el("div");
+      t.appendChild(el("p", "opt-grp-title", cond.nombre));
+      t.appendChild(el("p", "opt-grp-rule", textoReglaGrupo(cond)));
+      head.append(t, el("span", "opt-badge"));
+      sec.append(head, el("div", "opt-list"));
+      body.appendChild(sec);
+      pintarGrupo(p, cond, sec);
+    });
+    if (sugeridosDisponibles(p).length) {
+      const sug = el("div", "opt-sug");
+      sug.id = "pd_optionsSugeridos";
+      body.appendChild(sug);
+      pintarSugeridos(p);
+    }
+    const resumen = document.createElement("div");
+    resumen.id = "pd_optionsResumen";
+    resumen.style.cssText =
+      "border-radius:14px;padding:12px 14px;margin-bottom:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:13px;line-height:1.6;";
+    body.appendChild(resumen);
+    resumen.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-sug-del]");
+      if (!b) return;
+      delete sugeridosModal[b.dataset.sugDel];
+      refrescarModalOpciones(p);
+    });
+    actualizarResumenOpciones(p);
+  }
+
   const addBtn = document.getElementById("promoDetailAddBtn");
-  addBtn.textContent = `🛒 Agregar al carrito · S/ ${Number(p.precio || 0).toFixed(2)}`;
+  const sinStockPromo = productoSinStock(p);
+  if (tieneOpc) actualizarEstadoBotonConfirmar(p);
+  else addBtn.textContent = `🛒 Agregar al carrito · S/ ${Number(p.precio || 0).toFixed(2)}`;
+  addBtn.disabled = sinStockPromo || (tieneOpc && !!sugAbierto);
+  if (sinStockPromo) addBtn.textContent = "Sin stock disponible";
+
   addBtn.onclick = () => {
-    addToCart(p);
+    if (sinStockPromo) return;
+    if (!tieneOpc) {
+      addToCart(p);
+      cerrarPromoDetailModal();
+      return;
+    }
+    const falta = primerGrupoIncompleto();
+    if (falta) {
+      const sec = [...document.querySelectorAll("#pd_body .opt-grp")].find(
+        (s) => s.dataset.grp === falta.nombre,
+      );
+      if (sec) {
+        sec.scrollIntoView({ behavior: "smooth", block: "center" });
+        sec.classList.remove("shake");
+        void sec.offsetWidth;
+        sec.classList.add("shake");
+      }
+      showToast(`Elige una opción en "${falta.nombre}"`);
+      return;
+    }
+    if (sugAbierto) {
+      showToast("Termina de elegir las opciones del producto sugerido o ciérralas con ✕");
+      return;
+    }
+    const sugs = Object.entries(sugeridosModal);
+    addToCart(p, clonarSeleccion(seleccionOpciones));
+    sugs.forEach(([, l]) => {
+      const s = productosPorId.get(l.id);
+      if (s) for (let i = 0; i < l.cant; i++) addToCart(s, l.sel);
+    });
     cerrarPromoDetailModal();
   };
+
   const shareBtn = document.getElementById("promoDetailShareBtn");
   shareBtn.onclick = async () => {
     const texto = `Mira esta promo en ${bizNombre} 🎁\n${urlCompartirPromo(p)}`;
@@ -746,6 +842,7 @@ function abrirPromoDetailModal(p) {
       showToast("No se pudo copiar el link");
     }
   };
+
   modal.classList.add("show");
   document.body.style.overflow = "hidden";
 }
@@ -3192,7 +3289,7 @@ function imagenOpcionElegida(p, seleccion) {
   return src;
 }
 function productoSinStock(p) {
-  if (p.esPromo || p.esOfertaTiempo) return false;
+  if (p.esOfertaTiempo) return false;
   if (typeof p.stock === "number" && p.stock <= 0) return true;
   if (p.grupoObligatorioAgotado) return true;
   return false;
@@ -3921,6 +4018,15 @@ function addToCart(p, seleccion = null, { sugerir = false } = {}) {
     showToast(`🕐 ${disp.mensaje}`);
     return;
   }
+  // Las ofertas siempre usan SU diálogo (imagen, compartir, opciones y sugeridos)
+  if (
+    !seleccion &&
+    p.esPromo &&
+    ((p.condiciones && p.condiciones.length) || sugeridosDisponibles(p).length)
+  ) {
+    abrirPromoDetailModal(p);
+    return;
+  }
   if (
     !seleccion &&
     ((p.condiciones && p.condiciones.length) ||
@@ -4014,7 +4120,8 @@ function removeFromCart(key, productId) {
   if (existente.cantidad <= 0) carrito.delete(key);
   syncCartChange(productId || key);
 }
-
+let modoPromo = false;
+const optEl = (id) => document.getElementById(modoPromo ? "pd_" + id : id);
 let productoParaOpciones = null;
 let seleccionOpciones = {};
 let cartKeyEnEdicion = null;
@@ -4393,7 +4500,6 @@ function actualizarNavSug(sec) {
 function abrirPanelSug(p, s) {
   sugAbierto = s.id;
   sugSel = {};
-  // auto-selecciona grupos obligatorios simples con una sola opción
   (s.condiciones || []).forEach((c) => {
     if (c.multiple || !c.obligatoria) return;
     const libres = c.opciones.filter((o) => !o.agotado);
@@ -4403,7 +4509,7 @@ function abrirPanelSug(p, s) {
   setTimeout(
     () =>
       document
-        .querySelector("#optionsSugeridos .opt-sugp")
+        .querySelector(`#${modoPromo ? "pd_" : ""}optionsSugeridos .opt-sugp`)
         ?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
     60,
   );
@@ -4637,7 +4743,7 @@ function pintarPanelSug(p, s, panel) {
   actualizarEstadoBotonConfirmar(p);
 }
 function pintarSugeridos(p) {
-  const sec = document.getElementById("optionsSugeridos");
+  const sec = optEl("optionsSugeridos");
   if (!sec) return;
   const lista = sugeridosDisponibles(p);
   if (!lista.length) {
@@ -4765,6 +4871,7 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
     return;
   }
   injectOptionsStyles();
+  modoPromo = false;
   productoParaOpciones = p;
   cartKeyEnEdicion = editKey;
   seleccionOpciones = {};
@@ -4841,7 +4948,7 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
 }
 // Foto grande arriba del diálogo: cambia con fundido suave según la variante elegida
 function actualizarHeroOpciones(p) {
-  const hero = document.getElementById("optionsHero");
+  const hero = optEl("optionsHero");
   if (!hero) return;
   const src = imagenOpcionElegida(p, seleccionOpciones) || p.imagen || "";
   if (!src) {
@@ -4867,7 +4974,7 @@ function actualizarHeroOpciones(p) {
 }
 function actualizarResumenOpciones(p) {
   actualizarHeroOpciones(p);
-  const box = document.getElementById("optionsResumen");
+  const box = optEl("optionsResumen");
   if (!box) return;
   const filas = [];
   gruposModal.forEach((cond) => {
@@ -4913,16 +5020,18 @@ function actualizarResumenOpciones(p) {
 }
 
 function actualizarEstadoBotonConfirmar(p) {
-  const btn = document.getElementById("confirmOptionsBtn");
+  const btn = modoPromo
+    ? document.getElementById("promoDetailAddBtn")
+    : document.getElementById("confirmOptionsBtn");
+  if (!btn) return;
   const precio = calcPrecioFinal(p, seleccionOpciones) + totalSugeridos();
   const falta = primerGrupoIncompleto();
   const textoBase = cartKeyEnEdicion ? "Guardar cambios" : "Agregar al carrito";
 
-  // ¿Hay un sugerido abierto eligiendo sus opciones?
   const sugS = sugAbierto ? productosPorId.get(sugAbierto) : null;
   const bloqueado = !!sugS;
 
-  btn.disabled = bloqueado; // solo se bloquea si hay un sugerido abierto
+  btn.disabled = bloqueado;
   btn.classList.toggle("opt-btn-pending", !!falta && !bloqueado);
 
   if (sugS) {
@@ -6346,6 +6455,40 @@ function gradienteDiaEspecial(d) {
     c2: cols[cols.length - 1],
   };
 }
+// Convierte las condiciones guardadas en la oferta al mismo formato que usan los productos
+function condicionesDePromo(raw) {
+  const grupos = (Array.isArray(raw) ? raw : []).map((c) => {
+    const multiple = c.tipo === "multiple";
+    return {
+      nombre: c.nombre,
+      multiple,
+      obligatoria: c.obligatoria !== false,
+      conCantidad: multiple && c.conCantidad === true,
+      max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+      opciones: (c.opciones || [])
+        .filter(
+          (o) =>
+            o.activo !== false && (typeof o.stock !== "number" || o.stock > 0),
+        )
+        .map((o) => ({
+          exclusiva: o.exclusiva === true,
+          nombre: o.nombre,
+          descripcion: String(o.descripcion || "").trim(),
+          imagen: "",
+          costoAdicional: Number(o.costoAdicional) || 0,
+          stock: typeof o.stock === "number" ? o.stock : null,
+          agotado: false,
+        })),
+    };
+  });
+  const agotado = grupos.some(
+    (g) => g.nombre && g.obligatoria && !g.opciones.length,
+  );
+  return {
+    condiciones: grupos.filter((g) => g.nombre && g.opciones.length),
+    agotado,
+  };
+}
 /* ══════════════ Promociones del negocio ══════════════ */
 function normalizarPromociones(biz) {
   const esp = diaEspecialHoy(biz);
@@ -6378,21 +6521,26 @@ function normalizarPromociones(biz) {
     });
   }
 
-  // ── Promociones normales ──
+  // ── Promociones normales (con modo avanzado) ──
   const raw = biz?.img_tienda?.lista_img?.promociones;
   if (raw && typeof raw === "object") {
     Object.entries(raw).forEach(([promoId, p]) => {
       // formato viejo (solo URL) o sin precio: no se puede vender
       if (!p || typeof p !== "object") return;
-      if (p.dias?.length && !p.dias.includes(obtenerDiaSemanaLima())) return; // ← NUEVA
+      if (p.dias?.length && !p.dias.includes(obtenerDiaSemanaLima())) return;
       const precio = Number(p.precio) || 0;
       if (precio <= 0) return;
       const descripcion = String(p.descripcion || "").trim();
+      const cp = condicionesDePromo(p.condiciones);
       lista.push({
         id: `promo__${promoId}`,
         promoId: String(promoId),
         esPromo: true,
-        nombre: (descripcion || "Promoción").slice(0, 80),
+        nombre: (
+          String(p.nombre || "").trim() ||
+          descripcion ||
+          "Promoción"
+        ).slice(0, 80),
         descripcion,
         categoria: "ofertas 🔥",
         destacado: !!esp && p.destacarEspecial === true,
@@ -6403,8 +6551,10 @@ function normalizarPromociones(biz) {
         precio,
         imagen: p.imagen || "",
         imagenes: p.imagen ? [p.imagen] : [],
-        condiciones: [],
-        stock: null,
+        condiciones: cp.condiciones,
+        grupoObligatorioAgotado: cp.agotado,
+        stock: typeof p.stock === "number" ? p.stock : null,
+        sugerencias: Array.isArray(p.sugerencias) ? p.sugerencias : [],
         puntos: null,
       });
     });
@@ -6872,9 +7022,34 @@ async function aplicarCarritoDesdePerfil() {
       return;
     }
     // ── Promociones (como antes) ──
+      // ── Promociones ──
     const p = promosGlobal.find((x) => x.promoId === String(promoId));
     if (!p) return;
-    for (let i = 0; i < (cantidad || 1); i++) addToCart(p);
+    const selP = seleccion && Object.keys(seleccion).length ? seleccion : null;
+    if (selP) {
+      const key = cartKeyFor(p.id, selP);
+      let cant = cantidad || 1;
+      const { stock } = getStockInfo(p, selP);
+      const yaHay = carrito.get(key)?.cantidad || 0;
+      if (stock !== null) cant = Math.min(cant, stock - yaHay);
+      if (cant <= 0) return;
+      const ex = carrito.get(key);
+      if (ex) ex.cantidad += cant;
+      else {
+        carrito.set(key, {
+          ...p,
+          precio: calcPrecioFinal(p, selP),
+          precioOriginal: null,
+          descuentoPorcentaje: null,
+          cantidad: cant,
+          cartKey: key,
+          seleccion: selP,
+          imagen: imagenOpcionElegida(p, selP) || p.imagen,
+        });
+      }
+    } else {
+      for (let i = 0; i < (cantidad || 1); i++) addToCart(p);
+    }
     agregoAlgo = true;
   });
 
@@ -7492,7 +7667,7 @@ async function init() {
     renderFiltros(catalogoGlobal);
     buildAllCards(catalogoGlobal);
     applyFilters();
-   // montarBotonJuego();
+    // montarBotonJuego();
   } else {
     document.getElementById("lista").innerHTML = "";
   }
