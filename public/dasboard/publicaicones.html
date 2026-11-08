@@ -1467,7 +1467,17 @@
                                         publicarla, más simple y rápido.</span>
                                 </div>
                             </button>
+                            <button type="button" class="tipo-pub-chip" data-tipo="solo_fb"
+                                onclick="selectTipoPublicacion(this)">
+                                <i class="ti ti-brand-facebook" aria-hidden="true"></i>
+                                <div class="tipo-pub-text">
+                                    <span class="tipo-pub-title">Solo en Facebook</span>
+                                    <span class="tipo-pub-sub">Se publica únicamente en tu Fanpage, sin crear la
+                                        promoción en Geinz.</span>
+                                </div>
+                            </button>
                         </div>
+
                         <div class="param-list">
 
                             <!-- WhatsApp -->
@@ -1485,7 +1495,7 @@
                                 </div>
 
                                 <div class="sub-panel" id="wp">
-                                    <p class="sec-sub">Tu Numero de contato</p>
+                                    <p class="sec-sub">Tu número de contacto</p>
                                     <input type="text" placeholder="Número">
                                     <p class="sec-sub">Mensaje predeterminado</p>
                                     <input type="text" id="mensajeWpInput"
@@ -1691,6 +1701,7 @@
                                 </div>
                             </div>
 
+                            <!-- Fanpage de Facebook -->
                             <div class="param-box" id="paramBoxFb">
                                 <div class="param-row">
                                     <div class="param-info">
@@ -1728,7 +1739,8 @@
 
                                     <p class="sec-sub">
                                         Si activas esto, tu promoción también se publicará automáticamente en tu Fanpage
-                                        de Facebook, con la imagen, título, descripción y el link de Geinz.
+                                        de Facebook, con las imágenes (hasta 5), título, descripción y el link directo
+                                        a tu carrito.
                                     </p>
                                 </div>
                             </div>
@@ -2057,8 +2069,6 @@
                         </label>
                     </div>
 
-
-
                     <p class="of-msg" id="bannerMsg"></p>
                     <button type="button" class="of-save bn-save" id="btnGuardarBanner">Guardar detalles del
                         banner</button>
@@ -2153,8 +2163,7 @@
         </div>
 
     </div>
-
-    </div>
+    <!-- fin .wrap -->
 
     <!-- Modal Detalle (Mis Publicaciones) -->
     <div class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" id="overlay-detalle">

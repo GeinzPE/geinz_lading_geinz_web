@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 //  cuenta_tarjeta.js - Tarjeta de cuenta (TIEMPO REAL)
+//  Créditos IA ← /Tiendas/.../tiendas_servicios_geinz_activos/{tiendaId}
 // ═══════════════════════════════════════════════════════════
 const params = new URLSearchParams(window.location.search);
 const tiendaId = params.get("id") || sessionStorage.getItem("tiendaId");
@@ -13,7 +14,6 @@ if (!tiendaId || !localidad) {
 (function () {
   "use strict";
 
-  
   // ============================================================
   //  CACHE GLOBAL
   // ============================================================
@@ -61,12 +61,11 @@ if (!tiendaId || !localidad) {
     if (window._datosParaIframe?.payload) {
       window._datosParaIframe.payload.saldo_tienda = saldo;
     }
-        document.querySelectorAll("iframe").forEach((iframe) => {
+    document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage({ type: "SALDO_UPDATE", saldo }, "*");
       } catch (e) {}
     });
-    // 👈 NUEVO: reenviar al padre para que llegue a los iframes hermanos (Publicidad, etc.)
     try {
       window.parent.postMessage({ type: "SALDO_UPDATE", saldo }, "*");
     } catch (e) {}
@@ -74,7 +73,7 @@ if (!tiendaId || !localidad) {
 
   function broadcastPublicidad(publicidad) {
     _cache.publicidad = publicidad;
-        document.querySelectorAll("iframe").forEach((iframe) => {
+    document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage(
           { type: "PUBLICIDAD_UPDATE", publicidad },
@@ -82,7 +81,6 @@ if (!tiendaId || !localidad) {
         );
       } catch (e) {}
     });
-    // 👈 NUEVO
     try {
       window.parent.postMessage({ type: "PUBLICIDAD_UPDATE", publicidad }, "*");
     } catch (e) {}
@@ -92,7 +90,7 @@ if (!tiendaId || !localidad) {
     _cache.planes_activacion = planesActivacion;
     _cache.planes_bot_promo = planesBotPromo;
     _cache.publicidad = publicidad;
-        document.querySelectorAll("iframe").forEach((iframe) => {
+    document.querySelectorAll("iframe").forEach((iframe) => {
       try {
         iframe.contentWindow.postMessage(
           {
@@ -105,7 +103,6 @@ if (!tiendaId || !localidad) {
         );
       } catch (e) {}
     });
-    // 👈 NUEVO
     try {
       window.parent.postMessage(
         {
@@ -122,7 +119,7 @@ if (!tiendaId || !localidad) {
   document.querySelectorAll("iframe").forEach((iframe) => {
     iframe.addEventListener("load", () => {
       sendCacheToIframe(iframe);
-          });
+    });
   });
 
   const _iframeObserver = new MutationObserver((mutations) => {
@@ -131,7 +128,7 @@ if (!tiendaId || !localidad) {
         if (node.tagName === "IFRAME") {
           node.addEventListener("load", () => {
             sendCacheToIframe(node);
-                      });
+          });
         }
       });
     });
@@ -166,7 +163,7 @@ if (!tiendaId || !localidad) {
   //  2. PUBLICIDAD
   // ============================================================
   async function initPublicidad() {
-        try {
+    try {
       const { doc, getDoc } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const db = await getFirebasePlanes();
@@ -180,7 +177,7 @@ if (!tiendaId || !localidad) {
       if (data.costo_por_moneda != null) {
         publicidad.costo_por_moneda = data.costo_por_moneda;
       }
-            window._publicidad = publicidad;
+      window._publicidad = publicidad;
       _renovacion._publicidadData = publicidad;
       broadcastPublicidad(publicidad);
     } catch (err) {
@@ -192,7 +189,7 @@ if (!tiendaId || !localidad) {
   //  3. PLANES
   // ============================================================
   async function initPreciosApp() {
-        try {
+    try {
       const { doc, getDoc } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const db = await getFirebasePlanes();
@@ -212,7 +209,7 @@ if (!tiendaId || !localidad) {
       if (data.costo_por_moneda != null) {
         publicidad.costo_por_moneda = data.costo_por_moneda;
       }
-                  window._planesActivacion = planesActivacion;
+      window._planesActivacion = planesActivacion;
       window._planesBotPromo = planesBotPromo;
       window._publicidad = publicidad;
       _renovacion._planesData = planesActivacion;
@@ -231,14 +228,25 @@ if (!tiendaId || !localidad) {
   let unsubscribeOriginal = null;
   let unsubscribeServicios = null;
 
+  // Créditos IA: viene SOLO del doc tiendas_servicios_geinz_activos
+  //   1) panel_admin.creditos_ia
+  //   2) creditos_ia (raíz del doc)  ← respaldo
+  function getCreditosIA(servicios) {
+    const v = servicios?.panel_admin?.creditos_ia ?? servicios?.creditos_ia;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   async function initRealtimeAccount() {
-        try {
+    try {
       const { onSnapshot } =
         await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const { db } = await import("../db/db.js");
       const { tiendaDoc } = await import("../rutas/rutas.js");
 
+      // /Tiendas/peru/departamento/{dep}/provincia/{prov}/distrito/{localidad}/tiendas/{tiendaId}
       const docRefOriginal = tiendaDoc(localidad, "tiendas", tiendaId);
+      // /Tiendas/peru/departamento/{dep}/provincia/{prov}/distrito/{localidad}/tiendas_servicios_geinz_activos/{tiendaId}
       const docRefServicios = tiendaDoc(
         localidad,
         "tiendas_servicios_geinz_activos",
@@ -247,22 +255,41 @@ if (!tiendaId || !localidad) {
 
       let originalData = {};
       let serviciosData = {};
+      // Evita parpadeos (créditos 0 / plan vencido) mientras llega el 2º snapshot
+      let originalListo = false;
+      let serviciosListo = false;
+
+      const emitir = () => {
+        if (originalListo && serviciosListo) {
+          combineAndUpdate(originalData, serviciosData);
+        }
+      };
 
       unsubscribeOriginal = onSnapshot(
         docRefOriginal,
         (snap) => {
           originalData = snap.exists() ? snap.data() : {};
-          combineAndUpdate(originalData, serviciosData);
+          originalListo = true;
+          emitir();
         },
-        (err) => console.error("❌ Error en snapshot original:", err),
+        (err) => {
+          console.error("❌ Error en snapshot original:", err);
+          originalListo = true;
+          emitir();
+        },
       );
       unsubscribeServicios = onSnapshot(
         docRefServicios,
         (snap) => {
           serviciosData = snap.exists() ? snap.data() : {};
-          combineAndUpdate(originalData, serviciosData);
+          serviciosListo = true;
+          emitir();
         },
-        (err) => console.error("❌ Error en snapshot servicios:", err),
+        (err) => {
+          console.error("❌ Error en snapshot servicios:", err);
+          serviciosListo = true;
+          emitir();
+        },
       );
     } catch (err) {
       console.error("❌ [ERROR] initRealtimeAccount:", err);
@@ -274,8 +301,10 @@ if (!tiendaId || !localidad) {
     if (servicios.panel_admin) combined.panel_admin = servicios.panel_admin;
     if (servicios.notificaciones)
       combined.notificaciones = servicios.notificaciones;
+    // 👈 NUEVO: créditos IA desde servicios activos
+    combined.creditos_ia = getCreditosIA(servicios);
     accountData = combined;
-        updateAccountCard();
+    updateAccountCard();
   }
 
   // ============================================================
@@ -364,13 +393,15 @@ if (!tiendaId || !localidad) {
     setText("badge-plan", planType);
     setText("estado-cuenta", "Activo");
 
-    const balance = data.puntos_tienda || 0;
+    // 👈 CAMBIO: ahora son los créditos IA (antes puntos_tienda)
+    const balance = Number(data.creditos_ia) || 0;
     const balanceFormatted = balance.toLocaleString("es-PE");
-    setText("ph-summary", `${planType} · Saldo ${balanceFormatted} pts`);
+    setText("ph-summary", `${planType} · Créditos IA ${balanceFormatted}`);
     setText("balance-full", balanceFormatted);
     setText("saldo-actual-cuenta", balanceFormatted);
 
     window._saldoTienda = balance;
+    window._creditosIA = balance;
     broadcastSaldo(balance);
 
     setText("user-id", data.id_tienda || tiendaId);
@@ -402,8 +433,7 @@ if (!tiendaId || !localidad) {
       desbloquearExpandibles();
       if (actionRenovar) actionRenovar.style.display = "none";
     }
-
-      }
+  }
 
   function setText(id, value) {
     const el = document.getElementById(id);
@@ -661,7 +691,6 @@ window.procesarPago = async () => {
     return;
   }
 
-  // 🔥 Usar variables globales del top del archivo
   const id_tienda = tiendaId;
   const localidad_pago = localidad;
 
@@ -682,7 +711,6 @@ window.procesarPago = async () => {
     btnContinuar.textContent = "Procesando...";
   }
 
-  
   try {
     const response = await fetch(
       "https://us-central1-geinzworkapp.cloudfunctions.net/pagar_plan__usuario",
@@ -691,11 +719,11 @@ window.procesarPago = async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           data: {
-            pais:"",
-            provincia:"",
+            pais: "",
+            provincia: "",
             precio_por_moneda: window._publicidad?.costo_por_moneda,
             id_tienda,
-            localidad: localidad_pago, // 🔥 fix: ya no pisa la variable global
+            localidad: localidad_pago,
             dias_extra,
             monedas_costo: precioFinal,
           },
@@ -709,7 +737,6 @@ window.procesarPago = async () => {
       throw new Error(result?.error?.message || `Error ${response.status}`);
     }
 
-    
     document.getElementById("modal-renovacion")?.classList.remove("open");
     mostrarSnackbar("Plan renovado correctamente 🎉", "success");
 
