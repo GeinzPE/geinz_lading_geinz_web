@@ -177,6 +177,7 @@ let bannerGuardado = {
   descuentoValor: null,
   soloSeguidores: false,
 };
+let bannerDoc = {};
 let bannerTipoActual = "producto";
 let bannerDescuentoTipoActual = "porcentaje";
 
@@ -236,6 +237,12 @@ function validarBanner() {
   if (bSoloSeguidoresRow)
     bSoloSeguidoresRow.style.display = obligatorio ? "" : "none";
 
+  const btnAv = document.getElementById("btnBannerAvanzado");
+  if (btnAv) {
+    btnAv.style.display = obligatorio && esProducto ? "" : "none";
+    const n = (bannerDoc.condiciones || []).length;
+    btnAv.textContent = `⚙️ Modo avanzado${n ? ` · ${n} grupo(s)` : ""}`;
+  }
   bBtnGuardar.disabled = faltaDesc || faltaPrecio || faltaDescuento;
 
   if (faltaDesc || faltaPrecio || faltaDescuento) {
@@ -300,6 +307,7 @@ async function cargarBanner(intento = 0) {
   try {
     const snap = await getDoc(TIENDA_REF);
     banner = snap.data()?.banner || {};
+    bannerDoc = banner;
   } catch (err) {
     console.error("[banner] falló getDoc:", err.code, err.message);
     if (intento < 3)
@@ -405,6 +413,10 @@ bBtnGuardar?.addEventListener("click", async () => {
       "banner.descuentoValor":
         tipo === "descuento" && descuentoValor ? descuentoValor : deleteField(),
       "banner.soloSeguidores": soloSeguidores ? true : deleteField(),
+      ...(tipo !== "producto" && {
+        "banner.condiciones": deleteField(),
+        "banner.sugerencias": deleteField(),
+      }),
     });
 
     bannerGuardado = {
@@ -416,6 +428,10 @@ bBtnGuardar?.addEventListener("click", async () => {
       descuentoValor: tipo === "descuento" ? descuentoValor : null,
       soloSeguidores,
     };
+    if (tipo !== "producto") {
+      delete bannerDoc.condiciones;
+      delete bannerDoc.sugerencias;
+    }
     bannerSetMsg("Cambios guardados", "ok");
     setTimeout(() => {
       if (bMsg.classList.contains("ok")) bannerSetMsg("");
@@ -447,6 +463,11 @@ document
       alert("No se pudo cambiar el estado del banner");
     }
   });
+
+document.getElementById("btnBannerAvanzado")?.addEventListener("click", () => {
+  if (!TIENDA_REF) return;
+  abrirEditorAvanzadoOferta("__banner__");
+});
 
 document.getElementById("btnCambiarBanner")?.addEventListener("click", () => {
   document.getElementById("bannerFileInput").click();
@@ -511,6 +532,41 @@ document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
 let ofertasCache = {};
 const maxOfertas = () => window.GEINZ_PLAN?.maxOfertas ?? 50;
 let subiendoOferta = false;
+let ofFiltro = "todas"; // "todas" | "hoy" | "lunes" ... "domingo"
+
+function diaHoyLima() {
+  const en = new Date()
+    .toLocaleDateString("en-US", { timeZone: "America/Lima", weekday: "long" })
+    .toLowerCase();
+  return {
+    monday: "lunes",
+    tuesday: "martes",
+    wednesday: "miercoles",
+    thursday: "jueves",
+    friday: "viernes",
+    saturday: "sabado",
+    sunday: "domingo",
+  }[en];
+}
+
+// Sin días marcados = se muestra todos los días, así que entra en cualquier filtro
+function ofertaCoincide(item, filtro) {
+  if (filtro === "todas") return true;
+  const dias = item.dias || [];
+  const d = filtro === "hoy" ? diaHoyLima() : filtro;
+  return !dias.length || dias.includes(d);
+}
+
+function pintarFiltrosOfertas() {
+  const box = document.getElementById("ofFiltros");
+  if (!box) return;
+  box.innerHTML = [["todas", "Todas"], ["hoy", "Activas hoy"], ...GEN_DIAS]
+    .map(
+      ([v, l]) =>
+        `<div class="bn-tipo-chip ${ofFiltro === v ? "active" : ""}" data-f="${v}">${l}</div>`,
+    )
+    .join("");
+}
 
 async function cargarOfertas(intento = 0) {
   const grid = document.getElementById("ofertasGrid");
@@ -610,7 +666,11 @@ function renderOfertas(map) {
 
   const entries = Object.entries(map);
 
-  entries.forEach(([key, val]) => {
+  const visibles = entries.filter(([, v]) =>
+    ofertaCoincide(normalizarOferta(v), ofFiltro),
+  );
+
+  visibles.forEach(([key, val]) => {
     const item = normalizarOferta(val);
 
     const card = document.createElement("div");
@@ -828,6 +888,14 @@ function renderOfertas(map) {
 
     grid.appendChild(card);
   });
+
+  const cont = document.getElementById("ofContador");
+  if (cont)
+    cont.textContent = !entries.length
+      ? ""
+      : visibles.length
+        ? `Mostrando ${visibles.length} de ${entries.length}`
+        : "No hay ofertas para este filtro";
 
   const max = maxOfertas();
 
@@ -1603,6 +1671,15 @@ $g("genCrear")?.addEventListener("click", async () => {
 genPintarDias();
 genRefrescar();
 
+pintarFiltrosOfertas();
+document.getElementById("ofFiltros")?.addEventListener("click", (e) => {
+  const c = e.target.closest("[data-f]");
+  if (!c) return;
+  ofFiltro = c.dataset.f;
+  pintarFiltrosOfertas();
+  renderOfertas(ofertasCache);
+});
+
 // ══════════════ MODO AVANZADO DE OFERTA (variantes tipo producto) ══════════════
 const VA_CSS = `
 .va-ov{position:fixed;inset:0;z-index:10000;background:rgba(3,3,6,.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:14px;}
@@ -1628,6 +1705,11 @@ const VA_CSS = `
 .va-chk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:#cfc8ff;cursor:pointer;}
 .va-x{flex:0 0 auto;width:30px;height:30px;border:none;border-radius:8px;background:rgba(225,29,72,.2);color:#fb7185;cursor:pointer;}
 .va-add{margin-top:8px;padding:8px 12px;border:1px dashed rgba(139,92,246,.5);border-radius:10px;background:none;color:#c4b5fd;font-size:12px;font-weight:700;cursor:pointer;}
+.va-body[data-caso="mayus"] input.va-in{text-transform:uppercase;}
+.va-body[data-caso="minus"] input.va-in{text-transform:lowercase;}
+.va-body input.va-in::placeholder{text-transform:none;}
+.va-mv{flex:0 0 auto;width:30px;height:30px;border:none;border-radius:8px;background:rgba(139,92,246,.2);color:#c4b5fd;cursor:pointer;}
+.va-mv:disabled{opacity:.25;cursor:default;}
 `;
 
 function abrirEditorAvanzadoOferta(key) {
@@ -1637,9 +1719,13 @@ function abrirEditorAvanzadoOferta(key) {
     s.textContent = VA_CSS;
     document.head.appendChild(s);
   }
-  const actual = normalizarOferta(ofertasCache[key]);
+  const esBanner = key === "__banner__";
+  const actual = esBanner
+    ? { ...bannerDoc }
+    : normalizarOferta(ofertasCache[key]);
   const st = {
     nombre: actual.nombre || "",
+    caso: actual.caso || "tal_cual",
     stock: typeof actual.stock === "number" ? actual.stock : "",
     condiciones: JSON.parse(JSON.stringify(actual.condiciones || [])),
     sugerencias: [...(actual.sugerencias || [])],
@@ -1648,7 +1734,7 @@ function abrirEditorAvanzadoOferta(key) {
   ov.className = "va-ov";
   ov.innerHTML = `
     <div class="va-box">
-      <div class="va-head"><b>⚙️ Modo avanzado de la oferta</b><button type="button" data-a="close">✕</button></div>
+      <div class="va-head"><b>⚙️ Modo avanzado ${esBanner ? "del banner" : "de la oferta"}</b><button type="button" data-a="close">✕</button></div>
       <div class="va-body"></div>
       <div class="va-foot"><p class="va-msg"></p><button type="button" class="va-save" data-a="save">Guardar</button></div>
     </div>`;
@@ -1692,19 +1778,33 @@ function abrirEditorAvanzadoOferta(key) {
           }
         </div>
       </div>`;
+    body.dataset.caso = st.caso;
     body.innerHTML = `
+      ${
+        esBanner
+          ? ""
+          : `
       <label class="va-lbl">Nombre del combo</label>
       <input class="va-in" data-f="nombre" maxlength="80" value="${gEsc(st.nombre)}" placeholder="Ej. Combo Urbano Taquero">
       <label class="va-lbl">Stock (vacío = sin control)</label>
-      <input class="va-in" data-f="stock" type="number" min="0" step="1" value="${gEsc(st.stock)}" placeholder="Sin control">
+      <input class="va-in" data-f="stock" type="number" min="0" step="1" value="${gEsc(st.stock)}" placeholder="Sin control">`
+      }
       <p class="va-sec">Opciones que elige el cliente (gaseosa, sabor, extras…)</p>
+      <label class="va-lbl">Formato del texto</label>
+<div class="va-row va-wrap">
+  <label class="va-chk"><input type="radio" name="va-caso" data-f="caso" value="tal_cual" ${st.caso === "tal_cual" ? "checked" : ""}> Tal como lo escribo</label>
+  <label class="va-chk"><input type="radio" name="va-caso" data-f="caso" value="mayus" ${st.caso === "mayus" ? "checked" : ""}> MAYÚSCULAS</label>
+  <label class="va-chk"><input type="radio" name="va-caso" data-f="caso" value="minus" ${st.caso === "minus" ? "checked" : ""}> minúsculas</label>
+</div>
       ${st.condiciones
         .map((c, ci) => {
           const multi = c.tipo === "multiple";
           return `
         <div class="va-grp" data-ci="${ci}">
-          <div class="va-row">
+                   <div class="va-row">
             <input class="va-in" data-f="cnombre" maxlength="30" placeholder="Ej. Gaseosa" value="${gEsc(c.nombre)}">
+            <button type="button" class="va-mv" data-a="upgrp" title="Subir" ${ci === 0 ? "disabled" : ""}>▲</button>
+            <button type="button" class="va-mv" data-a="downgrp" title="Bajar" ${ci === st.condiciones.length - 1 ? "disabled" : ""}>▼</button>
             <button type="button" class="va-x" data-a="delgrp" title="Eliminar grupo">🗑</button>
           </div>
           <div class="va-row va-wrap">
@@ -1758,6 +1858,11 @@ function abrirEditorAvanzadoOferta(key) {
         : st.sugerencias.filter((x) => x !== id);
       return;
     }
+    if (f === "caso") {
+      st.caso = t.value;
+      body.dataset.caso = st.caso;
+      return;
+    }
     if (f === "nombre") st.nombre = t.value;
     else if (f === "stock") st.stock = t.value;
     else if (f === "cnombre") g.nombre = t.value;
@@ -1801,6 +1906,26 @@ function abrirEditorAvanzadoOferta(key) {
       st.condiciones.splice(ci, 1);
       return pintar();
     }
+    if (a === "upgrp" && ci > 0) {
+      [st.condiciones[ci - 1], st.condiciones[ci]] = [
+        st.condiciones[ci],
+        st.condiciones[ci - 1],
+      ];
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+      return;
+    }
+    if (a === "downgrp" && ci < st.condiciones.length - 1) {
+      [st.condiciones[ci + 1], st.condiciones[ci]] = [
+        st.condiciones[ci],
+        st.condiciones[ci + 1],
+      ];
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+      return;
+    }
     if (a === "addop") {
       st.condiciones[ci].opciones.push(nuevaOpcion());
       return pintar();
@@ -1811,12 +1936,18 @@ function abrirEditorAvanzadoOferta(key) {
     }
 
     if (a === "save") {
+      const aplicarCaso = (s) =>
+        st.caso === "mayus"
+          ? String(s).toLocaleUpperCase("es")
+          : st.caso === "minus"
+            ? String(s).toLocaleLowerCase("es")
+            : String(s);
       const conds = st.condiciones
         .filter((c) => c.nombre.trim())
         .map((c) => {
           const multi = c.tipo === "multiple";
           return {
-            nombre: c.nombre.trim(),
+            nombre: aplicarCaso(c.nombre.trim()), // ← cambia
             tipo: multi ? "multiple" : "unica",
             obligatoria: c.obligatoria !== false,
             conCantidad: multi && c.conCantidad === true,
@@ -1824,10 +1955,10 @@ function abrirEditorAvanzadoOferta(key) {
             opciones: c.opciones
               .filter((o) => o.nombre.trim())
               .map((o) => ({
-                nombre: o.nombre.trim(),
-                descripcion: String(o.descripcion || "")
-                  .trim()
-                  .slice(0, 120),
+                nombre: aplicarCaso(o.nombre.trim()), // ← cambia
+                descripcion: aplicarCaso(
+                  String(o.descripcion || "").trim(),
+                ).slice(0, 120), // ← cambia
                 activo: o.activo !== false,
                 exclusiva: multi && o.exclusiva === true,
                 costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
@@ -1846,9 +1977,40 @@ function abrirEditorAvanzadoOferta(key) {
       }
 
       const nuevo = { ...actual };
-      const nombre = st.nombre.trim();
+      if (esBanner) {
+        b.disabled = true;
+        b.textContent = "Guardando...";
+        try {
+          await updateDoc(TIENDA_REF, {
+            "banner.condiciones": conds.length ? conds : deleteField(),
+            "banner.sugerencias": st.sugerencias.length
+              ? st.sugerencias
+              : deleteField(),
+            "banner.caso": st.caso !== "tal_cual" ? st.caso : deleteField(),
+          });
+          bannerDoc = {
+            ...bannerDoc,
+            condiciones: conds,
+            sugerencias: st.sugerencias,
+            caso: st.caso,
+          };
+          validarBanner();
+          mostrarToast("Opciones del banner guardadas");
+          ov.remove();
+        } catch (err) {
+          console.error(err);
+          msg.textContent = "Error al guardar, intenta otra vez";
+          b.disabled = false;
+          b.textContent = "Guardar";
+        }
+        return;
+      }
+      const nombre = aplicarCaso(st.nombre.trim()); // ← cambia
       if (nombre) nuevo.nombre = nombre;
       else delete nuevo.nombre;
+      if (st.caso !== "tal_cual")
+        nuevo.caso = st.caso; // ← nuevo
+      else delete nuevo.caso;
       if (st.stock !== "" && st.stock !== null)
         nuevo.stock = Math.max(0, parseInt(st.stock, 10) || 0);
       else delete nuevo.stock;

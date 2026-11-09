@@ -36,6 +36,7 @@
     ],
     "rewrites": [
       { "source": "/perfil/*/carrito", "destination": "/carrito/carrito.html" },
+      { "source": "/perfil/*/carrito-oferta", "function": "carritoShare" },
       { "source": "/carrito", "destination": "/carrito/carrito.html" },
       {
         "source": "/perfil/*/carrito-crear",

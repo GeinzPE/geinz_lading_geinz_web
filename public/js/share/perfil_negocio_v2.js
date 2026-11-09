@@ -799,13 +799,12 @@ function urlCompartirPromo(alias, promoId, { activa = false } = {}) {
   const base = _esDominioPersonalizado
     ? `${_baseShareUrl}/carrito`
     : alias
-      ? `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}/carrito`
+      ? `${_baseShareUrl}/perfil/${encodeURIComponent(alias)}/carrito-oferta`
       : null;
   if (!base) return null;
   const id = activa ? `activa_${promoId}` : promoId;
   return `${base}?oferta=${encodeURIComponent(id)}&v=1`;
 }
-
 // ══════════ NAVEGACIÓN RÁPIDA ══════════
 function mostrarNavOverlay() {
   injectLogoutOverlayStyles();
@@ -3177,6 +3176,7 @@ function promoCondiciones(raw) {
       opciones: (c.opciones || [])
         .filter((o) => o.activo !== false && (typeof o.stock !== "number" || o.stock > 0))
         .map((o) => ({
+          exclusiva: o.exclusiva === true,
           nombre: o.nombre,
           descripcion: String(o.descripcion || "").trim(),
           imagen: "",
@@ -8915,6 +8915,7 @@ function cpNormalizar(d) {
     opciones: (c.opciones || [])
       .filter((o) => o.activo && (typeof o.stock !== "number" || o.stock > 0))
       .map((o) => ({
+        exclusiva: o.exclusiva === true,
         nombre: o.nombre,
         descripcion: String(o.descripcion || "").trim(),
         imagen: o.imagen?.url || "",
@@ -9051,6 +9052,7 @@ const CPD_CSS = `
 .opt-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;cursor:pointer;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);transition:border-color .15s,background .15s;}
 .opt-row.sel{border-color:rgb(var(--dr),var(--dg),var(--db));background:rgba(var(--dr),var(--dg),var(--db),.1);}
 .opt-row.off{opacity:.4;cursor:not-allowed;}
+.opt-row.blk{opacity:.4;cursor:not-allowed;}
 .opt-row.qty{cursor:default;}
 .opt-mark{width:20px;height:20px;flex-shrink:0;border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;}
 .opt-mark.radio{border-radius:50%;}.opt-mark.check{border-radius:6px;}
@@ -9107,6 +9109,12 @@ const cpRegla = (c) =>
         ? `Opcional · hasta ${c.max}`
         : "Opcional · las que quieras";
 
+function cpExcl(c) {
+  const nombres = cpEntradas(_cpSel[c.nombre]).map(([x]) => x);
+  return (
+    c.opciones.find((o) => o.exclusiva && nombres.includes(o.nombre)) || null
+  );
+}
 function cpAlternar(c, n) {
   const k = c.nombre;
   if (!c.multiple) {
@@ -9114,6 +9122,14 @@ function cpAlternar(c, n) {
     else _cpSel[k] = n;
     return true;
   }
+  const opE = c.opciones.find((o) => o.nombre === n);
+  const exE = cpExcl(c);
+  if (opE?.exclusiva) {
+    if (exE?.nombre === n) delete _cpSel[k];
+    else _cpSel[k] = [n]; // limpia las demás
+    return true;
+  }
+  if (exE) return false; // hay una excluyente elegida: las demás bloqueadas
   const act = Array.isArray(_cpSel[k]) ? [..._cpSel[k]] : [];
   const i = act.indexOf(n);
   if (i >= 0) act.splice(i, 1);
@@ -9130,6 +9146,11 @@ function cpAlternar(c, n) {
 }
 function cpSetCant(c, n, q) {
   const k = c.nombre;
+  const opx = c.opciones.find((o) => o.nombre === n);
+  if (opx?.exclusiva && q > 0) {
+    _cpSel[k] = { [n]: 1 };
+    return;
+  }
   let o = _cpSel[k];
   if (!o || typeof o !== "object" || Array.isArray(o)) o = {};
   if (q <= 0) delete o[n];
@@ -9141,6 +9162,7 @@ function cpSetCant(c, n, q) {
 function cpPintarGrupo(c, sec) {
   const total = cpTotal(c);
   const tope = !!c.max && total >= c.max;
+  const excl = c.multiple ? cpExcl(c) : null;
   const eligio = cpEntradas(_cpSel[c.nombre]).length > 0;
   sec.classList.toggle("ok", eligio);
   sec.classList.toggle("req", c.obligatoria && !eligio);
@@ -9162,7 +9184,9 @@ function cpPintarGrupo(c, sec) {
   c.opciones.forEach((op) => {
     const q = cpCant(c, op.nombre);
     const cap = typeof op.stock === "number" ? op.stock : Infinity;
+    const bloq = !!excl && !op.exclusiva;
     const row = cpMk("div", "opt-row" + (q > 0 ? " sel" : ""));
+    if (bloq) row.classList.add("blk");
     let thumb = null;
     if (op.imagen) {
       thumb = cpMk("img", "opt-thumb");
@@ -9191,7 +9215,7 @@ function cpPintarGrupo(c, sec) {
       if (q === 0) {
         const b = cpMk("button", "add", "Agregar");
         b.type = "button";
-        b.disabled = tope || cap < 1;
+        b.disabled = tope || cap < 1 || bloq;
         b.onclick = () => {
           cpSetCant(c, op.nombre, 1);
           refrescar();
@@ -9206,7 +9230,7 @@ function cpPintarGrupo(c, sec) {
         };
         const mas = cpMk("button", "", "+");
         mas.type = "button";
-        mas.disabled = tope || q >= cap;
+        mas.disabled = tope || q >= cap || bloq || !!op.exclusiva;
         mas.onclick = () => {
           cpSetCant(c, op.nombre, q + 1);
           refrescar();

@@ -362,7 +362,7 @@ const escR = (s) =>
     /[&<>"']/g,
     (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-      c
+        c
       ],
   );
 const numR = (v) => Math.max(0, parseFloat(v) || 0);
@@ -585,13 +585,14 @@ function htmlPresetsVaso(it, attr) {
   return `<div class="flex flex-wrap items-center gap-1">
     <span class="text-[10px] font-mono text-purple-400/50">Vaso:</span>
     ${VASOS_OZ.map((oz) => {
-    const on = it.unit === "oz" && numR(it.qty) === oz;
-    return `<button type="button" ${attr}="preset" data-oz="${oz}"
-        class="px-1.5 py-0.5 rounded-md text-[10px] font-mono border transition-colors ${on
-        ? "bg-violet-800 border-violet-500 text-white"
-        : "bg-[#05040a] border-purple-900/30 text-purple-300 hover:border-violet-600"
-      }">${oz} oz</button>`;
-  }).join("")}
+      const on = it.unit === "oz" && numR(it.qty) === oz;
+      return `<button type="button" ${attr}="preset" data-oz="${oz}"
+        class="px-1.5 py-0.5 rounded-md text-[10px] font-mono border transition-colors ${
+          on
+            ? "bg-violet-800 border-violet-500 text-white"
+            : "bg-[#05040a] border-purple-900/30 text-purple-300 hover:border-violet-600"
+        }">${oz} oz</button>`;
+    }).join("")}
   </div>`;
 }
 
@@ -1055,9 +1056,10 @@ function toast(msg, type = "") {
   const isError = type === "error";
   const el = document.createElement("div");
   el.className = `pointer-events-auto animate-toastIn w-full sm:w-auto sm:min-w-[220px] rounded-xl border px-4 py-3 text-xs font-medium shadow-2xl backdrop-blur-md transition-all
-    ${isError
-      ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
-      : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
+    ${
+      isError
+        ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
+        : "bg-[#0d0a17]/90 border-violet-500/40 text-purple-100"
     }`;
   el.textContent = msg;
   toastWrap.appendChild(el);
@@ -1416,7 +1418,7 @@ function setVista(v) {
   document.body.dataset.vista = v;
   try {
     localStorage.setItem("vistaProductos", v);
-  } catch { }
+  } catch {}
   document
     .querySelectorAll(".vista-btn")
     .forEach((b) => b.classList.toggle("active", b.dataset.vista === v));
@@ -1427,7 +1429,7 @@ document
 let vistaGuardada = "grande";
 try {
   vistaGuardada = localStorage.getItem("vistaProductos") || "grande";
-} catch { }
+} catch {}
 setVista(vistaGuardada);
 
 /* ---------------- Menú desplegable "Agregar" ---------------- */
@@ -1527,7 +1529,7 @@ async function eliminarCategoria(categoriaId, nombre) {
     const imagenes = data.imagenes || [];
     await Promise.all(
       imagenes.map((img) =>
-        deleteObject(storageRef(storage, img.path)).catch(() => { }),
+        deleteObject(storageRef(storage, img.path)).catch(() => {}),
       ),
     );
   }
@@ -1564,6 +1566,7 @@ function datosParaPerfil(categoriaId, productoId, d) {
     productoId,
     categoriaId,
     nombre: d.nombre || "",
+    caso: d.caso || "tal_cual",
     descripcion: d.descripcion || "",
     precio: Number(d.precio) || 0,
     imagenes: (d.imagenes || []).map((i) => ({ url: i.url })),
@@ -1651,7 +1654,7 @@ async function sincronizarProductoEnCarritoPerfil(productoId, categoriaId, d) {
 // Cambios rápidos (ej. Disponible / Agotado)
 function parchePerfil(productoId, campos) {
   if (!carritoPerfilActual.some((p) => p.productoId === productoId)) return;
-  updateDoc(perfilDoc(productoId), campos).catch(() => { });
+  updateDoc(perfilDoc(productoId), campos).catch(() => {});
 }
 
 async function quitarProductoDeCarritoPerfilSiExiste(productoId) {
@@ -1662,6 +1665,24 @@ async function quitarProductoDeCarritoPerfilSiExiste(productoId) {
 let categoriaActivaParaProducto = null;
 let imagenesSeleccionadas = [null, null, null];
 let condicionesSeleccionadas = [];
+
+let casoProducto = "tal_cual"; // "tal_cual" | "mayus" | "minus"
+const aplicarCaso = (s) =>
+  casoProducto === "mayus"
+    ? String(s).toLocaleUpperCase("es")
+    : casoProducto === "minus"
+      ? String(s).toLocaleLowerCase("es")
+      : String(s);
+
+// CSS para ver el cambio en vivo (se inyecta solo, no tocas ningún .css)
+(() => {
+  const st = document.createElement("style");
+  st.textContent = `
+  #condiciones-container[data-caso="mayus"] input[type="text"]{text-transform:uppercase;}
+  #condiciones-container[data-caso="minus"] input[type="text"]{text-transform:lowercase;}
+  #condiciones-container input::placeholder{text-transform:none;}`;
+  document.head.appendChild(st);
+})();
 let productoEditandoId = null;
 let productoEditandoCategoriaId = null;
 let imagenesEnEdicionOriginal = [];
@@ -1918,6 +1939,32 @@ function renderCondiciones() {
   const cont = document.getElementById("condiciones-container");
   const btnAdd = document.getElementById("btn-add-condicion");
   cont.innerHTML = "";
+  cont.dataset.caso = casoProducto;
+  if (condicionesSeleccionadas.length) {
+    const fmt = document.createElement("div");
+    fmt.className =
+      "rounded-xl bg-[#05040a] border border-purple-900/30 p-3 mb-3";
+    fmt.innerHTML = `
+      <p class="text-[10px] font-mono uppercase tracking-wider text-purple-400/60 mb-2">Formato del texto</p>
+      <div class="flex flex-wrap gap-3">
+        ${[
+          ["tal_cual", "Tal como lo escribo"],
+          ["mayus", "MAYÚSCULAS"],
+          ["minus", "minúsculas"],
+        ]
+          .map(
+            ([v, l]) =>
+              `<label class="inline-flex items-center gap-1.5 text-[11px] text-purple-100 cursor-pointer"><input type="radio" name="caso-prod" value="${v}" ${casoProducto === v ? "checked" : ""} class="accent-violet-500">${l}</label>`,
+          )
+          .join("")}
+      </div>`;
+    fmt.addEventListener("change", (e) => {
+      if (e.target.name !== "caso-prod") return;
+      casoProducto = e.target.value;
+      cont.dataset.caso = casoProducto;
+    });
+    cont.appendChild(fmt);
+  }
   btnAdd.style.display =
     condicionesSeleccionadas.length >= PLAN_PRODUCTOS.maxVariantes
       ? "none"
@@ -1954,7 +2001,37 @@ function renderCondiciones() {
       condicionesSeleccionadas.splice(ci, 1);
       renderCondiciones();
     });
+    const mvCls =
+      "w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-violet-300 bg-violet-950/40 hover:bg-violet-900/50 disabled:opacity-25 disabled:cursor-default text-[11px]";
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.className = mvCls;
+    upBtn.textContent = "▲";
+    upBtn.title = "Subir";
+    upBtn.disabled = ci === 0;
+    upBtn.addEventListener("click", () => {
+      [condicionesSeleccionadas[ci - 1], condicionesSeleccionadas[ci]] = [
+        condicionesSeleccionadas[ci],
+        condicionesSeleccionadas[ci - 1],
+      ];
+      renderCondiciones();
+    });
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.className = mvCls;
+    downBtn.textContent = "▼";
+    downBtn.title = "Bajar";
+    downBtn.disabled = ci === condicionesSeleccionadas.length - 1;
+    downBtn.addEventListener("click", () => {
+      [condicionesSeleccionadas[ci + 1], condicionesSeleccionadas[ci]] = [
+        condicionesSeleccionadas[ci],
+        condicionesSeleccionadas[ci + 1],
+      ];
+      renderCondiciones();
+    });
     head.appendChild(nombreInput);
+    head.appendChild(upBtn);
+    head.appendChild(downBtn);
     head.appendChild(delCondBtn);
     box.appendChild(head);
 
@@ -2160,7 +2237,6 @@ function renderCondiciones() {
         op.descripcion = descInput.value;
       });
 
-
       wrapOp.append(row, descInput);
       if (multiple) {
         const exclChip = chipCheck(
@@ -2173,7 +2249,8 @@ function renderCondiciones() {
         );
         exclChip.classList.add("mt-1");
         wrapOp.appendChild(exclChip);
-      } opcionesWrap.appendChild(wrapOp);
+      }
+      opcionesWrap.appendChild(wrapOp);
     });
     box.appendChild(opcionesWrap);
 
@@ -2308,7 +2385,6 @@ function aplicarSwitchesAGrupos() {
       c.max = null;
       c.opciones.forEach((o) => (o.exclusiva = false));
     }
-
   });
   renderCondiciones();
 }
@@ -2348,6 +2424,7 @@ function abrirModalNuevoProducto(
   imagenesSeleccionadas = [null, null, null];
   imagenesEnEdicionOriginal = [];
   condicionesSeleccionadas = [];
+  casoProducto = "tal_cual";
   document.getElementById("form-producto").reset();
   document.getElementById("input-prod-variante-obligatoria").checked = true;
   document.getElementById("input-prod-variantes-multiples").checked = false;
@@ -2404,6 +2481,7 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
   imgsExistentes.slice(0, 3).forEach((img, i) => {
     imagenesSeleccionadas[i] = img;
   });
+  casoProducto = data.caso || "tal_cual";
   condicionesSeleccionadas = (data.condiciones || []).map((c) => {
     const multiple = c.tipo
       ? c.tipo === "multiple"
@@ -2431,9 +2509,9 @@ function abrirModalEditarProducto(categoriaId, productoId, data) {
         stock: typeof o.stock === "number" ? o.stock : null,
         receta: o.receta
           ? {
-            reemplaza: !!o.receta.reemplaza,
-            items: (o.receta.items || []).map((i) => ({ ...i })),
-          }
+              reemplaza: !!o.receta.reemplaza,
+              items: (o.receta.items || []).map((i) => ({ ...i })),
+            }
           : null,
       })),
     };
@@ -2551,7 +2629,7 @@ document
       .map((c) => {
         const multiple = c.tipo === "multiple";
         return {
-          nombre: c.nombre.trim(),
+          nombre: aplicarCaso(c.nombre.trim()), // <- cambio 1
           tipo: multiple ? "multiple" : "unica",
           obligatoria: c.obligatoria !== false,
           conCantidad: multiple && c.conCantidad === true,
@@ -2560,26 +2638,27 @@ document
             .filter((o) => o.nombre.trim())
             .map((o) => {
               const obj = {
-                nombre: o.nombre.trim(),
-                descripcion: String(o.descripcion || "")
-                  .trim()
-                  .slice(0, 120),
+                nombre: aplicarCaso(o.nombre.trim()), // <- cambio 2
+                descripcion: aplicarCaso(
+                  String(o.descripcion || "").trim(),
+                ).slice(0, 120), // <- cambio 3
                 exclusiva: multiple && o.exclusiva === true,
                 imagen: o.imagen || null,
                 activo: !!o.activo,
+
                 costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
                 stock: typeof o.stock === "number" ? o.stock : null,
                 receta: o.receta?.items?.length
                   ? PLAN_PRODUCTOS.superAvanzado
                     ? {
-                      items: o.receta.items
-                        .filter((it) => numR(it.qty) > 0)
-                        .map((it) => ({
-                          id: it.id,
-                          qty: numR(it.qty),
-                          unit: it.unit,
-                        })),
-                    }
+                        items: o.receta.items
+                          .filter((it) => numR(it.qty) > 0)
+                          .map((it) => ({
+                            id: it.id,
+                            qty: numR(it.qty),
+                            unit: it.unit,
+                          })),
+                      }
                     : o.receta // sin plan súper avanzado: se conserva la original
                   : null,
               };
@@ -2741,7 +2820,7 @@ document
         );
         await Promise.all(
           eliminadas.map((img) =>
-            deleteObject(storageRef(storage, img.path)).catch(() => { }),
+            deleteObject(storageRef(storage, img.path)).catch(() => {}),
           ),
         );
         const subidas = [];
@@ -2757,6 +2836,7 @@ document
           precio,
           disponible,
           condiciones,
+          caso: casoProducto,
           stock,
           autoDesactivar,
           agotadoHoy,
@@ -2782,6 +2862,7 @@ document
             precio,
             disponible,
             condiciones,
+            caso: casoProducto,
             stock,
             descuento,
             sugerencias,
@@ -2817,6 +2898,7 @@ document
           precio,
           disponible,
           condiciones,
+          caso: casoProducto,
           stock,
           autoDesactivar,
           agotadoHoy,
@@ -2862,7 +2944,7 @@ document
 async function eliminarProducto(categoriaId, productoId, nombre, imagenes) {
   await Promise.all(
     (imagenes || []).map((img) =>
-      deleteObject(storageRef(storage, img.path)).catch(() => { }),
+      deleteObject(storageRef(storage, img.path)).catch(() => {}),
     ),
   );
   await deleteDoc(doc(productosRef(categoriaId), productoId));
@@ -3019,12 +3101,13 @@ function renderProductoCard(categoriaId, productoId, data) {
         const stockBajo =
           typeof op.stock === "number" && op.stock < STOCK_BAJO_UMBRAL;
         const chip = document.createElement("span");
-        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${sinStock
-          ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
-          : stockBajo
-            ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
-            : "bg-purple-950/40 border-purple-800/30 text-purple-300"
-          }`;
+        chip.className = `text-[10px] px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
+          sinStock
+            ? "bg-rose-950/40 border-rose-500/20 text-rose-300"
+            : stockBajo
+              ? "bg-amber-950/40 border-amber-500/20 text-amber-300"
+              : "bg-purple-950/40 border-purple-800/30 text-purple-300"
+        }`;
         let txt = op.nombre;
         if (op.costoAdicional)
           txt += ` +${Number(op.costoAdicional).toFixed(2)}`;
@@ -3119,10 +3202,11 @@ function renderProductoCard(categoriaId, productoId, data) {
 
   const estadoBtn = document.createElement("button");
   estadoBtn.type = "button";
-  estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.disponible
-    ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
-    : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
-    }`;
+  estadoBtn.className = `inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
+    data.disponible
+      ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/40"
+      : "bg-rose-950/40 text-rose-400 border-rose-500/20 hover:bg-rose-900/40"
+  }`;
   estadoBtn.title = data.disponible
     ? "Disponible (clic para marcar agotado)"
     : "Agotado (clic para activar)";
@@ -3146,10 +3230,11 @@ function renderProductoCard(categoriaId, productoId, data) {
   const agotadoHoyBtn = document.createElement("button");
   agotadoHoyBtn.type = "button";
   agotadoHoyBtn.title = "Marcar/quitar 'Agotado hoy' (mañana vuelve solo)";
-  agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${data.agotadoHoy
-    ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
-    : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
-    }`;
+  agotadoHoyBtn.className = `pc-btn-agotadohoy inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wide border transition-all ${
+    data.agotadoHoy
+      ? "bg-orange-950/40 text-orange-400 border-orange-500/20 hover:bg-orange-900/40"
+      : "bg-purple-950/30 text-purple-400/50 border-purple-800/20 hover:bg-purple-900/30"
+  }`;
   agotadoHoyBtn.innerHTML = `<span>🔸</span><span class="pc-agotadohoy-txt">${data.agotadoHoy ? "Agotado hoy" : "Agotar hoy"}</span>`;
   agotadoHoyBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
@@ -3869,7 +3954,7 @@ async function eliminarFotoCarta(collId, slotIndex) {
   if (!coleccion) return;
   try {
     const path = `tiendas/${tiendaId}/carta/${collId}/slot_${slotIndex}.webp`;
-    await deleteObject(storageRef(storage, path)).catch(() => { });
+    await deleteObject(storageRef(storage, path)).catch(() => {});
     const nuevasImagenes = [...coleccion.imagenes];
     nuevasImagenes[slotIndex] = null;
     await updateDoc(cartaDocRef(collId), { imagenes: nuevasImagenes });
@@ -3894,7 +3979,7 @@ async function eliminarColeccionCarta(collId) {
       (coleccion.imagenes || []).map((url, i) => {
         if (!url) return Promise.resolve();
         const path = `tiendas/${tiendaId}/carta/${collId}/slot_${i}.webp`;
-        return deleteObject(storageRef(storage, path)).catch(() => { });
+        return deleteObject(storageRef(storage, path)).catch(() => {});
       }),
     );
     await deleteDoc(cartaDocRef(collId));
@@ -4132,7 +4217,7 @@ async function abrirEmparejarCelular() {
         snap.docChanges().forEach((ch) => {
           if (ch.type !== "added") return;
           const d = ch.doc.data();
-          deleteDoc(ch.doc.ref).catch(() => { });
+          deleteDoc(ch.doc.ref).catch(() => {});
           if (d.tipo === "hola") {
             pintarEstadoCelular(true);
             return;
@@ -4193,7 +4278,7 @@ document
 window.addEventListener("pagehide", () => {
   if (!scanSesion) return;
   unsubCodigos?.();
-  deleteDoc(scanSesRef(scanSesion)).catch(() => { });
+  deleteDoc(scanSesRef(scanSesion)).catch(() => {});
 });
 /* ---------------- Horario por categoría ---------------- */
 const DIAS_HORARIO = [
@@ -4358,7 +4443,7 @@ const escAd = (s) =>
     /[&<>"']/g,
     (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-      c
+        c
       ],
   );
 
@@ -4483,7 +4568,7 @@ document.getElementById("adic-list")?.addEventListener("click", (e) => {
       async () => {
         if (a?.imagen?.path)
           await deleteObject(storageRef(storage, a.imagen.path)).catch(
-            () => { },
+            () => {},
           );
         await deleteDoc(adDoc(id));
         toast("Adicional eliminado.");
@@ -4515,7 +4600,7 @@ document
       let imagen = adQuitarFoto ? null : adImgActual;
       if ((adFile || adQuitarFoto) && adImgActual?.path) {
         await deleteObject(storageRef(storage, adImgActual.path)).catch(
-          () => { },
+          () => {},
         );
       }
       if (adFile) {

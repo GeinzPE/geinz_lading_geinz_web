@@ -318,8 +318,11 @@ async function resolverParamsCarrito() {
     }
   }
   // PRIORIDAD 2: URL bonita de geinztech.com: /perfil/{alias}/carrito
+  // PRIORIDAD 2: URL bonita de geinztech.com:
+  //   /perfil/{alias}/carrito
+  //   /perfil/{alias}/carrito-oferta   (link compartido de una oferta/promo)
   if (!tiendaId) {
-    const match = path.match(/^\/perfil\/([^/]+)\/carrito\/?$/);
+    const match = path.match(/^\/perfil\/([^/]+)\/carrito(?:-oferta)?\/?$/);
     if (match) {
       const alias = decodeURIComponent(match[1]);
       try {
@@ -337,7 +340,6 @@ async function resolverParamsCarrito() {
       }
     }
   }
-
   // Fallback: URL vieja con ?localidad=&id=
   if (!tiendaId) {
     localidad = (qs.get("localidad") || "barranca").toLowerCase();
@@ -684,7 +686,7 @@ function urlCompartirPromo(p) {
   const ruta = window.__NEGOCIO_HOSTNAME__
     ? `${base}/carrito`
     : alias
-      ? `${base}/perfil/${encodeURIComponent(alias)}/carrito`
+      ? `${base}/perfil/${encodeURIComponent(alias)}/carrito-oferta`
       : null;
   if (ruta) return `${ruta}?oferta=${encodeURIComponent(id)}&v=1`;
   return `${base}/api/share?t=ti&id=${encodeURIComponent(tiendaId)}&l=${encodeURIComponent(localidad)}`;
@@ -743,9 +745,7 @@ function abrirPromoDetailModal(p) {
   if (tieneOpc) {
     injectOptionsStyles();
     modoPromo = true;
-    gruposModal = [...(p.condiciones || [])].sort(
-      (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
-    );
+        gruposModal = [...(p.condiciones || [])];
     gruposModal.forEach((c) => {
       if (c.multiple || !c.obligatoria) return;
       const libres = c.opciones.filter((o) => !o.agotado);
@@ -2829,15 +2829,44 @@ document.addEventListener("click", (e) => {
        o el nombre del campo si en tu Firestore el alias se llama distinto. */
 function aplicarComportamientoBotonAtras() {
   const backBtn = document.getElementById("backBtn");
-  if (!backBtn || !mesaId) return; // fuera de mesa, se queda con history.back()
-  const alias =
-    bizData?.alias_key || bizData?.alias_negocio || aliasNegocio || tiendaId;
-  backBtn.href = window.__NEGOCIO_HOSTNAME__
-    ? getLandingBase()
-    : `${LANDING_BASE_URL}/perfil/${alias}`;
-  backBtn.removeAttribute("target");
-}
+  if (!backBtn) return;
 
+  const alias =
+    bizData?.alias_key || bizData?.alias_negocio || aliasNegocio || _bizAliasKey;
+
+  const destino = window.__NEGOCIO_HOSTNAME__
+    ? getLandingBase()
+    : alias
+      ? `${LANDING_BASE_URL}/perfil/${encodeURIComponent(alias)}`
+      : null;
+  if (!destino) return;
+
+  backBtn.href = destino;
+  backBtn.removeAttribute("target");
+
+  // Precalienta el destino para que cargue rápido si hay que navegar
+  if (!document.querySelector('link[data-back-prefetch]')) {
+    const l = document.createElement("link");
+    l.rel = "prefetch";
+    l.href = destino;
+    l.dataset.backPrefetch = "1";
+    document.head.appendChild(l);
+  }
+
+  backBtn.onclick = (e) => {
+    e.preventDefault();
+    let vinoDeMiSitio = false;
+    try {
+      vinoDeMiSitio =
+        !!document.referrer &&
+        new URL(document.referrer).origin === location.origin &&
+        history.length > 1;
+    } catch {}
+
+    if (vinoDeMiSitio) history.back(); // instantáneo, sin function
+    else window.location.href = destino; // vino de WhatsApp u otro sitio
+  };
+}
 function normalizarWhatsapp(raw) {
   let d = String(raw || "").replace(/[^\d]/g, "");
   if (d.length === 9) d = "51" + d; // celular peruano
@@ -4518,9 +4547,7 @@ function abrirPanelSug(p, s) {
 function pintarPanelSug(p, s, panel) {
   panel.style.display = "";
   panel.innerHTML = "";
-  const grupos = [...(s.condiciones || [])].sort(
-    (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
-  );
+  const grupos = [...(s.condiciones || [])];
   const cerrar = () => {
     sugAbierto = null;
     sugSel = {};
@@ -4878,10 +4905,7 @@ function abrirOptionsModal(p, seleccionExistente = null, editKey = null) {
   sugeridosModal = {};
   sugAbierto = null;
   sugSel = {}; // Obligatorios primero (como KFC / McDonald's)
-  gruposModal = [...(p.condiciones || [])].sort(
-    (a, b) => (b.obligatoria ? 1 : 0) - (a.obligatoria ? 1 : 0),
-  );
-
+  gruposModal = [...(p.condiciones || [])];
   // Si se está editando una línea del carrito, se recupera su selección
   Object.entries(seleccionExistente || {}).forEach(([k, v]) => {
     const cond = gruposModal.find((c) => c.nombre === k);
@@ -6498,13 +6522,15 @@ function normalizarPromociones(biz) {
   const b = biz?.banner;
   const bPrecio = Number(b?.precio) || 0;
   const bDesc = String(b?.descripcion || "").trim();
-  if (
+    if (
     b?.activo === true &&
     b?.clickeable === true &&
+    (b?.tipo || "producto") === "producto" &&
     b?.imagen &&
     bDesc &&
     bPrecio > 0
   ) {
+    const cb = condicionesDePromo(b.condiciones);
     lista.push({
       id: "promo__banner",
       promoId: "banner", // ← el mismo valor que viaja en ?promo=banner
@@ -6515,12 +6541,13 @@ function normalizarPromociones(biz) {
       precio: bPrecio,
       imagen: b.imagen,
       imagenes: [b.imagen],
-      condiciones: [],
+      condiciones: cb.condiciones,
+      grupoObligatorioAgotado: cb.agotado,
+      sugerencias: Array.isArray(b.sugerencias) ? b.sugerencias : [],
       stock: null,
       puntos: null,
     });
   }
-
   // ── Promociones normales (con modo avanzado) ──
   const raw = biz?.img_tienda?.lista_img?.promociones;
   if (raw && typeof raw === "object") {
