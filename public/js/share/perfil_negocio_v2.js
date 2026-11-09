@@ -1156,7 +1156,7 @@ function aplicarManifest({ alias, id, localidad }) {
     a.rel = "apple-touch-icon";
     document.head.appendChild(a);
   }
-  a.href = url("/api/icon", "s=192");
+a.href = url("/api/icon", "s=180");
 }
 async function getParams() {
   // ═══ Detectar dominio conectado ═══
@@ -8277,6 +8277,7 @@ function irAReviews() {
     ]);
 
     await render(biz, true);
+    renderInstallBanner(); 
     listenServiciosRealtime(params, ck);
     _followReady = true;
     _reviewsReady = true;
@@ -10130,6 +10131,139 @@ function renderBannerCumple(biz) {
     sec.innerHTML = html;
     sec.dataset.sig = html;
   }
+}
+// ═══════════ BANNER "INSTALAR COMO APP" ═══════════
+let _deferredInstall = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  _deferredInstall = e;
+});
+window.addEventListener("appinstalled", () => {
+  _deferredInstall = null;
+  document.getElementById("secInstalarApp")?.remove();
+  showToast("¡App instalada! 🎉");
+});
+
+const INSTALL_CSS = `
+  .ia-banner{position:relative;margin-bottom:56px;border-radius:30px;animation:iaIn .6s cubic-bezier(.22,.85,.32,1) both;}
+  @keyframes iaIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  .ia-inner{position:relative;overflow:hidden;border-radius:30px;padding:26px 24px;display:flex;flex-direction:column;gap:20px;
+    background:radial-gradient(120% 160% at 100% 0%,rgba(var(--dr),var(--dg),var(--db),.3),#0b0b0d 62%);
+    border:1px solid rgba(var(--dr),var(--dg),var(--db),.4);
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.8),0 0 50px -20px rgba(var(--dr),var(--dg),var(--db),.45);}
+  .ia-glow{position:absolute;top:-80px;left:-50px;width:280px;height:280px;border-radius:50%;
+    background:radial-gradient(circle,rgba(var(--dr),var(--dg),var(--db),.3),transparent 70%);filter:blur(14px);pointer-events:none;}
+  .ia-inner::after{content:"";position:absolute;top:0;left:-60%;width:30%;height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.07),transparent);
+    transform:skewX(-20deg);animation:iaShine 6s ease-in-out 1s infinite;pointer-events:none;}
+  @keyframes iaShine{0%{left:-60%;}55%,100%{left:140%;}}
+  .ia-left{position:relative;z-index:2;display:flex;align-items:center;gap:16px;min-width:0;}
+  .ia-icon{width:68px;height:68px;border-radius:20px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    font-size:28px;font-weight:900;color:#fff;background:#111;
+    border:1.5px solid rgba(var(--dr),var(--dg),var(--db),.6);
+    box-shadow:0 10px 26px -8px rgba(var(--dr),var(--dg),var(--db),.6);}
+  .ia-icon img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ia-copy{min-width:0;}
+  .ia-tag{display:inline-block;padding:4px 11px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#fff;
+    background:rgba(var(--dr),var(--dg),var(--db),.2);border:1px solid rgba(var(--dr),var(--dg),var(--db),.5);margin-bottom:8px;}
+  .ia-title{margin:0 0 4px;font-size:clamp(20px,4vw,28px);font-weight:900;line-height:1.1;letter-spacing:-.02em;color:#fff;}
+  .ia-text{margin:0;font-size:13.5px;line-height:1.55;color:#c4c4cc;}
+  .ia-right{position:relative;z-index:2;display:flex;flex-direction:column;gap:12px;}
+  .ia-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px 22px;border:none;border-radius:16px;
+    font-weight:800;font-size:14px;color:#fff;cursor:pointer;
+    background:var(--brand-grad,linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7)));
+    box-shadow:0 12px 28px -8px rgba(var(--dr),var(--dg),var(--db),.6);transition:transform .18s ease,filter .18s ease;}
+  .ia-btn:hover{transform:translateY(-2px);filter:brightness(1.07);}
+  .ia-btn:active{transform:scale(.97);}
+  .ia-steps{display:none;margin:0;padding:14px 16px;list-style:none;border-radius:16px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:13px;line-height:1.5;color:#e4e4e7;}
+  .ia-steps.open{display:block;animation:iaIn .35s ease both;}
+  .ia-steps li{display:flex;gap:10px;align-items:flex-start;padding:5px 0;}
+  .ia-steps li b{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;color:#fff;background:rgb(var(--dr),var(--dg),var(--db));}
+  @media (min-width:900px){
+    .ia-inner{flex-direction:row;align-items:center;justify-content:space-between;padding:30px 40px;gap:40px;}
+    .ia-right{width:300px;flex-shrink:0;}
+  }
+  @media (prefers-reduced-motion:reduce){.ia-inner::after{animation:none;}}
+`;
+
+function renderInstallBanner() {
+  if (document.getElementById("secInstalarApp")) return;
+
+  // Ya está instalada como app → no mostrar
+  const instalada =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+  if (instalada) return;
+
+  const ua = navigator.userAgent;
+  const esIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  if (!document.getElementById("iaStyle")) {
+    const st = document.createElement("style");
+    st.id = "iaStyle";
+    st.textContent = INSTALL_CSS;
+    document.head.appendChild(st);
+  }
+
+  const nombre = escapeHtml(_bizNombre || "este negocio");
+  const icono = _bizLogoUrl
+    ? `<img src="${escapeHtml(logoSrc())}" alt="" onerror="this.remove()">`
+    : escapeHtml((_bizNombre || "?").trim().charAt(0).toUpperCase());
+
+  const pasos = esIOS
+    ? `<li><b>1</b><span>Toca el botón <strong>Compartir</strong> (el cuadrado con la flecha) en Safari.</span></li>
+       <li><b>2</b><span>Elige <strong>"Añadir a pantalla de inicio"</strong>.</span></li>
+       <li><b>3</b><span>Confirma con <strong>"Añadir"</strong> y listo.</span></li>`
+    : `<li><b>1</b><span>Abre el menú del navegador (⋮).</span></li>
+       <li><b>2</b><span>Elige <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong>.</span></li>`;
+
+  const sec = document.createElement("section");
+  sec.id = "secInstalarApp";
+  sec.className = "ia-banner";
+  sec.innerHTML = `
+    <div class="ia-inner">
+      <div class="ia-glow"></div>
+      <div class="ia-left">
+        <div class="ia-icon">${icono}</div>
+        <div class="ia-copy">
+          <span class="ia-tag">Acceso directo</span>
+          <h2 class="ia-title">Lleva ${nombre} en tu celular</h2>
+          <p class="ia-text">Instálalo como app en un toque: sin tiendas, sin descargas pesadas. Promos, pedidos y tu tarjeta siempre a la mano.</p>
+        </div>
+      </div>
+      <div class="ia-right">
+        <button type="button" class="ia-btn" id="iaBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/>
+          </svg>
+          <span>Instalar acceso directo</span>
+        </button>
+        <ol class="ia-steps" id="iaSteps">${pasos}</ol>
+      </div>
+    </div>`;
+
+  sec.querySelector("#iaBtn").addEventListener("click", async () => {
+    // Android / Chrome / Edge: diálogo nativo
+    if (_deferredInstall) {
+      _deferredInstall.prompt();
+      try {
+        const { outcome } = await _deferredInstall.userChoice;
+        if (outcome === "accepted") showToast("Instalando… 🎉");
+      } catch {}
+      _deferredInstall = null;
+      return;
+    }
+    // iOS u otros navegadores: mostrar instrucciones
+    sec.querySelector("#iaSteps").classList.toggle("open");
+  });
+
+  const anchor = document.getElementById("secCtaExplore");
+  if (anchor) anchor.before(sec);
+  else document.getElementById("mainContent")?.appendChild(sec);
 }
 setupHoverCarousel("productosCarouselWrap", "productosGrid");
 setupHoverCarousel("ambientesCarouselWrap", "ambientesGrid");
