@@ -1744,7 +1744,41 @@
                                     </p>
                                 </div>
                             </div>
+                            <!-- Instagram -->
+                            <div class="param-box" id="paramBoxIg">
+                                <div class="param-row">
+                                    <div class="param-info">
+                                        <img src="../img/instagram_icon.webp" alt="icono"
+                                            style="width: 23px; height: 23px; margin-left: 6px;">
+                                        <h4>Instagram</h4>
+                                    </div>
 
+                                    <button class="btn" id="btnConectarIg" onclick="conectarMiInstagram()"
+                                        style="padding:8px 16px;font-size:13px; display:none;">
+                                        Conectar
+                                    </button>
+
+                                    <label class="switch" id="igPublicarSwitchWrap" style="display:none;">
+                                        <input type="checkbox" id="igPublicarSwitch" onchange="toggleIgPublicar(this)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="sub-panel" id="igPublicarPanel">
+                                    <p class="sec-sub" id="igNameText">Conectado a: —</p>
+
+                                    <button type="button" class="btn-fb-change" id="btnCambiarIg"
+                                        onclick="cambiarInstagram()">
+                                        Cambiar cuenta
+                                    </button>
+
+                                    <p class="sec-sub">
+                                        Si activas esto, tu promoción también se publicará en tu Instagram con la
+                                        primera imagen, el título y la descripción. Instagram no permite links
+                                        clickeables en el texto de las publicaciones.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Plazo -->

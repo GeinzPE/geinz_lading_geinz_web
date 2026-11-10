@@ -31,7 +31,12 @@ const auth = getAuth(app);
 const CLOUD_FN_PUBLICAR_FB =
   "https://us-central1-geinzworkapp.cloudfunctions.net/publicarEnFacebookOrganico";
 const MAX_IMAGENES_FB = 5; // máximo de fotos que se mandan a Meta
-
+const CLOUD_FN_CONECTAR_IG =
+  "https://us-central1-geinzworkapp.cloudfunctions.net/conectarInstagramAccount";
+const CLOUD_FN_PUBLICAR_IG =
+  "https://us-central1-geinzworkapp.cloudfunctions.net/publicarEnInstagramOrganico";
+const IG_SCOPE =
+  "public_profile,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish";
 let imgsCount = 0;
 let imagesData = [null, null, null, null, null];
 let selectedImageIndex = null;
@@ -54,7 +59,8 @@ let _precios = {
 // ── Estado de Facebook (declarado arriba para evitar problemas de orden) ──
 let fbConectado = false;
 let fbPublicarActivo = false;
-
+let igConectado = false;
+let igPublicarActivo = false;
 // ── Helpers de tipo de publicación ──────────────────────
 function esSoloFacebook() {
   return tipoPublicacionActual === "solo_fb";
@@ -114,8 +120,7 @@ function construirLinkPromo(id_promocion, localidad) {
 (function inyectarEstilosFacebook() {
   const style = document.createElement("style");
   style.textContent = `
-    #btnConectarFb.fb-connecting {
-      display:inline-flex !important;
+#btnConectarFb.fb-connecting, #btnConectarIg.fb-connecting {      display:inline-flex !important;
       align-items:center;
       gap:8px;
       cursor:not-allowed;
@@ -1474,7 +1479,7 @@ function formatFechaSlash(str) {
 
       ocultarSkeleton();
       limpiarFormulario();
-      mostrarToast("✅ Publicado en tu Facebook");
+      mostrarModalExito(id_promocion, localidad);
     } catch (err) {
       console.error("❌ ERROR FB:", err);
       ocultarSkeleton();
@@ -1815,6 +1820,36 @@ function formatFechaSlash(str) {
 
       // ── Publicar también en Facebook si el switch está activo ──
       if (fbPublicarActivo && fbConectado && window.GEINZ_PLAN?.fanpage) {
+        // ── Publicar también en Instagram si el switch está activo ──
+        if (igPublicarActivo && igConectado) {
+          skSetStep(
+            3,
+            "Publicando en Instagram...",
+            "Compartiendo en tu Instagram",
+            97,
+          );
+          try {
+            const igResult = await callFirebaseFunction(CLOUD_FN_PUBLICAR_IG, {
+              id_tienda,
+              localidad,
+              image_url: urls[0] || botUrl,
+              caption: `${titulo}\n\n${descripcion}`,
+            });
+            if (igResult?.ok)
+              mostrarToast("✅ También publicado en tu Instagram");
+            else
+              mostrarToast(
+                igResult?.mensaje || "No se pudo publicar en Instagram",
+                "error",
+              );
+          } catch (igErr) {
+            console.warn("Error publicando en IG:", igErr);
+            mostrarToast(
+              "Tu promo en Geinz sí se publicó, pero falló Instagram",
+              "error",
+            );
+          }
+        }
         skSetStep(
           3,
           "Publicando en Facebook...",
@@ -2141,12 +2176,12 @@ function formatFechaSlash(str) {
     setTimeout(() => sk.remove(), 1800);
   }
 
-async function mostrarModalExito(id_promocion, localidad) {
-  // Mismo link que el del post de Facebook (carrito con la oferta).
-  // Si no hay alias, cae al link de compartir de siempre.
-  const url =
-    (await construirLinkCarrito(id_promocion)) ||
-    construirLinkPromo(id_promocion, localidad);
+  async function mostrarModalExito(id_promocion, localidad) {
+    // Mismo link que el del post de Facebook (carrito con la oferta).
+    // Si no hay alias, cae al link de compartir de siempre.
+    const url =
+      (await construirLinkCarrito(id_promocion)) ||
+      construirLinkPromo(id_promocion, localidad);
     document.getElementById("modalExitoPromo")?.remove();
 
     const modal = document.createElement("div");
@@ -2420,7 +2455,7 @@ async function mostrarModalExito(id_promocion, localidad) {
       });
     // 🔧 FIX: la variable también se debe apagar, no solo el switch visual
     fbPublicarActivo = false;
-
+    igPublicarActivo = false;
     // 🔧 FIX: fecha inicial = hoy (igual que initDates)
     const hoy = new Date();
     const strHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
@@ -2503,6 +2538,11 @@ function escucharConexionFacebook(id_tienda, localidad) {
     (snap) => {
       const data = snap.data() || {};
       const fb = data.facebook_page;
+      const ig = data.instagram;
+      if (datosTienda) datosTienda.instagram = ig || null;
+      if (ig && ig.ig_user_id)
+        mostrarIgConectado(ig.ig_username || "tu Instagram");
+      else mostrarIgDesconectado();
       if (datosTienda) {
         datosTienda.facebook_page = fb || null;
         // Mantener al día slug y dominio personalizado si cambian en Firestore
@@ -2645,6 +2685,11 @@ function _aplicarDatosTienda(d) {
     mostrarFbConectado(d.facebook_page.page_name || "tu Fanpage");
   } else {
     mostrarFbDesconectado();
+  }
+  if (d.instagram && d.instagram.ig_user_id) {
+    mostrarIgConectado(d.instagram.ig_username || "tu Instagram");
+  } else {
+    mostrarIgDesconectado();
   }
 }
 
@@ -3008,7 +3053,211 @@ function mostrarFbConectado(pageName) {
   actualizarEstadoBotonPublicar();
 }
 window.mostrarFbConectado = mostrarFbConectado;
+// ══════════ CONECTAR INSTAGRAM ══════════
+function _conFB(onListo, onFallo) {
+  if (typeof FB !== "undefined" && fbSdkListo) return onListo();
+  let intentos = 0;
+  const t = setInterval(() => {
+    intentos++;
+    if (typeof FB !== "undefined" && fbSdkListo) {
+      clearInterval(t);
+      onListo();
+    } else if (intentos > 20) {
+      clearInterval(t);
+      onFallo();
+    }
+  }, 500);
+}
 
+window.conectarMiInstagram = function () {
+  if (igConectado) {
+    window.mostrarToast("Ya tienes un Instagram conectado ✅", "error");
+    return;
+  }
+  setIgConectando(true);
+  _conFB(
+    () => _loginInstagram(false),
+    () => {
+      setIgConectando(false);
+      window.mostrarToast(
+        "No se pudo cargar Facebook. Intenta de nuevo.",
+        "error",
+      );
+    },
+  );
+};
+
+window.cambiarInstagram = function () {
+  setIgConectando(true);
+  _conFB(
+    () => _loginInstagram(true),
+    () => {
+      setIgConectando(false);
+      window.mostrarToast(
+        "No se pudo cargar Facebook. Intenta de nuevo.",
+        "error",
+      );
+    },
+  );
+};
+
+function _loginInstagram(forzarSelector) {
+  FB.login(
+    function (response) {
+      if (response.authResponse) {
+        obtenerPaginasConIG(response.authResponse.accessToken, forzarSelector);
+      } else {
+        setIgConectando(false);
+        window.mostrarToast(
+          "Cancelaste el login o no diste los permisos",
+          "error",
+        );
+      }
+    },
+    { scope: IG_SCOPE },
+  );
+}
+
+function obtenerPaginasConIG(userAccessToken, forzarSelector) {
+  FB.api(
+    "/me/accounts",
+    "GET",
+    {
+      access_token: userAccessToken,
+      fields: "id,name,instagram_business_account{id,username}",
+    },
+    function (res) {
+      if (!res || res.error) {
+        setIgConectando(false);
+        window.mostrarToast("No se pudo obtener la lista de páginas", "error");
+        return;
+      }
+      const conIG = (res.data || []).filter(
+        (p) => p.instagram_business_account,
+      );
+      if (conIG.length === 0) {
+        setIgConectando(false);
+        window.mostrarToast(
+          "Ninguna de tus páginas tiene un Instagram profesional vinculado",
+          "error",
+        );
+        return;
+      }
+      if (conIG.length === 1 && !forzarSelector) {
+        confirmarConexionIG(conIG[0].id, userAccessToken);
+        return;
+      }
+      mostrarSelectorDeIG(conIG, userAccessToken);
+    },
+  );
+}
+
+function mostrarSelectorDeIG(paginas, userAccessToken) {
+  const overlay = document.createElement("div");
+  overlay.style.cssText =
+    "position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:#15131c;border-radius:16px;padding:24px;max-width:360px;width:90%;">
+      <h3 style="color:#fff;margin:0 0 14px;font-size:16px;">Elige tu Instagram</h3>
+      <div id="listaIG" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const lista = overlay.querySelector("#listaIG");
+  paginas.forEach((p) => {
+    const btn = document.createElement("button");
+    btn.textContent = `@${p.instagram_business_account.username || p.name}  (${p.name})`;
+    btn.style.cssText =
+      "padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:#1e1e2a;color:#fff;cursor:pointer;text-align:left;";
+    btn.onclick = () => {
+      overlay.remove();
+      confirmarConexionIG(p.id, userAccessToken);
+    };
+    lista.appendChild(btn);
+  });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      setIgConectando(false);
+    }
+  });
+}
+
+async function confirmarConexionIG(pageId, userAccessToken) {
+  try {
+    const result = await window.callFirebaseFunction(CLOUD_FN_CONECTAR_IG, {
+      id_tienda: datosTienda.id_tienda,
+      localidad: datosTienda.localidad,
+      page_id: pageId,
+      user_access_token: userAccessToken,
+    });
+    setIgConectando(false);
+    if (result.ok) {
+      window.mostrarToast(`✅ ${result.mensaje}`);
+      mostrarIgConectado(result.ig_username);
+    } else {
+      window.mostrarToast(
+        result.mensaje || "No se pudo conectar Instagram",
+        "error",
+      );
+    }
+  } catch (err) {
+    setIgConectando(false);
+    window.mostrarToast(
+      err.message || "Error conectando con Instagram",
+      "error",
+    );
+  }
+}
+
+window.toggleIgPublicar = function (cb) {
+  igPublicarActivo = cb.checked;
+  document
+    .getElementById("igPublicarPanel")
+    ?.classList.toggle("open", cb.checked);
+};
+
+function setIgConectando(activo) {
+  const btn = document.getElementById("btnConectarIg");
+  const btnCambiar = document.getElementById("btnCambiarIg");
+  if (btn) {
+    if (activo) {
+      if (!btn.dataset.original) btn.dataset.original = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add("fb-connecting");
+      btn.innerHTML = `<span class="fb-spinner"></span> Conectando...`;
+    } else {
+      btn.disabled = false;
+      btn.classList.remove("fb-connecting");
+      if (btn.dataset.original) {
+        btn.innerHTML = btn.dataset.original;
+        delete btn.dataset.original;
+      }
+    }
+  }
+  if (btnCambiar) btnCambiar.disabled = activo;
+}
+
+function mostrarIgDesconectado() {
+  igConectado = false;
+  const btn = document.getElementById("btnConectarIg");
+  const wrap = document.getElementById("igPublicarSwitchWrap");
+  const name = document.getElementById("igNameText");
+  if (btn) btn.style.display = "inline-block";
+  if (wrap) wrap.style.display = "none";
+  if (name) name.textContent = "Conectado a: —";
+  igPublicarActivo = false;
+}
+
+function mostrarIgConectado(username) {
+  igConectado = true;
+  const btn = document.getElementById("btnConectarIg");
+  const wrap = document.getElementById("igPublicarSwitchWrap");
+  const name = document.getElementById("igNameText");
+  if (btn) btn.style.display = "none";
+  if (wrap) wrap.style.display = "inline-block";
+  if (name) name.textContent = `Conectado a: @${username}`;
+}
 // ══════════ PLAN: qué permite el doc de servicios en esta pantalla ══════════
 const RUTA_PUB = "cliente_y_fidelizacion.publicidad_ofertas";
 

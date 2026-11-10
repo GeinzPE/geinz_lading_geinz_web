@@ -10255,7 +10255,7 @@ function renderInstallBanner() {
         <div class="ia-icon">${icono}</div>
         <div class="ia-copy">
           <span class="ia-tag">Acceso directo</span>
-          <h2 class="ia-title">Lleva ${nombre} en tu celular</h2>
+          <h2 class="ia-title">Lleva ${nombre} en tu dispositivo</h2>
           <p class="ia-text">Instálalo como app en un toque: sin tiendas, sin descargas pesadas. Promos, pedidos y tu tarjeta siempre a la mano.</p>
         </div>
       </div>
