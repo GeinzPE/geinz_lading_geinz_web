@@ -1155,7 +1155,7 @@ function aplicarManifest({ alias, id, localidad }) {
     a.rel = "apple-touch-icon";
     document.head.appendChild(a);
   }
-a.href = url("/api/icon", "s=180");
+  a.href = url("/api/icon", "s=180");
 }
 async function getParams() {
   // ═══ Detectar dominio conectado ═══
@@ -1414,6 +1414,10 @@ function listenActivePromosRealtime({ localidad, id }) {
 
         if (data.desactivada === true) {
           console.log(`   ❌ descartada: desactivada por el negocio`);
+          return;
+        }
+                if (!_diaOk(data)) {
+          console.log(`   ❌ descartada: hoy no es uno de sus días`);
           return;
         }
         const estadoOk = data.estado === "activo";
@@ -2678,6 +2682,31 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") flushStats();
 });
 window.addEventListener("pagehide", flushStats);
+const OFERTAS_EXTRA_CSS = `
+  .promo-delivery-chip{
+    align-self:flex-start;padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:700;color:#fff;
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .promo-active-card.promo-destacado{
+    border-color:transparent !important;
+    box-shadow:0 14px 34px -12px var(--de-c1), 0 0 26px -10px var(--de-c2);
+  }
+  .promo-active-card.promo-destacado::before{
+    content:"";position:absolute;inset:0;padding:2px;border-radius:inherit;pointer-events:none;z-index:5;
+    background:var(--de-grad);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+  }
+  .promo-active-card .promo-destacado-badge{
+    position:absolute;top:44px;left:12px;z-index:3;
+    padding:4px 11px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.03em;color:#fff;
+    text-shadow:0 0 3px #000,0 1px 3px #000;
+    background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.42)), var(--de-grad);
+    box-shadow:0 6px 16px -4px var(--de-c1);border:1px solid rgba(0,0,0,.35);
+  }
+`;
+
 function renderActivePromos(promos, localidad) {
   const sec = document.getElementById("secPromosActivas");
   const grid = document.getElementById("promosActivasGrid");
@@ -2696,133 +2725,129 @@ function renderActivePromos(promos, localidad) {
   _navState.ofertas = true;
   updateQuickNav();
   injectPromoBuyStyles();
+  if (!document.getElementById("ofertasExtraStyle")) {
+    const st = document.createElement("style");
+    st.id = "ofertasExtraStyle";
+    st.textContent = OFERTAS_EXTRA_CSS;
+    document.head.appendChild(st);
+  }
+
+  const esp = diaEspecialHoyPerfil(_bizRef);
+  const g = esp ? gradienteDiaEspecialPerfil(esp) : null;
+  const esDest = (p) => !!esp && p.destacarEspecial === true;
+  promos = [...promos].sort((a, b) => (esDest(b) ? 1 : 0) - (esDest(a) ? 1 : 0));
 
   promos.forEach((p) => {
     const info = p.informacion || p;
-    const img =
-      p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
+    const img = p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
     const expiry = formatExpiry(p._finMs);
     const aliasKey = _params.alias || _bizAliasKey;
     const shareUrl =
       urlCompartirPromo(aliasKey, p.id, { activa: true }) ||
-      `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`; // fallback si no hay alias
+      `${_baseShareUrl}/api/share?t=prms&l=${encodeURIComponent(localidad)}&pi=${p.id}`;
 
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
     const precio = Number(p.precio_publicacion) || 0;
-    const waMsg =
-      p.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
-      "Hola, quiero esta oferta que vi en Geinz";
-    const shareMsg =
-      p.mensaje_predeterminado?.compartir?.msje_predermindo ||
-      "Mira esta promo en Geinz 🎁";
-
+    const waMsg = p.mensaje_predeterminado?.whatsapp?.msje_predermindo || "Hola, quiero esta oferta que vi en Geinz";
+    const shareMsg = p.mensaje_predeterminado?.compartir?.msje_predermindo || "Mira esta promo en Geinz 🎁";
     const waLink = whatsappAllowed
-      ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(
-          `${waMsg}: ${shareUrl}`,
-        )}`
+      ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(`${waMsg}: ${shareUrl}`)}`
       : null;
 
-    const puedeComprarPromo = precio > 0 && _F.carrito;
+    // ── Modo avanzado (igual que las promos) ──
+    const cp = promoCondiciones(p.condiciones);
+    const agotado = cp.agotado || (typeof p.stock === "number" && p.stock <= 0);
+    const promoObj = {
+      id: `activa_${p.id}`,
+      precio,
+      condiciones: cp.condiciones,
+      sugerencias: Array.isArray(p.sugerencias) ? p.sugerencias : [],
+    };
+    const tieneOpc = cp.condiciones.length > 0;
+    const desde = tieneOpc ? cpDesde(promoObj) : { varia: false, precio };
+    const titulo = String(p.nombre || "").trim() || info.titulo || "";
+    const destacado = esDest(p);
+    const puedeComprarPromo = precio > 0 && _F.carrito && !agotado;
 
     const card = document.createElement("div");
-    card.className = "promo-active-card";
+    card.className = "promo-active-card" + (destacado ? " promo-destacado" : "");
+    if (destacado) {
+      card.style.setProperty("--de-grad", g.css);
+      card.style.setProperty("--de-c1", g.c1);
+      card.style.setProperty("--de-c2", g.c2);
+    }
     card.innerHTML = `
-        <div class="promo-active-img-wrap">
-          ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
-
-          <div class="promo-active-top-actions">
-            ${
-              puedeComprarPromo
-                ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
-                <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
-              </svg>
-            </button>`
-                : ""
-            }
-            ${
-              waLink
-                ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp">
-              <i class="fa-brands fa-whatsapp"></i>
-            </a>`
-                : ""
-            }
-            ${
-              shareAllowed
-                ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/>
-              </svg>
-            </button>`
-                : ""
-            }
-          </div>
-
-          <div class="promo-active-bottom-overlay">
-            ${precio > 0 ? `<span class="promo-active-price-badge">S/ ${precio.toFixed(2)}</span>` : ""}
-            <h3 class="promo-active-title">${escapeHtml(info.titulo || "")}</h3>
-          </div>
+      <div class="promo-active-img-wrap">
+        ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
+        ${destacado ? `<span class="promo-destacado-badge">Destacado por hoy</span>` : ""}
+        <div class="promo-active-top-actions">
+          ${puedeComprarPromo ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
+          </button>` : ""}
+          ${waLink ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
+          ${shareAllowed ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
+          </button>` : ""}
         </div>
-      `;
+        <div class="promo-active-bottom-overlay">
+          ${precio > 0 ? `<span class="promo-active-price-badge">${desde.varia ? "Desde " : ""}S/ ${desde.precio.toFixed(2)}</span>` : ""}
+          <h3 class="promo-active-title">${escapeHtml(titulo)}</h3>
+          ${p.deliveryGratis === true ? `<span class="promo-delivery-chip">🚚 Delivery gratis</span>` : ""}
+        </div>
+      </div>`;
+
     const imgWrapContainer = card.querySelector(".promo-active-img-wrap");
-    const imgWrap = createImageWithPlaceholder({
-      src: img,
-      alt: info.titulo || "Promoción",
-      onError: () => {
-        imgWrapContainer.style.display = "none";
-      },
-    });
-    imgWrapContainer.prepend(imgWrap);
+    imgWrapContainer.prepend(
+      createImageWithPlaceholder({
+        src: img,
+        alt: titulo || "Promoción",
+        onError: () => { imgWrapContainer.style.display = "none"; },
+      }),
+    );
 
     const onComprarEstaPromo = puedeComprarPromo
       ? () => {
           trackPromo(p.id, "clics_comprar");
           agregarAlCarritoPerfil({
             promoId: `activa_${p.id}`,
-            nombre: info.titulo,
+            nombre: titulo,
             precio,
             imagen: img,
           });
         }
       : null;
-    // Vista: cuando la card entra en pantalla (1 vez/día/navegador)
+
+    const datosDetalle = {
+      img,
+      titulo,
+      descripcion: info.descripcion,
+      precio,
+      shareUrl,
+      shareMsg,
+      promo: promoObj, // ← activa variantes + "También puedes agregar"
+      onComprar: onComprarEstaPromo,
+    };
+
     const io = new IntersectionObserver(
-      (es) => {
-        if (es.some((e) => e.isIntersecting)) {
-          io.disconnect();
-          trackPromo(p.id, "vistas");
-        }
-      },
+      (es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); trackPromo(p.id, "vistas"); } },
       { threshold: 0.6 },
     );
     io.observe(card);
 
-    card
-      .querySelector(".promo-icon-wa")
-      ?.addEventListener("click", () => trackPromo(p.id, "clics_whatsapp"));
-    card
-      .querySelector(".promo-icon-share-circle")
-      ?.addEventListener("click", () => trackPromo(p.id, "clics_compartir"));
+    card.querySelector(".promo-icon-wa")?.addEventListener("click", () => trackPromo(p.id, "clics_whatsapp"));
+    card.querySelector(".promo-icon-share-circle")?.addEventListener("click", () => trackPromo(p.id, "clics_compartir"));
     card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
       e.stopPropagation();
-      onComprarEstaPromo();
+      // con opciones: primero se eligen en el diálogo
+      if (tieneOpc || promoObj.sugerencias.length) openPromoDetailModal(datosDetalle);
+      else onComprarEstaPromo();
     });
 
     card.style.cursor = "pointer";
     card.addEventListener("click", (e) => {
       if (e.target.closest("a, button")) return;
-      openPromoDetailModal({
-        img,
-        titulo: info.titulo,
-        descripcion: info.descripcion,
-        precio,
-        onComprar: onComprarEstaPromo,
-        shareUrl,
-        shareMsg,
-      });
+      openPromoDetailModal(datosDetalle);
     });
     grid.appendChild(card);
   });
@@ -3126,6 +3151,34 @@ function revisarSeccionVacia(secId, gridId, navKey) {
     updateQuickNav();
   }
 }
+const _DIA_CORTO = {
+  lunes: "Lun",
+  martes: "Mar",
+  miercoles: "Mié",
+  jueves: "Jue",
+  viernes: "Vie",
+  sabado: "Sáb",
+  domingo: "Dom",
+};
+const _diaOk = (it) => !it?.dias?.length || it.dias.includes(diaHoyLima());
+
+// Banner nuevo (items) o viejo (campos sueltos = "principal")
+function bannerItemsDe(b) {
+  if (!b) return {};
+  if (b.items && typeof b.items === "object" && Object.keys(b.items).length)
+    return b.items;
+  return b.imagen ? { principal: b } : {};
+}
+// Primer banner que toca HOY según sus días
+// Todos los banners que tocan HOY según los días del dashboard
+// Todos los banners que tocan HOY según los días del dashboard
+function bannersDeHoy(biz) {
+  const b = biz?.banner;
+  if (b?.activo !== true) return [];
+  return Object.entries(bannerItemsDe(b))
+    .filter(([, it]) => it?.imagen && _diaOk(it))
+    .map(([id, it]) => ({ id, ...it }));
+}
 function diaHoyLima() {
   const en = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Lima",
@@ -3174,7 +3227,10 @@ function promoCondiciones(raw) {
       conCantidad: multiple && c.conCantidad === true,
       max: Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
       opciones: (c.opciones || [])
-        .filter((o) => o.activo !== false && (typeof o.stock !== "number" || o.stock > 0))
+        .filter(
+          (o) =>
+            o.activo !== false && (typeof o.stock !== "number" || o.stock > 0),
+        )
         .map((o) => ({
           exclusiva: o.exclusiva === true,
           nombre: o.nombre,
@@ -3185,8 +3241,13 @@ function promoCondiciones(raw) {
         })),
     };
   });
-  const agotado = grupos.some((g) => g.nombre && g.obligatoria && !g.opciones.length);
-  return { condiciones: grupos.filter((g) => g.nombre && g.opciones.length), agotado };
+  const agotado = grupos.some(
+    (g) => g.nombre && g.obligatoria && !g.opciones.length,
+  );
+  return {
+    condiciones: grupos.filter((g) => g.nombre && g.opciones.length),
+    agotado,
+  };
 }
 
 function normalizePromos(it, biz) {
@@ -3217,6 +3278,7 @@ function normalizePromos(it, biz) {
         destacadoGrad: g?.css || "",
         destacadoC1: g?.c1 || "",
         destacadoC2: g?.c2 || "",
+        deliveryGratis: o.deliveryGratis === true,
       };
     })
     .filter(Boolean);
@@ -4540,7 +4602,8 @@ function pdPintarSugeridos(cont, lista) {
     card.className = "pd-sug-card";
     const img = document.createElement("div");
     img.className = "pd-sug-img";
-    if (p.imagen) img.style.backgroundImage = `url("${p.imagen.replace(/"/g, "%22")}")`;
+    if (p.imagen)
+      img.style.backgroundImage = `url("${p.imagen.replace(/"/g, "%22")}")`;
     const nom = document.createElement("p");
     nom.className = "pd-sug-name";
     nom.textContent = capitalizarPrimeraLetra(p.nombre);
@@ -4591,7 +4654,8 @@ function openPromoDetailModal(data) {
   img.src = data.img || "";
 
   document.getElementById("promoDetailTitle").textContent = data.titulo || "";
-  document.getElementById("promoDetailDesc").textContent = data.descripcion || "";
+  document.getElementById("promoDetailDesc").textContent =
+    data.descripcion || "";
 
   const promo = data.promo || null;
   const tieneOpc = !!(promo && promo.condiciones?.length);
@@ -4680,47 +4744,51 @@ function openPromoDetailModal(data) {
       ${data.shareUrl ? `<button class="promo-detail-btn promo-detail-btn-share" id="promoDetailShareBtn">📤 Compartir</button>` : ""}
     `;
 
-  document.getElementById("promoDetailBuyBtn")?.addEventListener("click", () => {
-    if (!tieneOpc) {
-      data.onComprar();
-      closePromoDetailModal();
-      return;
-    }
-    const falta = cpFalta();
-    if (falta) {
-      const sec = [...document.querySelectorAll("#pdOpts .opt-grp")].find(
-        (s) => s.dataset.grp === falta.nombre,
-      );
-      if (sec) {
-        sec.scrollIntoView({ behavior: "smooth", block: "center" });
-        sec.classList.remove("shake");
-        void sec.offsetWidth;
-        sec.classList.add("shake");
+  document
+    .getElementById("promoDetailBuyBtn")
+    ?.addEventListener("click", () => {
+      if (!tieneOpc) {
+        data.onComprar();
+        closePromoDetailModal();
+        return;
       }
-      showToast(`Elige una opción en "${falta.nombre}"`);
-      return;
-    }
-    const sel = JSON.parse(JSON.stringify(_cpSel));
-    const k = cpKeySel(sel);
-    agregarAlCarritoPerfil({
-      promoId: `${promo.id}${k ? "__" + k : ""}`,
-      promoRealId: promo.id,
-      seleccion: Object.keys(sel).length ? sel : null,
-      detalle: cpDetalle(sel),
-      nombre: data.titulo,
-      precio: cpPrecio(promo, sel),
-      imagen: data.img,
+      const falta = cpFalta();
+      if (falta) {
+        const sec = [...document.querySelectorAll("#pdOpts .opt-grp")].find(
+          (s) => s.dataset.grp === falta.nombre,
+        );
+        if (sec) {
+          sec.scrollIntoView({ behavior: "smooth", block: "center" });
+          sec.classList.remove("shake");
+          void sec.offsetWidth;
+          sec.classList.add("shake");
+        }
+        showToast(`Elige una opción en "${falta.nombre}"`);
+        return;
+      }
+      const sel = JSON.parse(JSON.stringify(_cpSel));
+      const k = cpKeySel(sel);
+      agregarAlCarritoPerfil({
+        promoId: `${promo.id}${k ? "__" + k : ""}`,
+        promoRealId: promo.id,
+        seleccion: Object.keys(sel).length ? sel : null,
+        detalle: cpDetalle(sel),
+        nombre: data.titulo,
+        precio: cpPrecio(promo, sel),
+        imagen: data.img,
+      });
+      closePromoDetailModal();
     });
-    closePromoDetailModal();
-  });
 
-  document.getElementById("promoDetailShareBtn")?.addEventListener("click", () => {
-    compartirNativo({
-      title: data.titulo || "Promoción en Geinz",
-      text: data.shareMsg || "Mira esta promo en Geinz 🎁",
-      url: data.shareUrl,
+  document
+    .getElementById("promoDetailShareBtn")
+    ?.addEventListener("click", () => {
+      compartirNativo({
+        title: data.titulo || "Promoción en Geinz",
+        text: data.shareMsg || "Mira esta promo en Geinz 🎁",
+        url: data.shareUrl,
+      });
     });
-  });
 
   if (tieneOpc) cpResumen();
   modal.classList.add("open");
@@ -4897,131 +4965,232 @@ function showPromoBanner(biz) {
   const bannerBg = document.getElementById("bannerBg");
   if (!bannerModal || !bannerImg) return Promise.resolve();
 
-  const banner = biz.banner || {};
-  if (!(banner.activo === true && banner.imagen)) return Promise.resolve();
+  const lista = bannersDeHoy(biz);
+  if (!lista.length) return Promise.resolve();
 
-  _bannerReady = false; // el loader esperará al banner
-  renderBannerCta(banner, biz, bannerModal);
+  const box = bannerModal.querySelector(".banner-modal-box");
+  const media = bannerModal.querySelector(".banner-modal-media");
+  const aplicarAr = () => {
+    if (!bannerImg.naturalWidth) return;
+    const ar = Math.min(1.91, Math.max(0.8, bannerImg.naturalWidth / bannerImg.naturalHeight));
+    box?.style.setProperty("--banner-ar", ar);
+    media?.style.setProperty("--banner-ar", ar);
+  };
+
+  // cambia de banner (cuando hay varios para hoy)
+  const irA = (i) => {
+    const b = lista[i];
+    bannerImg.onload = aplicarAr;
+    if (bannerBg) bannerBg.src = b.imagen;
+    bannerImg.src = b.imagen;
+    renderBannerCta(b, biz, bannerModal, { lista, indice: i, irA });
+  };
+
+  _bannerReady = false;
+  renderBannerCta(lista[0], biz, bannerModal, { lista, indice: 0, irA });
 
   return new Promise((resolve) => {
     let abierto = false;
-
     const abrir = () => {
       if (abierto || _bannerShown) return;
       abierto = true;
-      const ratio = bannerImg.naturalWidth / bannerImg.naturalHeight;
-      const ar = Math.min(1.91, Math.max(0.8, ratio));
-      bannerModal
-        .querySelector(".banner-modal-box")
-        .style.setProperty("--banner-ar", ar);
-      bannerModal
-        .querySelector(".banner-modal-media")
-        .style.setProperty("--banner-ar", ar);
+      aplicarAr();
       bannerModal.classList.add("open");
       document.body.style.overflow = "hidden";
       _bannerShown = true;
     };
-
     const liberarLoader = () => {
       if (_bannerReady) return;
       _bannerReady = true;
       resolve();
     };
-
-    // tope de 4s: si la imagen tarda demasiado, el perfil no se queda esperando
     const timer = setTimeout(liberarLoader, 4000);
 
     bannerImg.onload = () => {
       clearTimeout(timer);
-      abrir(); // el modal se abre justo cuando el skeleton se va
+      abrir();
       liberarLoader();
     };
     bannerImg.onerror = () => {
       clearTimeout(timer);
       liberarLoader();
     };
-
-    if (bannerBg) bannerBg.src = banner.imagen;
-    bannerImg.src = banner.imagen;
+    if (bannerBg) bannerBg.src = lista[0].imagen;
+    bannerImg.src = lista[0].imagen;
   });
 }
-// ── Botón "Ir al carrito" del banner clickeable ──
 const BANNER_CTA_CSS = `
+  .banner-modal-box.has-cta{aspect-ratio:auto !important;height:auto !important;display:flex;flex-direction:column;overflow:hidden;}
   .banner-cta{
-    position:absolute;
-    left:0;right:0;bottom:0;
-    z-index:3;
-    padding:18px 18px calc(16px + env(safe-area-inset-bottom,0px));
-    background:linear-gradient(180deg, transparent 0%, rgba(0,0,0,.4) 35%, rgba(0,0,0,.9) 100%);
+    flex-shrink:0;display:flex;flex-direction:column;gap:12px;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
+    background:#0b0b0d;border-top:1px solid rgba(255,255,255,.08);
   }
-  .banner-modal.open .banner-cta{animation:bannerCtaIn .5s cubic-bezier(.22,.85,.32,1) .12s both;}
-  @keyframes bannerCtaIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  .banner-modal.open .banner-cta{animation:bannerCtaIn .45s cubic-bezier(.22,.85,.32,1) both;}
+  @keyframes bannerCtaIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 
-  .banner-cta-toprow{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .banner-cta-info{display:flex;align-items:center;gap:10px;min-width:0;}
   .banner-cta-desc{
-    margin:0;min-width:0;font-size:14px;font-weight:600;line-height:1.35;color:#fff;
-    text-shadow:0 1px 6px rgba(0,0,0,.5);
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    flex:1;min-width:0;margin:0;font-size:13px;font-weight:600;color:#e4e4e7;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
-  .banner-cta-eye{
-    flex-shrink:0;width:34px;height:34px;border-radius:50%;
-    border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);backdrop-filter:blur(8px);
-    color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    transition:background .2s ease, transform .15s ease;
-  }
-  .banner-cta-eye:hover{background:rgba(255,255,255,.16);transform:scale(1.06);}
-  .banner-cta-eye:active{transform:scale(.92);}
-  .banner-cta-eye svg{width:16px;height:16px;}
-
-  /* ── Panel que se revela con el ojito: sube desde abajo ── */
-  .banner-cta-reveal{
-    max-height:0;
-    opacity:0;
-    overflow:hidden;
-    transform:translateY(16px);
-    transition:max-height .4s cubic-bezier(.22,.85,.32,1), opacity .32s ease, transform .4s cubic-bezier(.22,.85,.32,1), margin-top .4s ease;
-    display:flex;flex-direction:column;gap:10px;
-  }
-  .banner-cta-reveal.open{
-    max-height:220px;
-    opacity:1;
-    transform:translateY(0);
-    margin-top:12px;
-  }
-
-  .banner-cta-tags{display:flex;flex-wrap:wrap;gap:6px;}
-  .banner-cta-tag{
-    font-size:10.5px;font-weight:700;color:#fff;padding:3px 9px;border-radius:999px;
-    background:rgba(var(--dr),var(--dg),var(--db),.35);
-    border:1px solid rgba(var(--dr),var(--dg),var(--db),.6);
-  }
-
   .banner-cta-price{
-    align-self:flex-start;
-    padding:5px 13px;border-radius:999px;font-size:17px;font-weight:800;color:#fff;letter-spacing:-.01em;
-    background:rgba(var(--dr),var(--dg),var(--db),.28);
-    border:1px solid rgba(var(--dr),var(--dg),var(--db),.6);
+    flex-shrink:0;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;
+    background:rgba(var(--dr),var(--dg),var(--db),.18);
+    border:1px solid rgba(var(--dr),var(--dg),var(--db),.5);
+  }
+  .banner-cta-days{display:flex;flex-wrap:wrap;align-items:center;gap:5px;}
+  .banner-cta-days-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#71717a;margin-right:2px;}
+  .banner-cta-day{
+    padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;color:#a1a1aa;
+    border:1px solid rgba(255,255,255,.12);
+  }
+  .banner-cta-day.hoy{
+    color:#fff;border-color:rgba(var(--dr),var(--dg),var(--db),.7);
+    background:rgba(var(--dr),var(--dg),var(--db),.22);
+  }
+  .banner-cta-tag{font-size:10px;font-weight:700;color:#a1a1aa;}
+  .banner-cta-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;height:42px;border-radius:14px;border:none;cursor:pointer;text-decoration:none;
+    font-size:13.5px;font-weight:700;letter-spacing:.01em;color:#fff;
+    background:var(--brand-grad,linear-gradient(135deg,rgb(var(--dr),var(--dg),var(--db)),rgba(var(--dr),var(--dg),var(--db),.7)));
+    box-shadow:0 8px 20px -8px rgba(var(--dr),var(--dg),var(--db),.55);
+    transition:transform .15s ease, filter .15s ease;
+  }
+  .banner-cta-btn:hover{transform:translateY(-1px);filter:brightness(1.07);}
+  .banner-cta-btn:active{transform:scale(.98);}
+  .banner-cta-btn svg{width:16px;height:16px;flex-shrink:0;}
+  .banner-cta-btn .arrow{transition:transform .2s ease;}
+  .banner-cta-btn:hover .arrow{transform:translateX(3px);}
+  .banner-cta-dots{display:flex;justify-content:center;gap:6px;}
+  .banner-cta-dot{
+    width:7px;height:7px;border-radius:50%;border:none;padding:0;cursor:pointer;
+    background:rgba(255,255,255,.22);transition:background .2s ease, width .2s ease;
+  }
+  .banner-cta-dot.on{width:20px;border-radius:99px;background:rgb(var(--dr),var(--dg),var(--db));}
+`;
+
+function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
+  const box = bannerModal.querySelector(".banner-modal-box");
+  if (!box) return;
+  box.querySelector("#bannerCta")?.remove();
+  box.classList.remove("has-cta");
+
+  const { lista = [], indice = 0, irA = null } = ctx;
+  const hayVarios = lista.length > 1;
+
+  // ¿tiene botón? (clickeable + carrito activo + datos válidos)
+  const desc = String(banner.descripcion || "").trim();
+  const tipo = banner.tipo || "producto";
+  let precioLabel = "", href = null;
+
+  if (banner.clickeable === true && _F.carrito && desc) {
+    if (tipo === "producto") {
+      const precio = Number(banner.precio) || 0;
+      if (precio > 0) {
+        const cp = promoCondiciones(banner.condiciones);
+        const base = cp.condiciones.length
+          ? cpDesde({ precio, condiciones: cp.condiciones, descuento: null })
+          : { precio, varia: false };
+        precioLabel = `${base.varia ? "Desde " : ""}S/ ${base.precio.toFixed(2)}`;
+        href = urlCarritoPromo(
+          banner.id === "principal" ? "banner" : `banner_${banner.id}`,
+          biz,
+        );
+      }
+    } else if (tipo === "descuento") {
+      const valor = Number(banner.descuentoValor) || 0;
+      if (valor > 0) {
+        precioLabel =
+          banner.descuentoTipo === "monto" ? `-S/ ${valor.toFixed(2)}` : `-${valor}%`;
+        href = urlCarritoBannerCupon(biz, banner.id);
+      }
+    } else if (tipo === "envio_gratis") {
+      precioLabel = "🚚 Envío gratis";
+      href = urlCarritoBannerCupon(biz, banner.id);
+    }
   }
 
-  .banner-cta-btn{
-    position:relative;overflow:hidden;
-    display:flex;align-items:center;justify-content:center;gap:10px;
-    width:100%;padding:14px 18px;border-radius:16px;
-    font-size:14.5px;font-weight:800;letter-spacing:.01em;color:#fff;text-decoration:none;cursor:pointer;
-    background:rgba(255,255,255,.1);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-    border:1px solid rgba(255,255,255,.22);
-    box-shadow:0 10px 26px -8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25);
-    transition:transform .18s ease, background .18s ease;
-  }
-  .banner-cta-btn::after{
-    content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
-    background:linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
-    transform:skewX(-20deg);animation:bannerCtaShine 3.4s ease-in-out 1s infinite;
-  }
-  @keyframes bannerCtaShine{0%{left:-60%;}55%,100%{left:130%;}}
-  .banner-cta-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,.16);}
-  .banner-cta-btn:active{transform:scale(.98);}
-  `;
+  // sin botón y sin varios banners: no se dibuja nada debajo
+  if (!href && !hayVarios) return;
+
+  injectBannerCtaStyles();
+
+  // días programados en el dashboard (el de hoy resaltado)
+  const hoy = diaHoyLima();
+  const dias = Array.isArray(banner.dias) ? banner.dias : [];
+  const diasHTML = dias.length
+    ? `<div class="banner-cta-days">
+         <span class="banner-cta-days-lbl">Días</span>
+         ${DAY_ORDER_CORTO.filter(([k]) => dias.includes(k))
+           .map(([k, l]) => `<span class="banner-cta-day${k === hoy ? " hoy" : ""}">${l}</span>`)
+           .join("")}
+         ${banner.soloSeguidores ? `<span class="banner-cta-tag">· Solo seguidores</span>` : ""}
+       </div>`
+    : banner.soloSeguidores
+      ? `<div class="banner-cta-days"><span class="banner-cta-tag">Solo seguidores</span></div>`
+      : "";
+
+  const cta = document.createElement("div");
+  cta.id = "bannerCta";
+  cta.className = "banner-cta";
+  cta.innerHTML = `
+    ${href ? `<div class="banner-cta-info">
+      <p class="banner-cta-desc">${escapeHtml(desc)}</p>
+      <span class="banner-cta-price">${precioLabel}</span>
+    </div>` : ""}
+    ${href ? diasHTML : ""}
+    ${href ? `<a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
+      <span>Ir al carrito</span>
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>` : ""}
+    ${hayVarios ? `<div class="banner-cta-dots">${lista
+      .map((_, i) => `<button type="button" class="banner-cta-dot${i === indice ? " on" : ""}" data-i="${i}" aria-label="Banner ${i + 1}"></button>`)
+      .join("")}</div>` : ""}`;
+
+  cta.querySelectorAll(".banner-cta-dot").forEach((d) =>
+    d.addEventListener("click", () => irA?.(Number(d.dataset.i))),
+  );
+
+  cta.querySelector("#bannerCtaBtn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (banner.soloSeguidores) {
+      if (!auth.currentUser) return openLoginPromptModal();
+      const snap = await getDoc(
+        doc(tiendaSubCol(_params.localidad, "tiendas", _params.id, "clientes"), auth.currentUser.uid),
+      );
+      if (!snap.exists()) {
+        showToast("🔒 Debes seguir este negocio para reclamar esta promo");
+        return;
+      }
+    }
+    bannerModal.classList.remove("open");
+    document.body.style.overflow = "";
+    window.location.href = href;
+  });
+
+  box.classList.add("has-cta");
+  box.appendChild(cta); // ← debajo de la imagen, NO encima
+}
+
+const DAY_ORDER_CORTO = [
+  ["lunes", "Lun"], ["martes", "Mar"], ["miercoles", "Mié"], ["jueves", "Jue"],
+  ["viernes", "Vie"], ["sabado", "Sáb"], ["domingo", "Dom"],
+];
+
+
+// ahora recibe el id del banner
+function urlCarritoBannerCupon(biz, bannerId) {
+  const aliasKey = _params.alias || biz?.alias_key;
+  const base = _esDominioPersonalizado
+    ? "/carrito"
+    : aliasKey
+      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
+      : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
+  return `${base}${base.includes("?") ? "&" : "?"}bannerCupon=${encodeURIComponent(bannerId || "1")}`;
+}
 
 function injectBannerCtaStyles() {
   if (document.getElementById("bannerCtaStyle")) return;
@@ -5031,116 +5200,8 @@ function injectBannerCtaStyles() {
   document.head.appendChild(st);
 }
 
-function renderBannerCta(banner, biz, bannerModal) {
-  const media = bannerModal.querySelector(".banner-modal-media");
-  if (!media) return;
-  media.querySelector("#bannerCta")?.remove();
 
-  if (banner.clickeable !== true || !_F.carrito) return;
-  const desc = String(banner.descripcion || "").trim();
-  const tipo = banner.tipo || "producto";
-  if (!desc) return;
 
-  let precioLabel = "",
-    href = null;
-  if (tipo === "producto") {
-    const precio = Number(banner.precio) || 0;
-    if (precio <= 0) return;
-    precioLabel = `S/ ${precio.toFixed(2)}`;
-    href = urlCarritoPromo("banner", biz);
-  } else if (tipo === "descuento") {
-    const valor = Number(banner.descuentoValor) || 0;
-    if (valor <= 0) return;
-    precioLabel =
-      banner.descuentoTipo === "monto"
-        ? `-S/ ${valor.toFixed(2)}`
-        : `-${valor}%`;
-    href = urlCarritoBannerCupon(biz);
-  } else if (tipo === "envio_gratis") {
-    precioLabel = "🚚 Gratis";
-    href = urlCarritoBannerCupon(biz);
-  } else return;
-
-  injectBannerCtaStyles();
-
-  const restricciones = [];
-  if (banner.soloSeguidores) restricciones.push("Solo para seguidores");
-  if (banner.unaVezPorCliente) restricciones.push("Una vez por cliente");
-  const tagsHTML = restricciones.length
-    ? `<div class="banner-cta-tags">${restricciones.map((r) => `<span class="banner-cta-tag">${r}</span>`).join("")}</div>`
-    : "";
-
-  const EYE_CLOSED = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
-  const EYE_OPEN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>`;
-
-  const cta = document.createElement("div");
-  cta.id = "bannerCta";
-  cta.className = "banner-cta";
-  cta.innerHTML = `
-      <div class="banner-cta-toprow">
-        <p class="banner-cta-desc">${escapeHtml(desc)}</p>
-        <button type="button" class="banner-cta-eye" id="bannerCtaEye" aria-label="Ver promoción">${EYE_CLOSED}</button>
-      </div>
-      <div class="banner-cta-reveal" id="bannerCtaReveal">
-        ${tagsHTML}
-        <span class="banner-cta-price">${precioLabel}</span>
-        <a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
-            <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
-          </svg>
-          <span>Ir al carrito</span>
-        </a>
-      </div>`;
-
-  // ── Ojito: revela el panel completo de abajo hacia arriba ──
-  const eyeBtn = cta.querySelector("#bannerCtaEye");
-  const reveal = cta.querySelector("#bannerCtaReveal");
-  let abierto = false;
-  eyeBtn.addEventListener("click", () => {
-    abierto = !abierto;
-    reveal.classList.toggle("open", abierto);
-    eyeBtn.innerHTML = abierto ? EYE_OPEN : EYE_CLOSED;
-  });
-
-  // ── Click en "Ir al carrito": valida "solo seguidores" ──
-  const btn = cta.querySelector("#bannerCtaBtn");
-  btn.addEventListener("click", async (e) => {
-    e.preventDefault();
-
-    if (banner.soloSeguidores) {
-      if (!auth.currentUser) {
-        openLoginPromptModal();
-        return;
-      }
-      const clienteRef = doc(
-        tiendaSubCol(_params.localidad, "tiendas", _params.id, "clientes"),
-        auth.currentUser.uid,
-      );
-      const snap = await getDoc(clienteRef);
-      if (!snap.exists()) {
-        showToast("🔒 Debes seguir este negocio para reclamar esta promo");
-        return;
-      }
-    }
-
-    bannerModal.classList.remove("open");
-    document.body.style.overflow = "";
-    window.location.href = href;
-  });
-
-  media.appendChild(cta);
-}
-
-function urlCarritoBannerCupon(biz) {
-  const aliasKey = _params.alias || biz?.alias_key;
-  const base = _esDominioPersonalizado
-    ? "/carrito"
-    : aliasKey
-      ? `/perfil/${encodeURIComponent(aliasKey)}/carrito`
-      : `../carrito/carrito.html?localidad=${encodeURIComponent(_params.localidad)}&id=${encodeURIComponent(_params.id)}`;
-  return `${base}${base.includes("?") ? "&" : "?"}bannerCupon=1`;
-}
 
 function bindBannerModalEvents() {
   const modal = document.getElementById("bannerModal");
@@ -5866,16 +5927,16 @@ function irACarritoConPerfil() {
   if (!_perfilCarritoItems.length) return;
 
   // Estadísticas: se disparan pero NO se espera
-  _perfilCarritoItems
-    .filter((i) => String(i.promoId).startsWith("activa_"))
-    .forEach((i) => trackPromo(i.promoId.slice(7), "clics_carrito"));
-
+  _perfilCarritoItems.forEach((i) => {
+    const real = String(i.promoRealId || i.promoId);
+    if (real.startsWith("activa_")) trackPromo(real.slice(7), "clics_carrito");
+  });
   try {
     sessionStorage.setItem(
       `geinz_perfil_cart_pending_${_params.id}`,
       JSON.stringify({
         items: _perfilCarritoItems.map((i) => ({
-                 promoId: i.promoRealId || i.promoId,
+          promoId: i.promoRealId || i.promoId,
           productoId: i.productoId || null,
           seleccion: i.seleccion || null,
           cantidad: i.cantidad,
@@ -6554,7 +6615,8 @@ async function render(biz, isInitial = true) {
       const shareBase =
         urlCompartirPromo(biz.alias_key || _params.alias, promo.id) ||
         `${_baseShareUrl}/api/share?t=p&id=${_params.id}&l=${_params.localidad}&c=${catFormatted}&i=${promo.id}`;
-      const puedeComprarPromo = promo.precio > 0 && _F.carrito && !promo.agotado;
+      const puedeComprarPromo =
+        promo.precio > 0 && _F.carrito && !promo.agotado;
 
       const card = document.createElement("div");
       card.className = "promo-card";
@@ -6590,6 +6652,7 @@ async function render(biz, isInitial = true) {
                 ? `
             <div class="promo-card-bottom-overlay">
                        ${promo.precio > 0 ? `<span class="promo-card-price">${promo.condiciones?.length && cpDesde(promo).varia ? "Desde " : ""}S/ ${(promo.condiciones?.length ? cpDesde(promo).precio : promo.precio).toFixed(2)}</span>` : ""}
+                       ${promo.deliveryGratis ? `<span class="promo-delivery-chip">🚚 Delivery gratis</span>` : ""}
               ${promo.descripcion ? `<p class="promo-card-desc">${escapeHtml(promo.descripcion)}</p>` : ""}
                                          ${promo.destacado && promo.destacadoTexto ? `<p class="promo-destacado-txt">${escapeHtml(promo.destacadoTexto)}</p>` : ""}
             </div>`
@@ -6627,7 +6690,10 @@ async function render(biz, isInitial = true) {
         e.stopPropagation();
         // si la promo tiene opciones, primero se eligen en el diálogo
         if (promo.condiciones?.length) {
-          openPromoDetailModal({ ...datosDetalle, onComprar: onComprarEstaPromo });
+          openPromoDetailModal({
+            ...datosDetalle,
+            onComprar: onComprarEstaPromo,
+          });
         } else {
           onComprarEstaPromo();
         }
@@ -6636,7 +6702,10 @@ async function render(biz, isInitial = true) {
       card.style.cursor = "pointer";
       card.addEventListener("click", (e) => {
         if (e.target.closest("a, button")) return;
-        openPromoDetailModal({ ...datosDetalle, onComprar: onComprarEstaPromo });
+        openPromoDetailModal({
+          ...datosDetalle,
+          onComprar: onComprarEstaPromo,
+        });
       });
       promoCarousel.appendChild(card);
     });
@@ -8277,7 +8346,7 @@ function irAReviews() {
     ]);
 
     await render(biz, true);
-    renderInstallBanner(); 
+    renderInstallBanner();
     listenServiciosRealtime(params, ck);
     _followReady = true;
     _reviewsReady = true;
@@ -8928,7 +8997,7 @@ function cpNormalizar(d) {
   );
   return {
     id: d.productoId || d.id,
-        categoriaId: d.categoriaId || null,
+    categoriaId: d.categoriaId || null,
     nombre: d.nombre || "Producto",
     descripcion: d.descripcion || "",
     precio: Number(d.precio) || 0,
@@ -9285,7 +9354,9 @@ function cpHero() {
 function cpResumen() {
   cpHero();
   const p = _cpProd;
-  const box = document.getElementById(_cpModoPromo ? "pdResumen" : "cpdResumen");
+  const box = document.getElementById(
+    _cpModoPromo ? "pdResumen" : "cpdResumen",
+  );
   if (box) {
     const filas = [];
     _cpGrupos.forEach((c) =>
@@ -9304,7 +9375,9 @@ function cpResumen() {
       filas.join("") +
       `<div style="font-weight:800;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><span>Precio final (c/u)</span><span>S/ ${cpPrecio(p, _cpSel).toFixed(2)}</span></div>`;
   }
-  const btn = document.getElementById(_cpModoPromo ? "promoDetailBuyBtn" : "cpdConfirm");
+  const btn = document.getElementById(
+    _cpModoPromo ? "promoDetailBuyBtn" : "cpdConfirm",
+  );
   if (!btn) return;
   const falta = cpFalta();
   btn.classList.toggle("pend", !!falta);
@@ -9326,7 +9399,8 @@ function cpAbrirDialog(p) {
   document.getElementById("cpdTitle").textContent = p.nombre;
   const body = document.getElementById("cpdBody");
   body.innerHTML = `<div class="opt-hero" id="cpdHero"><img alt=""></div>`;
-  if (p.descripcion) body.appendChild(cpMk("p", "opt-prod-desc", p.descripcion));
+  if (p.descripcion)
+    body.appendChild(cpMk("p", "opt-prod-desc", p.descripcion));
   _cpGrupos.forEach((c) => {
     const sec = cpMk("div", "opt-grp");
     sec.dataset.grp = c.nombre;
@@ -9393,7 +9467,6 @@ function cpEnsureModal() {
   });
   return m;
 }
-
 
 function cpConfirmar() {
   if (!_cpProd) return;

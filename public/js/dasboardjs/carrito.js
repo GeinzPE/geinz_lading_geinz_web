@@ -2205,24 +2205,35 @@ function renderCuponBar(subtotal) {
   });
 }
 
+const urlBannerCuponParam = () =>
+  new URLSearchParams(window.location.search).get("bannerCupon") || "";
 function urlTieneBannerCupon() {
-  return new URLSearchParams(window.location.search).get("bannerCupon") === "1";
+  return !!urlBannerCuponParam();
 }
 
 async function aplicarCuponBanner() {
-  const banner = bizData?.banner;
-  if (!banner || banner.clickeable !== true) return;
-  const tipo = banner.tipo || "producto";
-  if (tipo !== "descuento" && tipo !== "envio_gratis") return;
+  const bn = bizData?.banner;
+  if (!bn || bn.activo === false) return;
+  const items = bannerItemsDe(bn);
+  const param = urlBannerCuponParam();
+
+  // ?bannerCupon=ID → ese banner · ?bannerCupon=1 → el primero válido de hoy
+  const esCupon = (it) =>
+    it?.clickeable === true &&
+    ["descuento", "envio_gratis"].includes(it.tipo) &&
+    diaOk(it);
+  const banner =
+    param !== "1" && items[param]
+      ? items[param]
+      : Object.values(items).find(esCupon);
+  if (!banner || !esCupon(banner)) {
+    showToast("Esa promoción no está disponible hoy");
+    return;
+  }
+  const tipo = banner.tipo;
 
   if (banner.soloSeguidores && !siguiendoTienda) {
     showToast("⭐ Esta promoción es solo para seguidores del negocio");
-    return;
-  }
-
-  const claveUso = `geinz_banner_used_${tiendaId}_${usuarioLogeado?.id || "anon"}`;
-  if (banner.unaVezPorCliente && localStorage.getItem(claveUso)) {
-    showToast("Ya usaste esta promoción anteriormente");
     return;
   }
 
@@ -2234,8 +2245,7 @@ async function aplicarCuponBanner() {
       codigo: "PROMO",
       tipo: "manual",
       origen: "banner",
-      tipoDescuentoManual:
-        banner.descuentoTipo === "monto" ? "monto" : "porcentaje",
+      tipoDescuentoManual: banner.descuentoTipo === "monto" ? "monto" : "porcentaje",
       porcentajeManual: banner.descuentoTipo === "monto" ? null : valor,
       montoManual: banner.descuentoTipo === "monto" ? valor : null,
       compraMinima: 0,
@@ -2252,14 +2262,9 @@ async function aplicarCuponBanner() {
       envioGratis: true,
     };
   }
-
   cuponAplicado = nuevoCupon;
   updateCartUI();
-  showToast(
-    tipo === "envio_gratis"
-      ? "🚚 Envío gratis aplicado"
-      : "🏷️ Descuento aplicado",
-  );
+  showToast(tipo === "envio_gratis" ? "🚚 Envío gratis aplicado" : "🏷️ Descuento aplicado");
 }
 function bindCuponInputs() {
   const pares = [
@@ -3318,12 +3323,11 @@ function imagenOpcionElegida(p, seleccion) {
   return src;
 }
 function productoSinStock(p) {
-  if (p.esOfertaTiempo) return false;
+  // if (p.esOfertaTiempo) return false;   ← BORRAR
   if (typeof p.stock === "number" && p.stock <= 0) return true;
   if (p.grupoObligatorioAgotado) return true;
   return false;
 }
-
 function crearBadgeSinStock() {
   const btn = document.createElement("button");
   btn.className =
@@ -3676,7 +3680,7 @@ function distanciaKm(lat1, lon1, lat2, lon2) {
 function calcularDeliveryCliente() {
   const cfg = getDeliveryCfg();
   if (!cfg || !cfg.hace || !cfg.tarifaActiva) return null;
-  if (cuponAplicado?.envioGratis) return { costo: 0, gratis: true };
+if (envioGratisActivo()) return { costo: 0, gratis: true };   // antes: cuponAplicado?.envioGratis
   const rec = recargoEnHora(cfg.recargo);
   if (cfg.modo === "fija")
     return { costo: cfg.fija + rec, texto: cfg.texto, recargo: rec };
@@ -5741,7 +5745,8 @@ document
       !mesaId &&
       cfgD?.tarifaActiva &&
       cfgD.modo === "zonas" &&
-      !cuponAplicado?.envioGratis &&
+   !envioGratisActivo() &&      // antes: !cuponAplicado?.envioGratis &&
+
       !zonaDeliverySel
     ) {
       showToast("Elige tu zona de entrega");
@@ -6370,7 +6375,8 @@ async function loadOfertasActivas() {
     const ofertas = [];
 
     console.log("[OFERTAS] documentos encontrados:", snap.size);
-
+    const esp = diaEspecialHoy();
+    const grad = esp ? gradienteDiaEspecial(esp) : null;
     snap.forEach((docSnap) => {
       const data = docSnap.data();
       const fh = data.datos_hora_fecha || {};
@@ -6433,20 +6439,30 @@ async function loadOfertasActivas() {
 
       console.log(`[OFERTAS] ${docSnap.id} ✅ APROBADA, precio=${precio}`);
 
+           const cp = condicionesDePromo(data.condiciones);
+      const nombreMA = String(data.nombre || "").trim();
       ofertas.push({
         id: `promo__activa_${docSnap.id}`,
         promoId: `activa_${docSnap.id}`,
         esPromo: true,
-        esOfertaTiempo: true, // ← NUEVO: marca que ESTA sí vence con hora/fecha real
+        esOfertaTiempo: true,
         expiraEn: finMs,
-        nombre: (titulo || descripcion || "Oferta").slice(0, 80),
+        nombre: (nombreMA || titulo || descripcion || "Oferta").slice(0, 80),
         descripcion,
         categoria: "momentaneas⏰",
+        destacado: !!esp && data.destacarEspecial === true,
+        destacadoTexto: esp ? String(esp.titulo || "").trim() : "",
+        destacadoGrad: grad ? grad.css : "",
+        destacadoC1: grad ? grad.c1 : "",
+        destacadoC2: grad ? grad.c2 : "",
+        deliveryGratis: data.deliveryGratis === true,
         precio,
         imagen: img,
         imagenes: img ? [img] : [],
-        condiciones: [],
-        stock: null,
+        condiciones: cp.condiciones,
+        grupoObligatorioAgotado: cp.agotado,
+        sugerencias: Array.isArray(data.sugerencias) ? data.sugerencias : [],
+        stock: typeof data.stock === "number" ? data.stock : null,
         puntos: null,
       });
     });
@@ -6458,6 +6474,21 @@ async function loadOfertasActivas() {
     return [];
   }
 }
+const diaOk = (it) =>
+  !it?.dias?.length || it.dias.includes(obtenerDiaSemanaLima());
+
+// Soporta banner nuevo (items) y banner viejo (campos sueltos = "principal")
+function bannerItemsDe(b) {
+  if (!b) return {};
+  if (b.items && typeof b.items === "object" && Object.keys(b.items).length)
+    return b.items;
+  return b.imagen ? { principal: b } : {};
+}
+
+// Envío gratis por cupón/banner o por algún producto del carrito marcado 🚚
+const envioGratisActivo = () =>
+  !!cuponAplicado?.envioGratis ||
+  [...carrito.values()].some((i) => i.deliveryGratis === true);
 // Devuelve el día especial de HOY (si está activo en el perfil) o null
 function diaEspecialHoy(biz = bizData) {
   const cfg = biz?.dias_especiales;
@@ -6518,34 +6549,34 @@ function normalizarPromociones(biz) {
   const esp = diaEspecialHoy(biz);
   const lista = [];
 
-  // ── Banner clickeable → se comporta como una promoción más ──
-  const b = biz?.banner;
-  const bPrecio = Number(b?.precio) || 0;
-  const bDesc = String(b?.descripcion || "").trim();
-    if (
-    b?.activo === true &&
-    b?.clickeable === true &&
-    (b?.tipo || "producto") === "producto" &&
-    b?.imagen &&
-    bDesc &&
-    bPrecio > 0
-  ) {
-    const cb = condicionesDePromo(b.condiciones);
-    lista.push({
-      id: "promo__banner",
-      promoId: "banner", // ← el mismo valor que viaja en ?promo=banner
-      esPromo: true,
-      nombre: bDesc.slice(0, 80),
-      descripcion: bDesc,
-      categoria: "Promociones",
-      precio: bPrecio,
-      imagen: b.imagen,
-      imagenes: [b.imagen],
-      condiciones: cb.condiciones,
-      grupoObligatorioAgotado: cb.agotado,
-      sugerencias: Array.isArray(b.sugerencias) ? b.sugerencias : [],
-      stock: null,
-      puntos: null,
+    // ── Banners (varios, cada uno con sus días y su modo avanzado) ──
+  const bn = biz?.banner;
+  if (bn?.activo === true) {
+    Object.entries(bannerItemsDe(bn)).forEach(([bid, b]) => {
+      if (!b || !b.imagen || b.clickeable !== true) return;
+      if ((b.tipo || "producto") !== "producto") return; // descuento/envío van por cupón
+      if (!diaOk(b)) return; // ← filtro por día
+      const precio = Number(b.precio) || 0;
+      const desc = String(b.descripcion || "").trim();
+      if (precio <= 0 || !desc) return;
+      const cb = condicionesDePromo(b.condiciones);
+      lista.push({
+        id: bid === "principal" ? "promo__banner" : `promo__banner_${bid}`,
+        promoId: bid === "principal" ? "banner" : `banner_${bid}`,
+        bannerId: bid,
+        esPromo: true,
+        nombre: desc.slice(0, 80),
+        descripcion: desc,
+        categoria: "Promociones",
+        precio,
+        imagen: b.imagen,
+        imagenes: [b.imagen],
+        condiciones: cb.condiciones,
+        grupoObligatorioAgotado: cb.agotado,
+        sugerencias: Array.isArray(b.sugerencias) ? b.sugerencias : [],
+        stock: null,
+        puntos: null,
+      });
     });
   }
   // ── Promociones normales (con modo avanzado) ──
@@ -6583,6 +6614,7 @@ function normalizarPromociones(biz) {
         stock: typeof p.stock === "number" ? p.stock : null,
         sugerencias: Array.isArray(p.sugerencias) ? p.sugerencias : [],
         puntos: null,
+                deliveryGratis: p.deliveryGratis === true,
       });
     });
   }
@@ -6636,7 +6668,11 @@ function aplicarOfertaDesdeLink(ofertaId) {
 }
 // Botón "Comprar" de la landing → llega con ?promo=ID → se agrega sola
 function aplicarPromoDesdeLink(promoId) {
-  const p = promosGlobal.find((x) => x.promoId === String(promoId));
+  const p =
+    promosGlobal.find((x) => x.promoId === String(promoId)) ||
+    (String(promoId) === "banner"
+      ? promosGlobal.find((x) => x.bannerId)
+      : null);
   if (!p) {
     showToast("⚠️ Esa promoción ya no está disponible");
     return;

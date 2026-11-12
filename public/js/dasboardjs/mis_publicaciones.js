@@ -6,8 +6,11 @@ import {
   updateDoc,
   increment,
   Timestamp,
+  deleteField,
+  collection,
+  getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { tiendaSubCol } from "../rutas/rutas.js";
+import { tiendaSubCol, tiendaDoc } from "../rutas/rutas.js";
 import {
   initExport,
   botonesExportDetalleHtml,
@@ -27,7 +30,6 @@ if (!tiendaId || !localidad) {
 }
 
 function promosRef() {
-  // 👈 esta es la que faltaba
   return tiendaSubCol(localidad, "tiendas", tiendaId, "promociones_geinz");
 }
 
@@ -44,6 +46,7 @@ let filtroEstado = "todos";
 let filtroCategoria = null;
 let unsub = null;
 let intervaloTimers = null;
+let omitirRenderHasta = 0; // tras un cambio local de config no se repinta la grilla
 
 const el = (id) => document.getElementById(id);
 
@@ -71,7 +74,7 @@ function iniciarSuscripcion() {
     q,
     (snap) => {
       promos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
+      if (Date.now() < omitirRenderHasta) return;
       render();
     },
     (err) => console.error("Error cargando promociones:", err),
@@ -497,21 +500,18 @@ function render() {
   renderChartsGenerales();
 
   const grid = el("promos-grid");
-  // ... resto igual
   const yaTieneContenido = grid.children.length > 0;
 
   if (!yaTieneContenido) {
-    // Primera carga: sin fade-out, directo
     renderGrid(filtradas);
     return;
   }
 
-  // Fade-out del grid actual, luego reconstruimos con fade-in
   grid.classList.add("grid-fading");
   setTimeout(() => {
     renderGrid(filtradas);
     grid.classList.remove("grid-fading");
-  }, 150); // debe matchear la duración del transition de #promos-grid
+  }, 150);
 }
 function renderStats() {
   el("stat-activas").textContent = promos.filter(
@@ -575,7 +575,6 @@ function renderCard(promo) {
   card.addEventListener("click", () => abrirDetalle(promo));
   const desact = !expirado && estaDesactivada(promo);
   if (expirado || desact) card.classList.add("promo-expired");
-  // 👇 al terminar la animación de entrada, soltamos el transform
   card.addEventListener(
     "animationend",
     () => {
@@ -594,6 +593,7 @@ function renderCard(promo) {
       }
       <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20"></div>
       ${promo.exclusivo ? `<span class="absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-400 text-black shadow-md">👑 Exclusiva</span>` : ""}
+      ${promo.destacarEspecial ? `<span data-badge-esp class="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500 text-white shadow-md">⭐ Especial</span>` : ""}
       <span data-timer-id="${promo.id}" class="timer-chip ${expirado ? "expired" : ""} absolute bottom-2.5 right-2.5 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg text-white">
            ${desact ? "⏸ Desactivada" : restanteInicial ? `⏳ ${restanteInicial}` : "🔴 Expirado"}
       </span>
@@ -607,8 +607,11 @@ function renderCard(promo) {
   <span title="Comprar">🛒 ${n(promo.estadisticas?.clics_comprar)}</span>
   <span title="WhatsApp">💬 ${n(promo.estadisticas?.clics_whatsapp)}</span>
 </div>
+      ${expirado ? "" : `<div class="promo-ctrl mt-3 pt-3 border-t border-zinc-800/80 space-y-2" data-ctrl="${promo.id}"></div>`}
     </div>
   `;
+
+  if (!expirado) enlazarControlesCard(card, promo);
 
   if (img) {
     const imgEl = card.querySelector("img");
@@ -627,6 +630,503 @@ function renderCard(promo) {
 
   return card;
 }
+
+/* ═════════════════════════════════════════════════════════════
+   DÍAS · DESTACAR ESPECIAL · MODO AVANZADO (igual que Ofertas)
+   Se guarda en el documento de la promo: promociones_geinz/{id}
+   Campos: dias, destacarEspecial, nombre, stock, caso,
+           condiciones, sugerencias
+   ═════════════════════════════════════════════════════════════ */
+const GEN_DIAS = [
+  ["lunes", "Lun"],
+  ["martes", "Mar"],
+  ["miercoles", "Mié"],
+  ["jueves", "Jue"],
+  ["viernes", "Vie"],
+  ["sabado", "Sáb"],
+  ["domingo", "Dom"],
+];
+const gEsc = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+
+function mostrarToast(texto) {
+  let wrap = document.getElementById("ofToastWrap");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "ofToastWrap";
+    wrap.className = "of-toast-wrap";
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement("div");
+  t.className = "of-toast";
+  t.innerHTML = `<span class="of-toast-ico">✓</span><span></span>`;
+  t.lastElementChild.textContent = texto;
+  wrap.appendChild(t);
+  setTimeout(() => {
+    t.classList.add("out");
+    setTimeout(() => t.remove(), 260);
+  }, 2600);
+}
+
+// Secciones (categorías) de productos para "También puedes agregar"
+let catsCache = null;
+async function cargarCategorias() {
+  if (catsCache) return catsCache;
+  try {
+    const snap = await getDocs(
+      collection(tiendaDoc(localidad, "tiendas", tiendaId), "productos"),
+    );
+    catsCache = new Map(snap.docs.map((d) => [d.id, d.data().nombre || d.id]));
+  } catch (err) {
+    console.error("[promos] categorías:", err);
+    return new Map();
+  }
+  return catsCache;
+}
+
+const VA_CSS = `
+.va-ov{position:fixed;inset:0;z-index:10000;background:rgba(3,3,6,.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:14px;}
+.va-box{width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;background:#0d0a17;border:1px solid rgba(139,92,246,.35);border-radius:22px;color:#e9e5ff;overflow:hidden;}
+.va-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid rgba(139,92,246,.2);font-size:15px;}
+.va-head button{background:none;border:none;color:#a78bfa;font-size:16px;cursor:pointer;}
+.va-body{padding:16px 18px;overflow-y:auto;flex:1;}
+.va-foot{padding:12px 18px;border-top:1px solid rgba(139,92,246,.2);display:flex;align-items:center;gap:10px;}
+.va-msg{flex:1;margin:0;font-size:12px;color:#fb7185;}
+.va-save{padding:10px 22px;border:none;border-radius:12px;background:#7c3aed;color:#fff;font-weight:700;cursor:pointer;}
+.va-save:disabled{opacity:.5;}
+.va-lbl{display:block;margin:10px 0 4px;font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.05em;}
+.va-sec{margin:18px 0 8px;font-size:13px;font-weight:800;color:#fff;}
+.va-in{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;background:#05040a;border:1px solid rgba(139,92,246,.3);color:#fff;font-size:13px;outline:none;}
+.va-in:focus{border-color:#8b5cf6;}
+.va-xs{width:74px;flex:0 0 74px;}
+.va-sm{width:auto;flex:0 0 auto;}
+.va-grp{padding:12px;margin-bottom:12px;border-radius:16px;background:#05040a;border:1px solid rgba(139,92,246,.25);}
+.va-op{margin-top:8px;padding-top:8px;border-top:1px dashed rgba(139,92,246,.18);}
+.va-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.va-wrap{flex-wrap:wrap;}
+.va-desc{margin-top:2px;font-size:11.5px;}
+.va-chk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:#cfc8ff;cursor:pointer;}
+.va-x{flex:0 0 auto;width:30px;height:30px;border:none;border-radius:8px;background:rgba(225,29,72,.2);color:#fb7185;cursor:pointer;}
+.va-add{margin-top:8px;padding:8px 12px;border:1px dashed rgba(139,92,246,.5);border-radius:10px;background:none;color:#c4b5fd;font-size:12px;font-weight:700;cursor:pointer;}
+.va-body[data-caso="mayus"] input.va-in{text-transform:uppercase;}
+.va-body[data-caso="minus"] input.va-in{text-transform:lowercase;}
+.va-body input.va-in::placeholder{text-transform:none;}
+.va-mv{flex:0 0 auto;width:30px;height:30px;border:none;border-radius:8px;background:rgba(139,92,246,.2);color:#c4b5fd;cursor:pointer;}
+.va-mv:disabled{opacity:.25;cursor:default;}
+`;
+
+async function abrirEditorAvanzadoPromo(promo, onGuardado) {
+  if (!document.getElementById("vaStyle")) {
+    const s = document.createElement("style");
+    s.id = "vaStyle";
+    s.textContent = VA_CSS;
+    document.head.appendChild(s);
+  }
+  const cats = await cargarCategorias();
+
+  const st = {
+    nombre: promo.nombre || "",
+    caso: promo.caso || "tal_cual",
+    stock: typeof promo.stock === "number" ? promo.stock : "",
+    condiciones: JSON.parse(JSON.stringify(promo.condiciones || [])),
+    sugerencias: [...(promo.sugerencias || [])],
+  };
+  const ov = document.createElement("div");
+  ov.className = "va-ov";
+  ov.innerHTML = `
+    <div class="va-box">
+      <div class="va-head"><b>⚙️ Modo avanzado de la publicación</b><button type="button" data-a="close">✕</button></div>
+      <div class="va-body"></div>
+      <div class="va-foot"><p class="va-msg"></p><button type="button" class="va-save" data-a="save">Guardar</button></div>
+    </div>`;
+  const body = ov.querySelector(".va-body");
+  const msg = ov.querySelector(".va-msg");
+
+  const nuevaOpcion = () => ({
+    nombre: "",
+    descripcion: "",
+    activo: true,
+    exclusiva: false,
+    costoAdicional: 0,
+    stock: null,
+  });
+  const nuevoGrupo = () => ({
+    nombre: "",
+    tipo: "unica",
+    obligatoria: true,
+    conCantidad: false,
+    max: null,
+    opciones: [nuevaOpcion()],
+  });
+
+  const pintar = () => {
+    const sugHtml = `
+      <div class="va-grp" style="margin-top:14px">
+        <p class="va-sec" style="margin-top:0">También puedes agregar</p>
+        <p style="font-size:11.5px;color:#a78bfa;margin:0 0 8px">Al agregar esta publicación, el cliente verá productos de estas secciones.</p>
+        <div class="va-row va-wrap">
+          ${
+            cats.size
+              ? [...cats.entries()]
+                  .map(
+                    ([id, nombre]) =>
+                      `<label class="va-chk"><input type="checkbox" data-f="sug" data-cat="${gEsc(id)}" ${st.sugerencias.includes(id) ? "checked" : ""}> ${gEsc(nombre)}</label>`,
+                  )
+                  .join("")
+              : `<span style="font-size:11.5px;color:#a78bfa">Aún no se cargaron tus secciones.</span>`
+          }
+        </div>
+      </div>`;
+    body.dataset.caso = st.caso;
+    body.innerHTML = `
+      <label class="va-lbl">Nombre del combo</label>
+      <input class="va-in" data-f="nombre" maxlength="80" value="${gEsc(st.nombre)}" placeholder="Ej. Combo Urbano Taquero">
+      <label class="va-lbl">Stock (vacío = sin control)</label>
+      <input class="va-in" data-f="stock" type="number" min="0" step="1" value="${gEsc(st.stock)}" placeholder="Sin control">
+      <p class="va-sec">Opciones que elige el cliente (gaseosa, sabor, extras…)</p>
+      <label class="va-lbl">Formato del texto</label>
+      <div class="va-row va-wrap">
+        <label class="va-chk"><input type="radio" name="va-caso" data-f="caso" value="tal_cual" ${st.caso === "tal_cual" ? "checked" : ""}> Tal como lo escribo</label>
+        <label class="va-chk"><input type="radio" name="va-caso" data-f="caso" value="mayus" ${st.caso === "mayus" ? "checked" : ""}> MAYÚSCULAS</label>
+        <label class="va-chk"><input type="radio" name="va-caso" data-f="caso" value="minus" ${st.caso === "minus" ? "checked" : ""}> minúsculas</label>
+      </div>
+      ${st.condiciones
+        .map((c, ci) => {
+          const multi = c.tipo === "multiple";
+          return `
+        <div class="va-grp" data-ci="${ci}">
+          <div class="va-row">
+            <input class="va-in" data-f="cnombre" maxlength="30" placeholder="Ej. Gaseosa" value="${gEsc(c.nombre)}">
+            <button type="button" class="va-mv" data-a="upgrp" title="Subir" ${ci === 0 ? "disabled" : ""}>▲</button>
+            <button type="button" class="va-mv" data-a="downgrp" title="Bajar" ${ci === st.condiciones.length - 1 ? "disabled" : ""}>▼</button>
+            <button type="button" class="va-x" data-a="delgrp" title="Eliminar grupo">🗑</button>
+          </div>
+          <div class="va-row va-wrap">
+            <select class="va-in va-sm" data-f="ctipo">
+              <option value="unica" ${!multi ? "selected" : ""}>Elegir 1 sola</option>
+              <option value="multiple" ${multi ? "selected" : ""}>Elegir varias</option>
+            </select>
+            <label class="va-chk"><input type="checkbox" data-f="cobl" ${c.obligatoria !== false ? "checked" : ""}> Obligatorio</label>
+            ${
+              multi
+                ? `<label class="va-chk"><input type="checkbox" data-f="ccant" ${c.conCantidad ? "checked" : ""}> Con cantidad (+/−)</label>
+            <input class="va-in va-xs" type="number" min="1" step="1" data-f="cmax" placeholder="Máx." value="${c.max || ""}">`
+                : ""
+            }
+          </div>
+          ${c.opciones
+            .map(
+              (o, oi) => `
+            <div class="va-op" data-oi="${oi}">
+              <div class="va-row">
+                <input class="va-in" data-f="onombre" maxlength="30" placeholder="Ej. Inca Kola" value="${gEsc(o.nombre)}">
+                <input class="va-in va-xs" type="number" step="0.10" min="0" data-f="ocosto" placeholder="+S/" title="Costo extra" value="${o.costoAdicional || ""}">
+                <input class="va-in va-xs" type="number" step="1" min="0" data-f="ostock" placeholder="Stock" value="${typeof o.stock === "number" ? o.stock : ""}">
+                <input type="checkbox" data-f="oact" title="Disponible" ${o.activo !== false ? "checked" : ""}>
+                <button type="button" class="va-x" data-a="delop">✕</button>
+              </div>
+              <input class="va-in va-desc" data-f="odesc" maxlength="120" placeholder="Qué incluye (opcional)" value="${gEsc(o.descripcion || "")}">
+              ${multi ? `<label class="va-chk" style="margin-top:4px"><input type="checkbox" data-f="oexc" ${o.exclusiva ? "checked" : ""}> Excluyente (desactiva las demás)</label>` : ""}
+            </div>`,
+            )
+            .join("")}
+          <button type="button" class="va-add" data-a="addop">+ Agregar opción</button>
+        </div>`;
+        })
+        .join("")}
+      <button type="button" class="va-add" data-a="addgrp">+ Agregar grupo de opciones</button>
+      ${sugHtml}`;
+  };
+  pintar();
+
+  const onEdit = (e) => {
+    const t = e.target;
+    const f = t.dataset.f;
+    if (!f) return;
+    const g = st.condiciones[+t.closest("[data-ci]")?.dataset.ci];
+    const o = g?.opciones[+t.closest("[data-oi]")?.dataset.oi];
+    if (f === "sug") {
+      const id = t.dataset.cat;
+      st.sugerencias = t.checked
+        ? [...new Set([...st.sugerencias, id])]
+        : st.sugerencias.filter((x) => x !== id);
+      return;
+    }
+    if (f === "caso") {
+      st.caso = t.value;
+      body.dataset.caso = st.caso;
+      return;
+    }
+    if (f === "nombre") st.nombre = t.value;
+    else if (f === "stock") st.stock = t.value;
+    else if (f === "cnombre") g.nombre = t.value;
+    else if (f === "ctipo") {
+      if (e.type !== "change") return;
+      g.tipo = t.value;
+      if (g.tipo !== "multiple") {
+        g.conCantidad = false;
+        g.max = null;
+        g.opciones.forEach((x) => (x.exclusiva = false));
+      }
+      pintar();
+    } else if (f === "cobl") g.obligatoria = t.checked;
+    else if (f === "ccant") g.conCantidad = t.checked;
+    else if (f === "cmax")
+      g.max = parseInt(t.value, 10) > 0 ? parseInt(t.value, 10) : null;
+    else if (f === "onombre") o.nombre = t.value;
+    else if (f === "ocosto") o.costoAdicional = parseFloat(t.value) || 0;
+    else if (f === "ostock")
+      o.stock = t.value === "" ? null : Math.max(0, parseInt(t.value, 10) || 0);
+    else if (f === "oact") o.activo = t.checked;
+    else if (f === "odesc") o.descripcion = t.value;
+    else if (f === "oexc") o.exclusiva = t.checked;
+  };
+  body.addEventListener("input", onEdit);
+  body.addEventListener("change", onEdit);
+
+  ov.addEventListener("click", async (e) => {
+    if (e.target === ov) return ov.remove();
+    const b = e.target.closest("[data-a]");
+    if (!b) return;
+    const a = b.dataset.a;
+    const ci = +b.closest("[data-ci]")?.dataset.ci;
+    const oi = +b.closest("[data-oi]")?.dataset.oi;
+    if (a === "close") return ov.remove();
+    if (a === "addgrp") {
+      st.condiciones.push(nuevoGrupo());
+      return pintar();
+    }
+    if (a === "delgrp") {
+      st.condiciones.splice(ci, 1);
+      return pintar();
+    }
+    if (a === "upgrp" && ci > 0) {
+      [st.condiciones[ci - 1], st.condiciones[ci]] = [
+        st.condiciones[ci],
+        st.condiciones[ci - 1],
+      ];
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+      return;
+    }
+    if (a === "downgrp" && ci < st.condiciones.length - 1) {
+      [st.condiciones[ci + 1], st.condiciones[ci]] = [
+        st.condiciones[ci],
+        st.condiciones[ci + 1],
+      ];
+      const sc = body.scrollTop;
+      pintar();
+      body.scrollTop = sc;
+      return;
+    }
+    if (a === "addop") {
+      st.condiciones[ci].opciones.push(nuevaOpcion());
+      return pintar();
+    }
+    if (a === "delop") {
+      st.condiciones[ci].opciones.splice(oi, 1);
+      return pintar();
+    }
+
+    if (a === "save") {
+      const aplicarCaso = (s) =>
+        st.caso === "mayus"
+          ? String(s).toLocaleUpperCase("es")
+          : st.caso === "minus"
+            ? String(s).toLocaleLowerCase("es")
+            : String(s);
+      const conds = st.condiciones
+        .filter((c) => c.nombre.trim())
+        .map((c) => {
+          const multi = c.tipo === "multiple";
+          return {
+            nombre: aplicarCaso(c.nombre.trim()),
+            tipo: multi ? "multiple" : "unica",
+            obligatoria: c.obligatoria !== false,
+            conCantidad: multi && c.conCantidad === true,
+            max: multi && Number(c.max) > 0 ? Math.floor(Number(c.max)) : null,
+            opciones: c.opciones
+              .filter((o) => o.nombre.trim())
+              .map((o) => ({
+                nombre: aplicarCaso(o.nombre.trim()),
+                descripcion: aplicarCaso(
+                  String(o.descripcion || "").trim(),
+                ).slice(0, 120),
+                activo: o.activo !== false,
+                exclusiva: multi && o.exclusiva === true,
+                costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
+                stock: typeof o.stock === "number" ? o.stock : null,
+              })),
+          };
+        })
+        .filter((c) => c.opciones.length);
+
+      const sinOpciones = st.condiciones.find(
+        (c) => c.nombre.trim() && !c.opciones.some((o) => o.nombre.trim()),
+      );
+      if (sinOpciones) {
+        msg.textContent = `"${sinOpciones.nombre}" necesita al menos una opción`;
+        return;
+      }
+
+      const nombre = aplicarCaso(st.nombre.trim());
+      const stock =
+        st.stock !== "" && st.stock !== null
+          ? Math.max(0, parseInt(st.stock, 10) || 0)
+          : null;
+
+      b.disabled = true;
+      b.textContent = "Guardando...";
+      try {
+        omitirRenderHasta = Date.now() + 2500;
+        await updateDoc(doc(promosRef(), promo.id), {
+          nombre: nombre || deleteField(),
+          caso: st.caso !== "tal_cual" ? st.caso : deleteField(),
+          stock: stock !== null ? stock : deleteField(),
+          condiciones: conds.length ? conds : deleteField(),
+          sugerencias: st.sugerencias.length ? st.sugerencias : deleteField(),
+        });
+        // Refleja en el objeto local para que el modal siga al día
+        if (nombre) promo.nombre = nombre;
+        else delete promo.nombre;
+        if (st.caso !== "tal_cual") promo.caso = st.caso;
+        else delete promo.caso;
+        if (stock !== null) promo.stock = stock;
+        else delete promo.stock;
+        if (conds.length) promo.condiciones = conds;
+        else delete promo.condiciones;
+        if (st.sugerencias.length) promo.sugerencias = st.sugerencias;
+        else delete promo.sugerencias;
+
+        onGuardado?.(conds.length);
+        mostrarToast("Opciones de la publicación guardadas");
+        ov.remove();
+      } catch (err) {
+        console.error(err);
+        msg.textContent = "Error al guardar, intenta otra vez";
+        b.disabled = false;
+        b.textContent = "Guardar";
+      }
+    }
+  });
+  document.body.appendChild(ov);
+}
+
+// Guarda un cambio de config en el doc de la promo y lo refleja local (sin repintar la grilla)
+async function guardarConfig(promo, cambios, local) {
+  omitirRenderHasta = Date.now() + 2500;
+  await updateDoc(doc(promosRef(), promo.id), cambios);
+  const aplicar = (p) => {
+    if (!p) return;
+    Object.entries(local).forEach(([k, v]) => {
+      if (v === undefined) delete p[k];
+      else p[k] = v;
+    });
+  };
+  aplicar(promo);
+  aplicar(promos.find((p) => p.id === promo.id));
+}
+
+// Días + ⭐ especial + 🚚 delivery gratis + ⚙️ avanzado, visibles en la tarjeta
+function enlazarControlesCard(card, promo) {
+  const ctrl = card.querySelector("[data-ctrl]");
+  if (!ctrl) return;
+  // que tocar un control NO abra el detalle
+  ctrl.addEventListener("click", (e) => e.stopPropagation());
+
+  const pintar = () => {
+    const sel = promo.dias || [];
+    const nG = (promo.condiciones || []).length;
+    ctrl.innerHTML = `
+      <div class="of-dias">
+        <span class="of-dias-lbl">${sel.length ? "Se muestra estos días:" : "Se muestra todos los días"}</span>
+        ${GEN_DIAS.map(
+          ([d, l]) =>
+            `<span class="of-dia ${sel.includes(d) ? "on" : ""}" data-dia="${d}">${l}</span>`,
+        ).join("")}
+      </div>
+      <div class="of-dias">
+        <span class="of-dia ${promo.destacarEspecial ? "on" : ""}" data-esp="1" style="padding:5px 9px">⭐ Día especial</span>
+        <span class="of-dia ${promo.deliveryGratis ? "on" : ""}" data-del="1" style="padding:5px 9px">🚚 Delivery gratis</span>
+        <span class="of-dia ${nG ? "on" : ""}" data-adv="1" style="padding:5px 9px">⚙️ Avanzado${nG ? ` · ${nG}` : ""}</span>
+      </div>`;
+  };
+  pintar();
+
+  ctrl.addEventListener("click", async (e) => {
+    const dia = e.target.closest("[data-dia]");
+    const esp = e.target.closest("[data-esp]");
+    const del = e.target.closest("[data-del]");
+    const adv = e.target.closest("[data-adv]");
+
+    try {
+      if (dia) {
+        const set = new Set(promo.dias || []);
+        set.has(dia.dataset.dia) ? set.delete(dia.dataset.dia) : set.add(dia.dataset.dia);
+        const arr = GEN_DIAS.map((x) => x[0]).filter((x) => set.has(x));
+        await guardarConfig(
+          promo,
+          { dias: arr.length ? arr : deleteField() },
+          { dias: arr.length ? arr : undefined },
+        );
+        pintar();
+      } else if (esp) {
+        const v = !promo.destacarEspecial;
+        await guardarConfig(
+          promo,
+          { destacarEspecial: v ? true : deleteField() },
+          { destacarEspecial: v ? true : undefined },
+        );
+        pintar();
+        // el chip ⭐ de la foto se actualiza sin repintar
+        const foto = card.querySelector(".promo-img-wrap");
+        foto?.querySelector("[data-badge-esp]")?.remove();
+        if (v)
+          foto?.insertAdjacentHTML(
+            "beforeend",
+            `<span data-badge-esp class="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500 text-white shadow-md">⭐ Especial</span>`,
+          );
+        mostrarToast(v ? "Se destacará en tu día especial" : "Ya no se destacará");
+      } else if (del) {
+        const v = !promo.deliveryGratis;
+        await guardarConfig(
+          promo,
+          { deliveryGratis: v ? true : deleteField() },
+          { deliveryGratis: v ? true : undefined },
+        );
+        pintar();
+        mostrarToast(v ? "Delivery gratis activado" : "Delivery gratis desactivado");
+      } else if (adv) {
+        omitirRenderHasta = Date.now() + 2500;
+        abrirEditorAvanzadoPromo(promo, () => {
+          aplicarLocalEnLista(promo);
+          pintar();
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      mostrarToast("No se pudo guardar el cambio");
+    }
+  });
+}
+
+// El editor avanzado muta `promo`; copiamos esos campos al objeto de la lista
+function aplicarLocalEnLista(promo) {
+  const p = promos.find((x) => x.id === promo.id);
+  if (!p || p === promo) return;
+  ["nombre", "caso", "stock", "condiciones", "sugerencias"].forEach((k) => {
+    if (promo[k] === undefined) delete p[k];
+    else p[k] = promo[k];
+  });
+}
+
 /* ---------------- Modal de Detalle ---------------- */
 function abrirDetalle(promo) {
   const info = promo.informacion || {};
@@ -658,6 +1158,7 @@ function abrirDetalle(promo) {
     </button>
   </div>`
     : "";
+
   const pagos = (promo.pagos || [])
     .map((p) => `<span class="tag-chip capitalize">${p}</span>`)
     .join(" ");
@@ -685,8 +1186,8 @@ function abrirDetalle(promo) {
             </span>
           </div>
 
-                                  ${panelReactivar}
-                    ${panelOnOff}
+          ${panelReactivar}
+          ${panelOnOff}
           <div id="detalle-analytics" class="p-4 border-b border-zinc-800/80 bg-zinc-950/40 space-y-3"></div>
 
           ${galeria}
@@ -787,7 +1288,7 @@ function abrirDetalle(promo) {
       `;
 
   el("overlay-detalle").classList.add("show");
-  renderAnalyticsDetalle(promo); // antes decía renderChartsDetalle (no existe)
+  renderAnalyticsDetalle(promo);
   el("btn-cerrar-modal").addEventListener("click", cerrarDetalle);
   enlazarExportDetalle(promo);
   el("btn-toggle-activa")?.addEventListener("click", async (e) => {
@@ -812,7 +1313,7 @@ function abrirDetalle(promo) {
       msg.textContent = "Reactivando…";
       try {
         await reactivarPromo(promo, ms);
-        cerrarDetalle(); // el onSnapshot repinta todo solo
+        cerrarDetalle();
       } catch (e) {
         console.error(e);
         msg.textContent = "No se pudo reactivar, intenta de nuevo";

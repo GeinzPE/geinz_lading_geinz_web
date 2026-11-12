@@ -37,7 +37,7 @@ window.addEventListener("message", (e) => {
   if (e.data?.type === "DATOS_TIENDA") iniciarConDatos(e.data);
   if (e.data?.type === "PATCH_TIENDA" && TIENDA_REF) {
     const diff = e.data.payload || {};
-    if ("banner.activo" in diff || "banner.imagen" in diff) cargarBanner();
+    if (Object.keys(diff).some((k) => k.startsWith("banner"))) cargarBanner();
     if (
       Object.keys(diff).some((k) =>
         k.startsWith("img_tienda.lista_img.promociones"),
@@ -141,173 +141,66 @@ function mostrarToast(texto) {
   }, 2600);
 }
 
-// ══════════════ BANNER ══════════════
-const bDesc = document.getElementById("bannerDescripcion");
-const bPrecio = document.getElementById("bannerPrecio");
-const bPriceBox = document.getElementById("bannerPriceBox");
-const bClick = document.getElementById("bannerClickeableSwitch");
-const bTagDesc = document.getElementById("bannerTagDesc");
-const bTagPrecio = document.getElementById("bannerTagPrecio");
-const bMsg = document.getElementById("bannerMsg");
-const bBtnGuardar = document.getElementById("btnGuardarBanner");
-const bTipoRow = document.getElementById("bannerTipoRow");
-const bCampoPrecio = document.getElementById("bannerCampoPrecio");
-const bCampoDescuento = document.getElementById("bannerCampoDescuento");
-const bDescuentoValor = document.getElementById("bannerDescuentoValor");
-const bDescuentoUnidad = document.getElementById("bannerDescuentoUnidad");
-const bClickSub = document.getElementById("bannerClickSub");
-const bSoloSeguidores = document.getElementById("bannerSoloSeguidoresSwitch");
-const bSoloSeguidoresRow = document.getElementById("bannerSoloSeguidoresRow");
+// ══════════════ BANNERS (rotativos por día · cada uno con su configuración) ══════════════
+// Estructura en Firestore (doc de la tienda):
+//   banner.activo            → switch general (true/false)
+//   banner.items.{id}        → { imagen, descripcion, precio, clickeable, tipo,
+//                                 descuentoTipo, descuentoValor, soloSeguidores,
+//                                 dias[], condiciones[], sugerencias[], caso }
+// Si todavía existe el banner viejo (banner.imagen sin items) se muestra como
+// "principal" y se migra solo cuando lo tocas.
+const MAX_BANNERS = 7;
+let bannerMap = {}; // id -> item
+let bannerActivo = false;
+let subiendoBanner = false;
 
 const BANNER_CLICK_SUB = {
   producto:
-    "Si lo activas, al tocar el banner se abrirá el carrito con este producto. La descripción y el precio serán obligatorios.",
+    "Al tocar el banner se abrirá el carrito con este producto. Descripción y precio obligatorios.",
   descuento:
-    "Si lo activas, al tocar el banner se abrirá el carrito con este descuento ya aplicado. La descripción y el valor del descuento serán obligatorios.",
+    "Al tocar el banner se abrirá el carrito con el descuento aplicado. Descripción y valor obligatorios.",
   envio_gratis:
-    "Si lo activas, al tocar el banner se abrirá el carrito con el envío gratis ya aplicado. La descripción será obligatoria.",
+    "Al tocar el banner se abrirá el carrito con el envío gratis aplicado. Descripción obligatoria.",
 };
+const BANNER_CAMPOS_LEGACY = [
+  "descripcion",
+  "precio",
+  "clickeable",
+  "tipo",
+  "descuentoTipo",
+  "descuentoValor",
+  "soloSeguidores",
+  "condiciones",
+  "sugerencias",
+  "caso",
+];
 
-let bannerGuardado = {
-  descripcion: "",
-  precio: null,
-  clickeable: false,
-  tipo: "producto",
-  descuentoTipo: "porcentaje",
-  descuentoValor: null,
-  soloSeguidores: false,
+const textoAdv = (id) => {
+  const n = (bannerMap[id]?.condiciones || []).length;
+  return `⚙️ Modo avanzado${n ? ` · ${n} grupo(s)` : ""}`;
 };
-let bannerDoc = {};
-let bannerTipoActual = "producto";
-let bannerDescuentoTipoActual = "porcentaje";
-
-const bannerLeerPrecio = () => {
-  const n = parseFloat(String(bPrecio?.value ?? "").replace(",", "."));
-  return n > 0 ? n : null;
-};
-
-function bannerLeerDescuento() {
-  const n = parseFloat(String(bDescuentoValor?.value || "").replace(",", "."));
-  return n > 0 ? n : null;
+function bannerRepintarAdv(id) {
+  const b = document.querySelector(
+    `.of-card[data-bid="${id}"] [data-role="adv"]`,
+  );
+  if (b) b.textContent = textoAdv(id);
 }
 
-const bannerSetMsg = (texto, tipo = "") => {
-  if (!bMsg) return;
-  bMsg.textContent = texto;
-  bMsg.className = "of-msg" + (tipo ? " " + tipo : "");
-};
-
-const bannerHayCambios = () =>
-  bDesc.value.trim() !== (bannerGuardado.descripcion || "").trim() ||
-  (bannerLeerPrecio() || 0) !== (bannerGuardado.precio || 0) ||
-  bClick.checked !== bannerGuardado.clickeable ||
-  bannerTipoActual !== (bannerGuardado.tipo || "producto") ||
-  bannerDescuentoTipoActual !==
-    (bannerGuardado.descuentoTipo || "porcentaje") ||
-  (bannerLeerDescuento() || 0) !== (bannerGuardado.descuentoValor || 0) ||
-  !!bSoloSeguidores?.checked !== !!bannerGuardado.soloSeguidores;
-
-// Si es clickeable → descripción y precio/valor obligatorios. Si no → opcionales.
-function validarBanner() {
-  if (!bClick || !bDesc) return;
-  const obligatorio = bClick.checked;
-  const esProducto = bannerTipoActual === "producto";
-  const esDescuento = bannerTipoActual === "descuento";
-
-  const faltaDesc = obligatorio && !bDesc.value.trim();
-  const faltaPrecio = obligatorio && esProducto && !bannerLeerPrecio();
-  const faltaDescuento = obligatorio && esDescuento && !bannerLeerDescuento();
-
-  bTagDesc.textContent = obligatorio ? "obligatoria" : "opcional";
-  bTagDesc.classList.toggle("req", obligatorio);
-  bDesc.classList.toggle("error", faltaDesc);
-
-  if (esProducto) {
-    bTagPrecio.textContent = obligatorio ? "obligatorio" : "opcional";
-    bTagPrecio.classList.toggle("req", obligatorio);
-    bPriceBox.classList.toggle("error", faltaPrecio);
-  } else {
-    bPriceBox.classList.remove("error");
-  }
-
-  document
-    .getElementById("bannerDescuentoBox")
-    ?.classList.toggle("error", faltaDescuento);
-
-  if (bSoloSeguidoresRow)
-    bSoloSeguidoresRow.style.display = obligatorio ? "" : "none";
-
-  const btnAv = document.getElementById("btnBannerAvanzado");
-  if (btnAv) {
-    btnAv.style.display = obligatorio && esProducto ? "" : "none";
-    const n = (bannerDoc.condiciones || []).length;
-    btnAv.textContent = `⚙️ Modo avanzado${n ? ` · ${n} grupo(s)` : ""}`;
-  }
-  bBtnGuardar.disabled = faltaDesc || faltaPrecio || faltaDescuento;
-
-  if (faltaDesc || faltaPrecio || faltaDescuento) {
-    const faltan = [
-      faltaDesc && "descripción",
-      faltaPrecio && "precio",
-      faltaDescuento && "valor del descuento",
-    ]
-      .filter(Boolean)
-      .join(" y ");
-    bannerSetMsg(`Falta ${faltan} para que el banner sea clickeable`, "error");
-  } else if (bMsg.classList.contains("error")) {
-    bannerSetMsg("");
-  }
+// Pasa el banner viejo (campos sueltos) a banner.items.principal antes de escribir
+async function asegurarMigrado(id) {
+  const it = bannerMap[id];
+  if (!it || !it._legacy) return;
+  const { _legacy, ...limpio } = it;
+  await updateDoc(TIENDA_REF, { [`banner.items.${id}`]: limpio });
+  delete it._legacy;
 }
-
-function pintarTipoBanner() {
-  bTipoRow?.querySelectorAll(".bn-tipo-chip").forEach((c) => {
-    c.classList.toggle("active", c.dataset.tipo === bannerTipoActual);
-  });
-  if (bCampoPrecio)
-    bCampoPrecio.style.display = bannerTipoActual === "producto" ? "" : "none";
-  if (bCampoDescuento)
-    bCampoDescuento.classList.toggle("show", bannerTipoActual === "descuento");
-  if (bClickSub)
-    bClickSub.textContent =
-      BANNER_CLICK_SUB[bannerTipoActual] || BANNER_CLICK_SUB.producto;
-  validarBanner();
-}
-
-bTipoRow?.addEventListener("click", (e) => {
-  const chip = e.target.closest("[data-tipo]");
-  if (!chip) return;
-  bannerTipoActual = chip.dataset.tipo;
-  pintarTipoBanner();
-});
-
-document
-  .querySelectorAll("#bannerCampoDescuento [data-descuento-tipo]")
-  .forEach((chip) => {
-    chip.addEventListener("click", () => {
-      bannerDescuentoTipoActual = chip.dataset.descuentoTipo;
-      document
-        .querySelectorAll("#bannerCampoDescuento [data-descuento-tipo]")
-        .forEach((c) => c.classList.toggle("active", c === chip));
-      if (bDescuentoUnidad)
-        bDescuentoUnidad.textContent =
-          bannerDescuentoTipoActual === "porcentaje" ? "%" : "S/";
-      validarBanner();
-    });
-  });
-
-bDesc?.addEventListener("input", validarBanner);
-bPrecio?.addEventListener("input", validarBanner);
-bClick?.addEventListener("change", validarBanner);
-bDescuentoValor?.addEventListener("input", validarBanner);
 
 async function cargarBanner(intento = 0) {
   if (!TIENDA_REF) return;
-
-  let banner = {};
+  let b = {};
   try {
     const snap = await getDoc(TIENDA_REF);
-    banner = snap.data()?.banner || {};
-    bannerDoc = banner;
+    b = snap.data()?.banner || {};
   } catch (err) {
     console.error("[banner] falló getDoc:", err.code, err.message);
     if (intento < 3)
@@ -315,137 +208,471 @@ async function cargarBanner(intento = 0) {
     return;
   }
 
-  const img = document.getElementById("bannerImgPreview");
-  const ph = document.getElementById("bannerPlaceholder");
-  const sw = document.getElementById("bannerActivoSwitch");
+  bannerActivo = b.activo === true;
+  bannerMap = {};
+  const items = b.items && typeof b.items === "object" ? b.items : {};
+  Object.entries(items).forEach(([id, it]) => (bannerMap[id] = { ...it }));
 
-  if (banner.imagen) {
-    img.src = conVersion(banner.imagen);
-    img.style.display = "block";
-    ph.style.display = "none";
-  } else {
-    img.style.display = "none";
-    ph.style.display = "flex";
+  // Banner viejo sin migrar
+  if (!Object.keys(bannerMap).length && b.imagen) {
+    const leg = { imagen: b.imagen, _legacy: true };
+    BANNER_CAMPOS_LEGACY.forEach((k) => {
+      if (b[k] !== undefined && b[k] !== null) leg[k] = b[k];
+    });
+    bannerMap.principal = leg;
   }
-  sw.checked = banner.activo === true;
-
-  bannerGuardado = {
-    descripcion: banner.descripcion || "",
-    precio: Number(banner.precio) > 0 ? Number(banner.precio) : null,
-    clickeable: banner.clickeable === true,
-    tipo: banner.tipo || "producto",
-    descuentoTipo: banner.descuentoTipo || "porcentaje",
-    descuentoValor:
-      Number(banner.descuentoValor) > 0 ? Number(banner.descuentoValor) : null,
-    soloSeguidores: banner.soloSeguidores === true,
-  };
-
-  bDesc.value = bannerGuardado.descripcion;
-  bPrecio.value = bannerGuardado.precio ?? "";
-  bClick.checked = bannerGuardado.clickeable;
-  bannerTipoActual = bannerGuardado.tipo;
-  bannerDescuentoTipoActual = bannerGuardado.descuentoTipo;
-  if (bDescuentoValor)
-    bDescuentoValor.value = bannerGuardado.descuentoValor ?? "";
-  if (bDescuentoUnidad)
-    bDescuentoUnidad.textContent =
-      bannerDescuentoTipoActual === "porcentaje" ? "%" : "S/";
-  document
-    .querySelectorAll("#bannerCampoDescuento [data-descuento-tipo]")
-    .forEach((c) =>
-      c.classList.toggle(
-        "active",
-        c.dataset.descuentoTipo === bannerDescuentoTipoActual,
-      ),
-    );
-  if (bSoloSeguidores) bSoloSeguidores.checked = bannerGuardado.soloSeguidores;
-
-  pintarTipoBanner();
+  renderBanners();
 }
 
-bBtnGuardar?.addEventListener("click", async () => {
-  if (!TIENDA_REF) {
-    bannerSetMsg("Aún cargando datos de la tienda, espera un momento", "error");
-    return;
+function renderBanners() {
+  const grid = document.getElementById("bannersGrid");
+  if (!grid) return;
+  grid.style.cssText =
+    "display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;margin-top:14px";
+  grid.innerHTML = "";
+
+  const ids = Object.keys(bannerMap);
+  ids.forEach((id) => grid.appendChild(crearCardBanner(id)));
+
+  const sw = document.getElementById("bannerActivoSwitch");
+  if (sw) sw.checked = bannerActivo;
+  const cont = document.getElementById("bannersContador");
+  if (cont)
+    cont.textContent = ids.length
+      ? `${ids.length} de ${MAX_BANNERS} banners`
+      : "Aún no tienes banners";
+
+  if (ids.length < MAX_BANNERS) {
+    const add = document.createElement("div");
+    add.className = "of-add";
+    add.id = "bannerAddCard";
+    add.style.position = "relative";
+    add.innerHTML = `📷<span>Agregar banner</span><small style="opacity:.6">${ids.length + 1} de ${MAX_BANNERS}</small>`;
+    add.onclick = () => subirImagenBanner(null);
+    grid.appendChild(add);
   }
+}
 
-  const descripcion = bDesc.value.trim();
-  const precio = bannerLeerPrecio();
-  const descuentoValor = bannerLeerDescuento();
-  const clickeable = bClick.checked;
-  const tipo = bannerTipoActual;
-  // Solo tiene sentido si el banner es clickeable
-  const soloSeguidores = clickeable && !!bSoloSeguidores?.checked;
+function crearCardBanner(id) {
+  const base = bannerMap[id];
+  // Borrador editable (lo guardado vive en bannerMap[id])
+  const st = {
+    descripcion: base.descripcion || "",
+    precio: Number(base.precio) > 0 ? Number(base.precio) : null,
+    clickeable: base.clickeable === true,
+    tipo: base.tipo || "producto",
+    descuentoTipo: base.descuentoTipo || "porcentaje",
+    descuentoValor:
+      Number(base.descuentoValor) > 0 ? Number(base.descuentoValor) : null,
+    soloSeguidores: base.soloSeguidores === true,
+  };
 
-  if (clickeable) {
-    if (!descripcion) {
-      validarBanner();
-      return;
-    }
-    if (tipo === "producto" && !precio) {
-      validarBanner();
-      return;
-    }
-    if (tipo === "descuento" && !descuentoValor) {
-      validarBanner();
-      return;
-    }
-  }
+  const card = document.createElement("div");
+  card.className = "of-card";
+  card.dataset.bid = id;
+  const chip = (attr, val, label) =>
+    `<div class="bn-tipo-chip" ${attr}="${val}" style="padding:6px 10px;font-size:11.5px">${label}</div>`;
 
-  if (!bannerHayCambios()) {
-    bannerSetMsg("Sin cambios");
-    setTimeout(() => {
-      if (bMsg.textContent === "Sin cambios") bannerSetMsg("");
-    }, 1500);
-    return;
-  }
+  card.innerHTML = `
+    <div class="of-img" data-role="img-wrap">
+      <img alt="">
+      <button type="button" class="of-edit" data-role="edit">📷 Cambiar</button>
+      <button type="button" class="of-del" data-role="del" title="Eliminar banner">✕</button>
+      <span class="of-price-tag" data-role="tag">Sin precio</span>
+      <span class="of-price-tag" data-role="hoy" style="left:auto;right:10px;display:none">👁 Hoy</span>
+    </div>
+    <div class="of-body">
+      <div class="of-dias" data-role="dias"></div>
+      <div class="bn-tipo-row" data-role="tipo">
+        ${chip("data-tipo", "producto", "🛍️ Producto")}${chip("data-tipo", "descuento", "🏷️ Descuento")}${chip("data-tipo", "envio_gratis", "🚚 Envío gratis")}
+      </div>
+      <textarea class="of-desc" data-role="desc" rows="2" maxlength="80" placeholder="Descripción (ej: Promo del día)"></textarea>
+      <div class="of-price" data-role="box-precio">
+        <span>S/</span>
+        <input data-role="precio" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Precio">
+      </div>
+      <div data-role="box-desc" style="display:none;flex-direction:column;gap:8px">
+        <div class="bn-mini-toggle" data-role="dt">
+          ${chip("data-dt", "porcentaje", "% Porcentaje")}${chip("data-dt", "monto", "S/ Monto fijo")}
+        </div>
+        <div class="of-price" data-role="box-vdesc">
+          <span data-role="unidad">%</span>
+          <input data-role="vdesc" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ej: 10">
+        </div>
+      </div>
+      <div class="bn-click-row">
+        <div>
+          <p class="bn-click-title" style="font-size:12px">Banner clickeable</p>
+          <p class="bn-click-sub" data-role="click-sub"></p>
+        </div>
+        <label class="switch"><input type="checkbox" data-role="click"><span class="slider"></span></label>
+      </div>
+      <div class="bn-click-row" data-role="seg-row" style="display:none">
+        <div>
+          <p class="bn-click-title" style="font-size:12px">Solo para seguidores</p>
+          <p class="bn-click-sub">Solo quienes siguen tu negocio podrán usarlo.</p>
+        </div>
+        <label class="switch"><input type="checkbox" data-role="seg"><span class="slider"></span></label>
+      </div>
+      <button type="button" class="of-save" data-role="adv" style="display:none;background:rgba(255,255,255,.08);box-shadow:none"></button>
+      <p class="of-msg" data-role="msg"></p>
+      <button type="button" class="of-save" data-role="save" disabled>Guardar</button>
+    </div>`;
 
-  bBtnGuardar.disabled = true;
-  bBtnGuardar.textContent = "Guardando...";
-  try {
-    await updateDoc(TIENDA_REF, {
-      "banner.descripcion": descripcion || deleteField(),
-      "banner.precio": tipo === "producto" && precio ? precio : deleteField(),
-      "banner.clickeable": clickeable,
-      "banner.tipo": tipo,
-      "banner.descuentoTipo":
-        tipo === "descuento" ? bannerDescuentoTipoActual : deleteField(),
-      "banner.descuentoValor":
-        tipo === "descuento" && descuentoValor ? descuentoValor : deleteField(),
-      "banner.soloSeguidores": soloSeguidores ? true : deleteField(),
-      ...(tipo !== "producto" && {
-        "banner.condiciones": deleteField(),
-        "banner.sugerencias": deleteField(),
-      }),
-    });
+  const $ = (r) => card.querySelector(`[data-role="${r}"]`);
+  const imgEl = card.querySelector("img");
+  const desc = $("desc"),
+    precio = $("precio"),
+    vdesc = $("vdesc"),
+    msg = $("msg"),
+    btn = $("save"),
+    tag = $("tag");
 
-    bannerGuardado = {
-      descripcion,
-      precio: tipo === "producto" ? precio : null,
-      clickeable,
-      tipo,
-      descuentoTipo: bannerDescuentoTipoActual,
-      descuentoValor: tipo === "descuento" ? descuentoValor : null,
-      soloSeguidores,
+  if (base.imagen) imgEl.src = conVersion(base.imagen);
+  desc.value = st.descripcion;
+  precio.value = st.precio ?? "";
+  vdesc.value = st.descuentoValor ?? "";
+  $("click").checked = st.clickeable;
+  $("seg").checked = st.soloSeguidores;
+
+  const num = (inp) => {
+    const n = parseFloat(String(inp.value).replace(",", "."));
+    return n > 0 ? n : null;
+  };
+  const setMsg = (t, tipo = "") => {
+    msg.textContent = t;
+    msg.className = "of-msg" + (tipo ? " " + tipo : "");
+  };
+
+  // Item que se guardaría con el borrador actual (conserva imagen, días y avanzado)
+  const construir = () => {
+    const g = bannerMap[id] || {};
+    const item = {
+      imagen: g.imagen,
+      clickeable: st.clickeable,
+      tipo: st.tipo,
     };
-    if (tipo !== "producto") {
-      delete bannerDoc.condiciones;
-      delete bannerDoc.sugerencias;
+    const d = st.descripcion.trim();
+    if (d) item.descripcion = d;
+    if (st.tipo === "producto") {
+      if (st.precio) item.precio = st.precio;
+      if (g.condiciones?.length) item.condiciones = g.condiciones;
+      if (g.sugerencias?.length) item.sugerencias = g.sugerencias;
+      if (g.caso) item.caso = g.caso;
     }
-    bannerSetMsg("Cambios guardados", "ok");
-    setTimeout(() => {
-      if (bMsg.classList.contains("ok")) bannerSetMsg("");
-    }, 1500);
-    mostrarToast("Banner actualizado correctamente");
+    if (st.tipo === "descuento") {
+      item.descuentoTipo = st.descuentoTipo;
+      if (st.descuentoValor) item.descuentoValor = st.descuentoValor;
+    }
+    if (st.clickeable && st.soloSeguidores) item.soloSeguidores = true;
+    if (g.dias?.length) item.dias = g.dias;
+    return item;
+  };
+  const canon = (it) => {
+    const t = it.tipo || "producto";
+    return JSON.stringify([
+      (it.descripcion || "").trim(),
+      t === "producto" ? Number(it.precio) || 0 : 0,
+      it.clickeable === true,
+      t,
+      t === "descuento" ? it.descuentoTipo || "porcentaje" : "",
+      t === "descuento" ? Number(it.descuentoValor) || 0 : 0,
+      it.clickeable === true && it.soloSeguidores === true,
+    ]);
+  };
+  const hayCambios = () => canon(construir()) !== canon(bannerMap[id] || {});
+
+  const pintarDias = () => {
+    const it = bannerMap[id] || {};
+    const sel = it.dias || [];
+    $("dias").innerHTML =
+      `<span class="of-dias-lbl">${sel.length ? "Se muestra estos días:" : "Se muestra todos los días"}</span>` +
+      GEN_DIAS.map(
+        ([d, l]) =>
+          `<span class="of-dia ${sel.includes(d) ? "on" : ""}" data-dia="${d}">${l}</span>`,
+      ).join("");
+    $("hoy").style.display = ofertaCoincide(it, "hoy") ? "" : "none";
+  };
+
+  const pintar = () => {
+    card
+      .querySelectorAll("[data-tipo]")
+      .forEach((c) => c.classList.toggle("active", c.dataset.tipo === st.tipo));
+    card
+      .querySelectorAll("[data-dt]")
+      .forEach((c) =>
+        c.classList.toggle("active", c.dataset.dt === st.descuentoTipo),
+      );
+    const esProd = st.tipo === "producto";
+    const esDesc = st.tipo === "descuento";
+    $("box-precio").style.display = esProd ? "" : "none";
+    $("box-desc").style.display = esDesc ? "flex" : "none";
+    $("unidad").textContent = st.descuentoTipo === "porcentaje" ? "%" : "S/";
+    $("click-sub").textContent =
+      BANNER_CLICK_SUB[st.tipo] || BANNER_CLICK_SUB.producto;
+    $("seg-row").style.display = st.clickeable ? "" : "none";
+    const adv = $("adv");
+    adv.style.display = st.clickeable && esProd ? "" : "none";
+    adv.textContent = textoAdv(id);
+
+    const ob = st.clickeable;
+    const faltan = [];
+    if (ob && !st.descripcion.trim()) faltan.push("descripción");
+    if (ob && esProd && !st.precio) faltan.push("precio");
+    if (ob && esDesc && !st.descuentoValor) faltan.push("valor del descuento");
+    desc.classList.toggle("error", faltan.includes("descripción"));
+    $("box-precio").classList.toggle("error", faltan.includes("precio"));
+    $("box-vdesc").classList.toggle(
+      "error",
+      faltan.includes("valor del descuento"),
+    );
+    btn.disabled = faltan.length > 0;
+    card.classList.toggle("falta-precio", faltan.length > 0);
+    card.classList.toggle("dirty", !faltan.length && hayCambios());
+    if (faltan.length)
+      setMsg(`Falta ${faltan.join(" y ")} para que sea clickeable`, "error");
+    else if (msg.classList.contains("error")) setMsg("");
+
+    // etiqueta sobre la imagen
+    if (esProd) {
+      tag.textContent = st.precio ? "S/ " + st.precio.toFixed(2) : "Sin precio";
+      tag.classList.toggle("vacio", !st.precio && ob);
+    } else if (esDesc) {
+      tag.textContent = st.descuentoValor
+        ? st.descuentoTipo === "porcentaje"
+          ? `-${st.descuentoValor}%`
+          : `-S/ ${st.descuentoValor.toFixed(2)}`
+        : "Sin valor";
+      tag.classList.toggle("vacio", !st.descuentoValor && ob);
+    } else {
+      tag.textContent = "🚚 Envío gratis";
+      tag.classList.remove("vacio");
+    }
+  };
+
+  pintarDias();
+  pintar();
+
+  // ── Eventos ──
+  $("tipo").addEventListener("click", (e) => {
+    const c = e.target.closest("[data-tipo]");
+    if (!c) return;
+    st.tipo = c.dataset.tipo;
+    pintar();
+  });
+  $("dt").addEventListener("click", (e) => {
+    const c = e.target.closest("[data-dt]");
+    if (!c) return;
+    st.descuentoTipo = c.dataset.dt;
+    pintar();
+  });
+  desc.addEventListener("input", () => {
+    st.descripcion = desc.value;
+    pintar();
+  });
+  precio.addEventListener("input", () => {
+    st.precio = num(precio);
+    pintar();
+  });
+  vdesc.addEventListener("input", () => {
+    st.descuentoValor = num(vdesc);
+    pintar();
+  });
+  $("click").addEventListener("change", (e) => {
+    st.clickeable = e.target.checked;
+    pintar();
+  });
+  $("seg").addEventListener("change", (e) => {
+    st.soloSeguidores = e.target.checked;
+    pintar();
+  });
+  $("adv").addEventListener("click", () =>
+    abrirEditorAvanzadoOferta("__banner__:" + id),
+  );
+
+  // Días: se guardan al tocar (igual que en ofertas)
+  $("dias").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-dia]");
+    if (!b) return;
+    const set = new Set(bannerMap[id]?.dias || []);
+    set.has(b.dataset.dia) ? set.delete(b.dataset.dia) : set.add(b.dataset.dia);
+    const arr = GEN_DIAS.map((x) => x[0]).filter((x) => set.has(x));
+    try {
+      await asegurarMigrado(id);
+      await updateDoc(TIENDA_REF, {
+        [`banner.items.${id}.dias`]: arr.length ? arr : deleteField(),
+      });
+      if (arr.length) bannerMap[id].dias = arr;
+      else delete bannerMap[id].dias;
+      pintarDias();
+    } catch (err) {
+      console.error(err);
+      mostrarToast("No se pudo cambiar los días");
+    }
+  });
+
+  btn.addEventListener("click", async () => {
+    if (!TIENDA_REF) {
+      setMsg("Aún cargando datos de la tienda, espera un momento", "error");
+      return;
+    }
+    if (!hayCambios()) {
+      setMsg("Sin cambios");
+      setTimeout(() => {
+        if (msg.textContent === "Sin cambios") setMsg("");
+      }, 1500);
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Guardando...";
+    try {
+      await asegurarMigrado(id);
+      const item = construir();
+      await updateDoc(TIENDA_REF, { [`banner.items.${id}`]: item });
+      bannerMap[id] = item;
+      setMsg("Cambios guardados", "ok");
+      setTimeout(() => {
+        if (msg.classList.contains("ok")) setMsg("");
+      }, 1500);
+      mostrarToast("Banner actualizado correctamente");
+    } catch (err) {
+      console.error(err);
+      setMsg("Error al guardar, intenta otra vez", "error");
+    } finally {
+      btn.textContent = "Guardar";
+      pintar();
+    }
+  });
+
+  $("img-wrap").addEventListener("click", (e) => {
+    if (e.target.closest('[data-role="del"]') || e.target.closest('[data-role="edit"]'))
+      return;
+    abrirVisor(imgEl.src);
+  });
+  $("edit").addEventListener("click", (e) => {
+    e.stopPropagation();
+    subirImagenBanner(id);
+  });
+  $("del").addEventListener("click", (e) => {
+    e.stopPropagation();
+    eliminarBanner(id);
+  });
+
+  return card;
+}
+
+function subirImagenBanner(oldId) {
+  if (subiendoBanner) return;
+  if (!oldId && Object.keys(bannerMap).length >= MAX_BANNERS) {
+    alert(`Puedes tener hasta ${MAX_BANNERS} banners`);
+    return;
+  }
+  if (!TIENDA_REF) {
+    alert("Aún cargando datos de la tienda, intenta en un momento");
+    return;
+  }
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/png,image/jpeg,image/webp";
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (
+      !confirm(
+        oldId ? "¿Reemplazar la imagen de este banner?" : "¿Agregar este banner?",
+      )
+    )
+      return;
+
+    subiendoBanner = true;
+    const host = oldId
+      ? document.querySelector(`.of-card[data-bid="${oldId}"] .of-img`)
+      : document.getElementById("bannerAddCard");
+    const ov = document.createElement("div");
+    ov.className = "of-img-loading";
+    ov.innerHTML = `<div class="of-spinner"></div><span>Subiendo imagen...</span>`;
+    host?.appendChild(ov);
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const id =
+          oldId || String(Math.floor(Math.random() * 9000000) + 1000000);
+        // Si todavía existe el banner viejo, se migra antes de crear otro
+        await asegurarMigrado(oldId || "principal");
+        const comprimida = await comprimirImagen(ev.target.result, 1280, 0.85);
+        const blob = dataURLtoBlob(comprimida);
+        const nombre = id === "principal" ? "banner" : id;
+        const ref = storageRef(
+          storage,
+          `tiendas/${TIENDA_ID}/banner/${nombre}.jpg`,
+        );
+        await uploadBytes(ref, blob, { contentType: "image/jpeg" });
+        const url = await getDownloadURL(ref);
+        if (oldId) {
+          await updateDoc(TIENDA_REF, {
+            [`banner.items.${id}.imagen`]: url,
+          });
+        } else {
+          await updateDoc(TIENDA_REF, {
+            [`banner.items.${id}`]: {
+              imagen: url,
+              clickeable: false,
+              tipo: "producto",
+            },
+            "banner.activo": true,
+          });
+        }
+        mostrarToast("La imagen se subió correctamente");
+        await cargarBanner();
+      } catch (err) {
+        console.error(err);
+        alert("Error al subir el banner");
+      } finally {
+        subiendoBanner = false;
+        ov.remove();
+      }
+    };
+    reader.onerror = () => {
+      subiendoBanner = false;
+      ov.remove();
+      alert("No se pudo leer la imagen");
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+async function eliminarBanner(id) {
+  if (!TIENDA_REF) return;
+  if (!confirm("¿Eliminar este banner por completo?")) return;
+  try {
+    const nombre = id === "principal" ? "banner" : id;
+    for (const ext of ["jpg", "webp"]) {
+      try {
+        await deleteObject(
+          storageRef(storage, `tiendas/${TIENDA_ID}/banner/${nombre}.${ext}`),
+        );
+      } catch {}
+    }
+    const cambios = { [`banner.items.${id}`]: deleteField() };
+    // Si era el último, se limpia también el banner viejo para que no reaparezca
+    if (Object.keys(bannerMap).length <= 1) {
+      ["imagen", ...BANNER_CAMPOS_LEGACY].forEach(
+        (k) => (cambios[`banner.${k}`] = deleteField()),
+      );
+    }
+    await updateDoc(TIENDA_REF, cambios);
+    delete bannerMap[id];
+    renderBanners();
+    mostrarToast("Banner eliminado");
   } catch (err) {
     console.error(err);
-    bannerSetMsg("Error al guardar, intenta otra vez", "error");
-  } finally {
-    bBtnGuardar.textContent = "Guardar detalles del banner";
-    validarBanner();
+    alert("Error al eliminar el banner");
   }
-});
+}
 
+// Switch general: mostrar / ocultar todos los banners
 document
   .getElementById("bannerActivoSwitch")
   ?.addEventListener("change", async (e) => {
@@ -457,76 +684,13 @@ document
     const nuevo = sw.checked;
     try {
       await updateDoc(TIENDA_REF, { "banner.activo": nuevo });
+      bannerActivo = nuevo;
     } catch (err) {
       console.error(err);
-      sw.checked = !nuevo; // revierte si falló
-      alert("No se pudo cambiar el estado del banner");
+      sw.checked = !nuevo;
+      alert("No se pudo cambiar el estado de los banners");
     }
   });
-
-document.getElementById("btnBannerAvanzado")?.addEventListener("click", () => {
-  if (!TIENDA_REF) return;
-  abrirEditorAvanzadoOferta("__banner__");
-});
-
-document.getElementById("btnCambiarBanner")?.addEventListener("click", () => {
-  document.getElementById("bannerFileInput").click();
-});
-
-document.getElementById("bannerPreviewWrap")?.addEventListener("click", () => {
-  const img = document.getElementById("bannerImgPreview");
-  if (img && img.style.display !== "none" && img.src) abrirVisor(img.src);
-});
-
-document.getElementById("bannerFileInput")?.addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  e.target.value = "";
-  if (!TIENDA_REF) {
-    alert("Aún cargando datos de la tienda, intenta en un momento");
-    return;
-  }
-  if (!confirm("¿Actualizar el banner?")) return;
-
-  const wrap = document.getElementById("bannerPreviewWrap");
-  const ov = document.createElement("div");
-  ov.className = "of-img-loading";
-  ov.innerHTML = `<div class="of-spinner"></div><span>Subiendo imagen...</span>`;
-  wrap.appendChild(ov);
-
-  const reader = new FileReader();
-  reader.onload = async (ev) => {
-    try {
-      const comprimida = await comprimirImagen(ev.target.result, 1280, 0.85);
-      const blob = dataURLtoBlob(comprimida);
-      const ref = storageRef(storage, `tiendas/${TIENDA_ID}/banner/banner.jpg`);
-      await uploadBytes(ref, blob, { contentType: "image/jpeg" });
-      const url = await getDownloadURL(ref);
-      await updateDoc(TIENDA_REF, {
-        "banner.imagen": url,
-        "banner.activo": true,
-      });
-      // Si había un banner viejo en WebP, se limpia (no importa si no existe)
-      try {
-        await deleteObject(
-          storageRef(storage, `tiendas/${TIENDA_ID}/banner/banner.webp`),
-        );
-      } catch {}
-      mostrarToast("La imagen se subió correctamente");
-      await cargarBanner();
-    } catch (err) {
-      console.error(err);
-      alert("Error al subir el banner");
-    } finally {
-      ov.remove();
-    }
-  };
-  reader.onerror = () => {
-    ov.remove();
-    alert("No se pudo leer la imagen");
-  };
-  reader.readAsDataURL(file);
-});
 
 // ══════════════ OFERTAS ══════════════
 let ofertasCache = {};
@@ -743,29 +907,40 @@ function renderOfertas(map) {
         mostrarToast("No se pudo cambiar los días");
       }
     });
-    // ── Destacar en día especial ──
+    // ── Destacar en día especial + Delivery gratis ──
     const espBox = card.querySelector('[data-role="esp"]');
     const pintarEsp = () => {
-      const on = normalizarOferta(ofertasCache[key]).destacarEspecial === true;
-      espBox.innerHTML = `<span class="of-dia ${on ? "on" : ""}" data-esp="1" style="padding:5px 10px">⭐ Destacar en día especial</span>`;
+      const o = normalizarOferta(ofertasCache[key]);
+      espBox.innerHTML =
+        `<span class="of-dia ${o.destacarEspecial === true ? "on" : ""}" data-esp="1" style="padding:5px 10px">⭐ Destacar en día especial</span>` +
+        `<span class="of-dia ${o.deliveryGratis === true ? "on" : ""}" data-del="1" style="padding:5px 10px">🚚 Delivery gratis</span>`;
     };
     pintarEsp();
     espBox.addEventListener("click", async (e) => {
-      if (!e.target.closest("[data-esp]")) return;
+      const chip = e.target.closest("[data-esp],[data-del]");
+      if (!chip) return;
+      const campo = chip.dataset.del ? "deliveryGratis" : "destacarEspecial";
       const actual = normalizarOferta(ofertasCache[key]);
-      const nuevoValor = !(actual.destacarEspecial === true);
+      const nuevoValor = !(actual[campo] === true);
       try {
         await updateDoc(TIENDA_REF, {
-          [`img_tienda.lista_img.promociones.${key}.destacarEspecial`]:
-            nuevoValor ? true : deleteField(),
+          [`img_tienda.lista_img.promociones.${key}.${campo}`]: nuevoValor
+            ? true
+            : deleteField(),
         });
         const nuevo = { ...actual };
-        if (nuevoValor) nuevo.destacarEspecial = true;
-        else delete nuevo.destacarEspecial;
+        if (nuevoValor) nuevo[campo] = true;
+        else delete nuevo[campo];
         ofertasCache[key] = nuevo;
         pintarEsp();
         mostrarToast(
-          nuevoValor ? "Se destacará en tu día especial" : "Ya no se destacará",
+          campo === "deliveryGratis"
+            ? nuevoValor
+              ? "Delivery gratis activado"
+              : "Delivery gratis desactivado"
+            : nuevoValor
+              ? "Se destacará en tu día especial"
+              : "Ya no se destacará",
         );
       } catch (err) {
         console.error(err);
@@ -1160,7 +1335,7 @@ let genModo = "porcentaje";
 let genFile = null;
 let genDescEditada = false;
 let genCreando = false;
-
+let genDelivery = false;
 async function cargarProductosGen() {
   if (!TIENDA_REF) return;
   const lista = $g("genLista");
@@ -1446,6 +1621,7 @@ function genMsg(txt, tipo = "") {
 function genLimpiar() {
   genSel.clear();
   genDias.clear();
+  genDelivery = false;
   genFile = null;
   genDescEditada = false;
   $g("genValor").value = "";
@@ -1454,8 +1630,25 @@ function genLimpiar() {
   prev.style.backgroundImage = "";
   prev.textContent = "📷 Tu imagen";
   genPintarDias();
+  genPintarDelivery();
   genRefrescar();
   genMsg("");
+}
+
+function genPintarDelivery() {
+  let box = $g("genDeliveryRow");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "genDeliveryRow";
+    box.className = "gen-chips";
+    box.style.marginTop = "8px";
+    $g("genDias").insertAdjacentElement("afterend", box);
+    box.addEventListener("click", () => {
+      genDelivery = !genDelivery;
+      genPintarDelivery();
+    });
+  }
+  box.innerHTML = `<div class="bn-tipo-chip ${genDelivery ? "active" : ""}">🚚 Delivery gratis con este combo</div>`;
 }
 
 function genPintarDias() {
@@ -1651,6 +1844,7 @@ $g("genCrear")?.addEventListener("click", async () => {
     };
     const dias = GEN_DIAS.map((x) => x[0]).filter((d) => genDias.has(d));
     if (dias.length) oferta.dias = dias;
+    if (genDelivery) oferta.deliveryGratis = true;
 
     await updateDoc(TIENDA_REF, {
       [`img_tienda.lista_img.promociones.${key}`]: oferta,
@@ -1669,6 +1863,7 @@ $g("genCrear")?.addEventListener("click", async () => {
 });
 
 genPintarDias();
+genPintarDelivery();
 genRefrescar();
 
 pintarFiltrosOfertas();
@@ -1680,7 +1875,7 @@ document.getElementById("ofFiltros")?.addEventListener("click", (e) => {
   renderOfertas(ofertasCache);
 });
 
-// ══════════════ MODO AVANZADO DE OFERTA (variantes tipo producto) ══════════════
+// ══════════════ MODO AVANZADO DE OFERTA / BANNER (variantes tipo producto) ══════════════
 const VA_CSS = `
 .va-ov{position:fixed;inset:0;z-index:10000;background:rgba(3,3,6,.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:14px;}
 .va-box{width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;background:#0d0a17;border:1px solid rgba(139,92,246,.35);border-radius:22px;color:#e9e5ff;overflow:hidden;}
@@ -1712,6 +1907,7 @@ const VA_CSS = `
 .va-mv:disabled{opacity:.25;cursor:default;}
 `;
 
+// key: id de la oferta, o "__banner__:{idBanner}" para un banner
 function abrirEditorAvanzadoOferta(key) {
   if (!document.getElementById("vaStyle")) {
     const s = document.createElement("style");
@@ -1719,9 +1915,10 @@ function abrirEditorAvanzadoOferta(key) {
     s.textContent = VA_CSS;
     document.head.appendChild(s);
   }
-  const esBanner = key === "__banner__";
+  const esBanner = String(key).startsWith("__banner__:");
+  const bannerId = esBanner ? String(key).split(":")[1] : null;
   const actual = esBanner
-    ? { ...bannerDoc }
+    ? { ...(bannerMap[bannerId] || {}) }
     : normalizarOferta(ofertasCache[key]);
   const st = {
     nombre: actual.nombre || "",
@@ -1764,7 +1961,7 @@ function abrirEditorAvanzadoOferta(key) {
     const sugHtml = `
       <div class="va-grp" style="margin-top:14px">
         <p class="va-sec" style="margin-top:0">También puedes agregar</p>
-        <p style="font-size:11.5px;color:#a78bfa;margin:0 0 8px">Al agregar esta oferta, el cliente verá productos de estas secciones.</p>
+        <p style="font-size:11.5px;color:#a78bfa;margin:0 0 8px">Al agregar ${esBanner ? "este banner" : "esta oferta"}, el cliente verá productos de estas secciones.</p>
         <div class="va-row va-wrap">
           ${
             cats.size
@@ -1947,7 +2144,7 @@ function abrirEditorAvanzadoOferta(key) {
         .map((c) => {
           const multi = c.tipo === "multiple";
           return {
-            nombre: aplicarCaso(c.nombre.trim()), // ← cambia
+            nombre: aplicarCaso(c.nombre.trim()),
             tipo: multi ? "multiple" : "unica",
             obligatoria: c.obligatoria !== false,
             conCantidad: multi && c.conCantidad === true,
@@ -1955,10 +2152,10 @@ function abrirEditorAvanzadoOferta(key) {
             opciones: c.opciones
               .filter((o) => o.nombre.trim())
               .map((o) => ({
-                nombre: aplicarCaso(o.nombre.trim()), // ← cambia
+                nombre: aplicarCaso(o.nombre.trim()),
                 descripcion: aplicarCaso(
                   String(o.descripcion || "").trim(),
-                ).slice(0, 120), // ← cambia
+                ).slice(0, 120),
                 activo: o.activo !== false,
                 exclusiva: multi && o.exclusiva === true,
                 costoAdicional: +(parseFloat(o.costoAdicional) || 0).toFixed(2),
@@ -1981,20 +2178,24 @@ function abrirEditorAvanzadoOferta(key) {
         b.disabled = true;
         b.textContent = "Guardando...";
         try {
+          await asegurarMigrado(bannerId);
+          const P = `banner.items.${bannerId}`;
           await updateDoc(TIENDA_REF, {
-            "banner.condiciones": conds.length ? conds : deleteField(),
-            "banner.sugerencias": st.sugerencias.length
+            [`${P}.condiciones`]: conds.length ? conds : deleteField(),
+            [`${P}.sugerencias`]: st.sugerencias.length
               ? st.sugerencias
               : deleteField(),
-            "banner.caso": st.caso !== "tal_cual" ? st.caso : deleteField(),
+            [`${P}.caso`]: st.caso !== "tal_cual" ? st.caso : deleteField(),
           });
-          bannerDoc = {
-            ...bannerDoc,
-            condiciones: conds,
-            sugerencias: st.sugerencias,
-            caso: st.caso,
-          };
-          validarBanner();
+          const it = bannerMap[bannerId] || {};
+          if (conds.length) it.condiciones = conds;
+          else delete it.condiciones;
+          if (st.sugerencias.length) it.sugerencias = st.sugerencias;
+          else delete it.sugerencias;
+          if (st.caso !== "tal_cual") it.caso = st.caso;
+          else delete it.caso;
+          bannerMap[bannerId] = it;
+          bannerRepintarAdv(bannerId);
           mostrarToast("Opciones del banner guardadas");
           ov.remove();
         } catch (err) {
@@ -2005,11 +2206,10 @@ function abrirEditorAvanzadoOferta(key) {
         }
         return;
       }
-      const nombre = aplicarCaso(st.nombre.trim()); // ← cambia
+      const nombre = aplicarCaso(st.nombre.trim());
       if (nombre) nuevo.nombre = nombre;
       else delete nuevo.nombre;
-      if (st.caso !== "tal_cual")
-        nuevo.caso = st.caso; // ← nuevo
+      if (st.caso !== "tal_cual") nuevo.caso = st.caso;
       else delete nuevo.caso;
       if (st.stock !== "" && st.stock !== null)
         nuevo.stock = Math.max(0, parseInt(st.stock, 10) || 0);
