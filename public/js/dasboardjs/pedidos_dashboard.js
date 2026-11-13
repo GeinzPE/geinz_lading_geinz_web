@@ -1065,7 +1065,7 @@ function reproducirSiguienteAlarma() {
     alarmaActual.repeticionesRestantes -= 1;
     if (alarmaActual.repeticionesRestantes > 0) {
       audio.currentTime = 0;
-      audio.play().catch(() => { });
+      audio.play().catch(() => {});
     } else {
       reproducirSiguienteAlarma();
     }
@@ -1300,24 +1300,25 @@ function abrirModalPausa(id, p) {
       <div style="font-size:11.5px;color:var(--ink-dim);margin-bottom:8px;">El cliente pidió <b>${it.cantidad}</b></div>
       <div class="np-opt-label">¿Cuántas unidades te quedan?</div>
       <input type="number" data-stock min="0" value="${valorInicial}" style="${inputCss}">
-      ${conds.length
-        ? `<div class="np-opt-label" style="margin-top:10px;">Stock por variante (0 = agotada, vacío = sin límite)</div>` +
-        conds
-          .map(
-            (c, ci) => `
+      ${
+        conds.length
+          ? `<div class="np-opt-label" style="margin-top:10px;">Stock por variante (0 = agotada, vacío = sin límite)</div>` +
+            conds
+              .map(
+                (c, ci) => `
             <div style="font-size:11.5px;font-weight:700;color:var(--ink-dim);margin:6px 0;">${escapeHtml(c.nombre)}</div>
             ${(c.opciones || [])
-                .map(
-                  (o, oi) => `
+              .map(
+                (o, oi) => `
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;font-size:12.5px;">
                 <span>${escapeHtml(o.nombre)}</span>
                 <input type="number" min="0" data-c="${ci}" data-o="${oi}" value="${o.activo === false ? 0 : typeof o.stock === "number" ? o.stock : ""}" style="${inputCss}">
               </div>`,
-                )
-                .join("")}`,
-          )
-          .join("")
-        : ""
+              )
+              .join("")}`,
+              )
+              .join("")
+          : ""
       }`;
     detalle.appendChild(card);
   }
@@ -1512,8 +1513,8 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -1588,7 +1589,9 @@ function mapaDeliveryHTML(p) {
   if (!c && !direccion) return "";
 
   const tieneNegocio = bizLat != null && bizLng != null;
-  let mapsUrl, distHtml = "", etiqueta = "📍 Ubicación del cliente";
+  let mapsUrl,
+    distHtml = "",
+    etiqueta = "📍 Ubicación del cliente";
 
   if (c && tieneNegocio) {
     const distKm = calcularDistanciaKm(bizLat, bizLng, c.lat, c.lng);
@@ -1602,7 +1605,10 @@ function mapaDeliveryHTML(p) {
     etiqueta = "📍 Ubicación aproximada (por dirección)";
   }
 
-  const distKm = c && tieneNegocio ? calcularDistanciaKm(bizLat, bizLng, c.lat, c.lng) : null;
+  const distKm =
+    c && tieneNegocio
+      ? calcularDistanciaKm(bizLat, bizLng, c.lat, c.lng)
+      : null;
   const precioDeli = distKm != null ? calcularPrecioDelivery(distKm) : null;
 
   let precioHtml = "";
@@ -1816,10 +1822,10 @@ async function cargarNegocio() {
     aplicarDeliveryDesdeDB(data?.delivery);
     bizDominioGlobal = limpiarDominio(
       data?.dominio_propio ||
-      data?.dominio_personalizado ||
-      data?.dominio ||
-      data?.custom_domain ||
-      null,
+        data?.dominio_personalizado ||
+        data?.dominio ||
+        data?.custom_domain ||
+        null,
     );
     bizAliasGlobal = await resolverAliasNegocio(data);
     const nombre = data ? data.nombre_tienda || data.nombre : null;
@@ -1833,7 +1839,7 @@ async function cargarNegocio() {
       bizLng = lo;
     }
     document.title = `Pedidos en vivo · ${nombre || "Geinz"}`;
-  } catch { }
+  } catch {}
 }
 
 /* ══════════════ Sonido de notificación (Web Audio, sin archivos externos) ══════════════ */
@@ -1869,7 +1875,10 @@ function playChime(pedidoId, data) {
     const tipoEntrega = data?.cliente?.tipo_entrega;
     if (tipoEntrega === "Delivery") {
       url = SND_NUEVO_PEDIDO_DELIVERY;
-    } else if (tipoEntrega === "Recojo en local") {
+    } else if (
+      tipoEntrega === "Recojo en local" ||
+      tipoEntrega === "Recojo en punto"
+    ) {
       url = SND_NUEVO_PEDIDO_RECOJO;
     }
     // Si es otro valor o no viene, se queda con SND_NUEVO_PEDIDO (genérico)
@@ -1940,7 +1949,7 @@ bellBtn.addEventListener("click", async () => {
     if (window.Notification && Notification.permission === "default") {
       try {
         await Notification.requestPermission();
-      } catch { }
+      } catch {}
     }
     showToast("🔔 Notificaciones de sonido activadas");
   } else {
@@ -2051,6 +2060,16 @@ deliZonasBox.innerHTML = `
     style="background:transparent;border:1px dashed var(--line);color:var(--ink-dim);margin-top:6px;">+ Agregar zona</button>`;
 deliFijaBox.after(deliZonasBox);
 
+let deliGratis = { activo: false, monto: 50 };
+
+function subtotalProductos(p) {
+  return (Array.isArray(p.productos) ? p.productos : []).reduce(
+    (s, it) => s + Number(it.subtotal ?? it.precio_unitario * it.cantidad ?? 0), 0);
+}
+function envioGratisPorMonto(p) {
+  return PLAN_PED.deliveryCfg && deliHace && deliGratis.activo &&
+    deliGratis.monto > 0 && subtotalProductos(p) >= deliGratis.monto;
+}
 let deliRecargo = { activo: false, desde: "20:00", hasta: "06:00", monto: 2 };
 const deliRecBox = document.createElement("div");
 deliRecBox.className = "deli-rec";
@@ -2162,8 +2181,8 @@ function pintarDeliModo() {
   deliZonasBox.style.display = m === "zonas" ? "block" : "none";
   [deliBaseInput, deliKmInclInput, deliPorKmInput].forEach(
     (i) =>
-    (i.closest(".autorej-input-row").style.display =
-      m === "distancia" ? "flex" : "none"),
+      (i.closest(".autorej-input-row").style.display =
+        m === "distancia" ? "flex" : "none"),
   );
 }
 deliModoEl.addEventListener("change", pintarDeliModo);
@@ -2177,9 +2196,9 @@ function aplicarDeliveryDesdeDB(d) {
     d.modo === "fija" ? "fija" : d.modo === "zonas" ? "zonas" : "distancia";
   deliZonas = Array.isArray(d.zonas)
     ? d.zonas.map((z) => ({
-      nombre: z.nombre || "",
-      precio: Number(z.precio) || 0,
-    }))
+        nombre: z.nombre || "",
+        precio: Number(z.precio) || 0,
+      }))
     : [];
   deliPintarZonas();
   deliBase = Number(d.base) || 0;
@@ -2203,6 +2222,9 @@ function aplicarDeliveryDesdeDB(d) {
     monto: Number(r.monto) || 0,
   };
   deliPintarRecargo();
+    const g = d.gratis_desde || {};
+  deliGratis = { activo: g.activo === true, monto: Number(g.monto) || 50 };
+  peSyncGratis();
   pintarDeliModo();
   paintDeliBtn();
 }
@@ -2252,7 +2274,8 @@ deliSave.addEventListener("click", async () => {
         fija: deliFija,
         texto: deliTexto,
         zonas: deliZonas,
-        recargo: deliRecargo,
+             recargo: deliRecargo,
+        gratis_desde: deliGratis,
       },
     });
     deliPop.classList.remove("show");
@@ -2738,16 +2761,17 @@ function renderMesaGrid() {
    ${horaReservaHtml}
         ${reservaTimerHtml}
         ${puedeReservar ? `<button class="mesa-reservar-btn" data-mesa-reservar="${m.numero_mesa}">${estadoVisual === "reservada" ? "Quitar reserva" : "Reservar"}</button>` : ""}
-   ${estadoVisual === "reserva_pendiente"
-            ? `
+   ${
+     estadoVisual === "reserva_pendiente"
+       ? `
   <div class="mesa-reserva-solicitante">${escapeHtml(m.reserva?.nombre || "")}</div>
   <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(m.reserva?.hora || "—")}${m.reserva?.personas ? ` · ${escapeHtml(String(m.reserva.personas))} pers.` : ""}</div>
   <div style="display:flex;gap:6px;margin-top:6px;">
     <button class="mesa-reservar-btn" data-reserva-aceptar="${m.numero_mesa}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
     <button class="mesa-reservar-btn" data-reserva-rechazar="${m.numero_mesa}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
   </div>`
-            : ""
-          }
+       : ""
+   }
     </div>`;
       }
 
@@ -2788,8 +2812,8 @@ function renderMesaGrid() {
           : "";
       const reservaTimerHtml =
         primero.estadoVisual === "reservada" &&
-          autoResEnabled &&
-          grupoInfo?.reservado_en
+        autoResEnabled &&
+        grupoInfo?.reservado_en
           ? `<div class="mesa-reserva-timer" data-reserva-ts="${toDate(grupoInfo.reservado_en)?.getTime() || ""}">⏳ calculando…</div>`
           : "";
 
@@ -2805,16 +2829,17 @@ function renderMesaGrid() {
     ${horaReservaHtml}
         ${reservaTimerHtml}
              ${primero.estadoVisual === "reservada" ? `<button class="mesa-reservar-btn" data-grupo-reservar="${bloque.grupoId}">Quitar reserva</button>` : ""}
-     ${primero.estadoVisual === "reserva_pendiente"
-          ? `
+     ${
+       primero.estadoVisual === "reserva_pendiente"
+         ? `
   <div class="mesa-reserva-solicitante">${escapeHtml(grupoInfo?.reserva?.nombre || "")}</div>
   <div class="mesa-reserva-hora" style="color:#fbbf24;font-weight:800;">🕐 ${escapeHtml(grupoInfo?.reserva?.hora || "—")}${grupoInfo?.reserva?.personas ? ` · ${escapeHtml(String(grupoInfo.reserva.personas))} pers.` : ""}</div>
   <div style="display:flex;gap:6px;margin-top:6px;">
     <button class="mesa-reservar-btn" data-grupo-reserva-aceptar="${bloque.grupoId}" style="border-color:#22c55e;color:#22c55e;">✓ Aceptar</button>
     <button class="mesa-reservar-btn" data-grupo-reserva-rechazar="${bloque.grupoId}" style="border-color:#f87171;color:#f87171;">✕ Rechazar</button>
   </div>`
-          : ""
-        }
+         : ""
+     }
         <button class="mesa-desagrupar-btn" data-grupo-desagrupar="${bloque.grupoId}">⇱ Desagrupar</button>
     </div>`;
     })
@@ -3104,6 +3129,7 @@ function bellRingFeedback() {
 const ICONOS_ENTREGA = {
   Delivery: "🛵",
   "Recojo en local": "🏬",
+  "Recojo en punto": "📍",
   "En mesa": "🍽️",
 };
 const ICONOS_PAGO = { "Yape / Plin": "📱", Efectivo: "💵" };
@@ -3162,8 +3188,8 @@ function detalleCuponHtml(p) {
   if (tipo === "canje_puntos" && prodCanjeado) {
     const varianteTxt = prodCanjeado.opciones
       ? Object.entries(prodCanjeado.opciones)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(" · ")
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ")
       : "";
 
     filas.push(`
@@ -3595,9 +3621,10 @@ function renderCardActions(container, id, estado, p) {
     const r = p.respuesta_cliente;
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
-      ${r
-        ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
-        : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      ${
+        r
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
+          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%; margin-bottom:10px; margin-top:10px;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button> `;
@@ -3645,12 +3672,12 @@ function openDetail(id) {
   const p = pedidosMap.get(id);
   if (p?.pago?.voucher_url && !p.pago?.voucher_visto) {
     const ref = tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id);
-    updateDoc(ref, { "pago.voucher_visto": true }).catch(() => { });
+    updateDoc(ref, { "pago.voucher_visto": true }).catch(() => {});
   }
   if (p?.cliente_en_local && !p.cliente_en_local_visto) {
     updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "pedidos", id), {
       cliente_en_local_visto: true,
-    }).catch(() => { });
+    }).catch(() => {});
   }
 }
 function closeDetail() {
@@ -3770,9 +3797,9 @@ function renderMesaDetail(numeroMesa) {
   const esGrupoMulti = mesasDelGrupo && mesasDelGrupo.length > 1;
   const grupoLabel = esGrupoMulti
     ? ` · Junta con ${mesasDelGrupo
-      .filter((m) => m.numero !== numeroMesa)
-      .map((m) => m.nombre || "Mesa " + m.numero)
-      .join(", ")}`
+        .filter((m) => m.numero !== numeroMesa)
+        .map((m) => m.nombre || "Mesa " + m.numero)
+        .join(", ")}`
     : "";
   const dmTime = document.getElementById("dmTime");
   dmTime.removeAttribute("data-ts");
@@ -3804,13 +3831,13 @@ function renderMesaDetail(numeroMesa) {
     <section class="mx-group" style="--c:${color}">
       <h4>${titulo} <span>${porEstado[k].length}</span></h4>
       ${porEstado[k]
-            .map((it) => {
-              const ops = opcionesDetalleLineas(it);
-              const org = esGrupoMulti ? mxNombreOrigen(it) : "";
-              const sub =
-                it.subtotal ??
-                Number(it.precio_unitario || 0) * Number(it.cantidad || 0);
-              return `
+        .map((it) => {
+          const ops = opcionesDetalleLineas(it);
+          const org = esGrupoMulti ? mxNombreOrigen(it) : "";
+          const sub =
+            it.subtotal ??
+            Number(it.precio_unitario || 0) * Number(it.cantidad || 0);
+          return `
         <div class="mx-item">
           <div class="mx-qty">${it.cantidad}×</div>
           <div class="mx-info">
@@ -3820,8 +3847,8 @@ function renderMesaDetail(numeroMesa) {
           </div>
           <div class="mx-price">${fmtMoney(sub)}</div>
         </div>`;
-            })
-            .join("")}
+        })
+        .join("")}
     </section>`,
       )
       .join("") ||
@@ -3866,12 +3893,12 @@ function renderMesaDetail(numeroMesa) {
   const stepsHtml =
     activos.length && !esPendienteAceptar
       ? `<div class="mx-steps">${["Recibido", "Preparando", "Entregado"]
-        .map((t, i) => {
-          const k = i + 1;
-          const cls = k < stage ? "done" : k === stage ? "now" : "";
-          return `<div class="mx-step ${cls}"><b>${k < stage ? "✓" : k}</b>${t}</div>`;
-        })
-        .join("")}</div>`
+          .map((t, i) => {
+            const k = i + 1;
+            const cls = k < stage ? "done" : k === stage ? "now" : "";
+            return `<div class="mx-step ${cls}"><b>${k < stage ? "✓" : k}</b>${t}</div>`;
+          })
+          .join("")}</div>`
       : "";
 
   /* ── Llamados del cliente (cuenta / mozo) ── */
@@ -4347,7 +4374,7 @@ async function desagruparGrupo(grupoId) {
   if (activos > 0) {
     const ok = window.confirm(
       "Este grupo tiene un pedido activo compartido. Al desagrupar, las mesas se separarán " +
-      "pero el pedido NO se marcará como pagado (seguirá existiendo en el sistema). ¿Deseas continuar?",
+        "pero el pedido NO se marcará como pagado (seguirá existiendo en el sistema). ¿Deseas continuar?",
     );
     if (!ok) return;
   }
@@ -4458,11 +4485,12 @@ function htmlComprobanteMesa(activos, numeroMesa) {
         <b style="font-size:13px;">💸 Voucher de pago ${voucher ? "(recibido)" : "(sin subir)"}</b>
         <button type="button" id="dmVoucherSubir" class="oc-btn ghost" style="min-height:34px;">${voucher ? "Cambiar" : "📤 Subir"}</button>
       </div>
-      ${voucher
-      ? `<img src="${escCm(voucher.url)}" alt="voucher" id="dmVoucherImg" style="margin-top:10px;max-width:100%;max-height:260px;border-radius:10px;cursor:zoom-in;display:block;">
+      ${
+        voucher
+          ? `<img src="${escCm(voucher.url)}" alt="voucher" id="dmVoucherImg" style="margin-top:10px;max-width:100%;max-height:260px;border-radius:10px;cursor:zoom-in;display:block;">
       <div style="font-size:11px;color:#a89cc4;margin-top:6px;">Subido por ${escCm(voucher.por || "—")}. Revísalo y marca la mesa como pagada abajo.</div>`
-      : ""
-    }
+          : ""
+      }
     </div>`;
   const fotoSuelta = !conComp.length
     ? activos.find(([, p]) => p.comprobante_foto)?.[1]?.comprobante_foto
@@ -4552,8 +4580,8 @@ function mostrarPostCobro(snap) {
     .map((p, i) =>
       p.comprobante
         ? htmlRecuadroSunat(p.comprobante, p, snap.nombre, {
-          acciones: true,
-        }).replace("<div data-cm-card", `<div data-cm-card data-i="${i}"`)
+            acciones: true,
+          }).replace("<div data-cm-card", `<div data-cm-card data-i="${i}"`)
         : "",
     )
     .join("");
@@ -5090,14 +5118,15 @@ function renderDetail(id) {
           <div class="dm-meta-label">${entregaIco} Tipo de entrega</div>
           <div class="dm-meta-value">${escapeHtml(cliente.tipo_entrega || (origen.tipo === "mesa" ? "Consumo en mesa" : "Sin especificar"))}</div>
         </div>
-        ${cliente.tipo_entrega === "Delivery"
-      ? `
+        ${
+          cliente.tipo_entrega === "Delivery"
+            ? `
         <div class="dm-meta-item full">
           <div class="dm-meta-label">📍 Dirección de entrega</div>
           <div class="dm-meta-value ${cliente.direccion ? "" : "dim"}">${cliente.direccion ? escapeHtml(cliente.direccion) : "Sin dirección registrada"}</div>
         </div>`
-      : ""
-    }
+            : ""
+        }
         ${whatsappBlock}
         <div class="dm-meta-item">
           <div class="dm-meta-label">${pagoIco} Método de pago</div>
@@ -5109,6 +5138,7 @@ function renderDetail(id) {
         </div>
         ${voucherBlock}
                ${mapaDeliveryHTML(p) || deliveryBlockSinMapa(p)}
+               ${puntoEntregaDetalleHTML(p)}
              ${dlvBtnBlock}
         <div class="dm-meta-item full">
           <div class="dm-meta-label">📝 Nota del cliente</div>
@@ -5120,10 +5150,11 @@ function renderDetail(id) {
 
     <div>
       <div class="dm-section-title">Productos · ${totalItems} item${totalItems === 1 ? "" : "s"}</div>
-      ${origen.tipo === "mesa" && Array.isArray(p.bloques) && p.bloques.length
-      ? bloquesHtml(p.bloques)
-      : `<div class="dm-products">${prodRows}</div>`
-    }
+      ${
+        origen.tipo === "mesa" && Array.isArray(p.bloques) && p.bloques.length
+          ? bloquesHtml(p.bloques)
+          : `<div class="dm-products">${prodRows}</div>`
+      }
     </div>
 
     <div class="dm-total-row">
@@ -5186,9 +5217,10 @@ function renderModalActions(container, id, estado, p) {
     const r = p.respuesta_cliente;
     container.innerHTML = `
       <div class="oc-final-tag" style="width:100%;background:rgba(56,189,248,.12);color:#38bdf8;">⏸️ Pedido en pausa</div>
-      ${r
-        ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
-        : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
+      ${
+        r
+          ? `<div style="width:100%;font-size:12.5px;color:#38bdf8;padding:6px 2px;">Cliente eligió: <strong>${escapeHtml(textoRespuestaCliente(r))}</strong>`
+          : `<div style="width:100%;font-size:12px;color:var(--ink-faint);padding:6px 2px;">Esperando respuesta del cliente…</div>`
       }
       <button class="oc-btn ghost danger" style="width:100%;" data-action="rechazado">✕ Cancelar pedido</button>
       <button class="oc-btn primary v-violet" style="width:100%;" data-action="en_proceso">▶️ Reanudar pedido</button>`;
@@ -5341,7 +5373,7 @@ async function devolverPuntosCuponSiAplica(pedidoId, pedido) {
         usado: false,
         estado: "activo",
         pedidoId: null,
-      }).catch(() => { });
+      }).catch(() => {});
     }
     // NUEVO: registro en el historial de puntos del cliente
     await addDoc(
@@ -6101,7 +6133,7 @@ async function aplicarEstadoGrupal(estadoDestino) {
       (num) =>
         getPedidosDeMesa(num).length > 0 ||
         [...mesasMap.values()].find((m) => m.numero_mesa === num)?.estado ===
-        "ocupado",
+          "ocupado",
     );
     const nuevas = numeros.filter((num) => !yaOcupadas.includes(num));
     if (yaOcupadas.length === 1 && nuevas.length > 0) {
@@ -6585,7 +6617,9 @@ const NuevoPedido = {
 
   async cargarAdicionales() {
     try {
-      const snap = await getDocs(tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales"));
+      const snap = await getDocs(
+        tiendaSubCol(localidad, "tiendas", tiendaId, "adicionales"),
+      );
       this.adicionales = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((a) => a.activo !== false && a.nombre);
@@ -6612,8 +6646,11 @@ const NuevoPedido = {
       <div class="np-adic-title">➕ Adicionales</div>
       <div class="np-adic-row">
         ${this.adicionales
-        .map((a) => `<button type="button" class="np-adic-chip" data-adic="${a.id}">${escapeHtml(a.nombre)} · ${fmtMoney(a.precio)}</button>`)
-        .join("")}
+          .map(
+            (a) =>
+              `<button type="button" class="np-adic-chip" data-adic="${a.id}">${escapeHtml(a.nombre)} · ${fmtMoney(a.precio)}</button>`,
+          )
+          .join("")}
       </div>`;
   },
 
@@ -7012,8 +7049,8 @@ const NuevoPedido = {
           const activa = () =>
             multiple
               ? entradasDeOpcion(this._seleccion[cond.nombre]).some(
-                ([n]) => n === op.nombre,
-              )
+                  ([n]) => n === op.nombre,
+                )
               : this._seleccion[cond.nombre] === op.nombre;
           btn.className = "np-opt-btn" + (activa() ? " active" : "");
           btn.textContent =
@@ -7157,11 +7194,11 @@ const NuevoPedido = {
     );
     const base = cursor
       ? query(
-        subRef,
-        orderBy("nombre"),
-        startAfter(cursor),
-        limit(this.PAGINA_TAM),
-      )
+          subRef,
+          orderBy("nombre"),
+          startAfter(cursor),
+          limit(this.PAGINA_TAM),
+        )
       : query(subRef, orderBy("nombre"), limit(this.PAGINA_TAM));
     const snap = await getDocs(base);
     const items = [];
@@ -7485,43 +7522,43 @@ const NuevoPedido = {
     const key = (b, attr) => lineas[Number(b.dataset[attr])].cartKey;
     box.querySelectorAll("[data-lm]").forEach(
       (b) =>
-      (b.onclick = () => {
-        this.removeByKey(key(b, "lm"));
-        this.refrescarDetalle();
-      }),
+        (b.onclick = () => {
+          this.removeByKey(key(b, "lm"));
+          this.refrescarDetalle();
+        }),
     );
     box.querySelectorAll("[data-lp]").forEach(
       (b) =>
-      (b.onclick = () => {
-        this.addByKey(key(b, "lp"));
-        this.refrescarDetalle();
-      }),
+        (b.onclick = () => {
+          this.addByKey(key(b, "lp"));
+          this.refrescarDetalle();
+        }),
     );
     box.querySelectorAll("[data-lt]").forEach(
       (b) =>
-      (b.onclick = () => {
-        this.eliminarByKey(key(b, "lt"));
-        this.refrescarDetalle();
-      }),
+        (b.onclick = () => {
+          this.eliminarByKey(key(b, "lt"));
+          this.refrescarDetalle();
+        }),
     );
     box.querySelectorAll("[data-le]").forEach(
       (b) =>
-      (b.onclick = () => {
-        const k = key(b, "le");
-        if (d.editKey === k) {
-          d.editKey = null;
-          d.sel = {};
-        } else {
-          d.editKey = k;
-          d.sel = JSON.parse(
-            JSON.stringify(this.carrito.get(k).seleccion || {}),
-          );
-        }
-        this.refrescarDetalle();
-        document
-          .getElementById("npDetVars")
-          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }),
+        (b.onclick = () => {
+          const k = key(b, "le");
+          if (d.editKey === k) {
+            d.editKey = null;
+            d.sel = {};
+          } else {
+            d.editKey = k;
+            d.sel = JSON.parse(
+              JSON.stringify(this.carrito.get(k).seleccion || {}),
+            );
+          }
+          this.refrescarDetalle();
+          document
+            .getElementById("npDetVars")
+            ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }),
     );
   },
 
@@ -7843,16 +7880,16 @@ const NuevoPedido = {
           code.includes("/")
             ? null
             : getDoc(
-              tiendaSubDoc(
-                localidad,
-                "tiendas",
-                tiendaId,
-                "productos",
-                cat,
-                cat,
-                code,
+                tiendaSubDoc(
+                  localidad,
+                  "tiendas",
+                  tiendaId,
+                  "productos",
+                  cat,
+                  cat,
+                  code,
+                ),
               ),
-            ),
         ]);
         for (const s of porCodigo)
           if (!s.empty) return registrar(s.docs[0], cat);
@@ -8611,7 +8648,7 @@ window.addEventListener("pagehide", () => {
   if (!scanSesion) return;
   const sid = scanSesion;
   unsubCodigos?.();
-  deleteDoc(scanSesRef(sid)).catch(() => { });
+  deleteDoc(scanSesRef(sid)).catch(() => {});
 });
 function pintarEstadoCelular(conectado) {
   const el = document.getElementById("npPairEstado");
@@ -8648,7 +8685,7 @@ async function abrirEmparejar() {
         snap.docChanges().forEach((ch) => {
           if (ch.type !== "added") return;
           const d = ch.doc.data();
-          deleteDoc(ch.doc.ref).catch(() => { });
+          deleteDoc(ch.doc.ref).catch(() => {});
           if (d.tipo === "hola") {
             pintarEstadoCelular(true);
             return;
@@ -8691,7 +8728,7 @@ async function abrirEmparejar() {
     unsubCodigos = null;
     try {
       await deleteDoc(scanSesRef(scanSesion));
-    } catch { }
+    } catch {}
     scanSesion = null;
     pintarEstadoCelular(false);
     ov.classList.remove("show");
@@ -8834,8 +8871,8 @@ function iniciarListenerMesas() {
         reservasNuevasParaAlertar.forEach(({ data }) => {
           const numeros = data.grupoId
             ? (gruposMap.get(data.grupoId)?.mesas || [])
-              .map((m) => m.numero)
-              .filter(Boolean)
+                .map((m) => m.numero)
+                .filter(Boolean)
             : [data.numero_mesa];
           encolarAlarmaReserva(numeros.length ? numeros : [data.numero_mesa]);
         });
@@ -9122,9 +9159,9 @@ function iniciarListenerGrupos() {
         bellRingFeedback();
         showToast(
           "🍽️ Pedido nuevo en " +
-          nuevos
-            .map((g) => (g.mesas || []).map((m) => m.nombre).join(" + "))
-            .join(", "),
+            nuevos
+              .map((g) => (g.mesas || []).map((m) => m.nombre).join(" + "))
+              .join(", "),
         );
       }
     },
@@ -9149,9 +9186,7 @@ function aplicarVisibilidadMesas() {
 
   // Si estaba viendo Mesas y ya no corresponde, vuelve a WhatsApp
   if (!debeMostrarMesas && originFilter === "mesa") {
-    document
-      .querySelector('.origin-chip[data-origin="whatsapp"]')
-      ?.click();
+    document.querySelector('.origin-chip[data-origin="whatsapp"]')?.click();
   }
 }
 
@@ -9462,16 +9497,16 @@ function dlvPintarLista() {
   const cont = document.getElementById("dlvList");
   cont.innerHTML = lista.length
     ? lista
-      .map(
-        (c) => `
+        .map(
+          (c) => `
       <div class="dlv-item">
         <div class="dlv-av">${dlvAvatar(c)}</div>
         <div class="dlv-info"><b>${escapeHtml(c.nombre)}</b><small>+${escapeHtml(c.numero)}</small></div>
         <button type="button" class="dlv-mini" data-edit="${c.id}" title="Editar">✎</button>
         <button type="button" class="dlv-mini danger" data-del="${c.id}" title="Eliminar">🗑</button>
       </div>`,
-      )
-      .join("")
+        )
+        .join("")
     : `<div class="dlv-empty">Aún no agregaste deliverys.</div>`;
   const lleno = lista.length >= DLV_MAX && !dlvEditId;
   document.getElementById("dlvForm").style.display = lleno ? "none" : "flex";
@@ -9582,7 +9617,7 @@ function dlvCfgLeer() {
   let guardado = {};
   try {
     guardado = JSON.parse(localStorage.getItem(dlvCfgKey()) || "{}");
-  } catch { }
+  } catch {}
   const cfg = { intro: guardado.intro || "" };
   DLV_CAMPOS.forEach((c) => {
     cfg[c.k] = typeof guardado[c.k] === "boolean" ? guardado[c.k] : c.def;
@@ -9592,7 +9627,7 @@ function dlvCfgLeer() {
 function dlvCfgGuardar(cfg) {
   try {
     localStorage.setItem(dlvCfgKey(), JSON.stringify(cfg));
-  } catch { }
+  } catch {}
 }
 
 const DLV_EJEMPLO = {
@@ -9677,7 +9712,7 @@ function dlvCostoDeliveryTexto(p, ejemplo) {
     return p.delivery.gratis
       ? "Gratis (promo)"
       : fmtMoney(p.delivery.costo) +
-      (p.delivery.zona ? ` (${p.delivery.zona})` : "");
+          (p.delivery.zona ? ` (${p.delivery.zona})` : "");
   if (p.cupon?.envioGratis === true) return "Gratis (promo)";
   const ub = p.cliente?.ubicacion;
   if (!ub || typeof ub.lat !== "number" || bizLat == null || bizLng == null)
@@ -10010,41 +10045,42 @@ function mzPintar() {
   const list = document.getElementById("mzList");
   list.innerHTML = mzTrab.length
     ? mzTrab
-      .map((t) => {
-        const m = porTrab.get(t.id);
-        const av = `<div class="dlv-av"><span>${escapeHtml((t.nombre || "?")[0].toUpperCase())}</span></div>`;
-        if (!m)
-          return `<div class="dlv-item">${av}
+        .map((t) => {
+          const m = porTrab.get(t.id);
+          const av = `<div class="dlv-av"><span>${escapeHtml((t.nombre || "?")[0].toUpperCase())}</span></div>`;
+          if (!m)
+            return `<div class="dlv-item">${av}
               <div class="dlv-info"><b>${escapeHtml(t.nombre)}</b><small>${escapeHtml(t.cargo || "Trabajador")}</small></div>
               <button type="button" class="oc-btn ghost" data-mz-nuevo="${t.id}">Hacer mozo</button></div>`;
-        return `<div class="dlv-item">${av}
+          return `<div class="dlv-item">${av}
             <div class="dlv-info"><b>${escapeHtml(t.nombre)} <span style="font-size:10px;color:#a78bfa;">🧑‍🍳 Mozo</span></b>
               <small>@${escapeHtml(m.usuario || "")}${m.activo === false ? " · inactivo" : ""}</small></div>
             <button class="dlv-mini" data-mz-pin="${m.id}" title="Cambiar PIN">🔑</button>
             <button class="dlv-mini" data-mz-tog="${m.id}" title="Activar/desactivar">${m.activo === false ? "▶" : "⏸"}</button>
             <button class="dlv-mini danger" data-mz-del="${m.id}" title="Quitar como mozo">🗑</button></div>`;
-      })
-      .join("")
+        })
+        .join("")
     : `<div class="dlv-empty">Aún no tienes trabajadores. Regístralos primero en <b>Trabajadores y planilla</b>.</div>`;
 
   // Mozos viejos que no están vinculados a ningún trabajador
   document.getElementById("mzSueltos").innerHTML = sueltos.length
     ? `<div class="dlv-prev-title">Mozos sin vincular</div>` +
-    sueltos
-      .map(
-        (m) => `<div class="dlv-item">
+      sueltos
+        .map(
+          (m) => `<div class="dlv-item">
             <div class="dlv-av"><span>${escapeHtml((m.nombre || "?")[0].toUpperCase())}</span></div>
             <div class="dlv-info"><b>${escapeHtml(m.nombre)}</b><small>@${escapeHtml(m.usuario || "")}</small></div>
-            ${libres.length
-            ? `<select class="deli-inp" data-mz-link="${m.id}" style="max-width:130px;">
+            ${
+              libres.length
+                ? `<select class="deli-inp" data-mz-link="${m.id}" style="max-width:130px;">
                      <option value="">Vincular a…</option>
                      ${libres.map((t) => `<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join("")}
                    </select>`
-            : ""
-          }
+                : ""
+            }
             <button class="dlv-mini danger" data-mz-del="${m.id}" title="Eliminar">🗑</button></div>`,
-      )
-      .join("")
+        )
+        .join("")
     : "";
 }
 
@@ -10067,7 +10103,7 @@ async function mzCargar() {
       m.nombre = t.nombre;
       updateDoc(tiendaSubDoc(localidad, "tiendas", tiendaId, "mozos", m.id), {
         nombre: t.nombre,
-      }).catch(() => { });
+      }).catch(() => {});
     }
   });
   mzPintar();
@@ -10370,8 +10406,7 @@ extraStyle.textContent = `
 .est-legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
 #statusTabs.vista-oculta + .est-legend{display:none;}
 /* Menú de configuración */
-#cfgPanel{position:fixed;right:12px;left:auto;top:70px;margin:0;width:min(440px,calc(100vw - 24px));z-index:60;display:none;grid-template-columns:1fr 1fr;gap:10px;padding:14px;max-height:calc(100vh - 100px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);}#cfgPanel.show{display:grid;}
-#cfgPanel .autorej-wrap{display:block;position:static;min-width:0;}
+#cfgPanel{position:fixed;right:12px;left:auto;top:70px;margin:0;width:min(440px,calc(100vw - 24px));z-index:60;display:none;grid-template-columns:1fr 1fr;gap:10px;padding:14px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);}#cfgPanel.show{display:grid;}#cfgPanel .autorej-wrap{display:block;position:static;min-width:0;}
 #cfgPanel .autorej-wrap:has(#autoresBtn[style*="none"]){display:none;}
 #cfgPanel .autorej-btn,#cfgPanel .oc-btn{width:100%;min-height:44px;justify-content:flex-start;white-space:nowrap;}
 @media (max-width:480px){#cfgPanel{grid-template-columns:1fr;top:64px;}}
@@ -10408,13 +10443,13 @@ document.head.appendChild(extraStyle);
       <div class="dlv-head"><span>📋 Estados del pedido</span><button type="button" data-x>✕</button></div>
       <p class="dlv-cfg-sub">Activa o desactiva los estados opcionales. Los obligatorios no se pueden apagar.</p>
       ${filas
-      .map(
-        ([k, l, fijo]) => `
+        .map(
+          ([k, l, fijo]) => `
         <div class="dlv-cfg-row"><span class="l">${l}${fijo ? " (obligatorio)" : ""}</span>
           <label class="switch"><input type="checkbox" data-est="${k}" ${fijo ? "checked disabled" : ""}><span class="switch-track"></span></label>
         </div>`,
-      )
-      .join("")}
+        )
+        .join("")}
       <button type="button" class="np-confirmar-btn" id="estGuardar" style="margin-top:14px;">Guardar</button>
     </div>`;
   document.body.appendChild(estOv);
@@ -10461,10 +10496,25 @@ document.head.appendChild(extraStyle);
     b?.addEventListener("click", () => panel.classList.remove("show")),
   );
 
-  box.querySelector("#cfgBtn").addEventListener("click", (e) => {
+  const cfgBtnEl = box.querySelector("#cfgBtn");
+
+  function posCfgPanel() {
+    const r = cfgBtnEl.getBoundingClientRect();
+    const w = Math.min(440, window.innerWidth - 24);
+    const top = r.bottom + 8;
+    panel.style.top = top + "px";
+    panel.style.right = "auto";
+    panel.style.left =
+      Math.max(12, Math.min(r.left, window.innerWidth - w - 12)) + "px";
+    panel.style.maxHeight = Math.max(200, window.innerHeight - top - 12) + "px";
+  }
+
+  cfgBtnEl.addEventListener("click", (e) => {
     e.stopPropagation();
+    posCfgPanel();
     panel.classList.toggle("show");
   });
+  window.addEventListener("resize", posCfgPanel);
   document.addEventListener("click", (e) => {
     if (!panel.contains(e.target)) panel.classList.remove("show");
   });
@@ -10485,6 +10535,7 @@ document.head.appendChild(extraStyle);
     tabs.after(lg);
   }
 })();
+
 /* Sacar cuadros y panel al body, fijos y visibles en PC y móvil */
 ["autorejPop", "autoresPop", "deliPop"].forEach((id) => {
   const pop = document.getElementById(id);
@@ -10501,7 +10552,7 @@ if (cfgPanelEl) document.body.appendChild(cfgPanelEl);
 
 const fixStyle = document.createElement("style");
 fixStyle.textContent = `
-#cfgPanel{position:fixed !important;right:12px !important;left:auto !important;top:70px !important;margin:0 !important;transform:none !important;z-index:200 !important;}
+#cfgPanel{position:fixed !important;margin:0 !important;transform:none !important;z-index:200 !important;}
 #mesaGrid{
   align-content:start !important;
   align-items:start !important;
@@ -10702,7 +10753,7 @@ try {
     { type: "PEDIR_DATOS_TIENDA" },
     window.location.origin,
   );
-} catch { }
+} catch {}
 
 /* ══════════════ Estado visual de mesa (preparación / entregado) ══════════════ */
 function estItem(it, ped) {
@@ -10865,21 +10916,21 @@ async function traspasarMesa(origenId, destinoId) {
       origenes: (g.origenes || []).map((x) =>
         x.mesaId === origenId
           ? {
-            ...x,
-            mesaId: destinoId,
-            numero: d.numero_mesa,
-            nombre: nomD,
-            pedido: x.pedido
-              ? {
-                ...x.pedido,
-                mesa: {
-                  id: destinoId,
-                  nombre: d.nombre_alias || null,
-                  numero: d.numero_mesa,
-                },
-              }
-              : x.pedido,
-          }
+              ...x,
+              mesaId: destinoId,
+              numero: d.numero_mesa,
+              nombre: nomD,
+              pedido: x.pedido
+                ? {
+                    ...x.pedido,
+                    mesa: {
+                      id: destinoId,
+                      nombre: d.nombre_alias || null,
+                      numero: d.numero_mesa,
+                    },
+                  }
+                : x.pedido,
+            }
           : x,
       ),
     };
@@ -11057,13 +11108,13 @@ async function unirMesasConPedidos(ids) {
       p.pedido.bloques?.length && !p.pedido.editadoPorMozo
         ? tagBloques(p.pedido.bloques, p.id)
         : [
-          {
-            hora: p.pedido.hora || "—",
-            mesaOrigenId: p.id,
-            mesaOrigenNombre: nombreDe(p.id),
-            items: tag(p.pedido.productos, p.id),
-          },
-        ],
+            {
+              hora: p.pedido.hora || "—",
+              mesaOrigenId: p.id,
+              mesaOrigenNombre: nombreDe(p.id),
+              items: tag(p.pedido.productos, p.id),
+            },
+          ],
     );
     const estMesas = [
       ...new Set(partes.map((p) => p.pedido.estadoMesa || null)),
@@ -11383,3 +11434,284 @@ document.getElementById("mtOk").addEventListener("click", async () => {
     btn.disabled = !mtSel.size;
   }
 });
+
+
+/* ══════════════ PUNTO DE ENTREGA ══════════════ */
+function puntoEntregaDetalleHTML(p) {
+  const pe = p.punto_entrega;
+  if (p.cliente?.tipo_entrega !== "Recojo en punto" || !pe) return "";
+  const url = `https://www.google.com/maps?q=${pe.lat},${pe.lng}&z=17&output=embed`;
+  return `
+    <div class="dm-meta-item full">
+      <div class="dm-meta-label">📍 Recojo en punto destinado</div>
+      <div class="dm-meta-value">${escapeHtml(pe.nombre || "")}${pe.referencia ? " · " + escapeHtml(pe.referencia) : ""}</div>
+      <div class="mapa-delivery-mini" data-maps-url="${escapeHtml(url)}">
+        <iframe src="${url}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div class="mapa-delivery-click-layer">🔍 Toca para ver el mapa completo</div>
+      </div>
+    </div>`;
+}
+
+const peStyle = document.createElement("style");
+peStyle.textContent = `
+#peMap{height:280px;border-radius:14px;margin:10px 0;border:1px solid var(--line);isolation:isolate;}
+.pe-search{display:flex;gap:8px;}
+.pe-search input,.pe-field{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg,#0a0a0f);color:#fff;font-size:16px;}
+.pe-coords{font-size:11.5px;color:var(--ink-dim);margin-bottom:10px;}
+`;
+document.head.appendChild(peStyle);
+
+function peCargarLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  return new Promise((res, rej) => {
+    if (!document.getElementById("peLeafletCss")) {
+      const l = document.createElement("link");
+      l.id = "peLeafletCss";
+      l.rel = "stylesheet";
+      l.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(l);
+    }
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.onload = () => res(window.L);
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+const peOv = document.createElement("div");
+peOv.className = "dlv-ov";
+peOv.innerHTML = `
+  <div class="dlv-box">
+    <div class="dlv-head"><span>📍 Dirección de entrega</span><button type="button" data-x>✕</button></div>
+    <p class="dlv-cfg-sub">Marca en el mapa el lugar donde entregas los pedidos (recojo en punto destinado).</p>
+    <input type="text" id="peNombre" class="pe-field" maxlength="60" placeholder="Nombre (ej: Plaza de Armas)" style="margin-bottom:8px;">
+    <input type="text" id="peReferencia" class="pe-field" maxlength="100" placeholder="Referencia (opcional)" style="margin-bottom:10px;">
+    <div class="pe-search">
+      <input type="text" id="peBuscar" placeholder="Buscar dirección o lugar…">
+      <button type="button" class="oc-btn ghost" id="peBuscarBtn">🔍</button>
+      <button type="button" class="oc-btn ghost" id="peGpsBtn" title="Mi ubicación">🎯</button>
+    </div>
+    <div id="peMap"></div>
+    <div class="pe-coords" id="peCoords">Toca el mapa o arrastra el pin para marcar el punto.</div>
+    <button type="button" class="np-confirmar-btn" id="peGuardar">Guardar punto de entrega</button>
+  </div>`;
+document.body.appendChild(peOv);
+peOv.addEventListener("click", (e) => {
+  if (e.target === peOv || e.target.hasAttribute("data-x")) peOv.classList.remove("show");
+});
+
+let peMap = null, peMarker = null, pePos = null;
+
+function pePintarCoords() {
+  document.getElementById("peCoords").textContent = pePos
+    ? `📍 ${pePos.lat.toFixed(5)}, ${pePos.lng.toFixed(5)}`
+    : "Toca el mapa o arrastra el pin para marcar el punto.";
+}
+function peColocarPin(lat, lng, centrar = true) {
+  pePos = { lat, lng };
+  if (!peMarker) {
+    peMarker = L.marker([lat, lng], { draggable: true }).addTo(peMap);
+    peMarker.on("dragend", () => {
+      const p = peMarker.getLatLng();
+      pePos = { lat: p.lat, lng: p.lng };
+      pePintarCoords();
+    });
+  } else peMarker.setLatLng([lat, lng]);
+  if (centrar) peMap.setView([lat, lng], Math.max(peMap.getZoom(), 17));
+  pePintarCoords();
+}
+
+async function peAbrir() {
+  const saved = bizDataGlobal?.punto_entrega || {};
+  document.getElementById("peNombre").value = saved.nombre || "";
+  document.getElementById("peReferencia").value = saved.referencia || "";
+  document.getElementById("peBuscar").value = "";
+  pePos = null;
+  document.getElementById("cfgPanel")?.classList.remove("show");
+  peOv.classList.add("show");
+  try {
+    await peCargarLeaflet();
+  } catch {
+    return showToast("❌ No se pudo cargar el mapa", true);
+  }
+  const tieneSaved = saved.lat != null && saved.lng != null && Number.isFinite(Number(saved.lat));
+  const centro = tieneSaved
+    ? [Number(saved.lat), Number(saved.lng)]
+    : bizLat != null ? [bizLat, bizLng] : [-12.0464, -77.0428];
+  if (!peMap) {
+    peMap = L.map("peMap").setView(centro, 16);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap",
+    }).addTo(peMap);
+    peMap.on("click", (e) => peColocarPin(e.latlng.lat, e.latlng.lng, false));
+  } else peMap.setView(centro, 16);
+  if (peMarker) { peMarker.remove(); peMarker = null; }
+  if (tieneSaved) peColocarPin(centro[0], centro[1]);
+  else pePintarCoords();
+  setTimeout(() => peMap.invalidateSize(), 250);
+}
+
+document.getElementById("peBuscarBtn").addEventListener("click", async () => {
+  const q = document.getElementById("peBuscar").value.trim();
+  if (!q || !peMap) return;
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&q=${encodeURIComponent(q)}`,
+    );
+    const j = await r.json();
+    if (!j.length) return showToast("No se encontró ese lugar", true);
+    peColocarPin(Number(j[0].lat), Number(j[0].lon));
+  } catch {
+    showToast("❌ No se pudo buscar", true);
+  }
+});
+document.getElementById("peBuscar").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("peBuscarBtn").click();
+});
+document.getElementById("peGpsBtn").addEventListener("click", () => {
+  if (!navigator.geolocation || !peMap) return showToast("Sin geolocalización", true);
+  navigator.geolocation.getCurrentPosition(
+    (pos) => peColocarPin(pos.coords.latitude, pos.coords.longitude),
+    () => showToast("No se pudo obtener tu ubicación", true),
+    { enableHighAccuracy: true, timeout: 10000 },
+  );
+});
+
+document.getElementById("peGuardar").addEventListener("click", async () => {
+  const nombre = document.getElementById("peNombre").value.trim();
+  const referencia = document.getElementById("peReferencia").value.trim();
+  if (!nombre) return showToast("Falta el nombre del punto", true);
+  if (!pePos) return showToast("Marca el pin en el mapa", true);
+  const data = { activo: true, nombre, referencia, lat: pePos.lat, lng: pePos.lng };
+  try {
+    await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), { punto_entrega: data });
+    bizDataGlobal = { ...(bizDataGlobal || {}), punto_entrega: data };
+    peOv.classList.remove("show");
+    peSync();
+    showToast("📍 Punto de entrega guardado");
+  } catch (e) {
+    console.error(e);
+    showToast("❌ No se pudo guardar", true);
+  }
+});
+
+function peSync() {
+  const pe = bizDataGlobal?.punto_entrega;
+  const t = document.getElementById("peToggle");
+  if (t) t.checked = pe?.activo === true;
+  const ed = document.getElementById("peEdit");
+  if (ed) ed.style.display = pe && pe.lat != null ? "block" : "none";
+}
+
+(function () {
+  const panel = document.getElementById("cfgPanel");
+  if (!panel) return;
+  const row = document.createElement("div");
+  row.className = "autorej-wrap";
+  row.style.gridColumn = "1 / -1";
+  row.innerHTML = `
+    <div class="dlv-cfg-row">
+      <span class="l">📍 Dirección de entrega (recojo en punto)</span>
+      <label class="switch"><input type="checkbox" id="peToggle"><span class="switch-track"></span></label>
+    </div>
+    <button type="button" class="oc-btn ghost" id="peEdit" style="margin-top:6px;display:none;">✎ Editar punto en el mapa</button>`;
+  panel.appendChild(row);
+
+  document.getElementById("peEdit").addEventListener("click", peAbrir);
+  document.getElementById("peToggle").addEventListener("change", async (e) => {
+    const on = e.target.checked;
+    const pe = bizDataGlobal?.punto_entrega;
+    const tieneCoords = pe && pe.lat != null && Number.isFinite(Number(pe.lat));
+    if (on && !tieneCoords) {
+      e.target.checked = false;
+      return peAbrir();
+    }
+    try {
+      await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), { "punto_entrega.activo": on });
+      bizDataGlobal = { ...(bizDataGlobal || {}), punto_entrega: { ...(pe || {}), activo: on } };
+      showToast(on ? "📍 Punto de entrega activado" : "📍 Punto de entrega desactivado");
+    } catch (err) {
+      console.error(err);
+      e.target.checked = !on;
+      showToast("❌ No se pudo guardar", true);
+    }
+    peSync();
+  });
+  document.getElementById("cfgBtn")?.addEventListener("click", peSync);
+})();
+
+/* ══════════════ DELIVERY GRATIS POR MONTO ══════════════ */
+function peSyncGratis() {
+  const t = document.getElementById("dgToggle");
+  const m = document.getElementById("dgMonto");
+  const box = document.getElementById("dgBox");
+  if (!t) return;
+  t.checked = deliGratis.activo;
+  if (m && document.activeElement !== m) m.value = deliGratis.monto;
+  if (box) box.style.display = deliGratis.activo ? "flex" : "none";
+}
+
+(function () {
+  const panel = document.getElementById("cfgPanel");
+  if (!panel) return;
+  const row = document.createElement("div");
+  row.className = "autorej-wrap";
+  row.style.gridColumn = "1 / -1";
+  row.innerHTML = `
+    <div class="dlv-cfg-row">
+      <span class="l">🚚 Delivery gratis por compra mínima</span>
+      <label class="switch"><input type="checkbox" id="dgToggle"><span class="switch-track"></span></label>
+    </div>
+    <div id="dgBox" style="display:none;gap:8px;align-items:center;margin-top:6px;">
+      <span style="font-size:12.5px;color:var(--ink-dim);white-space:nowrap;">Gratis desde S/</span>
+      <input type="number" id="dgMonto" class="deli-inp" min="1" step="1" style="flex:1;min-width:0;">
+      <button type="button" class="oc-btn ghost" id="dgGuardar">Guardar</button>
+    </div>`;
+  const peRow = document.getElementById("peToggle")?.closest(".autorej-wrap");
+  peRow ? peRow.before(row) : panel.appendChild(row);
+
+  async function guardar(nuevo) {
+    try {
+      await updateDoc(tiendaDoc(localidad, "tiendas", tiendaId), {
+        "delivery.gratis_desde": nuevo,
+      });
+      deliGratis = nuevo;
+      bizDataGlobal = {
+        ...(bizDataGlobal || {}),
+        delivery: { ...(bizDataGlobal?.delivery || {}), gratis_desde: nuevo },
+      };
+      return true;
+    } catch (e) {
+      console.error(e);
+      showToast("❌ No se pudo guardar", true);
+      return false;
+    }
+  }
+
+  document.getElementById("dgToggle").addEventListener("change", async (e) => {
+    const on = e.target.checked;
+    const ok = await guardar({ ...deliGratis, activo: on });
+    if (!ok) e.target.checked = !on;
+    else
+      showToast(
+        on
+          ? `🚚 Delivery gratis desde ${fmtMoney(deliGratis.monto)}`
+          : "🚚 Delivery gratis desactivado",
+      );
+    peSyncGratis();
+  });
+
+  document.getElementById("dgGuardar").addEventListener("click", async () => {
+    const monto = Math.max(
+      1,
+      Number(document.getElementById("dgMonto").value) || 0,
+    );
+    if (await guardar({ ...deliGratis, monto })) {
+      showToast(`🚚 Gratis desde ${fmtMoney(monto)}`);
+      peSyncGratis();
+    }
+  });
+  peSyncGratis();
+})();

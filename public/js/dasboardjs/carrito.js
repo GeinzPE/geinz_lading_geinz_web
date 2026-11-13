@@ -640,6 +640,7 @@ function bindPromoDetailModal() {
       <div class="promo-detail-body">
         <h3 class="promo-detail-title" id="promoDetailTitle"></h3>
         <p class="promo-detail-desc" id="promoDetailDesc"></p>
+        <p class="promo-detail-delivery" id="promoDetailDelivery">🚚 ¡Cómpralo con delivery gratis!</p>
                 <div id="pd_body"></div>
        <div class="promo-detail-actions" id="promoDetailActions">
   <button class="promo-detail-btn" id="promoDetailAddBtn">🛒 Agregar al carrito</button>
@@ -715,7 +716,8 @@ function abrirPromoDetailModal(p) {
 
   document.getElementById("promoDetailTitle").textContent = p.nombre || "";
   document.getElementById("promoDetailDesc").textContent = p.descripcion || "";
-
+  document.getElementById("promoDetailDelivery").style.display =
+    promoDeliveryGratis(p) ? "flex" : "none";
   const priceEl = document.getElementById("promoDetailPrice");
   const ddPromo = precioDesdeInfo(p);
   priceEl.textContent = `${ddPromo.varia ? "Desde " : ""}S/ ${ddPromo.precio.toFixed(2)}`;
@@ -740,12 +742,13 @@ function abrirPromoDetailModal(p) {
   const body = document.getElementById("pd_body");
   body.innerHTML = "";
   const tieneOpc =
-    (p.condiciones && p.condiciones.length) || sugeridosDisponibles(p).length > 0;
+    (p.condiciones && p.condiciones.length) ||
+    sugeridosDisponibles(p).length > 0;
 
   if (tieneOpc) {
     injectOptionsStyles();
     modoPromo = true;
-        gruposModal = [...(p.condiciones || [])];
+    gruposModal = [...(p.condiciones || [])];
     gruposModal.forEach((c) => {
       if (c.multiple || !c.obligatoria) return;
       const libres = c.opciones.filter((o) => !o.agotado);
@@ -786,7 +789,8 @@ function abrirPromoDetailModal(p) {
   const addBtn = document.getElementById("promoDetailAddBtn");
   const sinStockPromo = productoSinStock(p);
   if (tieneOpc) actualizarEstadoBotonConfirmar(p);
-  else addBtn.textContent = `🛒 Agregar al carrito · S/ ${Number(p.precio || 0).toFixed(2)}`;
+  else
+    addBtn.textContent = `🛒 Agregar al carrito · S/ ${Number(p.precio || 0).toFixed(2)}`;
   addBtn.disabled = sinStockPromo || (tieneOpc && !!sugAbierto);
   if (sinStockPromo) addBtn.textContent = "Sin stock disponible";
 
@@ -812,7 +816,9 @@ function abrirPromoDetailModal(p) {
       return;
     }
     if (sugAbierto) {
-      showToast("Termina de elegir las opciones del producto sugerido o ciérralas con ✕");
+      showToast(
+        "Termina de elegir las opciones del producto sugerido o ciérralas con ✕",
+      );
       return;
     }
     const sugs = Object.entries(sugeridosModal);
@@ -2245,7 +2251,8 @@ async function aplicarCuponBanner() {
       codigo: "PROMO",
       tipo: "manual",
       origen: "banner",
-      tipoDescuentoManual: banner.descuentoTipo === "monto" ? "monto" : "porcentaje",
+      tipoDescuentoManual:
+        banner.descuentoTipo === "monto" ? "monto" : "porcentaje",
       porcentajeManual: banner.descuentoTipo === "monto" ? null : valor,
       montoManual: banner.descuentoTipo === "monto" ? valor : null,
       compraMinima: 0,
@@ -2264,7 +2271,11 @@ async function aplicarCuponBanner() {
   }
   cuponAplicado = nuevoCupon;
   updateCartUI();
-  showToast(tipo === "envio_gratis" ? "🚚 Envío gratis aplicado" : "🏷️ Descuento aplicado");
+  showToast(
+    tipo === "envio_gratis"
+      ? "🚚 Envío gratis aplicado"
+      : "🏷️ Descuento aplicado",
+  );
 }
 function bindCuponInputs() {
   const pares = [
@@ -2672,6 +2683,173 @@ function aplicarModeloNegocio(biz) {
     }
   }
 }
+/* ══════════════ Recojo en punto destinado ══════════════ */
+const TIPO_PUNTO = "Recojo en punto";
+
+function getPuntoEntrega() {
+  const p = bizData?.punto_entrega;
+  if (mesaId || !p || p.activo !== true) return null;
+  const lat = Number(p.lat),
+    lng = Number(p.lng);
+  if (
+    p.lat == null ||
+    p.lng == null ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng)
+  )
+    return null;
+  return {
+    nombre: String(p.nombre || "Punto de entrega").trim(),
+    referencia: String(p.referencia || "").trim(),
+    lat,
+    lng,
+  };
+}
+
+function seleccionarEntrega(val) {
+  tipoEntrega = val;
+  document.querySelectorAll("#entregaToggle .toggle-opt").forEach((o) => {
+    const active = o.dataset.val === val;
+    o.classList.toggle("active", active);
+    o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
+  });
+  actualizarDireccionPorEntrega();
+  pintarDeliveryInfo();
+  pintarPuntoEntrega();
+  refrescarResumenCheckout();
+}
+
+function actualizarDireccionPorEntrega() {
+  const dir = document.getElementById("direccionCollapse");
+  if (!dir) return;
+  const soloDeliveryBn =
+    tipoTiendaFisica === false && !mesaId && getDeliveryCfg()?.hace !== false;
+  document
+    .getElementById("soloDeliveryBanner")
+    ?.classList.toggle("hidden", !soloDeliveryBn || !!getPuntoEntrega());
+  const soloDelivery =
+    tipoTiendaFisica === false && !mesaId && getDeliveryCfg()?.hace !== false;
+  if (soloDelivery) {
+    dir.style.setProperty(
+      "display",
+      tipoEntrega === TIPO_PUNTO ? "none" : "block",
+      "important",
+    );
+  } else {
+    setCollapseOpen(dir, tipoEntrega === "Delivery");
+  }
+}
+
+function aplicarPuntoEntrega() {
+  const toggle = document.getElementById("entregaToggle");
+  if (!toggle) return;
+  const punto = getPuntoEntrega();
+  let opt = toggle.querySelector(`.toggle-opt[data-val="${TIPO_PUNTO}"]`);
+
+  if (!punto) {
+    opt?.remove();
+    if (tipoEntrega === TIPO_PUNTO) {
+      const primera = [...toggle.querySelectorAll(".toggle-opt")].find(
+        (o) => getComputedStyle(o).display !== "none",
+      );
+      if (primera) seleccionarEntrega(primera.dataset.val);
+    }
+  } else if (!opt) {
+    opt = document.createElement("div");
+    opt.className = "toggle-opt";
+    opt.dataset.val = TIPO_PUNTO;
+    opt.textContent = "📍 Punto de entrega";
+    toggle.appendChild(opt);
+  }
+
+  const visibles = [...toggle.querySelectorAll(".toggle-opt")].filter(
+    (o) => getComputedStyle(o).display !== "none",
+  ).length;
+  toggle.style.setProperty(
+    "grid-template-columns",
+    `repeat(${Math.max(visibles, 1)}, 1fr)`,
+  );
+  pintarPuntoEntrega();
+  actualizarDireccionPorEntrega();
+}
+
+function pintarPuntoEntrega() {
+  let el = document.getElementById("puntoEntregaInfo");
+  const punto = getPuntoEntrega();
+  if (tipoEntrega !== TIPO_PUNTO || !punto) {
+    el?.classList.add("hidden");
+    return;
+  }
+  injectDeliveryStyles();
+
+  if (!document.getElementById("puntoSkelStyle")) {
+    const st = document.createElement("style");
+    st.id = "puntoSkelStyle";
+    st.textContent = `
+    .punto-map{position:relative;width:100%;height:190px;border-radius:14px;overflow:hidden;margin-top:10px;
+      background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.05) 75%);
+      background-size:200% 100%;animation:puntoShimmer 1.2s linear infinite;}
+    .punto-map.loaded{animation:none;background:#0d0d0d;}
+    .punto-map iframe{width:100%;height:100%;border:0;opacity:0;transition:opacity .4s ease;}
+    .punto-map iframe.loaded{opacity:1;}
+    .punto-map-skel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    .punto-map iframe{pointer-events:auto;touch-action:none;}
+.punto-map-expand{position:absolute;top:8px;right:8px;z-index:3;padding:6px 10px;border:none;border-radius:10px;
+  font-size:11.5px;font-weight:800;color:#fff;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);cursor:pointer;}
+.punto-map:fullscreen{height:100%;width:100%;margin:0;border-radius:0;}
+      font-size:12px;font-weight:700;color:#9ca3af;pointer-events:none;transition:opacity .3s ease;}
+    .punto-map.loaded .punto-map-skel{opacity:0;}
+    @keyframes puntoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`;
+    document.head.appendChild(st);
+  }
+
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "puntoEntregaInfo";
+    el.className = "dlv-card";
+    (
+      document.getElementById("deliveryInfo") ||
+      document.getElementById("direccionCollapse")
+    )?.after(el);
+  }
+
+  // Si ya está pintado con el mismo punto, no se vuelve a crear (evita que el mapa recargue)
+  const key = `${punto.lat},${punto.lng},${punto.nombre},${punto.referencia}`;
+  if (el.dataset.key === key) {
+    el.classList.remove("hidden");
+    return;
+  }
+  el.dataset.key = key;
+
+  const embed = `https://www.google.com/maps?q=${punto.lat},${punto.lng}&z=17&output=embed`;
+  const ruta = `https://www.google.com/maps/dir/?api=1&destination=${punto.lat},${punto.lng}&travelmode=driving`;
+  el.innerHTML = `
+    <div class="dlv-title">📍 Recojo en punto destinado</div>
+    <div style="font-weight:700;">${escapeHtmlCarrito(punto.nombre)}</div>
+    ${punto.referencia ? `<div class="dlv-muted">${escapeHtmlCarrito(punto.referencia)}</div>` : ""}
+    <div class="dlv-cost" style="margin-top:10px;">
+      <span>🛵 Costo de delivery</span><b style="color:#4ade80;">Gratis</b>
+    </div>
+    <div class="dlv-muted" style="margin-top:8px;">
+      Tú te acercas a este punto a recoger tu pedido, por eso no pagas delivery.
+    </div>
+ <div class="punto-map" id="puntoMapWrap">
+  <div class="punto-map-skel">🗺️ Cargando mapa…</div>
+  <iframe src="${embed}" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
+    onload="this.classList.add('loaded');this.parentElement.classList.add('loaded')"></iframe>
+  <button type="button" class="punto-map-expand" id="puntoMapExpand">⛶ Ampliar</button>
+</div>
+    <a href="${ruta}" target="_blank" rel="noopener" class="dlv-muted" style="display:inline-block;margin-top:8px;text-decoration:underline;">Cómo llegar →</a>`;
+  el.classList.remove("hidden");
+  el.querySelector("#puntoMapExpand").onclick = () => {
+    const w = el.querySelector("#puntoMapWrap");
+    if (w.requestFullscreen)
+      w.requestFullscreen().catch(() =>
+        window.open(ruta, "_blank", "noopener"),
+      );
+    else window.open(ruta, "_blank", "noopener"); // iPhone/Safari: abre Google Maps
+  };
+}
 async function renderTienda(biz) {
   bizData = biz;
   bizNombre = biz?.nombre_tienda || biz?.nombre || "Catálogo";
@@ -2837,7 +3015,10 @@ function aplicarComportamientoBotonAtras() {
   if (!backBtn) return;
 
   const alias =
-    bizData?.alias_key || bizData?.alias_negocio || aliasNegocio || _bizAliasKey;
+    bizData?.alias_key ||
+    bizData?.alias_negocio ||
+    aliasNegocio ||
+    _bizAliasKey;
 
   const destino = window.__NEGOCIO_HOSTNAME__
     ? getLandingBase()
@@ -2850,7 +3031,7 @@ function aplicarComportamientoBotonAtras() {
   backBtn.removeAttribute("target");
 
   // Precalienta el destino para que cargue rápido si hay que navegar
-  if (!document.querySelector('link[data-back-prefetch]')) {
+  if (!document.querySelector("link[data-back-prefetch]")) {
     const l = document.createElement("link");
     l.rel = "prefetch";
     l.href = destino;
@@ -2868,7 +3049,8 @@ function aplicarComportamientoBotonAtras() {
         history.length > 1;
     } catch {}
 
-    if (vinoDeMiSitio) history.back(); // instantáneo, sin function
+    if (vinoDeMiSitio)
+      history.back(); // instantáneo, sin function
     else window.location.href = destino; // vino de WhatsApp u otro sitio
   };
 }
@@ -3192,6 +3374,12 @@ function productoCard(p, index = 0) {
     badge.textContent = `-${Math.round(descInfoCard.porcentaje)}%`;
     imgWrap.appendChild(badge);
   }
+  if (promoDeliveryGratis(p)) {
+    const bd = document.createElement("span");
+    bd.className = "prod-delivery-badge";
+    bd.textContent = "🚚 Delivery gratis";
+    imgWrap.appendChild(bd);
+  }
   if (p.destacado) {
     const b = document.createElement("span");
     b.className = "prod-destacado-badge";
@@ -3246,6 +3434,12 @@ function productoCard(p, index = 0) {
     t.className = "text-[11px] font-bold mt-0.5 prod-destacado-txt";
     t.textContent = `🎉 ${p.destacadoTexto}`;
     info.appendChild(t);
+  }
+  if (promoDeliveryGratis(p)) {
+    const dg = document.createElement("p");
+    dg.className = "prod-delivery-txt";
+    dg.textContent = "🚚 ¡Cómpralo con delivery gratis!";
+    info.appendChild(dg);
   }
   if (condLine) {
     const condEl = document.createElement("p");
@@ -3679,8 +3873,10 @@ function distanciaKm(lat1, lon1, lat2, lon2) {
 // Devuelve { costo, distKm, aprox, gratis, texto, desde } o null si no se muestra nada
 function calcularDeliveryCliente() {
   const cfg = getDeliveryCfg();
-  if (!cfg || !cfg.hace || !cfg.tarifaActiva) return null;
-if (envioGratisActivo()) return { costo: 0, gratis: true };   // antes: cuponAplicado?.envioGratis
+  if (!cfg || !cfg.hace) return null;
+  if (envioGratisActivo())
+    return { costo: 0, gratis: true, porMonto: !envioGratisOtro() };
+  if (!cfg.tarifaActiva) return null;
   const rec = recargoEnHora(cfg.recargo);
   if (cfg.modo === "fija")
     return { costo: cfg.fija + rec, texto: cfg.texto, recargo: rec };
@@ -3766,6 +3962,7 @@ function injectDeliveryStyles() {
 
 function pintarDeliveryInfo() {
   if (delivDesactivado()) return;
+    pintarProgresoGratis();
   injectDeliveryStyles();
   let el = document.getElementById("deliveryInfo");
   if (!el) {
@@ -3823,7 +4020,7 @@ function pintarDeliveryInfo() {
   } else if (!r) {
     html = `<div class="dlv-title">🛵 Delivery disponible</div><span class="dlv-muted">El costo lo confirma el negocio.</span>`;
   } else if (r.gratis) {
-    html = `<div class="dlv-title">🚚 Envío gratis <span class="dlv-muted">(promo del negocio)</span></div>`;
+    html = `<div class="dlv-title">🚚 Envío gratis <span class="dlv-muted">(${r.porMonto ? "por tu compra" : "promo del negocio"})</span></div>`;
   } else if (r.aprox) {
     html = `<div class="dlv-title">🛵 Delivery aprox.</div>
       <div class="dlv-cost"><span class="dlv-muted">${r.distKm.toFixed(1)} km en línea recta</span><b>${money(r.costo)}</b></div>`;
@@ -3835,7 +4032,7 @@ function pintarDeliveryInfo() {
       <div class="dlv-cost"><span class="dlv-muted">${esc(r.texto || "Tarifa fija")}</span><b>${money(r.costo)}</b></div>`;
   }
 
-  el.innerHTML = html + aviso;
+  el.innerHTML = html + aviso + notaGratisFaltante();
   el.classList.remove("hidden");
 
   const sel = el.querySelector("#deliveryZonaSel");
@@ -5241,6 +5438,9 @@ function updateCartUI() {
 
   renderCuponBar(subtotal);
   pintarAdicionalesCarrito();
+  pintarProgresoGratis();
+  pintarProgresoMinimoCupon();   // ← NUEVA
+  if (bizData) pintarDeliveryInfo();
   const cartCountEl = document.getElementById("cartCount");
   cartCountEl.textContent = count;
   if (count !== prevCartCount) {
@@ -5284,7 +5484,10 @@ function promoBadgeHTML(it) {
   const label = (
     it.categoria || (it.esOfertaTiempo ? "Oferta" : "Promoción")
   ).replace(/</g, "&lt;");
-  return `<span class="cart-row-promo-badge" style="display:inline-block;font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;margin-bottom:3px;background:rgba(var(--dr),var(--dg),var(--db),.18);color:rgb(var(--dr),var(--dg),var(--db));">🏷️ ${label}</span>`;
+  const dg = promoDeliveryGratis(it)
+    ? `<span class="cart-dg-chip">🚚 Delivery gratis</span>`
+    : "";
+  return `<span class="cart-row-promo-badge" style="display:inline-block;font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;margin-bottom:3px;background:rgba(var(--dr),var(--dg),var(--db),.18);color:rgb(var(--dr),var(--dg),var(--db));">🏷️ ${label}</span>${dg}`;
 }
 function descuentoVenceHTMLParaItem(it) {
   if (!it.precioOriginal) return "";
@@ -5581,6 +5784,8 @@ function openCheckout() {
   prepararCheckoutInvitado();
   pintarDeliveryInfo();
   aplicarDisponibilidadDelivery(); // ← AGREGAR
+  aplicarPuntoEntrega();
+  actualizarDireccionPorEntrega();
   checkoutOverlay.classList.add("show");
   requestAnimationFrame(() => checkoutModal.classList.add("show"));
   document.body.style.overflow = "hidden";
@@ -5650,6 +5855,12 @@ function renderCheckoutSummary() {
       <span>${t.min}–${t.max} min</span>
     </div>`
         : "";
+    })() +
+    (() => {
+      const hay = [...carrito.values()].some((i) => promoDeliveryGratis(i));
+      return hay && tipoEntrega !== "Delivery" && !mesaId
+        ? `<div class="step-summary-row" style="color:#fcd34d"><span>🚚 Tienes delivery gratis: elige "Delivery" para aprovecharlo</span></div>`
+        : "";
     })();
 
   document.getElementById("checkoutTotal").textContent = total.toFixed(2);
@@ -5664,20 +5875,12 @@ function renderCheckoutSummary() {
   renderCuponBar(subtotal);
 }
 
-/* Toggle: tipo de entrega */
 document.getElementById("entregaToggle").addEventListener("click", (e) => {
   const opt = e.target.closest(".toggle-opt");
   if (!opt) return;
   if (getDeliveryCfg()?.hace === false && opt.dataset.val === "Delivery")
     return;
-  tipoEntrega = opt.dataset.val;
-  document.querySelectorAll("#entregaToggle .toggle-opt").forEach((o) => {
-    const active = o === opt;
-    o.classList.toggle("active", active);
-    o.style.background = active ? "rgb(var(--dr),var(--dg),var(--db))" : "";
-  });
-  setCollapseOpen(direccionCollapse, tipoEntrega === "Delivery");
-  pintarDeliveryInfo(); // ← recalcula y muestra/oculta el costo de delivery
+  seleccionarEntrega(opt.dataset.val);
 });
 
 document.getElementById("pagoToggle").addEventListener("click", (e) => {
@@ -5745,8 +5948,7 @@ document
       !mesaId &&
       cfgD?.tarifaActiva &&
       cfgD.modo === "zonas" &&
-   !envioGratisActivo() &&      // antes: !cuponAplicado?.envioGratis &&
-
+      !envioGratisActivo() && // antes: !cuponAplicado?.envioGratis &&
       !zonaDeliverySel
     ) {
       showToast("Elige tu zona de entrega");
@@ -5812,7 +6014,12 @@ document
         nombre,
         whatsapp: whatsapp || null,
         tipo_entrega: tipoEntrega,
-        direccion: tipoEntrega === "Delivery" ? direccion : "",
+        direccion:
+          tipoEntrega === "Delivery"
+            ? direccion
+            : tipoEntrega === TIPO_PUNTO
+              ? getPuntoEntrega()?.nombre || ""
+              : "",
         ubicacion:
           tipoEntrega === "Delivery" && clienteLat != null && clienteLng != null
             ? { lat: clienteLat, lng: clienteLng }
@@ -5850,6 +6057,10 @@ document
       subtotal: +subtotal.toFixed(2),
       descuentoCupon,
       delivery: deliv,
+      punto_entrega:
+        tipoEntrega === TIPO_PUNTO && getPuntoEntrega()
+          ? getPuntoEntrega()
+          : null,
       tiempo_estimado: tiempoEstimadoPedido(),
       cupon:
         cuponAplicado || cuponesProductoActivos()[0]
@@ -6332,10 +6543,11 @@ function iniciarValidacionDescuentosEnVivo() {
 function purgarOfertasVencidas({ mostrarToast = false } = {}) {
   const ahora = Date.now();
   const vencidas = promosGlobal.filter(
-    (p) => p.esOfertaTiempo && p.expiraEn && p.expiraEn <= ahora,
+    (p) =>
+      p.esOfertaTiempo &&
+      ((p.expiraEn && p.expiraEn <= ahora) || !diaOk(p)),
   );
   if (!vencidas.length) return false;
-
   vencidas.forEach((p) => {
     promosGlobal = promosGlobal.filter((x) => x.id !== p.id);
     productosPorId.delete(p.id);
@@ -6394,6 +6606,10 @@ async function loadOfertasActivas() {
         console.log(`[OFERTAS] ${docSnap.id} descartada: desactivada`);
         return;
       }
+      if (!diaOk(data)) {
+  console.log(`[OFERTAS] ${docSnap.id} descartada: hoy no es uno de sus días`);
+  return;
+}
       if (fh.activo === false) {
         console.log(
           `[OFERTAS] ${docSnap.id} descartada: datos_hora_fecha.activo === false`,
@@ -6439,7 +6655,7 @@ async function loadOfertasActivas() {
 
       console.log(`[OFERTAS] ${docSnap.id} ✅ APROBADA, precio=${precio}`);
 
-           const cp = condicionesDePromo(data.condiciones);
+      const cp = condicionesDePromo(data.condiciones);
       const nombreMA = String(data.nombre || "").trim();
       ofertas.push({
         id: `promo__activa_${docSnap.id}`,
@@ -6450,6 +6666,7 @@ async function loadOfertasActivas() {
         nombre: (nombreMA || titulo || descripcion || "Oferta").slice(0, 80),
         descripcion,
         categoria: "momentaneas⏰",
+                dias: Array.isArray(data.dias) ? data.dias : null,  
         destacado: !!esp && data.destacarEspecial === true,
         destacadoTexto: esp ? String(esp.titulo || "").trim() : "",
         destacadoGrad: grad ? grad.css : "",
@@ -6486,10 +6703,159 @@ function bannerItemsDe(b) {
 }
 
 // Envío gratis por cupón/banner o por algún producto del carrito marcado 🚚
-const envioGratisActivo = () =>
+const envioGratisOtro = () =>
   !!cuponAplicado?.envioGratis ||
   [...carrito.values()].some((i) => i.deliveryGratis === true);
+
+function subtotalCarritoBruto() {
+  return [...carrito.values()].reduce(
+    (s, i) => s + i.cantidad * (i.precio || 0),
+    0,
+  );
+}
+function cfgGratisDesde() {
+  const g = bizData?.delivery?.gratis_desde;
+  const d = getDeliveryCfg();
+  if (mesaId || !d || !d.hace || !d.tarifaActiva || !g || g.activo !== true)
+    return null;
+  const monto = Number(g.monto) || 0;
+  return monto > 0 ? { monto } : null;
+}
+function envioGratisPorMonto() {
+  const c = cfgGratisDesde();
+  return !!c && subtotalCarritoBruto() >= c.monto;
+}
+const envioGratisActivo = () => envioGratisOtro() || envioGratisPorMonto();
+
+function notaGratisFaltante() {
+  const c = cfgGratisDesde();
+  if (!c || envioGratisActivo()) return "";
+  const falta = c.monto - subtotalCarritoBruto();
+  return `<div class="dlv-note">🚚 Agrega S/ ${falta.toFixed(2)} más y tu delivery sale gratis (desde S/ ${c.monto.toFixed(2)})</div>`;
+}
+
+(function () {
+  const old = document.getElementById("gratisStyle");
+  if (old) old.remove();
+  const st = document.createElement("style");
+  st.id = "gratisStyle";
+  st.textContent = `
+  .hint-box{margin:0 0 8px;padding:0 4px;}
+  .hint-txt{margin:0 0 4px;font-size:11px;font-weight:600;line-height:1.3;color:#8b8b95;}
+  .hint-txt b{color:#d4d4d8;font-weight:800;}
+  .hint-track{height:3px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;}
+  .hint-fill{height:100%;border-radius:99px;background:rgba(var(--dr),var(--dg),var(--db),.7);transition:width .4s ease;}
+  .hint-box.ok .hint-txt{color:#4ade80;}
+  .hint-box.ok .hint-track{display:none;}`;
+  document.head.appendChild(st);
+})();
+function pintarProgresoGratis() {
+  ["drawerItems", "sidebarItems"].forEach((wrapId) => {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    let box = document.getElementById("gratis_" + wrapId);
+
+    const cfgD = getDeliveryCfg();
+    const deliveryOk = !mesaId && !!cfgD && cfgD.hace;
+    const c = cfgGratisDesde();
+    const porPromo = deliveryOk && envioGratisOtro(); // producto 🚚 o cupón de envío gratis
+
+    // Nada que mostrar: sin carrito, no es delivery, o no hay promo ni meta por monto
+    if (!carrito.size || tipoEntrega !== "Delivery" || (!porPromo && !c)) {
+      if (box) box.style.display = "none";
+      return;
+    }
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "gratis_" + wrapId;
+      wrap.before(box);
+    }
+
+    box.style.display = "block";
+
+    // 1) Ya tiene delivery gratis por promo/cupón: mensaje directo, sin barra
+    if (porPromo) {
+      box.className = "hint-box ok";
+      box.innerHTML = `<p class="hint-txt">🚚 ¡Ya tienes delivery gratis con tu pedido!</p>`;
+      return;
+    }
+
+    // 2) Meta por monto: barra discreta
+    const sub = subtotalCarritoBruto();
+    const ok = sub >= c.monto;
+    const pct = Math.min(100, (sub / c.monto) * 100);
+    box.className = "hint-box" + (ok ? " ok" : "");
+    box.innerHTML = `<p class="hint-txt">${
+      ok
+        ? "🚚 ¡Ya tienes delivery gratis por tu compra!"
+        : `🚚 Delivery gratis desde S/ ${c.monto.toFixed(2)} · con <b>S/ ${(c.monto - sub).toFixed(2)}</b> más`
+    }</p><div class="hint-track"><div class="hint-fill" style="width:${pct}%"></div></div>`;
+  });
+}
+/* ══════════ Progreso de compra mínima del cupón ══════════ */
+
+
+function pintarProgresoMinimoCupon() {
+  const c = cuponAplicado;
+  const minimo = Number(c?.compraMinima || 0);
+  const aplica = !!c && c.tipo === "manual" && minimo > 0 && carrito.size > 0;
+
+  ["drawerItems", "sidebarItems"].forEach((wrapId) => {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    let box = document.getElementById("minimo_" + wrapId);
+
+    if (!aplica) {
+      if (box) box.style.display = "none";
+      return;
+    }
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "minimo_" + wrapId;
+      wrap.before(box);
+    }
+
+    const sub = subtotalCarritoBruto();
+    const ok = sub >= minimo;
+    const pct = Math.min(100, (sub / minimo) * 100);
+    const premio =
+      c.tipoDescuentoManual === "porcentaje"
+        ? `${c.porcentajeManual}% de descuento`
+        : c.tipoDescuentoManual === "monto"
+          ? `S/ ${Number(c.montoManual || 0).toFixed(2)} de descuento`
+          : "tu cupón";
+
+    box.className = "hint-box" + (ok ? " ok" : "");
+    box.style.display = "block";
+    box.innerHTML = `<p class="hint-txt">${
+      ok
+        ? `🎟️ Cupón activado: ${premio} ✓`
+        : `🎟️ Con <b>S/ ${(minimo - sub).toFixed(2)}</b> más se activa tu ${premio}`
+    }</p><div class="hint-track"><div class="hint-fill" style="width:${pct}%"></div></div>`;
+  });
+}
 // Devuelve el día especial de HOY (si está activo en el perfil) o null
+
+function promoDeliveryGratis(p) {
+  return (
+    p?.deliveryGratis === true && !mesaId && getDeliveryCfg()?.hace !== false
+  );
+}
+(function () {
+  if (document.getElementById("dgStyle")) return;
+  const st = document.createElement("style");
+  st.id = "dgStyle";
+  st.textContent = `
+  .prod-delivery-badge{position:absolute;left:8px;bottom:8px;z-index:3;padding:4px 9px;border-radius:999px;
+    font-size:10px;font-weight:900;color:#04240f;background:#4ade80;box-shadow:0 6px 16px -4px rgba(34,197,94,.6);}
+  .prod-delivery-txt{margin:4px 0 0;font-size:11px;font-weight:800;color:#4ade80;}
+  .promo-detail-delivery{display:none;align-items:center;gap:8px;margin:0 0 16px;padding:10px 14px;border-radius:14px;
+    font-size:13.5px;font-weight:800;color:#4ade80;background:rgba(34,197,94,.1);border:1px dashed rgba(74,222,128,.45);}
+  .cart-dg-chip{display:inline-block;margin:0 0 3px 4px;font-size:9.5px;font-weight:900;padding:2px 7px;border-radius:999px;
+    color:#04240f;background:#4ade80;}`;
+  document.head.appendChild(st);
+})();
+
 function diaEspecialHoy(biz = bizData) {
   const cfg = biz?.dias_especiales;
   if (!cfg || cfg.activo !== true) return null;
@@ -6549,7 +6915,7 @@ function normalizarPromociones(biz) {
   const esp = diaEspecialHoy(biz);
   const lista = [];
 
-    // ── Banners (varios, cada uno con sus días y su modo avanzado) ──
+  // ── Banners (varios, cada uno con sus días y su modo avanzado) ──
   const bn = biz?.banner;
   if (bn?.activo === true) {
     Object.entries(bannerItemsDe(bn)).forEach(([bid, b]) => {
@@ -6614,7 +6980,7 @@ function normalizarPromociones(biz) {
         stock: typeof p.stock === "number" ? p.stock : null,
         sugerencias: Array.isArray(p.sugerencias) ? p.sugerencias : [],
         puntos: null,
-                deliveryGratis: p.deliveryGratis === true,
+        deliveryGratis: p.deliveryGratis === true,
       });
     });
   }
@@ -7085,7 +7451,7 @@ async function aplicarCarritoDesdePerfil() {
       return;
     }
     // ── Promociones (como antes) ──
-      // ── Promociones ──
+    // ── Promociones ──
     const p = promosGlobal.find((x) => x.promoId === String(promoId));
     if (!p) return;
     const selP = seleccion && Object.keys(seleccion).length ? seleccion : null;
@@ -7707,6 +8073,7 @@ async function init() {
   aplicarComportamientoBotonAtras();
   aplicarModeloNegocio(biz);
   aplicarDisponibilidadDelivery();
+  aplicarPuntoEntrega();
   renderMetodosPago(biz);
 
   horarioEstado = evaluarHorarioNegocio(bizData, new Date());

@@ -426,6 +426,7 @@ function aplicarDegradado(c1, c2, ang = 135) {
   if (!st) {
     st = document.createElement("style");
     st.id = "brandGradStyle";
+
     document.head.appendChild(st);
   }
   st.textContent = `
@@ -2683,11 +2684,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", flushStats);
 const OFERTAS_EXTRA_CSS = `
-  .promo-delivery-chip{
-    align-self:flex-start;padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:700;color:#fff;
-    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);
-    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-  }
+
   .promo-active-card.promo-destacado{
     border-color:transparent !important;
     box-shadow:0 14px 34px -12px var(--de-c1), 0 0 26px -10px var(--de-c2);
@@ -2819,6 +2816,7 @@ function renderActivePromos(promos, localidad) {
       : null;
 
     const datosDetalle = {
+      deliveryGratis: p.deliveryGratis === true,
       img,
       titulo,
       descripcion: info.descripcion,
@@ -4526,6 +4524,7 @@ function bindPromoDetailModal() {
         <div class="promo-detail-body">
           <h3 class="promo-detail-title" id="promoDetailTitle"></h3>
           <p class="promo-detail-desc" id="promoDetailDesc"></p>
+          <p class="promo-detail-delivery" id="promoDetailDelivery">🚚 ¡Cómpralo con delivery gratis!</p>
           <div class="promo-detail-tags" id="promoDetailTags"></div>
                     <div id="pdOpts"></div>
           <div class="promo-detail-actions" id="promoDetailActions"></div>
@@ -4656,7 +4655,8 @@ function openPromoDetailModal(data) {
   document.getElementById("promoDetailTitle").textContent = data.titulo || "";
   document.getElementById("promoDetailDesc").textContent =
     data.descripcion || "";
-
+  document.getElementById("promoDetailDelivery").style.display =
+    data.deliveryGratis ? "flex" : "none";
   const promo = data.promo || null;
   const tieneOpc = !!(promo && promo.condiciones?.length);
 
@@ -6667,6 +6667,8 @@ async function render(biz, isInitial = true) {
       imgWrapContainer.prepend(imgWrap);
 
       const datosDetalle = {
+                deliveryGratis: promo.deliveryGratis === true,
+          
         img: promo.url,
         titulo: promo.titulo,
         descripcion: promo.descripcion,
@@ -8823,6 +8825,34 @@ function injectPromoBuyStyles() {
     transform:translateX(3px);
     opacity:.85;
   }
+    /* ══ Chip "Delivery gratis" elegante ══ */
+.promo-delivery-chip{
+  align-self:flex-start;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 13px 5px 9px;border-radius:999px;
+  font-size:11px;font-weight:800;letter-spacing:.02em;color:#eafff2;
+  background:linear-gradient(135deg,rgba(34,197,94,.6),rgba(16,185,129,.28));
+  border:1px solid rgba(134,239,172,.55);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  box-shadow:0 6px 18px -6px rgba(34,197,94,.7), inset 0 1px 0 rgba(255,255,255,.25);
+  text-shadow:0 1px 3px rgba(0,0,0,.55);
+  position:relative;overflow:hidden;
+}
+.promo-delivery-chip::after{
+  content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);
+  transform:skewX(-20deg);animation:dgShine 3.8s ease-in-out 1s infinite;
+}
+@keyframes dgShine{0%{left:-60%;}55%,100%{left:140%;}}
+.promo-delivery-chip .geinz-ico{width:1.3em;height:1.3em;}
+
+/* Línea dentro del diálogo de detalle (antes se perdía) */
+.promo-detail-delivery{
+  display:none;align-items:center;gap:8px;margin:0 0 18px;padding:11px 14px;border-radius:14px;
+  font-size:13.5px;font-weight:800;color:#4ade80;
+  background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(34,197,94,.04));
+  border:1px dashed rgba(74,222,128,.5);
+}
     `;
   document.head.appendChild(st);
 }
