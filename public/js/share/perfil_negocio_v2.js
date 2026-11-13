@@ -146,6 +146,7 @@ let _heroFlipToggle = null;
 let _currentUid = null; // NUEVO
 let _fidelizacionActiva = false;
 let _bannerShown = false;
+let _bienvenidaMostrada = false;
 let _fidelizacionMensajeInactivo =
   "Este negocio no tiene el programa de fidelización activo por el momento.";
 
@@ -757,6 +758,7 @@ import {
   clienteHistorialCol,
   setUbicacion,
   registradoDoc,
+  tiendaDescuentosCol, // ← nuevo
 } from "../rutas/rutas.js";
 import {
   onAuthStateChanged,
@@ -858,8 +860,72 @@ document.addEventListener("click", (e) => {
 window.addEventListener("pageshow", () =>
   document.getElementById("navOverlay")?.classList.remove("open"),
 );
+// ═══ Progreso mientras se prepara el diálogo de bienvenida ═══
+const REG_PROGRESS_CSS = `
+  .reg-prog{position:fixed;inset:0;z-index:10050;background:#030303;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;opacity:1;transition:opacity .4s ease;}
+  .reg-prog.hide{opacity:0;pointer-events:none;}
+  .reg-prog-text{color:#fff;font-size:13.5px;font-weight:600;letter-spacing:.02em;}
+  .reg-prog-bar{width:min(260px,70vw);height:5px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;}
+  .reg-prog-fill{height:100%;width:0;border-radius:inherit;
+    background:linear-gradient(90deg,rgba(var(--dr),var(--dg),var(--db),.95),rgba(var(--dr),var(--dg),var(--db),.5));
+    transition:width .5s cubic-bezier(.22,.85,.32,1);}
+`;
+let _regProgTimer = null;
 
-function abrirLoginPopup() {
+function mostrarProgresoRegistro(texto = "Preparando tu bienvenida…") {
+  if (document.getElementById("regProg")) return;
+  if (!document.getElementById("regProgStyle")) {
+    const st = document.createElement("style");
+    st.id = "regProgStyle";
+    st.textContent = REG_PROGRESS_CSS;
+    document.head.appendChild(st);
+  }
+  const ov = document.createElement("div");
+  ov.id = "regProg";
+  ov.className = "reg-prog";
+  ov.innerHTML = `<div class="reg-prog-text">${texto}</div>
+    <div class="reg-prog-bar"><div class="reg-prog-fill" id="regProgFill"></div></div>`;
+  document.body.appendChild(ov);
+
+  // avanza hasta 90% y espera; se completa al ocultar
+  let p = 8;
+  const fill = ov.querySelector("#regProgFill");
+  requestAnimationFrame(() => (fill.style.width = p + "%"));
+  _regProgTimer = setInterval(() => {
+    p = Math.min(90, p + (90 - p) * 0.18);
+    fill.style.width = p + "%";
+  }, 350);
+  setTimeout(ocultarProgresoRegistro, 10000); // seguro anti-bloqueo
+}
+
+function ocultarProgresoRegistro() {
+  const ov = document.getElementById("regProg");
+  if (!ov) return;
+  clearInterval(_regProgTimer);
+  const fill = ov.querySelector("#regProgFill");
+  if (fill) fill.style.width = "100%";
+  setTimeout(() => {
+    ov.classList.add("hide");
+    setTimeout(() => ov.remove(), 420);
+  }, 250);
+}
+// Va directo al login, sin abrir el diálogo intermedio
+function irALoginDirecto(volverA = null) {
+  const volver = volverA || window.location.href.split("#")[0];
+  mostrarNavOverlay(); // feedback inmediato, sin pantalla muerta
+
+  if (_dominioRegistrado) {
+    _loginVolver = volver;
+    abrirLoginPopup(true); // replace: el perfil no queda en la pila
+    return;
+  }
+  // geinztech.com
+  window.location.replace(
+    `/logindata/login.html?volver=${encodeURIComponent(volver)}`,
+  );
+}
+function abrirLoginPopup(replaceHist = false) {
   const root = document.documentElement.style;
   const r = root.getPropertyValue("--dr").trim();
   const g = root.getPropertyValue("--dg").trim();
@@ -872,7 +938,8 @@ function abrirLoginPopup() {
   u.searchParams.set("n", _bizNombre || "");
   if (_bizLogoUrl) u.searchParams.set("l", _bizLogoUrl);
   u.searchParams.set("c", rgb);
-  window.location.href = u.toString();
+  if (replaceHist) window.location.replace(u.toString());
+  else window.location.href = u.toString();
 }
 // Botón "Cerrar sesión": solo dominio personalizado + usuario logueado
 const WL_USER_HEADER_CSS = `
@@ -1417,7 +1484,7 @@ function listenActivePromosRealtime({ localidad, id }) {
           console.log(`   ❌ descartada: desactivada por el negocio`);
           return;
         }
-                if (!_diaOk(data)) {
+        if (!_diaOk(data)) {
           console.log(`   ❌ descartada: hoy no es uno de sus días`);
           return;
         }
@@ -2120,6 +2187,16 @@ async function loadPuntosCliente({ localidad, id }, uid) {
     );
     const snap = await getDoc(clienteRef);
     if (!snap.exists()) return renderPuntosBadge(0);
+
+    // si ya existe el doc de cliente, cuenta como seguidor (la función lo crea)
+    if (!_siguiendoNegocio) {
+      _siguiendoNegocio = true;
+      document.getElementById("followBtn")?.classList.add("following");
+      const ic = document.getElementById("followIcon");
+      const tx = document.getElementById("followText");
+      if (ic) ic.textContent = "✅";
+      if (tx) tx.textContent = "Siguiendo";
+    }
     renderPuntosBadge(Number(snap.data().puntos) || 0);
   } catch (e) {
     console.warn("No se pudieron cargar los puntos:", e.message);
@@ -2732,11 +2809,14 @@ function renderActivePromos(promos, localidad) {
   const esp = diaEspecialHoyPerfil(_bizRef);
   const g = esp ? gradienteDiaEspecialPerfil(esp) : null;
   const esDest = (p) => !!esp && p.destacarEspecial === true;
-  promos = [...promos].sort((a, b) => (esDest(b) ? 1 : 0) - (esDest(a) ? 1 : 0));
+  promos = [...promos].sort(
+    (a, b) => (esDest(b) ? 1 : 0) - (esDest(a) ? 1 : 0),
+  );
 
   promos.forEach((p) => {
     const info = p.informacion || p;
-    const img = p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
+    const img =
+      p.img_container?.lista_img?.[0] || p.img_container?.logo_img || "";
     const expiry = formatExpiry(p._finMs);
     const aliasKey = _params.alias || _bizAliasKey;
     const shareUrl =
@@ -2746,8 +2826,12 @@ function renderActivePromos(promos, localidad) {
     const whatsappAllowed = info.contactar && info.numero;
     const shareAllowed = info.compartir;
     const precio = Number(p.precio_publicacion) || 0;
-    const waMsg = p.mensaje_predeterminado?.whatsapp?.msje_predermindo || "Hola, quiero esta oferta que vi en Geinz";
-    const shareMsg = p.mensaje_predeterminado?.compartir?.msje_predermindo || "Mira esta promo en Geinz 🎁";
+    const waMsg =
+      p.mensaje_predeterminado?.whatsapp?.msje_predermindo ||
+      "Hola, quiero esta oferta que vi en Geinz";
+    const shareMsg =
+      p.mensaje_predeterminado?.compartir?.msje_predermindo ||
+      "Mira esta promo en Geinz 🎁";
     const waLink = whatsappAllowed
       ? `https://wa.me/51${info.numero.replace(/\D/g, "")}?text=${encodeURIComponent(`${waMsg}: ${shareUrl}`)}`
       : null;
@@ -2768,7 +2852,8 @@ function renderActivePromos(promos, localidad) {
     const puedeComprarPromo = precio > 0 && _F.carrito && !agotado;
 
     const card = document.createElement("div");
-    card.className = "promo-active-card" + (destacado ? " promo-destacado" : "");
+    card.className =
+      "promo-active-card" + (destacado ? " promo-destacado" : "");
     if (destacado) {
       card.style.setProperty("--de-grad", g.css);
       card.style.setProperty("--de-c1", g.c1);
@@ -2779,13 +2864,21 @@ function renderActivePromos(promos, localidad) {
         ${expiry ? `<span class="promo-expiry-badge ${expiry.cls}">${expiry.text}</span>` : ""}
         ${destacado ? `<span class="promo-destacado-badge">Destacado por hoy</span>` : ""}
         <div class="promo-active-top-actions">
-          ${puedeComprarPromo ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
+          ${
+            puedeComprarPromo
+              ? `<button type="button" class="promo-icon-btn promo-icon-buy" data-buy-promo aria-label="Comprar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
-          </button>` : ""}
+          </button>`
+              : ""
+          }
           ${waLink ? `<a class="promo-icon-btn promo-icon-wa" href="${waLink}" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ""}
-          ${shareAllowed ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
+          ${
+            shareAllowed
+              ? `<button class="promo-icon-btn promo-icon-share-circle" data-share-url="${shareUrl}" data-share-msg="${shareMsg.replace(/"/g, "&quot;")}" aria-label="Compartir">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5"/></svg>
-          </button>` : ""}
+          </button>`
+              : ""
+          }
         </div>
         <div class="promo-active-bottom-overlay">
           ${precio > 0 ? `<span class="promo-active-price-badge">${desde.varia ? "Desde " : ""}S/ ${desde.precio.toFixed(2)}</span>` : ""}
@@ -2799,7 +2892,9 @@ function renderActivePromos(promos, localidad) {
       createImageWithPlaceholder({
         src: img,
         alt: titulo || "Promoción",
-        onError: () => { imgWrapContainer.style.display = "none"; },
+        onError: () => {
+          imgWrapContainer.style.display = "none";
+        },
       }),
     );
 
@@ -2828,17 +2923,27 @@ function renderActivePromos(promos, localidad) {
     };
 
     const io = new IntersectionObserver(
-      (es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); trackPromo(p.id, "vistas"); } },
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          trackPromo(p.id, "vistas");
+        }
+      },
       { threshold: 0.6 },
     );
     io.observe(card);
 
-    card.querySelector(".promo-icon-wa")?.addEventListener("click", () => trackPromo(p.id, "clics_whatsapp"));
-    card.querySelector(".promo-icon-share-circle")?.addEventListener("click", () => trackPromo(p.id, "clics_compartir"));
+    card
+      .querySelector(".promo-icon-wa")
+      ?.addEventListener("click", () => trackPromo(p.id, "clics_whatsapp"));
+    card
+      .querySelector(".promo-icon-share-circle")
+      ?.addEventListener("click", () => trackPromo(p.id, "clics_compartir"));
     card.querySelector("[data-buy-promo]")?.addEventListener("click", (e) => {
       e.stopPropagation();
       // con opciones: primero se eligen en el diálogo
-      if (tieneOpc || promoObj.sugerencias.length) openPromoDetailModal(datosDetalle);
+      if (tieneOpc || promoObj.sugerencias.length)
+        openPromoDetailModal(datosDetalle);
       else onComprarEstaPromo();
     });
 
@@ -4382,7 +4487,16 @@ const PROMO_DETAIL_CSS = `
     box-shadow:none;backdrop-filter:blur(8px);
   }
   .promo-detail-btn-share::after{display:none;}
-
+  .promo-detail-foot{
+    flex-shrink:0;position:relative;z-index:2;
+    padding:12px 20px calc(16px + env(safe-area-inset-bottom,0px));
+    background:#0b0b0d;
+    border-top:1px solid rgba(255,255,255,.08);
+    box-shadow:0 -14px 24px -14px rgba(0,0,0,.7);
+  }
+  @media (min-width:768px){
+    .promo-detail-foot{padding:14px 34px 20px;}
+  }
   @media (min-width:768px){
     .promo-detail-modal{align-items:center;padding:28px;}
     .promo-detail-box{
@@ -4526,9 +4640,11 @@ function bindPromoDetailModal() {
           <p class="promo-detail-desc" id="promoDetailDesc"></p>
           <p class="promo-detail-delivery" id="promoDetailDelivery">🚚 ¡Cómpralo con delivery gratis!</p>
           <div class="promo-detail-tags" id="promoDetailTags"></div>
-                    <div id="pdOpts"></div>
-          <div class="promo-detail-actions" id="promoDetailActions"></div>
+                 <div id="pdOpts"></div>
         </div>
+      </div>
+      <div class="promo-detail-foot">
+        <div class="promo-detail-actions" id="promoDetailActions"></div>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -4972,7 +5088,10 @@ function showPromoBanner(biz) {
   const media = bannerModal.querySelector(".banner-modal-media");
   const aplicarAr = () => {
     if (!bannerImg.naturalWidth) return;
-    const ar = Math.min(1.91, Math.max(0.8, bannerImg.naturalWidth / bannerImg.naturalHeight));
+    const ar = Math.min(
+      1.91,
+      Math.max(0.8, bannerImg.naturalWidth / bannerImg.naturalHeight),
+    );
     box?.style.setProperty("--banner-ar", ar);
     media?.style.setProperty("--banner-ar", ar);
   };
@@ -5083,7 +5202,8 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
   // ¿tiene botón? (clickeable + carrito activo + datos válidos)
   const desc = String(banner.descripcion || "").trim();
   const tipo = banner.tipo || "producto";
-  let precioLabel = "", href = null;
+  let precioLabel = "",
+    href = null;
 
   if (banner.clickeable === true && _F.carrito && desc) {
     if (tipo === "producto") {
@@ -5103,7 +5223,9 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
       const valor = Number(banner.descuentoValor) || 0;
       if (valor > 0) {
         precioLabel =
-          banner.descuentoTipo === "monto" ? `-S/ ${valor.toFixed(2)}` : `-${valor}%`;
+          banner.descuentoTipo === "monto"
+            ? `-S/ ${valor.toFixed(2)}`
+            : `-${valor}%`;
         href = urlCarritoBannerCupon(biz, banner.id);
       }
     } else if (tipo === "envio_gratis") {
@@ -5124,7 +5246,10 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
     ? `<div class="banner-cta-days">
          <span class="banner-cta-days-lbl">Días</span>
          ${DAY_ORDER_CORTO.filter(([k]) => dias.includes(k))
-           .map(([k, l]) => `<span class="banner-cta-day${k === hoy ? " hoy" : ""}">${l}</span>`)
+           .map(
+             ([k, l]) =>
+               `<span class="banner-cta-day${k === hoy ? " hoy" : ""}">${l}</span>`,
+           )
            .join("")}
          ${banner.soloSeguidores ? `<span class="banner-cta-tag">· Solo seguidores</span>` : ""}
        </div>`
@@ -5136,30 +5261,50 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
   cta.id = "bannerCta";
   cta.className = "banner-cta";
   cta.innerHTML = `
-    ${href ? `<div class="banner-cta-info">
+    ${
+      href
+        ? `<div class="banner-cta-info">
       <p class="banner-cta-desc">${escapeHtml(desc)}</p>
       <span class="banner-cta-price">${precioLabel}</span>
-    </div>` : ""}
+    </div>`
+        : ""
+    }
     ${href ? diasHTML : ""}
-    ${href ? `<a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
+    ${
+      href
+        ? `<a class="banner-cta-btn" id="bannerCtaBtn" href="${href}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/></svg>
       <span>Ir al carrito</span>
       <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </a>` : ""}
-    ${hayVarios ? `<div class="banner-cta-dots">${lista
-      .map((_, i) => `<button type="button" class="banner-cta-dot${i === indice ? " on" : ""}" data-i="${i}" aria-label="Banner ${i + 1}"></button>`)
-      .join("")}</div>` : ""}`;
+    </a>`
+        : ""
+    }
+    ${
+      hayVarios
+        ? `<div class="banner-cta-dots">${lista
+            .map(
+              (_, i) =>
+                `<button type="button" class="banner-cta-dot${i === indice ? " on" : ""}" data-i="${i}" aria-label="Banner ${i + 1}"></button>`,
+            )
+            .join("")}</div>`
+        : ""
+    }`;
 
-  cta.querySelectorAll(".banner-cta-dot").forEach((d) =>
-    d.addEventListener("click", () => irA?.(Number(d.dataset.i))),
-  );
+  cta
+    .querySelectorAll(".banner-cta-dot")
+    .forEach((d) =>
+      d.addEventListener("click", () => irA?.(Number(d.dataset.i))),
+    );
 
   cta.querySelector("#bannerCtaBtn")?.addEventListener("click", async (e) => {
     e.preventDefault();
     if (banner.soloSeguidores) {
       if (!auth.currentUser) return openLoginPromptModal();
       const snap = await getDoc(
-        doc(tiendaSubCol(_params.localidad, "tiendas", _params.id, "clientes"), auth.currentUser.uid),
+        doc(
+          tiendaSubCol(_params.localidad, "tiendas", _params.id, "clientes"),
+          auth.currentUser.uid,
+        ),
       );
       if (!snap.exists()) {
         showToast("🔒 Debes seguir este negocio para reclamar esta promo");
@@ -5176,10 +5321,14 @@ function renderBannerCta(banner, biz, bannerModal, ctx = {}) {
 }
 
 const DAY_ORDER_CORTO = [
-  ["lunes", "Lun"], ["martes", "Mar"], ["miercoles", "Mié"], ["jueves", "Jue"],
-  ["viernes", "Vie"], ["sabado", "Sáb"], ["domingo", "Dom"],
+  ["lunes", "Lun"],
+  ["martes", "Mar"],
+  ["miercoles", "Mié"],
+  ["jueves", "Jue"],
+  ["viernes", "Vie"],
+  ["sabado", "Sáb"],
+  ["domingo", "Dom"],
 ];
-
 
 // ahora recibe el id del banner
 function urlCarritoBannerCupon(biz, bannerId) {
@@ -5199,9 +5348,6 @@ function injectBannerCtaStyles() {
   st.textContent = BANNER_CTA_CSS;
   document.head.appendChild(st);
 }
-
-
-
 
 function bindBannerModalEvents() {
   const modal = document.getElementById("bannerModal");
@@ -6667,8 +6813,8 @@ async function render(biz, isInitial = true) {
       imgWrapContainer.prepend(imgWrap);
 
       const datosDetalle = {
-                deliveryGratis: promo.deliveryGratis === true,
-          
+        deliveryGratis: promo.deliveryGratis === true,
+
         img: promo.url,
         titulo: promo.titulo,
         descripcion: promo.descripcion,
@@ -8205,7 +8351,7 @@ async function submitReview() {
       lista_img_url: urls,
       timestamp: serverTimestamp(),
     };
-    await setDoc(reviewRef, nuevaReviewData);
+    await setDoc(reviewRef, nuevaReviewData, { merge: true });
 
     // Se refleja al instante solo para este usuario (sin realtime global)
     const reviewLocal = {
@@ -8302,6 +8448,153 @@ function irAReviews() {
 //  INIT (rápido: loader se quita apenas hay contenido)
 // ══════════════════════════════════════════
 
+// ═══ Bienvenida / reseña rápida ═══
+async function cargarOpcionesCaptura() {
+  try {
+    const s = await getDoc(
+      tiendaSubDoc(
+        _params.localidad,
+        "tiendas",
+        _params.id,
+        "captura_datos",
+        "opciones",
+      ),
+    );
+    return s.exists() ? s.data() : null;
+  } catch {
+    return null;
+  }
+}
+async function cargarProductosCanje() {
+  try {
+    const snap = await getDocs(
+      tiendaDescuentosCol(_params.localidad, _params.id),
+    );
+    return (
+      snap.docs
+        .map((d) => {
+          const x = d.data();
+          return {
+            nombre: x.nombre || "",
+            imagen: x.imagenUrl || "",
+            puntos: Number(x.costoPuntos) || 0,
+          };
+        })
+        .filter((p) => p.nombre)
+        // primero los que tienen foto, y entre ellos los más baratos (se sienten alcanzables)
+        .sort(
+          (a, b) =>
+            (b.imagen ? 1 : 0) - (a.imagen ? 1 : 0) || a.puntos - b.puntos,
+        )
+        .slice(0, 6)
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function enviarReviewRapida({
+  calificacion,
+  descripcion,
+  foto,
+  anonimo,
+  nombre,
+  telefono,
+}) {
+  const uid = auth.currentUser?.uid;
+  const rid = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+  const urls = [];
+  if (foto) {
+    const blob = dataURLtoBlobReview(
+      await comprimirImagenReview(foto, 900, 0.8),
+    );
+    const ruta =
+      uid && !anonimo
+        ? `tiendas/${_params.id}/review/${uid}/${rid}`
+        : `tiendas/${_params.id}/review_pendientes/${rid}`;
+    const sRef = storageRef(storage, ruta);
+    await uploadBytes(sRef, blob, { contentType: "image/jpeg" });
+    urls.push(await getDownloadURL(sRef));
+  }
+
+  if (uid && !anonimo) {
+    const ref = tiendaSubDoc(
+      _params.localidad,
+      "tiendas",
+      _params.id,
+      "review",
+      uid,
+    );
+    const yaSnap = await getDoc(ref);
+    const darBonus = !yaSnap.exists();
+
+    await setDoc(
+      ref,
+      {
+        calificacion,
+        descripcion,
+        id_user: uid,
+        telefono,
+        nombre_usuario: await getUserDisplayName(uid),
+        lista_img_url: urls,
+        timestamp: serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    // la Cloud Function suma los puntos; refresca el badge cuando ya llegaron
+    if (darBonus) {
+      const antes = _currentPuntos;
+      [3000, 7000, 12000, 20000].forEach((ms) =>
+        setTimeout(() => {
+          if (_currentPuntos > antes) return; // ya llegaron
+          loadPuntosCliente(
+            { localidad: _params.localidad, id: _params.id },
+            uid,
+          );
+        }, ms),
+      );
+    }
+    cargarResumenReviews(_params);
+    cargarReviewsPagina(_params, true);
+    return { bonus: darBonus };
+  }
+  await setDoc(
+    tiendaSubDoc(
+      _params.localidad,
+      "tiendas",
+      _params.id,
+      "review_pendientes",
+      rid,
+    ),
+    {
+      calificacion,
+      descripcion,
+      lista_img_url: urls,
+      nombre_usuario: nombre || "Anónimo",
+      telefono,
+      estado: "pendiente",
+      timestamp: serverTimestamp(),
+    },
+  );
+  return { bonus: false };
+}
+
+function diaEspecialProximo() {
+  const cfg = _bizRef?.dias_especiales ?? null;
+  if (cfg?.activo !== true) return null;
+  const hoy = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
+  for (let i = 0; i < 7; i++) {
+    const key = DE_KEYS[(hoy + i) % 7];
+    const x = cfg.dias?.[key];
+    if (x?.activo === true && String(x.titulo || "").trim())
+      return {
+        etiqueta: i === 0 ? "Hoy" : i === 1 ? "Mañana" : `El ${DE_LABELS[key]}`,
+        titulo: x.titulo,
+      };
+  }
+  return null;
+}
 (async () => {
   try {
     const params = await getParams();
@@ -8339,7 +8632,9 @@ function irAReviews() {
     bindFollowButton(params, biz);
     listenActivePromosRealtime(params);
     listenCatalogoPerfil(params);
-    const bannerPromise = showPromoBanner(biz);
+    const bannerPromise = params.wantsRegistro
+      ? Promise.resolve()
+      : showPromoBanner(biz);
 
     // Logo: se descarga una vez (máx. 2.5 s de espera, el skeleton sigue visible)
     await Promise.race([
@@ -8352,15 +8647,14 @@ function irAReviews() {
     listenServiciosRealtime(params, ck);
     _followReady = true;
     _reviewsReady = true;
-    await bannerPromise; // ← espera a que la imagen del banner esté lista
-    hideBizLoader();
+    await bannerPromise;
+    if (!params.wantsRegistro) hideBizLoader();
+    else setTimeout(hideBizLoader, 300); // el progreso ya cubre la pantalla
 
     injectReviewsStyles();
     bindReputacionBadgeClick();
     bindReviewsFilterEvents(params);
-    // ═══ Diálogo de bienvenida al entrar por "-registro" ═══
-    // ═══ Registro pendiente (al volver del login) ═══
-    // ═══ Registro antiguo pendiente (compatibilidad) ═══
+
     (async () => {
       await esperarFollowReady(6000);
       if (!auth.currentUser) return;
@@ -8381,36 +8675,16 @@ function irAReviews() {
       if (ok) showToast("¡Tus preferencias quedaron guardadas! ✅");
     })();
 
-    // ═══ Diálogo de bienvenida al entrar por "-registro" ═══
+    // ═══ Diálogo de bienvenida al entrar por "-registro" (solo una vez) ═══
     if (params.wantsRegistro) {
-      (async () => {
-        await esperarFollowReady(6000);
-        const t0 = Date.now();
-        while (
-          document.getElementById("bannerModal")?.classList.contains("open") &&
-          Date.now() - t0 < 8000
-        ) {
-          await new Promise((r) => setTimeout(r, 300));
-        }
+      mostrarProgresoRegistro();
+      _bizNombre = biz.nombre_tienda || biz.nombre || "";
+      _bizAliasKey = biz.alias_key || null;
+      _bizRef = biz;
+      if (biz.color_marca?.activo === true && biz.color_marca.r != null)
+        aplicarMarca(biz.color_marca);
 
-        let diaEspecial = null;
-        const cfgDE = _bizRef?.dias_especiales;
-        if (cfgDE?.activo === true) {
-          const hoyIdx = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
-          for (let i = 0; i < 7; i++) {
-            const key = DE_KEYS[(hoyIdx + i) % 7];
-            const x = cfgDE.dias?.[key];
-            if (x?.activo === true && String(x.titulo || "").trim()) {
-              diaEspecial = {
-                etiqueta:
-                  i === 0 ? "Hoy" : i === 1 ? "Mañana" : `El ${DE_LABELS[key]}`,
-                titulo: x.titulo,
-              };
-              break;
-            }
-          }
-        }
-
+      const abrirBienvenida = (opciones) =>
         mostrarBienvenidaRegistro({
           auth,
           registradoDoc,
@@ -8419,81 +8693,29 @@ function irAReviews() {
             const s = await getDoc(data_user_logeado(uid));
             return s.exists() ? s.data() : {};
           },
+          puntos: 10,
+          opciones,
+          getCanje: cargarProductosCanje,
+          onEnviarReview: enviarReviewRapida,
+          onNecesitaLogin: () => irALoginDirecto(urlVolverRegistro()),
           negocio: {
             id: params.id,
             localidad: params.localidad,
             nombre: _bizNombre,
             alias: params.alias || _bizAliasKey,
-            logoSrc: _bizLogoUrl ? logoSrc() : null,
-            diaEspecial,
+            logoSrc: biz.img_tienda?.logo_tienda || null,
+            diaEspecial: diaEspecialProximo(),
           },
-          onDejarResena: () => {
-            irAReviews();
-            setTimeout(openReviewModal, 900);
-          },
-          // sin sesión: abre el login y vuelve a /perfil/alias-registro (paso 2)
-          onNecesitaLogin: () => openLoginPromptModal(urlVolverRegistro()),
         });
-      })();
-    }
 
-    // ═══ Diálogo de bienvenida al entrar por "-registro" ═══
-    if (params.wantsRegistro) {
-      (async () => {
-        await esperarFollowReady(6000);
-        const t0 = Date.now();
-        while (
-          document.getElementById("bannerModal")?.classList.contains("open") &&
-          Date.now() - t0 < 8000
-        ) {
-          await new Promise((r) => setTimeout(r, 300));
-        }
-
-        let diaEspecial = null;
-        const cfgDE = _bizRef?.dias_especiales;
-        if (cfgDE?.activo === true) {
-          const hoyIdx = Math.max(0, DE_KEYS.indexOf(diaHoyLima()));
-          for (let i = 0; i < 7; i++) {
-            const key = DE_KEYS[(hoyIdx + i) % 7];
-            const x = cfgDE.dias?.[key];
-            if (x?.activo === true && String(x.titulo || "").trim()) {
-              diaEspecial = {
-                etiqueta:
-                  i === 0 ? "Hoy" : i === 1 ? "Mañana" : `El ${DE_LABELS[key]}`,
-                titulo: x.titulo,
-              };
-              break;
-            }
-          }
-        }
-
-        mostrarBienvenidaRegistro({
-          auth,
-          registradoDoc,
-          showToast,
-          getUserData: async (uid) => {
-            const s = await getDoc(data_user_logeado(uid));
-            return s.exists() ? s.data() : {};
-          },
-          negocio: {
-            id: params.id,
-            localidad: params.localidad,
-            nombre: _bizNombre,
-            alias: params.alias || _bizAliasKey,
-            logoSrc: _bizLogoUrl ? logoSrc() : null,
-            diaEspecial,
-          },
-          onDejarResena: () => {
-            // salto instantáneo a reseñas (sin animación) y abre el formulario al momento
-            document
-              .getElementById("secReviews")
-              ?.scrollIntoView({ block: "start" });
-            openReviewModal();
-          },
-          // sin sesión: abre el login y vuelve a /perfil/alias-reviews?resena=1
-          onNecesitaLogin: () => openLoginPromptModal(urlVolverResena()),
-        });
-      })();
+      // Espera a que Firebase diga si hay sesión (máx. 3 s) y recién ahí abre el diálogo
+      Promise.all([
+        Promise.race([_authReady, new Promise((r) => setTimeout(r, 3000))]),
+        cargarOpcionesCaptura(),
+      ])
+        .then(([, opciones]) => abrirBienvenida(opciones))
+        .catch((e) => console.warn("bienvenida:", e.message))
+        .finally(() => setTimeout(ocultarProgresoRegistro, 450));
     }
     setTimeout(() => {
       Promise.all([
@@ -9964,14 +10186,16 @@ function renderDiasEspeciales(biz) {
       </div>
     </div>`;
 
+  // el <section> que envuelve Ubicación + Horario (secAddr está dentro)
+  const bloqueUbicacion = document.getElementById("secAddr")?.parentElement;
+  if (!bloqueUbicacion) return;
   if (!sec) {
     sec = document.createElement("section");
     sec.id = "secDiasEspeciales";
     sec.className = "de-banner";
-    const reviews = document.getElementById("secReviews");
-    if (!reviews) return;
-    reviews.before(sec);
   }
+  // siempre justo arriba de Ubicación y Horario
+  if (sec.nextElementSibling !== bloqueUbicacion) bloqueUbicacion.before(sec);
   if (sec.dataset.sig !== html) {
     sec.innerHTML = html;
     sec.dataset.sig = html;

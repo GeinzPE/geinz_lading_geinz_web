@@ -93,9 +93,18 @@ function legalActivo() {
   return !!nodo && typeof nodo === "object" &&
     Object.values(nodo).some((v) => v === true);
 }
-
+// Reseñas puede estar anidada (ej: publicidad.resenas). La busca en todo el doc.
+function resenasActivo(obj, depth = 0) {
+  if (!obj || typeof obj !== "object" || depth > 6) return false;
+  return Object.entries(obj).some(([k, v]) => {
+    if (/^(rese|review)/i.test(k) && (v === true || v?.activo === true)) return true;
+    return resenasActivo(v, depth + 1);
+  });
+}
 function planPermite(key) {
   if (key === "legal") return legalActivo();
+  if (key === "mispublicaciones")
+    return seccionDelPlan(SERVICIOS, key) || resenasActivo(SERVICIOS);
   return seccionDelPlan(SERVICIOS, key);
 }
 // 2) ROL: admin ve todo lo del plan; los demás solo lo que el admin les marcó

@@ -1227,6 +1227,12 @@ async function canjearVarios(itemsIn, uid) {
   return { codigos: lista, puntosRestantes };
 }
 
+function urlCarrito() {
+  if (ES_DOMINIO_PROPIO) return "/carrito";
+  if (ALIAS_NEGOCIO)
+    return `${LANDING_BASE_URL}/perfil/${encodeURIComponent(ALIAS_NEGOCIO)}/carrito`;
+  return `${LANDING_BASE_URL}/carrito?id=${encodeURIComponent(NEGOCIO_ID)}&localidad=${encodeURIComponent(LOCALIDAD)}`;
+}
 function irAlCarritoConCupon(codigos) {
   const lista = Array.isArray(codigos) ? codigos : [codigos];
   const c = lista.map(encodeURIComponent).join(","); // comas reales, no %2C
@@ -1316,7 +1322,8 @@ async function cargarDatos(uid) {
     setText("tierBadge", nivel);
     pintarPuntosDOM(puntos);
     renderBarcode(String(codigo));
-
+    const btnMas = document.getElementById("btnMasPuntos");
+    if (btnMas) btnMas.href = urlCarrito();
     qrState.code = String(codigo);
     tryRenderQR();
 
